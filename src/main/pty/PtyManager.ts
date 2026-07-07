@@ -23,6 +23,7 @@ import { IPC_EVENTS } from '../../shared/ipc';
 import { resolveLaunchCommand, LAUNCH_PROFILES } from '../../shared/runtimes';
 import type { Agent, SessionMeta } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
+import { injectMemoryBlock } from '../memory/inject';
 
 /** Ring-buffer cap per session — enough to redraw a full agent TUI on attach. */
 const RING_BUFFER_CAP = 256 * 1024;
@@ -56,6 +57,14 @@ export class PtyManager {
     const agent = this.store.get().agents.find((a) => a.id === agentId);
     if (!agent) {
       throw new Error(`pty:create — unknown agent "${agentId}"`);
+    }
+
+    // Phase D: regenerate the managed memory block in CLAUDE.md/AGENTS.md before
+    // the CLI reads it. Fail-soft — a memory hiccup must never block a session.
+    try {
+      injectMemoryBlock(agent, this.store.get().settings.memory);
+    } catch (err) {
+      console.warn(`[ade] memory inject failed for agent=${agentId}:`, err);
     }
 
     const cwd = this.resolveCwd(agent);

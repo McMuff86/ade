@@ -18,6 +18,7 @@ import type {
 } from '../shared/types';
 import type { ConfigStore } from './config/store';
 import { createAgentWorktree, isGitRepo } from './git/GitService';
+import { createMemoryScaffold } from './memory/scaffold';
 
 /** URL/path-safe slug from a display name; never empty. */
 function slugify(name: string): string {
@@ -87,7 +88,6 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
   // Default (plain) workspace dir; overridden below by a worktree when the
   // category is repo-backed and worktree creation succeeds.
   let workspaceDir = join(base, 'workspaces', catSlug, agentSlug);
-  // Memory files themselves are Phase D — we only make the empty dir now.
   const memoryDir = join(base, 'agents', id, 'memory');
 
   // Repo-backed category → a git worktree on branch ade/<slug> from HEAD.
@@ -116,6 +116,8 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
 
   if (!worktreeMade) mkdirSync(workspaceDir, { recursive: true });
   mkdirSync(memoryDir, { recursive: true });
+  // Phase D: seed empty-but-valid MEMORY.md / USER.md (skipped when disabled).
+  createMemoryScaffold(memoryDir, { enabled: config.settings.memory?.enabled });
 
   const agent: Agent = {
     id,

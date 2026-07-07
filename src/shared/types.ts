@@ -58,8 +58,25 @@ export interface SessionMeta {
 
 export type ThemeName = 'dark' | 'light';
 
+/** Per-agent Hermes-style memory knobs (main/memory/*). */
+export interface MemorySettings {
+  /** Master switch: when false, scaffold + CLAUDE.md/AGENTS.md injection skip. */
+  enabled: boolean;
+  /** Whether the USER.md profile block is maintained and injected. */
+  userProfileEnabled: boolean;
+  /** Hard cap for MEMORY.md, in chars. */
+  memoryCharLimit: number;
+  /** Hard cap for USER.md, in chars. */
+  userCharLimit: number;
+}
+
 export interface Settings {
   theme: ThemeName;
+  /**
+   * Optional so existing partial `config:save({ settings: { theme } })` calls
+   * keep compiling; the store always fills it from DEFAULT_CONFIG on load.
+   */
+  memory?: MemorySettings;
 }
 
 /** Persisted app config (main/config/store.ts, userData/ade/config.json). */
@@ -72,7 +89,15 @@ export interface AdeConfig {
 export const DEFAULT_CONFIG: AdeConfig = {
   categories: [],
   agents: [],
-  settings: { theme: 'dark' },
+  settings: {
+    theme: 'dark',
+    memory: {
+      enabled: true,
+      userProfileEnabled: true,
+      memoryCharLimit: 2200,
+      userCharLimit: 1375,
+    },
+  },
 };
 
 /* ------------------------------------------------------------ git & files */
