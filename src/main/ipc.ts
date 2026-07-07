@@ -7,8 +7,10 @@
 
 import { ipcMain } from 'electron';
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
-import type { Agent, Category, FsTreeNode, GitStatus, SessionMeta } from '../shared/types';
+import type { FsTreeNode, GitStatus, SessionMeta } from '../shared/types';
 import type { ConfigStore } from './config/store';
+import { importPhoto } from './photos';
+import { createAgent, createCategory, deleteAgent, deleteCategory } from './identity';
 
 /** Typed ipcMain.handle wrapper: payload/result checked against IpcInvokeMap. */
 function handle<K extends keyof IpcInvokeMap>(
@@ -26,38 +28,26 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.ConfigGet, () => store.get());
   handle(IPC.ConfigSave, (partial) => store.save(partial));
 
+  /* ------------------------------------------ identity + photos (Phase B2) */
+
+  // Store photo bytes under userData/ade/photos/, served via ade-photo://
+  handle(IPC.PhotoImport, (req) => importPhoto(req));
+
+  // Create category; persists via ConfigStore.
+  handle(IPC.CategoryCreate, (input) => createCategory(store, input));
+
+  // Delete category (+ its agents) from config only — never touches user files.
+  handle(IPC.CategoryDelete, ({ id }) => deleteCategory(store, id));
+
+  // Create agent — resolves + makes workspaceDir and (empty) memoryDir.
+  // TODO(Phase C): git worktree when the category is repo-backed.
+  handle(IPC.AgentCreate, (input) => createAgent(store, input));
+
+  // Delete agent from config only — never deletes its workspace/memory files.
+  // TODO(Phase B1): also kill any live sessions for this agent.
+  handle(IPC.AgentDelete, ({ id }) => deleteAgent(store, id));
+
   /* -------------------------------------- stubs below — see owning phase */
-
-  // TODO(Phase B2): store photo bytes under userData/photos/, serve via ade-photo://
-  handle(IPC.PhotoImport, () => ({ file: 'stub-photo.png' }));
-
-  // TODO(Phase B2): create category (and repo wiring); persists via ConfigStore
-  handle(IPC.CategoryCreate, (input): Category => {
-    return { id: `stub-category`, name: input.name, photo: input.photo, repoPath: input.repoPath, agents: [] };
-  });
-
-  // TODO(Phase B2): delete category + owned agents/workspaces
-  handle(IPC.CategoryDelete, () => undefined);
-
-  // TODO(Phase B2): create agent — workspaceDir, memory scaffold, worktree when repo-backed
-  handle(IPC.AgentCreate, (input): Agent => {
-    return {
-      id: 'stub-agent',
-      categoryId: input.categoryId,
-      name: input.name,
-      role: input.role,
-      photo: input.photo,
-      runtime: input.runtime,
-      permissionMode: input.permissionMode,
-      customCommand: input.customCommand,
-      ollamaModel: input.ollamaModel,
-      workspaceDir: '',
-      memoryDir: '',
-    };
-  });
-
-  // TODO(Phase B2): delete agent + kill sessions + remove worktree
-  handle(IPC.AgentDelete, () => undefined);
 
   // TODO(Phase B1): PtyManager.spawn per launch profile (shared/runtimes.ts)
   handle(IPC.PtyCreate, ({ agentId }): SessionMeta => {

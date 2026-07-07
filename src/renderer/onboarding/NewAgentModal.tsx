@@ -1,0 +1,205 @@
+/**
+ * New-agent modal — name + photo + category + runtime + permission mode.
+ * Ollama reveals a free-text model field; an "Advanced" section (collapsed by
+ * default) holds a free-text custom-command override and optional role.
+ */
+
+import { useState } from 'react';
+import { Modal } from './Modal';
+import { PhotoPicker } from './PhotoPicker';
+import { useAppData } from '../stores/appdata';
+import { useSelection } from '../stores/selection';
+import type { PermissionMode, RuntimeId } from '../../shared/types';
+
+interface NewAgentModalProps {
+  onClose: () => void;
+  /** category preselected by the caller (e.g. the rail's "+ Add agent"). */
+  categoryId?: string;
+}
+
+const RUNTIMES: ReadonlyArray<{ id: RuntimeId; label: string }> = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
+  { id: 'opencode', label: 'OpenCode' },
+  { id: 'grok', label: 'Grok Build' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'ollama', label: 'Ollama (local model)' },
+  { id: 'shell', label: 'Plain shell' },
+];
+
+const PERMISSION_MODES: ReadonlyArray<{ id: PermissionMode; label: string }> = [
+  { id: 'default', label: 'Default (ask each time)' },
+  { id: 'accept-edits', label: 'Accept edits' },
+  { id: 'bypass', label: 'Bypass approvals (dangerous)' },
+];
+
+export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): React.ReactElement {
+  const categories = useAppData((s) => s.categories);
+  const createAgent = useAppData((s) => s.createAgent);
+  const setSelectedAgent = useSelection((s) => s.setSelectedAgent);
+
+  const [name, setName] = useState('');
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const [catId, setCatId] = useState(categoryId ?? categories[0]?.id ?? '');
+  const [runtime, setRuntime] = useState<RuntimeId>('claude');
+  const [ollamaModel, setOllamaModel] = useState('');
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [role, setRole] = useState('');
+  const [customCommand, setCustomCommand] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const canCreate = name.trim().length > 0 && catId !== '' && !busy;
+
+  const submit = async (): Promise<void> => {
+    if (!canCreate) return;
+    setBusy(true);
+    try {
+      const agent = await createAgent({
+        categoryId: catId,
+        name: name.trim(),
+        role: role.trim() || undefined,
+        photo,
+        runtime,
+        permissionMode,
+        customCommand: customCommand.trim() || undefined,
+        ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+      });
+      setSelectedAgent(agent.id);
+      onClose();
+    } catch (err) {
+      console.error('[ade] create agent failed:', err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="New agent"
+      subtitle="An agent gets its own workspace, its own skills and its own memory (MEMORY.md / USER.md)."
+      onClose={onClose}
+    >
+      <div className="field">
+        <label htmlFor="agent-cat">CATEGORY</label>
+        <select id="agent-cat" value={catId} onChange={(e) => setCatId(e.target.value)}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="agent-name">NAME</label>
+        <input
+          id="agent-name"
+          type="text"
+          value={name}
+          autoComplete="off"
+          placeholder="e.g. Nova"
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="agent-rt">RUNTIME</label>
+        <select
+          id="agent-rt"
+          value={runtime}
+          onChange={(e) => setRuntime(e.target.value as RuntimeId)}
+        >
+          {RUNTIMES.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {runtime === 'ollama' ? (
+        <div className="field">
+          <label htmlFor="agent-model">MODEL</label>
+          <input
+            id="agent-model"
+            type="text"
+            value={ollamaModel}
+            autoComplete="off"
+            placeholder="e.g. llama3.3"
+            onChange={(e) => setOllamaModel(e.target.value)}
+          />
+        </div>
+      ) : null}
+
+      <div className="field">
+        <label htmlFor="agent-perm">PERMISSION MODE</label>
+        <select
+          id="agent-perm"
+          value={permissionMode}
+          onChange={(e) => setPermissionMode(e.target.value as PermissionMode)}
+        >
+          {PERMISSION_MODES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label>PROFILE PHOTO</label>
+        <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} />
+      </div>
+
+      <button
+        type="button"
+        className="advanced-toggle"
+        aria-expanded={advancedOpen}
+        onClick={() => setAdvancedOpen((v) => !v)}
+      >
+        <span className="advanced-chevron">{advancedOpen ? '▾' : '▸'}</span> Advanced
+      </button>
+
+      {advancedOpen ? (
+        <div className="advanced-body">
+          <div className="field">
+            <label htmlFor="agent-role">ROLE</label>
+            <input
+              id="agent-role"
+              type="text"
+              value={role}
+              autoComplete="off"
+              placeholder="e.g. Frontend &amp; theme"
+              onChange={(e) => setRole(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="agent-cmd">CUSTOM COMMAND OVERRIDE</label>
+            <input
+              id="agent-cmd"
+              type="text"
+              value={customCommand}
+              autoComplete="off"
+              placeholder="overrides the runtime launch command"
+              onChange={(e) => setCustomCommand(e.target.value)}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => void submit()}
+          disabled={!canCreate}
+        >
+          {busy ? 'Creating…' : 'Create agent'}
+        </button>
+      </div>
+    </Modal>
+  );
+}

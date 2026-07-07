@@ -5,13 +5,25 @@
  * The regions are placeholders; Phase B1/B2/C fill them in.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels';
 import { useSettings } from './stores/settings';
+import { useAppData } from './stores/appdata';
+import { Rail } from './rail/Rail';
+import { FirstRun } from './onboarding/FirstRun';
 
 export function App() {
   const theme = useSettings((s) => s.theme);
   const toggleTheme = useSettings((s) => s.toggleTheme);
+
+  // Phase B2: load persisted categories/agents once at app start.
+  const loadAppData = useAppData((s) => s.load);
+  const appLoaded = useAppData((s) => s.loaded);
+  const categoryCount = useAppData((s) => s.categories.length);
+  useEffect(() => {
+    void loadAppData();
+  }, [loadAppData]);
+  const firstRun = appLoaded && categoryCount === 0;
 
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const [rightOpen, setRightOpen] = useState(true);
@@ -40,10 +52,8 @@ export function App() {
       <div className="shell">
         <PanelGroup direction="horizontal" autoSaveId="ade:layout">
           <Panel id="rail" order={1} defaultSize={18} minSize={12} maxSize={32} className="rail">
-            <div className="placeholder">
-              <div className="placeholder-title">Categories and agents</div>
-              <div className="placeholder-sub">Rail lands in Phase B2</div>
-            </div>
+            {/* Phase B2 rail (categories + agents + onboarding modals). */}
+            <Rail />
           </Panel>
 
           <PanelResizeHandle className="resize-handle" />
@@ -61,10 +71,16 @@ export function App() {
               </button>
             </div>
             <div className="workarea">
-              <div className="placeholder">
-                <div className="placeholder-title">Terminal</div>
-                <div className="placeholder-sub">PTY sessions land in Phase B1</div>
-              </div>
+              {/* Phase B2 first-run: only replaces the center when there are
+                  zero categories. B1 owns the normal center content below. */}
+              {firstRun ? (
+                <FirstRun />
+              ) : (
+                <div className="placeholder">
+                  <div className="placeholder-title">Terminal</div>
+                  <div className="placeholder-sub">PTY sessions land in Phase B1</div>
+                </div>
+              )}
             </div>
           </Panel>
 
