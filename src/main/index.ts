@@ -7,6 +7,10 @@ import { join } from 'node:path';
 import { registerIpcHandlers, disposePtyManager } from './ipc';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
+import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
+
+// Must run before app `ready` — declares ade-photo:// as a privileged scheme.
+registerPhotoProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -62,6 +66,7 @@ Menu.setApplicationMenu(null);
 void app.whenReady().then(async () => {
   const store = new ConfigStore();
   registerIpcHandlers(store);
+  registerPhotoProtocolHandler();
   createWindow();
 
   console.log('[ade] app ready — window created');
