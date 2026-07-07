@@ -9,6 +9,7 @@ import type {
   AdeConfig,
   Agent,
   AgentCreateInput,
+  AgentFile,
   Category,
   CategoryCreateInput,
   FsTreeNode,
@@ -36,6 +37,8 @@ export const IPC = {
   GitDiff: 'git:diff',
   FsTree: 'fs:tree',
   FsRead: 'fs:read',
+  FsAgentFiles: 'fs:agentFiles',
+  DialogPickFolder: 'dialog:pickFolder',
 } as const;
 
 /** Event channels (main -> renderer via webContents.send). */
@@ -95,10 +98,27 @@ export interface GitDiffRequest {
 
 export interface FsTreeRequest {
   agentId: string;
+  /** Lazy children: relative dir path to expand. Omit/'' for the root level. */
+  path?: string;
 }
 export interface FsReadRequest {
   agentId: string;
   path: string;
+}
+export interface FsReadResult {
+  text: string;
+  /** true when the file exceeded the read cap and `text` is a prefix. */
+  truncated: boolean;
+}
+export interface FsAgentFilesRequest {
+  agentId: string;
+}
+
+export interface DialogPickFolderResult {
+  /** Chosen absolute path, or null when the dialog was cancelled. */
+  path: string | null;
+  /** true when the chosen folder is (inside) a git repo. false when cancelled. */
+  isRepo: boolean;
 }
 
 /* -------------------------------------------------------------- event payloads */
@@ -137,7 +157,9 @@ export interface IpcInvokeMap {
   'git:status': { req: GitStatusRequest; res: GitStatus };
   'git:diff': { req: GitDiffRequest; res: string };
   'fs:tree': { req: FsTreeRequest; res: FsTreeNode };
-  'fs:read': { req: FsReadRequest; res: string };
+  'fs:read': { req: FsReadRequest; res: FsReadResult };
+  'fs:agentFiles': { req: FsAgentFilesRequest; res: AgentFile[] };
+  'dialog:pickFolder': { req: void; res: DialogPickFolderResult };
 }
 
 /** Payload map for every main -> renderer event channel. */

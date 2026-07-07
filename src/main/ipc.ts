@@ -1,17 +1,18 @@
 /**
  * IPC channel registration (main side).
- * Config, identity/photos (B2) and pty (B1) handlers are real; git/fs
- * handlers are stubs owned by Phase C — the renderer codes against the full
- * contract in shared/ipc.ts either way.
+ * Config, identity/photos (B2), pty (B1) and git/fs (Phase C) handlers are all
+ * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
-import type { FsTreeNode, GitStatus } from '../shared/types';
+import type { Agent, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
 import { createAgent, createCategory, deleteAgent, deleteCategory } from './identity';
 import { PtyManager } from './pty/PtyManager';
+import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
+import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -28,6 +29,13 @@ function handle<K extends keyof IpcInvokeMap>(
 
 export function registerIpcHandlers(store: ConfigStore): void {
   ptyManager = new PtyManager(store);
+
+  /** Resolve an agent by id or throw — every git/fs handler needs its dirs. */
+  const requireAgent = (agentId: string): Agent => {
+    const agent = store.get().agents.find((a) => a.id === agentId);
+    if (!agent) throw new Error(`ade: agent not found "${agentId}"`);
+    return agent;
+  };
 
   /* ------------------------------------------------------- config (real) */
 
@@ -76,21 +84,41 @@ export function registerIpcHandlers(store: ConfigStore): void {
     replayBase64: ptyManager!.attach(sessionId),
   }));
 
-  // TODO(Phase C): simple-git status for the agent's workspaceDir
-  handle(IPC.GitStatus, (): GitStatus => {
-    return { branch: 'main', ahead: 0, behind: 0, files: [] };
+  /* ------------------------------------------------- git + fs (Phase C) */
+
+  // Real git status for the agent's workspaceDir (non-repo → isRepo:false).
+  handle(IPC.GitStatus, ({ agentId }): Promise<GitStatus> =>
+    gitStatus(requireAgent(agentId).workspaceDir),
+  );
+
+  // Unified diff for one file (staged+unstaged vs HEAD; untracked = additions).
+  handle(IPC.GitDiff, ({ agentId, path }) => gitDiff(requireAgent(agentId).workspaceDir, path));
+
+  // Depth-limited workspace tree; `path` lazily expands one directory level.
+  handle(IPC.FsTree, ({ agentId, path }) => fsTree(requireAgent(agentId).workspaceDir, path));
+
+  // Size-capped text read (workspace file, or a pinned file from memoryDir).
+  handle(IPC.FsRead, ({ agentId, path }) => {
+    const agent = requireAgent(agentId);
+    return fsRead(agent.workspaceDir, agent.memoryDir, path);
   });
 
-  // TODO(Phase C): unified diff for one file
-  handle(IPC.GitDiff, () => '');
-
-  // TODO(Phase C): depth-limited workspace tree with lazy children
-  handle(IPC.FsTree, (): FsTreeNode => {
-    return { name: '', path: '', kind: 'dir', children: [] };
+  // Pinned agent files (MEMORY/USER/CLAUDE/AGENTS) that exist for this agent.
+  handle(IPC.FsAgentFiles, ({ agentId }) => {
+    const agent = requireAgent(agentId);
+    return agentFiles(agent.workspaceDir, agent.memoryDir);
   });
 
-  // TODO(Phase C): size-capped file read
-  handle(IPC.FsRead, () => '');
+  // Folder picker for repo-backed categories; validates the pick is a git repo.
+  handle(IPC.DialogPickFolder, async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+    const result = win
+      ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    const path = result.canceled ? null : (result.filePaths[0] ?? null);
+    if (!path) return { path: null, isRepo: false };
+    return { path, isRepo: await isGitRepo(path) };
+  });
 }
 
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
