@@ -8,6 +8,8 @@
 import { useRef, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels';
 import { useSettings } from './stores/settings';
+import { TabStrip } from './tabs/TabStrip';
+import { TerminalArea } from './terminal/TerminalArea';
 
 export function App() {
   const theme = useSettings((s) => s.theme);
@@ -49,22 +51,20 @@ export function App() {
           <PanelResizeHandle className="resize-handle" />
 
           <Panel id="center" order={2} minSize={36} className="center">
-            <div className="tabstrip">
-              <span className="tabstrip-hint">Session tabs land in Phase B1</span>
-              <span className="spacer" />
-              <button
-                className={rightOpen ? 'btn btn-toggled' : 'btn'}
-                onClick={toggleRightPanel}
-                title="Toggle right panel"
-              >
-                Changes
-              </button>
+            <div className="tabbar">
+              <TabStrip />
+              <div className="strip-actions">
+                <button
+                  className={rightOpen ? 'btn btn-toggled' : 'btn'}
+                  onClick={toggleRightPanel}
+                  title="Toggle right panel"
+                >
+                  Changes
+                </button>
+              </div>
             </div>
             <div className="workarea">
-              <div className="placeholder">
-                <div className="placeholder-title">Terminal</div>
-                <div className="placeholder-sub">PTY sessions land in Phase B1</div>
-              </div>
+              <TerminalArea />
             </div>
           </Panel>
 

@@ -4,11 +4,17 @@
 
 import { app, BrowserWindow, Menu, shell } from 'electron';
 import { join } from 'node:path';
-import { registerIpcHandlers } from './ipc';
+import { registerIpcHandlers, disposePtyManager } from './ipc';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Opt-in renderer CDP endpoint for end-to-end verification (no prod impact).
+const remoteDebugPort = process.env['ADE_REMOTE_DEBUG_PORT'];
+if (remoteDebugPort) {
+  app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -78,4 +84,9 @@ void app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// kill every live pty on quit so no orphan ConPTY process lingers
+app.on('before-quit', () => {
+  disposePtyManager();
 });

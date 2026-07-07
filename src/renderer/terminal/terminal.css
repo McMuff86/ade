@@ -1,0 +1,153 @@
+/* Terminal vertical styles (Phase B1) — tab strip + terminal area.
+   Colors only via tokens (theme/tokens.css). Tab visuals match mockup/index.html. */
+
+/* -------------------------------------------------------------- tab bar */
+
+.tabbar {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+/* scope over the Phase-A .tabstrip placeholder rule */
+.center .tabstrip {
+  flex: 1;
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 8px;
+  overflow-x: auto;
+  border-bottom: none;
+  background: transparent;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border-radius: 8px 8px 0 0;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  font-size: 12px;
+  max-width: 220px;
+  background: transparent;
+}
+
+.tab:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--raised);
+  color: var(--text);
+  border-color: var(--line);
+  box-shadow: inset 0 2px 0 var(--accent); /* copper inset top line */
+}
+
+.tab .status {
+  font-size: 9px;
+  color: var(--faint);
+  line-height: 1;
+}
+.tab .status.running {
+  color: var(--run);
+}
+.tab .status.exited {
+  color: var(--faint);
+}
+
+.tab .tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab .close {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--faint);
+  font-size: 11px;
+}
+.tab .close:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.tab-add {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.tab-add:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.center .tabstrip .spacer {
+  flex: 1;
+}
+
+.strip-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 5px 0;
+}
+
+/* ---------------------------------------------------------- terminal area */
+
+.center .workarea {
+  display: block; /* override the Phase-A grid/place-items:center placeholder */
+}
+
+.terminal-area {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+}
+
+.terminal-area-empty {
+  display: grid;
+  place-items: center;
+}
+
+.terminal-hint {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.terminal-pane-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.terminal-host {
+  width: 100%;
+  height: 100%;
+  padding: 6px 8px;
+  background: var(--bg);
+}
+
+/* xterm's own viewport background follows the ITheme; keep the host in sync */
+.terminal-host .xterm,
+.terminal-host .xterm-viewport {
+  background-color: transparent;
+}
