@@ -17,6 +17,7 @@ import type {
   CategoryCreateInput,
 } from '../shared/types';
 import type { ConfigStore } from './config/store';
+import { createMemoryScaffold } from './memory/scaffold';
 
 /** URL/path-safe slug from a display name; never empty. */
 function slugify(name: string): string {
@@ -90,6 +91,8 @@ export function createAgent(store: ConfigStore, input: AgentCreateInput): Agent 
   const memoryDir = join(base, 'agents', id, 'memory');
   mkdirSync(workspaceDir, { recursive: true });
   mkdirSync(memoryDir, { recursive: true });
+  // Phase D: seed empty-but-valid MEMORY.md / USER.md (skipped when disabled).
+  createMemoryScaffold(memoryDir, { enabled: config.settings.memory?.enabled });
 
   const agent: Agent = {
     id,
