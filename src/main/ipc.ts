@@ -7,8 +7,12 @@
 
 import { ipcMain } from 'electron';
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
-import type { Agent, Category, FsTreeNode, GitStatus, SessionMeta } from '../shared/types';
+import type { Agent, Category, FsTreeNode, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
+import { PtyManager } from './pty/PtyManager';
+
+/** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
+let ptyManager: PtyManager | null = null;
 
 /** Typed ipcMain.handle wrapper: payload/result checked against IpcInvokeMap. */
 function handle<K extends keyof IpcInvokeMap>(
@@ -21,6 +25,8 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export function registerIpcHandlers(store: ConfigStore): void {
+  ptyManager = new PtyManager(store);
+
   /* ------------------------------------------------------- config (real) */
 
   handle(IPC.ConfigGet, () => store.get());
@@ -59,22 +65,26 @@ export function registerIpcHandlers(store: ConfigStore): void {
   // TODO(Phase B2): delete agent + kill sessions + remove worktree
   handle(IPC.AgentDelete, () => undefined);
 
-  // TODO(Phase B1): PtyManager.spawn per launch profile (shared/runtimes.ts)
-  handle(IPC.PtyCreate, ({ agentId }): SessionMeta => {
-    return { id: 'stub-session', agentId, title: 'session', status: 'exited', createdAt: Date.now() };
+  // Phase B1: spawn the agent's CLI per its launch profile (shared/runtimes.ts)
+  handle(IPC.PtyCreate, ({ agentId }) => ptyManager!.create(agentId));
+
+  // Phase B1: forward keystrokes to the session's pty
+  handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {
+    ptyManager!.write(sessionId, Buffer.from(dataBase64, 'base64'));
   });
 
-  // TODO(Phase B1): write to the session's pty
-  handle(IPC.PtyWrite, () => undefined);
+  // Phase B1: resize the session's pty to the fitted cols/rows
+  handle(IPC.PtyResize, ({ sessionId, cols, rows }) => {
+    ptyManager!.resize(sessionId, cols, rows);
+  });
 
-  // TODO(Phase B1): resize the session's pty
-  handle(IPC.PtyResize, () => undefined);
+  // Phase B1: kill the session's pty (SIGHUP semantics via pty.kill())
+  handle(IPC.PtyKill, ({ sessionId }) => ptyManager!.kill(sessionId));
 
-  // TODO(Phase B1): kill the session's pty
-  handle(IPC.PtyKill, () => undefined);
-
-  // TODO(Phase B1): return ring-buffer replay for (re)attach
-  handle(IPC.PtyAttach, () => ({ replayBase64: '' }));
+  // Phase B1: ring-buffer replay so scrollback survives (re)attach
+  handle(IPC.PtyAttach, ({ sessionId }) => ({
+    replayBase64: ptyManager!.attach(sessionId),
+  }));
 
   // TODO(Phase C): simple-git status for the agent's workspaceDir
   handle(IPC.GitStatus, (): GitStatus => {
@@ -91,4 +101,10 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   // TODO(Phase C): size-capped file read
   handle(IPC.FsRead, () => '');
+}
+
+/** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
+export function disposePtyManager(): void {
+  ptyManager?.disposeAll();
+  ptyManager = null;
 }
