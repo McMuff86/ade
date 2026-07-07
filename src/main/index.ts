@@ -20,6 +20,13 @@ if (remoteDebugPort) {
   app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
 }
 
+// Opt-in user-data override so integration runs use a clean throwaway dir
+// instead of the real config/photos/workspaces (no prod impact).
+const userDataOverride = process.env['ADE_USER_DATA_DIR'];
+if (userDataOverride) {
+  app.setPath('userData', userDataOverride);
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -34,6 +41,10 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // CDP-driven verification runs with the window occluded; without this,
+      // rAF/timers stall in the hidden renderer and terminal writes defer
+      // until the window is visible again. Normal runs keep throttling on.
+      backgroundThrottling: !remoteDebugPort,
     },
   });
 

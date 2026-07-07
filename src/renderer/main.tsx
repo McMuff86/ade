@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { ThemeProvider } from './theme/ThemeProvider';
+import { useAppData } from './stores/appdata';
 import { useSelection } from './stores/selection';
 import { useSessions } from './stores/sessions';
 import { useSettings } from './stores/settings';
@@ -12,6 +13,7 @@ import './app.css';
 // Stripped from production builds (import.meta.env.DEV is false there).
 if (import.meta.env.DEV) {
   (window as unknown as { __ade?: unknown }).__ade = {
+    useAppData,
     useSelection,
     useSessions,
     useSettings,
