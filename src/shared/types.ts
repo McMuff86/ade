@@ -87,6 +87,11 @@ export interface GitFileChange {
 }
 
 export interface GitStatus {
+  /**
+   * Whether the agent's workspaceDir is inside a git repo/worktree. Non-repo
+   * workspaces return isRepo:false (branch '', no files) rather than throwing.
+   */
+  isRepo: boolean;
   branch: string;
   ahead: number;
   behind: number;
@@ -99,6 +104,17 @@ export interface FsTreeNode {
   path: string; // relative to workspaceDir
   kind: 'file' | 'dir';
   children?: FsTreeNode[];
+}
+
+/**
+ * A pinned "agent file" (MEMORY.md / USER.md / CLAUDE.md / AGENTS.md) that
+ * exists either in the agent's workspaceDir or its memoryDir. `path` is what to
+ * pass to fs:read (a bare filename; main resolves workspace-first, memory-next).
+ */
+export interface AgentFile {
+  name: string;
+  path: string;
+  location: 'workspace' | 'memory';
 }
 
 /* ------------------------------------------------------------ create inputs */

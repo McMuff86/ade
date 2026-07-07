@@ -9,7 +9,7 @@
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type {
   Agent,
   AgentCreateInput,
@@ -17,6 +17,7 @@ import type {
   CategoryCreateInput,
 } from '../shared/types';
 import type { ConfigStore } from './config/store';
+import { createAgentWorktree, isGitRepo } from './git/GitService';
 
 /** URL/path-safe slug from a display name; never empty. */
 function slugify(name: string): string {
@@ -65,7 +66,7 @@ export function deleteCategory(store: ConfigStore, id: string): void {
   });
 }
 
-export function createAgent(store: ConfigStore, input: AgentCreateInput): Agent {
+export async function createAgent(store: ConfigStore, input: AgentCreateInput): Promise<Agent> {
   const name = input.name.trim();
   if (!name) throw new Error('ade: agent name is required');
 
@@ -83,12 +84,37 @@ export function createAgent(store: ConfigStore, input: AgentCreateInput): Agent 
   const agentSlug = uniqueSlug(slugify(name), takenSlugs);
 
   const base = adeDir();
-  // TODO(Phase C): when category.repoPath is set, create a git worktree here
-  // instead of a plain directory. For now always the default workspace dir.
-  const workspaceDir = join(base, 'workspaces', catSlug, agentSlug);
+  // Default (plain) workspace dir; overridden below by a worktree when the
+  // category is repo-backed and worktree creation succeeds.
+  let workspaceDir = join(base, 'workspaces', catSlug, agentSlug);
   // Memory files themselves are Phase D — we only make the empty dir now.
   const memoryDir = join(base, 'agents', id, 'memory');
-  mkdirSync(workspaceDir, { recursive: true });
+
+  // Repo-backed category → a git worktree on branch ade/<slug> from HEAD.
+  // Git must never hard-fail agent creation: on any error we fall back to the
+  // plain workspace dir with a console warning.
+  let worktreeMade = false;
+  if (category.repoPath && (await isGitRepo(category.repoPath))) {
+    const worktreePath = join(base, 'worktrees', basename(category.repoPath), agentSlug);
+    try {
+      const result = await createAgentWorktree({
+        repoPath: category.repoPath,
+        agentSlug,
+        worktreePath,
+      });
+      workspaceDir = result.worktreePath;
+      worktreeMade = true;
+      console.log(`[ade] created worktree ${result.worktreePath} on branch ${result.branch}`);
+    } catch (err) {
+      console.warn(
+        `[ade] worktree creation failed for "${name}" (${category.repoPath}); ` +
+          `falling back to a plain workspace dir:`,
+        err,
+      );
+    }
+  }
+
+  if (!worktreeMade) mkdirSync(workspaceDir, { recursive: true });
   mkdirSync(memoryDir, { recursive: true });
 
   const agent: Agent = {
@@ -117,6 +143,10 @@ export function createAgent(store: ConfigStore, input: AgentCreateInput): Agent 
 export function deleteAgent(store: ConfigStore, id: string): void {
   const config = store.get();
   // Config entries only — never delete the agent's workspace/memory files.
+  // A repo-backed agent's worktree is left on disk and its metadata is NOT
+  // pruned here.
+  // TODO(Phase C+): optionally `git worktree prune` / remove the branch when a
+  // repo-backed agent is deleted (kept off for now so nothing is destroyed).
   store.save({
     categories: config.categories.map((c) => ({
       ...c,

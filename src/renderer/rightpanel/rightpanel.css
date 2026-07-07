@@ -1,0 +1,320 @@
+/* Right panel — Files / Changes tabs, grouped file lists, inline diff/preview.
+   Colours via tokens only. Layout mirrors mockup/index.html .changes. */
+
+.rp {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.rp-head {
+  flex: none;
+  padding: 12px 14px 0;
+}
+
+.rp-tabs {
+  display: flex;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rp-tab {
+  padding: 4px 2px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+
+.rp-tab:hover {
+  color: var(--text);
+}
+
+.rp-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* --------------------------------------------------------------- content */
+
+.rp-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-note {
+  color: var(--faint);
+  font-size: 11.5px;
+  padding: 14px;
+}
+
+/* ------------------------------------------------------------ changes view */
+
+.ch-changes {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ch-branch {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ch-branch .name {
+  font-weight: 700;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ch-branch .name::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+.ch-branch .stats {
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.plus {
+  color: var(--add);
+}
+.minus {
+  color: var(--del);
+}
+
+.ch-scroll {
+  padding: 8px 6px;
+}
+
+.ch-group {
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  padding: 10px 8px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+}
+
+.ch-file:hover {
+  background: var(--raised);
+}
+
+.ch-file.open {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.ch-file .fname {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-file .plus,
+.ch-file .minus {
+  font-size: 11px;
+}
+
+.ch-file .tag {
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
+/* -------------------------------------------------------------- files view */
+
+.fs-view {
+  padding: 6px 6px 10px;
+}
+
+.fs-section + .fs-section {
+  margin-top: 6px;
+}
+
+.fs-section-head {
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 8px 8px 4px;
+}
+
+.fs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+}
+
+.fs-row:hover {
+  background: var(--raised);
+}
+
+.fs-file.open {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.fs-caret {
+  color: var(--faint);
+  font-size: 9px;
+  width: 10px;
+  flex: none;
+}
+
+.fs-dir .fs-name {
+  color: var(--muted);
+}
+
+.fs-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fs-row .plus,
+.fs-row .minus {
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------- inline pane */
+
+.rp-inline {
+  flex: none;
+  border-top: 1px solid var(--line);
+  max-height: 55%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rp-inline-head {
+  position: sticky;
+  top: 0;
+  flex: none;
+  background: var(--panel);
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rp-inline-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rp-trunc {
+  color: var(--faint);
+}
+
+.rp-inline-close {
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+  flex: none;
+}
+
+.rp-inline-close:hover {
+  color: var(--text);
+}
+
+.rp-inline-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 8px;
+}
+
+/* diff lines */
+
+.diff-body {
+  font-family: var(--mono);
+}
+
+.dline {
+  padding: 1px 14px;
+  font-size: 11.5px;
+  white-space: pre;
+}
+
+.dline.add {
+  background: color-mix(in srgb, var(--add) 12%, transparent);
+  color: var(--add);
+}
+
+.dline.del {
+  background: color-mix(in srgb, var(--del) 12%, transparent);
+  color: var(--del);
+}
+
+.dline.ctx {
+  color: var(--muted);
+}
+
+.dline.hunk {
+  color: var(--accent-dim);
+  padding-top: 6px;
+}
+
+.diff-empty {
+  color: var(--faint);
+  font-size: 11.5px;
+  padding: 12px 14px;
+}
+
+/* file preview */
+
+.rp-preview {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text);
+  padding: 4px 14px;
+  white-space: pre;
+  tab-size: 4;
+}

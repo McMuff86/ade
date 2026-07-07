@@ -18,15 +18,33 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
   const createCategory = useAppData((s) => s.createCategory);
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const [repoPath, setRepoPath] = useState<string | undefined>(undefined);
+  const [repoError, setRepoError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const canCreate = name.trim().length > 0 && !busy;
+
+  const pickRepo = async (): Promise<void> => {
+    setRepoError(null);
+    try {
+      const result = await window.ade.invoke('dialog:pickFolder');
+      if (!result.path) return; // cancelled
+      if (!result.isRepo) {
+        setRepoError('That folder is not a git repository.');
+        return;
+      }
+      setRepoPath(result.path);
+    } catch (err) {
+      console.error('[ade] pick repo failed:', err);
+      setRepoError('Could not open the folder picker.');
+    }
+  };
 
   const submit = async (): Promise<void> => {
     if (!canCreate) return;
     setBusy(true);
     try {
-      const category = await createCategory({ name: name.trim(), photo });
+      const category = await createCategory({ name: name.trim(), photo, repoPath });
       onCreated?.(category.id);
       onClose();
     } catch (err) {
@@ -59,6 +77,35 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
       <div className="field">
         <label>PROFILE PHOTO</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
+      </div>
+
+      <div className="field">
+        <label>LINK A GIT REPOSITORY (OPTIONAL)</label>
+        <div className="repo-picker">
+          <button type="button" className="btn" onClick={() => void pickRepo()} disabled={busy}>
+            {repoPath ? 'Change folder' : 'Choose folder'}
+          </button>
+          {repoPath ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setRepoPath(undefined);
+                setRepoError(null);
+              }}
+              disabled={busy}
+            >
+              Remove
+            </button>
+          ) : null}
+          <span className="repo-path" title={repoPath ?? ''}>
+            {repoPath ?? 'No repository — agents get a plain workspace folder.'}
+          </span>
+        </div>
+        {repoError ? <div className="repo-error">{repoError}</div> : null}
+        {repoPath ? (
+          <div className="repo-hint">Each agent gets its own worktree + branch under this repo.</div>
+        ) : null}
       </div>
 
       <div className="modal-actions">

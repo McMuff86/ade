@@ -13,6 +13,7 @@ import { TerminalArea } from './terminal/TerminalArea';
 import { useAppData } from './stores/appdata';
 import { Rail } from './rail/Rail';
 import { FirstRun } from './onboarding/FirstRun';
+import { RightPanel } from './rightpanel/RightPanel';
 
 export function App() {
   const theme = useSettings((s) => s.theme);
@@ -94,10 +95,7 @@ export function App() {
             onExpand={() => setRightOpen(true)}
             className="rightpanel"
           >
-            <div className="placeholder">
-              <div className="placeholder-title">Files / Changes</div>
-              <div className="placeholder-sub">Git panel lands in Phase C</div>
-            </div>
+            <RightPanel visible={rightOpen} />
           </Panel>
         </PanelGroup>
       </div>

@@ -86,6 +86,38 @@
   margin-top: 6px;
 }
 
+/* ----------------------------------------------------------- repo picker */
+
+.repo-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.repo-path {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.repo-error {
+  color: var(--del);
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.repo-hint {
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 6px;
+}
+
 /* -------------------------------------------------------------- advanced */
 
 .advanced-toggle {
