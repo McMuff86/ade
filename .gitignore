@@ -6,3 +6,4 @@ reference/
 *.log
 *.tsbuildinfo
 .DS_Store
+.claude/
