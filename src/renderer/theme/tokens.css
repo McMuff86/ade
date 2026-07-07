@@ -1,0 +1,107 @@
+/*
+ * Design tokens — all colors live here as custom properties, keyed by
+ * :root[data-theme]. Dark palette comes verbatim from mockup/index.html.
+ * Light is the same hue family on a warm paper ground (not an inversion).
+ *
+ * --app-bg-layer is the dedicated background layer token (SPEC #9): a
+ * gradient or user PNG-with-alpha can replace it later without refactor.
+ */
+
+:root[data-theme='dark'] {
+  --bg:         #0E0F12;  /* app ground, warm near-black */
+  --panel:      #15171C;  /* rail + side panels */
+  --raised:     #1B1E24;  /* active surfaces, tabs */
+  --line:       #262A31;  /* hairline borders */
+  --text:       #D7DBE1;
+  --muted:      #7C838E;
+  --faint:      #4A505A;
+  --accent:     #E09A4A;  /* copper — the one warm voice */
+  --accent-dim: #8A6132;
+  --accent-contrast: #14161A; /* text on accent-filled surfaces */
+  --add:        #4EC98A;
+  --del:        #E0645C;
+  --run:        #4EC98A;
+
+  --app-bg-layer: var(--bg);
+}
+
+:root[data-theme='light'] {
+  --bg:         #F3EFE7;  /* warm paper ground */
+  --panel:      #EAE5DA;
+  --raised:     #E0DACB;
+  --line:       #D2CABA;
+  --text:       #2E2A24;  /* warm near-black ink */
+  --muted:      #6E675C;
+  --faint:      #9A9285;
+  --accent:     #A96B22;  /* copper, deepened for contrast on paper */
+  --accent-dim: #C9A26B;
+  --accent-contrast: #FDFBF7;
+  --add:        #2F8A5D;
+  --del:        #C14B42;
+  --run:        #2F8A5D;
+
+  --app-bg-layer: var(--bg);
+}
+
+:root {
+  --mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ------------------------------------------------------------- base reset */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--app-bg-layer);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input,
+select {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

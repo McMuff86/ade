@@ -4,4 +4,5 @@ out/
 reference/
 .playwright-mcp/
 *.log
+*.tsbuildinfo
 .DS_Store

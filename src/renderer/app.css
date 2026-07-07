@@ -1,0 +1,152 @@
+/* App shell styles — colors only via tokens (theme/tokens.css). */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------- title bar */
+
+.titlebar {
+  height: 34px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.logotype {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.logotype-cursor {
+  color: var(--accent);
+  animation: blink 1.2s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logotype-cursor {
+    animation: none;
+  }
+}
+
+.titlebar-sub {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.btn:hover {
+  color: var(--text);
+  border-color: var(--faint);
+}
+
+.btn-toggled {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+/* ------------------------------------------------------- resizable shell */
+
+.shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.resize-handle {
+  width: 1px;
+  background: var(--line);
+}
+
+.resize-handle:hover,
+.resize-handle[data-resize-handle-state='hover'],
+.resize-handle[data-resize-handle-state='drag'] {
+  background: var(--accent-dim);
+}
+
+.rail {
+  background: var(--panel);
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+.tabstrip {
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.tabstrip-hint {
+  color: var(--faint);
+  font-size: 11px;
+  padding-left: 4px;
+}
+
+.workarea {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.rightpanel {
+  background: var(--panel);
+}
+
+/* ---------------------------------------------------------- placeholders */
+
+.placeholder {
+  padding: 16px 14px;
+  text-align: center;
+}
+
+.placeholder-title {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.placeholder-sub {
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 4px;
+}
