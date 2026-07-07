@@ -1,0 +1,786 @@
+<meta charset="utf-8">
+<title>ade_ — clickable UI mockup</title>
+<style>
+  /* ============ tokens — deliberately single-theme: this is a terminal app ============ */
+  :root {
+    --bg:        #0E0F12;  /* app ground, warm near-black */
+    --panel:     #15171C;  /* rail + side panels */
+    --raised:    #1B1E24;  /* active surfaces, tabs */
+    --line:      #262A31;  /* hairline borders */
+    --text:      #D7DBE1;
+    --muted:     #7C838E;
+    --faint:     #4A505A;
+    --accent:    #E09A4A;  /* copper — the one warm voice */
+    --accent-dim:#8A6132;
+    --add:       #4EC98A;
+    --del:       #E0645C;
+    --run:       #4EC98A;
+    --mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--mono); font-size: 13px; line-height: 1.5;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 1px solid var(--accent); outline-offset: 1px;
+  }
+  input, select { font: inherit; }
+
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ============ title bar (no traffic lights — just the logotype) ============ */
+  .titlebar {
+    height: 34px; flex: none; display: flex; align-items: center;
+    padding: 0 12px; border-bottom: 1px solid var(--line);
+    background: var(--panel); gap: 10px;
+  }
+  .logotype { font-weight: 700; letter-spacing: .5px; }
+  .logotype .cursor { color: var(--accent); animation: blink 1.2s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .logotype .cursor { animation: none; }
+    .dot-run { animation: none !important; }
+  }
+  .titlebar .sub { color: var(--faint); font-size: 11px; }
+  .titlebar .spacer { flex: 1; }
+  .titlebar .hint { color: var(--faint); font-size: 11px; }
+
+  .main { flex: 1; display: flex; min-height: 0; }
+
+  /* ============ left rail: categories + agents ============ */
+  .rail {
+    width: 236px; flex: none; background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .rail-scroll { flex: 1; overflow-y: auto; padding: 12px 10px 8px; }
+  .cat { margin-bottom: 14px; }
+  .cat-head {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 6px; border-radius: 8px; text-align: left;
+  }
+  .cat-head:hover { background: var(--raised); }
+  .cat-avatar {
+    width: 30px; height: 30px; border-radius: 8px; flex: none;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 13px; color: #0E0F12;
+  }
+  .cat-name { font-weight: 700; font-size: 12.5px; letter-spacing: .3px; flex: 1; }
+  .cat-meta { color: var(--faint); font-size: 10.5px; }
+  .cat-chevron { color: var(--faint); font-size: 10px; transition: transform .15s; }
+  .cat.collapsed .cat-chevron { transform: rotate(-90deg); }
+  .cat.collapsed .agents { display: none; }
+
+  .agents { margin-top: 2px; padding-left: 10px; }
+  .agent-row {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 5px 7px; border-radius: 8px; text-align: left; position: relative;
+  }
+  .agent-row:hover { background: var(--raised); }
+  .agent-row.selected { background: var(--raised); box-shadow: inset 2px 0 0 var(--accent); }
+  .agent-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 11.5px; color: #0E0F12; position: relative;
+  }
+  .presence {
+    position: absolute; right: -1px; bottom: -1px;
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 2px solid var(--panel); background: var(--faint);
+  }
+  .presence.on { background: var(--run); }
+  .dot-run { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .agent-name { font-size: 12.5px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .agent-role { display: block; color: var(--faint); font-size: 10px; line-height: 1.2; }
+  .agent-sess { color: var(--faint); font-size: 10px; }
+  .add-agent {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 4px 7px; border-radius: 8px; color: var(--faint); font-size: 11.5px;
+    opacity: 0; transition: opacity .1s;
+  }
+  .cat:hover .add-agent, .add-agent:focus-visible { opacity: 1; }
+  .add-agent:hover { background: var(--raised); color: var(--muted); }
+  .add-agent .ghost {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    border: 1px dashed var(--faint); display: grid; place-items: center; font-size: 12px;
+  }
+  .rail-foot { flex: none; padding: 8px 10px; border-top: 1px solid var(--line); }
+  .new-cat {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 6px; border-radius: 8px; color: var(--muted); font-size: 12px;
+  }
+  .new-cat:hover { background: var(--raised); color: var(--text); }
+  .new-cat .ghost {
+    width: 26px; height: 26px; border-radius: 8px; flex: none;
+    border: 1px dashed var(--faint); display: grid; place-items: center;
+  }
+
+  /* ============ center column ============ */
+  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .tabstrip {
+    height: 40px; flex: none; display: flex; align-items: flex-end;
+    border-bottom: 1px solid var(--line); background: var(--bg);
+    padding: 0 8px; gap: 2px; overflow-x: auto;
+  }
+  .tab {
+    display: flex; align-items: center; gap: 8px;
+    height: 32px; padding: 0 10px 0 12px;
+    border-radius: 8px 8px 0 0; color: var(--muted);
+    border: 1px solid transparent; border-bottom: none;
+    white-space: nowrap; font-size: 12px; max-width: 220px;
+  }
+  .tab:hover { background: var(--panel); color: var(--text); }
+  .tab.active {
+    background: var(--raised); color: var(--text);
+    border-color: var(--line);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .tab .status { font-size: 9px; color: var(--faint); }
+  .tab .status.running { color: var(--run); }
+  .tab .close {
+    display: grid; place-items: center; width: 16px; height: 16px;
+    border-radius: 4px; color: var(--faint); font-size: 11px;
+  }
+  .tab .close:hover { background: var(--line); color: var(--text); }
+  .tab-add {
+    display: grid; place-items: center; width: 28px; height: 28px;
+    margin-bottom: 2px; border-radius: 6px; color: var(--muted); font-size: 15px;
+  }
+  .tab-add:hover { background: var(--panel); color: var(--text); }
+  .tabstrip .spacer { flex: 1; }
+  .strip-actions { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 6px; font-size: 11.5px;
+    border: 1px solid var(--line); color: var(--muted); background: var(--panel);
+  }
+  .btn:hover { color: var(--text); border-color: var(--faint); }
+  .btn.primary { background: var(--accent); color: #14161A; border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.toggled { color: var(--accent); border-color: var(--accent-dim); }
+
+  .workarea { flex: 1; display: flex; min-height: 0; }
+
+  /* ============ terminal ============ */
+  .terminal {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    background: var(--bg);
+  }
+  .term-scroll { flex: 1; overflow-y: auto; padding: 18px 22px 8px; }
+  .t-line { white-space: pre-wrap; word-break: break-word; }
+  .t-banner { display: flex; gap: 14px; margin-bottom: 14px; }
+  .t-banner .glyph { color: var(--accent); line-height: 1.25; }
+  .t-banner .info .b0 { font-weight: 700; }
+  .t-banner .info .b1 { color: var(--muted); }
+  .t-banner .info .b2 { color: var(--faint); font-size: 12px; }
+  .t-user { color: var(--text); margin: 12px 0 6px; }
+  .t-user::before { content: "> "; color: var(--accent); font-weight: 700; }
+  .t-think { color: var(--faint); font-style: italic; margin: 4px 0; }
+  .t-think::before { content: "✻ "; color: var(--accent-dim); font-style: normal; }
+  .t-tool { color: var(--muted); margin: 3px 0 3px 4px; }
+  .t-tool::before { content: "⏺ "; color: var(--add); }
+  .t-tool .meta { color: var(--faint); }
+  .t-out { color: var(--text); margin: 6px 0; }
+  .t-diffline { margin: 2px 0 2px 22px; color: var(--muted); }
+  .t-diffline .plus { color: var(--add); }
+  .t-diffline .minus { color: var(--del); }
+  .t-sys { color: var(--faint); margin: 8px 0; }
+  .term-input {
+    flex: none; display: flex; align-items: center; gap: 8px;
+    margin: 8px 14px 14px; padding: 9px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  }
+  .term-input:focus-within { border-color: var(--accent-dim); }
+  .term-input .prompt { color: var(--accent); font-weight: 700; }
+  .term-input input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+  }
+  .term-input input::placeholder { color: var(--faint); }
+
+  /* ============ changes panel ============ */
+  .changes {
+    width: 290px; flex: none; border-left: 1px solid var(--line);
+    background: var(--panel); display: flex; flex-direction: column; min-height: 0;
+  }
+  .changes.hidden { display: none; }
+  .ch-head { flex: none; padding: 12px 14px 0; }
+  .ch-tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--line); }
+  .ch-tab { padding: 4px 2px 8px; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; }
+  .ch-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .ch-branch { padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+  .ch-branch .name { font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
+  .ch-branch .name::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .ch-branch .stats { color: var(--faint); font-size: 11px; margin-top: 3px; }
+  .ch-branch .stats .plus { color: var(--add); } .ch-branch .stats .minus { color: var(--del); }
+  .ch-scroll { flex: 1; overflow-y: auto; padding: 8px 6px; }
+  .ch-group { color: var(--faint); font-size: 10px; letter-spacing: .8px; padding: 10px 8px 4px; }
+  .ch-file {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 4px 8px; border-radius: 6px; font-size: 12px; text-align: left;
+  }
+  .ch-file:hover { background: var(--raised); }
+  .ch-file.open { background: var(--raised); box-shadow: inset 2px 0 0 var(--accent); }
+  .ch-file .fname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .ch-file .plus { color: var(--add); font-size: 11px; } .ch-file .minus { color: var(--del); font-size: 11px; }
+  .ch-diff { border-top: 1px solid var(--line); max-height: 45%; overflow-y: auto; flex: none; }
+  .ch-diff.hidden { display: none; }
+  .ch-diff .dhead {
+    position: sticky; top: 0; background: var(--panel);
+    padding: 8px 14px; font-size: 11px; color: var(--muted);
+    display: flex; justify-content: space-between; border-bottom: 1px solid var(--line);
+  }
+  .ch-diff .dhead button { color: var(--faint); } .ch-diff .dhead button:hover { color: var(--text); }
+  .dline { padding: 1px 14px; font-size: 11.5px; white-space: pre; }
+  .dline.add { background: rgba(78,201,138,.08); color: var(--add); }
+  .dline.del { background: rgba(224,100,92,.08); color: var(--del); }
+  .dline.ctx { color: var(--muted); }
+  .dline.hunk { color: var(--accent-dim); padding-top: 6px; }
+
+  /* ============ status bar ============ */
+  .statusbar {
+    height: 26px; flex: none; display: flex; align-items: center; gap: 16px;
+    padding: 0 12px; border-top: 1px solid var(--line);
+    background: var(--panel); color: var(--faint); font-size: 11px;
+  }
+  .statusbar .runtime { display: inline-flex; align-items: center; gap: 5px; }
+  .runtime-badge {
+    padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+    border: 1px solid var(--accent-dim); color: var(--accent);
+  }
+  .runtime-badge.codex { border-color: #4a6a5a; color: #7bc9a0; }
+  .runtime-badge.ollama { border-color: #4a5a6a; color: #7ba9c9; }
+  .statusbar .mem { color: var(--faint); }
+  .statusbar .mem b { color: var(--muted); font-weight: 400; }
+  .statusbar .spacer { flex: 1; }
+
+  /* ============ onboarding modal ============ */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(8,9,11,.7);
+    display: grid; place-items: center; z-index: 50;
+  }
+  .overlay.hidden { display: none; }
+  .modal {
+    width: 420px; background: var(--raised); border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px;
+  }
+  .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .modal .sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; color: var(--muted); font-size: 11px; letter-spacing: .6px; margin-bottom: 6px; }
+  .field input[type=text], .field select {
+    width: 100%; padding: 8px 10px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    font-family: var(--mono);
+  }
+  .field input[type=text]:focus, .field select:focus { border-color: var(--accent-dim); outline: none; }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .swatch {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 2px solid transparent; padding: 0;
+  }
+  .swatch.square { border-radius: 10px; }
+  .swatch.picked { border-color: var(--accent); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+
+<div class="app">
+  <div class="titlebar">
+    <span class="logotype">ade<span class="cursor">_</span></span>
+    <span class="sub">agentic development environment</span>
+    <span class="spacer"></span>
+    <span class="hint">UI mockup — nothing is wired to a backend yet</span>
+  </div>
+
+  <div class="main">
+    <nav class="rail" aria-label="Categories and agents">
+      <div class="rail-scroll" id="rail"></div>
+      <div class="rail-foot">
+        <button class="new-cat" id="btn-new-cat">
+          <span class="ghost">+</span> New category
+        </button>
+      </div>
+    </nav>
+
+    <div class="center">
+      <div class="tabstrip" id="tabstrip"></div>
+      <div class="workarea">
+        <section class="terminal" aria-label="Terminal">
+          <div class="term-scroll" id="term"></div>
+          <div class="term-input">
+            <span class="prompt">&gt;</span>
+            <input id="term-in" type="text" autocomplete="off"
+                   placeholder="Message the agent… (mockup: replies are canned)" />
+          </div>
+        </section>
+        <aside class="changes" id="changes" aria-label="Changes"></aside>
+      </div>
+      <div class="statusbar" id="statusbar"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" id="modal"></div>
+</div>
+
+<script>
+/* ================= data ================= */
+const HUES = [
+  ['#E8B45A','#C97B2E'], ['#7BC9A0','#3E8A63'], ['#7BA9C9','#3E6A8A'],
+  ['#C98A7B','#8A4A3E'], ['#B99BD6','#7A5A9A'], ['#D6C05A','#9A8A2E'],
+];
+const RUNTIMES = {
+  claude: { label: 'Claude Code', model: 'Opus 4.8',  cls: '' },
+  codex:  { label: 'Codex',       model: 'GPT-5',     cls: 'codex' },
+  ollama: { label: 'Ollama',      model: 'llama3.3',  cls: 'ollama' },
+};
+let uid = 0; const nid = () => 'n' + (++uid);
+
+function bootLines(agent) {
+  const rt = agent.runtime;
+  if (rt === 'claude') return [
+    { t:'banner', b0:'Claude Code v2.1.3', b1:'Opus 4.8 · Claude Max', b2:'~/.ade/worktrees/' + agent.repo + '/' + agent.name.toLowerCase() },
+    { t:'sys', text:'MEMORY.md loaded · USER.md loaded · 2 memory providers active' },
+  ];
+  if (rt === 'codex') return [
+    { t:'banner', b0:'Codex CLI v0.9.2', b1:'GPT-5 · high reasoning', b2:'~/.ade/worktrees/' + agent.repo + '/' + agent.name.toLowerCase() },
+    { t:'sys', text:'MEMORY.md loaded · USER.md loaded' },
+  ];
+  return [
+    { t:'banner', b0:'ollama run llama3.3:70b', b1:'local · 40 tok/s', b2:'~/.ade/worktrees/' + agent.repo + '/' + agent.name.toLowerCase() },
+    { t:'sys', text:'MEMORY.md loaded · USER.md loaded' },
+  ];
+}
+
+function mkAgent(name, role, runtime, hueIdx, repo, sessions, changes) {
+  return { id: nid(), name, role, runtime, hue: HUES[hueIdx % HUES.length], repo,
+           sessions: sessions || [], activeSession: sessions && sessions[0] ? sessions[0].id : null,
+           changes: changes || null };
+}
+function mkSession(name, status, lines) { return { id: nid(), name, status, lines }; }
+
+const state = { categories: [], selected: null, changesOpen: true, openDiff: null };
+
+/* --- sample content --- */
+const archie = mkAgent('Archie', 'Architecture & core', 'claude', 0, 'ade-app', [
+  mkSession('rail layout', 'running', [
+    { t:'user', text:'Build the two-level sidebar: categories with avatars, agents underneath.' },
+    { t:'think', text:'Reading the existing workspace sidebar to reuse its list virtualization…' },
+    { t:'tool', text:'Read(src/ui/WorkspaceSidebar.tsx)', meta:'214 lines' },
+    { t:'tool', text:'Write(src/ui/Rail.tsx)', meta:'+112' },
+    { t:'tool', text:'Edit(src/state/agents.ts)', meta:'+34 -3' },
+    { t:'out', text:'Done. The rail now renders categories as collapsible groups; each agent row carries its avatar, runtime and a presence dot. Selection drives the session tab strip.' },
+    { t:'diff', file:'src/ui/Rail.tsx', add:112, del:0 },
+    { t:'diff', file:'src/state/agents.ts', add:34, del:3 },
+  ]),
+  mkSession('session tabs', 'idle', [
+    { t:'user', text:'Tabs should be sessions of the selected agent, not one tab per model.' },
+    { t:'tool', text:'Edit(src/ui/SessionTabs.tsx)', meta:'+86 -41' },
+    { t:'out', text:'Refactored: the strip now maps over agent.sessions. Each tab owns one PTY.' },
+  ]),
+  mkSession('memory bootstrap', 'idle', [
+    { t:'user', text:'Give every new agent a Hermes-style memory scaffold.' },
+    { t:'tool', text:'Write(src/memory/scaffold.ts)', meta:'+58' },
+    { t:'out', text:'New agents now start with MEMORY.md, USER.md and a providers/ folder.' },
+  ]),
+], {
+  branch: 'feat/two-level-rail', add: 296, del: 47, files: [
+    { dir: 'SRC/UI', name: 'Rail.tsx', add: 112, del: 0 },
+    { dir: 'SRC/UI', name: 'SessionTabs.tsx', add: 86, del: 41 },
+    { dir: 'SRC/UI', name: 'AgentAvatar.tsx', add: 61, del: 0 },
+    { dir: 'SRC/STATE', name: 'agents.ts', add: 34, del: 3 },
+    { dir: 'SRC/MEMORY', name: 'scaffold.ts', add: 58, del: 0 },
+  ]
+});
+
+const pixel = mkAgent('Pixel', 'Frontend & theme', 'claude', 4, 'ade-app', [
+  mkSession('terminal theme', 'running', [
+    { t:'user', text:'Match the terminal palette to the copper accent.' },
+    { t:'tool', text:'Edit(src/ui/theme/terminal.css)', meta:'+24 -18' },
+    { t:'out', text:'Cursor, prompt and selection now use --accent. Screenshot attached in the changes panel.' },
+    { t:'diff', file:'src/ui/theme/terminal.css', add:24, del:18 },
+  ]),
+], {
+  branch: 'feat/terminal-theme', add: 24, del: 18, files: [
+    { dir: 'SRC/UI/THEME', name: 'terminal.css', add: 24, del: 18 },
+  ]
+});
+
+const kernel = mkAgent('Kernel', 'Backend & PTY', 'codex', 2, 'ade-app', [
+  mkSession('pty manager', 'idle', [
+    { t:'user', text:'One PTY per session, reattach on tab switch.' },
+    { t:'tool', text:'exec: pnpm test pty-manager', meta:'12 passed' },
+    { t:'out', text:'PTY pool implemented; sessions survive tab switches and window reloads.' },
+  ]),
+], {
+  branch: 'feat/pty-pool', add: 143, del: 12, files: [
+    { dir: 'SRC/SERVER', name: 'pty-pool.ts', add: 121, del: 4 },
+    { dir: 'SRC/SERVER', name: 'ipc.ts', add: 22, del: 8 },
+  ]
+});
+
+const anna = mkAgent('Anna', 'Scripts & research', 'claude', 1, 'yt-channel', [
+  mkSession('video #42 script', 'running', [
+    { t:'user', text:'Draft the script for the local-agents video. Hook first, 8 minutes.' },
+    { t:'think', text:'Checking MEMORY.md — last three videos opened with a demo, audience retention peaked there…' },
+    { t:'tool', text:'Write(scripts/video-42.md)', meta:'+180' },
+    { t:'out', text:'Draft ready. Cold open: live demo of three agents running in parallel, then the "why local models" segment. Retention notes are inline.' },
+  ]),
+  mkSession('title ideas', 'idle', [
+    { t:'user', text:'10 title options, no clickbait caps.' },
+    { t:'out', text:'Listed in titles/video-42.txt — my pick: "I gave every project its own AI employee".' },
+  ]),
+], {
+  branch: 'video-42', add: 212, del: 0, files: [
+    { dir: 'SCRIPTS', name: 'video-42.md', add: 180, del: 0 },
+    { dir: 'TITLES', name: 'video-42.txt', add: 32, del: 0 },
+  ]
+});
+
+const milo = mkAgent('Milo', 'Thumbnails & titles', 'codex', 3, 'yt-channel', [
+  mkSession('thumbs #42', 'idle', [
+    { t:'user', text:'Three thumbnail concepts for video #42.' },
+    { t:'out', text:'Concepts sketched in thumbs/42/ — variant B (split screen, agent avatars) tested best in mock poll.' },
+  ]),
+], null);
+
+const quill = mkAgent('Quill', 'Longform drafts', 'ollama', 5, 'writing', [
+  mkSession('essay draft', 'idle', [
+    { t:'user', text:'Continue the essay on agent personas from yesterday.' },
+    { t:'out', text:'Added 600 words to drafts/personas.md. Kept your rule: no em-dashes, short paragraphs.' },
+  ]),
+], null);
+
+state.categories = [
+  { id: nid(), name: 'ade-app', meta: 'coding · git', hue: HUES[0], collapsed: false, agents: [archie, pixel, kernel] },
+  { id: nid(), name: 'YouTube', meta: 'content', hue: HUES[1], collapsed: false, agents: [anna, milo] },
+  { id: nid(), name: 'Writing', meta: 'essays', hue: HUES[4], collapsed: false, agents: [quill] },
+];
+state.selected = archie.id;
+
+/* prepend boot banner to every session */
+for (const c of state.categories) for (const a of c.agents) for (const s of a.sessions) s.lines = bootLines(a).concat(s.lines);
+
+/* ================= helpers ================= */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const grad = (hue) => `linear-gradient(135deg, ${hue[0]}, ${hue[1]})`;
+const initials = (name) => name.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
+function findAgent(id) {
+  for (const c of state.categories) for (const a of c.agents) if (a.id === id) return { cat: c, agent: a };
+  return null;
+}
+const current = () => findAgent(state.selected);
+
+/* ================= render: rail ================= */
+function renderRail() {
+  const rail = $('rail'); rail.innerHTML = '';
+  for (const cat of state.categories) {
+    const el = document.createElement('div');
+    el.className = 'cat' + (cat.collapsed ? ' collapsed' : '');
+    const running = cat.agents.reduce((n,a) => n + a.sessions.filter(s => s.status==='running').length, 0);
+
+    const head = document.createElement('button');
+    head.className = 'cat-head';
+    head.innerHTML = `
+      <span class="cat-avatar" style="background:${grad(cat.hue)}">${esc(initials(cat.name))}</span>
+      <span class="cat-name">${esc(cat.name)}<span class="agent-role">${esc(cat.meta)}</span></span>
+      <span class="cat-meta">${cat.agents.length}</span>
+      <span class="cat-chevron">▾</span>`;
+    head.addEventListener('click', () => { cat.collapsed = !cat.collapsed; renderRail(); });
+    el.appendChild(head);
+
+    const list = document.createElement('div'); list.className = 'agents';
+    for (const a of cat.agents) {
+      const runs = a.sessions.filter(s => s.status==='running').length;
+      const row = document.createElement('button');
+      row.className = 'agent-row' + (a.id === state.selected ? ' selected' : '');
+      row.innerHTML = `
+        <span class="agent-avatar" style="background:${grad(a.hue)}">${esc(initials(a.name))}
+          <span class="presence ${runs ? 'on dot-run' : ''}"></span>
+        </span>
+        <span class="agent-name">${esc(a.name)}<span class="agent-role">${esc(a.role)}</span></span>
+        <span class="agent-sess">${a.sessions.length}⧉</span>`;
+      row.addEventListener('click', () => selectAgent(a.id));
+      list.appendChild(row);
+    }
+    const add = document.createElement('button');
+    add.className = 'add-agent';
+    add.innerHTML = `<span class="ghost">+</span> Add agent`;
+    add.addEventListener('click', () => openModal('agent', cat.id));
+    list.appendChild(add);
+
+    el.appendChild(list);
+    rail.appendChild(el);
+  }
+}
+
+/* ================= render: tabs ================= */
+function renderTabs() {
+  const strip = $('tabstrip'); strip.innerHTML = '';
+  const cur = current(); if (!cur) return;
+  const a = cur.agent;
+
+  for (const s of a.sessions) {
+    const tab = document.createElement('button');
+    tab.className = 'tab' + (s.id === a.activeSession ? ' active' : '');
+    tab.innerHTML = `
+      <span class="status ${s.status}">${s.status === 'running' ? '●' : '○'}</span>
+      <span>${esc(s.name)}</span>
+      <span class="close" title="Close session">×</span>`;
+    tab.addEventListener('click', (e) => {
+      if (e.target.classList.contains('close')) { closeSession(a, s.id); return; }
+      a.activeSession = s.id; state.openDiff = null; renderTabs(); renderTerm(); renderChanges();
+    });
+    strip.appendChild(tab);
+  }
+  const add = document.createElement('button');
+  add.className = 'tab-add'; add.title = 'New session'; add.textContent = '+';
+  add.addEventListener('click', () => newSession(a));
+  strip.appendChild(add);
+
+  const spacer = document.createElement('span'); spacer.className = 'spacer'; strip.appendChild(spacer);
+  const actions = document.createElement('div'); actions.className = 'strip-actions';
+  actions.innerHTML = `
+    <button class="btn" id="btn-open">Open ▾</button>
+    <button class="btn ${state.changesOpen ? 'toggled' : ''}" id="btn-changes">Changes</button>`;
+  strip.appendChild(actions);
+  $('btn-changes').addEventListener('click', () => { state.changesOpen = !state.changesOpen; renderTabs(); renderChanges(); });
+  $('btn-open').addEventListener('click', () => toast('Mockup: would open the worktree in your editor.'));
+}
+
+/* ================= render: terminal ================= */
+function renderTerm() {
+  const term = $('term'); term.innerHTML = '';
+  const cur = current(); if (!cur) return;
+  const s = cur.agent.sessions.find(x => x.id === cur.agent.activeSession);
+  if (!s) { term.innerHTML = '<div class="t-sys">No session open — press + to start one.</div>'; return; }
+
+  for (const l of s.lines) {
+    if (l.t === 'banner') {
+      const d = document.createElement('div'); d.className = 't-banner';
+      d.innerHTML = `<pre class="glyph"> ▐▛▀▜▌\n ▐▌ ▐▌\n ▝▀▀▀▘</pre>
+        <div class="info"><div class="b0">${esc(l.b0)}</div><div class="b1">${esc(l.b1)}</div><div class="b2">${esc(l.b2)}</div></div>`;
+      term.appendChild(d); continue;
+    }
+    const d = document.createElement('div');
+    d.className = 't-line t-' + l.t;
+    if (l.t === 'tool') d.innerHTML = `${esc(l.text)} <span class="meta">${esc(l.meta || '')}</span>`;
+    else if (l.t === 'diff') d.innerHTML = `${esc(l.file)}  <span class="plus">+${l.add}</span> <span class="minus">-${l.del}</span>`, d.className = 't-diffline';
+    else d.textContent = l.text;
+    term.appendChild(d);
+  }
+  term.scrollTop = term.scrollHeight;
+}
+
+/* ================= render: changes panel ================= */
+const SAMPLE_DIFF = [
+  ['hunk', '@@ -18,7 +18,15 @@ export function Rail() {'],
+  ['ctx',  '  const cats = useAgentStore(s => s.categories)'],
+  ['del',  '-  return <ul>{cats.map(renderFlat)}</ul>'],
+  ['add',  '+  return ('],
+  ['add',  '+    <nav className="rail">'],
+  ['add',  '+      {cats.map(cat => ('],
+  ['add',  '+        <CategoryGroup key={cat.id} cat={cat}>'],
+  ['add',  '+          {cat.agents.map(a => <AgentRow key={a.id} agent={a} />)}'],
+  ['add',  '+        </CategoryGroup>'],
+  ['add',  '+      ))}'],
+  ['add',  '+    </nav>'],
+  ['add',  '+  )'],
+];
+function renderChanges() {
+  const panel = $('changes');
+  panel.className = 'changes' + (state.changesOpen ? '' : ' hidden');
+  if (!state.changesOpen) return;
+  panel.innerHTML = '';
+  const cur = current(); if (!cur) return;
+  const ch = cur.agent.changes;
+
+  const head = document.createElement('div'); head.className = 'ch-head';
+  head.innerHTML = `<div class="ch-tabs">
+    <button class="ch-tab active">Files</button>
+    <button class="ch-tab">Review</button>
+  </div>`;
+  panel.appendChild(head);
+  head.querySelectorAll('.ch-tab')[1].addEventListener('click', () => toast('Mockup: review view comes with the real build.'));
+
+  if (!ch) {
+    const empty = document.createElement('div');
+    empty.className = 'ch-branch';
+    empty.innerHTML = `<div class="stats">No changes yet — this agent hasn't touched its worktree in this session.</div>`;
+    panel.appendChild(empty);
+    return;
+  }
+
+  const br = document.createElement('div'); br.className = 'ch-branch';
+  br.innerHTML = `<div class="name">${esc(ch.branch)}</div>
+    <div class="stats"><span class="plus">+${ch.add}</span> <span class="minus">-${ch.del}</span> · ${ch.files.length} files · → main</div>`;
+  panel.appendChild(br);
+
+  const scroll = document.createElement('div'); scroll.className = 'ch-scroll';
+  let lastDir = null;
+  for (const f of ch.files) {
+    if (f.dir !== lastDir) {
+      const g = document.createElement('div'); g.className = 'ch-group'; g.textContent = f.dir;
+      scroll.appendChild(g); lastDir = f.dir;
+    }
+    const row = document.createElement('button');
+    row.className = 'ch-file' + (state.openDiff === f.name ? ' open' : '');
+    row.innerHTML = `<span class="fname">${esc(f.name)}</span>
+      ${f.add ? `<span class="plus">+${f.add}</span>` : ''} ${f.del ? `<span class="minus">-${f.del}</span>` : ''}`;
+    row.addEventListener('click', () => { state.openDiff = state.openDiff === f.name ? null : f.name; renderChanges(); });
+    scroll.appendChild(row);
+  }
+  panel.appendChild(scroll);
+
+  const diff = document.createElement('div');
+  diff.className = 'ch-diff' + (state.openDiff ? '' : ' hidden');
+  if (state.openDiff) {
+    diff.innerHTML = `<div class="dhead"><span>${esc(state.openDiff)}</span><button title="Close diff">×</button></div>` +
+      SAMPLE_DIFF.map(([cls, txt]) => `<div class="dline ${cls}">${esc(txt)}</div>`).join('');
+    diff.querySelector('.dhead button').addEventListener('click', () => { state.openDiff = null; renderChanges(); });
+  }
+  panel.appendChild(diff);
+}
+
+/* ================= render: status bar ================= */
+function renderStatus() {
+  const bar = $('statusbar'); bar.innerHTML = '';
+  const cur = current(); if (!cur) return;
+  const a = cur.agent; const rt = RUNTIMES[a.runtime];
+  const runs = a.sessions.filter(s => s.status==='running').length;
+  bar.innerHTML = `
+    <span class="runtime">${esc(a.name)} <span class="runtime-badge ${rt.cls}">${esc(rt.label)} · ${esc(rt.model)}</span></span>
+    <span class="mem">memory: <b>MEMORY.md · USER.md · 2 providers</b></span>
+    <span class="spacer"></span>
+    <span>${a.sessions.length} sessions · ${runs} running</span>
+    <span>worktree: ~/.ade/worktrees/${esc(a.repo)}/${esc(a.name.toLowerCase())}</span>`;
+}
+
+/* ================= actions ================= */
+function selectAgent(id) {
+  state.selected = id; state.openDiff = null;
+  renderRail(); renderTabs(); renderTerm(); renderChanges(); renderStatus();
+}
+function newSession(agent) {
+  const s = mkSession('session ' + (agent.sessions.length + 1), 'running', bootLines(agent));
+  agent.sessions.push(s); agent.activeSession = s.id;
+  renderRail(); renderTabs(); renderTerm(); renderStatus();
+}
+function closeSession(agent, sid) {
+  const i = agent.sessions.findIndex(s => s.id === sid);
+  if (i < 0) return;
+  agent.sessions.splice(i, 1);
+  if (agent.activeSession === sid) agent.activeSession = agent.sessions[Math.max(0, i-1)] ? agent.sessions[Math.max(0, i-1)].id : null;
+  renderRail(); renderTabs(); renderTerm(); renderStatus();
+}
+function toast(msg) {
+  const cur = current(); if (!cur) return;
+  const s = cur.agent.sessions.find(x => x.id === cur.agent.activeSession);
+  if (!s) return;
+  s.lines.push({ t:'sys', text: msg });
+  renderTerm();
+}
+
+/* terminal input: echo + canned reply */
+const REPLIES = [
+  'Noted. In the real build this goes straight to the agent process in this tab.',
+  'This terminal will be a live PTY — Claude Code, Codex or an Ollama model, per agent.',
+  'Saved to this session. Each tab keeps its own scrollback and its own process.',
+];
+let replyIdx = 0;
+$('term-in').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const v = e.target.value.trim(); if (!v) return;
+  e.target.value = '';
+  const cur = current(); if (!cur) return;
+  let s = cur.agent.sessions.find(x => x.id === cur.agent.activeSession);
+  if (!s) { newSession(cur.agent); s = cur.agent.sessions[cur.agent.sessions.length-1]; }
+  s.lines.push({ t:'user', text: v });
+  renderTerm();
+  setTimeout(() => { s.lines.push({ t:'out', text: REPLIES[replyIdx++ % REPLIES.length] }); renderTerm(); }, 500);
+});
+
+/* ================= onboarding modal ================= */
+let modalPick = 0;
+function openModal(kind, catId) {
+  modalPick = Math.floor(HUES.length * .5);
+  const overlay = $('overlay'); const modal = $('modal');
+  overlay.classList.remove('hidden');
+  const isCat = kind === 'cat';
+  const catOptions = state.categories.map(c =>
+    `<option value="${c.id}" ${c.id === catId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  modal.innerHTML = `
+    <h2>${isCat ? 'New category' : 'New agent'}</h2>
+    <div class="sub">${isCat
+      ? 'A category groups agents around one thing you work on — a channel, a repo, a book.'
+      : 'An agent gets its own worktree, its own skills and its own memory (MEMORY.md / USER.md).'}</div>
+    ${isCat ? '' : `<div class="field"><label>CATEGORY</label><select id="m-cat">${catOptions}</select></div>`}
+    <div class="field"><label>NAME</label>
+      <input type="text" id="m-name" placeholder="${isCat ? 'e.g. Podcast' : 'e.g. Nova'}" autocomplete="off" /></div>
+    ${isCat ? '' : `<div class="field"><label>RUNTIME</label>
+      <select id="m-rt">
+        <option value="claude">Claude Code · Opus 4.8 (default)</option>
+        <option value="codex">Codex · GPT-5</option>
+        <option value="ollama">Ollama · local model</option>
+      </select></div>`}
+    <div class="field"><label>PROFILE PHOTO <span style="color:var(--faint)">(placeholder — real photos in the build)</span></label>
+      <div class="swatches" id="m-swatches"></div></div>
+    <div class="modal-actions">
+      <button class="btn" id="m-cancel">Cancel</button>
+      <button class="btn primary" id="m-ok">${isCat ? 'Create category' : 'Create agent'}</button>
+    </div>`;
+
+  const sw = $('m-swatches');
+  HUES.forEach((h, i) => {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (isCat ? ' square' : '') + (i === modalPick ? ' picked' : '');
+    b.style.background = grad(h);
+    b.setAttribute('aria-label', 'Photo ' + (i+1));
+    b.addEventListener('click', () => {
+      modalPick = i;
+      sw.querySelectorAll('.swatch').forEach((x, j) => x.classList.toggle('picked', j === i));
+    });
+    sw.appendChild(b);
+  });
+
+  $('m-cancel').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); }, { once: true });
+  $('m-ok').addEventListener('click', () => {
+    const name = $('m-name').value.trim();
+    if (!name) { $('m-name').focus(); return; }
+    if (isCat) {
+      state.categories.push({ id: nid(), name, meta: 'new', hue: HUES[modalPick], collapsed: false, agents: [] });
+    } else {
+      const cat = state.categories.find(c => c.id === $('m-cat').value);
+      const a = mkAgent(name, 'new agent', $('m-rt').value, modalPick, cat.name.toLowerCase().replace(/\s+/g,'-'), [], null);
+      const s = mkSession('session 1', 'running', bootLines(a));
+      a.sessions.push(s); a.activeSession = s.id;
+      cat.agents.push(a);
+      state.selected = a.id;
+    }
+    closeModal();
+    renderRail(); renderTabs(); renderTerm(); renderChanges(); renderStatus();
+  });
+  $('m-name').focus();
+}
+function closeModal() { $('overlay').classList.add('hidden'); }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+$('btn-new-cat').addEventListener('click', () => openModal('cat'));
+
+/* ================= boot ================= */
+renderRail(); renderTabs(); renderTerm(); renderChanges(); renderStatus();
+</script>
