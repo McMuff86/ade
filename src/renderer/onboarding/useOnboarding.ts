@@ -8,12 +8,14 @@ import { create } from 'zustand';
 
 export type OnboardingModal =
   | { kind: 'category' }
-  | { kind: 'agent'; categoryId?: string };
+  | { kind: 'agent'; categoryId?: string }
+  | { kind: 'agentSettings'; agentId: string };
 
 interface OnboardingState {
   open: OnboardingModal | null;
   openNewCategory: () => void;
   openNewAgent: (categoryId?: string) => void;
+  openAgentSettings: (agentId: string) => void;
   close: () => void;
 }
 
@@ -21,5 +23,6 @@ export const useOnboarding = create<OnboardingState>((set) => ({
   open: null,
   openNewCategory: () => set({ open: { kind: 'category' } }),
   openNewAgent: (categoryId) => set({ open: { kind: 'agent', categoryId } }),
+  openAgentSettings: (agentId) => set({ open: { kind: 'agentSettings', agentId } }),
   close: () => set({ open: null }),
 }));

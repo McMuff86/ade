@@ -10,28 +10,13 @@ import { PhotoPicker } from './PhotoPicker';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
 import type { PermissionMode, RuntimeId } from '../../shared/types';
+import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES } from './agentOptions';
 
 interface NewAgentModalProps {
   onClose: () => void;
   /** category preselected by the caller (e.g. the rail's "+ Add agent"). */
   categoryId?: string;
 }
-
-const RUNTIMES: ReadonlyArray<{ id: RuntimeId; label: string }> = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
-  { id: 'opencode', label: 'OpenCode' },
-  { id: 'grok', label: 'Grok Build' },
-  { id: 'gemini', label: 'Gemini' },
-  { id: 'ollama', label: 'Ollama (local model)' },
-  { id: 'shell', label: 'Plain shell' },
-];
-
-const PERMISSION_MODES: ReadonlyArray<{ id: PermissionMode; label: string }> = [
-  { id: 'default', label: 'Default (ask each time)' },
-  { id: 'accept-edits', label: 'Accept edits' },
-  { id: 'bypass', label: 'Bypass approvals (dangerous)' },
-];
 
 export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): React.ReactElement {
   const categories = useAppData((s) => s.categories);
@@ -109,7 +94,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
           value={runtime}
           onChange={(e) => setRuntime(e.target.value as RuntimeId)}
         >
-          {RUNTIMES.map((r) => (
+          {AGENT_RUNTIMES.map((r) => (
             <option key={r.id} value={r.id}>
               {r.label}
             </option>
@@ -138,7 +123,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
           value={permissionMode}
           onChange={(e) => setPermissionMode(e.target.value as PermissionMode)}
         >
-          {PERMISSION_MODES.map((p) => (
+          {AGENT_PERMISSION_MODES.map((p) => (
             <option key={p.id} value={p.id}>
               {p.label}
             </option>

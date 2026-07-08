@@ -70,24 +70,32 @@
   padding-left: 10px;
 }
 
+.agent-entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-radius: 8px;
+  position: relative;
+}
+
+.agent-entry:hover {
+  background: var(--raised);
+}
+
+.agent-entry.selected {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .agent-row {
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 100%;
+  min-width: 0;
+  flex: 1;
   padding: 5px 7px;
   border-radius: 8px;
   text-align: left;
-  position: relative;
-}
-
-.agent-row:hover {
-  background: var(--raised);
-}
-
-.agent-row.selected {
-  background: var(--raised);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .agent-avatar-wrap {
@@ -125,6 +133,30 @@
   color: var(--faint);
   font-size: 10px;
   line-height: 1.2;
+}
+
+.agent-settings {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  margin-right: 3px;
+  border-radius: 6px;
+  color: var(--faint);
+  opacity: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.agent-entry:hover .agent-settings,
+.agent-entry.selected .agent-settings,
+.agent-settings:focus-visible {
+  opacity: 1;
+}
+
+.agent-settings:hover {
+  color: var(--text);
+  background: var(--panel);
 }
 
 /* ------------------------------------------------------------- add / new */

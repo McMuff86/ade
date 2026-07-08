@@ -9,7 +9,7 @@ import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
-import { createAgent, createCategory, deleteAgent, deleteCategory } from './identity';
+import { createAgent, createCategory, deleteAgent, deleteCategory, updateAgent } from './identity';
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
@@ -56,6 +56,9 @@ export function registerIpcHandlers(store: ConfigStore): void {
   // Create agent — resolves + makes workspaceDir and (empty) memoryDir.
   // TODO(Phase C): git worktree when the category is repo-backed.
   handle(IPC.AgentCreate, (input) => createAgent(store, input));
+
+  // Update runtime/launch configuration and display metadata for an agent.
+  handle(IPC.AgentUpdate, (input) => updateAgent(store, input));
 
   // Delete agent from config only — never deletes its workspace/memory files.
   // TODO(Phase B1): also kill any live sessions for this agent.

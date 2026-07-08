@@ -160,3 +160,13 @@ export interface AgentCreateInput {
   customCommand?: string;
   ollamaModel?: string;
 }
+
+export interface AgentUpdateInput {
+  id: string;
+  name: string;
+  role?: string;
+  runtime: RuntimeId;
+  permissionMode: PermissionMode;
+  customCommand?: string;
+  ollamaModel?: string;
+}

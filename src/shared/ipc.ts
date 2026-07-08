@@ -9,6 +9,7 @@ import type {
   AdeConfig,
   Agent,
   AgentCreateInput,
+  AgentUpdateInput,
   AgentFile,
   Category,
   CategoryCreateInput,
@@ -27,6 +28,7 @@ export const IPC = {
   CategoryCreate: 'category:create',
   CategoryDelete: 'category:delete',
   AgentCreate: 'agent:create',
+  AgentUpdate: 'agent:update',
   AgentDelete: 'agent:delete',
   PtyCreate: 'pty:create',
   PtyWrite: 'pty:write',
@@ -148,6 +150,7 @@ export interface IpcInvokeMap {
   'category:create': { req: CategoryCreateInput; res: Category };
   'category:delete': { req: { id: string }; res: void };
   'agent:create': { req: AgentCreateInput; res: Agent };
+  'agent:update': { req: AgentUpdateInput; res: Agent };
   'agent:delete': { req: { id: string }; res: void };
   'pty:create': { req: PtyCreateRequest; res: SessionMeta };
   'pty:write': { req: PtyWriteRequest; res: void };

@@ -4,6 +4,8 @@
  * both the rail buttons and the first-run card can drive it.
  */
 
+import { useAppData } from '../stores/appdata';
+import { EditAgentModal } from './EditAgentModal';
 import { NewAgentModal } from './NewAgentModal';
 import { NewCategoryModal } from './NewCategoryModal';
 import { useOnboarding } from './useOnboarding';
@@ -12,8 +14,13 @@ import './onboarding.css';
 export function OnboardingModals(): React.ReactElement | null {
   const open = useOnboarding((s) => s.open);
   const close = useOnboarding((s) => s.close);
+  const agents = useAppData((s) => s.agents);
 
   if (!open) return null;
   if (open.kind === 'category') return <NewCategoryModal onClose={close} />;
+  if (open.kind === 'agentSettings') {
+    const agent = agents[open.agentId];
+    return agent ? <EditAgentModal agent={agent} onClose={close} /> : null;
+  }
   return <NewAgentModal onClose={close} categoryId={open.categoryId} />;
 }

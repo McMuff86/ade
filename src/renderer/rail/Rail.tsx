@@ -22,6 +22,7 @@ export function Rail(): React.ReactElement {
   const setSelectedAgent = useSelection((s) => s.setSelectedAgent);
   const openNewCategory = useOnboarding((s) => s.openNewCategory);
   const openNewAgent = useOnboarding((s) => s.openNewAgent);
+  const openAgentSettings = useOnboarding((s) => s.openAgentSettings);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (id: string): void =>
@@ -54,22 +55,35 @@ export function Rail(): React.ReactElement {
                   if (!agent) return null;
                   const selected = agent.id === selectedAgentId;
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={agent.id}
-                      className={`agent-row${selected ? ' selected' : ''}`}
-                      aria-current={selected ? 'true' : undefined}
-                      onClick={() => setSelectedAgent(agent.id)}
+                      className={`agent-entry${selected ? ' selected' : ''}`}
                     >
-                      <span className="agent-avatar-wrap">
-                        <Avatar name={agent.name} photo={agent.photo} shape="round" size={26} seed={agent.id} />
-                        <span className="presence" aria-hidden="true" />
-                      </span>
-                      <span className="agent-name">
-                        {agent.name}
-                        {agent.role ? <span className="agent-role">{agent.role}</span> : null}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className="agent-row"
+                        aria-current={selected ? 'true' : undefined}
+                        onClick={() => setSelectedAgent(agent.id)}
+                      >
+                        <span className="agent-avatar-wrap">
+                          <Avatar name={agent.name} photo={agent.photo} shape="round" size={26} seed={agent.id} />
+                          <span className="presence" aria-hidden="true" />
+                        </span>
+                        <span className="agent-name">
+                          {agent.name}
+                          {agent.role ? <span className="agent-role">{agent.role}</span> : null}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="agent-settings"
+                        aria-label={`Agent settings for ${agent.name}`}
+                        title="Agent settings"
+                        onClick={() => openAgentSettings(agent.id)}
+                      >
+                        ⚙
+                      </button>
+                    </div>
                   );
                 })}
 

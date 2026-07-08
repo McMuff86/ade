@@ -1,10 +1,11 @@
 /**
  * PtyManager — owns every live terminal session (Phase B1).
  *
- * One node-pty process per session (ConPTY on Windows). The launched CLI *is*
- * the PTY process: when it exits, the session is `exited`. Each session keeps a
- * 256 KB ring buffer of raw output so scrollback survives tab switches and
- * renderer remounts — the pattern is ported from Superset's pty-daemon
+ * One node-pty process per session (ConPTY on Windows). The PTY process is the
+ * user's shell; the selected agent CLI is sent as the first command. That keeps
+ * the terminal usable after `/exit` returns from Claude/Codex/etc. Each session
+ * keeps a 256 KB ring buffer of raw output so scrollback survives tab switches
+ * and renderer remounts — the pattern is ported from Superset's pty-daemon
  * SessionStore (ring buffer + replay-on-attach), minus its POSIX-only
  * fd-handoff process model. We are Windows-first: node-pty lives here in main.
  *
@@ -38,6 +39,13 @@ interface Session {
   bufferBytes: number;
 }
 
+interface SpawnSpec {
+  file: string;
+  args: string[];
+  initialCommand?: string;
+  lineEnding: string;
+}
+
 let sessionSeq = 0;
 
 export class PtyManager {
@@ -68,7 +76,7 @@ export class PtyManager {
     }
 
     const cwd = this.resolveCwd(agent);
-    const { file, args } = this.resolveSpawn(agent);
+    const { file, args, initialCommand, lineEnding } = this.resolveSpawn(agent);
 
     const proc = pty.spawn(file, args, {
       name: 'xterm-256color',
@@ -104,9 +112,13 @@ export class PtyManager {
       this.broadcast(IPC_EVENTS.PtyExit, { sessionId: id, exitCode });
     });
 
+    if (initialCommand) {
+      proc.write(`${initialCommand}${lineEnding}`);
+    }
+
     console.log(
       `[ade] pty:create ${id} agent=${agentId} runtime=${agent.runtime} ` +
-        `file=${file} args=${JSON.stringify(args)} cwd=${cwd}`,
+        `file=${file} args=${JSON.stringify(args)} command=${JSON.stringify(initialCommand ?? '')} cwd=${cwd}`,
     );
     return meta;
   }
@@ -196,21 +208,21 @@ export class PtyManager {
   /**
    * Turn the resolved launch command into a spawnable (file, args).
    * The empty command (shell runtime) spawns the user's interactive shell.
-   * A real command is run *through* the shell so PATH-based CLI shims resolve
-   * on Windows (claude.cmd, codex.cmd, …) and the session ends when it exits.
+   * A real command is written into the shell so PATH-based CLI shims resolve
+   * on Windows (claude.cmd, codex.cmd, …) and the shell stays alive after the
+   * CLI exits.
    */
-  private resolveSpawn(agent: Agent): { file: string; args: string[] } {
+  private resolveSpawn(agent: Agent): SpawnSpec {
     const command = resolveLaunchCommand(agent);
     const isWin = process.platform === 'win32';
     const shell = isWin ? 'powershell.exe' : (process.env['SHELL'] ?? 'bash');
+    const args = isWin ? ['-NoLogo'] : ['-l'];
+    const lineEnding = isWin ? '\r' : '\n';
 
     if (command.trim().length === 0) {
-      return { file: shell, args: [] };
+      return { file: shell, args, lineEnding };
     }
-    if (isWin) {
-      return { file: shell, args: ['-NoLogo', '-Command', command] };
-    }
-    return { file: shell, args: ['-l', '-c', command] };
+    return { file: shell, args, initialCommand: command.trim(), lineEnding };
   }
 
   private broadcast(channel: string, payload: unknown): void {

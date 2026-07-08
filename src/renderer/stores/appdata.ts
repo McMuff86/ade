@@ -15,6 +15,7 @@ import { create } from 'zustand';
 import type {
   Agent,
   AgentCreateInput,
+  AgentUpdateInput,
   Category,
   CategoryCreateInput,
 } from '../../shared/types';
@@ -27,6 +28,7 @@ interface AppDataState {
   load: () => Promise<void>;
   createCategory: (input: CategoryCreateInput) => Promise<Category>;
   createAgent: (input: AgentCreateInput) => Promise<Agent>;
+  updateAgent: (input: AgentUpdateInput) => Promise<Agent>;
   deleteCategory: (id: string) => Promise<void>;
   deleteAgent: (id: string) => Promise<void>;
 }
@@ -63,6 +65,14 @@ export const useAppData = create<AppDataState>((set) => ({
       categories: s.categories.map((c) =>
         c.id === agent.categoryId ? { ...c, agents: [...c.agents, agent.id] } : c,
       ),
+    }));
+    return agent;
+  },
+
+  updateAgent: async (input) => {
+    const agent = await window.ade.invoke('agent:update', input);
+    set((s) => ({
+      agents: { ...s.agents, [agent.id]: agent },
     }));
     return agent;
   },

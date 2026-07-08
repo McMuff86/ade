@@ -13,6 +13,7 @@ import { basename, join } from 'node:path';
 import type {
   Agent,
   AgentCreateInput,
+  AgentUpdateInput,
   Category,
   CategoryCreateInput,
 } from '../shared/types';
@@ -140,6 +141,33 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
     agents: [...config.agents, agent],
   });
   return agent;
+}
+
+export function updateAgent(store: ConfigStore, input: AgentUpdateInput): Agent {
+  const name = input.name.trim();
+  if (!name) throw new Error('ade: agent name is required');
+
+  const config = store.get();
+  const existing = config.agents.find((a) => a.id === input.id);
+  if (!existing) throw new Error(`ade: agent not found "${input.id}"`);
+
+  const updated: Agent = {
+    ...existing,
+    name,
+    role: input.role?.trim() || undefined,
+    runtime: input.runtime,
+    permissionMode: input.permissionMode,
+    customCommand: input.customCommand?.trim() || undefined,
+    ollamaModel:
+      input.runtime === 'ollama' && input.ollamaModel?.trim()
+        ? input.ollamaModel.trim()
+        : undefined,
+  };
+
+  store.save({
+    agents: config.agents.map((a) => (a.id === updated.id ? updated : a)),
+  });
+  return updated;
 }
 
 export function deleteAgent(store: ConfigStore, id: string): void {
