@@ -7,7 +7,7 @@
  * task opens a real pty session for the lead and types the task into it.
  */
 
-import type { RuntimeId } from '../../shared/types';
+import type { Agent, RuntimeId } from '../../shared/types';
 import { useAppData } from '../stores/appdata';
 import { useSessions } from '../stores/sessions';
 import { useSelection } from '../stores/selection';
@@ -120,11 +120,22 @@ export async function dissolveTeam(teamId: string): Promise<void> {
   useGraphStore.getState().select(null);
 }
 
+export interface DispatchOpts {
+  /**
+   * Also fan the task out to each worker as its own real pty session. When
+   * false (default) workers only get the transient hand-off animation.
+   * Each worker session is a PowerShell + a CLI — heavy on Windows — so this
+   * is opt-in from the composer and sessions are spawned sequentially.
+   */
+  toWorkers?: boolean;
+}
+
 /**
  * Dispatch a task to a team: open a real session for the lead with the task
- * typed in, and animate the lead→worker hand-off via transient status.
+ * typed in. Workers either get a real session each (opts.toWorkers) or the
+ * transient lead→worker hand-off animation.
  */
-export async function dispatchTeam(teamId: string, task: string): Promise<void> {
+export async function dispatchTeam(teamId: string, task: string, opts: DispatchOpts = {}): Promise<void> {
   const text = task.trim();
   if (!text) return;
   const app = useAppData.getState();
@@ -133,10 +144,10 @@ export async function dispatchTeam(teamId: string, task: string): Promise<void> 
 
   const category = app.categories.find((c) => c.id === teamId);
   if (!category) return;
-  const members = category.agents.map((id) => app.agents[id]).filter(Boolean);
-  const lead = members.find((a) => a?.teamRole === 'lead') ?? members[0];
+  const members = category.agents.map((id) => app.agents[id]).filter(Boolean) as Agent[];
+  const lead = members.find((a) => a.teamRole === 'lead') ?? members[0];
   if (!lead) return;
-  const workers = members.filter((a) => a && a !== lead);
+  const workers = members.filter((a) => a !== lead);
 
   // Lead: real session with the task.
   graph.setBusy(lead.id, 'working');
@@ -146,13 +157,29 @@ export async function dispatchTeam(teamId: string, task: string): Promise<void> 
     console.error('[ade] dispatch: lead session failed:', err);
   }
 
-  // Workers: simulated hand-off so the report-back flow is visible.
-  workers.forEach((w, i) => {
-    if (!w) return;
-    window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'working'), 250 + i * 180);
-    window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'done'), 1600 + i * 180);
-    window.setTimeout(() => useGraphStore.getState().clearBusy(w.id), 2900 + i * 180);
-  });
+  if (opts.toWorkers) {
+    // Real fan-out: each worker gets its own session with the same task.
+    // Sequential — never spawn N ptys at once (Windows ptys are heavy).
+    for (const w of workers) {
+      graph.setBusy(w.id, 'working');
+      try {
+        await useSessions.getState().createSession(w.id, text);
+        graph.setBusy(w.id, 'done');
+      } catch (err) {
+        console.error('[ade] dispatch: worker session failed:', err);
+        graph.clearBusy(w.id);
+        continue;
+      }
+      window.setTimeout(() => useGraphStore.getState().clearBusy(w.id), 2600);
+    }
+  } else {
+    // Workers: simulated hand-off so the report-back flow is visible.
+    workers.forEach((w, i) => {
+      window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'working'), 250 + i * 180);
+      window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'done'), 1600 + i * 180);
+      window.setTimeout(() => useGraphStore.getState().clearBusy(w.id), 2900 + i * 180);
+    });
+  }
 
   // Lead settles to 'done' then clears (its live session keeps it 'running').
   window.setTimeout(() => useGraphStore.getState().setBusy(lead.id, 'done'), 1900);
@@ -174,12 +201,12 @@ export async function dispatchAgent(agentId: string, task: string): Promise<void
   window.setTimeout(() => useGraphStore.getState().clearBusy(agentId), 3000);
 }
 
-export async function dispatchAll(task: string): Promise<void> {
+export async function dispatchAll(task: string, opts: DispatchOpts = {}): Promise<void> {
   const app = useAppData.getState();
   const graph = useGraphStore.getState();
   const teams = app.categories.filter((c) => c.kind === 'team' && !graph.idleTeams[c.id]);
   for (const t of teams) {
-    await dispatchTeam(t.id, task);
+    await dispatchTeam(t.id, task, opts);
   }
 }
 

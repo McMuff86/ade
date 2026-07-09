@@ -1,5 +1,10 @@
 # Handoff — real worker distribution & agent-to-agent communication
 
+> **Update 2026-07-09:** Feature 1 shipped in its MVP form (same task fanned out
+> to every worker, real sessions, behind a composer toggle + pty-count guard).
+> See `docs/HANDOFF-worker-distribution-mvp.md`. Feature 2 (mailboxes) and the
+> fuller lead-plans-the-split version below are still open and remain accurate.
+
 Status: draft, 2026-07-09. Written after Graph mode was wired into the app
 (see the "Graph mode" implementation: `src/renderer/graph/*`, `stores/mode.ts`,
 `Category.kind` / `Agent.teamRole` in `src/shared/types.ts`, and the

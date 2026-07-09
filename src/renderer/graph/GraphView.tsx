@@ -66,9 +66,14 @@ interface EdgeSpec {
 }
 
 type ComposerTarget =
-  | { kind: 'all' }
-  | { kind: 'team'; id: string; name: string }
+  | { kind: 'all'; workerCount: number }
+  | { kind: 'team'; id: string; name: string; workerCount: number }
   | { kind: 'agent'; id: string; name: string };
+
+/** Workers across all non-idle teams — the fan-out size for a "distribute to workers" dispatch. */
+function activeWorkerCount(model: ReturnType<typeof buildGraph>): number {
+  return model.teams.filter((t) => !t.idle).reduce((n, t) => n + t.workers.length, 0);
+}
 
 export function GraphView(): JSX.Element {
   const categories = useAppData((s) => s.categories);
@@ -462,7 +467,7 @@ export function GraphView(): JSX.Element {
           <Ico>{I.plus}</Ico>Team spawnen
         </button>
         <div className="sep" />
-        <button className="gdbtn" onClick={() => setComposer({ kind: 'all' })}><Ico>{I.arrow}</Ico>Runde verteilen</button>
+        <button className="gdbtn" onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(model) })}><Ico>{I.arrow}</Ico>Runde verteilen</button>
         <button className="gdbtn" onClick={() => model.teams.forEach((t) => setTeamIdle(t.category.id, true))}><Ico>{I.pause}</Ico>Alle idle</button>
         <button className="gdbtn" onClick={() => model.teams.forEach((t) => setTeamIdle(t.category.id, false))}><Ico>{I.play}</Ico>Alle aktiv</button>
       </div>
@@ -473,15 +478,17 @@ export function GraphView(): JSX.Element {
         <Composer
           target={composer}
           onCancel={() => setComposer(null)}
-          onSend={async (text) => {
+          onSend={async (text, opts) => {
             const t = composer;
             setComposer(null);
             if (t.kind === 'all') {
-              await dispatchAll(text);
-              flash('Task an alle Teams verteilt');
+              const n = opts.toWorkers ? t.workerCount : 0;
+              await dispatchAll(text, opts);
+              flash(n ? `Task an alle Teams + ${n} Worker verteilt` : 'Task an alle Teams verteilt');
             } else if (t.kind === 'team') {
-              await dispatchTeam(t.id, text);
-              flash(`Task an „${t.name}" verteilt`);
+              const n = opts.toWorkers ? t.workerCount : 0;
+              await dispatchTeam(t.id, text, opts);
+              flash(n ? `Task an „${t.name}" + ${n} Worker verteilt` : `Task an „${t.name}" verteilt`);
             } else {
               await dispatchAgent(t.id, text);
               flash(`Task an ${t.name} gesendet`);
@@ -529,7 +536,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         <div className="ginsp-actions">
           <RuntimePicker value={props.spawnRuntime} onChange={props.setSpawnRuntime} />
           <button className="gact primary" onClick={props.onSpawn}><Ico>{I.plus}</Ico>Neues Team spawnen</button>
-          <button className="gact" onClick={() => props.onCompose({ kind: 'all' })}><Ico>{I.arrow}</Ico>Task an alle Teams</button>
+          <button className="gact" onClick={() => props.onCompose({ kind: 'all', workerCount: activeWorkerCount(model) })}><Ico>{I.arrow}</Ico>Task an alle Teams</button>
           <button className="gact" onClick={props.onIdleAll}><Ico>{I.pause}</Ico>Alle Teams idle</button>
           {a && <button className="gact" onClick={() => void openTerminal(a.id)}><Ico>{I.term}</Ico>Terminal öffnen</button>}
         </div>
@@ -552,7 +559,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <KV k="Lead-Memory" v="MEMORY.md · USER.md" />
         </div>
         <div className="ginsp-actions">
-          <button className="gact primary" onClick={() => props.onCompose({ kind: 'team', id: t.category.id, name: t.category.name })}><Ico>{I.arrow}</Ico>Task ans Team verteilen</button>
+          <button className="gact primary" onClick={() => props.onCompose({ kind: 'team', id: t.category.id, name: t.category.name, workerCount: t.workers.length })}><Ico>{I.arrow}</Ico>Task ans Team verteilen</button>
           {t.lead && <button className="gact" onClick={() => void openTerminal(t.lead!.id)}><Ico>{I.term}</Ico>Leader-Terminal öffnen</button>}
           <button className="gact" onClick={() => void addWorker(t.category.id)}><Ico>{I.plus}</Ico>Worker hinzufügen</button>
           <button className="gact" onClick={() => props.setTeamIdle(t.category.id, !t.idle)}><Ico>{t.idle ? I.play : I.pause}</Ico>{t.idle ? 'Team reaktivieren' : 'Team idle schalten'}</button>
@@ -623,14 +630,25 @@ function RuntimePicker({ value, onChange }: { value: RuntimeId; onChange: (r: Ru
 }
 
 /* ========================================================= composer ==== */
-function Composer(props: { target: ComposerTarget; onCancel: () => void; onSend: (text: string) => void }): JSX.Element {
+function Composer(props: {
+  target: ComposerTarget;
+  onCancel: () => void;
+  onSend: (text: string, opts: { toWorkers: boolean }) => void;
+}): JSX.Element {
   const [text, setText] = useState('');
+  const [toWorkers, setToWorkers] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     ref.current?.focus();
   }, []);
-  const label =
-    props.target.kind === 'all' ? 'alle Teams' : props.target.kind === 'team' ? `team · ${props.target.name}` : props.target.name;
+  const t = props.target;
+  const label = t.kind === 'all' ? 'alle Teams' : t.kind === 'team' ? `team · ${t.name}` : t.name;
+  const canDistribute = t.kind !== 'agent';
+  const workerCount = t.kind === 'agent' ? 0 : t.workerCount;
+  const distribute = canDistribute && toWorkers && workerCount > 0;
+  const submit = (): void => {
+    if (text.trim()) props.onSend(text, { toWorkers: distribute });
+  };
   return (
     <div className="gcomposer-back" onPointerDown={props.onCancel}>
       <div className="gcomposer" onPointerDown={(e) => e.stopPropagation()}>
@@ -643,14 +661,33 @@ function Composer(props: { target: ComposerTarget; onCancel: () => void; onSend:
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              if (text.trim()) props.onSend(text);
+              submit();
             }
             if (e.key === 'Escape') props.onCancel();
           }}
         />
+        {canDistribute && (
+          <label className="gcomposer-dist">
+            <input
+              type="checkbox"
+              checked={distribute}
+              disabled={workerCount === 0}
+              onChange={(e) => setToWorkers(e.target.checked)}
+            />
+            <span>
+              auch an Worker verteilen
+              {workerCount === 0 ? ' (keine Worker)' : ` — ${workerCount} eigene Session${workerCount === 1 ? '' : 's'}`}
+            </span>
+          </label>
+        )}
+        {distribute && (
+          <div className="gcomposer-warn">
+            ⚠ startet {workerCount} zusätzliche Terminal-Session{workerCount === 1 ? '' : 's'} (je PowerShell + CLI)
+          </div>
+        )}
         <div className="gcomposer-foot">
           <button className="gact" style={{ width: 'auto' }} onClick={props.onCancel}>Abbrechen</button>
-          <button className="gact primary" style={{ width: 'auto' }} onClick={() => text.trim() && props.onSend(text)}>Senden</button>
+          <button className="gact primary" style={{ width: 'auto' }} onClick={submit}>Senden</button>
         </div>
       </div>
     </div>

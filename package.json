@@ -10,7 +10,15 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test:memory": "tsx scripts/test-memory.ts",
+    "test:dispatch": "tsx scripts/test-worker-dispatch.ts",
     "rebuild:pty": "electron-rebuild -f -w node-pty"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "node-pty"
+    ]
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
