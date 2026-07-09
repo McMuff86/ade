@@ -69,6 +69,12 @@ export interface PhotoImportResult {
 
 export interface PtyCreateRequest {
   agentId: string;
+  /**
+   * Optional text typed into the session shortly after the CLI launches
+   * (Graph-mode task dispatch). Sent once, followed by Enter, after a short
+   * delay so the agent CLI prompt is ready to receive it.
+   */
+  initialInput?: string;
 }
 export interface PtyWriteRequest {
   sessionId: string;

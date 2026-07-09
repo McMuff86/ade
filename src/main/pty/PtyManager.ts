@@ -61,7 +61,7 @@ export class PtyManager {
    * shared/runtimes.ts), spawns it in the agent's workspaceDir, and starts
    * streaming output to the renderer. Throws if the agent is unknown.
    */
-  create(agentId: string): SessionMeta {
+  create(agentId: string, initialInput?: string): SessionMeta {
     const agent = this.store.get().agents.find((a) => a.id === agentId);
     if (!agent) {
       throw new Error(`pty:create — unknown agent "${agentId}"`);
@@ -114,6 +114,22 @@ export class PtyManager {
 
     if (initialCommand) {
       proc.write(`${initialCommand}${lineEnding}`);
+    }
+
+    // Graph-mode task dispatch: type the task into the session once the CLI has
+    // had time to boot its prompt. Fail-soft — a dead session just drops it.
+    if (initialInput && initialInput.trim().length > 0) {
+      const text = initialInput.trim();
+      const delay = initialCommand ? 2500 : 400;
+      setTimeout(() => {
+        const live = this.sessions.get(id);
+        if (!live || live.meta.status === 'exited') return;
+        try {
+          live.proc.write(`${text}${lineEnding}`);
+        } catch (err) {
+          console.warn(`[ade] pty initialInput write failed for ${id}:`, err);
+        }
+      }, delay);
     }
 
     console.log(

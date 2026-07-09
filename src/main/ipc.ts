@@ -67,7 +67,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* --------------------------------------------------- pty (Phase B1) */
 
   // Spawn the agent's CLI per its launch profile (shared/runtimes.ts)
-  handle(IPC.PtyCreate, ({ agentId }) => ptyManager!.create(agentId));
+  handle(IPC.PtyCreate, ({ agentId, initialInput }) => ptyManager!.create(agentId, initialInput));
 
   // Forward keystrokes to the session's pty
   handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {

@@ -53,6 +53,7 @@ export function createCategory(store: ConfigStore, input: CategoryCreateInput): 
     photo: input.photo,
     repoPath: input.repoPath,
     agents: [],
+    kind: input.kind,
   };
   store.save({ categories: [...config.categories, category] });
   return category;
@@ -132,6 +133,7 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
     ollamaModel: input.ollamaModel,
     workspaceDir,
     memoryDir,
+    teamRole: input.teamRole,
   };
 
   store.save({

@@ -16,6 +16,14 @@ export type RuntimeId =
   | 'shell'
   | 'custom';
 
+/**
+ * Orchestration role of a category in Graph mode.
+ * - undefined / 'plain': an ordinary rail category (unchanged behaviour).
+ * - 'orchestrator': the single container holding the orchestrator agent.
+ * - 'team': a team; its agents carry teamRole 'lead' | 'worker'.
+ */
+export type CategoryKind = 'plain' | 'orchestrator' | 'team';
+
 export interface Category {
   id: string;
   name: string;
@@ -25,7 +33,12 @@ export interface Category {
   repoPath?: string;
   /** agent ids, in rail order */
   agents: string[];
+  /** Graph-mode role; absent = plain category. */
+  kind?: CategoryKind;
 }
+
+/** Orchestration role of an agent inside the Graph. */
+export type TeamRole = 'orchestrator' | 'lead' | 'worker';
 
 export interface Agent {
   id: string;
@@ -44,6 +57,8 @@ export interface Agent {
   workspaceDir: string;
   /** absolute path of the agent memory directory (MEMORY.md / USER.md) */
   memoryDir: string;
+  /** Graph-mode role; absent = a plain agent (not part of the orchestration). */
+  teamRole?: TeamRole;
 }
 
 export interface SessionMeta {
@@ -148,6 +163,7 @@ export interface CategoryCreateInput {
   name: string;
   photo?: string;
   repoPath?: string;
+  kind?: CategoryKind;
 }
 
 export interface AgentCreateInput {
@@ -159,6 +175,7 @@ export interface AgentCreateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  teamRole?: TeamRole;
 }
 
 export interface AgentUpdateInput {

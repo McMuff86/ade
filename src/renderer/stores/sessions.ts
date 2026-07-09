@@ -25,7 +25,7 @@ interface SessionsState {
   orderByAgent: Record<string, string[]>;
   activeByAgent: Record<string, string | null>;
 
-  createSession: (agentId: string) => Promise<void>;
+  createSession: (agentId: string, initialInput?: string) => Promise<void>;
   closeSession: (sessionId: string) => Promise<void>;
   setActive: (agentId: string, sessionId: string) => void;
 
@@ -38,8 +38,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
   orderByAgent: {},
   activeByAgent: {},
 
-  createSession: async (agentId) => {
-    const meta = await window.ade.invoke('pty:create', { agentId });
+  createSession: async (agentId, initialInput) => {
+    const meta = await window.ade.invoke('pty:create', { agentId, initialInput });
     set((state) => ({
       sessions: { ...state.sessions, [meta.id]: meta },
       orderByAgent: {
