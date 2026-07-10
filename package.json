@@ -9,8 +9,10 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "pnpm run test:memory && pnpm run test:dispatch && pnpm run test:runtime",
     "test:memory": "tsx scripts/test-memory.ts",
     "test:dispatch": "tsx scripts/test-worker-dispatch.ts",
+    "test:runtime": "tsx scripts/test-runtime-reliability.ts",
     "rebuild:pty": "electron-rebuild -f -w node-pty"
   },
   "pnpm": {

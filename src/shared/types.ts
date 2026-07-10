@@ -61,12 +61,24 @@ export interface Agent {
   teamRole?: TeamRole;
 }
 
+export type SessionKind = 'interactive' | 'task';
+
 export interface SessionMeta {
   id: string;
   agentId: string;
   title: string;
+  kind: SessionKind;
   status: 'running' | 'exited';
   createdAt: number;
+  endedAt?: number;
+  exitCode?: number;
+  dispatchId?: string;
+}
+
+export interface TaskQueueStatus {
+  active: number;
+  queued: number;
+  maxActive: number;
 }
 
 /* ---------------------------------------------------------------- settings */

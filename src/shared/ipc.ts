@@ -16,6 +16,7 @@ import type {
   FsTreeNode,
   GitStatus,
   SessionMeta,
+  TaskQueueStatus,
 } from './types';
 
 /* --------------------------------------------------------------- channels */
@@ -35,6 +36,8 @@ export const IPC = {
   PtyResize: 'pty:resize',
   PtyKill: 'pty:kill',
   PtyAttach: 'pty:attach',
+  PtyList: 'pty:list',
+  PtyCancelTasks: 'pty:cancelTasks',
   GitStatus: 'git:status',
   GitDiff: 'git:diff',
   FsTree: 'fs:tree',
@@ -47,6 +50,8 @@ export const IPC = {
 export const IPC_EVENTS = {
   PtyData: 'pty:data',
   PtyExit: 'pty:exit',
+  PtyRemoved: 'pty:removed',
+  PtyTaskQueue: 'pty:taskQueue',
   GitChanged: 'git:changed',
 } as const;
 
@@ -70,11 +75,12 @@ export interface PhotoImportResult {
 export interface PtyCreateRequest {
   agentId: string;
   /**
-   * Optional text typed into the session shortly after the CLI launches
-   * (Graph-mode task dispatch). Sent once, followed by Enter, after a short
-   * delay so the agent CLI prompt is ready to receive it.
+   * Optional Graph-mode task. When present, main launches a bounded one-shot
+   * task session through the runtime's non-interactive transport.
    */
-  initialInput?: string;
+  task?: string;
+  /** Groups all sessions created by one team dispatch for cancellation. */
+  dispatchId?: string;
 }
 export interface PtyWriteRequest {
   sessionId: string;
@@ -94,6 +100,20 @@ export interface PtyAttachRequest {
 export interface PtyAttachResult {
   /** ring-buffer replay of raw output since spawn (base64) */
   replayBase64: string;
+  /** Last output sequence included in replayBase64. */
+  sequence: number;
+}
+export interface PtyListResult {
+  sessions: SessionMeta[];
+  taskQueue: TaskQueueStatus;
+}
+export interface PtyCancelTasksRequest {
+  /** Omit to cancel every active and queued task session. */
+  agentIds?: string[];
+}
+export interface PtyCancelTasksResult {
+  activeCancelled: number;
+  queuedCancelled: number;
 }
 
 export interface GitStatusRequest {
@@ -134,10 +154,15 @@ export interface DialogPickFolderResult {
 export interface PtyDataEvent {
   sessionId: string;
   dataBase64: string;
+  sequence: number;
 }
 export interface PtyExitEvent {
   sessionId: string;
   exitCode: number;
+  reason: 'exit' | 'cancelled';
+}
+export interface PtyRemovedEvent {
+  sessionId: string;
 }
 export interface GitChangedEvent {
   agentId: string;
@@ -163,6 +188,8 @@ export interface IpcInvokeMap {
   'pty:resize': { req: PtyResizeRequest; res: void };
   'pty:kill': { req: PtyKillRequest; res: void };
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
+  'pty:list': { req: void; res: PtyListResult };
+  'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'git:status': { req: GitStatusRequest; res: GitStatus };
   'git:diff': { req: GitDiffRequest; res: string };
   'fs:tree': { req: FsTreeRequest; res: FsTreeNode };
@@ -175,6 +202,8 @@ export interface IpcInvokeMap {
 export interface IpcEventMap {
   'pty:data': PtyDataEvent;
   'pty:exit': PtyExitEvent;
+  'pty:removed': PtyRemovedEvent;
+  'pty:taskQueue': TaskQueueStatus;
   'git:changed': GitChangedEvent;
 }
 

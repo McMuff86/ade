@@ -96,19 +96,37 @@ export function TerminalPane({
     });
 
     let disposed = false;
-    let unsubscribeData: (() => void) | null = null;
+    let attached = false;
+    let lastSequence = 0;
+    const pendingLive: Array<{ sequence: number; data: Uint8Array }> = [];
 
-    // Replay the ring buffer first, then attach to the live stream so
-    // scrollback is redrawn before new output lands.
+    // Subscribe before taking the replay snapshot. Sequence numbers let us
+    // discard chunks already included in the snapshot without losing chunks
+    // emitted between the attach invoke and its renderer-side resolution.
+    const unsubscribeData = window.ade.on('pty:data', (payload) => {
+      if (payload.sessionId !== sessionId) return;
+      const data = base64ToBytes(payload.dataBase64);
+      if (!attached) {
+        pendingLive.push({ sequence: payload.sequence, data });
+      } else if (payload.sequence > lastSequence) {
+        lastSequence = payload.sequence;
+        coalescer.push(data);
+      }
+    });
+
     void window.ade
       .invoke('pty:attach', { sessionId })
-      .then(({ replayBase64 }) => {
+      .then(({ replayBase64, sequence }) => {
         if (disposed) return;
         if (replayBase64.length > 0) term.write(base64ToBytes(replayBase64));
-        unsubscribeData = window.ade.on('pty:data', (payload) => {
-          if (payload.sessionId !== sessionId) return;
-          coalescer.push(base64ToBytes(payload.dataBase64));
-        });
+        lastSequence = sequence;
+        attached = true;
+        for (const item of pendingLive) {
+          if (item.sequence <= lastSequence) continue;
+          lastSequence = item.sequence;
+          coalescer.push(item.data);
+        }
+        pendingLive.length = 0;
       })
       .catch((err) => console.error('[ade] pty:attach failed:', err));
 
@@ -138,7 +156,7 @@ export function TerminalPane({
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       observer.disconnect();
       keyDisp.dispose();
-      unsubscribeData?.();
+      unsubscribeData();
       coalescer.dispose();
       term.dispose();
       termRef.current = null;

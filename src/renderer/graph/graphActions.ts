@@ -123,11 +123,22 @@ export async function dissolveTeam(teamId: string): Promise<void> {
 export interface DispatchOpts {
   /**
    * Also fan the task out to each worker as its own real pty session. When
-   * false (default) workers only get the transient hand-off animation.
+   * false (default), only the lead receives work.
    * Each worker session is a PowerShell + a CLI — heavy on Windows — so this
    * is opt-in from the composer and sessions are spawned sequentially.
    */
   toWorkers?: boolean;
+  /** Internal grouping key used to cancel a partially queued team dispatch. */
+  dispatchId?: string;
+}
+
+export interface DispatchResult {
+  started: number;
+  failed: number;
+}
+
+function newDispatchId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 /**
@@ -135,26 +146,35 @@ export interface DispatchOpts {
  * typed in. Workers either get a real session each (opts.toWorkers) or the
  * transient lead→worker hand-off animation.
  */
-export async function dispatchTeam(teamId: string, task: string, opts: DispatchOpts = {}): Promise<void> {
+export async function dispatchTeam(
+  teamId: string,
+  task: string,
+  opts: DispatchOpts = {},
+): Promise<DispatchResult> {
   const text = task.trim();
-  if (!text) return;
+  if (!text) return { started: 0, failed: 0 };
   const app = useAppData.getState();
   const graph = useGraphStore.getState();
-  if (graph.idleTeams[teamId]) return;
+  if (graph.idleTeams[teamId]) return { started: 0, failed: 0 };
 
   const category = app.categories.find((c) => c.id === teamId);
-  if (!category) return;
+  if (!category) return { started: 0, failed: 0 };
   const members = category.agents.map((id) => app.agents[id]).filter(Boolean) as Agent[];
   const lead = members.find((a) => a.teamRole === 'lead') ?? members[0];
-  if (!lead) return;
+  if (!lead) return { started: 0, failed: 0 };
   const workers = members.filter((a) => a !== lead);
+  const dispatchId = opts.dispatchId ?? newDispatchId();
+  const result: DispatchResult = { started: 0, failed: 0 };
 
   // Lead: real session with the task.
   graph.setBusy(lead.id, 'working');
   try {
-    await useSessions.getState().createSession(lead.id, text);
+    await useSessions.getState().createSession(lead.id, text, dispatchId);
+    result.started += 1;
   } catch (err) {
     console.error('[ade] dispatch: lead session failed:', err);
+    graph.clearBusy(lead.id);
+    result.failed += 1;
   }
 
   if (opts.toWorkers) {
@@ -163,51 +183,58 @@ export async function dispatchTeam(teamId: string, task: string, opts: DispatchO
     for (const w of workers) {
       graph.setBusy(w.id, 'working');
       try {
-        await useSessions.getState().createSession(w.id, text);
-        graph.setBusy(w.id, 'done');
+        await useSessions.getState().createSession(w.id, text, dispatchId);
+        result.started += 1;
       } catch (err) {
         console.error('[ade] dispatch: worker session failed:', err);
         graph.clearBusy(w.id);
-        continue;
+        result.failed += 1;
       }
-      window.setTimeout(() => useGraphStore.getState().clearBusy(w.id), 2600);
     }
-  } else {
-    // Workers: simulated hand-off so the report-back flow is visible.
-    workers.forEach((w, i) => {
-      window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'working'), 250 + i * 180);
-      window.setTimeout(() => useGraphStore.getState().setBusy(w.id, 'done'), 1600 + i * 180);
-      window.setTimeout(() => useGraphStore.getState().clearBusy(w.id), 2900 + i * 180);
-    });
   }
-
-  // Lead settles to 'done' then clears (its live session keeps it 'running').
-  window.setTimeout(() => useGraphStore.getState().setBusy(lead.id, 'done'), 1900);
-  window.setTimeout(() => useGraphStore.getState().clearBusy(lead.id), 3200);
+  return result;
 }
 
 /** Dispatch a task to a single agent (worker): real session + transient status. */
-export async function dispatchAgent(agentId: string, task: string): Promise<void> {
+export async function dispatchAgent(agentId: string, task: string): Promise<DispatchResult> {
   const text = task.trim();
-  if (!text) return;
+  if (!text) return { started: 0, failed: 0 };
   const graph = useGraphStore.getState();
   graph.setBusy(agentId, 'working');
   try {
-    await useSessions.getState().createSession(agentId, text);
+    await useSessions.getState().createSession(agentId, text, newDispatchId());
+    return { started: 1, failed: 0 };
   } catch (err) {
     console.error('[ade] dispatchAgent failed:', err);
+    graph.clearBusy(agentId);
+    return { started: 0, failed: 1 };
   }
-  window.setTimeout(() => useGraphStore.getState().setBusy(agentId, 'done'), 1700);
-  window.setTimeout(() => useGraphStore.getState().clearBusy(agentId), 3000);
 }
 
-export async function dispatchAll(task: string, opts: DispatchOpts = {}): Promise<void> {
+export async function dispatchAll(task: string, opts: DispatchOpts = {}): Promise<DispatchResult> {
   const app = useAppData.getState();
   const graph = useGraphStore.getState();
   const teams = app.categories.filter((c) => c.kind === 'team' && !graph.idleTeams[c.id]);
+  const result: DispatchResult = { started: 0, failed: 0 };
   for (const t of teams) {
-    await dispatchTeam(t.id, task, opts);
+    const teamResult = await dispatchTeam(t.id, task, { ...opts, dispatchId: newDispatchId() });
+    result.started += teamResult.started;
+    result.failed += teamResult.failed;
   }
+  return result;
+}
+
+export async function cancelTeamTasks(teamId: string): Promise<void> {
+  const app = useAppData.getState();
+  const team = app.categories.find((category) => category.id === teamId);
+  if (!team) return;
+  await useSessions.getState().cancelTasks(team.agents);
+  for (const agentId of team.agents) useGraphStore.getState().clearBusy(agentId);
+}
+
+export async function cancelAllTasks(): Promise<void> {
+  await useSessions.getState().cancelTasks();
+  useGraphStore.setState({ busy: {} });
 }
 
 /** Jump to a node's live terminal (Terminals mode), spawning one if needed. */
@@ -223,4 +250,18 @@ export async function openTerminal(agentId: string): Promise<void> {
   }
   useSelection.getState().setSelectedAgent(agentId);
   useMode.getState().setMode('terminals');
+}
+
+// A task is done only when its one-shot CLI process exits successfully.
+if (typeof window !== 'undefined' && window.ade) {
+  window.ade.on('pty:exit', ({ sessionId, exitCode, reason }) => {
+    const meta = useSessions.getState().sessions[sessionId];
+    if (!meta || meta.kind !== 'task') return;
+    if (reason === 'cancelled' || exitCode !== 0) {
+      useGraphStore.getState().clearBusy(meta.agentId);
+      return;
+    }
+    useGraphStore.getState().setBusy(meta.agentId, 'done');
+    window.setTimeout(() => useGraphStore.getState().clearBusy(meta.agentId), 2600);
+  });
 }

@@ -28,7 +28,11 @@ export interface GraphModel {
 }
 
 interface SessionsSlice {
-  sessions: Record<string, { status: 'running' | 'exited' }>;
+  sessions: Record<string, {
+    kind: 'interactive' | 'task';
+    status: 'running' | 'exited';
+    exitCode?: number;
+  }>;
   orderByAgent: Record<string, string[]>;
 }
 
@@ -44,7 +48,20 @@ export function statusFor(
   if (opts.idle) return 'idle';
   const transient = opts.busy[agentId];
   if (transient) return transient;
-  return hasRunningSession(agentId, opts.sessions) ? 'running' : 'idle';
+  const ids = opts.sessions.orderByAgent[agentId] ?? [];
+  if (ids.some((id) => {
+    const session = opts.sessions.sessions[id];
+    return session?.kind === 'task' && session.status === 'running';
+  })) return 'working';
+  if (ids.some((id) => {
+    const session = opts.sessions.sessions[id];
+    return session?.kind === 'interactive' && session.status === 'running';
+  })) return 'running';
+  const latestTask = [...ids].reverse()
+    .map((id) => opts.sessions.sessions[id])
+    .find((session) => session?.kind === 'task');
+  if (latestTask?.status === 'exited' && latestTask.exitCode === 0) return 'done';
+  return 'idle';
 }
 
 function rollup(members: NodeStatus[]): NodeStatus {

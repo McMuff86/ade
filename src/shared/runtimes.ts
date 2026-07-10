@@ -17,6 +17,11 @@ export interface LaunchProfile {
   commands: Record<PermissionMode, string | null>;
 }
 
+export interface TaskLaunchCommand {
+  command: string;
+  transport: 'argument' | 'stdin';
+}
+
 export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
   claude: {
     label: 'Claude Code',
@@ -104,4 +109,51 @@ export function resolveLaunchCommand(
   const profile = LAUNCH_PROFILES[agent.runtime];
   const command = profile.commands[agent.permissionMode] ?? profile.commands['default'] ?? '';
   return command.replace('${model}', agent.ollamaModel ?? '');
+}
+
+/**
+ * Build a one-shot command for Graph task sessions. The task itself lives in
+ * ADE_TASK_PROMPT, so arbitrary user text never has to be shell-escaped into
+ * the command line. Supported CLIs receive their documented non-interactive
+ * form; generic/custom CLIs receive the prompt over stdin.
+ */
+export function resolveTaskLaunchCommand(
+  agent: Pick<Agent, 'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel'>,
+  platform: 'win32' | 'posix',
+): TaskLaunchCommand | null {
+  const base = resolveLaunchCommand(agent).trim();
+  if (!base || agent.runtime === 'shell') return null;
+
+  const prompt = platform === 'win32' ? '"$env:ADE_TASK_PROMPT"' : '"$ADE_TASK_PROMPT"';
+  if (agent.customCommand) {
+    const pipe = platform === 'win32'
+      ? `$env:ADE_TASK_PROMPT | ${base}`
+      : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base}`;
+    return { command: pipe, transport: 'stdin' };
+  }
+
+  switch (agent.runtime) {
+    case 'claude':
+      return { command: `${base} -p -- ${prompt}`, transport: 'argument' };
+    case 'codex':
+      return {
+        command: `${base} exec --skip-git-repo-check -- ${prompt}`,
+        transport: 'argument',
+      };
+    case 'opencode':
+      return { command: `${base} run ${prompt}`, transport: 'argument' };
+    case 'gemini':
+      return { command: `${base} -p ${prompt}`, transport: 'argument' };
+    case 'ollama':
+      return { command: `${base} ${prompt}`, transport: 'argument' };
+    case 'grok': {
+      const pipe = platform === 'win32'
+        ? `$env:ADE_TASK_PROMPT | ${base}`
+        : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base}`;
+      return { command: pipe, transport: 'stdin' };
+    }
+    case 'custom':
+    default:
+      return null;
+  }
 }

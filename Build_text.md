@@ -1,3 +1,7 @@
+> Historical build brief from 2026-07-07. It explains the original product
+> intent but is not the current implementation contract. Use `docs/SPEC.md`,
+> `docs/STATUS.md`, and `docs/ROADMAP.md` for current decisions.
+
 I’m building my own ADE — an agentic development environment — for how I work. I run agents for everything: writing, content, and coding. I want one app where all of them live. This is a fresh repo; my hand-drawn mockup is at `mock/PENUP_20260707_214207.png` — use it as the layout reference.
 
 Start from the Superset codebase (`github.com/superset-sh/superset`) — it’s the closest to this. Pull the memory system from Hermes (`github.com/NousResearch/hermes-agent`). I like how Conductor (conductor.build) does its tabs, but it’s not open source — so I’m giving you screenshots of it. -> In `mock/Screenshot1 + Screenshot2` Match the tab layout and feel from those. -> But not too much in "Mac" Style with the colored dots.

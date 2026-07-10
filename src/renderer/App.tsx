@@ -16,6 +16,7 @@ import { FirstRun } from './onboarding/FirstRun';
 import { RightPanel } from './rightpanel/RightPanel';
 import { useMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
+import { useSessions } from './stores/sessions';
 import './graph/mode-switch.css';
 
 export function App() {
@@ -26,11 +27,13 @@ export function App() {
 
   // Phase B2: load persisted categories/agents once at app start.
   const loadAppData = useAppData((s) => s.load);
+  const hydrateSessions = useSessions((s) => s.hydrate);
   const appLoaded = useAppData((s) => s.loaded);
   const categoryCount = useAppData((s) => s.categories.length);
   useEffect(() => {
     void loadAppData();
-  }, [loadAppData]);
+    void hydrateSessions();
+  }, [loadAppData, hydrateSessions]);
   const firstRun = appLoaded && categoryCount === 0;
 
   const rightPanelRef = useRef<ImperativePanelHandle>(null);

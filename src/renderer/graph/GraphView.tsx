@@ -17,6 +17,8 @@ import { buildGraph, statusFor, type NodeStatus, type TeamModel } from './graphM
 import { runtimeVisual, TEAM_RUNTIME_ORDER } from './runtimeGlyphs';
 import {
   addWorker,
+  cancelAllTasks,
+  cancelTeamTasks,
   dispatchAgent,
   dispatchAll,
   dispatchTeam,
@@ -49,6 +51,7 @@ const I = {
   ),
   play: <path d="M8 6l10 6-10 6z" />,
   trash: <path d="M6 7h12M9 7V5h6v2M10 11v6M14 11v6M5 7l1 13h12l1-13" />,
+  stop: <rect x="7" y="7" width="10" height="10" rx="1" />,
   term: <path d="M5 8l4 4-4 4M12 16h6" />,
 };
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
@@ -80,6 +83,7 @@ export function GraphView(): JSX.Element {
   const agents = useAppData((s) => s.agents);
   const sessions = useSessions((s) => s.sessions);
   const orderByAgent = useSessions((s) => s.orderByAgent);
+  const taskQueue = useSessions((s) => s.taskQueue);
   const busy = useGraphStore((s) => s.busy);
   const idleTeams = useGraphStore((s) => s.idleTeams);
   const positions = useGraphStore((s) => s.positions);
@@ -344,7 +348,8 @@ export function GraphView(): JSX.Element {
   return (
     <div className="graph">
       <div className="ghint">
-        <b>Drag</b> Kacheln &amp; Hintergrund · <b>Scroll</b> Zoom · <b>Klick</b> wählt · <b>Doppelklick</b> öffnet Terminal
+        <span><b>Drag</b> Kacheln &amp; Hintergrund · <b>Scroll</b> Zoom · <b>Klick</b> wählt · <b>Doppelklick</b> öffnet Terminal</span>
+        <span className="gqueue"><b>{taskQueue.active}</b> aktiv · <b>{taskQueue.queued}</b> wartend · max. {taskQueue.maxActive}</span>
       </div>
 
       <div
@@ -470,6 +475,11 @@ export function GraphView(): JSX.Element {
         <button className="gdbtn" onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(model) })}><Ico>{I.arrow}</Ico>Runde verteilen</button>
         <button className="gdbtn" onClick={() => model.teams.forEach((t) => setTeamIdle(t.category.id, true))}><Ico>{I.pause}</Ico>Alle idle</button>
         <button className="gdbtn" onClick={() => model.teams.forEach((t) => setTeamIdle(t.category.id, false))}><Ico>{I.play}</Ico>Alle aktiv</button>
+        {taskQueue.active + taskQueue.queued > 0 && (
+          <button className="gdbtn danger" onClick={() => void cancelAllTasks().then(() => flash('Alle Tasks gestoppt'))}>
+            <Ico>{I.stop}</Ico>Tasks stoppen
+          </button>
+        )}
       </div>
 
       {toast && <div className="gtoast">{toast}</div>}
@@ -483,15 +493,19 @@ export function GraphView(): JSX.Element {
             setComposer(null);
             if (t.kind === 'all') {
               const n = opts.toWorkers ? t.workerCount : 0;
-              await dispatchAll(text, opts);
-              flash(n ? `Task an alle Teams + ${n} Worker verteilt` : 'Task an alle Teams verteilt');
+              const result = await dispatchAll(text, opts);
+              flash(result.failed
+                ? `${result.started} Task-Sessions gestartet, ${result.failed} fehlgeschlagen`
+                : (n ? `Task an alle Teams + ${n} Worker verteilt` : 'Task an alle Teams verteilt'));
             } else if (t.kind === 'team') {
               const n = opts.toWorkers ? t.workerCount : 0;
-              await dispatchTeam(t.id, text, opts);
-              flash(n ? `Task an „${t.name}" + ${n} Worker verteilt` : `Task an „${t.name}" verteilt`);
+              const result = await dispatchTeam(t.id, text, opts);
+              flash(result.failed
+                ? `${result.started} Task-Sessions gestartet, ${result.failed} fehlgeschlagen`
+                : (n ? `Task an „${t.name}" + ${n} Worker verteilt` : `Task an „${t.name}" verteilt`));
             } else {
-              await dispatchAgent(t.id, text);
-              flash(`Task an ${t.name} gesendet`);
+              const result = await dispatchAgent(t.id, text);
+              flash(result.failed ? `Task an ${t.name} fehlgeschlagen` : `Task an ${t.name} gesendet`);
             }
           }}
         />
@@ -563,6 +577,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           {t.lead && <button className="gact" onClick={() => void openTerminal(t.lead!.id)}><Ico>{I.term}</Ico>Leader-Terminal öffnen</button>}
           <button className="gact" onClick={() => void addWorker(t.category.id)}><Ico>{I.plus}</Ico>Worker hinzufügen</button>
           <button className="gact" onClick={() => props.setTeamIdle(t.category.id, !t.idle)}><Ico>{t.idle ? I.play : I.pause}</Ico>{t.idle ? 'Team reaktivieren' : 'Team idle schalten'}</button>
+          <button className="gact" onClick={() => void cancelTeamTasks(t.category.id).then(() => props.flash('Team-Tasks gestoppt'))}><Ico>{I.stop}</Ico>Team-Tasks stoppen</button>
           <button className="gact danger" onClick={() => void dissolveTeam(t.category.id)}><Ico>{I.trash}</Ico>Team auflösen</button>
         </div>
       </aside>
@@ -682,7 +697,7 @@ function Composer(props: {
         )}
         {distribute && (
           <div className="gcomposer-warn">
-            ⚠ startet {workerCount} zusätzliche Terminal-Session{workerCount === 1 ? '' : 's'} (je PowerShell + CLI)
+            Startet {workerCount} zusätzliche Task-Session{workerCount === 1 ? '' : 's'}; maximal vier laufen gleichzeitig.
           </div>
         )}
         <div className="gcomposer-foot">

@@ -1,5 +1,9 @@
 # Handoff — MVP worker distribution (shipped) → next steps
 
+> **Historical record:** the fixed-delay `initialInput` implementation described
+> here was replaced on 2026-07-10 by bounded one-shot task sessions. Current
+> behavior and sequencing live in `STATUS.md` and `ROADMAP.md`.
+
 Status: 2026-07-09. Follows `docs/HANDOFF-graph-worker-distribution.md`, which
 laid out the two simulated pieces (worker distribution + agent-to-agent comms).
 **Feature 1 (worker distribution) is now real in its minimal-viable form.**

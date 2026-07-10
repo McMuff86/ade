@@ -50,24 +50,33 @@ export function registerIpcHandlers(store: ConfigStore): void {
   // Create category; persists via ConfigStore.
   handle(IPC.CategoryCreate, (input) => createCategory(store, input));
 
-  // Delete category (+ its agents) from config only — never touches user files.
-  handle(IPC.CategoryDelete, ({ id }) => deleteCategory(store, id));
+  // Stop every owned PTY before removing config entries. User files stay put.
+  handle(IPC.CategoryDelete, ({ id }) => {
+    const agentIds = store.get().agents
+      .filter((agent) => agent.categoryId === id)
+      .map((agent) => agent.id);
+    for (const agentId of agentIds) ptyManager!.killByAgent(agentId);
+    deleteCategory(store, id);
+  });
 
-  // Create agent — resolves + makes workspaceDir and (empty) memoryDir.
-  // TODO(Phase C): git worktree when the category is repo-backed.
+  // Create agent, workspace/worktree and memory scaffold.
   handle(IPC.AgentCreate, (input) => createAgent(store, input));
 
   // Update runtime/launch configuration and display metadata for an agent.
   handle(IPC.AgentUpdate, (input) => updateAgent(store, input));
 
-  // Delete agent from config only — never deletes its workspace/memory files.
-  // TODO(Phase B1): also kill any live sessions for this agent.
-  handle(IPC.AgentDelete, ({ id }) => deleteAgent(store, id));
+  // Stop live/queued work, then remove config only (workspace files remain).
+  handle(IPC.AgentDelete, ({ id }) => {
+    ptyManager!.killByAgent(id);
+    deleteAgent(store, id);
+  });
 
   /* --------------------------------------------------- pty (Phase B1) */
 
-  // Spawn the agent's CLI per its launch profile (shared/runtimes.ts)
-  handle(IPC.PtyCreate, ({ agentId, initialInput }) => ptyManager!.create(agentId, initialInput));
+  // Interactive sessions spawn immediately; task sessions wait for a queue slot.
+  handle(IPC.PtyCreate, ({ agentId, task, dispatchId }) =>
+    ptyManager!.create(agentId, task, dispatchId),
+  );
 
   // Forward keystrokes to the session's pty
   handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {
@@ -83,9 +92,16 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.PtyKill, ({ sessionId }) => ptyManager!.kill(sessionId));
 
   // Phase B1: ring-buffer replay so scrollback survives (re)attach
-  handle(IPC.PtyAttach, ({ sessionId }) => ({
-    replayBase64: ptyManager!.attach(sessionId),
+  handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
+
+  // Reconcile renderer state after a reload without losing main-owned PTYs.
+  handle(IPC.PtyList, () => ({
+    sessions: ptyManager!.list(),
+    taskQueue: ptyManager!.queueStatus(),
   }));
+
+  // Cancel active and queued Graph tasks, optionally scoped to selected agents.
+  handle(IPC.PtyCancelTasks, (request) => ptyManager!.cancelTasks(request));
 
   /* ------------------------------------------------- git + fs (Phase C) */
 

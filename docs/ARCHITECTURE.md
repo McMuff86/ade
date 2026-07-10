@@ -87,7 +87,9 @@ interface Agent    { id: string; categoryId: string; name: string; role?: string
                      workspaceDir: string;                       // resolved abs path
                      memoryDir: string }
 interface SessionMeta { id: string; agentId: string; title: string;
-                        status: 'running' | 'exited'; createdAt: number }
+                        kind: 'interactive' | 'task';
+                        status: 'running' | 'exited'; createdAt: number;
+                        endedAt?: number; exitCode?: number; dispatchId?: string }
 ```
 
 ## Launch profiles (shared/runtimes.ts)
@@ -105,18 +107,26 @@ builtin-terminal-agents; every profile user-overridable via `customCommand`):
 | ollama | `ollama run <model>` | — | — |
 | shell | user's default shell (PowerShell on Windows) | — | — |
 
-Sessions spawn in the agent's `workspaceDir` with the agent CLI as the PTY
-command (auto-launch on open). Closing the CLI leaves the shell? No — session
-ends (status `exited`), tab shows exit state.
+Interactive sessions spawn a shell in the agent's `workspaceDir` and type the
+configured CLI command, so leaving the CLI returns to a usable shell. Task
+sessions use a one-shot non-interactive command and exit with the CLI.
 
 ## PTY layer (main/pty/PtyManager.ts)
 
 - `node-pty` spawn with ConPTY on Windows (`useConpty: true` default), shell
   fallback for POSIX.
 - Per session: 256 KB ring buffer of raw output for replay on (re)attach —
-  Superset pty-daemon pattern. Scrollback survives tab switches; sessions
-  live as long as the app (no cross-restart persistence in v1).
-- Kill on tab close; SIGHUP semantics via pty.kill().
+  Superset pty-daemon pattern. Output events carry a sequence number so replay
+  and the live stream meet without a race.
+- Main owns sessions across renderer reloads. `pty:list` reconstructs renderer
+  tabs; full app quit still stops all PTYs.
+- Interactive sessions spawn immediately. One-shot task sessions acquire a
+  FIFO lease with a global limit of four active task CLIs. The lease is held
+  until exit/cancellation, not merely until process spawn.
+- Task prompts are passed through `ADE_TASK_PROMPT` into non-interactive CLI
+  forms (`claude -p`, `codex exec`, etc.), never typed after a fixed delay.
+- Tab close and identity deletion stop and remove owned PTYs. Naturally exited
+  sessions keep replay for 30 minutes and are then reaped.
 
 ## IPC contract (shared/ipc.ts) — stable, both build agents code against it
 
@@ -125,18 +135,21 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `photo:import(bytesBase64, mime)` → stored filename
 - `agent:create(input)` / `agent:delete(id)` / `category:create(input)` …
   (creates workspaceDir, memory scaffold, worktree if repo-backed)
-- `pty:create({agentId})` → SessionMeta (spawns CLI per launch profile,
-  injects memory block first — see Memory)
+- `pty:create({agentId, task?, dispatchId?})` → SessionMeta (interactive when
+  task is absent; bounded one-shot task otherwise; injects memory first)
 - `pty:write({sessionId, dataBase64})`, `pty:resize({sessionId, cols, rows})`,
-  `pty:kill({sessionId})`, `pty:attach({sessionId})` → `{replayBase64}`
+  `pty:kill({sessionId})`, `pty:attach({sessionId})` → replay + sequence
+- `pty:list()` → live/exited retained sessions + task queue status
+- `pty:cancelTasks({agentIds?})` → active/queued cancellation counts
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
 - `git:diff({agentId, path})` → unified diff text
 - `fs:tree({agentId})` → workspace file tree (depth-limited, lazy children)
 - `fs:read({agentId, path})` → text (size-capped)
 
 Events (main → renderer, `webContents.send`):
-- `pty:data` `{sessionId, dataBase64}`   (coalesced renderer-side)
-- `pty:exit` `{sessionId, exitCode}`
+- `pty:data` `{sessionId, dataBase64, sequence}` (coalesced renderer-side)
+- `pty:exit` `{sessionId, exitCode, reason}`
+- `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
 ## Theming
@@ -181,6 +194,9 @@ Files / Changes toggle, collapsible, resizable. Rail resizable. Onboarding
 modals per mockup, plus photo upload.
 
 ## Build phases & ownership (agents)
+
+The phase list below is the historical 2026-07-07 build plan. Current work is
+tracked in `ROADMAP.md`; factual capability status lives in `STATUS.md`.
 
 - **A. Scaffold** (one agent): toolchain boots, window opens, tokens +
   theme provider, IPC skeleton with typed contract, config store, empty

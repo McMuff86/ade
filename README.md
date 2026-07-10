@@ -23,6 +23,10 @@ terminals around named agents.
   maintains its own memory.
 - **Light + dark theme** — including the terminal itself (full ANSI palette
   per theme).
+- **Two views over the same agents**: Terminals is the interactive execution
+  workspace; Graph is an early control-plane view for bounded one-shot tasks.
+  Graph task sessions use non-interactive CLI transports, run at most four at
+  once, can be cancelled, and report completion from real process exit.
 
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
 Reference analyses: `docs/reports/`
@@ -35,7 +39,8 @@ pnpm dev
 ```
 
 `pnpm build` builds to `out/`; `pnpm start` previews the built app.
-`pnpm test:memory` runs the MemoryStore test suite.
+Focused checks: `pnpm test:memory`, `pnpm test:dispatch`, and
+`pnpm test:runtime`.
 
 ## Notes
 
@@ -46,3 +51,6 @@ pnpm dev
   "trust this folder" prompt — answer it in the terminal like in any shell.
 - Dev/E2E affordances: `ADE_REMOTE_DEBUG_PORT`, `ADE_USER_DATA_DIR`,
   `window.__ade` (dev builds only).
+- Graph orchestration is still incomplete: workers currently receive the same
+  task and there is no task decomposition, result mailbox, verification, or
+  integration workflow yet. See `docs/STATUS.md` and `docs/ROADMAP.md`.

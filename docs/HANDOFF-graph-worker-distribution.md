@@ -1,5 +1,12 @@
 # Handoff — real worker distribution & agent-to-agent communication
 
+> **Superseded for current behavior (2026-07-10):** this is a historical design
+> handoff. Goal 1 replaced `pty:create.initialInput` and fixed-delay typing with
+> bounded one-shot task sessions, real exit status, cancellation, and reload
+> reconciliation. The mailbox and worker-specific decomposition sections remain
+> unimplemented ideas, but they must now be designed on the run/task model in
+> `ROADMAP.md` Goal 2. See `STATUS.md` for the factual capability matrix.
+
 > **Update 2026-07-09:** Feature 1 shipped in its MVP form (same task fanned out
 > to every worker, real sessions, behind a composer toggle + pty-count guard).
 > See `docs/HANDOFF-worker-distribution-mvp.md`. Feature 2 (mailboxes) and the

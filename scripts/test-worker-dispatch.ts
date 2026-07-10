@@ -6,7 +6,7 @@
  * Verifies the MVP worker-distribution contract:
  *   - toWorkers:false → only the lead gets a pty session (workers stay decorative)
  *   - toWorkers:true  → lead + every worker each get their own pty session,
- *                       each carrying the task as initialInput
+ *                       each carrying the task through the task-session contract
  *   - an idle team dispatches nothing
  *
  * Pure Node — the stub stands in for Electron IPC — so it runs under tsx.
@@ -30,7 +30,8 @@ function check(label: string, cond: boolean, detail?: unknown): void {
 /* ---- stub browser globals BEFORE importing any renderer module ---------- */
 interface PtyCreate {
   agentId: string;
-  initialInput?: string;
+  task?: string;
+  dispatchId?: string;
 }
 const ptyCreates: PtyCreate[] = [];
 let seq = 0;
@@ -53,12 +54,13 @@ const localStore = new Map<string, string>();
     on: () => undefined,
     invoke: async (channel: string, payload: PtyCreate): Promise<SessionMeta> => {
       if (channel !== 'pty:create') throw new Error(`unexpected channel ${channel}`);
-      ptyCreates.push({ agentId: payload.agentId, initialInput: payload.initialInput });
+      ptyCreates.push({ agentId: payload.agentId, task: payload.task, dispatchId: payload.dispatchId });
       seq += 1;
       return {
         id: `sess-${seq}`,
         agentId: payload.agentId,
         title: 'stub',
+        kind: payload.task ? 'task' : 'interactive',
         status: 'running',
         createdAt: 0,
       };
@@ -107,7 +109,7 @@ reset();
 await dispatchTeam('t1', TASK, { toWorkers: false });
 check('no fan-out: exactly 1 session (lead)', ptyCreates.length === 1, ptyCreates);
 check('no fan-out: session is the lead', ptyCreates[0]?.agentId === 't1-lead');
-check('no fan-out: lead got the task', ptyCreates[0]?.initialInput === TASK);
+check('no fan-out: lead got the task', ptyCreates[0]?.task === TASK);
 
 /* ---- 2. toWorkers:true → lead + every worker gets its own session ------- */
 seedTeam('t2', 3);
@@ -120,7 +122,8 @@ check(
   JSON.stringify(ids) === JSON.stringify(['t2-lead', 't2-w0', 't2-w1', 't2-w2']),
   ids,
 );
-check('fan-out: every session carries the task', ptyCreates.every((p) => p.initialInput === TASK));
+check('fan-out: every session carries the task', ptyCreates.every((p) => p.task === TASK));
+check('fan-out: sessions share one cancellable dispatch id', new Set(ptyCreates.map((p) => p.dispatchId)).size === 1);
 
 /* ---- 3. default (no opts) behaves like toWorkers:false ------------------ */
 seedTeam('t3', 2);

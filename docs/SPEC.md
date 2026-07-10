@@ -1,15 +1,15 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.2 (mockup approved 2026-07-07; user feedback incorporated)
+Status: v0.3 (two-view product direction and runtime reliability, 2026-07-10)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
 
 One desktop app where all of the user's CLI agents live — for coding, writing
-and content work. Terminal-first: every session is a real terminal running a
-real CLI agent (Claude Code, Codex, OpenCode, Grok Build, Ollama models).
-It is NOT a dashboard and NOT a chat app; it is a workspace of terminal
-windows around named agents.
+and content work. The terminal is the execution plane: every interactive
+session is a real terminal running a real CLI agent. Graph is the optional
+control plane for dispatching and observing bounded task runs over those same
+agents. It is not a separate fake-agent system or a replacement chat UI.
 
 References:
 - Layout sketch: `mock/PENUP_20260707_214207.png`
@@ -32,6 +32,15 @@ References:
 - **Session** — a terminal window of one agent. Selecting an agent shows its
   sessions as tabs across the top. Multiple sessions of the same agent run
   in parallel. Sessions are NOT split by model — one agent, N terminals.
+- **Run** — a persisted execution of one user goal. It references existing
+  agents as participants; it does not create permanent agent identities.
+- **Task** — one run-scoped unit of work assigned to a participant, with real
+  queued/running/completed/failed/cancelled state and an event history.
+- **Participant role** — orchestrator/lead/worker is scoped to a run. The same
+  named agent may play a different role in a different run.
+
+The current Graph MVP still stores teams as categories and roles on agents.
+That compatibility model is temporary and tracked in `ROADMAP.md` Goal 2.
 
 ## Layout (per approved mockup)
 
@@ -42,6 +51,19 @@ References:
 - Right: collapsible panel with **Files** (agent files incl. MEMORY.md/USER.md,
   and an all-files tree of the workspace) and **Changes** (real git diff).
 - All three regions resizable via drag handles (rail width, panel width).
+- Top-level Terminals / Graph tabs switch views without creating a second copy
+  of agent, workspace, session, or task state.
+
+## Graph control plane
+
+- Task dispatch is explicit and cancellable. One-shot task sessions use a
+  runtime's non-interactive transport and exit when the CLI finishes.
+- A global scheduler caps active task CLIs; queued work and the cap are visible.
+- UI state must come from real queue/process/run events. Timers may animate an
+  event but must never invent working or completion state.
+- Fan-out must state the process count before launch. Worker-specific planning,
+  communication, verification and integration are required before Graph is
+  described as orchestration rather than dispatch.
 
 ## Feedback-driven requirements (2026-07-07, binding)
 
@@ -93,5 +115,7 @@ reachable later via "+ New category" / "+ Add agent". One-command install.
 - Windows first (dev machine is Win11; ConPTY), keep macOS/Linux compatible.
 - Terminal scrollback survives tab switches; sessions survive app reload
   where the PTY layer allows it.
+- Closing a tab or deleting its owner leaves no inaccessible PTY. Exited
+  sessions have bounded retention.
 - Keyboard: visible focus, tab switching shortcuts.
 - Theme: light + dark, both first-class incl. terminal.
