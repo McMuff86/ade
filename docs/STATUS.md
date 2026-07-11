@@ -25,12 +25,12 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 | Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; other non-shell runtimes use the same result schema through a file contract |
-| Worktree ownership | Real | Clean workspaces are leased exclusively for the run; repo participants must share one git common directory; restart recovery fails work and releases orphaned leases |
-| Orchestrator behavior | Real, beta | Deterministic planning → worker scheduling → approval → transactional integration → integration review → read-only verification |
+| Worktree ownership | Real | Clean workspaces are leased exclusively; runtimes cannot write linked-worktree Git metadata, while ADE commits only an exact reported/observed path-set match |
+| Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real | Windows CI runs 167 focused assertions plus a 30-check production Electron workflow and unpacked package validation |
+| CI and Electron E2E | Real | Windows CI runs 169 focused assertions plus a 32-check production Electron workflow and unpacked package validation |
 
 ## Known constraints
 
@@ -56,10 +56,11 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 - Codex reports token usage in native JSONL but no billed USD. Cost budgets are
   therefore unavailable for that adapter until the CLI/provider reports cost;
   custom wrappers may supply trusted token/cost fields through the file result.
-- Git integration requires each changing worker to leave a clean worktree and
-  report a descendant commit. ADE validates and transactionally cherry-picks
-  the full linear range from the leased base; merge commits are rejected and a
-  conflict aborts the whole sequence. The beta caps one worker range at 50 and
-  one run integration at 200 commits.
+- Git integration requires each changing worker to report every changed path
+  and leave HEAD untouched. ADE refuses a report/diff mismatch, creates the
+  commit with hooks and signing disabled, and transactionally cherry-picks the
+  validated linear ranges. Merge commits are rejected and a conflict aborts
+  the whole sequence. The beta caps one worker range at 50 and one run
+  integration at 200 commits.
 - Plain-workspace runs keep the same plan/result/approval/verification control
   plane but can only reconcile reports; they do not claim git integration.

@@ -1,7 +1,7 @@
 /** Production-build Electron workflow smoke for Goals 3 and 4 (Windows-first). */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
@@ -203,7 +203,11 @@ if (prompt.includes('You are the ADE run orchestrator')) {
   base.summary = 'E2E integration review passed.';
   base.tests = [{ command: 'fixture integrate', status: 'passed', output: 'ok' }];
 } else {
-  base.summary = prompt.includes('Lead E2E assignment') ? 'Lead-specific result.' : 'Worker-specific result.';
+  const lead = prompt.includes('Lead E2E assignment');
+  const changedFile = lead ? 'lead-e2e.txt' : 'worker-e2e.txt';
+  base.summary = lead ? 'Lead-specific result.' : 'Worker-specific result.';
+  fs.writeFileSync(path.join(process.cwd(), changedFile), base.summary + '\\n', 'utf8');
+  base.filesChanged = [changedFile];
   base.tests = [{ command: 'fixture work', status: 'passed', output: 'ok' }];
 }
 const output = process.env.ADE_TASK_RESULT_PATH;
@@ -385,14 +389,20 @@ async function run(): Promise<void> {
     const approvalSnapshot = await page.evaluate(async () => {
       const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
       return await api.invoke('run:get') as {
-        tasks: Array<{ phase: string; prompt: string }>;
+        tasks: Array<{ id: string; phase: string; prompt: string }>;
+        results: Array<{ taskId: string; commitSha: string | null; filesChanged: string[] }>;
         approvals: Array<{ status: string }>;
-        workspaceLeases: Array<{ status: string; workspaceDir: string }>;
+        workspaceLeases: Array<{ participantId: string; status: string; workspaceDir: string }>;
       };
     });
     const workerPrompts = approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
     check('Electron flow persisted distinct worker assignments',
       workerPrompts.length === 2 && workerPrompts[0] !== workerPrompts[1]);
+    const workerTaskIds = new Set(approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.id));
+    const workerResults = approvalSnapshot.results.filter((result) => workerTaskIds.has(result.taskId));
+    check('ADE, not the sandboxed runtime, created one validated commit per worker diff',
+      workerResults.length === 2 && workerResults.every((result) =>
+        /^[a-f0-9]{40}$/i.test(result.commitSha ?? '') && result.filesChanged.length === 1));
     check('Electron flow keeps worktree leases active through approval',
       approvalSnapshot.workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
     check('managed task setup does not dirty leased repository worktrees',
@@ -414,7 +424,7 @@ async function run(): Promise<void> {
         tasks: Array<{ phase: string }>;
         results: unknown[];
         approvals: Array<{ status: string }>;
-        workspaceLeases: Array<{ status: string }>;
+        workspaceLeases: Array<{ participantId: string; status: string; workspaceDir: string }>;
       };
     });
     check('Electron flow records one validated result per managed task',
@@ -422,6 +432,13 @@ async function run(): Promise<void> {
     check('Electron approval is durable and all leases release after verification',
       completedSnapshot.approvals.some((approval) => approval.status === 'approved') &&
       completedSnapshot.workspaceLeases.every((lease) => lease.status === 'released'));
+    const integrationWorkspace = completedSnapshot.workspaceLeases.find(
+      (lease) => lease.participantId === 'e2e-orchestrator-participant',
+    )?.workspaceDir;
+    check('transactional integration contains both ADE-authored worker commits',
+      Boolean(integrationWorkspace) &&
+      readFileSync(join(integrationWorkspace!, 'lead-e2e.txt'), 'utf8').trim() === 'Lead-specific result.' &&
+      readFileSync(join(integrationWorkspace!, 'worker-e2e.txt'), 'utf8').trim() === 'Worker-specific result.');
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'orchestration-completed.png'), fullPage: true });
     }

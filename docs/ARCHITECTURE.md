@@ -188,8 +188,10 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   slot is available. The global four-PTY queue remains an independent ceiling.
 - Every managed task must produce `StructuredTaskResult` version 1. The schema
   includes outcome, summary, worker assignments, changed files, real test
-  command/status/output entries, commit SHA, risks and nullable usage. Process
-  exit 0 without a valid result is a task failure.
+  command/status/output entries, commit SHA, risks and nullable usage. For
+  repo-backed work, the runtime returns `commitSha=null`; ADE fills the SHA only
+  after validating and committing the exact reported diff. Process exit 0
+  without a valid result is a task failure.
 - `runtimeAdapters.ts` is the adapter boundary. The native Codex adapter uses
   `codex exec --json --output-schema --output-last-message` and reads token
   usage from `turn.completed`. `file-mailbox-v1` injects result/schema/inbox/
@@ -198,10 +200,8 @@ sessions use a one-shot non-interactive command and exit with the CLI.
 - `MailboxService` journals each delivery and mirrors JSONL under
   `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
-  through `--add-dir`. For repo-backed linked worktrees, ADE also grants only
-  the active lease's shared Git metadata directory as a second writable root;
-  this lets the sandbox create the required index/object/ref updates without
-  disabling `workspace-write` isolation.
+  through `--add-dir`. Linked-worktree Git metadata remains outside every
+  runtime's writable roots.
 - Managed task PTYs do not regenerate the ordinary CLAUDE.md/AGENTS.md memory
   block after leasing. Their complete contract is already prompt-injected, and
   skipping that file mutation preserves both tracked instructions and a clean
@@ -212,12 +212,16 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   interrupted managed work, rejects pending approvals and releases orphaned
   leases; the safe exception is an idle pending approval, which retains its
   leases and can be approved after restart.
-- After workers finish, ADE validates clean worktrees and the complete linear
-  commit range from each leased base (merge commits are rejected), then
-  requests a durable integration approval.
+- A successful worker reports the exact repository-relative paths it changed
+  and must leave Git history untouched. ADE compares that set to tracked plus
+  untracked Git changes, rejects omissions/additions/conflicts, stages with a
+  NUL-delimited pathspec, disables repository hooks/signing, and creates the
+  task commit itself. It then validates the clean worktree and complete linear
+  range from the leased base before requesting durable integration approval.
   Approval triggers one cherry-pick sequencer transaction in the orchestrator
   worktree; any conflict aborts the full range. An integration-review task may
-  add a committed fix, followed by a read-only verification task.
+  add a similarly ADE-validated commit, followed by a read-only verification
+  task.
 - Concurrency and approval limits are always enforceable. Token/cost limits are
   accepted only for adapters advertising that telemetry, and missing values
   fail closed. Exact usage is enforced at task-completion boundaries because

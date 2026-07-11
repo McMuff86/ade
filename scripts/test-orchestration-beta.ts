@@ -78,6 +78,15 @@ class FakeWorkspaces implements WorkspacePort {
     return [commitSha];
   }
 
+  async commitChanges(
+    _workspaceDir: string,
+    _expectedHeadSha: string,
+    _reportedFiles: string[],
+    _message: string,
+  ): Promise<string | null> {
+    return null;
+  }
+
   async integrateCommits(_workspaceDir: string, commits: string[]): Promise<number> {
     this.integrations += 1;
     return commits.length;
@@ -360,25 +369,18 @@ function adapterChecks(root: string): void {
     createdAt: 1, updatedAt: 1,
   };
   const dir = join(root, 'adapter');
-  const gitCommonDir = join(root, 'repo metadata', '.git');
-  mkdirSync(gitCommonDir, { recursive: true });
   const files = {
     taskDir: dir,
     resultPath: join(dir, 'RESULT.json'),
     schemaPath: join(dir, 'RESULT.schema.json'),
     inboxPath: join(dir, 'INBOX.jsonl'),
     outboxPath: join(dir, 'OUTBOX.jsonl'),
-    gitCommonDir,
   };
   const launch = adapter.prepare(codex, task, task.prompt, files, 'win32');
   check('Codex adapter uses native JSONL and output-schema flags',
     Boolean(launch.command?.startsWith('codex exec ') && !launch.command.includes('exec exec') &&
       launch.command.includes('--json') && launch.command.includes('--output-schema') &&
       launch.command.includes('--output-last-message')));
-  check('Codex adapter grants only the leased linked-worktree Git directory through an environment reference',
-    launch.command?.includes('--add-dir "$env:ADE_GIT_COMMON_DIR"') === true &&
-      launch.env.ADE_GIT_COMMON_DIR === gitCommonDir &&
-      !launch.command.includes(gitCommonDir));
   writeFileSync(files.resultPath, JSON.stringify(result({
     usage: { inputTokens: null, outputTokens: null, costUsd: 999 },
   })), 'utf8');
@@ -451,6 +453,40 @@ async function realGitIntegrationChecks(root: string): Promise<void> {
   check('later commits in the reported range are integrated too',
     readFileSync(join(repo, 'worker-two.txt'), 'utf8').replace(/\r\n/g, '\n') === 'second worker change\n');
   check('integration worktree remains clean', git(repo, ['status', '--porcelain']).trim() === '');
+
+  const managedRepo = join(root, 'managed-commit-repo');
+  const managedWorker = join(root, 'managed-commit-worker');
+  mkdirSync(managedRepo, { recursive: true });
+  git(managedRepo, ['init', '--initial-branch=main']);
+  git(managedRepo, ['config', 'user.email', 'ade-test@example.invalid']);
+  git(managedRepo, ['config', 'user.name', 'ADE test']);
+  writeFileSync(join(managedRepo, 'baseline.txt'), 'baseline\n', 'utf8');
+  git(managedRepo, ['add', 'baseline.txt']);
+  git(managedRepo, ['commit', '-m', 'managed baseline']);
+  const managedBase = git(managedRepo, ['rev-parse', 'HEAD']).trim();
+  git(managedRepo, ['worktree', 'add', '-b', 'managed-worker-branch', managedWorker, 'HEAD']);
+  writeFileSync(join(managedWorker, 'managed.txt'), 'managed task output\n', 'utf8');
+  writeFileSync(join(managedWorker, 'unreported.txt'), 'must not be committed\n', 'utf8');
+  let mismatch = '';
+  try {
+    await workspace.commitChanges(managedWorker, managedBase, ['managed.txt'], 'ADE work: fixture');
+  } catch (error) {
+    mismatch = errorText(error);
+  }
+  check('ADE refuses to commit when the runtime omits a changed path',
+    mismatch.includes('reported files do not match') && git(managedWorker, ['rev-parse', 'HEAD']).trim() === managedBase);
+  rmSync(join(managedWorker, 'unreported.txt'), { force: true });
+  const managedCommit = await workspace.commitChanges(
+    managedWorker,
+    managedBase,
+    ['managed.txt'],
+    'ADE work: fixture',
+  );
+  check('ADE creates the descendant commit instead of granting runtime Git-metadata writes',
+    Boolean(managedCommit) && git(managedWorker, ['rev-parse', 'HEAD']).trim() === managedCommit);
+  check('ADE-managed commit contains exactly the reported file and leaves a clean worktree',
+    git(managedWorker, ['show', '--format=', '--name-only', managedCommit!]).trim() === 'managed.txt' &&
+      git(managedWorker, ['status', '--porcelain']).trim() === '');
 
   const conflictRepo = join(root, 'conflict-repo');
   const conflictWorker = join(root, 'conflict-worker');

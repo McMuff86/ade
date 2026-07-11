@@ -251,28 +251,30 @@ export class RunCoordinator {
         return;
       }
 
+      let launch: ManagedTaskLaunch | undefined;
+      let result: StructuredTaskResult | undefined;
+      let participant: RunParticipant | undefined;
+      let agent: Agent | undefined;
+      let recorded = false;
       try {
-        const launch = this.launches.get(taskId);
+        launch = this.launches.get(taskId);
         if (!launch) throw new Error(`ade: missing runtime-adapter state for task ${taskId}`);
-        const result = this.adapters.readResult(launch, terminalOutput);
-        const participant = requireParticipant(
+        result = this.adapters.readResult(launch, terminalOutput);
+        participant = requireParticipant(
           this.orchestration.snapshot().participants,
           task.participantId,
           task.runId,
         );
-        const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId);
-        this.mailbox.recordResult(agent, task.runId, task.id, participant.id, result);
-        this.orchestration.recordResult({
-          runId: task.runId,
-          taskId: task.id,
-          participantId: task.participantId,
-          adapterId: launch.adapterId,
-          resultPath: launch.files.resultPath,
-          result,
-        });
+        agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId);
+
+        const budgetError = this.budgetError(task.runId, launch, result, true);
+        if (!budgetError && result.outcome === 'succeeded') {
+          await this.finalizeRepoResult(task, result, launch);
+        }
+        this.recordTaskResult(agent, task, participant, launch, result);
+        recorded = true;
         this.launches.delete(taskId);
 
-        const budgetError = this.budgetError(task.runId, launch, result);
         if (budgetError) {
           this.orchestration.onTaskFinished(taskId, 'failed', exitCode, budgetError);
           this.notifyTask(task, 'failed', budgetError);
@@ -292,12 +294,67 @@ export class RunCoordinator {
         await this.progress(task, result);
         this.notifyTask(task, 'completed', result.summary);
       } catch (error) {
+        if (!recorded && launch && result && participant && agent) {
+          try {
+            this.recordTaskResult(agent, task, participant, launch, result);
+          } catch (recordError) {
+            console.error(`[ade] failed to persist rejected result for ${task.id}:`, recordError);
+          }
+        }
         this.launches.delete(taskId);
         this.orchestration.onTaskFinished(taskId, 'failed', exitCode, errorMessage(error));
         this.notifyTask(task, 'failed', errorMessage(error));
         await this.failRunCore(task.runId, errorMessage(error));
       }
     });
+  }
+
+  private recordTaskResult(
+    agent: Agent,
+    task: RunTask,
+    participant: RunParticipant,
+    launch: ManagedTaskLaunch,
+    result: StructuredTaskResult,
+  ): void {
+    this.mailbox.recordResult(agent, task.runId, task.id, participant.id, result);
+    this.orchestration.recordResult({
+      runId: task.runId,
+      taskId: task.id,
+      participantId: task.participantId,
+      adapterId: launch.adapterId,
+      resultPath: launch.files.resultPath,
+      result,
+    });
+  }
+
+  private async finalizeRepoResult(
+    task: RunTask,
+    result: StructuredTaskResult,
+    launch: ManagedTaskLaunch,
+  ): Promise<void> {
+    const lease = this.orchestration.snapshot().workspaceLeases.find(
+      (item) => item.runId === task.runId && item.participantId === task.participantId && item.status === 'active',
+    );
+    if (!lease?.isRepo) return;
+    if (!launch.workspaceHeadSha) throw new Error(`ade: task ${task.id} has no pre-launch Git HEAD`);
+    if (result.commitSha) {
+      throw new Error('ade: managed runtimes must not create commits; ADE owns validated task commits');
+    }
+
+    if (task.phase === 'work' || task.phase === 'integrate') {
+      result.commitSha = await this.workspaces.commitChanges(
+        lease.workspaceDir,
+        launch.workspaceHeadSha,
+        result.filesChanged,
+        `ADE ${task.phase}: ${task.title}`,
+      );
+      return;
+    }
+
+    const inspection = await this.workspaces.inspect(lease.workspaceDir);
+    if (inspection.headSha !== launch.workspaceHeadSha) {
+      throw new Error(`ade: ${task.phase} task changed Git history; this phase is read-only`);
+    }
   }
 
   private async progress(task: RunTask, result: StructuredTaskResult): Promise<void> {
@@ -646,12 +703,16 @@ export class RunCoordinator {
       (item) => item.runId === task.runId && item.participantId === participant.id && item.status === 'active',
     );
     if (!lease) throw new Error(`ade: active workspace lease is missing for task ${task.id}`);
-    const files = this.mailbox.taskFiles(
-      agent,
-      task.runId,
-      task.id,
-      lease.isRepo ? lease.commonGitDir : undefined,
-    );
+    let workspaceHeadSha: string | undefined;
+    if (lease.isRepo) {
+      const inspection = await this.workspaces.inspect(lease.workspaceDir);
+      if (!inspection.isRepo || inspection.commonGitDir !== lease.commonGitDir) {
+        throw new Error(`ade: leased repository identity changed before task ${task.id}`);
+      }
+      if (!inspection.clean) throw new Error(`ade: leased worktree is dirty before task ${task.id}`);
+      workspaceHeadSha = inspection.headSha;
+    }
+    const files = this.mailbox.taskFiles(agent, task.runId, task.id);
     const launch = this.adapters.prepare(
       agent,
       task,
@@ -659,6 +720,7 @@ export class RunCoordinator {
       files,
       process.platform === 'win32' ? 'win32' : 'posix',
     );
+    launch.workspaceHeadSha = workspaceHeadSha;
     this.launches.set(task.id, launch);
     try {
       const pending = this.taskLauncher(agent.id, task.prompt, `run-${task.runId}-${label}`, task.id);
@@ -705,6 +767,7 @@ export class RunCoordinator {
     runId: string,
     launch: ManagedTaskLaunch,
     result: StructuredTaskResult,
+    projected = false,
   ): string | null {
     const snapshot = this.orchestration.snapshot();
     const run = requireRun(snapshot.runs, runId);
@@ -716,11 +779,14 @@ export class RunCoordinator {
       reported: number | null;
       supported: boolean;
     }> = [
-      { kind: 'input tokens', limit: run.budget.maxInputTokens, used: usage.inputTokens,
+      { kind: 'input tokens', limit: run.budget.maxInputTokens,
+        used: usage.inputTokens + (projected ? (result.usage.inputTokens ?? 0) : 0),
         reported: result.usage.inputTokens, supported: launch.reportsTokens },
-      { kind: 'output tokens', limit: run.budget.maxOutputTokens, used: usage.outputTokens,
+      { kind: 'output tokens', limit: run.budget.maxOutputTokens,
+        used: usage.outputTokens + (projected ? (result.usage.outputTokens ?? 0) : 0),
         reported: result.usage.outputTokens, supported: launch.reportsTokens },
-      { kind: 'cost USD', limit: run.budget.maxCostUsd, used: usage.costUsd,
+      { kind: 'cost USD', limit: run.budget.maxCostUsd,
+        used: usage.costUsd + (projected ? (result.usage.costUsd ?? 0) : 0),
         reported: result.usage.costUsd, supported: launch.reportsCost },
     ];
     for (const check of checks) {
@@ -819,7 +885,8 @@ function workerPrompt(run: Run, assignment: StructuredTaskResult['assignments'][
     'Acceptance criteria:',
     ...assignment.acceptanceCriteria.map((criterion) => `- ${criterion}`),
     'Work only in your leased workspace. Inspect existing conventions before editing.',
-    'Run focused verification. If files changed, commit all intended changes on the current branch and report the commit SHA.',
+    'Run focused verification and report the exact repository-relative paths you changed.',
+    'Do not run git add, git commit, reset, checkout, rebase, merge, or push. Return commitSha=null; ADE validates the exact diff and creates the task commit.',
     'Do not claim tests passed unless you actually ran them. Report blockers as outcome=blocked.',
   ].join('\n');
 }
@@ -843,7 +910,8 @@ function integrationPrompt(
       : 'This is a plain-workspace run; reconcile the worker reports without claiming git integration.',
     'Review the combined result for conflicts, missing behavior, security regressions, and consistency.',
     'Run relevant focused tests. Fix integration-only issues if needed.',
-    'If you modify files, commit those changes and report the new commit SHA. Leave the workspace clean.',
+    'Report the exact repository-relative paths you change. Do not run git add, git commit, reset, checkout, rebase, merge, or push.',
+    'Return commitSha=null; ADE validates and commits any integration-only diff after you exit.',
     'Worker reports:',
     reports,
   ].join('\n');

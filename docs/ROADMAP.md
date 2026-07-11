@@ -93,19 +93,20 @@ Status: implemented; verification recorded in the Goal 4 commit.
 Exit criteria: a managed run produces participant-specific work rather than
 same-prompt fan-out; accepts only schema-valid results; owns clean worktrees for
 its lifetime; stops for a durable human integration approval; transactionally
-integrates every validated worker commit since the leased base; runs a distinct
-integration review and read-only verification; and fails closed on missing
-required telemetry, exhausted budgets, dirty worktrees, invalid commits or
-conflicts.
+integrates every ADE-authored commit whose exact diff matches the worker report;
+runs a distinct integration review and read-only verification; and fails closed
+on missing required telemetry, exhausted budgets, dirty worktrees, runtime Git
+history changes, report/diff mismatches, invalid commits or conflicts.
 
 Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
-17 runtime + 19 domain-orchestration + 37 orchestration-beta + 56 Windows
-security assertions), `pnpm run build`, and the 30-check production Electron
+17 runtime + 19 domain-orchestration + 41 orchestration-beta + 56 Windows
+security assertions), `pnpm run build`, and the 32-check production Electron
 workflow pass. Goal 4 checks cover native Codex JSONL/schema wiring, strict
 result validation, worker-specific planning, dependency/concurrency scheduling,
-mailbox routing, exclusive leases, approval gating, usage budgets, full commit
-ranges, transactional conflict rollback, integration and verification. The
-same Electron workflow is also run against the unpacked Windows executable.
+mailbox routing, exclusive leases, approval gating, usage budgets, exact-diff
+ADE commits, full commit ranges, transactional conflict rollback, integration
+and verification. The same Electron workflow is also run against the unpacked
+Windows executable.
 
 ## Goal 5 - product validation
 

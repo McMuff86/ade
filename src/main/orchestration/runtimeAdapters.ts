@@ -16,12 +16,6 @@ export interface ManagedTaskFiles {
   schemaPath: string;
   inboxPath: string;
   outboxPath: string;
-  /**
-   * Git linked worktrees keep their index, objects, and refs outside the
-   * checked-out workspace. Repo-backed managed tasks need this leased path as
-   * an additional writable root so sandboxed runtimes can create commits.
-   */
-  gitCommonDir?: string;
 }
 
 export interface ManagedTaskLaunch {
@@ -34,6 +28,8 @@ export interface ManagedTaskLaunch {
   transport?: 'argument' | 'stdin';
   reportsTokens: boolean;
   reportsCost: boolean;
+  /** Exact repo HEAD observed immediately before the managed process starts. */
+  workspaceHeadSha?: string;
 }
 
 export interface RuntimeTaskAdapter {
@@ -117,7 +113,6 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
       '--output-schema', envRef('ADE_TASK_SCHEMA_PATH'),
       '--output-last-message', envRef('ADE_TASK_RESULT_PATH'),
       '--add-dir', envRef('ADE_TASK_DIR'),
-      ...(files.gitCommonDir ? ['--add-dir', envRef('ADE_GIT_COMMON_DIR')] : []),
       '--', envRef('ADE_TASK_PROMPT'),
     ].join(' ');
     return {
@@ -247,7 +242,6 @@ function taskEnv(files: ManagedTaskFiles): Record<string, string> {
     ADE_TASK_SCHEMA_PATH: files.schemaPath,
     ADE_MAILBOX_INBOX: files.inboxPath,
     ADE_MAILBOX_OUTBOX: files.outboxPath,
-    ...(files.gitCommonDir ? { ADE_GIT_COMMON_DIR: files.gitCommonDir } : {}),
   };
 }
 
