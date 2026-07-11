@@ -1,8 +1,8 @@
 /**
  * IPC contract — per docs/ARCHITECTURE.md "IPC contract (shared/ipc.ts)".
- * Stable: all build agents code against these channel names and payloads.
- * Channels whose main-side handlers are stubs in Phase A are still declared
- * here in full so Phase B/C/D only implement, never re-shape.
+ * Stable: renderer and main code against these channel names and payloads.
+ * Main also validates every request at runtime in ipcValidation.ts; these
+ * TypeScript declarations are not treated as a security boundary.
  */
 
 import type {
@@ -21,8 +21,11 @@ import type {
   RunCreateInput,
   RunTask,
   RunTaskCreateInput,
+  RuntimeDiagnosticsResult,
   SessionMeta,
   TaskQueueStatus,
+  ThemeName,
+  PtyExitReason,
 } from './types';
 
 /* --------------------------------------------------------------- channels */
@@ -44,6 +47,7 @@ export const IPC = {
   PtyAttach: 'pty:attach',
   PtyList: 'pty:list',
   PtyCancelTasks: 'pty:cancelTasks',
+  RuntimeDiagnose: 'runtime:diagnose',
   RunGet: 'run:get',
   RunCreate: 'run:create',
   RunDelete: 'run:delete',
@@ -118,6 +122,13 @@ export interface PtyAttachResult {
   /** Last output sequence included in replayBase64. */
   sequence: number;
 }
+
+/** Renderer config writes are intentionally narrower than the stored model. */
+export interface ConfigSaveRequest {
+  settings: {
+    theme: ThemeName;
+  };
+}
 export interface PtyListResult {
   sessions: SessionMeta[];
   taskQueue: TaskQueueStatus;
@@ -131,6 +142,10 @@ export interface PtyCancelTasksRequest {
 export interface PtyCancelTasksResult {
   activeCancelled: number;
   queuedCancelled: number;
+}
+export interface RuntimeDiagnoseRequest {
+  /** Omit to check every configured agent. */
+  agentId?: string;
 }
 export interface RunArtifactCreateRequest {
   runId: string;
@@ -183,7 +198,7 @@ export interface PtyDataEvent {
 export interface PtyExitEvent {
   sessionId: string;
   exitCode: number;
-  reason: 'exit' | 'cancelled';
+  reason: PtyExitReason;
 }
 export interface PtyRemovedEvent {
   sessionId: string;
@@ -200,7 +215,7 @@ export interface GitChangedEvent {
  */
 export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
-  'config:save': { req: Partial<AdeConfig>; res: AdeConfig };
+  'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'photo:import': { req: PhotoImportRequest; res: PhotoImportResult };
   'category:create': { req: CategoryCreateInput; res: Category };
   'category:delete': { req: { id: string }; res: void };
@@ -214,6 +229,7 @@ export interface IpcInvokeMap {
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'pty:list': { req: void; res: PtyListResult };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
+  'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };
   'run:get': { req: void; res: OrchestrationSnapshot };
   'run:create': { req: RunCreateInput; res: Run };
   'run:delete': { req: { runId: string }; res: void };

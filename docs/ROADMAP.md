@@ -1,6 +1,6 @@
 # ADE delivery roadmap
 
-Status date: 2026-07-10. Goals are completed in order and published as separate
+Status date: 2026-07-11. Goals are completed in order and published as separate
 verified commits.
 
 ## Goal 1 - runtime reliability baseline
@@ -49,15 +49,40 @@ Inspector reflow, and new-run roster dialog without overlap.
 
 ## Goal 3 - terminal beta
 
-Status: next.
+Status: implemented; verification recorded in the Goal 3 commit.
 
-- CI and Electron workflow tests, CLI/auth diagnostics, keyboard navigation,
-  notifications, CSP/IPC validation, and Windows packaging.
-- Finish session recovery semantics and failure UI.
+- Run Windows CI over typecheck, focused checks, a compiled Electron workflow,
+  and an unpacked production-package smoke.
+- Diagnose configured CLI availability, version, authentication and task
+  transport without executing custom commands or changing credentials.
+- Provide keyboard navigation for views and session tabs, including create,
+  close, previous/next and direct tab shortcuts.
+- Notify in the OS when background tasks finish/fail or an interactive terminal
+  exits abnormally.
+- Enable the renderer sandbox and a default-deny CSP; validate the main-frame
+  sender and exact runtime payload for every privileged IPC call.
+- Reconcile exit/removal events that race a renderer reload; preserve exit
+  reason and output; show retry, restart, diagnostics and close actions.
+- Produce an x64 NSIS installer and retain the verified node-pty Node-API
+  prebuild inside the asar-unpacked payload.
+
+Exit criteria: focused checks/typecheck/build clean; the production Electron
+workflow proves real ConPTY I/O, reload recovery and failure/restart behavior;
+the unpacked packaged executable passes the same workflow; an NSIS artifact is
+created. Local artifacts may be unsigned, while release CI signs when the
+Windows certificate secrets are configured.
+
+Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+16 runtime + 19 orchestration + 51 Windows security assertions), and
+`pnpm run build` pass. The production Electron workflow passes 23 checks in
+both the source-built app and `dist/win-unpacked/ADE.exe`. `pnpm package:win`
+creates `dist/ADE-0.1.0-x64-Setup.exe`; the local artifact is deliberately
+unsigned. Visual inspection at 1264x781 confirmed the failure bar and runtime
+diagnostics modal do not obscure terminal or panel controls.
 
 ## Goal 4 - orchestration beta
 
-Status: planned.
+Status: next.
 
 - Runtime adapter interface, worker-specific tasks, structured results,
   worktree ownership, verification and integration.

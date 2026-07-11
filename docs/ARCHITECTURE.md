@@ -1,6 +1,6 @@
 # ADE — Architecture (binding decisions)
 
-Status: v2, updated 2026-07-10 for the persisted run/task control plane
+Status: v3, updated 2026-07-11 for the terminal beta reliability/security layer
 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
@@ -32,6 +32,10 @@ Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 - Panels: `react-resizable-panels` (rail / center / right panel).
 - Terminal: `@xterm/xterm` + `@xterm/addon-fit` (+ unicode11; webgl optional
   behind a capability check).
+- Workflow verification: Playwright launches both the compiled Electron entry
+  and the packaged executable against an isolated user-data directory.
+- Windows distribution: electron-builder + assisted x64 NSIS. The node-pty
+  Node-API prebuild is retained rather than rebuilt with a machine toolchain.
 - Git: `simple-git`. Config persistence: hand-rolled atomic JSON store in
   `app.getPath('userData')`.
 - Icons: text glyphs or lucide-react sparingly. No emojis anywhere (SPEC).
@@ -45,6 +49,10 @@ src/
   main/                    # Electron main
     index.ts               # window, app lifecycle (small; no updater/cloud)
     ipc.ts                 # channel registration
+    ipcValidation.ts       # exact runtime request validation for every invoke
+    security.ts            # renderer/navigation URL allowlists
+    diagnostics/           # read-only CLI/version/auth checks
+    notifications.ts       # background native exit/completion notifications
     pty/PtyManager.ts      # node-pty sessions, ring buffers, launch profiles
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
@@ -58,6 +66,8 @@ src/
     rail/                  # categories + agents, avatars, presence
     tabs/                  # session tab strip
     terminal/              # TerminalPane (xterm runtime, coalescer, attach)
+    diagnostics/           # CLI/auth readiness modal
+    keyboard/              # view/session shortcut routing
     rightpanel/            # Files view + Changes (diff) view
     onboarding/            # first-run + new category/agent modals
     graph/                 # run-scoped control-plane canvas and dispatch
@@ -142,6 +152,11 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   sessions keep replay for 30 minutes and are then reaped.
 - Task sessions carry a `runTaskId`; normal shutdown journals cancellation and
   the next startup fails any work left active by an unclean exit.
+- Exit reason lives on retained session metadata. Renderer hydration buffers
+  exit/removal events while `pty:list` is in flight, so an event cannot be
+  overwritten by an older list snapshot.
+- Exited output remains attachable until close/reap. Interactive sessions may
+  be restarted explicitly; run tasks are never silently re-run.
 
 ## Run and task control plane (main/orchestration/)
 
@@ -162,7 +177,7 @@ sessions use a one-shot non-interactive command and exit with the CLI.
 ## IPC contract (shared/ipc.ts) — stable, both build agents code against it
 
 Invoke (renderer → main, `ipcRenderer.invoke`):
-- `config:get` → full config; `config:save(partial)` → saved config
+- `config:get` → full config; `config:save({settings:{theme}})` → saved config
 - `photo:import(bytesBase64, mime)` → stored filename
 - `agent:create(input)` / `agent:delete(id)` / `category:create(input)` …
   (creates workspaceDir, memory scaffold, worktree if repo-backed)
@@ -172,6 +187,7 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
   `pty:kill({sessionId})`, `pty:attach({sessionId})` → replay + sequence
 - `pty:list()` → live/exited retained sessions + task queue status
 - `pty:cancelTasks({agentIds?, runTaskIds?})` → active/queued cancellation counts
+- `runtime:diagnose({agentId?})` → CLI/version/auth/task-transport readiness
 - `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs
 - `runTask:create`, `runTask:fail`, `runArtifact:create` → journal-backed entities
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
@@ -185,6 +201,47 @@ Events (main → renderer, `webContents.send`):
 - `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
 - `orchestration:changed` → authoritative runs/participants/tasks/events/artifacts
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
+
+Every invoke passes two checks before its handler runs:
+
+1. The sender is the main frame of an ADE-owned BrowserWindow at the exact
+   configured Vite URL (development) or packaged renderer file (production).
+2. The payload has only the channel's allowed fields, runtime enum values and
+   bounded strings/arrays/base64/dimensions. Compile-time TypeScript types are
+   not treated as a security boundary.
+
+## Terminal beta security and UX
+
+- Renderer process sandboxing, context isolation and disabled Node integration
+  and webviews are mandatory. The preload exposes only allowlisted `invoke`
+  and `on` wrappers.
+- CSP defaults to `none`, permits self-hosted scripts/styles/fonts plus the
+  `ade-photo:` image scheme, and denies objects, frames, forms and base URLs.
+- Main-frame navigation stays on the ADE renderer; only credential-free HTTP(S)
+  links may be handed to the system browser. Web permissions default to deny.
+- Diagnostics execute fixed version/auth probes for known runtimes. Custom
+  command strings are neither executed nor echoed. Claude/Codex expose stable
+  auth probes; Ollama checks its local service; other runtimes report unknown
+  auth explicitly when no stable probe exists.
+- Keyboard: Ctrl+Shift+T/W create/close, Ctrl+PageUp/PageDown cycle sessions,
+  Alt+1..9 selects a session, Ctrl+1/2 changes top-level view. Tab lists also
+  implement roving focus and arrow/Home/End navigation.
+- Native notifications fire only while ADE is in the background, for task
+  completion/failure and abnormal interactive exits. Cancellation and clean
+  interactive exits remain quiet.
+
+## CI and Windows packaging
+
+- `.github/workflows/ci.yml` runs typecheck, focused scripts, production build,
+  the real Electron/ConPTY workflow and an unpacked package build on Windows.
+- `.github/workflows/package-windows.yml` repeats verification, creates the
+  x64 NSIS installer and uploads it. `WIN_CSC_LINK` and
+  `WIN_CSC_KEY_PASSWORD` opt into Authenticode signing; local artifacts are
+  expected to be unsigned.
+- `scripts/test-electron-workflow.ts` seeds only a temporary ADE profile and
+  verifies sandbox/preload boundaries, IPC rejection, real terminal I/O,
+  multi-tab shortcuts, renderer reload replay, non-zero failure/restart and
+  diagnostics. The same script can target `ADE_E2E_EXECUTABLE`.
 
 ## Theming
 

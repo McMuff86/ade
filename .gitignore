@@ -3,6 +3,7 @@ dist/
 out/
 reference/
 .playwright-mcp/
+test-results/
 *.log
 *.tsbuildinfo
 .DS_Store

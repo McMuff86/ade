@@ -2,6 +2,8 @@
   "name": "ade",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "author": "Adi Muff",
   "description": "ADE - agentic development environment (desktop workspace for CLI agents)",
   "main": "out/main/index.js",
   "scripts": {
@@ -9,12 +11,54 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "pnpm run test:memory && pnpm run test:dispatch && pnpm run test:runtime && pnpm run test:orchestration",
+    "test": "pnpm run test:memory && pnpm run test:dispatch && pnpm run test:runtime && pnpm run test:orchestration && pnpm run test:security",
     "test:memory": "tsx scripts/test-memory.ts",
     "test:dispatch": "tsx scripts/test-worker-dispatch.ts",
     "test:runtime": "tsx scripts/test-runtime-reliability.ts",
     "test:orchestration": "tsx scripts/test-orchestration.ts",
+    "test:security": "tsx scripts/test-security.ts",
+    "test:electron": "pnpm run build && tsx scripts/test-electron-workflow.ts",
+    "verify": "pnpm run typecheck && pnpm test && pnpm run build && tsx scripts/test-electron-workflow.ts",
+    "package:dir": "pnpm run build && electron-builder --win --x64 --dir",
+    "package:win": "pnpm run build && electron-builder --win nsis --x64",
     "rebuild:pty": "electron-rebuild -f -w node-pty"
+  },
+  "build": {
+    "appId": "com.adimuff.ade",
+    "productName": "ADE",
+    "asar": true,
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "."
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "agentic_coding_environment_icon.png",
+      "artifactName": "ADE-${version}-${arch}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "ADE",
+      "uninstallDisplayName": "ADE"
+    }
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -41,7 +85,9 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
     "electron": "^43.1.0",
+    "electron-builder": "26.15.3",
     "electron-vite": "^5.0.0",
+    "playwright": "1.61.1",
     "tsx": "^4.23.0",
     "typescript": "^5.8.0",
     "vite": "^7.0.0"

@@ -66,7 +66,6 @@ export function registerPhotoProtocolScheme(): void {
         secure: true,
         supportFetchAPI: true,
         stream: true,
-        bypassCSP: true,
       },
     },
   ]);

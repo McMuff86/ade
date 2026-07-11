@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'agent/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terminal-beta:
+    name: Verify Windows terminal beta
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CI: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Run focused checks
+        run: pnpm test
+
+      - name: Build production app
+        run: pnpm run build
+
+      - name: Run Electron workflow
+        run: pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Validate unpacked Windows package
+        run: pnpm exec electron-builder --win --x64 --dir
+
+      - name: Run workflow against packaged executable
+        run: |
+          $env:ADE_E2E_EXECUTABLE = (Resolve-Path 'dist\win-unpacked\ADE.exe').Path
+          pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Upload Electron failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-workflow-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -4,7 +4,9 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
@@ -14,10 +16,29 @@ import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
 import { OrchestrationService } from './orchestration/OrchestrationService';
+import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
+import { assertIpcPayload } from './ipcValidation';
+import { isTrustedRendererUrl } from './security';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
 let orchestration: OrchestrationService | null = null;
+
+const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
+
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  const frame = event.senderFrame;
+  const trusted = owner
+    && !owner.isDestroyed()
+    && frame === event.sender.mainFrame
+    && isTrustedRendererUrl(
+      frame.url,
+      process.env['ELECTRON_RENDERER_URL'],
+      packagedRendererUrl,
+    );
+  if (!trusted) throw new Error('ade: rejected IPC from an untrusted renderer');
+}
 
 /** Typed ipcMain.handle wrapper: payload/result checked against IpcInvokeMap. */
 function handle<K extends keyof IpcInvokeMap>(
@@ -26,7 +47,11 @@ function handle<K extends keyof IpcInvokeMap>(
     payload: IpcInvokeMap[K]['req'],
   ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
 ): void {
-  ipcMain.handle(channel, (_event, payload) => handler(payload as IpcInvokeMap[K]['req']));
+  ipcMain.handle(channel, (event, payload: unknown) => {
+    assertTrustedSender(event);
+    assertIpcPayload(channel, payload);
+    return handler(payload);
+  });
 }
 
 export function registerIpcHandlers(store: ConfigStore): void {
@@ -106,13 +131,24 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
 
   // Reconcile renderer state after a reload without losing main-owned PTYs.
-  handle(IPC.PtyList, () => ({
-    sessions: ptyManager!.list(),
-    taskQueue: ptyManager!.queueStatus(),
-  }));
+  handle(IPC.PtyList, async () => {
+    const snapshot = {
+      sessions: ptyManager!.list(),
+      taskQueue: ptyManager!.queueStatus(),
+    };
+    // E2E-only: hold a deliberately stale snapshot while exit/removal events
+    // continue, proving renderer hydration merges those events before commit.
+    const requestedDelay = Number(process.env['ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS'] ?? 0);
+    const delay = Number.isFinite(requestedDelay) ? Math.min(Math.max(requestedDelay, 0), 2_000) : 0;
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    return snapshot;
+  });
 
   // Cancel active and queued Graph tasks, optionally scoped to selected agents.
   handle(IPC.PtyCancelTasks, (request) => ptyManager!.cancelTasks(request));
+
+  // Safe readiness checks only: version/auth commands never modify credentials.
+  handle(IPC.RuntimeDiagnose, ({ agentId }) => diagnoseRuntimes(store.get().agents, agentId));
 
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 

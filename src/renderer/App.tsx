@@ -2,7 +2,7 @@
  * App shell — three-region resizable layout:
  *   left rail | center (tab strip + main area) | right panel (collapsible).
  * Panel sizes persist to localStorage via PanelGroup autoSaveId.
- * The regions are placeholders; Phase B1/B2/C fill them in.
+ * Terminals and Graph are two views over the same persisted catalog/run state.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -18,13 +18,18 @@ import { useMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
 import { useSessions } from './stores/sessions';
 import { useRuns } from './stores/runs';
+import { useDiagnostics } from './stores/diagnostics';
+import { DiagnosticsModal } from './diagnostics/DiagnosticsModal';
+import { useSessionShortcuts } from './keyboard/useSessionShortcuts';
 import './graph/mode-switch.css';
 
 export function App() {
+  useSessionShortcuts();
   const theme = useSettings((s) => s.theme);
   const toggleTheme = useSettings((s) => s.toggleTheme);
   const mode = useMode((s) => s.mode);
   const setMode = useMode((s) => s.setMode);
+  const showDiagnostics = useDiagnostics((s) => s.show);
 
   // Phase B2: load persisted categories/agents once at app start.
   const loadAppData = useAppData((s) => s.load);
@@ -59,10 +64,19 @@ export function App() {
 
         <div className="mode-switch" role="tablist" aria-label="View mode">
           <button
+            id="mode-tab-terminals"
             role="tab"
             aria-selected={mode === 'terminals'}
+            tabIndex={mode === 'terminals' ? 0 : -1}
             className={mode === 'terminals' ? 'on' : ''}
             onClick={() => setMode('terminals')}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const next = event.key === 'Home' ? 'terminals' : 'graph';
+              setMode(next);
+              requestAnimationFrame(() => document.getElementById(`mode-tab-${next}`)?.focus());
+            }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -71,10 +85,19 @@ export function App() {
             Terminals
           </button>
           <button
+            id="mode-tab-graph"
             role="tab"
             aria-selected={mode === 'graph'}
+            tabIndex={mode === 'graph' ? 0 : -1}
             className={mode === 'graph' ? 'on' : ''}
             onClick={() => setMode('graph')}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const next = event.key === 'End' ? 'graph' : 'terminals';
+              setMode(next);
+              requestAnimationFrame(() => document.getElementById(`mode-tab-${next}`)?.focus());
+            }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="5" r="2.4" />
@@ -87,6 +110,9 @@ export function App() {
         </div>
 
         <span className="spacer" />
+        <button className="btn" onClick={() => showDiagnostics()} title="Check CLI and authentication">
+          Diagnostics
+        </button>
         {/* temporary toggle — settings UI replaces this later */}
         <button className="btn" onClick={toggleTheme} title="Switch theme">
           {theme === 'dark' ? 'Light' : 'Dark'}
@@ -144,6 +170,7 @@ export function App() {
         </PanelGroup>
         )}
       </div>
+      <DiagnosticsModal />
     </div>
   );
 }

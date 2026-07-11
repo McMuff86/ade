@@ -8,6 +8,7 @@
 import type { JSX } from 'react';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
+import { SHORTCUTS } from '../keyboard/useSessionShortcuts';
 import '../terminal/terminal.css';
 
 export function TabStrip(): JSX.Element | null {
@@ -22,47 +23,74 @@ export function TabStrip(): JSX.Element | null {
   if (!agentId) return null;
 
   const sessionIds = order ?? [];
+  const activateAndFocus = (id: string): void => {
+    setActive(agentId, id);
+    requestAnimationFrame(() => document.getElementById(`session-tab-${id}`)?.focus());
+  };
 
   return (
-    <div className="tabstrip" role="tablist">
+    <div className="tabstrip" role="tablist" aria-label="Terminal sessions">
       {sessionIds.map((id) => {
         const meta = sessions[id];
         if (!meta) return null;
         const isActive = id === active;
         const running = meta.status === 'running';
         return (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={isActive}
-            className={isActive ? 'tab active' : 'tab'}
-            onClick={() => setActive(agentId, id)}
-            title={meta.title}
-          >
-            <span className={running ? 'status running' : 'status exited'}>
-              {running ? '●' : '○'}
-            </span>
-            <span className="tab-title">{meta.title}</span>
-            <span
+          <div key={id} className={isActive ? 'tab active' : 'tab'}>
+            <button
+              id={`session-tab-${id}`}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`session-panel-${id}`}
+              aria-label={`${meta.title}, ${running ? 'running' : `exited with code ${meta.exitCode ?? 'unknown'}`}`}
+              className="tab-select"
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => setActive(agentId, id)}
+              onKeyDown={(event) => {
+                let index: number | null = null;
+                if (event.key === 'ArrowLeft') index = (sessionIds.indexOf(id) - 1 + sessionIds.length) % sessionIds.length;
+                else if (event.key === 'ArrowRight') index = (sessionIds.indexOf(id) + 1) % sessionIds.length;
+                else if (event.key === 'Home') index = 0;
+                else if (event.key === 'End') index = sessionIds.length - 1;
+                else if (event.key === 'Delete') {
+                  event.preventDefault();
+                  void closeSession(id).catch(() => undefined);
+                  return;
+                }
+                if (index === null) return;
+                event.preventDefault();
+                const next = sessionIds[index];
+                if (next) activateAndFocus(next);
+              }}
+              title={meta.title}
+            >
+              <span className={running ? 'status running' : 'status exited'} aria-hidden="true">
+                {running ? '●' : '○'}
+              </span>
+              <span className="tab-title">{meta.title}</span>
+            </button>
+            <button
+              type="button"
               className="close"
-              role="button"
-              aria-label="Close session"
-              title="Close session"
-              onClick={(e) => {
-                e.stopPropagation();
-                void closeSession(id);
+              aria-label={`Close ${meta.title}`}
+              title={`Close session (${SHORTCUTS.closeSession})`}
+              tabIndex={isActive ? 0 : -1}
+              onClick={(event) => {
+                event.stopPropagation();
+                void closeSession(id).catch(() => undefined);
               }}
             >
-              {'×'}
-            </span>
-          </button>
+              ×
+            </button>
+          </div>
         );
       })}
       <button
         className="tab-add"
-        title="New session"
+        title={`New session (${SHORTCUTS.newSession})`}
         aria-label="New session"
-        onClick={() => void createSession(agentId)}
+        onClick={() => void createSession(agentId).catch(() => undefined)}
       >
         +
       </button>

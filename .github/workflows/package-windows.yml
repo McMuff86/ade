@@ -1,0 +1,58 @@
+name: Package Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      CI: '1'
+      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source and Electron workflow
+        run: pnpm run verify
+
+      - name: Build NSIS installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+
+      - name: Verify packaged executable
+        run: |
+          $env:ADE_E2E_EXECUTABLE = (Resolve-Path 'dist\win-unpacked\ADE.exe').Path
+          pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADE-windows-x64
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest*.yml
+          if-no-files-found: error
+          retention-days: 14

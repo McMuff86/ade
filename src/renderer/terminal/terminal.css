@@ -27,9 +27,9 @@
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   height: 32px;
-  padding: 0 10px 0 12px;
+  padding: 0 4px 0 10px;
   border-radius: 8px 8px 0 0;
   color: var(--muted);
   border: 1px solid transparent;
@@ -38,6 +38,15 @@
   font-size: 12px;
   max-width: 220px;
   background: transparent;
+}
+
+.tab-select {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
 }
 
 .tab:hover {
@@ -65,11 +74,13 @@
 }
 
 .tab .tab-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tab .close {
+  flex: none;
   display: grid;
   place-items: center;
   width: 16px;
@@ -150,4 +161,68 @@
 .terminal-host .xterm,
 .terminal-host .xterm-viewport {
   background-color: transparent;
+}
+
+/* ------------------------------------------------------ recovery / exits */
+
+.session-notices {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.session-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 8px 7px 11px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+  pointer-events: auto;
+}
+
+.session-notice.error {
+  border-left-color: var(--del);
+}
+
+.session-notice > div:first-child {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.session-notice strong {
+  font-size: 11.5px;
+}
+
+.session-notice span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-notice button {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: var(--raised);
+  font-size: 10.5px;
+}
+
+.session-notice button:hover {
+  color: var(--text);
+  border-color: var(--faint);
 }

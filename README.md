@@ -23,6 +23,9 @@ terminals around named agents.
   maintains its own memory.
 - **Light + dark theme** — including the terminal itself (full ANSI palette
   per theme).
+- **Terminal beta safeguards**: read-only CLI/auth diagnostics, actionable
+  exit/restart UI, background native completion notifications, keyboard tab
+  navigation, sandboxed renderer, strict CSP and runtime-validated IPC.
 - **Two views over the same agents**: Terminals is the interactive execution
   workspace; Graph creates persisted runs that reference those catalog agents
   with run-scoped roles. Its bounded one-shot tasks survive reload, can be
@@ -39,8 +42,34 @@ pnpm dev
 ```
 
 `pnpm build` builds to `out/`; `pnpm start` previews the built app.
+`pnpm verify` runs typecheck, all focused checks, the production build and the
+real Electron/ConPTY workflow against an isolated temporary profile.
+
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
-`pnpm test:runtime`, and `pnpm test:orchestration`.
+`pnpm test:runtime`, `pnpm test:orchestration`, and `pnpm test:security`.
+`pnpm test:electron` builds and runs the Electron workflow separately.
+
+## Keyboard
+
+| Action | Shortcut |
+|---|---|
+| New / close terminal session | `Ctrl+Shift+T` / `Ctrl+Shift+W` |
+| Previous / next session | `Ctrl+PageUp` / `Ctrl+PageDown` |
+| Select session 1–9 | `Alt+1` … `Alt+9` |
+| Terminals / Graph view | `Ctrl+1` / `Ctrl+2` |
+
+Tab lists also support arrow keys plus Home/End with visible focus.
+
+## Windows package
+
+```
+pnpm package:dir   # dist/win-unpacked/ADE.exe
+pnpm package:win   # dist/ADE-<version>-x64-Setup.exe
+```
+
+The assisted NSIS installer is unsigned for local/branch builds. The Windows
+package workflow uses `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` when configured
+to Authenticode-sign release artifacts. Auto-update is not implemented yet.
 
 ## Notes
 
@@ -50,6 +79,7 @@ Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
 - First session in a fresh agent workspace: Claude Code shows its one-time
   "trust this folder" prompt — answer it in the terminal like in any shell.
 - Dev/E2E affordances: `ADE_REMOTE_DEBUG_PORT`, `ADE_USER_DATA_DIR`,
+  `ADE_E2E_EXECUTABLE`, `ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS`, and
   `window.__ade` (dev builds only).
 - Graph orchestration is still incomplete: workers currently receive the same
   task and there is no task decomposition, result mailbox, verification, or

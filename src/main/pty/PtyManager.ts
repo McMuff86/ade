@@ -25,6 +25,7 @@ import {
 import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
 import { injectMemoryBlock } from '../memory/inject';
+import { showSessionExitNotification } from '../notifications';
 import {
   TaskQueueCancelledError,
   TaskSlotQueue,
@@ -345,12 +346,16 @@ export class PtyManager {
     session.meta.status = 'exited';
     session.meta.exitCode = exitCode;
     session.meta.endedAt = Date.now();
+    session.meta.exitReason = session.cancelled ? 'cancelled' : 'exit';
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
       exitCode,
       reason: session.cancelled ? 'cancelled' : 'exit',
     });
     this.notifyFinished(session, exitCode);
+    const agentName = this.store.get().agents.find((agent) => agent.id === session.meta.agentId)?.name
+      ?? 'Agent';
+    showSessionExitNotification({ ...session.meta }, agentName);
 
     if (session.removeOnExit) this.removeSession(session.meta.id);
     else this.scheduleReap(session);
@@ -384,6 +389,7 @@ export class PtyManager {
     session.meta.status = 'exited';
     session.meta.exitCode = -1;
     session.meta.endedAt = Date.now();
+    session.meta.exitReason = 'cancelled';
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
       exitCode: -1,

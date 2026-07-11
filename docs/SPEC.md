@@ -1,6 +1,6 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.4 (persisted run/task control plane, 2026-07-10)
+Status: v0.5 (terminal beta reliability/security, 2026-07-11)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -122,3 +122,13 @@ reachable later via "+ New category" / "+ Add agent". One-command install.
   sessions have bounded retention.
 - Keyboard: visible focus, tab switching shortcuts.
 - Theme: light + dark, both first-class incl. terminal.
+- Session launch, attach and non-zero exits must be visible and recoverable;
+  never strand a main-owned PTY because renderer reconciliation failed.
+- CLI/auth diagnostics are read-only and must not execute custom command text
+  or expose credential contents.
+- Background task completion/failure may notify through the OS; cancellation
+  and clean interactive exits should remain quiet.
+- Production renderers are sandboxed with a restrictive CSP. Every privileged
+  IPC invoke validates both its ADE main-frame sender and runtime payload.
+- Windows beta distribution is an x64 installer; signing is required for a
+  trusted release but local verification artifacts may be unsigned.

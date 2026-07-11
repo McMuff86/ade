@@ -62,6 +62,7 @@ export interface Agent {
 }
 
 export type SessionKind = 'interactive' | 'task';
+export type PtyExitReason = 'exit' | 'cancelled';
 
 export interface SessionMeta {
   id: string;
@@ -72,6 +73,8 @@ export interface SessionMeta {
   createdAt: number;
   endedAt?: number;
   exitCode?: number;
+  /** Preserved in the main-owned session snapshot so reloads keep exit semantics. */
+  exitReason?: PtyExitReason;
   dispatchId?: string;
   runTaskId?: string;
 }
@@ -80,6 +83,39 @@ export interface TaskQueueStatus {
   active: number;
   queued: number;
   maxActive: number;
+}
+
+/* ---------------------------------------------------------- diagnostics */
+
+export type RuntimeDiagnosticStatus = 'ready' | 'warning' | 'error';
+export type RuntimeAuthStatus =
+  | 'authenticated'
+  | 'not-authenticated'
+  | 'not-required'
+  | 'unknown';
+
+/** One configured agent's non-mutating CLI/auth readiness check. */
+export interface RuntimeDiagnostic {
+  agentId: string;
+  agentName: string;
+  runtime: RuntimeId;
+  label: string;
+  /** Safe display value; custom command text is deliberately never returned. */
+  command: string;
+  /** null when a custom override is intentionally not executed. */
+  installed: boolean | null;
+  version?: string;
+  authStatus: RuntimeAuthStatus;
+  authDetail: string;
+  taskTransport: 'argument' | 'stdin' | 'unavailable';
+  status: RuntimeDiagnosticStatus;
+  message: string;
+}
+
+export interface RuntimeDiagnosticsResult {
+  checkedAt: number;
+  platform: string;
+  items: RuntimeDiagnostic[];
 }
 
 /* --------------------------------------------------------- orchestration */
@@ -182,8 +218,8 @@ export interface MemorySettings {
 export interface Settings {
   theme: ThemeName;
   /**
-   * Optional so existing partial `config:save({ settings: { theme } })` calls
-   * keep compiling; the store always fills it from DEFAULT_CONFIG on load.
+   * Optional for migration compatibility; the store fills it from
+   * DEFAULT_CONFIG when older config files are loaded.
    */
   memory?: MemorySettings;
 }

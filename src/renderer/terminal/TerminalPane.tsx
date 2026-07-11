@@ -22,6 +22,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useSettings } from '../stores/settings';
 import { XTERM_THEMES } from '../theme/themes';
 import { createWriteCoalescer } from './write-coalescer';
+import { useSessions } from '../stores/sessions';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -91,8 +92,15 @@ export function TerminalPane({
     const coalescer = createWriteCoalescer((data) => term.write(data));
 
     // keyboard -> pty
+    let writeFailed = false;
     const keyDisp = term.onData((data) => {
-      window.ade.invoke('pty:write', { sessionId, dataBase64: utf8ToBase64(data) });
+      void window.ade
+        .invoke('pty:write', { sessionId, dataBase64: utf8ToBase64(data) })
+        .catch((error) => {
+          if (writeFailed) return;
+          writeFailed = true;
+          useSessions.getState().reportError(error, { source: 'attach', sessionId });
+        });
     });
 
     let disposed = false;
@@ -128,7 +136,10 @@ export function TerminalPane({
         }
         pendingLive.length = 0;
       })
-      .catch((err) => console.error('[ade] pty:attach failed:', err));
+      .catch((error) => {
+        console.error('[ade] pty:attach failed:', error);
+        useSessions.getState().reportError(error, { source: 'attach', sessionId });
+      });
 
     // fit + report size to the pty (guard against hidden 0x0 hosts)
     const doFit = (): void => {

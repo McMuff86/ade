@@ -2,21 +2,24 @@
  * Electron main entry — window + app lifecycle only (no updater, no cloud).
  */
 
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { app, BrowserWindow, Menu, session, shell } from 'electron';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { registerIpcHandlers, disposePtyManager } from './ipc';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
 import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
+import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
 registerPhotoProtocolScheme();
+app.enableSandbox();
 
 let mainWindow: BrowserWindow | null = null;
 
 // Opt-in renderer CDP endpoint for end-to-end verification (no prod impact).
-const remoteDebugPort = process.env['ADE_REMOTE_DEBUG_PORT'];
-if (remoteDebugPort) {
+const remoteDebugPort = !app.isPackaged ? process.env['ADE_REMOTE_DEBUG_PORT'] : undefined;
+if (remoteDebugPort && /^\d{2,5}$/.test(remoteDebugPort)) {
   app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
 }
 
@@ -28,6 +31,8 @@ if (userDataOverride) {
 }
 
 function createWindow(): void {
+  const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -40,7 +45,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webviewTag: false,
+      devTools: !app.isPackaged,
       // CDP-driven verification runs with the window occluded; without this,
       // rAF/timers stall in the hidden renderer and terminal writes defer
       // until the window is visible again. Normal runs keep throttling on.
@@ -52,14 +59,21 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  // open external links in the default browser, never in-app
+  // Open ordinary web links externally; reject custom protocols and popups.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url).catch((error) => {
+        console.warn('[ade] failed to open external link:', error);
+      });
+    }
     return { action: 'deny' };
   });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isTrustedRendererUrl(url, devUrl, packagedRendererUrl)) event.preventDefault();
+  });
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
 
   // dev: electron-vite serves the renderer; prod: load the built file
-  const devUrl = process.env['ELECTRON_RENDERER_URL'];
   if (devUrl) {
     void mainWindow.loadURL(devUrl);
   } else {
@@ -75,6 +89,11 @@ function createWindow(): void {
 Menu.setApplicationMenu(null);
 
 void app.whenReady().then(async () => {
+  app.setAppUserModelId('com.adimuff.ade');
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+  session.defaultSession.setPermissionCheckHandler(() => false);
   const store = new ConfigStore();
   registerIpcHandlers(store);
   registerPhotoProtocolHandler();
