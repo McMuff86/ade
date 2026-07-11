@@ -63,6 +63,19 @@ function enumValue<T extends string>(
   return value as T;
 }
 
+function optionalBoundedNumber(
+  channel: string,
+  value: unknown,
+  label: string,
+  options: { min: number; max: number; integer?: boolean },
+): void {
+  if (value === undefined || value === null) return;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < options.min || value > options.max) {
+    invalid(channel, `${label} must be null or a number from ${options.min} to ${options.max}`);
+  }
+  if (options.integer && !Number.isInteger(value)) invalid(channel, `${label} must be an integer`);
+}
+
 function id(channel: string, value: unknown, label: string): string {
   return stringValue(channel, value, label, { max: 512 });
 }
@@ -164,7 +177,7 @@ function validatePtyCancel(channel: string, payload: unknown): void {
 
 function validateRunCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'goal', 'participants']);
+  exactKeys(channel, request, ['name', 'goal', 'participants', 'budget']);
   stringValue(channel, request.name, 'name', { max: 200 });
   optionalString(channel, request.goal, 'goal', { max: 8_000, allowEmpty: true });
   if (!Array.isArray(request.participants) || request.participants.length < 1 || request.participants.length > 100) {
@@ -181,6 +194,31 @@ function validateRunCreate(channel: string, payload: unknown): void {
       allowEmpty: true,
     });
   });
+  if (request.budget !== undefined) {
+    const budget = record(channel, request.budget, 'budget');
+    exactKeys(channel, budget, [
+      'maxConcurrentTasks',
+      'maxInputTokens',
+      'maxOutputTokens',
+      'maxCostUsd',
+      'maxApprovals',
+    ], 'budget');
+    optionalBoundedNumber(channel, budget.maxConcurrentTasks, 'budget.maxConcurrentTasks', {
+      min: 1, max: 4, integer: true,
+    });
+    optionalBoundedNumber(channel, budget.maxInputTokens, 'budget.maxInputTokens', {
+      min: 1, max: 2_000_000_000, integer: true,
+    });
+    optionalBoundedNumber(channel, budget.maxOutputTokens, 'budget.maxOutputTokens', {
+      min: 1, max: 2_000_000_000, integer: true,
+    });
+    optionalBoundedNumber(channel, budget.maxCostUsd, 'budget.maxCostUsd', {
+      min: 0.01, max: 1_000_000,
+    });
+    optionalBoundedNumber(channel, budget.maxApprovals, 'budget.maxApprovals', {
+      min: 0, max: 20, integer: true,
+    });
+  }
 }
 
 function validateArtifact(channel: string, payload: unknown): void {
@@ -284,8 +322,17 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       validateRunCreate(channel, payload);
       return;
     case IPC.RunDelete:
+    case IPC.RunStart:
+    case IPC.RunCancel:
       validateIdRequest(channel, payload, 'runId');
       return;
+    case IPC.RunApprovalResolve: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['approvalId', 'decision']);
+      id(channel, request.approvalId, 'approvalId');
+      enumValue(channel, request.decision, 'decision', ['approve', 'reject']);
+      return;
+    }
     case IPC.RunTaskCreate: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['runId', 'participantId', 'prompt']);

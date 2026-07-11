@@ -90,16 +90,35 @@ function runStatusText(status: string): string {
   }
 }
 
+function phaseText(phase: string): string {
+  switch (phase) {
+    case 'planning': return 'Planung';
+    case 'working': return 'Worker';
+    case 'approval': return 'Freigabe';
+    case 'integrating': return 'Integration';
+    case 'verifying': return 'Verifikation';
+    case 'completed': return 'Fertig';
+    case 'failed': return 'Fehler';
+    case 'cancelled': return 'Abgebrochen';
+    default: return 'Entwurf';
+  }
+}
+
 export function GraphView(): JSX.Element {
   const categories = useAppData((state) => state.categories);
   const agents = useAppData((state) => state.agents);
   const runs = useRuns((state) => state.runs);
   const participants = useRuns((state) => state.participants);
   const tasks = useRuns((state) => state.tasks);
+  const approvals = useRuns((state) => state.approvals);
+  const usageByRun = useRuns((state) => state.usageByRun);
   const runsLoaded = useRuns((state) => state.loaded);
   const activeRunId = useRuns((state) => state.activeRunId);
   const setActiveRun = useRuns((state) => state.setActiveRun);
   const createRun = useRuns((state) => state.createRun);
+  const startRun = useRuns((state) => state.startRun);
+  const cancelRun = useRuns((state) => state.cancelRun);
+  const resolveApproval = useRuns((state) => state.resolveApproval);
   const sessions = useSessions((state) => state.sessions);
   const orderByAgent = useSessions((state) => state.orderByAgent);
   const taskQueue = useSessions((state) => state.taskQueue);
@@ -112,6 +131,10 @@ export function GraphView(): JSX.Element {
   const setTeamIdle = useGraphStore((state) => state.setTeamIdle);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
+  const activeUsage = activeRunId ? usageByRun[activeRunId] : undefined;
+  const pendingApproval = approvals.find(
+    (approval) => approval.runId === activeRunId && approval.status === 'pending' && activeRun?.status === 'running',
+  );
   const runTasks = useMemo(
     () => tasks.filter((task) => task.runId === activeRunId),
     [tasks, activeRunId],
@@ -414,11 +437,19 @@ export function GraphView(): JSX.Element {
         {activeRun && (
           <>
             <span className="grun-status" data-s={activeRun.status}>{runStatusText(activeRun.status)}</span>
+            {activeRun.mode === 'managed' && (
+              <span className="grun-phase">{phaseText(activeRun.phase)}</span>
+            )}
             <span className="grun-goal" title={activeRun.goal || activeRun.name}>
               {activeRun.goal || 'Kein Run-Ziel hinterlegt'}
             </span>
             <span className="grun-counts">
               {runTasks.length} Tasks · {activeTaskCount} aktiv · Queue {taskQueue.active}/{taskQueue.queued}
+              {activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
+              {activeRun.mode === 'managed' && ` · Parallel ≤${activeRun.budget.maxConcurrentTasks}`}
+              {activeUsage && ` · Freigaben ${activeUsage.approvals}/${activeRun.budget.maxApprovals}`}
+              {activeRun.budget.maxCostUsd !== null && activeUsage &&
+                ` · $${activeUsage.costUsd.toFixed(2)}/$${activeRun.budget.maxCostUsd.toFixed(2)}`}
             </span>
           </>
         )}
@@ -426,6 +457,31 @@ export function GraphView(): JSX.Element {
           <Ico>{I.plus}</Ico>Neuer Run
         </button>
       </div>
+
+      {pendingApproval && (
+        <div className="gapproval" role="status">
+          <div>
+            <b>Integration wartet auf Freigabe</b>
+            <span title={pendingApproval.reason}>{pendingApproval.reason}</span>
+          </div>
+          <button
+            className="gact"
+            onClick={() => void resolveApproval(pendingApproval.id, 'reject')
+              .then(() => flash('Integration abgelehnt'))
+              .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+          >
+            Ablehnen
+          </button>
+          <button
+            className="gact primary"
+            onClick={() => void resolveApproval(pendingApproval.id, 'approve')
+              .then(() => flash('Integration freigegeben'))
+              .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+          >
+            Freigeben &amp; integrieren
+          </button>
+        </div>
+      )}
 
       <div ref={canvasRef} className="graph-canvas" onPointerDown={onCanvasPointerDown} onWheel={onWheel}>
         <div
@@ -549,6 +605,7 @@ export function GraphView(): JSX.Element {
         model={model}
         selection={selection}
         runTaskCount={runTasks.length}
+        canDirectDispatch={activeRun?.mode === 'manual'}
         nodeStatus={nodeStatus}
         onClose={() => select(null)}
         onCompose={setComposer}
@@ -568,20 +625,46 @@ export function GraphView(): JSX.Element {
             <Ico>{I.plus}</Ico>Neuer Run
           </button>
           <div className="sep" />
-          <button
-            className="gdbtn"
-            disabled={model.teams.length === 0}
-            onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(model) })}
-          >
-            <Ico>{I.arrow}</Ico>An Teams verteilen
-          </button>
-          <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, true))}>
-            <Ico>{I.pause}</Ico>Alle pausieren
-          </button>
-          <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, false))}>
-            <Ico>{I.play}</Ico>Alle aktivieren
-          </button>
-          {activeTaskCount > 0 && (
+          {activeRun.mode === 'manual' && activeRun.status === 'draft' && (
+            <button
+              className="gdbtn accent"
+              disabled={!activeRun.goal.trim() || !model.orchestrator || model.teams.length === 0}
+              title="Plant getrennte Worker-Aufträge und integriert erst nach Freigabe"
+              onClick={() => void startRun(activeRun.id)
+                .then(() => flash('Orchestrierung gestartet'))
+                .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+            >
+              <Ico>{I.play}</Ico>Orchestrierung starten
+            </button>
+          )}
+          {activeRun.mode === 'manual' && (
+            <>
+              <button
+                className="gdbtn"
+                disabled={model.teams.length === 0}
+                onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(model) })}
+              >
+                <Ico>{I.arrow}</Ico>Direkt an Teams
+              </button>
+              <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, true))}>
+                <Ico>{I.pause}</Ico>Alle pausieren
+              </button>
+              <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, false))}>
+                <Ico>{I.play}</Ico>Alle aktivieren
+              </button>
+            </>
+          )}
+          {activeRun.mode === 'managed' && activeRun.status === 'running' && (
+            <button
+              className="gdbtn danger"
+              onClick={() => void cancelRun(activeRun.id)
+                .then(() => flash('Orchestrierung wird gestoppt'))
+                .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+            >
+              <Ico>{I.stop}</Ico>Run abbrechen
+            </button>
+          )}
+          {activeRun.mode === 'manual' && activeTaskCount > 0 && (
             <button className="gdbtn danger" onClick={() => void cancelAllTasks().then(() => flash('Run-Tasks gestoppt'))}>
               <Ico>{I.stop}</Ico>Tasks stoppen
             </button>
@@ -637,6 +720,7 @@ interface InspectorProps {
   model: ReturnType<typeof buildGraph>;
   selection: GraphSelection | null;
   runTaskCount: number;
+  canDirectDispatch: boolean;
   nodeStatus: (member: GraphMember, idle: boolean) => NodeStatus;
   onClose: () => void;
   onCompose: (target: ComposerTarget) => void;
@@ -665,14 +749,14 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         <div className="ginsp-actions">
           <button
             className="gact primary"
-            disabled={!orchestrator.available}
+            disabled={!orchestrator.available || !props.canDirectDispatch}
             onClick={() => props.onCompose({ kind: 'participant', id: orchestrator.id, name: orchestrator.name })}
           >
             <Ico>{I.arrow}</Ico>Task zuweisen
           </button>
           <button
             className="gact"
-            disabled={model.teams.length === 0}
+            disabled={model.teams.length === 0 || !props.canDirectDispatch}
             onClick={() => props.onCompose({ kind: 'all', workerCount: activeWorkerCount(model) })}
           >
             <Ico>{I.arrow}</Ico>Task an alle Teams
@@ -707,7 +791,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         <div className="ginsp-actions">
           <button
             className="gact primary"
-            disabled={!team.lead?.available}
+            disabled={!team.lead?.available || !props.canDirectDispatch}
             onClick={() => props.onCompose({
               kind: 'team',
               id: team.id,
@@ -750,7 +834,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
       <div className="ginsp-actions">
         <button
           className="gact primary"
-          disabled={!worker.available}
+          disabled={!worker.available || !props.canDirectDispatch}
           onClick={() => props.onCompose({ kind: 'participant', id: worker.id, name: worker.name })}
         >
           <Ico>{I.arrow}</Ico>Task zuweisen
@@ -853,6 +937,11 @@ function NewRunModal(props: {
   const [orchestratorId, setOrchestratorId] = useState('');
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [leaders, setLeaders] = useState<Record<string, string>>({});
+  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(2);
+  const [maxInputTokens, setMaxInputTokens] = useState('');
+  const [maxOutputTokens, setMaxOutputTokens] = useState('');
+  const [maxCostUsd, setMaxCostUsd] = useState('');
+  const [maxApprovals, setMaxApprovals] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const allAgents = Object.values(props.agents);
@@ -923,7 +1012,19 @@ function NewRunModal(props: {
           });
         }
       }
-      await props.onCreate({ name: name.trim(), goal: goal.trim(), participants });
+      const optionalNumber = (value: string): number | null => value.trim() ? Number(value) : null;
+      await props.onCreate({
+        name: name.trim(),
+        goal: goal.trim(),
+        participants,
+        budget: {
+          maxConcurrentTasks,
+          maxInputTokens: optionalNumber(maxInputTokens),
+          maxOutputTokens: optionalNumber(maxOutputTokens),
+          maxCostUsd: optionalNumber(maxCostUsd),
+          maxApprovals,
+        },
+      });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : String(createError));
       setSubmitting(false);
@@ -957,6 +1058,64 @@ function NewRunModal(props: {
               {allAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </select>
           </label>
+
+          <div className="grun-budget-title">
+            <span>Run-Budgets</span>
+            <small>Leere Token-/Kostenfelder = kein Limit; Limits benötigen Adapter-Telemetrie.</small>
+          </div>
+          <div className="grun-budget">
+            <label>
+              <span>Parallel</span>
+              <input
+                type="number"
+                min={1}
+                max={4}
+                value={maxConcurrentTasks}
+                onChange={(event) => setMaxConcurrentTasks(Number(event.target.value))}
+              />
+            </label>
+            <label>
+              <span>Input-Tokens</span>
+              <input
+                type="number"
+                min={1}
+                placeholder="unbegrenzt"
+                value={maxInputTokens}
+                onChange={(event) => setMaxInputTokens(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Output-Tokens</span>
+              <input
+                type="number"
+                min={1}
+                placeholder="unbegrenzt"
+                value={maxOutputTokens}
+                onChange={(event) => setMaxOutputTokens(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Kosten USD</span>
+              <input
+                type="number"
+                min={0.01}
+                step={0.01}
+                placeholder="unbegrenzt"
+                value={maxCostUsd}
+                onChange={(event) => setMaxCostUsd(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Freigaben</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={maxApprovals}
+                onChange={(event) => setMaxApprovals(Number(event.target.value))}
+              />
+            </label>
+          </div>
 
           <div className="grun-roster-title"><span>Teams</span><b>{participantCount} Teilnehmer</b></div>
           {availableCategories.length === 0 && (

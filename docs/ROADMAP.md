@@ -82,13 +82,30 @@ diagnostics modal do not obscure terminal or panel controls.
 
 ## Goal 4 - orchestration beta
 
-Status: next.
+Status: implemented; verification recorded in the Goal 4 commit.
 
 - Runtime adapter interface, worker-specific tasks, structured results,
   worktree ownership, verification and integration.
 - Prefer native runtime coordination where it is reliable; keep a file-based
   mailbox as a generic fallback.
 - Add concurrency, token/cost and approval budgets per run.
+
+Exit criteria: a managed run produces participant-specific work rather than
+same-prompt fan-out; accepts only schema-valid results; owns clean worktrees for
+its lifetime; stops for a durable human integration approval; transactionally
+integrates every validated worker commit since the leased base; runs a distinct
+integration review and read-only verification; and fails closed on missing
+required telemetry, exhausted budgets, dirty worktrees, invalid commits or
+conflicts.
+
+Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+17 runtime + 19 domain-orchestration + 36 orchestration-beta + 56 Windows
+security assertions), `pnpm run build`, and the 29-check production Electron
+workflow pass. Goal 4 checks cover native Codex JSONL/schema wiring, strict
+result validation, worker-specific planning, dependency/concurrency scheduling,
+mailbox routing, exclusive leases, approval gating, usage budgets, full commit
+ranges, transactional conflict rollback, integration and verification. The
+same Electron workflow is also run against the unpacked Windows executable.
 
 ## Goal 5 - product validation
 

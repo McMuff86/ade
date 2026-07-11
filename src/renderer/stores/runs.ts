@@ -22,6 +22,9 @@ interface RunsState extends OrchestrationSnapshot {
   deleteRun: (runId: string) => Promise<void>;
   createTask: (input: RunTaskCreateInput) => Promise<RunTask>;
   failTask: (taskId: string, error: string) => Promise<void>;
+  startRun: (runId: string) => Promise<Run>;
+  cancelRun: (runId: string) => Promise<void>;
+  resolveApproval: (approvalId: string, decision: 'approve' | 'reject') => Promise<void>;
 }
 
 const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
@@ -30,6 +33,11 @@ const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
   tasks: [],
   events: [],
   artifacts: [],
+  results: [],
+  approvals: [],
+  workspaceLeases: [],
+  messages: [],
+  usageByRun: {},
 };
 
 let loadInFlight: Promise<void> | null = null;
@@ -117,6 +125,13 @@ export const useRuns = create<RunsState>((set, get) => ({
   createTask: (input) => window.ade.invoke('runTask:create', input),
 
   failTask: (taskId, error) => window.ade.invoke('runTask:fail', { taskId, error }),
+
+  startRun: (runId) => window.ade.invoke('run:start', { runId }),
+
+  cancelRun: (runId) => window.ade.invoke('run:cancel', { runId }),
+
+  resolveApproval: (approvalId, decision) =>
+    window.ade.invoke('runApproval:resolve', { approvalId, decision }),
 }));
 
 if (typeof window !== 'undefined' && window.ade) {

@@ -65,6 +65,9 @@ const valid: Record<InvokeChannel, unknown> = {
     participants: [{ agentId: 'agent', role: 'orchestrator' }],
   },
   'run:delete': { runId: 'run' },
+  'run:start': { runId: 'run' },
+  'run:cancel': { runId: 'run' },
+  'runApproval:resolve': { approvalId: 'approval', decision: 'approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
   'runArtifact:create': { runId: 'run', kind: 'result', content: 'done' },
@@ -92,6 +95,13 @@ check('unknown fields are rejected', rejects('pty:kill', { sessionId: 's', extra
 check('malformed base64 is rejected', rejects('pty:write', { sessionId: 's', dataBase64: '%' }));
 check('oversized terminal dimensions are rejected', rejects('pty:resize', { sessionId: 's', cols: 5000, rows: 20 }));
 check('empty run rosters are rejected', rejects('run:create', { name: 'Run', participants: [] }));
+check('invalid run concurrency is rejected', rejects('run:create', {
+  name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+  budget: { maxConcurrentTasks: 5 },
+}));
+check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
+  approvalId: 'approval', decision: 'maybe',
+}));
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',
 }));

@@ -121,23 +121,77 @@ export interface RuntimeDiagnosticsResult {
 /* --------------------------------------------------------- orchestration */
 
 export type RunStatus = 'draft' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type RunMode = 'manual' | 'managed';
+export type RunPhase =
+  | 'draft'
+  | 'planning'
+  | 'working'
+  | 'approval'
+  | 'integrating'
+  | 'verifying'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 export type RunTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type RunTaskPhase = 'manual' | 'plan' | 'work' | 'integrate' | 'verify';
 export type RunParticipantRole = 'orchestrator' | 'lead' | 'worker';
 export type RunEventType =
   | 'run.created'
+  | 'run.started'
+  | 'run.phase_changed'
+  | 'run.completed'
+  | 'run.failed'
+  | 'run.cancelled'
   | 'participant.added'
   | 'task.queued'
   | 'task.started'
   | 'task.completed'
   | 'task.failed'
   | 'task.cancelled'
+  | 'task.result_recorded'
+  | 'approval.requested'
+  | 'approval.resolved'
+  | 'workspace.acquired'
+  | 'workspace.released'
+  | 'message.sent'
+  | 'integration.applied'
+  | 'budget.exhausted'
   | 'artifact.created';
+
+/** Hard scheduling limits for a managed run. Null means no limit. */
+export interface RunBudget {
+  maxConcurrentTasks: number;
+  maxInputTokens: number | null;
+  maxOutputTokens: number | null;
+  maxCostUsd: number | null;
+  maxApprovals: number;
+}
+
+export const DEFAULT_RUN_BUDGET: RunBudget = {
+  maxConcurrentTasks: 2,
+  maxInputTokens: null,
+  maxOutputTokens: null,
+  maxCostUsd: null,
+  maxApprovals: 1,
+};
+
+export interface RunUsage {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  approvals: number;
+  /** Tasks whose adapter did not report monetary cost. */
+  unreportedCostTasks: number;
+}
 
 export interface Run {
   id: string;
   name: string;
   goal: string;
   status: RunStatus;
+  mode: RunMode;
+  phase: RunPhase;
+  budget: RunBudget;
   createdAt: number;
   updatedAt: number;
   source?: 'native' | 'legacy-graph';
@@ -161,6 +215,11 @@ export interface RunTask {
   runId: string;
   participantId: string;
   prompt: string;
+  title: string;
+  phase: RunTaskPhase;
+  managed: boolean;
+  dependsOn: string[];
+  attempt: number;
   status: RunTaskStatus;
   sessionId?: string;
   createdAt: number;
@@ -169,6 +228,88 @@ export interface RunTask {
   endedAt?: number;
   exitCode?: number;
   error?: string;
+}
+
+export interface WorkerAssignment {
+  participantId: string;
+  title: string;
+  prompt: string;
+  acceptanceCriteria: string[];
+  /** Participant ids whose assignments must complete first. */
+  dependsOn: string[];
+}
+
+export interface RunTaskTestResult {
+  command: string;
+  status: 'passed' | 'failed' | 'skipped';
+  output: string;
+}
+
+export interface TaskUsage {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: number | null;
+}
+
+/** Runtime-neutral, schema-validated result produced by every managed task. */
+export interface StructuredTaskResult {
+  version: 1;
+  outcome: 'succeeded' | 'failed' | 'blocked';
+  summary: string;
+  assignments: WorkerAssignment[];
+  filesChanged: string[];
+  tests: RunTaskTestResult[];
+  commitSha: string | null;
+  risks: string[];
+  usage: TaskUsage;
+}
+
+export interface RunTaskResult extends StructuredTaskResult {
+  id: string;
+  runId: string;
+  taskId: string;
+  participantId: string;
+  adapterId: string;
+  resultPath: string;
+  createdAt: number;
+}
+
+export type RunApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface RunApproval {
+  id: string;
+  runId: string;
+  type: 'integration';
+  status: RunApprovalStatus;
+  reason: string;
+  requestedAt: number;
+  resolvedAt?: number;
+}
+
+export interface RunWorkspaceLease {
+  id: string;
+  runId: string;
+  participantId: string;
+  agentId: string;
+  workspaceDir: string;
+  isRepo: boolean;
+  branch: string;
+  baseSha: string;
+  commonGitDir: string;
+  status: 'active' | 'released';
+  acquiredAt: number;
+  releasedAt?: number;
+}
+
+export interface RunMessage {
+  id: string;
+  runId: string;
+  taskId?: string;
+  fromParticipantId?: string;
+  toParticipantId: string;
+  kind: 'plan' | 'assignment' | 'result' | 'integration' | 'verification';
+  text: string;
+  createdAt: number;
 }
 
 export interface RunEvent {
@@ -197,6 +338,11 @@ export interface OrchestrationSnapshot {
   tasks: RunTask[];
   events: RunEvent[];
   artifacts: RunArtifact[];
+  results: RunTaskResult[];
+  approvals: RunApproval[];
+  workspaceLeases: RunWorkspaceLease[];
+  messages: RunMessage[];
+  usageByRun: Record<string, RunUsage>;
 }
 
 /* ---------------------------------------------------------------- settings */
@@ -233,6 +379,10 @@ export interface AdeConfig {
   runTasks: RunTask[];
   runEvents: RunEvent[];
   runArtifacts: RunArtifact[];
+  runTaskResults: RunTaskResult[];
+  runApprovals: RunApproval[];
+  runWorkspaceLeases: RunWorkspaceLease[];
+  runMessages: RunMessage[];
   settings: Settings;
 }
 
@@ -244,6 +394,10 @@ export const DEFAULT_CONFIG: AdeConfig = {
   runTasks: [],
   runEvents: [],
   runArtifacts: [],
+  runTaskResults: [],
+  runApprovals: [],
+  runWorkspaceLeases: [],
+  runMessages: [],
   settings: {
     theme: 'dark',
     memory: {
@@ -337,6 +491,7 @@ export interface RunCreateInput {
     teamId?: string;
     teamName?: string;
   }>;
+  budget?: Partial<RunBudget>;
 }
 
 export interface RunTaskCreateInput {

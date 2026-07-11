@@ -16,6 +16,7 @@ import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
 import { OrchestrationService } from './orchestration/OrchestrationService';
+import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
 import { assertIpcPayload } from './ipcValidation';
 import { isTrustedRendererUrl } from './security';
@@ -23,6 +24,7 @@ import { isTrustedRendererUrl } from './security';
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
 let orchestration: OrchestrationService | null = null;
+let runCoordinator: RunCoordinator | null = null;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
 
@@ -64,13 +66,25 @@ export function registerIpcHandlers(store: ConfigStore): void {
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
   }
-  ptyManager = new PtyManager(store, orchestration);
+  runCoordinator = new RunCoordinator(store, orchestration);
+  ptyManager = new PtyManager(store, runCoordinator);
+  runCoordinator.connect(
+    (agentId, prompt, dispatchId, runTaskId) =>
+      ptyManager!.create(agentId, prompt, dispatchId, runTaskId),
+    (runTaskIds) => { ptyManager!.cancelTasks({ runTaskIds }); },
+  );
 
   /** Resolve an agent by id or throw — every git/fs handler needs its dirs. */
   const requireAgent = (agentId: string): Agent => {
     const agent = store.get().agents.find((a) => a.id === agentId);
     if (!agent) throw new Error(`ade: agent not found "${agentId}"`);
     return agent;
+  };
+  const assertAgentNotLeased = (agentId: string): void => {
+    const lease = orchestration!.snapshot().workspaceLeases.find(
+      (candidate) => candidate.agentId === agentId && candidate.status === 'active',
+    );
+    if (lease) throw new Error(`ade: agent workspace is owned by active run ${lease.runId}`);
   };
 
   /* ------------------------------------------------------- config (real) */
@@ -91,6 +105,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
     const agentIds = store.get().agents
       .filter((agent) => agent.categoryId === id)
       .map((agent) => agent.id);
+    for (const agentId of agentIds) assertAgentNotLeased(agentId);
     for (const agentId of agentIds) ptyManager!.killByAgent(agentId);
     deleteCategory(store, id);
   });
@@ -99,10 +114,14 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.AgentCreate, (input) => createAgent(store, input));
 
   // Update runtime/launch configuration and display metadata for an agent.
-  handle(IPC.AgentUpdate, (input) => updateAgent(store, input));
+  handle(IPC.AgentUpdate, (input) => {
+    assertAgentNotLeased(input.id);
+    return updateAgent(store, input);
+  });
 
   // Stop live/queued work, then remove config only (workspace files remain).
   handle(IPC.AgentDelete, ({ id }) => {
+    assertAgentNotLeased(id);
     ptyManager!.killByAgent(id);
     deleteAgent(store, id);
   });
@@ -155,13 +174,23 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.RunGet, () => orchestration!.snapshot());
   handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
   handle(IPC.RunDelete, ({ runId }) => {
-    const runTaskIds = orchestration!.snapshot().tasks
+    const snapshot = orchestration!.snapshot();
+    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    if (run?.mode === 'managed' && run.status === 'running') {
+      throw new Error('ade: cancel the managed run before deleting it');
+    }
+    const runTaskIds = snapshot.tasks
       .filter((task) => task.runId === runId)
       .map((task) => task.id);
     ptyManager!.cancelTasks({ runTaskIds });
     orchestration!.deleteRun(runId);
   });
   handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));
+  handle(IPC.RunStart, ({ runId }) => runCoordinator!.start(runId));
+  handle(IPC.RunCancel, ({ runId }) => runCoordinator!.cancel(runId));
+  handle(IPC.RunApprovalResolve, ({ approvalId, decision }) =>
+    runCoordinator!.resolveApproval(approvalId, decision),
+  );
   handle(IPC.RunTaskFail, ({ taskId, error }) => orchestration!.failTask(taskId, error));
   handle(IPC.RunArtifactCreate, (input) => orchestration!.createArtifact(input));
 
@@ -206,5 +235,6 @@ export function registerIpcHandlers(store: ConfigStore): void {
 export function disposePtyManager(): void {
   ptyManager?.disposeAll();
   ptyManager = null;
+  runCoordinator = null;
   orchestration = null;
 }

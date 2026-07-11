@@ -35,7 +35,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     label: 'Codex',
     commands: {
       'default': 'codex',
-      'accept-edits': 'codex --full-auto',
+      'accept-edits': 'codex --sandbox workspace-write --ask-for-approval on-request',
       'bypass': 'codex --dangerously-bypass-approvals-and-sandbox',
     },
   },
@@ -137,7 +137,7 @@ export function resolveTaskLaunchCommand(
       return { command: `${base} -p -- ${prompt}`, transport: 'argument' };
     case 'codex':
       return {
-        command: `${base} exec --skip-git-repo-check -- ${prompt}`,
+        command: `${resolveCodexExecCommand(agent.permissionMode)} --skip-git-repo-check -- ${prompt}`,
         transport: 'argument',
       };
     case 'opencode':
@@ -155,5 +155,17 @@ export function resolveTaskLaunchCommand(
     case 'custom':
     default:
       return null;
+  }
+}
+
+/** Codex's full-auto convenience flag belongs to `exec`, not the root CLI. */
+export function resolveCodexExecCommand(permissionMode: PermissionMode): string {
+  switch (permissionMode) {
+    case 'accept-edits':
+      return 'codex exec --full-auto';
+    case 'bypass':
+      return 'codex exec --dangerously-bypass-approvals-and-sandbox';
+    default:
+      return 'codex exec';
   }
 }

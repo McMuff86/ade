@@ -40,6 +40,15 @@ async function main(): Promise<void> {
     codex?.command.includes('codex exec --skip-git-repo-check') === true,
     codex,
   );
+  const codexAuto = resolveTaskLaunchCommand({
+    runtime: 'codex' as const,
+    permissionMode: 'accept-edits' as const,
+  }, 'win32');
+  check(
+    'Codex full-auto flag is placed on the exec subcommand',
+    codexAuto?.command.includes('codex exec --full-auto --skip-git-repo-check') === true,
+    codexAuto,
+  );
 
   const ollama = resolveTaskLaunchCommand(agent('ollama'), 'posix');
   check(

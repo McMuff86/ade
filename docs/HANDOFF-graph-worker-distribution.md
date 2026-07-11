@@ -1,15 +1,18 @@
 # Handoff — real worker distribution & agent-to-agent communication
 
-> **Superseded for current behavior (2026-07-10):** this is a historical design
-> handoff. Goals 1 and 2 replaced fixed-delay typing and permanent Graph roles
-> with bounded task sessions plus persisted runs, participants, tasks, events,
-> and artifacts. Mailbox and worker-specific decomposition remain unimplemented;
-> design them on `ROADMAP.md` Goal 4. See `STATUS.md` for current behavior.
+> **Superseded for current behavior (2026-07-11):** this is a historical design
+> handoff. Goals 1–4 replaced fixed-delay typing and permanent Graph roles with
+> bounded task sessions, persisted run entities, structured runtime results,
+> file-mailbox fallback, worker-specific planning, worktree leases, approval,
+> transactional integration and verification. See `STATUS.md` and the Goal 4
+> section of `ARCHITECTURE.md` for current behavior.
 
 > **Update 2026-07-09:** Feature 1 shipped in its MVP form (same task fanned out
 > to every worker, real sessions, behind a composer toggle + pty-count guard).
 > See `docs/HANDOFF-worker-distribution-mvp.md`. Feature 2 (mailboxes) and the
-> fuller lead-plans-the-split version below are still open and remain accurate.
+> fuller lead-plans-the-split version below were open at the time; Goal 4 now
+> implements them through the managed-run coordinator rather than this draft's
+> renderer-owned watcher design.
 
 Status: draft, 2026-07-09. Written after Graph mode was wired into the app
 (see the "Graph mode" implementation: `src/renderer/graph/*`, `stores/mode.ts`,

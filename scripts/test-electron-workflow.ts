@@ -1,4 +1,4 @@
-/** Production-build Electron workflow smoke for Goal 3 (Windows-first). */
+/** Production-build Electron workflow smoke for Goals 3 and 4 (Windows-first). */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,7 +41,7 @@ async function eventually(
   return false;
 }
 
-function seedConfig(userData: string, workspace: string): void {
+function seedConfig(userData: string, workspace: string, fixturePath: string): void {
   const category: Category = {
     id: 'e2e-category',
     name: 'E2E',
@@ -58,14 +58,129 @@ function seedConfig(userData: string, workspace: string): void {
     workspaceDir: workspace,
     memoryDir: join(userData, 'agent-memory'),
   };
+  const managedCategory: Category = {
+    id: 'e2e-managed-category',
+    name: 'Managed E2E',
+    kind: 'team',
+    agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
+  };
+  const customCommand = `node "${fixturePath.replace(/"/g, '""')}"`;
+  const managedAgents: Agent[] = [
+    { id: 'e2e-orchestrator', name: 'E2E Orchestrator', teamRole: 'orchestrator' },
+    { id: 'e2e-lead', name: 'E2E Lead', teamRole: 'lead' },
+    { id: 'e2e-worker', name: 'E2E Worker', teamRole: 'worker' },
+  ].map((item) => ({
+    ...item,
+    categoryId: managedCategory.id,
+    runtime: 'custom' as const,
+    permissionMode: 'default' as const,
+    customCommand,
+    workspaceDir: join(workspace, item.id),
+    memoryDir: join(userData, 'managed-memory', item.id),
+  }));
+  for (const item of managedAgents) {
+    mkdirSync(item.workspaceDir, { recursive: true });
+    mkdirSync(item.memoryDir, { recursive: true });
+  }
+  const now = Date.now();
   const config: AdeConfig = {
     ...structuredClone(DEFAULT_CONFIG),
-    categories: [category],
-    agents: [agent],
+    categories: [category, managedCategory],
+    agents: [agent, ...managedAgents],
+    runs: [{
+      id: 'e2e-managed-run',
+      name: 'Managed E2E Run',
+      goal: 'Prove that ADE plans separate work, waits for approval, integrates, and verifies.',
+      status: 'draft',
+      mode: 'manual',
+      phase: 'draft',
+      budget: {
+        maxConcurrentTasks: 2,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxCostUsd: null,
+        maxApprovals: 1,
+      },
+      source: 'native',
+      createdAt: now,
+      updatedAt: now,
+    }],
+    runParticipants: [
+      {
+        id: 'e2e-orchestrator-participant', runId: 'e2e-managed-run', agentId: 'e2e-orchestrator',
+        agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now,
+      },
+      {
+        id: 'e2e-lead-participant', runId: 'e2e-managed-run', agentId: 'e2e-lead',
+        agentName: 'E2E Lead', runtime: 'custom', role: 'lead', teamId: 'e2e-team',
+        teamName: 'Managed E2E', createdAt: now + 1,
+      },
+      {
+        id: 'e2e-worker-participant', runId: 'e2e-managed-run', agentId: 'e2e-worker',
+        agentName: 'E2E Worker', runtime: 'custom', role: 'worker', teamId: 'e2e-team',
+        teamName: 'Managed E2E', createdAt: now + 2,
+      },
+    ],
+    runEvents: [{
+      id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
+      data: { source: 'native' },
+    }],
   };
   const configDir = join(userData, 'ade');
   mkdirSync(configDir, { recursive: true });
   writeFileSync(join(configDir, 'config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+}
+
+function writeManagedFixture(path: string): void {
+  const source = `
+const fs = require('node:fs');
+const path = require('node:path');
+const prompt = process.env.ADE_TASK_PROMPT || '';
+const base = {
+  version: 1,
+  outcome: 'succeeded',
+  summary: 'E2E managed phase completed.',
+  assignments: [],
+  filesChanged: [],
+  tests: [],
+  commitSha: null,
+  risks: [],
+  usage: { inputTokens: 3, outputTokens: 2, costUsd: 0.01 },
+};
+if (prompt.includes('You are the ADE run orchestrator')) {
+  base.summary = 'Created two distinct assignments.';
+  base.assignments = [
+    {
+      participantId: 'e2e-lead-participant',
+      title: 'Lead E2E assignment',
+      prompt: 'Produce the lead-specific E2E report.',
+      acceptanceCriteria: ['Lead result is structured'],
+      dependsOn: [],
+    },
+    {
+      participantId: 'e2e-worker-participant',
+      title: 'Worker E2E assignment',
+      prompt: 'Produce the worker-specific E2E report.',
+      acceptanceCriteria: ['Worker result is structured'],
+      dependsOn: [],
+    },
+  ];
+} else if (prompt.includes('strictly read-only')) {
+  base.summary = 'Final E2E verification passed.';
+  base.tests = [{ command: 'fixture verify', status: 'passed', output: 'ok' }];
+} else if (prompt.includes('Review the combined result')) {
+  base.summary = 'E2E integration review passed.';
+  base.tests = [{ command: 'fixture integrate', status: 'passed', output: 'ok' }];
+} else {
+  base.summary = prompt.includes('Lead E2E assignment') ? 'Lead-specific result.' : 'Worker-specific result.';
+  base.tests = [{ command: 'fixture work', status: 'passed', output: 'ok' }];
+}
+const output = process.env.ADE_TASK_RESULT_PATH;
+if (!output) process.exit(9);
+fs.mkdirSync(path.dirname(output), { recursive: true });
+fs.writeFileSync(output, JSON.stringify(base) + '\\n', 'utf8');
+`;
+  writeFileSync(path, source, 'utf8');
 }
 
 async function activeTabId(page: Page): Promise<string | null> {
@@ -86,7 +201,9 @@ async function run(): Promise<void> {
   const userData = join(scratch, 'user-data');
   const workspace = join(scratch, 'workspace');
   mkdirSync(workspace, { recursive: true });
-  seedConfig(userData, workspace);
+  const fixturePath = join(scratch, 'managed-fixture.cjs');
+  writeManagedFixture(fixturePath);
+  seedConfig(userData, workspace, fixturePath);
 
   let app: ElectronApplication | null = null;
   let page: Page | null = null;
@@ -227,6 +344,51 @@ async function run(): Promise<void> {
     await eventually('Ctrl+2 opens Graph mode', async () =>
       await page!.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected') === 'true',
     );
+    await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
+    await eventually('managed run reaches its real approval gate', async () =>
+      await page!.locator('.gapproval').count() === 1 &&
+      (await page!.locator('.grun-phase').textContent()) === 'Freigabe',
+      20_000,
+    );
+    const approvalSnapshot = await page.evaluate(async () => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
+      return await api.invoke('run:get') as {
+        tasks: Array<{ phase: string; prompt: string }>;
+        approvals: Array<{ status: string }>;
+        workspaceLeases: Array<{ status: string }>;
+      };
+    });
+    const workerPrompts = approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
+    check('Electron flow persisted distinct worker assignments',
+      workerPrompts.length === 2 && workerPrompts[0] !== workerPrompts[1]);
+    check('Electron flow keeps worktree leases active through approval',
+      approvalSnapshot.workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
+    if (evidenceDir) {
+      await page.screenshot({ path: join(resolve(evidenceDir), 'orchestration-approval.png'), fullPage: true });
+    }
+    await page.getByRole('button', { name: 'Freigeben & integrieren' }).click();
+    await eventually('approved Electron run integrates, verifies, and completes', async () =>
+      (await page!.locator('.grun-status').textContent()) === 'Abgeschlossen' &&
+      (await page!.locator('.grun-phase').textContent()) === 'Fertig',
+      20_000,
+    );
+    const completedSnapshot = await page.evaluate(async () => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
+      return await api.invoke('run:get') as {
+        tasks: Array<{ phase: string }>;
+        results: unknown[];
+        approvals: Array<{ status: string }>;
+        workspaceLeases: Array<{ status: string }>;
+      };
+    });
+    check('Electron flow records one validated result per managed task',
+      completedSnapshot.tasks.length === 5 && completedSnapshot.results.length === 5);
+    check('Electron approval is durable and all leases release after verification',
+      completedSnapshot.approvals.some((approval) => approval.status === 'approved') &&
+      completedSnapshot.workspaceLeases.every((lease) => lease.status === 'released'));
+    if (evidenceDir) {
+      await page.screenshot({ path: join(resolve(evidenceDir), 'orchestration-completed.png'), fullPage: true });
+    }
     await page.keyboard.press('Control+1');
     await eventually('Ctrl+1 returns to Terminals mode', async () =>
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true',

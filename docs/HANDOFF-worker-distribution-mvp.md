@@ -8,7 +8,9 @@
 Status: 2026-07-09. Follows `docs/HANDOFF-graph-worker-distribution.md`, which
 laid out the two simulated pieces (worker distribution + agent-to-agent comms).
 **Feature 1 (worker distribution) is now real in its minimal-viable form.**
-This doc records what shipped, how it was verified, and what's still open.
+This doc records the historical MVP. Goal 4 has since superseded its open items
+with main-owned planning, structured results, mailbox routing, integration and
+verification; see `STATUS.md` for current behavior.
 
 ## What shipped (Feature 1 — MVP, no LLM planning)
 

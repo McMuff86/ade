@@ -30,6 +30,12 @@ terminals around named agents.
   workspace; Graph creates persisted runs that reference those catalog agents
   with run-scoped roles. Its bounded one-shot tasks survive reload, can be
   cancelled per run, and report completion from real process exit events.
+- **Orchestration beta**: a managed Graph run asks its orchestrator for a
+  worker-specific plan, schedules validated assignments within the run budget,
+  waits for an explicit integration approval, transactionally cherry-picks
+  worker commit ranges, and finishes with integration review plus read-only
+  verification. Codex uses native JSONL/schema output; other CLIs can use the
+  inspectable file-mailbox contract.
 
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
 Reference analyses: `docs/reports/`
@@ -46,7 +52,8 @@ pnpm dev
 real Electron/ConPTY workflow against an isolated temporary profile.
 
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
-`pnpm test:runtime`, `pnpm test:orchestration`, and `pnpm test:security`.
+`pnpm test:runtime`, `pnpm test:orchestration`,
+`pnpm test:orchestration-beta`, and `pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
 
 ## Keyboard
@@ -81,6 +88,10 @@ to Authenticode-sign release artifacts. Auto-update is not implemented yet.
 - Dev/E2E affordances: `ADE_REMOTE_DEBUG_PORT`, `ADE_USER_DATA_DIR`,
   `ADE_E2E_EXECUTABLE`, `ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS`, and
   `window.__ade` (dev builds only).
-- Graph orchestration is still incomplete: workers currently receive the same
-  task and there is no task decomposition, result mailbox, verification, or
-  integration workflow yet. See `docs/STATUS.md` and `docs/ROADMAP.md`.
+- Managed runs require exactly one orchestrator, at least one lead/worker, clean
+  exclusive workspaces, a concrete goal, and at least one approval in their
+  budget. Repo-backed participants must be worktrees of the same repository.
+- Token and monetary limits are fail-closed and are available only when every
+  selected runtime adapter provides the corresponding telemetry. Codex JSONL
+  currently provides tokens but not provider-billed USD; ADE keeps that cost
+  unknown instead of treating it as zero.

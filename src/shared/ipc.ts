@@ -51,6 +51,9 @@ export const IPC = {
   RunGet: 'run:get',
   RunCreate: 'run:create',
   RunDelete: 'run:delete',
+  RunStart: 'run:start',
+  RunCancel: 'run:cancel',
+  RunApprovalResolve: 'runApproval:resolve',
   RunTaskCreate: 'runTask:create',
   RunTaskFail: 'runTask:fail',
   RunArtifactCreate: 'runArtifact:create',
@@ -233,6 +236,12 @@ export interface IpcInvokeMap {
   'run:get': { req: void; res: OrchestrationSnapshot };
   'run:create': { req: RunCreateInput; res: Run };
   'run:delete': { req: { runId: string }; res: void };
+  'run:start': { req: { runId: string }; res: Run };
+  'run:cancel': { req: { runId: string }; res: void };
+  'runApproval:resolve': {
+    req: { approvalId: string; decision: 'approve' | 'reject' };
+    res: void;
+  };
   'runTask:create': { req: RunTaskCreateInput; res: RunTask };
   'runTask:fail': { req: { taskId: string; error: string }; res: void };
   'runArtifact:create': { req: RunArtifactCreateRequest; res: RunArtifact };

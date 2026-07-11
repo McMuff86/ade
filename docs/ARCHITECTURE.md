@@ -104,13 +104,16 @@ interface SessionMeta { id: string; agentId: string; title: string;
                         endedAt?: number; exitCode?: number; dispatchId?: string;
                         runTaskId?: string }
 interface Run { id: string; name: string; goal: string; status: RunStatus;
-                createdAt: number; updatedAt: number }
+                mode: 'manual' | 'managed'; phase: RunPhase;
+                budget: RunBudget; createdAt: number; updatedAt: number }
 interface RunParticipant { id: string; runId: string; agentId: string;
                            agentName: string; runtime: RuntimeId;
                            role: 'orchestrator' | 'lead' | 'worker';
                            teamId?: string; teamName?: string }
 interface RunTask { id: string; runId: string; participantId: string;
-                    prompt: string; status: RunTaskStatus; sessionId?: string }
+                    title: string; prompt: string; phase: RunTaskPhase;
+                    managed: boolean; dependsOn: string[];
+                    status: RunTaskStatus; sessionId?: string }
 interface RunEvent { id: string; runId: string; type: RunEventType;
                      taskId?: string; participantId?: string; createdAt: number }
 ```
@@ -123,7 +126,7 @@ builtin-terminal-agents; every profile user-overridable via `customCommand`):
 | runtime | default | accept-edits | bypass |
 |---|---|---|---|
 | claude | `claude` | `claude --permission-mode acceptEdits` | `claude --dangerously-skip-permissions` |
-| codex | `codex` | `codex --full-auto` | `codex --dangerously-bypass-approvals-and-sandbox` |
+| codex | `codex` | `codex --sandbox workspace-write --ask-for-approval on-request` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | opencode | `opencode` | — | — |
 | grok | `grok` | — | — (flags configurable; CLI naming varies) |
 | gemini | `gemini` | `gemini --approval-mode=auto_edit` | `gemini --yolo` |
@@ -172,7 +175,45 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   categories and agents remain untouched.
 - The renderer receives authoritative snapshots through
   `orchestration:changed`; Graph transient state is limited to layout, selection,
-  pause controls, and short completion animation.
+  and pause controls. Real task status replaces the old completion timer.
+
+### Managed-run coordinator
+
+- `RunCoordinator` owns the state machine: planning → working → approval →
+  integrating → verifying → terminal. Only the coordinator creates managed
+  tasks; direct Graph dispatch remains available for manual runs.
+- A planner may assign each non-orchestrator participant at most once. ADE
+  validates participant ids and an acyclic dependency graph, then starts only
+  the worker tasks whose dependencies are complete and whose run concurrency
+  slot is available. The global four-PTY queue remains an independent ceiling.
+- Every managed task must produce `StructuredTaskResult` version 1. The schema
+  includes outcome, summary, worker assignments, changed files, real test
+  command/status/output entries, commit SHA, risks and nullable usage. Process
+  exit 0 without a valid result is a task failure.
+- `runtimeAdapters.ts` is the adapter boundary. The native Codex adapter uses
+  `codex exec --json --output-schema --output-last-message` and reads token
+  usage from `turn.completed`. `file-mailbox-v1` injects result/schema/inbox/
+  outbox paths for other non-shell runtimes and requires the result file before
+  process exit.
+- `MailboxService` journals each delivery and mirrors JSONL under
+  `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
+  `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
+  through `--add-dir`.
+- Before planning, every participant workspace is inspected and leased. Dirty
+  git worktrees are rejected, duplicate or cross-run paths conflict, and all
+  repo-backed participants must share one git common directory. Recovery fails
+  interrupted managed work, rejects pending approvals and releases orphaned
+  leases; the safe exception is an idle pending approval, which retains its
+  leases and can be approved after restart.
+- After workers finish, ADE validates clean worktrees and the complete linear
+  commit range from each leased base (merge commits are rejected), then
+  requests a durable integration approval.
+  Approval triggers one cherry-pick sequencer transaction in the orchestrator
+  worktree; any conflict aborts the full range. An integration-review task may
+  add a committed fix, followed by a read-only verification task.
+- Concurrency and approval limits are always enforceable. Token/cost limits are
+  accepted only for adapters advertising that telemetry, and missing values
+  fail closed. ADE never derives USD from a guessed model price.
 
 ## IPC contract (shared/ipc.ts) — stable, both build agents code against it
 
@@ -189,6 +230,8 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `pty:cancelTasks({agentIds?, runTaskIds?})` → active/queued cancellation counts
 - `runtime:diagnose({agentId?})` → CLI/version/auth/task-transport readiness
 - `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs
+- `run:start`, `run:cancel`, `runApproval:resolve` → managed state machine and
+  its durable human integration gate
 - `runTask:create`, `runTask:fail`, `runArtifact:create` → journal-backed entities
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
 - `git:diff({agentId, path})` → unified diff text
@@ -199,7 +242,8 @@ Events (main → renderer, `webContents.send`):
 - `pty:data` `{sessionId, dataBase64, sequence}` (coalesced renderer-side)
 - `pty:exit` `{sessionId, exitCode, reason}`
 - `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
-- `orchestration:changed` → authoritative runs/participants/tasks/events/artifacts
+- `orchestration:changed` → authoritative runs/participants/tasks/events,
+  artifacts, results, approvals, workspace leases, messages and run usage
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
 Every invoke passes two checks before its handler runs:
@@ -240,8 +284,9 @@ Every invoke passes two checks before its handler runs:
   expected to be unsigned.
 - `scripts/test-electron-workflow.ts` seeds only a temporary ADE profile and
   verifies sandbox/preload boundaries, IPC rejection, real terminal I/O,
-  multi-tab shortcuts, renderer reload replay, non-zero failure/restart and
-  diagnostics. The same script can target `ADE_E2E_EXECUTABLE`.
+  multi-tab shortcuts, renderer reload replay, non-zero failure/restart,
+  diagnostics, worker-specific managed planning, approval, integration and
+  verification. The same script can target `ADE_E2E_EXECUTABLE`.
 
 ## Theming
 

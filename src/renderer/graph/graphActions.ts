@@ -181,16 +181,13 @@ export async function openTerminal(agentId: string): Promise<void> {
 }
 
 if (typeof window !== 'undefined' && window.ade) {
-  window.ade.on('pty:exit', ({ sessionId, exitCode, reason }) => {
+  window.ade.on('pty:exit', ({ sessionId }) => {
     const meta = useSessions.getState().sessions[sessionId];
     if (!meta?.runTaskId) return;
     const task = useRuns.getState().tasks.find((candidate) => candidate.id === meta.runTaskId);
     if (!task) return;
-    if (reason === 'cancelled' || exitCode !== 0) {
-      useGraphStore.getState().clearBusy(task.participantId);
-      return;
-    }
-    useGraphStore.getState().setBusy(task.participantId, 'done');
-    window.setTimeout(() => useGraphStore.getState().clearBusy(task.participantId), 2_600);
+    // Durable task status now drives the node. The transient dispatch marker is
+    // only needed until the real PTY completion event arrives.
+    useGraphStore.getState().clearBusy(task.participantId);
   });
 }

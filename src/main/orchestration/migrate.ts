@@ -1,5 +1,6 @@
 import {
   DEFAULT_CONFIG,
+  DEFAULT_RUN_BUDGET,
   type AdeConfig,
   type Agent,
   type RunEvent,
@@ -24,11 +25,27 @@ export function normalizeConfig(
   const config: AdeConfig = {
     categories,
     agents,
-    runs: arrayOrEmpty(raw.runs),
+    runs: arrayOrEmpty(raw.runs).map((run) => ({
+      ...run,
+      mode: run.mode ?? 'manual',
+      phase: run.phase ?? (run.status === 'running' ? 'working' : run.status),
+      budget: { ...DEFAULT_RUN_BUDGET, ...(run.budget ?? {}) },
+    })),
     runParticipants: arrayOrEmpty(raw.runParticipants),
-    runTasks: arrayOrEmpty(raw.runTasks),
+    runTasks: arrayOrEmpty(raw.runTasks).map((task) => ({
+      ...task,
+      title: task.title ?? task.prompt.slice(0, 80),
+      phase: task.phase ?? 'manual',
+      managed: task.managed ?? false,
+      dependsOn: arrayOrEmpty(task.dependsOn),
+      attempt: task.attempt ?? 1,
+    })),
     runEvents: arrayOrEmpty(raw.runEvents),
     runArtifacts: arrayOrEmpty(raw.runArtifacts),
+    runTaskResults: arrayOrEmpty(raw.runTaskResults),
+    runApprovals: arrayOrEmpty(raw.runApprovals),
+    runWorkspaceLeases: arrayOrEmpty(raw.runWorkspaceLeases),
+    runMessages: arrayOrEmpty(raw.runMessages),
     settings: {
       ...DEFAULT_CONFIG.settings,
       ...(raw.settings ?? {}),
@@ -44,7 +61,23 @@ export function normalizeConfig(
     !Array.isArray(raw.runParticipants) ||
     !Array.isArray(raw.runTasks) ||
     !Array.isArray(raw.runEvents) ||
-    !Array.isArray(raw.runArtifacts);
+    !Array.isArray(raw.runArtifacts) ||
+    !Array.isArray(raw.runTaskResults) ||
+    !Array.isArray(raw.runApprovals) ||
+    !Array.isArray(raw.runWorkspaceLeases) ||
+    !Array.isArray(raw.runMessages) ||
+    config.runs.some((run, index) => (
+      run.mode !== raw.runs?.[index]?.mode ||
+      run.phase !== raw.runs?.[index]?.phase ||
+      raw.runs?.[index]?.budget === undefined
+    )) ||
+    config.runTasks.some((task, index) => (
+      task.phase !== raw.runTasks?.[index]?.phase ||
+      task.title !== raw.runTasks?.[index]?.title ||
+      task.managed !== raw.runTasks?.[index]?.managed ||
+      raw.runTasks?.[index]?.dependsOn === undefined ||
+      task.attempt !== raw.runTasks?.[index]?.attempt
+    ));
 
   if (!hadRunSchema) {
     const legacyCategories = categories.filter(
@@ -57,6 +90,9 @@ export function normalizeConfig(
         name: 'Migrated Graph workspace',
         goal: 'Imported from the pre-run Graph topology.',
         status: 'draft',
+        mode: 'manual',
+        phase: 'draft',
+        budget: { ...DEFAULT_RUN_BUDGET },
         source: 'legacy-graph',
         createdAt: now,
         updatedAt: now,

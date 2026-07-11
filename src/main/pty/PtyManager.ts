@@ -36,7 +36,7 @@ import {
 const RING_BUFFER_CAP = 256 * 1024;
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 32;
-const MAX_TASK_PROMPT_CHARS = 8_000;
+const MAX_TASK_PROMPT_CHARS = 32_000;
 const EXITED_SESSION_RETENTION_MS = 30 * 60 * 1000;
 const FORCE_STOP_MS = 5_000;
 const CANCELLED_DISPATCH_TTL_MS = 10 * 60 * 1000;
@@ -44,12 +44,20 @@ const CANCELLED_DISPATCH_TTL_MS = 10 * 60 * 1000;
 export const MAX_ACTIVE_TASK_SESSIONS = 4;
 
 export interface TaskLifecycleSink {
+  getTaskLaunch?: (taskId: string) => {
+    prompt: string;
+    env: Record<string, string>;
+    command?: string;
+    transport?: 'argument' | 'stdin';
+  } | undefined;
+  handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
   onTaskLaunchFailed: (taskId: string, cancelled: boolean, error?: string) => void;
   onTaskFinished: (
     taskId: string,
     status: 'completed' | 'failed' | 'cancelled',
     exitCode: number,
+    terminalOutput: string,
   ) => void;
 }
 
@@ -74,6 +82,7 @@ interface SpawnSpec {
   initialCommand?: string;
   taskPrompt?: string;
   taskTransport?: 'argument' | 'stdin';
+  env?: Record<string, string>;
 }
 
 let sessionSeq = 0;
@@ -264,10 +273,16 @@ export class PtyManager {
     }
 
     const cwd = this.resolveCwd(agent);
-    const spec = task ? this.resolveTaskSpawn(agent, task.task) : this.resolveInteractiveSpawn(agent);
+    const managedLaunch = task?.runTaskId
+      ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
+      : undefined;
+    const spec = task
+      ? this.resolveTaskSpawn(agent, task.task, managedLaunch)
+      : this.resolveInteractiveSpawn(agent);
     const env = {
       ...process.env,
       TERM: 'xterm-256color',
+      ...(spec.env ?? {}),
       ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
     } as Record<string, string>;
     const proc = pty.spawn(spec.file, spec.args, {
@@ -338,6 +353,7 @@ export class PtyManager {
     const tracked = this.sessions.get(session.meta.id) === session;
     this.releaseTaskLease(session);
     if (!tracked) return;
+    if (session.meta.status === 'exited') return;
 
     if (session.forceStopTimer) {
       clearTimeout(session.forceStopTimer);
@@ -352,10 +368,13 @@ export class PtyManager {
       exitCode,
       reason: session.cancelled ? 'cancelled' : 'exit',
     });
+    const managedNotification = session.meta.runTaskId
+      ? this.taskLifecycle?.handlesTaskNotification?.(session.meta.runTaskId) === true
+      : false;
     this.notifyFinished(session, exitCode);
     const agentName = this.store.get().agents.find((agent) => agent.id === session.meta.agentId)?.name
       ?? 'Agent';
-    showSessionExitNotification({ ...session.meta }, agentName);
+    if (!managedNotification) showSessionExitNotification({ ...session.meta }, agentName);
 
     if (session.removeOnExit) this.removeSession(session.meta.id);
     else this.scheduleReap(session);
@@ -447,7 +466,8 @@ export class PtyManager {
     if (!runTaskId) return;
     const status = session.cancelled ? 'cancelled' : (exitCode === 0 ? 'completed' : 'failed');
     try {
-      this.taskLifecycle?.onTaskFinished(runTaskId, status, exitCode);
+      const terminalOutput = Buffer.concat(session.buffer, session.bufferBytes).toString('utf8');
+      this.taskLifecycle?.onTaskFinished(runTaskId, status, exitCode, terminalOutput);
     } catch (error) {
       console.error(`[ade] run task completion persistence failed for ${runTaskId}:`, error);
     }
@@ -489,9 +509,20 @@ export class PtyManager {
       : { file: shell, args, lineEnding };
   }
 
-  private resolveTaskSpawn(agent: Agent, prompt: string): SpawnSpec {
+  private resolveTaskSpawn(
+    agent: Agent,
+    prompt: string,
+    managed?: {
+      prompt: string;
+      env: Record<string, string>;
+      command?: string;
+      transport?: 'argument' | 'stdin';
+    },
+  ): SpawnSpec {
     const isWin = process.platform === 'win32';
-    const task = resolveTaskLaunchCommand(agent, isWin ? 'win32' : 'posix');
+    const task = managed?.command
+      ? { command: managed.command, transport: managed.transport ?? 'argument' as const }
+      : resolveTaskLaunchCommand(agent, isWin ? 'win32' : 'posix');
     if (!task) {
       throw new Error(`ade: runtime "${agent.runtime}" has no non-interactive task transport`);
     }
@@ -500,8 +531,9 @@ export class PtyManager {
       file: shell,
       args: isWin ? ['-NoLogo', '-NoProfile', '-Command', task.command] : ['-lc', task.command],
       lineEnding: isWin ? '\r' : '\n',
-      taskPrompt: prompt,
+      taskPrompt: managed?.prompt ?? prompt,
       taskTransport: task.transport,
+      env: managed?.env,
     };
   }
 
