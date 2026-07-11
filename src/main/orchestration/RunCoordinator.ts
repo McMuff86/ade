@@ -272,6 +272,14 @@ export class RunCoordinator {
         });
         this.launches.delete(taskId);
 
+        const budgetError = this.budgetError(task.runId, launch, result);
+        if (budgetError) {
+          this.orchestration.onTaskFinished(taskId, 'failed', exitCode, budgetError);
+          this.notifyTask(task, 'failed', budgetError);
+          await this.failRunCore(task.runId, budgetError);
+          return;
+        }
+
         if (result.outcome !== 'succeeded') {
           this.orchestration.onTaskFinished(taskId, 'failed', exitCode, result.summary);
           this.notifyTask(task, 'failed', result.summary);
@@ -280,12 +288,6 @@ export class RunCoordinator {
         }
         await this.validateTaskResult(task, result);
         this.orchestration.onTaskFinished(taskId, 'completed', exitCode);
-        const budgetError = this.budgetError(task.runId, launch, result);
-        if (budgetError) {
-          this.notifyTask(task, 'failed', budgetError);
-          await this.failRunCore(task.runId, budgetError);
-          return;
-        }
         this.routeResult(task, participant, result);
         await this.progress(task, result);
         this.notifyTask(task, 'completed', result.summary);
@@ -640,7 +642,16 @@ export class RunCoordinator {
       task.runId,
     );
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId);
-    const files = this.mailbox.taskFiles(agent, task.runId, task.id);
+    const lease = this.orchestration.snapshot().workspaceLeases.find(
+      (item) => item.runId === task.runId && item.participantId === participant.id && item.status === 'active',
+    );
+    if (!lease) throw new Error(`ade: active workspace lease is missing for task ${task.id}`);
+    const files = this.mailbox.taskFiles(
+      agent,
+      task.runId,
+      task.id,
+      lease.isRepo ? lease.commonGitDir : undefined,
+    );
     const launch = this.adapters.prepare(
       agent,
       task,

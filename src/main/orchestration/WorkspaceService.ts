@@ -48,7 +48,7 @@ export class WorkspaceService implements WorkspacePort {
         clean: status.trim().length === 0,
         branch: branch.trim(),
         headSha: headSha.trim(),
-        commonGitDir: normalizePath(isAbsolute(common) ? common : resolve(workspaceDir, common)),
+        commonGitDir: canonicalPath(isAbsolute(common) ? common : resolve(workspaceDir, common)),
       };
     } catch (error) {
       throw new Error(`ade: failed to inspect git worktree ${workspaceDir}: ${errorMessage(error)}`);
@@ -118,8 +118,9 @@ async function git(workspaceDir: string, args: string[]): Promise<string> {
   return stdout;
 }
 
-function normalizePath(path: string): string {
-  return resolve(path).replace(/\\/g, '/').toLowerCase();
+function canonicalPath(path: string): string {
+  const absolute = resolve(path);
+  return existsSync(absolute) ? realpathSync.native(absolute) : absolute;
 }
 
 function errorMessage(error: unknown): string {

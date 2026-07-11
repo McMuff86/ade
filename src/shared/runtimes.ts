@@ -158,11 +158,11 @@ export function resolveTaskLaunchCommand(
   }
 }
 
-/** Codex's full-auto convenience flag belongs to `exec`, not the root CLI. */
+/** Build the current non-interactive Codex command for ADE's permission mode. */
 export function resolveCodexExecCommand(permissionMode: PermissionMode): string {
   switch (permissionMode) {
     case 'accept-edits':
-      return 'codex exec --full-auto';
+      return 'codex exec --sandbox workspace-write';
     case 'bypass':
       return 'codex exec --dangerously-bypass-approvals-and-sandbox';
     default:

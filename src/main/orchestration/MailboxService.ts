@@ -11,7 +11,7 @@ import type { ManagedTaskFiles } from './runtimeAdapters';
 export class MailboxService {
   constructor(private readonly orchestration: OrchestrationService) {}
 
-  taskFiles(agent: Agent, runId: string, taskId: string): ManagedTaskFiles {
+  taskFiles(agent: Agent, runId: string, taskId: string, gitCommonDir?: string): ManagedTaskFiles {
     const safeRunId = safeSegment(runId);
     const safeTaskId = safeSegment(taskId);
     const mailboxDir = join(agent.memoryDir, 'mailbox', safeRunId);
@@ -24,6 +24,7 @@ export class MailboxService {
       schemaPath: join(taskDir, 'RESULT.schema.json'),
       inboxPath: join(mailboxDir, 'INBOX.jsonl'),
       outboxPath: join(mailboxDir, 'OUTBOX.jsonl'),
+      ...(gitCommonDir ? { gitCommonDir } : {}),
     };
   }
 

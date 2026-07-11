@@ -309,6 +309,8 @@ async function ownershipAndBudgetChecks(root: string): Promise<void> {
   }));
   await budgetCoordinator.start(budgetRun.id);
   finish(budgetCoordinator, taskId, result({
+    outcome: 'blocked',
+    summary: 'The operation was blocked after usage exceeded the run budget.',
     usage: { inputTokens: 6, outputTokens: 1, costUsd: 0.1 },
     assignments: [{
       participantId: budgetService.snapshot().participants.find((item) => item.agentId === 'lead')!.id,
@@ -318,7 +320,8 @@ async function ownershipAndBudgetChecks(root: string): Promise<void> {
   await waitFor(() => budgetService.snapshot().runs.find((item) => item.id === budgetRun.id)?.status === 'failed', 'budget failure');
   const budgetSnapshot = budgetService.snapshot();
   check('token overrun fails closed before worker scheduling', budgetSnapshot.tasks.filter((task) => task.phase === 'work').length === 0);
-  check('budget exhaustion is journaled with real usage', budgetSnapshot.events.some((event) => event.type === 'budget.exhausted'));
+  check('budget exhaustion is journaled even when the task reports blocked',
+    budgetSnapshot.events.some((event) => event.type === 'budget.exhausted'));
 
   const cancelStore = new MemoryStore(configWithAgents(join(root, 'cancel')));
   const cancelService = new OrchestrationService(cancelStore);
@@ -357,18 +360,25 @@ function adapterChecks(root: string): void {
     createdAt: 1, updatedAt: 1,
   };
   const dir = join(root, 'adapter');
+  const gitCommonDir = join(root, 'repo metadata', '.git');
+  mkdirSync(gitCommonDir, { recursive: true });
   const files = {
     taskDir: dir,
     resultPath: join(dir, 'RESULT.json'),
     schemaPath: join(dir, 'RESULT.schema.json'),
     inboxPath: join(dir, 'INBOX.jsonl'),
     outboxPath: join(dir, 'OUTBOX.jsonl'),
+    gitCommonDir,
   };
   const launch = adapter.prepare(codex, task, task.prompt, files, 'win32');
   check('Codex adapter uses native JSONL and output-schema flags',
     Boolean(launch.command?.startsWith('codex exec ') && !launch.command.includes('exec exec') &&
       launch.command.includes('--json') && launch.command.includes('--output-schema') &&
       launch.command.includes('--output-last-message')));
+  check('Codex adapter grants only the leased linked-worktree Git directory through an environment reference',
+    launch.command?.includes('--add-dir "$env:ADE_GIT_COMMON_DIR"') === true &&
+      launch.env.ADE_GIT_COMMON_DIR === gitCommonDir &&
+      !launch.command.includes(gitCommonDir));
   writeFileSync(files.resultPath, JSON.stringify(result({
     usage: { inputTokens: null, outputTokens: null, costUsd: 999 },
   })), 'utf8');
@@ -429,9 +439,12 @@ async function realGitIntegrationChecks(root: string): Promise<void> {
   const commitSha = git(worker, ['rev-parse', 'HEAD']).trim();
 
   const workspace = new WorkspaceService();
+  const inspection = await workspace.inspect(worker);
   const commits = await workspace.validateCommit(worker, baseSha, commitSha);
   const applied = await workspace.integrateCommits(repo, commits);
   check('temporary worker commit validates against the leased base', commitSha.length >= 7);
+  check('linked worktree inspection resolves an existing shared Git metadata directory',
+    inspection.isRepo && inspection.commonGitDir.length > 0 && existsSync(inspection.commonGitDir));
   check('the full worker commit range is cherry-picked in order', commits.length === 2 && applied === 2);
   check('integrated file exists in the target worktree',
     readFileSync(join(repo, 'worker.txt'), 'utf8').replace(/\r\n/g, '\n') === 'worker change\n');

@@ -16,6 +16,12 @@ export interface ManagedTaskFiles {
   schemaPath: string;
   inboxPath: string;
   outboxPath: string;
+  /**
+   * Git linked worktrees keep their index, objects, and refs outside the
+   * checked-out workspace. Repo-backed managed tasks need this leased path as
+   * an additional writable root so sandboxed runtimes can create commits.
+   */
+  gitCommonDir?: string;
 }
 
 export interface ManagedTaskLaunch {
@@ -111,6 +117,7 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
       '--output-schema', envRef('ADE_TASK_SCHEMA_PATH'),
       '--output-last-message', envRef('ADE_TASK_RESULT_PATH'),
       '--add-dir', envRef('ADE_TASK_DIR'),
+      ...(files.gitCommonDir ? ['--add-dir', envRef('ADE_GIT_COMMON_DIR')] : []),
       '--', envRef('ADE_TASK_PROMPT'),
     ].join(' ');
     return {
@@ -240,6 +247,7 @@ function taskEnv(files: ManagedTaskFiles): Record<string, string> {
     ADE_TASK_SCHEMA_PATH: files.schemaPath,
     ADE_MAILBOX_INBOX: files.inboxPath,
     ADE_MAILBOX_OUTBOX: files.outboxPath,
+    ...(files.gitCommonDir ? { ADE_GIT_COMMON_DIR: files.gitCommonDir } : {}),
   };
 }
 
@@ -252,6 +260,7 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
       ? '- Return only the final JSON object; ADE/Codex writes and validates the result file.\n'
       : `- Before exiting, write exactly one JSON object (no Markdown fences) to ${files.resultPath}.\n`) +
     '- Use empty arrays when a field has no entries and null when usage/cost or commitSha is unavailable.\n' +
+    '- If the sandbox denies a required operation, do not repeatedly retry it; report outcome=blocked with the exact blocker.\n' +
     '- Do not report success unless the requested work and stated verification really completed.';
 }
 

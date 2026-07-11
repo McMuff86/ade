@@ -27,10 +27,10 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; other non-shell runtimes use the same result schema through a file contract |
 | Worktree ownership | Real | Clean workspaces are leased exclusively for the run; repo participants must share one git common directory; restart recovery fails work and releases orphaned leases |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker scheduling → approval → transactional integration → integration review → read-only verification |
-| Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; telemetry-backed limits fail closed rather than estimating missing values |
+| Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real | Windows CI runs 165 focused assertions plus a 30-check production Electron workflow and unpacked package validation |
+| CI and Electron E2E | Real | Windows CI runs 167 focused assertions plus a 30-check production Electron workflow and unpacked package validation |
 
 ## Known constraints
 
@@ -49,9 +49,10 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
   release workflow requires `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` to sign.
   Auto-update remains outside this milestone.
 - The global task cap remains four CLIs; a managed run can choose a lower
-  worker cap. Concurrent tasks can consume telemetry before a just-exceeded
-  token/cost limit cancels their siblings, so provider-side account limits are
-  still the ultimate spend boundary.
+  worker cap. Native Codex usage arrives with the final turn, so one task can
+  overshoot a run token limit and concurrent tasks can consume tokens before a
+  just-exceeded limit cancels their siblings. Provider-side account limits are
+  still the ultimate real-time spend boundary.
 - Codex reports token usage in native JSONL but no billed USD. Cost budgets are
   therefore unavailable for that adapter until the CLI/provider reports cost;
   custom wrappers may supply trusted token/cost fields through the file result.

@@ -45,8 +45,8 @@ async function main(): Promise<void> {
     permissionMode: 'accept-edits' as const,
   }, 'win32');
   check(
-    'Codex full-auto flag is placed on the exec subcommand',
-    codexAuto?.command.includes('codex exec --full-auto --skip-git-repo-check') === true,
+    'Codex accept-edits uses the current workspace-write exec sandbox',
+    codexAuto?.command.includes('codex exec --sandbox workspace-write --skip-git-repo-check') === true,
     codexAuto,
   );
 

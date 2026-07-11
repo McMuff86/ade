@@ -84,7 +84,7 @@ the migration never deletes user data.
 7. **Permission modes** per agent (translated to the right flag per CLI):
    - Claude Code: default / `--permission-mode acceptEdits` /
      `--dangerously-skip-permissions`
-   - Codex: default / `--full-auto` / `--dangerously-bypass-approvals-and-sandbox`
+   - Codex: default / `--sandbox workspace-write` / `--dangerously-bypass-approvals-and-sandbox`
    - OpenCode / Grok Build: their equivalents; plain shell: none.
 8. **Light mode must theme the terminal too** — the xterm theme (background,
    foreground, ANSI palette, cursor) switches with the app theme, not only

@@ -198,7 +198,10 @@ sessions use a one-shot non-interactive command and exit with the CLI.
 - `MailboxService` journals each delivery and mirrors JSONL under
   `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
-  through `--add-dir`.
+  through `--add-dir`. For repo-backed linked worktrees, ADE also grants only
+  the active lease's shared Git metadata directory as a second writable root;
+  this lets the sandbox create the required index/object/ref updates without
+  disabling `workspace-write` isolation.
 - Managed task PTYs do not regenerate the ordinary CLAUDE.md/AGENTS.md memory
   block after leasing. Their complete contract is already prompt-injected, and
   skipping that file mutation preserves both tracked instructions and a clean
@@ -217,7 +220,9 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   add a committed fix, followed by a read-only verification task.
 - Concurrency and approval limits are always enforceable. Token/cost limits are
   accepted only for adapters advertising that telemetry, and missing values
-  fail closed. ADE never derives USD from a guessed model price.
+  fail closed. Exact usage is enforced at task-completion boundaries because
+  current CLI telemetry is final-turn data, not a live provider spend cap. ADE
+  never derives USD from a guessed model price.
 
 ## IPC contract (shared/ipc.ts) — stable, both build agents code against it
 
