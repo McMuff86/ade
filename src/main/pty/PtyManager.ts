@@ -266,16 +266,21 @@ export class PtyManager {
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
   ): SessionMeta {
     const agent = this.requireAgent(agentId);
-    try {
-      injectMemoryBlock(agent, this.store.get().settings.memory);
-    } catch (error) {
-      console.warn(`[ade] memory inject failed for agent=${agentId}:`, error);
-    }
-
-    const cwd = this.resolveCwd(agent);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
+    // Managed tasks already receive their complete task/result/mailbox
+    // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
+    // workspace lease would contaminate (or alter) the repository itself.
+    if (!managedLaunch) {
+      try {
+        injectMemoryBlock(agent, this.store.get().settings.memory);
+      } catch (error) {
+        console.warn(`[ade] memory inject failed for agent=${agentId}:`, error);
+      }
+    }
+
+    const cwd = this.resolveCwd(agent);
     const spec = task
       ? this.resolveTaskSpawn(agent, task.task, managedLaunch)
       : this.resolveInteractiveSpawn(agent);

@@ -1,5 +1,6 @@
 /** Production-build Electron workflow smoke for Goals 3 and 4 (Windows-first). */
 
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -41,7 +42,13 @@ async function eventually(
   return false;
 }
 
-function seedConfig(userData: string, workspace: string, fixturePath: string): void {
+function seedConfig(
+  userData: string,
+  workspace: string,
+  fixturePath: string,
+  managedRepo: string,
+  managedWorkspaces: Record<string, string>,
+): void {
   const category: Category = {
     id: 'e2e-category',
     name: 'E2E',
@@ -62,6 +69,7 @@ function seedConfig(userData: string, workspace: string, fixturePath: string): v
     id: 'e2e-managed-category',
     name: 'Managed E2E',
     kind: 'team',
+    repoPath: managedRepo,
     agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
   };
   const customCommand = `node "${fixturePath.replace(/"/g, '""')}"`;
@@ -75,7 +83,7 @@ function seedConfig(userData: string, workspace: string, fixturePath: string): v
     runtime: 'custom' as const,
     permissionMode: 'default' as const,
     customCommand,
-    workspaceDir: join(workspace, item.id),
+    workspaceDir: managedWorkspaces[item.id]!,
     memoryDir: join(userData, 'managed-memory', item.id),
   }));
   for (const item of managedAgents) {
@@ -129,6 +137,29 @@ function seedConfig(userData: string, workspace: string, fixturePath: string): v
   const configDir = join(userData, 'ade');
   mkdirSync(configDir, { recursive: true });
   writeFileSync(join(configDir, 'config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+}
+
+function createManagedWorktrees(root: string): { repo: string; workspaces: Record<string, string> } {
+  const repo = join(root, 'managed-repo');
+  mkdirSync(repo, { recursive: true });
+  git(repo, ['init', '--initial-branch=main']);
+  git(repo, ['config', 'user.email', 'ade-e2e@example.invalid']);
+  git(repo, ['config', 'user.name', 'ADE E2E']);
+  writeFileSync(join(repo, 'baseline.txt'), 'managed e2e baseline\n', 'utf8');
+  git(repo, ['add', 'baseline.txt']);
+  git(repo, ['commit', '-m', 'managed e2e baseline']);
+  const workspaces: Record<string, string> = {};
+  mkdirSync(join(root, 'managed-worktrees'), { recursive: true });
+  for (const id of ['e2e-orchestrator', 'e2e-lead', 'e2e-worker']) {
+    const path = join(root, 'managed-worktrees', id);
+    git(repo, ['worktree', 'add', '-b', `e2e/${id}`, path, 'HEAD']);
+    workspaces[id] = path;
+  }
+  return { repo, workspaces };
+}
+
+function git(cwd: string, args: string[]): string {
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true });
 }
 
 function writeManagedFixture(path: string): void {
@@ -203,7 +234,8 @@ async function run(): Promise<void> {
   mkdirSync(workspace, { recursive: true });
   const fixturePath = join(scratch, 'managed-fixture.cjs');
   writeManagedFixture(fixturePath);
-  seedConfig(userData, workspace, fixturePath);
+  const managed = createManagedWorktrees(scratch);
+  seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
 
   let app: ElectronApplication | null = null;
   let page: Page | null = null;
@@ -355,7 +387,7 @@ async function run(): Promise<void> {
       return await api.invoke('run:get') as {
         tasks: Array<{ phase: string; prompt: string }>;
         approvals: Array<{ status: string }>;
-        workspaceLeases: Array<{ status: string }>;
+        workspaceLeases: Array<{ status: string; workspaceDir: string }>;
       };
     });
     const workerPrompts = approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
@@ -363,6 +395,10 @@ async function run(): Promise<void> {
       workerPrompts.length === 2 && workerPrompts[0] !== workerPrompts[1]);
     check('Electron flow keeps worktree leases active through approval',
       approvalSnapshot.workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
+    check('managed task setup does not dirty leased repository worktrees',
+      approvalSnapshot.workspaceLeases.every(
+        (lease) => git(lease.workspaceDir, ['status', '--porcelain']).trim() === '',
+      ));
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'orchestration-approval.png'), fullPage: true });
     }

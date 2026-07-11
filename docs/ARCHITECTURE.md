@@ -199,6 +199,10 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
   through `--add-dir`.
+- Managed task PTYs do not regenerate the ordinary CLAUDE.md/AGENTS.md memory
+  block after leasing. Their complete contract is already prompt-injected, and
+  skipping that file mutation preserves both tracked instructions and a clean
+  worktree. Interactive and manual task sessions retain normal memory injection.
 - Before planning, every participant workspace is inspected and leased. Dirty
   git worktrees are rejected, duplicate or cross-run paths conflict, and all
   repo-backed participants must share one git common directory. Recovery fails
