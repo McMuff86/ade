@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type { SessionMeta, TaskQueueStatus } from '../../shared/types';
+import type { PtyCancelTasksRequest } from '../../shared/ipc';
 
 interface SessionsState {
   sessions: Record<string, SessionMeta>;
@@ -11,9 +12,17 @@ interface SessionsState {
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
-  createSession: (agentId: string, task?: string, dispatchId?: string) => Promise<SessionMeta>;
+  createSession: (
+    agentId: string,
+    task?: string,
+    dispatchId?: string,
+    runTaskId?: string,
+  ) => Promise<SessionMeta>;
   closeSession: (sessionId: string) => Promise<void>;
-  cancelTasks: (agentIds?: string[]) => Promise<{ activeCancelled: number; queuedCancelled: number }>;
+  cancelTasks: (request?: PtyCancelTasksRequest) => Promise<{
+    activeCancelled: number;
+    queuedCancelled: number;
+  }>;
   setActive: (agentId: string, sessionId: string) => void;
   markExited: (sessionId: string, exitCode: number) => void;
   forgetSession: (sessionId: string) => void;
@@ -85,8 +94,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
     return hydrateInFlight;
   },
 
-  createSession: async (agentId, task, dispatchId) => {
-    const meta = await window.ade.invoke('pty:create', { agentId, task, dispatchId });
+  createSession: async (agentId, task, dispatchId, runTaskId) => {
+    const meta = await window.ade.invoke('pty:create', { agentId, task, dispatchId, runTaskId });
     set((state) => ({
       sessions: { ...state.sessions, [meta.id]: meta },
       orderByAgent: {
@@ -108,7 +117,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
     set((state) => withoutSession(state, sessionId));
   },
 
-  cancelTasks: (agentIds) => window.ade.invoke('pty:cancelTasks', { agentIds }),
+  cancelTasks: (request = {}) => window.ade.invoke('pty:cancelTasks', request),
 
   setActive: (agentId, sessionId) => {
     set((state) => ({

@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { TaskQueueCancelledError, TaskSlotQueue } from '../src/main/pty/TaskQueue';
 import { statusFor } from '../src/renderer/graph/graphModel';
+import type { RunTask } from '../src/shared/types';
 import { resolveTaskLaunchCommand } from '../src/shared/runtimes';
 
 let passed = 0;
@@ -73,23 +74,58 @@ async function main(): Promise<void> {
     customOutput,
   );
 
-  const sessionSlice: Parameters<typeof statusFor>[1]['sessions'] = {
-    sessions: { task: { kind: 'task', status: 'running' } },
-    orderByAgent: { agent: ['task'] },
+  const sessionSlice: Parameters<typeof statusFor>[2]['sessions'] = {
+    sessions: {},
+    orderByAgent: {},
+  };
+  const runTask: RunTask = {
+    id: 'task',
+    runId: 'run',
+    participantId: 'participant',
+    prompt: 'test',
+    status: 'running',
+    createdAt: 1,
+    updatedAt: 1,
   };
   check(
-    'running task derives working status',
-    statusFor('agent', { idle: false, busy: {}, sessions: sessionSlice }) === 'working',
+    'journal running task derives working status',
+    statusFor('participant', 'agent', {
+      idle: false,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [runTask],
+    }) === 'working',
   );
-  sessionSlice.sessions.task = { kind: 'task', status: 'exited', exitCode: 0 };
+  runTask.status = 'completed';
   check(
-    'successful task exit derives done status',
-    statusFor('agent', { idle: false, busy: {}, sessions: sessionSlice }) === 'done',
+    'journal completion derives done status',
+    statusFor('participant', 'agent', {
+      idle: false,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [runTask],
+    }) === 'done',
   );
-  sessionSlice.sessions.task = { kind: 'task', status: 'exited', exitCode: 1 };
+  runTask.status = 'failed';
   check(
-    'failed task exit is not presented as done',
-    statusFor('agent', { idle: false, busy: {}, sessions: sessionSlice }) === 'idle',
+    'journal failure is visible',
+    statusFor('participant', 'agent', {
+      idle: false,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [runTask],
+    }) === 'failed',
+  );
+  sessionSlice.sessions.interactive = { kind: 'interactive', status: 'running' };
+  sessionSlice.orderByAgent.agent = ['interactive'];
+  check(
+    'interactive terminal presence is shown without tasks',
+    statusFor('participant', 'agent', {
+      idle: false,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [],
+    }) === 'running',
   );
 
   const statuses: Array<{ active: number; queued: number }> = [];

@@ -26,20 +26,30 @@ renderer data successfully, and its process tree was explicitly stopped.
 
 ## Goal 2 - run and task domain model
 
-Status: next.
+Status: implemented; verification recorded in the Goal 2 commit.
 
 - Keep categories and named agents permanent.
 - Add persisted `Run`, `Task`, `Participant`, `Event`, and `Artifact` entities.
 - Make lead/worker roles run-scoped instead of permanent agent fields.
 - Make Graph render normalized run events rather than timer/view state.
 - Migrate existing Graph-created categories without deleting user data.
+- Persist PTY start, completion, failure, cancellation, and restart recovery as
+  normalized task events.
+- Scope task cancellation to persisted task ids so one run cannot stop another.
 
 Exit criteria: a run survives reload, status is reconstructible from its event
 journal, and spawning a run does not create permanent categories or identities.
 
+Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+16 runtime + 19 orchestration assertions), and `pnpm run build` pass. The
+orchestration checks cover one-time legacy migration, reload reconstruction,
+restart recovery, artifact journaling, and catalog identity preservation. An
+isolated production preview at 1440x900 verified the default Graph layout,
+Inspector reflow, and new-run roster dialog without overlap.
+
 ## Goal 3 - terminal beta
 
-Status: planned.
+Status: next.
 
 - CI and Electron workflow tests, CLI/auth diagnostics, keyboard navigation,
   notifications, CSP/IPC validation, and Windows packaging.

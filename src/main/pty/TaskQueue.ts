@@ -3,6 +3,7 @@ import type { TaskQueueStatus } from '../../shared/types';
 export interface TaskQueueKey {
   agentId: string;
   dispatchId?: string;
+  runTaskId?: string;
 }
 
 export class TaskQueueCancelledError extends Error {

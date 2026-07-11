@@ -1,6 +1,6 @@
 # ADE — Architecture (binding decisions)
 
-Status: v1, decided 2026-07-07 after the Superset/Hermes analyses
+Status: v2, updated 2026-07-10 for the persisted run/task control plane
 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
@@ -47,7 +47,8 @@ src/
     ipc.ts                 # channel registration
     pty/PtyManager.ts      # node-pty sessions, ring buffers, launch profiles
     git/                   # status/diff/worktree (simple-git)
-    config/store.ts        # categories/agents/sessions/settings JSON
+    config/store.ts        # atomic catalog/run/settings JSON + migration
+    orchestration/         # run/task/event service and legacy Graph migration
     memory/                # MemoryStore.ts port + managed-block injection
     photos.ts              # profile photo import/store (PNG/JPG, alpha kept)
   preload/index.ts         # contextBridge: typed invoke/on wrappers only
@@ -59,9 +60,10 @@ src/
     terminal/              # TerminalPane (xterm runtime, coalescer, attach)
     rightpanel/            # Files view + Changes (diff) view
     onboarding/            # first-run + new category/agent modals
-    stores/                # zustand stores (app state mirrors config)
+    graph/                 # run-scoped control-plane canvas and dispatch
+    stores/                # Zustand catalog, session, run, and UI mirrors
   shared/
-    types.ts               # Category, Agent, Session, Runtime, PermissionMode
+    types.ts               # catalog, session, run/task/event, runtime contracts
     ipc.ts                 # IPC channel names + payload types (contract)
     runtimes.ts            # launch profiles incl. permission-mode flags
 docs/                      # SPEC, this file, reports/
@@ -89,7 +91,18 @@ interface Agent    { id: string; categoryId: string; name: string; role?: string
 interface SessionMeta { id: string; agentId: string; title: string;
                         kind: 'interactive' | 'task';
                         status: 'running' | 'exited'; createdAt: number;
-                        endedAt?: number; exitCode?: number; dispatchId?: string }
+                        endedAt?: number; exitCode?: number; dispatchId?: string;
+                        runTaskId?: string }
+interface Run { id: string; name: string; goal: string; status: RunStatus;
+                createdAt: number; updatedAt: number }
+interface RunParticipant { id: string; runId: string; agentId: string;
+                           agentName: string; runtime: RuntimeId;
+                           role: 'orchestrator' | 'lead' | 'worker';
+                           teamId?: string; teamName?: string }
+interface RunTask { id: string; runId: string; participantId: string;
+                    prompt: string; status: RunTaskStatus; sessionId?: string }
+interface RunEvent { id: string; runId: string; type: RunEventType;
+                     taskId?: string; participantId?: string; createdAt: number }
 ```
 
 ## Launch profiles (shared/runtimes.ts)
@@ -127,6 +140,24 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   forms (`claude -p`, `codex exec`, etc.), never typed after a fixed delay.
 - Tab close and identity deletion stop and remove owned PTYs. Naturally exited
   sessions keep replay for 30 minutes and are then reaped.
+- Task sessions carry a `runTaskId`; normal shutdown journals cancellation and
+  the next startup fails any work left active by an unclean exit.
+
+## Run and task control plane (main/orchestration/)
+
+- Categories and agents are the persistent catalog. A `RunParticipant`
+  references a catalog agent and snapshots display/runtime fields so history
+  remains readable if that agent is later removed.
+- Orchestrator/lead/worker roles and team ids belong to a run. Creating a run
+  never creates a category, agent, workspace, or worktree.
+- Every task transition appends a normalized event. Cached task/run status is
+  convenient for storage inspection, but renderer snapshots reconstruct status
+  from the journal so stale cached values cannot change history.
+- Pre-run Graph topology is imported once into `legacy-graph-run-v1`; legacy
+  categories and agents remain untouched.
+- The renderer receives authoritative snapshots through
+  `orchestration:changed`; Graph transient state is limited to layout, selection,
+  pause controls, and short completion animation.
 
 ## IPC contract (shared/ipc.ts) — stable, both build agents code against it
 
@@ -135,12 +166,14 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `photo:import(bytesBase64, mime)` → stored filename
 - `agent:create(input)` / `agent:delete(id)` / `category:create(input)` …
   (creates workspaceDir, memory scaffold, worktree if repo-backed)
-- `pty:create({agentId, task?, dispatchId?})` → SessionMeta (interactive when
+- `pty:create({agentId, task?, dispatchId?, runTaskId?})` → SessionMeta (interactive when
   task is absent; bounded one-shot task otherwise; injects memory first)
 - `pty:write({sessionId, dataBase64})`, `pty:resize({sessionId, cols, rows})`,
   `pty:kill({sessionId})`, `pty:attach({sessionId})` → replay + sequence
 - `pty:list()` → live/exited retained sessions + task queue status
-- `pty:cancelTasks({agentIds?})` → active/queued cancellation counts
+- `pty:cancelTasks({agentIds?, runTaskIds?})` → active/queued cancellation counts
+- `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs
+- `runTask:create`, `runTask:fail`, `runArtifact:create` → journal-backed entities
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
 - `git:diff({agentId, path})` → unified diff text
 - `fs:tree({agentId})` → workspace file tree (depth-limited, lazy children)
@@ -150,6 +183,7 @@ Events (main → renderer, `webContents.send`):
 - `pty:data` `{sessionId, dataBase64, sequence}` (coalesced renderer-side)
 - `pty:exit` `{sessionId, exitCode, reason}`
 - `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
+- `orchestration:changed` → authoritative runs/participants/tasks/events/artifacts
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
 ## Theming

@@ -2,12 +2,12 @@
  * Graph-mode view state that does NOT belong in the persisted app config:
  *   - node positions (persisted to localStorage; the graph is a view over the
  *     real category/agent data, so layout is purely presentational)
- *   - transient per-agent status during task dispatch ('working' → 'done')
+ *   - transient per-participant status during task dispatch ('working' -> 'done')
  *   - which teams the user has explicitly paused (idle)
  *   - the currently selected graph node
  *
- * Real structure (teams, leads, workers) is derived from stores/appdata.ts;
- * real "running" status is derived from stores/sessions.ts. See graphModel.ts.
+ * Real structure and durable task status come from stores/runs.ts; interactive
+ * terminal presence is derived from stores/sessions.ts. See graphModel.ts.
  */
 
 import { create } from 'zustand';
@@ -19,11 +19,11 @@ export interface Pos {
 
 export type TransientStatus = 'working' | 'done';
 
-/** What a graph node points at. `id` is an agentId (nodes) or categoryId (team frame). */
+/** What a graph node points at. `id` is a participant id or run-scoped team id. */
 export interface GraphSelection {
   kind: 'orchestrator' | 'lead' | 'worker' | 'team';
   id: string;
-  /** categoryId for lead/worker/team selections. */
+  /** Run-scoped team id for lead/worker selections. */
   teamId?: string;
 }
 
@@ -46,8 +46,8 @@ interface GraphStoreState {
 
   setPosition: (key: string, pos: Pos) => void;
   clearPositions: () => void;
-  setBusy: (agentId: string, status: TransientStatus) => void;
-  clearBusy: (agentId: string) => void;
+  setBusy: (participantId: string, status: TransientStatus) => void;
+  clearBusy: (participantId: string) => void;
   setTeamIdle: (teamId: string, idle: boolean) => void;
   select: (sel: GraphSelection | null) => void;
 }

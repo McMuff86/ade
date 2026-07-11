@@ -1,6 +1,6 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.3 (two-view product direction and runtime reliability, 2026-07-10)
+Status: v0.4 (persisted run/task control plane, 2026-07-10)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -39,8 +39,9 @@ References:
 - **Participant role** — orchestrator/lead/worker is scoped to a run. The same
   named agent may play a different role in a different run.
 
-The current Graph MVP still stores teams as categories and roles on agents.
-That compatibility model is temporary and tracked in `ROADMAP.md` Goal 2.
+Graph assigns participants and roles per run. Older Graph-created categories
+and agent `teamRole` fields are imported once as a legacy run and retained so
+the migration never deletes user data.
 
 ## Layout (per approved mockup)
 
@@ -61,6 +62,8 @@ That compatibility model is temporary and tracked in `ROADMAP.md` Goal 2.
 - A global scheduler caps active task CLIs; queued work and the cap are visible.
 - UI state must come from real queue/process/run events. Timers may animate an
   event but must never invent working or completion state.
+- Runs, tasks, participants, events, and artifacts survive renderer reloads and
+  app restarts. Interrupted tasks must resolve to a terminal failure state.
 - Fan-out must state the process count before launch. Worker-specific planning,
   communication, verification and integration are required before Graph is
   described as orchestration rather than dispatch.

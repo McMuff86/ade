@@ -25,7 +25,12 @@ import {
 import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
 import { injectMemoryBlock } from '../memory/inject';
-import { TaskSlotQueue, type TaskLease, type TaskQueueKey } from './TaskQueue';
+import {
+  TaskQueueCancelledError,
+  TaskSlotQueue,
+  type TaskLease,
+  type TaskQueueKey,
+} from './TaskQueue';
 
 const RING_BUFFER_CAP = 256 * 1024;
 const DEFAULT_COLS = 120;
@@ -36,6 +41,16 @@ const FORCE_STOP_MS = 5_000;
 const CANCELLED_DISPATCH_TTL_MS = 10 * 60 * 1000;
 
 export const MAX_ACTIVE_TASK_SESSIONS = 4;
+
+export interface TaskLifecycleSink {
+  onTaskStarted: (taskId: string, session: SessionMeta) => void;
+  onTaskLaunchFailed: (taskId: string, cancelled: boolean, error?: string) => void;
+  onTaskFinished: (
+    taskId: string,
+    status: 'completed' | 'failed' | 'cancelled',
+    exitCode: number,
+  ) => void;
+}
 
 interface Session {
   meta: SessionMeta;
@@ -67,32 +82,52 @@ export class PtyManager {
   private readonly taskQueue: TaskSlotQueue;
   private readonly cancelledDispatches = new Map<string, ReturnType<typeof setTimeout>>();
 
-  constructor(private readonly store: ConfigStore) {
+  constructor(
+    private readonly store: ConfigStore,
+    private readonly taskLifecycle?: TaskLifecycleSink,
+  ) {
     this.taskQueue = new TaskSlotQueue(MAX_ACTIVE_TASK_SESSIONS, (status) => {
       this.broadcast(IPC_EVENTS.PtyTaskQueue, status);
     });
   }
 
-  async create(agentId: string, task?: string, dispatchId?: string): Promise<SessionMeta> {
+  async create(
+    agentId: string,
+    task?: string,
+    dispatchId?: string,
+    runTaskId?: string,
+  ): Promise<SessionMeta> {
     const text = task?.trim() ?? '';
     if (!text) return this.spawn(agentId);
     if (text.length > MAX_TASK_PROMPT_CHARS) {
-      throw new Error(`ade: task exceeds ${MAX_TASK_PROMPT_CHARS} characters`);
+      const error = new Error(`ade: task exceeds ${MAX_TASK_PROMPT_CHARS} characters`);
+      this.notifyLaunchFailed(runTaskId, false, error);
+      throw error;
     }
-    if (text.includes('\0')) throw new Error('ade: task contains a null character');
+    if (text.includes('\0')) {
+      const error = new Error('ade: task contains a null character');
+      this.notifyLaunchFailed(runTaskId, false, error);
+      throw error;
+    }
     if (dispatchId && this.cancelledDispatches.has(dispatchId)) {
-      throw new Error('ade: task dispatch was cancelled');
+      const error = new Error('ade: task dispatch was cancelled');
+      this.notifyLaunchFailed(runTaskId, true, error);
+      throw error;
     }
 
-    const key: TaskQueueKey = { agentId, dispatchId };
-    const lease = await this.taskQueue.acquire(key);
+    const key: TaskQueueKey = { agentId, dispatchId, runTaskId };
+    let lease: TaskLease | undefined;
     try {
+      lease = await this.taskQueue.acquire(key);
       if (dispatchId && this.cancelledDispatches.has(dispatchId)) {
         throw new Error('ade: task dispatch was cancelled');
       }
-      return this.spawn(agentId, { task: text, dispatchId, lease });
+      return this.spawn(agentId, { task: text, dispatchId, runTaskId, lease });
     } catch (error) {
-      lease.release();
+      lease?.release();
+      const cancelled = error instanceof TaskQueueCancelledError ||
+        Boolean(dispatchId && this.cancelledDispatches.has(dispatchId));
+      this.notifyLaunchFailed(runTaskId, cancelled, error);
       throw error;
     }
   }
@@ -138,33 +173,39 @@ export class PtyManager {
   }
 
   cancelTasks(request: PtyCancelTasksRequest): PtyCancelTasksResult {
-    const selected = request.agentIds ? new Set(request.agentIds) : null;
-    const directlyMatches = (agentId: string): boolean => !selected || selected.has(agentId);
+    const selectedAgents = request.agentIds ? new Set(request.agentIds) : null;
+    const selectedTasks = request.runTaskIds ? new Set(request.runTaskIds) : null;
+    const hasScope = selectedAgents !== null || selectedTasks !== null;
+    const directlyMatches = (agentId: string, runTaskId?: string): boolean =>
+      !hasScope
+      || Boolean(selectedAgents?.has(agentId))
+      || Boolean(runTaskId && selectedTasks?.has(runTaskId));
 
     const dispatchIds = new Set<string>();
     for (const session of this.sessions.values()) {
       if (
         session.meta.kind === 'task' &&
-        directlyMatches(session.meta.agentId) &&
+        directlyMatches(session.meta.agentId, session.meta.runTaskId) &&
         session.meta.dispatchId
       ) {
         dispatchIds.add(session.meta.dispatchId);
       }
     }
     for (const key of this.taskQueue.pendingKeys()) {
-      if (directlyMatches(key.agentId) && key.dispatchId) dispatchIds.add(key.dispatchId);
+      if (directlyMatches(key.agentId, key.runTaskId) && key.dispatchId) dispatchIds.add(key.dispatchId);
     }
     for (const id of dispatchIds) this.markDispatchCancelled(id);
 
     const matchesKey = (key: TaskQueueKey): boolean =>
-      directlyMatches(key.agentId) || Boolean(key.dispatchId && dispatchIds.has(key.dispatchId));
+      directlyMatches(key.agentId, key.runTaskId)
+      || Boolean(key.dispatchId && dispatchIds.has(key.dispatchId));
     const queuedCancelled = this.taskQueue.cancelPending(matchesKey).length;
 
     let activeCancelled = 0;
     for (const session of this.sessions.values()) {
       if (session.meta.kind !== 'task' || session.meta.status !== 'running') continue;
       if (
-        directlyMatches(session.meta.agentId) ||
+        directlyMatches(session.meta.agentId, session.meta.runTaskId) ||
         Boolean(session.meta.dispatchId && dispatchIds.has(session.meta.dispatchId))
       ) {
         activeCancelled += 1;
@@ -184,6 +225,10 @@ export class PtyManager {
   }
 
   disposeAll(): void {
+    const shutdownError = new Error('ADE shut down before task completion');
+    for (const key of this.taskQueue.pendingKeys()) {
+      this.notifyLaunchFailed(key.runTaskId, true, shutdownError);
+    }
     this.taskQueue.cancelPending(() => true);
     for (const timer of this.cancelledDispatches.values()) clearTimeout(timer);
     this.cancelledDispatches.clear();
@@ -191,6 +236,10 @@ export class PtyManager {
     for (const session of this.sessions.values()) {
       if (session.reapTimer) clearTimeout(session.reapTimer);
       if (session.forceStopTimer) clearTimeout(session.forceStopTimer);
+      if (session.meta.kind === 'task' && session.meta.status === 'running') {
+        session.cancelled = true;
+        this.notifyFinished(session, -1);
+      }
       session.taskLease?.release();
       session.taskLease = undefined;
       try {
@@ -204,7 +253,7 @@ export class PtyManager {
 
   private spawn(
     agentId: string,
-    task?: { task: string; dispatchId?: string; lease: TaskLease },
+    task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
   ): SessionMeta {
     const agent = this.requireAgent(agentId);
     try {
@@ -239,6 +288,7 @@ export class PtyManager {
       status: 'running',
       createdAt: Date.now(),
       dispatchId: task?.dispatchId,
+      runTaskId: task?.runTaskId,
     };
     const session: Session = {
       meta,
@@ -252,6 +302,13 @@ export class PtyManager {
       removeOnExit: false,
     };
     this.sessions.set(id, session);
+    if (task?.runTaskId) {
+      try {
+        this.taskLifecycle?.onTaskStarted(task.runTaskId, { ...meta });
+      } catch (error) {
+        console.error(`[ade] run task start persistence failed for ${task.runTaskId}:`, error);
+      }
+    }
 
     proc.onData((data) => {
       const chunk = Buffer.from(data, 'utf8');
@@ -293,6 +350,7 @@ export class PtyManager {
       exitCode,
       reason: session.cancelled ? 'cancelled' : 'exit',
     });
+    this.notifyFinished(session, exitCode);
 
     if (session.removeOnExit) this.removeSession(session.meta.id);
     else this.scheduleReap(session);
@@ -331,6 +389,7 @@ export class PtyManager {
       exitCode: -1,
       reason: 'cancelled',
     });
+    this.notifyFinished(session, -1);
     if (session.removeOnExit) this.removeSession(session.meta.id);
     else this.scheduleReap(session);
   }
@@ -365,6 +424,27 @@ export class PtyManager {
     const timer = setTimeout(() => this.cancelledDispatches.delete(dispatchId), CANCELLED_DISPATCH_TTL_MS);
     timer.unref?.();
     this.cancelledDispatches.set(dispatchId, timer);
+  }
+
+  private notifyLaunchFailed(runTaskId: string | undefined, cancelled: boolean, error: unknown): void {
+    if (!runTaskId) return;
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      this.taskLifecycle?.onTaskLaunchFailed(runTaskId, cancelled, message);
+    } catch (persistError) {
+      console.error(`[ade] run task launch failure persistence failed for ${runTaskId}:`, persistError);
+    }
+  }
+
+  private notifyFinished(session: Session, exitCode: number): void {
+    const runTaskId = session.meta.runTaskId;
+    if (!runTaskId) return;
+    const status = session.cancelled ? 'cancelled' : (exitCode === 0 ? 'completed' : 'failed');
+    try {
+      this.taskLifecycle?.onTaskFinished(runTaskId, status, exitCode);
+    } catch (error) {
+      console.error(`[ade] run task completion persistence failed for ${runTaskId}:`, error);
+    }
   }
 
   private requireAgent(agentId: string): Agent {

@@ -5,7 +5,7 @@
  */
 
 import { BrowserWindow, dialog, ipcMain } from 'electron';
-import { IPC, type IpcInvokeMap } from '../shared/ipc';
+import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
@@ -13,9 +13,11 @@ import { createAgent, createCategory, deleteAgent, deleteCategory, updateAgent }
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
+import { OrchestrationService } from './orchestration/OrchestrationService';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
+let orchestration: OrchestrationService | null = null;
 
 /** Typed ipcMain.handle wrapper: payload/result checked against IpcInvokeMap. */
 function handle<K extends keyof IpcInvokeMap>(
@@ -28,7 +30,16 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export function registerIpcHandlers(store: ConfigStore): void {
-  ptyManager = new PtyManager(store);
+  orchestration = new OrchestrationService(store, (snapshot) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.OrchestrationChanged, snapshot);
+    }
+  });
+  const recoveredTasks = orchestration.recoverInterruptedTasks();
+  if (recoveredTasks > 0) {
+    console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
+  }
+  ptyManager = new PtyManager(store, orchestration);
 
   /** Resolve an agent by id or throw — every git/fs handler needs its dirs. */
   const requireAgent = (agentId: string): Agent => {
@@ -74,8 +85,8 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* --------------------------------------------------- pty (Phase B1) */
 
   // Interactive sessions spawn immediately; task sessions wait for a queue slot.
-  handle(IPC.PtyCreate, ({ agentId, task, dispatchId }) =>
-    ptyManager!.create(agentId, task, dispatchId),
+  handle(IPC.PtyCreate, ({ agentId, task, dispatchId, runTaskId }) =>
+    ptyManager!.create(agentId, task, dispatchId, runTaskId),
   );
 
   // Forward keystrokes to the session's pty
@@ -102,6 +113,21 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   // Cancel active and queued Graph tasks, optionally scoped to selected agents.
   handle(IPC.PtyCancelTasks, (request) => ptyManager!.cancelTasks(request));
+
+  /* ----------------------------------------------- runs/tasks (Goal 2) */
+
+  handle(IPC.RunGet, () => orchestration!.snapshot());
+  handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
+  handle(IPC.RunDelete, ({ runId }) => {
+    const runTaskIds = orchestration!.snapshot().tasks
+      .filter((task) => task.runId === runId)
+      .map((task) => task.id);
+    ptyManager!.cancelTasks({ runTaskIds });
+    orchestration!.deleteRun(runId);
+  });
+  handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));
+  handle(IPC.RunTaskFail, ({ taskId, error }) => orchestration!.failTask(taskId, error));
+  handle(IPC.RunArtifactCreate, (input) => orchestration!.createArtifact(input));
 
   /* ------------------------------------------------- git + fs (Phase C) */
 
@@ -144,4 +170,5 @@ export function registerIpcHandlers(store: ConfigStore): void {
 export function disposePtyManager(): void {
   ptyManager?.disposeAll();
   ptyManager = null;
+  orchestration = null;
 }

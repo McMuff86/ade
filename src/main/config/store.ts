@@ -8,6 +8,7 @@ import { app } from 'electron';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DEFAULT_CONFIG, type AdeConfig } from '../../shared/types';
+import { normalizeConfig } from '../orchestration/migrate';
 
 export class ConfigStore {
   private readonly filePath: string;
@@ -15,7 +16,15 @@ export class ConfigStore {
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? join(app.getPath('userData'), 'ade', 'config.json');
-    this.config = this.load();
+    const loaded = this.load();
+    this.config = loaded.config;
+    if (loaded.migrated) {
+      try {
+        this.persist();
+      } catch (err) {
+        console.error('[ade] failed to persist migrated config:', err);
+      }
+    }
   }
 
   get(): AdeConfig {
@@ -36,16 +45,11 @@ export class ConfigStore {
     return this.config;
   }
 
-  private load(): AdeConfig {
+  private load(): { config: AdeConfig; migrated: boolean } {
     try {
       const raw = readFileSync(this.filePath, 'utf8');
       const parsed = JSON.parse(raw) as Partial<AdeConfig>;
-      // tolerate missing keys from older/hand-edited files
-      return {
-        categories: Array.isArray(parsed.categories) ? parsed.categories : [],
-        agents: Array.isArray(parsed.agents) ? parsed.agents : [],
-        settings: { ...DEFAULT_CONFIG.settings, ...(parsed.settings ?? {}) },
-      };
+      return normalizeConfig(parsed);
     } catch {
       // first run (or unreadable file): seed the default config on disk
       const seeded = structuredClone(DEFAULT_CONFIG);
@@ -55,7 +59,7 @@ export class ConfigStore {
       } catch (err) {
         console.error('[ade] failed to seed config file:', err);
       }
-      return seeded;
+      return { config: seeded, migrated: false };
     }
   }
 

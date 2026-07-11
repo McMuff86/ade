@@ -24,9 +24,9 @@ terminals around named agents.
 - **Light + dark theme** — including the terminal itself (full ANSI palette
   per theme).
 - **Two views over the same agents**: Terminals is the interactive execution
-  workspace; Graph is an early control-plane view for bounded one-shot tasks.
-  Graph task sessions use non-interactive CLI transports, run at most four at
-  once, can be cancelled, and report completion from real process exit.
+  workspace; Graph creates persisted runs that reference those catalog agents
+  with run-scoped roles. Its bounded one-shot tasks survive reload, can be
+  cancelled per run, and report completion from real process exit events.
 
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
 Reference analyses: `docs/reports/`
@@ -39,8 +39,8 @@ pnpm dev
 ```
 
 `pnpm build` builds to `out/`; `pnpm start` previews the built app.
-Focused checks: `pnpm test:memory`, `pnpm test:dispatch`, and
-`pnpm test:runtime`.
+Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
+`pnpm test:runtime`, and `pnpm test:orchestration`.
 
 ## Notes
 

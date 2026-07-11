@@ -73,12 +73,94 @@ export interface SessionMeta {
   endedAt?: number;
   exitCode?: number;
   dispatchId?: string;
+  runTaskId?: string;
 }
 
 export interface TaskQueueStatus {
   active: number;
   queued: number;
   maxActive: number;
+}
+
+/* --------------------------------------------------------- orchestration */
+
+export type RunStatus = 'draft' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type RunTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type RunParticipantRole = 'orchestrator' | 'lead' | 'worker';
+export type RunEventType =
+  | 'run.created'
+  | 'participant.added'
+  | 'task.queued'
+  | 'task.started'
+  | 'task.completed'
+  | 'task.failed'
+  | 'task.cancelled'
+  | 'artifact.created';
+
+export interface Run {
+  id: string;
+  name: string;
+  goal: string;
+  status: RunStatus;
+  createdAt: number;
+  updatedAt: number;
+  source?: 'native' | 'legacy-graph';
+}
+
+export interface RunParticipant {
+  id: string;
+  runId: string;
+  agentId: string;
+  /** Snapshot fields keep historical runs readable after an agent is deleted. */
+  agentName: string;
+  runtime: RuntimeId;
+  role: RunParticipantRole;
+  teamId?: string;
+  teamName?: string;
+  createdAt: number;
+}
+
+export interface RunTask {
+  id: string;
+  runId: string;
+  participantId: string;
+  prompt: string;
+  status: RunTaskStatus;
+  sessionId?: string;
+  createdAt: number;
+  updatedAt: number;
+  startedAt?: number;
+  endedAt?: number;
+  exitCode?: number;
+  error?: string;
+}
+
+export interface RunEvent {
+  id: string;
+  runId: string;
+  type: RunEventType;
+  createdAt: number;
+  taskId?: string;
+  participantId?: string;
+  data?: Record<string, string | number | boolean | null>;
+}
+
+export interface RunArtifact {
+  id: string;
+  runId: string;
+  taskId?: string;
+  kind: 'file' | 'patch' | 'message' | 'result';
+  path?: string;
+  content?: string;
+  createdAt: number;
+}
+
+export interface OrchestrationSnapshot {
+  runs: Run[];
+  participants: RunParticipant[];
+  tasks: RunTask[];
+  events: RunEvent[];
+  artifacts: RunArtifact[];
 }
 
 /* ---------------------------------------------------------------- settings */
@@ -110,12 +192,22 @@ export interface Settings {
 export interface AdeConfig {
   categories: Category[];
   agents: Agent[];
+  runs: Run[];
+  runParticipants: RunParticipant[];
+  runTasks: RunTask[];
+  runEvents: RunEvent[];
+  runArtifacts: RunArtifact[];
   settings: Settings;
 }
 
 export const DEFAULT_CONFIG: AdeConfig = {
   categories: [],
   agents: [],
+  runs: [],
+  runParticipants: [],
+  runTasks: [],
+  runEvents: [],
+  runArtifacts: [],
   settings: {
     theme: 'dark',
     memory: {
@@ -198,4 +290,21 @@ export interface AgentUpdateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+}
+
+export interface RunCreateInput {
+  name: string;
+  goal?: string;
+  participants: Array<{
+    agentId: string;
+    role: RunParticipantRole;
+    teamId?: string;
+    teamName?: string;
+  }>;
+}
+
+export interface RunTaskCreateInput {
+  runId: string;
+  participantId: string;
+  prompt: string;
 }

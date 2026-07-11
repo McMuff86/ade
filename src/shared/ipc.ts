@@ -15,6 +15,12 @@ import type {
   CategoryCreateInput,
   FsTreeNode,
   GitStatus,
+  OrchestrationSnapshot,
+  Run,
+  RunArtifact,
+  RunCreateInput,
+  RunTask,
+  RunTaskCreateInput,
   SessionMeta,
   TaskQueueStatus,
 } from './types';
@@ -38,6 +44,12 @@ export const IPC = {
   PtyAttach: 'pty:attach',
   PtyList: 'pty:list',
   PtyCancelTasks: 'pty:cancelTasks',
+  RunGet: 'run:get',
+  RunCreate: 'run:create',
+  RunDelete: 'run:delete',
+  RunTaskCreate: 'runTask:create',
+  RunTaskFail: 'runTask:fail',
+  RunArtifactCreate: 'runArtifact:create',
   GitStatus: 'git:status',
   GitDiff: 'git:diff',
   FsTree: 'fs:tree',
@@ -52,6 +64,7 @@ export const IPC_EVENTS = {
   PtyExit: 'pty:exit',
   PtyRemoved: 'pty:removed',
   PtyTaskQueue: 'pty:taskQueue',
+  OrchestrationChanged: 'orchestration:changed',
   GitChanged: 'git:changed',
 } as const;
 
@@ -81,6 +94,8 @@ export interface PtyCreateRequest {
   task?: string;
   /** Groups all sessions created by one team dispatch for cancellation. */
   dispatchId?: string;
+  /** Persisted run task whose lifecycle follows this PTY. */
+  runTaskId?: string;
 }
 export interface PtyWriteRequest {
   sessionId: string;
@@ -110,10 +125,19 @@ export interface PtyListResult {
 export interface PtyCancelTasksRequest {
   /** Omit to cancel every active and queued task session. */
   agentIds?: string[];
+  /** Exact persisted tasks to cancel; keeps cancellation scoped to one run. */
+  runTaskIds?: string[];
 }
 export interface PtyCancelTasksResult {
   activeCancelled: number;
   queuedCancelled: number;
+}
+export interface RunArtifactCreateRequest {
+  runId: string;
+  taskId?: string;
+  kind: RunArtifact['kind'];
+  path?: string;
+  content?: string;
 }
 
 export interface GitStatusRequest {
@@ -190,6 +214,12 @@ export interface IpcInvokeMap {
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'pty:list': { req: void; res: PtyListResult };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
+  'run:get': { req: void; res: OrchestrationSnapshot };
+  'run:create': { req: RunCreateInput; res: Run };
+  'run:delete': { req: { runId: string }; res: void };
+  'runTask:create': { req: RunTaskCreateInput; res: RunTask };
+  'runTask:fail': { req: { taskId: string; error: string }; res: void };
+  'runArtifact:create': { req: RunArtifactCreateRequest; res: RunArtifact };
   'git:status': { req: GitStatusRequest; res: GitStatus };
   'git:diff': { req: GitDiffRequest; res: string };
   'fs:tree': { req: FsTreeRequest; res: FsTreeNode };
@@ -204,6 +234,7 @@ export interface IpcEventMap {
   'pty:exit': PtyExitEvent;
   'pty:removed': PtyRemovedEvent;
   'pty:taskQueue': TaskQueueStatus;
+  'orchestration:changed': OrchestrationSnapshot;
   'git:changed': GitChangedEvent;
 }
 

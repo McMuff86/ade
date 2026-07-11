@@ -1,33 +1,39 @@
-/**
- * Derive the Graph-mode model from real app data + live sessions.
- *
- * Teams are categories with kind 'team'; the orchestrator is the single agent
- * (teamRole 'orchestrator') inside the kind 'orchestrator' category. Node status
- * is real: an agent is 'running' when it has a live pty session, unless the user
- * has paused its team (idle) or a task dispatch has it transiently 'working'.
- */
+/** Derive the Graph canvas from one persisted orchestration run. */
 
-import type { Agent, Category } from '../../shared/types';
+import type {
+  Agent,
+  RunParticipant,
+  RunTask,
+  RuntimeId,
+} from '../../shared/types';
 import type { TransientStatus } from './graphStore';
 
-export type NodeStatus = 'running' | 'idle' | 'working' | 'done';
+export type NodeStatus = 'running' | 'idle' | 'working' | 'done' | 'failed';
+
+export interface GraphMember {
+  /** Run-scoped participant id. */
+  id: string;
+  agentId: string;
+  name: string;
+  runtime: RuntimeId;
+  available: boolean;
+}
 
 export interface TeamModel {
-  category: Category;
-  lead: Agent | null;
-  workers: Agent[];
+  id: string;
+  name: string;
+  lead: GraphMember | null;
+  workers: GraphMember[];
   idle: boolean;
-  /** Team-level rollup used for the frame + orchestrator→lead cable. */
   status: NodeStatus;
 }
 
 export interface GraphModel {
-  orchestratorCategory: Category | null;
-  orchestrator: Agent | null;
+  orchestrator: GraphMember | null;
   teams: TeamModel[];
 }
 
-interface SessionsSlice {
+export interface SessionsSlice {
   sessions: Record<string, {
     kind: 'interactive' | 'task';
     status: 'running' | 'exited';
@@ -42,59 +48,106 @@ export function hasRunningSession(agentId: string, sessions: SessionsSlice): boo
 }
 
 export function statusFor(
+  participantId: string,
   agentId: string,
-  opts: { idle: boolean; busy: Record<string, TransientStatus>; sessions: SessionsSlice },
+  opts: {
+    idle: boolean;
+    busy: Record<string, TransientStatus>;
+    sessions: SessionsSlice;
+    tasks: RunTask[];
+  },
 ): NodeStatus {
   if (opts.idle) return 'idle';
-  const transient = opts.busy[agentId];
+  const transient = opts.busy[participantId];
   if (transient) return transient;
+
+  const latestTask = opts.tasks
+    .filter((task) => task.participantId === participantId)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (latestTask?.status === 'queued' || latestTask?.status === 'running') return 'working';
+  if (latestTask?.status === 'completed') return 'done';
+  if (latestTask?.status === 'failed') return 'failed';
+
   const ids = opts.sessions.orderByAgent[agentId] ?? [];
-  if (ids.some((id) => {
-    const session = opts.sessions.sessions[id];
-    return session?.kind === 'task' && session.status === 'running';
-  })) return 'working';
   if (ids.some((id) => {
     const session = opts.sessions.sessions[id];
     return session?.kind === 'interactive' && session.status === 'running';
   })) return 'running';
-  const latestTask = [...ids].reverse()
-    .map((id) => opts.sessions.sessions[id])
-    .find((session) => session?.kind === 'task');
-  if (latestTask?.status === 'exited' && latestTask.exitCode === 0) return 'done';
   return 'idle';
 }
 
 function rollup(members: NodeStatus[]): NodeStatus {
-  if (members.some((s) => s === 'working')) return 'working';
-  if (members.some((s) => s === 'running')) return 'running';
-  if (members.some((s) => s === 'done')) return 'done';
+  if (members.some((status) => status === 'working')) return 'working';
+  if (members.some((status) => status === 'failed')) return 'failed';
+  if (members.some((status) => status === 'running')) return 'running';
+  if (members.some((status) => status === 'done')) return 'done';
   return 'idle';
 }
 
+function member(participant: RunParticipant, agents: Record<string, Agent>): GraphMember {
+  const current = agents[participant.agentId];
+  return {
+    id: participant.id,
+    agentId: participant.agentId,
+    name: current?.name ?? participant.agentName,
+    runtime: current?.runtime ?? participant.runtime,
+    available: Boolean(current),
+  };
+}
+
 export function buildGraph(
-  categories: Category[],
+  runId: string | null,
+  participants: RunParticipant[],
   agents: Record<string, Agent>,
+  tasks: RunTask[],
   sessions: SessionsSlice,
   busy: Record<string, TransientStatus>,
   idleTeams: Record<string, true>,
 ): GraphModel {
-  const orchestratorCategory = categories.find((c) => c.kind === 'orchestrator') ?? null;
-  let orchestrator: Agent | null = null;
-  if (orchestratorCategory) {
-    const members = orchestratorCategory.agents.map((id) => agents[id]).filter(Boolean) as Agent[];
-    orchestrator = members.find((a) => a.teamRole === 'orchestrator') ?? members[0] ?? null;
+  if (!runId) return { orchestrator: null, teams: [] };
+
+  const runParticipants = participants.filter((participant) => participant.runId === runId);
+  const runTasks = tasks.filter((task) => task.runId === runId);
+  const orchestratorParticipant = runParticipants.find((participant) => participant.role === 'orchestrator');
+  const orchestrator = orchestratorParticipant ? member(orchestratorParticipant, agents) : null;
+
+  const teamGroups = new Map<string, { name: string; participants: RunParticipant[] }>();
+  for (const participant of runParticipants) {
+    if (participant.role === 'orchestrator') continue;
+    const id = participant.teamId ?? `${runId}:unassigned`;
+    const group = teamGroups.get(id) ?? {
+      name: participant.teamName ?? 'Unassigned',
+      participants: [],
+    };
+    group.participants.push(participant);
+    teamGroups.set(id, group);
   }
 
-  const teams: TeamModel[] = categories
-    .filter((c) => c.kind === 'team')
-    .map((category) => {
-      const members = category.agents.map((id) => agents[id]).filter(Boolean) as Agent[];
-      const lead = members.find((a) => a.teamRole === 'lead') ?? members[0] ?? null;
-      const workers = members.filter((a) => a !== lead);
-      const idle = Boolean(idleTeams[category.id]);
-      const memberStatuses = members.map((a) => statusFor(a.id, { idle, busy, sessions }));
-      return { category, lead, workers, idle, status: idle ? 'idle' : rollup(memberStatuses) };
-    });
+  const teams = [...teamGroups.entries()].map(([id, group]): TeamModel => {
+    const leadParticipant = group.participants.find((participant) => participant.role === 'lead')
+      ?? group.participants[0];
+    const lead = leadParticipant ? member(leadParticipant, agents) : null;
+    const workers = group.participants
+      .filter((participant) => participant !== leadParticipant)
+      .map((participant) => member(participant, agents));
+    const idle = Boolean(idleTeams[id]);
+    const statuses = [lead, ...workers]
+      .filter(Boolean)
+      .map((item) => statusFor(item!.id, item!.agentId, {
+        idle,
+        busy,
+        sessions,
+        tasks: runTasks,
+      }));
+    return {
+      id,
+      name: group.name,
+      lead,
+      workers,
+      idle,
+      status: idle ? 'idle' : rollup(statuses),
+    };
+  });
 
-  return { orchestratorCategory, orchestrator, teams };
+  return { orchestrator, teams };
 }
