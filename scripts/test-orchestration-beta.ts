@@ -379,6 +379,13 @@ function adapterChecks(root: string): void {
   check('Codex JSONL token telemetry overrides model-authored usage', parsed.usage.inputTokens === 17 && parsed.usage.outputTokens === 5);
   check('Codex cost remains explicitly unknown', parsed.usage.costUsd === null);
   check('result schema is materialized next to the task output', existsSync(files.schemaPath));
+  writeFileSync(files.resultPath, JSON.stringify(result()), 'utf8');
+  const wrapped = adapter.readResult(
+    launch,
+    '\u001b[?25l{"type":"turn.completed","usage":\r\n{"input_tokens":23,"cached_input_tokens":0,\r\n"output_tokens":7,"reasoning_output_tokens":0}}\u001b[0m',
+  );
+  check('Codex usage survives ConPTY wrapping and ANSI control sequences',
+    wrapped.usage.inputTokens === 23 && wrapped.usage.outputTokens === 7);
 
   let rejected = false;
   try {

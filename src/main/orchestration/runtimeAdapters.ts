@@ -359,7 +359,23 @@ function parseCodexUsage(output: string): { inputTokens: number; outputTokens: n
       // PTY output may contain ordinary log lines around JSONL events.
     }
   }
-  return found;
+  if (found) return found;
+
+  // ConPTY may visually wrap a long JSONL event, so the event is no longer a
+  // parseable single line even though its bounded fields are intact. Search
+  // only inside the final turn.completed event and require exact usage keys.
+  const markers = [...clean.matchAll(/"type"\s*:\s*"turn\.completed"/g)];
+  for (let index = markers.length - 1; index >= 0; index -= 1) {
+    const offset = markers[index]?.index;
+    if (offset === undefined) continue;
+    const event = clean.slice(offset, offset + 4_096);
+    const input = event.match(/"input_tokens"\s*:\s*(\d+)/)?.[1];
+    const outputTokens = event.match(/"output_tokens"\s*:\s*(\d+)/)?.[1];
+    if (input !== undefined && outputTokens !== undefined) {
+      return { inputTokens: Number(input), outputTokens: Number(outputTokens) };
+    }
+  }
+  return null;
 }
 
 function asObject(value: unknown, label: string): Record<string, unknown> {

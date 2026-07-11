@@ -99,7 +99,7 @@ required telemetry, exhausted budgets, dirty worktrees, invalid commits or
 conflicts.
 
 Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
-17 runtime + 19 domain-orchestration + 36 orchestration-beta + 56 Windows
+17 runtime + 19 domain-orchestration + 37 orchestration-beta + 56 Windows
 security assertions), `pnpm run build`, and the 30-check production Electron
 workflow pass. Goal 4 checks cover native Codex JSONL/schema wiring, strict
 result validation, worker-specific planning, dependency/concurrency scheduling,

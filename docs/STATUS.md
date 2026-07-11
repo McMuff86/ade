@@ -30,7 +30,7 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; telemetry-backed limits fail closed rather than estimating missing values |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real | Windows CI runs 164 focused assertions plus a 30-check production Electron workflow and unpacked package validation |
+| CI and Electron E2E | Real | Windows CI runs 165 focused assertions plus a 30-check production Electron workflow and unpacked package validation |
 
 ## Known constraints
 
