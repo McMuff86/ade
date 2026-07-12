@@ -1,17 +1,25 @@
-/** Graph mode: a canvas over persisted runs, participants and task events. */
+/** Graph mode: a multi-run canvas over persisted runs, participants and task events. */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import type { Agent, Category, Repository, RunCreateInput } from '../../shared/types';
+import type {
+  Agent,
+  Category,
+  Repository,
+  RunCreateInput,
+  RunTaskResult,
+  TaskProvenance,
+} from '../../shared/types';
 import { useAppData } from '../stores/appdata';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
 import { useGraphStore, type GraphSelection, type Pos } from './graphStore';
 import {
-  buildGraph,
+  buildClusters,
   statusFor,
   type GraphMember,
   type NodeStatus,
+  type RunClusterModel,
   type TeamModel,
 } from './graphModel';
 import { runtimeVisual } from './runtimeGlyphs';
@@ -21,18 +29,32 @@ import {
   dispatchAgent,
   dispatchAll,
   dispatchTeam,
-  openTerminal,
+  openParticipantTerminal,
+  setTeamPause,
 } from './graphActions';
 import './graph.css';
 
 const CARD_W = 150;
 const GAP = 14;
 const TEAM_PAD = 16;
-const TEAM_Y = 340;
-const TEAM_GAP = 70;
+const TEAM_GAP_IN = 48;
+const CLUSTER_PAD = 24;
+const ORCH_Y = 64;
+const TEAM_Y = 310;
+const CLUSTER_H = TEAM_Y + 252;
+const CLUSTER_GAP = 150;
+const ORCH_W = 224;
 
 function teamWidth(memberCount: number): number {
   return TEAM_PAD * 2 + memberCount * CARD_W + Math.max(0, memberCount - 1) * GAP;
+}
+
+function clusterWidth(cluster: RunClusterModel): number {
+  const teamsWidth = cluster.teams.reduce(
+    (total, team) => total + teamWidth(1 + team.workers.length),
+    0,
+  ) + Math.max(0, cluster.teams.length - 1) * TEAM_GAP_IN;
+  return Math.max(320, ORCH_W + CLUSTER_PAD * 2, teamsWidth + CLUSTER_PAD * 2);
 }
 
 const I = {
@@ -54,8 +76,15 @@ function Ico({ children }: { children: React.ReactNode }): JSX.Element {
 }
 
 interface EdgeSpec {
+  key: string;
   d: string;
-  active: boolean;
+  dim: boolean;
+  cable: boolean;
+}
+
+interface TravelDot {
+  id: string;
+  d: string;
   cable: boolean;
 }
 
@@ -64,8 +93,9 @@ type ComposerTarget =
   | { kind: 'team'; id: string; name: string; workerCount: number }
   | { kind: 'participant'; id: string; name: string };
 
-function activeWorkerCount(model: ReturnType<typeof buildGraph>): number {
-  return model.teams.filter((team) => !team.idle)
+function activeWorkerCount(cluster: RunClusterModel | null): number {
+  if (!cluster) return 0;
+  return cluster.teams.filter((team) => !team.idle)
     .reduce((count, team) => count + team.workers.length, 0);
 }
 
@@ -104,6 +134,22 @@ function phaseText(phase: string): string {
   }
 }
 
+function taskStatusText(status: string): string {
+  switch (status) {
+    case 'queued': return 'wartet';
+    case 'running': return 'läuft';
+    case 'completed': return 'abgeschlossen';
+    case 'failed': return 'fehlgeschlagen';
+    case 'cancelled': return 'abgebrochen';
+    default: return status;
+  }
+}
+
+function edgePath(from: Pos, to: Pos): string {
+  const offset = Math.max(46, (to.y - from.y) / 2);
+  return `M${from.x},${from.y} C${from.x},${from.y + offset} ${to.x},${to.y - offset} ${to.x},${to.y}`;
+}
+
 export function GraphView(): JSX.Element {
   const categories = useAppData((state) => state.categories);
   const agents = useAppData((state) => state.agents);
@@ -112,6 +158,7 @@ export function GraphView(): JSX.Element {
   const participants = useRuns((state) => state.participants);
   const tasks = useRuns((state) => state.tasks);
   const approvals = useRuns((state) => state.approvals);
+  const messages = useRuns((state) => state.messages);
   const usageByRun = useRuns((state) => state.usageByRun);
   const runsLoaded = useRuns((state) => state.loaded);
   const activeRunId = useRuns((state) => state.activeRunId);
@@ -131,7 +178,14 @@ export function GraphView(): JSX.Element {
   const select = useGraphStore((state) => state.select);
   const setTeamIdle = useGraphStore((state) => state.setTeamIdle);
 
-  const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
+  const sessionsSlice = useMemo(() => ({ sessions, orderByAgent }), [sessions, orderByAgent]);
+  const clusters = useMemo(
+    () => buildClusters(runs, participants, agents, tasks, sessionsSlice, busy, idleTeams),
+    [runs, participants, agents, tasks, sessionsSlice, busy, idleTeams],
+  );
+
+  const activeCluster = clusters.find((cluster) => cluster.run.id === activeRunId) ?? null;
+  const activeRun = activeCluster?.run ?? null;
   const activeRepository = activeRun?.repositoryId
     ? repositories.find((repository) => repository.id === activeRun.repositoryId)
     : null;
@@ -139,24 +193,35 @@ export function GraphView(): JSX.Element {
   const pendingApproval = approvals.find(
     (approval) => approval.runId === activeRunId && approval.status === 'pending' && activeRun?.status === 'running',
   );
-  const runTasks = useMemo(
+  const pendingApprovalRunIds = useMemo(() => new Set(
+    approvals
+      .filter((approval) => approval.status === 'pending')
+      .filter((approval) => runs.find((run) => run.id === approval.runId)?.status === 'running')
+      .map((approval) => approval.runId),
+  ), [approvals, runs]);
+  const activeRunTasks = useMemo(
     () => tasks.filter((task) => task.runId === activeRunId),
     [tasks, activeRunId],
   );
-  const sessionsSlice = useMemo(() => ({ sessions, orderByAgent }), [sessions, orderByAgent]);
-  const model = useMemo(
-    () => buildGraph(activeRunId, participants, agents, runTasks, sessionsSlice, busy, idleTeams),
-    [activeRunId, participants, agents, runTasks, sessionsSlice, busy, idleTeams],
-  );
 
-  const [view, setView] = useState({ x: 60, y: 20, scale: 0.82 });
+  const [view, setView] = useState({ x: 40, y: 10, scale: 0.8 });
   const [edges, setEdges] = useState<EdgeSpec[]>([]);
+  const [dots, setDots] = useState<TravelDot[]>([]);
+  const [hotEdges, setHotEdges] = useState<Record<string, true>>({});
+  const [flashes, setFlashes] = useState<Record<string, 'ok' | 'bad'>>({});
   const [composer, setComposer] = useState<ComposerTarget | null>(null);
   const [showNewRun, setShowNewRun] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
+  const anchorsRef = useRef<Record<string, { top: Pos; bot: Pos }>>({});
+  const lastSeenSeqRef = useRef<number | null>(null);
+  const taskStatusRef = useRef<Map<string, string>>(new Map());
+  const prefersReducedMotion = useMemo(
+    () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    [],
+  );
 
   const flash = useCallback((message: string) => {
     setToast(message);
@@ -168,41 +233,66 @@ export function GraphView(): JSX.Element {
     setShowNewRun(true);
   }, [select]);
 
+  const errorText = (error: unknown): string =>
+    error instanceof Error ? error.message : String(error);
+
+  /** Selecting anything inside a cluster also makes that run the active one. */
+  const selectInCluster = useCallback((runId: string, sel: GraphSelection | null) => {
+    if (runId !== useRuns.getState().activeRunId) setActiveRun(runId);
+    select(sel);
+  }, [select, setActiveRun]);
+
+  // Drop a stale selection when its run/participant left the visible clusters.
   useEffect(() => {
-    select(null);
-    setComposer(null);
-  }, [activeRunId, select]);
+    if (!selection) return;
+    const exists = clusters.some((cluster) =>
+      cluster.orchestrator?.id === selection.id
+      || cluster.teams.some((team) => team.id === selection.id
+        || team.lead?.id === selection.id
+        || team.workers.some((worker) => worker.id === selection.id)));
+    if (!exists) select(null);
+  }, [clusters, selection, select]);
 
-  const positionKey = useCallback(
-    (key: string) => `${activeRunId ?? 'none'}:${key}`,
-    [activeRunId],
-  );
-  const autoPos = useMemo(() => {
-    const teamPositions: Record<string, Pos> = {};
-    let x = 120;
-    let extentRight = x;
-    for (const team of model.teams) {
-      teamPositions[team.id] = { x, y: TEAM_Y };
-      const width = teamWidth(1 + team.workers.length);
-      extentRight = x + width;
-      x += width + TEAM_GAP;
+  /* ------------------------------------------------------------- layout */
+
+  const autoLayout = useMemo(() => {
+    const clusterPositions: Record<string, Pos> = {};
+    const nodePositions: Record<string, Record<string, Pos>> = {};
+    let x = 90;
+    for (const cluster of clusters) {
+      clusterPositions[cluster.run.id] = { x, y: 70 };
+      const width = clusterWidth(cluster);
+      const nodes: Record<string, Pos> = {
+        orchestrator: { x: width / 2 - ORCH_W / 2, y: ORCH_Y },
+      };
+      let teamX = CLUSTER_PAD;
+      for (const team of cluster.teams) {
+        nodes[team.id] = { x: teamX, y: TEAM_Y };
+        teamX += teamWidth(1 + team.workers.length) + TEAM_GAP_IN;
+      }
+      nodePositions[cluster.run.id] = nodes;
+      x += width + CLUSTER_GAP;
     }
-    const orchestratorX = model.teams.length ? (120 + extentRight) / 2 - 112 : 220;
-    return { orchestrator: { x: orchestratorX, y: 90 } as Pos, teams: teamPositions };
-  }, [model]);
+    return { clusterPositions, nodePositions };
+  }, [clusters]);
 
-  const posFor = useCallback((key: string): Pos => {
-    const saved = positions[positionKey(key)];
-    if (saved) return saved;
-    if (key === 'orchestrator') return autoPos.orchestrator;
-    return autoPos.teams[key] ?? { x: 120, y: TEAM_Y };
-  }, [positions, positionKey, autoPos]);
+  const clusterPos = useCallback((runId: string): Pos => (
+    positions[`cluster:${runId}`]
+    ?? autoLayout.clusterPositions[runId]
+    ?? { x: 90, y: 70 }
+  ), [positions, autoLayout]);
 
-  const modelSig = useMemo(() => (
-    `${activeRunId ?? 'none'}:${model.orchestrator?.id ?? 'none'}|${model.teams
+  const nodePos = useCallback((runId: string, key: string): Pos => (
+    positions[`${runId}:${key}`]
+    ?? autoLayout.nodePositions[runId]?.[key]
+    ?? { x: CLUSTER_PAD, y: TEAM_Y }
+  ), [positions, autoLayout]);
+
+  const modelSig = useMemo(() => clusters.map((cluster) => (
+    `${cluster.run.id}:${cluster.run.status}:${cluster.orchestrator?.id ?? '-'}|${cluster.teams
       .map((team) => `${team.id}:${team.lead?.id ?? '-'}:${team.workers.map((worker) => worker.id).join(',')}:${team.idle}`)
       .join('|')}`
-  ), [activeRunId, model]);
+  )).join('||'), [clusters]);
   const positionSig = useMemo(() => JSON.stringify(positions), [positions]);
 
   const computeEdges = useCallback(() => {
@@ -210,36 +300,54 @@ export function GraphView(): JSX.Element {
     if (!world) return;
     const worldRect = world.getBoundingClientRect();
     const scale = view.scale || 1;
-    const anchor = (id: string, side: 'top' | 'bot'): Pos | null => {
-      const element = world.querySelector(`[data-anchor="${id}:${side}"]`);
-      if (!element) return null;
+    const anchors: Record<string, { top: Pos; bot: Pos }> = {};
+    for (const element of world.querySelectorAll<HTMLElement>('[data-anchor]')) {
+      const [id, side] = (element.dataset.anchor ?? '').split(/:(top|bot)$/);
+      if (!id || !side) continue;
       const rect = element.getBoundingClientRect();
-      return {
+      const point = {
         x: (rect.left + rect.width / 2 - worldRect.left) / scale,
         y: (rect.top + rect.height / 2 - worldRect.top) / scale,
       };
-    };
-    const path = (from: Pos, to: Pos): string => {
-      const offset = Math.max(46, (to.y - from.y) / 2);
-      return `M${from.x},${from.y} C${from.x},${from.y + offset} ${to.x},${to.y - offset} ${to.x},${to.y}`;
-    };
+      const entry = anchors[id] ?? { top: point, bot: point };
+      if (side === 'top') entry.top = point;
+      else entry.bot = point;
+      anchors[id] = entry;
+    }
+    anchorsRef.current = anchors;
+
     const next: EdgeSpec[] = [];
-    const orchestratorBottom = model.orchestrator ? anchor(model.orchestrator.id, 'bot') : null;
-    for (const team of model.teams) {
-      if (!team.lead) continue;
-      const leadTop = anchor(team.lead.id, 'top');
-      if (orchestratorBottom && leadTop) {
-        next.push({ d: path(orchestratorBottom, leadTop), active: !team.idle, cable: true });
-      }
-      const leadBottom = anchor(team.lead.id, 'bot');
-      if (!leadBottom) continue;
-      for (const worker of team.workers) {
-        const workerTop = anchor(worker.id, 'top');
-        if (workerTop) next.push({ d: path(leadBottom, workerTop), active: !team.idle, cable: false });
+    for (const cluster of clusters) {
+      const orchestratorBottom = cluster.orchestrator
+        ? anchors[cluster.orchestrator.id]?.bot
+        : undefined;
+      for (const team of cluster.teams) {
+        if (!team.lead) continue;
+        const leadAnchor = anchors[team.lead.id];
+        if (orchestratorBottom && leadAnchor) {
+          next.push({
+            key: `${cluster.orchestrator!.id}->${team.lead.id}`,
+            d: edgePath(orchestratorBottom, leadAnchor.top),
+            dim: team.idle || cluster.terminal,
+            cable: true,
+          });
+        }
+        if (!leadAnchor) continue;
+        for (const worker of team.workers) {
+          const workerAnchor = anchors[worker.id];
+          if (workerAnchor) {
+            next.push({
+              key: `${team.lead.id}->${worker.id}`,
+              d: edgePath(leadAnchor.bot, workerAnchor.top),
+              dim: team.idle || cluster.terminal,
+              cable: false,
+            });
+          }
+        }
       }
     }
     setEdges(next);
-  }, [model, view.scale]);
+  }, [clusters, view.scale]);
 
   useLayoutEffect(() => {
     const frame = requestAnimationFrame(computeEdges);
@@ -251,10 +359,83 @@ export function GraphView(): JSX.Element {
     return () => window.removeEventListener('resize', computeEdges);
   }, [computeEdges]);
 
+  /* ------------------------------------------- journal-driven animation */
+
+  // Travel dots ride only on NEW journaled messages (seq cursor), never on a
+  // timer and never on mount replay. Reduced motion drops the moving dot and
+  // keeps the short edge highlight.
+  useEffect(() => {
+    const maxSeq = messages.reduce((max, message) => Math.max(max, message.seq), 0);
+    if (lastSeenSeqRef.current === null) {
+      lastSeenSeqRef.current = maxSeq;
+      return;
+    }
+    if (maxSeq <= lastSeenSeqRef.current) return;
+    const fresh = messages
+      .filter((message) => message.seq > lastSeenSeqRef.current!)
+      .slice(-6);
+    lastSeenSeqRef.current = maxSeq;
+
+    const anchors = anchorsRef.current;
+    const created: TravelDot[] = [];
+    const hot: Record<string, true> = {};
+    for (const message of fresh) {
+      const to = anchors[message.toParticipantId];
+      if (!to) continue;
+      const from = message.fromParticipantId ? anchors[message.fromParticipantId] : undefined;
+      if (message.fromParticipantId) hot[`${message.fromParticipantId}->${message.toParticipantId}`] = true;
+      if (from && !prefersReducedMotion) {
+        created.push({
+          id: `${message.id}:${message.seq}`,
+          d: edgePath(from.bot, to.top),
+          cable: message.kind === 'plan' || message.kind === 'assignment',
+        });
+      }
+    }
+    if (!created.length && !Object.keys(hot).length) return;
+    setDots((current) => [...current, ...created]);
+    setHotEdges((current) => ({ ...current, ...hot }));
+    window.setTimeout(() => {
+      setDots((current) => current.filter((dot) => !created.some((item) => item.id === dot.id)));
+      setHotEdges((current) => {
+        const nextHot = { ...current };
+        for (const key of Object.keys(hot)) delete nextHot[key];
+        return nextHot;
+      });
+    }, 1_300);
+  }, [messages, prefersReducedMotion]);
+
+  // Short node pulse on real task completion/failure transitions.
+  useEffect(() => {
+    const previous = taskStatusRef.current;
+    const next = new Map<string, string>();
+    const add: Record<string, 'ok' | 'bad'> = {};
+    for (const task of tasks) {
+      next.set(task.id, task.status);
+      const before = previous.get(task.id);
+      if (before && before !== task.status) {
+        if (task.status === 'completed') add[task.participantId] = 'ok';
+        if (task.status === 'failed') add[task.participantId] = 'bad';
+      }
+    }
+    taskStatusRef.current = next;
+    if (!Object.keys(add).length) return;
+    setFlashes((current) => ({ ...current, ...add }));
+    window.setTimeout(() => {
+      setFlashes((current) => {
+        const cleaned = { ...current };
+        for (const key of Object.keys(add)) delete cleaned[key];
+        return cleaned;
+      });
+    }, 750);
+  }, [tasks]);
+
+  /* -------------------------------------------------------- pan and zoom */
+
   const panRef = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null);
   const onCanvasPointerDown = (event: React.PointerEvent): void => {
     const target = event.target as HTMLElement;
-    if (target.closest('.gcard') || target.closest('.gteam-bar')) return;
+    if (target.closest('.gcard') || target.closest('.gteam-bar') || target.closest('.gcluster-bar')) return;
     select(null);
     panRef.current = { startX: event.clientX, startY: event.clientY, x: view.x, y: view.y };
     canvasRef.current?.classList.add('panning');
@@ -281,7 +462,7 @@ export function GraphView(): JSX.Element {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     setView((current) => {
-      const scale = Math.min(1.6, Math.max(0.4, current.scale * (event.deltaY < 0 ? 1.1 : 0.9)));
+      const scale = Math.min(1.6, Math.max(0.3, current.scale * (event.deltaY < 0 ? 1.1 : 0.9)));
       const mouseX = event.clientX - rect.left;
       const mouseY = event.clientY - rect.top;
       const factor = scale / current.scale;
@@ -294,7 +475,7 @@ export function GraphView(): JSX.Element {
   };
 
   const zoomBy = (factor: number): void => setView((current) => {
-    const scale = Math.min(1.6, Math.max(0.4, current.scale * factor));
+    const scale = Math.min(1.6, Math.max(0.3, current.scale * factor));
     const rect = canvasRef.current?.getBoundingClientRect();
     const middleX = (rect?.width ?? 800) / 2;
     const middleY = (rect?.height ?? 600) / 2;
@@ -308,37 +489,51 @@ export function GraphView(): JSX.Element {
 
   const fitView = useCallback(() => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    let left = model.orchestrator ? posFor('orchestrator').x : 120;
-    let right = left + (model.orchestrator ? 224 : 0);
-    for (const team of model.teams) {
-      const position = posFor(team.id);
+    if (!rect || clusters.length === 0) return;
+    let left = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    for (const cluster of clusters) {
+      const position = clusterPos(cluster.run.id);
       left = Math.min(left, position.x);
-      right = Math.max(right, position.x + teamWidth(1 + team.workers.length));
+      right = Math.max(right, position.x + clusterWidth(cluster));
+      top = Math.min(top, position.y);
+      bottom = Math.max(bottom, position.y + CLUSTER_H);
     }
-    const top = model.orchestrator ? 90 : TEAM_Y;
-    const bottom = TEAM_Y + 250;
-    const padding = 80;
-    const width = Math.max(224, right - left);
-    const scale = Math.min(1.15, Math.max(0.45, Math.min(
+    const padding = 70;
+    const width = Math.max(320, right - left);
+    const height = Math.max(320, bottom - top);
+    const scale = Math.min(1.1, Math.max(0.3, Math.min(
       (rect.width - padding * 2) / width,
-      (rect.height - padding * 2 - 60) / Math.max(250, bottom - top),
+      (rect.height - padding * 2 - 60) / height,
     )));
     setView({
       scale,
       x: (rect.width - width * scale) / 2 - left * scale,
       y: padding - top * scale,
     });
-  }, [model, posFor]);
+  }, [clusters, clusterPos]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(fitView);
     return () => cancelAnimationFrame(frame);
-  }, [activeRunId, model.teams.length, selection, fitView]);
+    // Refit only when the visible cluster set changes, not on every drag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusters.length]);
 
-  const startDrag = (key: string, event: React.PointerEvent): void => {
+  /* ------------------------------------------------------------ dragging */
+
+  const startDrag = (
+    kind: 'cluster' | 'node',
+    runId: string,
+    key: string,
+    event: React.PointerEvent,
+    onPlainClick?: () => void,
+  ): void => {
     event.stopPropagation();
-    const start = posFor(key);
+    const storageKey = kind === 'cluster' ? `cluster:${runId}` : `${runId}:${key}`;
+    const start = kind === 'cluster' ? clusterPos(runId) : nodePos(runId, key);
     const startX = event.clientX;
     const startY = event.clientY;
     let moved = false;
@@ -346,18 +541,12 @@ export function GraphView(): JSX.Element {
       const deltaX = (nextEvent.clientX - startX) / view.scale;
       const deltaY = (nextEvent.clientY - startY) / view.scale;
       if (Math.abs(deltaX) + Math.abs(deltaY) > 3) moved = true;
-      setPosition(positionKey(key), { x: start.x + deltaX, y: start.y + deltaY });
+      setPosition(storageKey, { x: start.x + deltaX, y: start.y + deltaY });
     };
     const up = (): void => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      if (moved) return;
-      if (key === 'orchestrator' && model.orchestrator) {
-        select({ kind: 'orchestrator', id: model.orchestrator.id });
-      } else {
-        const team = model.teams.find((candidate) => candidate.id === key);
-        if (team) select({ kind: 'team', id: team.id });
-      }
+      if (!moved) onPlainClick?.();
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -366,34 +555,43 @@ export function GraphView(): JSX.Element {
   const isSelected = (candidate: GraphSelection): boolean => Boolean(
     selection && selection.kind === candidate.kind && selection.id === candidate.id,
   );
-  const nodeStatus = (member: GraphMember, idle: boolean): NodeStatus => statusFor(
+
+  const nodeStatus = (cluster: RunClusterModel, member: GraphMember, idle: boolean): NodeStatus => statusFor(
     member.id,
     member.agentId,
-    { idle, busy, sessions: sessionsSlice, tasks: runTasks },
+    {
+      idle,
+      busy,
+      sessions: sessionsSlice,
+      tasks: tasks.filter((task) => task.runId === cluster.run.id),
+    },
   );
 
+  /* ------------------------------------------------------------ rendering */
+
   const renderCard = (
+    cluster: RunClusterModel,
+    team: TeamModel,
     member: GraphMember,
     role: 'lead' | 'worker',
-    teamId: string,
-    idle: boolean,
   ): JSX.Element => {
     const runtime = runtimeVisual(member.runtime);
-    const status = nodeStatus(member, idle);
+    const status = nodeStatus(cluster, member, team.idle);
     const selected = isSelected({ kind: role, id: member.id });
+    const flashClass = flashes[member.id] ? ` gflash-${flashes[member.id]}` : '';
     return (
       <div
         key={member.id}
-        className={`gcard gcard-static${selected ? ' sel' : ''}${member.available ? '' : ' unavailable'}`}
+        className={`gcard gcard-static${selected ? ' sel' : ''}${member.available ? '' : ' unavailable'}${flashClass}`}
         data-status={status}
         style={{ ['--rt' as string]: runtime.color }}
         onClick={(event) => {
           event.stopPropagation();
-          select({ kind: role, id: member.id, teamId });
+          selectInCluster(cluster.run.id, { kind: role, id: member.id, teamId: team.id });
         }}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          if (member.available) void openTerminal(member.agentId);
+          if (member.available) void openParticipantTerminal(member.agentId, member.id, cluster.run.id);
         }}
       >
         <div className="gcard-bar nograb">
@@ -414,15 +612,161 @@ export function GraphView(): JSX.Element {
     );
   };
 
-  const orchestrator = model.orchestrator;
-  const orchestratorRuntime = runtimeVisual(orchestrator?.runtime ?? 'claude');
-  const orchestratorPosition = posFor('orchestrator');
-  const orchestratorSelected = orchestrator
-    ? isSelected({ kind: 'orchestrator', id: orchestrator.id })
-    : false;
-  const activeTaskCount = runTasks.filter(
-    (task) => task.status === 'queued' || task.status === 'running',
-  ).length;
+  const renderCluster = (cluster: RunClusterModel): JSX.Element => {
+    const { run } = cluster;
+    const position = clusterPos(run.id);
+    const width = clusterWidth(cluster);
+    const repository = run.repositoryId
+      ? repositories.find((candidate) => candidate.id === run.repositoryId)
+      : null;
+    const usage = usageByRun[run.id];
+    const orchestrator = cluster.orchestrator;
+    const orchestratorRuntime = runtimeVisual(orchestrator?.runtime ?? 'claude');
+    const orchestratorPosition = nodePos(run.id, 'orchestrator');
+    const orchestratorSelected = orchestrator
+      ? isSelected({ kind: 'orchestrator', id: orchestrator.id })
+      : false;
+    const orchestratorFlash = orchestrator && flashes[orchestrator.id]
+      ? ` gflash-${flashes[orchestrator.id]}`
+      : '';
+    return (
+      <section
+        key={run.id}
+        className={`gcluster${run.id === activeRunId ? ' active' : ''}${cluster.terminal ? ' terminal' : ''}`}
+        style={{ left: position.x, top: position.y, width, height: CLUSTER_H }}
+      >
+        <header
+          className="gcluster-bar"
+          onPointerDown={(event) => startDrag('cluster', run.id, 'cluster', event, () => {
+            selectInCluster(run.id, null);
+          })}
+        >
+          <b>{run.name}</b>
+          <span className="gcluster-chip" data-s={run.status}>{runStatusText(run.status)}</span>
+          {run.mode === 'managed' && run.status === 'running' && (
+            <span className="gcluster-phase">{phaseText(run.phase)}</span>
+          )}
+          <span className="gcluster-repo">
+            {repository?.name ?? (run.repositoryId === undefined ? 'Legacy defaults' : 'Portable homes')}
+          </span>
+          <span className="gcluster-grow" />
+          {pendingApprovalRunIds.has(run.id) && (
+            <span className="gcluster-approval">Freigabe fällig</span>
+          )}
+          <span className="gcluster-counts">
+            {cluster.runningTaskCount > 0 && `${cluster.runningTaskCount} aktiv`}
+            {cluster.runningTaskCount > 0 && cluster.queuedTaskCount > 0 && ' · '}
+            {cluster.queuedTaskCount > 0 && `${cluster.queuedTaskCount} wartet`}
+            {cluster.runningTaskCount === 0 && cluster.queuedTaskCount === 0 && usage
+              && `Tokens ${usage.inputTokens + usage.outputTokens}`}
+          </span>
+        </header>
+
+        {orchestrator && (
+          <div
+            className={`gcard orch${orchestratorSelected ? ' sel' : ''}${orchestrator.available ? '' : ' unavailable'}${orchestratorFlash}`}
+            data-status={nodeStatus(cluster, orchestrator, false)}
+            style={{
+              left: orchestratorPosition.x,
+              top: orchestratorPosition.y,
+              ['--rt' as string]: orchestratorRuntime.color,
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              selectInCluster(run.id, { kind: 'orchestrator', id: orchestrator.id });
+            }}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              if (orchestrator.available) {
+                void openParticipantTerminal(orchestrator.agentId, orchestrator.id, run.id);
+              }
+            }}
+          >
+            <div
+              className="gcard-bar"
+              onPointerDown={(event) => startDrag('node', run.id, 'orchestrator', event, () => {
+                selectInCluster(run.id, { kind: 'orchestrator', id: orchestrator.id });
+              })}
+            >
+              <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
+              <div className="gcard-title">ade · orchestrator</div>
+            </div>
+            <div className="gcard-body">
+              <div className="gglyph"><orchestratorRuntime.Glyph /></div>
+              <div className="gcard-name">{orchestrator.name}</div>
+              <div className="gchip" data-s={orchestrator.available ? nodeStatus(cluster, orchestrator, false) : 'failed'}>
+                {orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : 'nicht im Katalog'}
+              </div>
+            </div>
+            <i className="ganchor top" data-anchor={`${orchestrator.id}:top`} />
+            <i className="ganchor bot" data-anchor={`${orchestrator.id}:bot`} />
+          </div>
+        )}
+
+        {cluster.teams.map((team) => {
+          const teamPosition = nodePos(run.id, team.id);
+          const selected = isSelected({ kind: 'team', id: team.id });
+          const managed = run.mode === 'managed';
+          return (
+            <div
+              key={team.id}
+              className={`gteam${team.idle ? ' idle' : ''}${selected ? ' sel' : ''}`}
+              style={{ left: teamPosition.x, top: teamPosition.y }}
+            >
+              <div
+                className="gteam-bar"
+                onPointerDown={(event) => startDrag('node', run.id, team.id, event, () => {
+                  selectInCluster(run.id, { kind: 'team', id: team.id });
+                })}
+              >
+                <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
+                <div className="gteam-tt">team · <b>{team.name}</b></div>
+                {team.idle && (
+                  <span className="gteam-paused">{managed ? 'pausiert' : 'manuell pausiert'}</span>
+                )}
+                <div className="gteam-grow" />
+                <div className="gteam-actions" onPointerDown={(event) => event.stopPropagation()}>
+                  <button
+                    className="gtbtn"
+                    disabled={cluster.terminal}
+                    title={managed
+                      ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren (laufende Tasks laufen weiter)')
+                      : (team.idle ? 'Manuellen Dispatch reaktivieren' : 'Manuell pausieren (nur Dispatch)')}
+                    onClick={() => {
+                      if (managed) {
+                        void setTeamPause(run.id, team.id, !team.idle)
+                          .then(() => flash(team.idle ? 'Team-Scheduling fortgesetzt' : 'Team-Scheduling pausiert'))
+                          .catch((error) => flash(errorText(error)));
+                      } else {
+                        setTeamIdle(team.id, !team.idle);
+                      }
+                    }}
+                  >
+                    <Ico>{team.idle ? I.play : I.pause}</Ico>
+                  </button>
+                  <button
+                    className="gtbtn"
+                    title="Laufende Team-Tasks stoppen"
+                    onClick={() => void cancelTeamTasks(team.id).then(() => flash('Team-Tasks gestoppt'))}
+                  >
+                    <Ico>{I.stop}</Ico>
+                  </button>
+                </div>
+              </div>
+              <div className="gteam-members">
+                {team.lead && renderCard(cluster, team, team.lead, 'lead')}
+                {team.workers.map((worker) => renderCard(cluster, team, worker, 'worker'))}
+              </div>
+            </div>
+          );
+        })}
+      </section>
+    );
+  };
+
+  const slotRows = clusters.filter(
+    (cluster) => cluster.runningTaskCount > 0 || cluster.queuedTaskCount > 0,
+  );
 
   return (
     <div className={`graph${selection ? ' graph-inspecting' : ''}`}>
@@ -451,7 +795,7 @@ export function GraphView(): JSX.Element {
               {activeRun.goal || 'Kein Run-Ziel hinterlegt'}
             </span>
             <span className="grun-counts">
-              {runTasks.length} Tasks · {activeTaskCount} aktiv · Queue {taskQueue.active}/{taskQueue.queued}
+              {activeRunTasks.length} Tasks
               {activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
               {activeRun.mode === 'managed' && ` · Parallel ≤${activeRun.budget.maxConcurrentTasks}`}
               {activeUsage && ` · Freigaben ${activeUsage.approvals}/${activeRun.budget.maxApprovals}`}
@@ -475,7 +819,7 @@ export function GraphView(): JSX.Element {
             className="gact"
             onClick={() => void resolveApproval(pendingApproval.id, 'reject')
               .then(() => flash('Integration abgelehnt'))
-              .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+              .catch((error) => flash(errorText(error)))}
           >
             Ablehnen
           </button>
@@ -483,7 +827,7 @@ export function GraphView(): JSX.Element {
             className="gact primary"
             onClick={() => void resolveApproval(pendingApproval.id, 'approve')
               .then(() => flash('Integration freigegeben'))
-              .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+              .catch((error) => flash(errorText(error)))}
           >
             Freigeben &amp; integrieren
           </button>
@@ -497,108 +841,30 @@ export function GraphView(): JSX.Element {
           style={{ transform: `translate(${view.x}px,${view.y}px) scale(${view.scale})` }}
         >
           <svg className="graph-edges">
-            {edges.map((edge, index) => (
-              <g key={`${edge.d}:${index}`}>
-                <path
-                  d={edge.d}
-                  fill="none"
-                  stroke={edge.cable ? 'var(--cable)' : 'var(--accent)'}
-                  strokeWidth={edge.cable ? 3.2 : 2}
-                  strokeLinecap="round"
-                  opacity={edge.active ? 0.9 : 0.32}
-                />
-                {edge.active && (
-                  <path
-                    d={edge.d}
-                    fill="none"
-                    stroke={edge.cable ? 'var(--cable)' : 'var(--accent)'}
-                    strokeWidth={edge.cable ? 1.8 : 1.2}
-                    strokeLinecap="round"
-                    strokeDasharray="2 16"
-                    opacity={0.5}
-                  >
-                    <animate attributeName="stroke-dashoffset" from="0" to="-36" dur="1.4s" repeatCount="indefinite" />
-                  </path>
-                )}
-              </g>
+            {edges.map((edge) => (
+              <path
+                key={edge.key}
+                className={`gedge${hotEdges[edge.key] ? ' hot' : ''}`}
+                d={edge.d}
+                fill="none"
+                stroke={edge.cable ? 'var(--cable)' : 'var(--accent)'}
+                strokeWidth={edge.cable ? 3.2 : 2}
+                strokeLinecap="round"
+                opacity={edge.dim ? 0.28 : 0.75}
+              />
+            ))}
+            {dots.map((dot) => (
+              <circle key={dot.id} className={`gdot${dot.cable ? ' cable' : ''}`} r={4.5}>
+                <animateMotion dur="1.1s" repeatCount="1" fill="freeze" path={dot.d} />
+              </circle>
             ))}
           </svg>
 
-          {orchestrator && (
-            <div
-              className={`gcard orch${orchestratorSelected ? ' sel' : ''}${orchestrator.available ? '' : ' unavailable'}`}
-              data-status={nodeStatus(orchestrator, false)}
-              style={{
-                left: orchestratorPosition.x,
-                top: orchestratorPosition.y,
-                ['--rt' as string]: orchestratorRuntime.color,
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                select({ kind: 'orchestrator', id: orchestrator.id });
-              }}
-              onDoubleClick={(event) => {
-                event.stopPropagation();
-                if (orchestrator.available) void openTerminal(orchestrator.agentId);
-              }}
-            >
-              <div className="gcard-bar" onPointerDown={(event) => startDrag('orchestrator', event)}>
-                <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
-                <div className="gcard-title">ade · orchestrator</div>
-              </div>
-              <div className="gcard-body">
-                <div className="gglyph"><orchestratorRuntime.Glyph /></div>
-                <div className="gcard-name">{orchestrator.name}</div>
-                <div className="gchip" data-s={orchestrator.available ? nodeStatus(orchestrator, false) : 'failed'}>
-                  {orchestrator.available ? statusText(nodeStatus(orchestrator, false)) : 'nicht im Katalog'}
-                </div>
-              </div>
-              <i className="ganchor top" data-anchor={`${orchestrator.id}:top`} />
-              <i className="ganchor bot" data-anchor={`${orchestrator.id}:bot`} />
-            </div>
-          )}
-
-          {model.teams.map((team) => {
-            const position = posFor(team.id);
-            const selected = isSelected({ kind: 'team', id: team.id });
-            return (
-              <div
-                key={team.id}
-                className={`gteam${team.idle ? ' idle' : ''}${selected ? ' sel' : ''}`}
-                style={{ left: position.x, top: position.y }}
-              >
-                <div className="gteam-bar" onPointerDown={(event) => startDrag(team.id, event)}>
-                  <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
-                  <div className="gteam-tt">team · <b>{team.name}</b></div>
-                  <div className="gteam-grow" />
-                  <div className="gteam-actions" onPointerDown={(event) => event.stopPropagation()}>
-                    <button
-                      className="gtbtn"
-                      title={team.idle ? 'Team reaktivieren' : 'Team pausieren'}
-                      onClick={() => setTeamIdle(team.id, !team.idle)}
-                    >
-                      <Ico>{team.idle ? I.play : I.pause}</Ico>
-                    </button>
-                    <button
-                      className="gtbtn"
-                      title="Laufende Team-Tasks stoppen"
-                      onClick={() => void cancelTeamTasks(team.id).then(() => flash('Team-Tasks gestoppt'))}
-                    >
-                      <Ico>{I.stop}</Ico>
-                    </button>
-                  </div>
-                </div>
-                <div className="gteam-members">
-                  {team.lead && renderCard(team.lead, 'lead', team.id, team.idle)}
-                  {team.workers.map((worker) => renderCard(worker, 'worker', team.id, team.idle))}
-                </div>
-              </div>
-            );
-          })}
+          {clusters.map(renderCluster)}
         </div>
       </div>
 
-      {runsLoaded && !activeRun && (
+      {runsLoaded && runs.length === 0 && (
         <div className="gempty">
           <h2>Noch kein Run</h2>
           <p>Stelle für ein konkretes Ziel ein Team aus bestehenden Agenten zusammen.</p>
@@ -609,16 +875,29 @@ export function GraphView(): JSX.Element {
       )}
 
       <Inspector
-        model={model}
+        clusters={clusters}
         selection={selection}
-        runTaskCount={runTasks.length}
-        canDirectDispatch={activeRun?.mode === 'manual'}
-        nodeStatus={nodeStatus}
         onClose={() => select(null)}
         onCompose={setComposer}
         setTeamIdle={setTeamIdle}
         flash={flash}
       />
+
+      <div className="gslots" role="status" title="Globale Task-Slots (FIFO über alle Runs)">
+        <div className="gslots-head">
+          Task-Slots {taskQueue.active}/{taskQueue.maxActive}
+          {taskQueue.queued > 0 && ` · ${taskQueue.queued} in Warteschlange`}
+        </div>
+        {slotRows.map((cluster) => (
+          <div key={cluster.run.id} className="gslots-row">
+            <span>{cluster.run.name}</span>
+            <span>
+              {cluster.runningTaskCount} aktiv
+              {cluster.queuedTaskCount > 0 && ` · ${cluster.queuedTaskCount} wartet`}
+            </span>
+          </div>
+        ))}
+      </div>
 
       <div className="gzoom">
         <button title="Vergrößern" onClick={() => zoomBy(1.15)}>+</button>
@@ -626,7 +905,7 @@ export function GraphView(): JSX.Element {
         <button title="Ansicht einpassen" onClick={fitView}>□</button>
       </div>
 
-      {activeRun && (
+      {activeRun && activeCluster && (
         <div className="gdock">
           <button className="gdbtn accent" onClick={openNewRun}>
             <Ico>{I.plus}</Ico>Neuer Run
@@ -635,11 +914,11 @@ export function GraphView(): JSX.Element {
           {activeRun.mode === 'manual' && activeRun.status === 'draft' && (
             <button
               className="gdbtn accent"
-              disabled={!activeRun.goal.trim() || !model.orchestrator || model.teams.length === 0}
+              disabled={!activeRun.goal.trim() || !activeCluster.orchestrator || activeCluster.teams.length === 0}
               title="Plant getrennte Worker-Aufträge und integriert erst nach Freigabe"
               onClick={() => void startRun(activeRun.id)
                 .then(() => flash('Orchestrierung gestartet'))
-                .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+                .catch((error) => flash(errorText(error)))}
             >
               <Ico>{I.play}</Ico>Orchestrierung starten
             </button>
@@ -648,15 +927,19 @@ export function GraphView(): JSX.Element {
             <>
               <button
                 className="gdbtn"
-                disabled={model.teams.length === 0}
-                onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(model) })}
+                disabled={activeCluster.teams.length === 0}
+                onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(activeCluster) })}
               >
                 <Ico>{I.arrow}</Ico>Direkt an Teams
               </button>
-              <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, true))}>
+              <button
+                className="gdbtn"
+                title="Manuelle Pause: betrifft nur den Dispatch aus dem Canvas"
+                onClick={() => activeCluster.teams.forEach((team) => setTeamIdle(team.id, true))}
+              >
                 <Ico>{I.pause}</Ico>Alle pausieren
               </button>
-              <button className="gdbtn" onClick={() => model.teams.forEach((team) => setTeamIdle(team.id, false))}>
+              <button className="gdbtn" onClick={() => activeCluster.teams.forEach((team) => setTeamIdle(team.id, false))}>
                 <Ico>{I.play}</Ico>Alle aktivieren
               </button>
             </>
@@ -666,12 +949,13 @@ export function GraphView(): JSX.Element {
               className="gdbtn danger"
               onClick={() => void cancelRun(activeRun.id)
                 .then(() => flash('Orchestrierung wird gestoppt'))
-                .catch((error) => flash(error instanceof Error ? error.message : String(error)))}
+                .catch((error) => flash(errorText(error)))}
             >
               <Ico>{I.stop}</Ico>Run abbrechen
             </button>
           )}
-          {activeRun.mode === 'manual' && activeTaskCount > 0 && (
+          {activeRun.mode === 'manual'
+            && activeRunTasks.some((task) => task.status === 'queued' || task.status === 'running') && (
             <button className="gdbtn danger" onClick={() => void cancelAllTasks().then(() => flash('Run-Tasks gestoppt'))}>
               <Ico>{I.stop}</Ico>Tasks stoppen
             </button>
@@ -724,53 +1008,167 @@ export function GraphView(): JSX.Element {
   );
 }
 
+/* ---------------------------------------------------------------- inspector */
+
 interface InspectorProps {
-  model: ReturnType<typeof buildGraph>;
+  clusters: RunClusterModel[];
   selection: GraphSelection | null;
-  runTaskCount: number;
-  canDirectDispatch: boolean;
-  nodeStatus: (member: GraphMember, idle: boolean) => NodeStatus;
   onClose: () => void;
   onCompose: (target: ComposerTarget) => void;
   setTeamIdle: (teamId: string, idle: boolean) => void;
   flash: (message: string) => void;
 }
 
+interface ParticipantDetails {
+  taskTitle: string | null;
+  taskStatus: string | null;
+  attempt: number;
+  result: RunTaskResult | null;
+  provenance: TaskProvenance | null;
+}
+
 function Inspector(props: InspectorProps): JSX.Element | null {
-  const { model, selection } = props;
+  const tasks = useRuns((state) => state.tasks);
+  const results = useRuns((state) => state.results);
+  const artifacts = useRuns((state) => state.artifacts);
+  const busy = useGraphStore((state) => state.busy);
+  const sessions = useSessions((state) => state.sessions);
+  const orderByAgent = useSessions((state) => state.orderByAgent);
+  const { clusters, selection } = props;
   if (!selection) return null;
-  const teamOf = (id: string): TeamModel | undefined => model.teams.find((team) => team.id === id);
+
+  const cluster = clusters.find((candidate) =>
+    candidate.orchestrator?.id === selection.id
+    || candidate.teams.some((team) => team.id === selection.id
+      || team.lead?.id === selection.id
+      || team.workers.some((worker) => worker.id === selection.id)));
+  if (!cluster) return null;
+  const managed = cluster.run.mode === 'managed';
+  const canDirectDispatch = cluster.run.mode === 'manual' && !cluster.terminal;
+
+  const errorText = (error: unknown): string =>
+    error instanceof Error ? error.message : String(error);
+
+  const memberStatus = (member: GraphMember, idle: boolean): NodeStatus => statusFor(
+    member.id,
+    member.agentId,
+    {
+      idle,
+      busy,
+      sessions: { sessions, orderByAgent },
+      tasks: tasks.filter((task) => task.runId === cluster.run.id),
+    },
+  );
+
+  /** Sanitized detail block: titles, counts and versions only — never prompts or paths. */
+  const detailsFor = (participantId: string): ParticipantDetails => {
+    const latestTask = tasks
+      .filter((task) => task.runId === cluster.run.id && task.participantId === participantId)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
+    const latestResult = results
+      .filter((result) => result.runId === cluster.run.id && result.participantId === participantId)
+      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+    let provenance: TaskProvenance | null = null;
+    if (latestTask) {
+      const packetArtifact = artifacts.find((artifact) =>
+        artifact.runId === cluster.run.id && artifact.path === `context/task-${latestTask.id}.json`);
+      if (packetArtifact?.content) {
+        try {
+          const parsed = JSON.parse(packetArtifact.content) as { provenance?: TaskProvenance };
+          if (parsed && typeof parsed === 'object' && parsed.provenance) provenance = parsed.provenance;
+        } catch {
+          // Context packets are observability data; a malformed one renders as absent.
+        }
+      }
+    }
+    return {
+      taskTitle: latestTask?.title ?? null,
+      taskStatus: latestTask?.status ?? null,
+      attempt: latestTask?.attempt ?? 1,
+      result: latestResult,
+      provenance,
+    };
+  };
+
+  const detailRows = (details: ParticipantDetails): JSX.Element[] => {
+    const rows: JSX.Element[] = [];
+    if (details.taskTitle) {
+      rows.push(<KV key="task" k="Task" v={details.taskTitle} />);
+      rows.push(<KV
+        key="taskStatus"
+        k="Task-Status"
+        v={`${taskStatusText(details.taskStatus ?? '')}${details.attempt > 1 ? ` · Versuch ${details.attempt}` : ''}`}
+      />);
+    }
+    const result = details.result;
+    if (result) {
+      rows.push(<KV key="outcome" k="Ergebnis" v={result.outcome} />);
+      rows.push(<KV key="files" k="Geänderte Dateien" v={String(result.filesChanged.length)} />);
+      if (result.tests.length > 0) {
+        const passed = result.tests.filter((test) => test.status === 'passed').length;
+        const failed = result.tests.filter((test) => test.status === 'failed').length;
+        rows.push(<KV key="tests" k="Tests" v={`${passed} ok · ${failed} fehlgeschlagen`} />);
+      }
+      if (result.usage.inputTokens !== null || result.usage.outputTokens !== null) {
+        rows.push(<KV
+          key="tokens"
+          k="Tokens"
+          v={`in ${result.usage.inputTokens ?? '?'} · out ${result.usage.outputTokens ?? '?'}`}
+        />);
+      }
+    }
+    if (details.provenance) {
+      rows.push(<KV
+        key="versions"
+        k="Prompt/Schema"
+        v={`v${details.provenance.promptVersion} / v${details.provenance.resultSchemaVersion}`}
+      />);
+      rows.push(<KV key="adapter" k="Adapter" v={details.provenance.adapterId} />);
+      if (details.provenance.contextManifestHash) {
+        rows.push(<KV key="manifest" k="Manifest" v={details.provenance.contextManifestHash.slice(0, 10)} />);
+      }
+    }
+    return rows;
+  };
+
+  const teamOf = (id: string): TeamModel | undefined => cluster.teams.find((team) => team.id === id);
 
   if (selection.kind === 'orchestrator') {
-    const orchestrator = model.orchestrator;
+    const orchestrator = cluster.orchestrator;
     if (!orchestrator) return null;
     const runtime = runtimeVisual(orchestrator.runtime);
+    const details = detailsFor(orchestrator.id);
     return (
       <aside className="ginspector">
-        <Head glyph={<runtime.Glyph />} color={runtime.color} title={orchestrator.name} sub="Orchestrator" onClose={props.onClose} />
+        <Head glyph={<runtime.Glyph />} color={runtime.color} title={orchestrator.name} sub={`Orchestrator · ${cluster.run.name}`} onClose={props.onClose} />
         <div className="ginsp-body">
           <KV k="Runtime" v={runtime.label} />
-          <KV k="Status" v={statusText(props.nodeStatus(orchestrator, false))} />
-          <KV k="Teams" v={String(model.teams.length)} />
-          <KV k="Run-Tasks" v={String(props.runTaskCount)} />
+          <KV k="Status" v={statusText(memberStatus(orchestrator, false))} />
+          <KV k="Teams" v={String(cluster.teams.length)} />
+          {detailRows(details)}
+          {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
         </div>
         <div className="ginsp-actions">
           <button
             className="gact primary"
-            disabled={!orchestrator.available || !props.canDirectDispatch}
+            disabled={!orchestrator.available || !canDirectDispatch}
             onClick={() => props.onCompose({ kind: 'participant', id: orchestrator.id, name: orchestrator.name })}
           >
             <Ico>{I.arrow}</Ico>Task zuweisen
           </button>
           <button
             className="gact"
-            disabled={model.teams.length === 0 || !props.canDirectDispatch}
-            onClick={() => props.onCompose({ kind: 'all', workerCount: activeWorkerCount(model) })}
+            disabled={cluster.teams.length === 0 || !canDirectDispatch}
+            onClick={() => props.onCompose({ kind: 'all', workerCount: activeWorkerCount(cluster) })}
           >
             <Ico>{I.arrow}</Ico>Task an alle Teams
           </button>
-          <button className="gact" disabled={!orchestrator.available} onClick={() => void openTerminal(orchestrator.agentId)}>
-            <Ico>{I.term}</Ico>Terminal öffnen
+          <button
+            className="gact"
+            disabled={!orchestrator.available}
+            onClick={() => void openParticipantTerminal(orchestrator.agentId, orchestrator.id, cluster.run.id)}
+          >
+            <Ico>{I.term}</Ico>Session öffnen
           </button>
         </div>
       </aside>
@@ -782,24 +1180,27 @@ function Inspector(props: InspectorProps): JSX.Element | null {
     const team = teamOf(teamId);
     if (!team) return null;
     const runtime = runtimeVisual(team.lead?.runtime ?? 'claude');
+    const leadDetails = team.lead ? detailsFor(team.lead.id) : null;
     return (
       <aside className="ginspector">
         <Head
           glyph={<runtime.Glyph />}
           color={runtime.color}
           title={`team · ${team.name}`}
-          sub={`${team.workers.length + 1} Teilnehmer`}
+          sub={`${team.workers.length + 1} Teilnehmer · ${cluster.run.name}`}
           onClose={props.onClose}
         />
         <div className="ginsp-body">
           <KV k="Status" v={statusText(team.status)} />
           <KV k="Teamlead" v={team.lead?.name ?? 'Nicht gesetzt'} />
           <KV k="Worker" v={String(team.workers.length)} />
+          {team.idle && <KV k="Pause" v={managed ? 'Scheduling pausiert' : 'Manuell (nur Dispatch)'} />}
+          {selection.kind === 'lead' && leadDetails && detailRows(leadDetails)}
         </div>
         <div className="ginsp-actions">
           <button
             className="gact primary"
-            disabled={!team.lead?.available || !props.canDirectDispatch}
+            disabled={!team.lead?.available || !canDirectDispatch}
             onClick={() => props.onCompose({
               kind: 'team',
               id: team.id,
@@ -812,12 +1213,27 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <button
             className="gact"
             disabled={!team.lead?.available}
-            onClick={() => team.lead && void openTerminal(team.lead.agentId)}
+            onClick={() => team.lead && void openParticipantTerminal(team.lead.agentId, team.lead.id, cluster.run.id)}
           >
-            <Ico>{I.term}</Ico>Lead-Terminal öffnen
+            <Ico>{I.term}</Ico>Lead-Session öffnen
           </button>
-          <button className="gact" onClick={() => props.setTeamIdle(team.id, !team.idle)}>
-            <Ico>{team.idle ? I.play : I.pause}</Ico>{team.idle ? 'Team reaktivieren' : 'Team pausieren'}
+          <button
+            className="gact"
+            disabled={cluster.terminal}
+            onClick={() => {
+              if (managed) {
+                void setTeamPause(cluster.run.id, team.id, !team.idle)
+                  .then(() => props.flash(team.idle ? 'Team-Scheduling fortgesetzt' : 'Team-Scheduling pausiert'))
+                  .catch((error) => props.flash(errorText(error)));
+              } else {
+                props.setTeamIdle(team.id, !team.idle);
+              }
+            }}
+          >
+            <Ico>{team.idle ? I.play : I.pause}</Ico>
+            {managed
+              ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren')
+              : (team.idle ? 'Team reaktivieren' : 'Team pausieren (manuell)')}
           </button>
           <button className="gact" onClick={() => void cancelTeamTasks(team.id).then(() => props.flash('Team-Tasks gestoppt'))}>
             <Ico>{I.stop}</Ico>Team-Tasks stoppen
@@ -831,24 +1247,32 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   const worker = team?.workers.find((candidate) => candidate.id === selection.id);
   if (!team || !worker) return null;
   const runtime = runtimeVisual(worker.runtime);
+  const details = detailsFor(worker.id);
   return (
     <aside className="ginspector">
-      <Head glyph={<runtime.Glyph />} color={runtime.color} title={worker.name} sub={`Worker · ${team.name}`} onClose={props.onClose} />
+      <Head glyph={<runtime.Glyph />} color={runtime.color} title={worker.name} sub={`Worker · ${team.name} · ${cluster.run.name}`} onClose={props.onClose} />
       <div className="ginsp-body">
         <KV k="Runtime" v={runtime.label} />
-        <KV k="Status" v={statusText(props.nodeStatus(worker, team.idle))} />
+        <KV k="Status" v={statusText(memberStatus(worker, team.idle))} />
         <KV k="Katalog" v={worker.available ? 'Verfügbar' : 'Agent entfernt'} />
+        {team.idle && <KV k="Team" v={managed ? 'Scheduling pausiert' : 'Manuell pausiert'} />}
+        {detailRows(details)}
+        {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
       </div>
       <div className="ginsp-actions">
         <button
           className="gact primary"
-          disabled={!worker.available || !props.canDirectDispatch}
+          disabled={!worker.available || !canDirectDispatch}
           onClick={() => props.onCompose({ kind: 'participant', id: worker.id, name: worker.name })}
         >
           <Ico>{I.arrow}</Ico>Task zuweisen
         </button>
-        <button className="gact" disabled={!worker.available} onClick={() => void openTerminal(worker.agentId)}>
-          <Ico>{I.term}</Ico>Terminal öffnen
+        <button
+          className="gact"
+          disabled={!worker.available}
+          onClick={() => void openParticipantTerminal(worker.agentId, worker.id, cluster.run.id)}
+        >
+          <Ico>{I.term}</Ico>Session öffnen
         </button>
       </div>
     </aside>

@@ -119,6 +119,87 @@
 .graph-world { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; transform-origin: 0 0; }
 .graph-edges { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; pointer-events: none; overflow: visible; }
 
+/* Edges carry structure; short activity states come from journaled events. */
+.gedge { transition: opacity 0.12s; }
+.gedge.hot { opacity: 1; }
+.gdot { fill: var(--accent); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.gdot.cable { fill: var(--cable); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--cable) 60%, transparent)); }
+
+/* ------------------------------------------------------------ run cluster */
+.gcluster {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 46%, transparent);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.18s, opacity 0.25s;
+}
+.gcluster.active { border-color: var(--accent-dim); }
+.gcluster.terminal { opacity: 0.55; }
+.gcluster-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+}
+.gcluster-bar:active { cursor: grabbing; }
+.gcluster-bar b { color: var(--text); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.gcluster-chip { flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; }
+.gcluster-chip[data-s='running'] { color: var(--accent); border-color: var(--accent-dim); }
+.gcluster-chip[data-s='completed'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 42%, var(--line)); }
+.gcluster-chip[data-s='failed'] { color: var(--del); border-color: color-mix(in srgb, var(--del) 42%, var(--line)); }
+.gcluster-phase { flex: none; color: var(--accent); font-size: 10px; font-weight: 600; }
+.gcluster-repo { flex: none; max-width: 130px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.gcluster-grow { flex: 1; }
+.gcluster-approval { flex: none; padding: 2px 7px; border: 1px solid var(--accent-dim); border-radius: 999px; color: var(--accent); font-size: 10px; font-weight: 600; }
+.gcluster-counts { flex: none; color: var(--faint); font-size: 10px; white-space: nowrap; }
+
+/* --------------------------------------------------- global task slots */
+.gslots {
+  position: absolute;
+  left: 16px;
+  bottom: 132px;
+  z-index: 30;
+  min-width: 168px;
+  max-width: 250px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+.gslots-head { color: var(--text); font-size: 11px; font-weight: 600; }
+.gslots-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 5px; color: var(--muted); font-size: 10.5px; }
+.gslots-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gslots-row span:last-child { flex: none; }
+
+/* short real-event pulses on task completion/failure */
+.gcard.gflash-ok { animation: gflashok 0.75s ease-out; }
+.gcard.gflash-bad { animation: gflashbad 0.75s ease-out; }
+@keyframes gflashok {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--add) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+@keyframes gflashbad {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--del) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+
+.gteam-paused {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
 /* ---------------------------------------------------------- terminal card */
 .gcard {
   position: absolute;
@@ -223,6 +304,7 @@
 .gkv:last-child { border-bottom: none; }
 .gkv span:first-child { color: var(--muted); }
 .gkv .val { color: var(--text); text-align: right; word-break: break-word; }
+.ginsp-summary { margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 
 .ginsp-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line); }
 .gact { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font-size: 12.5px; text-align: left; width: 100%; }
@@ -364,4 +446,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gcard[data-status='working']::after { animation: none; }
+  .gcard.gflash-ok, .gcard.gflash-bad { animation: none; }
 }

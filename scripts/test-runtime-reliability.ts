@@ -105,7 +105,25 @@ async function main(): Promise<void> {
       tasks: [runTask],
     }) === 'working',
   );
+  check(
+    'a running task outranks a paused team flag',
+    statusFor('participant', 'agent', {
+      idle: true,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [runTask],
+    }) === 'working',
+  );
   runTask.status = 'completed';
+  check(
+    'a paused team without live work reads idle',
+    statusFor('participant', 'agent', {
+      idle: true,
+      busy: {},
+      sessions: sessionSlice,
+      tasks: [runTask],
+    }) === 'idle',
+  );
   check(
     'journal completion derives done status',
     statusFor('participant', 'agent', {

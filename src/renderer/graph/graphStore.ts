@@ -3,7 +3,8 @@
  *   - node positions (persisted to localStorage; the graph is a view over the
  *     real category/agent data, so layout is purely presentational)
  *   - transient per-participant status during task dispatch ('working' -> 'done')
- *   - which teams the user has explicitly paused (idle)
+ *   - which teams the user has manually paused (manual-dispatch mode ONLY;
+ *     managed-run pause is main-owned via run:pauseTeam and Run.pausedTeamIds)
  *   - the currently selected graph node
  *
  * Real structure and durable task status come from stores/runs.ts; interactive
@@ -27,7 +28,8 @@ export interface GraphSelection {
   teamId?: string;
 }
 
-const POS_KEY = 'ade:graph:pos';
+/** v2: positions became cluster-relative with the multi-run canvas. */
+const POS_KEY = 'ade:graph:pos:v2';
 
 function loadPositions(): Record<string, Pos> {
   try {

@@ -184,6 +184,44 @@ export async function cancelAllTasks(): Promise<void> {
   }));
 }
 
+/**
+ * Main-owned managed pause: journaled, persisted, honored by the scheduler.
+ * Manual runs keep using the renderer-local graphStore.idleTeams instead.
+ */
+export async function setTeamPause(runId: string, teamId: string, paused: boolean): Promise<void> {
+  const commandId = globalThis.crypto?.randomUUID?.();
+  await window.ade.invoke(paused ? 'run:pauseTeam' : 'run:resumeTeam', {
+    runId,
+    teamId,
+    ...(commandId ? { commandId } : {}),
+  });
+}
+
+/**
+ * Attach to the participant's live task session when one is running; only
+ * fall back to the interactive terminal when no bounded task is active.
+ */
+export async function openParticipantTerminal(
+  agentId: string,
+  participantId: string,
+  runId: string,
+): Promise<void> {
+  const sessionsState = useSessions.getState();
+  const liveTask = useRuns.getState().tasks
+    .filter((task) => task.runId === runId
+      && task.participantId === participantId
+      && task.sessionId)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .find((task) => sessionsState.sessions[task.sessionId!]?.status === 'running');
+  if (liveTask?.sessionId) {
+    sessionsState.setActive(agentId, liveTask.sessionId);
+    useSelection.getState().setSelectedAgent(agentId);
+    useMode.getState().setMode('terminals');
+    return;
+  }
+  await openTerminal(agentId);
+}
+
 /** Jump to a catalog agent's live terminal, spawning one when needed. */
 export async function openTerminal(agentId: string): Promise<void> {
   if (!useAppData.getState().agents[agentId]) return;
