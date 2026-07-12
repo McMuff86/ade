@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_RUN_BUDGET,
   type AdeConfig,
+  type CommandLogEntry,
   type OrchestrationSnapshot,
   type Run,
   type RunApproval,
@@ -11,6 +12,7 @@ import {
   type RunMessage,
   type RunPhase,
   type RunStatus,
+  type RunSummary,
   type RunTask,
   type RunTaskCreateInput,
   type RunTaskPhase,
@@ -41,6 +43,11 @@ const MAX_RUN_PARTICIPANTS = 128;
 const MAX_ARTIFACT_CONTENT_CHARS = 256 * 1_024;
 const MAX_ARTIFACT_PATH_CHARS = 1_024;
 const MAX_MESSAGE_CHARS = 32_000;
+const MAX_COMMAND_ID_CHARS = 128;
+const MAX_COMMAND_RESULT_CHARS = 16_384;
+const COMMAND_LOG_LIMIT = 200;
+const EVENTS_QUERY_DEFAULT_LIMIT = 200;
+const EVENTS_QUERY_MAX_LIMIT = 500;
 const PARTICIPANT_ROLES = new Set(['orchestrator', 'lead', 'worker']);
 const ARTIFACT_KINDS = new Set(['file', 'patch', 'message', 'result']);
 
@@ -53,10 +60,33 @@ const EVENT_STATUS: Partial<Record<RunEvent['type'], RunTaskStatus>> = {
 };
 
 export class OrchestrationService {
+  /** Cached top of the journal cursor; lazily derived from persisted records. */
+  private seqCounter: number | null = null;
+
   constructor(
     private readonly store: OrchestrationConfigPort,
     private readonly onChange: (snapshot: OrchestrationSnapshot) => void = () => undefined,
   ) {}
+
+  /**
+   * Next globally monotonic journal seq. Gaps are fine (a built event may
+   * never be saved); the cursor only promises strict monotonic growth, so
+   * run:events consumers never see a record twice for the same cursor.
+   */
+  private nextSeq(): number {
+    if (this.seqCounter === null) {
+      const config = this.store.get();
+      let max = 0;
+      for (const record of [...config.runEvents, ...config.runMessages]) {
+        if (typeof record.seq === 'number' && Number.isFinite(record.seq) && record.seq > max) {
+          max = record.seq;
+        }
+      }
+      this.seqCounter = max;
+    }
+    this.seqCounter += 1;
+    return this.seqCounter;
+  }
 
   snapshot(): OrchestrationSnapshot {
     const config = this.store.get();
@@ -80,7 +110,141 @@ export class OrchestrationService {
     };
   }
 
+  /**
+   * Cursor-paged journal window over events AND messages, ordered by the
+   * shared monotonic seq. This is the resumable delta feed the Goal 7 SSE
+   * stream will serve; deleted runs drop out of the journal by design.
+   */
+  eventsSince(sinceSeq = 0, limit = EVENTS_QUERY_DEFAULT_LIMIT): {
+    events: RunEvent[];
+    messages: RunMessage[];
+    nextCursor: number;
+  } {
+    if (!Number.isFinite(sinceSeq) || sinceSeq < 0) {
+      throw new Error('ade: sinceSeq must be a non-negative number');
+    }
+    const bounded = Math.max(1, Math.min(EVENTS_QUERY_MAX_LIMIT, Math.floor(limit)));
+    const config = this.store.get();
+    const window = [
+      ...config.runEvents.map((record) => ({ seq: record.seq, kind: 'event' as const, record })),
+      ...config.runMessages.map((record) => ({ seq: record.seq, kind: 'message' as const, record })),
+    ]
+      .filter((item) => item.seq > sinceSeq)
+      .sort((a, b) => a.seq - b.seq)
+      .slice(0, bounded);
+    const events: RunEvent[] = [];
+    const messages: RunMessage[] = [];
+    for (const item of window) {
+      if (item.kind === 'event') {
+        const event = item.record as RunEvent;
+        events.push({ ...event, data: event.data ? { ...event.data } : undefined });
+      } else {
+        messages.push({ ...(item.record as RunMessage) });
+      }
+    }
+    return {
+      events,
+      messages,
+      nextCursor: window.length > 0 ? window[window.length - 1]!.seq : sinceSeq,
+    };
+  }
+
+  /**
+   * Sanitized projection for the Graph canvas and the future mobile DTO.
+   * Never emits absolute paths, prompts, mailbox texts, artifact contents,
+   * lease paths or task error strings (which may embed host paths).
+   */
+  summarize(runId?: string): RunSummary[] {
+    const config = this.store.get();
+    if (runId && !config.runs.some((run) => run.id === runId)) {
+      throw new Error(`ade: run not found "${runId}"`);
+    }
+    const derivedTasks = deriveTasks(config.runTasks, config.runEvents);
+    const usage = usageByRun(config);
+    const repositories = new Map(config.repositories.map((repository) => [repository.id, repository]));
+    let seqCursor = 0;
+    for (const record of [...config.runEvents, ...config.runMessages]) {
+      if (record.seq > seqCursor) seqCursor = record.seq;
+    }
+    const runs = runId ? config.runs.filter((run) => run.id === runId) : config.runs;
+    return runs.map((run): RunSummary => {
+      const participants = config.runParticipants.filter((participant) => participant.runId === run.id);
+      const pausedTeamIds = [...(run.pausedTeamIds ?? [])];
+      const pausedSet = new Set(pausedTeamIds);
+      const teams = new Map<string, { id: string; name: string; paused: boolean }>();
+      for (const participant of participants) {
+        if (participant.teamId && !teams.has(participant.teamId)) {
+          teams.set(participant.teamId, {
+            id: participant.teamId,
+            name: participant.teamName ?? participant.teamId,
+            paused: pausedSet.has(participant.teamId),
+          });
+        }
+      }
+      const status = run.mode === 'managed'
+        ? run.status
+        : deriveRunStatus(run.id, derivedTasks);
+      const activeLease = config.runWorkspaceLeases.find(
+        (lease) => lease.runId === run.id && lease.status === 'active',
+      );
+      const pendingApproval = config.runApprovals.find(
+        (approval) => approval.runId === run.id && approval.status === 'pending',
+      );
+      return {
+        id: run.id,
+        name: run.name,
+        goal: run.goal.slice(0, MAX_RUN_GOAL_CHARS),
+        status,
+        mode: run.mode,
+        phase: run.phase,
+        repositoryId: run.repositoryId,
+        repositoryName: typeof run.repositoryId === 'string'
+          ? repositories.get(run.repositoryId)?.name
+          : undefined,
+        branch: activeLease?.branch || undefined,
+        teams: [...teams.values()],
+        participants: participants.map((participant) => ({
+          id: participant.id,
+          agentName: participant.agentName,
+          role: participant.role,
+          teamId: participant.teamId,
+          teamName: participant.teamName,
+        })),
+        tasks: derivedTasks
+          .filter((task) => task.runId === run.id)
+          .map((task) => ({
+            id: task.id,
+            participantId: task.participantId,
+            title: task.title,
+            phase: task.phase,
+            status: task.status,
+            attempt: task.attempt,
+            managed: task.managed,
+            createdAt: task.createdAt,
+            startedAt: task.startedAt,
+            endedAt: task.endedAt,
+          })),
+        budget: { ...run.budget },
+        usage: usage[run.id] ?? {
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: 0,
+          approvals: 0,
+          unreportedCostTasks: 0,
+        },
+        pendingApprovalId: pendingApproval?.id ?? null,
+        pausedTeamIds,
+        createdAt: run.createdAt,
+        updatedAt: run.updatedAt,
+        seqCursor,
+      };
+    });
+  }
+
   createRun(input: RunCreateInput): Run {
+    const commandId = normalizeCommandId(input.commandId);
+    const recalled = this.recallCommand<Run>('run:create', commandId);
+    if (recalled) return recalled.result;
     const name = input.name.trim();
     if (!name) throw new Error('ade: run name is required');
     if (name.length > MAX_RUN_NAME_CHARS) {
@@ -158,13 +322,58 @@ export class OrchestrationService {
       })),
     ];
 
+    const created: Run = { ...run, budget: { ...run.budget } };
     this.store.save({
       runs: [...config.runs, run],
       runParticipants: [...config.runParticipants, ...participants],
       runEvents: [...config.runEvents, ...events],
+      // The idempotency record commits atomically with the run it describes.
+      ...(commandId ? {
+        commandLog: appendCommandLog(config.commandLog, {
+          commandId,
+          channel: 'run:create',
+          createdAt: now,
+          resultJson: serializeCommandResult(created),
+        }),
+      } : {}),
     });
     this.emit();
-    return { ...run, budget: { ...run.budget } };
+    return created;
+  }
+
+  /**
+   * Replay lookup for an idempotent command. Returns the recorded result for
+   * a commandId that already succeeded, null when the command must execute.
+   * Only successful commands are recorded, so a failed attempt may retry
+   * with the same commandId.
+   */
+  recallCommand<T>(channel: string, commandId: string | undefined): { result: T } | null {
+    const normalized = normalizeCommandId(commandId);
+    if (!normalized) return null;
+    const entry = this.store.get().commandLog.find(
+      (candidate) => candidate.commandId === normalized,
+    );
+    if (!entry) return null;
+    if (entry.channel !== channel) {
+      throw new Error(`ade: commandId "${normalized}" was already used by ${entry.channel}`);
+    }
+    return { result: JSON.parse(entry.resultJson) as T };
+  }
+
+  /** Persist a successful command outcome for later replay (bounded FIFO). */
+  recordCommand(channel: string, commandId: string | undefined, result: unknown): void {
+    const normalized = normalizeCommandId(commandId);
+    if (!normalized) return;
+    const config = this.store.get();
+    if (config.commandLog.some((entry) => entry.commandId === normalized)) return;
+    this.store.save({
+      commandLog: appendCommandLog(config.commandLog, {
+        commandId: normalized,
+        channel,
+        createdAt: Date.now(),
+        resultJson: serializeCommandResult(result),
+      }),
+    });
   }
 
   deleteRun(runId: string): void {
@@ -239,10 +448,36 @@ export class OrchestrationService {
   }
 
   cancelQueuedTasks(runId: string, reason = 'Run cancelled'): number {
-    const queued = this.snapshot().tasks.filter(
-      (task) => task.runId === runId && task.status === 'queued',
-    );
-    for (const task of queued) this.transitionTask(task.id, 'cancelled', { error: reason });
+    // One atomic save for the whole batch: a crash can never leave half the
+    // queue cancelled with the rest still schedulable.
+    const config = this.store.get();
+    const derived = deriveTasks(config.runTasks, config.runEvents);
+    const queued = derived.filter((task) => task.runId === runId && task.status === 'queued');
+    if (queued.length === 0) return 0;
+    const queuedIds = new Set(queued.map((task) => task.id));
+    const now = Date.now();
+    const error = reason.slice(0, 1_000);
+    const events = [
+      ...config.runEvents,
+      ...queued.map((task) => this.event(runId, 'task.cancelled', {
+        taskId: task.id,
+        participantId: task.participantId,
+        at: now,
+        data: { error },
+      })),
+    ];
+    const tasks = config.runTasks.map((task) => queuedIds.has(task.id)
+      ? { ...task, status: 'cancelled' as const, updatedAt: now, endedAt: now, error }
+      : task);
+    const run = config.runs.find((candidate) => candidate.id === runId);
+    this.store.save({
+      runTasks: tasks,
+      runEvents: events,
+      runs: run?.mode === 'managed'
+        ? touchRun(config.runs, runId, now)
+        : updateRunStatus(config.runs, runId, tasks, events, now),
+    });
+    this.emit();
     return queued.length;
   }
 
@@ -296,6 +531,27 @@ export class OrchestrationService {
 
   setManagedRunPhase(runId: string, phase: RunPhase, detail?: string): Run {
     const config = this.store.get();
+    const transition = this.buildPhaseTransition(config, runId, phase, detail);
+    this.store.save({
+      runs: transition.runs,
+      runApprovals: transition.runApprovals,
+      runEvents: [...config.runEvents, ...transition.events],
+    });
+    this.emit();
+    return { ...transition.run, budget: { ...transition.run.budget } };
+  }
+
+  /**
+   * Validated phase transition as pure record updates, so compound logical
+   * transitions (phase + approval/task/lease mutation) can commit in ONE
+   * atomic save instead of leaving a crash window between writes (Gap 11).
+   */
+  private buildPhaseTransition(
+    config: AdeConfig,
+    runId: string,
+    phase: RunPhase,
+    detail?: string,
+  ): { run: Run; runs: Run[]; runApprovals: RunApproval[]; events: RunEvent[] } {
     const existing = config.runs.find((run) => run.id === runId);
     if (!existing) throw new Error(`ade: run not found "${runId}"`);
     const terminal = phase === 'completed' || phase === 'failed' || phase === 'cancelled';
@@ -340,24 +596,151 @@ export class OrchestrationService {
     const pendingApprovals = closesApprovals
       ? config.runApprovals.filter((approval) => approval.runId === runId && approval.status === 'pending')
       : [];
-    this.store.save({
+    return {
+      run,
       runs: config.runs.map((candidate) => candidate.id === runId ? run : candidate),
       runApprovals: pendingApprovals.length
         ? config.runApprovals.map((approval) => pendingApprovals.some((item) => item.id === approval.id)
           ? { ...approval, status: 'rejected', resolvedAt: now }
           : approval)
         : config.runApprovals,
-      runEvents: [
-        ...config.runEvents,
+      events: [
         event,
         ...pendingApprovals.map((approval, index) => this.event(runId, 'approval.resolved', {
           at: now + index + 1,
           data: { approvalId: approval.id, decision: 'reject', automatic: true },
         })),
       ],
+    };
+  }
+
+  /** draft -> planning plus the planning task, committed as one save. */
+  beginPlanningPhase(input: ManagedTaskInput): { run: Run; task: RunTask } {
+    const config = this.store.get();
+    const transition = this.buildPhaseTransition(config, input.runId, 'planning');
+    const record = this.buildTaskRecord(config, {
+      ...input,
+      managed: true,
+      dependsOn: input.dependsOn ?? [],
+      attempt: input.attempt ?? 1,
+    }, transition.run);
+    this.store.save({
+      runs: transition.runs,
+      runApprovals: transition.runApprovals,
+      runTasks: [...config.runTasks, record.task],
+      runEvents: [...config.runEvents, ...transition.events, record.event],
     });
     this.emit();
-    return { ...run, budget: { ...run.budget } };
+    return {
+      run: { ...transition.run, budget: { ...transition.run.budget } },
+      task: { ...record.task, dependsOn: [...record.task.dependsOn] },
+    };
+  }
+
+  /** planning -> working plus every work task, committed as one save. */
+  beginWorkingPhase(runId: string, inputs: ManagedTaskInput[]): { run: Run; tasks: RunTask[] } {
+    if (inputs.length === 0) throw new Error('ade: working phase needs at least one task');
+    if (inputs.some((input) => input.runId !== runId)) {
+      throw new Error('ade: working-phase tasks must belong to the transitioning run');
+    }
+    const config = this.store.get();
+    const transition = this.buildPhaseTransition(config, runId, 'working');
+    const records = inputs.map((input) => this.buildTaskRecord(config, {
+      ...input,
+      managed: true,
+      dependsOn: input.dependsOn ?? [],
+      attempt: input.attempt ?? 1,
+    }, transition.run));
+    this.store.save({
+      runs: transition.runs,
+      runApprovals: transition.runApprovals,
+      runTasks: [...config.runTasks, ...records.map((record) => record.task)],
+      runEvents: [...config.runEvents, ...transition.events, ...records.map((record) => record.event)],
+    });
+    this.emit();
+    return {
+      run: { ...transition.run, budget: { ...transition.run.budget } },
+      tasks: records.map((record) => ({ ...record.task, dependsOn: [...record.task.dependsOn] })),
+    };
+  }
+
+  /** working -> approval plus the pending integration approval, one save. */
+  beginApprovalPhase(runId: string, reason: string): RunApproval {
+    const config = this.store.get();
+    const request = this.buildApprovalRequest(config, runId, reason);
+    const transition = this.buildPhaseTransition(config, runId, 'approval');
+    this.store.save({
+      runs: transition.runs,
+      runApprovals: [...transition.runApprovals, request.approval],
+      runEvents: [...config.runEvents, request.event, ...transition.events],
+    });
+    this.emit();
+    return { ...request.approval };
+  }
+
+  /** verifying -> completed plus the lease release, committed as one save. */
+  completeRun(runId: string, detail?: string): Run {
+    const config = this.store.get();
+    const transition = this.buildPhaseTransition(config, runId, 'completed', detail);
+    const now = Date.now();
+    const active = config.runWorkspaceLeases.filter(
+      (lease) => lease.runId === runId && lease.status === 'active',
+    );
+    const activeIds = new Set(active.map((lease) => lease.id));
+    this.store.save({
+      runs: transition.runs,
+      runApprovals: transition.runApprovals,
+      runWorkspaceLeases: active.length
+        ? config.runWorkspaceLeases.map((lease) => activeIds.has(lease.id)
+          ? { ...lease, status: 'released' as const, releasedAt: now }
+          : lease)
+        : config.runWorkspaceLeases,
+      runEvents: [
+        ...config.runEvents,
+        ...transition.events,
+        ...active.map((lease, index) => this.event(runId, 'workspace.released', {
+          participantId: lease.participantId,
+          at: now + index,
+          data: { leaseId: lease.id },
+        })),
+      ],
+    });
+    this.emit();
+    return { ...transition.run, budget: { ...transition.run.budget } };
+  }
+
+  /**
+   * Pause or resume one team's queued managed work. Persisted on the run and
+   * journaled (team.paused / team.resumed) in the same save; repeating the
+   * current state is a no-op so command retries stay silent.
+   */
+  setTeamPaused(runId: string, teamId: string, paused: boolean): Run {
+    const config = this.store.get();
+    const run = config.runs.find((candidate) => candidate.id === runId);
+    if (!run) throw new Error(`ade: run not found "${runId}"`);
+    if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
+      throw new Error('ade: a terminal run has no pausable teams');
+    }
+    if (!config.runParticipants.some(
+      (participant) => participant.runId === runId && participant.teamId === teamId,
+    )) {
+      throw new Error(`ade: run team not found "${teamId}"`);
+    }
+    const current = new Set(run.pausedTeamIds ?? []);
+    if (current.has(teamId) === paused) return { ...run, budget: { ...run.budget } };
+    if (paused) current.add(teamId);
+    else current.delete(teamId);
+    const now = Date.now();
+    const updated: Run = { ...run, pausedTeamIds: [...current], updatedAt: now };
+    this.store.save({
+      runs: config.runs.map((candidate) => candidate.id === runId ? updated : candidate),
+      runEvents: [...config.runEvents, this.event(runId, paused ? 'team.paused' : 'team.resumed', {
+        at: now,
+        data: { teamId },
+      })],
+    });
+    this.emit();
+    return { ...updated, budget: { ...updated.budget } };
   }
 
   acquireWorkspaceLeases(
@@ -505,6 +888,20 @@ export class OrchestrationService {
 
   requestIntegrationApproval(runId: string, reason: string): RunApproval {
     const config = this.store.get();
+    const request = this.buildApprovalRequest(config, runId, reason);
+    this.store.save({
+      runApprovals: [...config.runApprovals, request.approval],
+      runEvents: [...config.runEvents, request.event],
+    });
+    this.emit();
+    return { ...request.approval };
+  }
+
+  private buildApprovalRequest(
+    config: AdeConfig,
+    runId: string,
+    reason: string,
+  ): { approval: RunApproval; event: RunEvent } {
     const run = config.runs.find((candidate) => candidate.id === runId);
     if (!run) throw new Error(`ade: run not found "${runId}"`);
     if (config.runApprovals.some((approval) => approval.runId === runId && approval.status === 'pending')) {
@@ -523,15 +920,13 @@ export class OrchestrationService {
       reason: reason.trim().slice(0, 4_000),
       requestedAt: Date.now(),
     };
-    this.store.save({
-      runApprovals: [...config.runApprovals, approval],
-      runEvents: [...config.runEvents, this.event(runId, 'approval.requested', {
+    return {
+      approval,
+      event: this.event(runId, 'approval.requested', {
         at: approval.requestedAt,
         data: { approvalId: approval.id, type: approval.type },
-      })],
-    });
-    this.emit();
-    return { ...approval };
+      }),
+    };
   }
 
   resolveApproval(approvalId: string, decision: 'approve' | 'reject'): RunApproval {
@@ -555,7 +950,7 @@ export class OrchestrationService {
     return { ...resolved };
   }
 
-  sendMessage(input: Omit<RunMessage, 'id' | 'createdAt'>): RunMessage {
+  sendMessage(input: Omit<RunMessage, 'id' | 'createdAt' | 'seq'>): RunMessage {
     const config = this.store.get();
     if (!config.runParticipants.some(
       (participant) => participant.id === input.toParticipantId && participant.runId === input.runId,
@@ -569,7 +964,13 @@ export class OrchestrationService {
     const text = input.text.trim();
     if (!text) throw new Error('ade: mailbox message is empty');
     if (text.length > MAX_MESSAGE_CHARS) throw new Error(`ade: mailbox message exceeds ${MAX_MESSAGE_CHARS} characters`);
-    const message: RunMessage = { ...input, text, id: randomUUID(), createdAt: Date.now() };
+    const message: RunMessage = {
+      ...input,
+      text,
+      id: randomUUID(),
+      createdAt: Date.now(),
+      seq: this.nextSeq(),
+    };
     this.store.save({
       runMessages: [...config.runMessages, message],
       runEvents: [...config.runEvents, this.event(input.runId, 'message.sent', {
@@ -632,6 +1033,38 @@ export class OrchestrationService {
     dependsOn: string[];
     attempt: number;
   }): RunTask {
+    const config = this.store.get();
+    const { task, event } = this.buildTaskRecord(config, input);
+    const run = config.runs.find((candidate) => candidate.id === input.runId)!;
+    const tasks = [...config.runTasks, task];
+    const events = [...config.runEvents, event];
+    this.store.save({
+      runTasks: tasks,
+      runEvents: events,
+      runs: run.mode === 'managed'
+        ? touchRun(config.runs, run.id, task.createdAt)
+        : updateRunStatus(config.runs, run.id, tasks, events, task.createdAt),
+    });
+    this.emit();
+    return { ...task, dependsOn: [...task.dependsOn] };
+  }
+
+  /**
+   * Validated task construction without persistence, so phase transitions can
+   * commit run + task records in one save. `runOverride` validates against
+   * the post-transition run when both change together.
+   */
+  private buildTaskRecord(
+    config: AdeConfig,
+    input: RunTaskCreateInput & {
+      title: string;
+      phase: RunTaskPhase;
+      managed: boolean;
+      dependsOn: string[];
+      attempt: number;
+    },
+    runOverride?: Run,
+  ): { task: RunTask; event: RunEvent } {
     const prompt = input.prompt.trim();
     if (!prompt) throw new Error('ade: task prompt is required');
     if (prompt.length > MAX_TASK_PROMPT_CHARS) {
@@ -640,12 +1073,11 @@ export class OrchestrationService {
     const title = input.title.trim();
     if (!title) throw new Error('ade: task title is required');
     if (title.length > 160) throw new Error('ade: task title exceeds 160 characters');
-    const config = this.store.get();
-    const run = config.runs.find((candidate) => candidate.id === input.runId);
+    const run = runOverride ?? config.runs.find((candidate) => candidate.id === input.runId);
     const participant = config.runParticipants.find(
       (candidate) => candidate.id === input.participantId && candidate.runId === input.runId,
     );
-    if (!run) throw new Error(`ade: run not found "${input.runId}"`);
+    if (!run || run.id !== input.runId) throw new Error(`ade: run not found "${input.runId}"`);
     if (!participant) throw new Error(`ade: run participant not found "${input.participantId}"`);
     if (input.managed && run.mode !== 'managed') throw new Error('ade: managed run has not started');
     if (!input.managed && run.mode === 'managed' && run.status === 'running') {
@@ -689,17 +1121,7 @@ export class OrchestrationService {
         workspaceBindingId: task.workspaceBindingId ?? null,
       },
     });
-    const tasks = [...config.runTasks, task];
-    const events = [...config.runEvents, event];
-    this.store.save({
-      runTasks: tasks,
-      runEvents: events,
-      runs: run.mode === 'managed'
-        ? touchRun(config.runs, run.id, now)
-        : updateRunStatus(config.runs, run.id, tasks, events, now),
-    });
-    this.emit();
-    return { ...task, dependsOn: [...task.dependsOn] };
+    return { task, event };
   }
 
   private transitionTask(
@@ -780,6 +1202,7 @@ export class OrchestrationService {
       taskId: opts.taskId,
       participantId: opts.participantId,
       data: opts.data,
+      seq: this.nextSeq(),
     };
   }
 
@@ -922,6 +1345,27 @@ function cloneResult(result: RunTaskResult): RunTaskResult {
 
 function normalizeWorkspacePath(path: string): string {
   return path.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+}
+
+function normalizeCommandId(commandId: string | undefined): string | undefined {
+  if (commandId === undefined) return undefined;
+  const trimmed = commandId.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > MAX_COMMAND_ID_CHARS) {
+    throw new Error(`ade: commandId exceeds ${MAX_COMMAND_ID_CHARS} characters`);
+  }
+  return trimmed;
+}
+
+function appendCommandLog(log: CommandLogEntry[], entry: CommandLogEntry): CommandLogEntry[] {
+  return [...log, entry].slice(-COMMAND_LOG_LIMIT);
+}
+
+function serializeCommandResult(result: unknown): string {
+  const json = JSON.stringify(result ?? null) ?? 'null';
+  // Known command results (Run records, null) are tiny; anything oversized is
+  // journaled as null instead of bloating the atomic config file.
+  return json.length > MAX_COMMAND_RESULT_CHARS ? 'null' : json;
 }
 
 function isTerminal(status: RunTaskStatus): boolean {

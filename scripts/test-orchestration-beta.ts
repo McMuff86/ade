@@ -526,6 +526,81 @@ async function realGitIntegrationChecks(root: string): Promise<void> {
     git(conflictRepo, ['status', '--porcelain']).trim() === '');
 }
 
+async function pauseSchedulingChecks(root: string): Promise<void> {
+  console.log('\n== main-owned team pause ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const service = new OrchestrationService(store);
+  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), new FakeWorkspaces());
+  const launched: string[] = [];
+  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    launched.push(taskId);
+    const session: SessionMeta = {
+      id: `pause-session-${launched.length}`,
+      agentId,
+      title: 'fixture',
+      kind: 'task',
+      status: 'running',
+      createdAt: Date.now(),
+      runTaskId: taskId,
+    };
+    coordinator.onTaskStarted(taskId, session);
+    return session;
+  }, () => undefined);
+
+  const run = service.createRun(runInput('Paused delivery'));
+  await coordinator.start(run.id);
+  const snapshot = service.snapshot();
+  const planTask = snapshot.tasks.find((task) => task.phase === 'plan')!;
+  const participants = snapshot.participants.filter((item) => item.runId === run.id);
+  const lead = participants.find((item) => item.agentId === 'lead')!;
+  const worker = participants.find((item) => item.agentId === 'worker')!;
+  finish(coordinator, planTask.id, result({
+    assignments: [
+      {
+        participantId: lead.id,
+        title: 'Lead-owned change',
+        prompt: 'Implement lead-specific behavior.',
+        acceptanceCriteria: ['Lead behavior is tested'],
+        dependsOn: [],
+      },
+      {
+        participantId: worker.id,
+        title: 'Worker-owned change',
+        prompt: 'Implement worker-specific behavior.',
+        acceptanceCriteria: ['Worker behavior is tested'],
+        dependsOn: [],
+      },
+    ],
+  }));
+  await waitFor(() => launched.length === 2, 'first paused-run worker launch');
+
+  await coordinator.pauseTeam(run.id, 'team', 'pause-command-1');
+  check('team pause is persisted on the run and journaled',
+    service.snapshot().runs[0]?.pausedTeamIds?.includes('team') === true &&
+    service.snapshot().events.some((event) => event.type === 'team.paused'));
+
+  finish(coordinator, launched[1]!, result({ summary: 'First worker done.' }));
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  check('a paused team schedules no further queued work', launched.length === 2);
+  check('a paused hold is a wait state, not a scheduling failure',
+    service.snapshot().runs[0]?.status === 'running' &&
+    service.snapshot().runs[0]?.phase === 'working');
+
+  const replayed = await coordinator.pauseTeam(run.id, 'team', 'pause-command-1');
+  check('a replayed pause command returns the recorded outcome without a new event',
+    replayed.pausedTeamIds?.includes('team') === true &&
+    service.snapshot().events.filter((event) => event.type === 'team.paused').length === 1);
+
+  await coordinator.resumeTeam(run.id, 'team');
+  await waitFor(() => launched.length === 3, 'resumed worker launch');
+  check('resume immediately reschedules the held queued task',
+    service.snapshot().events.some((event) => event.type === 'team.resumed'));
+  finish(coordinator, launched[2]!, result({ summary: 'Second worker done.' }));
+  await waitFor(() => service.snapshot().runs[0]?.phase === 'approval', 'approval after resume');
+  check('the resumed run reaches its integration approval gate',
+    service.snapshot().approvals.some((approval) => approval.status === 'pending'));
+}
+
 function finish(coordinator: RunCoordinator, taskId: string, value: StructuredTaskResult): void {
   const launch = coordinator.getTaskLaunch(taskId);
   if (!launch) throw new Error(`missing launch for ${taskId}`);
@@ -543,6 +618,7 @@ async function main(): Promise<void> {
     adapterChecks(root);
     await managedLifecycleChecks(join(root, 'lifecycle'));
     await ownershipAndBudgetChecks(join(root, 'ownership'));
+    await pauseSchedulingChecks(join(root, 'pause'));
     await realGitIntegrationChecks(root);
   } finally {
     rmSync(root, { recursive: true, force: true });

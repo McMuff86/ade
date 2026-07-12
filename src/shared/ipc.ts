@@ -22,6 +22,9 @@ import type {
   Run,
   RunArtifact,
   RunCreateInput,
+  RunEvent,
+  RunMessage,
+  RunSummary,
   RunTask,
   RunTaskCreateInput,
   RuntimeDiagnosticsResult,
@@ -60,10 +63,14 @@ export const IPC = {
   PtyCancelTasks: 'pty:cancelTasks',
   RuntimeDiagnose: 'runtime:diagnose',
   RunGet: 'run:get',
+  RunGetSummary: 'run:getSummary',
+  RunEvents: 'run:events',
   RunCreate: 'run:create',
   RunDelete: 'run:delete',
   RunStart: 'run:start',
   RunCancel: 'run:cancel',
+  RunPauseTeam: 'run:pauseTeam',
+  RunResumeTeam: 'run:resumeTeam',
   RunApprovalResolve: 'runApproval:resolve',
   RunTaskCreate: 'runTask:create',
   RunTaskFail: 'runTask:fail',
@@ -173,6 +180,38 @@ export interface RunArtifactCreateRequest {
   content?: string;
 }
 
+/** Cursor-paged journal window; the Goal 7 SSE stream serves the same shape. */
+export interface RunEventsRequest {
+  /** Return only records with seq greater than this cursor. Default 0. */
+  sinceSeq?: number;
+  /** 1..500 merged records per page. Default 200. */
+  limit?: number;
+}
+export interface RunEventsResult {
+  events: RunEvent[];
+  messages: RunMessage[];
+  /** Highest seq in this page; pass back as sinceSeq to resume. */
+  nextCursor: number;
+}
+
+export interface RunSummaryRequest {
+  /** Omit for every run; set to project exactly one run. */
+  runId?: string;
+}
+
+export interface RunLifecycleRequest {
+  runId: string;
+  /** Optional idempotency key; replay returns the original outcome. */
+  commandId?: string;
+}
+
+export interface RunTeamPauseRequest {
+  runId: string;
+  teamId: string;
+  /** Optional idempotency key; replay returns the original outcome. */
+  commandId?: string;
+}
+
 export interface GitStatusRequest {
   agentId: string;
   sessionId?: string;
@@ -273,12 +312,16 @@ export interface IpcInvokeMap {
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };
   'run:get': { req: void; res: OrchestrationSnapshot };
+  'run:getSummary': { req: RunSummaryRequest; res: RunSummary[] };
+  'run:events': { req: RunEventsRequest; res: RunEventsResult };
   'run:create': { req: RunCreateInput; res: Run };
   'run:delete': { req: { runId: string }; res: void };
-  'run:start': { req: { runId: string }; res: Run };
-  'run:cancel': { req: { runId: string }; res: void };
+  'run:start': { req: RunLifecycleRequest; res: Run };
+  'run:cancel': { req: RunLifecycleRequest; res: void };
+  'run:pauseTeam': { req: RunTeamPauseRequest; res: Run };
+  'run:resumeTeam': { req: RunTeamPauseRequest; res: Run };
   'runApproval:resolve': {
-    req: { approvalId: string; decision: 'approve' | 'reject' };
+    req: { approvalId: string; decision: 'approve' | 'reject'; commandId?: string };
     res: void;
   };
   'runTask:create': { req: RunTaskCreateInput; res: RunTask };

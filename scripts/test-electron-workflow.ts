@@ -158,7 +158,7 @@ function seedConfig(
     ],
     runEvents: [{
       id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
-      data: { source: 'native', repositoryId },
+      data: { source: 'native', repositoryId }, seq: 1,
     }],
   };
   const configDir = join(userData, 'ade');

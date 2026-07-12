@@ -226,7 +226,9 @@ export type RunEventType =
   | 'message.sent'
   | 'integration.applied'
   | 'budget.exhausted'
-  | 'artifact.created';
+  | 'artifact.created'
+  | 'team.paused'
+  | 'team.resumed';
 
 /** Hard scheduling limits for a managed run. Null means no limit. */
 export interface RunBudget {
@@ -267,6 +269,11 @@ export interface Run {
   source?: 'native' | 'legacy-graph';
   /** undefined = legacy/default resolution; null = explicit plain workspace. */
   repositoryId?: string | null;
+  /**
+   * Teams whose queued managed work the scheduler must skip. Materialized from
+   * the team.paused/team.resumed journal events; running tasks are unaffected.
+   */
+  pausedTeamIds?: string[];
 }
 
 export interface RunParticipant {
@@ -390,6 +397,8 @@ export interface RunMessage {
   kind: 'plan' | 'assignment' | 'result' | 'integration' | 'verification';
   text: string;
   createdAt: number;
+  /** Globally monotonic journal cursor shared with RunEvent (run:events). */
+  seq: number;
 }
 
 export interface RunEvent {
@@ -400,6 +409,8 @@ export interface RunEvent {
   taskId?: string;
   participantId?: string;
   data?: Record<string, string | number | boolean | null>;
+  /** Globally monotonic journal cursor shared with RunMessage (run:events). */
+  seq: number;
 }
 
 export interface RunArtifact {
@@ -414,6 +425,73 @@ export interface RunArtifact {
   workspaceBindingId?: string;
   workspaceDir?: string;
   createdAt: number;
+}
+
+/* ------------------------------------------------ sanitized run summaries */
+
+export interface RunSummaryTeam {
+  id: string;
+  name: string;
+  paused: boolean;
+}
+
+export interface RunSummaryParticipant {
+  id: string;
+  agentName: string;
+  role: RunParticipantRole;
+  teamId?: string;
+  teamName?: string;
+}
+
+export interface RunSummaryTask {
+  id: string;
+  participantId: string;
+  title: string;
+  phase: RunTaskPhase;
+  status: RunTaskStatus;
+  attempt: number;
+  managed: boolean;
+  createdAt: number;
+  startedAt?: number;
+  endedAt?: number;
+}
+
+/**
+ * Bounded, transport-safe projection of one run. Deliberately excludes
+ * absolute paths, prompts, mailbox texts, artifact contents and lease paths
+ * (REMOTE_CONTROL_PLAN exclusions) so the Graph canvas and the future mobile
+ * DTO can consume the same shape.
+ */
+export interface RunSummary {
+  id: string;
+  name: string;
+  goal: string;
+  status: RunStatus;
+  mode: RunMode;
+  phase: RunPhase;
+  repositoryId?: string | null;
+  repositoryName?: string;
+  branch?: string;
+  teams: RunSummaryTeam[];
+  participants: RunSummaryParticipant[];
+  tasks: RunSummaryTask[];
+  budget: RunBudget;
+  usage: RunUsage;
+  pendingApprovalId: string | null;
+  pausedTeamIds: string[];
+  createdAt: number;
+  updatedAt: number;
+  /** Highest journal seq at snapshot time; resume deltas via run:events. */
+  seqCursor: number;
+}
+
+/** One recorded mutating command; the same commandId replays resultJson. */
+export interface CommandLogEntry {
+  commandId: string;
+  channel: string;
+  createdAt: number;
+  /** JSON-serialized successful result. Failed commands are never recorded. */
+  resultJson: string;
 }
 
 export interface OrchestrationSnapshot {
@@ -470,6 +548,8 @@ export interface AdeConfig {
   runApprovals: RunApproval[];
   runWorkspaceLeases: RunWorkspaceLease[];
   runMessages: RunMessage[];
+  /** Bounded FIFO idempotency journal for mutating orchestration commands. */
+  commandLog: CommandLogEntry[];
   settings: Settings;
 }
 
@@ -488,6 +568,7 @@ export const DEFAULT_CONFIG: AdeConfig = {
   runApprovals: [],
   runWorkspaceLeases: [],
   runMessages: [],
+  commandLog: [],
   settings: {
     theme: 'dark',
     memory: {
@@ -607,6 +688,8 @@ export interface RunCreateInput {
     teamName?: string;
   }>;
   budget?: Partial<RunBudget>;
+  /** Optional idempotency key; a replay returns the originally created run. */
+  commandId?: string;
 }
 
 export interface RunTaskCreateInput {

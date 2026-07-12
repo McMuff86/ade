@@ -61,6 +61,7 @@ export function normalizeConfig(
     runApprovals: arrayOrEmpty(raw.runApprovals),
     runWorkspaceLeases: arrayOrEmpty(raw.runWorkspaceLeases),
     runMessages: arrayOrEmpty(raw.runMessages),
+    commandLog: arrayOrEmpty(raw.commandLog),
     settings: {
       ...DEFAULT_CONFIG.settings,
       ...(raw.settings ?? {}),
@@ -81,6 +82,7 @@ export function normalizeConfig(
     !Array.isArray(raw.runApprovals) ||
     !Array.isArray(raw.runWorkspaceLeases) ||
     !Array.isArray(raw.runMessages) ||
+    !Array.isArray(raw.commandLog) ||
     !Array.isArray(raw.repositories) ||
     !Array.isArray(raw.workspaceBindings) ||
     !Array.isArray(raw.agentTemplates) ||
@@ -124,6 +126,7 @@ export function normalizeConfig(
           type: 'run.created',
           createdAt: now,
           data: { source: 'legacy-graph' },
+          seq: 0,
         },
         ...participants.map((participant, index): RunEvent => ({
           id: `${LEGACY_RUN_ID}:participant:${index}`,
@@ -131,6 +134,7 @@ export function normalizeConfig(
           participantId: participant.id,
           type: 'participant.added',
           createdAt: now + index + 1,
+          seq: 0,
         })),
       ];
       config.runEvents.push(...events);
@@ -138,7 +142,35 @@ export function normalizeConfig(
     }
   }
 
+  if (assignJournalSequence(config)) migrated = true;
+
   return { config, migrated };
+}
+
+/**
+ * One-time seq backfill: events and messages written before the journal
+ * cursor existed receive globally monotonic seq values in createdAt order,
+ * starting after the highest seq already present. Returns true when any
+ * record was renumbered.
+ */
+function assignJournalSequence(config: AdeConfig): boolean {
+  const hasSeq = (record: { seq?: unknown }): boolean =>
+    typeof record.seq === 'number' && Number.isFinite(record.seq) && record.seq > 0;
+  let maxSeq = 0;
+  for (const record of [...config.runEvents, ...config.runMessages]) {
+    if (hasSeq(record) && record.seq > maxSeq) maxSeq = record.seq;
+  }
+  const unsequenced: Array<{ createdAt: number; seq: number }> = [
+    ...config.runEvents.filter((event) => !hasSeq(event)),
+    ...config.runMessages.filter((message) => !hasSeq(message)),
+  ];
+  if (unsequenced.length === 0) return false;
+  unsequenced.sort((a, b) => a.createdAt - b.createdAt);
+  for (const record of unsequenced) {
+    maxSeq += 1;
+    record.seq = maxSeq;
+  }
+  return true;
 }
 
 interface RepositoryScopeMigration {

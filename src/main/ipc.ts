@@ -228,24 +228,23 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 
   handle(IPC.RunGet, () => orchestration!.snapshot());
+  handle(IPC.RunGetSummary, ({ runId }) => orchestration!.summarize(runId));
+  handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));
   handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
-  handle(IPC.RunDelete, ({ runId }) => {
-    const snapshot = orchestration!.snapshot();
-    const run = snapshot.runs.find((candidate) => candidate.id === runId);
-    if (run?.mode === 'managed' && run.status === 'running') {
-      throw new Error('ade: cancel the managed run before deleting it');
-    }
-    const runTaskIds = snapshot.tasks
-      .filter((task) => task.runId === runId)
-      .map((task) => task.id);
-    ptyManager!.cancelTasks({ runTaskIds });
-    orchestration!.deleteRun(runId);
-  });
+  handle(IPC.RunDelete, ({ runId }) => runCoordinator!.deleteRun(runId));
   handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));
-  handle(IPC.RunStart, ({ runId }) => runCoordinator!.start(runId));
-  handle(IPC.RunCancel, ({ runId }) => runCoordinator!.cancel(runId));
-  handle(IPC.RunApprovalResolve, ({ approvalId, decision }) =>
-    runCoordinator!.resolveApproval(approvalId, decision),
+  handle(IPC.RunStart, ({ runId, commandId }) => runCoordinator!.start(runId, commandId));
+  handle(IPC.RunCancel, ({ runId, commandId }) =>
+    runCoordinator!.cancel(runId, undefined, commandId),
+  );
+  handle(IPC.RunPauseTeam, ({ runId, teamId, commandId }) =>
+    runCoordinator!.pauseTeam(runId, teamId, commandId),
+  );
+  handle(IPC.RunResumeTeam, ({ runId, teamId, commandId }) =>
+    runCoordinator!.resumeTeam(runId, teamId, commandId),
+  );
+  handle(IPC.RunApprovalResolve, ({ approvalId, decision, commandId }) =>
+    runCoordinator!.resolveApproval(approvalId, decision, commandId),
   );
   handle(IPC.RunTaskFail, ({ taskId, error }) => orchestration!.failTask(taskId, error));
   handle(IPC.RunArtifactCreate, (input) => orchestration!.createArtifact(input));

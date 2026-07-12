@@ -199,12 +199,52 @@ function validatePtyCancel(channel: string, payload: unknown): void {
   ids(channel, request.runTaskIds, 'runTaskIds');
 }
 
+function commandId(channel: string, value: unknown): void {
+  optionalString(channel, value, 'commandId', { max: 128 });
+}
+
+/** Strict optional integer: undefined passes, null and non-integers fail. */
+function optionalStrictInteger(
+  channel: string,
+  value: unknown,
+  label: string,
+  options: { min: number; max: number },
+): void {
+  if (value === undefined) return;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < options.min || value > options.max) {
+    invalid(channel, `${label} must be an integer from ${options.min} to ${options.max}`);
+  }
+}
+
+function validateRunEvents(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['sinceSeq', 'limit']);
+  optionalStrictInteger(channel, request.sinceSeq, 'sinceSeq', { min: 0, max: Number.MAX_SAFE_INTEGER });
+  optionalStrictInteger(channel, request.limit, 'limit', { min: 1, max: 500 });
+}
+
+function validateRunLifecycle(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['runId', 'commandId']);
+  id(channel, request.runId, 'runId');
+  commandId(channel, request.commandId);
+}
+
+function validateTeamPause(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['runId', 'teamId', 'commandId']);
+  id(channel, request.runId, 'runId');
+  id(channel, request.teamId, 'teamId');
+  commandId(channel, request.commandId);
+}
+
 function validateRunCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'goal', 'repositoryId', 'participants', 'budget']);
+  exactKeys(channel, request, ['name', 'goal', 'repositoryId', 'participants', 'budget', 'commandId']);
   stringValue(channel, request.name, 'name', { max: 200 });
   optionalString(channel, request.goal, 'goal', { max: 8_000, allowEmpty: true });
   nullableId(channel, request.repositoryId, 'repositoryId');
+  commandId(channel, request.commandId);
   if (!Array.isArray(request.participants) || request.participants.length < 1 || request.participants.length > 100) {
     invalid(channel, 'participants must contain between 1 and 100 entries');
   }
@@ -409,15 +449,31 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       validateRunCreate(channel, payload);
       return;
     case IPC.RunDelete:
-    case IPC.RunStart:
-    case IPC.RunCancel:
       validateIdRequest(channel, payload, 'runId');
       return;
+    case IPC.RunStart:
+    case IPC.RunCancel:
+      validateRunLifecycle(channel, payload);
+      return;
+    case IPC.RunPauseTeam:
+    case IPC.RunResumeTeam:
+      validateTeamPause(channel, payload);
+      return;
+    case IPC.RunEvents:
+      validateRunEvents(channel, payload);
+      return;
+    case IPC.RunGetSummary: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runId']);
+      optionalId(channel, request.runId, 'runId');
+      return;
+    }
     case IPC.RunApprovalResolve: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['approvalId', 'decision']);
+      exactKeys(channel, request, ['approvalId', 'decision', 'commandId']);
       id(channel, request.approvalId, 'approvalId');
       enumValue(channel, request.decision, 'decision', ['approve', 'reject']);
+      commandId(channel, request.commandId);
       return;
     }
     case IPC.RunTaskCreate: {

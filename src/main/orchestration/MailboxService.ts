@@ -29,7 +29,7 @@ export class MailboxService {
 
   deliver(
     recipient: Agent,
-    input: Omit<RunMessage, 'id' | 'createdAt'>,
+    input: Omit<RunMessage, 'id' | 'createdAt' | 'seq'>,
   ): RunMessage {
     const message = this.orchestration.sendMessage(input);
     const path = join(recipient.memoryDir, 'mailbox', safeSegment(input.runId), 'INBOX.jsonl');

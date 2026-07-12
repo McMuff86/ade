@@ -84,9 +84,13 @@ const valid: Record<InvokeChannel, unknown> = {
     participants: [{ agentId: 'agent', role: 'orchestrator' }],
   },
   'run:delete': { runId: 'run' },
-  'run:start': { runId: 'run' },
-  'run:cancel': { runId: 'run' },
-  'runApproval:resolve': { approvalId: 'approval', decision: 'approve' },
+  'run:start': { runId: 'run', commandId: 'cmd-start' },
+  'run:cancel': { runId: 'run', commandId: 'cmd-cancel' },
+  'run:pauseTeam': { runId: 'run', teamId: 'team', commandId: 'cmd-pause' },
+  'run:resumeTeam': { runId: 'run', teamId: 'team' },
+  'run:getSummary': { runId: 'run' },
+  'run:events': { sinceSeq: 0, limit: 200 },
+  'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
   'runArtifact:create': { runId: 'run', kind: 'result', content: 'done' },
@@ -121,6 +125,12 @@ check('invalid run concurrency is rejected', rejects('run:create', {
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',
 }));
+check('oversized command ids are rejected', rejects('run:start', {
+  runId: 'run', commandId: 'x'.repeat(129),
+}));
+check('null journal cursors are rejected', rejects('run:events', { sinceSeq: null }));
+check('oversized journal pages are rejected', rejects('run:events', { limit: 501 }));
+check('team pause requires a team id', rejects('run:pauseTeam', { runId: 'run' }));
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',
 }));

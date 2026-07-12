@@ -79,8 +79,10 @@ export class RunCoordinator {
     return this.orchestration.snapshot().tasks.some((task) => task.id === taskId && task.managed);
   }
 
-  async start(runId: string): Promise<Run> {
+  async start(runId: string, commandId?: string): Promise<Run> {
     return this.serialized(runId, async () => {
+      const recalled = this.orchestration.recallCommand<Run>('run:start', commandId);
+      if (recalled) return recalled.result;
       if (!this.taskLauncher) throw new Error('ade: orchestration task launcher is not connected');
       const snapshot = this.orchestration.snapshot();
       const run = requireRun(snapshot.runs, runId);
@@ -165,14 +167,14 @@ export class RunCoordinator {
       })));
 
       try {
-        const started = this.orchestration.setManagedRunPhase(runId, 'planning');
         const orchestrator = orchestrators[0]!;
-        const task = this.orchestration.createManagedTask({
+        // Phase change + planning task commit as ONE save (Gap 11).
+        const { task } = this.orchestration.beginPlanningPhase({
           runId,
           participantId: orchestrator.id,
           title: 'Plan and decompose the run',
           phase: 'plan',
-          prompt: planningPrompt(started, participants),
+          prompt: planningPrompt(run, participants),
         });
         const orchestratorAgent = requireAgent(agents, orchestrator.agentId);
         this.mailbox.deliver(orchestratorAgent, {
@@ -183,7 +185,9 @@ export class RunCoordinator {
           text: task.prompt,
         });
         await this.launchTask(task, 'plan');
-        return this.orchestration.snapshot().runs.find((candidate) => candidate.id === runId)!;
+        const started = this.orchestration.snapshot().runs.find((candidate) => candidate.id === runId)!;
+        this.orchestration.recordCommand('run:start', commandId, started);
+        return started;
       } catch (error) {
         await this.failRunCore(runId, errorMessage(error));
         throw error;
@@ -191,8 +195,9 @@ export class RunCoordinator {
     });
   }
 
-  async cancel(runId: string, reason = 'Cancelled by user'): Promise<void> {
+  async cancel(runId: string, reason = 'Cancelled by user', commandId?: string): Promise<void> {
     await this.serialized(runId, async () => {
+      if (this.orchestration.recallCommand<null>('run:cancel', commandId)) return;
       const run = requireRun(this.orchestration.snapshot().runs, runId);
       if (isTerminalRun(run)) return;
       if (run.mode !== 'managed') throw new Error('ade: only managed runs use run cancellation');
@@ -200,13 +205,19 @@ export class RunCoordinator {
       await this.cancelActiveTasks(runId);
       this.orchestration.setManagedRunPhase(runId, 'cancelled', reason);
       this.releaseIfDrained(runId);
+      this.orchestration.recordCommand('run:cancel', commandId, null);
     });
   }
 
-  async resolveApproval(approvalId: string, decision: 'approve' | 'reject'): Promise<void> {
+  async resolveApproval(
+    approvalId: string,
+    decision: 'approve' | 'reject',
+    commandId?: string,
+  ): Promise<void> {
     const approval = this.orchestration.snapshot().approvals.find((candidate) => candidate.id === approvalId);
     if (!approval) throw new Error(`ade: approval not found "${approvalId}"`);
     await this.serialized(approval.runId, async () => {
+      if (this.orchestration.recallCommand<null>('runApproval:resolve', commandId)) return;
       const run = requireRun(this.orchestration.snapshot().runs, approval.runId);
       if (run.status !== 'running' || run.phase !== 'approval') {
         throw new Error('ade: integration approval is no longer active');
@@ -215,14 +226,61 @@ export class RunCoordinator {
       if (decision === 'reject') {
         this.orchestration.setManagedRunPhase(resolved.runId, 'cancelled', 'Integration approval rejected');
         this.releaseIfDrained(resolved.runId);
+        this.orchestration.recordCommand('runApproval:resolve', commandId, null);
         return;
       }
       try {
         await this.beginIntegration(resolved.runId);
+        this.orchestration.recordCommand('runApproval:resolve', commandId, null);
       } catch (error) {
         await this.failRunCore(resolved.runId, errorMessage(error));
         throw error;
       }
+    });
+  }
+
+  /**
+   * Main-owned team pause: queued managed work of the team stops being
+   * scheduled; running tasks finish normally. Survives reload via the run
+   * record and the team.paused/team.resumed journal events.
+   */
+  async pauseTeam(runId: string, teamId: string, commandId?: string): Promise<Run> {
+    return this.serialized(runId, async () => {
+      const recalled = this.orchestration.recallCommand<Run>('run:pauseTeam', commandId);
+      if (recalled) return recalled.result;
+      const run = this.orchestration.setTeamPaused(runId, teamId, true);
+      this.orchestration.recordCommand('run:pauseTeam', commandId, run);
+      return run;
+    });
+  }
+
+  async resumeTeam(runId: string, teamId: string, commandId?: string): Promise<Run> {
+    return this.serialized(runId, async () => {
+      const recalled = this.orchestration.recallCommand<Run>('run:resumeTeam', commandId);
+      if (recalled) return recalled.result;
+      const run = this.orchestration.setTeamPaused(runId, teamId, false);
+      if (run.mode === 'managed' && run.phase === 'working') {
+        await this.scheduleWork(runId);
+      }
+      const current = requireRun(this.orchestration.snapshot().runs, runId);
+      this.orchestration.recordCommand('run:resumeTeam', commandId, current);
+      return current;
+    });
+  }
+
+  /** Full run deletion (stop owned tasks first); IPC stays a one-liner. */
+  async deleteRun(runId: string): Promise<void> {
+    await this.serialized(runId, async () => {
+      const snapshot = this.orchestration.snapshot();
+      const run = snapshot.runs.find((candidate) => candidate.id === runId);
+      if (run?.mode === 'managed' && run.status === 'running') {
+        throw new Error('ade: cancel the managed run before deleting it');
+      }
+      const runTaskIds = snapshot.tasks
+        .filter((task) => task.runId === runId)
+        .map((task) => task.id);
+      if (runTaskIds.length > 0) await this.taskCanceller?.(runTaskIds);
+      this.orchestration.deleteRun(runId);
     });
   }
 
@@ -489,19 +547,21 @@ export class RunCoordinator {
       dependsOn: assignment.dependsOn,
     })));
 
-    this.orchestration.setManagedRunPhase(runId, 'working');
-    const run = requireRun(this.orchestration.snapshot().runs, runId);
-    for (const assignment of result.assignments) {
-      const task = this.orchestration.createManagedTask({
-        runId,
-        participantId: assignment.participantId,
-        title: assignment.title,
-        phase: 'work',
-        dependsOn: assignment.dependsOn,
-        prompt: workerPrompt(run, assignment),
-      });
+    const run = requireRun(snapshot.runs, runId);
+    // Phase change + every work task commit as ONE save (Gap 11).
+    const { tasks } = this.orchestration.beginWorkingPhase(runId, result.assignments.map((assignment) => ({
+      runId,
+      participantId: assignment.participantId,
+      title: assignment.title,
+      phase: 'work' as const,
+      dependsOn: assignment.dependsOn,
+      prompt: workerPrompt(run, assignment),
+    })));
+    const agents = new Map(this.store.get().agents.map((item) => [item.id, item]));
+    result.assignments.forEach((assignment, index) => {
+      const task = tasks[index]!;
       const participant = requireParticipant(participants, assignment.participantId, runId);
-      const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId);
+      const agent = requireAgent(agents, participant.agentId);
       this.mailbox.deliver(agent, {
         runId,
         taskId: task.id,
@@ -510,7 +570,7 @@ export class RunCoordinator {
         kind: 'assignment',
         text: `${assignment.title}\n\n${assignment.prompt}`,
       });
-    }
+    });
     await this.scheduleWork(runId);
   }
 
@@ -562,20 +622,28 @@ export class RunCoordinator {
           `risks ${item?.risks.join('; ').slice(0, 300) || 'none'}`;
       }).join('\n').slice(0, 3_000);
       try {
-        this.orchestration.requestIntegrationApproval(
+        // Approval creation + phase change commit as ONE save (Gap 11).
+        this.orchestration.beginApprovalPhase(
           runId,
           `${workTasks.length} worker task(s) completed with ${changed} changed-file report(s) and ` +
           `${validatedCommitCount} validated commit(s). ` +
           'Approve to integrate their commits into the orchestrator worktree and run integration plus verification.\n' +
           details,
         );
-        this.orchestration.setManagedRunPhase(runId, 'approval');
       } catch (error) {
         await this.failRunCore(runId, errorMessage(error));
       }
       return;
     }
 
+    const participantsById = new Map(snapshot.participants
+      .filter((participant) => participant.runId === runId)
+      .map((participant) => [participant.id, participant]));
+    const pausedTeams = new Set(run.pausedTeamIds ?? []);
+    const isPaused = (task: RunTask): boolean => {
+      const teamId = participantsById.get(task.participantId)?.teamId;
+      return teamId ? pausedTeams.has(teamId) : false;
+    };
     const completedParticipants = new Set(workTasks
       .filter((task) => task.status === 'completed')
       .map((task) => task.participantId));
@@ -585,6 +653,7 @@ export class RunCoordinator {
       const next = workTasks.find((task) =>
         task.status === 'queued' &&
         !this.launches.has(task.id) &&
+        !isPaused(task) &&
         task.dependsOn.every((participantId) => completedParticipants.has(participantId)));
       if (!next) break;
       await this.launchTask(next, `work-${next.participantId}`);
@@ -592,7 +661,10 @@ export class RunCoordinator {
     }
     const blocked = workTasks.filter((task) => task.status === 'queued' && !this.launches.has(task.id));
     const active = workTasks.some((task) => task.status === 'running' || this.launches.has(task.id));
-    if (blocked.length > 0 && !active) {
+    // A paused team is a deliberate hold, not a dependency deadlock: the run
+    // waits for run:resumeTeam (or cancel) instead of failing closed.
+    const anyPausedQueued = workTasks.some((task) => task.status === 'queued' && isPaused(task));
+    if (blocked.length > 0 && !active && !anyPausedQueued) {
       await this.failRunCore(runId, 'Worker dependency graph made no scheduling progress');
     }
   }
@@ -713,8 +785,8 @@ export class RunCoordinator {
     if (lease?.isRepo && !(await this.workspaces.inspect(lease.workspaceDir)).clean) {
       throw new Error('ade: verification left the integration worktree dirty');
     }
-    this.orchestration.setManagedRunPhase(runId, 'completed', result.summary);
-    this.orchestration.releaseWorkspaceLeases(runId);
+    // Completion + lease release commit as ONE save (Gap 11).
+    this.orchestration.completeRun(runId, result.summary);
   }
 
   private async launchTask(task: RunTask, label: string): Promise<void> {
