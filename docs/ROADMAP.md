@@ -1,6 +1,6 @@
 # ADE delivery roadmap
 
-Status date: 2026-07-11. Goals are completed in order and published as separate
+Status date: 2026-07-12. Goals are completed in order and published as separate
 verified commits.
 
 ## Goal 1 - runtime reliability baseline
@@ -108,10 +108,175 @@ ADE commits, full commit ranges, transactional conflict rollback, integration
 and verification. The same Electron workflow is also run against the unpacked
 Windows executable.
 
-## Goal 5 - product validation
+## Goal 5 - repository scopes and reusable agents
 
 Status: planned.
 
-- Compare representative tasks against a single-agent baseline.
-- Measure completion, elapsed time, cost, conflicts and human interventions.
-- Validate the workflow with external users before broadening the feature set.
+- Make repositories first-class catalog entries instead of category-owned
+  paths. Preserve categories as organizational groups.
+- Give an agent an optional default repository. An agent without one remains
+  portable and may receive an explicit repository per session, task or run.
+- Resolve one independent ADE worktree binding for each agent/repository pair;
+  snapshot that immutable binding onto every execution.
+- Add a repository-scope header above Files/Changes with repository, binding
+  source, branch/worktree and lease state plus choose/default/detach actions.
+- Never hot-switch a live PTY. Choosing another repo opens a new scoped session.
+- Add immutable agent templates whose spawn creates an independent agent,
+  memory directory and optional default repository.
+- Migrate existing category `repoPath` and agent workspaces without deleting or
+  moving user files, branches, worktrees, sessions or historical run state.
+
+Exit criteria: a specialized agent can default to one repo; a portable agent
+can work safely in at least two repos; Files/Changes always uses the selected
+execution's actual binding; managed runs retain exclusive same-repository
+worktrees and all current integration guarantees; template instances share no
+mutable identity, memory or workspace; migration/restart is non-destructive.
+
+Verification plan: migration, binding, lease, path-validation, memory-isolation
+and template checks join the focused suite. The packaged Electron workflow
+covers scope display, new-session switching, two-repository reuse and managed
+integration. Detailed decisions live in `docs/REPOSITORY_SCOPES_PLAN.md`.
+
+## Goal 6 - product validation
+
+Status: planned after Goal 5.
+
+- Validate the orchestration beta and the new repository bindings on the
+  `2D_rpg_jumpnrun` repository using disposable ADE worktrees and branches. Do
+  not touch its current working tree, update its main branch or push without
+  separate approval.
+- Define 6-10 representative tasks: isolated fixes, tests, a cross-file
+  feature, refactoring and work with a credible parallel decomposition.
+- Compare suitable tasks against a single-agent baseline using the same goal
+  and acceptance criteria.
+- Record completion, test/verification outcome, elapsed time, token usage,
+  conflicts, integration attempts and human interventions. Cost remains
+  unknown for adapters that do not provide trusted billed-USD telemetry.
+- Resolve reliability or safety failures before adding a network control
+  surface, then record an explicit go/no-go decision for the remote goals.
+- Validate the resulting workflow with external users before a public remote
+  beta or broader feature expansion.
+
+Exit criteria: representative runs finish without losing user changes,
+misreporting completion, crossing repository scopes, mutating worker history,
+integrating an unreported diff or bypassing approval. Results identify where
+managed multi-agent work is better, neutral or worse than the single-agent
+baseline. Any critical safety failure blocks Goal 7.
+
+Verification plan: task fixtures and measurements are committed separately
+from changes to the pilot repository; ADE's full `pnpm verify` remains green.
+
+## Goal 7 - transport-neutral core and local host API
+
+Status: planned after Goal 6 go/no-go.
+
+- Extract a transport-neutral ADE application boundary from Electron IPC so
+  desktop IPC and remote HTTP commands share authorization, validation and
+  orchestration behavior.
+- Add mobile-specific DTOs with repositories and agents as independent choices
+  instead of exposing `AdeConfig`, raw IPC channels or the complete desktop
+  orchestration snapshot.
+- Add a versioned loopback-only HTTP API for health, sanitized catalog, runs,
+  bounded task submission with explicit agent/repository ids, managed-run
+  create/start/cancel and a resumable server-sent event stream.
+- Require idempotency keys for mutations and monotonic cursors for reconnecting
+  event clients. A retried mobile request must never launch duplicate work.
+- Keep the listener disabled by default and reject non-loopback binds, unknown
+  hosts/origins, invalid content types, oversized requests and unauthorized
+  devices.
+
+Exit criteria: local API integration tests can drive and reconnect to a full
+managed run without changing the Electron workflow; duplicate, reordered,
+unauthorized and malformed requests fail closed. No interactive PTY, arbitrary
+IPC, filesystem/configuration mutation or absolute host path crosses the API.
+
+## Goal 8 - personal mobile companion alpha
+
+Status: planned after Goal 7.
+
+- Build an installable responsive PWA for host readiness, sanitized project
+  and agent selection, single-agent tasks, managed runs, budgets, live run
+  state, results and cancellation.
+- Select repository and agent independently; the ADE core resolves the same
+  immutable execution binding used by the desktop Files/Changes panel.
+- Use Tailscale Serve as the supported personal-alpha ingress. ADE remains
+  bound to loopback; Tailscale Funnel, direct LAN binds and public router ports
+  are unsupported.
+- Pair each phone from the trusted desktop with a short-lived, one-use QR
+  challenge and issue a separate revocable ADE device identity.
+- Use exact Origin/Host checks, short-lived secure sessions, CSRF protection,
+  rate/request limits and an app-shell-only service-worker cache.
+- Persist an audit record for pairing, authentication and every remote mutation;
+  provide desktop device inventory and immediate revocation from the first
+  remotely writable release.
+- Make desktop availability explicit: the host must be powered on, logged in,
+  online and running ADE.
+
+Exit criteria: from a phone on a mobile network, a paired device can create,
+start, observe, reconnect to and cancel single- and multi-agent work. An
+unpaired or revoked device receives no catalog, project or run data; a network
+retry cannot duplicate a command. The mobile client exposes no terminal,
+configuration, raw command or unrestricted file surface. Every mutation is
+attributable, and device revocation ends commands and event streams immediately.
+
+## Goal 9 - remote approvals, audit review and notifications
+
+Status: planned after Goal 8.
+
+- Add a mobile integration-approval view with the exact changed-file set,
+  tests, risks, commit SHAs and an optional bounded diff.
+- Require recent passkey/device reauthentication for approve/reject; a normal
+  remembered session is insufficient for the privileged transition.
+- Extend the audit record with approval evidence and step-up authentication
+  context, and add a bounded audit viewer/export without credential contents.
+- Add opt-in Web Push only for completion, failure and approval-required
+  events; mobile offline state never queues an implicit future command.
+
+Exit criteria: approval is single-use, durable, attributable and protected by
+step-up authentication. Revocation takes effect immediately for commands and
+event streams, audit survives restart, and notification failure cannot change
+run state.
+
+## Goal 10 - available and recoverable desktop host
+
+Status: planned after Goal 9.
+
+- Add tray/headless host mode in the logged-in user session and an opt-in start
+  at Windows login. Do not run task CLIs as a pre-login Windows service.
+- Publish host/version/readiness health and a clear last-seen/offline state.
+- Reconnect the mobile event stream after host, app or network restart without
+  losing or inventing run transitions.
+- Optionally prevent sleep only while a run is active; ordinary idle behavior
+  remains under user control.
+- Exercise active run, pending approval and interrupted-task recovery through
+  host and Windows restart workflows.
+
+Exit criteria: after login the opted-in host becomes reachable without opening
+the desktop window, remains low impact while idle, and recovers every persisted
+run to an explicit safe state. A sleeping/offline host is reported accurately;
+remote wake and unattended pre-login execution remain out of scope.
+
+## Goal 11 - remote product hardening
+
+Status: planned after personal-alpha validation.
+
+- Move long run/event/audit histories from the atomic config JSON to indexed
+  storage with migrations, retention, backup and corruption recovery.
+- Ship signed releases and an authenticated auto-update path before asking
+  non-technical users to keep an always-available host current.
+- Decide from alpha evidence whether to support Cloudflare Tunnel plus Access
+  or an ADE-operated outbound relay for users without a tailnet client.
+- Threat-model accounts, multiple desktops/users, relay end-to-end encryption,
+  abuse handling and recovery before implementing any hosted control plane.
+- Consider native iOS/Android packages only if the PWA has demonstrated a
+  concrete platform limitation worth two additional release pipelines.
+
+Exit criteria: history and audit remain bounded and recoverable, updates are
+authentic, the selected ingress has end-to-end authorization tests, and a
+documented security review approves any public-beta exposure. Raw remote
+terminal streaming, public port forwarding, automatic integration/push,
+Wake-on-LAN and unattended pre-login execution require separate goals.
+
+Detailed scope, trust boundaries and endpoint exclusions live in
+`docs/REMOTE_CONTROL_PLAN.md`; repository-binding behavior and migration live
+in `docs/REPOSITORY_SCOPES_PLAN.md`.

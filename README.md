@@ -38,7 +38,8 @@ terminals around named agents.
   inspectable file-mailbox contract.
 
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
-Reference analyses: `docs/reports/`
+Repository-scope plan: `docs/REPOSITORY_SCOPES_PLAN.md` · Remote-control plan:
+`docs/REMOTE_CONTROL_PLAN.md` · Reference analyses: `docs/reports/`
 
 ## Run
 

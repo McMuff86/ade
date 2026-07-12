@@ -1,6 +1,6 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.5 (terminal beta reliability/security, 2026-07-11)
+Status: v0.6 (repository-scope and remote-control planning, 2026-07-12)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -10,6 +10,11 @@ and content work. The terminal is the execution plane: every interactive
 session is a real terminal running a real CLI agent. Graph is the optional
 control plane for dispatching and observing bounded task runs over those same
 agents. It is not a separate fake-agent system or a replacement chat UI.
+
+The desktop remains the only execution host. After local product validation,
+an installable mobile companion may submit, observe and cancel a narrow set of
+bounded single- and multi-agent operations through that host. It is a remote
+control plane, not a mobile terminal, cloud copy of ADE or second agent runtime.
 
 References:
 - Layout sketch: `mock/PENUP_20260707_214207.png`
@@ -22,22 +27,43 @@ References:
 
 ## Core model
 
-- **Category** — top-level group (a YouTube channel, a repo, a book).
-  Has: name, profile photo. Optionally backed by a git repo.
+- **Category** — top-level organizational group (a YouTube channel, a repo, a
+  book). Has: name and profile photo. It may suggest a default repository for
+  onboarding, but it does not own an agent's workspace.
+- **Repository** *(planned Goal 5)* — a first-class catalog entry for one local
+  Git repository. The same repository may scope many agents, sessions and runs.
 - **Agent** — lives under a category. Has: name, profile photo, runtime
-  (which CLI it runs), permission mode, its own workspace directory
-  (a git worktree when the category is a repo), its own skills, and its own
-  Hermes-style memory (`MEMORY.md`, `USER.md`, providers).
-  An agent ≈ Superset's "workspace", but named and with an identity.
+  (which CLI it runs), permission mode, optional default repository, a plain
+  home workspace, its own skills, and its own Hermes-style global memory
+  (`MEMORY.md`, `USER.md`, providers).
+  An agent is an identity, not a repository workspace; its workspace bindings
+  supply execution scope.
+- **Workspace binding** *(planned Goal 5)* — one agent plus one repository plus
+  one ADE-managed worktree/branch. Bindings are independent per repository and
+  may be reused by later non-conflicting executions.
+- **Agent template** *(planned Goal 5)* — immutable spawn defaults and a memory
+  seed. Spawning creates a new agent identity, memory directory and optional
+  default repository; a template owns no process or mutable workspace.
 - **Session** — a terminal window of one agent. Selecting an agent shows its
   sessions as tabs across the top. Multiple sessions of the same agent run
-  in parallel. Sessions are NOT split by model — one agent, N terminals.
+  in parallel. Each session snapshots an immutable repository/workspace scope;
+  selecting a different repo opens a new session instead of changing a live
+  PTY's working directory. Sessions are NOT split by model — one agent, N
+  terminals.
 - **Run** — a persisted execution of one user goal. It references existing
-  agents as participants; it does not create permanent agent identities.
+  agents as participants and selects an explicit repository scope when Git
+  work is required; it does not create permanent agent identities.
 - **Task** — one run-scoped unit of work assigned to a participant, with real
   queued/running/completed/failed/cancelled state and an event history.
 - **Participant role** — orchestrator/lead/worker is scoped to a run. The same
   named agent may play a different role in a different run.
+- **ADE host** *(planned)* — the logged-in desktop process that owns all
+  runtime credentials, PTYs, repositories and orchestration state. It may
+  expose a disabled-by-default, loopback-only control API through an explicitly
+  configured private ingress.
+- **Remote device** *(planned)* — a separately paired and revocable mobile
+  control identity. Pairing never grants raw terminal, configuration or
+  unrestricted filesystem access.
 
 Graph assigns participants and roles per run. Older Graph-created categories
 and agent `teamRole` fields are imported once as a legacy run and retained so
@@ -50,7 +76,10 @@ the migration never deletes user data.
 - Top: session tabs of the selected agent. `+` opens a session, `×` closes.
 - Center: the terminal.
 - Right: collapsible panel with **Files** (agent files incl. MEMORY.md/USER.md,
-  and an all-files tree of the workspace) and **Changes** (real git diff).
+  and an all-files tree of the workspace) and **Changes** (real git diff). A
+  repository-scope header above those tabs names the selected execution's repo,
+  branch/worktree and binding source and offers safe choose/default/detach/new-
+  session actions.
 - All three regions resizable via drag handles (rail width, panel width).
 - Top-level Terminals / Graph tabs switch views without creating a second copy
   of agent, workspace, session, or task state.
@@ -67,6 +96,69 @@ the migration never deletes user data.
 - Fan-out must state the process count before launch. Worker-specific planning,
   communication, verification and integration are required before Graph is
   described as orchestration rather than dispatch.
+- Desktop IPC and remote commands must enter through one transport-neutral
+  application boundary. A remote endpoint must never proxy arbitrary Electron
+  IPC channels.
+- Retried remote mutations must be idempotent, and remotely observed state must
+  come from resumable authoritative events rather than client timers or local
+  optimistic completion.
+- Repo-backed managed runs select one repository at run level. Every participant
+  receives an exclusive agent/repository binding in that repository; one run
+  does not transactionally integrate across multiple repositories.
+
+## Repository scopes and reusable agents (planned Goal 5)
+
+- Repository choice and agent identity are independent. A specialized agent
+  may have one default repository; a portable agent has none and receives an
+  explicit scope per new session, task or run.
+- Scope resolution is explicit request → optional agent default → plain home
+  workspace. The result is snapshotted and cannot be redirected by later
+  default changes.
+- Files/Changes always resolves through the selected session/task/run binding,
+  never through a mutable global agent path.
+- Choosing another repository while a terminal is live creates a new session.
+  Clearing or changing a default never kills a process or deletes/moves files,
+  worktrees or branches.
+- An agent/repository pair has its own binding/worktree. Active managed runs
+  lease bindings exclusively under the current Goal 4 safety rules.
+- Portable-agent memory is explicitly global. Repository-specific context comes
+  from the selected worktree and a reserved binding-local memory boundary; ADE
+  does not silently promote repository content into global agent memory.
+- Existing category `repoPath` values and workspaces migrate once into
+  repository/default/binding records without deleting legacy data.
+
+Detailed model, UI behavior, migration and exit criteria are binding in
+`docs/REPOSITORY_SCOPES_PLAN.md` and `docs/ROADMAP.md`.
+
+## Mobile companion (planned after product validation)
+
+- The first client is a responsive installable PWA for iOS and Android. A
+  native mobile package is justified only by validated platform gaps.
+- The personal alpha uses Tailscale Serve over a private tailnet. ADE listens
+  on loopback only; direct LAN/public binds, router port forwarding and
+  Tailscale Funnel are unsupported.
+- The desktop must be powered on, logged in, online and running the ADE host.
+  The mobile client must show offline/stale state clearly and may not queue a
+  command for implicit execution after connectivity returns.
+- A paired phone may inspect host readiness and a sanitized catalog, choose
+  repository and agent independently, submit a bounded single-agent task,
+  create/start/cancel a managed run, and observe tasks, usage, results and
+  approvals.
+- Interactive PTY access, arbitrary commands, permission/configuration changes,
+  deletion, absolute paths and unrestricted file reads are excluded from the
+  personal alpha.
+- Integration approval is a later privileged capability. It requires exact
+  review evidence, recent passkey/device reauthentication, a single-use
+  transition and a durable audit record.
+- Every device has a distinct identity that can be listed and revoked from the
+  desktop. Tailscale is an outer access boundary, not a replacement for ADE's
+  endpoint authorization.
+- The service worker caches only the versioned application shell. Credentials,
+  API responses, patches and run details are not intentionally available
+  offline.
+
+The complete scope, trust boundaries and sequenced delivery plan are binding in
+`docs/REMOTE_CONTROL_PLAN.md` and `docs/ROADMAP.md`.
 
 ## Feedback-driven requirements (2026-07-07, binding)
 
@@ -102,13 +194,19 @@ equivalent injection per runtime).
 
 ## Onboarding
 
-First run: create a category (name + photo) → add agents (name + photo +
-runtime + permission mode) → rails and tabs build themselves. Same flow
-reachable later via "+ New category" / "+ Add agent". One-command install.
+First run: create a category (name + photo) → optionally register/select a
+repository → add an agent (name + photo + runtime + permission mode + optional
+default repository) → rails and tabs build themselves. Portable agents and
+template spawning remain reachable later alongside "+ New category" / "+ Add
+agent". One-command install.
 
 ## Non-goals (v1)
 
-- No cloud sync, no accounts, no mobile.
+- No cloud sync, accounts, hosted relay or public ADE endpoint in the personal
+  remote alpha.
+- No native iOS/Android package in the first mobile milestone.
+- No raw remote terminal, remote desktop replacement or general ADE
+  administration surface on mobile.
 - No model picker inside a session.
 - No built-in chat UI separate from the terminal.
 - Custom background images/gradients: architecture only, no UI.
@@ -122,6 +220,11 @@ reachable later via "+ New category" / "+ Add agent". One-command install.
   sessions have bounded retention.
 - Keyboard: visible focus, tab switching shortcuts.
 - Theme: light + dark, both first-class incl. terminal.
+- Repository defaults and explicit execution scopes never redirect a live PTY.
+  Files/Changes must identify and use the selected execution's actual binding.
+- Repository migration, default changes, detach and template spawning are
+  non-destructive; no operation silently shares mutable memory/worktrees or
+  deletes user files, branches or history.
 - Session launch, attach and non-zero exits must be visible and recoverable;
   never strand a main-owned PTY because renderer reconciliation failed.
 - CLI/auth diagnostics are read-only and must not execute custom command text
@@ -130,5 +233,13 @@ reachable later via "+ New category" / "+ Add agent". One-command install.
   and clean interactive exits should remain quiet.
 - Production renderers are sandboxed with a restrictive CSP. Every privileged
   IPC invoke validates both its ADE main-frame sender and runtime payload.
+- Remote control is disabled by default, loopback-bound and HTTPS-only behind
+  the configured private ingress. Every endpoint validates identity,
+  authorization, Origin/Host, content type, size and exact payload shape.
+- Remote mutations are rate-limited, idempotent and audit-recorded. Pairing is
+  short-lived and single-use; device revocation takes effect for commands and
+  event streams without waiting for restart.
+- Remote approval requires recent step-up authentication and visible evidence;
+  no network, notification or client failure may imply approval or success.
 - Windows beta distribution is an x64 installer; signing is required for a
   trusted release but local verification artifacts may be unsigned.

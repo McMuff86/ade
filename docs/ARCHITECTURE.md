@@ -1,6 +1,9 @@
 # ADE — Architecture (binding decisions)
 
-Status: v3, updated 2026-07-11 for the terminal beta reliability/security layer
+Status: v4, updated 2026-07-12 with planned repository scopes/reusable agents
+(`docs/REPOSITORY_SCOPES_PLAN.md`) and remote control/mobile companion
+(`docs/REMOTE_CONTROL_PLAN.md`). Neither target is implemented yet. Terminal
+and orchestration implementation details remain those of v3
 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
@@ -24,6 +27,45 @@ Electron app and port the load-bearing pieces:
 
 Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 
+## Decision: identity, repository and execution scope are separate
+
+The current category-owned `repoPath` and fixed agent `workspaceDir` are legacy
+storage, not the target ownership model. Goal 5 introduces first-class
+`Repository` records, optional agent defaults and one `WorkspaceBinding` per
+agent/repository pair. A session, task or run snapshots an immutable execution
+scope resolved from an explicit repository, the agent default or its plain home
+workspace.
+
+Categories remain presentation/organization. A portable agent can use multiple
+repositories without sharing a worktree between them. A live PTY cannot change
+scope; selecting a different repository creates a new session. A repo-backed
+managed run chooses one repository and leases one exclusive binding per
+participant, preserving Goal 4's common-Git-dir and integration guarantees.
+
+`AgentTemplate` is immutable spawn configuration. Spawning creates a normal
+agent with independent identity, memory and workspace bindings; templates and
+sibling instances never share mutable state. Existing category paths and agent
+workspaces migrate non-destructively. Full rules live in
+`docs/REPOSITORY_SCOPES_PLAN.md`.
+
+## Decision: mobile is a control adapter, not an execution plane
+
+The desktop remains authoritative for agents, runtime credentials, PTYs, files,
+Git worktrees, integration and persisted run state. The planned mobile PWA
+submits a deliberately small set of commands and observes authoritative events;
+it never executes an agent locally and is not a streamed Electron renderer.
+
+Electron IPC and remote HTTP will be adapters around one transport-neutral ADE
+application boundary. The remote host must not expose arbitrary IPC names,
+`AdeConfig`, raw PTY methods or desktop filesystem methods. This keeps the
+existing sender-validated IPC boundary intact while giving both clients the
+same command semantics.
+
+The personal alpha uses a loopback-only host behind Tailscale Serve. Tailscale
+is the private ingress and outer identity boundary; ADE still owns per-device
+pairing, endpoint authorization, sessions, audit and revocation. Public ingress,
+accounts and hosted relays are deferred until after personal-alpha validation.
+
 ## Toolchain
 
 - pnpm, TypeScript strict, Electron (latest stable), electron-vite, React 19.
@@ -39,6 +81,9 @@ Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 - Git: `simple-git`. Config persistence: hand-rolled atomic JSON store in
   `app.getPath('userData')`.
 - Icons: text glyphs or lucide-react sparingly. No emojis anywhere (SPEC).
+- Planned remote transport: a small Node HTTP server bound to loopback, JSON
+  commands plus server-sent events, and a separate React/Vite PWA. WebSocket is
+  deferred because Goals 7-10 have no bidirectional terminal stream.
 
 ## Repo layout (this repo, root = the app)
 
@@ -81,7 +126,23 @@ mock/  mockup/             # references (kept)
 reference/                 # cloned Superset/Hermes — git-ignored
 ```
 
-## Core types (shared/types.ts)
+Planned additions for Goals 5 and 7-10 (names may be refined without changing
+the boundaries):
+
+```
+src/
+  main/
+    core/                  # ADE application commands/events shared by adapters
+    repositories/          # repository catalog, bindings and scope resolution
+    remote/                # loopback HTTP host, pairing, sessions, audit
+  mobile/                  # responsive PWA; no Electron or Node assumptions
+  renderer/rightpanel/     # binding-aware repository scope header
+  shared/
+    repositories.ts        # repository, binding and template contracts
+    remote.ts              # versioned mobile DTOs and runtime schemas
+```
+
+## Current core types through Goal 4 (shared/types.ts)
 
 ```ts
 type PermissionMode = 'default' | 'accept-edits' | 'bypass';
@@ -118,6 +179,18 @@ interface RunEvent { id: string; runId: string; type: RunEventType;
                      taskId?: string; participantId?: string; createdAt: number }
 ```
 
+Goal 5 migrates repository ownership out of `Category.repoPath` and
+`Agent.workspaceDir`. Target `Repository`, `WorkspaceBinding`, `ExecutionScope`
+and `AgentTemplate` records are defined by `REPOSITORY_SCOPES_PLAN.md`.
+Historical snapshots retain resolved paths/ids so migration cannot rewrite the
+meaning of an existing session or run.
+
+The remote contract will not serialize these storage/domain objects directly.
+It uses versioned, mobile-safe projections plus target records such as
+`RemoteDevice`, `RemoteSession`, `RemoteAuditEvent` and
+`RemoteIdempotencyEntry`. Device/session secrets are stored separately from the
+catalog snapshot and are never returned after issuance.
+
 ## Launch profiles (shared/runtimes.ts)
 
 Command per runtime × permission mode (adapted from Superset's
@@ -136,6 +209,10 @@ builtin-terminal-agents; every profile user-overridable via `customCommand`):
 Interactive sessions spawn a shell in the agent's `workspaceDir` and type the
 configured CLI command, so leaving the CLI returns to a usable shell. Task
 sessions use a one-shot non-interactive command and exit with the CLI.
+
+In Goal 5, launch callers pass a resolved execution-scope/binding id. Main
+derives the working directory from that record; renderer-provided absolute
+paths and mutable agent defaults never select a process directory directly.
 
 ## PTY layer (main/pty/PtyManager.ts)
 
@@ -160,6 +237,35 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   overwritten by an older list snapshot.
 - Exited output remains attachable until close/reap. Interactive sessions may
   be restarted explicitly; run tasks are never silently re-run.
+
+## Planned repository scope layer (Goal 5)
+
+- `RepositoryScopeService` owns repository import/deduplication, agent defaults,
+  binding/worktree resolution and non-destructive legacy migration.
+- Repository identity is validated from normalized real paths plus Git common
+  directory. Importing a repo through another casing, separator or linked
+  worktree cannot create a second root record.
+- Resolution order is explicit repository → optional agent default → plain home
+  workspace. The result is stored on the new session/task/run before launch.
+- Each agent/repository pair has a distinct binding and worktree. A binding is
+  immutable while a PTY is live and exclusively leased while a managed run
+  owns it. Defaults affect future resolution only.
+- A repo-backed run stores one repository scope and gives each participant its
+  own binding under the same Git common directory. Multi-repository integration
+  inside one run stays unsupported.
+- Files/Changes receives the selected execution's binding id and resolves it in
+  main. Its new scope header shows repo, source, branch/worktree and lease state;
+  choosing another repo opens a new session instead of retargeting a process.
+- Portable agent memory remains explicitly global. A binding-local overlay is
+  reserved for repository-specific context, and repository content is never
+  silently promoted into global memory.
+- Templates store spawn defaults and a memory seed only. Spawned agents receive
+  independent ids, memory directories and bindings.
+- Migration deduplicates category `repoPath` entries, assigns corresponding
+  agent defaults and adopts only provably matching existing worktrees. Ambiguous
+  paths remain usable legacy plain workspaces and are reported for repair.
+- Default changes, detach and catalog cleanup never move/delete a worktree,
+  branch or user file implicitly. Active references block destructive cleanup.
 
 ## Run and task control plane (main/orchestration/)
 
@@ -228,7 +334,64 @@ sessions use a one-shot non-interactive command and exit with the CLI.
   current CLI telemetry is final-turn data, not a live provider spend cap. ADE
   never derives USD from a guessed model price.
 
-## IPC contract (shared/ipc.ts) — stable, both build agents code against it
+### Transport-neutral application boundary (Goal 7 target)
+
+- A composition root owns `OrchestrationService`, `RunCoordinator`,
+  `PtyManager` and the command/event facade. `ipc.ts` registers Electron
+  handlers against that facade instead of constructing a second behavior path.
+- Remote authorization is evaluated before a facade command. Domain invariants
+  remain inside orchestration services, so an adapter cannot bypass leases,
+  budgets, result validation or approval gates.
+- `submitSingleTask` is a first-class bounded command rather than a sequence the
+  mobile client assembles from `runTask:create` and `pty:create` calls.
+- Every mutation accepts a caller identity, request id and idempotency key. The
+  stored outcome is returned for an exact retry; key reuse with a different
+  payload is rejected.
+- Application events receive a monotonic cursor in addition to domain ids.
+  Desktop IPC may continue publishing snapshots, while remote SSE resumes from
+  a cursor and refreshes a mobile projection after retention gaps.
+
+## Planned ADE host API and mobile PWA (Goals 7-10)
+
+The host is disabled by default and listens on an ephemeral/configured
+loopback port. Personal-alpha setup configures Tailscale Serve to terminate
+HTTPS and proxy to that port. ADE validates the proxy host/origin and does not
+fall back to a direct LAN bind. Funnel and public port forwarding are rejected
+by product policy, not offered as convenience toggles.
+
+Initial endpoints are allowlisted operations, not generic RPC:
+
+- `GET /api/v1/health` - version, readiness and queue summary;
+- `GET /api/v1/catalog` - sanitized repositories, agents and runtime readiness;
+- `GET /api/v1/runs` - mobile-safe run projection;
+- `POST /api/v1/tasks` - one bounded task with independent agent/repo ids;
+- `POST /api/v1/runs` and `/runs/{id}/start|cancel` - managed-run control with
+  one explicit repository scope; and
+- `GET /api/v1/events` - resumable server-sent events.
+
+Goal 9 adds approval resolution only after step-up authentication and evidence
+review. Category/agent/config mutation, interactive PTY methods, filesystem
+reads, arbitrary IPC and deletion stay absent. The API never returns absolute
+paths, custom command text, environment values or credentials.
+
+Pairing begins in the trusted desktop UI with a short-lived single-use QR
+challenge. The device completes possession proof over HTTPS and receives its
+own revocable identity. Sessions use cookies with `Secure`, `HttpOnly` and
+`SameSite=Strict`, plus exact Origin checks and CSRF protection. Every endpoint
+performs local authorization; mutations are rate-limited, size-bounded and
+appended to an audit journal.
+Approval also requires recent passkey/device reauthentication.
+
+The PWA service worker caches versioned static application assets only. API
+responses, run evidence, patches and credentials use `no-store`. Offline UI may
+report last contact time but cannot enqueue commands for later automatic
+execution. The host must be powered on, logged in and running; tray/start-at-
+login operation is a Goal 10 user-session feature, not a pre-login service.
+
+## Electron IPC contract (shared/ipc.ts) — stable, build agents code against it
+
+This contract is an internal trusted-renderer adapter. It is not the planned
+network protocol and must never be forwarded by channel name over HTTP.
 
 Invoke (renderer → main, `ipcRenderer.invoke`):
 - `config:get` → full config; `config:save({settings:{theme}})` → saved config
@@ -287,6 +450,14 @@ Every invoke passes two checks before its handler runs:
   completion/failure and abnormal interactive exits. Cancellation and clean
   interactive exits remain quiet.
 
+The planned remote renderer has a separate trust boundary. It receives no
+preload bridge and no Electron privileges. HTTPS, ADE device authentication,
+per-endpoint authorization, exact Host/Origin/content validation, CSRF defense,
+idempotency, revocation and audit are cumulative requirements; private-network
+reachability alone is not authorization. Its restrictive CSP permits only the
+same-origin host and standards-based Web Push endpoints when notifications are
+explicitly enabled.
+
 ## CI and Windows packaging
 
 - `.github/workflows/ci.yml` runs typecheck, focused scripts, production build,
@@ -300,6 +471,12 @@ Every invoke passes two checks before its handler runs:
   multi-tab shortcuts, renderer reload replay, non-zero failure/restart,
   diagnostics, worker-specific managed planning, approval, integration and
   verification. The same script can target `ADE_E2E_EXECUTABLE`.
+- Goal 7 adds host contract tests for malformed/unauthorized/replayed requests,
+  event reconnection and mobile projections. Goal 8 adds pairing, revocation,
+  CSRF, mutation-audit and browser workflows through an isolated loopback
+  proxy; CI must not require a real personal tailnet. Goal 9 adds step-up
+  approval, evidence and notification tests. These join `pnpm verify` before
+  their respective goal completes.
 
 ## Theming
 
@@ -327,6 +504,9 @@ Every invoke passes two checks before its handler runs:
   agent edits the memory files directly (paths given in the block).
 - v1 write path = direct file edits by the CLI agent + drift guard on load.
   v1.1 = MCP `memory` tool (schema text already in the report).
+- Goal 5 labels existing `memoryDir` content as agent-global and reserves a
+  binding-local overlay for repository context. Template seeds are copied on
+  spawn; no two agents/templates/bindings share a writable memory directory.
 
 ## Photos
 
@@ -339,8 +519,8 @@ Every invoke passes two checks before its handler runs:
 
 No emojis. No model picker. No Open/Run buttons. No status-bar path.
 Sessions are terminal windows: tab strip has only tabs + `+`. Right panel:
-Files / Changes toggle, collapsible, resizable. Rail resizable. Onboarding
-modals per mockup, plus photo upload.
+repository-scope header plus Files / Changes toggle, collapsible, resizable.
+Rail resizable. Onboarding modals per mockup, plus photo upload.
 
 ## Build phases & ownership (agents)
 

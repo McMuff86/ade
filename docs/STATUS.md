@@ -1,7 +1,9 @@
 # ADE implementation status
 
-Status date: 2026-07-11. This is the short, factual capability matrix. Product
+Status date: 2026-07-12. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
+Planned repository bindings and mobile boundaries are detailed in
+`REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`.
 
 | Capability | State | Current behavior |
 |---|---|---|
@@ -9,8 +11,10 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
 | Named agents and categories | Real | Persisted JSON config, photos, runtime and permission settings |
-| Git workspaces | Real | Repo-backed agents receive isolated worktrees and branches |
-| Files and changes | Real | Lazy tree, capped reads, polled Git status, capped unified diff |
+| Git workspaces | Real, category-bound | Repo-backed category agents receive isolated worktrees and branches; reusable cross-repo bindings are not built yet |
+| Repository scopes | Not built, planned | Goal 5 separates first-class repositories, optional agent defaults and immutable per-execution bindings |
+| Reusable agents/templates | Not built, planned | Goal 5 adds portable agents and independent template spawning across repository bindings |
+| Files and changes | Real, fixed agent path | Lazy tree, capped reads, polled Git status and capped unified diff; Goal 5 adds the visible binding/scope header |
 | Memory read path | Real | `MEMORY.md` / `USER.md` are injected into runtime instruction files at launch |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
 | Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config |
@@ -29,11 +33,18 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
+| Remote host API | Not built, planned | Goal 7 adds a disabled-by-default, loopback-only, transport-neutral control adapter after product validation |
+| Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
+| Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
 | CI and Electron E2E | Real | Windows CI runs 169 focused assertions plus a 32-check production Electron workflow and unpacked package validation |
 
 ## Known constraints
 
+- Repository ownership is currently derived from category `repoPath`, and each
+  agent has one resolved `workspaceDir`. Agent defaults, per-session/run scopes,
+  cross-repository reuse, templates and the Files/Changes scope header remain
+  planned; see `REPOSITORY_SCOPES_PLAN.md`.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
 - The event journal, structured results, approvals, messages and artifacts
@@ -64,3 +75,7 @@ intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
   integration at 200 commits.
 - Plain-workspace runs keep the same plan/result/approval/verification control
   plane but can only reconcile reports; they do not claim git integration.
+- There is currently no network listener, paired-device store, mobile build or
+  remote ingress in ADE. Until the remote goals are implemented and verified,
+  users must not expose Electron IPC or an ad-hoc local server through a router,
+  LAN bind, Tailscale Funnel or public tunnel.
