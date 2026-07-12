@@ -1,0 +1,20 @@
+Run goal: Improve the sample feature end to end
+Run context (manifest ff2bcc3a618f192c, context builder v1):
+- Repository: fixture-repo | branch ade/fixture | base 0123456789ab
+- Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
+- Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"
+- Top-level entries: AGENTS.md, CLAUDE.md, package.json, src/
+- Participants:
+  - p-orchestrator | Conductor | orchestrator | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-1 | Builder One | worker | team Core | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-2 | Builder Two | worker | team Core | claude | adapter file-mailbox-v1 | tokens no | cost no
+Your owned assignment: Implement the feature slice
+Implement the sample feature in src/feature.ts and cover it with a focused test.
+Acceptance criteria:
+- Focused test passes
+- No unrelated files change
+Your assignment depends on other tasks. Their validated structured results are in TASK_CONTEXT.json inside your ADE task directory (ADE_TASK_DIR). You do NOT inherit their code changes: your worktree starts from the run base commit, so rely only on the reported results, not on their files.
+Work only in your leased workspace. Inspect existing conventions before editing.
+Run focused verification and report the exact repository-relative paths you changed.
+Do not run git add, git commit, reset, checkout, rebase, merge, or push. Return commitSha=null; ADE validates the exact diff and creates the task commit.
+Do not claim tests passed unless you actually ran them. Report blockers as outcome=blocked.

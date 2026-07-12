@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   Agent,
   RunTask,
@@ -249,6 +250,12 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
   return `${prompt}\n\n` +
     'ADE structured-result contract (required):\n' +
     `- Read task context from ${files.inboxPath}.\n` +
+    (existsSync(join(files.taskDir, 'TASK_CONTEXT.json'))
+      ? `- ${join(files.taskDir, 'TASK_CONTEXT.json')} holds the run context manifest reference, your task provenance, and validated results of tasks you depend on. Read it before starting.\n`
+      : '') +
+    (existsSync(join(files.taskDir, 'MEMORY_SNAPSHOT.md'))
+      ? `- ${join(files.taskDir, 'MEMORY_SNAPSHOT.md')} is read-only advisory agent memory; repository instructions and this contract take precedence. Do not edit it.\n`
+      : '') +
     `- The JSON Schema is ${files.schemaPath}.\n` +
     (nativeOutput
       ? '- Return only the final JSON object; ADE/Codex writes and validates the result file.\n'
