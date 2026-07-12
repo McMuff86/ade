@@ -9,6 +9,9 @@ import type {
   AdeConfig,
   Agent,
   AgentCreateInput,
+  AgentTemplate,
+  AgentTemplateCreateInput,
+  AgentTemplateSpawnInput,
   AgentUpdateInput,
   AgentFile,
   Category,
@@ -26,6 +29,8 @@ import type {
   TaskQueueStatus,
   ThemeName,
   PtyExitReason,
+  Repository,
+  WorkspaceScopeDescriptor,
 } from './types';
 
 /* --------------------------------------------------------------- channels */
@@ -40,6 +45,12 @@ export const IPC = {
   AgentCreate: 'agent:create',
   AgentUpdate: 'agent:update',
   AgentDelete: 'agent:delete',
+  AgentSetDefaultRepository: 'agent:setDefaultRepository',
+  AgentTemplateCreate: 'agentTemplate:create',
+  AgentTemplateDelete: 'agentTemplate:delete',
+  AgentTemplateSpawn: 'agentTemplate:spawn',
+  RepositoryImport: 'repository:import',
+  WorkspaceDescribe: 'workspace:describe',
   PtyCreate: 'pty:create',
   PtyWrite: 'pty:write',
   PtyResize: 'pty:resize',
@@ -103,6 +114,10 @@ export interface PtyCreateRequest {
   dispatchId?: string;
   /** Persisted run task whose lifecycle follows this PTY. */
   runTaskId?: string;
+  /** string = explicit repo, null = explicit plain home, omitted = agent default. */
+  repositoryId?: string | null;
+  /** Internal exact binding used by restart and managed task launch. */
+  workspaceBindingId?: string;
 }
 export interface PtyWriteRequest {
   sessionId: string;
@@ -160,19 +175,23 @@ export interface RunArtifactCreateRequest {
 
 export interface GitStatusRequest {
   agentId: string;
+  sessionId?: string;
 }
 export interface GitDiffRequest {
   agentId: string;
+  sessionId?: string;
   path: string;
 }
 
 export interface FsTreeRequest {
   agentId: string;
+  sessionId?: string;
   /** Lazy children: relative dir path to expand. Omit/'' for the root level. */
   path?: string;
 }
 export interface FsReadRequest {
   agentId: string;
+  sessionId?: string;
   path: string;
 }
 export interface FsReadResult {
@@ -182,6 +201,17 @@ export interface FsReadResult {
 }
 export interface FsAgentFilesRequest {
   agentId: string;
+  sessionId?: string;
+}
+
+export interface RepositoryImportRequest {
+  path: string;
+  name?: string;
+}
+
+export interface WorkspaceDescribeRequest {
+  agentId: string;
+  sessionId?: string;
 }
 
 export interface DialogPickFolderResult {
@@ -225,6 +255,15 @@ export interface IpcInvokeMap {
   'agent:create': { req: AgentCreateInput; res: Agent };
   'agent:update': { req: AgentUpdateInput; res: Agent };
   'agent:delete': { req: { id: string }; res: void };
+  'agent:setDefaultRepository': {
+    req: { agentId: string; repositoryId: string | null };
+    res: Agent;
+  };
+  'agentTemplate:create': { req: AgentTemplateCreateInput; res: AgentTemplate };
+  'agentTemplate:delete': { req: { id: string }; res: void };
+  'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
+  'repository:import': { req: RepositoryImportRequest; res: Repository };
+  'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };
   'pty:create': { req: PtyCreateRequest; res: SessionMeta };
   'pty:write': { req: PtyWriteRequest; res: void };
   'pty:resize': { req: PtyResizeRequest; res: void };

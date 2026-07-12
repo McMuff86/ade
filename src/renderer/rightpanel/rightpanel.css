@@ -10,6 +10,137 @@
   border-left: 1px solid var(--line);
 }
 
+/* ------------------------------------------------------ repository scope */
+
+.rp-scope {
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--raised) 45%, var(--panel));
+}
+
+.rp-scope-title,
+.rp-scope-meta,
+.rp-scope-controls,
+.rp-scope-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-scope-title {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.rp-scope-title > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-scope-title span {
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+}
+
+.rp-scope-title strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-scope-title .rp-scope-source {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rp-scope-meta {
+  min-width: 0;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.rp-scope-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-scope-meta > span:nth-child(2) {
+  flex: 1;
+  text-align: right;
+}
+
+.rp-scope-meta .rp-scope-lease {
+  flex: none;
+  color: var(--accent);
+}
+
+.rp-scope-meta .rp-scope-clean {
+  flex: none;
+  color: var(--add);
+}
+
+.rp-scope-meta .rp-scope-dirty {
+  flex: none;
+  color: var(--del);
+}
+
+.rp-scope-controls {
+  margin-top: 10px;
+}
+
+.rp-scope-controls select {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.rp-scope-controls .btn,
+.rp-scope-actions .btn {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+}
+
+.rp-scope-actions {
+  margin-top: 7px;
+}
+
+.rp-scope-error,
+.rp-scope-lock {
+  margin-top: 7px;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.rp-scope-error {
+  color: var(--del);
+}
+
+.rp-scope-lock {
+  color: var(--accent);
+}
+
 /* ------------------------------------------------------------------ tabs */
 
 .rp-head {
@@ -209,6 +340,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.fs-location {
+  flex: none;
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .fs-row .plus,

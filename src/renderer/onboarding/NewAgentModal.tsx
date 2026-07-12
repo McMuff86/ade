@@ -20,12 +20,20 @@ interface NewAgentModalProps {
 
 export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): React.ReactElement {
   const categories = useAppData((s) => s.categories);
+  const repositories = useAppData((s) => s.repositories);
+  const templates = useAppData((s) => s.agentTemplates);
   const createAgent = useAppData((s) => s.createAgent);
+  const spawnAgentTemplate = useAppData((s) => s.spawnAgentTemplate);
   const setSelectedAgent = useSelection((s) => s.setSelectedAgent);
 
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
   const [catId, setCatId] = useState(categoryId ?? categories[0]?.id ?? '');
+  const [templateId, setTemplateId] = useState('');
+  const [defaultRepositoryId, setDefaultRepositoryId] = useState(
+    categories.find((category) => category.id === (categoryId ?? categories[0]?.id))
+      ?.defaultRepositoryId ?? '',
+  );
   const [runtime, setRuntime] = useState<RuntimeId>('claude');
   const [ollamaModel, setOllamaModel] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
@@ -40,7 +48,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     if (!canCreate) return;
     setBusy(true);
     try {
-      const agent = await createAgent({
+      const input = {
         categoryId: catId,
         name: name.trim(),
         role: role.trim() || undefined,
@@ -49,13 +57,30 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
-      });
+        defaultRepositoryId: defaultRepositoryId || null,
+      };
+      const agent = templateId
+        ? await spawnAgentTemplate({ templateId, ...input })
+        : await createAgent(input);
       setSelectedAgent(agent.id);
       onClose();
     } catch (err) {
       console.error('[ade] create agent failed:', err);
       setBusy(false);
     }
+  };
+
+  const chooseTemplate = (id: string): void => {
+    setTemplateId(id);
+    const template = templates.find((candidate) => candidate.id === id);
+    if (!template) return;
+    setName(template.name);
+    setRole(template.role ?? '');
+    setPhoto(template.photo);
+    setRuntime(template.runtime);
+    setPermissionMode(template.permissionMode);
+    setCustomCommand(template.customCommand ?? '');
+    setOllamaModel(template.ollamaModel ?? '');
   };
 
   return (
@@ -66,13 +91,50 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     >
       <div className="field">
         <label htmlFor="agent-cat">CATEGORY</label>
-        <select id="agent-cat" value={catId} onChange={(e) => setCatId(e.target.value)}>
+        <select
+          id="agent-cat"
+          value={catId}
+          onChange={(event) => {
+            const next = event.target.value;
+            setCatId(next);
+            setDefaultRepositoryId(
+              categories.find((category) => category.id === next)?.defaultRepositoryId ?? '',
+            );
+          }}
+        >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </select>
+      </div>
+
+      {templates.length > 0 ? (
+        <div className="field">
+          <label htmlFor="agent-template">TEMPLATE (OPTIONAL)</label>
+          <select id="agent-template" value={templateId} onChange={(event) => chooseTemplate(event.target.value)}>
+            <option value="">Blank agent</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>{template.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="field">
+        <label htmlFor="agent-repository">DEFAULT REPOSITORY</label>
+        <select
+          id="agent-repository"
+          value={defaultRepositoryId}
+          onChange={(event) => setDefaultRepositoryId(event.target.value)}
+        >
+          <option value="">Portable agent (no default)</option>
+          {repositories.map((repository) => (
+            <option key={repository.id} value={repository.id}>{repository.name}</option>
+          ))}
+        </select>
+        <div className="repo-hint">Future sessions use this repo unless another scope is chosen.</div>
       </div>
 
       <div className="field">

@@ -1,9 +1,9 @@
 # ADE — Architecture (binding decisions)
 
-Status: v4, updated 2026-07-12 with planned repository scopes/reusable agents
-(`docs/REPOSITORY_SCOPES_PLAN.md`) and remote control/mobile companion
-(`docs/REMOTE_CONTROL_PLAN.md`). Neither target is implemented yet. Terminal
-and orchestration implementation details remain those of v3
+Status: v5, updated 2026-07-12 with implemented repository scopes/reusable
+agents (`docs/REPOSITORY_SCOPES_PLAN.md`) and planned remote control/mobile
+companion (`docs/REMOTE_CONTROL_PLAN.md`). Terminal, orchestration and
+repository-scope implementation details supersede v4
 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
@@ -29,8 +29,8 @@ Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 
 ## Decision: identity, repository and execution scope are separate
 
-The current category-owned `repoPath` and fixed agent `workspaceDir` are legacy
-storage, not the target ownership model. Goal 5 introduces first-class
+Category-owned `repoPath` and a fixed agent `workspaceDir` are compatibility
+storage, not the active ownership model. Goal 5 introduced first-class
 `Repository` records, optional agent defaults and one `WorkspaceBinding` per
 agent/repository pair. A session, task or run snapshots an immutable execution
 scope resolved from an explicit repository, the agent default or its plain home
@@ -102,6 +102,7 @@ src/
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
     orchestration/         # run/task/event service and legacy Graph migration
+    repositories/          # repository catalog, bindings and scope resolution
     memory/                # MemoryStore.ts port + managed-block injection
     photos.ts              # profile photo import/store (PNG/JPG, alpha kept)
   preload/index.ts         # contextBridge: typed invoke/on wrappers only
@@ -113,7 +114,7 @@ src/
     terminal/              # TerminalPane (xterm runtime, coalescer, attach)
     diagnostics/           # CLI/auth readiness modal
     keyboard/              # view/session shortcut routing
-    rightpanel/            # Files view + Changes (diff) view
+    rightpanel/            # binding-aware scope header + Files/Changes
     onboarding/            # first-run + new category/agent modals
     graph/                 # run-scoped control-plane canvas and dispatch
     stores/                # Zustand catalog, session, run, and UI mirrors
@@ -126,64 +127,73 @@ mock/  mockup/             # references (kept)
 reference/                 # cloned Superset/Hermes — git-ignored
 ```
 
-Planned additions for Goals 5 and 7-10 (names may be refined without changing
-the boundaries):
+Planned additions for Goals 7-10 (names may be refined without changing the
+boundaries):
 
 ```
 src/
   main/
     core/                  # ADE application commands/events shared by adapters
-    repositories/          # repository catalog, bindings and scope resolution
     remote/                # loopback HTTP host, pairing, sessions, audit
   mobile/                  # responsive PWA; no Electron or Node assumptions
-  renderer/rightpanel/     # binding-aware repository scope header
   shared/
-    repositories.ts        # repository, binding and template contracts
     remote.ts              # versioned mobile DTOs and runtime schemas
 ```
 
-## Current core types through Goal 4 (shared/types.ts)
+## Current core types through Goal 5 (shared/types.ts)
 
 ```ts
 type PermissionMode = 'default' | 'accept-edits' | 'bypass';
 type RuntimeId = 'claude' | 'codex' | 'opencode' | 'grok' | 'gemini'
                | 'ollama' | 'shell' | 'custom';
 
-interface Category { id: string; name: string; photo?: string;   // photos/<file>
-                     repoPath?: string;                          // optional git repo
-                     agents: string[] }
+interface Repository { id: string; name: string; rootPath: string;
+                       commonGitDir: string; verified: boolean }
+interface WorkspaceBinding { id: string; agentId: string; repositoryId: string;
+                             workspaceDir: string; branch: string;
+                             status: 'ready' | 'legacy-unverified' | 'invalid' }
+interface Category { id: string; name: string; photo?: string;
+                     repoPath?: string;                          // compatibility
+                     defaultRepositoryId?: string; agents: string[] }
 interface Agent    { id: string; categoryId: string; name: string; role?: string;
                      photo?: string; runtime: RuntimeId;
                      permissionMode: PermissionMode;
-                     customCommand?: string;                     // overrides profile
-                     ollamaModel?: string;
-                     workspaceDir: string;                       // resolved abs path
+                     defaultRepositoryId?: string;
+                     workspaceDir: string;                       // compatibility alias
+                     homeWorkspaceDir?: string;
                      memoryDir: string }
 interface SessionMeta { id: string; agentId: string; title: string;
                         kind: 'interactive' | 'task';
                         status: 'running' | 'exited'; createdAt: number;
-                        endedAt?: number; exitCode?: number; dispatchId?: string;
-                        runTaskId?: string }
+                        repositoryId?: string; workspaceBindingId?: string;
+                        workspaceDir?: string;
+                        scopeSource?: 'explicit' | 'agent-default' | 'plain-home' }
 interface Run { id: string; name: string; goal: string; status: RunStatus;
                 mode: 'manual' | 'managed'; phase: RunPhase;
-                budget: RunBudget; createdAt: number; updatedAt: number }
+                repositoryId?: string | null; budget: RunBudget }
 interface RunParticipant { id: string; runId: string; agentId: string;
                            agentName: string; runtime: RuntimeId;
                            role: 'orchestrator' | 'lead' | 'worker';
-                           teamId?: string; teamName?: string }
+                           teamId?: string; teamName?: string;
+                           repositoryId?: string | null }
 interface RunTask { id: string; runId: string; participantId: string;
                     title: string; prompt: string; phase: RunTaskPhase;
                     managed: boolean; dependsOn: string[];
-                    status: RunTaskStatus; sessionId?: string }
+                    status: RunTaskStatus; sessionId?: string;
+                    repositoryId?: string | null; workspaceBindingId?: string;
+                    workspaceDir?: string }
+interface AgentTemplate { id: string; name: string; runtime: RuntimeId;
+                          permissionMode: PermissionMode;
+                          memorySeed: { memory: string; user: string } }
 interface RunEvent { id: string; runId: string; type: RunEventType;
                      taskId?: string; participantId?: string; createdAt: number }
 ```
 
-Goal 5 migrates repository ownership out of `Category.repoPath` and
-`Agent.workspaceDir`. Target `Repository`, `WorkspaceBinding`, `ExecutionScope`
-and `AgentTemplate` records are defined by `REPOSITORY_SCOPES_PLAN.md`.
-Historical snapshots retain resolved paths/ids so migration cannot rewrite the
-meaning of an existing session or run.
+Goal 5 migration moves active repository ownership out of `Category.repoPath`
+and `Agent.workspaceDir` while retaining both compatibility fields. Repository,
+binding and template records persist in the atomic config; sessions, tasks,
+runs and leases retain resolved ids/paths so later default changes or migration
+cannot rewrite an execution's meaning.
 
 The remote contract will not serialize these storage/domain objects directly.
 It uses versioned, mobile-safe projections plus target records such as
@@ -206,13 +216,12 @@ builtin-terminal-agents; every profile user-overridable via `customCommand`):
 | ollama | `ollama run <model>` | — | — |
 | shell | user's default shell (PowerShell on Windows) | — | — |
 
-Interactive sessions spawn a shell in the agent's `workspaceDir` and type the
-configured CLI command, so leaving the CLI returns to a usable shell. Task
-sessions use a one-shot non-interactive command and exit with the CLI.
-
-In Goal 5, launch callers pass a resolved execution-scope/binding id. Main
-derives the working directory from that record; renderer-provided absolute
-paths and mutable agent defaults never select a process directory directly.
+Interactive sessions spawn a shell in a main-resolved execution scope and type
+the configured CLI command, so leaving the CLI returns to a usable shell. Task
+sessions use a one-shot non-interactive command and exit with the CLI. Launch
+callers pass a repository/binding selector; main snapshots the resolved working
+directory before spawn. Renderer-provided absolute paths and later default
+changes never retarget a process.
 
 ## PTY layer (main/pty/PtyManager.ts)
 
@@ -238,7 +247,7 @@ paths and mutable agent defaults never select a process directory directly.
 - Exited output remains attachable until close/reap. Interactive sessions may
   be restarted explicitly; run tasks are never silently re-run.
 
-## Planned repository scope layer (Goal 5)
+## Repository scope layer (implemented Goal 5)
 
 - `RepositoryScopeService` owns repository import/deduplication, agent defaults,
   binding/worktree resolution and non-destructive legacy migration.

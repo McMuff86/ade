@@ -11,7 +11,16 @@ import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
-import { createAgent, createCategory, deleteAgent, deleteCategory, updateAgent } from './identity';
+import {
+  createAgent,
+  createAgentTemplate,
+  createCategory,
+  deleteAgent,
+  deleteAgentTemplate,
+  deleteCategory,
+  spawnAgentTemplate,
+  updateAgent,
+} from './identity';
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
@@ -20,6 +29,7 @@ import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
 import { assertIpcPayload } from './ipcValidation';
 import { isTrustedRendererUrl } from './security';
+import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -57,6 +67,7 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export function registerIpcHandlers(store: ConfigStore): void {
+  const scopes = new RepositoryScopeService(store);
   orchestration = new OrchestrationService(store, (snapshot) => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.OrchestrationChanged, snapshot);
@@ -66,11 +77,18 @@ export function registerIpcHandlers(store: ConfigStore): void {
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
   }
-  runCoordinator = new RunCoordinator(store, orchestration);
-  ptyManager = new PtyManager(store, runCoordinator);
+  runCoordinator = new RunCoordinator(store, orchestration, undefined, undefined, scopes);
+  ptyManager = new PtyManager(store, runCoordinator, scopes);
   runCoordinator.connect(
-    (agentId, prompt, dispatchId, runTaskId) =>
-      ptyManager!.create(agentId, prompt, dispatchId, runTaskId),
+    (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
+      ptyManager!.create(
+        agentId,
+        prompt,
+        dispatchId,
+        runTaskId,
+        repositoryId,
+        workspaceBindingId,
+      ),
     (runTaskIds) => { ptyManager!.cancelTasks({ runTaskIds }); },
   );
 
@@ -86,6 +104,15 @@ export function registerIpcHandlers(store: ConfigStore): void {
     );
     if (lease) throw new Error(`ade: agent workspace is owned by active run ${lease.runId}`);
   };
+  const workspaceTarget = (agentId: string, sessionId?: string): { agent: Agent; workspaceDir: string } => {
+    const agent = requireAgent(agentId);
+    if (!sessionId) return { agent, workspaceDir: scopes.describe(agentId).workspaceDir };
+    const session = ptyManager!.getSessionMeta(sessionId);
+    if (!session || session.agentId !== agentId) {
+      throw new Error(`ade: session does not belong to agent "${agentId}"`);
+    }
+    return { agent, workspaceDir: session.workspaceDir ?? scopes.describe(agentId, session).workspaceDir };
+  };
 
   /* ------------------------------------------------------- config (real) */
 
@@ -98,7 +125,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.PhotoImport, (req) => importPhoto(req));
 
   // Create category; persists via ConfigStore.
-  handle(IPC.CategoryCreate, (input) => createCategory(store, input));
+  handle(IPC.CategoryCreate, (input) => createCategory(store, input, scopes));
 
   // Stop every owned PTY before removing config entries. User files stay put.
   handle(IPC.CategoryDelete, ({ id }) => {
@@ -111,12 +138,28 @@ export function registerIpcHandlers(store: ConfigStore): void {
   });
 
   // Create agent, workspace/worktree and memory scaffold.
-  handle(IPC.AgentCreate, (input) => createAgent(store, input));
+  handle(IPC.AgentCreate, (input) => createAgent(store, input, scopes));
 
   // Update runtime/launch configuration and display metadata for an agent.
   handle(IPC.AgentUpdate, (input) => {
     assertAgentNotLeased(input.id);
-    return updateAgent(store, input);
+    return updateAgent(store, input, scopes);
+  });
+
+  handle(IPC.AgentSetDefaultRepository, ({ agentId, repositoryId }) =>
+    scopes.setAgentDefault(agentId, repositoryId),
+  );
+
+  handle(IPC.AgentTemplateCreate, (input) => createAgentTemplate(store, input));
+  handle(IPC.AgentTemplateDelete, ({ id }) => deleteAgentTemplate(store, id));
+  handle(IPC.AgentTemplateSpawn, (input) => spawnAgentTemplate(store, input, scopes));
+  handle(IPC.RepositoryImport, ({ path, name }) => scopes.importRepository(path, name));
+  handle(IPC.WorkspaceDescribe, ({ agentId, sessionId }) => {
+    const session = sessionId ? ptyManager!.getSessionMeta(sessionId) : undefined;
+    if (sessionId && (!session || session.agentId !== agentId)) {
+      throw new Error(`ade: session does not belong to agent "${agentId}"`);
+    }
+    return scopes.describe(agentId, session);
   });
 
   // Stop live/queued work, then remove config only (workspace files remain).
@@ -129,8 +172,21 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* --------------------------------------------------- pty (Phase B1) */
 
   // Interactive sessions spawn immediately; task sessions wait for a queue slot.
-  handle(IPC.PtyCreate, ({ agentId, task, dispatchId, runTaskId }) =>
-    ptyManager!.create(agentId, task, dispatchId, runTaskId),
+  handle(IPC.PtyCreate, ({
+    agentId,
+    task,
+    dispatchId,
+    runTaskId,
+    repositoryId,
+    workspaceBindingId,
+  }) => ptyManager!.create(
+    agentId,
+    task,
+    dispatchId,
+    runTaskId,
+    repositoryId,
+    workspaceBindingId,
+  ),
   );
 
   // Forward keystrokes to the session's pty
@@ -197,26 +253,30 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* ------------------------------------------------- git + fs (Phase C) */
 
   // Real git status for the agent's workspaceDir (non-repo → isRepo:false).
-  handle(IPC.GitStatus, ({ agentId }): Promise<GitStatus> =>
-    gitStatus(requireAgent(agentId).workspaceDir),
+  handle(IPC.GitStatus, ({ agentId, sessionId }): Promise<GitStatus> =>
+    gitStatus(workspaceTarget(agentId, sessionId).workspaceDir),
   );
 
   // Unified diff for one file (staged+unstaged vs HEAD; untracked = additions).
-  handle(IPC.GitDiff, ({ agentId, path }) => gitDiff(requireAgent(agentId).workspaceDir, path));
+  handle(IPC.GitDiff, ({ agentId, sessionId, path }) =>
+    gitDiff(workspaceTarget(agentId, sessionId).workspaceDir, path),
+  );
 
   // Depth-limited workspace tree; `path` lazily expands one directory level.
-  handle(IPC.FsTree, ({ agentId, path }) => fsTree(requireAgent(agentId).workspaceDir, path));
+  handle(IPC.FsTree, ({ agentId, sessionId, path }) =>
+    fsTree(workspaceTarget(agentId, sessionId).workspaceDir, path),
+  );
 
   // Size-capped text read (workspace file, or a pinned file from memoryDir).
-  handle(IPC.FsRead, ({ agentId, path }) => {
-    const agent = requireAgent(agentId);
-    return fsRead(agent.workspaceDir, agent.memoryDir, path);
+  handle(IPC.FsRead, ({ agentId, sessionId, path }) => {
+    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
+    return fsRead(workspaceDir, agent.memoryDir, path);
   });
 
   // Pinned agent files (MEMORY/USER/CLAUDE/AGENTS) that exist for this agent.
-  handle(IPC.FsAgentFiles, ({ agentId }) => {
-    const agent = requireAgent(agentId);
-    return agentFiles(agent.workspaceDir, agent.memoryDir);
+  handle(IPC.FsAgentFiles, ({ agentId, sessionId }) => {
+    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
+    return agentFiles(workspaceDir, agent.memoryDir);
   });
 
   // Folder picker for repo-backed categories; validates the pick is a git repo.

@@ -16,6 +16,65 @@ export type RuntimeId =
   | 'shell'
   | 'custom';
 
+export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home';
+
+/** First-class local Git repository catalog entry (Goal 5). */
+export interface Repository {
+  id: string;
+  name: string;
+  /** Canonical main-worktree root chosen for new ADE worktrees. */
+  rootPath: string;
+  /** Canonical shared Git metadata directory used to deduplicate worktrees. */
+  commonGitDir: string;
+  /** False only for a legacy record that still needs on-disk verification. */
+  verified: boolean;
+  createdAt: number;
+}
+
+/** One persistent agent/repository worktree pairing. */
+export interface WorkspaceBinding {
+  id: string;
+  agentId: string;
+  repositoryId: string;
+  workspaceDir: string;
+  branch: string;
+  status: 'ready' | 'legacy-unverified' | 'invalid';
+  createdAt: number;
+  lastUsedAt: number;
+}
+
+/** Immutable defaults used to spawn an independent agent identity. */
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  role?: string;
+  photo?: string;
+  runtime: RuntimeId;
+  permissionMode: PermissionMode;
+  customCommand?: string;
+  ollamaModel?: string;
+  memorySeed: {
+    memory: string;
+    user: string;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Renderer-safe description of the workspace selected for one execution. */
+export interface WorkspaceScopeDescriptor {
+  agentId: string;
+  source: ExecutionScopeSource;
+  repositoryId?: string;
+  repositoryName?: string;
+  workspaceBindingId?: string;
+  workspaceDir: string;
+  branch: string;
+  isRepo: boolean;
+  isDefault: boolean;
+  activeLease: boolean;
+}
+
 /**
  * Orchestration role of a category in Graph mode.
  * - undefined / 'plain': an ordinary rail category (unchanged behaviour).
@@ -31,6 +90,8 @@ export interface Category {
   photo?: string;
   /** optional git repo backing this category */
   repoPath?: string;
+  /** Goal 5 replacement for category-owned repoPath; onboarding convenience only. */
+  defaultRepositoryId?: string;
   /** agent ids, in rail order */
   agents: string[];
   /** Graph-mode role; absent = plain category. */
@@ -55,6 +116,10 @@ export interface Agent {
   ollamaModel?: string;
   /** resolved absolute path of the agent workspace (worktree when repo-backed) */
   workspaceDir: string;
+  /** Plain, repository-independent workspace. Missing only in pre-Goal-5 config. */
+  homeWorkspaceDir?: string;
+  /** Used for future executions that do not provide an explicit repository. */
+  defaultRepositoryId?: string;
   /** absolute path of the agent memory directory (MEMORY.md / USER.md) */
   memoryDir: string;
   /** Graph-mode role; absent = a plain agent (not part of the orchestration). */
@@ -77,6 +142,11 @@ export interface SessionMeta {
   exitReason?: PtyExitReason;
   dispatchId?: string;
   runTaskId?: string;
+  /** Immutable execution scope resolved before the PTY was spawned. */
+  repositoryId?: string;
+  workspaceBindingId?: string;
+  workspaceDir?: string;
+  scopeSource?: ExecutionScopeSource;
 }
 
 export interface TaskQueueStatus {
@@ -195,6 +265,8 @@ export interface Run {
   createdAt: number;
   updatedAt: number;
   source?: 'native' | 'legacy-graph';
+  /** undefined = legacy/default resolution; null = explicit plain workspace. */
+  repositoryId?: string | null;
 }
 
 export interface RunParticipant {
@@ -207,6 +279,8 @@ export interface RunParticipant {
   role: RunParticipantRole;
   teamId?: string;
   teamName?: string;
+  /** Run-level repository snapshot; binding is resolved per participant later. */
+  repositoryId?: string | null;
   createdAt: number;
 }
 
@@ -222,6 +296,10 @@ export interface RunTask {
   attempt: number;
   status: RunTaskStatus;
   sessionId?: string;
+  /** Immutable repository/worktree snapshot selected when the task was queued. */
+  repositoryId?: string | null;
+  workspaceBindingId?: string;
+  workspaceDir?: string;
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
@@ -296,6 +374,8 @@ export interface RunWorkspaceLease {
   branch: string;
   baseSha: string;
   commonGitDir: string;
+  repositoryId?: string;
+  workspaceBindingId?: string;
   status: 'active' | 'released';
   acquiredAt: number;
   releasedAt?: number;
@@ -329,6 +409,10 @@ export interface RunArtifact {
   kind: 'file' | 'patch' | 'message' | 'result';
   path?: string;
   content?: string;
+  /** Execution scope inherited from the owning task/run at creation time. */
+  repositoryId?: string | null;
+  workspaceBindingId?: string;
+  workspaceDir?: string;
   createdAt: number;
 }
 
@@ -374,6 +458,9 @@ export interface Settings {
 export interface AdeConfig {
   categories: Category[];
   agents: Agent[];
+  repositories: Repository[];
+  workspaceBindings: WorkspaceBinding[];
+  agentTemplates: AgentTemplate[];
   runs: Run[];
   runParticipants: RunParticipant[];
   runTasks: RunTask[];
@@ -389,6 +476,9 @@ export interface AdeConfig {
 export const DEFAULT_CONFIG: AdeConfig = {
   categories: [],
   agents: [],
+  repositories: [],
+  workspaceBindings: [],
+  agentTemplates: [],
   runs: [],
   runParticipants: [],
   runTasks: [],
@@ -457,6 +547,7 @@ export interface CategoryCreateInput {
   name: string;
   photo?: string;
   repoPath?: string;
+  defaultRepositoryId?: string;
   kind?: CategoryKind;
 }
 
@@ -470,6 +561,8 @@ export interface AgentCreateInput {
   customCommand?: string;
   ollamaModel?: string;
   teamRole?: TeamRole;
+  /** null creates a portable agent; undefined inherits the category default. */
+  defaultRepositoryId?: string | null;
 }
 
 export interface AgentUpdateInput {
@@ -480,11 +573,33 @@ export interface AgentUpdateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** null clears the default; undefined preserves it. */
+  defaultRepositoryId?: string | null;
+}
+
+export interface AgentTemplateCreateInput {
+  sourceAgentId: string;
+  name: string;
+}
+
+export interface AgentTemplateSpawnInput {
+  templateId: string;
+  categoryId: string;
+  name?: string;
+  role?: string;
+  photo?: string;
+  runtime?: RuntimeId;
+  permissionMode?: PermissionMode;
+  customCommand?: string;
+  ollamaModel?: string;
+  defaultRepositoryId?: string | null;
 }
 
 export interface RunCreateInput {
   name: string;
   goal?: string;
+  /** null forces plain workspaces; undefined preserves legacy/default behavior. */
+  repositoryId?: string | null;
   participants: Array<{
     agentId: string;
     role: RunParticipantRole;

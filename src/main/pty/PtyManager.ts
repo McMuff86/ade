@@ -10,6 +10,7 @@
 import { BrowserWindow } from 'electron';
 import { mkdirSync } from 'node:fs';
 import * as os from 'node:os';
+import { resolve } from 'node:path';
 import * as pty from 'node-pty';
 import {
   IPC_EVENTS,
@@ -26,6 +27,11 @@ import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
+import {
+  homeWorkspace,
+  type RepositoryScopePort,
+  type ResolvedExecutionScope,
+} from '../repositories/RepositoryScopeService';
 import {
   TaskQueueCancelledError,
   TaskSlotQueue,
@@ -91,11 +97,24 @@ export class PtyManager {
   private readonly sessions = new Map<string, Session>();
   private readonly taskQueue: TaskSlotQueue;
   private readonly cancelledDispatches = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly scopes: RepositoryScopePort;
 
   constructor(
     private readonly store: ConfigStore,
     private readonly taskLifecycle?: TaskLifecycleSink,
+    scopes?: RepositoryScopePort,
   ) {
+    this.scopes = scopes ?? {
+      resolve: async (agentId) => {
+        const agent = this.requireAgent(agentId);
+        return {
+          source: agent.defaultRepositoryId ? 'agent-default' : 'plain-home',
+          repositoryId: agent.defaultRepositoryId,
+          workspaceDir: agent.workspaceDir?.trim() || homeWorkspace(agent),
+          branch: '',
+        };
+      },
+    };
     this.taskQueue = new TaskSlotQueue(MAX_ACTIVE_TASK_SESSIONS, (status) => {
       this.broadcast(IPC_EVENTS.PtyTaskQueue, status);
     });
@@ -106,13 +125,19 @@ export class PtyManager {
     task?: string,
     dispatchId?: string,
     runTaskId?: string,
+    repositoryId?: string | null,
+    workspaceBindingId?: string,
   ): Promise<SessionMeta> {
     const text = task?.trim() ?? '';
-    if (!text) return this.spawn(agentId);
     if (text.length > MAX_TASK_PROMPT_CHARS) {
       const error = new Error(`ade: task exceeds ${MAX_TASK_PROMPT_CHARS} characters`);
       this.notifyLaunchFailed(runTaskId, false, error);
       throw error;
+    }
+    if (!text) {
+      const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
+      this.assertScopeAvailable(scope);
+      return this.spawn(agentId, scope);
     }
     if (text.includes('\0')) {
       const error = new Error('ade: task contains a null character');
@@ -124,6 +149,15 @@ export class PtyManager {
       this.notifyLaunchFailed(runTaskId, true, error);
       throw error;
     }
+    let scope: ResolvedExecutionScope;
+    try {
+      this.assertTaskTarget(agentId, runTaskId, repositoryId, workspaceBindingId);
+      scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
+      this.assertScopeAvailable(scope, runTaskId);
+    } catch (error) {
+      this.notifyLaunchFailed(runTaskId, false, error);
+      throw error;
+    }
 
     const key: TaskQueueKey = { agentId, dispatchId, runTaskId };
     let lease: TaskLease | undefined;
@@ -132,7 +166,7 @@ export class PtyManager {
       if (dispatchId && this.cancelledDispatches.has(dispatchId)) {
         throw new Error('ade: task dispatch was cancelled');
       }
-      return this.spawn(agentId, { task: text, dispatchId, runTaskId, lease });
+      return this.spawn(agentId, scope, { task: text, dispatchId, runTaskId, lease });
     } catch (error) {
       lease?.release();
       const cancelled = error instanceof TaskQueueCancelledError ||
@@ -146,6 +180,11 @@ export class PtyManager {
     return [...this.sessions.values()]
       .map((session) => ({ ...session.meta }))
       .sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  getSessionMeta(sessionId: string): SessionMeta | undefined {
+    const meta = this.sessions.get(sessionId)?.meta;
+    return meta ? { ...meta } : undefined;
   }
 
   queueStatus(): TaskQueueStatus {
@@ -263,6 +302,7 @@ export class PtyManager {
 
   private spawn(
     agentId: string,
+    scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
   ): SessionMeta {
     const agent = this.requireAgent(agentId);
@@ -274,13 +314,13 @@ export class PtyManager {
     // workspace lease would contaminate (or alter) the repository itself.
     if (!managedLaunch) {
       try {
-        injectMemoryBlock(agent, this.store.get().settings.memory);
+        injectMemoryBlock(agent, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
         console.warn(`[ade] memory inject failed for agent=${agentId}:`, error);
       }
     }
 
-    const cwd = this.resolveCwd(agent);
+    const cwd = this.resolveCwd(scope.workspaceDir);
     const spec = task
       ? this.resolveTaskSpawn(agent, task.task, managedLaunch)
       : this.resolveInteractiveSpawn(agent);
@@ -310,6 +350,10 @@ export class PtyManager {
       createdAt: Date.now(),
       dispatchId: task?.dispatchId,
       runTaskId: task?.runTaskId,
+      repositoryId: scope.repositoryId,
+      workspaceBindingId: scope.workspaceBindingId,
+      workspaceDir: scope.workspaceDir,
+      scopeSource: scope.source,
     };
     const session: Session = {
       meta,
@@ -484,6 +528,45 @@ export class PtyManager {
     return agent;
   }
 
+  private assertScopeAvailable(scope: ResolvedExecutionScope, runTaskId?: string): void {
+    const config = this.store.get();
+    const active = config.runWorkspaceLeases.find((lease) => (
+      lease.status === 'active' && (
+        (scope.workspaceBindingId && lease.workspaceBindingId === scope.workspaceBindingId) ||
+        sameWorkspace(lease.workspaceDir, scope.workspaceDir)
+      )
+    ));
+    if (!active) return;
+    const task = runTaskId ? config.runTasks.find((candidate) => candidate.id === runTaskId) : undefined;
+    if (!task || task.runId !== active.runId || task.participantId !== active.participantId) {
+      throw new Error(`ade: workspace binding is owned by active run ${active.runId}`);
+    }
+  }
+
+  private assertTaskTarget(
+    agentId: string,
+    runTaskId: string | undefined,
+    repositoryId: string | null | undefined,
+    workspaceBindingId: string | undefined,
+  ): void {
+    if (!runTaskId) return;
+    const config = this.store.get();
+    const task = config.runTasks.find((candidate) => candidate.id === runTaskId);
+    if (!task) throw new Error(`ade: run task not found "${runTaskId}"`);
+    const participant = config.runParticipants.find((candidate) => (
+      candidate.id === task.participantId && candidate.runId === task.runId
+    ));
+    if (!participant || participant.agentId !== agentId) {
+      throw new Error('ade: run task does not belong to the requested agent');
+    }
+    if (task.repositoryId !== undefined && task.repositoryId !== repositoryId) {
+      throw new Error('ade: run task repository scope does not match the launch request');
+    }
+    if (task.workspaceBindingId && task.workspaceBindingId !== workspaceBindingId) {
+      throw new Error('ade: run task binding does not match the launch request');
+    }
+  }
+
   private appendToRing(session: Session, chunk: Buffer): void {
     session.buffer.push(chunk);
     session.bufferBytes += chunk.byteLength;
@@ -493,8 +576,8 @@ export class PtyManager {
     }
   }
 
-  private resolveCwd(agent: Agent): string {
-    const dir = agent.workspaceDir?.trim() || os.homedir();
+  private resolveCwd(workspaceDir: string): string {
+    const dir = workspaceDir?.trim() || os.homedir();
     try {
       mkdirSync(dir, { recursive: true });
     } catch (error) {
@@ -547,4 +630,12 @@ export class PtyManager {
       if (!win.isDestroyed()) win.webContents.send(channel, payload);
     }
   }
+}
+
+function sameWorkspace(left: string, right: string): boolean {
+  const normalize = (value: string): string => {
+    const path = resolve(value).replace(/\\/g, '/').replace(/\/$/, '');
+    return process.platform === 'win32' ? path.toLowerCase() : path;
+  };
+  return normalize(left) === normalize(right);
 }

@@ -97,6 +97,11 @@ export class OrchestrationService {
     }
 
     const config = this.store.get();
+    if (typeof input.repositoryId === 'string' && !config.repositories.some(
+      (repository) => repository.id === input.repositoryId,
+    )) {
+      throw new Error(`ade: run repository not found "${input.repositoryId}"`);
+    }
     const agents = new Map(config.agents.map((agent) => [agent.id, agent]));
     const seen = new Set<string>();
     const now = Date.now();
@@ -109,6 +114,7 @@ export class OrchestrationService {
       phase: 'draft',
       budget: normalizeBudget(input.budget),
       source: 'native',
+      repositoryId: input.repositoryId,
       createdAt: now,
       updatedAt: now,
     };
@@ -134,11 +140,18 @@ export class OrchestrationService {
         role: item.role,
         teamId: item.role === 'orchestrator' ? undefined : teamId,
         teamName: item.role === 'orchestrator' ? undefined : teamName,
+        repositoryId: input.repositoryId,
         createdAt: now + index,
       };
     });
     const events: RunEvent[] = [
-      this.event(run.id, 'run.created', { data: { source: 'native' }, at: now }),
+      this.event(run.id, 'run.created', {
+        data: {
+          source: 'native',
+          repositoryId: input.repositoryId ?? null,
+        },
+        at: now,
+      }),
       ...participants.map((participant) => this.event(run.id, 'participant.added', {
         participantId: participant.id,
         at: participant.createdAt,
@@ -235,12 +248,14 @@ export class OrchestrationService {
 
   createArtifact(input: Omit<RunArtifact, 'id' | 'createdAt'>): RunArtifact {
     const config = this.store.get();
-    if (!config.runs.some((run) => run.id === input.runId)) {
+    const run = config.runs.find((candidate) => candidate.id === input.runId);
+    if (!run) {
       throw new Error(`ade: run not found "${input.runId}"`);
     }
-    if (input.taskId && !config.runTasks.some(
-      (task) => task.id === input.taskId && task.runId === input.runId,
-    )) {
+    const task = input.taskId
+      ? config.runTasks.find((candidate) => candidate.id === input.taskId && candidate.runId === input.runId)
+      : undefined;
+    if (input.taskId && !task) {
       throw new Error(`ade: run task not found "${input.taskId}"`);
     }
     if (!ARTIFACT_KINDS.has(input.kind)) {
@@ -256,12 +271,20 @@ export class OrchestrationService {
     const artifact: RunArtifact = {
       ...input,
       path,
+      repositoryId: task?.repositoryId !== undefined ? task.repositoryId : run.repositoryId,
+      workspaceBindingId: task?.workspaceBindingId,
+      workspaceDir: task?.workspaceDir,
       id: randomUUID(),
       createdAt: Date.now(),
     };
     const event = this.event(input.runId, 'artifact.created', {
       taskId: input.taskId,
-      data: { artifactId: artifact.id, kind: artifact.kind },
+      data: {
+        artifactId: artifact.id,
+        kind: artifact.kind,
+        repositoryId: artifact.repositoryId ?? null,
+        workspaceBindingId: artifact.workspaceBindingId ?? null,
+      },
     });
     this.store.save({
       runArtifacts: [...config.runArtifacts, artifact],
@@ -374,7 +397,13 @@ export class OrchestrationService {
         ...created.map((lease) => this.event(runId, 'workspace.acquired', {
           participantId: lease.participantId,
           at: lease.acquiredAt,
-          data: { leaseId: lease.id, workspaceDir: lease.workspaceDir, branch: lease.branch },
+          data: {
+            leaseId: lease.id,
+            workspaceDir: lease.workspaceDir,
+            branch: lease.branch,
+            repositoryId: lease.repositoryId ?? null,
+            workspaceBindingId: lease.workspaceBindingId ?? null,
+          },
         })),
       ],
     });
@@ -442,6 +471,9 @@ export class OrchestrationService {
       kind: 'result',
       path: input.resultPath,
       content: result.summary.slice(0, MAX_ARTIFACT_CONTENT_CHARS),
+      repositoryId: task.repositoryId,
+      workspaceBindingId: task.workspaceBindingId,
+      workspaceDir: task.workspaceDir,
       createdAt: result.createdAt,
     };
     this.store.save({
@@ -458,7 +490,12 @@ export class OrchestrationService {
         this.event(input.runId, 'artifact.created', {
           taskId: input.taskId,
           at: result.createdAt,
-          data: { artifactId: artifact.id, kind: artifact.kind },
+          data: {
+            artifactId: artifact.id,
+            kind: artifact.kind,
+            repositoryId: artifact.repositoryId ?? null,
+            workspaceBindingId: artifact.workspaceBindingId ?? null,
+          },
         }),
       ],
     });
@@ -567,7 +604,12 @@ export class OrchestrationService {
   }
 
   onTaskStarted(taskId: string, session: SessionMeta): void {
-    this.transitionTask(taskId, 'running', { sessionId: session.id });
+    this.transitionTask(taskId, 'running', {
+      sessionId: session.id,
+      repositoryId: session.scopeSource === 'plain-home' ? null : session.repositoryId,
+      workspaceBindingId: session.workspaceBindingId,
+      workspaceDir: session.workspaceDir,
+    });
   }
 
   onTaskLaunchFailed(taskId: string, cancelled: boolean, error?: string): void {
@@ -615,6 +657,10 @@ export class OrchestrationService {
     }
 
     const now = Date.now();
+    const lease = config.runWorkspaceLeases.find(
+      (candidate) => candidate.runId === run.id &&
+        candidate.participantId === participant.id && candidate.status === 'active',
+    );
     const task: RunTask = {
       id: randomUUID(),
       runId: run.id,
@@ -626,6 +672,9 @@ export class OrchestrationService {
       dependsOn: [...input.dependsOn],
       attempt: input.attempt,
       status: 'queued',
+      repositoryId: lease?.repositoryId ?? run.repositoryId,
+      workspaceBindingId: lease?.workspaceBindingId,
+      workspaceDir: lease?.workspaceDir,
       createdAt: now,
       updatedAt: now,
     };
@@ -633,7 +682,12 @@ export class OrchestrationService {
       taskId: task.id,
       participantId: participant.id,
       at: now,
-      data: { phase: task.phase, managed: task.managed },
+      data: {
+        phase: task.phase,
+        managed: task.managed,
+        repositoryId: task.repositoryId ?? null,
+        workspaceBindingId: task.workspaceBindingId ?? null,
+      },
     });
     const tasks = [...config.runTasks, task];
     const events = [...config.runEvents, event];
@@ -651,7 +705,14 @@ export class OrchestrationService {
   private transitionTask(
     taskId: string,
     status: Exclude<RunTaskStatus, 'queued'>,
-    detail: { sessionId?: string; exitCode?: number; error?: string } = {},
+    detail: {
+      sessionId?: string;
+      repositoryId?: string | null;
+      workspaceBindingId?: string;
+      workspaceDir?: string;
+      exitCode?: number;
+      error?: string;
+    } = {},
   ): void {
     const config = this.store.get();
     const task = config.runTasks.find((candidate) => candidate.id === taskId);
@@ -665,6 +726,9 @@ export class OrchestrationService {
       at: now,
       data: {
         ...(detail.sessionId ? { sessionId: detail.sessionId } : {}),
+        ...(detail.repositoryId !== undefined ? { repositoryId: detail.repositoryId } : {}),
+        ...(detail.workspaceBindingId ? { workspaceBindingId: detail.workspaceBindingId } : {}),
+        ...(detail.workspaceDir ? { workspaceDir: detail.workspaceDir } : {}),
         ...(detail.exitCode !== undefined ? { exitCode: detail.exitCode } : {}),
         ...(detail.error ? { error: detail.error.slice(0, 1_000) } : {}),
       },
@@ -674,6 +738,11 @@ export class OrchestrationService {
           ...candidate,
           status,
           sessionId: detail.sessionId ?? candidate.sessionId,
+          repositoryId: detail.repositoryId !== undefined
+            ? detail.repositoryId
+            : candidate.repositoryId,
+          workspaceBindingId: detail.workspaceBindingId ?? candidate.workspaceBindingId,
+          workspaceDir: detail.workspaceDir ?? candidate.workspaceDir,
           updatedAt: now,
           startedAt: status === 'running' ? now : candidate.startedAt,
           endedAt: isTerminal(status) ? now : candidate.endedAt,

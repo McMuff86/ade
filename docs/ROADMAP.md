@@ -110,7 +110,7 @@ Windows executable.
 
 ## Goal 5 - repository scopes and reusable agents
 
-Status: planned.
+Status: implemented and locally verified; this Goal 5 commit records the result.
 
 - Make repositories first-class catalog entries instead of category-owned
   paths. Preserve categories as organizational groups.
@@ -132,14 +132,22 @@ execution's actual binding; managed runs retain exclusive same-repository
 worktrees and all current integration guarantees; template instances share no
 mutable identity, memory or workspace; migration/restart is non-destructive.
 
-Verification plan: migration, binding, lease, path-validation, memory-isolation
-and template checks join the focused suite. The packaged Electron workflow
-covers scope display, new-session switching, two-repository reuse and managed
-integration. Detailed decisions live in `docs/REPOSITORY_SCOPES_PLAN.md`.
+Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+17 runtime + 19 domain-orchestration + 41 orchestration-beta + 21 repository-
+scope + 64 Windows security assertions), `pnpm run build`, and the 41-check
+production Electron workflow pass. Goal 5 checks cover deterministic migration,
+linked-worktree deduplication, two-repository reuse, concurrent binding
+creation/rollback, physical-worktree uniqueness, portable/default resolution
+across restart, template memory isolation/redaction and run/task/session/
+artifact snapshots. The Electron workflow proves
+plain-to-repository session creation, tab switching, renderer reload, exact
+binding restart, full app restart and the complete managed integration
+lifecycle. Detailed
+decisions live in `docs/REPOSITORY_SCOPES_PLAN.md`.
 
 ## Goal 6 - product validation
 
-Status: planned after Goal 5.
+Status: next after Goal 5.
 
 - Validate the orchestration beta and the new repository bindings on the
   `2D_rpg_jumpnrun` repository using disposable ADE worktrees and branches. Do

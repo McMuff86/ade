@@ -1,4 +1,4 @@
-/** Pure Goal 3 checks for IPC validation, URL trust, CSP and notification policy. */
+/** Pure Goal 3/5 checks for IPC validation, URL trust, CSP and notification policy. */
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -50,7 +50,25 @@ const valid: Record<InvokeChannel, unknown> = {
     permissionMode: 'accept-edits',
   },
   'agent:delete': { id: 'agent' },
-  'pty:create': { agentId: 'agent', task: 'Work', dispatchId: 'dispatch', runTaskId: 'task' },
+  'agent:setDefaultRepository': { agentId: 'agent', repositoryId: 'repository' },
+  'agentTemplate:create': { sourceAgentId: 'agent', name: 'Reusable writer' },
+  'agentTemplate:delete': { id: 'template' },
+  'agentTemplate:spawn': {
+    templateId: 'template',
+    categoryId: 'category',
+    name: 'Writer',
+    defaultRepositoryId: 'repository',
+  },
+  'repository:import': { path: 'C:\\repos\\project', name: 'Project' },
+  'workspace:describe': { agentId: 'agent', sessionId: 'session' },
+  'pty:create': {
+    agentId: 'agent',
+    task: 'Work',
+    dispatchId: 'dispatch',
+    runTaskId: 'task',
+    repositoryId: 'repository',
+    workspaceBindingId: 'binding',
+  },
   'pty:write': { sessionId: 'session', dataBase64: 'YQ==' },
   'pty:resize': { sessionId: 'session', cols: 120, rows: 32 },
   'pty:kill': { sessionId: 'session' },
@@ -62,6 +80,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:create': {
     name: 'Run',
     goal: 'Goal',
+    repositoryId: 'repository',
     participants: [{ agentId: 'agent', role: 'orchestrator' }],
   },
   'run:delete': { runId: 'run' },
@@ -71,11 +90,11 @@ const valid: Record<InvokeChannel, unknown> = {
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
   'runArtifact:create': { runId: 'run', kind: 'result', content: 'done' },
-  'git:status': { agentId: 'agent' },
-  'git:diff': { agentId: 'agent', path: 'src/index.ts' },
-  'fs:tree': { agentId: 'agent', path: '' },
-  'fs:read': { agentId: 'agent', path: 'README.md' },
-  'fs:agentFiles': { agentId: 'agent' },
+  'git:status': { agentId: 'agent', sessionId: 'session' },
+  'git:diff': { agentId: 'agent', sessionId: 'session', path: 'src/index.ts' },
+  'fs:tree': { agentId: 'agent', sessionId: 'session', path: '' },
+  'fs:read': { agentId: 'agent', sessionId: 'session', path: 'README.md' },
+  'fs:agentFiles': { agentId: 'agent', sessionId: 'session' },
   'dialog:pickFolder': undefined,
 };
 
@@ -107,6 +126,10 @@ check('unknown runtimes are rejected', rejects('agent:create', {
 }));
 check('workspace traversal is rejected before filesystem handlers',
   rejects('fs:read', { agentId: 'agent', path: '../outside.txt' }));
+check('repository selectors reject malformed non-string values',
+  rejects('pty:create', { agentId: 'agent', repositoryId: 42 }));
+check('workspace selectors reject unknown fields',
+  rejects('workspace:describe', { agentId: 'agent', repositoryId: 'repo' }));
 
 const packaged = 'file:///C:/ade/out/renderer/index.html';
 check('exact packaged renderer URL is trusted', isTrustedRendererUrl(packaged, undefined, packaged));

@@ -50,7 +50,11 @@ function targetFiles(runtime: RuntimeId): string[] {
 }
 
 /** Regenerate the managed memory block in the agent's instruction file(s). */
-export function injectMemoryBlock(agent: Agent, settings?: MemorySettings): void {
+export function injectMemoryBlock(
+  agent: Agent,
+  settings?: MemorySettings,
+  workspaceDir = agent.workspaceDir,
+): void {
   const cfg = settings ?? DEFAULT_SETTINGS;
   if (!cfg.enabled) return;
 
@@ -64,9 +68,9 @@ export function injectMemoryBlock(agent: Agent, settings?: MemorySettings): void
 
   const block = buildBlock(agent, store, cfg);
 
-  mkdirSync(agent.workspaceDir, { recursive: true });
+  mkdirSync(workspaceDir, { recursive: true });
   for (const file of targetFiles(agent.runtime)) {
-    writeManagedBlock(join(agent.workspaceDir, file), block);
+    writeManagedBlock(join(workspaceDir, file), block);
   }
 }
 

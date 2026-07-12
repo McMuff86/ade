@@ -13,10 +13,13 @@ terminals around named agents.
 - **Permission modes** per agent, translated to the right CLI flags
   (`claude --dangerously-skip-permissions`,
   `codex --dangerously-bypass-approvals-and-sandbox`, …).
-- **Git-aware workspaces**: link a category to a repo and every agent gets its
-  own worktree on branch `ade/<agent>`; the right panel shows real
-  status/diffs (Changes) and the workspace tree incl. pinned agent files
-  (Files).
+- **First-class repository scopes**: give a specialized agent a default repo,
+  keep a general agent portable, or choose a repo per new session/run. Every
+  agent/repo pair gets its own ADE worktree; the right panel names the exact
+  repo, source, branch/path, changes and lease used by the selected session.
+- **Reusable agent templates**: save an agent's runtime/profile and bounded
+  memory seed, then spawn an independent identity and optionally attach it to
+  another repository.
 - **Memory out of the box** (Hermes-style): every agent gets `MEMORY.md` +
   `USER.md` with hard caps; a managed block is injected into
   `CLAUDE.md`/`AGENTS.md` at each session start so the CLI agent reads and
@@ -54,7 +57,8 @@ real Electron/ConPTY workflow against an isolated temporary profile.
 
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
 `pnpm test:runtime`, `pnpm test:orchestration`,
-`pnpm test:orchestration-beta`, and `pnpm test:security`.
+`pnpm test:orchestration-beta`, `pnpm test:repositories`, and
+`pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
 
 ## Keyboard

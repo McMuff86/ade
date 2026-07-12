@@ -1,6 +1,6 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.6 (repository-scope and remote-control planning, 2026-07-12)
+Status: v0.7 (repository scopes implemented; remote control planned, 2026-07-12)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -30,7 +30,7 @@ References:
 - **Category** — top-level organizational group (a YouTube channel, a repo, a
   book). Has: name and profile photo. It may suggest a default repository for
   onboarding, but it does not own an agent's workspace.
-- **Repository** *(planned Goal 5)* — a first-class catalog entry for one local
+- **Repository** — a first-class catalog entry for one local
   Git repository. The same repository may scope many agents, sessions and runs.
 - **Agent** — lives under a category. Has: name, profile photo, runtime
   (which CLI it runs), permission mode, optional default repository, a plain
@@ -38,10 +38,10 @@ References:
   (`MEMORY.md`, `USER.md`, providers).
   An agent is an identity, not a repository workspace; its workspace bindings
   supply execution scope.
-- **Workspace binding** *(planned Goal 5)* — one agent plus one repository plus
+- **Workspace binding** — one agent plus one repository plus
   one ADE-managed worktree/branch. Bindings are independent per repository and
   may be reused by later non-conflicting executions.
-- **Agent template** *(planned Goal 5)* — immutable spawn defaults and a memory
+- **Agent template** — immutable spawn defaults and a memory
   seed. Spawning creates a new agent identity, memory directory and optional
   default repository; a template owns no process or mutable workspace.
 - **Session** — a terminal window of one agent. Selecting an agent shows its
@@ -106,7 +106,7 @@ the migration never deletes user data.
   receives an exclusive agent/repository binding in that repository; one run
   does not transactionally integrate across multiple repositories.
 
-## Repository scopes and reusable agents (planned Goal 5)
+## Repository scopes and reusable agents (implemented Goal 5)
 
 - Repository choice and agent identity are independent. A specialized agent
   may have one default repository; a portable agent has none and receives an
@@ -126,6 +126,12 @@ the migration never deletes user data.
   does not silently promote repository content into global agent memory.
 - Existing category `repoPath` values and workspaces migrate once into
   repository/default/binding records without deleting legacy data.
+- The right-panel scope header shows repository, resolution source, branch,
+  shortened worktree path, clean/dirty state and active lease. Repository and
+  filesystem IPC resolves the selected session snapshot in main.
+- Agent settings can save an immutable template seed. New-agent onboarding can
+  spawn that template into an independent identity and optionally bind it to a
+  selected repository.
 
 Detailed model, UI behavior, migration and exit criteria are binding in
 `docs/REPOSITORY_SCOPES_PLAN.md` and `docs/ROADMAP.md`.

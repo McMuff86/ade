@@ -29,11 +29,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function activeParticipants(): { runId: string; participants: RunParticipant[] } | null {
+function activeParticipants(): {
+  runId: string;
+  repositoryId?: string | null;
+  participants: RunParticipant[];
+} | null {
   const runs = useRuns.getState();
   if (!runs.activeRunId) return null;
   return {
     runId: runs.activeRunId,
+    repositoryId: runs.runs.find((run) => run.id === runs.activeRunId)?.repositoryId,
     participants: runs.participants.filter((participant) => participant.runId === runs.activeRunId),
   };
 }
@@ -43,6 +48,7 @@ async function dispatchParticipant(
   participant: RunParticipant,
   prompt: string,
   dispatchId: string,
+  repositoryId?: string | null,
 ): Promise<boolean> {
   const graph = useGraphStore.getState();
   if (!useAppData.getState().agents[participant.agentId]) return false;
@@ -61,6 +67,8 @@ async function dispatchParticipant(
       prompt,
       dispatchId,
       task.id,
+      task.repositoryId !== undefined ? task.repositoryId : repositoryId,
+      task.workspaceBindingId,
     );
     return true;
   } catch (error) {
@@ -98,7 +106,13 @@ export async function dispatchTeam(
   const result: DispatchResult = { started: 0, failed: 0 };
 
   for (const participant of targets) {
-    if (await dispatchParticipant(active.runId, participant, prompt, dispatchId)) result.started += 1;
+    if (await dispatchParticipant(
+      active.runId,
+      participant,
+      prompt,
+      dispatchId,
+      active.repositoryId,
+    )) result.started += 1;
     else result.failed += 1;
   }
   return result;
@@ -110,7 +124,13 @@ export async function dispatchAgent(participantId: string, task: string): Promis
   if (!prompt || !active) return { started: 0, failed: 0 };
   const participant = active.participants.find((candidate) => candidate.id === participantId);
   if (!participant) return { started: 0, failed: 1 };
-  const started = await dispatchParticipant(active.runId, participant, prompt, newDispatchId());
+  const started = await dispatchParticipant(
+    active.runId,
+    participant,
+    prompt,
+    newDispatchId(),
+    active.repositoryId,
+  );
   return { started: started ? 1 : 0, failed: started ? 0 : 1 };
 }
 
@@ -168,13 +188,23 @@ export async function cancelAllTasks(): Promise<void> {
 export async function openTerminal(agentId: string): Promise<void> {
   if (!useAppData.getState().agents[agentId]) return;
   const sessions = useSessions.getState();
-  const has = (sessions.orderByAgent[agentId] ?? []).length > 0;
-  if (!has) {
+  const runs = useRuns.getState();
+  const repositoryId = runs.runs.find((run) => run.id === runs.activeRunId)?.repositoryId;
+  const matchingSessionId = [...(sessions.orderByAgent[agentId] ?? [])].reverse().find((sessionId) => {
+    const meta = sessions.sessions[sessionId];
+    if (!meta || meta.kind !== 'interactive') return false;
+    if (repositoryId === undefined) return true;
+    if (repositoryId === null) return meta.scopeSource === 'plain-home';
+    return meta.repositoryId === repositoryId;
+  });
+  if (!matchingSessionId) {
     try {
-      await sessions.createSession(agentId);
+      await sessions.createSession(agentId, undefined, undefined, undefined, repositoryId);
     } catch (error) {
       console.error('[ade] openTerminal: session failed:', error);
     }
+  } else {
+    sessions.setActive(agentId, matchingSessionId);
   }
   useSelection.getState().setSelectedAgent(agentId);
   useMode.getState().setMode('terminals');

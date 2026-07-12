@@ -25,6 +25,8 @@ interface SessionsState {
     task?: string,
     dispatchId?: string,
     runTaskId?: string,
+    repositoryId?: string | null,
+    workspaceBindingId?: string,
   ) => Promise<SessionMeta>;
   closeSession: (sessionId: string) => Promise<void>;
   restartSession: (sessionId: string) => Promise<SessionMeta | null>;
@@ -144,9 +146,23 @@ export const useSessions = create<SessionsState>((set, get) => ({
     return hydrateInFlight;
   },
 
-  createSession: async (agentId, task, dispatchId, runTaskId) => {
+  createSession: async (
+    agentId,
+    task,
+    dispatchId,
+    runTaskId,
+    repositoryId,
+    workspaceBindingId,
+  ) => {
     try {
-      const meta = await window.ade.invoke('pty:create', { agentId, task, dispatchId, runTaskId });
+      const meta = await window.ade.invoke('pty:create', {
+        agentId,
+        task,
+        dispatchId,
+        runTaskId,
+        repositoryId,
+        workspaceBindingId,
+      });
       if (!get().hydrated) createdDuringHydrate.add(meta.id);
       set((state) => ({
         sessions: { ...state.sessions, [meta.id]: meta },
@@ -179,7 +195,17 @@ export const useSessions = create<SessionsState>((set, get) => ({
   restartSession: async (sessionId) => {
     const previous = get().sessions[sessionId];
     if (!previous || previous.kind !== 'interactive') return null;
-    const replacement = await get().createSession(previous.agentId);
+    const repositoryId = previous.scopeSource === 'plain-home'
+      ? null
+      : previous.repositoryId;
+    const replacement = await get().createSession(
+      previous.agentId,
+      undefined,
+      undefined,
+      undefined,
+      repositoryId,
+      previous.workspaceBindingId,
+    );
     try {
       await get().closeSession(sessionId);
     } catch {

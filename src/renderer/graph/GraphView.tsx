@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import type { Agent, Category, RunCreateInput } from '../../shared/types';
+import type { Agent, Category, Repository, RunCreateInput } from '../../shared/types';
 import { useAppData } from '../stores/appdata';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
@@ -107,6 +107,7 @@ function phaseText(phase: string): string {
 export function GraphView(): JSX.Element {
   const categories = useAppData((state) => state.categories);
   const agents = useAppData((state) => state.agents);
+  const repositories = useAppData((state) => state.repositories);
   const runs = useRuns((state) => state.runs);
   const participants = useRuns((state) => state.participants);
   const tasks = useRuns((state) => state.tasks);
@@ -131,6 +132,9 @@ export function GraphView(): JSX.Element {
   const setTeamIdle = useGraphStore((state) => state.setTeamIdle);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
+  const activeRepository = activeRun?.repositoryId
+    ? repositories.find((repository) => repository.id === activeRun.repositoryId)
+    : null;
   const activeUsage = activeRunId ? usageByRun[activeRunId] : undefined;
   const pendingApproval = approvals.find(
     (approval) => approval.runId === activeRunId && approval.status === 'pending' && activeRun?.status === 'running',
@@ -440,6 +444,9 @@ export function GraphView(): JSX.Element {
             {activeRun.mode === 'managed' && (
               <span className="grun-phase">{phaseText(activeRun.phase)}</span>
             )}
+            <span className="grun-repo" title={activeRepository?.rootPath}>
+              {activeRepository?.name ?? (activeRun.repositoryId === undefined ? 'Legacy defaults' : 'Portable homes')}
+            </span>
             <span className="grun-goal" title={activeRun.goal || activeRun.name}>
               {activeRun.goal || 'Kein Run-Ziel hinterlegt'}
             </span>
@@ -703,6 +710,7 @@ export function GraphView(): JSX.Element {
         <NewRunModal
           categories={categories}
           agents={agents}
+          repositories={repositories}
           suggestedName={`Run ${runs.length + 1}`}
           onCancel={() => setShowNewRun(false)}
           onCreate={async (input) => {
@@ -928,6 +936,7 @@ function Composer(props: {
 function NewRunModal(props: {
   categories: Category[];
   agents: Record<string, Agent>;
+  repositories: Repository[];
   suggestedName: string;
   onCancel: () => void;
   onCreate: (input: RunCreateInput) => Promise<void>;
@@ -935,6 +944,9 @@ function NewRunModal(props: {
   const [name, setName] = useState(props.suggestedName);
   const [goal, setGoal] = useState('');
   const [orchestratorId, setOrchestratorId] = useState('');
+  const [repositoryId, setRepositoryId] = useState(
+    props.repositories.length === 1 ? props.repositories[0]!.id : '',
+  );
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [leaders, setLeaders] = useState<Record<string, string>>({});
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(2);
@@ -1016,6 +1028,7 @@ function NewRunModal(props: {
       await props.onCreate({
         name: name.trim(),
         goal: goal.trim(),
+        repositoryId: repositoryId || null,
         participants,
         budget: {
           maxConcurrentTasks,
@@ -1056,6 +1069,17 @@ function NewRunModal(props: {
             <select value={orchestratorId} onChange={(event) => chooseOrchestrator(event.target.value)}>
               <option value="">Keiner</option>
               {allAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+            </select>
+          </label>
+          <label className="grun-field">
+            <span>Repository</span>
+            <select value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
+              <option value="">Kein Repository (portable Agent-Homes)</option>
+              {[...props.repositories]
+                .sort((left, right) => left.name.localeCompare(right.name))
+                .map((repository) => (
+                  <option key={repository.id} value={repository.id}>{repository.name}</option>
+                ))}
             </select>
           </label>
 

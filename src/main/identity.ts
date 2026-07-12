@@ -8,50 +8,63 @@
 
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
+  AdeConfig,
   Agent,
   AgentCreateInput,
+  AgentTemplate,
+  AgentTemplateCreateInput,
+  AgentTemplateSpawnInput,
   AgentUpdateInput,
   Category,
   CategoryCreateInput,
 } from '../shared/types';
-import type { ConfigStore } from './config/store';
-import { createAgentWorktree, isGitRepo } from './git/GitService';
 import { createMemoryScaffold } from './memory/scaffold';
+import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 
-/** URL/path-safe slug from a display name; never empty. */
-function slugify(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || 'item';
+export interface IdentityConfigPort {
+  get(): AdeConfig;
+  save(partial: Partial<AdeConfig>): AdeConfig;
 }
 
-function uniqueSlug(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base;
-  let n = 2;
-  while (taken.has(`${base}-${n}`)) n += 1;
-  return `${base}-${n}`;
+export interface IdentityOptions {
+  /** Test/recovery override; production identities live below Electron userData. */
+  baseDir?: string;
 }
 
 function adeDir(): string {
   return join(app.getPath('userData'), 'ade');
 }
 
-export function createCategory(store: ConfigStore, input: CategoryCreateInput): Category {
+export async function createCategory(
+  store: IdentityConfigPort,
+  input: CategoryCreateInput,
+  scopes: RepositoryScopeService,
+): Promise<Category> {
   const name = input.name.trim();
   if (!name) throw new Error('ade: category name is required');
+
+  let defaultRepositoryId = input.defaultRepositoryId;
+  let repoPath = input.repoPath;
+  if (repoPath) {
+    const repository = await scopes.importRepository(repoPath);
+    defaultRepositoryId = repository.id;
+    repoPath = repository.rootPath;
+  } else if (defaultRepositoryId) {
+    const repository = store.get().repositories.find((candidate) => candidate.id === defaultRepositoryId);
+    if (!repository) throw new Error(`ade: repository not found "${defaultRepositoryId}"`);
+    repoPath = repository.rootPath;
+  }
 
   const config = store.get();
   const category: Category = {
     id: randomUUID(),
     name,
     photo: input.photo,
-    repoPath: input.repoPath,
+    repoPath,
+    defaultRepositoryId,
     agents: [],
     kind: input.kind,
   };
@@ -59,17 +72,26 @@ export function createCategory(store: ConfigStore, input: CategoryCreateInput): 
   return category;
 }
 
-export function deleteCategory(store: ConfigStore, id: string): void {
+export function deleteCategory(store: IdentityConfigPort, id: string): void {
   const config = store.get();
+  const removedAgentIds = new Set(
+    config.agents.filter((agent) => agent.categoryId === id).map((agent) => agent.id),
+  );
   // Remove the category and its agents from config only — leave workspace,
   // memory and photo files untouched on disk.
   store.save({
     categories: config.categories.filter((c) => c.id !== id),
     agents: config.agents.filter((a) => a.categoryId !== id),
+    workspaceBindings: config.workspaceBindings.filter((binding) => !removedAgentIds.has(binding.agentId)),
   });
 }
 
-export async function createAgent(store: ConfigStore, input: AgentCreateInput): Promise<Agent> {
+export async function createAgent(
+  store: IdentityConfigPort,
+  input: AgentCreateInput,
+  scopes: RepositoryScopeService,
+  options: IdentityOptions = {},
+): Promise<Agent> {
   const name = input.name.trim();
   if (!name) throw new Error('ade: agent name is required');
 
@@ -78,48 +100,19 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
   if (!category) throw new Error(`ade: category not found "${input.categoryId}"`);
 
   const id = randomUUID();
-  const catSlug = slugify(category.name);
-  const takenSlugs = new Set(
-    config.agents
-      .filter((a) => a.categoryId === category.id)
-      .map((a) => slugify(a.name)),
-  );
-  const agentSlug = uniqueSlug(slugify(name), takenSlugs);
-
-  const base = adeDir();
-  // Default (plain) workspace dir; overridden below by a worktree when the
-  // category is repo-backed and worktree creation succeeds.
-  let workspaceDir = join(base, 'workspaces', catSlug, agentSlug);
+  const base = options.baseDir ?? adeDir();
+  const homeWorkspaceDir = join(base, 'agents', id, 'workspace');
   const memoryDir = join(base, 'agents', id, 'memory');
-
-  // Repo-backed category → a git worktree on branch ade/<slug> from HEAD.
-  // Git must never hard-fail agent creation: on any error we fall back to the
-  // plain workspace dir with a console warning.
-  let worktreeMade = false;
-  if (category.repoPath && (await isGitRepo(category.repoPath))) {
-    const worktreePath = join(base, 'worktrees', basename(category.repoPath), agentSlug);
-    try {
-      const result = await createAgentWorktree({
-        repoPath: category.repoPath,
-        agentSlug,
-        worktreePath,
-      });
-      workspaceDir = result.worktreePath;
-      worktreeMade = true;
-      console.log(`[ade] created worktree ${result.worktreePath} on branch ${result.branch}`);
-    } catch (err) {
-      console.warn(
-        `[ade] worktree creation failed for "${name}" (${category.repoPath}); ` +
-          `falling back to a plain workspace dir:`,
-        err,
-      );
-    }
-  }
-
-  if (!worktreeMade) mkdirSync(workspaceDir, { recursive: true });
+  mkdirSync(homeWorkspaceDir, { recursive: true });
   mkdirSync(memoryDir, { recursive: true });
-  // Phase D: seed empty-but-valid MEMORY.md / USER.md (skipped when disabled).
   createMemoryScaffold(memoryDir, { enabled: config.settings.memory?.enabled });
+
+  const defaultRepositoryId = input.defaultRepositoryId === undefined
+    ? category.defaultRepositoryId
+    : (input.defaultRepositoryId || undefined);
+  if (defaultRepositoryId && !config.repositories.some((repository) => repository.id === defaultRepositoryId)) {
+    throw new Error(`ade: repository not found "${defaultRepositoryId}"`);
+  }
 
   const agent: Agent = {
     id,
@@ -131,7 +124,9 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
     permissionMode: input.permissionMode,
     customCommand: input.customCommand,
     ollamaModel: input.ollamaModel,
-    workspaceDir,
+    workspaceDir: homeWorkspaceDir,
+    homeWorkspaceDir,
+    defaultRepositoryId,
     memoryDir,
     teamRole: input.teamRole,
   };
@@ -142,10 +137,28 @@ export async function createAgent(store: ConfigStore, input: AgentCreateInput): 
     ),
     agents: [...config.agents, agent],
   });
-  return agent;
+
+  try {
+    if (defaultRepositoryId) return await scopes.setAgentDefault(agent.id, defaultRepositoryId);
+    return agent;
+  } catch (error) {
+    const latest = store.get();
+    store.save({
+      categories: latest.categories.map((candidate) => candidate.id === category.id
+        ? { ...candidate, agents: candidate.agents.filter((agentId) => agentId !== agent.id) }
+        : candidate),
+      agents: latest.agents.filter((candidate) => candidate.id !== agent.id),
+      workspaceBindings: latest.workspaceBindings.filter((binding) => binding.agentId !== agent.id),
+    });
+    throw error;
+  }
 }
 
-export function updateAgent(store: ConfigStore, input: AgentUpdateInput): Agent {
+export async function updateAgent(
+  store: IdentityConfigPort,
+  input: AgentUpdateInput,
+  scopes: RepositoryScopeService,
+): Promise<Agent> {
   const name = input.name.trim();
   if (!name) throw new Error('ade: agent name is required');
 
@@ -153,7 +166,7 @@ export function updateAgent(store: ConfigStore, input: AgentUpdateInput): Agent 
   const existing = config.agents.find((a) => a.id === input.id);
   if (!existing) throw new Error(`ade: agent not found "${input.id}"`);
 
-  const updated: Agent = {
+  let updated: Agent = {
     ...existing,
     name,
     role: input.role?.trim() || undefined,
@@ -169,10 +182,13 @@ export function updateAgent(store: ConfigStore, input: AgentUpdateInput): Agent 
   store.save({
     agents: config.agents.map((a) => (a.id === updated.id ? updated : a)),
   });
+  if (input.defaultRepositoryId !== undefined) {
+    updated = await scopes.setAgentDefault(updated.id, input.defaultRepositoryId);
+  }
   return updated;
 }
 
-export function deleteAgent(store: ConfigStore, id: string): void {
+export function deleteAgent(store: IdentityConfigPort, id: string): void {
   const config = store.get();
   // Config entries only — never delete the agent's workspace/memory files.
   // A repo-backed agent's worktree is left on disk and its metadata is NOT
@@ -185,5 +201,91 @@ export function deleteAgent(store: ConfigStore, id: string): void {
       agents: c.agents.filter((aid) => aid !== id),
     })),
     agents: config.agents.filter((a) => a.id !== id),
+    workspaceBindings: config.workspaceBindings.filter((binding) => binding.agentId !== id),
   });
+}
+
+export function createAgentTemplate(
+  store: IdentityConfigPort,
+  input: AgentTemplateCreateInput,
+): AgentTemplate {
+  const name = input.name.trim();
+  if (!name) throw new Error('ade: template name is required');
+  const config = store.get();
+  const agent = config.agents.find((candidate) => candidate.id === input.sourceAgentId);
+  if (!agent) throw new Error(`ade: template source agent not found "${input.sourceAgentId}"`);
+  const now = Date.now();
+  const template: AgentTemplate = {
+    id: randomUUID(),
+    name,
+    role: agent.role,
+    photo: agent.photo,
+    runtime: agent.runtime,
+    permissionMode: agent.permissionMode,
+    customCommand: agent.customCommand,
+    ollamaModel: agent.ollamaModel,
+    memorySeed: {
+      memory: readMemorySeed(join(agent.memoryDir, 'MEMORY.md')),
+      user: readMemorySeed(join(agent.memoryDir, 'USER.md')),
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.save({ agentTemplates: [...config.agentTemplates, template] });
+  return structuredClone(template);
+}
+
+export function deleteAgentTemplate(store: IdentityConfigPort, id: string): void {
+  const config = store.get();
+  if (!config.agentTemplates.some((template) => template.id === id)) return;
+  store.save({ agentTemplates: config.agentTemplates.filter((template) => template.id !== id) });
+}
+
+export async function spawnAgentTemplate(
+  store: IdentityConfigPort,
+  input: AgentTemplateSpawnInput,
+  scopes: RepositoryScopeService,
+  options: IdentityOptions = {},
+): Promise<Agent> {
+  const template = store.get().agentTemplates.find((candidate) => candidate.id === input.templateId);
+  if (!template) throw new Error(`ade: agent template not found "${input.templateId}"`);
+  const agent = await createAgent(store, {
+    categoryId: input.categoryId,
+    name: input.name?.trim() || template.name,
+    role: input.role?.trim() || template.role,
+    photo: input.photo ?? template.photo,
+    runtime: input.runtime ?? template.runtime,
+    permissionMode: input.permissionMode ?? template.permissionMode,
+    customCommand: input.customCommand?.trim() || template.customCommand,
+    ollamaModel: input.ollamaModel?.trim() || template.ollamaModel,
+    defaultRepositoryId: input.defaultRepositoryId,
+  }, scopes, options);
+  writeFileSync(join(agent.memoryDir, 'MEMORY.md'), template.memorySeed.memory, 'utf8');
+  writeFileSync(join(agent.memoryDir, 'USER.md'), template.memorySeed.user, 'utf8');
+  return agent;
+}
+
+const TEMPLATE_MEMORY_CAP = 32_000;
+
+function readMemorySeed(path: string): string {
+  try {
+    return sanitizeTemplateSeed(readFileSync(path, 'utf8').slice(0, TEMPLATE_MEMORY_CAP));
+  } catch {
+    return '';
+  }
+}
+
+function sanitizeTemplateSeed(seed: string): string {
+  const redacted = '[redacted by ADE template]';
+  return seed
+    .replace(
+      /-----BEGIN [^-\r\n]*PRIVATE KEY-----[\s\S]*?-----END [^-\r\n]*PRIVATE KEY-----/gi,
+      redacted,
+    )
+    .replace(
+      /^(\s*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret|private[_-]?key)\s*[:=]\s*).+$/gim,
+      `$1${redacted}`,
+    )
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, `Bearer ${redacted}`)
+    .replace(/(https?:\/\/)[^/\s:@]+:[^@\s/]+@/gi, `$1${redacted}@`);
 }

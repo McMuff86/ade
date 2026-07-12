@@ -16,6 +16,10 @@ import {
 } from './runtimeAdapters';
 import { WorkspaceService, type WorkspacePort } from './WorkspaceService';
 import { showManagedTaskNotification } from '../notifications';
+import type {
+  RepositoryScopePort,
+  ResolvedExecutionScope,
+} from '../repositories/RepositoryScopeService';
 
 interface ConfigPort {
   get(): AdeConfig;
@@ -26,6 +30,8 @@ type TaskLauncher = (
   prompt: string,
   dispatchId: string,
   runTaskId: string,
+  repositoryId?: string | null,
+  workspaceBindingId?: string,
 ) => Promise<SessionMeta>;
 
 type TaskCanceller = (runTaskIds: string[]) => void | Promise<void>;
@@ -36,14 +42,28 @@ export class RunCoordinator {
   private readonly runChains = new Map<string, Promise<void>>();
   private taskLauncher: TaskLauncher | null = null;
   private taskCanceller: TaskCanceller | null = null;
+  private readonly scopes: RepositoryScopePort;
 
   constructor(
     private readonly store: ConfigPort,
     private readonly orchestration: OrchestrationService,
     private readonly adapters: RuntimeAdapterRegistry = new RuntimeAdapterRegistry(),
     private readonly workspaces: WorkspacePort = new WorkspaceService(),
+    scopes?: RepositoryScopePort,
   ) {
     this.mailbox = new MailboxService(orchestration);
+    this.scopes = scopes ?? {
+      resolve: async (agentId): Promise<ResolvedExecutionScope> => {
+        const agent = this.store.get().agents.find((candidate) => candidate.id === agentId);
+        if (!agent) throw new Error(`ade: agent not found "${agentId}"`);
+        return {
+          source: agent.defaultRepositoryId ? 'agent-default' : 'plain-home',
+          repositoryId: agent.defaultRepositoryId,
+          workspaceDir: agent.workspaceDir,
+          branch: '',
+        };
+      },
+    };
   }
 
   connect(taskLauncher: TaskLauncher, taskCanceller: TaskCanceller): void {
@@ -104,14 +124,18 @@ export class RunCoordinator {
         }
       }
 
-      const inspected = await Promise.all(roster.map(async ({ participant, agent }) => ({
-        participant,
-        agent,
-        workspace: await this.workspaces.inspect(agent.workspaceDir),
-      })));
+      const inspected = await Promise.all(roster.map(async ({ participant, agent }) => {
+        const scope = await this.scopes.resolve(agent.id, { repositoryId: run.repositoryId });
+        return {
+          participant,
+          agent,
+          scope,
+          workspace: await this.workspaces.inspect(scope.workspaceDir),
+        };
+      }));
       for (const item of inspected) {
         if (item.workspace.isRepo && !item.workspace.clean) {
-          throw new Error(`ade: ${item.agent.name}'s worktree is not clean: ${item.agent.workspaceDir}`);
+          throw new Error(`ade: ${item.agent.name}'s worktree is not clean: ${item.scope.workspaceDir}`);
         }
         if (item.workspace.isRepo && !item.workspace.branch) {
           throw new Error(`ade: ${item.agent.name}'s worktree is detached; managed runs require a branch`);
@@ -128,7 +152,7 @@ export class RunCoordinator {
         }
       }
 
-      this.orchestration.acquireWorkspaceLeases(runId, inspected.map(({ participant, agent, workspace }) => ({
+      this.orchestration.acquireWorkspaceLeases(runId, inspected.map(({ participant, agent, scope, workspace }) => ({
         participantId: participant.id,
         agentId: agent.id,
         workspaceDir: workspace.workspaceDir,
@@ -136,6 +160,8 @@ export class RunCoordinator {
         branch: workspace.branch,
         baseSha: workspace.headSha,
         commonGitDir: workspace.commonGitDir,
+        repositoryId: scope.repositoryId,
+        workspaceBindingId: scope.workspaceBindingId,
       })));
 
       try {
@@ -723,7 +749,14 @@ export class RunCoordinator {
     launch.workspaceHeadSha = workspaceHeadSha;
     this.launches.set(task.id, launch);
     try {
-      const pending = this.taskLauncher(agent.id, task.prompt, `run-${task.runId}-${label}`, task.id);
+      const pending = this.taskLauncher(
+        agent.id,
+        task.prompt,
+        `run-${task.runId}-${label}`,
+        task.id,
+        lease.repositoryId ?? null,
+        lease.workspaceBindingId,
+      );
       // A global PTY slot may be busy for minutes. Keep the run coordinator
       // cancellable while PtyManager owns that pending FIFO acquisition.
       void pending.catch((error) => {

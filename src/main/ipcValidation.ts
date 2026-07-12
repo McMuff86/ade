@@ -85,6 +85,11 @@ function optionalId(channel: string, value: unknown, label: string): string | un
   return id(channel, value, label);
 }
 
+function nullableId(channel: string, value: unknown, label: string): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  return id(channel, value, label);
+}
+
 function ids(channel: string, value: unknown, label: string): string[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length > 1_000) {
@@ -132,16 +137,25 @@ function validateConfigSave(channel: string, payload: unknown): void {
 
 function validateCategoryCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'photo', 'repoPath', 'kind']);
+  exactKeys(channel, request, ['name', 'photo', 'repoPath', 'defaultRepositoryId', 'kind']);
   stringValue(channel, request.name, 'name', { max: 200 });
   filename(channel, request.photo, 'photo');
   optionalString(channel, request.repoPath, 'repoPath', { max: 32_768 });
+  optionalId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (request.kind !== undefined) enumValue(channel, request.kind, 'kind', CATEGORY_KINDS);
 }
 
 function validateAgentInput(channel: string, payload: unknown, update: boolean): void {
   const request = record(channel, payload);
-  const common = ['name', 'role', 'runtime', 'permissionMode', 'customCommand', 'ollamaModel'];
+  const common = [
+    'name',
+    'role',
+    'runtime',
+    'permissionMode',
+    'customCommand',
+    'ollamaModel',
+    'defaultRepositoryId',
+  ];
   const allowed = update
     ? ['id', ...common]
     : ['categoryId', ...common, 'photo', 'teamRole'];
@@ -153,6 +167,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
   optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+  nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (!update) {
     filename(channel, request.photo, 'photo');
     if (request.teamRole !== undefined) enumValue(channel, request.teamRole, 'teamRole', TEAM_ROLES);
@@ -161,11 +176,20 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
 
 function validatePtyCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['agentId', 'task', 'dispatchId', 'runTaskId']);
+  exactKeys(channel, request, [
+    'agentId',
+    'task',
+    'dispatchId',
+    'runTaskId',
+    'repositoryId',
+    'workspaceBindingId',
+  ]);
   id(channel, request.agentId, 'agentId');
   optionalString(channel, request.task, 'task', { max: 8_000, allowEmpty: true });
   optionalId(channel, request.dispatchId, 'dispatchId');
   optionalId(channel, request.runTaskId, 'runTaskId');
+  nullableId(channel, request.repositoryId, 'repositoryId');
+  optionalId(channel, request.workspaceBindingId, 'workspaceBindingId');
 }
 
 function validatePtyCancel(channel: string, payload: unknown): void {
@@ -177,9 +201,10 @@ function validatePtyCancel(channel: string, payload: unknown): void {
 
 function validateRunCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'goal', 'participants', 'budget']);
+  exactKeys(channel, request, ['name', 'goal', 'repositoryId', 'participants', 'budget']);
   stringValue(channel, request.name, 'name', { max: 200 });
   optionalString(channel, request.goal, 'goal', { max: 8_000, allowEmpty: true });
+  nullableId(channel, request.repositoryId, 'repositoryId');
   if (!Array.isArray(request.participants) || request.participants.length < 1 || request.participants.length > 100) {
     invalid(channel, 'participants must contain between 1 and 100 entries');
   }
@@ -239,13 +264,21 @@ function validateIdRequest(channel: string, payload: unknown, field: string): vo
 
 function validateAgentPath(channel: string, payload: unknown, pathOptional: boolean): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['agentId', 'path']);
+  exactKeys(channel, request, ['agentId', 'sessionId', 'path']);
   id(channel, request.agentId, 'agentId');
+  optionalId(channel, request.sessionId, 'sessionId');
   if (pathOptional) {
     if (request.path !== undefined) relativePath(channel, request.path, true);
   } else {
     relativePath(channel, request.path, false);
   }
+}
+
+function validateWorkspaceTarget(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['agentId', 'sessionId']);
+  id(channel, request.agentId, 'agentId');
+  optionalId(channel, request.sessionId, 'sessionId');
 }
 
 /** Throws before a privileged handler sees malformed or over-sized input. */
@@ -275,6 +308,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.CategoryDelete:
     case IPC.AgentDelete:
+    case IPC.AgentTemplateDelete:
       validateIdRequest(channel, payload, 'id');
       return;
     case IPC.AgentCreate:
@@ -282,6 +316,59 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.AgentUpdate:
       validateAgentInput(channel, payload, true);
+      return;
+    case IPC.AgentSetDefaultRepository: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['agentId', 'repositoryId']);
+      id(channel, request.agentId, 'agentId');
+      nullableId(channel, request.repositoryId, 'repositoryId');
+      if (request.repositoryId === undefined) invalid(channel, 'repositoryId is required');
+      return;
+    }
+    case IPC.AgentTemplateCreate: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['sourceAgentId', 'name']);
+      id(channel, request.sourceAgentId, 'sourceAgentId');
+      stringValue(channel, request.name, 'name', { max: 200 });
+      return;
+    }
+    case IPC.AgentTemplateSpawn: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, [
+        'templateId',
+        'categoryId',
+        'name',
+        'role',
+        'photo',
+        'runtime',
+        'permissionMode',
+        'customCommand',
+        'ollamaModel',
+        'defaultRepositoryId',
+      ]);
+      id(channel, request.templateId, 'templateId');
+      id(channel, request.categoryId, 'categoryId');
+      optionalString(channel, request.name, 'name', { max: 200, allowEmpty: true });
+      optionalString(channel, request.role, 'role', { max: 200, allowEmpty: true });
+      filename(channel, request.photo, 'photo');
+      if (request.runtime !== undefined) enumValue(channel, request.runtime, 'runtime', RUNTIMES);
+      if (request.permissionMode !== undefined) {
+        enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
+      }
+      optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
+      optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+      nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
+      return;
+    }
+    case IPC.RepositoryImport: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['path', 'name']);
+      stringValue(channel, request.path, 'path', { max: 32_768 });
+      optionalString(channel, request.name, 'name', { max: 200, allowEmpty: true });
+      return;
+    }
+    case IPC.WorkspaceDescribe:
+      validateWorkspaceTarget(channel, payload);
       return;
     case IPC.PtyCreate:
       validatePtyCreate(channel, payload);
@@ -353,7 +440,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.GitStatus:
     case IPC.FsAgentFiles:
-      validateIdRequest(channel, payload, 'agentId');
+      validateWorkspaceTarget(channel, payload);
       return;
     case IPC.GitDiff:
     case IPC.FsRead:

@@ -10,6 +10,7 @@ import type { AgentFile, FsTreeNode, GitStatus } from '../../shared/types';
 
 interface FilesViewProps {
   agentId: string | null;
+  sessionId: string | null;
   status: GitStatus | null;
   nonce: number;
   openPath: string | null;
@@ -21,7 +22,14 @@ interface Counts {
   deletions: number;
 }
 
-export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesViewProps): JSX.Element {
+export function FilesView({
+  agentId,
+  sessionId,
+  status,
+  nonce,
+  openPath,
+  onOpen,
+}: FilesViewProps): JSX.Element {
   const [childrenByPath, setChildrenByPath] = useState<Record<string, FsTreeNode[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<AgentFile[]>([]);
@@ -45,7 +53,11 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
     let live = true;
     void (async () => {
       try {
-        const root = await window.ade.invoke('fs:tree', { agentId, path: '' });
+        const root = await window.ade.invoke('fs:tree', {
+          agentId,
+          sessionId: sessionId ?? undefined,
+          path: '',
+        });
         if (live) {
           setChildrenByPath({ '': root.children ?? [] });
           setExpanded(new Set());
@@ -57,7 +69,7 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
     return () => {
       live = false;
     };
-  }, [agentId]);
+  }, [agentId, sessionId]);
 
   // Pinned agent files on agent change + on each refresh nonce.
   useEffect(() => {
@@ -68,7 +80,10 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
     let live = true;
     void (async () => {
       try {
-        const files = await window.ade.invoke('fs:agentFiles', { agentId });
+        const files = await window.ade.invoke('fs:agentFiles', {
+          agentId,
+          sessionId: sessionId ?? undefined,
+        });
         if (live) setPinned(files);
       } catch (err) {
         console.error('[ade] fs:agentFiles failed:', err);
@@ -77,7 +92,7 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
     return () => {
       live = false;
     };
-  }, [agentId, nonce]);
+  }, [agentId, sessionId, nonce]);
 
   const toggleDir = async (path: string): Promise<void> => {
     const next = new Set(expanded);
@@ -90,7 +105,11 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
     setExpanded(next);
     if (!childrenByPath[path] && agentId) {
       try {
-        const node = await window.ade.invoke('fs:tree', { agentId, path });
+        const node = await window.ade.invoke('fs:tree', {
+          agentId,
+          sessionId: sessionId ?? undefined,
+          path,
+        });
         setChildrenByPath((prev) => ({ ...prev, [path]: node.children ?? [] }));
       } catch (err) {
         console.error('[ade] fs:tree(expand) failed:', err);
@@ -147,6 +166,7 @@ export function FilesView({ agentId, status, nonce, openPath, onOpen }: FilesVie
                 title={`${f.name} (${f.location})`}
               >
                 <span className="fs-name">{f.name}</span>
+                <span className="fs-location">{f.location === 'memory' ? 'global' : 'workspace'}</span>
                 {c?.additions ? <span className="plus">+{c.additions}</span> : null}
                 {c?.deletions ? <span className="minus">-{c.deletions}</span> : null}
               </button>

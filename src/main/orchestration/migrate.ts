@@ -1,10 +1,15 @@
+import { createHash } from 'node:crypto';
+import { basename, dirname, join, resolve } from 'node:path';
 import {
   DEFAULT_CONFIG,
   DEFAULT_RUN_BUDGET,
   type AdeConfig,
   type Agent,
+  type Category,
+  type Repository,
   type RunEvent,
   type RunParticipant,
+  type WorkspaceBinding,
 } from '../../shared/types';
 
 const LEGACY_RUN_ID = 'legacy-graph-run-v1';
@@ -21,10 +26,20 @@ export function normalizeConfig(
   const categories = arrayOrEmpty(raw.categories);
   const agents = arrayOrEmpty(raw.agents);
   const hadRunSchema = Array.isArray(raw.runs);
-
-  const config: AdeConfig = {
+  const scopeMigration = migrateRepositoryScopes(
     categories,
     agents,
+    arrayOrEmpty(raw.repositories),
+    arrayOrEmpty(raw.workspaceBindings),
+    now,
+  );
+
+  const config: AdeConfig = {
+    categories: scopeMigration.categories,
+    agents: scopeMigration.agents,
+    repositories: scopeMigration.repositories,
+    workspaceBindings: scopeMigration.workspaceBindings,
+    agentTemplates: arrayOrEmpty(raw.agentTemplates),
     runs: arrayOrEmpty(raw.runs).map((run) => ({
       ...run,
       mode: run.mode ?? 'manual',
@@ -66,6 +81,10 @@ export function normalizeConfig(
     !Array.isArray(raw.runApprovals) ||
     !Array.isArray(raw.runWorkspaceLeases) ||
     !Array.isArray(raw.runMessages) ||
+    !Array.isArray(raw.repositories) ||
+    !Array.isArray(raw.workspaceBindings) ||
+    !Array.isArray(raw.agentTemplates) ||
+    scopeMigration.migrated ||
     config.runs.some((run, index) => (
       run.mode !== raw.runs?.[index]?.mode ||
       run.phase !== raw.runs?.[index]?.phase ||
@@ -84,7 +103,7 @@ export function normalizeConfig(
       (category) => category.kind === 'orchestrator' || category.kind === 'team',
     );
     if (legacyCategories.length > 0) {
-      const participants = importLegacyParticipants(legacyCategories, agents, now);
+      const participants = importLegacyParticipants(legacyCategories, config.agents, now);
       config.runs.push({
         id: LEGACY_RUN_ID,
         name: 'Migrated Graph workspace',
@@ -120,6 +139,115 @@ export function normalizeConfig(
   }
 
   return { config, migrated };
+}
+
+interface RepositoryScopeMigration {
+  categories: Category[];
+  agents: Agent[];
+  repositories: Repository[];
+  workspaceBindings: WorkspaceBinding[];
+  migrated: boolean;
+}
+
+/** Convert category-owned repo paths into first-class, deterministic records. */
+function migrateRepositoryScopes(
+  sourceCategories: Category[],
+  sourceAgents: Agent[],
+  sourceRepositories: Repository[],
+  sourceBindings: WorkspaceBinding[],
+  now: number,
+): RepositoryScopeMigration {
+  let categories = sourceCategories;
+  let agents = sourceAgents;
+  const repositories = [...sourceRepositories];
+  const workspaceBindings = [...sourceBindings];
+  let migrated = false;
+
+  const repositoryByPath = new Map<string, Repository>();
+  for (const repository of repositories) {
+    repositoryByPath.set(pathKey(repository.rootPath), repository);
+    repositoryByPath.set(pathKey(repository.commonGitDir), repository);
+  }
+
+  const categoryUpdates = new Map<string, Category>();
+  const agentUpdates = new Map<string, Agent>();
+  const agentById = new Map(sourceAgents.map((agent) => [agent.id, agent]));
+
+  sourceCategories.forEach((category, categoryIndex) => {
+    if (!category.repoPath) return;
+    const key = pathKey(category.repoPath);
+    let repository = category.defaultRepositoryId
+      ? repositories.find((candidate) => candidate.id === category.defaultRepositoryId)
+      : repositoryByPath.get(key);
+    if (!repository) {
+      repository = {
+        id: deterministicId('repository', key),
+        name: basename(resolve(category.repoPath)) || category.name,
+        rootPath: resolve(category.repoPath),
+        commonGitDir: resolve(category.repoPath),
+        verified: false,
+        createdAt: now + categoryIndex,
+      };
+      repositories.push(repository);
+      repositoryByPath.set(key, repository);
+      migrated = true;
+    }
+    if (category.defaultRepositoryId !== repository.id) {
+      categoryUpdates.set(category.id, { ...category, defaultRepositoryId: repository.id });
+      migrated = true;
+    }
+
+    for (const agentId of category.agents) {
+      const agent = agentById.get(agentId);
+      if (!agent) continue;
+      // Presence of homeWorkspaceDir is the one-time migration marker. A Goal
+      // 5 user may intentionally clear/change a category-suggested default;
+      // subsequent startups must never overwrite that choice or fabricate a
+      // legacy binding from the portable home.
+      const isLegacyAgent = !agent.homeWorkspaceDir;
+      if (!isLegacyAgent) continue;
+      const homeWorkspaceDir = agent.homeWorkspaceDir ?? join(dirname(agent.memoryDir), 'workspace');
+      agentUpdates.set(agent.id, {
+        ...agent,
+        defaultRepositoryId: agent.defaultRepositoryId ?? repository.id,
+        homeWorkspaceDir,
+      });
+      migrated = true;
+      if (!workspaceBindings.some(
+        (binding) => binding.agentId === agent.id && binding.repositoryId === repository!.id,
+      )) {
+        workspaceBindings.push({
+          id: deterministicId('binding', `${agent.id}:${repository.id}`),
+          agentId: agent.id,
+          repositoryId: repository.id,
+          workspaceDir: agent.workspaceDir,
+          branch: '',
+          status: 'legacy-unverified',
+          createdAt: now + workspaceBindings.length,
+          lastUsedAt: now + workspaceBindings.length,
+        });
+        migrated = true;
+      }
+    }
+  });
+
+  if (categoryUpdates.size > 0) {
+    categories = sourceCategories.map((category) => categoryUpdates.get(category.id) ?? category);
+  }
+  if (agentUpdates.size > 0) {
+    agents = sourceAgents.map((agent) => agentUpdates.get(agent.id) ?? agent);
+  }
+
+  return { categories, agents, repositories, workspaceBindings, migrated };
+}
+
+function pathKey(path: string): string {
+  const normalized = resolve(path).replace(/\\/g, '/').replace(/\/$/, '');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function deterministicId(kind: string, value: string): string {
+  return `${kind}-${createHash('sha256').update(value).digest('hex').slice(0, 20)}`;
 }
 
 function importLegacyParticipants(

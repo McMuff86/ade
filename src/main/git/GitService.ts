@@ -8,8 +8,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import simpleGit, { type SimpleGit } from 'simple-git';
 import type { GitFileChange, GitFileState, GitStatus } from '../../shared/types';
@@ -34,6 +34,35 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface RepositoryIdentity {
+  rootPath: string;
+  commonGitDir: string;
+}
+
+/** Canonical main-worktree root and shared Git metadata for any linked worktree. */
+export async function repositoryIdentity(dir: string): Promise<RepositoryIdentity> {
+  if (!(await isGitRepo(dir))) throw new Error(`ade: not a git repository: ${dir}`);
+  const g = git(dir);
+  const [commonRaw, worktreesRaw] = await Promise.all([
+    g.raw(['rev-parse', '--git-common-dir']),
+    g.raw(['worktree', 'list', '--porcelain']),
+  ]);
+  const common = commonRaw.trim();
+  const commonGitDir = canonicalPath(isAbsolute(common) ? common : resolve(dir, common));
+  const firstWorktree = worktreesRaw
+    .split(/\r?\n/)
+    .find((line) => line.startsWith('worktree '))
+    ?.slice('worktree '.length)
+    .trim();
+  const rootPath = canonicalPath(firstWorktree || dir);
+  return { rootPath, commonGitDir };
+}
+
+function canonicalPath(path: string): string {
+  const absolute = resolve(path);
+  return existsSync(absolute) ? realpathSync.native(absolute) : absolute;
 }
 
 /** Map a porcelain XY status pair to our coarse file state. */
@@ -282,4 +311,22 @@ export async function createAgentWorktree(params: {
   }
 
   return { worktreePath, branch };
+}
+
+/** Best-effort rollback for a worktree created by the same failed operation. */
+export async function removeAgentWorktree(
+  repoPath: string,
+  worktreePath: string,
+  branch: string,
+): Promise<void> {
+  await execFileAsync('git', ['-C', repoPath, 'worktree', 'remove', '--force', worktreePath], {
+    timeout: 120_000,
+    windowsHide: true,
+  });
+  if (branch.startsWith('ade/')) {
+    await execFileAsync('git', ['-C', repoPath, 'branch', '-D', branch], {
+      timeout: 120_000,
+      windowsHide: true,
+    });
+  }
 }

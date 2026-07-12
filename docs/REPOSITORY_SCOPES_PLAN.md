@@ -1,8 +1,8 @@
 # ADE repository scopes and reusable agents plan
 
-Status: planned, 2026-07-12. The current implementation still derives an
-agent's repository/worktree from its category. Goal 5 replaces that ownership
-model without deleting existing categories, agents, worktrees or user files.
+Status: implemented and locally verified, 2026-07-12. Goal 5 now separates
+agent identity from repository/worktree ownership without deleting existing
+categories, agents, worktrees or user files.
 
 ## User intent
 
@@ -87,8 +87,9 @@ Every new execution resolves its repository explicitly:
 
 For a repository scope, ADE reuses or creates that agent/repository pair's
 `WorkspaceBinding`. Different repositories always receive different worktrees.
-The binding id and resolved workspace are snapshotted onto the session/task/run
-so later default changes cannot redirect existing work.
+The run snapshots its repository choice; each participant lease, session, task
+and task artifact snapshots its resolved binding/workspace so later default
+changes cannot redirect existing work.
 
 A live PTY's scope is immutable. Choosing a different repository while a
 terminal is selected offers **Open new session in this repository**; it never
@@ -112,7 +113,7 @@ Changes tabs. For the selected session or run participant it shows:
 - clean/dirty and active-lease state; and
 - actions appropriate to the current state.
 
-Planned actions:
+Implemented actions:
 
 - **Choose repository...** selects an existing catalog entry or imports a local
   Git repository.
@@ -122,8 +123,10 @@ Planned actions:
   explicit repository.
 - **Clear agent default** makes the identity portable again; it does not delete
   bindings, branches, worktrees or files.
-- **Manage repositories...** lists known repositories and stale bindings, with
-  destructive cleanup handled as a separate explicit workflow.
+
+Destructive repository/worktree cleanup remains intentionally unavailable; a
+future management workflow must make stale references and deletion effects
+explicit before it is added.
 
 While no agent/session is selected, the panel keeps its current empty state.
 While an active managed run is selected, repository choice is read-only and
@@ -184,19 +187,19 @@ separator or worktree path must not create duplicate roots.
 - All migration, binding and template inputs receive runtime validation and
   security tests equivalent to the existing privileged IPC surface.
 
-## Delivery steps
+## Delivered steps
 
 1. Add repository/binding/template types, atomic persistence and non-destructive
    migration fixtures.
 2. Move workspace resolution behind a `RepositoryScopeService`; preserve the
    existing identity, PTY, Git and orchestration behavior through adapters.
-3. Snapshot binding identity onto sessions, tasks, participants/leases and
-   artifacts; enforce immutable live scopes and run-level repository choice.
+3. Snapshot the repository on runs/participants and exact binding/workspace on
+   sessions, tasks, leases and artifacts; enforce immutable live scopes.
 4. Update onboarding and agent editing with optional default repository and a
    portable-agent choice.
 5. Add the Files/Changes scope header, repository chooser and new-session
    behavior shown above.
-6. Add template create/edit/spawn flows with independent memory/workspaces.
+6. Add template create/spawn flows with independent memory/workspaces.
 7. Migrate real existing config in an isolated profile, restart, and verify
    sessions, Files/Changes, managed integration and cleanup behavior.
 8. Run the full Goal 5 security, domain and Electron workflow before using the
@@ -222,3 +225,14 @@ separator or worktree path must not create duplicate roots.
 The remote-control work depends on this model: mobile commands choose a
 `repositoryId` and one or more `agentId` values independently, while the ADE
 core resolves immutable bindings before any task starts.
+
+## Verification record
+
+- `pnpm run typecheck` and the production build pass.
+- `pnpm test` passes 198 focused assertions, including 21 Goal 5 repository-
+  scope assertions and 64 privileged IPC/security assertions.
+- The 41-check production Electron workflow creates a repository-scoped
+  session from a live portable session, verifies immutable scope across tab
+  changes, renderer reload and PTY restart, then completes a repository-scoped
+  managed run through approval, integration and verification and confirms the
+  catalog/bindings/run scope survive a full application restart.

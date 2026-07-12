@@ -1,4 +1,4 @@
-/** Production-build Electron workflow smoke for Goals 3 and 4 (Windows-first). */
+/** Production-build Electron workflow smoke for Goals 3, 4 and 5 (Windows-first). */
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -63,13 +63,18 @@ function seedConfig(
     runtime: 'shell',
     permissionMode: 'default',
     workspaceDir: workspace,
+    homeWorkspaceDir: workspace,
     memoryDir: join(userData, 'agent-memory'),
   };
+  mkdirSync(agent.memoryDir, { recursive: true });
+  const repositoryId = 'e2e-managed-repository';
+  const commonGitDir = resolve(managedRepo, '.git');
   const managedCategory: Category = {
     id: 'e2e-managed-category',
     name: 'Managed E2E',
     kind: 'team',
     repoPath: managedRepo,
+    defaultRepositoryId: repositoryId,
     agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
   };
   const customCommand = `node "${fixturePath.replace(/"/g, '""')}"`;
@@ -84,10 +89,13 @@ function seedConfig(
     permissionMode: 'default' as const,
     customCommand,
     workspaceDir: managedWorkspaces[item.id]!,
+    homeWorkspaceDir: join(userData, 'managed-home', item.id),
+    defaultRepositoryId: repositoryId,
     memoryDir: join(userData, 'managed-memory', item.id),
   }));
   for (const item of managedAgents) {
     mkdirSync(item.workspaceDir, { recursive: true });
+    mkdirSync(item.homeWorkspaceDir!, { recursive: true });
     mkdirSync(item.memoryDir, { recursive: true });
   }
   const now = Date.now();
@@ -95,6 +103,24 @@ function seedConfig(
     ...structuredClone(DEFAULT_CONFIG),
     categories: [category, managedCategory],
     agents: [agent, ...managedAgents],
+    repositories: [{
+      id: repositoryId,
+      name: 'Managed E2E repository',
+      rootPath: resolve(managedRepo),
+      commonGitDir,
+      verified: true,
+      createdAt: now,
+    }],
+    workspaceBindings: managedAgents.map((item, index) => ({
+      id: `e2e-binding-${item.id}`,
+      agentId: item.id,
+      repositoryId,
+      workspaceDir: item.workspaceDir,
+      branch: `e2e/${item.id}`,
+      status: 'ready' as const,
+      createdAt: now + index,
+      lastUsedAt: now + index,
+    })),
     runs: [{
       id: 'e2e-managed-run',
       name: 'Managed E2E Run',
@@ -110,6 +136,7 @@ function seedConfig(
         maxApprovals: 1,
       },
       source: 'native',
+      repositoryId,
       createdAt: now,
       updatedAt: now,
     }],
@@ -131,7 +158,7 @@ function seedConfig(
     ],
     runEvents: [{
       id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
-      data: { source: 'native' },
+      data: { source: 'native', repositoryId },
     }],
   };
   const configDir = join(userData, 'ade');
@@ -245,7 +272,7 @@ async function run(): Promise<void> {
   let page: Page | null = null;
   try {
     const packagedExecutable = process.env['ADE_E2E_EXECUTABLE'];
-    app = await electron.launch({
+    const launchOptions = {
       ...(packagedExecutable
         ? { executablePath: resolve(packagedExecutable), args: [] }
         : { args: [join(root, 'out/main/index.js')] }),
@@ -257,7 +284,8 @@ async function run(): Promise<void> {
         NODE_ENV: 'test',
       },
       timeout: 20_000,
-    });
+    };
+    app = await electron.launch(launchOptions);
     page = await app.firstWindow({ timeout: 20_000 });
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
@@ -330,14 +358,34 @@ async function run(): Promise<void> {
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_E2E_READY') === true,
     );
 
-    await page.keyboard.press('Control+Shift+T');
-    await eventually('a second keyboard-created session runs in parallel', async () => await tabs.count() === 2);
+    const scopeHeader = page.locator('[data-testid="repository-scope"]');
+    await eventually('plain session visibly reports its portable repository scope', async () => {
+      const text = await scopeHeader.textContent();
+      return text?.includes('No repository') === true && text.includes('Portable home');
+    });
+    await scopeHeader.getByLabel('Repository for new session').selectOption({
+      label: 'Managed E2E repository',
+    });
+    await scopeHeader.getByRole('button', { name: 'Open new session' }).click();
+    await eventually('repository chooser opens a second scoped session', async () => await tabs.count() === 2);
     const secondTab = await activeTabId(page);
-    check('second session receives focus', Boolean(secondTab) && secondTab !== firstTab, { firstTab, secondTab });
+    check('repository-scoped session receives focus', Boolean(secondTab) && secondTab !== firstTab, { firstTab, secondTab });
+    await eventually('right panel names the active repository, source and ADE worktree', async () => {
+      const text = await scopeHeader.textContent();
+      return text?.includes('Managed E2E repository') === true
+        && text.includes('This session')
+        && text.includes('ade/');
+    });
     await page.keyboard.press('Control+PageUp');
     await eventually('Ctrl+PageUp selects the previous session', async () => await activeTabId(page!) === firstTab);
+    await eventually('switching tabs restores the original immutable plain scope', async () =>
+      (await scopeHeader.textContent())?.includes('No repository') === true,
+    );
     await page.keyboard.press('Control+PageDown');
     await eventually('Ctrl+PageDown selects the next session', async () => await activeTabId(page!) === secondTab);
+    await eventually('switching back restores the repository snapshot', async () =>
+      (await scopeHeader.textContent())?.includes('Managed E2E repository') === true,
+    );
 
     await sendCommand(page, 'Start-Sleep -Milliseconds 700; Write-Output ADE_RELOAD_OK');
     await page.waitForTimeout(75);
@@ -348,6 +396,9 @@ async function run(): Promise<void> {
     );
     await eventually('output produced across reload is replayed without a gap', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_RELOAD_OK') === true,
+    );
+    await eventually('renderer reload retains the active session repository scope', async () =>
+      (await page!.locator('[data-testid="repository-scope"]').textContent())?.includes('Managed E2E repository') === true,
     );
 
     await sendCommand(page, 'Start-Sleep -Milliseconds 300; exit 7');
@@ -367,6 +418,9 @@ async function run(): Promise<void> {
       const selected = page!.locator('[role="tab"][id^="session-tab-"][aria-selected="true"]');
       return await selected.count() === 1 && (await selected.getAttribute('aria-label'))?.includes('running') === true;
     });
+    await eventually('session restart preserves the exact repository binding', async () =>
+      (await page!.locator('[data-testid="repository-scope"]').textContent())?.includes('Managed E2E repository') === true,
+    );
     await sendCommand(page, 'Write-Output ADE_RESTART_OK');
     await eventually('restarted terminal accepts input', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_RESTART_OK') === true,
@@ -380,6 +434,9 @@ async function run(): Promise<void> {
     await eventually('Ctrl+2 opens Graph mode', async () =>
       await page!.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected') === 'true',
     );
+    await eventually('Graph names the immutable repository selected by the run', async () =>
+      (await page!.locator('.grun-repo').textContent()) === 'Managed E2E repository',
+    );
     await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
     await eventually('managed run reaches its real approval gate', async () =>
       await page!.locator('.gapproval').count() === 1 &&
@@ -389,10 +446,23 @@ async function run(): Promise<void> {
     const approvalSnapshot = await page.evaluate(async () => {
       const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
       return await api.invoke('run:get') as {
-        tasks: Array<{ id: string; phase: string; prompt: string }>;
+        tasks: Array<{
+          id: string;
+          phase: string;
+          prompt: string;
+          repositoryId?: string | null;
+          workspaceBindingId?: string;
+          workspaceDir?: string;
+        }>;
         results: Array<{ taskId: string; commitSha: string | null; filesChanged: string[] }>;
         approvals: Array<{ status: string }>;
-        workspaceLeases: Array<{ participantId: string; status: string; workspaceDir: string }>;
+        workspaceLeases: Array<{
+          participantId: string;
+          status: string;
+          workspaceDir: string;
+          repositoryId?: string;
+          workspaceBindingId?: string;
+        }>;
       };
     });
     const workerPrompts = approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
@@ -405,6 +475,14 @@ async function run(): Promise<void> {
         /^[a-f0-9]{40}$/i.test(result.commitSha ?? '') && result.filesChanged.length === 1));
     check('Electron flow keeps worktree leases active through approval',
       approvalSnapshot.workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
+    check('managed tasks and leases persist exact Goal 5 repository bindings',
+      approvalSnapshot.tasks.every((task) => (
+        task.repositoryId === 'e2e-managed-repository'
+          && Boolean(task.workspaceBindingId)
+          && Boolean(task.workspaceDir)
+      )) && approvalSnapshot.workspaceLeases.every((lease) => (
+        lease.repositoryId === 'e2e-managed-repository' && Boolean(lease.workspaceBindingId)
+      )));
     check('managed task setup does not dirty leased repository worktrees',
       approvalSnapshot.workspaceLeases.every(
         (lease) => git(lease.workspaceDir, ['status', '--porcelain']).trim() === '',
@@ -457,6 +535,38 @@ async function run(): Promise<void> {
       await page.screenshot({ path: join(resolve(evidenceDir), 'diagnostics-ui.png'), fullPage: true });
     }
     await page.getByRole('button', { name: 'Close' }).last().click();
+
+    await app.close();
+    app = null;
+    page = null;
+    app = await electron.launch(launchOptions);
+    page = await app.firstWindow({ timeout: 20_000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
+    const restartedConfig = await page.evaluate(async () => {
+      const api = (window as unknown as {
+        ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+      }).ade;
+      return await api.invoke('config:get') as {
+        repositories: Array<{ id: string }>;
+        workspaceBindings: Array<{ agentId: string; repositoryId: string; status: string }>;
+        runs: Array<{ id: string; status: string; repositoryId?: string | null }>;
+      };
+    });
+    check('full app restart retains repository catalog, new binding and run scope',
+      restartedConfig.repositories.filter((repository) => (
+        repository.id === 'e2e-managed-repository'
+      )).length === 1
+        && restartedConfig.workspaceBindings.some((binding) => (
+          binding.agentId === 'e2e-agent'
+            && binding.repositoryId === 'e2e-managed-repository'
+            && binding.status === 'ready'
+        ))
+        && restartedConfig.runs.some((run) => (
+          run.id === 'e2e-managed-run'
+            && run.status === 'completed'
+            && run.repositoryId === 'e2e-managed-repository'
+        )));
   } catch (error) {
     console.error('Electron workflow threw:', error);
     failed += 1;

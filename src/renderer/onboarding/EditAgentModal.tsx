@@ -17,6 +17,8 @@ interface EditAgentModalProps {
 
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.ReactElement {
   const updateAgent = useAppData((s) => s.updateAgent);
+  const repositories = useAppData((s) => s.repositories);
+  const createAgentTemplate = useAppData((s) => s.createAgentTemplate);
 
   const [name, setName] = useState(agent.name);
   const [role, setRole] = useState(agent.role ?? '');
@@ -24,6 +26,10 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(agent.permissionMode);
   const [ollamaModel, setOllamaModel] = useState(agent.ollamaModel ?? '');
   const [customCommand, setCustomCommand] = useState(agent.customCommand ?? '');
+  const [defaultRepositoryId, setDefaultRepositoryId] = useState(agent.defaultRepositoryId ?? '');
+  const [templateName, setTemplateName] = useState(`${agent.name} template`);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const defaultCommand = resolveLaunchCommand({
@@ -47,11 +53,26 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+        defaultRepositoryId: defaultRepositoryId || null,
       });
       onClose();
     } catch (err) {
       console.error('[ade] update agent failed:', err);
       setBusy(false);
+    }
+  };
+
+  const saveTemplate = async (): Promise<void> => {
+    if (!templateName.trim() || templateBusy) return;
+    setTemplateBusy(true);
+    setTemplateSaved(false);
+    try {
+      await createAgentTemplate({ sourceAgentId: agent.id, name: templateName.trim() });
+      setTemplateSaved(true);
+    } catch (error) {
+      console.error('[ade] create agent template failed:', error);
+    } finally {
+      setTemplateBusy(false);
     }
   };
 
@@ -125,6 +146,21 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
+        <label htmlFor="edit-agent-repository">DEFAULT REPOSITORY</label>
+        <select
+          id="edit-agent-repository"
+          value={defaultRepositoryId}
+          onChange={(event) => setDefaultRepositoryId(event.target.value)}
+        >
+          <option value="">Portable agent (no default)</option>
+          {repositories.map((repository) => (
+            <option key={repository.id} value={repository.id}>{repository.name}</option>
+          ))}
+        </select>
+        <div className="repo-hint">Changing this affects future sessions only.</div>
+      </div>
+
+      <div className="field">
         <label htmlFor="edit-agent-cmd">START COMMAND</label>
         <input
           id="edit-agent-cmd"
@@ -134,6 +170,31 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           placeholder={commandPlaceholder}
           onChange={(e) => setCustomCommand(e.target.value)}
         />
+      </div>
+
+      <div className="field">
+        <label htmlFor="edit-agent-template">REUSABLE TEMPLATE</label>
+        <div className="repo-picker">
+          <input
+            id="edit-agent-template"
+            type="text"
+            value={templateName}
+            maxLength={200}
+            onChange={(event) => {
+              setTemplateName(event.target.value);
+              setTemplateSaved(false);
+            }}
+          />
+          <button
+            type="button"
+            className="btn"
+            disabled={!templateName.trim() || templateBusy}
+            onClick={() => void saveTemplate()}
+          >
+            {templateBusy ? 'Saving...' : 'Save template'}
+          </button>
+        </div>
+        {templateSaved ? <div className="repo-hint">Template saved with an independent memory seed.</div> : null}
       </div>
 
       <div className="modal-actions">

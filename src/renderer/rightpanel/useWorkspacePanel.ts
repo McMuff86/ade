@@ -23,21 +23,23 @@ interface WorkspacePanel {
   refresh: () => void;
 }
 
-export function useWorkspacePanel(agentId: string | null, visible: boolean): WorkspacePanel {
+export function useWorkspacePanel(
+  agentId: string | null,
+  sessionId: string | null,
+  visible: boolean,
+): WorkspacePanel {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [nonce, setNonce] = useState(0);
 
-  // Whether the selected agent has at least one running session (drives polling).
-  const hasRunningSession = useSessions((s) => {
-    if (!agentId) return false;
-    const ids = s.orderByAgent[agentId] ?? [];
-    return ids.some((id) => s.sessions[id]?.status === 'running');
-  });
+  // Poll the exact session whose immutable workspace snapshot is displayed.
+  const hasRunningSession = useSessions((s) => (
+    sessionId ? s.sessions[sessionId]?.status === 'running' : false
+  ));
 
   const reqSeq = useRef(0);
 
-  const fetchStatus = useRef(async (id: string | null): Promise<void> => {
+  const fetchStatus = useRef(async (id: string | null, sid?: string): Promise<void> => {
     if (!id) {
       setStatus(null);
       return;
@@ -45,7 +47,7 @@ export function useWorkspacePanel(agentId: string | null, visible: boolean): Wor
     const seq = ++reqSeq.current;
     setLoading(true);
     try {
-      const res = await window.ade.invoke('git:status', { agentId: id });
+      const res = await window.ade.invoke('git:status', { agentId: id, sessionId: sid });
       if (seq === reqSeq.current) setStatus(res);
     } catch (err) {
       console.error('[ade] git:status failed:', err);
@@ -57,47 +59,47 @@ export function useWorkspacePanel(agentId: string | null, visible: boolean): Wor
 
   const refresh = (): void => {
     setNonce((n) => n + 1);
-    void fetchStatus(agentId);
+    void fetchStatus(agentId, sessionId ?? undefined);
   };
 
   // (a) selected agent changes → immediate refetch.
   useEffect(() => {
-    void fetchStatus(agentId);
+    void fetchStatus(agentId, sessionId ?? undefined);
     setNonce((n) => n + 1);
-  }, [agentId, fetchStatus]);
+  }, [agentId, sessionId, fetchStatus]);
 
   // (b) window regains focus.
   useEffect(() => {
     if (!agentId) return;
     const onFocus = (): void => {
       if (document.hidden) return;
-      void fetchStatus(agentId);
+      void fetchStatus(agentId, sessionId ?? undefined);
       setNonce((n) => n + 1);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [agentId, fetchStatus]);
+  }, [agentId, sessionId, fetchStatus]);
 
   // (c) 5s poll while visible + a session is running (and the doc isn't hidden).
   useEffect(() => {
     if (!agentId || !visible || !hasRunningSession) return;
     const timer = window.setInterval(() => {
       if (document.hidden) return;
-      void fetchStatus(agentId);
+      void fetchStatus(agentId, sessionId ?? undefined);
       setNonce((n) => n + 1);
     }, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [agentId, visible, hasRunningSession, fetchStatus]);
+  }, [agentId, sessionId, visible, hasRunningSession, fetchStatus]);
 
   // (d) after any pty:exit → refetch (the agent may have just written files).
   useEffect(() => {
     if (!agentId) return;
     const off = window.ade.on('pty:exit', () => {
-      void fetchStatus(agentId);
+      void fetchStatus(agentId, sessionId ?? undefined);
       setNonce((n) => n + 1);
     });
     return off;
-  }, [agentId, fetchStatus]);
+  }, [agentId, sessionId, fetchStatus]);
 
   return { status, loading, nonce, refresh };
 }

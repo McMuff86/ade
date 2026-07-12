@@ -7,10 +7,12 @@
 
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useSelection } from '../stores/selection';
+import { useSessions } from '../stores/sessions';
 import { ChangesView } from './ChangesView';
 import { FilesView } from './FilesView';
 import { DiffView } from './DiffView';
 import { useWorkspacePanel } from './useWorkspacePanel';
+import { RepositoryScopeHeader } from './RepositoryScopeHeader';
 import './rightpanel.css';
 
 type Tab = 'files' | 'changes';
@@ -22,7 +24,10 @@ interface OpenItem {
 
 export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   const agentId = useSelection((s) => s.selectedAgentId);
-  const { status, loading, nonce } = useWorkspacePanel(agentId, visible);
+  const sessionId = useSessions((state) => (
+    agentId ? (state.activeByAgent[agentId] ?? null) : null
+  ));
+  const { status, loading, nonce } = useWorkspacePanel(agentId, sessionId, visible);
 
   const [tab, setTab] = useState<Tab>('changes');
   const [open, setOpen] = useState<OpenItem | null>(null);
@@ -32,7 +37,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   const reqSeq = useRef(0);
 
   // Close the inline pane when switching agent or tab.
-  useEffect(() => setOpen(null), [agentId, tab]);
+  useEffect(() => setOpen(null), [agentId, sessionId, tab]);
 
   // Fetch the inline pane content whenever the open item changes.
   useEffect(() => {
@@ -46,13 +51,21 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
     void (async () => {
       try {
         if (open.kind === 'diff') {
-          const text = await window.ade.invoke('git:diff', { agentId, path: open.path });
+          const text = await window.ade.invoke('git:diff', {
+            agentId,
+            sessionId: sessionId ?? undefined,
+            path: open.path,
+          });
           if (seq === reqSeq.current) {
             setContent(text);
             setTruncated(false);
           }
         } else {
-          const res = await window.ade.invoke('fs:read', { agentId, path: open.path });
+          const res = await window.ade.invoke('fs:read', {
+            agentId,
+            sessionId: sessionId ?? undefined,
+            path: open.path,
+          });
           if (seq === reqSeq.current) {
             setContent(res.text);
             setTruncated(res.truncated);
@@ -68,7 +81,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         if (seq === reqSeq.current) setContentLoading(false);
       }
     })();
-  }, [open, agentId]);
+  }, [open, agentId, sessionId]);
 
   const toggle = (item: OpenItem): void => {
     setOpen((cur) => (cur && cur.kind === item.kind && cur.path === item.path ? null : item));
@@ -76,6 +89,12 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
 
   return (
     <div className="rp">
+      <RepositoryScopeHeader
+        agentId={agentId}
+        sessionId={sessionId}
+        nonce={nonce}
+        status={status}
+      />
       <div className="rp-head">
         <div className="rp-tabs">
           <button
@@ -104,6 +123,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         ) : (
           <FilesView
             agentId={agentId}
+            sessionId={sessionId}
             status={status}
             nonce={nonce}
             openPath={open?.kind === 'preview' ? open.path : null}

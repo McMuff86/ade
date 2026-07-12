@@ -2,7 +2,7 @@
 
 Status date: 2026-07-12. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
-Planned repository bindings and mobile boundaries are detailed in
+Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`.
 
 | Capability | State | Current behavior |
@@ -11,10 +11,10 @@ Planned repository bindings and mobile boundaries are detailed in
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
 | Named agents and categories | Real | Persisted JSON config, photos, runtime and permission settings |
-| Git workspaces | Real, category-bound | Repo-backed category agents receive isolated worktrees and branches; reusable cross-repo bindings are not built yet |
-| Repository scopes | Not built, planned | Goal 5 separates first-class repositories, optional agent defaults and immutable per-execution bindings |
-| Reusable agents/templates | Not built, planned | Goal 5 adds portable agents and independent template spawning across repository bindings |
-| Files and changes | Real, fixed agent path | Lazy tree, capped reads, polled Git status and capped unified diff; Goal 5 adds the visible binding/scope header |
+| Git workspaces | Real, agent/repository-bound | Every agent/repository pair resolves one isolated ADE worktree/branch; category paths remain a migration/onboarding compatibility field |
+| Repository scopes | Real | First-class repository catalog, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots |
+| Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
+| Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible repo/source/branch/path/dirty/lease header all resolve the active session snapshot in main |
 | Memory read path | Real | `MEMORY.md` / `USER.md` are injected into runtime instruction files at launch |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
 | Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config |
@@ -37,14 +37,15 @@ Planned repository bindings and mobile boundaries are detailed in
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real | Windows CI runs 169 focused assertions plus a 32-check production Electron workflow and unpacked package validation |
+| CI and Electron E2E | Real | The focused suite runs 198 assertions; the 41-check production Electron workflow covers ConPTY, scope reload/restart and managed integration; Windows CI also validates the unpacked package |
 
 ## Known constraints
 
-- Repository ownership is currently derived from category `repoPath`, and each
-  agent has one resolved `workspaceDir`. Agent defaults, per-session/run scopes,
-  cross-repository reuse, templates and the Files/Changes scope header remain
-  planned; see `REPOSITORY_SCOPES_PLAN.md`.
+- Repository/worktree deletion is intentionally not exposed yet. Defaults and
+  agent/category deletion remove catalog references without moving or deleting
+  user files, branches or worktrees; a future cleanup UI must make every
+  destructive effect explicit. Binding-local memory overlays are reserved but
+  not yet an active write surface.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
 - The event journal, structured results, approvals, messages and artifacts
