@@ -1,0 +1,19 @@
+Run goal: Improve the sample feature end to end
+Run context (manifest ff2bcc3a618f192c, context builder v1):
+- Repository: fixture-repo | branch ade/fixture | base 0123456789ab
+- Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
+- Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"
+- Top-level entries: AGENTS.md, CLAUDE.md, package.json, src/
+- Participants:
+  - p-orchestrator | Conductor | orchestrator | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-1 | Builder One | worker | team Core | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-2 | Builder Two | worker | team Core | claude | adapter file-mailbox-v1 | tokens no | cost no
+Run context manifest: ff2bcc3a618f192c (full manifest in your TASK_CONTEXT.json).
+ADE already cherry-picked 2 validated worker commit(s) into this integration worktree.
+Review the combined result for conflicts, missing behavior, security regressions, and consistency.
+Run relevant focused tests. Fix integration-only issues if needed.
+Report the exact repository-relative paths you change. Do not run git add, git commit, reset, checkout, rebase, merge, or push.
+Return commitSha=null; ADE validates and commits any integration-only diff after you exit.
+Worker reports:
+- Prepared the shared contract module. (commit abc1234; risks none; tests passed)
+- Implemented the feature slice. (commit def5678; risks Feature flag remains off by default; tests passed)

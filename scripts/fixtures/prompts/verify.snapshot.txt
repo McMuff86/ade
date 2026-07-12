@@ -1,0 +1,14 @@
+Run goal: Improve the sample feature end to end
+Run context (manifest ff2bcc3a618f192c, context builder v1):
+- Repository: fixture-repo | branch ade/fixture | base 0123456789ab
+- Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
+- Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"
+- Top-level entries: AGENTS.md, CLAUDE.md, package.json, src/
+- Participants:
+  - p-orchestrator | Conductor | orchestrator | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-1 | Builder One | worker | team Core | codex | adapter codex-jsonl-v1 | tokens yes | cost no
+  - p-worker-2 | Builder Two | worker | team Core | claude | adapter file-mailbox-v1 | tokens no | cost no
+Integration summary: Integrated both worker commits; suite green.
+Verify the final integrated workspace. This phase is strictly read-only: do not edit or commit.
+Run the repository test/typecheck/build commands appropriate to the changed scope.
+Report every command and its real status. outcome must be failed if any required check fails.

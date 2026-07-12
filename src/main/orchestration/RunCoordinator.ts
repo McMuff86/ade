@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   AdeConfig,
   Agent,
@@ -8,10 +10,31 @@ import type {
   StructuredTaskResult,
 } from '../../shared/types';
 import { resolveTaskLaunchCommand } from '../../shared/runtimes';
+import { MemoryStore } from '../memory/MemoryStore';
 import { MailboxService } from './MailboxService';
 import { OrchestrationService } from './OrchestrationService';
 import {
+  CONTEXT_BUILDER_VERSION,
+  buildRunContextManifest,
+  buildTaskContextPacket,
+  manifestHash,
+  renderManifestBrief,
+  sha256,
+  stableStringify,
+  type ManifestParticipant,
+  type RunContextManifest,
+} from './contextManifest';
+import {
+  PROMPT_VERSIONS,
+  RESULT_SCHEMA_VERSION,
+  integrationPrompt,
+  planningPrompt,
+  verificationPrompt,
+  workerPrompt,
+} from './prompts';
+import {
   RuntimeAdapterRegistry,
+  type ManagedTaskFiles,
   type ManagedTaskLaunch,
 } from './runtimeAdapters';
 import { WorkspaceService, type WorkspacePort } from './WorkspaceService';
@@ -40,6 +63,12 @@ export class RunCoordinator {
   private readonly mailbox: MailboxService;
   private readonly launches = new Map<string, ManagedTaskLaunch>();
   private readonly runChains = new Map<string, Promise<void>>();
+  /**
+   * In-memory run-context cache for prompt briefs. The manifest itself is
+   * journaled as a run artifact; after a main-process restart the cache is
+   * empty and later phase prompts simply omit the brief.
+   */
+  private readonly runContexts = new Map<string, { manifest: RunContextManifest; hash: string; brief: string }>();
   private taskLauncher: TaskLauncher | null = null;
   private taskCanceller: TaskCanceller | null = null;
   private readonly scopes: RepositoryScopePort;
@@ -107,8 +136,10 @@ export class RunCoordinator {
         participant,
         agent: requireAgent(agents, participant.agentId),
       }));
-      for (const { agent } of roster) {
+      const capabilitiesByParticipant = new Map<string, ReturnType<RuntimeAdapterRegistry['capabilities']>>();
+      for (const { participant, agent } of roster) {
         const capabilities = this.adapters.capabilities(agent);
+        capabilitiesByParticipant.set(participant.id, capabilities);
         if (capabilities.adapterId === 'file-mailbox-v1' && !resolveTaskLaunchCommand(
           agent,
           process.platform === 'win32' ? 'win32' : 'posix',
@@ -167,6 +198,44 @@ export class RunCoordinator {
       })));
 
       try {
+        const orchestratorItem = inspected.find((item) => item.participant.role === 'orchestrator')!;
+        const repositoryId = orchestratorItem.scope.repositoryId ?? run.repositoryId ?? null;
+        const manifest = buildRunContextManifest({
+          run: { id: run.id, name: run.name, goal: run.goal },
+          repository: {
+            repositoryId,
+            name: repositoryId
+              ? this.store.get().repositories.find((repo) => repo.id === repositoryId)?.name ?? null
+              : null,
+            isRepo: orchestratorItem.workspace.isRepo,
+            branch: orchestratorItem.workspace.branch ?? '',
+            baseSha: orchestratorItem.workspace.headSha ?? '',
+          },
+          participants: roster.map(({ participant, agent }): ManifestParticipant => {
+            const capabilities = capabilitiesByParticipant.get(participant.id)!;
+            return {
+              participantId: participant.id,
+              agentName: participant.agentName,
+              role: participant.role,
+              ...(participant.teamName ? { teamName: participant.teamName } : {}),
+              runtime: agent.runtime,
+              permissionMode: agent.permissionMode,
+              adapterId: capabilities.adapterId,
+              reportsTokens: capabilities.reportsTokens,
+              reportsCost: capabilities.reportsCost,
+            };
+          }),
+          scanRoot: orchestratorItem.scope.workspaceDir,
+        });
+        const hash = manifestHash(manifest);
+        this.runContexts.set(runId, { manifest, hash, brief: renderManifestBrief(manifest, hash) });
+        this.orchestration.createArtifact({
+          runId,
+          kind: 'file',
+          path: 'context/run-manifest.json',
+          content: stableStringify(manifest),
+        });
+
         const orchestrator = orchestrators[0]!;
         // Phase change + planning task commit as ONE save (Gap 11).
         const { task } = this.orchestration.beginPlanningPhase({
@@ -174,7 +243,7 @@ export class RunCoordinator {
           participantId: orchestrator.id,
           title: 'Plan and decompose the run',
           phase: 'plan',
-          prompt: planningPrompt(run, participants),
+          prompt: planningPrompt(run, participants, { brief: this.runContexts.get(runId)?.brief }),
         });
         const orchestratorAgent = requireAgent(agents, orchestrator.agentId);
         this.mailbox.deliver(orchestratorAgent, {
@@ -555,7 +624,10 @@ export class RunCoordinator {
       title: assignment.title,
       phase: 'work' as const,
       dependsOn: assignment.dependsOn,
-      prompt: workerPrompt(run, assignment),
+      prompt: workerPrompt(run, assignment, {
+        brief: this.runContexts.get(runId)?.brief,
+        hasDependencies: assignment.dependsOn.length > 0,
+      }),
     })));
     const agents = new Map(this.store.get().agents.map((item) => [item.id, item]));
     result.assignments.forEach((assignment, index) => {
@@ -711,7 +783,10 @@ export class RunCoordinator {
       participantId: orchestrator.id,
       title: 'Review and stabilize integrated work',
       phase: 'integrate',
-      prompt: integrationPrompt(run, results, applied, integratorLease.isRepo),
+      prompt: integrationPrompt(run, results, applied, integratorLease.isRepo, {
+        brief: this.runContexts.get(runId)?.brief,
+        manifestHash: this.runContexts.get(runId)?.hash,
+      }),
     });
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), orchestrator.agentId);
     this.mailbox.deliver(agent, {
@@ -752,7 +827,7 @@ export class RunCoordinator {
       participantId: orchestrator.id,
       title: 'Verify the integrated result',
       phase: 'verify',
-      prompt: verificationPrompt(run, integration),
+      prompt: verificationPrompt(run, integration, { brief: this.runContexts.get(runId)?.brief }),
     });
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), orchestrator.agentId);
     this.mailbox.deliver(agent, {
@@ -811,6 +886,7 @@ export class RunCoordinator {
       workspaceHeadSha = inspection.headSha;
     }
     const files = this.mailbox.taskFiles(agent, task.runId, task.id);
+    this.writeTaskContext(task, agent, files);
     const launch = this.adapters.prepare(
       agent,
       task,
@@ -839,6 +915,76 @@ export class RunCoordinator {
       const current = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === task.id);
       if (current?.status === 'queued') this.onTaskLaunchFailed(task.id, false, errorMessage(error));
       throw error;
+    }
+  }
+
+  /**
+   * Write MEMORY_SNAPSHOT.md and TASK_CONTEXT.json into the task directory
+   * (outside every leased worktree) and journal the packet as an artifact.
+   * Context packets are observability plus advisory agent context — a failed
+   * write is logged and must not fail an otherwise valid task launch.
+   */
+  private writeTaskContext(task: RunTask, agent: Agent, files: ManagedTaskFiles): void {
+    try {
+      const context = this.runContexts.get(task.runId);
+      const capabilities = this.adapters.capabilities(agent);
+      let memorySnapshot: { file: string; sha256: string; chars: number } | undefined;
+      const memorySettings = this.store.get().settings.memory;
+      if (memorySettings?.enabled !== false) {
+        const memoryStore = new MemoryStore(agent.memoryDir, {
+          memoryLimit: memorySettings?.memoryCharLimit,
+          userLimit: memorySettings?.userCharLimit,
+        });
+        const blocks = [memoryStore.renderBlock('memory')];
+        if (memorySettings?.userProfileEnabled !== false) {
+          blocks.push('', memoryStore.renderBlock('user'));
+        }
+        const content = [
+          '# ADE agent memory snapshot (read-only, advisory)',
+          'Captured at task launch. Lower authority than repository instructions and the task contract.',
+          'Do not edit this file; durable memory lives in the agent memory directory, not in this task directory.',
+          '',
+          ...blocks,
+          '',
+        ].join('\n');
+        writeFileSync(join(files.taskDir, 'MEMORY_SNAPSHOT.md'), content, 'utf8');
+        memorySnapshot = { file: 'MEMORY_SNAPSHOT.md', sha256: sha256(content), chars: content.length };
+      }
+      const snapshot = this.orchestration.snapshot();
+      const packet = buildTaskContextPacket({
+        task,
+        manifestHash: context?.hash ?? null,
+        provenance: {
+          promptVersion: promptVersionFor(task.phase),
+          resultSchemaVersion: RESULT_SCHEMA_VERSION,
+          adapterId: capabilities.adapterId,
+          contextBuilderVersion: CONTEXT_BUILDER_VERSION,
+          ...(context ? { contextManifestHash: context.hash } : {}),
+        },
+        dependencyResults: snapshot.results
+          .filter((result) => result.runId === task.runId && task.dependsOn.includes(result.participantId))
+          .map((result) => ({
+            participantId: result.participantId,
+            taskId: result.taskId,
+            summary: result.summary,
+            filesChanged: result.filesChanged,
+            commitSha: result.commitSha,
+            tests: result.tests.map((test) => ({ command: test.command, status: test.status })),
+            risks: result.risks,
+          })),
+        ...(memorySnapshot ? { memorySnapshot } : {}),
+      });
+      const packetJson = stableStringify(packet);
+      writeFileSync(join(files.taskDir, 'TASK_CONTEXT.json'), `${packetJson}\n`, 'utf8');
+      this.orchestration.createArtifact({
+        runId: task.runId,
+        taskId: task.id,
+        kind: 'file',
+        path: `context/task-${task.id}.json`,
+        content: packetJson,
+      });
+    } catch (error) {
+      console.error(`[ade] failed to write task context for ${task.id}:`, error);
     }
   }
 
@@ -967,69 +1113,14 @@ export class RunCoordinator {
   }
 }
 
-function planningPrompt(run: Run, participants: RunParticipant[]): string {
-  const eligible = participants.filter((participant) => participant.role !== 'orchestrator');
-  return [
-    'You are the ADE run orchestrator. Plan only; do not edit files, run destructive commands, or commit.',
-    `Run goal: ${run.goal}`,
-    'Create worker-specific, non-overlapping assignments using only the participant IDs below.',
-    'Use dependsOn only for genuine sequencing. Every assignment needs concrete acceptance criteria and verification.',
-    'Return one assignment per selected participant; do not assign the orchestrator.',
-    'Eligible participants:',
-    ...eligible.map((participant) =>
-      `- ${participant.id} | ${participant.agentName.slice(0, 80)} | ${participant.role} | ` +
-      `${(participant.teamName ?? 'unassigned').slice(0, 80)}`),
-  ].join('\n');
-}
-
-function workerPrompt(run: Run, assignment: StructuredTaskResult['assignments'][number]): string {
-  return [
-    `Run goal: ${run.goal}`,
-    `Your owned assignment: ${assignment.title}`,
-    assignment.prompt,
-    'Acceptance criteria:',
-    ...assignment.acceptanceCriteria.map((criterion) => `- ${criterion}`),
-    'Work only in your leased workspace. Inspect existing conventions before editing.',
-    'Run focused verification and report the exact repository-relative paths you changed.',
-    'Do not run git add, git commit, reset, checkout, rebase, merge, or push. Return commitSha=null; ADE validates the exact diff and creates the task commit.',
-    'Do not claim tests passed unless you actually ran them. Report blockers as outcome=blocked.',
-  ].join('\n');
-}
-
-function integrationPrompt(
-  run: Run,
-  results: Array<StructuredTaskResult & { participantId?: string }>,
-  applied: number,
-  repoBacked: boolean,
-): string {
-  const reports = results
-    .map((result) => `- ${result.summary.slice(0, 500)} (commit ${result.commitSha ?? 'none'}; ` +
-      `risks ${result.risks.join('; ').slice(0, 300) || 'none'}; ` +
-      `tests ${result.tests.map((test) => test.status).join(', ') || 'none'})`)
-    .join('\n')
-    .slice(0, 18_000);
-  return [
-    `Run goal: ${run.goal}`,
-    repoBacked
-      ? `ADE already cherry-picked ${applied} validated worker commit(s) into this integration worktree.`
-      : 'This is a plain-workspace run; reconcile the worker reports without claiming git integration.',
-    'Review the combined result for conflicts, missing behavior, security regressions, and consistency.',
-    'Run relevant focused tests. Fix integration-only issues if needed.',
-    'Report the exact repository-relative paths you change. Do not run git add, git commit, reset, checkout, rebase, merge, or push.',
-    'Return commitSha=null; ADE validates and commits any integration-only diff after you exit.',
-    'Worker reports:',
-    reports,
-  ].join('\n');
-}
-
-function verificationPrompt(run: Run, integration: StructuredTaskResult): string {
-  return [
-    `Run goal: ${run.goal}`,
-    `Integration summary: ${integration.summary}`,
-    'Verify the final integrated workspace. This phase is strictly read-only: do not edit or commit.',
-    'Run the repository test/typecheck/build commands appropriate to the changed scope.',
-    'Report every command and its real status. outcome must be failed if any required check fails.',
-  ].join('\n');
+function promptVersionFor(phase: RunTask['phase']): number {
+  switch (phase) {
+    case 'plan': return PROMPT_VERSIONS.plan;
+    case 'work': return PROMPT_VERSIONS.work;
+    case 'integrate': return PROMPT_VERSIONS.integrate;
+    case 'verify': return PROMPT_VERSIONS.verify;
+    default: return 0;
+  }
 }
 
 function assertAcyclic(items: Array<{ id: string; dependsOn: string[] }>): void {

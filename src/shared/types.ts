@@ -494,6 +494,20 @@ export interface CommandLogEntry {
   resultJson: string;
 }
 
+/**
+ * Version/provenance metadata stamped into every managed task's context packet
+ * (P0a observability). Fields that an adapter cannot report reliably stay
+ * absent — unknown telemetry remains unknown, never fabricated.
+ */
+export interface TaskProvenance {
+  promptVersion: number;
+  resultSchemaVersion: number;
+  adapterId: string;
+  contextBuilderVersion?: number;
+  contextManifestHash?: string;
+  modelId?: string;
+}
+
 export interface OrchestrationSnapshot {
   runs: Run[];
   participants: RunParticipant[];
