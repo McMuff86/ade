@@ -410,6 +410,18 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.WorkspaceDescribe:
       validateWorkspaceTarget(channel, payload);
       return;
+    case IPC.WorkspaceRemoveBinding:
+      validateIdRequest(channel, payload, 'workspaceBindingId');
+      return;
+    case IPC.ClipboardReadText:
+      voidRequest(channel, payload);
+      return;
+    case IPC.ClipboardWriteText: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['text']);
+      stringValue(channel, request.text, 'text', { max: 2_000_000 });
+      return;
+    }
     case IPC.PtyCreate:
       validatePtyCreate(channel, payload);
       return;

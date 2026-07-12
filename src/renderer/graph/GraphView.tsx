@@ -65,6 +65,7 @@ const I = {
   stop: <rect x="7" y="7" width="10" height="10" rx="1" />,
   term: <path d="M5 8l4 4-4 4M12 16h6" />,
   close: <path d="M7 7l10 10M17 7L7 17" />,
+  trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M10 11v5M14 11v5" />,
 };
 
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
@@ -164,6 +165,8 @@ export function GraphView(): JSX.Element {
   const activeRunId = useRuns((state) => state.activeRunId);
   const setActiveRun = useRuns((state) => state.setActiveRun);
   const createRun = useRuns((state) => state.createRun);
+  const deleteRun = useRuns((state) => state.deleteRun);
+  const workspaceLeases = useRuns((state) => state.workspaceLeases);
   const startRun = useRuns((state) => state.startRun);
   const cancelRun = useRuns((state) => state.cancelRun);
   const resolveApproval = useRuns((state) => state.resolveApproval);
@@ -177,6 +180,7 @@ export function GraphView(): JSX.Element {
   const setPosition = useGraphStore((state) => state.setPosition);
   const select = useGraphStore((state) => state.select);
   const setTeamIdle = useGraphStore((state) => state.setTeamIdle);
+  const clearRunPositions = useGraphStore((state) => state.clearRunPositions);
 
   const sessionsSlice = useMemo(() => ({ sessions, orderByAgent }), [sessions, orderByAgent]);
   const clusters = useMemo(
@@ -212,9 +216,11 @@ export function GraphView(): JSX.Element {
   const [composer, setComposer] = useState<ComposerTarget | null>(null);
   const [showNewRun, setShowNewRun] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
+  const deleteArmTimer = useRef<number | undefined>(undefined);
   const anchorsRef = useRef<Record<string, { top: Pos; bot: Pos }>>({});
   const lastSeenSeqRef = useRef<number | null>(null);
   const taskStatusRef = useRef<Map<string, string>>(new Map());
@@ -235,6 +241,37 @@ export function GraphView(): JSX.Element {
 
   const errorText = (error: unknown): string =>
     error instanceof Error ? error.message : String(error);
+
+  // The arming state belongs to exactly one run; switching runs disarms it.
+  useEffect(() => {
+    setDeleteArmed(false);
+    window.clearTimeout(deleteArmTimer.current);
+  }, [activeRunId]);
+
+  const deleteBlocked = Boolean(activeRun && (
+    (activeRun.mode === 'managed' && activeRun.status === 'running')
+    || workspaceLeases.some((lease) => lease.runId === activeRun.id && lease.status === 'active')
+  ));
+
+  const requestDeleteRun = useCallback(() => {
+    const state = useRuns.getState();
+    const run = state.runs.find((candidate) => candidate.id === state.activeRunId);
+    if (!run) return;
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      window.clearTimeout(deleteArmTimer.current);
+      deleteArmTimer.current = window.setTimeout(() => setDeleteArmed(false), 4_000);
+      return;
+    }
+    window.clearTimeout(deleteArmTimer.current);
+    setDeleteArmed(false);
+    void deleteRun(run.id)
+      .then(() => {
+        clearRunPositions(run.id);
+        flash(`Run "${run.name}" gelöscht`);
+      })
+      .catch((error) => flash(errorText(error)));
+  }, [deleteArmed, deleteRun, clearRunPositions, flash]);
 
   /** Selecting anything inside a cluster also makes that run the active one. */
   const selectInCluster = useCallback((runId: string, sel: GraphSelection | null) => {
@@ -803,6 +840,18 @@ export function GraphView(): JSX.Element {
                 ` · $${activeUsage.costUsd.toFixed(2)}/$${activeRun.budget.maxCostUsd.toFixed(2)}`}
             </span>
           </>
+        )}
+        {activeRun && (
+          <button
+            className={`grun-delete${deleteArmed ? ' armed' : ''}`}
+            disabled={deleteBlocked}
+            title={deleteBlocked
+              ? 'Aktiver Run: zuerst abbrechen bzw. die Freigabe abschließen'
+              : `"${activeRun.name}" mit allen Tasks, Events und Artefakten löschen`}
+            onClick={requestDeleteRun}
+          >
+            <Ico>{I.trash}</Ico>{deleteArmed ? 'Wirklich löschen?' : 'Run löschen'}
+          </button>
         )}
         <button className="grun-new" onClick={openNewRun}>
           <Ico>{I.plus}</Ico>Neuer Run
@@ -1505,6 +1554,11 @@ function NewRunModal(props: {
                   <option key={repository.id} value={repository.id}>{repository.name}</option>
                 ))}
             </select>
+            <small className="grun-hint">
+              {repositoryId
+                ? 'Jeder Teilnehmer arbeitet in einem eigenen ADE-Worktree dieses Repositories; der Scope wird pro Task eingefroren.'
+                : 'Ohne Repository arbeiten alle Teilnehmer in ihren Home-Verzeichnissen (kein gemeinsamer Git-Stand).'}
+            </small>
           </label>
 
           <div className="grun-budget-title">

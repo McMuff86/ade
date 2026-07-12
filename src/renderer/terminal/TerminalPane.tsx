@@ -91,6 +91,45 @@ export function TerminalPane({
 
     const coalescer = createWriteCoalescer((data) => term.write(data));
 
+    // Clipboard chords. navigator.clipboard is blocked by the app's deny-all
+    // permission policy, so copy/paste goes through the main-process bridge.
+    //  - Ctrl+C copies ONLY while a selection exists (otherwise it stays SIGINT)
+    //  - Ctrl+Shift+C / Ctrl+Insert always copy the selection
+    //  - Ctrl(+Shift)+V / Shift+Insert paste text; with a text-less clipboard
+    //    (e.g. a screenshot) the raw ^V is forwarded so CLIs like Claude Code
+    //    can read the image from the OS clipboard themselves.
+    const forwardRawPasteKey = (): void => {
+      void window.ade
+        .invoke('pty:write', { sessionId, dataBase64: utf8ToBase64('\x16') })
+        .catch(() => undefined);
+    };
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true;
+      const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
+      const key = event.key.toLowerCase();
+      const copyChord = (ctrl && key === 'c' && (event.shiftKey || term.hasSelection()))
+        || (ctrl && !event.shiftKey && event.key === 'Insert');
+      if (copyChord) {
+        const selection = term.getSelection();
+        if (selection.length > 0) {
+          void window.ade.invoke('clipboard:writeText', { text: selection }).catch(() => undefined);
+        }
+        return false;
+      }
+      const pasteChord = (ctrl && key === 'v')
+        || (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Insert');
+      if (pasteChord) {
+        void window.ade.invoke('clipboard:readText')
+          .then(({ text }) => {
+            if (text.length > 0) term.paste(text);
+            else forwardRawPasteKey();
+          })
+          .catch(forwardRawPasteKey);
+        return false;
+      }
+      return true;
+    });
+
     // keyboard -> pty
     let writeFailed = false;
     const keyDisp = term.onData((data) => {

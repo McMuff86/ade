@@ -36,6 +36,8 @@ export function RepositoryScopeHeader({
   const [targetRepositoryId, setTargetRepositoryId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [removeArmed, setRemoveArmed] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const targetContext = useRef('');
 
   const agent = agentId ? agents[agentId] : undefined;
@@ -46,6 +48,8 @@ export function RepositoryScopeHeader({
   );
 
   useEffect(() => {
+    setRemoveArmed(false);
+    setNotice(null);
     if (!agentId) {
       setScope(null);
       setTargetRepositoryId('');
@@ -101,6 +105,35 @@ export function RepositoryScopeHeader({
         undefined,
         targetRepositoryId || null,
       );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeWorktree = async (): Promise<void> => {
+    if (!scope?.workspaceBindingId) return;
+    if (!removeArmed) {
+      setRemoveArmed(true);
+      return;
+    }
+    setRemoveArmed(false);
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await window.ade.invoke('workspace:removeBinding', {
+        workspaceBindingId: scope.workspaceBindingId,
+      });
+      setNotice(result.branchDeleted
+        ? `Worktree removed; merged branch ${result.branch} deleted.`
+        : `Worktree removed; branch ${result.branch} kept (unmerged commits).`);
+      const descriptor = await window.ade.invoke('workspace:describe', {
+        agentId,
+        sessionId: sessionId ?? undefined,
+      });
+      setScope(descriptor);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -174,8 +207,20 @@ export function RepositoryScopeHeader({
         >
           {targetRepositoryId ? 'Set agent default' : 'Clear agent default'}
         </button>
+        {scope?.workspaceBindingId ? (
+          <button
+            type="button"
+            className={`btn${removeArmed ? ' rp-scope-remove-armed' : ''}`}
+            disabled={busy || locked}
+            title="Remove this agent's worktree from disk. Refused while sessions, tasks or uncommitted changes exist; a fresh worktree is created on next use."
+            onClick={() => void removeWorktree()}
+          >
+            {removeArmed ? 'Really remove?' : 'Remove worktree'}
+          </button>
+        ) : null}
       </div>
       {locked ? <div className="rp-scope-lock">This binding is owned by an active managed run.</div> : null}
+      {notice ? <div className="rp-scope-notice">{notice}</div> : null}
       {error ? <div className="rp-scope-error">{error}</div> : null}
     </section>
   );

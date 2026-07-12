@@ -61,6 +61,9 @@ const valid: Record<InvokeChannel, unknown> = {
   },
   'repository:import': { path: 'C:\\repos\\project', name: 'Project' },
   'workspace:describe': { agentId: 'agent', sessionId: 'session' },
+  'workspace:removeBinding': { workspaceBindingId: 'binding' },
+  'clipboard:readText': undefined,
+  'clipboard:writeText': { text: 'copied terminal selection' },
   'pty:create': {
     agentId: 'agent',
     task: 'Work',
@@ -138,6 +141,12 @@ check('workspace traversal is rejected before filesystem handlers',
   rejects('fs:read', { agentId: 'agent', path: '../outside.txt' }));
 check('repository selectors reject malformed non-string values',
   rejects('pty:create', { agentId: 'agent', repositoryId: 42 }));
+check('worktree removal requires a binding id',
+  rejects('workspace:removeBinding', {}));
+check('clipboard writes reject non-string payloads',
+  rejects('clipboard:writeText', { text: 42 }));
+check('clipboard reads reject stray payloads',
+  rejects('clipboard:readText', { extra: true }));
 check('workspace selectors reject unknown fields',
   rejects('workspace:describe', { agentId: 'agent', repositoryId: 'repo' }));
 

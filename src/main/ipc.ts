@@ -4,7 +4,7 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, clipboard, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
@@ -161,6 +161,17 @@ export function registerIpcHandlers(store: ConfigStore): void {
     }
     return scopes.describe(agentId, session);
   });
+  handle(IPC.WorkspaceRemoveBinding, ({ workspaceBindingId }) =>
+    scopes.removeBinding(workspaceBindingId, {
+      busyWorkspaceDirs: ptyManager!.list()
+        .filter((session) => session.status === 'running' && session.workspaceDir)
+        .map((session) => session.workspaceDir!),
+    }));
+
+  // Clipboard bridge: the renderer's navigator.clipboard is blocked by the
+  // deny-all permission handlers, so terminal copy/paste goes through main.
+  handle(IPC.ClipboardReadText, () => ({ text: clipboard.readText() }));
+  handle(IPC.ClipboardWriteText, ({ text }) => { clipboard.writeText(text); });
 
   // Stop live/queued work, then remove config only (workspace files remain).
   handle(IPC.AgentDelete, ({ id }) => {

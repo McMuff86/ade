@@ -94,6 +94,31 @@
   font-weight: 600;
 }
 .grun-new svg { width: 13px; height: 13px; }
+.grun-delete {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--del);
+  font-size: 11.5px;
+}
+.grun-delete:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--del) 40%, var(--line));
+  background: color-mix(in srgb, var(--del) 12%, var(--raised));
+}
+.grun-delete.armed {
+  border-color: var(--del);
+  background: var(--del);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.grun-delete:disabled { opacity: 0.42; cursor: default; }
+.grun-delete svg { width: 13px; height: 13px; }
 .gapproval {
   position: absolute;
   top: 64px;
@@ -411,6 +436,7 @@
 .grun-field input, .grun-field select { height: 32px; padding: 0 9px; }
 .grun-field textarea { min-height: 66px; resize: vertical; padding: 8px 9px; }
 .grun-field input:focus, .grun-field textarea:focus, .grun-field select:focus { border-color: var(--accent); }
+.grun-hint { grid-column: 2; color: var(--faint); font-size: 10px; line-height: 1.45; }
 .grun-budget-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 11.5px; }
 .grun-budget-title small { color: var(--faint); font-size: 10px; text-align: right; }
 .grun-budget { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
@@ -441,6 +467,7 @@
   .graph:has(.gapproval) .ginspector { top: 126px; max-height: calc(100% - 142px); }
   .gdock { max-width: calc(100% - 84px); }
   .grun-field { grid-template-columns: 1fr; gap: 5px; }
+  .grun-hint { grid-column: auto; }
   .grun-budget { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

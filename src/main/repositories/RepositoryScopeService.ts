@@ -1,7 +1,6 @@
-import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import type {
   AdeConfig,
   Agent,
@@ -50,18 +49,32 @@ export interface RepositoryScopePort {
 
 /** Owns repository catalog identity and immutable agent/repository worktree bindings. */
 export class RepositoryScopeService implements RepositoryScopePort {
-  private readonly baseDir: string;
+  /** Test/legacy override; production derives the root per repository. */
+  private readonly explicitBaseDir?: string;
   private readonly bindingCreations = new Map<string, Promise<ResolvedExecutionScope>>();
 
   constructor(
     private readonly store: RepositoryConfigPort,
     options: { baseDir?: string; workspaces?: WorkspacePort } = {},
   ) {
-    this.baseDir = options.baseDir ?? join(app.getPath('userData'), 'ade');
+    this.explicitBaseDir = options.baseDir;
     this.workspaces = options.workspaces ?? new WorkspaceService();
   }
 
   private readonly workspaces: WorkspacePort;
+
+  /**
+   * Where new worktrees for this repository live. Precedence:
+   * settings.worktreeBaseDir > constructor baseDir (tests/legacy) >
+   * `.ade-worktrees` next to the repository, so agent checkouts stay close to
+   * the user's own clone instead of hiding in the roaming profile.
+   */
+  private worktreeRootFor(repository: Repository): string {
+    const custom = this.store.get().settings.worktreeBaseDir?.trim();
+    if (custom) return resolve(custom);
+    if (this.explicitBaseDir) return join(this.explicitBaseDir, 'worktrees');
+    return join(dirname(repository.rootPath), '.ade-worktrees');
+  }
 
   async importRepository(path: string, requestedName?: string): Promise<Repository> {
     const identity = await repositoryIdentity(path);
@@ -147,6 +160,56 @@ export class RepositoryScopeService implements RepositoryScopePort {
     return { ...updated };
   }
 
+  /**
+   * User-facing worktree cleanup. Refuses while a run lease, a queued/running
+   * task or a live session still uses the worktree, and refuses to delete
+   * uncommitted changes. The ADE branch is only deleted when fully merged;
+   * unmerged work stays reachable on the kept branch.
+   */
+  async removeBinding(
+    bindingId: string,
+    options: { busyWorkspaceDirs?: string[] } = {},
+  ): Promise<{ branch: string; branchDeleted: boolean }> {
+    const config = this.store.get();
+    const binding = config.workspaceBindings.find((candidate) => candidate.id === bindingId);
+    if (!binding) throw new Error(`ade: workspace binding not found "${bindingId}"`);
+    if (config.runWorkspaceLeases.some((lease) => lease.status === 'active' &&
+      (lease.workspaceBindingId === binding.id || samePath(lease.workspaceDir, binding.workspaceDir)))) {
+      throw new Error('ade: workspace binding is owned by an active run');
+    }
+    if (config.runTasks.some((task) =>
+      (task.status === 'queued' || task.status === 'running') &&
+      (task.workspaceBindingId === binding.id ||
+        (task.workspaceDir !== undefined && samePath(task.workspaceDir, binding.workspaceDir))))) {
+      throw new Error('ade: workspace binding still has queued or running tasks');
+    }
+    if (options.busyWorkspaceDirs?.some((dir) => samePath(dir, binding.workspaceDir))) {
+      throw new Error('ade: close the sessions running in this worktree first');
+    }
+
+    const repository = config.repositories.find((candidate) => candidate.id === binding.repositoryId);
+    const inspection = await this.workspaces.inspect(binding.workspaceDir);
+    let branchDeleted = false;
+    if (inspection.isRepo && repository && samePath(inspection.commonGitDir, repository.commonGitDir)) {
+      if (!inspection.clean) {
+        throw new Error('ade: worktree has uncommitted or untracked changes; commit or discard them first');
+      }
+      const removal = await removeAgentWorktree(
+        repository.rootPath,
+        binding.workspaceDir,
+        binding.branch || inspection.branch,
+        { branchDelete: 'if-merged' },
+      );
+      branchDeleted = removal.branchDeleted;
+    }
+    // A missing or foreign directory only drops the stale record; files stay put.
+    const current = this.store.get();
+    this.store.save({
+      workspaceBindings: current.workspaceBindings.filter((candidate) => candidate.id !== binding.id),
+    });
+    return { branch: binding.branch, branchDeleted };
+  }
+
   describe(agentId: string, reference?: ScopeReference): WorkspaceScopeDescriptor {
     const config = this.store.get();
     const agent = this.requireAgent(agentId);
@@ -191,7 +254,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
     const id = randomUUID();
     const agentSlug = `${slugify(agent.name)}-${agent.id.slice(0, 6).toLowerCase()}`;
     const repoSlug = `${slugify(repository.name)}-${repository.id.slice(0, 6).toLowerCase()}`;
-    const worktreePath = join(this.baseDir, 'worktrees', repoSlug, agentSlug);
+    const worktreePath = join(this.worktreeRootFor(repository), repoSlug, agentSlug);
     const conflictingBinding = this.store.get().workspaceBindings.find(
       (candidate) => candidate.status !== 'invalid' && samePath(candidate.workspaceDir, worktreePath),
     );

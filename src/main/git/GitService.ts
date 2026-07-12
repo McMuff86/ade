@@ -313,20 +313,31 @@ export async function createAgentWorktree(params: {
   return { worktreePath, branch };
 }
 
-/** Best-effort rollback for a worktree created by the same failed operation. */
+/**
+ * Remove an ADE-created worktree. Rollback callers force-delete the branch
+ * (it never has unique commits). User-facing cleanup passes 'if-merged' so a
+ * branch with unmerged work is kept — its commits stay reachable in the repo.
+ */
 export async function removeAgentWorktree(
   repoPath: string,
   worktreePath: string,
   branch: string,
-): Promise<void> {
+  opts: { branchDelete?: 'force' | 'if-merged' } = {},
+): Promise<{ branchDeleted: boolean }> {
   await execFileAsync('git', ['-C', repoPath, 'worktree', 'remove', '--force', worktreePath], {
     timeout: 120_000,
     windowsHide: true,
   });
-  if (branch.startsWith('ade/')) {
-    await execFileAsync('git', ['-C', repoPath, 'branch', '-D', branch], {
+  if (!branch.startsWith('ade/')) return { branchDeleted: false };
+  const mode = opts.branchDelete ?? 'force';
+  try {
+    await execFileAsync('git', ['-C', repoPath, 'branch', mode === 'force' ? '-D' : '-d', branch], {
       timeout: 120_000,
       windowsHide: true,
     });
+    return { branchDeleted: true };
+  } catch (error) {
+    if (mode === 'if-merged') return { branchDeleted: false };
+    throw error;
   }
 }

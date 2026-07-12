@@ -54,6 +54,9 @@ export const IPC = {
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
   WorkspaceDescribe: 'workspace:describe',
+  WorkspaceRemoveBinding: 'workspace:removeBinding',
+  ClipboardReadText: 'clipboard:readText',
+  ClipboardWriteText: 'clipboard:writeText',
   PtyCreate: 'pty:create',
   PtyWrite: 'pty:write',
   PtyResize: 'pty:resize',
@@ -153,6 +156,21 @@ export interface ConfigSaveRequest {
   settings: {
     theme: ThemeName;
   };
+}
+export interface WorkspaceRemoveBindingRequest {
+  workspaceBindingId: string;
+}
+export interface WorkspaceRemoveBindingResult {
+  /** ADE branch the removed worktree was on. */
+  branch: string;
+  /** false = the branch had unmerged commits and was kept for safety. */
+  branchDeleted: boolean;
+}
+export interface ClipboardWriteTextRequest {
+  text: string;
+}
+export interface ClipboardReadTextResult {
+  text: string;
 }
 export interface PtyListResult {
   sessions: SessionMeta[];
@@ -303,6 +321,9 @@ export interface IpcInvokeMap {
   'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
   'repository:import': { req: RepositoryImportRequest; res: Repository };
   'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };
+  'workspace:removeBinding': { req: WorkspaceRemoveBindingRequest; res: WorkspaceRemoveBindingResult };
+  'clipboard:readText': { req: void; res: ClipboardReadTextResult };
+  'clipboard:writeText': { req: ClipboardWriteTextRequest; res: void };
   'pty:create': { req: PtyCreateRequest; res: SessionMeta };
   'pty:write': { req: PtyWriteRequest; res: void };
   'pty:resize': { req: PtyResizeRequest; res: void };

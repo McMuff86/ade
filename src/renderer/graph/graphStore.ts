@@ -48,6 +48,8 @@ interface GraphStoreState {
 
   setPosition: (key: string, pos: Pos) => void;
   clearPositions: () => void;
+  /** Drop the persisted layout of one deleted run (cluster + node keys). */
+  clearRunPositions: (runId: string) => void;
   setBusy: (participantId: string, status: TransientStatus) => void;
   clearBusy: (participantId: string) => void;
   setTeamIdle: (teamId: string, idle: boolean) => void;
@@ -79,6 +81,20 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         /* ignore */
       }
       return { positions: {} };
+    }),
+
+  clearRunPositions: (runId) =>
+    set((s) => {
+      const positions = Object.fromEntries(
+        Object.entries(s.positions).filter(([key]) =>
+          key !== `cluster:${runId}` && !key.startsWith(`${runId}:`)),
+      );
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify(positions));
+      } catch {
+        /* ignore */
+      }
+      return { positions };
     }),
 
   setBusy: (agentId, status) => set((s) => ({ busy: { ...s.busy, [agentId]: status } })),

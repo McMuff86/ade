@@ -127,7 +127,8 @@
 }
 
 .rp-scope-error,
-.rp-scope-lock {
+.rp-scope-lock,
+.rp-scope-notice {
   margin-top: 7px;
   font-size: 10.5px;
   line-height: 1.35;
@@ -139,6 +140,15 @@
 
 .rp-scope-lock {
   color: var(--accent);
+}
+
+.rp-scope-notice {
+  color: var(--muted);
+}
+
+.rp-scope-remove-armed {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
 }
 
 /* ------------------------------------------------------------------ tabs */

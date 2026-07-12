@@ -544,6 +544,12 @@ export interface Settings {
    * DEFAULT_CONFIG when older config files are loaded.
    */
   memory?: MemorySettings;
+  /**
+   * Optional override for where ADE creates agent worktrees. When absent,
+   * new worktrees land in `.ade-worktrees` next to the repository root.
+   * Existing bindings keep their recorded absolute paths either way.
+   */
+  worktreeBaseDir?: string;
 }
 
 /** Persisted app config (main/config/store.ts, userData/ade/config.json). */

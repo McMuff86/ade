@@ -401,9 +401,125 @@ function testDomainFoundations(): void {
     crossChannel.includes('already used'));
 }
 
+function testRunDeletionAndScopeSnapshots(): void {
+  const category = { id: 'del-cat', name: 'Deletion', agents: ['del-a', 'del-b'] };
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [category],
+    agents: [testAgent('del-a', category.id, 'Del Lead'), testAgent('del-b', category.id, 'Del Worker')],
+    repositories: [{
+      id: 'repo-del',
+      name: 'Deletion Repo',
+      rootPath: 'C:\\repos\\deletion',
+      commonGitDir: 'C:\\repos\\deletion\\.git',
+      verified: true,
+      createdAt: 1_000,
+    }],
+  };
+  const store = memoryStore(config);
+  const service = new OrchestrationService(store);
+
+  const scopedRun = service.createRun({
+    name: 'Scoped run',
+    goal: 'Scope snapshots',
+    repositoryId: 'repo-del',
+    participants: [
+      { agentId: 'del-a', role: 'lead', teamId: 'del-team', teamName: 'Deletion' },
+      { agentId: 'del-b', role: 'worker', teamId: 'del-team', teamName: 'Deletion' },
+    ],
+  });
+  const scopedLead = store.read().runParticipants.find(
+    (participant) => participant.runId === scopedRun.id && participant.role === 'lead',
+  )!;
+  const scopedTask = service.createTask({
+    runId: scopedRun.id,
+    participantId: scopedLead.id,
+    prompt: 'Work in the run repository',
+  });
+  check('run and participants snapshot the selected repository',
+    scopedRun.repositoryId === 'repo-del'
+      && store.read().runParticipants
+        .filter((participant) => participant.runId === scopedRun.id)
+        .every((participant) => participant.repositoryId === 'repo-del'));
+  check('a manual task freezes the run repository scope at creation',
+    scopedTask.repositoryId === 'repo-del');
+
+  const plainRun = service.createRun({
+    name: 'Plain run',
+    repositoryId: null,
+    participants: [{ agentId: 'del-a', role: 'lead', teamId: 'plain-team', teamName: 'Plain' }],
+  });
+  const plainLead = store.read().runParticipants.find(
+    (participant) => participant.runId === plainRun.id,
+  )!;
+  const plainTask = service.createTask({
+    runId: plainRun.id,
+    participantId: plainLead.id,
+    prompt: 'Work in the plain home workspace',
+  });
+  check('an explicit no-repository run snapshots null (not agent default) onto tasks',
+    plainRun.repositoryId === null && plainTask.repositoryId === null);
+
+  let unknownRepoError = '';
+  try {
+    service.createRun({
+      name: 'Broken scope',
+      repositoryId: 'repo-missing',
+      participants: [{ agentId: 'del-a', role: 'lead', teamId: 'x', teamName: 'X' }],
+    });
+  } catch (error) {
+    unknownRepoError = error instanceof Error ? error.message : String(error);
+  }
+  check('a run cannot reference an unknown repository', unknownRepoError.includes('repository not found'));
+
+  service.acquireWorkspaceLeases(scopedRun.id, [{
+    participantId: scopedLead.id,
+    agentId: scopedLead.agentId,
+    workspaceDir: 'C:\\worktrees\\deletion\\del-lead',
+    isRepo: true,
+    branch: 'ade/del-lead',
+    baseSha: 'abc123',
+    commonGitDir: 'C:\\repos\\deletion\\.git',
+    repositoryId: 'repo-del',
+  }]);
+  let leaseError = '';
+  try {
+    service.deleteRun(scopedRun.id);
+  } catch (error) {
+    leaseError = error instanceof Error ? error.message : String(error);
+  }
+  check('an active workspace lease blocks run deletion',
+    leaseError.includes('cancel the active run')
+      && store.read().runs.some((candidate) => candidate.id === scopedRun.id));
+
+  service.releaseWorkspaceLeases(scopedRun.id);
+  service.deleteRun(scopedRun.id);
+  const after = store.read();
+  check('run deletion purges every run-scoped record set',
+    !after.runs.some((candidate) => candidate.id === scopedRun.id)
+      && !after.runParticipants.some((participant) => participant.runId === scopedRun.id)
+      && !after.runTasks.some((task) => task.runId === scopedRun.id)
+      && !after.runEvents.some((event) => event.runId === scopedRun.id)
+      && !after.runWorkspaceLeases.some((lease) => lease.runId === scopedRun.id)
+      && !after.runArtifacts.some((artifact) => artifact.runId === scopedRun.id));
+  check('deleting one run leaves other runs untouched',
+    after.runs.some((candidate) => candidate.id === plainRun.id)
+      && after.runTasks.some((task) => task.runId === plainRun.id)
+      && after.repositories.length === 1);
+
+  let repeatedDeleteError = '';
+  try {
+    service.deleteRun(scopedRun.id);
+  } catch (error) {
+    repeatedDeleteError = error instanceof Error ? error.message : String(error);
+  }
+  check('deleting an already-deleted run stays a safe no-op', repeatedDeleteError === '');
+}
+
 testLegacyMigration();
 testRunJournal();
 testDomainFoundations();
+testRunDeletionAndScopeSnapshots();
 
 console.log(`\n${failed ? 'FAILED' : 'PASSED'} - ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

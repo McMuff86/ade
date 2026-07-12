@@ -1,7 +1,7 @@
 /** Goal 5 repository, binding, task-snapshot and agent-template checks. */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import {
@@ -388,6 +388,126 @@ async function run(): Promise<void> {
         && store.read().workspaceBindings.find((binding) => (
           binding.id === scopeA.workspaceBindingId
         ))?.status === 'invalid');
+
+    /* -------------------------- worktree location + cleanup (Goal 5.1) */
+
+    const normalized = (path: string): string => path.replace(/\\/g, '/').toLowerCase();
+    const locationAgentA: Agent = {
+      id: 'location-agent-a',
+      categoryId: category.id,
+      name: 'Location Alpha',
+      runtime: 'codex',
+      permissionMode: 'default',
+      workspaceDir: join(scratch, 'location-agent-a', 'workspace'),
+      homeWorkspaceDir: join(scratch, 'location-agent-a', 'workspace'),
+      memoryDir: join(scratch, 'location-agent-a', 'memory'),
+    };
+    const locationAgentB: Agent = {
+      id: 'location-agent-b',
+      categoryId: category.id,
+      name: 'Location Beta',
+      runtime: 'claude',
+      permissionMode: 'default',
+      workspaceDir: join(scratch, 'location-agent-b', 'workspace'),
+      homeWorkspaceDir: join(scratch, 'location-agent-b', 'workspace'),
+      memoryDir: join(scratch, 'location-agent-b', 'memory'),
+    };
+    const locationStore = memoryStore({
+      ...structuredClone(DEFAULT_CONFIG),
+      categories: [category],
+      agents: [locationAgentA, locationAgentB],
+    });
+    const locationScopes = new RepositoryScopeService(locationStore);
+    const locationRepo = await locationScopes.importRepository(repoAPath);
+
+    const defaultScope = await locationScopes.resolve(locationAgentA.id, {
+      repositoryId: locationRepo.id,
+    });
+    check('new worktrees default to `.ade-worktrees` next to the repository',
+      normalized(defaultScope.workspaceDir).includes('/.ade-worktrees/'),
+      defaultScope.workspaceDir);
+
+    locationStore.save({
+      settings: {
+        ...locationStore.read().settings,
+        worktreeBaseDir: join(scratch, 'custom-worktrees'),
+      },
+    });
+    const customScope = await locationScopes.resolve(locationAgentB.id, {
+      repositoryId: locationRepo.id,
+    });
+    check('settings.worktreeBaseDir overrides where new worktrees are created',
+      normalized(customScope.workspaceDir).includes('/custom-worktrees/'),
+      customScope.workspaceDir);
+
+    writeFileSync(join(customScope.workspaceDir, 'wip.txt'), 'work in progress\n', 'utf8');
+    let dirtyRejected = false;
+    try {
+      await locationScopes.removeBinding(customScope.workspaceBindingId!);
+    } catch {
+      dirtyRejected = true;
+    }
+    check('worktree cleanup refuses while uncommitted changes exist',
+      dirtyRejected
+        && existsSync(join(customScope.workspaceDir, 'wip.txt'))
+        && locationStore.read().workspaceBindings.some((binding) => (
+          binding.id === customScope.workspaceBindingId
+        )));
+
+    let busyRejected = false;
+    try {
+      await locationScopes.removeBinding(customScope.workspaceBindingId!, {
+        busyWorkspaceDirs: [customScope.workspaceDir],
+      });
+    } catch {
+      busyRejected = true;
+    }
+    check('worktree cleanup refuses while a live session uses the worktree', busyRejected);
+
+    git(customScope.workspaceDir, ['add', 'wip.txt']);
+    git(customScope.workspaceDir, ['commit', '-m', 'WIP on the agent branch']);
+    const removalKept = await locationScopes.removeBinding(customScope.workspaceBindingId!);
+    check('cleanup removes the worktree but keeps an unmerged ade branch',
+      !removalKept.branchDeleted
+        && !existsSync(customScope.workspaceDir)
+        && git(repoAPath, ['branch', '--list', customScope.branch]).trim().length > 0
+        && locationStore.read().workspaceBindings.every((binding) => (
+          binding.id !== customScope.workspaceBindingId
+        )));
+
+    const removalMerged = await locationScopes.removeBinding(defaultScope.workspaceBindingId!);
+    check('cleanup deletes a fully merged ade branch with its worktree',
+      removalMerged.branchDeleted
+        && !existsSync(defaultScope.workspaceDir)
+        && git(repoAPath, ['branch', '--list', defaultScope.branch]).trim() === '');
+
+    const leasedScope = await locationScopes.resolve(locationAgentA.id, {
+      repositoryId: locationRepo.id,
+    });
+    locationStore.save({
+      runWorkspaceLeases: [{
+        id: 'cleanup-lease',
+        runId: 'cleanup-run',
+        participantId: 'cleanup-participant',
+        agentId: locationAgentA.id,
+        workspaceDir: leasedScope.workspaceDir,
+        isRepo: true,
+        branch: leasedScope.branch,
+        baseSha: 'sha',
+        commonGitDir: '',
+        repositoryId: locationRepo.id,
+        workspaceBindingId: leasedScope.workspaceBindingId,
+        status: 'active',
+        acquiredAt: Date.now(),
+      }],
+    });
+    let leaseRejected = false;
+    try {
+      await locationScopes.removeBinding(leasedScope.workspaceBindingId!);
+    } catch {
+      leaseRejected = true;
+    }
+    check('an active run lease blocks worktree cleanup', leaseRejected);
   } finally {
     const safeRoot = resolve(tmpdir());
     const safeScratch = resolve(scratch);
