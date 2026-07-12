@@ -148,8 +148,17 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
               <div className="ch-note">Loading…</div>
             ) : open.kind === 'diff' ? (
               <DiffView text={content} />
+            ) : content ? (
+              <pre className="rp-preview">{content}</pre>
+            ) : open.path === 'MEMORY.md' || open.path === 'USER.md' ? (
+              <div className="ch-note">
+                No entries yet. The agent maintains this file itself while working:
+                MEMORY.md collects its own durable notes (environment, conventions,
+                lessons), USER.md the user profile. Entries are separated by a
+                &quot;§&quot; line and injected into every new session once saved.
+              </div>
             ) : (
-              <pre className="rp-preview">{content || '(empty file)'}</pre>
+              <pre className="rp-preview">(empty file)</pre>
             )}
           </div>
         </div>

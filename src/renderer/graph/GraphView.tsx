@@ -6,6 +6,7 @@ import type {
   Agent,
   Category,
   Repository,
+  Run,
   RunCreateInput,
   RunTaskResult,
   TaskProvenance,
@@ -155,6 +156,7 @@ export function GraphView(): JSX.Element {
   const categories = useAppData((state) => state.categories);
   const agents = useAppData((state) => state.agents);
   const repositories = useAppData((state) => state.repositories);
+  const workspaceBindings = useAppData((state) => state.workspaceBindings);
   const runs = useRuns((state) => state.runs);
   const participants = useRuns((state) => state.participants);
   const tasks = useRuns((state) => state.tasks);
@@ -272,6 +274,23 @@ export function GraphView(): JSX.Element {
       })
       .catch((error) => flash(errorText(error)));
   }, [deleteArmed, deleteRun, clearRunPositions, flash]);
+
+  /**
+   * The worktree branch an agent works on inside this run's repository scope.
+   * Explicit no-repository runs have no branch; legacy runs fall back to the
+   * agent's default repository binding.
+   */
+  const branchFor = useCallback((run: Run, agentId: string): string | null => {
+    const repositoryId = run.repositoryId === null
+      ? undefined
+      : run.repositoryId ?? agents[agentId]?.defaultRepositoryId;
+    if (!repositoryId) return null;
+    const binding = workspaceBindings.find((candidate) =>
+      candidate.agentId === agentId
+      && candidate.repositoryId === repositoryId
+      && candidate.status !== 'invalid');
+    return binding?.branch || null;
+  }, [workspaceBindings, agents]);
 
   /** Selecting anything inside a cluster also makes that run the active one. */
   const selectInCluster = useCallback((runId: string, sel: GraphSelection | null) => {
@@ -616,6 +635,7 @@ export function GraphView(): JSX.Element {
     const status = nodeStatus(cluster, member, team.idle);
     const selected = isSelected({ kind: role, id: member.id });
     const flashClass = flashes[member.id] ? ` gflash-${flashes[member.id]}` : '';
+    const branch = member.available ? branchFor(cluster.run, member.agentId) : null;
     return (
       <div
         key={member.id}
@@ -639,6 +659,7 @@ export function GraphView(): JSX.Element {
           <div className="gcard-role">~ {role}</div>
           <div className="gglyph"><runtime.Glyph /></div>
           <div className="gcard-name">{member.name}</div>
+          {branch && <div className="gcard-branch" title={`Worktree-Branch ${branch}`}>⎇ {branch}</div>}
           <div className="gchip" data-s={member.available ? status : 'failed'}>
             {member.available ? statusText(status) : 'nicht im Katalog'}
           </div>
@@ -731,6 +752,11 @@ export function GraphView(): JSX.Element {
             <div className="gcard-body">
               <div className="gglyph"><orchestratorRuntime.Glyph /></div>
               <div className="gcard-name">{orchestrator.name}</div>
+              {orchestrator.available && branchFor(run, orchestrator.agentId) && (
+                <div className="gcard-branch" title={`Worktree-Branch ${branchFor(run, orchestrator.agentId)}`}>
+                  ⎇ {branchFor(run, orchestrator.agentId)}
+                </div>
+              )}
               <div className="gchip" data-s={orchestrator.available ? nodeStatus(cluster, orchestrator, false) : 'failed'}>
                 {orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : 'nicht im Katalog'}
               </div>

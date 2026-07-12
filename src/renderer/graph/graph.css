@@ -256,6 +256,15 @@
 .gcard-role { position: absolute; top: 8px; left: 10px; font-size: 10px; color: var(--faint); }
 .gglyph { width: 32px; height: 32px; color: var(--rt, var(--accent)); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rt, var(--accent)) 40%, transparent)); }
 .gcard-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+.gcard-branch {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+}
 
 .gchip { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-transform: none; }
 .gchip[data-s='running'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 40%, var(--line)); }
