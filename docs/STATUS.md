@@ -15,11 +15,16 @@ Implemented repository bindings and planned mobile boundaries are detailed in
 | Repository scopes | Real | First-class repository catalog, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible repo/source/branch/path/dirty/lease header all resolve the active session snapshot in main |
-| Memory read path | Real | `MEMORY.md` / `USER.md` are injected into runtime instruction files at launch |
+| Memory read path | Real | `MEMORY.md` / `USER.md` are injected into runtime instruction files at launch; managed tasks additionally receive a read-only, capped memory snapshot in their task context without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
-| Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config |
+| Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config; logical phase transitions commit as one save |
+| Run journal cursor | Real | Events and messages carry one global monotonic `seq` (backfilled once by migration); `run:events` returns a cursor-paged chronological stream as the future SSE base |
+| Command idempotency | Real, opt-in | Mutating run commands accept an optional `commandId`; a bounded command log replays the recorded successful outcome instead of re-executing |
+| Sanitized run summaries | Real | `run:getSummary` projects runs without absolute paths, prompts, mailbox bodies or lease paths, for the Graph canvas and the future mobile DTO |
 | Run reload/restart recovery | Real | Task/run status is reconstructed from the journal; interrupted processes fail, while an idle pending integration approval and its leases remain resumable |
 | Graph topology | Real, run-scoped | A run references catalog agents and assigns run-local orchestrator/lead/worker roles without creating identities |
+| Graph canvas | Real, multi-run | Every non-terminal run renders as its own cluster; edge/node activity is journal-driven (message `seq`, task transitions), a global panel shows the four task slots and per-run queues, and the node inspector surfaces results, usage and prompt/schema provenance |
+| Team pause | Real, main-owned | `run:pauseTeam`/`resumeTeam` journal `team.paused`/`team.resumed`; managed scheduling skips paused teams without cancelling running tasks; renderer `idleTeams` remains manual-dispatch-only |
 | Graph task launch | Real, bounded | One-shot non-interactive task sessions, FIFO limit of four active CLIs, queue status and cancellation |
 | Graph completion | Real, persisted signal | PTY start/exit/cancel events transition persisted tasks; success requires exit code 0 |
 | CLI/auth diagnostics | Real | Read-only availability/version checks; Claude/Codex auth status; Ollama service check; safe warnings for custom/unsupported probes |
@@ -31,13 +36,14 @@ Implemented repository bindings and planned mobile boundaries are detailed in
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; other non-shell runtimes use the same result schema through a file contract |
 | Worktree ownership | Real | Clean workspaces are leased exclusively; runtimes cannot write linked-worktree Git metadata, while ADE commits only an exact reported/observed path-set match |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
+| Prompt/context observability | Real | Phase prompts live in a versioned module; every managed run journals a path-free context manifest artifact plus per-task context packets with bounded dependency results and provenance; the planner is told dependent workers inherit no upstream code |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Remote host API | Not built, planned | Goal 7 adds a disabled-by-default, loopback-only, transport-neutral control adapter after product validation |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real | The focused suite runs 198 assertions; the 41-check production Electron workflow covers ConPTY, scope reload/restart and managed integration; Windows CI also validates the unpacked package |
+| CI and Electron E2E | Real | The focused suite runs 260 assertions (including 28 prompt snapshot checks); the 41-check production Electron workflow covers ConPTY, scope reload/restart and managed integration; Windows CI also validates the unpacked package |
 
 ## Known constraints
 
@@ -48,9 +54,17 @@ Implemented repository bindings and planned mobile boundaries are detailed in
   not yet an active write surface.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
-- The event journal, structured results, approvals, messages and artifacts
-  currently share the atomic JSON config. Long histories need indexed
-  storage/retention before large-scale production use.
+- The event journal, structured results, approvals, messages, artifacts and
+  the new command log currently share the atomic JSON config. Long histories
+  need indexed storage/retention before large-scale production use; parallel
+  multi-run canvases increase this pressure.
+- Team pause does not survive an ADE restart: restart recovery fails runs with
+  queued tasks, so a paused run closes fail-closed instead of resuming paused.
+  Restart-persistent pause is a separate work item.
+- Task provenance (prompt/schema/adapter versions, manifest hash) lives in the
+  journaled task context artifact, not on the task record; the run context
+  brief cache is in-memory, so integration/verification prompts omit the brief
+  after an app restart while the manifest artifact remains.
 - Task transports are deterministic for supported non-interactive CLIs. Custom
   commands and Grok receive the prompt over stdin and depend on the command
   honoring stdin.

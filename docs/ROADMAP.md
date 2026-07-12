@@ -145,6 +145,43 @@ binding restart, full app restart and the complete managed integration
 lifecycle. Detailed
 decisions live in `docs/REPOSITORY_SCOPES_PLAN.md`.
 
+## Graph P0 - orchestrator foundations
+
+Status: implemented between Goal 5 and Goal 6; verification recorded in the
+Graph P0a-P0c commits. Design sources: `docs/research/agent-orchestration/`
+(GRAPH_ORCHESTRATOR_DESIGN.md P0 items) plus the mobile-readiness rules from
+`REMOTE_CONTROL_PLAN.md`.
+
+- Give events and messages one global monotonic `seq` (with one-time backfill)
+  and a cursor-paged `run:events` query as the Goal 7 SSE base.
+- Accept an optional `commandId` on mutating run commands and replay recorded
+  successful outcomes from a bounded command log.
+- Project sanitized `RunSummary` snapshots without absolute paths, prompts or
+  mailbox bodies.
+- Add main-owned team pause/resume that managed scheduling honors without
+  cancelling running tasks; renderer idle state is manual-dispatch-only.
+- Commit each logical phase transition (planning, working, approval,
+  completion) as one atomic save.
+- Move phase prompts into a versioned module; journal a path-free run context
+  manifest and per-task context packets with bounded dependency results and
+  provenance; tell the planner dependent workers inherit no upstream code;
+  inject agent memory as a read-only snapshot outside the leased worktree.
+- Render every non-terminal run as its own canvas cluster with journal-driven
+  edge/node activity, a visible task-slot/queue panel, a provenance inspector
+  and live task-session attach on double-click.
+
+Exit criteria: no orchestration semantics change beyond pause and atomicity;
+summaries, manifests and prompts contain no absolute host paths; the focused
+suite and the production Electron workflow stay green.
+
+Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+19 runtime + 37 orchestration + 47 orchestration-beta + 28 prompt + 21
+repository-scope + 72 Windows security assertions), `pnpm run build`, and the
+41-check production Electron workflow pass. Renderer behavior was additionally
+verified headless against a deep-cloning `window.ade` stub: multi-run
+clusters, seq-gated travel dots, pause command wiring, provenance inspector
+and task-session attach.
+
 ## Goal 6 - product validation
 
 Status: next after Goal 5.
