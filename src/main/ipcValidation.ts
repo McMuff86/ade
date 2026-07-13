@@ -321,6 +321,36 @@ function validateWorkspaceTarget(channel: string, payload: unknown): void {
   optionalId(channel, request.sessionId, 'sessionId');
 }
 
+function validateCategoryReorder(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['orderedIds']);
+  if (request.orderedIds === undefined) invalid(channel, 'orderedIds is required');
+  ids(channel, request.orderedIds, 'orderedIds');
+}
+
+function validateAgentMove(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['agentId', 'categoryId', 'index']);
+  id(channel, request.agentId, 'agentId');
+  id(channel, request.categoryId, 'categoryId');
+  const index = request.index;
+  if (!Number.isInteger(index) || (index as number) < 0 || (index as number) > 10_000) {
+    invalid(channel, 'index must be an integer from 0 to 10000');
+  }
+}
+
+function validateFsRename(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['agentId', 'sessionId', 'path', 'newName']);
+  id(channel, request.agentId, 'agentId');
+  optionalId(channel, request.sessionId, 'sessionId');
+  relativePath(channel, request.path, false);
+  const newName = stringValue(channel, request.newName, 'newName', { max: 255 });
+  if (/[/\\]/.test(newName) || newName === '.' || newName === '..' || newName.trim() !== newName) {
+    invalid(channel, 'newName must be a bare file or folder name');
+  }
+}
+
 /** Throws before a privileged handler sees malformed or over-sized input. */
 export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   channel: K,
@@ -350,6 +380,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.AgentDelete:
     case IPC.AgentTemplateDelete:
       validateIdRequest(channel, payload, 'id');
+      return;
+    case IPC.CategoryReorder:
+      validateCategoryReorder(channel, payload);
+      return;
+    case IPC.AgentMove:
+      validateAgentMove(channel, payload);
       return;
     case IPC.AgentCreate:
       validateAgentInput(channel, payload, false);
@@ -512,7 +548,14 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.GitDiff:
     case IPC.FsRead:
+    case IPC.FsPathInfo:
+    case IPC.FsReveal:
+    case IPC.FsOpenPath:
+    case IPC.FsDelete:
       validateAgentPath(channel, payload, false);
+      return;
+    case IPC.FsRename:
+      validateFsRename(channel, payload);
       return;
     case IPC.FsTree:
       validateAgentPath(channel, payload, true);

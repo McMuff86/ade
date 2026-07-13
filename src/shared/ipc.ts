@@ -45,9 +45,11 @@ export const IPC = {
   PhotoImport: 'photo:import',
   CategoryCreate: 'category:create',
   CategoryDelete: 'category:delete',
+  CategoryReorder: 'category:reorder',
   AgentCreate: 'agent:create',
   AgentUpdate: 'agent:update',
   AgentDelete: 'agent:delete',
+  AgentMove: 'agent:move',
   AgentSetDefaultRepository: 'agent:setDefaultRepository',
   AgentTemplateCreate: 'agentTemplate:create',
   AgentTemplateDelete: 'agentTemplate:delete',
@@ -83,6 +85,11 @@ export const IPC = {
   FsTree: 'fs:tree',
   FsRead: 'fs:read',
   FsAgentFiles: 'fs:agentFiles',
+  FsPathInfo: 'fs:pathInfo',
+  FsReveal: 'fs:reveal',
+  FsOpenPath: 'fs:openPath',
+  FsRename: 'fs:rename',
+  FsDelete: 'fs:delete',
   DialogPickFolder: 'dialog:pickFolder',
 } as const;
 
@@ -261,6 +268,42 @@ export interface FsAgentFilesRequest {
   sessionId?: string;
 }
 
+export interface CategoryReorderRequest {
+  /** Every category id exactly once, in the new rail order. */
+  orderedIds: string[];
+}
+
+export interface AgentMoveRequest {
+  agentId: string;
+  /** Target category; may equal the agent's current category for a reorder. */
+  categoryId: string;
+  /**
+   * Insertion index into the target category's agent list, counted with the
+   * moved agent already removed from it. Main clamps to the valid range.
+   */
+  index: number;
+}
+
+export interface FsPathInfoResult {
+  absolutePath: string;
+  kind: 'file' | 'dir' | 'missing';
+  /** Pinned agent files may resolve to the agent's memoryDir. */
+  location: 'workspace' | 'memory';
+}
+
+export interface FsRenameRequest {
+  agentId: string;
+  sessionId?: string;
+  path: string;
+  /** Bare filename (no path separators); the file stays in its directory. */
+  newName: string;
+}
+
+export interface FsRenameResult {
+  /** New workspace-relative path of the renamed entry. */
+  path: string;
+}
+
 export interface RepositoryImportRequest {
   path: string;
   name?: string;
@@ -309,9 +352,11 @@ export interface IpcInvokeMap {
   'photo:import': { req: PhotoImportRequest; res: PhotoImportResult };
   'category:create': { req: CategoryCreateInput; res: Category };
   'category:delete': { req: { id: string }; res: void };
+  'category:reorder': { req: CategoryReorderRequest; res: void };
   'agent:create': { req: AgentCreateInput; res: Agent };
   'agent:update': { req: AgentUpdateInput; res: Agent };
   'agent:delete': { req: { id: string }; res: void };
+  'agent:move': { req: AgentMoveRequest; res: void };
   'agent:setDefaultRepository': {
     req: { agentId: string; repositoryId: string | null };
     res: Agent;
@@ -353,6 +398,11 @@ export interface IpcInvokeMap {
   'fs:tree': { req: FsTreeRequest; res: FsTreeNode };
   'fs:read': { req: FsReadRequest; res: FsReadResult };
   'fs:agentFiles': { req: FsAgentFilesRequest; res: AgentFile[] };
+  'fs:pathInfo': { req: FsReadRequest; res: FsPathInfoResult };
+  'fs:reveal': { req: FsReadRequest; res: void };
+  'fs:openPath': { req: FsReadRequest; res: void };
+  'fs:rename': { req: FsRenameRequest; res: FsRenameResult };
+  'fs:delete': { req: FsReadRequest; res: void };
   'dialog:pickFolder': { req: void; res: DialogPickFolderResult };
 }
 

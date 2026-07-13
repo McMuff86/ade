@@ -72,6 +72,52 @@ export async function createCategory(
   return category;
 }
 
+/** Reorder the rail: `orderedIds` must list every category exactly once. */
+export function reorderCategories(store: IdentityConfigPort, orderedIds: string[]): void {
+  const config = store.get();
+  const byId = new Map(config.categories.map((category) => [category.id, category]));
+  if (orderedIds.length !== byId.size || new Set(orderedIds).size !== orderedIds.length) {
+    throw new Error('ade: category order must list every category exactly once');
+  }
+  const categories = orderedIds.map((id) => {
+    const category = byId.get(id);
+    if (!category) throw new Error(`ade: category not found "${id}"`);
+    return category;
+  });
+  store.save({ categories });
+}
+
+/**
+ * Place an agent at `index` of `categoryId`'s list (index counted with the
+ * agent already removed; clamped). Also serves cross-category drag moves.
+ */
+export function moveAgent(
+  store: IdentityConfigPort,
+  input: { agentId: string; categoryId: string; index: number },
+): void {
+  const config = store.get();
+  const agent = config.agents.find((candidate) => candidate.id === input.agentId);
+  if (!agent) throw new Error(`ade: agent not found "${input.agentId}"`);
+  if (!config.categories.some((category) => category.id === input.categoryId)) {
+    throw new Error(`ade: category not found "${input.categoryId}"`);
+  }
+  const categories = config.categories.map((category) => {
+    const without = category.agents.filter((id) => id !== input.agentId);
+    if (category.id !== input.categoryId) {
+      return without.length === category.agents.length ? category : { ...category, agents: without };
+    }
+    const at = Math.max(0, Math.min(input.index, without.length));
+    return { ...category, agents: [...without.slice(0, at), input.agentId, ...without.slice(at)] };
+  });
+  store.save({
+    categories,
+    agents: agent.categoryId === input.categoryId
+      ? config.agents
+      : config.agents.map((candidate) =>
+        candidate.id === agent.id ? { ...candidate, categoryId: input.categoryId } : candidate),
+  });
+}
+
 export function deleteCategory(store: IdentityConfigPort, id: string): void {
   const config = store.get();
   const removedAgentIds = new Set(

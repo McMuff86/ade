@@ -4,7 +4,7 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { BrowserWindow, clipboard, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
@@ -18,12 +18,14 @@ import {
   deleteAgent,
   deleteAgentTemplate,
   deleteCategory,
+  moveAgent,
+  reorderCategories,
   spawnAgentTemplate,
   updateAgent,
 } from './identity';
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
-import { agentFiles, fsRead, fsTree } from './git/workspaceFs';
+import { agentFiles, fsMutablePath, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
 import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
@@ -135,6 +137,16 @@ export function registerIpcHandlers(store: ConfigStore): void {
     for (const agentId of agentIds) assertAgentNotLeased(agentId);
     for (const agentId of agentIds) ptyManager!.killByAgent(agentId);
     deleteCategory(store, id);
+  });
+
+  // Rail drag & drop: persist the new category order.
+  handle(IPC.CategoryReorder, ({ orderedIds }) => { reorderCategories(store, orderedIds); });
+
+  // Rail drag & drop: reorder within a category or move across categories.
+  handle(IPC.AgentMove, (request) => {
+    const agent = requireAgent(request.agentId);
+    if (agent.categoryId !== request.categoryId) assertAgentNotLeased(request.agentId);
+    moveAgent(store, request);
   });
 
   // Create agent, workspace/worktree and memory scaffold.
@@ -287,6 +299,43 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.FsAgentFiles, ({ agentId, sessionId }) => {
     const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
     return agentFiles(workspaceDir, agent.memoryDir);
+  });
+
+  // Context-menu support: absolute location of a workspace/pinned file.
+  handle(IPC.FsPathInfo, ({ agentId, sessionId, path }) => {
+    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
+    return fsPathInfo(workspaceDir, agent.memoryDir, path);
+  });
+
+  // Select the file in the OS file manager (workspace-validated path only).
+  handle(IPC.FsReveal, ({ agentId, sessionId, path }) => {
+    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
+    const info = fsPathInfo(workspaceDir, agent.memoryDir, path);
+    if (info.kind === 'missing') throw new Error(`ade: not found: "${path}"`);
+    shell.showItemInFolder(info.absolutePath);
+  });
+
+  // Open with the OS default handler; user-initiated from the context menu.
+  handle(IPC.FsOpenPath, async ({ agentId, sessionId, path }) => {
+    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
+    const info = fsPathInfo(workspaceDir, agent.memoryDir, path);
+    if (info.kind === 'missing') throw new Error(`ade: not found: "${path}"`);
+    const error = await shell.openPath(info.absolutePath);
+    if (error) throw new Error(`ade: could not open "${path}": ${error}`);
+  });
+
+  // Rename inside the workspace only (memoryDir scaffold stays untouchable).
+  handle(IPC.FsRename, ({ agentId, sessionId, path, newName }) => {
+    assertAgentNotLeased(agentId);
+    const { workspaceDir } = workspaceTarget(agentId, sessionId);
+    return fsRename(workspaceDir, path, newName);
+  });
+
+  // Delete = move to the OS trash (recoverable), workspace paths only.
+  handle(IPC.FsDelete, async ({ agentId, sessionId, path }) => {
+    assertAgentNotLeased(agentId);
+    const { workspaceDir } = workspaceTarget(agentId, sessionId);
+    await shell.trashItem(fsMutablePath(workspaceDir, path));
   });
 
   // Folder picker for repo-backed categories; validates the pick is a git repo.

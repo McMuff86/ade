@@ -2,11 +2,13 @@
  * Files tab: a pinned "Agent files" section (MEMORY/USER/CLAUDE/AGENTS that
  * exist) on top, then the workspace tree with lazy-expanding directories.
  * Clicking a file asks the parent to preview it in the shared inline pane;
- * files with pending git changes show their +/- next to the name.
+ * files with pending git changes show their +/- next to the name. Right-click
+ * opens the context menu (copy path, reveal, rename, delete-to-trash, …).
  */
 
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX, type MouseEvent } from 'react';
 import type { AgentFile, FsTreeNode, GitStatus } from '../../shared/types';
+import { FileContextMenu, type ContextTarget } from './FileContextMenu';
 
 interface FilesViewProps {
   agentId: string | null;
@@ -15,6 +17,8 @@ interface FilesViewProps {
   nonce: number;
   openPath: string | null;
   onOpen: (path: string, title: string) => void;
+  /** Bubbles context-menu renames/deletes up so the preview pane can follow. */
+  onMutated: (oldPath: string, newPath: string | null) => void;
 }
 
 interface Counts {
@@ -29,10 +33,12 @@ export function FilesView({
   nonce,
   openPath,
   onOpen,
+  onMutated,
 }: FilesViewProps): JSX.Element {
   const [childrenByPath, setChildrenByPath] = useState<Record<string, FsTreeNode[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<AgentFile[]>([]);
+  const [menu, setMenu] = useState<ContextTarget | null>(null);
 
   // Pending +/- by path, from git status.
   const counts = useMemo(() => {
@@ -117,6 +123,46 @@ export function FilesView({
     }
   };
 
+  /** Refetch one directory level after a rename/delete under it. */
+  const refreshLevel = async (relDir: string): Promise<void> => {
+    if (!agentId) return;
+    try {
+      const node = await window.ade.invoke('fs:tree', {
+        agentId,
+        sessionId: sessionId ?? undefined,
+        path: relDir,
+      });
+      setChildrenByPath((prev) => ({ ...prev, [relDir]: node.children ?? [] }));
+    } catch (err) {
+      console.error('[ade] fs:tree(refresh) failed:', err);
+    }
+  };
+
+  const handleMutated = (oldPath: string, newPath: string | null): void => {
+    const relDir = oldPath.split('/').slice(0, -1).join('/');
+    void refreshLevel(relDir);
+    // A renamed/removed directory invalidates everything cached beneath it.
+    setChildrenByPath((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key === oldPath || key.startsWith(`${oldPath}/`)) delete next[key];
+      }
+      return next;
+    });
+    setExpanded((prev) => {
+      const next = new Set([...prev].filter((p) => p !== oldPath && !p.startsWith(`${oldPath}/`)));
+      return next.size === prev.size ? prev : next;
+    });
+    onMutated(oldPath, newPath);
+  };
+
+  const openMenu = (target: Omit<ContextTarget, 'x' | 'y'>) =>
+    (event: MouseEvent<HTMLElement>): void => {
+      event.preventDefault();
+      event.stopPropagation();
+      setMenu({ ...target, x: event.clientX, y: event.clientY });
+    };
+
   const renderNodes = (nodes: FsTreeNode[], depth: number): JSX.Element[] =>
     nodes.map((node) => {
       const pad = { paddingLeft: `${8 + depth * 12}px` };
@@ -124,7 +170,17 @@ export function FilesView({
         const isOpen = expanded.has(node.path);
         return (
           <div key={node.path}>
-            <button className="fs-row fs-dir" style={pad} onClick={() => void toggleDir(node.path)}>
+            <button
+              className="fs-row fs-dir"
+              style={pad}
+              onClick={() => void toggleDir(node.path)}
+              onContextMenu={openMenu({
+                path: node.path,
+                name: node.name,
+                kind: 'dir',
+                location: 'workspace',
+              })}
+            >
               <span className="fs-caret">{isOpen ? '▾' : '▸'}</span>
               <span className="fs-name">{node.name}</span>
             </button>
@@ -139,6 +195,12 @@ export function FilesView({
           className={`fs-row fs-file${openPath === node.path ? ' open' : ''}`}
           style={pad}
           onClick={() => onOpen(node.path, node.path)}
+          onContextMenu={openMenu({
+            path: node.path,
+            name: node.name,
+            kind: 'file',
+            location: 'workspace',
+          })}
           title={node.path}
         >
           <span className="fs-name">{node.name}</span>
@@ -163,6 +225,12 @@ export function FilesView({
                 className={`fs-row fs-file${openPath === f.path ? ' open' : ''}`}
                 style={{ paddingLeft: '8px' }}
                 onClick={() => onOpen(f.path, f.name)}
+                onContextMenu={openMenu({
+                  path: f.path,
+                  name: f.name,
+                  kind: 'file',
+                  location: f.location,
+                })}
                 title={`${f.name} (${f.location})`}
               >
                 <span className="fs-name">{f.name}</span>
@@ -183,6 +251,17 @@ export function FilesView({
           renderNodes(root, 0)
         )}
       </div>
+
+      {menu && agentId ? (
+        <FileContextMenu
+          agentId={agentId}
+          sessionId={sessionId}
+          target={menu}
+          onClose={() => setMenu(null)}
+          onPreview={onOpen}
+          onMutated={handleMutated}
+        />
+      ) : null}
     </div>
   );
 }

@@ -6,9 +6,12 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import {
   createAgentTemplate,
+  moveAgent,
+  reorderCategories,
   spawnAgentTemplate,
   type IdentityConfigPort,
 } from '../src/main/identity';
+import { fsMutablePath, fsPathInfo, fsRename } from '../src/main/git/workspaceFs';
 import {
   OrchestrationService,
   type OrchestrationConfigPort,
@@ -124,6 +127,128 @@ function testMigration(repoPath: string, workspaceDir: string, memoryDir: string
   check('restart never reapplies a category default to an intentionally portable agent',
     portableRestart.config.agents[0]?.defaultRepositoryId === undefined
       && portableRestart.config.agents[0]?.workspaceDir === portableAfterMigration.agents[0]?.workspaceDir);
+}
+
+/* ------------------------------------ rail ordering (drag & drop backend) */
+
+function testRailOrdering(): void {
+  const agentOf = (id: string, categoryId: string): Agent => ({
+    id,
+    categoryId,
+    name: id,
+    runtime: 'codex',
+    permissionMode: 'default',
+    workspaceDir: '.',
+    memoryDir: '.',
+  });
+  const store = memoryStore({
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [
+      { id: 'cat-a', name: 'A', agents: ['a1', 'a2', 'a3'] },
+      { id: 'cat-b', name: 'B', agents: ['b1'] },
+    ],
+    agents: [
+      agentOf('a1', 'cat-a'),
+      agentOf('a2', 'cat-a'),
+      agentOf('a3', 'cat-a'),
+      agentOf('b1', 'cat-b'),
+    ],
+  });
+
+  moveAgent(store, { agentId: 'a3', categoryId: 'cat-a', index: 0 });
+  check('agents reorder within their category',
+    store.read().categories[0]?.agents.join(',') === 'a3,a1,a2');
+
+  moveAgent(store, { agentId: 'a1', categoryId: 'cat-b', index: 0 });
+  const moved = store.read();
+  check('agents move across categories and update their categoryId',
+    moved.categories[0]?.agents.join(',') === 'a3,a2'
+      && moved.categories[1]?.agents.join(',') === 'a1,b1'
+      && moved.agents.find((agent) => agent.id === 'a1')?.categoryId === 'cat-b');
+
+  moveAgent(store, { agentId: 'a3', categoryId: 'cat-b', index: 99 });
+  check('move indexes clamp to the end of the target list',
+    store.read().categories[1]?.agents.join(',') === 'a1,b1,a3');
+
+  reorderCategories(store, ['cat-b', 'cat-a']);
+  check('categories reorder by the provided id order',
+    store.read().categories.map((category) => category.id).join(',') === 'cat-b,cat-a');
+
+  let partialRejected = false;
+  try {
+    reorderCategories(store, ['cat-a']);
+  } catch {
+    partialRejected = true;
+  }
+  let duplicateRejected = false;
+  try {
+    reorderCategories(store, ['cat-a', 'cat-a']);
+  } catch {
+    duplicateRejected = true;
+  }
+  check('category reorder must mention every category exactly once',
+    partialRejected && duplicateRejected
+      && store.read().categories.map((category) => category.id).join(',') === 'cat-b,cat-a');
+}
+
+/* ------------------------------- context-menu file actions (workspaceFs) */
+
+function testWorkspaceFileActions(scratch: string): void {
+  const normalizedPath = (path: string): string => resolve(path).replace(/\\/g, '/').toLowerCase();
+  const workspaceDir = join(scratch, 'files-workspace');
+  const memoryDir = join(scratch, 'files-memory');
+  mkdirSync(join(workspaceDir, 'docs'), { recursive: true });
+  mkdirSync(memoryDir, { recursive: true });
+  writeFileSync(join(workspaceDir, 'notes.md'), 'notes\n', 'utf8');
+  writeFileSync(join(workspaceDir, 'docs', 'plan.md'), 'plan\n', 'utf8');
+  writeFileSync(join(memoryDir, 'MEMORY.md'), 'memory\n', 'utf8');
+
+  const info = fsPathInfo(workspaceDir, memoryDir, 'docs/plan.md');
+  check('fs path info resolves workspace files',
+    info.location === 'workspace' && info.kind === 'file'
+      && normalizedPath(info.absolutePath) === normalizedPath(join(workspaceDir, 'docs', 'plan.md')));
+
+  const pinnedInfo = fsPathInfo(workspaceDir, memoryDir, 'MEMORY.md');
+  check('fs path info falls back to memoryDir for pinned agent files',
+    pinnedInfo.location === 'memory'
+      && normalizedPath(pinnedInfo.absolutePath) === normalizedPath(join(memoryDir, 'MEMORY.md')));
+
+  const renamed = fsRename(workspaceDir, 'docs/plan.md', 'plan-v2.md');
+  check('rename keeps the entry inside its directory',
+    renamed.path === 'docs/plan-v2.md'
+      && existsSync(join(workspaceDir, 'docs', 'plan-v2.md'))
+      && !existsSync(join(workspaceDir, 'docs', 'plan.md')));
+
+  writeFileSync(join(workspaceDir, 'docs', 'other.md'), 'other\n', 'utf8');
+  let overwriteRejected = false;
+  try {
+    fsRename(workspaceDir, 'docs/plan-v2.md', 'other.md');
+  } catch {
+    overwriteRejected = true;
+  }
+  check('rename never overwrites an existing sibling', overwriteRejected);
+
+  let escapeRejected = false;
+  try {
+    fsMutablePath(workspaceDir, '../outside.txt');
+  } catch {
+    escapeRejected = true;
+  }
+  let rootRejected = false;
+  try {
+    fsMutablePath(workspaceDir, '');
+  } catch {
+    rootRejected = true;
+  }
+  check('mutating file actions stay inside the workspace', escapeRejected && rootRejected);
+
+  let memoryRejected = false;
+  try {
+    fsMutablePath(workspaceDir, 'MEMORY.md');
+  } catch {
+    memoryRejected = true;
+  }
+  check('memoryDir pinned files cannot be renamed or deleted', memoryRejected);
 }
 
 async function run(): Promise<void> {
@@ -508,6 +633,9 @@ async function run(): Promise<void> {
       leaseRejected = true;
     }
     check('an active run lease blocks worktree cleanup', leaseRejected);
+
+    testRailOrdering();
+    testWorkspaceFileActions(scratch);
   } finally {
     const safeRoot = resolve(tmpdir());
     const safeScratch = resolve(scratch);

@@ -8,9 +8,9 @@
  * one exception: fs:read resolves them workspace-first, then memoryDir.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { isAbsolute, join, normalize, relative } from 'node:path';
-import type { FsReadResult } from '../../shared/ipc';
+import { existsSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, normalize, relative } from 'node:path';
+import type { FsPathInfoResult, FsReadResult, FsRenameResult } from '../../shared/ipc';
 import type { AgentFile, FsTreeNode } from '../../shared/types';
 
 const SKIP_DIRS = new Set(['.git', 'node_modules']);
@@ -101,6 +101,68 @@ export function fsRead(workspaceDir: string, memoryDir: string, relPath: string)
   } catch {
     return { text: '', truncated: false };
   }
+}
+
+/**
+ * fs:pathInfo — resolve a workspace-relative path to its absolute location
+ * (pinned agent files fall back to memoryDir, mirroring fs:read).
+ */
+export function fsPathInfo(
+  workspaceDir: string,
+  memoryDir: string,
+  relPath: string,
+): FsPathInfoResult {
+  let abs = safeResolve(workspaceDir, relPath);
+  let location: FsPathInfoResult['location'] = 'workspace';
+  const base = relPath.split('/').pop() ?? relPath;
+  if ((!abs || !existsSync(abs)) && (PINNED_AGENT_FILES as readonly string[]).includes(base)) {
+    const memAbs = join(memoryDir, base);
+    if (existsSync(memAbs)) {
+      abs = memAbs;
+      location = 'memory';
+    }
+  }
+  if (!abs) throw new Error('ade: path escapes the selected workspace');
+  let kind: FsPathInfoResult['kind'] = 'missing';
+  try {
+    kind = statSync(abs).isDirectory() ? 'dir' : 'file';
+  } catch {
+    kind = 'missing';
+  }
+  return { absolutePath: abs, kind, location };
+}
+
+/**
+ * Absolute path for a mutating action (rename/delete). Strictly inside the
+ * workspace — never the memoryDir scaffold — and must exist.
+ */
+export function fsMutablePath(workspaceDir: string, relPath: string): string {
+  const abs = safeResolve(workspaceDir, relPath);
+  if (!abs || relPath.replace(/[/\\]+/g, '') === '') {
+    throw new Error('ade: path escapes the selected workspace');
+  }
+  if (normalize(abs) === normalize(workspaceDir)) {
+    throw new Error('ade: refusing to act on the workspace root');
+  }
+  if (!existsSync(abs)) throw new Error(`ade: not found in the workspace: "${relPath}"`);
+  return abs;
+}
+
+/** fs:rename — rename within the entry's directory; never overwrites. */
+export function fsRename(
+  workspaceDir: string,
+  relPath: string,
+  newName: string,
+): FsRenameResult {
+  if (/[/\\]/.test(newName) || newName === '.' || newName === '..' || !newName.trim()) {
+    throw new Error('ade: newName must be a bare file or folder name');
+  }
+  const abs = fsMutablePath(workspaceDir, relPath);
+  const target = join(dirname(abs), newName);
+  if (existsSync(target)) throw new Error(`ade: "${newName}" already exists here`);
+  renameSync(abs, target);
+  const relDir = relPath.split('/').slice(0, -1).join('/');
+  return { path: relDir ? `${relDir}/${newName}` : newName };
 }
 
 /** Which pinned agent files exist, in workspaceDir (preferred) or memoryDir. */

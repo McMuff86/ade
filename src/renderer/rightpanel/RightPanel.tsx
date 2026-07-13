@@ -2,10 +2,12 @@
  * Right panel (Phase C): Files / Changes tabs over the selected agent's
  * workspace. Changes shows the live git diff; Files shows pinned agent files +
  * the workspace tree. Both open their target in one shared inline pane at the
- * bottom (diff for a change, read-only preview for a file).
+ * bottom (diff for a change, read-only preview for a file). While the pane is
+ * open, list and pane form a vertical resizable split (size persisted).
  */
 
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
 import { ChangesView } from './ChangesView';
@@ -87,6 +89,67 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
     setOpen((cur) => (cur && cur.kind === item.kind && cur.path === item.path ? null : item));
   };
 
+  // Keep the preview honest after a context-menu rename/delete.
+  const handleMutated = (oldPath: string, newPath: string | null): void => {
+    setOpen((cur) => {
+      if (!cur || cur.kind !== 'preview') return cur;
+      if (cur.path !== oldPath && !cur.path.startsWith(`${oldPath}/`)) return cur;
+      if (newPath === null || cur.path !== oldPath) return null;
+      return { kind: 'preview', path: newPath, title: newPath.split('/').pop() ?? newPath };
+    });
+  };
+
+  const listView = tab === 'changes' ? (
+    <ChangesView
+      status={status}
+      loading={loading}
+      openPath={open?.kind === 'diff' ? open.path : null}
+      onOpen={(path) => toggle({ kind: 'diff', path, title: path })}
+    />
+  ) : (
+    <FilesView
+      agentId={agentId}
+      sessionId={sessionId}
+      status={status}
+      nonce={nonce}
+      openPath={open?.kind === 'preview' ? open.path : null}
+      onOpen={(path, title) => toggle({ kind: 'preview', path, title })}
+      onMutated={handleMutated}
+    />
+  );
+
+  const inlinePane = open ? (
+    <>
+      <div className="rp-inline-head">
+        <span className="rp-inline-title" title={open.path}>
+          {open.title}
+          {truncated ? <span className="rp-trunc"> (truncated)</span> : null}
+        </span>
+        <button className="rp-inline-close" onClick={() => setOpen(null)} title="Close">
+          ×
+        </button>
+      </div>
+      <div className="rp-inline-body">
+        {contentLoading ? (
+          <div className="ch-note">Loading…</div>
+        ) : open.kind === 'diff' ? (
+          <DiffView text={content} />
+        ) : content ? (
+          <pre className="rp-preview">{content}</pre>
+        ) : open.path === 'MEMORY.md' || open.path === 'USER.md' ? (
+          <div className="ch-note">
+            No entries yet. The agent maintains this file itself while working:
+            MEMORY.md collects its own durable notes (environment, conventions,
+            lessons), USER.md the user profile. Entries are separated by a
+            &quot;§&quot; line and injected into every new session once saved.
+          </div>
+        ) : (
+          <pre className="rp-preview">(empty file)</pre>
+        )}
+      </div>
+    </>
+  ) : null;
+
   return (
     <div className="rp">
       <RepositoryScopeHeader
@@ -112,57 +175,21 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         </div>
       </div>
 
-      <div className="rp-content">
-        {tab === 'changes' ? (
-          <ChangesView
-            status={status}
-            loading={loading}
-            openPath={open?.kind === 'diff' ? open.path : null}
-            onOpen={(path) => toggle({ kind: 'diff', path, title: path })}
-          />
+      <div className="rp-body">
+        {open ? (
+          <PanelGroup direction="vertical" autoSaveId="ade:rightpanel:preview">
+            <Panel id="rp-list" order={1} defaultSize={55} minSize={15} className="rp-content">
+              {listView}
+            </Panel>
+            <PanelResizeHandle className="resize-handle-h" />
+            <Panel id="rp-preview" order={2} defaultSize={45} minSize={12} maxSize={85} className="rp-inline">
+              {inlinePane}
+            </Panel>
+          </PanelGroup>
         ) : (
-          <FilesView
-            agentId={agentId}
-            sessionId={sessionId}
-            status={status}
-            nonce={nonce}
-            openPath={open?.kind === 'preview' ? open.path : null}
-            onOpen={(path, title) => toggle({ kind: 'preview', path, title })}
-          />
+          <div className="rp-content">{listView}</div>
         )}
       </div>
-
-      {open ? (
-        <div className="rp-inline">
-          <div className="rp-inline-head">
-            <span className="rp-inline-title" title={open.path}>
-              {open.title}
-              {truncated ? <span className="rp-trunc"> (truncated)</span> : null}
-            </span>
-            <button className="rp-inline-close" onClick={() => setOpen(null)} title="Close">
-              ×
-            </button>
-          </div>
-          <div className="rp-inline-body">
-            {contentLoading ? (
-              <div className="ch-note">Loading…</div>
-            ) : open.kind === 'diff' ? (
-              <DiffView text={content} />
-            ) : content ? (
-              <pre className="rp-preview">{content}</pre>
-            ) : open.path === 'MEMORY.md' || open.path === 'USER.md' ? (
-              <div className="ch-note">
-                No entries yet. The agent maintains this file itself while working:
-                MEMORY.md collects its own durable notes (environment, conventions,
-                lessons), USER.md the user profile. Entries are separated by a
-                &quot;§&quot; line and injected into every new session once saved.
-              </div>
-            ) : (
-              <pre className="rp-preview">(empty file)</pre>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

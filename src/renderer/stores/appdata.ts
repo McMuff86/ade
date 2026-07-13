@@ -29,6 +29,8 @@ interface AppDataState extends CatalogSlice {
   load: () => Promise<void>;
   refresh: () => Promise<void>;
   createCategory: (input: CategoryCreateInput) => Promise<Category>;
+  reorderCategories: (orderedIds: string[]) => Promise<void>;
+  moveAgent: (agentId: string, categoryId: string, index: number) => Promise<void>;
   createAgent: (input: AgentCreateInput) => Promise<Agent>;
   updateAgent: (input: AgentUpdateInput) => Promise<Agent>;
   setAgentDefaultRepository: (agentId: string, repositoryId: string | null) => Promise<Agent>;
@@ -54,7 +56,7 @@ async function readCatalog(): Promise<CatalogSlice> {
   return catalogState(await window.ade.invoke('config:get'));
 }
 
-export const useAppData = create<AppDataState>((set) => ({
+export const useAppData = create<AppDataState>((set, get) => ({
   categories: [],
   agents: {},
   repositories: [],
@@ -77,6 +79,42 @@ export const useAppData = create<AppDataState>((set) => ({
     const category = await window.ade.invoke('category:create', input);
     set(await readCatalog());
     return category;
+  },
+
+  // Drag & drop: apply optimistically so the drop lands instantly, then
+  // reconcile with the persisted catalog (also reverts on rejection).
+  reorderCategories: async (orderedIds) => {
+    const byId = new Map(get().categories.map((category) => [category.id, category]));
+    const optimistic = orderedIds
+      .map((id) => byId.get(id))
+      .filter((category): category is Category => Boolean(category));
+    if (optimistic.length === byId.size) set({ categories: optimistic });
+    try {
+      await window.ade.invoke('category:reorder', { orderedIds });
+    } finally {
+      set(await readCatalog());
+    }
+  },
+
+  moveAgent: async (agentId, categoryId, index) => {
+    const current = get();
+    const agent = current.agents[agentId];
+    if (agent) {
+      const categories = current.categories.map((category) => {
+        const without = category.agents.filter((id) => id !== agentId);
+        if (category.id !== categoryId) {
+          return without.length === category.agents.length ? category : { ...category, agents: without };
+        }
+        const at = Math.max(0, Math.min(index, without.length));
+        return { ...category, agents: [...without.slice(0, at), agentId, ...without.slice(at)] };
+      });
+      set({ categories, agents: { ...current.agents, [agentId]: { ...agent, categoryId } } });
+    }
+    try {
+      await window.ade.invoke('agent:move', { agentId, categoryId, index });
+    } finally {
+      set(await readCatalog());
+    }
   },
 
   createAgent: async (input) => {

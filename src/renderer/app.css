@@ -81,15 +81,17 @@
   min-height: 0;
 }
 
+/* Wider hit area with a centred 1px line, so the handles are discoverable. */
 .resize-handle {
-  width: 1px;
-  background: var(--line);
+  width: 7px;
+  background: linear-gradient(var(--line), var(--line)) center / 1px 100% no-repeat;
+  cursor: col-resize;
 }
 
 .resize-handle:hover,
 .resize-handle[data-resize-handle-state='hover'],
 .resize-handle[data-resize-handle-state='drag'] {
-  background: var(--accent-dim);
+  background: linear-gradient(var(--accent-dim), var(--accent-dim)) center / 3px 100% no-repeat;
 }
 
 .rail {

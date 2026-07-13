@@ -37,6 +37,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },
   'category:create': { name: 'Project', kind: 'plain' },
   'category:delete': { id: 'category' },
+  'category:reorder': { orderedIds: ['category-a', 'category-b'] },
   'agent:create': {
     categoryId: 'category',
     name: 'Agent',
@@ -50,6 +51,7 @@ const valid: Record<InvokeChannel, unknown> = {
     permissionMode: 'accept-edits',
   },
   'agent:delete': { id: 'agent' },
+  'agent:move': { agentId: 'agent', categoryId: 'category', index: 0 },
   'agent:setDefaultRepository': { agentId: 'agent', repositoryId: 'repository' },
   'agentTemplate:create': { sourceAgentId: 'agent', name: 'Reusable writer' },
   'agentTemplate:delete': { id: 'template' },
@@ -102,6 +104,11 @@ const valid: Record<InvokeChannel, unknown> = {
   'fs:tree': { agentId: 'agent', sessionId: 'session', path: '' },
   'fs:read': { agentId: 'agent', sessionId: 'session', path: 'README.md' },
   'fs:agentFiles': { agentId: 'agent', sessionId: 'session' },
+  'fs:pathInfo': { agentId: 'agent', sessionId: 'session', path: 'README.md' },
+  'fs:reveal': { agentId: 'agent', sessionId: 'session', path: 'README.md' },
+  'fs:openPath': { agentId: 'agent', sessionId: 'session', path: 'README.md' },
+  'fs:rename': { agentId: 'agent', sessionId: 'session', path: 'notes.md', newName: 'notes-2.md' },
+  'fs:delete': { agentId: 'agent', sessionId: 'session', path: 'notes.md' },
   'dialog:pickFolder': undefined,
 };
 
@@ -139,6 +146,20 @@ check('unknown runtimes are rejected', rejects('agent:create', {
 }));
 check('workspace traversal is rejected before filesystem handlers',
   rejects('fs:read', { agentId: 'agent', path: '../outside.txt' }));
+check('deletion traversal is rejected before filesystem handlers',
+  rejects('fs:delete', { agentId: 'agent', path: 'C:\\Windows\\notepad.exe' }));
+check('reveal rejects absolute paths',
+  rejects('fs:reveal', { agentId: 'agent', path: '/etc/passwd' }));
+check('rename rejects path separators in the new name',
+  rejects('fs:rename', { agentId: 'agent', path: 'a.md', newName: '../b.md' }));
+check('rename rejects dot names',
+  rejects('fs:rename', { agentId: 'agent', path: 'a.md', newName: '..' }));
+check('category order must be an id array',
+  rejects('category:reorder', { orderedIds: 'category' }));
+check('agent moves need an integer index',
+  rejects('agent:move', { agentId: 'agent', categoryId: 'category', index: 1.5 }));
+check('agent moves reject negative indexes',
+  rejects('agent:move', { agentId: 'agent', categoryId: 'category', index: -1 }));
 check('repository selectors reject malformed non-string values',
   rejects('pty:create', { agentId: 'agent', repositoryId: 42 }));
 check('worktree removal requires a binding id',

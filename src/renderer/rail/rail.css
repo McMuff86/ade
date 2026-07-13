@@ -159,6 +159,34 @@
   background: var(--panel);
 }
 
+/* ------------------------------------------------------------ drag & drop */
+
+.agent-entry.dragging,
+.cat.dragging {
+  opacity: 0.45;
+}
+
+.agent-entry.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.agent-entry.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.cat.drop-before > .cat-head {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.cat.drop-after > .cat-head {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.cat.drop-into > .cat-head {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+
 /* ------------------------------------------------------------- add / new */
 
 .add-agent {

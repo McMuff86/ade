@@ -153,8 +153,14 @@
 .terminal-host {
   width: 100%;
   height: 100%;
-  padding: 6px 8px;
   background: var(--bg);
+}
+
+/* The inset must live on the .xterm element, not the host: the fit addon
+   subtracts only the terminal element's own padding from the host size, so
+   host padding would push the bottom row out of view. */
+.terminal-host .xterm {
+  padding: 6px 8px 10px;
 }
 
 /* xterm's own viewport background follows the ITheme; keep the host in sync */
