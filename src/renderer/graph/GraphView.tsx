@@ -34,6 +34,7 @@ import {
   openParticipantTerminal,
   setTeamPause,
 } from './graphActions';
+import { ActivityFeed } from './ActivityFeed';
 import { SessionTail } from './SessionTail';
 import './graph.css';
 
@@ -236,6 +237,7 @@ export function GraphView(): JSX.Element {
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
   const [dock, setDock] = useState<{ sessionId: string; title: string } | null>(null);
+  const [dockRaw, setDockRaw] = useState(false);
   const [dockHeight, setDockHeight] = useState(() => {
     const stored = Number(window.localStorage.getItem('ade.graph.dockHeight'));
     return Number.isFinite(stored) && stored >= 160 ? stored : 360;
@@ -1142,19 +1144,30 @@ export function GraphView(): JSX.Element {
           <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
           <div className="gdockpanel-bar">
             <b>{dock.title}</b>
-            <span>Live-Session · nur lesen · scrollbar</span>
+            <span>{dockRaw ? 'Rohes Terminal · nur lesen' : 'Live-Aktivität · nur lesen'}</span>
             <span className="gdockpanel-grow" />
+            <button
+              type="button"
+              title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
+              onClick={() => setDockRaw((raw) => !raw)}
+            >
+              {dockRaw ? '☰' : '⌗'}
+            </button>
             <button type="button" title="Panel schließen" onClick={() => setDock(null)}>✕</button>
           </div>
-          <SessionTail
-            sessionId={dock.sessionId}
-            rows={22}
-            cols={180}
-            fontSize={12}
-            scrollback={3000}
-            fit
-            className="gdockpanel-term"
-          />
+          {dockRaw ? (
+            <SessionTail
+              sessionId={dock.sessionId}
+              rows={22}
+              cols={180}
+              fontSize={12}
+              scrollback={3000}
+              fit
+              className="gdockpanel-term"
+            />
+          ) : (
+            <ActivityFeed sessionId={dock.sessionId} />
+          )}
         </div>
       )}
 
@@ -1458,7 +1471,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <KV k="Teams" v={String(cluster.teams.length)} />
           {detailRows(details)}
           {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
-          {liveSessionId && <SessionTail sessionId={liveSessionId} />}
+          {liveSessionId && <ActivityFeed sessionId={liveSessionId} />}
         </div>
         <div className="ginsp-actions">
           {liveSessionId && (
@@ -1590,7 +1603,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         {team.idle && <KV k="Team" v={managed ? 'Scheduling pausiert' : 'Manuell pausiert'} />}
         {detailRows(details)}
         {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
-        {liveSessionId && <SessionTail sessionId={liveSessionId} />}
+        {liveSessionId && <ActivityFeed sessionId={liveSessionId} />}
       </div>
       <div className="ginsp-actions">
         {liveSessionId && (

@@ -250,6 +250,8 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 
+  handle(IPC.PtyActivitySnapshot, ({ sessionId }) => ptyManager!.activitySnapshot(sessionId));
+
   handle(IPC.RunGet, () => orchestration!.snapshot());
   handle(IPC.RunGetSummary, ({ runId }) => orchestration!.summarize(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));

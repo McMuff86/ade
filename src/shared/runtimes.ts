@@ -165,6 +165,11 @@ export function resolveTaskLaunchCommand(
   }
 }
 
+/** Base `claude` invocation for ADE's permission mode, without task flags. */
+export function resolveClaudeCommand(permissionMode: PermissionMode): string {
+  return LAUNCH_PROFILES.claude.commands[permissionMode] ?? 'claude';
+}
+
 /** Build the current non-interactive Codex command for ADE's permission mode. */
 export function resolveCodexExecCommand(permissionMode: PermissionMode): string {
   switch (permissionMode) {

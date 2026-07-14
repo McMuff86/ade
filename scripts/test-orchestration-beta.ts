@@ -20,10 +20,12 @@ import {
 import { OrchestrationService } from '../src/main/orchestration/OrchestrationService';
 import { RunCoordinator } from '../src/main/orchestration/RunCoordinator';
 import {
+  ClaudeStreamJsonAdapter,
   CodexJsonAdapter,
   RuntimeAdapterRegistry,
   validateStructuredResult,
 } from '../src/main/orchestration/runtimeAdapters';
+import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestration/claudeStream';
 import { WorkspaceService, type WorkspacePort } from '../src/main/orchestration/WorkspaceService';
 
 let passed = 0;
@@ -398,6 +400,91 @@ function adapterChecks(root: string): void {
   );
   check('Codex usage survives ConPTY wrapping and ANSI control sequences',
     wrapped.usage.inputTokens === 23 && wrapped.usage.outputTokens === 7);
+
+  // --- Claude stream-json adapter: live activity + trusted telemetry -------
+  const claudeAdapter = new ClaudeStreamJsonAdapter();
+  const claudeAgent: Agent = { ...agent('claude', root), runtime: 'claude', customCommand: undefined };
+  const claudeDir = join(root, 'claude-adapter');
+  const claudeFiles = {
+    taskDir: claudeDir,
+    resultPath: join(claudeDir, 'RESULT.json'),
+    schemaPath: join(claudeDir, 'RESULT.schema.json'),
+    inboxPath: join(claudeDir, 'INBOX.jsonl'),
+    outboxPath: join(claudeDir, 'OUTBOX.jsonl'),
+  };
+  const claudeLaunch = claudeAdapter.prepare(claudeAgent, task, task.prompt, claudeFiles, 'win32');
+  check('registry prefers the native claude adapter over the file fallback',
+    new RuntimeAdapterRegistry().capabilities(claudeAgent).adapterId === 'claude-stream-json-v1');
+  check('Claude task streams JSON events and pipes the prompt over stdin',
+    Boolean(claudeLaunch.command?.includes('--output-format stream-json')
+      && claudeLaunch.command?.includes('$env:ADE_TASK_PROMPT |')
+      && claudeLaunch.transport === 'stdin'));
+  check('Claude task declares its activity stream to the PTY layer',
+    claudeLaunch.activityFormat === 'claude-stream-json');
+  check('Claude adapter advertises token and cost telemetry',
+    claudeLaunch.reportsTokens && claudeLaunch.reportsCost);
+
+  // A real transcript shape: init, tool use, final text, result with usage.
+  const claudeStream = [
+    '{"type":"system","subtype":"init","model":"claude-fable-5"}',
+    '{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"Ich prüfe die Tests."}]}}',
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"pnpm test"}}]}}',
+    '{"type":"assistant","message":{"content":[{"type":"text","text":"Fertig."}]}}',
+    '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"total_cost_usd":0.25,'
+      + '"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":42}}',
+  ].join('\n');
+  writeFileSync(claudeFiles.resultPath, JSON.stringify(result({
+    usage: { inputTokens: 1, outputTokens: 1, costUsd: 999 },
+  })), 'utf8');
+  const claudeParsed = claudeAdapter.readResult(claudeLaunch, claudeStream);
+  check('Claude telemetry sums fresh + cache-write + cache-read input tokens',
+    claudeParsed.usage.inputTokens === 1110 && claudeParsed.usage.outputTokens === 42);
+  check('Claude reports real billed cost and overrides model-authored usage',
+    claudeParsed.usage.costUsd === 0.25);
+
+  // ConPTY hard-wraps long events and injects control sequences.
+  const claudeWrapped = `[?25l${(claudeStream.match(/.{1,40}/gs) ?? []).join('\r\n')}[0m`;
+  writeFileSync(claudeFiles.resultPath, JSON.stringify(result()), 'utf8');
+  const claudeWrappedParsed = claudeAdapter.readResult(claudeLaunch, claudeWrapped);
+  check('Claude usage survives ConPTY wrapping and ANSI control sequences',
+    claudeWrappedParsed.usage.inputTokens === 1110
+      && claudeWrappedParsed.usage.outputTokens === 42
+      && claudeWrappedParsed.usage.costUsd === 0.25);
+
+  writeFileSync(claudeFiles.resultPath, JSON.stringify(result({
+    usage: { inputTokens: 5, outputTokens: 5, costUsd: 5 },
+  })), 'utf8');
+  const noTelemetry = claudeAdapter.readResult(claudeLaunch, 'no events here');
+  check('a missing result event fails closed to unknown usage, never zero',
+    noTelemetry.usage.inputTokens === null
+      && noTelemetry.usage.outputTokens === null
+      && noTelemetry.usage.costUsd === null);
+  check('usage is unknown, not invented, when the stream carries no result',
+    parseClaudeUsage('{"type":"assistant","message":{"content":[]}}') === null);
+
+  // Live rendering: chunk boundaries must not lose or duplicate a line.
+  const feed = new ClaudeActivityParser();
+  const rendered: string[] = [];
+  for (let index = 0; index < claudeStream.length; index += 13) {
+    for (const line of feed.push(claudeStream.slice(index, index + 13))) {
+      rendered.push(`${line.kind}:${line.text}`);
+    }
+  }
+  check('activity survives arbitrary chunk splits (5 lines, in order)',
+    rendered.length === 5
+      && rendered[0].startsWith('init:')
+      && rendered[1] === 'thinking:Ich prüfe die Tests.'
+      && rendered[2] === 'tool:Bash: pnpm test'
+      && rendered[3] === 'text:Fertig.'
+      && rendered[4].startsWith('result:'));
+  check('the result line reports turns, tokens and cost',
+    rendered[4].includes('2 Turns') && rendered[4].includes('1110 in / 42 out') && rendered[4].includes('$0.2500'));
+  const wrappedFeed = new ClaudeActivityParser();
+  check('activity survives ConPTY wrapping too',
+    wrappedFeed.push(claudeWrapped).length === 5);
+  const noisyFeed = new ClaudeActivityParser();
+  check('non-JSON terminal noise never produces activity lines',
+    noisyFeed.push('warning: something\r\nplain log line\r\n').length === 0);
 
   let rejected = false;
   try {

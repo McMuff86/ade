@@ -96,6 +96,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:getSummary': { runId: 'run' },
   'run:events': { sinceSeq: 0, limit: 200 },
   'run:approvalDiff': { runId: 'run' },
+  'pty:activitySnapshot': { sessionId: 'session' },
   'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:fail': { taskId: 'task', error: 'failed' },

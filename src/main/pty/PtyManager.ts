@@ -25,6 +25,7 @@ import {
 } from '../../shared/runtimes';
 import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
+import { ClaudeActivityParser, type ActivityLine } from '../orchestration/claudeStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
 import {
@@ -40,6 +41,7 @@ import {
 } from './TaskQueue';
 
 const RING_BUFFER_CAP = 256 * 1024;
+const ACTIVITY_LINE_CAP = 2_000;
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 32;
 const MAX_TASK_PROMPT_CHARS = 32_000;
@@ -55,6 +57,7 @@ export interface TaskLifecycleSink {
     env: Record<string, string>;
     command?: string;
     transport?: 'argument' | 'stdin';
+    activityFormat?: 'claude-stream-json';
   } | undefined;
   handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
@@ -79,6 +82,8 @@ interface Session {
   removeOnExit: boolean;
   reapTimer?: ReturnType<typeof setTimeout>;
   forceStopTimer?: ReturnType<typeof setTimeout>;
+  /** Live activity rendered from a machine-readable runtime stream. */
+  activity?: { parser: ClaudeActivityParser; lines: ActivityLine[] };
 }
 
 interface SpawnSpec {
@@ -273,6 +278,11 @@ export class PtyManager {
     };
   }
 
+  /** Replay of a task's rendered activity; empty for sessions without a stream. */
+  activitySnapshot(sessionId: string): { lines: ActivityLine[] } {
+    return { lines: [...(this.sessions.get(sessionId)?.activity?.lines ?? [])] };
+  }
+
   disposeAll(): void {
     const shutdownError = new Error('ADE shut down before task completion');
     for (const key of this.taskQueue.pendingKeys()) {
@@ -365,6 +375,9 @@ export class PtyManager {
       cancelled: false,
       stopping: false,
       removeOnExit: false,
+      activity: managedLaunch?.activityFormat === 'claude-stream-json'
+        ? { parser: new ClaudeActivityParser(), lines: [] }
+        : undefined,
     };
     this.sessions.set(id, session);
     if (task?.runTaskId) {
@@ -384,6 +397,17 @@ export class PtyManager {
         dataBase64: chunk.toString('base64'),
         sequence: session.sequence,
       });
+      if (session.activity) {
+        // The raw stream stays byte-exact in the ring buffer (telemetry parses
+        // it at completion); activity is a derived, human-readable view.
+        const rendered = session.activity.parser.push(data);
+        if (rendered.length === 0) return;
+        session.activity.lines.push(...rendered);
+        if (session.activity.lines.length > ACTIVITY_LINE_CAP) {
+          session.activity.lines.splice(0, session.activity.lines.length - ACTIVITY_LINE_CAP);
+        }
+        this.broadcast(IPC_EVENTS.PtyActivity, { sessionId: id, lines: rendered });
+      }
     });
 
     proc.onExit(({ exitCode }) => this.handleExit(session, exitCode));

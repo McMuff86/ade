@@ -500,6 +500,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.RunApprovalDiff:
       validateIdRequest(channel, payload, 'runId');
       return;
+    case IPC.PtyActivitySnapshot:
+      validateIdRequest(channel, payload, 'sessionId');
+      return;
     case IPC.RunStart:
     case IPC.RunCancel:
       validateRunLifecycle(channel, payload);

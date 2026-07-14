@@ -64,6 +64,7 @@ export const IPC = {
   PtyResize: 'pty:resize',
   PtyKill: 'pty:kill',
   PtyAttach: 'pty:attach',
+  PtyActivitySnapshot: 'pty:activitySnapshot',
   PtyList: 'pty:list',
   PtyCancelTasks: 'pty:cancelTasks',
   RuntimeDiagnose: 'runtime:diagnose',
@@ -97,6 +98,7 @@ export const IPC = {
 /** Event channels (main -> renderer via webContents.send). */
 export const IPC_EVENTS = {
   PtyData: 'pty:data',
+  PtyActivity: 'pty:activity',
   PtyExit: 'pty:exit',
   PtyRemoved: 'pty:removed',
   PtyTaskQueue: 'pty:taskQueue',
@@ -157,6 +159,25 @@ export interface PtyAttachResult {
   replayBase64: string;
   /** Last output sequence included in replayBase64. */
   sequence: number;
+}
+
+/**
+ * Readable activity derived from a runtime's machine-readable event stream.
+ * Print-mode CLIs buffer their human output until exit, so this is the only
+ * live view of a managed task — and, being text-only, the shape a future
+ * mobile client can consume without a raw terminal.
+ */
+export type ActivityKind = 'init' | 'thinking' | 'text' | 'tool' | 'result' | 'error';
+export interface ActivityLine {
+  kind: ActivityKind;
+  text: string;
+}
+export interface PtyActivityResult {
+  lines: ActivityLine[];
+}
+export interface PtyActivityEvent {
+  sessionId: string;
+  lines: ActivityLine[];
 }
 
 /** Renderer config writes are intentionally narrower than the stored model. */
@@ -397,6 +418,7 @@ export interface IpcInvokeMap {
   'pty:resize': { req: PtyResizeRequest; res: void };
   'pty:kill': { req: PtyKillRequest; res: void };
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
+  'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
   'pty:list': { req: void; res: PtyListResult };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };
@@ -433,6 +455,7 @@ export interface IpcInvokeMap {
 /** Payload map for every main -> renderer event channel. */
 export interface IpcEventMap {
   'pty:data': PtyDataEvent;
+  'pty:activity': PtyActivityEvent;
   'pty:exit': PtyExitEvent;
   'pty:removed': PtyRemovedEvent;
   'pty:taskQueue': TaskQueueStatus;

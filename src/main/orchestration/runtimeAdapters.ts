@@ -7,7 +7,8 @@ import type {
   StructuredTaskResult,
   TaskUsage,
 } from '../../shared/types';
-import { resolveCodexExecCommand } from '../../shared/runtimes';
+import { resolveClaudeCommand, resolveCodexExecCommand } from '../../shared/runtimes';
+import { parseClaudeUsage } from './claudeStream';
 
 const RESULT_CAP_BYTES = 1024 * 1024;
 
@@ -29,6 +30,8 @@ export interface ManagedTaskLaunch {
   transport?: 'argument' | 'stdin';
   reportsTokens: boolean;
   reportsCost: boolean;
+  /** Machine-readable output the main process can render as live activity. */
+  activityFormat?: 'claude-stream-json';
   /** Exact repo HEAD observed immediately before the managed process starts. */
   workspaceHeadSha?: string;
 }
@@ -50,7 +53,11 @@ export interface RuntimeTaskAdapter {
 export class RuntimeAdapterRegistry {
   private readonly adapters: RuntimeTaskAdapter[];
 
-  constructor(adapters: RuntimeTaskAdapter[] = [new CodexJsonAdapter(), new FileResultAdapter()]) {
+  constructor(adapters: RuntimeTaskAdapter[] = [
+    new CodexJsonAdapter(),
+    new ClaudeStreamJsonAdapter(),
+    new FileResultAdapter(),
+  ]) {
     this.adapters = adapters;
   }
 
@@ -139,6 +146,63 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
     }
     // Codex CLI currently reports tokens, not monetary cost. Preserve unknown.
     result.usage.costUsd = null;
+    return result;
+  }
+}
+
+/**
+ * Claude Code in print mode buffers its human-readable output until exit, so a
+ * managed task is invisible while it works. The JSON event stream fixes that
+ * and carries trusted token/cost telemetry; the structured result itself stays
+ * on the file contract.
+ */
+export class ClaudeStreamJsonAdapter implements RuntimeTaskAdapter {
+  readonly id = 'claude-stream-json-v1';
+
+  supports(agent: Agent): boolean {
+    return agent.runtime === 'claude' && !agent.customCommand?.trim();
+  }
+
+  capabilities(): { reportsTokens: boolean; reportsCost: boolean } {
+    return { reportsTokens: true, reportsCost: true };
+  }
+
+  prepare(
+    agent: Agent,
+    _task: RunTask,
+    prompt: string,
+    files: ManagedTaskFiles,
+    platform: 'win32' | 'posix',
+  ): ManagedTaskLaunch {
+    prepareFiles(files);
+    const base = resolveClaudeCommand(agent.permissionMode);
+    const flags = '-p --output-format stream-json --verbose';
+    // stdin transport: PowerShell 5.1 does not escape quotes inside native
+    // command arguments, which truncates any prompt containing one.
+    const command = platform === 'win32'
+      ? `$env:ADE_TASK_PROMPT | ${base} ${flags}`
+      : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} ${flags}`;
+    return {
+      adapterId: this.id,
+      prompt: appendResultContract(prompt, files, false),
+      files,
+      env: taskEnv(files),
+      command,
+      transport: 'stdin',
+      reportsTokens: true,
+      reportsCost: true,
+      activityFormat: 'claude-stream-json',
+    };
+  }
+
+  readResult(launch: ManagedTaskLaunch, terminalOutput: string): StructuredTaskResult {
+    const result = readStructuredResult(launch.files.resultPath);
+    const usage = parseClaudeUsage(terminalOutput);
+    // Native telemetry overrides whatever the model wrote about itself; a
+    // missing result event stays unknown rather than becoming a zero.
+    result.usage.inputTokens = usage ? usage.inputTokens : null;
+    result.usage.outputTokens = usage ? usage.outputTokens : null;
+    result.usage.costUsd = usage ? usage.costUsd : null;
     return result;
   }
 }
