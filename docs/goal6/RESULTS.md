@@ -21,6 +21,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | Run | Fixture | Arm | Date | Status | Phases reached | Elapsed | Active (excl. approval wait) | Tasks (ok/fail) | Tokens in/out | Cost USD | Integrations (commits) | Conflicts/rollbacks | Interventions | Safety gate | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `0163e3a0` Run 1F1 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→failed | 1m 49s | 1m 49s | 0/1 | 0/0 | 0.00 | 0 (0) | 1 | 0 | pass (fail-closed) | Planning prompt truncated at first `"` by PS 5.1 argument quoting; see finding below. Reliability failure, not operator error — counts as a measurement. |
+| `97172c83` F1 settings-reduced-shake (managed) | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→failed | 6m 30s | 6m 30s | 1/1 | 0/0 | 0.00 (+1 unreported) | 0 (0) | 1 | 0 | pass (fail-closed) | Stdin transport fix verified: planning completed with a correct one-worker plan. Worker failed: `permissionMode: default` denies every Edit/Write/Bash in non-interactive print mode (10 denials), including the RESULT.json blocked-report itself. See finding below. |
 
 ## Per-fixture verdicts
 
@@ -115,6 +116,23 @@ event seq), severity, resolution or follow-up work item.
   platforms; stdin transport verified to deliver quote-laden multiline
   prompts verbatim under PS 5.1. Follow-up: codex/opencode/gemini/ollama
   still use argument transport and share the exposure for quoted prompts.
+- **2026-07-14 · reliability (HIGH) · run `97172c83` (F1 managed, attempt 5).**
+  Transport fix confirmed end-to-end: planning succeeded with a precise
+  single-worker plan. The work task then failed with "did not produce result
+  file": the worker agent runs `permissionMode: default`, and Claude Code in
+  non-interactive print mode auto-denies every Edit/Write/Bash request — the
+  transcript shows 10 denials. The worker behaved honestly (complete
+  read-only analysis, exact six shake call sites, full implementation spec
+  as text) but could not apply anything — and could not even file the
+  contract's `outcome=blocked` report, because writing RESULT.json under
+  AppData is itself permission-denied. Two follow-up work items:
+  (a) run creation should warn or refuse when a managed claude participant's
+  permission mode cannot complete non-interactive work (bypass required
+  today; the leased disposable worktree is the intended sandbox);
+  (b) the blocked-report channel must remain writable for restricted agents
+  (e.g. `--add-dir` the task directory in the claude launch profile), so
+  fail-closed distinguishes "blocked" from "silent".
+  Remedy for the rerun: set the worker to `bypass` like the orchestrator.
 
 ## Go/no-go decision (Goal 7 gate)
 
