@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef, type JSX } from 'react';
+import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
@@ -33,6 +34,7 @@ export function SessionTail({
   cols = 100,
   fontSize = 10,
   scrollback = 400,
+  fit = false,
   className = 'ginsp-tail',
 }: {
   sessionId: string;
@@ -40,6 +42,8 @@ export function SessionTail({
   cols?: number;
   fontSize?: number;
   scrollback?: number;
+  /** Refit the local viewport to the host size (never resizes the PTY). */
+  fit?: boolean;
   className?: string;
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -63,7 +67,26 @@ export function SessionTail({
     const unicode11 = new Unicode11Addon();
     term.loadAddon(unicode11);
     term.unicode.activeVersion = '11';
+    let fitAddon: FitAddon | null = null;
+    if (fit) {
+      fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+    }
     term.open(host);
+    let observer: ResizeObserver | null = null;
+    if (fitAddon) {
+      const doFit = (): void => {
+        if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
+        try {
+          fitAddon.fit();
+        } catch {
+          /* hidden host; retried on next resize */
+        }
+      };
+      doFit();
+      observer = new ResizeObserver(doFit);
+      observer.observe(host);
+    }
 
     let disposed = false;
     let attached = false;
@@ -109,10 +132,11 @@ export function SessionTail({
 
     return () => {
       disposed = true;
+      observer?.disconnect();
       unsubscribeData();
       term.dispose();
     };
-  }, [sessionId, rows, cols, fontSize, scrollback]);
+  }, [sessionId, rows, cols, fontSize, scrollback, fit]);
 
   return <div ref={hostRef} className={className} title="Live-Ausgabe (nur lesen)" />;
 }

@@ -24,6 +24,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `97172c83` F1 settings-reduced-shake (managed) | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→failed | 6m 30s | 6m 30s | 1/1 | 0/0 | 0.00 (+1 unreported) | 0 (0) | 1 | 0 | pass (fail-closed) | Stdin transport fix verified: planning completed with a correct one-worker plan. Worker failed: `permissionMode: default` denies every Edit/Write/Bash in non-interactive print mode (10 denials), including the RESULT.json blocked-report itself. See finding below. |
 | `2a350876` Run 3 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→approval→integrating→integrate→verifying→verify→failed | 1h 6m 17s | 11m 16s | 3/1 | unknown | 0.00 (+4 unreported) | 1 (1) | 2 | 1 | pass (fail-closed, but false positive) | First full pipeline pass: correct one-worker plan, implementation independently verified (81/81 tests, tsc clean, exact 3-file scope), approval, transactional integration of 1 ADE commit, integration review — then the read-only verifier honestly echoed the inspected HEAD as `commitSha` and the proxy guard failed the whole run. Guard fixed; see finding below. |
 | `40fee766` Run 4 - F1 Prompt | F1 | managed | 2026-07-14 | **completed** | full lifecycle incl. verify | 2h 56m 24s | **10m 12s** | 4/0 | unknown | 0.00 (+4 unreported) | 1 (1) | 0 | 1 (approval) | **pass** | First complete F1 managed run. One-worker plan, 3-file scope held, ADE commit `d7bd0e6` integrated as `36238a5`, read-only verification passed with the fixed guard. Independently confirmed at final state: 82/82 tests, tsc clean, worktree clean, leases released. Restart during pending approval (F7 protocol, approve path) preserved the gate and the diff view. Evidence refs: `goal6/f1-a7-worker`, `goal6/f1-a7-integrated`. |
+| `cad775c2` F1 settings-reduced-shake (baseline) | F1 | baseline | 2026-07-14 | **completed** | manual one-shot | **3m 29s** | 3m 29s | 1/0 | unknown | unknown | — (no commit) | 0 | 0 | **pass** | Single-agent one-shot, same goal text. Same 3-file scope, same implementation pattern (0.25 scale factor), 81/81 tests and tsc independently verified. No structured evidence, no verification chain, changes left uncommitted in the worktree (plus the CLAUDE.md scaffold — task sessions inject it too). Evidence ref: `goal6/f1-baseline` (commit `2d77958`). |
 
 ## Per-fixture verdicts
 
@@ -36,8 +37,16 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
   reporting, integration + read-only verification clean. Attempts 4–6
   produced three shipped reliability fixes (stdin transport, permission
   starvation documented, verify-guard false positive) — see findings.
-- Baseline: _pending_
-- Verdict: _pending (needs baseline arm)_
+- Baseline: **completed** (run `cad775c2`): 3m 29s one-shot, same 3-file
+  scope and implementation pattern, 81/81 tests + tsc independently
+  verified; result left uncommitted, no structured evidence or verification.
+- Verdict: **worse on wall-clock, better on evidence/control — as expected
+  for class 1.** The single agent was ~3x faster (3m 29s vs 10m 12s active)
+  at equal code quality; the managed pipeline's overhead bought a validated
+  ADE-authored commit, exact-diff integration, independent read-only
+  verification, an auditable journal and an approval gate. For atomic
+  S-tasks, managed mode is about control, not speed — the parallelism
+  question is decided by F5.
 
 ### F2 · weapon-presentation-tests
 - Managed: _pending_
@@ -168,6 +177,18 @@ event seq), severity, resolution or follow-up work item.
   approval reason was clipped to one ellipsized line and could not be read
   before deciding. The banner is now click-to-expand (▸/▾, keyboard
   accessible) and shows the full reason with wrapping and a scroll cap.
+- **2026-07-14 · observability (open, designed) · live view shows nothing
+  while a claude task runs.** `claude -p` buffers: it prints only the final
+  message at exit (verified with a timed repro — with `--verbose` too, the
+  first byte arrived after 15s together with the result), so the Graph live
+  tail/dock stays empty until the task ends. Not a dock bug. Designed fix
+  (next work package, pre-P1): a native ClaudeJsonAdapter launching
+  `claude -p --output-format stream-json --include-partial-messages`, whose
+  events the main process parses into journaled activity ("editing X",
+  "running pnpm test", thinking) — this simultaneously fixes the missing
+  token/cost telemetry for the claude adapter and gives the mobile DTO a
+  sanitized activity feed. Until then, live output is only visible for
+  interactive sessions.
 
 ## Go/no-go decision (Goal 7 gate)
 

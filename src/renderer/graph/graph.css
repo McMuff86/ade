@@ -425,7 +425,25 @@
   color: var(--muted);
 }
 .gdockpanel-bar button:hover { color: var(--text); }
-.gdockpanel-term { padding: 6px 8px; background: var(--bg); border-radius: 0 0 8px 8px; }
+.gdockpanel-term {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+.gdockpanel-term .xterm { height: 100%; }
+.gdockpanel-resize {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 9px;
+  cursor: ns-resize;
+}
+.gslots-head { cursor: grab; user-select: none; }
+.gslots-head:active { cursor: grabbing; }
 .ginsp-close:hover { color: var(--text); background: var(--raised); }
 .ginsp-close svg { width: 14px; height: 14px; }
 .ginsp-body { padding: 12px 14px; overflow: auto; }

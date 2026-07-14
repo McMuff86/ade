@@ -236,6 +236,67 @@ export function GraphView(): JSX.Element {
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
   const [dock, setDock] = useState<{ sessionId: string; title: string } | null>(null);
+  const [dockHeight, setDockHeight] = useState(() => {
+    const stored = Number(window.localStorage.getItem('ade.graph.dockHeight'));
+    return Number.isFinite(stored) && stored >= 160 ? stored : 360;
+  });
+  const [slotsPos, setSlotsPos] = useState<Pos | null>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('ade.graph.slotsPos') ?? 'null') as Pos | null;
+    } catch {
+      return null;
+    }
+  });
+
+  const startDockResize = (event: React.PointerEvent): void => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = dockHeight;
+    const move = (nextEvent: PointerEvent): void => {
+      const next = Math.min(
+        Math.max(startHeight + (startY - nextEvent.clientY), 160),
+        Math.max(240, window.innerHeight - 200),
+      );
+      setDockHeight(next);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setDockHeight((height) => {
+        window.localStorage.setItem('ade.graph.dockHeight', String(Math.round(height)));
+        return height;
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  const startSlotsDrag = (event: React.PointerEvent): void => {
+    event.preventDefault();
+    const panel = (event.currentTarget as HTMLElement).closest('.gslots') as HTMLElement | null;
+    const parent = panel?.offsetParent as HTMLElement | null;
+    if (!panel || !parent) return;
+    const rect = panel.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const move = (nextEvent: PointerEvent): void => {
+      setSlotsPos({
+        x: Math.max(0, nextEvent.clientX - parentRect.left - offsetX),
+        y: Math.max(0, nextEvent.clientY - parentRect.top - offsetY),
+      });
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setSlotsPos((pos) => {
+        if (pos) window.localStorage.setItem('ade.graph.slotsPos', JSON.stringify(pos));
+        return pos;
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   // Presentation-only preference: colored vs monochrome approval diffs.
   const [diffColors, setDiffColors] = useState(
     () => window.localStorage.getItem('ade.graph.diffColors') !== 'off',
@@ -1077,7 +1138,8 @@ export function GraphView(): JSX.Element {
       />
 
       {dock && (
-        <div className="gdockpanel">
+        <div className="gdockpanel" style={{ height: dockHeight }}>
+          <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
           <div className="gdockpanel-bar">
             <b>{dock.title}</b>
             <span>Live-Session · nur lesen · scrollbar</span>
@@ -1090,13 +1152,19 @@ export function GraphView(): JSX.Element {
             cols={180}
             fontSize={12}
             scrollback={3000}
+            fit
             className="gdockpanel-term"
           />
         </div>
       )}
 
-      <div className="gslots" role="status" title="Globale Task-Slots (FIFO über alle Runs)">
-        <div className="gslots-head">
+      <div
+        className="gslots"
+        role="status"
+        title="Globale Task-Slots (FIFO über alle Runs) — am Kopf verschiebbar"
+        style={slotsPos ? { left: slotsPos.x, top: slotsPos.y, right: 'auto', bottom: 'auto' } : undefined}
+      >
+        <div className="gslots-head" onPointerDown={startSlotsDrag}>
           Task-Slots {taskQueue.active}/{taskQueue.maxActive}
           {taskQueue.queued > 0 && ` · ${taskQueue.queued} in Warteschlange`}
         </div>
