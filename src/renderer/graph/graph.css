@@ -184,6 +184,12 @@
   max-height: 32vh;
   color: var(--muted);
 }
+.gapproval-diff-tools { display: flex; justify-content: flex-end; }
+.gapproval-diff-tools .gact { padding: 4px 8px; font-size: 10px; }
+.gapproval-patch.colored .add { color: #4cc38a; }
+.gapproval-patch.colored .del { color: #e5484d; }
+.gapproval-patch.colored .hunk { color: var(--accent); }
+.gapproval-patch.colored .meta { opacity: 0.7; }
 
 .graph-world { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; transform-origin: 0 0; }
 .graph-edges { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; pointer-events: none; overflow: visible; }

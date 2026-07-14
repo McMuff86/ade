@@ -52,6 +52,18 @@ function teamWidth(memberCount: number): number {
   return TEAM_PAD * 2 + memberCount * CARD_W + Math.max(0, memberCount - 1) * GAP;
 }
 
+/** Colored diffs render one span per line; huge patches stay responsive. */
+const DIFF_RENDER_LINE_CAP = 4000;
+
+function diffLineClass(line: string): string {
+  if (line.startsWith('+++') || line.startsWith('---')
+    || line.startsWith('diff ') || line.startsWith('index ')) return 'meta';
+  if (line.startsWith('@@')) return 'hunk';
+  if (line.startsWith('+')) return 'add';
+  if (line.startsWith('-')) return 'del';
+  return '';
+}
+
 function clusterWidth(cluster: RunClusterModel): number {
   const teamsWidth = cluster.teams.reduce(
     (total, team) => total + teamWidth(1 + team.workers.length),
@@ -223,6 +235,15 @@ export function GraphView(): JSX.Element {
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
+  // Presentation-only preference: colored vs monochrome approval diffs.
+  const [diffColors, setDiffColors] = useState(
+    () => window.localStorage.getItem('ade.graph.diffColors') !== 'off',
+  );
+  const toggleDiffColors = useCallback(() => setDiffColors((on) => {
+    const next = !on;
+    window.localStorage.setItem('ade.graph.diffColors', next ? 'on' : 'off');
+    return next;
+  }), []);
   useEffect(() => { setApprovalOpen(false); }, [pendingApproval?.id]);
   // The expanded banner shows the validated commits behind the approval.
   useEffect(() => {
@@ -961,26 +982,44 @@ export function GraphView(): JSX.Element {
               {approvalDiff && approvalDiff.entries.length === 0 && (
                 <span className="gapproval-note">Keine validierten Commits gefunden.</span>
               )}
-              {approvalDiff?.entries.map((entry) => (
-                <div key={entry.commitSha} className="gapproval-commit">
-                  <div className="gapproval-commit-head">
-                    <b>{entry.participantName}</b>
-                    <span>⎇ {entry.branch}</span>
-                    <code>{entry.commitSha.slice(0, 10)}</code>
-                    <span>{entry.title}</span>
-                  </div>
-                  <ul className="gapproval-files">
-                    {entry.files.map((file) => (
-                      <li key={file.path}>
-                        <code>{file.path}</code>
-                        <span className="add">+{file.additions}</span>
-                        <span className="del">−{file.deletions}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <pre className="gapproval-patch">{entry.diff}</pre>
+              {approvalDiff && approvalDiff.entries.length > 0 && (
+                <div className="gapproval-diff-tools">
+                  <button type="button" className="gact" onClick={toggleDiffColors}>
+                    Diff-Farben: {diffColors ? 'an' : 'aus'}
+                  </button>
                 </div>
-              ))}
+              )}
+              {approvalDiff?.entries.map((entry) => {
+                const lines = diffColors ? entry.diff.split('\n') : null;
+                return (
+                  <div key={entry.commitSha} className="gapproval-commit">
+                    <div className="gapproval-commit-head">
+                      <b>{entry.participantName}</b>
+                      <span>⎇ {entry.branch}</span>
+                      <code>{entry.commitSha.slice(0, 10)}</code>
+                      <span>{entry.title}</span>
+                    </div>
+                    <ul className="gapproval-files">
+                      {entry.files.map((file) => (
+                        <li key={file.path}>
+                          <code>{file.path}</code>
+                          <span className="add">+{file.additions}</span>
+                          <span className="del">−{file.deletions}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <pre className={`gapproval-patch${diffColors ? ' colored' : ''}`}>
+                      {lines
+                        ? lines.slice(0, DIFF_RENDER_LINE_CAP).map((line, index) => (
+                            <span key={index} className={diffLineClass(line)}>{line}{'\n'}</span>
+                          ))
+                        : entry.diff}
+                      {lines && lines.length > DIFF_RENDER_LINE_CAP
+                        && `… ${lines.length - DIFF_RENDER_LINE_CAP} weitere Zeilen (monochrom umschalten für alles)`}
+                    </pre>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
