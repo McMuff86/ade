@@ -201,6 +201,28 @@ export async function gitDiff(workspaceDir: string, relPath: string): Promise<st
   }
 }
 
+/**
+ * One commit for the integration-approval review: subject, per-file numstat
+ * and the full unified patch (capped). Read-only.
+ */
+export async function gitShowCommit(
+  workspaceDir: string,
+  sha: string,
+): Promise<{ title: string; files: { path: string; additions: number; deletions: number }[]; diff: string }> {
+  const empty = { title: '', files: [], diff: '' };
+  if (!(await isGitRepo(workspaceDir))) return empty;
+  const g = git(workspaceDir);
+  try {
+    const title = (await g.raw(['log', '-1', '--format=%s', sha])).trim();
+    const numstat = parseNumstat(await g.raw(['show', '--numstat', '--format=', sha]));
+    const files = [...numstat.entries()].map(([path, counts]) => ({ path, ...counts }));
+    const diff = cap(await g.raw(['show', '--format=', sha]));
+    return { title, files, diff };
+  } catch {
+    return empty;
+  }
+}
+
 function cap(text: string): string {
   if (text.length <= DIFF_CAP_BYTES) return text;
   return `${text.slice(0, DIFF_CAP_BYTES)}\n… (diff truncated at ${DIFF_CAP_BYTES} bytes)`;

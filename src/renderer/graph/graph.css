@@ -126,7 +126,7 @@
   right: 14px;
   z-index: 32;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 9px;
   padding: 10px 12px;
   border: 1px solid var(--accent-dim);
@@ -136,18 +136,53 @@
   backdrop-filter: blur(10px);
 }
 .graph-inspecting .gapproval { right: 328px; }
-.gapproval > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.gapproval-row { display: flex; align-items: center; gap: 9px; }
+.gapproval-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
 .gapproval b { color: var(--text); font-size: 12px; }
-.gapproval span { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.gapproval-row span { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 .gapproval .gact { width: auto; flex: none; padding: 7px 10px; }
-/* Click-to-expand: the full approval reason must be readable before deciding. */
-.gapproval.open { align-items: flex-start; }
-.gapproval.open span {
+/* Click-to-expand: the full approval reason and its diff must be readable
+ * before deciding. */
+.gapproval.open .gapproval-row { align-items: flex-start; }
+.gapproval.open .gapproval-row span {
   overflow-y: auto;
   text-overflow: clip;
   white-space: pre-wrap;
-  max-height: 42vh;
+  max-height: 26vh;
   line-height: 1.5;
+}
+.gapproval-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  cursor: default;
+}
+.gapproval-note { color: var(--muted); font-size: 10.5px; }
+.gapproval-commit-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
+.gapproval-commit-head b { font-size: 11.5px; }
+.gapproval-commit-head code { color: var(--accent); font-family: var(--mono); font-size: 10.5px; }
+.gapproval-files { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 10.5px; }
+.gapproval-files li { display: flex; gap: 8px; align-items: baseline; }
+.gapproval-files code { color: var(--text); font-family: var(--mono); }
+.gapproval-files .add { color: #4cc38a; }
+.gapproval-files .del { color: #e5484d; }
+.gapproval-patch {
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+  max-height: 32vh;
+  color: var(--muted);
 }
 
 .graph-world { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; transform-origin: 0 0; }

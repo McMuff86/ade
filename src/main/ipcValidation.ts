@@ -497,6 +497,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       validateRunCreate(channel, payload);
       return;
     case IPC.RunDelete:
+    case IPC.RunApprovalDiff:
       validateIdRequest(channel, payload, 'runId');
       return;
     case IPC.RunStart:

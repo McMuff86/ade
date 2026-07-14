@@ -11,6 +11,7 @@ import type {
   RunTaskResult,
   TaskProvenance,
 } from '../../shared/types';
+import type { ApprovalDiffResult } from '../../shared/ipc';
 import { useAppData } from '../stores/appdata';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
@@ -221,7 +222,18 @@ export function GraphView(): JSX.Element {
   const [toast, setToast] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
   useEffect(() => { setApprovalOpen(false); }, [pendingApproval?.id]);
+  // The expanded banner shows the validated commits behind the approval.
+  useEffect(() => {
+    setApprovalDiff(null);
+    if (!approvalOpen || !pendingApproval) return;
+    let live = true;
+    void window.ade.invoke('run:approvalDiff', { runId: pendingApproval.runId })
+      .then((diff) => { if (live) setApprovalDiff(diff); })
+      .catch(() => { if (live) setApprovalDiff({ runId: pendingApproval.runId, entries: [] }); });
+    return () => { live = false; };
+  }, [approvalOpen, pendingApproval]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -909,38 +921,68 @@ export function GraphView(): JSX.Element {
 
       {pendingApproval && (
         <div className={`gapproval${approvalOpen ? ' open' : ''}`} role="status">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-expanded={approvalOpen}
-            title={approvalOpen ? 'Zuklappen' : 'Klicken, um den kompletten Text zu lesen'}
-            onClick={() => setApprovalOpen((open) => !open)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setApprovalOpen((open) => !open);
-              }
-            }}
-          >
-            <b>Integration wartet auf Freigabe {approvalOpen ? '▾' : '▸'}</b>
-            <span>{pendingApproval.reason}</span>
+          <div className="gapproval-row">
+            <div
+              role="button"
+              tabIndex={0}
+              aria-expanded={approvalOpen}
+              title={approvalOpen ? 'Zuklappen' : 'Klicken für Text und Diff der Änderungen'}
+              onClick={() => setApprovalOpen((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setApprovalOpen((open) => !open);
+                }
+              }}
+            >
+              <b>Integration wartet auf Freigabe {approvalOpen ? '▾' : '▸'}</b>
+              <span>{pendingApproval.reason}</span>
+            </div>
+            <button
+              className="gact"
+              onClick={() => void resolveApproval(pendingApproval.id, 'reject')
+                .then(() => flash('Integration abgelehnt'))
+                .catch((error) => flash(errorText(error)))}
+            >
+              Ablehnen
+            </button>
+            <button
+              className="gact primary"
+              onClick={() => void resolveApproval(pendingApproval.id, 'approve')
+                .then(() => flash('Integration freigegeben'))
+                .catch((error) => flash(errorText(error)))}
+            >
+              Freigeben &amp; integrieren
+            </button>
           </div>
-          <button
-            className="gact"
-            onClick={() => void resolveApproval(pendingApproval.id, 'reject')
-              .then(() => flash('Integration abgelehnt'))
-              .catch((error) => flash(errorText(error)))}
-          >
-            Ablehnen
-          </button>
-          <button
-            className="gact primary"
-            onClick={() => void resolveApproval(pendingApproval.id, 'approve')
-              .then(() => flash('Integration freigegeben'))
-              .catch((error) => flash(errorText(error)))}
-          >
-            Freigeben &amp; integrieren
-          </button>
+          {approvalOpen && (
+            <div className="gapproval-diff">
+              {!approvalDiff && <span className="gapproval-note">Lade Änderungen…</span>}
+              {approvalDiff && approvalDiff.entries.length === 0 && (
+                <span className="gapproval-note">Keine validierten Commits gefunden.</span>
+              )}
+              {approvalDiff?.entries.map((entry) => (
+                <div key={entry.commitSha} className="gapproval-commit">
+                  <div className="gapproval-commit-head">
+                    <b>{entry.participantName}</b>
+                    <span>⎇ {entry.branch}</span>
+                    <code>{entry.commitSha.slice(0, 10)}</code>
+                    <span>{entry.title}</span>
+                  </div>
+                  <ul className="gapproval-files">
+                    {entry.files.map((file) => (
+                      <li key={file.path}>
+                        <code>{file.path}</code>
+                        <span className="add">+{file.additions}</span>
+                        <span className="del">−{file.deletions}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <pre className="gapproval-patch">{entry.diff}</pre>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

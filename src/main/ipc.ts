@@ -24,7 +24,7 @@ import {
   updateAgent,
 } from './identity';
 import { PtyManager } from './pty/PtyManager';
-import { gitDiff, gitStatus, isGitRepo } from './git/GitService';
+import { gitDiff, gitShowCommit, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsMutablePath, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
 import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
@@ -253,6 +253,36 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.RunGet, () => orchestration!.snapshot());
   handle(IPC.RunGetSummary, ({ runId }) => orchestration!.summarize(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));
+  handle(IPC.RunApprovalDiff, async ({ runId }) => {
+    // Validated work commits behind the pending integration approval, read
+    // from the leased worktrees; the DTO stays free of absolute host paths.
+    const snapshot = orchestration!.snapshot();
+    const participantName = new Map(snapshot.participants
+      .filter((participant) => participant.runId === runId)
+      .map((participant) => [participant.id, participant.agentName]));
+    const workResults = snapshot.results
+      .filter((result) => result.runId === runId && result.commitSha)
+      .filter((result) => snapshot.tasks.some((task) =>
+        task.id === result.taskId && task.phase === 'work'));
+    const entries = [];
+    for (const result of workResults) {
+      const lease = snapshot.workspaceLeases
+        .filter((candidate) => candidate.runId === runId
+          && candidate.participantId === result.participantId)
+        .sort((a, b) => b.acquiredAt - a.acquiredAt)[0];
+      if (!lease?.isRepo) continue;
+      const commit = await gitShowCommit(lease.workspaceDir, result.commitSha!);
+      entries.push({
+        participantName: participantName.get(result.participantId) ?? 'Unbekannt',
+        branch: lease.branch,
+        commitSha: result.commitSha!,
+        title: commit.title,
+        files: commit.files,
+        diff: commit.diff,
+      });
+    }
+    return { runId, entries };
+  });
   handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
   handle(IPC.RunDelete, ({ runId }) => runCoordinator!.deleteRun(runId));
   handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));

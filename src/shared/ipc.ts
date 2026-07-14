@@ -70,6 +70,7 @@ export const IPC = {
   RunGet: 'run:get',
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
+  RunApprovalDiff: 'run:approvalDiff',
   RunCreate: 'run:create',
   RunDelete: 'run:delete',
   RunStart: 'run:start',
@@ -217,6 +218,28 @@ export interface RunEventsResult {
   messages: RunMessage[];
   /** Highest seq in this page; pass back as sinceSeq to resume. */
   nextCursor: number;
+}
+
+/* Sanitized validated-commit diffs backing an integration approval. Paths are
+ * repo-relative; no absolute host path crosses this DTO. */
+export interface ApprovalDiffFile {
+  path: string;
+  additions: number;
+  deletions: number;
+}
+export interface ApprovalDiffEntry {
+  participantName: string;
+  branch: string;
+  commitSha: string;
+  /** Commit subject of the ADE-authored validated commit. */
+  title: string;
+  files: ApprovalDiffFile[];
+  /** Unified diff of the whole commit, capped at ~1 MB. */
+  diff: string;
+}
+export interface ApprovalDiffResult {
+  runId: string;
+  entries: ApprovalDiffEntry[];
 }
 
 export interface RunSummaryRequest {
@@ -380,6 +403,7 @@ export interface IpcInvokeMap {
   'run:get': { req: void; res: OrchestrationSnapshot };
   'run:getSummary': { req: RunSummaryRequest; res: RunSummary[] };
   'run:events': { req: RunEventsRequest; res: RunEventsResult };
+  'run:approvalDiff': { req: { runId: string }; res: ApprovalDiffResult };
   'run:create': { req: RunCreateInput; res: Run };
   'run:delete': { req: { runId: string }; res: void };
   'run:start': { req: RunLifecycleRequest; res: Run };
