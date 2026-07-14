@@ -88,6 +88,17 @@ event seq), severity, resolution or follow-up work item.
   click. Attempt 2 also carried fixture-card metadata (heading, expected
   topology, score notes) pasted into the goal — cancelled and excluded;
   goal-text discipline added to the plan's method notes.
+- **2026-07-14 · reliability · run `6e632da0` (F1 managed, attempt 3, draft).**
+  `run:start` failed closed with "Main Chef's worktree is not clean": opening
+  an interactive session for a participant agent writes ADE's memory scaffold
+  (`CLAUDE.md`) into the repo worktree and leaves it untracked, so the next
+  managed run on the same binding cannot acquire its clean-worktree lease.
+  ADE's own instruction file blocks ADE's own lease. Fail-closed is correct;
+  the friction is real. Follow-up work item (pre-P1 candidate): write
+  interactive-session instruction files outside the worktree like the managed
+  memory snapshot, or remove them on session close, or exempt ADE-authored
+  scaffold files from the lease cleanliness check. Workaround used:
+  `git clean -f -- CLAUDE.md` in the affected worktree.
 
 ## Go/no-go decision (Goal 7 gate)
 
