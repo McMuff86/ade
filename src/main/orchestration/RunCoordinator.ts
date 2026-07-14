@@ -18,6 +18,7 @@ import {
   buildRunContextManifest,
   buildTaskContextPacket,
   manifestHash,
+  parseRunContextManifest,
   renderManifestBrief,
   sha256,
   stableStringify,
@@ -63,12 +64,9 @@ export class RunCoordinator {
   private readonly mailbox: MailboxService;
   private readonly launches = new Map<string, ManagedTaskLaunch>();
   private readonly runChains = new Map<string, Promise<void>>();
-  /**
-   * In-memory run-context cache for prompt briefs. The manifest itself is
-   * journaled as a run artifact; after a main-process restart the cache is
-   * empty and later phase prompts simply omit the brief.
-   */
+  /** In-memory cache, lazily restored from the journaled manifest artifact. */
   private readonly runContexts = new Map<string, { manifest: RunContextManifest; hash: string; brief: string }>();
+  private readonly attemptedContextRestores = new Set<string>();
   private taskLauncher: TaskLauncher | null = null;
   private taskCanceller: TaskCanceller | null = null;
   private readonly scopes: RepositoryScopePort;
@@ -106,6 +104,27 @@ export class RunCoordinator {
 
   handlesTaskNotification(taskId: string): boolean {
     return this.orchestration.snapshot().tasks.some((task) => task.id === taskId && task.managed);
+  }
+
+  private runContext(runId: string): { manifest: RunContextManifest; hash: string; brief: string } | undefined {
+    const cached = this.runContexts.get(runId);
+    if (cached || this.attemptedContextRestores.has(runId)) return cached;
+    this.attemptedContextRestores.add(runId);
+    const artifact = this.orchestration.snapshot().artifacts.find((candidate) =>
+      candidate.runId === runId &&
+      candidate.taskId === undefined &&
+      candidate.kind === 'file' &&
+      candidate.path === 'context/run-manifest.json');
+    if (typeof artifact?.content !== 'string') return undefined;
+    const manifest = parseRunContextManifest(artifact.content, runId);
+    if (!manifest) {
+      console.warn(`[ade] persisted run context manifest is invalid for run ${runId}; continuing without it`);
+      return undefined;
+    }
+    const hash = manifestHash(manifest);
+    const restored = { manifest, hash, brief: renderManifestBrief(manifest, hash) };
+    this.runContexts.set(runId, restored);
+    return restored;
   }
 
   async start(runId: string, commandId?: string): Promise<Run> {
@@ -182,6 +201,10 @@ export class RunCoordinator {
         const common = repoItems[0]!.workspace.commonGitDir;
         if (repoItems.some((item) => item.workspace.commonGitDir !== common)) {
           throw new Error('ade: all managed-run worktrees must belong to the same git repository');
+        }
+        const baseSha = repoItems[0]!.workspace.headSha;
+        if (repoItems.some((item) => item.workspace.headSha !== baseSha)) {
+          throw new Error('ade: all managed-run worktrees must use the same Git base');
         }
       }
 
@@ -782,14 +805,15 @@ export class RunCoordinator {
     }
     this.orchestration.markIntegrationApplied(runId, applied);
 
+    const context = this.runContext(runId);
     const task = this.orchestration.createManagedTask({
       runId,
       participantId: orchestrator.id,
       title: 'Review and stabilize integrated work',
       phase: 'integrate',
       prompt: integrationPrompt(run, results, applied, integratorLease.isRepo, {
-        brief: this.runContexts.get(runId)?.brief,
-        manifestHash: this.runContexts.get(runId)?.hash,
+        brief: context?.brief,
+        manifestHash: context?.hash,
       }),
     });
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), orchestrator.agentId);
@@ -826,12 +850,13 @@ export class RunCoordinator {
       }
     }
     this.orchestration.setManagedRunPhase(runId, 'verifying');
+    const context = this.runContext(runId);
     const task = this.orchestration.createManagedTask({
       runId,
       participantId: orchestrator.id,
       title: 'Verify the integrated result',
       phase: 'verify',
-      prompt: verificationPrompt(run, integration, { brief: this.runContexts.get(runId)?.brief }),
+      prompt: verificationPrompt(run, integration, { brief: context?.brief }),
     });
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), orchestrator.agentId);
     this.mailbox.deliver(agent, {
@@ -930,7 +955,7 @@ export class RunCoordinator {
    */
   private writeTaskContext(task: RunTask, agent: Agent, files: ManagedTaskFiles): void {
     try {
-      const context = this.runContexts.get(task.runId);
+      const context = this.runContext(task.runId);
       const capabilities = this.adapters.capabilities(agent);
       let memorySnapshot: { file: string; sha256: string; chars: number } | undefined;
       const memorySettings = this.store.get().settings.memory;

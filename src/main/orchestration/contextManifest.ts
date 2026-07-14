@@ -109,6 +109,84 @@ export function manifestHash(manifest: RunContextManifest): string {
   return sha256(stableStringify(manifest));
 }
 
+/**
+ * Parse a journaled manifest without trusting persisted JSON blindly. Invalid
+ * or incompatible artifacts degrade to no restored context at the caller.
+ */
+export function parseRunContextManifest(content: string, expectedRunId: string): RunContextManifest | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  if (!isRecord(value) ||
+      value.version !== 1 ||
+      !Number.isInteger(value.contextBuilderVersion) ||
+      Number(value.contextBuilderVersion) < 1 ||
+      value.runId !== expectedRunId ||
+      typeof value.runName !== 'string' ||
+      typeof value.goal !== 'string' ||
+      !isRepository(value.repository) ||
+      !Array.isArray(value.instructionFiles) ||
+      !value.instructionFiles.every(isInstructionFile) ||
+      !isStringRecord(value.packageScripts) ||
+      !Array.isArray(value.topLevelEntries) ||
+      !value.topLevelEntries.every((entry) => typeof entry === 'string' && !entry.includes('/') && !entry.includes('\\')) ||
+      !Array.isArray(value.participants) ||
+      !value.participants.every(isManifestParticipant) ||
+      !isManifestVersions(value.versions)) {
+    return null;
+  }
+  return value as unknown as RunContextManifest;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isRepository(value: unknown): boolean {
+  return value === null || (isRecord(value) &&
+    (typeof value.repositoryId === 'string' || value.repositoryId === null) &&
+    (typeof value.name === 'string' || value.name === null) &&
+    typeof value.isRepo === 'boolean' &&
+    typeof value.branch === 'string' &&
+    typeof value.baseSha === 'string');
+}
+
+function isInstructionFile(value: unknown): boolean {
+  return isRecord(value) &&
+    (value.path === 'CLAUDE.md' || value.path === 'AGENTS.md') &&
+    typeof value.sha256 === 'string' && /^[0-9a-f]{64}$/.test(value.sha256) &&
+    Number.isInteger(value.chars) && Number(value.chars) >= 0 &&
+    typeof value.excerpt === 'string';
+}
+
+function isManifestParticipant(value: unknown): boolean {
+  return isRecord(value) &&
+    typeof value.participantId === 'string' &&
+    typeof value.agentName === 'string' &&
+    typeof value.role === 'string' &&
+    (value.teamName === undefined || typeof value.teamName === 'string') &&
+    typeof value.runtime === 'string' &&
+    typeof value.permissionMode === 'string' &&
+    typeof value.adapterId === 'string' &&
+    typeof value.reportsTokens === 'boolean' &&
+    typeof value.reportsCost === 'boolean';
+}
+
+function isStringRecord(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+}
+
+function isManifestVersions(value: unknown): boolean {
+  return isRecord(value) &&
+    isRecord(value.prompts) &&
+    Object.values(value.prompts).every((item) => Number.isInteger(item)) &&
+    Number.isInteger(value.resultSchema) &&
+    Number.isInteger(value.contextBuilder);
+}
+
 /** JSON with recursively sorted object keys, so equal content hashes equally. */
 export function stableStringify(value: unknown): string {
   return JSON.stringify(sortValue(value), null, 2);

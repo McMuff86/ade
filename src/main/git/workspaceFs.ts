@@ -8,8 +8,15 @@
  * one exception: fs:read resolves them workspace-first, then memoryDir.
  */
 
-import { existsSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, normalize, relative } from 'node:path';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  statSync,
+} from 'node:fs';
+import { basename, dirname, isAbsolute, join, normalize, relative, sep } from 'node:path';
 import type { FsPathInfoResult, FsReadResult, FsRenameResult } from '../../shared/ipc';
 import type { AgentFile, FsTreeNode } from '../../shared/types';
 
@@ -132,6 +139,30 @@ export function fsPathInfo(
   return { absolutePath: abs, kind, location };
 }
 
+/** True when `candidate` is a child of `root` under the host path semantics. */
+function isChildPath(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate);
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+/**
+ * Resolve links/junctions before allowing a mutation. For a missing rename
+ * destination, resolve its existing parent and then append the bare basename.
+ */
+function assertRealPathInsideWorkspace(
+  workspaceDir: string,
+  candidate: string,
+  candidateExists: boolean,
+): void {
+  const realRoot = realpathSync.native(workspaceDir);
+  const realCandidate = candidateExists
+    ? realpathSync.native(candidate)
+    : join(realpathSync.native(dirname(candidate)), basename(candidate));
+  if (!isChildPath(realRoot, realCandidate)) {
+    throw new Error('ade: path escapes the selected workspace through a link');
+  }
+}
+
 /**
  * Absolute path for a mutating action (rename/delete). Strictly inside the
  * workspace — never the memoryDir scaffold — and must exist.
@@ -145,6 +176,7 @@ export function fsMutablePath(workspaceDir: string, relPath: string): string {
     throw new Error('ade: refusing to act on the workspace root');
   }
   if (!existsSync(abs)) throw new Error(`ade: not found in the workspace: "${relPath}"`);
+  assertRealPathInsideWorkspace(workspaceDir, abs, true);
   return abs;
 }
 
@@ -159,6 +191,7 @@ export function fsRename(
   }
   const abs = fsMutablePath(workspaceDir, relPath);
   const target = join(dirname(abs), newName);
+  assertRealPathInsideWorkspace(workspaceDir, target, existsSync(target));
   if (existsSync(target)) throw new Error(`ade: "${newName}" already exists here`);
   renameSync(abs, target);
   const relDir = relPath.split('/').slice(0, -1).join('/');

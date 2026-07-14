@@ -95,6 +95,23 @@ class FakeWorkspaces implements WorkspacePort {
   }
 }
 
+class RepoWorkspaces extends FakeWorkspaces {
+  constructor(private readonly headByWorkspace: Map<string, string>) {
+    super();
+  }
+
+  override async inspect(workspaceDir: string) {
+    return {
+      workspaceDir,
+      isRepo: true,
+      clean: true,
+      branch: `ade/${workspaceDir.split(/[\\/]/).at(-1)}`,
+      headSha: this.headByWorkspace.get(workspaceDir) ?? 'base-sha',
+      commonGitDir: '/fixture/repository/.git',
+    };
+  }
+}
+
 function agent(id: string, root: string): Agent {
   return {
     id,
@@ -158,24 +175,27 @@ async function waitFor(predicate: () => boolean, label: string, timeout = 4_000)
 async function managedLifecycleChecks(root: string): Promise<void> {
   console.log('\n== managed orchestration lifecycle ==');
   const store = new MemoryStore(configWithAgents(root));
-  const service = new OrchestrationService(store);
+  let service = new OrchestrationService(store);
   const workspaces = new FakeWorkspaces();
-  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), workspaces);
+  let coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), workspaces);
   const launched: string[] = [];
-  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
-    launched.push(taskId);
-    const session: SessionMeta = {
-      id: `session-${launched.length}`,
-      agentId,
-      title: 'fixture',
-      kind: 'task',
-      status: 'running',
-      createdAt: Date.now(),
-      runTaskId: taskId,
-    };
-    coordinator.onTaskStarted(taskId, session);
-    return session;
-  }, () => undefined);
+  const connect = (): void => {
+    coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+      launched.push(taskId);
+      const session: SessionMeta = {
+        id: `session-${launched.length}`,
+        agentId,
+        title: 'fixture',
+        kind: 'task',
+        status: 'running',
+        createdAt: Date.now(),
+        runTaskId: taskId,
+      };
+      coordinator.onTaskStarted(taskId, session);
+      return session;
+    }, () => undefined);
+  };
+  connect();
 
   const run = service.createRun(runInput('Managed lifecycle'));
   await coordinator.start(run.id);
@@ -228,12 +248,25 @@ async function managedLifecycleChecks(root: string): Promise<void> {
     service.snapshot().runs[0]?.phase === 'approval' &&
     service.snapshot().workspaceLeases.every((lease) => lease.status === 'active'));
 
+  // Simulate a real main-process restart: both orchestration objects are new,
+  // while only the store-backed run journal and artifacts survive.
+  service = new OrchestrationService(store);
+  coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), workspaces);
+  connect();
   await coordinator.resolveApproval(approval!.id, 'approve');
   await waitFor(() => service.snapshot().tasks.some((task) => task.phase === 'integrate' && task.status === 'running'), 'integration task');
   snapshot = service.snapshot();
   const integrationTask = snapshot.tasks.find((task) => task.phase === 'integrate')!;
+  const integrationPacket = JSON.parse(snapshot.artifacts.find(
+    (artifact) => artifact.taskId === integrationTask.id && artifact.path === `context/task-${integrationTask.id}.json`,
+  )!.content!) as { manifestHash: string | null; provenance: { contextManifestHash?: string } };
   check('approved run enters integration phase', snapshot.runs[0]?.phase === 'integrating');
   check('plain-workspace integration is explicit report reconciliation', workspaces.integrations === 0 && integrationTask.prompt.includes('plain-workspace'));
+  check('integration after coordinator restart retains the persisted manifest brief',
+    integrationTask.prompt.includes('Run context (manifest'));
+  check('integration after coordinator restart retains manifest provenance',
+    integrationPacket.manifestHash !== null &&
+    integrationPacket.provenance.contextManifestHash === integrationPacket.manifestHash);
 
   finish(coordinator, integrationTask.id, result({
     summary: 'Integrated result is coherent.',
@@ -242,7 +275,15 @@ async function managedLifecycleChecks(root: string): Promise<void> {
   await waitFor(() => service.snapshot().tasks.some((task) => task.phase === 'verify' && task.status === 'running'), 'verification task');
   snapshot = service.snapshot();
   const verificationTask = snapshot.tasks.find((task) => task.phase === 'verify')!;
+  const verificationPacket = JSON.parse(snapshot.artifacts.find(
+    (artifact) => artifact.taskId === verificationTask.id && artifact.path === `context/task-${verificationTask.id}.json`,
+  )!.content!) as { manifestHash: string | null; provenance: { contextManifestHash?: string } };
   check('integration completion launches a distinct read-only verification task', verificationTask.prompt.includes('strictly read-only'));
+  check('verification after coordinator restart retains the persisted manifest brief',
+    verificationTask.prompt.includes('Run context (manifest'));
+  check('verification after coordinator restart retains manifest provenance',
+    verificationPacket.manifestHash !== null &&
+    verificationPacket.provenance.contextManifestHash === verificationPacket.manifestHash);
 
   finish(coordinator, verificationTask.id, result({
     summary: 'All final checks pass.',
@@ -355,6 +396,63 @@ async function ownershipAndBudgetChecks(root: string): Promise<void> {
   await waitFor(() => cancelService.snapshot().workspaceLeases.every((lease) => lease.status === 'released'), 'cancel lease release');
   check('a run remains cancellable while its PTY is waiting in the global FIFO',
     cancelService.snapshot().runs.find((item) => item.id === cancelRun.id)?.status === 'cancelled');
+}
+
+async function managedBaseShaChecks(root: string): Promise<void> {
+  console.log('\n== managed run Git base SHA enforcement ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const service = new OrchestrationService(store);
+  const agents = store.get().agents;
+  const workspaces = new RepoWorkspaces(new Map([
+    [agents[0]!.workspaceDir, 'base-sha'],
+    [agents[1]!.workspaceDir, 'different-sha'],
+    [agents[2]!.workspaceDir, 'base-sha'],
+  ]));
+  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), workspaces);
+  let launches = 0;
+  coordinator.connect(async () => {
+    launches += 1;
+    throw new Error('task launch must not be reached');
+  }, () => undefined);
+
+  const run = service.createRun(runInput('Mismatched Git bases'));
+  let failure = '';
+  try {
+    await coordinator.start(run.id);
+  } catch (error) {
+    failure = errorText(error);
+  }
+  const snapshot = service.snapshot();
+  check('repo-backed participants with different Git bases fail closed before leases or tasks',
+    failure.includes('same Git base') &&
+    launches === 0 &&
+    snapshot.workspaceLeases.length === 0 &&
+    snapshot.tasks.length === 0 &&
+    snapshot.runs.find((item) => item.id === run.id)?.status === 'draft');
+
+  const matchingStore = new MemoryStore(configWithAgents(join(root, 'matching')));
+  const matchingService = new OrchestrationService(matchingStore);
+  const matchingCoordinator = new RunCoordinator(
+    matchingStore,
+    matchingService,
+    new RuntimeAdapterRegistry(),
+    new RepoWorkspaces(new Map()),
+  );
+  let matchingLaunches = 0;
+  matchingCoordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    matchingLaunches += 1;
+    const session: SessionMeta = {
+      id: 'matching-base-session', agentId, title: 'fixture', kind: 'task', status: 'running',
+      createdAt: Date.now(), runTaskId: taskId,
+    };
+    matchingCoordinator.onTaskStarted(taskId, session);
+    return session;
+  }, () => undefined);
+  const matchingRun = matchingService.createRun(runInput('Matching Git bases'));
+  await matchingCoordinator.start(matchingRun.id);
+  check('repo-backed participants with the same Git base still start normally',
+    matchingLaunches === 1 &&
+    matchingService.snapshot().workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
 }
 
 function adapterChecks(root: string): void {
@@ -717,6 +815,7 @@ async function main(): Promise<void> {
   try {
     adapterChecks(root);
     await managedLifecycleChecks(join(root, 'lifecycle'));
+    await managedBaseShaChecks(join(root, 'base-sha'));
     await ownershipAndBudgetChecks(join(root, 'ownership'));
     await pauseSchedulingChecks(join(root, 'pause'));
     await realGitIntegrationChecks(root);

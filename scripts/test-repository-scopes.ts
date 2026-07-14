@@ -1,7 +1,15 @@
 /** Goal 5 repository, binding, task-snapshot and agent-template checks. */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import {
@@ -249,6 +257,36 @@ function testWorkspaceFileActions(scratch: string): void {
     memoryRejected = true;
   }
   check('memoryDir pinned files cannot be renamed or deleted', memoryRejected);
+
+  writeFileSync(join(workspaceDir, 'delete-me.md'), 'internal delete\n', 'utf8');
+  rmSync(fsMutablePath(workspaceDir, 'delete-me.md'));
+  check('delete still allows a normal internal file', !existsSync(join(workspaceDir, 'delete-me.md')));
+
+  const outsideDir = join(scratch, 'files-outside');
+  mkdirSync(outsideDir, { recursive: true });
+  writeFileSync(join(outsideDir, 'delete-me.md'), 'outside delete\n', 'utf8');
+  writeFileSync(join(outsideDir, 'rename-me.md'), 'outside rename\n', 'utf8');
+  symlinkSync(outsideDir, join(workspaceDir, 'outside-link'), process.platform === 'win32' ? 'junction' : 'dir');
+
+  let symlinkDeleteRejected = false;
+  try {
+    fsMutablePath(workspaceDir, 'outside-link/delete-me.md');
+  } catch {
+    symlinkDeleteRejected = true;
+  }
+  check('delete rejects a realpath escape through a symlink or junction',
+    symlinkDeleteRejected && existsSync(join(outsideDir, 'delete-me.md')));
+
+  let symlinkRenameRejected = false;
+  try {
+    fsRename(workspaceDir, 'outside-link/rename-me.md', 'renamed.md');
+  } catch {
+    symlinkRenameRejected = true;
+  }
+  check('rename rejects a realpath escape through a symlink or junction',
+    symlinkRenameRejected
+      && existsSync(join(outsideDir, 'rename-me.md'))
+      && !existsSync(join(outsideDir, 'renamed.md')));
 }
 
 async function run(): Promise<void> {
