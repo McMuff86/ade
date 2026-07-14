@@ -340,6 +340,15 @@
 .ginsp-head .t h3 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ginsp-head .t p { font-size: 11px; color: var(--muted); }
 .ginsp-close { width: 24px; height: 24px; border-radius: 6px; color: var(--muted); }
+.ginsp-tail {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 4px;
+}
+.ginsp-tail .xterm { pointer-events: none; }
 .ginsp-close:hover { color: var(--text); background: var(--raised); }
 .ginsp-close svg { width: 14px; height: 14px; }
 .ginsp-body { padding: 12px 14px; overflow: auto; }

@@ -33,6 +33,7 @@ import {
   openParticipantTerminal,
   setTeamPause,
 } from './graphActions';
+import { SessionTail } from './SessionTail';
 import './graph.css';
 
 const CARD_W = 150;
@@ -599,7 +600,14 @@ export function GraphView(): JSX.Element {
       const deltaX = (nextEvent.clientX - startX) / view.scale;
       const deltaY = (nextEvent.clientY - startY) / view.scale;
       if (Math.abs(deltaX) + Math.abs(deltaY) > 3) moved = true;
-      setPosition(storageKey, { x: start.x + deltaX, y: start.y + deltaY });
+      const next = { x: start.x + deltaX, y: start.y + deltaY };
+      if (kind === 'node') {
+        // Nodes stay inside their cluster frame: the frame grows right/down
+        // with the node (renderCluster bounding box), never left/up.
+        next.x = Math.max(8, next.x);
+        next.y = Math.max(44, next.y);
+      }
+      setPosition(storageKey, next);
     };
     const up = (): void => {
       window.removeEventListener('pointermove', move);
@@ -675,7 +683,20 @@ export function GraphView(): JSX.Element {
   const renderCluster = (cluster: RunClusterModel): JSX.Element => {
     const { run } = cluster;
     const position = clusterPos(run.id);
-    const width = clusterWidth(cluster);
+    // The frame is the bounding box of its (freely draggable) children, so a
+    // dragged card or team grows the frame instead of escaping it.
+    const orchestratorBounds = nodePos(run.id, 'orchestrator');
+    const width = Math.max(
+      clusterWidth(cluster),
+      orchestratorBounds.x + ORCH_W + CLUSTER_PAD,
+      ...cluster.teams.map((team) =>
+        nodePos(run.id, team.id).x + teamWidth(1 + team.workers.length) + CLUSTER_PAD),
+    );
+    const height = Math.max(
+      CLUSTER_H,
+      orchestratorBounds.y + 210 + CLUSTER_PAD,
+      ...cluster.teams.map((team) => nodePos(run.id, team.id).y + 236 + CLUSTER_PAD),
+    );
     const repository = run.repositoryId
       ? repositories.find((candidate) => candidate.id === run.repositoryId)
       : null;
@@ -693,7 +714,7 @@ export function GraphView(): JSX.Element {
       <section
         key={run.id}
         className={`gcluster${run.id === activeRunId ? ' active' : ''}${cluster.terminal ? ' terminal' : ''}`}
-        style={{ left: position.x, top: position.y, width, height: CLUSTER_H }}
+        style={{ left: position.x, top: position.y, width, height }}
       >
         <header
           className="gcluster-bar"
@@ -1120,6 +1141,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   const tasks = useRuns((state) => state.tasks);
   const results = useRuns((state) => state.results);
   const artifacts = useRuns((state) => state.artifacts);
+  const workspaceLeases = useRuns((state) => state.workspaceLeases);
   const busy = useGraphStore((state) => state.busy);
   const sessions = useSessions((state) => state.sessions);
   const orderByAgent = useSessions((state) => state.orderByAgent);
@@ -1150,6 +1172,34 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   );
 
   /** Sanitized detail block: titles, counts and versions only — never prompts or paths. */
+  /** Running task session of a participant — the live view target. */
+  const liveSessionIdFor = (participantId: string): string | null => {
+    const live = tasks
+      .filter((task) => task.runId === cluster.run.id
+        && task.participantId === participantId
+        && task.sessionId)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .find((task) => sessions[task.sessionId!]?.status === 'running');
+    return live?.sessionId ?? null;
+  };
+
+  const leaseActiveFor = (participantId: string): boolean => workspaceLeases.some(
+    (lease) => lease.runId === cluster.run.id
+      && lease.participantId === participantId
+      && lease.status === 'active',
+  );
+
+  /** "Session öffnen" während aktiver Lease erklärt sich statt zu scheitern. */
+  const openSessionProps = (available: boolean, participantId: string): {
+    disabled: boolean;
+    title?: string;
+  } => (leaseActiveFor(participantId)
+    ? {
+        disabled: true,
+        title: 'Worktree ist exklusiv vom laufenden Run geleast — Live-Ansicht nutzen oder Run-Ende abwarten',
+      }
+    : { disabled: !available });
+
   const detailsFor = (participantId: string): ParticipantDetails => {
     const latestTask = tasks
       .filter((task) => task.runId === cluster.run.id && task.participantId === participantId)
@@ -1227,6 +1277,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
     if (!orchestrator) return null;
     const runtime = runtimeVisual(orchestrator.runtime);
     const details = detailsFor(orchestrator.id);
+    const liveSessionId = liveSessionIdFor(orchestrator.id);
     return (
       <aside className="ginspector">
         <Head glyph={<runtime.Glyph />} color={runtime.color} title={orchestrator.name} sub={`Orchestrator · ${cluster.run.name}`} onClose={props.onClose} />
@@ -1236,8 +1287,17 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <KV k="Teams" v={String(cluster.teams.length)} />
           {detailRows(details)}
           {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
+          {liveSessionId && <SessionTail sessionId={liveSessionId} />}
         </div>
         <div className="ginsp-actions">
+          {liveSessionId && (
+            <button
+              className="gact primary"
+              onClick={() => void openParticipantTerminal(orchestrator.agentId, orchestrator.id, cluster.run.id)}
+            >
+              <Ico>{I.term}</Ico>Live zuschauen
+            </button>
+          )}
           <button
             className="gact primary"
             disabled={!orchestrator.available || !canDirectDispatch}
@@ -1254,7 +1314,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           </button>
           <button
             className="gact"
-            disabled={!orchestrator.available}
+            {...openSessionProps(orchestrator.available, orchestrator.id)}
             onClick={() => void openParticipantTerminal(orchestrator.agentId, orchestrator.id, cluster.run.id)}
           >
             <Ico>{I.term}</Ico>Session öffnen
@@ -1299,9 +1359,17 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           >
             <Ico>{I.arrow}</Ico>Task ans Team
           </button>
+          {team.lead && liveSessionIdFor(team.lead.id) && (
+            <button
+              className="gact primary"
+              onClick={() => team.lead && void openParticipantTerminal(team.lead.agentId, team.lead.id, cluster.run.id)}
+            >
+              <Ico>{I.term}</Ico>Lead live zuschauen
+            </button>
+          )}
           <button
             className="gact"
-            disabled={!team.lead?.available}
+            {...openSessionProps(Boolean(team.lead?.available), team.lead?.id ?? '')}
             onClick={() => team.lead && void openParticipantTerminal(team.lead.agentId, team.lead.id, cluster.run.id)}
           >
             <Ico>{I.term}</Ico>Lead-Session öffnen
@@ -1337,6 +1405,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   if (!team || !worker) return null;
   const runtime = runtimeVisual(worker.runtime);
   const details = detailsFor(worker.id);
+  const liveSessionId = liveSessionIdFor(worker.id);
   return (
     <aside className="ginspector">
       <Head glyph={<runtime.Glyph />} color={runtime.color} title={worker.name} sub={`Worker · ${team.name} · ${cluster.run.name}`} onClose={props.onClose} />
@@ -1347,8 +1416,17 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         {team.idle && <KV k="Team" v={managed ? 'Scheduling pausiert' : 'Manuell pausiert'} />}
         {detailRows(details)}
         {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
+        {liveSessionId && <SessionTail sessionId={liveSessionId} />}
       </div>
       <div className="ginsp-actions">
+        {liveSessionId && (
+          <button
+            className="gact primary"
+            onClick={() => void openParticipantTerminal(worker.agentId, worker.id, cluster.run.id)}
+          >
+            <Ico>{I.term}</Ico>Live zuschauen
+          </button>
+        )}
         <button
           className="gact primary"
           disabled={!worker.available || !canDirectDispatch}
@@ -1358,7 +1436,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         </button>
         <button
           className="gact"
-          disabled={!worker.available}
+          {...openSessionProps(worker.available, worker.id)}
           onClick={() => void openParticipantTerminal(worker.agentId, worker.id, cluster.run.id)}
         >
           <Ico>{I.term}</Ico>Session öffnen
