@@ -1356,14 +1356,19 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   );
 
   /** Sanitized detail block: titles, counts and versions only — never prompts or paths. */
-  /** Running task session of a participant — the live view target. */
+  /**
+   * Running task session of a participant — the live view target. Managed task
+   * PTYs are spawned by main, so they never enter the renderer's session store
+   * (which only hydrates from pty:list). The journal-backed task record is the
+   * authority: it carries the session id and its live status.
+   */
   const liveSessionIdFor = (participantId: string): string | null => {
     const live = tasks
       .filter((task) => task.runId === cluster.run.id
         && task.participantId === participantId
+        && task.status === 'running'
         && task.sessionId)
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .find((task) => sessions[task.sessionId!]?.status === 'running');
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
     return live?.sessionId ?? null;
   };
 
