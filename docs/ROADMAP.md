@@ -184,7 +184,11 @@ and task-session attach.
 
 ## Goal 6 - product validation
 
-Status: next after Goal 5.
+Status: in progress. Fixture suite, measurement protocol and result log live in
+`docs/goal6/VALIDATION_PLAN.md` and `docs/goal6/RESULTS.md`; per-run metrics
+are extracted with `pnpm goal6:report` (`scripts/goal6-report.ts`). The pilot
+baseline (SHA `81820b9`, vitest 77/77, server 5/5, tsc clean) was recorded on
+2026-07-14.
 
 - Validate the orchestration beta and the new repository bindings on the
   `2D_rpg_jumpnrun` repository using disposable ADE worktrees and branches. Do
