@@ -7,7 +7,7 @@ numbers the script can produce.
 ## Environment record
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Pilot baseline SHA | `81820b90e00cfb3a686f203e04a072919081e406` |
 | Pilot baseline suites | vitest 77/77 · server 5/5 · tsc clean (2026-07-14) |
 | ADE commit under test | _fill per session_ |
@@ -19,7 +19,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 `goal6:report --md` row, then fill the human columns.
 
 | Run | Fixture | Arm | Date | Status | Phases reached | Elapsed | Active (excl. approval wait) | Tasks (ok/fail) | Tokens in/out | Cost USD | Integrations (commits) | Conflicts/rollbacks | Interventions | Safety gate | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | _—_ | | | | | | | | | | | | | | | |
 
 ## Per-fixture verdicts

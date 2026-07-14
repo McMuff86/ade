@@ -10,7 +10,7 @@ recorded in `docs/goal6/RESULTS.md`, extracted with
 ## Pilot repository baseline (recorded 2026-07-14)
 
 | Item | Value |
-|---|---|
+| --- | --- |
 | Repository | `C:\Users\Adi.Muff\repos\2D_rpg_jumpnrun` (Projekt Krater) |
 | Base SHA | `81820b90e00cfb3a686f203e04a072919081e406` |
 | Vitest | 20 files / 77 tests, all green (`pnpm test`) |
