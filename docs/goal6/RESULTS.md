@@ -20,7 +20,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 
 | Run | Fixture | Arm | Date | Status | Phases reached | Elapsed | Active (excl. approval wait) | Tasks (ok/fail) | Tokens in/out | Cost USD | Integrations (commits) | Conflicts/rollbacks | Interventions | Safety gate | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| _—_ | | | | | | | | | | | | | | | |
+| `0163e3a0` Run 1F1 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→failed | 1m 49s | 1m 49s | 0/1 | 0/0 | 0.00 | 0 (0) | 1 | 0 | pass (fail-closed) | Planning prompt truncated at first `"` by PS 5.1 argument quoting; see finding below. Reliability failure, not operator error — counts as a measurement. |
 
 ## Per-fixture verdicts
 
@@ -99,6 +99,22 @@ event seq), severity, resolution or follow-up work item.
   memory snapshot, or remove them on session close, or exempt ADE-authored
   scaffold files from the lease cleanliness check. Workaround used:
   `git clean -f -- CLAUDE.md` in the affected worktree.
+- **2026-07-14 · reliability (HIGH) · run `0163e3a0` (F1 managed, attempt 4).**
+  The managed planning task failed with "did not produce result file". Root
+  cause proven from the Claude Code session transcript: ADE launches task
+  CLIs through `powershell.exe` (5.1), whose native-argument quoting does not
+  escape embedded double quotes — `claude -p -- "$env:ADE_TASK_PROMPT"`
+  split the prompt at the first `"` inside the goal text. Claude received
+  only "…Run goal: Add a reduced", never saw the result contract, answered
+  with a plausible plan as plain text (it even flagged the goal as truncated)
+  and exited 0. ADE then failed the run fail-closed — correct behavior, and
+  the worktrees stayed clean. Every prompt containing a double quote was
+  affected; the E2E suite missed it because its prompts carry no quotes.
+  **Fix shipped:** claude managed/one-shot tasks now pipe the prompt over
+  stdin (`$env:ADE_TASK_PROMPT | claude … -p`, transport `stdin`) on both
+  platforms; stdin transport verified to deliver quote-laden multiline
+  prompts verbatim under PS 5.1. Follow-up: codex/opencode/gemini/ollama
+  still use argument transport and share the exposure for quoted prompts.
 
 ## Go/no-go decision (Goal 7 gate)
 

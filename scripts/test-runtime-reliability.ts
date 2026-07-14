@@ -27,11 +27,18 @@ async function main(): Promise<void> {
   });
 
   const claude = resolveTaskLaunchCommand(agent('claude'), 'win32');
-  check('Claude task uses print mode', claude?.command.includes('claude -p --') === true, claude);
+  check('Claude task uses print mode', claude?.command.endsWith('claude -p') === true, claude);
   check(
-    'Claude prompt stays in environment',
-    claude?.command.includes('$env:ADE_TASK_PROMPT') === true,
+    'Claude prompt is piped over stdin, not argument-expanded',
+    claude?.command.startsWith('$env:ADE_TASK_PROMPT |') === true && claude?.transport === 'stdin',
     claude,
+  );
+  const claudePosix = resolveTaskLaunchCommand(agent('claude'), 'posix');
+  check(
+    'Claude posix task pipes the environment prompt',
+    claudePosix?.command === 'printf \'%s\\n\' "$ADE_TASK_PROMPT" | claude -p'
+      && claudePosix?.transport === 'stdin',
+    claudePosix,
   );
 
   const codex = resolveTaskLaunchCommand(agent('codex'), 'win32');

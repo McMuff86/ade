@@ -133,8 +133,15 @@ export function resolveTaskLaunchCommand(
   }
 
   switch (agent.runtime) {
-    case 'claude':
-      return { command: `${base} -p -- ${prompt}`, transport: 'argument' };
+    case 'claude': {
+      // Windows PowerShell 5.1 (ADE's task shell) does not escape embedded
+      // double quotes when building native command lines, so an argument
+      // prompt truncates at its first quote. stdin survives verbatim.
+      const pipe = platform === 'win32'
+        ? `$env:ADE_TASK_PROMPT | ${base} -p`
+        : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} -p`;
+      return { command: pipe, transport: 'stdin' };
+    }
     case 'codex':
       return {
         command: `${resolveCodexExecCommand(agent.permissionMode)} --skip-git-repo-check -- ${prompt}`,
