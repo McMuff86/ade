@@ -178,12 +178,15 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
       <div className="rp-body">
         {open ? (
           <PanelGroup direction="vertical" autoSaveId="ade:rightpanel:preview">
-            <Panel id="rp-list" order={1} defaultSize={55} minSize={15} className="rp-content">
-              {listView}
+            {/* The panel library forces `overflow: hidden` inline on every
+                Panel, which beats any stylesheet rule — so the scroll
+                container has to live inside the panel, not on it. */}
+            <Panel id="rp-list" order={1} defaultSize={55} minSize={15} className="rp-pane">
+              <div className="rp-content">{listView}</div>
             </Panel>
             <PanelResizeHandle className="resize-handle-h" />
-            <Panel id="rp-preview" order={2} defaultSize={45} minSize={12} maxSize={85} className="rp-inline">
-              {inlinePane}
+            <Panel id="rp-preview" order={2} defaultSize={45} minSize={12} maxSize={85} className="rp-pane">
+              <div className="rp-inline">{inlinePane}</div>
             </Panel>
           </PanelGroup>
         ) : (

@@ -486,6 +486,19 @@ function adapterChecks(root: string): void {
   check('non-JSON terminal noise never produces activity lines',
     noisyFeed.push('warning: something\r\nplain log line\r\n').length === 0);
 
+  // The 256 KiB PTY ring buffer keeps only the tail of a long task, so the
+  // transcript handed to readResult routinely starts mid-event — often inside
+  // a JSON string. A parser that tracks quotes outside an object swallows the
+  // rest of the stream and loses the telemetry entirely (observed on Goal 6
+  // run 37d41c5d: adapter active, usage null).
+  const truncated = `x_file":"src/game/Weapon.ts","content":"export const A = {\n${claudeStream}`;
+  check('telemetry survives a ring-buffer head cut inside a JSON string',
+    JSON.stringify(parseClaudeUsage(truncated))
+      === JSON.stringify({ inputTokens: 1110, outputTokens: 42, costUsd: 0.25 }));
+  const truncatedFeed = new ClaudeActivityParser();
+  check('activity recovers from a truncated head instead of stalling',
+    truncatedFeed.push(truncated).length === 5);
+
   let rejected = false;
   try {
     validateStructuredResult({ version: 1, outcome: 'succeeded' });

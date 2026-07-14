@@ -19,6 +19,9 @@ import type { ActivityLine } from '../../shared/ipc';
 
 const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 const PENDING_CAP_BYTES = 2 * 1024 * 1024;
+/** Every CLI event object starts with its discriminator. */
+const EVENT_START = /\{\s*"type"\s*:\s*"/g;
+const MARKER_SPLIT_GUARD = 64;
 const ACTIVITY_TEXT_CAP = 160;
 
 export type { ActivityKind, ActivityLine } from '../../shared/ipc';
@@ -52,13 +55,36 @@ function describeTool(name: string, input: unknown): string {
  */
 function extractObjects(buffer: string): { objects: string[]; rest: string } {
   const objects: string[] = [];
+  let consumed = 0;
+  EVENT_START.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = EVENT_START.exec(buffer)) !== null) {
+    const start = match.index;
+    // Markers inside an already-extracted event (a nested content block also
+    // carries "type") are not separate events.
+    if (start < consumed) continue;
+    const end = objectEnd(buffer, start);
+    if (end < 0) return { objects, rest: buffer.slice(start) }; // incomplete tail
+    objects.push(buffer.slice(start, end));
+    consumed = end;
+    EVENT_START.lastIndex = end;
+  }
+
+  // No marker at all: keep only enough tail to rejoin one split across chunks,
+  // so ordinary CLI logging cannot grow the buffer without bound.
+  const rest = consumed === 0 && objects.length === 0
+    ? buffer.slice(Math.max(0, buffer.length - MARKER_SPLIT_GUARD))
+    : buffer.slice(consumed);
+  return { objects, rest };
+}
+
+/** Index just past the object opened at `start`, or -1 while it is incomplete. */
+function objectEnd(buffer: string, start: number): number {
   let depth = 0;
-  let start = -1;
   let inString = false;
   let escaped = false;
-  let consumed = 0;
-
-  for (let index = 0; index < buffer.length; index += 1) {
+  for (let index = start; index < buffer.length; index += 1) {
     const char = buffer[index];
     if (inString) {
       if (escaped) escaped = false;
@@ -66,34 +92,32 @@ function extractObjects(buffer: string): { objects: string[]; rest: string } {
       else if (char === '"') inString = false;
       continue;
     }
-    if (char === '"') {
-      inString = true;
-    } else if (char === '{') {
-      if (depth === 0) start = index;
-      depth += 1;
-    } else if (char === '}') {
-      if (depth === 0) continue;
+    if (char === '"') inString = true;
+    else if (char === '{') depth += 1;
+    else if (char === '}') {
       depth -= 1;
-      if (depth === 0 && start >= 0) {
-        objects.push(buffer.slice(start, index + 1));
-        consumed = index + 1;
-        start = -1;
-      }
+      if (depth === 0) return index + 1;
     }
   }
-
-  // An unterminated object stays pending; anything before it is spent.
-  const rest = depth > 0 && start >= 0 ? buffer.slice(start) : buffer.slice(consumed);
-  return { objects, rest };
+  return -1;
 }
 
 function parseObject(text: string): Record<string, unknown> | null {
   try {
-    // Literal newlines can only be ConPTY wraps: JSON escapes real ones.
-    return JSON.parse(text.replace(/[\r\n]/g, '')) as Record<string, unknown>;
+    return JSON.parse(text) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/**
+ * Normalize a raw PTY transcript: drop ANSI control sequences and every literal
+ * newline. Newlines only ever separate events or come from a ConPTY wrap — JSON
+ * escapes the real ones — so removing them rejoins events the terminal split,
+ * including a marker torn in half.
+ */
+function normalize(text: string): string {
+  return text.replace(ANSI, '').replace(/[\r\n]/g, '');
 }
 
 /** Incremental renderer: feed PTY chunks, receive readable activity lines. */
@@ -101,7 +125,7 @@ export class ClaudeActivityParser {
   private pending = '';
 
   push(chunk: string): ActivityLine[] {
-    this.pending += chunk.replace(ANSI, '');
+    this.pending += normalize(chunk);
     if (this.pending.length > PENDING_CAP_BYTES) {
       // Never grow without bound on non-JSON noise; drop the stale head.
       this.pending = this.pending.slice(-PENDING_CAP_BYTES);
@@ -198,7 +222,7 @@ function readUsage(event: Record<string, unknown>): ClaudeUsage | null {
  * fail closed instead of inventing zeros.
  */
 export function parseClaudeUsage(output: string): ClaudeUsage | null {
-  const { objects } = extractObjects(output.replace(ANSI, ''));
+  const { objects } = extractObjects(normalize(output));
   let found: ClaudeUsage | null = null;
   for (const raw of objects) {
     const event = parseObject(raw);
