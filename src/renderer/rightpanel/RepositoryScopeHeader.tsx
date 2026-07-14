@@ -38,6 +38,9 @@ export function RepositoryScopeHeader({
   const [error, setError] = useState<string | null>(null);
   const [removeArmed, setRemoveArmed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** null = hidden; string = manual path entry (UNC/WSL paths the OS folder
+   *  dialog cannot browse to, e.g. \\wsl.localhost\Ubuntu\...). */
+  const [manualPath, setManualPath] = useState<string | null>(null);
   const targetContext = useRef('');
 
   const agent = agentId ? agents[agentId] : undefined;
@@ -77,6 +80,23 @@ export function RepositoryScopeHeader({
   }, [agentId, sessionId, nonce]);
 
   if (!agentId || !agent) return null;
+
+  const importManualPath = async (): Promise<void> => {
+    const path = (manualPath ?? '').trim();
+    if (!path) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const repository = await importRepository(path);
+      setTargetRepositoryId(repository.id);
+      setManualPath(null);
+      setNotice(`Repository "${repository.name}" importiert.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pickRepository = async (): Promise<void> => {
     setBusy(true);
@@ -194,7 +214,37 @@ export function RepositoryScopeHeader({
         <button type="button" className="btn" disabled={busy || locked} onClick={() => void pickRepository()}>
           Add repo
         </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy || locked}
+          title="Repository-Pfad direkt eingeben — auch UNC/WSL-Pfade wie \\wsl.localhost\Ubuntu\…"
+          onClick={() => setManualPath((current) => (current === null ? '' : null))}
+        >
+          Pfad…
+        </button>
       </div>
+      {manualPath !== null && (
+        <div className="rp-scope-controls">
+          <input
+            type="text"
+            aria-label="Repository path"
+            placeholder="C:\repos\projekt oder \\wsl.localhost\Ubuntu\home\…"
+            value={manualPath}
+            disabled={busy}
+            onChange={(event) => setManualPath(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') void importManualPath(); }}
+          />
+          <button
+            type="button"
+            className="btn"
+            disabled={busy || manualPath.trim().length === 0}
+            onClick={() => void importManualPath()}
+          >
+            Importieren
+          </button>
+        </div>
+      )}
       <div className="rp-scope-actions">
         <button type="button" className="btn" disabled={busy || locked} onClick={() => void openSession()}>
           Open new session
