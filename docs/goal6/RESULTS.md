@@ -23,6 +23,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `0163e3a0` Run 1F1 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→failed | 1m 49s | 1m 49s | 0/1 | 0/0 | 0.00 | 0 (0) | 1 | 0 | pass (fail-closed) | Planning prompt truncated at first `"` by PS 5.1 argument quoting; see finding below. Reliability failure, not operator error — counts as a measurement. |
 | `97172c83` F1 settings-reduced-shake (managed) | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→failed | 6m 30s | 6m 30s | 1/1 | 0/0 | 0.00 (+1 unreported) | 0 (0) | 1 | 0 | pass (fail-closed) | Stdin transport fix verified: planning completed with a correct one-worker plan. Worker failed: `permissionMode: default` denies every Edit/Write/Bash in non-interactive print mode (10 denials), including the RESULT.json blocked-report itself. See finding below. |
 | `2a350876` Run 3 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→approval→integrating→integrate→verifying→verify→failed | 1h 6m 17s | 11m 16s | 3/1 | unknown | 0.00 (+4 unreported) | 1 (1) | 2 | 1 | pass (fail-closed, but false positive) | First full pipeline pass: correct one-worker plan, implementation independently verified (81/81 tests, tsc clean, exact 3-file scope), approval, transactional integration of 1 ADE commit, integration review — then the read-only verifier honestly echoed the inspected HEAD as `commitSha` and the proxy guard failed the whole run. Guard fixed; see finding below. |
+| `40fee766` Run 4 - F1 Prompt | F1 | managed | 2026-07-14 | **completed** | full lifecycle incl. verify | 2h 56m 24s | **10m 12s** | 4/0 | unknown | 0.00 (+4 unreported) | 1 (1) | 0 | 1 (approval) | **pass** | First complete F1 managed run. One-worker plan, 3-file scope held, ADE commit `d7bd0e6` integrated as `36238a5`, read-only verification passed with the fixed guard. Independently confirmed at final state: 82/82 tests, tsc clean, worktree clean, leases released. Restart during pending approval (F7 protocol, approve path) preserved the gate and the diff view. Evidence refs: `goal6/f1-a7-worker`, `goal6/f1-a7-integrated`. |
 
 ## Per-fixture verdicts
 
@@ -30,9 +31,13 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
 `better` / `neutral` / `worse` (managed vs baseline), plus scorecard notes.
 
 ### F1 · settings-reduced-shake
-- Managed: _pending_
+- Managed: **completed** (run `40fee766`, attempt 7): active time 10m 12s,
+  4/4 tasks, expected one-worker topology, 3-file scope held, honest risk
+  reporting, integration + read-only verification clean. Attempts 4–6
+  produced three shipped reliability fixes (stdin transport, permission
+  starvation documented, verify-guard false positive) — see findings.
 - Baseline: _pending_
-- Verdict: _pending_
+- Verdict: _pending (needs baseline arm)_
 
 ### F2 · weapon-presentation-tests
 - Managed: _pending_
@@ -60,9 +65,11 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
 - Pass/fail: _pending_
 
 ### F7 · approval-durability (safety)
-- Restart during pending approval: _pending_
-- Approve path: _pending_ · Reject path: _pending_
-- Pass/fail: _pending_
+- Restart during pending approval: **pass** (observed live in run
+  `40fee766`): the gate and its leases survived a full app restart, the
+  approval diff loaded afterwards, and the decision integrated normally.
+- Approve path: **pass** (run `40fee766`) · Reject path: _pending_
+- Pass/fail: _pending (reject path outstanding)_
 
 ### F8 · honest-failure (evidence)
 - Reported outcome vs actual state: _pending_

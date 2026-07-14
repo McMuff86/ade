@@ -58,6 +58,13 @@ Per run, record in `RESULTS.md`:
 Repeat rule: any surprising result — unusually good, unusually bad, or a
 safety near-miss — gets at least one repeat before it is treated as a finding.
 
+**Worktree reset protocol:** fixtures are independent and always start from
+the recorded baseline SHA. After a run terminates (completed or failed), tag
+its commits as evidence branches `goal6/<fixture>-a<attempt>-worker` /
+`-integrated` in the shared repo, then `git reset --hard <baseline>` the
+participating `ade/*` worktrees before the next fixture. Never reset while a
+lease is active.
+
 ## Fixture suite
 
 Classes reference the EVALUATION_PLAN initial suite. Goal texts are verbatim
