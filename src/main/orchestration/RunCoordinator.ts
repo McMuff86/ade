@@ -490,11 +490,11 @@ export class RunCoordinator {
     );
     if (!lease?.isRepo) return;
     if (!launch.workspaceHeadSha) throw new Error(`ade: task ${task.id} has no pre-launch Git HEAD`);
-    if (result.commitSha) {
-      throw new Error('ade: managed runtimes must not create commits; ADE owns validated task commits');
-    }
 
     if (task.phase === 'work' || task.phase === 'integrate') {
+      if (result.commitSha) {
+        throw new Error('ade: managed runtimes must not create commits; ADE owns validated task commits');
+      }
       result.commitSha = await this.workspaces.commitChanges(
         lease.workspaceDir,
         launch.workspaceHeadSha,
@@ -508,6 +508,10 @@ export class RunCoordinator {
     if (inspection.headSha !== launch.workspaceHeadSha) {
       throw new Error(`ade: ${task.phase} task changed Git history; this phase is read-only`);
     }
+    // A read-only phase may honestly echo the HEAD it inspected (Goal 6 run
+    // 2a350876 failed on that); the HEAD comparison above is the invariant,
+    // and only ADE-authored commits are recorded on results.
+    result.commitSha = null;
   }
 
   private async progress(task: RunTask, result: StructuredTaskResult): Promise<void> {

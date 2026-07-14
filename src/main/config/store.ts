@@ -36,10 +36,16 @@ export class ConfigStore {
    * persist atomically. Returns the saved config.
    */
   save(partial: Partial<AdeConfig>): AdeConfig {
+    // An explicitly-undefined property would shadow the current value and
+    // JSON.stringify would then drop the key from disk entirely (observed as
+    // a transient catalog loss in Goal 6). Undefined never overwrites.
+    const defined = Object.fromEntries(
+      Object.entries(partial).filter(([, value]) => value !== undefined),
+    ) as Partial<AdeConfig>;
     this.config = {
       ...this.config,
-      ...partial,
-      settings: { ...this.config.settings, ...(partial.settings ?? {}) },
+      ...defined,
+      settings: { ...this.config.settings, ...(defined.settings ?? {}) },
     };
     this.persist();
     return this.config;

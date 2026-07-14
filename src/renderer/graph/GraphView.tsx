@@ -219,6 +219,8 @@ export function GraphView(): JSX.Element {
   const [showNewRun, setShowNewRun] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  useEffect(() => { setApprovalOpen(false); }, [pendingApproval?.id]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -885,10 +887,22 @@ export function GraphView(): JSX.Element {
       </div>
 
       {pendingApproval && (
-        <div className="gapproval" role="status">
-          <div>
-            <b>Integration wartet auf Freigabe</b>
-            <span title={pendingApproval.reason}>{pendingApproval.reason}</span>
+        <div className={`gapproval${approvalOpen ? ' open' : ''}`} role="status">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={approvalOpen}
+            title={approvalOpen ? 'Zuklappen' : 'Klicken, um den kompletten Text zu lesen'}
+            onClick={() => setApprovalOpen((open) => !open)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setApprovalOpen((open) => !open);
+              }
+            }}
+          >
+            <b>Integration wartet auf Freigabe {approvalOpen ? '▾' : '▸'}</b>
+            <span>{pendingApproval.reason}</span>
           </div>
           <button
             className="gact"

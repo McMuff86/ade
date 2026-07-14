@@ -136,10 +136,19 @@
   backdrop-filter: blur(10px);
 }
 .graph-inspecting .gapproval { right: 328px; }
-.gapproval > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gapproval > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
 .gapproval b { color: var(--text); font-size: 12px; }
 .gapproval span { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 .gapproval .gact { width: auto; flex: none; padding: 7px 10px; }
+/* Click-to-expand: the full approval reason must be readable before deciding. */
+.gapproval.open { align-items: flex-start; }
+.gapproval.open span {
+  overflow-y: auto;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  max-height: 42vh;
+  line-height: 1.5;
+}
 
 .graph-world { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; transform-origin: 0 0; }
 .graph-edges { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; pointer-events: none; overflow: visible; }

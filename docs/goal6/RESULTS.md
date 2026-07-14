@@ -22,6 +22,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `0163e3a0` Run 1F1 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→failed | 1m 49s | 1m 49s | 0/1 | 0/0 | 0.00 | 0 (0) | 1 | 0 | pass (fail-closed) | Planning prompt truncated at first `"` by PS 5.1 argument quoting; see finding below. Reliability failure, not operator error — counts as a measurement. |
 | `97172c83` F1 settings-reduced-shake (managed) | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→failed | 6m 30s | 6m 30s | 1/1 | 0/0 | 0.00 (+1 unreported) | 0 (0) | 1 | 0 | pass (fail-closed) | Stdin transport fix verified: planning completed with a correct one-worker plan. Worker failed: `permissionMode: default` denies every Edit/Write/Bash in non-interactive print mode (10 denials), including the RESULT.json blocked-report itself. See finding below. |
+| `2a350876` Run 3 | F1 | managed | 2026-07-14 | failed (failed) | planning→plan→working→work→approval→integrating→integrate→verifying→verify→failed | 1h 6m 17s | 11m 16s | 3/1 | unknown | 0.00 (+4 unreported) | 1 (1) | 2 | 1 | pass (fail-closed, but false positive) | First full pipeline pass: correct one-worker plan, implementation independently verified (81/81 tests, tsc clean, exact 3-file scope), approval, transactional integration of 1 ADE commit, integration review — then the read-only verifier honestly echoed the inspected HEAD as `commitSha` and the proxy guard failed the whole run. Guard fixed; see finding below. |
 
 ## Per-fixture verdicts
 
@@ -133,6 +134,33 @@ event seq), severity, resolution or follow-up work item.
   (e.g. `--add-dir` the task directory in the claude launch profile), so
   fail-closed distinguishes "blocked" from "silent".
   Remedy for the rerun: set the worker to `bypass` like the orchestrator.
+- **2026-07-14 · reliability (HIGH, fixed) · run `2a350876` (F1 managed,
+  attempt 6).** The run survived plan → work → approval → integration → review
+  and then failed in read-only verification with "managed runtimes must not
+  create commits". The verifier had NOT committed (transcript shows only
+  `git status`/`rev-parse`); it honestly reported the HEAD it verified in the
+  result's `commitSha` field, and `finalizeRepoResult` treated any non-null
+  reported sha as a runtime-authored commit. The schema note "null when …
+  commitSha is unavailable" invites exactly this reading. **Fix shipped:** the
+  reported-sha guard now applies only to work/integrate (where ADE authors
+  the commit); read-only phases rely on the real invariant — the pre/post
+  HEAD comparison — and a reported sha is normalized to null. Follow-up:
+  phase-discriminated result schemas (P1) remove the ambiguity at the source.
+- **2026-07-14 · reliability (HIGH, guarded — root cause open).** During the
+  same integration/verification window, one config save transiently wrote
+  `config.json` WITHOUT `repositories`, `workspaceBindings`, `agentTemplates`
+  and `commandLog` (observed by an external reader at ~18:08; the next save
+  restored them). Mechanism: a save passing an explicitly-undefined property
+  shadows the live value and `JSON.stringify` drops the key from disk. Had
+  the app restarted on the stripped file, migration would have re-synthesized
+  repositories/bindings with NEW ids, dangling every run/task/lease scope
+  reference. **Guard shipped:** `ConfigStore.save` now ignores
+  explicitly-undefined properties, making key deletion impossible. Follow-up:
+  find the save site that passed undefined during integration/verification.
+- **2026-07-14 · usability (fixed) · approval banner.** The integration
+  approval reason was clipped to one ellipsized line and could not be read
+  before deciding. The banner is now click-to-expand (▸/▾, keyboard
+  accessible) and shows the full reason with wrapping and a scroll cap.
 
 ## Go/no-go decision (Goal 7 gate)
 
