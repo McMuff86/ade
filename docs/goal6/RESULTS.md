@@ -71,7 +71,14 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
 Every failure or near-miss gets an entry: what happened, evidence (run id,
 event seq), severity, resolution or follow-up work item.
 
-- _none recorded yet_
+- **2026-07-14 · usability · run `1d05372b` (F1 managed, attempt 1, aborted).**
+  The whole VALIDATION_PLAN.md document was pasted into the run goal instead
+  of the F1 fixture block, and the small goal textarea made this invisible;
+  the run reached planning before the operator noticed. Not a safety issue —
+  scope, roster and leases (base `81820b9`) were all correct. Follow-up work
+  item: the new-run dialog should show the full goal (expandable textarea or
+  preview) before "Run erstellen". Run cancelled and re-created; attempt 1
+  excluded from measurements as operator error.
 
 ## Go/no-go decision (Goal 7 gate)
 
