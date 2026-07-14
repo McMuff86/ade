@@ -1,8 +1,11 @@
 /**
  * SessionTail — a read-only live view of one task session for the Graph
- * inspector. Same sequence-aware attach as TerminalPane (replay first, then
- * live pty:data), but strictly observational: no pty:write, no pty:resize —
- * the running CLI must never notice a second viewer.
+ * inspector and the bottom dock. Same sequence-aware attach as TerminalPane
+ * (replay first, then live pty:data), but strictly observational: no
+ * pty:write, no pty:resize — the running CLI must never notice a viewer.
+ *
+ * Scrolling: new output follows the bottom only while the viewport IS at the
+ * bottom; once the user scrolls up to read, the position stays put.
  */
 
 import { useEffect, useRef, type JSX } from 'react';
@@ -11,8 +14,6 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useSettings } from '../stores/settings';
 import { XTERM_THEMES } from '../theme/themes';
-
-const TAIL_SCROLLBACK = 400;
 
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -26,7 +27,21 @@ function monoFontFamily(): string {
   return v.length > 0 ? v : 'Consolas, ui-monospace, monospace';
 }
 
-export function SessionTail({ sessionId }: { sessionId: string }): JSX.Element {
+export function SessionTail({
+  sessionId,
+  rows = 14,
+  cols = 100,
+  fontSize = 10,
+  scrollback = 400,
+  className = 'ginsp-tail',
+}: {
+  sessionId: string;
+  rows?: number;
+  cols?: number;
+  fontSize?: number;
+  scrollback?: number;
+  className?: string;
+}): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,14 +50,14 @@ export function SessionTail({ sessionId }: { sessionId: string }): JSX.Element {
 
     const theme = useSettings.getState().theme;
     const term = new Terminal({
-      cols: 100,
-      rows: 14,
+      cols,
+      rows,
       disableStdin: true,
       cursorBlink: false,
       allowProposedApi: true,
-      scrollback: TAIL_SCROLLBACK,
+      scrollback,
       fontFamily: monoFontFamily(),
-      fontSize: 10,
+      fontSize,
       theme: XTERM_THEMES[theme],
     });
     const unicode11 = new Unicode11Addon();
@@ -56,8 +71,11 @@ export function SessionTail({ sessionId }: { sessionId: string }): JSX.Element {
     const pendingLive: Array<{ sequence: number; data: Uint8Array }> = [];
     const write = (data: Uint8Array): void => {
       if (disposed) return;
-      term.write(data);
-      term.scrollToBottom();
+      const buffer = term.buffer.active;
+      const wasAtBottom = buffer.viewportY >= buffer.baseY;
+      term.write(data, () => {
+        if (!disposed && wasAtBottom) term.scrollToBottom();
+      });
     };
 
     const unsubscribeData = window.ade.on('pty:data', (payload) => {
@@ -94,7 +112,7 @@ export function SessionTail({ sessionId }: { sessionId: string }): JSX.Element {
       unsubscribeData();
       term.dispose();
     };
-  }, [sessionId]);
+  }, [sessionId, rows, cols, fontSize, scrollback]);
 
-  return <div ref={hostRef} className="ginsp-tail" title="Live-Ausgabe (nur lesen)" />;
+  return <div ref={hostRef} className={className} title="Live-Ausgabe (nur lesen)" />;
 }

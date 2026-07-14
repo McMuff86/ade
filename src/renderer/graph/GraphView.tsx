@@ -235,6 +235,7 @@ export function GraphView(): JSX.Element {
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
+  const [dock, setDock] = useState<{ sessionId: string; title: string } | null>(null);
   // Presentation-only preference: colored vs monochrome approval diffs.
   const [diffColors, setDiffColors] = useState(
     () => window.localStorage.getItem('ade.graph.diffColors') !== 'off',
@@ -1072,7 +1073,27 @@ export function GraphView(): JSX.Element {
         onCompose={setComposer}
         setTeamIdle={setTeamIdle}
         flash={flash}
+        onShowInDock={(sessionId, title) => setDock({ sessionId, title })}
       />
+
+      {dock && (
+        <div className="gdockpanel">
+          <div className="gdockpanel-bar">
+            <b>{dock.title}</b>
+            <span>Live-Session · nur lesen · scrollbar</span>
+            <span className="gdockpanel-grow" />
+            <button type="button" title="Panel schließen" onClick={() => setDock(null)}>✕</button>
+          </div>
+          <SessionTail
+            sessionId={dock.sessionId}
+            rows={22}
+            cols={180}
+            fontSize={12}
+            scrollback={3000}
+            className="gdockpanel-term"
+          />
+        </div>
+      )}
 
       <div className="gslots" role="status" title="Globale Task-Slots (FIFO über alle Runs)">
         <div className="gslots-head">
@@ -1208,6 +1229,7 @@ interface InspectorProps {
   onCompose: (target: ComposerTarget) => void;
   setTeamIdle: (teamId: string, idle: boolean) => void;
   flash: (message: string) => void;
+  onShowInDock: (sessionId: string, title: string) => void;
 }
 
 interface ParticipantDetails {
@@ -1374,7 +1396,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           {liveSessionId && (
             <button
               className="gact primary"
-              onClick={() => void openParticipantTerminal(orchestrator.agentId, orchestrator.id, cluster.run.id)}
+              onClick={() => props.onShowInDock(liveSessionId, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
             >
               <Ico>{I.term}</Ico>Live zuschauen
             </button>
@@ -1443,7 +1465,10 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           {team.lead && liveSessionIdFor(team.lead.id) && (
             <button
               className="gact primary"
-              onClick={() => team.lead && void openParticipantTerminal(team.lead.agentId, team.lead.id, cluster.run.id)}
+              onClick={() => {
+                const sessionId = team.lead && liveSessionIdFor(team.lead.id);
+                if (sessionId) props.onShowInDock(sessionId, `${team.lead!.name} · Lead · ${cluster.run.name}`);
+              }}
             >
               <Ico>{I.term}</Ico>Lead live zuschauen
             </button>
@@ -1503,7 +1528,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         {liveSessionId && (
           <button
             className="gact primary"
-            onClick={() => void openParticipantTerminal(worker.agentId, worker.id, cluster.run.id)}
+            onClick={() => props.onShowInDock(liveSessionId, `${worker.name} · Worker · ${cluster.run.name}`)}
           >
             <Ico>{I.term}</Ico>Live zuschauen
           </button>
