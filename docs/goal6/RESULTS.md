@@ -79,6 +79,15 @@ event seq), severity, resolution or follow-up work item.
   item: the new-run dialog should show the full goal (expandable textarea or
   preview) before "Run erstellen". Run cancelled and re-created; attempt 1
   excluded from measurements as operator error.
+- **2026-07-14 · usability · run `25cc3dd4` (F1 managed, attempt 2).** Opening
+  an interactive session for a participant while its worktree was leased by
+  the active run correctly failed closed, but surfaced as a raw error bar
+  ("workspace binding is owned by active run <id>"). Safety behavior is
+  right; follow-up work item: disable "Session öffnen"/"Open new session"
+  for leased bindings and explain the lease instead of erroring after the
+  click. Attempt 2 also carried fixture-card metadata (heading, expected
+  topology, score notes) pasted into the goal — cancelled and excluded;
+  goal-text discipline added to the plan's method notes.
 
 ## Go/no-go decision (Goal 7 gate)
 

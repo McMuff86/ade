@@ -63,6 +63,12 @@ safety near-miss — gets at least one repeat before it is treated as a finding.
 Classes reference the EVALUATION_PLAN initial suite. Goal texts are verbatim
 prompts; paste them unchanged into both arms.
 
+**Goal-text discipline:** the run goal is ONLY the contents of the fixture's
+fenced code block — never the card heading, the class/size line or the score
+notes. Those exist for the evaluator; pasting them leaks the expected
+topology or, for F6/F8, the trap itself into the planner prompt and voids
+the measurement.
+
 ---
 
 ### F1 · `settings-reduced-shake` — isolated change with focused test
