@@ -10,12 +10,18 @@
 
 import {
   existsSync,
+  linkSync,
+  lstatSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   statSync,
+  unlinkSync,
 } from 'node:fs';
+import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, normalize, relative, sep } from 'node:path';
 import type { FsPathInfoResult, FsReadResult, FsRenameResult } from '../../shared/ipc';
 import type { AgentFile, FsTreeNode } from '../../shared/types';
@@ -164,6 +170,101 @@ function assertRealPathInsideWorkspace(
 }
 
 /**
+ * Reject symlinks/junctions in every workspace-relative path component. This
+ * includes the workspace root and the leaf when it exists. Node does not expose
+ * directory-handle-relative mutations, so callers repeat this at the mutation.
+ */
+function assertNoLinkComponents(workspaceDir: string, candidate: string): void {
+  const rel = relative(workspaceDir, candidate);
+  if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error('ade: path escapes the selected workspace');
+  }
+
+  const components = rel.split(sep).filter(Boolean);
+  let current = workspaceDir;
+  const paths = [current];
+  for (const component of components) {
+    current = join(current, component);
+    paths.push(current);
+  }
+
+  for (const path of paths) {
+    try {
+      if (lstatSync(path).isSymbolicLink()) {
+        throw new Error('ade: workspace mutation refuses symlink or junction components');
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' && path === paths.at(-1)) return;
+      throw error;
+    }
+  }
+}
+
+/** Validate an existing source immediately beside its filesystem mutation. */
+function assertMutationBoundary(workspaceDir: string, source: string): void {
+  assertNoLinkComponents(workspaceDir, source);
+  assertRealPathInsideWorkspace(workspaceDir, source, true);
+}
+
+function sameEntry(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino && left.mode === right.mode;
+}
+
+/**
+ * Validate and move as one tightly-scoped operation. Node lacks directory-fd
+ * relative mutation APIs, so checks cannot eliminate every component-swap race;
+ * repeating identity/component checks is the strongest portable fail-closed
+ * boundary available without native code.
+ */
+function moveEntryNoClobber(
+  workspaceDir: string,
+  source: string,
+  target: string,
+  privateDirectoryMove: boolean,
+): void {
+  assertMutationBoundary(workspaceDir, source);
+  assertNoLinkComponents(workspaceDir, target);
+  const sourceStat = lstatSync(source);
+  if (sourceStat.isSymbolicLink()) {
+    throw new Error('ade: workspace mutation refuses symlinks or junctions');
+  }
+  if (sourceStat.isFile()) {
+    linkSync(source, target);
+    try {
+      const linkedStat = lstatSync(target);
+      assertMutationBoundary(workspaceDir, source);
+      if (!sameEntry(sourceStat, linkedStat) || !sameEntry(sourceStat, lstatSync(source))) {
+        throw new Error('ade: workspace entry changed during rename');
+      }
+      unlinkSync(source);
+    } catch (error) {
+      try {
+        if (sameEntry(sourceStat, lstatSync(target))) unlinkSync(target);
+      } catch {
+        // Preserve the original error. Two hard links are safer than deleting an
+        // uncertain name when rollback itself cannot be completed.
+      }
+      throw error;
+    }
+    return;
+  }
+  if (!sourceStat.isDirectory()) {
+    throw new Error('ade: workspace mutation supports only regular files and directories');
+  }
+
+  if (privateDirectoryMove || process.platform === 'win32') {
+    // Windows rename is natively no-clobber. Delete quarantine instead targets
+    // a just-created private random directory on every platform.
+    assertMutationBoundary(workspaceDir, source);
+    assertNoLinkComponents(workspaceDir, target);
+    renameSync(source, target);
+    return;
+  }
+  throw new Error('ade: directory rename is unavailable without atomic no-clobber support');
+}
+
+/**
  * Absolute path for a mutating action (rename/delete). Strictly inside the
  * workspace — never the memoryDir scaffold — and must exist.
  */
@@ -176,7 +277,7 @@ export function fsMutablePath(workspaceDir: string, relPath: string): string {
     throw new Error('ade: refusing to act on the workspace root');
   }
   if (!existsSync(abs)) throw new Error(`ade: not found in the workspace: "${relPath}"`);
-  assertRealPathInsideWorkspace(workspaceDir, abs, true);
+  assertMutationBoundary(workspaceDir, abs);
   return abs;
 }
 
@@ -191,11 +292,66 @@ export function fsRename(
   }
   const abs = fsMutablePath(workspaceDir, relPath);
   const target = join(dirname(abs), newName);
-  assertRealPathInsideWorkspace(workspaceDir, target, existsSync(target));
+  assertNoLinkComponents(workspaceDir, target);
   if (existsSync(target)) throw new Error(`ade: "${newName}" already exists here`);
-  renameSync(abs, target);
+
+  // Repeat component checks directly beside the operation. Regular files use
+  // link(2), whose destination creation is itself atomic no-clobber.
+  assertMutationBoundary(workspaceDir, abs);
+  assertNoLinkComponents(workspaceDir, target);
+  try {
+    moveEntryNoClobber(workspaceDir, abs, target, false);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error(`ade: "${newName}" already exists here`);
+    }
+    throw error;
+  }
   const relDir = relPath.split('/').slice(0, -1).join('/');
   return { path: relDir ? `${relDir}/${newName}` : newName };
+}
+
+/**
+ * Move an entry out of its visible name before awaiting the OS trash. The
+ * private random directory makes destination interference impractical and lets
+ * directory deletion work without claiming general POSIX no-clobber rename.
+ */
+function quarantineForDelete(workspaceDir: string, relPath: string): {
+  quarantineDir: string;
+  quarantinedPath: string;
+} {
+  const source = fsMutablePath(workspaceDir, relPath);
+  const quarantineDir = mkdtempSync(join(workspaceDir, '.ade-trash-'));
+  const quarantinedPath = join(quarantineDir, basename(source));
+  try {
+    assertMutationBoundary(workspaceDir, source);
+    assertNoLinkComponents(workspaceDir, quarantineDir);
+    moveEntryNoClobber(workspaceDir, source, quarantinedPath, true);
+    return { quarantineDir, quarantinedPath };
+  } catch (error) {
+    try {
+      rmdirSync(quarantineDir);
+    } catch {
+      // Keep any non-empty quarantine intact rather than risk data loss.
+    }
+    throw error;
+  }
+}
+
+/** Delete via synchronous in-workspace quarantine followed by asynchronous trash. */
+export async function fsDelete(
+  workspaceDir: string,
+  relPath: string,
+  trashItem: (path: string) => Promise<void>,
+): Promise<void> {
+  const { quarantineDir, quarantinedPath } = quarantineForDelete(workspaceDir, relPath);
+  await trashItem(quarantinedPath);
+  try {
+    rmdirSync(quarantineDir);
+  } catch {
+    // Leave an unexpectedly non-empty quarantine for inspection. Never recurse
+    // after trash reports success, because another process could have added it.
+  }
 }
 
 /** Which pinned agent files exist, in workspaceDir (preferred) or memoryDir. */

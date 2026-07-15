@@ -18,6 +18,10 @@ function arrayOrEmpty<T>(value: T[] | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function isSha256(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+}
+
 /** Normalize older config files and import their persisted Graph topology once. */
 export function normalizeConfig(
   raw: Partial<AdeConfig>,
@@ -40,12 +44,16 @@ export function normalizeConfig(
     repositories: scopeMigration.repositories,
     workspaceBindings: scopeMigration.workspaceBindings,
     agentTemplates: arrayOrEmpty(raw.agentTemplates),
-    runs: arrayOrEmpty(raw.runs).map((run) => ({
-      ...run,
-      mode: run.mode ?? 'manual',
-      phase: run.phase ?? (run.status === 'running' ? 'working' : run.status),
-      budget: { ...DEFAULT_RUN_BUDGET, ...(run.budget ?? {}) },
-    })),
+    runs: arrayOrEmpty(raw.runs).map((run) => {
+      const { contextManifestHash, ...legacyRun } = run;
+      return {
+        ...legacyRun,
+        mode: run.mode ?? 'manual',
+        phase: run.phase ?? (run.status === 'running' ? 'working' : run.status),
+        budget: { ...DEFAULT_RUN_BUDGET, ...(run.budget ?? {}) },
+        ...(isSha256(contextManifestHash) ? { contextManifestHash } : {}),
+      };
+    }),
     runParticipants: arrayOrEmpty(raw.runParticipants),
     runTasks: arrayOrEmpty(raw.runTasks).map((task) => ({
       ...task,
@@ -90,7 +98,9 @@ export function normalizeConfig(
     config.runs.some((run, index) => (
       run.mode !== raw.runs?.[index]?.mode ||
       run.phase !== raw.runs?.[index]?.phase ||
-      raw.runs?.[index]?.budget === undefined
+      raw.runs?.[index]?.budget === undefined ||
+      (raw.runs?.[index]?.contextManifestHash !== undefined &&
+        !isSha256(raw.runs[index]!.contextManifestHash))
     )) ||
     config.runTasks.some((task, index) => (
       task.phase !== raw.runTasks?.[index]?.phase ||

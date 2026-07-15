@@ -19,6 +19,7 @@ import type { RunTask, TaskProvenance } from '../../shared/types';
 import { PROMPT_VERSIONS, RESULT_SCHEMA_VERSION } from './prompts';
 
 export const CONTEXT_BUILDER_VERSION = 1;
+export const RUN_CONTEXT_MANIFEST_PATH = 'context/run-manifest.json';
 
 const INSTRUCTION_FILE_NAMES = ['CLAUDE.md', 'AGENTS.md'] as const;
 const SCRIPT_WHITELIST = ['test', 'typecheck', 'build', 'lint', 'verify', 'dev', 'start'] as const;
@@ -122,8 +123,7 @@ export function parseRunContextManifest(content: string, expectedRunId: string):
   }
   if (!isRecord(value) ||
       value.version !== 1 ||
-      !Number.isInteger(value.contextBuilderVersion) ||
-      Number(value.contextBuilderVersion) < 1 ||
+      value.contextBuilderVersion !== CONTEXT_BUILDER_VERSION ||
       value.runId !== expectedRunId ||
       typeof value.runName !== 'string' ||
       typeof value.goal !== 'string' ||
@@ -180,11 +180,12 @@ function isStringRecord(value: unknown): boolean {
 }
 
 function isManifestVersions(value: unknown): boolean {
-  return isRecord(value) &&
-    isRecord(value.prompts) &&
-    Object.values(value.prompts).every((item) => Number.isInteger(item)) &&
-    Number.isInteger(value.resultSchema) &&
-    Number.isInteger(value.contextBuilder);
+  if (!isRecord(value) || !isRecord(value.prompts)) return false;
+  const prompts = value.prompts;
+  return value.contextBuilder === CONTEXT_BUILDER_VERSION &&
+    value.resultSchema === RESULT_SCHEMA_VERSION &&
+    Object.keys(prompts).length === Object.keys(PROMPT_VERSIONS).length &&
+    Object.entries(PROMPT_VERSIONS).every(([phase, version]) => prompts[phase] === version);
 }
 
 /** JSON with recursively sorted object keys, so equal content hashes equally. */

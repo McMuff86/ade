@@ -25,7 +25,7 @@ import {
 } from './identity';
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitShowCommit, gitStatus, isGitRepo } from './git/GitService';
-import { agentFiles, fsMutablePath, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
+import { agentFiles, fsDelete, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
 import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
@@ -363,11 +363,11 @@ export function registerIpcHandlers(store: ConfigStore): void {
     return fsRename(workspaceDir, path, newName);
   });
 
-  // Delete = move to the OS trash (recoverable), workspace paths only.
+  // Delete = synchronously quarantine, then move to OS trash (recoverable).
   handle(IPC.FsDelete, async ({ agentId, sessionId, path }) => {
     assertAgentNotLeased(agentId);
     const { workspaceDir } = workspaceTarget(agentId, sessionId);
-    await shell.trashItem(fsMutablePath(workspaceDir, path));
+    await fsDelete(workspaceDir, path, (quarantinedPath) => shell.trashItem(quarantinedPath));
   });
 
   // Folder picker for repo-backed categories; validates the pick is a git repo.

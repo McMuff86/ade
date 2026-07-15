@@ -323,10 +323,15 @@ changes never retarget a process.
   worktree. Interactive and manual task sessions retain normal memory injection.
 - Before planning, every participant workspace is inspected and leased. Dirty
   git worktrees are rejected, duplicate or cross-run paths conflict, and all
-  repo-backed participants must share one git common directory. Recovery fails
-  interrupted managed work, rejects pending approvals and releases orphaned
-  leases; the safe exception is an idle pending approval, which retains its
-  leases and can be approved after restart.
+  repo-backed participants must share one git common directory and base HEAD.
+  Immediately after lease acquisition, ADE re-inspects repository identity,
+  cleanliness, branch and HEAD before writing the run manifest or creating a
+  task; any drift fails the run and releases its leases. This narrows but does
+  not eliminate the TOCTOU window: external Git processes cannot be atomically
+  excluded without an OS/Git lock and may still mutate a worktree after the
+  stability check. Recovery fails interrupted managed work, rejects pending
+  approvals and releases orphaned leases; the safe exception is an idle pending
+  approval, which retains its leases and can be approved after restart.
 - A successful worker reports the exact repository-relative paths it changed
   and must leave Git history untouched. ADE compares that set to tracked plus
   untracked Git changes, rejects omissions/additions/conflicts, stages with a

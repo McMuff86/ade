@@ -15,6 +15,7 @@ import { MailboxService } from './MailboxService';
 import { OrchestrationService } from './OrchestrationService';
 import {
   CONTEXT_BUILDER_VERSION,
+  RUN_CONTEXT_MANIFEST_PATH,
   buildRunContextManifest,
   buildTaskContextPacket,
   manifestHash,
@@ -110,18 +111,27 @@ export class RunCoordinator {
     const cached = this.runContexts.get(runId);
     if (cached || this.attemptedContextRestores.has(runId)) return cached;
     this.attemptedContextRestores.add(runId);
-    const artifact = this.orchestration.snapshot().artifacts.find((candidate) =>
+    const snapshot = this.orchestration.snapshot();
+    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    const expectedHash = run?.contextManifestHash;
+    if (typeof expectedHash !== 'string' || !/^[0-9a-f]{64}$/.test(expectedHash)) return undefined;
+    const artifacts = snapshot.artifacts.filter((candidate) =>
       candidate.runId === runId &&
       candidate.taskId === undefined &&
       candidate.kind === 'file' &&
-      candidate.path === 'context/run-manifest.json');
-    if (typeof artifact?.content !== 'string') return undefined;
+      candidate.path === RUN_CONTEXT_MANIFEST_PATH);
+    if (artifacts.length !== 1) {
+      console.warn(`[ade] persisted run context manifest is not unique for run ${runId}; continuing without it`);
+      return undefined;
+    }
+    const artifact = artifacts[0]!;
+    if (typeof artifact.content !== 'string') return undefined;
     const manifest = parseRunContextManifest(artifact.content, runId);
-    if (!manifest) {
+    const hash = manifest ? manifestHash(manifest) : null;
+    if (!manifest || hash !== expectedHash || artifact.content !== stableStringify(manifest)) {
       console.warn(`[ade] persisted run context manifest is invalid for run ${runId}; continuing without it`);
       return undefined;
     }
-    const hash = manifestHash(manifest);
     const restored = { manifest, hash, brief: renderManifestBrief(manifest, hash) };
     this.runContexts.set(runId, restored);
     return restored;
@@ -221,6 +231,28 @@ export class RunCoordinator {
       })));
 
       try {
+        // Re-inspect only after every lease is held and before manifest/task
+        // creation. This narrows the pre-start TOCTOU window and fails closed
+        // if Git identity, cleanliness, branch or HEAD drifted meanwhile.
+        // It is intentionally not an atomic exclusion guarantee: without an
+        // OS/Git lock, an external Git process can still mutate a worktree
+        // immediately after this check.
+        const stableInspections = await Promise.all(inspected.map(async (item) => ({
+          item,
+          current: await this.workspaces.inspect(item.workspace.workspaceDir),
+        })));
+        for (const { item, current } of stableInspections) {
+          const expected = item.workspace;
+          if (current.isRepo !== expected.isRepo ||
+              current.workspaceDir !== expected.workspaceDir ||
+              current.commonGitDir !== expected.commonGitDir ||
+              current.clean !== expected.clean ||
+              current.branch !== expected.branch ||
+              current.headSha !== expected.headSha) {
+            throw new Error(`ade: ${item.agent.name}'s workspace changed after lease acquisition`);
+          }
+        }
+
         const orchestratorItem = inspected.find((item) => item.participant.role === 'orchestrator')!;
         const repositoryId = orchestratorItem.scope.repositoryId ?? run.repositoryId ?? null;
         const manifest = buildRunContextManifest({
@@ -251,13 +283,12 @@ export class RunCoordinator {
           scanRoot: orchestratorItem.scope.workspaceDir,
         });
         const hash = manifestHash(manifest);
-        this.runContexts.set(runId, { manifest, hash, brief: renderManifestBrief(manifest, hash) });
-        this.orchestration.createArtifact({
+        this.orchestration.persistRunContextManifest({
           runId,
-          kind: 'file',
-          path: 'context/run-manifest.json',
           content: stableStringify(manifest),
+          hash,
         });
+        this.runContexts.set(runId, { manifest, hash, brief: renderManifestBrief(manifest, hash) });
 
         const orchestrator = orchestrators[0]!;
         // Phase change + planning task commit as ONE save (Gap 11).

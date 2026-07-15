@@ -27,6 +27,13 @@ import {
 } from '../src/main/orchestration/runtimeAdapters';
 import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestration/claudeStream';
 import { WorkspaceService, type WorkspacePort } from '../src/main/orchestration/WorkspaceService';
+import {
+  buildRunContextManifest,
+  manifestHash,
+  parseRunContextManifest,
+  stableStringify,
+  type RunContextManifest,
+} from '../src/main/orchestration/contextManifest';
 
 let passed = 0;
 let failed = 0;
@@ -47,6 +54,7 @@ function errorText(error: unknown): string {
 
 class MemoryStore {
   config: AdeConfig;
+  saveCalls = 0;
 
   constructor(config: AdeConfig) {
     this.config = structuredClone(config);
@@ -57,6 +65,7 @@ class MemoryStore {
   }
 
   save(partial: Partial<AdeConfig>): AdeConfig {
+    this.saveCalls += 1;
     this.config = { ...this.config, ...structuredClone(partial) };
     return this.config;
   }
@@ -109,6 +118,27 @@ class RepoWorkspaces extends FakeWorkspaces {
       headSha: this.headByWorkspace.get(workspaceDir) ?? 'base-sha',
       commonGitDir: '/fixture/repository/.git',
     };
+  }
+}
+
+class DriftingRepoWorkspaces extends RepoWorkspaces {
+  private readonly inspections = new Map<string, number>();
+
+  constructor(
+    private readonly driftingWorkspace: string,
+    private readonly drift: 'head' | 'clean' | 'branch',
+  ) {
+    super(new Map());
+  }
+
+  override async inspect(workspaceDir: string) {
+    const inspection = await super.inspect(workspaceDir);
+    const count = (this.inspections.get(workspaceDir) ?? 0) + 1;
+    this.inspections.set(workspaceDir, count);
+    if (workspaceDir !== this.driftingWorkspace || count < 2) return inspection;
+    if (this.drift === 'head') return { ...inspection, headSha: 'drifted-sha' };
+    if (this.drift === 'clean') return { ...inspection, clean: false };
+    return { ...inspection, branch: 'ade/drifted-branch' };
   }
 }
 
@@ -453,6 +483,141 @@ async function managedBaseShaChecks(root: string): Promise<void> {
   check('repo-backed participants with the same Git base still start normally',
     matchingLaunches === 1 &&
     matchingService.snapshot().workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
+
+  for (const drift of ['head', 'clean', 'branch'] as const) {
+    const driftStore = new MemoryStore(configWithAgents(join(root, `drift-${drift}`)));
+    const driftService = new OrchestrationService(driftStore);
+    const driftingWorkspace = driftStore.get().agents.find((item) => item.id === 'lead')!.workspaceDir;
+    const driftCoordinator = new RunCoordinator(
+      driftStore,
+      driftService,
+      new RuntimeAdapterRegistry(),
+      new DriftingRepoWorkspaces(driftingWorkspace, drift),
+    );
+    let driftLaunches = 0;
+    driftCoordinator.connect(async () => {
+      driftLaunches += 1;
+      throw new Error('task launch must not be reached after workspace drift');
+    }, () => undefined);
+    const driftRun = driftService.createRun(runInput(`Git ${drift} drift`));
+    let driftFailure = '';
+    try {
+      await driftCoordinator.start(driftRun.id);
+    } catch (error) {
+      driftFailure = errorText(error);
+    }
+    const driftSnapshot = driftService.snapshot();
+    check(`${drift} drift after lease acquisition fails closed before manifest or task start`,
+      driftFailure.includes('changed after lease acquisition') &&
+      driftLaunches === 0 &&
+      driftSnapshot.tasks.length === 0 &&
+      !driftSnapshot.artifacts.some((artifact) => artifact.path === 'context/run-manifest.json') &&
+      driftSnapshot.workspaceLeases.length === 3 &&
+      driftSnapshot.workspaceLeases.every((lease) => lease.status === 'released') &&
+      driftSnapshot.runs.find((item) => item.id === driftRun.id)?.status === 'failed');
+  }
+}
+
+function manifestArtifactBoundaryChecks(root: string): void {
+  console.log('\n== run context manifest integrity ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const service = new OrchestrationService(store);
+  const run = service.createRun(runInput('Manifest artifact boundary'));
+  let spoofFailure = '';
+  try {
+    service.createArtifact({
+      runId: run.id,
+      kind: 'file',
+      path: 'context/run-manifest.json',
+      content: '{}',
+    });
+  } catch (error) {
+    spoofFailure = errorText(error);
+  }
+  check('public artifact creation reserves the main-owned run manifest path before start',
+    spoofFailure.includes('reserved'));
+
+  const manifest = buildRunContextManifest({
+    run: { id: run.id, name: run.name, goal: run.goal },
+    repository: null,
+    participants: [],
+  });
+  const content = stableStringify(manifest);
+  const hash = manifestHash(manifest);
+  const savesBeforeMismatch = store.saveCalls;
+  let mismatchFailure = '';
+  try {
+    service.persistRunContextManifest({ runId: run.id, content, hash: '0'.repeat(64) });
+  } catch (error) {
+    mismatchFailure = errorText(error);
+  }
+  check('main rejects a manifest whose content does not match the supplied trusted hash',
+    mismatchFailure.includes('does not match') &&
+    store.saveCalls === savesBeforeMismatch &&
+    store.get().runs[0]?.contextManifestHash === undefined &&
+    store.get().runArtifacts.length === 0);
+
+  const savesBeforeManifest = store.saveCalls;
+  service.persistRunContextManifest({ runId: run.id, content, hash });
+  const canonicalArtifacts = store.get().runArtifacts.filter((artifact) =>
+    artifact.runId === run.id && artifact.path === 'context/run-manifest.json');
+  check('main persists the canonical artifact and expected hash in one atomic save',
+    store.saveCalls === savesBeforeManifest + 1 &&
+    store.get().runs[0]?.contextManifestHash === hash &&
+    canonicalArtifacts.length === 1 && canonicalArtifacts[0]?.content === content);
+
+  const restoreContext = (config: AdeConfig): unknown => {
+    const restartStore = new MemoryStore(config);
+    const restartService = new OrchestrationService(restartStore);
+    const restartCoordinator = new RunCoordinator(
+      restartStore,
+      restartService,
+      new RuntimeAdapterRegistry(),
+      new FakeWorkspaces(),
+    );
+    return (restartCoordinator as unknown as { runContext: (runId: string) => unknown }).runContext(run.id);
+  };
+  const canonicalConfig = structuredClone(store.get());
+  check('restart restores the unique canonical manifest when run, versions, and hash match',
+    restoreContext(canonicalConfig) !== undefined);
+
+  const tamperedConfig = structuredClone(canonicalConfig);
+  tamperedConfig.runArtifacts[0]!.content = stableStringify({ ...manifest, goal: 'tampered later' });
+  check('restart degrades safely when persisted manifest content mismatches the trusted hash',
+    restoreContext(tamperedConfig) === undefined);
+
+  const duplicateConfig = structuredClone(canonicalConfig);
+  duplicateConfig.runArtifacts.push({
+    ...duplicateConfig.runArtifacts[0]!,
+    id: 'late-duplicate-manifest',
+    createdAt: duplicateConfig.runArtifacts[0]!.createdAt + 1,
+  });
+  check('restart degrades safely when duplicate canonical-path artifacts appear later',
+    restoreContext(duplicateConfig) === undefined);
+
+  const legacyConfig = structuredClone(canonicalConfig);
+  delete legacyConfig.runs[0]!.contextManifestHash;
+  check('legacy runs without a trusted expected hash degrade instead of trusting an old artifact',
+    restoreContext(legacyConfig) === undefined);
+
+  const withVersion = (mutate: (candidate: RunContextManifest) => void): string => {
+    const candidate = structuredClone(manifest);
+    mutate(candidate);
+    return stableStringify(candidate);
+  };
+  check('parser rejects incompatible top-level context builder versions',
+    parseRunContextManifest(withVersion((candidate) => { candidate.contextBuilderVersion += 1; }), run.id) === null);
+  check('parser rejects incompatible nested context builder versions',
+    parseRunContextManifest(withVersion((candidate) => { candidate.versions.contextBuilder += 1; }), run.id) === null);
+  check('parser rejects incompatible result schema versions',
+    parseRunContextManifest(withVersion((candidate) => { candidate.versions.resultSchema += 1; }), run.id) === null);
+  check('parser rejects incompatible prompt versions',
+    parseRunContextManifest(withVersion((candidate) => {
+      const prompts = candidate.versions.prompts as unknown as Record<string, number>;
+      prompts.plan = (prompts.plan ?? 0) + 1;
+    }), run.id) === null);
+  check('parser rejects manifests bound to another run',
+    parseRunContextManifest(content, 'another-run') === null);
 }
 
 function adapterChecks(root: string): void {
@@ -814,6 +979,7 @@ async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'ade-goal4-'));
   try {
     adapterChecks(root);
+    manifestArtifactBoundaryChecks(join(root, 'manifest-boundary'));
     await managedLifecycleChecks(join(root, 'lifecycle'));
     await managedBaseShaChecks(join(root, 'base-sha'));
     await ownershipAndBudgetChecks(join(root, 'ownership'));

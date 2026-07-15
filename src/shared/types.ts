@@ -270,6 +270,11 @@ export interface Run {
   /** undefined = legacy/default resolution; null = explicit plain workspace. */
   repositoryId?: string | null;
   /**
+   * Main-owned SHA-256 of the canonical run-context manifest. Older runs do
+   * not have one and intentionally cannot restore context from artifacts.
+   */
+  contextManifestHash?: string;
+  /**
    * Teams whose queued managed work the scheduler must skip. Materialized from
    * the team.paused/team.resumed journal events; running tasks are unaffected.
    */

@@ -23,6 +23,7 @@ import {
   type SessionMeta,
   type StructuredTaskResult,
 } from '../../shared/types';
+import { RUN_CONTEXT_MANIFEST_PATH, sha256 } from './contextManifest';
 
 export interface OrchestrationConfigPort {
   get(): AdeConfig;
@@ -481,6 +482,57 @@ export class OrchestrationService {
     return queued.length;
   }
 
+  /**
+   * Persist the Main-built run manifest and its trusted expected hash in the
+   * same config transaction. Any legacy/untrusted artifacts at the reserved
+   * path are replaced rather than adopted.
+   */
+  persistRunContextManifest(input: { runId: string; content: string; hash: string }): RunArtifact {
+    const config = this.store.get();
+    const run = config.runs.find((candidate) => candidate.id === input.runId);
+    if (!run) throw new Error(`ade: run not found "${input.runId}"`);
+    if (!/^[0-9a-f]{64}$/.test(input.hash)) {
+      throw new Error('ade: run context manifest hash must be a SHA-256 digest');
+    }
+    if (sha256(input.content) !== input.hash) {
+      throw new Error('ade: run context manifest content does not match its SHA-256 digest');
+    }
+    if (input.content.length > MAX_ARTIFACT_CONTENT_CHARS) {
+      throw new Error(`ade: artifact content exceeds ${MAX_ARTIFACT_CONTENT_CHARS} characters`);
+    }
+    const artifact: RunArtifact = {
+      id: randomUUID(),
+      runId: input.runId,
+      kind: 'file',
+      path: RUN_CONTEXT_MANIFEST_PATH,
+      content: input.content,
+      repositoryId: run.repositoryId,
+      createdAt: Date.now(),
+    };
+    const event = this.event(input.runId, 'artifact.created', {
+      data: {
+        artifactId: artifact.id,
+        kind: artifact.kind,
+        repositoryId: artifact.repositoryId ?? null,
+        workspaceBindingId: null,
+      },
+    });
+    this.store.save({
+      runs: config.runs.map((candidate) => candidate.id === input.runId
+        ? { ...candidate, contextManifestHash: input.hash }
+        : candidate),
+      runArtifacts: [
+        ...config.runArtifacts.filter((candidate) => !(
+          candidate.runId === input.runId && candidate.path === RUN_CONTEXT_MANIFEST_PATH
+        )),
+        artifact,
+      ],
+      runEvents: [...config.runEvents, event],
+    });
+    this.emit();
+    return { ...artifact };
+  }
+
   createArtifact(input: Omit<RunArtifact, 'id' | 'createdAt'>): RunArtifact {
     const config = this.store.get();
     const run = config.runs.find((candidate) => candidate.id === input.runId);
@@ -497,6 +549,9 @@ export class OrchestrationService {
       throw new Error(`ade: invalid artifact kind "${String(input.kind)}"`);
     }
     const path = input.path?.trim() || undefined;
+    if (path === RUN_CONTEXT_MANIFEST_PATH) {
+      throw new Error(`ade: artifact path "${RUN_CONTEXT_MANIFEST_PATH}" is reserved for Main`);
+    }
     if (path && path.length > MAX_ARTIFACT_PATH_CHARS) {
       throw new Error(`ade: artifact path exceeds ${MAX_ARTIFACT_PATH_CHARS} characters`);
     }
