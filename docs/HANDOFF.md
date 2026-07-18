@@ -46,7 +46,8 @@ Plan: `docs/goal6/VALIDATION_PLAN.md` · Ergebnisse: `docs/goal6/RESULTS.md`
 | F7 approval-durability | ✅ Approve + **Reject** (Gate überlebte 4 Neustarts) | — | **pass**, beide Richtungen entscheidend |
 | F5 arena-presets | ✅ `da58df3b` (a2; a1 `e10c0b42` scheiterte am 12k-Summary-Bug, gefixt) | ✅ `a9ec5adb` | **Kernfrage beantwortet: Parallelität schlägt den Einzelagenten auf dieser Taskgrösse NICHT** (34m47s vs 7m15s, ~4.8×; Planung allein 19m). Qualität gleich, Managed kauft Integration+Gate+Verifikation+Kosten-Sichtbarkeit ($22.57). 2 neue Findings gefixt (12k-Summary, 2k-Dependency-Cut) |
 | F4 rng-stream-split | ❌→**Messergebnis**: `982d8a8e` an Integration gescheitert (Cherry-Pick-Konflikt des dependent D3-Union-Commits; Rollback sauber) | ✅ `599c0b52` (3m 5s, 80/80) | **These bestätigt: Planner zerlegt gekoppelte S-Tasks, obwohl er nicht sollte** — und die gewählte Topologie ist strukturell inkompatibel mit dem Integrationsmodell (Architektur-Finding, Fix nach F8) |
-| F3, F6, F8 | offen | offen | Reihenfolge laut Plan: **F3 zuerst**, dann F6 (Overlap, 2 Worker, nur managed), F8 (nur managed) |
+| F3 playtest-export | ❌ `4ced0119` an Integration gescheitert (gleiche Architektur-Lücke wie F4; am Gate aus Blob-Hashes vorhergesagt) | ✅ `dcc0d363` (16m 37s, 88/88) | Managed liefert nichts Integriertes bei 1.4× Baseline-Zeit und $14.59 — aber: der Abstand schrumpft mit Taskgrösse; Dependency-Forwarding-Fix nachweislich wirksam (byte-identische Modul-Reproduktion) |
+| F6, F8 | offen | — (nur managed) | **F6 als Nächstes** (Overlap-Falle, 2 Worker), dann F8 (Ehrlichkeit) |
 
 Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
 (`810fed3`), `goal6/f2-a2-worker` (`e4fa6d7`), `goal6/f2-a2-integrated`

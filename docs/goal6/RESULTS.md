@@ -33,6 +33,9 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `a9ec5adb` F5 arena-presets (baseline) | F5 | baseline | 2026-07-18 | **completed** | manual one-shot | **7m 15s** | 7m 15s | 1/0 | unknown in ADE (manual dispatch has no adapter telemetry); recovered from the Claude session transcript: ~3.232M in (mostly cache reads) / 133.2k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 895-char goal. 12 files under `src/game/arenas/` in its own coherent structure (`ArenaPresetRegistry.ts`, per-preset tests, extra `ArenaPreset.test.ts`) — independently verified: 109/109 tests, `tsc --noEmit` clean, zero tracked-file diffs. Result left uncommitted; no gate, no verification chain, no cost visibility. Evidence ref: `goal6/f5-baseline` (operator commit `efa879c`). |
 | `982d8a8e` F4 rng-stream-split (managed) | F4 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→approval→integrating→failed | 12m 25s | 11m 29s | 4/0 | 2027003/58558 | 7.45 | 0 (0) | **1 (rollback)** | 1 (approval) | **pass (fail-closed)** | The don't-decompose probe: the planner decomposed anyway (D1 primitives ∥ D2 call-site routing → D3 "integrate + verify"). All 4 tasks succeeded and the gate diff was scope-clean (machine-checked: only random.ts/random.test.ts/ArtilleryScene.ts) — but integration died in 10s: D3's worktree starts at base without D1/D2's git state, so it re-applied their diffs (`git show \| git apply`) and produced a base-rooted union commit that cherry-pick could not apply after D1+D2. Transactional rollback worked (orchestrator back on `81820b9`, clean, leases released). All three workers honestly reported that the planner's assignments demanded `git commit` against the ADE contract. Evidence refs: `goal6/f4-a1-worker-d1/-d2/-d3` (no integrated branch — integration failed). |
 | `599c0b52` F4 rng-stream-split (baseline) | F4 | baseline | 2026-07-18 | **completed** | manual one-shot | **3m 5s** | 3m 5s | 1/0 | unknown in ADE; recovered from the Claude session transcript: ~2.202M in / 50.0k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 647-char goal, done in one pass: `random.ts` +26 (createRandomStreams, salted visual stream), `ArtilleryScene.ts` 56-line routing, new `random.test.ts` — independently verified: 80/80 tests, tsc clean. Evidence ref: `goal6/f4-baseline` (operator commit `e88897d`). |
+| `4ced0119` F3 playtest-export (managed) | F3 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→approval→integrating→failed | 22m 54s | 21m 10s | 4/0 | 5265311/107461 | 14.59 | 0 (0) | **1 (rollback)** | 1 (approval) | **pass (fail-closed)** | Same 2∥1 planner topology for the third fixture in a row (MatchRecorder ∥ JsonDownload → vertical-slice integration). All 4 tasks succeeded, scope machine-checked clean. The dependency-forwarding fix proved itself: D3 reproduced both upstream *module* sources byte-identically from the forwarded summaries (blob-verified) — but upstream never forwarded the *test* sources, so D3 wrote its own test implementations; the add/add cherry-pick on the two differing test files failed integration in 10s, transaction rolled back cleanly. Predicted in the gate review from blob hashes before approving. Evidence refs: `goal6/f3-a1-worker-d1/-d2/-d3`. |
+| `0367edec` F3 playtest-export (baseline, aborted) | F3 | baseline | 2026-07-18 | cancelled | manual (aborted at 26s) | — | — | 0/0 | — | — | — | 0 | 1 (operator tooling) | excluded | Driver race, not a measurement: the status poll read the run bar, which still showed the failed managed run — the fail pattern matched instantly and the driver shut down a healthy 26s-old session. Driver fix `52751d8` (pin the run bar to the created run before polling). Excluded as operator error, F1-attempt-1 precedent. |
+| `dcc0d363` F3v2 playtest-export (baseline) | F3 | baseline | 2026-07-18 | **completed** | manual one-shot | **16m 37s** | 16m 37s | 1/0 | unknown in ADE; recovered from the Claude session transcript: ~16.963M in (dominated by cache reads) / 207.6k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 661-char goal, full vertical slice in its own structure: `PlaytestRecorder.ts` + tests (src/game), `PlaytestExportDownload.ts` + tests (src/ui), `ArtilleryScene.ts` integration — independently verified: 88/88 tests, tsc clean. Evidence ref: `goal6/f3-baseline` (operator commit `7d5986c`). |
 
 ## Per-fixture verdicts
 
@@ -84,9 +87,23 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
   audit later.
 
 ### F3 · playtest-export
-- Managed: _pending_
-- Baseline: _pending_
-- Verdict: _pending_
+- Managed (`4ced0119`): **failed at integration** after 22m 54s and $14.59 —
+  third consecutive 2∥1 decomposition, and the second integration killed by
+  the dependent-task git-state gap (add/add conflict on two test files D3
+  had to re-author because upstream summaries carried module sources but
+  not test sources). The failure was predicted at the gate from blob
+  hashes; approval proceeded deliberately so the journal records system
+  behavior, not operator avoidance.
+- Baseline (`dcc0d363`): **completed in 16m 37s**, full vertical slice,
+  88/88 tests + tsc independently verified.
+- Verdict: **worse — managed delivered nothing integrated at 1.4× the
+  baseline's wall-clock and $14.59.** On this M-sized slice the baseline
+  gap narrows (16m 37s vs 22m 54s active) — evidence that the managed
+  overhead ratio shrinks as task size grows, which is exactly where the
+  post-F8 architecture fix should unlock real parallel wins. The
+  dependency-forwarding fix demonstrably worked (byte-identical module
+  reproduction); the remaining killer is git-state, not information
+  transfer.
 
 ### F4 · rng-stream-split
 - Managed (`982d8a8e`): **failed at integration** after 12m 25s and $7.45.
@@ -340,7 +357,10 @@ event seq), severity, resolution or follow-up work item.
   Fix options (deferred until after F8 to keep F6/F8 measuring current
   behavior): dependency-aware worktree bases, integration that tolerates
   already-applied content, or planner rules forbidding dependent tasks
-  from touching dependency-modified files.
+  from touching dependency-modified files. Reproduced same day on F3
+  (`4ced0119`): add/add conflict on two test files the dependent task had
+  to re-author — 2 of 3 dependent-topology runs failed at integration; the
+  F5 survivor only made it because every duplicate was byte-identical.
 - **2026-07-18 · planner prompt friction · run `982d8a8e` (F4 managed).**
   All three worker assignments instructed the workers to `git commit` and
   report the SHA — directly contradicting the ADE structured-result
