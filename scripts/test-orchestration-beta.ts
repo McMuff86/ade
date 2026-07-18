@@ -23,6 +23,7 @@ import {
   ClaudeStreamJsonAdapter,
   CodexJsonAdapter,
   RuntimeAdapterRegistry,
+  STRUCTURED_RESULT_SCHEMA,
   validateStructuredResult,
 } from '../src/main/orchestration/runtimeAdapters';
 import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestration/claudeStream';
@@ -808,6 +809,32 @@ function adapterChecks(root: string): void {
     contradictory = true;
   }
   check('success claims with failed test evidence are rejected', contradictory);
+
+  // Prose caps truncate instead of rejecting: a succeeded worker with a
+  // 16.6k-char summary failed the whole F5 managed run (e10c0b42) while its
+  // published schema declared no length limit at all.
+  const chatty = validateStructuredResult(result({
+    summary: 'x'.repeat(20_000),
+    tests: [{ command: 'pnpm test', status: 'passed', output: 'y'.repeat(20_000) }],
+    risks: ['ok risk', 'z'.repeat(5_000)],
+  }));
+  check('an oversized summary is truncated instead of failing the task',
+    chatty.summary.length === 12_000 && chatty.summary.endsWith('[ADE: truncated]'));
+  check('oversized test output is truncated too',
+    chatty.tests[0]!.output.length === 16_000 && chatty.tests[0]!.output.endsWith('[ADE: truncated]'));
+  check('oversized risk entries are truncated, short ones untouched',
+    chatty.risks[0] === 'ok risk'
+      && chatty.risks[1]!.length === 2_000 && chatty.risks[1]!.endsWith('[ADE: truncated]'));
+  let pathRejected = false;
+  try {
+    validateStructuredResult(result({ filesChanged: ['f'.repeat(5_000)] }));
+  } catch {
+    pathRejected = true;
+  }
+  check('structural limits such as file paths remain strict', pathRejected);
+  const schemaJson = JSON.stringify(STRUCTURED_RESULT_SCHEMA);
+  check('the published schema declares the summary cap agents must plan for',
+    schemaJson.includes('"maxLength":12000'));
 }
 
 async function realGitIntegrationChecks(root: string): Promise<void> {

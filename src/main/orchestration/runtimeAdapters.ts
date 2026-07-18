@@ -12,6 +12,14 @@ import { parseClaudeUsage } from './claudeStream';
 
 const RESULT_CAP_BYTES = 1024 * 1024;
 
+// Prose caps: enforced by truncation, not rejection — a chatty but otherwise
+// valid result must never fail the task (observed on Goal 6 run e10c0b42: a
+// succeeded worker's 16.6k-char summary failed the whole managed run).
+const MAX_SUMMARY_CHARS = 12_000;
+const MAX_TEST_OUTPUT_CHARS = 16_000;
+const MAX_RISK_CHARS = 2_000;
+const TRUNCATION_MARKER = ' … [ADE: truncated]';
+
 export interface ManagedTaskFiles {
   taskDir: string;
   resultPath: string;
@@ -250,38 +258,40 @@ export const STRUCTURED_RESULT_SCHEMA = {
   properties: {
     version: { type: 'integer', enum: [1] },
     outcome: { type: 'string', enum: ['succeeded', 'failed', 'blocked'] },
-    summary: { type: 'string' },
+    summary: { type: 'string', maxLength: MAX_SUMMARY_CHARS },
     assignments: {
       type: 'array',
+      maxItems: 128,
       items: {
         type: 'object',
         additionalProperties: false,
         required: ['participantId', 'title', 'prompt', 'acceptanceCriteria', 'dependsOn'],
         properties: {
-          participantId: { type: 'string' },
-          title: { type: 'string' },
-          prompt: { type: 'string' },
-          acceptanceCriteria: { type: 'array', items: { type: 'string' } },
-          dependsOn: { type: 'array', items: { type: 'string' } },
+          participantId: { type: 'string', maxLength: 512 },
+          title: { type: 'string', maxLength: 160 },
+          prompt: { type: 'string', maxLength: 8000 },
+          acceptanceCriteria: { type: 'array', maxItems: 16, items: { type: 'string', maxLength: 500 } },
+          dependsOn: { type: 'array', maxItems: 128, items: { type: 'string', maxLength: 512 } },
         },
       },
     },
-    filesChanged: { type: 'array', items: { type: 'string' } },
+    filesChanged: { type: 'array', maxItems: 2000, items: { type: 'string', maxLength: 4096 } },
     tests: {
       type: 'array',
+      maxItems: 100,
       items: {
         type: 'object',
         additionalProperties: false,
         required: ['command', 'status', 'output'],
         properties: {
-          command: { type: 'string' },
+          command: { type: 'string', maxLength: 4096 },
           status: { type: 'string', enum: ['passed', 'failed', 'skipped'] },
-          output: { type: 'string' },
+          output: { type: 'string', maxLength: MAX_TEST_OUTPUT_CHARS },
         },
       },
     },
-    commitSha: { type: ['string', 'null'] },
-    risks: { type: 'array', items: { type: 'string' } },
+    commitSha: { type: ['string', 'null'], pattern: '^[a-fA-F0-9]{7,64}$' },
+    risks: { type: 'array', maxItems: 100, items: { type: 'string', maxLength: MAX_RISK_CHARS } },
     usage: {
       type: 'object',
       additionalProperties: false,
@@ -325,6 +335,7 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
       ? '- Return only the final JSON object; ADE/Codex writes and validates the result file.\n'
       : `- Before exiting, write exactly one JSON object (no Markdown fences) to ${files.resultPath}.\n`) +
     '- Use empty arrays when a field has no entries and null when usage/cost or commitSha is unavailable.\n' +
+    '- Keep prose within the schema maxLength limits (summary ≤ 12000 chars); overlong summary/risks/test output is truncated, structural fields are rejected.\n' +
     '- If the sandbox denies a required operation, do not repeatedly retry it; report outcome=blocked with the exact blocker.\n' +
     '- Do not report success unless the requested work and stated verification really completed.';
 }
@@ -349,7 +360,7 @@ export function validateStructuredResult(value: unknown): StructuredTaskResult {
   if (object.outcome !== 'succeeded' && object.outcome !== 'failed' && object.outcome !== 'blocked') {
     throw new Error('ade: result.outcome is invalid');
   }
-  const summary = boundedString(object.summary, 'result.summary', 12_000, false);
+  const summary = truncatedProse(object.summary, 'result.summary', MAX_SUMMARY_CHARS, false);
   const assignments = boundedArray(object.assignments, 'result.assignments', 128).map((item, index) => {
     const assignment = asObject(item, `result.assignments[${index}]`);
     exactKeys(assignment, ['participantId', 'title', 'prompt', 'acceptanceCriteria', 'dependsOn'], `result.assignments[${index}]`);
@@ -381,7 +392,7 @@ export function validateStructuredResult(value: unknown): StructuredTaskResult {
     return {
       command: boundedString(test.command, `result.tests[${index}].command`, 4_096, false),
       status,
-      output: boundedString(test.output, `result.tests[${index}].output`, 16_000, true),
+      output: truncatedProse(test.output, `result.tests[${index}].output`, MAX_TEST_OUTPUT_CHARS, true),
     };
   });
   if (object.outcome === 'succeeded' && tests.some((test) => test.status === 'failed')) {
@@ -392,7 +403,8 @@ export function validateStructuredResult(value: unknown): StructuredTaskResult {
     commitSha = boundedString(object.commitSha, 'result.commitSha', 64, false);
     if (!/^[a-fA-F0-9]{7,64}$/.test(commitSha)) throw new Error('ade: result.commitSha must be a hexadecimal commit id');
   }
-  const risks = stringArray(object.risks, 'result.risks', 100, 2_000);
+  const risks = boundedArray(object.risks, 'result.risks', 100).map((item, index) =>
+    truncatedProse(item, `result.risks[${index}]`, MAX_RISK_CHARS, false));
   const usageObject = asObject(object.usage, 'result.usage');
   exactKeys(usageObject, ['inputTokens', 'outputTokens', 'costUsd'], 'result.usage');
   const usage: TaskUsage = {
@@ -473,6 +485,15 @@ function boundedString(value: unknown, label: string, max: number, allowEmpty: b
   if (!allowEmpty && !value.trim()) throw new Error(`ade: ${label} is required`);
   if (value.length > max) throw new Error(`ade: ${label} exceeds ${max} characters`);
   return value;
+}
+
+/** Prose fields keep the cap by truncation — type errors stay fatal, length does not. */
+function truncatedProse(value: unknown, label: string, max: number, allowEmpty: boolean): string {
+  if (typeof value !== 'string') throw new Error(`ade: ${label} must be a string`);
+  if (value.includes('\0')) throw new Error(`ade: ${label} contains a null character`);
+  if (!allowEmpty && !value.trim()) throw new Error(`ade: ${label} is required`);
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - TRUNCATION_MARKER.length)}${TRUNCATION_MARKER}`;
 }
 
 function boundedArray(value: unknown, label: string, max: number): unknown[] {
