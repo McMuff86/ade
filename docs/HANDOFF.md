@@ -19,13 +19,14 @@ Evidenz im Session-Scratchpad.
 3. **Treiber: `scripts/goal6-drive.ts`** — Modi `managed | approve | reject |
    baseline`, extrahiert den Fixture-Zielblock selbst aus dem Plan, macht
    Screenshots und dumpt den Gate-Diff. Auf F2 (beide Arme + Reject) erprobt.
-4. **F5-Blocker: es gibt nur EINEN tauglichen Claude-Worker**
-   (`Test_Agent_2D_Jump`, claude/bypass). F5 erwartet 2–4 Worker. Vor F5 also
-   2 zusätzliche Worker-Agenten anlegen: runtime **claude**, Permission-Mode
-   **bypass** (default verhungert im Print-Modus — bekanntes Finding),
-   Repo-Scope `2D_rpg_jumpnrun`. `ChibiChup` steht auf claude/**default** und
-   ist so NICHT tauglich. Nach dem Anlegen prüfen, dass alle Worktrees sauber
-   auf `81820b9` stehen (Managed-Start verlangt seit `3b6d3b8` dieselbe
+4. **F5-Blocker GELÖST (18.07. nachmittags, via UI-Driver über die echte
+   App):** Es gibt jetzt DREI taugliche Claude-Worker: `Test_Agent_2D_Jump`,
+   `Test_Agent_2D_Jump_2`, `Test_Agent_2D_Jump_3` (alle claude/**bypass**,
+   Repo-Scope `2D_rpg_jumpnrun`). `ChibiChup` heisst jetzt
+   **`RhinoClaw_Agent`** (auf Adis Wunsch umbenannt, dabei auf bypass
+   umgestellt; Repo RhinoClaw — weiterhin NICHT Teil der Messreihe). Alle
+   vier ade-Worktrees des Pilot-Repos (inkl. der zwei neuen) sauber auf
+   `81820b9` verifiziert (Managed-Start verlangt seit `3b6d3b8` dieselbe
    Git-Basis für alle Teilnehmer).
 5. **Telemetrie-Checkpoint:** Der Stream-Parser-Fix (ConPTY-Reprint) ist
    committed und gegen ein echtes Transkript verifiziert, aber noch nicht in
@@ -53,14 +54,15 @@ Baseline `81820b9`. **Das Pilot-Repo selbst hat eigene uncommittete
 
 ## Nächster Schritt: F5 arena-presets (die Parallelitäts-Kernfrage)
 
-0. Worker-Agenten anlegen (siehe „Sofort wissen" 4). Danach Worktree-Basis
-   prüfen.
+0. ✅ erledigt am 18.07.: drei Worker vorhanden, Worktrees auf `81820b9`
+   verifiziert (siehe „Sofort wissen" 4).
 1. Managed-Arm starten (Gate-Timeout großzügig, M/L-Fixture):
 
    ```
    pnpm exec tsx scripts/goal6-drive.ts --mode managed --fixture F5 \
      --name "F5 arena-presets (managed)" --orchestrator "Main Chef" \
-     --agents "Test_Agent_2D_Jump,<Worker2>,<Worker3>" --parallel 4 \
+     --agents "Test_Agent_2D_Jump,Test_Agent_2D_Jump_2,Test_Agent_2D_Jump_3" \
+     --parallel 4 \
      --timeout-min 60
    ```
 
