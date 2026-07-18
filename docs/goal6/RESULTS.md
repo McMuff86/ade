@@ -99,7 +99,8 @@ event seq), severity, resolution or follow-up work item.
   scope, roster and leases (base `81820b9`) were all correct. Follow-up work
   item: the new-run dialog should show the full goal (expandable textarea or
   preview) before "Run erstellen". Run cancelled and re-created; attempt 1
-  excluded from measurements as operator error.
+  excluded from measurements as operator error. Follow-up shipped 2026-07-18
+  (see the goal-text contamination entry below).
 - **2026-07-14 · usability · run `25cc3dd4` (F1 managed, attempt 2).** Opening
   an interactive session for a participant while its worktree was leased by
   the active run correctly failed closed, but surfaced as a raw error bar
@@ -190,7 +191,13 @@ event seq), severity, resolution or follow-up work item.
   the next fixture): the new-run dialog must show the complete goal — an
   auto-growing textarea or a preview — so what the planner will receive is
   visible before "Run erstellen". Protocol fix already in the plan: paste only
-  the fenced block.
+  the fenced block. **Resolved 2026-07-18:** the goal textarea now grows with
+  its content (`field-sizing: content`, no height cap — the 1000-char goal
+  limit bounds it), shows a line/char counter, and raises a red warning when
+  a paste was truncated at the 1000-char cap. Verified end-to-end against the
+  built app (Playwright): a pasted VALIDATION_PLAN-style document fills the
+  dialog visibly, the warning names the truncation, and the footer buttons
+  stay reachable in both themes.
 - **2026-07-14 · observability (open, designed) · live view shows nothing
   while a claude task runs.** `claude -p` buffers: it prints only the final
   message at exit (verified with a timed repro — with `--verbose` too, the

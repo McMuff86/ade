@@ -1726,6 +1726,7 @@ function NewRunModal(props: {
 }): JSX.Element {
   const [name, setName] = useState(props.suggestedName);
   const [goal, setGoal] = useState('');
+  const [goalPasteOverflow, setGoalPasteOverflow] = useState(false);
   const [orchestratorId, setOrchestratorId] = useState('');
   const [repositoryId, setRepositoryId] = useState(
     props.repositories.length === 1 ? props.repositories[0]!.id : '',
@@ -1845,7 +1846,27 @@ function NewRunModal(props: {
           </label>
           <label className="grun-field">
             <span>Ziel</span>
-            <textarea value={goal} maxLength={1_000} onChange={(event) => setGoal(event.target.value)} placeholder="Erwartetes Ergebnis dieses Runs" />
+            <textarea
+              value={goal}
+              maxLength={1_000}
+              onChange={(event) => setGoal(event.target.value)}
+              onPaste={(event) => {
+                const pasted = event.clipboardData.getData('text');
+                const field = event.currentTarget;
+                const replaced = field.selectionEnd - field.selectionStart;
+                if (goal.length - replaced + pasted.length > 1_000) setGoalPasteOverflow(true);
+              }}
+              placeholder="Erwartetes Ergebnis dieses Runs"
+            />
+            <small className="grun-goal-meta">
+              {goal.split('\n').length > 1 ? `${goal.split('\n').length} Zeilen · ` : ''}{goal.length} / 1000
+            </small>
+            {goalPasteOverflow && goal.length >= 1_000 && (
+              <small className="grun-goal-warn">
+                Der eingefügte Text war länger als 1000 Zeichen und wurde abgeschnitten.
+                Ziel vor dem Erstellen vollständig prüfen.
+              </small>
+            )}
           </label>
           <label className="grun-field">
             <span>Orchestrator</span>
