@@ -225,6 +225,9 @@ async function main(): Promise<void> {
 
       if (options.mode === 'managed') {
         await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
+        // Pin the run bar to OUR run: polling must never read another run's
+        // status (a stale failed run in the bar aborted a healthy baseline).
+        await selectRun(page, options.name!);
         const outcome = await waitFor(page, /Freigabe/, /Abgebrochen|Fehlgeschlagen/, options.timeoutMin * 60_000);
         check('reached the approval gate', outcome === 'until', outcome);
         if (outcome === 'until') await dumpGate(page, options.fixture);
@@ -236,6 +239,7 @@ async function main(): Promise<void> {
         check('composer carries the exact goal', (await composer.locator('textarea').inputValue()) === goal);
         await composer.getByRole('button', { name: 'Senden' }).click();
         await composer.waitFor({ state: 'hidden', timeout: 15_000 });
+        await selectRun(page, options.name!);
         const outcome = await waitFor(page, /Abgeschlossen/, /Fehlgeschlagen|Abgebrochen/, options.timeoutMin * 60_000);
         check('baseline completed', outcome === 'until', outcome);
       }
