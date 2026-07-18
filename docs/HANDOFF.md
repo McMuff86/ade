@@ -28,11 +28,11 @@ Evidenz im Session-Scratchpad.
    vier ade-Worktrees des Pilot-Repos (inkl. der zwei neuen) sauber auf
    `81820b9` verifiziert (Managed-Start verlangt seit `3b6d3b8` dieselbe
    Git-Basis für alle Teilnehmer).
-5. **Telemetrie-Checkpoint:** Der Stream-Parser-Fix (ConPTY-Reprint) ist
-   committed und gegen ein echtes Transkript verifiziert, aber noch nicht in
-   einem Live-Managed-Run bestätigt. Beim nächsten Run (F5) müssen
-   Token/Kosten erstmals echt im Run-Bar/Report erscheinen — wenn wieder
-   `unknown`, ist noch etwas offen.
+5. **Telemetrie-Checkpoint BESTANDEN (F5, 18.07. nachmittags):** Beide
+   F5-Managed-Runs lieferten echte Token-/Kostenzahlen end-to-end (a1 $2.88,
+   a2 7.16M in / 180k out, $22.57; per-Task-Usage im Inspector). Baseline-
+   Arme bleiben adapter-los — Tokens dort weiterhin aus dem Claude-Session-
+   Transkript rekonstruieren (Muster siehe RESULTS.md F2/F5-Baseline).
 
 ## Goal 6: Stand der Messreihe
 
@@ -44,7 +44,8 @@ Plan: `docs/goal6/VALIDATION_PLAN.md` · Ergebnisse: `docs/goal6/RESULTS.md`
 | F1 settings-reduced-shake | ✅ `40fee766` | ✅ `cad775c2` | Einzelagent ~3× schneller bei gleicher Qualität; Managed kauft Nachweis + Kontrolle |
 | F2 weapon-presentation-tests | ✅ `759e49db` (a2, Ehrlichkeitsprobe **bestanden**; a1 `37d41c5d` am Gate rejected) | ✅ `8d8e3ffe` | Wie F1 (~3× Zeit, ~3× Tokens) — **plus**: beide Managed-Worker fanden und dokumentierten den latenten `colorToCss`-Bug, die Baseline nicht |
 | F7 approval-durability | ✅ Approve + **Reject** (Gate überlebte 4 Neustarts) | — | **pass**, beide Richtungen entscheidend |
-| F5, F4, F3, F6, F8 | offen | offen | Reihenfolge laut Plan: **F5 zuerst** |
+| F5 arena-presets | ✅ `da58df3b` (a2; a1 `e10c0b42` scheiterte am 12k-Summary-Bug, gefixt) | ✅ `a9ec5adb` | **Kernfrage beantwortet: Parallelität schlägt den Einzelagenten auf dieser Taskgrösse NICHT** (34m47s vs 7m15s, ~4.8×; Planung allein 19m). Qualität gleich, Managed kauft Integration+Gate+Verifikation+Kosten-Sichtbarkeit ($22.57). 2 neue Findings gefixt (12k-Summary, 2k-Dependency-Cut) |
+| F4, F3, F6, F8 | offen | offen | Reihenfolge laut Plan: **F4 zuerst** (wann NICHT zerlegen) |
 
 Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
 (`810fed3`), `goal6/f2-a2-worker` (`e4fa6d7`), `goal6/f2-a2-integrated`
@@ -52,7 +53,16 @@ Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
 Baseline `81820b9`. **Das Pilot-Repo selbst hat eigene uncommittete
 Änderungen von Adi (ballistics, AxeAim u.a.) — niemals anfassen.**
 
-## Nächster Schritt: F5 arena-presets (die Parallelitäts-Kernfrage)
+## F5: erledigt am 18.07. — nächster Schritt ist F4 (wann NICHT zerlegen)
+
+F5 komplett (beide Arme, Verdikt + 2 Findings in RESULTS.md). Für F4/F3/F6/F8
+gilt dasselbe Protokoll wie unten für F5 dokumentiert (Treiber-Einzeiler,
+Gate-Machine-Check, Evidenz-Branches `goal6/f<N>-...`, Worktree-Reset auf
+`81820b9` inkl. `git clean -f -- CLAUDE.md`). Neu seit F5: Managed-Tasks
+zeichnen ihre Aktivität als `ACTIVITY.jsonl` im Task-Dir auf („Aktivität
+anzeigen" im Inspector) — beim F4-Run erstmals live prüfen.
+
+## Archiv: F5-Protokoll (Referenz für die restlichen Fixtures)
 
 0. ✅ erledigt am 18.07.: drei Worker vorhanden, Worktrees auf `81820b9`
    verifiziert (siehe „Sofort wissen" 4).
