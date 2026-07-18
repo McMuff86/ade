@@ -101,6 +101,21 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
   return { app, page };
 }
 
+/**
+ * The fixed 1440x900 viewport makes dialog automation deterministic, but it
+ * pins the renderer while the operator may watch the window during long run
+ * phases (observed on a 5120x1440 display: maximized window, 1440px content).
+ * Clearing the override lets the real window size win again.
+ */
+async function releaseViewport(page: Page): Promise<void> {
+  try {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.clearDeviceMetricsOverride');
+  } catch {
+    // Cosmetic only — polling and screenshots still work with the pin.
+  }
+}
+
 async function pasteInto(app: ElectronApplication, page: Page, locator: ReturnType<Page['locator']>, text: string): Promise<void> {
   await app.evaluate(({ clipboard }, value) => clipboard.writeText(value), text);
   await locator.click();
@@ -214,6 +229,7 @@ async function main(): Promise<void> {
 
       if (options.mode === 'managed') {
         await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
+        await releaseViewport(page);
         const outcome = await waitFor(page, /Freigabe/, /Abgebrochen|Fehlgeschlagen/, options.timeoutMin * 60_000);
         check('reached the approval gate', outcome === 'until', outcome);
         if (outcome === 'until') await dumpGate(page, options.fixture);
@@ -225,6 +241,7 @@ async function main(): Promise<void> {
         check('composer carries the exact goal', (await composer.locator('textarea').inputValue()) === goal);
         await composer.getByRole('button', { name: 'Senden' }).click();
         await composer.waitFor({ state: 'hidden', timeout: 15_000 });
+        await releaseViewport(page);
         const outcome = await waitFor(page, /Abgeschlossen/, /Fehlgeschlagen|Abgebrochen/, options.timeoutMin * 60_000);
         check('baseline completed', outcome === 'until', outcome);
       }
@@ -233,6 +250,7 @@ async function main(): Promise<void> {
       const label = await selectRun(page, options.run);
       console.log(`run: ${label}`);
       await dumpGate(page, options.mode);
+      await releaseViewport(page);
       if (options.mode === 'approve') {
         await page.locator('.gapproval').getByRole('button', { name: 'Freigeben & integrieren' }).click();
         const outcome = await waitFor(page, /Fertig|Abgeschlossen/, /Abgebrochen|Fehlgeschlagen/, options.timeoutMin * 60_000);
