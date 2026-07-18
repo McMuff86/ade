@@ -30,6 +30,7 @@ import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestratio
 import { WorkspaceService, type WorkspacePort } from '../src/main/orchestration/WorkspaceService';
 import {
   buildRunContextManifest,
+  buildTaskContextPacket,
   manifestHash,
   parseRunContextManifest,
   stableStringify,
@@ -835,6 +836,32 @@ function adapterChecks(root: string): void {
   const schemaJson = JSON.stringify(STRUCTURED_RESULT_SCHEMA);
   check('the published schema declares the summary cap agents must plan for',
     schemaJson.includes('"maxLength":12000'));
+
+  // Dependency forwarding must carry the full validated summary (F5v2 finding:
+  // a silent 2k cut destroyed the file blocks a dependent task relied on).
+  const packetInput = (summary: string) => ({
+    task: { id: 'task-b', runId: 'run-1', phase: 'work' as const, title: 'Dependent', dependsOn: ['task-a'] },
+    manifestHash: null,
+    provenance: { promptVersion: 1, resultSchemaVersion: 1, adapterId: 'claude-stream-json-v1' },
+    dependencyResults: [{
+      participantId: 'p1',
+      taskId: 'task-a',
+      summary,
+      filesChanged: [],
+      commitSha: null,
+      tests: [],
+      risks: ['r'.repeat(2_500)],
+    }],
+  });
+  const intact = buildTaskContextPacket(packetInput('s'.repeat(11_000)));
+  check('dependency summaries forward intact up to the result cap',
+    intact.dependencies[0]!.summary.length === 11_000
+      && !intact.dependencies[0]!.summary.includes('[ADE: truncated'));
+  const cut = buildTaskContextPacket(packetInput('s'.repeat(13_000)));
+  check('a dependency cut is marked, never silent',
+    cut.dependencies[0]!.summary.length <= 12_000
+      && cut.dependencies[0]!.summary.includes('[ADE: truncated, 13000 chars total')
+      && intact.dependencies[0]!.risks[0]!.includes('[ADE: truncated, 2500 chars total'));
 }
 
 async function realGitIntegrationChecks(root: string): Promise<void> {

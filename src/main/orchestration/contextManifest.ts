@@ -29,10 +29,21 @@ const MAX_SCRIPT_CHARS = 240;
 const MAX_TOP_LEVEL_ENTRIES = 40;
 const MAX_BRIEF_CHARS = 6_000;
 const MAX_DEPENDENCY_ENTRIES = 16;
-const MAX_DEPENDENCY_SUMMARY_CHARS = 2_000;
+// Matches the validated result.summary cap: a dependent task is promised the
+// upstream report, so forwarding must not silently cut it (observed on F5v2:
+// a 2k cut destroyed the embedded file blocks D3 depended on).
+const MAX_DEPENDENCY_SUMMARY_CHARS = 12_000;
 const MAX_DEPENDENCY_FILES = 200;
 const MAX_DEPENDENCY_TESTS = 20;
 const MAX_DEPENDENCY_RISKS = 10;
+const MAX_DEPENDENCY_RISK_CHARS = 2_000;
+
+/** Any cut is visible to the reader instead of silently corrupting content. */
+function clipped(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const marker = ` … [ADE: truncated, ${text.length} chars total]`;
+  return `${text.slice(0, Math.max(0, max - marker.length))}${marker}`;
+}
 
 export interface ManifestInstructionFile {
   /** Repo-relative file name; never an absolute host path. */
@@ -289,14 +300,15 @@ export function buildTaskContextPacket(input: BuildPacketInput): TaskContextPack
     dependencies: input.dependencyResults.slice(0, MAX_DEPENDENCY_ENTRIES).map((result) => ({
       participantId: result.participantId,
       taskId: result.taskId,
-      summary: result.summary.slice(0, MAX_DEPENDENCY_SUMMARY_CHARS),
+      summary: clipped(result.summary, MAX_DEPENDENCY_SUMMARY_CHARS),
       filesChanged: result.filesChanged.slice(0, MAX_DEPENDENCY_FILES),
       commitSha: result.commitSha,
       tests: result.tests.slice(0, MAX_DEPENDENCY_TESTS).map((test) => ({
         command: test.command.slice(0, 240),
         status: test.status,
       })),
-      risks: result.risks.slice(0, MAX_DEPENDENCY_RISKS).map((risk) => risk.slice(0, 500)),
+      risks: result.risks.slice(0, MAX_DEPENDENCY_RISKS)
+        .map((risk) => clipped(risk, MAX_DEPENDENCY_RISK_CHARS)),
     })),
     ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
   };
