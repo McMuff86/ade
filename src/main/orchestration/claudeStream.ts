@@ -111,13 +111,23 @@ function parseObject(text: string): Record<string, unknown> | null {
 }
 
 /**
+ * ConPTY's deferred wrap reprints the last cell after repositioning: the byte
+ * stream carries `X CRLF ESC[row;colH X` — the same character twice. Collapse
+ * to one copy before the generic stripping, otherwise the duplicate (often a
+ * quote) corrupts the JSON and poisons brace matching. Observed 20/20 wraps
+ * on a live transcript; a genuine double character spans a wrap as three
+ * copies, which this correctly reduces back to two.
+ */
+const WRAP_REPRINT = /([\s\S])\r\n\u001b\[\d+;\d+H\1/g;
+
+/**
  * Normalize a raw PTY transcript: drop ANSI control sequences and every literal
  * newline. Newlines only ever separate events or come from a ConPTY wrap — JSON
  * escapes the real ones — so removing them rejoins events the terminal split,
  * including a marker torn in half.
  */
 function normalize(text: string): string {
-  return text.replace(ANSI, '').replace(/[\r\n]/g, '');
+  return text.replace(WRAP_REPRINT, '$1').replace(ANSI, '').replace(/[\r\n]/g, '');
 }
 
 /** Incremental renderer: feed PTY chunks, receive readable activity lines. */

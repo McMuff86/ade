@@ -762,6 +762,36 @@ function adapterChecks(root: string): void {
   check('activity recovers from a truncated head instead of stalling',
     truncatedFeed.push(truncated).length === 5);
 
+  // ConPTY's deferred wrap reprints the last cell after repositioning:
+  // `X CRLF ESC[row;colH X` — the boundary character appears twice. When the
+  // duplicate is a quote it poisons brace matching and the whole tail of the
+  // stream is swallowed (observed live on run 759e49db: adapter active, all
+  // four tasks usage null). The plain `\r\n` wrap test above cannot catch it.
+  const reprintAt = (text: string, cuts: number[]): string => {
+    let out = '';
+    let prev = 0;
+    for (const cut of cuts) {
+      out += `${text.slice(prev, cut)}\r\n[29;120H${text[cut - 1]!}`;
+      prev = cut;
+    }
+    return out + text.slice(prev);
+  };
+  const quoteCut = claudeStream.lastIndexOf('"usage"') + 1;
+  const reprinted = reprintAt(claudeStream, [40, quoteCut, quoteCut + 60]);
+  check('telemetry survives ConPTY deferred-wrap reprints, quote at the wrap column',
+    JSON.stringify(parseClaudeUsage(reprinted))
+      === JSON.stringify({ inputTokens: 1110, outputTokens: 42, costUsd: 0.25 }));
+  const reprintFeed = new ClaudeActivityParser();
+  check('activity survives deferred-wrap reprints too',
+    reprintFeed.push(reprinted).length === 5);
+  check('a genuine double character spanning a wrap keeps both copies',
+    JSON.stringify(parseClaudeUsage(
+      '{"type":"result","subtype":"success","usage":{"input_tokens":2,"output_tokens":3},'
+      + '"total_cost_usd":0.11,"note":"ka'
+      + '\r\n[29;120Ha'
+      + 'ak"}'))
+      === JSON.stringify({ inputTokens: 2, outputTokens: 3, costUsd: 0.11 }));
+
   let rejected = false;
   try {
     validateStructuredResult({ version: 1, outcome: 'succeeded' });
