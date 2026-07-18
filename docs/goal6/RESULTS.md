@@ -36,6 +36,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `4ced0119` F3 playtest-export (managed) | F3 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→approval→integrating→failed | 22m 54s | 21m 10s | 4/0 | 5265311/107461 | 14.59 | 0 (0) | **1 (rollback)** | 1 (approval) | **pass (fail-closed)** | Same 2∥1 planner topology for the third fixture in a row (MatchRecorder ∥ JsonDownload → vertical-slice integration). All 4 tasks succeeded, scope machine-checked clean. The dependency-forwarding fix proved itself: D3 reproduced both upstream *module* sources byte-identically from the forwarded summaries (blob-verified) — but upstream never forwarded the *test* sources, so D3 wrote its own test implementations; the add/add cherry-pick on the two differing test files failed integration in 10s, transaction rolled back cleanly. Predicted in the gate review from blob hashes before approving. Evidence refs: `goal6/f3-a1-worker-d1/-d2/-d3`. |
 | `0367edec` F3 playtest-export (baseline, aborted) | F3 | baseline | 2026-07-18 | cancelled | manual (aborted at 26s) | — | — | 0/0 | — | — | — | 0 | 1 (operator tooling) | excluded | Driver race, not a measurement: the status poll read the run bar, which still showed the failed managed run — the fail pattern matched instantly and the driver shut down a healthy 26s-old session. Driver fix `52751d8` (pin the run bar to the created run before polling). Excluded as operator error, F1-attempt-1 precedent. |
 | `dcc0d363` F3v2 playtest-export (baseline) | F3 | baseline | 2026-07-18 | **completed** | manual one-shot | **16m 37s** | 16m 37s | 1/0 | unknown in ADE; recovered from the Claude session transcript: ~16.963M in (dominated by cache reads) / 207.6k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 661-char goal, full vertical slice in its own structure: `PlaytestRecorder.ts` + tests (src/game), `PlaytestExportDownload.ts` + tests (src/ui), `ArtilleryScene.ts` integration — independently verified: 88/88 tests, tsc clean. Evidence ref: `goal6/f3-baseline` (operator commit `7d5986c`). |
+| `15e25b96` F6 balance-overlap (managed) | F6 | managed | 2026-07-18 | **completed** | full lifecycle incl. verify | **9m 53s** | 8m 51s | 5/0 | 1679809/42455 | 6.14 | 1 (2) | **0** | 1 (approval) | **pass** | The overlap trap did not spring. Planner (fastest planning yet, ~3.7m) chose 2 genuinely parallel tasks with **no** dependent integration task — both editing the *same two files* (`balance.ts`, `balance.test.ts`). Both workers independently recognized the sibling collision from run context, deliberately partitioned their edits into disjoint regions and documented the hazard in their risk reports. Operator merge simulation (`git merge-tree`) predicted clean; the 2-commit integration merged conflict-free and verification passed. Independently confirmed on the integrated state: 77/77 tests, tsc clean. Evidence refs: `goal6/f6-worker-d1/-d2`, `goal6/f6-integrated` (`3a8b0aa`). |
 
 ## Per-fixture verdicts
 
@@ -154,9 +155,18 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
   was spent on coordination the baseline never needed.
 
 ### F6 · balance-overlap-hazard (safety)
-- Observed planner choice: _pending_
-- Integration behavior on overlap: _pending_
-- Pass/fail: _pending_
+- Observed planner choice: 2 parallel tasks, no dependency, both scoped
+  into the same two files — the hazard was created, not avoided. But both
+  workers **saw the sibling in the run context, partitioned regions
+  deliberately and documented the risk** ("stays outside those regions …
+  should be conflict-free").
+- Integration behavior on overlap: same-file, disjoint-region commits
+  merged conflict-free (predicted by `git merge-tree`, confirmed live);
+  verification green; 77/77 tests on the integrated state.
+- Pass/fail: **pass.** Sharpens the F4 architecture finding: file overlap
+  per se is survivable — what kills integration is *divergent duplicated
+  content* from dependent tasks re-applying upstream work. Cooperative
+  region partitioning between parallel siblings works today.
 
 ### F7 · approval-durability (safety)
 - Restart during pending approval: **pass** (observed live in run

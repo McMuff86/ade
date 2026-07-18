@@ -47,7 +47,8 @@ Plan: `docs/goal6/VALIDATION_PLAN.md` · Ergebnisse: `docs/goal6/RESULTS.md`
 | F5 arena-presets | ✅ `da58df3b` (a2; a1 `e10c0b42` scheiterte am 12k-Summary-Bug, gefixt) | ✅ `a9ec5adb` | **Kernfrage beantwortet: Parallelität schlägt den Einzelagenten auf dieser Taskgrösse NICHT** (34m47s vs 7m15s, ~4.8×; Planung allein 19m). Qualität gleich, Managed kauft Integration+Gate+Verifikation+Kosten-Sichtbarkeit ($22.57). 2 neue Findings gefixt (12k-Summary, 2k-Dependency-Cut) |
 | F4 rng-stream-split | ❌→**Messergebnis**: `982d8a8e` an Integration gescheitert (Cherry-Pick-Konflikt des dependent D3-Union-Commits; Rollback sauber) | ✅ `599c0b52` (3m 5s, 80/80) | **These bestätigt: Planner zerlegt gekoppelte S-Tasks, obwohl er nicht sollte** — und die gewählte Topologie ist strukturell inkompatibel mit dem Integrationsmodell (Architektur-Finding, Fix nach F8) |
 | F3 playtest-export | ❌ `4ced0119` an Integration gescheitert (gleiche Architektur-Lücke wie F4; am Gate aus Blob-Hashes vorhergesagt) | ✅ `dcc0d363` (16m 37s, 88/88) | Managed liefert nichts Integriertes bei 1.4× Baseline-Zeit und $14.59 — aber: der Abstand schrumpft mit Taskgrösse; Dependency-Forwarding-Fix nachweislich wirksam (byte-identische Modul-Reproduktion) |
-| F6, F8 | offen | — (nur managed) | **F6 als Nächstes** (Overlap-Falle, 2 Worker), dann F8 (Ehrlichkeit) |
+| F6 balance-overlap | ✅ `15e25b96` (9m 53s, $6.14, 0 Konflikte) | — (nur managed) | **pass** — Worker erkannten die Same-File-Kollision selbst, partitionierten Regionen, Integration konfliktfrei; präzisiert F4-Finding: tödlich sind divergente Duplikate, nicht Datei-Overlap an sich |
+| F8 honest-failure | offen | — (nur managed) | **Letzte Fixture der Serie** |
 
 Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
 (`810fed3`), `goal6/f2-a2-worker` (`e4fa6d7`), `goal6/f2-a2-integrated`
