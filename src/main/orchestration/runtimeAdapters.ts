@@ -336,6 +336,7 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
       : `- Before exiting, write exactly one JSON object (no Markdown fences) to ${files.resultPath}.\n`) +
     '- Use empty arrays when a field has no entries and null when usage/cost or commitSha is unavailable.\n' +
     '- Keep prose within the schema maxLength limits (summary ≤ 12000 chars); overlong summary/risks/test output is truncated, structural fields are rejected.\n' +
+    '- tests[] is evidence for the outcome: status "failed" is reserved for real failures (a succeeded result must not contain any). Report expected-failure negative controls with status "skipped" and describe the expectation in the command/output.\n' +
     '- If the sandbox denies a required operation, do not repeatedly retry it; report outcome=blocked with the exact blocker.\n' +
     '- Do not report success unless the requested work and stated verification really completed.';
 }
