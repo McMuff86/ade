@@ -138,7 +138,13 @@ async function createRun(app: ElectronApplication, page: Page, options: Options,
   await repoSelect.selectOption({ label: repoLabel! });
 
   for (const agent of options.agents) {
-    await modal.locator('.grun-agent', { hasText: agent }).locator('input[type="checkbox"]').check();
+    // exact-name filter: hasText is a substring match and would hit
+    // Test_Agent_2D_Jump_2/_3 when asked for Test_Agent_2D_Jump
+    await modal
+      .locator('.grun-agent')
+      .filter({ has: page.getByText(agent, { exact: true }) })
+      .locator('input[type="checkbox"]')
+      .check();
   }
   if (options.parallel) {
     await modal.locator('.grun-budget input').first().fill(String(options.parallel));
