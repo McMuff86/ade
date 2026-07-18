@@ -249,17 +249,30 @@ export function GraphView(): JSX.Element {
       return null;
     }
   });
+  // Null = docked full-width at the bottom; set once the user drags the bar.
+  const [dockPos, setDockPos] = useState<{ x: number; y: number; w: number } | null>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('ade.graph.dockPos') ?? 'null') as
+        | { x: number; y: number; w: number }
+        | null;
+    } catch {
+      return null;
+    }
+  });
 
   const startDockResize = (event: React.PointerEvent): void => {
     event.preventDefault();
     const startY = event.clientY;
     const startHeight = dockHeight;
+    const startPos = dockPos;
     const move = (nextEvent: PointerEvent): void => {
       const next = Math.min(
         Math.max(startHeight + (startY - nextEvent.clientY), 160),
         Math.max(240, window.innerHeight - 200),
       );
       setDockHeight(next);
+      // Floating: the handle is the top edge, so keep the bottom edge fixed.
+      if (startPos) setDockPos({ ...startPos, y: Math.max(0, startPos.y - (next - startHeight)) });
     };
     const up = (): void => {
       window.removeEventListener('pointermove', move);
@@ -267,6 +280,76 @@ export function GraphView(): JSX.Element {
       setDockHeight((height) => {
         window.localStorage.setItem('ade.graph.dockHeight', String(Math.round(height)));
         return height;
+      });
+      setDockPos((pos) => {
+        if (pos) window.localStorage.setItem('ade.graph.dockPos', JSON.stringify(pos));
+        return pos;
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  // Null = centered above the lower edge; set once the user drags the grip.
+  const [actionsPos, setActionsPos] = useState<Pos | null>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('ade.graph.actionsPos') ?? 'null') as Pos | null;
+    } catch {
+      return null;
+    }
+  });
+
+  const startActionsDrag = (event: React.PointerEvent): void => {
+    event.preventDefault();
+    const panel = (event.currentTarget as HTMLElement).closest('.gdock') as HTMLElement | null;
+    const parent = panel?.offsetParent as HTMLElement | null;
+    if (!panel || !parent) return;
+    const rect = panel.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const move = (nextEvent: PointerEvent): void => {
+      setActionsPos({
+        x: Math.max(0, nextEvent.clientX - parentRect.left - offsetX),
+        y: Math.max(0, nextEvent.clientY - parentRect.top - offsetY),
+      });
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setActionsPos((pos) => {
+        if (pos) window.localStorage.setItem('ade.graph.actionsPos', JSON.stringify(pos));
+        return pos;
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  const startDockDrag = (event: React.PointerEvent): void => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    event.preventDefault();
+    const panel = (event.currentTarget as HTMLElement).closest('.gdockpanel') as HTMLElement | null;
+    const parent = panel?.offsetParent as HTMLElement | null;
+    if (!panel || !parent) return;
+    const rect = panel.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const width = rect.width;
+    const move = (nextEvent: PointerEvent): void => {
+      setDockPos({
+        x: Math.max(0, nextEvent.clientX - parentRect.left - offsetX),
+        y: Math.max(0, nextEvent.clientY - parentRect.top - offsetY),
+        w: width,
+      });
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setDockPos((pos) => {
+        if (pos) window.localStorage.setItem('ade.graph.dockPos', JSON.stringify(pos));
+        return pos;
       });
     };
     window.addEventListener('pointermove', move);
@@ -667,9 +750,26 @@ export function GraphView(): JSX.Element {
     setView({
       scale,
       x: (rect.width - width * scale) / 2 - left * scale,
-      y: padding - top * scale,
+      // Centre vertically when there is spare room (large/fullscreen windows),
+      // otherwise keep the classic top padding anchor.
+      y: Math.max(padding, (rect.height - height * scale) / 2) - top * scale,
     });
   }, [clusters, clusterPos]);
+
+  // Fullscreen toggle / window resize: refit so the content uses the new
+  // canvas size instead of staying in the old viewport's corner.
+  useEffect(() => {
+    let timer: number | undefined;
+    const onResize = (): void => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fitView, 160);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [fitView]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(fitView);
@@ -1140,12 +1240,29 @@ export function GraphView(): JSX.Element {
       />
 
       {dock && (
-        <div className="gdockpanel" style={{ height: dockHeight }}>
+        <div
+          className="gdockpanel"
+          style={dockPos
+            ? { height: dockHeight, left: dockPos.x, top: dockPos.y, width: dockPos.w, right: 'auto', bottom: 'auto' }
+            : { height: dockHeight }}
+        >
           <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
-          <div className="gdockpanel-bar">
+          <div className="gdockpanel-bar" title="Am Balken verschiebbar" onPointerDown={startDockDrag}>
             <b>{dock.title}</b>
             <span>{dockRaw ? 'Rohes Terminal · nur lesen' : 'Live-Aktivität · nur lesen'}</span>
             <span className="gdockpanel-grow" />
+            {dockPos && (
+              <button
+                type="button"
+                title="Wieder unten andocken"
+                onClick={() => {
+                  setDockPos(null);
+                  window.localStorage.removeItem('ade.graph.dockPos');
+                }}
+              >
+                ⇲
+              </button>
+            )}
             <button
               type="button"
               title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
@@ -1199,7 +1316,21 @@ export function GraphView(): JSX.Element {
       </div>
 
       {activeRun && activeCluster && (
-        <div className="gdock">
+        <div
+          className="gdock"
+          style={actionsPos ? { left: actionsPos.x, top: actionsPos.y, bottom: 'auto', translate: 'none' } : undefined}
+        >
+          <div
+            className="gdock-grip"
+            title="Verschieben · Doppelklick: Position zurücksetzen"
+            onPointerDown={startActionsDrag}
+            onDoubleClick={() => {
+              setActionsPos(null);
+              window.localStorage.removeItem('ade.graph.actionsPos');
+            }}
+          >
+            ⋮⋮
+          </div>
           <button className="gdbtn accent" onClick={openNewRun}>
             <Ico>{I.plus}</Ico>Neuer Run
           </button>

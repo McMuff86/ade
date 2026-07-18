@@ -412,7 +412,10 @@
   gap: 10px;
   padding: 7px 12px;
   border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
 }
+.gdockpanel-bar:active { cursor: grabbing; }
 .gdockpanel-bar b { color: var(--text); font-size: 12px; }
 .gdockpanel-bar span { color: var(--muted); font-size: 10.5px; }
 .gdockpanel-grow { flex: 1; }
@@ -518,6 +521,17 @@
 .gdbtn.danger { color: var(--del); }
 .gdbtn svg { width: 15px; height: 15px; }
 .gdock .sep { width: 1px; background: var(--line); margin: 2px 2px; }
+.gdock-grip {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  color: var(--faint);
+  font-size: 12px;
+  letter-spacing: -1px;
+  cursor: grab;
+  user-select: none;
+}
+.gdock-grip:active { cursor: grabbing; }
 
 .gzoom { position: absolute; left: 16px; bottom: 16px; display: flex; flex-direction: column; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; z-index: 30; }
 .gzoom button { width: 34px; height: 32px; color: var(--muted); display: grid; place-items: center; border-bottom: 1px solid var(--line); }
