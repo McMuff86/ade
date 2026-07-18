@@ -65,6 +65,7 @@ export const IPC = {
   PtyKill: 'pty:kill',
   PtyAttach: 'pty:attach',
   PtyActivitySnapshot: 'pty:activitySnapshot',
+  RunTaskActivity: 'runTask:activity',
   PtyList: 'pty:list',
   PtyCancelTasks: 'pty:cancelTasks',
   RuntimeDiagnose: 'runtime:diagnose',
@@ -419,6 +420,7 @@ export interface IpcInvokeMap {
   'pty:kill': { req: PtyKillRequest; res: void };
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
+  'runTask:activity': { req: { taskId: string }; res: PtyActivityResult };
   'pty:list': { req: void; res: PtyListResult };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };

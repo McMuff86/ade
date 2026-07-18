@@ -236,7 +236,7 @@ export function GraphView(): JSX.Element {
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
-  const [dock, setDock] = useState<{ sessionId: string; title: string } | null>(null);
+  const [dock, setDock] = useState<{ sessionId?: string; taskId?: string; title: string } | null>(null);
   const [dockRaw, setDockRaw] = useState(false);
   const [dockHeight, setDockHeight] = useState(() => {
     const stored = Number(window.localStorage.getItem('ade.graph.dockHeight'));
@@ -1236,7 +1236,7 @@ export function GraphView(): JSX.Element {
         onCompose={setComposer}
         setTeamIdle={setTeamIdle}
         flash={flash}
-        onShowInDock={(sessionId, title) => setDock({ sessionId, title })}
+        onShowInDock={(target, title) => setDock({ ...target, title })}
       />
 
       {dock && (
@@ -1249,7 +1249,11 @@ export function GraphView(): JSX.Element {
           <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
           <div className="gdockpanel-bar" title="Am Balken verschiebbar" onPointerDown={startDockDrag}>
             <b>{dock.title}</b>
-            <span>{dockRaw ? 'Rohes Terminal · nur lesen' : 'Live-Aktivität · nur lesen'}</span>
+            <span>
+              {dock.sessionId
+                ? (dockRaw ? 'Rohes Terminal · nur lesen' : 'Live-Aktivität · nur lesen')
+                : 'Aufgezeichnete Aktivität · nur lesen'}
+            </span>
             <span className="gdockpanel-grow" />
             {dockPos && (
               <button
@@ -1263,16 +1267,18 @@ export function GraphView(): JSX.Element {
                 ⇲
               </button>
             )}
-            <button
-              type="button"
-              title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
-              onClick={() => setDockRaw((raw) => !raw)}
-            >
-              {dockRaw ? '☰' : '⌗'}
-            </button>
+            {dock.sessionId && (
+              <button
+                type="button"
+                title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
+                onClick={() => setDockRaw((raw) => !raw)}
+              >
+                {dockRaw ? '☰' : '⌗'}
+              </button>
+            )}
             <button type="button" title="Panel schließen" onClick={() => setDock(null)}>✕</button>
           </div>
-          {dockRaw ? (
+          {dockRaw && dock.sessionId ? (
             <SessionTail
               sessionId={dock.sessionId}
               rows={22}
@@ -1283,7 +1289,7 @@ export function GraphView(): JSX.Element {
               className="gdockpanel-term"
             />
           ) : (
-            <ActivityFeed sessionId={dock.sessionId} />
+            <ActivityFeed sessionId={dock.sessionId} taskId={dock.taskId} />
           )}
         </div>
       )}
@@ -1441,12 +1447,14 @@ interface InspectorProps {
   onCompose: (target: ComposerTarget) => void;
   setTeamIdle: (teamId: string, idle: boolean) => void;
   flash: (message: string) => void;
-  onShowInDock: (sessionId: string, title: string) => void;
+  onShowInDock: (target: { sessionId?: string; taskId?: string }, title: string) => void;
 }
 
 interface ParticipantDetails {
   taskTitle: string | null;
   taskStatus: string | null;
+  /** Latest task id when that task already ended — target for the archived feed. */
+  archivedTaskId: string | null;
   attempt: number;
   result: RunTaskResult | null;
   provenance: TaskProvenance | null;
@@ -1543,6 +1551,10 @@ function Inspector(props: InspectorProps): JSX.Element | null {
     return {
       taskTitle: latestTask?.title ?? null,
       taskStatus: latestTask?.status ?? null,
+      archivedTaskId: latestTask
+        && ['completed', 'failed', 'cancelled'].includes(latestTask.status)
+        ? latestTask.id
+        : null,
       attempt: latestTask?.attempt ?? 1,
       result: latestResult,
       provenance,
@@ -1613,9 +1625,17 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           {liveSessionId && (
             <button
               className="gact primary"
-              onClick={() => props.onShowInDock(liveSessionId, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
+              onClick={() => props.onShowInDock({ sessionId: liveSessionId }, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
             >
               <Ico>{I.term}</Ico>Live zuschauen
+            </button>
+          )}
+          {!liveSessionId && details.archivedTaskId && (
+            <button
+              className="gact"
+              onClick={() => props.onShowInDock({ taskId: details.archivedTaskId! }, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
+            >
+              <Ico>{I.term}</Ico>Aktivität anzeigen
             </button>
           )}
           <button
@@ -1684,10 +1704,21 @@ function Inspector(props: InspectorProps): JSX.Element | null {
               className="gact primary"
               onClick={() => {
                 const sessionId = team.lead && liveSessionIdFor(team.lead.id);
-                if (sessionId) props.onShowInDock(sessionId, `${team.lead!.name} · Lead · ${cluster.run.name}`);
+                if (sessionId) props.onShowInDock({ sessionId }, `${team.lead!.name} · Lead · ${cluster.run.name}`);
               }}
             >
               <Ico>{I.term}</Ico>Lead live zuschauen
+            </button>
+          )}
+          {team.lead && !liveSessionIdFor(team.lead.id) && leadDetails?.archivedTaskId && (
+            <button
+              className="gact"
+              onClick={() => props.onShowInDock(
+                { taskId: leadDetails.archivedTaskId! },
+                `${team.lead!.name} · Lead · ${cluster.run.name}`,
+              )}
+            >
+              <Ico>{I.term}</Ico>Lead-Aktivität anzeigen
             </button>
           )}
           <button
@@ -1745,9 +1776,17 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         {liveSessionId && (
           <button
             className="gact primary"
-            onClick={() => props.onShowInDock(liveSessionId, `${worker.name} · Worker · ${cluster.run.name}`)}
+            onClick={() => props.onShowInDock({ sessionId: liveSessionId }, `${worker.name} · Worker · ${cluster.run.name}`)}
           >
             <Ico>{I.term}</Ico>Live zuschauen
+          </button>
+        )}
+        {!liveSessionId && details.archivedTaskId && (
+          <button
+            className="gact"
+            onClick={() => props.onShowInDock({ taskId: details.archivedTaskId! }, `${worker.name} · Worker · ${cluster.run.name}`)}
+          >
+            <Ico>{I.term}</Ico>Aktivität anzeigen
           </button>
         )}
         <button

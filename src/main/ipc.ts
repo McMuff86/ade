@@ -26,6 +26,7 @@ import {
 import { PtyManager } from './pty/PtyManager';
 import { gitDiff, gitShowCommit, gitStatus, isGitRepo } from './git/GitService';
 import { agentFiles, fsDelete, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
+import { readTaskActivity } from './orchestration/MailboxService';
 import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
@@ -251,6 +252,18 @@ export function registerIpcHandlers(store: ConfigStore): void {
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 
   handle(IPC.PtyActivitySnapshot, ({ sessionId }) => ptyManager!.activitySnapshot(sessionId));
+
+  // Persisted feed of a managed task — readable after its session ended.
+  handle(IPC.RunTaskActivity, ({ taskId }) => {
+    const snapshot = orchestration!.snapshot();
+    const task = snapshot.tasks.find((candidate) => candidate.id === taskId);
+    if (!task) throw new Error(`ade: run task not found "${taskId}"`);
+    const participant = snapshot.participants.find(
+      (candidate) => candidate.id === task.participantId,
+    );
+    if (!participant) throw new Error(`ade: no participant for task "${taskId}"`);
+    return { lines: readTaskActivity(requireAgent(participant.agentId), task.runId, task.id) };
+  });
 
   handle(IPC.RunGet, () => orchestration!.snapshot());
   handle(IPC.RunGetSummary, ({ runId }) => orchestration!.summarize(runId));

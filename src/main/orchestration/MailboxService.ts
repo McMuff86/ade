@@ -1,5 +1,6 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { ActivityLine } from '../../shared/ipc';
 import type { Agent, RunMessage, StructuredTaskResult } from '../../shared/types';
 import type { OrchestrationService } from './OrchestrationService';
 import type { ManagedTaskFiles } from './runtimeAdapters';
@@ -60,6 +61,25 @@ export class MailboxService {
 function appendJsonLine(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, `${JSON.stringify(value)}\n`, 'utf8');
+}
+
+const ACTIVITY_READ_CAP = 20_000;
+
+/** Persisted activity of a managed task; read-only, absent file = no lines. */
+export function readTaskActivity(agent: Agent, runId: string, taskId: string): ActivityLine[] {
+  const path = join(agent.memoryDir, 'orchestration', safeSegment(runId), safeSegment(taskId), 'ACTIVITY.jsonl');
+  if (!existsSync(path)) return [];
+  const lines: ActivityLine[] = [];
+  for (const raw of readFileSync(path, 'utf8').split('\n')) {
+    if (!raw.trim()) continue;
+    try {
+      const parsed = JSON.parse(raw) as ActivityLine;
+      if (parsed && typeof parsed.text === 'string' && typeof parsed.kind === 'string') lines.push(parsed);
+    } catch {
+      // A torn tail line (crash mid-append) renders as absent, never as an error.
+    }
+  }
+  return lines.slice(-ACTIVITY_READ_CAP);
 }
 
 function safeSegment(value: string): string {

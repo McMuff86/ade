@@ -19,7 +19,7 @@ const GLYPH: Record<ActivityLine['kind'], string> = {
   error: '✕',
 };
 
-export function ActivityFeed({ sessionId }: { sessionId: string }): JSX.Element {
+export function ActivityFeed({ sessionId, taskId }: { sessionId?: string; taskId?: string }): JSX.Element {
   const [lines, setLines] = useState<ActivityLine[]>([]);
   const hostRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
@@ -27,6 +27,20 @@ export function ActivityFeed({ sessionId }: { sessionId: string }): JSX.Element 
   useEffect(() => {
     let live = true;
     setLines([]);
+    if (!sessionId) {
+      // Archived source: the persisted per-task feed, one read, no live tail.
+      if (taskId) {
+        void window.ade
+          .invoke('runTask:activity', { taskId })
+          .then((snapshot) => {
+            if (live) setLines(snapshot.lines);
+          })
+          .catch(() => undefined);
+      }
+      return () => {
+        live = false;
+      };
+    }
     const unsubscribe = window.ade.on('pty:activity', (payload) => {
       if (!live || payload.sessionId !== sessionId) return;
       setLines((current) => [...current, ...payload.lines]);
@@ -45,7 +59,7 @@ export function ActivityFeed({ sessionId }: { sessionId: string }): JSX.Element 
       live = false;
       unsubscribe();
     };
-  }, [sessionId]);
+  }, [sessionId, taskId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -61,7 +75,11 @@ export function ActivityFeed({ sessionId }: { sessionId: string }): JSX.Element 
   return (
     <div ref={hostRef} className="gactivity" onScroll={onScroll}>
       {lines.length === 0 && (
-        <div className="gactivity-empty">Warte auf die erste Aktivität des Agenten…</div>
+        <div className="gactivity-empty">
+          {sessionId
+            ? 'Warte auf die erste Aktivität des Agenten…'
+            : 'Keine aufgezeichnete Aktivität für diesen Task.'}
+        </div>
       )}
       {lines.map((line, index) => (
         <div key={index} className={`gactivity-line ${line.kind}`}>

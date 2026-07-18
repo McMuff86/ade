@@ -8,9 +8,9 @@
  */
 
 import { BrowserWindow } from 'electron';
-import { mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import * as os from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import * as pty from 'node-pty';
 import {
   IPC_EVENTS,
@@ -42,6 +42,8 @@ import {
 
 const RING_BUFFER_CAP = 256 * 1024;
 const ACTIVITY_LINE_CAP = 2_000;
+/** Persisted feed cap per task (JSONL lines in the task dir). */
+const ACTIVITY_FILE_CAP = 20_000;
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 32;
 const MAX_TASK_PROMPT_CHARS = 32_000;
@@ -83,7 +85,13 @@ interface Session {
   reapTimer?: ReturnType<typeof setTimeout>;
   forceStopTimer?: ReturnType<typeof setTimeout>;
   /** Live activity rendered from a machine-readable runtime stream. */
-  activity?: { parser: ClaudeActivityParser; lines: ActivityLine[] };
+  activity?: {
+    parser: ClaudeActivityParser;
+    lines: ActivityLine[];
+    /** Task-dir JSONL so the feed survives session end; best effort. */
+    filePath?: string;
+    persisted: number;
+  };
 }
 
 interface SpawnSpec {
@@ -376,7 +384,14 @@ export class PtyManager {
       stopping: false,
       removeOnExit: false,
       activity: managedLaunch?.activityFormat === 'claude-stream-json'
-        ? { parser: new ClaudeActivityParser(), lines: [] }
+        ? {
+            parser: new ClaudeActivityParser(),
+            lines: [],
+            filePath: managedLaunch.env['ADE_TASK_DIR']
+              ? join(managedLaunch.env['ADE_TASK_DIR'], 'ACTIVITY.jsonl')
+              : undefined,
+            persisted: 0,
+          }
         : undefined,
     };
     this.sessions.set(id, session);
@@ -407,6 +422,28 @@ export class PtyManager {
           session.activity.lines.splice(0, session.activity.lines.length - ACTIVITY_LINE_CAP);
         }
         this.broadcast(IPC_EVENTS.PtyActivity, { sessionId: id, lines: rendered });
+        // Feed survives session end: append to the task dir, best effort.
+        const feed = session.activity;
+        if (feed.filePath && feed.persisted < ACTIVITY_FILE_CAP) {
+          const slice = rendered.slice(0, ACTIVITY_FILE_CAP - feed.persisted);
+          try {
+            appendFileSync(
+              feed.filePath,
+              `${slice.map((line) => JSON.stringify(line)).join('\n')}\n`,
+              'utf8',
+            );
+            feed.persisted += slice.length;
+            if (feed.persisted >= ACTIVITY_FILE_CAP) {
+              appendFileSync(
+                feed.filePath,
+                `${JSON.stringify({ kind: 'error', text: '[ADE: Aktivitätslimit erreicht — weitere Zeilen werden nicht aufgezeichnet]' })}\n`,
+                'utf8',
+              );
+            }
+          } catch {
+            // Recording must never disturb the running task.
+          }
+        }
       }
     });
 

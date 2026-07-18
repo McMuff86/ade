@@ -503,6 +503,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyActivitySnapshot:
       validateIdRequest(channel, payload, 'sessionId');
       return;
+    case IPC.RunTaskActivity:
+      validateIdRequest(channel, payload, 'taskId');
+      return;
     case IPC.RunStart:
     case IPC.RunCancel:
       validateRunLifecycle(channel, payload);
