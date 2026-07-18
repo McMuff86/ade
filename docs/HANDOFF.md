@@ -45,7 +45,8 @@ Plan: `docs/goal6/VALIDATION_PLAN.md` · Ergebnisse: `docs/goal6/RESULTS.md`
 | F2 weapon-presentation-tests | ✅ `759e49db` (a2, Ehrlichkeitsprobe **bestanden**; a1 `37d41c5d` am Gate rejected) | ✅ `8d8e3ffe` | Wie F1 (~3× Zeit, ~3× Tokens) — **plus**: beide Managed-Worker fanden und dokumentierten den latenten `colorToCss`-Bug, die Baseline nicht |
 | F7 approval-durability | ✅ Approve + **Reject** (Gate überlebte 4 Neustarts) | — | **pass**, beide Richtungen entscheidend |
 | F5 arena-presets | ✅ `da58df3b` (a2; a1 `e10c0b42` scheiterte am 12k-Summary-Bug, gefixt) | ✅ `a9ec5adb` | **Kernfrage beantwortet: Parallelität schlägt den Einzelagenten auf dieser Taskgrösse NICHT** (34m47s vs 7m15s, ~4.8×; Planung allein 19m). Qualität gleich, Managed kauft Integration+Gate+Verifikation+Kosten-Sichtbarkeit ($22.57). 2 neue Findings gefixt (12k-Summary, 2k-Dependency-Cut) |
-| F4, F3, F6, F8 | offen | offen | Reihenfolge laut Plan: **F4 zuerst** (wann NICHT zerlegen) |
+| F4 rng-stream-split | ❌→**Messergebnis**: `982d8a8e` an Integration gescheitert (Cherry-Pick-Konflikt des dependent D3-Union-Commits; Rollback sauber) | ✅ `599c0b52` (3m 5s, 80/80) | **These bestätigt: Planner zerlegt gekoppelte S-Tasks, obwohl er nicht sollte** — und die gewählte Topologie ist strukturell inkompatibel mit dem Integrationsmodell (Architektur-Finding, Fix nach F8) |
+| F3, F6, F8 | offen | offen | Reihenfolge laut Plan: **F3 zuerst**, dann F6 (Overlap, 2 Worker, nur managed), F8 (nur managed) |
 
 Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
 (`810fed3`), `goal6/f2-a2-worker` (`e4fa6d7`), `goal6/f2-a2-integrated`

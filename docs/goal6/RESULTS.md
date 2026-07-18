@@ -31,6 +31,8 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `e10c0b42` F5 arena-presets (managed, a1) | F5 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→failed | 13m 48s | 13m 48s | 1/1 | 353638/30806 | 2.88 | 0 (0) | 1 | 0 | pass (fail-closed) | First live run with working stream telemetry (real tokens + cost even on a failed run). Worker D1 **succeeded** (tests green, 2 files in scope) but returned a 16,614-char summary; the hidden 12k `result.summary` cap rejected the whole otherwise-valid result, the task failed, the run failed closed and the siblings were cancelled — while the published RESULT.schema.json declared no length limits at all. No repo damage: work was uncommitted, archived off-worktree. Fix shipped before a2 (see finding). |
 | `da58df3b` F5v2 arena-presets (managed) | F5 | managed | 2026-07-18 | **completed** | full lifecycle incl. verify | 34m 47s | **33m 39s** | 6/0 | 7160507/179896 | **22.57** | 1 (3) | 0 | 1 (approval) | **pass** | First full multi-worker run (3 claude/bypass workers + orchestrator). Planner took ~19m and chose 3 tasks instead of 4-per-preset: D1 (shared type + Kessel + Brueckenbruch) ∥ D2 (shared type + Tiefenbau + Windgrat), then D3 (registry, dependsOn D1+D2) — and **dictated the canonical `ArenaPreset.ts` to both sides**; all three copies byte-identical (blob `6dc4580`), 3-commit integration conflict-free, read-only verification green. Workers documented real risks unprompted (umlaut byte-drift, canonicality check); D3 found the silent 2k dependency-summary cut (finding below). First run with end-to-end token/cost telemetry. Evidence refs: `goal6/f5-a2-worker-d1/-d2/-d3`, `goal6/f5-a2-integrated` (`41ee840`). |
 | `a9ec5adb` F5 arena-presets (baseline) | F5 | baseline | 2026-07-18 | **completed** | manual one-shot | **7m 15s** | 7m 15s | 1/0 | unknown in ADE (manual dispatch has no adapter telemetry); recovered from the Claude session transcript: ~3.232M in (mostly cache reads) / 133.2k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 895-char goal. 12 files under `src/game/arenas/` in its own coherent structure (`ArenaPresetRegistry.ts`, per-preset tests, extra `ArenaPreset.test.ts`) — independently verified: 109/109 tests, `tsc --noEmit` clean, zero tracked-file diffs. Result left uncommitted; no gate, no verification chain, no cost visibility. Evidence ref: `goal6/f5-baseline` (operator commit `efa879c`). |
+| `982d8a8e` F4 rng-stream-split (managed) | F4 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→approval→integrating→failed | 12m 25s | 11m 29s | 4/0 | 2027003/58558 | 7.45 | 0 (0) | **1 (rollback)** | 1 (approval) | **pass (fail-closed)** | The don't-decompose probe: the planner decomposed anyway (D1 primitives ∥ D2 call-site routing → D3 "integrate + verify"). All 4 tasks succeeded and the gate diff was scope-clean (machine-checked: only random.ts/random.test.ts/ArtilleryScene.ts) — but integration died in 10s: D3's worktree starts at base without D1/D2's git state, so it re-applied their diffs (`git show \| git apply`) and produced a base-rooted union commit that cherry-pick could not apply after D1+D2. Transactional rollback worked (orchestrator back on `81820b9`, clean, leases released). All three workers honestly reported that the planner's assignments demanded `git commit` against the ADE contract. Evidence refs: `goal6/f4-a1-worker-d1/-d2/-d3` (no integrated branch — integration failed). |
+| `599c0b52` F4 rng-stream-split (baseline) | F4 | baseline | 2026-07-18 | **completed** | manual one-shot | **3m 5s** | 3m 5s | 1/0 | unknown in ADE; recovered from the Claude session transcript: ~2.202M in / 50.0k out | unknown | — (no commit) | 0 | 0 | **pass** | Single agent, same 647-char goal, done in one pass: `random.ts` +26 (createRandomStreams, salted visual stream), `ArtilleryScene.ts` 56-line routing, new `random.test.ts` — independently verified: 80/80 tests, tsc clean. Evidence ref: `goal6/f4-baseline` (operator commit `e88897d`). |
 
 ## Per-fixture verdicts
 
@@ -87,9 +89,26 @@ Fill after both arms (or the safety protocol) are complete. Verdict values:
 - Verdict: _pending_
 
 ### F4 · rng-stream-split
-- Managed: _pending_
-- Baseline: _pending_
-- Verdict: _pending_
+- Managed (`982d8a8e`): **failed at integration** after 12m 25s and $7.45.
+  The planner did not recognize a task that should stay atomic: it split a
+  tightly coupled change (new API + call-site routing in one scene) into
+  D1 ∥ D2 → D3, and the dependent-integration topology collided with ADE's
+  linear cherry-pick model. Fail-closed behaved perfectly (rollback,
+  clean worktrees, honest journal).
+- Baseline (`599c0b52`): **completed in 3m 5s** — the whole change in one
+  pass, 80/80 tests + tsc independently verified.
+- Verdict: **worse — and exactly the lesson F4 was designed to teach.** The
+  planner over-decomposes S-sized coupled tasks; worse, the topology it
+  chooses for them (dependent task re-applying upstream diffs from base) is
+  structurally incompatible with the integration model, so the failure is
+  systematic, not bad luck. Two product consequences (deliberately deferred
+  until after F8 so F6/F8 measure current behavior): (1) planner guidance —
+  dependent tasks must not modify files their dependencies changed, and
+  single-worker plans deserve an explicit "decompose only if slices are
+  file-disjoint" rule; (2) architecture — either lease dependent workers a
+  worktree that already contains their dependencies' integrated state, or
+  teach integration to skip already-applied content. The F5 case only
+  survived because its D3 added byte-identical *new* files.
 
 ### F5 · arena-presets
 - Managed: attempt a1 failed closed on the 12k-summary validation bug (work
@@ -307,6 +326,29 @@ event seq), severity, resolution or follow-up work item.
   including on the failed a1 run ($2.88) and end-to-end on a2
   (7.16M in / 179.9k out, $22.57, per-task usage in the inspector). The
   run-bar/report "unknown" era is over for the claude adapter.
+- **2026-07-18 · reliability (HIGH, architectural) · run `982d8a8e` (F4
+  managed).** Integration failed closed on `git cherry-pick` of the
+  dependent task's commit: a `dependsOn` worker's worktree starts at the
+  run base **without** its dependencies' git state — upstream results
+  arrive only as information (TASK_CONTEXT summaries) — so D3 re-applied
+  the upstream diffs itself (`git show <sha> \| git apply`) and its
+  base-rooted commit necessarily duplicated D1/D2 hunks; the linear
+  cherry-pick chain then conflicted and the transaction rolled back
+  (correctly: orchestrator worktree clean on base, leases released, run
+  failed with the full git error journaled). F5's D3 survived the same
+  topology only because its duplicates were byte-identical *added* files.
+  Fix options (deferred until after F8 to keep F6/F8 measuring current
+  behavior): dependency-aware worktree bases, integration that tolerates
+  already-applied content, or planner rules forbidding dependent tasks
+  from touching dependency-modified files.
+- **2026-07-18 · planner prompt friction · run `982d8a8e` (F4 managed).**
+  All three worker assignments instructed the workers to `git commit` and
+  report the SHA — directly contradicting the ADE structured-result
+  contract (workers must not commit; ADE creates the commit from the
+  validated diff). All three workers resolved the conflict in favor of the
+  contract and documented it in their risk reports. Work item: the planner
+  prompt should state the worker-side git rules so plans stop embedding
+  contradictory instructions.
 
 ## Go/no-go decision (Goal 7 gate)
 
