@@ -1,11 +1,13 @@
 /** Production-build Electron workflow for Windows and native POSIX desktops. */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
+import { publicationBranch } from '../src/main/publishing/PublicationService';
 
 let passed = 0;
 let failed = 0;
@@ -160,7 +162,7 @@ function seedConfig(
       agentId: item.id,
       repositoryId,
       workspaceDir: item.workspaceDir,
-      branch: `e2e/${item.id}`,
+      branch: `ade/${item.id}`,
       status: 'ready' as const,
       createdAt: now + index,
       lastUsedAt: now + index,
@@ -250,8 +252,13 @@ function seedConfig(
   writeFileSync(join(configDir, 'config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 
-function createManagedWorktrees(root: string): { repo: string; workspaces: Record<string, string> } {
+function createManagedWorktrees(root: string): {
+  repo: string;
+  remote: string;
+  workspaces: Record<string, string>;
+} {
   const repo = join(root, 'managed-repo');
+  const remote = join(root, 'managed-remote.git');
   mkdirSync(repo, { recursive: true });
   git(repo, ['init', '--initial-branch=main']);
   git(repo, ['config', 'user.email', 'ade-e2e@example.invalid']);
@@ -259,18 +266,177 @@ function createManagedWorktrees(root: string): { repo: string; workspaces: Recor
   writeFileSync(join(repo, 'baseline.txt'), 'managed e2e baseline\n', 'utf8');
   git(repo, ['add', 'baseline.txt']);
   git(repo, ['commit', '-m', 'managed e2e baseline']);
+  git(root, ['init', '--bare', remote]);
+  gitBare(remote, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  const githubUrl = 'https://github.com/ade-e2e/managed.git';
+  git(repo, ['remote', 'add', 'origin', githubUrl]);
+  git(repo, ['config', `url.${pathToFileURL(remote).toString()}.insteadOf`, githubUrl]);
+  git(repo, ['push', '-u', 'origin', 'main']);
   const workspaces: Record<string, string> = {};
   mkdirSync(join(root, 'managed-worktrees'), { recursive: true });
   for (const id of ['e2e-orchestrator', 'e2e-lead', 'e2e-worker']) {
     const path = join(root, 'managed-worktrees', id);
-    git(repo, ['worktree', 'add', '-b', `e2e/${id}`, path, 'HEAD']);
+    git(repo, ['worktree', 'add', '-b', `ade/${id}`, path, 'HEAD']);
     workspaces[id] = path;
   }
-  return { repo, workspaces };
+  return { repo, remote, workspaces };
 }
 
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true });
+}
+
+function gitBare(repository: string, args: string[]): string {
+  return execFileSync('git', ['--git-dir', repository, ...args], { encoding: 'utf8', windowsHide: true });
+}
+
+function bareRef(repository: string, ref: string): string | null {
+  try {
+    return execFileSync('git', ['--git-dir', repository, 'rev-parse', '--verify', ref], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function writeFakeGithubCli(root: string, remote: string): { bin: string; statePath: string } {
+  const bin = join(root, 'fake-gh-bin');
+  const statePath = join(root, 'fake-gh-state.json');
+  mkdirSync(bin, { recursive: true });
+  const scriptPath = join(bin, 'gh.cjs');
+  const source = `
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const statePath = process.env.ADE_E2E_FAKE_GH_STATE;
+const remote = process.env.ADE_E2E_MANAGED_REMOTE;
+const repo = 'ade-e2e/managed';
+const read = () => {
+  try { return JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return null; }
+};
+const write = (value) => fs.writeFileSync(statePath, JSON.stringify(value) + '\\n', 'utf8');
+const field = (name) => args[args.indexOf(name) + 1];
+if (args[0] === 'auth' && args[1] === 'status') {
+  process.stdout.write('authenticated fixture\\n');
+} else if (args[0] === 'repo' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({ nameWithOwner: repo }) + '\\n');
+} else if (args[0] === 'pr' && args[1] === 'list') {
+  const state = read();
+  process.stdout.write(JSON.stringify(state ? [state] : []) + '\\n');
+} else if (args[0] === 'pr' && args[1] === 'create') {
+  const head = field('--head');
+  const base = field('--base');
+  if (!args.includes('--draft') || !head || !base) process.exit(7);
+  const headSha = execFileSync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/' + head], { encoding: 'utf8' }).trim();
+  const state = {
+    number: 71,
+    url: 'https://github.com/' + repo + '/pull/71',
+    isDraft: true,
+    state: 'OPEN',
+    baseRefName: base,
+    headRefName: head,
+    headRefOid: headSha,
+    statusCheckRollup: [{ name: 'E2E CI', status: 'IN_PROGRESS', conclusion: '' }],
+  };
+  write(state);
+  process.stdout.write(state.url + '\\n');
+} else if (args[0] === 'pr' && args[1] === 'view') {
+  const state = read();
+  if (!state) process.exit(8);
+  process.stdout.write(JSON.stringify(state) + '\\n');
+} else {
+  process.stderr.write('unsupported fake gh command: ' + args.join(' ') + '\\n');
+  process.exit(9);
+}
+`;
+  writeFileSync(scriptPath, source, 'utf8');
+  if (isWindows) {
+    const csharpPath = join(bin, 'GhFixture.cs');
+    const executablePath = join(bin, 'gh.exe');
+    const csharp = String.raw`
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+
+public static class GhFixture {
+  private static string Field(string[] args, string name) {
+    int index = Array.IndexOf(args, name);
+    return index >= 0 && index + 1 < args.Length ? args[index + 1] : "";
+  }
+
+  private static string Escape(string value) {
+    return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+  }
+
+  private static string PullRequest(string head, string baseBranch, string headSha) {
+    return "{\"number\":71,\"url\":\"https://github.com/ade-e2e/managed/pull/71\","
+      + "\"isDraft\":true,\"state\":\"OPEN\",\"baseRefName\":\"" + Escape(baseBranch) + "\","
+      + "\"headRefName\":\"" + Escape(head) + "\",\"headRefOid\":\"" + Escape(headSha) + "\","
+      + "\"statusCheckRollup\":[{\"name\":\"E2E CI\",\"status\":\"IN_PROGRESS\",\"conclusion\":\"\"}]}";
+  }
+
+  public static int Main(string[] args) {
+    string statePath = Environment.GetEnvironmentVariable("ADE_E2E_FAKE_GH_STATE");
+    if (args.Length >= 2 && args[0] == "auth" && args[1] == "status") {
+      Console.WriteLine("authenticated fixture");
+      return 0;
+    }
+    if (args.Length >= 2 && args[0] == "repo" && args[1] == "view") {
+      Console.WriteLine("{\"nameWithOwner\":\"ade-e2e/managed\"}");
+      return 0;
+    }
+    if (args.Length >= 2 && args[0] == "pr" && args[1] == "list") {
+      Console.WriteLine(File.Exists(statePath) ? "[" + File.ReadAllText(statePath).Trim() + "]" : "[]");
+      return 0;
+    }
+    if (args.Length >= 2 && args[0] == "pr" && args[1] == "create") {
+      string head = Field(args, "--head");
+      string baseBranch = Field(args, "--base");
+      if (!args.Contains("--draft") || head.Length == 0 || baseBranch.Length == 0) return 7;
+      var info = new ProcessStartInfo("git", "rev-parse HEAD");
+      info.UseShellExecute = false;
+      info.RedirectStandardOutput = true;
+      info.CreateNoWindow = true;
+      using (var process = Process.Start(info)) {
+        string headSha = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        if (process.ExitCode != 0) return 8;
+        File.WriteAllText(statePath, PullRequest(head, baseBranch, headSha) + Environment.NewLine);
+      }
+      Console.WriteLine("https://github.com/ade-e2e/managed/pull/71");
+      return 0;
+    }
+    if (args.Length >= 2 && args[0] == "pr" && args[1] == "view") {
+      if (!File.Exists(statePath)) return 8;
+      Console.WriteLine(File.ReadAllText(statePath).Trim());
+      return 0;
+    }
+    Console.Error.WriteLine("unsupported fake gh command: " + string.Join(" ", args));
+    return 9;
+  }
+}
+`;
+    writeFileSync(csharpPath, csharp, 'utf8');
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      'Add-Type -Path $env:ADE_FIXTURE_CS -OutputAssembly $env:ADE_FIXTURE_EXE -OutputType ConsoleApplication',
+    ], {
+      env: { ...process.env, ADE_FIXTURE_CS: csharpPath, ADE_FIXTURE_EXE: executablePath },
+      timeout: 60_000,
+      windowsHide: true,
+    });
+  } else {
+    const launcher = join(bin, 'gh');
+    writeFileSync(launcher, '#!/bin/sh\nexec node "$(dirname "$0")/gh.cjs" "$@"\n', 'utf8');
+    chmodSync(launcher, 0o755);
+  }
+  return { bin, statePath };
 }
 
 function writeManagedFixture(
@@ -356,6 +522,7 @@ async function run(): Promise<void> {
   const fixturePath = join(scratch, 'managed-fixture.cjs');
   writeManagedFixture(fixturePath);
   const managed = createManagedWorktrees(scratch);
+  const fakeGithub = writeFakeGithubCli(scratch, managed.remote);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
 
   let app: ElectronApplication | null = null;
@@ -388,6 +555,9 @@ async function run(): Promise<void> {
         ...process.env,
         ADE_USER_DATA_DIR: userData,
         ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS: '900',
+        ADE_E2E_FAKE_GH_STATE: fakeGithub.statePath,
+        ADE_E2E_MANAGED_REMOTE: managed.remote,
+        PATH: `${fakeGithub.bin}${delimiter}${process.env['PATH'] ?? ''}`,
         NODE_ENV: 'test',
       },
       timeout: 20_000,
@@ -670,7 +840,13 @@ async function run(): Promise<void> {
     const completedSnapshot = await page.evaluate(async () => {
       const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
       return await api.invoke('run:get') as {
-        tasks: Array<{ runId: string; phase: string }>;
+        runs: Array<{
+          id: string;
+          verifiedHeadSha?: string;
+          verificationTaskId?: string;
+          verifiedAt?: number;
+        }>;
+        tasks: Array<{ id: string; runId: string; phase: string; expectedHeadSha?: string }>;
         results: Array<{ runId: string }>;
         approvals: Array<{ runId: string; status: string }>;
         workspaceLeases: Array<{
@@ -678,10 +854,12 @@ async function run(): Promise<void> {
           participantId: string;
           status: string;
           workspaceDir: string;
+          baseSha: string;
         }>;
       };
     });
     const completedTasks = completedSnapshot.tasks.filter((task) => task.runId === 'e2e-managed-run');
+    const completedRun = completedSnapshot.runs.find((run) => run.id === 'e2e-managed-run');
     const completedResults = completedSnapshot.results.filter((result) => result.runId === 'e2e-managed-run');
     const completedApprovals = completedSnapshot.approvals.filter((approval) => approval.runId === 'e2e-managed-run');
     const completedLeases = completedSnapshot.workspaceLeases.filter((lease) => lease.runId === 'e2e-managed-run');
@@ -690,6 +868,11 @@ async function run(): Promise<void> {
     check('Electron approval is durable and all leases release after verification',
       completedApprovals.some((approval) => approval.status === 'approved') &&
       completedLeases.every((lease) => lease.status === 'released'));
+    check('completed repository run persists an immutable verification attestation',
+      Boolean(completedRun?.verifiedHeadSha)
+      && completedRun?.verificationTaskId === completedTasks.find((task) => task.phase === 'verify')?.id
+      && completedTasks.find((task) => task.phase === 'verify')?.expectedHeadSha === completedRun?.verifiedHeadSha
+      && typeof completedRun?.verifiedAt === 'number');
     const integrationWorkspace = completedLeases.find(
       (lease) => lease.participantId === 'e2e-orchestrator-participant',
     )?.workspaceDir;
@@ -700,6 +883,58 @@ async function run(): Promise<void> {
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'orchestration-completed.png'), fullPage: true });
     }
+
+    const publicationRef = publicationBranch({ id: 'e2e-managed-run', name: 'Managed E2E Run' });
+    check('publication branch does not exist before explicit UI confirmation',
+      bareRef(managed.remote, `refs/heads/${publicationRef}`) === null);
+    await page.getByRole('button', { name: 'Draft-PR', exact: true }).click();
+    const publicationDialog = page.getByRole('dialog', { name: 'Verifizierten Draft-PR veröffentlichen' });
+    await publicationDialog.waitFor({ state: 'visible' });
+    await eventually('publication preview proves repository, base, head and provider', async () => {
+      const text = await publicationDialog.textContent();
+      return text?.includes('ade-e2e/managed') === true
+        && text.includes(publicationRef)
+        && text.includes('GitHub CLI im Repo-Backend');
+    }, 20_000);
+    const publishButton = publicationDialog.getByRole('button', { name: 'Branch pushen & Draft-PR anlegen' });
+    check('publication modal owns focus and external mutation stays disabled before confirmation',
+      await publishButton.isDisabled()
+        && await publicationDialog.getByRole('button', { name: 'Schließen' }).first()
+          .evaluate((element) => element === document.activeElement));
+    await publicationDialog.getByRole('checkbox').check();
+    await publishButton.click();
+    await eventually('Electron publication flow creates and verifies the Draft PR', async () =>
+      (await publicationDialog.textContent())?.includes('Draft-PR #71 ist angelegt') === true,
+    20_000);
+    const publishedSnapshot = await page.evaluate(async () => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
+      return await api.invoke('run:get') as {
+        publications: Array<{
+          runId: string;
+          status: string;
+          headBranch: string;
+          headSha: string;
+          prNumber?: number;
+          prUrl?: string;
+        }>;
+      };
+    });
+    const published = publishedSnapshot.publications.find((item) => item.runId === 'e2e-managed-run');
+    check('Draft PR identity and exact attested SHA persist through Electron IPC',
+      published?.status === 'draft'
+      && published.headBranch === publicationRef
+      && published.headSha === completedRun?.verifiedHeadSha
+      && published.prNumber === 71);
+    check('real publication push creates only the new ADE ref and leaves main unchanged',
+      bareRef(managed.remote, `refs/heads/${publicationRef}`) === completedRun?.verifiedHeadSha
+      && bareRef(managed.remote, 'refs/heads/main') === completedLeases[0]?.baseSha);
+    check('publication UI exposes only the verified credential-free GitHub PR URL',
+      await publicationDialog.getByRole('link', { name: 'Auf GitHub öffnen' }).getAttribute('href')
+        === 'https://github.com/ade-e2e/managed/pull/71');
+    if (evidenceDir) {
+      await page.screenshot({ path: join(resolve(evidenceDir), 'verified-draft-pr.png'), fullPage: true });
+    }
+    await publicationDialog.getByRole('button', { name: 'Schließen' }).first().click();
     await page.keyboard.press('Control+1');
     await eventually('Ctrl+1 returns to Terminals mode', async () =>
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true',
@@ -1010,6 +1245,7 @@ async function run(): Promise<void> {
           status: string;
         }>;
         runs: Array<{ id: string; status: string; repositoryId?: string | null }>;
+        runPublications: Array<{ runId: string; status: string; prNumber?: number; headSha: string }>;
       };
     });
     check('full app restart retains repository catalog, new binding and run scope',
@@ -1026,6 +1262,12 @@ async function run(): Promise<void> {
             && run.status === 'completed'
             && run.repositoryId === 'e2e-managed-repository'
         )));
+    check('full app restart preserves the verified Draft PR audit record',
+      restartedConfig.runPublications.some((publication) => (
+        publication.runId === 'e2e-managed-run'
+          && publication.status === 'draft'
+          && publication.prNumber === 71
+      )));
 
     if (runWslBackend) {
       const restartedWslRepository = restartedConfig.repositories.find(

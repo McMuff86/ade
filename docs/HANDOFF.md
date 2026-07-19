@@ -1,13 +1,34 @@
 # Handoff — 2026-07-19
 
-Dieser Handoff beschreibt den zusammenhängenden Stand des aktuellen
-Plattformabschlusses. Der vorherige Codex-/Goal-6-Abschluss (`7902b96`), die
-Linux-/WSL-Implementierung (`3762b00`) und die auf dem ersten Hosted-Run
-entdeckte E2E-Wartebedingung (`d32faa9`) sind auf `origin/main` veröffentlicht.
-Der Abschlusszustand verlangt identisches lokales `main`/`origin/main` und
-einen sauberen Git-Worktree.
+Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
+Abschluss und dem neuen verifizierten Draft-PR-Workflow. Der vorherige Codex-/
+Goal-6-Abschluss (`7902b96`), die Linux-/WSL-Implementierung (`3762b00`) und die
+auf dem ersten Hosted-Run entdeckte E2E-Wartebedingung (`d32faa9`) sind auf
+`origin/main` veröffentlicht. Der neue Publishing-Stand ist durch den
+vollständigen Gate verifiziert und wird mit diesem Handoff auf ADE-`main`
+veröffentlicht; der Abschlusszustand ist identisches lokales
+`main`/`origin/main` und ein sauberer Git-Worktree.
 
 ## Ergebnis dieser Session
+
+- ADE besitzt jetzt einen **lokalen, expliziten Verified-Publishing-Flow**:
+  erfolgreicher Managed Run → unveränderliches HEAD-/Verify-Attest → read-only
+  Preview → separate Checkbox-Bestätigung → neuer `ade/run-*`-Branch → GitHub
+  Draft PR. Es gibt keinen ADE-Befehl für direkten `main`-Push, Merge,
+  Auto-Merge, Ref-Überschreiben oder Branch-Löschung.
+- Der Main-Prozess prüft vor der Mutation erneut Repository/Backend, freigegebene
+  Lease, sauberes identisches HEAD, approved Integration, finale Testevidenz,
+  unveränderte Remote-Default-Base, GitHub-`origin`, Ref-Kollision und `gh`-
+  Zugriff. Ein unterbrochener/teilweiser Versuch wird dauerhaft als Fehler
+  protokolliert und kann nur gegen exakt denselben Branch/HEAD wiederholt werden.
+- Native und WSL-Repositories verwenden Git und `gh` ausschließlich in ihrem
+  gespeicherten Backend. Für WSL muss `gh` in der Distro installiert und
+  authentifiziert sein. Der zukünftige mobile Host erhält absichtlich keinen
+  Publish-Endpunkt.
+- Diese Garantie schützt ADEs eigenen Produktpfad. Der gewünschte Codex-
+  Bypass-Modus ist ein bewusst voll vertrauter OS-Prozess und kann unabhängig
+  auf vorhandene Git-Credentials zugreifen; echte Isolation erfordert einen
+  Nicht-Bypass-/Container-/Credential-Boundary.
 
 - **Goal 6 bleibt abgeschlossen**; F1-F8, Einzelagent-Arme, Negativkontrollen
   und das begrenzte GO für Goal 7 stehen vollständig in
@@ -79,12 +100,14 @@ Windows-Ordner oben behält die beiden fertigen Pakete.
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
 - beide TypeScript-Projekte grün;
-- **410/410** fokussierte Unit-/Integrations-/Security-Assertions:
+- **446/446** fokussierte Unit-/Integrations-/Security-Assertions:
   Memory 27, Dispatch 12, Runtime 29, Execution-Backends 16,
-  Orchestration 45, Orchestration-Beta 100, Prompts 31,
-  Repository-Scopes 43, Workspace-FS 7, Security 100;
+  Orchestration 46, Orchestration-Beta 101, Publication 29, Prompts 31,
+  Repository-Scopes 43, Workspace-FS 7, Security 105;
 - Production-Build grün;
-- **47/47** reale Electron-/Playwright-Checks grün.
+- **56/56** reale Electron-/Playwright-Checks grün, inklusive disabled-before-
+  confirm, realem isoliertem Git-Push, unverändertem Remote-`main`, Draft-PR-
+  Audit und Persistenz nach App-Neustart.
 
 Realer Windows-GUI→Ubuntu-Backend:
 
@@ -124,6 +147,9 @@ GitHub Actions auf `d32faa9`:
 
 - Die erweiterten WSL-Tests hinterließen keine Test-Repositories, Worktrees,
   Prompt-Scratchpads oder ADE-Testprozesse.
+- Auch der Publishing-/Playwright-Gate hinterließ keine temporären Repositories
+  oder Test-App-Prozesse. Die bereits laufende echte ADE-Instanz mit dem normalen
+  `%APPDATA%\ade`-Profil wurde erkannt und bewusst nicht beendet.
 - Keine aktiven Goal-6-Runs oder Leases; das Pilot-Originalrepo und sein
   `main` bleiben unverändert auf `81820b9`. Fremde lokale Änderungen dort
   niemals anfassen oder bereinigen.
@@ -151,17 +177,29 @@ GitHub Actions auf `d32faa9`:
   lesen Repository-Anweisungen normal, aber ADE injiziert den Windows-eigenen
   Memory-Block noch nicht in ein Linux-Worktree.
 - macOS bleibt vorbereitet, aber ungeprüft und ungepackt.
+- Verified Publishing unterstützt zuerst nur GitHub über `origin`. Es verlangt
+  eine exakt unveränderte Remote-Base und führt keinen Rebase/Branch-Update aus.
+  Alte abgeschlossene Runs ohne neues Verification-Attest müssen neu laufen.
+  Der neue Slice ist lokal auf Windows verifiziert und muss im nächsten Hosted-
+  /Native-Linux-Lauf in die dortige Evidenz aufgenommen werden. Push-Hooks sind
+  absichtlich deaktiviert; Git-LFS-/Hook-abhängige Repositories brauchen vorerst
+  einen manuellen Publish oder einen späteren expliziten Provider-Vertrag.
 
 ## Nächste Schritte
 
-1. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
+1. Nach dem ADE-Commit einen sauberen, separaten Worktree aus den bereits
+   verifizierten Goal-6-Integrationsbranches für einen
+   `2D_rpg_jumpnrun`-Quality-Kandidaten aufbauen und vollständig testen. Den
+   vorhandenen schmutzigen Original-Worktree nicht verändern; externer Push/
+   Draft-PR erst nach eigener Operator-Freigabe.
+2. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
-2. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
+3. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
    Onboarding integrieren.
-3. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
+4. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
    deaktiviert, loopback-only, versionierte DTOs, Auth/Audit, Idempotency und
    keine Roh-PTY-/Filesystem-Exposition.
-4. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
+5. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
    dann macOS/Updater als eigene Release-Tracks angehen.
 
 Operator-Kommandos:

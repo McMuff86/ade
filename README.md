@@ -46,10 +46,16 @@ terminals around named agents.
   worker commit ranges, and finishes with integration review plus read-only
   verification. Codex uses native JSONL/schema output; other CLIs can use the
   inspectable file-mailbox contract.
+- **Verified Draft-PR publishing**: after a completed repository-backed managed
+  run, Graph can re-check the exact verified HEAD, unchanged remote base,
+  GitHub access and generated `ade/**` ref. A separate operator confirmation
+  creates only that new branch plus a Draft Pull Request; ADE has no direct
+  `main` push or merge operation.
 
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
 Repository-scope plan: `docs/REPOSITORY_SCOPES_PLAN.md` · Remote-control plan:
-`docs/REMOTE_CONTROL_PLAN.md` · Reference analyses: `docs/reports/`
+`docs/REMOTE_CONTROL_PLAN.md` · Verified-publishing contract:
+`docs/VERIFIED_PUBLISHING_PLAN.md` · Reference analyses: `docs/reports/`
 
 ## Run
 
@@ -64,7 +70,7 @@ real Electron/ConPTY workflow against an isolated temporary profile.
 
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
 `pnpm test:runtime`, `pnpm test:backends`, `pnpm test:orchestration`,
-`pnpm test:orchestration-beta`, `pnpm test:prompts`,
+`pnpm test:orchestration-beta`, `pnpm test:publication`, `pnpm test:prompts`,
 `pnpm test:repositories`, `pnpm test:workspace-fs`, and
 `pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
@@ -79,6 +85,40 @@ role-aware reasoning (`xhigh` for the orchestrator) and durable `AGENTS.md`.
 Apply also archives and removes a stale `CLAUDE.md` only when the complete file
 consists of ADE-owned memory/role fences; mixed or user-owned files are preserved.
 Shell utility identities remain shell identities.
+
+## Verified Draft Pull Requests
+
+A completed managed run now records its final Git HEAD, verification-task id
+and verification time atomically with completion. In Graph, select that run
+and choose **Draft-PR**. ADE first shows a read-only preflight with the exact
+repository, base/head SHAs, generated branch, changed files and final test
+commands. Only the separate confirmation checkbox enables the external write.
+
+The first provider supports a GitHub `origin` and the GitHub CLI. Install and
+authenticate `gh` in the same execution backend as the repository:
+
+```powershell
+gh auth login --hostname github.com
+```
+
+For a `wsl:<distribution>` repository, run that command inside the selected
+distribution; ADE does not reuse Windows Git or Windows `gh` credentials. The
+remote default branch must still equal the run's original base SHA, the
+verified worktree must remain clean at the attested HEAD, and the generated
+remote branch must not point elsewhere. A legacy completed run without the new
+attestation must be run and verified again.
+
+ADE then creates a new `ade/run-*` branch and a Draft PR, persists its audit
+record and displays the provider CI rollup. It never updates or merges the
+default branch. Configure required checks and branch protection in each target
+repository and keep the final merge a human decision. The complete fail-closed
+contract and recovery behavior are in `docs/VERIFIED_PUBLISHING_PLAN.md`.
+
+This gate protects ADE's own publishing path; it is not an OS sandbox. ADE
+does not inject provider credentials into managed-task contracts, but a Codex
+agent deliberately launched in bypass mode is a fully trusted process and may
+independently reach ambient Git credentials. Use a non-bypass or separately
+isolated credential boundary for agents that are not fully trusted.
 
 ## Keyboard
 

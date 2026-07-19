@@ -28,6 +28,10 @@ function isSha256(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 }
 
+function isGitObjectId(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{40,64}$/.test(value);
+}
+
 /** Normalize older config files and import their persisted Graph topology once. */
 export function normalizeConfig(
   raw: Partial<AdeConfig>,
@@ -51,29 +55,49 @@ export function normalizeConfig(
     workspaceBindings: scopeMigration.workspaceBindings,
     agentTemplates: arrayOrEmpty(raw.agentTemplates),
     runs: arrayOrEmpty(raw.runs).map((run) => {
-      const { contextManifestHash, ...legacyRun } = run;
+      const {
+        contextManifestHash,
+        verifiedHeadSha,
+        verificationTaskId,
+        verifiedAt,
+        ...legacyRun
+      } = run;
+      const hasVerificationAttestation = isGitObjectId(verifiedHeadSha)
+        && typeof verificationTaskId === 'string'
+        && verificationTaskId.trim().length > 0
+        && typeof verifiedAt === 'number'
+        && Number.isFinite(verifiedAt)
+        && verifiedAt > 0;
       return {
         ...legacyRun,
         mode: run.mode ?? 'manual',
         phase: run.phase ?? (run.status === 'running' ? 'working' : run.status),
         budget: { ...DEFAULT_RUN_BUDGET, ...(run.budget ?? {}) },
         ...(isSha256(contextManifestHash) ? { contextManifestHash } : {}),
+        ...(hasVerificationAttestation
+          ? { verifiedHeadSha, verificationTaskId, verifiedAt }
+          : {}),
       };
     }),
     runParticipants: arrayOrEmpty(raw.runParticipants),
-    runTasks: arrayOrEmpty(raw.runTasks).map((task) => ({
-      ...task,
-      title: task.title ?? task.prompt.slice(0, 80),
-      phase: task.phase ?? 'manual',
-      managed: task.managed ?? false,
-      dependsOn: arrayOrEmpty(task.dependsOn),
-      attempt: task.attempt ?? 1,
-    })),
+    runTasks: arrayOrEmpty(raw.runTasks).map((task) => {
+      const { expectedHeadSha, ...legacyTask } = task;
+      return {
+        ...legacyTask,
+        title: task.title ?? task.prompt.slice(0, 80),
+        phase: task.phase ?? 'manual',
+        managed: task.managed ?? false,
+        dependsOn: arrayOrEmpty(task.dependsOn),
+        attempt: task.attempt ?? 1,
+        ...(isGitObjectId(expectedHeadSha) ? { expectedHeadSha } : {}),
+      };
+    }),
     runEvents: arrayOrEmpty(raw.runEvents),
     runArtifacts: arrayOrEmpty(raw.runArtifacts),
     runTaskResults: arrayOrEmpty(raw.runTaskResults),
     runApprovals: arrayOrEmpty(raw.runApprovals),
     runWorkspaceLeases: arrayOrEmpty(raw.runWorkspaceLeases),
+    runPublications: arrayOrEmpty(raw.runPublications),
     runMessages: arrayOrEmpty(raw.runMessages),
     commandLog: arrayOrEmpty(raw.commandLog),
     settings: {
@@ -95,6 +119,7 @@ export function normalizeConfig(
     !Array.isArray(raw.runTaskResults) ||
     !Array.isArray(raw.runApprovals) ||
     !Array.isArray(raw.runWorkspaceLeases) ||
+    !Array.isArray(raw.runPublications) ||
     !Array.isArray(raw.runMessages) ||
     !Array.isArray(raw.commandLog) ||
     !Array.isArray(raw.repositories) ||
@@ -106,14 +131,23 @@ export function normalizeConfig(
       run.phase !== raw.runs?.[index]?.phase ||
       raw.runs?.[index]?.budget === undefined ||
       (raw.runs?.[index]?.contextManifestHash !== undefined &&
-        !isSha256(raw.runs[index]!.contextManifestHash))
+        !isSha256(raw.runs[index]!.contextManifestHash)) ||
+      ((raw.runs?.[index]?.verifiedHeadSha !== undefined
+        || raw.runs?.[index]?.verificationTaskId !== undefined
+        || raw.runs?.[index]?.verifiedAt !== undefined) && (
+        run.verifiedHeadSha !== raw.runs[index]!.verifiedHeadSha ||
+        run.verificationTaskId !== raw.runs[index]!.verificationTaskId ||
+        run.verifiedAt !== raw.runs[index]!.verifiedAt
+      ))
     )) ||
     config.runTasks.some((task, index) => (
       task.phase !== raw.runTasks?.[index]?.phase ||
       task.title !== raw.runTasks?.[index]?.title ||
       task.managed !== raw.runTasks?.[index]?.managed ||
       raw.runTasks?.[index]?.dependsOn === undefined ||
-      task.attempt !== raw.runTasks?.[index]?.attempt
+      task.attempt !== raw.runTasks?.[index]?.attempt ||
+      (raw.runTasks?.[index]?.expectedHeadSha !== undefined
+        && task.expectedHeadSha !== raw.runTasks[index]!.expectedHeadSha)
     ));
 
   if (!hadRunSchema) {

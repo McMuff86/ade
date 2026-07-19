@@ -257,6 +257,9 @@ export type RunEventType =
   | 'workspace.released'
   | 'message.sent'
   | 'integration.applied'
+  | 'publication.requested'
+  | 'publication.completed'
+  | 'publication.failed'
   | 'budget.exhausted'
   | 'artifact.created'
   | 'team.paused'
@@ -303,9 +306,15 @@ export interface Run {
   repositoryId?: string | null;
   /**
    * Main-owned SHA-256 of the canonical run-context manifest. Older runs do
-   * not have one and intentionally cannot restore context from artifacts.
-   */
+  * not have one and intentionally cannot restore context from artifacts.
+  */
   contextManifestHash?: string;
+  /** Immutable Git HEAD inspected by the final read-only verifier. */
+  verifiedHeadSha?: string;
+  /** Managed verification task whose successful result attested verifiedHeadSha. */
+  verificationTaskId?: string;
+  /** Timestamp committed atomically with managed-run completion. */
+  verifiedAt?: number;
   /**
    * Teams whose queued managed work the scheduler must skip. Materialized from
    * the team.paused/team.resumed journal events; running tasks are unaffected.
@@ -344,6 +353,8 @@ export interface RunTask {
   repositoryId?: string | null;
   workspaceBindingId?: string;
   workspaceDir?: string;
+  /** Repo HEAD that a read-only verification task must leave unchanged. */
+  expectedHeadSha?: string;
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
@@ -423,6 +434,54 @@ export interface RunWorkspaceLease {
   status: 'active' | 'released';
   acquiredAt: number;
   releasedAt?: number;
+}
+
+export type PublicationProvider = 'github';
+export type RunPublicationStatus = 'publishing' | 'draft' | 'failed';
+export type PublicationCiStatus = 'none' | 'pending' | 'passed' | 'failed';
+
+/** Durable audit record for one explicit post-verification publication. */
+export interface RunPublication {
+  id: string;
+  runId: string;
+  repositoryId: string;
+  provider: PublicationProvider;
+  /** Credential-free provider identity, for example owner/repository. */
+  providerRepository: string;
+  remoteName: 'origin';
+  baseBranch: string;
+  headBranch: string;
+  baseSha: string;
+  headSha: string;
+  status: RunPublicationStatus;
+  createdAt: number;
+  updatedAt: number;
+  prNumber?: number;
+  prUrl?: string;
+  /** Bounded, credential-redacted failure detail. */
+  error?: string;
+}
+
+/** Read-only preflight rendered before an external publication is confirmed. */
+export interface RunPublicationPreview {
+  runId: string;
+  eligible: boolean;
+  reasons: string[];
+  repositoryName?: string;
+  provider: PublicationProvider | null;
+  providerRepository?: string;
+  remoteName: 'origin';
+  baseBranch?: string;
+  headBranch?: string;
+  baseSha?: string;
+  headSha?: string;
+  commitCount: number;
+  changedFiles: string[];
+  changedFilesTruncated: boolean;
+  verificationCommands: string[];
+  title?: string;
+  ciStatus: PublicationCiStatus;
+  existingPublication: RunPublication | null;
 }
 
 export interface RunMessage {
@@ -555,6 +614,7 @@ export interface OrchestrationSnapshot {
   results: RunTaskResult[];
   approvals: RunApproval[];
   workspaceLeases: RunWorkspaceLease[];
+  publications: RunPublication[];
   messages: RunMessage[];
   usageByRun: Record<string, RunUsage>;
 }
@@ -605,6 +665,7 @@ export interface AdeConfig {
   runTaskResults: RunTaskResult[];
   runApprovals: RunApproval[];
   runWorkspaceLeases: RunWorkspaceLease[];
+  runPublications: RunPublication[];
   runMessages: RunMessage[];
   /** Bounded FIFO idempotency journal for mutating orchestration commands. */
   commandLog: CommandLogEntry[];
@@ -625,6 +686,7 @@ export const DEFAULT_CONFIG: AdeConfig = {
   runTaskResults: [],
   runApprovals: [],
   runWorkspaceLeases: [],
+  runPublications: [],
   runMessages: [],
   commandLog: [],
   settings: {

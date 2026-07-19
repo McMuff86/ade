@@ -149,6 +149,7 @@ void (async (): Promise<void> => {
       results: [],
       approvals: [],
       workspaceLeases: [],
+      publications: [],
       messages: [],
       usageByRun: { 'active-run': {
         inputTokens: 0, outputTokens: 0, costUsd: 0, approvals: 0, unreportedCostTasks: 0,

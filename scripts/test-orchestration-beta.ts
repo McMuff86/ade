@@ -533,6 +533,93 @@ async function managedBaseShaChecks(root: string): Promise<void> {
   }
 }
 
+async function verificationHeadDriftChecks(root: string): Promise<void> {
+  console.log('\n== immutable final verification HEAD ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const originalHead = 'a'.repeat(40);
+  const changedHead = 'b'.repeat(40);
+  const headByWorkspace = new Map(store.get().agents.map((item) => [item.workspaceDir, originalHead]));
+  const service = new OrchestrationService(store);
+  const coordinator = new RunCoordinator(
+    store,
+    service,
+    new RuntimeAdapterRegistry(),
+    new RepoWorkspaces(headByWorkspace),
+  );
+  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    const session: SessionMeta = {
+      id: `verify-drift-${taskId}`,
+      agentId,
+      title: 'fixture',
+      kind: 'task',
+      status: 'running',
+      createdAt: Date.now(),
+      runTaskId: taskId,
+    };
+    coordinator.onTaskStarted(taskId, session);
+    return session;
+  }, () => undefined);
+
+  const run = service.createRun(runInput('Verification HEAD drift'));
+  await coordinator.start(run.id);
+  let snapshot = service.snapshot();
+  const plan = snapshot.tasks.find((task) => task.phase === 'plan')!;
+  const lead = snapshot.participants.find((participant) => participant.agentId === 'lead')!;
+  finish(coordinator, plan.id, result({
+    assignments: [{
+      participantId: lead.id,
+      title: 'No-op worker',
+      prompt: 'Inspect without changing files.',
+      acceptanceCriteria: ['No changes'],
+      dependsOn: [],
+    }],
+  }));
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.phase === 'work' && task.status === 'running'), 'repo work task');
+  snapshot = service.snapshot();
+  finish(coordinator, snapshot.tasks.find((task) => task.phase === 'work')!.id, result());
+  await waitFor(() => service.snapshot().runs.find((item) => item.id === run.id)?.phase === 'approval',
+    'repo approval');
+  await coordinator.resolveApproval(
+    service.snapshot().approvals.find((approval) => approval.runId === run.id)!.id,
+    'approve',
+  );
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.runId === run.id && task.phase === 'integrate' && task.status === 'running'),
+  'repo integration');
+  snapshot = service.snapshot();
+  finish(coordinator, snapshot.tasks.find((task) => task.runId === run.id && task.phase === 'integrate')!.id,
+    result({ tests: [{ command: 'pnpm test', status: 'passed', output: 'ok' }] }));
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.runId === run.id && task.phase === 'verify' && task.status === 'running'),
+  'repo verification');
+  snapshot = service.snapshot();
+  const verification = snapshot.tasks.find((task) => task.runId === run.id && task.phase === 'verify')!;
+  const orchestratorWorkspace = store.get().agents.find((item) => item.id === 'orchestrator')!.workspaceDir;
+  headByWorkspace.set(orchestratorWorkspace, changedHead);
+  finish(coordinator, verification.id, result({
+    tests: [{ command: 'pnpm verify', status: 'passed', output: 'ok' }],
+  }));
+  await waitFor(() => service.snapshot().runs.find((item) => item.id === run.id)?.status === 'failed',
+    'verification drift failure');
+  snapshot = service.snapshot();
+  const failedRun = snapshot.runs.find((item) => item.id === run.id);
+  const driftEvidence = {
+    expectedHeadAnchored: verification.expectedHeadSha === originalHead,
+    runFailed: failedRun?.status === 'failed',
+    noAttestation: failedRun?.verifiedHeadSha === undefined,
+    leasesReleased: snapshot.workspaceLeases.filter((lease) => lease.runId === run.id)
+      .every((lease) => lease.status === 'released'),
+    failureJournaled: snapshot.events.some((event) => event.runId === run.id
+      && event.type === 'run.failed'
+      && (event.data?.detail?.includes('HEAD changed')
+        || event.data?.detail?.includes('changed Git history'))),
+  };
+  const driftBlocked = Object.values(driftEvidence).every(Boolean);
+  check('a clean HEAD change during verification fails without creating an attestation', driftBlocked);
+  if (!driftBlocked) console.error(driftEvidence);
+}
+
 function manifestArtifactBoundaryChecks(root: string): void {
   console.log('\n== run context manifest integrity ==');
   const store = new MemoryStore(configWithAgents(root));
@@ -1121,6 +1208,7 @@ async function main(): Promise<void> {
     manifestArtifactBoundaryChecks(join(root, 'manifest-boundary'));
     await managedLifecycleChecks(join(root, 'lifecycle'));
     await managedBaseShaChecks(join(root, 'base-sha'));
+    await verificationHeadDriftChecks(join(root, 'verification-head'));
     await ownershipAndBudgetChecks(join(root, 'ownership'));
     await pauseSchedulingChecks(join(root, 'pause'));
     await realGitIntegrationChecks(root);

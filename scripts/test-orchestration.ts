@@ -86,6 +86,32 @@ function testLegacyMigration(): void {
   const secondPass = normalizeConfig(migrated.config, 2_000);
   check('migration is idempotent after the run schema is persisted', !secondPass.migrated);
   check('second normalization does not duplicate the imported run', secondPass.config.runs.length === 1);
+
+  const partialAttestation = structuredClone(migrated.config);
+  partialAttestation.runs[0]!.verificationTaskId = 'orphaned-verify-task';
+  partialAttestation.runTasks.push({
+    id: 'invalid-verify-task',
+    runId: partialAttestation.runs[0]!.id,
+    participantId: 'missing-participant',
+    prompt: 'legacy fixture',
+    title: 'legacy fixture',
+    phase: 'verify',
+    managed: true,
+    dependsOn: [],
+    attempt: 1,
+    status: 'completed',
+    expectedHeadSha: '--malformed-head',
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  const cleanedAttestation = normalizeConfig(partialAttestation, 3_000);
+  check('migration removes and persists an incomplete verification attestation',
+    cleanedAttestation.migrated
+      && cleanedAttestation.config.runs[0]?.verifiedHeadSha === undefined
+      && cleanedAttestation.config.runs[0]?.verificationTaskId === undefined
+      && cleanedAttestation.config.runs[0]?.verifiedAt === undefined
+      && cleanedAttestation.config.runTasks.at(-1)?.expectedHeadSha === undefined
+      && !normalizeConfig(cleanedAttestation.config, 3_500).migrated);
 }
 
 function testRunJournal(): void {

@@ -1,9 +1,10 @@
 # ADE — Architecture (binding decisions)
 
-Status: v5, updated 2026-07-12 with implemented repository scopes/reusable
-agents (`docs/REPOSITORY_SCOPES_PLAN.md`) and planned remote control/mobile
-companion (`docs/REMOTE_CONTROL_PLAN.md`). Terminal, orchestration and
-repository-scope implementation details supersede v4
+Status: v6, updated 2026-07-19 with implemented repository scopes/reusable
+agents (`docs/REPOSITORY_SCOPES_PLAN.md`), verified Draft-PR publishing
+(`docs/VERIFIED_PUBLISHING_PLAN.md`) and planned remote control/mobile companion
+(`docs/REMOTE_CONTROL_PLAN.md`). Terminal, orchestration, repository-scope and
+publication implementation details supersede v5
 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
@@ -127,6 +128,7 @@ src/
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
     orchestration/         # run/task/event service and legacy Graph migration
+    publishing/            # verified branch + GitHub Draft-PR boundary
     repositories/          # repository catalog, bindings and scope resolution
     memory/                # MemoryStore.ts port + managed-block injection
     photos.ts              # profile photo import/store (PNG/JPG, alpha kept)
@@ -385,8 +387,9 @@ reproducibility guarantees.
 - `MailboxService` journals each delivery and mirrors JSONL under
   `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
-  through `--add-dir`. Linked-worktree Git metadata remains outside every
-  runtime's writable roots.
+  through `--add-dir`. Linked-worktree Git metadata remains outside normal
+  adapter writable roots; an explicitly selected bypass process is trusted and
+  is not constrained by that sandbox boundary.
 - Every identity owns a durable, fenced `AGENTS.md` role contract below its
   memory directory. Identity create/update/template flows synchronize it while
   preserving user-authored content. Managed tasks copy a read-only, role-aware
@@ -427,6 +430,56 @@ reproducibility guarantees.
   fail closed. Exact usage is enforced at task-completion boundaries because
   current CLI telemetry is final-turn data, not a live provider spend cap. ADE
   never derives USD from a guessed model price.
+
+### Verified publication boundary
+
+- A repository-backed final verification does not merely mark the run green.
+  `RunCoordinator` stores the candidate HEAD on the verification task before
+  launch, requires a clean identical HEAD after it exits, and commits that exact
+  HEAD, verification-task id and time atomically with run completion and lease
+  release. A clean new commit is drift, not success. Migration never fabricates
+  this attestation for older runs.
+- `publishing/PublicationService.ts` is a post-run Electron-main boundary. Its
+  IPC accepts only a run id plus the exact previewed head SHA/generated branch;
+  it accepts no path, remote, arbitrary ref, PR URL, Git command or merge
+  instruction from the renderer. Preview is read-only. Mutation requires the
+  Graph dialog's separate confirmation and repeats preflight immediately.
+- Eligibility requires a completed managed run, approved integration, a
+  successful final verification result with recorded tests, the released
+  orchestrator lease, same repository/backend/common Git dir, clean worktree
+  at the attested HEAD, a GitHub `origin`, and an unchanged remote-default HEAD
+  equal to the leased base. A non-descendant/empty candidate fails closed.
+- ADE generates a bounded `ade/run-*` ref. Git creates it with an empty-remote
+  force-with-lease expectation and repository hooks disabled; a different
+  existing ref is never overwritten.
+  An exact pre-existing ref is retryable after a partial failure. `gh` creates
+  only a Draft PR and ADE re-reads its open/draft/base/head/head-SHA/repository
+  identity before recording success. There is no direct-default-branch push,
+  branch update/delete, ready-for-review, merge or auto-merge operation.
+- `origin` must have exactly one URL. An explicit `origin.pushurl` is accepted
+  only when it resolves to the same GitHub repository; multiple or different
+  push URLs fail closed. Git's local/
+  global URL-rewrite configuration remains part of the trusted operator Git
+  environment and is not a protection against a malicious bypass process.
+- Git and `gh` execute in the repository's immutable native/WSL backend. A WSL
+  repository therefore needs Git, `gh` and authentication inside that distro;
+  Windows tools or credentials are not used as a fallback. Errors and PR-body
+  evidence are bounded and credential/path-redacted. Requested/completed/
+  failed state is journaled, and restart converts `publishing` to retryable
+  failure rather than inferring success.
+- Every `gh` repository selector includes the explicit `github.com` host, so an
+  ambient `GH_HOST` cannot retarget it. Disabling push hooks is deliberate
+  publisher isolation; hook/Git-LFS-dependent publication is a first-release
+  limitation.
+- ADE does not inject GitHub credentials or expose publication IPC to a worker
+  task. However, a user-selected bypass agent is deliberately an unrestricted,
+  trusted OS process and may independently reach ambient credentials or run
+  Git commands. The publication gate secures ADE's own product workflow; it is
+  not a sandbox against a malicious bypass agent. Stronger isolation requires
+  a non-bypass runtime/container/credential boundary.
+- This local trusted-desktop operation is deliberately absent from the planned
+  Goal 7 remote contract. Repository CI/branch protection and human review are
+  authoritative after the Draft PR exists.
 
 ### Transport-neutral application boundary (Goal 7 target)
 
@@ -502,6 +555,9 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs
 - `run:start`, `run:cancel`, `runApproval:resolve` → managed state machine and
   its durable human integration gate
+- `run:publicationPreview({runId})` → read-only verified publication candidate
+- `run:publish({runId, expectedHeadSha, expectedHeadBranch, commandId?})` →
+  explicit new `ade/**` branch plus GitHub Draft PR; no merge/default update
 - `runTask:create`, `runTask:fail`, `runArtifact:create` → journal-backed entities
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
 - `git:diff({agentId, path})` → unified diff text
@@ -513,7 +569,8 @@ Events (main → renderer, `webContents.send`):
 - `pty:exit` `{sessionId, exitCode, reason}`
 - `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
 - `orchestration:changed` → authoritative runs/participants/tasks/events,
-  artifacts, results, approvals, workspace leases, messages and run usage
+  artifacts, results, approvals, workspace leases, publications, messages and
+  run usage
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
 Every invoke passes two checks before its handler runs:
@@ -576,8 +633,13 @@ explicitly enabled.
   verifies sandbox/preload boundaries, IPC rejection, real terminal I/O,
   multi-tab shortcuts, renderer reload replay, non-zero failure/restart,
   diagnostics, worker-specific managed planning, approval, integration and
-  verification. The same script can target `ADE_E2E_EXECUTABLE`.
-- The 2026-07-19 closing gates passed 410 focused Windows assertions, 409 native
+  verification. Its current source workflow also drives publication preview,
+  explicit confirmation, an exact push to a real isolated bare remote, a
+  deterministic fake GitHub Draft PR and restart-persisted audit. The same
+  script can target `ADE_E2E_EXECUTABLE`.
+- The current 2026-07-19 development gate passes 446 focused Windows
+  assertions and 56 source Electron/Playwright assertions. The previous hosted
+  platform-closing gates passed 410 focused Windows assertions, 409 native
   Ubuntu assertions (the Windows `.cmd` probe is inapplicable), production
   builds and 47 Electron assertions on each native platform/artifact. The extended
   Windows-GUI→WSL gate adds 31 backend checks and 67 Electron assertions,

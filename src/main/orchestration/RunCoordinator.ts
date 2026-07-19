@@ -589,7 +589,7 @@ export class RunCoordinator {
         await this.beginVerification(task.runId, result);
         return;
       case 'verify':
-        await this.completeAfterVerification(task.runId, result);
+        await this.completeAfterVerification(task, result);
         return;
       default:
         return;
@@ -637,8 +637,13 @@ export class RunCoordinator {
       if (result.commitSha) {
         await this.workspaces.validateCommit(lease.workspaceDir, lease.baseSha, result.commitSha);
       }
-      if (!(await this.workspaces.inspect(lease.workspaceDir)).clean) {
+      const inspection = await this.workspaces.inspect(lease.workspaceDir);
+      if (!inspection.clean) {
         throw new Error(`ade: ${task.phase} task left its leased worktree dirty`);
+      }
+      if (task.phase === 'verify'
+          && (!task.expectedHeadSha || inspection.headSha !== task.expectedHeadSha)) {
+        throw new Error('ade: repository HEAD changed during final verification');
       }
     }
   }
@@ -877,6 +882,7 @@ export class RunCoordinator {
     const lease = snapshot.workspaceLeases.find(
       (item) => item.runId === runId && item.participantId === orchestrator.id && item.status === 'active',
     );
+    let expectedHeadSha: string | undefined;
     if (lease?.isRepo) {
       if (integration.filesChanged.length > 0 && !integration.commitSha) {
         throw new Error('ade: integration task reported changed files without a commit');
@@ -888,6 +894,7 @@ export class RunCoordinator {
       if (!inspection.clean) {
         throw new Error('ade: integration task left uncommitted changes; verification will not start');
       }
+      expectedHeadSha = inspection.headSha;
     }
     this.orchestration.setManagedRunPhase(runId, 'verifying');
     const context = this.runContext(runId);
@@ -896,6 +903,7 @@ export class RunCoordinator {
       participantId: orchestrator.id,
       title: 'Verify the integrated result',
       phase: 'verify',
+      expectedHeadSha,
       prompt: verificationPrompt(run, integration, { brief: context?.brief }),
     });
     const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), orchestrator.agentId);
@@ -909,7 +917,8 @@ export class RunCoordinator {
     await this.launchTask(task, 'verification');
   }
 
-  private async completeAfterVerification(runId: string, result: StructuredTaskResult): Promise<void> {
+  private async completeAfterVerification(task: RunTask, result: StructuredTaskResult): Promise<void> {
+    const runId = task.runId;
     if (result.filesChanged.length > 0 || result.commitSha) {
       throw new Error('ade: verification changed the workspace; verification must be read-only');
     }
@@ -926,11 +935,23 @@ export class RunCoordinator {
     const lease = snapshot.workspaceLeases.find(
       (item) => item.runId === runId && item.participantId === orchestrator?.id && item.status === 'active',
     );
-    if (lease?.isRepo && !(await this.workspaces.inspect(lease.workspaceDir)).clean) {
-      throw new Error('ade: verification left the integration worktree dirty');
+    let verifiedHeadSha: string | undefined;
+    if (lease?.isRepo) {
+      const inspection = await this.workspaces.inspect(lease.workspaceDir);
+      if (!inspection.clean) {
+        throw new Error('ade: verification left the integration worktree dirty');
+      }
+      if (!task.expectedHeadSha || inspection.headSha !== task.expectedHeadSha) {
+        throw new Error('ade: repository HEAD changed during final verification');
+      }
+      verifiedHeadSha = inspection.headSha;
     }
     // Completion + lease release commit as ONE save (Gap 11).
-    this.orchestration.completeRun(runId, result.summary);
+    this.orchestration.completeRun(
+      runId,
+      result.summary,
+      verifiedHeadSha ? { headSha: verifiedHeadSha, taskId: task.id } : undefined,
+    );
   }
 
   private async launchTask(task: RunTask, label: string): Promise<void> {

@@ -11,6 +11,7 @@ import {
   type RunEvent,
   type RunMessage,
   type RunPhase,
+  type RunPublication,
   type RunStatus,
   type RunSummary,
   type RunTask,
@@ -36,6 +37,7 @@ export interface ManagedTaskInput extends RunTaskCreateInput {
   phase: Exclude<RunTaskPhase, 'manual'>;
   dependsOn?: string[];
   attempt?: number;
+  expectedHeadSha?: string;
 }
 
 const MAX_TASK_PROMPT_CHARS = 32_000;
@@ -47,6 +49,7 @@ const MAX_ARTIFACT_PATH_CHARS = 1_024;
 const MAX_MESSAGE_CHARS = 32_000;
 const MAX_COMMAND_ID_CHARS = 128;
 const MAX_COMMAND_RESULT_CHARS = 16_384;
+const GIT_OBJECT_ID = /^[0-9a-f]{40,64}$/;
 const COMMAND_LOG_LIMIT = 200;
 const EVENTS_QUERY_DEFAULT_LIMIT = 200;
 const EVENTS_QUERY_MAX_LIMIT = 500;
@@ -107,6 +110,7 @@ export class OrchestrationService {
       results: config.runTaskResults.map(cloneResult),
       approvals: config.runApprovals.map((approval) => ({ ...approval })),
       workspaceLeases: config.runWorkspaceLeases.map((lease) => ({ ...lease })),
+      publications: config.runPublications.map((publication) => ({ ...publication })),
       messages: config.runMessages.map((message) => ({ ...message })),
       usageByRun: usageByRun(config),
     };
@@ -378,6 +382,112 @@ export class OrchestrationService {
     });
   }
 
+  beginPublication(
+    input: Omit<RunPublication, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'prNumber' | 'prUrl' | 'error'>,
+  ): RunPublication {
+    const config = this.store.get();
+    const run = config.runs.find((candidate) => candidate.id === input.runId);
+    if (!run || run.mode !== 'managed' || run.status !== 'completed' || run.phase !== 'completed') {
+      throw new Error('ade: only a completed managed run can be published');
+    }
+    if (run.verifiedHeadSha !== input.headSha || !run.verificationTaskId || !run.verifiedAt) {
+      throw new Error('ade: publication head does not match the run verification attestation');
+    }
+    const previous = config.runPublications.find((candidate) => candidate.runId === input.runId);
+    if (previous && previous.status !== 'failed') {
+      throw new Error('ade: run publication is already active or completed');
+    }
+    if (previous && !samePublicationTarget(previous, input)) {
+      throw new Error('ade: failed publication cannot be retargeted');
+    }
+    const now = Date.now();
+    const publication: RunPublication = previous
+      ? { ...previous, status: 'publishing', updatedAt: now, error: undefined }
+      : {
+          ...input,
+          id: randomUUID(),
+          status: 'publishing',
+          createdAt: now,
+          updatedAt: now,
+        };
+    this.store.save({
+      runPublications: previous
+        ? config.runPublications.map((candidate) => candidate.id === publication.id ? publication : candidate)
+        : [...config.runPublications, publication],
+      runEvents: [...config.runEvents, this.event(input.runId, 'publication.requested', {
+        at: now,
+        data: {
+          publicationId: publication.id,
+          provider: publication.provider,
+          headBranch: publication.headBranch,
+        },
+      })],
+    });
+    this.emit();
+    return { ...publication };
+  }
+
+  completePublication(publicationId: string, prNumber: number, prUrl: string): RunPublication {
+    const config = this.store.get();
+    const current = config.runPublications.find((candidate) => candidate.id === publicationId);
+    if (!current) throw new Error(`ade: publication not found "${publicationId}"`);
+    if (current.status !== 'publishing') throw new Error('ade: publication is not active');
+    const now = Date.now();
+    const completed: RunPublication = {
+      ...current,
+      status: 'draft',
+      prNumber,
+      prUrl,
+      error: undefined,
+      updatedAt: now,
+    };
+    this.store.save({
+      runPublications: config.runPublications.map((candidate) =>
+        candidate.id === publicationId ? completed : candidate),
+      runEvents: [...config.runEvents, this.event(current.runId, 'publication.completed', {
+        at: now,
+        data: { publicationId, prNumber },
+      })],
+    });
+    this.emit();
+    return { ...completed };
+  }
+
+  failPublication(publicationId: string, error: string): RunPublication {
+    const config = this.store.get();
+    const current = config.runPublications.find((candidate) => candidate.id === publicationId);
+    if (!current) throw new Error(`ade: publication not found "${publicationId}"`);
+    if (current.status === 'draft') throw new Error('ade: completed publication cannot be failed');
+    const now = Date.now();
+    const failed: RunPublication = {
+      ...current,
+      status: 'failed',
+      error: error.slice(0, 2_000),
+      updatedAt: now,
+    };
+    this.store.save({
+      runPublications: config.runPublications.map((candidate) =>
+        candidate.id === publicationId ? failed : candidate),
+      runEvents: [...config.runEvents, this.event(current.runId, 'publication.failed', {
+        at: now,
+        data: { publicationId, reason: failed.error?.slice(0, 500) ?? 'unknown' },
+      })],
+    });
+    this.emit();
+    return { ...failed };
+  }
+
+  /** A process died while performing external I/O; retry must re-prove state. */
+  recoverInterruptedPublications(): number {
+    const active = this.store.get().runPublications.filter(
+      (publication) => publication.status === 'publishing',
+    );
+    for (const publication of active) {
+      this.failPublication(publication.id, 'Publication was interrupted before Draft PR confirmation');
+    }
+    return active.length;
+  }
+
   deleteRun(runId: string): void {
     const config = this.store.get();
     const run = config.runs.find((candidate) => candidate.id === runId);
@@ -385,6 +495,9 @@ export class OrchestrationService {
       (lease) => lease.runId === runId && lease.status === 'active',
     ))) {
       throw new Error('ade: cancel the active run before deleting it');
+    }
+    if (config.runPublications.some((publication) => publication.runId === runId)) {
+      throw new Error('ade: a run with an external publication audit cannot be deleted');
     }
     this.store.save({
       runs: config.runs.filter((candidate) => candidate.id !== runId),
@@ -395,6 +508,7 @@ export class OrchestrationService {
       runTaskResults: config.runTaskResults.filter((result) => result.runId !== runId),
       runApprovals: config.runApprovals.filter((approval) => approval.runId !== runId),
       runWorkspaceLeases: config.runWorkspaceLeases.filter((lease) => lease.runId !== runId),
+      runPublications: config.runPublications.filter((publication) => publication.runId !== runId),
       runMessages: config.runMessages.filter((message) => message.runId !== runId),
     });
     this.emit();
@@ -735,16 +849,43 @@ export class OrchestrationService {
   }
 
   /** verifying -> completed plus the lease release, committed as one save. */
-  completeRun(runId: string, detail?: string): Run {
+  completeRun(
+    runId: string,
+    detail?: string,
+    verification?: { headSha: string; taskId: string; verifiedAt?: number },
+  ): Run {
     const config = this.store.get();
+    if (verification) {
+      const task = config.runTasks.find((candidate) =>
+        candidate.id === verification.taskId && candidate.runId === runId);
+      const results = config.runTaskResults.filter((candidate) =>
+        candidate.taskId === verification.taskId && candidate.runId === runId);
+      const result = results[0];
+      if (!GIT_OBJECT_ID.test(verification.headSha)
+          || !task || task.phase !== 'verify' || task.status !== 'completed'
+          || task.expectedHeadSha !== verification.headSha
+          || results.length !== 1 || result?.outcome !== 'succeeded'
+          || result.tests.length === 0 || result.tests.some((test) => test.status === 'failed')) {
+        throw new Error('ade: run completion requires one exact successful verification attestation');
+      }
+    }
     const transition = this.buildPhaseTransition(config, runId, 'completed', detail);
     const now = Date.now();
     const active = config.runWorkspaceLeases.filter(
       (lease) => lease.runId === runId && lease.status === 'active',
     );
     const activeIds = new Set(active.map((lease) => lease.id));
+    const verifiedAt = verification?.verifiedAt ?? now;
+    const completedRun: Run = verification
+      ? {
+          ...transition.run,
+          verifiedHeadSha: verification.headSha,
+          verificationTaskId: verification.taskId,
+          verifiedAt,
+        }
+      : transition.run;
     this.store.save({
-      runs: transition.runs,
+      runs: transition.runs.map((run) => run.id === runId ? completedRun : run),
       runApprovals: transition.runApprovals,
       runWorkspaceLeases: active.length
         ? config.runWorkspaceLeases.map((lease) => activeIds.has(lease.id)
@@ -762,7 +903,7 @@ export class OrchestrationService {
       ],
     });
     this.emit();
-    return { ...transition.run, budget: { ...transition.run.budget } };
+    return { ...completedRun, budget: { ...completedRun.budget } };
   }
 
   /**
@@ -1088,6 +1229,7 @@ export class OrchestrationService {
     managed: boolean;
     dependsOn: string[];
     attempt: number;
+    expectedHeadSha?: string;
   }): RunTask {
     const config = this.store.get();
     const { task, event } = this.buildTaskRecord(config, input);
@@ -1118,6 +1260,7 @@ export class OrchestrationService {
       managed: boolean;
       dependsOn: string[];
       attempt: number;
+      expectedHeadSha?: string;
     },
     runOverride?: Run,
   ): { task: RunTask; event: RunEvent } {
@@ -1163,6 +1306,7 @@ export class OrchestrationService {
       repositoryId: lease?.repositoryId ?? run.repositoryId,
       workspaceBindingId: lease?.workspaceBindingId,
       workspaceDir: lease?.workspaceDir,
+      expectedHeadSha: input.expectedHeadSha,
       createdAt: now,
       updatedAt: now,
     };
@@ -1397,6 +1541,21 @@ function cloneResult(result: RunTaskResult): RunTaskResult {
   return { ...cloneStructuredResult(result), id: result.id, runId: result.runId, taskId: result.taskId,
     participantId: result.participantId, adapterId: result.adapterId, resultPath: result.resultPath,
     createdAt: result.createdAt };
+}
+
+function samePublicationTarget(
+  existing: RunPublication,
+  input: Omit<RunPublication, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'prNumber' | 'prUrl' | 'error'>,
+): boolean {
+  return existing.runId === input.runId
+    && existing.repositoryId === input.repositoryId
+    && existing.provider === input.provider
+    && existing.providerRepository === input.providerRepository
+    && existing.remoteName === input.remoteName
+    && existing.baseBranch === input.baseBranch
+    && existing.headBranch === input.headBranch
+    && existing.baseSha === input.baseSha
+    && existing.headSha === input.headSha;
 }
 
 function normalizeCommandId(commandId: string | undefined): string | undefined {

@@ -5,6 +5,8 @@ import type {
   OrchestrationSnapshot,
   Run,
   RunCreateInput,
+  RunPublication,
+  RunPublicationPreview,
   RunTask,
   RunTaskCreateInput,
 } from '../../shared/types';
@@ -25,6 +27,13 @@ interface RunsState extends OrchestrationSnapshot {
   startRun: (runId: string) => Promise<Run>;
   cancelRun: (runId: string) => Promise<void>;
   resolveApproval: (approvalId: string, decision: 'approve' | 'reject') => Promise<void>;
+  previewPublication: (runId: string) => Promise<RunPublicationPreview>;
+  publishRun: (request: {
+    runId: string;
+    expectedHeadSha: string;
+    expectedHeadBranch: string;
+    commandId?: string;
+  }) => Promise<RunPublication>;
 }
 
 const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
@@ -36,6 +45,7 @@ const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
   results: [],
   approvals: [],
   workspaceLeases: [],
+  publications: [],
   messages: [],
   usageByRun: {},
 };
@@ -132,6 +142,14 @@ export const useRuns = create<RunsState>((set, get) => ({
 
   resolveApproval: (approvalId, decision) =>
     window.ade.invoke('runApproval:resolve', { approvalId, decision }),
+
+  previewPublication: (runId) => window.ade.invoke('run:publicationPreview', { runId }),
+
+  publishRun: async (request) => {
+    const publication = await window.ade.invoke('run:publish', request);
+    await get().refresh();
+    return publication;
+  },
 }));
 
 if (typeof window !== 'undefined' && window.ade) {

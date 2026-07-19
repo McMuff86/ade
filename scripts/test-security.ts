@@ -98,6 +98,13 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:getSummary': { runId: 'run' },
   'run:events': { sinceSeq: 0, limit: 200 },
   'run:approvalDiff': { runId: 'run' },
+  'run:publicationPreview': { runId: 'run' },
+  'run:publish': {
+    runId: 'run',
+    expectedHeadSha: '0123456789abcdef0123456789abcdef01234567',
+    expectedHeadBranch: 'ade/run-12345678-feature',
+    commandId: 'cmd-publish',
+  },
   'pty:activitySnapshot': { sessionId: 'session' },
   'runTask:activity': { taskId: 'task' },
   'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
@@ -152,6 +159,33 @@ check('team pause requires a team id', rejects('run:pauseTeam', { runId: 'run' }
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',
 }));
+check('publication rejects non-ADE target branches', rejects('run:publish', {
+  runId: 'run',
+  expectedHeadSha: '0123456789abcdef0123456789abcdef01234567',
+  expectedHeadBranch: 'main',
+}));
+check('publication rejects malformed or uppercase Git object ids',
+  rejects('run:publish', {
+    runId: 'run',
+    expectedHeadSha: 'not-a-sha',
+    expectedHeadBranch: 'ade/run-safe-feature',
+  })
+  && rejects('run:publish', {
+    runId: 'run',
+    expectedHeadSha: 'ABCDEF6789abcdef0123456789abcdef01234567',
+    expectedHeadBranch: 'ade/run-safe-feature',
+  }));
+check('publication rejects traversal-like or lock refs',
+  rejects('run:publish', {
+    runId: 'run',
+    expectedHeadSha: '0123456789abcdef0123456789abcdef01234567',
+    expectedHeadBranch: 'ade/run-safe/../main',
+  })
+  && rejects('run:publish', {
+    runId: 'run',
+    expectedHeadSha: '0123456789abcdef0123456789abcdef01234567',
+    expectedHeadBranch: 'ade/run-safe.lock',
+  }));
 check('Codex model ids reject shell metacharacters', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'codex', permissionMode: 'bypass',
   codexModel: 'gpt-5.6-sol; Remove-Item C:\\', codexReasoningEffort: 'xhigh',

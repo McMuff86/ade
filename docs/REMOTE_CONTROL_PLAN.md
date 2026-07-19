@@ -62,6 +62,11 @@ The personal alpha will not expose:
 These exclusions keep a stolen mobile session from becoming a general remote
 shell or an ADE administration channel.
 
+ADE's separately implemented local verified-publishing flow does not change
+this contract. Only the trusted desktop UI may preview and explicitly confirm a
+new `ade/**` branch plus Draft PR; no publication operation, credential or PR
+mutation is included in the remote endpoint allowlist.
+
 ## Application boundary
 
 Electron IPC is currently the only adapter into ADE's services. Goal 7 will

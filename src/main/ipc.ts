@@ -37,6 +37,7 @@ import { ExecutionBackendService } from './execution/ExecutionBackendService';
 import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
 import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
+import { PublicationService } from './publishing/PublicationService';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -88,7 +89,12 @@ export function registerIpcHandlers(store: ConfigStore): void {
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
   }
+  const recoveredPublications = orchestration.recoverInterruptedPublications();
+  if (recoveredPublications > 0) {
+    console.warn(`[ade] recovered ${recoveredPublications} interrupted publication(s)`);
+  }
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
+  const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution);
   runCoordinator.connect(
     (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
@@ -352,6 +358,8 @@ export function registerIpcHandlers(store: ConfigStore): void {
     }
     return { runId, entries };
   });
+  handle(IPC.RunPublicationPreview, ({ runId }) => publications.preview(runId));
+  handle(IPC.RunPublish, (request) => publications.publish(request));
   handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
   handle(IPC.RunDelete, ({ runId }) => runCoordinator!.deleteRun(runId));
   handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));

@@ -222,9 +222,9 @@ from changes to the pilot repository; ADE's full `pnpm verify` remains green.
 
 ## Platform track - Linux package and Windows GUI→WSL backend
 
-Status: **implemented and locally plus hosted verified 2026-07-19; publication
-gates remain.** This track is orthogonal to remote Goals 7-10 and is specified in
-`MULTIPLATFORM_PLAN.md`.
+Status: **implemented and locally plus hosted verified 2026-07-19; public
+package-release gates remain.** This track is orthogonal to remote Goals 7-10
+and is specified in `MULTIPLATFORM_PLAN.md`.
 
 - Native Ubuntu/WSL2 builds Linux `node-pty`, passes the focused/source
   Electron gates and produces unpacked x64, AppImage and Debian artifacts.
@@ -243,6 +243,37 @@ Remaining release gates: establish the public license/release policy, publish
 checksummed versioned Linux assets, add clearer
 first-run WSL prerequisite guidance, and keep macOS explicitly unverified.
 
+## Verified publishing track - repository Draft PRs and CI handoff
+
+Status: **implemented and locally verified 2026-07-19.** This is a local,
+explicit desktop capability and not part of the remote Goals 7-11 command
+surface. The binding contract is `VERIFIED_PUBLISHING_PLAN.md`.
+
+- Atomically attest the exact clean repository HEAD and verification task when
+  a managed run completes; legacy completed runs remain ineligible.
+- Add a read-only Graph preflight for repository identity, approved integration,
+  final test evidence, unchanged remote base, exact candidate range, safe
+  generated branch and GitHub CLI access.
+- Require a second explicit operator confirmation before any external write.
+  Create only a new collision-protected `ade/run-*` branch and GitHub Draft PR;
+  expose no default-branch push, force update, branch deletion or merge action.
+- Persist requested/completed/failed publication state and recover interrupted
+  I/O as retryable failure. Verify an exact existing branch/PR on retry and keep
+  errors/evidence credential- and local-path-redacted.
+- Execute Git and `gh` in the repository's native or selected WSL backend and
+  show the provider check rollup without treating it as a merge decision.
+- Keep publishing absent from the future mobile/remote API. A bypass coding
+  agent remains a fully trusted OS process; this product gate does not claim to
+  sandbox a malicious agent from ambient Git credentials.
+
+Exit criteria: 29 focused publication contracts exercise real isolated Git
+pushes plus deterministic provider behavior; security validation covers exact
+new IPC payloads; Electron/Playwright proves preview, disabled-before-confirm,
+exact remote branch, Draft-PR audit, unchanged `main` and restart persistence.
+The full Windows source gate is 446 focused assertions plus 56 Electron checks.
+Before any real target-repository PR, its existing local worktree remains
+untouched and the external push receives separate operator authorization.
+
 ## Goal 7 - transport-neutral core and local host API
 
 Status: **bounded GO; implementation not started.** Goal 6 permits the
@@ -252,8 +283,8 @@ exit criteria pass.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
-implemented and hosted-verified. Versioned publication and macOS work remain
-separate from the remote API security gates below.
+implemented and hosted-verified. Versioned package publication and macOS work
+remain separate from the remote API security gates below.
 
 - Extract a transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and
@@ -359,8 +390,10 @@ Status: planned after personal-alpha validation.
 Exit criteria: history and audit remain bounded and recoverable, updates are
 authentic, the selected ingress has end-to-end authorization tests, and a
 documented security review approves any public-beta exposure. Raw remote
-terminal streaming, public port forwarding, automatic integration/push,
-Wake-on-LAN and unattended pre-login execution require separate goals.
+terminal streaming, public port forwarding, remotely initiated or unattended
+integration/push, Wake-on-LAN and unattended pre-login execution require
+separate goals. The local, separately confirmed Draft-PR publisher above is not
+exposed through these remote goals.
 
 Detailed scope, trust boundaries and endpoint exclusions live in
 `docs/REMOTE_CONTROL_PLAN.md`; repository-binding behavior and migration live

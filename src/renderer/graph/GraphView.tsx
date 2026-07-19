@@ -8,6 +8,8 @@ import type {
   Repository,
   Run,
   RunCreateInput,
+  RunPublication,
+  RunPublicationPreview,
   RunTaskResult,
   TaskProvenance,
 } from '../../shared/types';
@@ -83,6 +85,7 @@ const I = {
   term: <path d="M5 8l4 4-4 4M12 16h6" />,
   close: <path d="M7 7l10 10M17 7L7 17" />,
   trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M10 11v5M14 11v5" />,
+  publish: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 14v5h14v-5" /></>,
 };
 
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
@@ -178,6 +181,7 @@ export function GraphView(): JSX.Element {
   const tasks = useRuns((state) => state.tasks);
   const events = useRuns((state) => state.events);
   const approvals = useRuns((state) => state.approvals);
+  const publications = useRuns((state) => state.publications);
   const messages = useRuns((state) => state.messages);
   const usageByRun = useRuns((state) => state.usageByRun);
   const runsLoaded = useRuns((state) => state.loaded);
@@ -189,6 +193,8 @@ export function GraphView(): JSX.Element {
   const startRun = useRuns((state) => state.startRun);
   const cancelRun = useRuns((state) => state.cancelRun);
   const resolveApproval = useRuns((state) => state.resolveApproval);
+  const previewPublication = useRuns((state) => state.previewPublication);
+  const publishRun = useRuns((state) => state.publishRun);
   const sessions = useSessions((state) => state.sessions);
   const orderByAgent = useSessions((state) => state.orderByAgent);
   const taskQueue = useSessions((state) => state.taskQueue);
@@ -238,6 +244,7 @@ export function GraphView(): JSX.Element {
   const [flashes, setFlashes] = useState<Record<string, 'ok' | 'bad'>>({});
   const [composer, setComposer] = useState<ComposerTarget | null>(null);
   const [showNewRun, setShowNewRun] = useState(false);
+  const [publicationRun, setPublicationRun] = useState<Run | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
@@ -442,6 +449,7 @@ export function GraphView(): JSX.Element {
   const deleteBlocked = Boolean(activeRun && (
     (activeRun.mode === 'managed' && activeRun.status === 'running')
     || workspaceLeases.some((lease) => lease.runId === activeRun.id && lease.status === 'active')
+    || publications.some((publication) => publication.runId === activeRun.id)
   ));
 
   const requestDeleteRun = useCallback(() => {
@@ -1093,12 +1101,25 @@ export function GraphView(): JSX.Element {
             </span>
           </>
         )}
+        {activeRun?.mode === 'managed' && activeRun.status === 'completed' && activeRun.repositoryId && (
+          <button
+            className="grun-publish"
+            title="Verifizierten ADE-Branch als GitHub Draft Pull Request veröffentlichen"
+            onClick={() => setPublicationRun(activeRun)}
+          >
+            <Ico>{I.publish}</Ico>
+            {publications.some((publication) =>
+              publication.runId === activeRun.id && publication.status === 'draft')
+              ? 'Draft-PR ansehen'
+              : 'Draft-PR'}
+          </button>
+        )}
         {activeRun && (
           <button
             className={`grun-delete${deleteArmed ? ' armed' : ''}`}
             disabled={deleteBlocked}
             title={deleteBlocked
-              ? 'Aktiver Run: zuerst abbrechen bzw. die Freigabe abschließen'
+              ? 'Aktiver oder veröffentlichter Run kann nicht gelöscht werden'
               : `"${activeRun.name}" mit allen Tasks, Events und Artefakten löschen`}
             onClick={requestDeleteRun}
           >
@@ -1448,6 +1469,17 @@ export function GraphView(): JSX.Element {
             setShowNewRun(false);
             flash(`${run.name} erstellt`);
           }}
+        />
+      )}
+
+      {publicationRun && (
+        <PublicationModal
+          run={publicationRun}
+          existing={publications.find((publication) => publication.runId === publicationRun.id) ?? null}
+          preview={previewPublication}
+          publish={publishRun}
+          onCancel={() => setPublicationRun(null)}
+          onPublished={(publication) => flash(`Draft-PR #${publication.prNumber ?? ''} angelegt`)}
         />
       )}
     </div>
@@ -1906,6 +1938,254 @@ function Composer(props: {
       </div>
     </div>
   );
+}
+
+function PublicationModal(props: {
+  run: Run;
+  existing: RunPublication | null;
+  preview: (runId: string) => Promise<RunPublicationPreview>;
+  publish: (request: {
+    runId: string;
+    expectedHeadSha: string;
+    expectedHeadBranch: string;
+    commandId?: string;
+  }) => Promise<RunPublication>;
+  onCancel: () => void;
+  onPublished: (publication: RunPublication) => void;
+}): JSX.Element {
+  const [candidate, setCandidate] = useState<RunPublicationPreview | null>(null);
+  const [published, setPublished] = useState<RunPublication | null>(
+    props.existing?.status === 'draft' ? props.existing : null,
+  );
+  const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const commandId = useRef(`publication-${globalThis.crypto.randomUUID()}`);
+
+  useEffect(() => {
+    let live = true;
+    setCandidate(null);
+    setError(null);
+    void props.preview(props.run.id)
+      .then((value) => { if (live) setCandidate(value); })
+      .catch((previewError) => {
+        if (live) setError(previewError instanceof Error ? previewError.message : String(previewError));
+      });
+    return () => {
+      live = false;
+    };
+  }, [props.run.id]);
+  useEffect(() => {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    closeRef.current?.focus();
+    return () => returnFocusRef.current?.focus();
+  }, []);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && !submitting) {
+        event.preventDefault();
+        props.onCancel();
+        return;
+      }
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusable = [...modalRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((element) => element.getAttribute('aria-hidden') !== 'true');
+      if (focusable.length === 0) {
+        event.preventDefault();
+        modalRef.current.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [props.onCancel, submitting]);
+
+  const finalPublication = published ?? (
+    candidate?.existingPublication?.status === 'draft' ? candidate.existingPublication : null
+  );
+  const safePrUrl = finalPublication?.prUrl
+    ? safeGithubPullRequestUrl(finalPublication.prUrl)
+    : null;
+  const publish = async (): Promise<void> => {
+    if (!candidate?.eligible || !candidate.headSha || !candidate.headBranch || !confirmed || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const publication = await props.publish({
+        runId: props.run.id,
+        expectedHeadSha: candidate.headSha,
+        expectedHeadBranch: candidate.headBranch,
+        commandId: commandId.current,
+      });
+      setPublished(publication);
+      setConfirmed(false);
+      props.onPublished(publication);
+    } catch (publishError) {
+      setError(publishError instanceof Error ? publishError.message : String(publishError));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="gcomposer-back" onPointerDown={() => { if (!submitting) props.onCancel(); }}>
+      <section
+        ref={modalRef}
+        className="gpublish-modal"
+        role="dialog"
+        tabIndex={-1}
+        aria-modal="true"
+        aria-labelledby="gpublish-title"
+        aria-busy={!candidate && !error}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div className="grun-modal-head">
+          <div>
+            <h2 id="gpublish-title">Verifizierten Draft-PR veröffentlichen</h2>
+            <p>{props.run.name} · externer GitHub-Schreibvorgang</p>
+          </div>
+          <button ref={closeRef} type="button" className="ginsp-close" title="Schließen" disabled={submitting} onClick={props.onCancel}>
+            <Ico>{I.close}</Ico>
+          </button>
+        </div>
+
+        <div className="gpublish-body" aria-live="polite">
+          {!candidate && !error && (
+            <div className="gpublish-loading">
+              <span className="gpublish-spinner" aria-hidden="true" />
+              Worktree, Remote, GitHub-Zugriff und Verification-Attest werden geprüft…
+            </div>
+          )}
+
+          {finalPublication && (
+            <div className="gpublish-success" role="status">
+              <b>Draft-PR #{finalPublication.prNumber} ist angelegt</b>
+              <span>
+                Branch <code>{finalPublication.headBranch}</code> · CI {ciStatusText(candidate?.ciStatus ?? 'none')}
+              </span>
+              {safePrUrl && (
+                <a href={safePrUrl} target="_blank" rel="noreferrer">Auf GitHub öffnen ↗</a>
+              )}
+              <p>ADE kann diesen PR weder automatisch mergen noch <code>main</code> direkt aktualisieren.</p>
+            </div>
+          )}
+
+          {candidate && !finalPublication && (
+            <>
+              <div className="gpublish-summary">
+                <div><span>Repository</span><b>{candidate.providerRepository ?? candidate.repositoryName ?? '—'}</b></div>
+                <div><span>Base</span><b>{candidate.baseBranch ?? '—'} <code>{candidate.baseSha?.slice(0, 10)}</code></b></div>
+                <div><span>Neuer Branch</span><b><code>{candidate.headBranch ?? '—'}</code></b></div>
+                <div><span>Verifiziert</span><b><code>{candidate.headSha?.slice(0, 10) ?? '—'}</code></b></div>
+                <div><span>Umfang</span><b>{candidate.commitCount} Commits · {candidate.changedFiles.length}{candidate.changedFilesTruncated ? '+' : ''} Dateien</b></div>
+                <div><span>Provider</span><b>{candidate.provider === 'github' ? 'GitHub CLI im Repo-Backend' : 'nicht verfügbar'}</b></div>
+              </div>
+
+              {!candidate.eligible && (
+                <div className="gpublish-blocked" role="alert">
+                  <b>Veröffentlichung blockiert</b>
+                  <ul>{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                </div>
+              )}
+
+              {candidate.eligible && (
+                <>
+                  <section className="gpublish-evidence">
+                    <h3>Finale Verification</h3>
+                    <ul>
+                      {candidate.verificationCommands.map((command) => <li key={command}><code>{command}</code></li>)}
+                    </ul>
+                  </section>
+                  <section className="gpublish-evidence">
+                    <h3>Geänderte Dateien</h3>
+                    <ul className="gpublish-files">
+                      {candidate.changedFiles.map((file) => <li key={file}><code>{file}</code></li>)}
+                    </ul>
+                  </section>
+                  <label className="gpublish-confirm">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      disabled={submitting}
+                      onChange={(event) => setConfirmed(event.target.checked)}
+                    />
+                    <span>
+                      Ich bestätige den externen Push dieses exakten HEADs auf den neuen <code>ade/**</code>-Branch
+                      und das Anlegen eines Draft-PR. <code>main</code> bleibt unverändert.
+                    </span>
+                  </label>
+                </>
+              )}
+            </>
+          )}
+
+          {props.existing?.status === 'failed' && !finalPublication && (
+            <div className="gpublish-retry">
+              Vorheriger Versuch fehlgeschlagen: {props.existing.error ?? 'unbekannter Fehler'}.
+              Der Retry prüft Remote-Branch und HEAD erneut.
+            </div>
+          )}
+          {error && <div className="grun-error" role="alert">{error}</div>}
+        </div>
+
+        <div className="gcomposer-foot">
+          <button type="button" className="gact" disabled={submitting} onClick={props.onCancel}>Schließen</button>
+          {!finalPublication && (
+            <button
+              type="button"
+              className="gact primary"
+              disabled={!candidate?.eligible || !confirmed || submitting}
+              onClick={() => void publish()}
+            >
+              <Ico>{I.publish}</Ico>{submitting ? 'Wird veröffentlicht…' : 'Branch pushen & Draft-PR anlegen'}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ciStatusText(status: RunPublicationPreview['ciStatus']): string {
+  switch (status) {
+    case 'pending': return 'läuft';
+    case 'passed': return 'grün';
+    case 'failed': return 'fehlgeschlagen';
+    default: return 'noch ohne Checks';
+  }
+}
+
+function safeGithubPullRequestUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    const parts = url.pathname.split('/').filter(Boolean);
+    return url.protocol === 'https:'
+      && url.hostname.toLowerCase() === 'github.com'
+      && !url.username
+      && !url.password
+      && parts.length === 4
+      && parts[2] === 'pull'
+      && /^\d+$/.test(parts[3] ?? '')
+      ? url.toString().replace(/\/$/, '')
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function NewRunModal(props: {

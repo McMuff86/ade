@@ -4,7 +4,8 @@ Status date: 2026-07-19. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
-sequencing lives in `MULTIPLATFORM_PLAN.md`.
+sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
+is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 
 | Capability | State | Current behavior |
 |---|---|---|
@@ -18,11 +19,11 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
-| Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config; logical phase transitions commit as one save |
+| Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases, publication audits and messages are stored atomically in app config; logical phase transitions commit as one save |
 | Run journal cursor | Real | Events and messages carry one global monotonic `seq` (backfilled once by migration); `run:events` returns a cursor-paged chronological stream as the future SSE base |
 | Command idempotency | Real, opt-in | Mutating run commands accept an optional `commandId`; a bounded command log replays the recorded successful outcome instead of re-executing |
 | Sanitized run summaries | Real | `run:getSummary` projects runs without absolute paths, prompts, mailbox bodies or lease paths, for the Graph canvas and the future mobile DTO |
-| Run reload/restart recovery | Real | Task/run status is reconstructed from the journal; interrupted processes fail, while an idle pending integration approval and its leases remain resumable |
+| Run reload/restart recovery | Real | Task/run status is reconstructed from the journal; interrupted processes fail, an idle pending integration approval and its leases remain resumable, and an interrupted external publication recovers as failed/retryable rather than successful |
 | Graph topology | Real, run-scoped | A run references catalog agents and assigns run-local orchestrator/lead/worker roles without creating identities |
 | Graph canvas | Real, multi-run | Every non-terminal run renders as its own cluster; edge/node activity is journal-driven (message `seq`, task transitions), a global panel shows the four task slots and per-run queues, the node inspector surfaces results/usage/provenance, and a selected failed run exposes its persisted technical reason directly in an accessible alert |
 | Managed activity feed | Real, persisted | Claude stream-json and Codex JSONL render into one sanitized live feed in the movable/fullscreen task panel and append to bounded per-task `ACTIVITY.jsonl`; completed-task activity remains available through validated read-only IPC |
@@ -36,8 +37,9 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 | Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
-| Worktree ownership | Real | Clean workspaces are leased exclusively; runtimes cannot write linked-worktree Git metadata, while ADE commits only an exact reported/observed path-set match |
+| Worktree ownership | Real, trust-mode dependent | Clean workspaces are leased exclusively and ADE commits only an exact reported/observed path-set match; normal adapter roots exclude linked-worktree metadata, while an explicitly selected bypass runtime is fully trusted and violations are detected at task boundaries rather than OS-prevented |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
+| Verified Draft-PR publishing | Real, local and explicit | A completed repo-backed managed run atomically attests its final verified HEAD; Graph rechecks clean/same worktree, unchanged GitHub base, generated `ade/**` ref and `gh` access, then a separate confirmation creates only a new branch plus Draft PR and journals the result |
 | Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; the planner is told dependent workers inherit no upstream code |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
@@ -48,7 +50,7 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real locally and hosted | Windows passes 410 focused assertions plus 47 Electron checks; native Ubuntu passes 409 plus source/unpacked/AppImage/installed-Debian 47-check workflows; the first hosted CI and Linux package runs passed on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
+| CI and Electron E2E | Real locally and hosted | The current Windows source gate passes 446 focused assertions plus 56 Electron/Playwright checks, including immutable verification-HEAD enforcement, an isolated real-Git publication push and fake-provider Draft PR; the last hosted cross-platform baseline remains 410/409 focused plus 47 Electron checks on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
 
 ## Known constraints
 
@@ -111,6 +113,18 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
   integration at 200 commits.
 - Plain-workspace runs keep the same plan/result/approval/verification control
   plane but can only reconcile reports; they do not claim git integration.
+- Verified publishing currently supports only a GitHub `origin` plus an
+  installed/authenticated `gh` in the repository's own execution backend. The
+  remote default branch must still equal the leased base exactly; ADE does not
+  rebase, update an existing conflicting ref, merge, auto-merge or delete a
+  remote branch. Multiple origin URLs and multiple/different explicit push URLs
+  are rejected; Git URL-rewrite configuration remains part of the trusted local
+  Git environment. Completed runs from before the immutable verification
+  attestation must be rerun. WSL publication requires `gh` and its login inside
+  that distribution; this slice is locally verified on Windows and remains to
+  join the next hosted/native-Linux matrix. Push hooks are disabled, so Git-LFS
+  or other hook-dependent publication needs a later explicit contract/manual
+  path.
 - There is currently no network listener, paired-device store, mobile build or
   remote ingress in ADE. Until the remote goals are implemented and verified,
   users must not expose Electron IPC or an ad-hoc local server through a router,

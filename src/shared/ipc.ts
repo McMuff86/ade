@@ -24,6 +24,8 @@ import type {
   RunCreateInput,
   RunEvent,
   RunMessage,
+  RunPublication,
+  RunPublicationPreview,
   RunSummary,
   RunTask,
   RunTaskCreateInput,
@@ -74,6 +76,8 @@ export const IPC = {
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
   RunApprovalDiff: 'run:approvalDiff',
+  RunPublicationPreview: 'run:publicationPreview',
+  RunPublish: 'run:publish',
   RunCreate: 'run:create',
   RunDelete: 'run:delete',
   RunStart: 'run:start',
@@ -446,6 +450,16 @@ export interface IpcInvokeMap {
   'run:getSummary': { req: RunSummaryRequest; res: RunSummary[] };
   'run:events': { req: RunEventsRequest; res: RunEventsResult };
   'run:approvalDiff': { req: { runId: string }; res: ApprovalDiffResult };
+  'run:publicationPreview': { req: { runId: string }; res: RunPublicationPreview };
+  'run:publish': {
+    req: {
+      runId: string;
+      expectedHeadSha: string;
+      expectedHeadBranch: string;
+      commandId?: string;
+    };
+    res: RunPublication;
+  };
   'run:create': { req: RunCreateInput; res: Run };
   'run:delete': { req: { runId: string }; res: void };
   'run:start': { req: RunLifecycleRequest; res: Run };

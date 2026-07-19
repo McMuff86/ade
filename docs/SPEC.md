@@ -1,6 +1,7 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.7 (repository scopes implemented; remote control planned, 2026-07-12)
+Status: v0.8 (verified Draft-PR publishing implemented; remote control planned,
+2026-07-19)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -55,6 +56,9 @@ References:
   work is required; it does not create permanent agent identities.
 - **Task** — one run-scoped unit of work assigned to a participant, with real
   queued/running/completed/failed/cancelled state and an event history.
+- **Publication** — a durable audit record for an explicitly confirmed export
+  of one attested managed-run HEAD to a new `ade/**` branch and GitHub Draft
+  Pull Request. It is not a merge approval or an agent capability.
 - **Participant role** — orchestrator/lead/worker is scoped to a run. The same
   named agent may play a different role in a different run.
 - **ADE host** *(planned)* — the logged-in desktop process that owns all
@@ -108,6 +112,17 @@ the migration never deletes user data.
 - Repo-backed managed runs select one repository at run level. Every participant
   receives an exclusive agent/repository binding in that repository; one run
   does not transactionally integrate across multiple repositories.
+- A successful final verifier atomically attests the exact repository HEAD,
+  verification task and time with run completion. Older or plain-workspace
+  runs do not gain publication eligibility by inference.
+- External publication is a separate local-desktop action after completion. A
+  read-only preview and a second explicit confirmation may create only a new
+  ADE-owned branch plus a Draft Pull Request. ADE never directly pushes or
+  merges the repository default branch.
+- Publishing must re-prove clean/same verified HEAD, repository identity,
+  unchanged remote base, a collision-free generated ref, provider access and
+  exact Draft-PR base/head/head-SHA. Request, success, interruption and failure
+  remain durable audit state.
 
 ## Repository scopes and reusable agents (implemented Goal 5)
 
@@ -168,6 +183,10 @@ Detailed model, UI behavior, migration and exit criteria are binding in
 
 The complete scope, trust boundaries and sequenced delivery plan are binding in
 `docs/REMOTE_CONTROL_PLAN.md` and `docs/ROADMAP.md`.
+
+Verified Draft-PR publishing remains local to the trusted desktop renderer/main
+boundary and is deliberately absent from the planned remote API. Its provider,
+Git and recovery contract is binding in `docs/VERIFIED_PUBLISHING_PLAN.md`.
 
 ## Feedback-driven requirements (2026-07-07, binding)
 
@@ -253,5 +272,9 @@ agent". One-command install.
   event streams without waiting for restart.
 - Remote approval requires recent step-up authentication and visible evidence;
   no network, notification or client failure may imply approval or success.
+- A publication preview never authorizes mutation. Publication requires a fresh
+  explicit desktop confirmation of the exact attested HEAD and generated ref;
+  stale base/head state and branch collisions fail closed. Repository CI and a
+  human merge remain authoritative.
 - Windows beta distribution is an x64 installer; signing is required for a
   trusted release but local verification artifacts may be unsigned.

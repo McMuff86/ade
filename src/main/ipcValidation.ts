@@ -91,6 +91,19 @@ function id(channel: string, value: unknown, label: string): string {
   return stringValue(channel, value, label, { max: 512 });
 }
 
+function gitObjectId(channel: string, value: unknown, label: string): void {
+  const text = stringValue(channel, value, label, { max: 64 });
+  if (!/^[0-9a-f]{40,64}$/.test(text)) invalid(channel, `${label} must be a lowercase Git object id`);
+}
+
+function publicationBranch(channel: string, value: unknown): void {
+  const text = stringValue(channel, value, 'expectedHeadBranch', { max: 100 });
+  if (!/^ade\/[a-z0-9][a-z0-9._/-]{0,98}[a-z0-9]$/.test(text)
+      || text.includes('..') || text.includes('//') || text.endsWith('.lock')) {
+    invalid(channel, 'expectedHeadBranch must be an ADE-owned branch');
+  }
+}
+
 function optionalId(channel: string, value: unknown, label: string): string | undefined {
   if (value === undefined) return undefined;
   return id(channel, value, label);
@@ -541,6 +554,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.RunDelete:
     case IPC.RunApprovalDiff:
+    case IPC.RunPublicationPreview:
       validateIdRequest(channel, payload, 'runId');
       return;
     case IPC.PtyActivitySnapshot:
@@ -571,6 +585,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       exactKeys(channel, request, ['approvalId', 'decision', 'commandId']);
       id(channel, request.approvalId, 'approvalId');
       enumValue(channel, request.decision, 'decision', ['approve', 'reject']);
+      commandId(channel, request.commandId);
+      return;
+    }
+    case IPC.RunPublish: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runId', 'expectedHeadSha', 'expectedHeadBranch', 'commandId']);
+      id(channel, request.runId, 'runId');
+      gitObjectId(channel, request.expectedHeadSha, 'expectedHeadSha');
+      publicationBranch(channel, request.expectedHeadBranch);
       commandId(channel, request.commandId);
       return;
     }
