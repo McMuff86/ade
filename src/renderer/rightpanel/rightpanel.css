@@ -109,12 +109,16 @@
   min-width: 0;
   flex: 1;
   height: 28px;
-  padding: 0 7px;
+  /* Room for the native dropdown arrow so long names ellipsize before it. */
+  padding: 0 20px 0 7px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--panel);
   color: var(--text);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rp-scope-controls .btn,

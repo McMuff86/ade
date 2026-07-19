@@ -24,20 +24,23 @@ Ist-Zustand und priorisiert Vorschläge; es ändert selbst nichts.
 
 ## Befunde und Vorschläge
 
-### Quick Wins (klein, sichtbar)
+### Quick Wins (klein, sichtbar) — umgesetzt am 2026-07-20
 
-1. **Light-Theme: Terminal behält einen harten schwarzen Rahmen.** Im
-   Screenshot umschließt ein ca. 6–10 px dunkler Ring das cremefarbene
-   Terminal. Vermutlich folgen Letterbox-/Canvas-Restflächen von xterm dem
-   reaktiven Theme-Wechsel nicht (Inline-Hintergründe aus dem ITheme beim
-   Öffnen). Fix: beim Theme-Switch zusätzlich `fit()`/`refresh()` auslösen
-   und `.terminal-area`/Host/Letterbox konsequent auf `--bg` halten.
-2. **Scope-Header-Select läuft unter den Dropdown-Pfeil.** Bei schmaler
-   Sidebar rendert "No repository (portabl∨" in den Pfeil hinein. Fix:
-   `padding-right` + `text-overflow: ellipsis` für das `select`.
-3. **Theme-Toggle bleibt ein Platzhalter** (Code-Kommentar: "settings UI
-   replaces this later"). Mit der geplanten Settings-Seite (Harness-
-   Verwaltung) dorthin umziehen; im Header nur noch ein Icon-Button.
+1. **Light-Theme: Terminal behält einen harten schwarzen Rahmen.** ✔ Behoben.
+   Tatsächliche Ursache: `@xterm/xterm/css/xterm.css` malt den
+   `.xterm-viewport` mit `#000` und gewann durch Bundle-Reihenfolge gegen
+   ADEs gleichspezifischen `transparent`-Override; der schwarze Viewport
+   schien durch das `.xterm`-Padding als Ring. Fix: Drei-Klassen-Selektor
+   (`.terminal-host .xterm .xterm-viewport`) gewinnt deterministisch;
+   gleicher Fix für den Graph-Dock (`.gdockpanel-term`). Ein struktureller
+   Playwright-Check hält alle Terminal-Flächen im Light-Theme auf `--bg`/
+   transparent.
+2. **Scope-Header-Select läuft unter den Dropdown-Pfeil.** ✔ Behoben:
+   `padding-right: 20px` + `overflow: hidden` + `text-overflow: ellipsis`.
+3. **Theme-Toggle bleibt ein Platzhalter.** ✔ Umgezogen: Die bewusste
+   Theme-Wahl ("Darstellung": Dunkel/Hell) lebt jetzt in der Settings-Seite;
+   im Header bleibt ein Icon-Schnellumschalter (☀/☾) mit sprechendem
+   aria-label.
 
 ### Strukturell (Typografie, Farbe, Sprache)
 

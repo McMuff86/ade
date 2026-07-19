@@ -122,9 +122,14 @@ export function App() {
         <button className="btn" onClick={() => showDiagnostics()} title="Check CLI and authentication">
           Diagnostics
         </button>
-        {/* temporary toggle — settings UI replaces this later */}
-        <button className="btn" onClick={toggleTheme} title="Switch theme">
-          {theme === 'dark' ? 'Light' : 'Dark'}
+        {/* Quick toggle only; the deliberate choice lives in Settings. */}
+        <button
+          className="btn btn-icon"
+          onClick={toggleTheme}
+          title="Switch theme"
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
         </button>
       </header>
 

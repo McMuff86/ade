@@ -497,6 +497,9 @@
   overflow: hidden;
 }
 .gdockpanel-term .xterm { height: 100%; }
+/* Same cascade fix as terminal.css: xterm.css's #000 viewport must not
+   bleed through as a dark ring in the light theme. */
+.gdockpanel-term .xterm .xterm-viewport { background-color: transparent; }
 .gdockpanel-resize {
   position: absolute;
   top: -4px;

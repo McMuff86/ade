@@ -64,6 +64,14 @@
   background: var(--panel);
 }
 
+.btn-icon {
+  justify-content: center;
+  min-width: 28px;
+  padding: 4px 6px;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .btn:hover {
   color: var(--text);
   border-color: var(--faint);

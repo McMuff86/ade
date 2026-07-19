@@ -23,6 +23,7 @@ import { Modal } from '../onboarding/Modal';
 import { runtimeVisual } from '../graph/runtimeGlyphs';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
+import { useSettings } from '../stores/settings';
 import { useMode } from '../stores/mode';
 import '../onboarding/onboarding.css';
 import './settings.css';
@@ -52,6 +53,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   const selectedAgentId = useSelection((state) => state.selectedAgentId);
   const openHarnessLogin = useSessions((state) => state.openHarnessLogin);
   const setMode = useMode((state) => state.setMode);
+  const theme = useSettings((state) => state.theme);
+  const setTheme = useSettings((state) => state.setTheme);
   const [status, setStatus] = useState<HarnessStatusResult | null>(null);
   const [diagnosis, setDiagnosis] = useState<RuntimeDiagnosticsResult | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
@@ -158,6 +161,27 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     >
       <div className="st-body" data-testid="settings-harnesses">
         {error ? <div className="st-error" role="alert">{error}</div> : null}
+        <div className="st-theme-row" role="group" aria-label="Darstellung">
+          <span className="st-theme-label">Darstellung</span>
+          <div className="st-theme-choice">
+            <button
+              type="button"
+              className={`btn${theme === 'dark' ? ' st-theme-active' : ''}`}
+              aria-pressed={theme === 'dark'}
+              onClick={() => setTheme('dark')}
+            >
+              Dunkel
+            </button>
+            <button
+              type="button"
+              className={`btn${theme === 'light' ? ' st-theme-active' : ''}`}
+              aria-pressed={theme === 'light'}
+              onClick={() => setTheme('light')}
+            >
+              Hell
+            </button>
+          </div>
+        </div>
         {!storageAvailable ? (
           <div className="st-warning">
             Sichere Schlüsselablage ist auf diesem System nicht verfügbar.

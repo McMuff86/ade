@@ -108,6 +108,14 @@ und ein sauberer Git-Worktree sein.
     führt das Kommando aus, ein Service-Key erreicht eine Shell-Session als
     Umgebungsvariable, und beides überlebt den App-Neustart verschlüsselt.
 
+- **Design-Review Quick Wins 1-3 (neu):** Der Light-Theme-Terminalrahmen ist
+  behoben (xterm.css malte den Viewport `#000` und gewann per
+  Bundle-Reihenfolge; ein Drei-Klassen-Selektor in terminal.css/graph.css
+  gewinnt jetzt deterministisch, strukturell per Playwright abgesichert).
+  Das Scope-Header-Select ellipsiert lange Namen vor dem Dropdown-Pfeil.
+  Die bewusste Theme-Wahl („Darstellung“: Dunkel/Hell) lebt in der
+  Settings-Seite; im Header bleibt ein Icon-Schnellumschalter (☀/☾).
+
 - Die rechte Sidebar besitzt jetzt ein bewusst getrenntes **Overview** für das
   im Katalog ausgewählte Repository. **Changes** und **Files** bleiben ehrlich
   auf dem unveränderlichen Workspace der aktiven Session.
@@ -217,7 +225,7 @@ Windows, zusammenhängender `pnpm verify`-Lauf:
   Repository-Scopes 43, Repository-Inspector 27, Harness-Credentials 17,
   Workspace-FS 7, Security 117;
 - Production-Build grün;
-- **82/82** reale Electron-/Playwright-Checks grün, inklusive Repository-
+- **86/86** reale Electron-/Playwright-Checks grün, inklusive Repository-
   Übersicht/PRs/Commit-Diff/Keyboard/Fokus, Scope-&-Session-Offenlegung,
   CI-Rollup-Chip, On-demand-Checks mit Fokusrückgabe, ADE-Run-Provenance des
   veröffentlichten Draft-PR, Harness-Wahl und Repo-Pfad-Import im "Neuer
@@ -338,10 +346,10 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
    Publishing muss der Inhalt einen neuen Managed Run durchlaufen; alternativ
    braucht der manuelle Push/PR eine separat freigegebene, wahrheitsgemäß als
    manuell aggregiert bezeichnete Publication.
-2. Die Quick Wins aus `docs/DESIGN_REVIEW_2026-07-19.md` umsetzen
-   (Light-Theme-Terminalrahmen, Select-Overflow im Scope-Header, Theme-
-   Toggle in die Settings-Seite umziehen) und danach Sprache/Typografie
-   vereinheitlichen.
+2. Sprache (DE/EN-Mix) und Typografie (zweite Schriftstimme für Fließtext,
+   Typo-Skala als Tokens, eigenes Warn-Token) gemäß
+   `docs/DESIGN_REVIEW_2026-07-19.md` vereinheitlichen; die dortigen Quick
+   Wins 1-3 sind umgesetzt.
 3. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
 4. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das

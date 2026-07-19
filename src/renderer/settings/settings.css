@@ -133,6 +133,34 @@
   line-height: 1.45;
 }
 
+.st-theme-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-theme-label {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.st-theme-choice {
+  display: flex;
+  gap: 6px;
+}
+
+.st-theme-choice .btn {
+  min-height: 26px;
+  padding: 3px 10px;
+  font-size: 10.5px;
+}
+
+.st-theme-active {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: var(--raised);
+}
+
 .st-badge {
   flex: none;
   padding: 0 6px;

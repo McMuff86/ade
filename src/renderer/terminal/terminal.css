@@ -163,9 +163,12 @@
   padding: 6px 8px 10px;
 }
 
-/* xterm's own viewport background follows the ITheme; keep the host in sync */
+/* xterm.css paints the viewport #000 with a 2-class selector and wins the
+   cascade against an equal-specificity override (bundle order). Three
+   classes beat it deterministically, so the letterbox/padding ring follows
+   the app theme instead of staying black in light mode. */
 .terminal-host .xterm,
-.terminal-host .xterm-viewport {
+.terminal-host .xterm .xterm-viewport {
   background-color: transparent;
 }
 

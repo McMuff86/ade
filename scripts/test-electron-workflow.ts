@@ -1308,6 +1308,12 @@ async function run(): Promise<void> {
         && text.includes('Grok Build')
         && text.includes('codex login');
     }, 20_000);
+    await settingsDialog.getByRole('button', { name: 'Hell' }).click();
+    await eventually('the deliberate theme choice lives in Settings', async () =>
+      (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'light');
+    await settingsDialog.getByRole('button', { name: 'Dunkel' }).click();
+    await eventually('Settings switches the theme back to dark', async () =>
+      (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
     const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
     await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {
       const text = await claudeRow.textContent();
@@ -1385,6 +1391,27 @@ async function run(): Promise<void> {
         ?.includes('SVC=elevenlabs-e2e-value-2026') === true,
       15_000,
     );
+
+    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+    await eventually('the terminal surface follows the light theme without a dark ring', async () => {
+      const surfaces = await page!.evaluate(() => ({
+        theme: document.documentElement.dataset['theme'],
+        area: document.querySelector('.terminal-area')
+          ? getComputedStyle(document.querySelector('.terminal-area')!).backgroundColor
+          : null,
+        viewports: [...document.querySelectorAll('.terminal-host .xterm-viewport')]
+          .map((element) => getComputedStyle(element).backgroundColor),
+      }));
+      return surfaces.theme === 'light'
+        && surfaces.area === 'rgb(243, 239, 231)'
+        && surfaces.viewports.length > 0
+        && surfaces.viewports.every((color) => (
+          color === 'rgba(0, 0, 0, 0)' || color === 'transparent'
+        ));
+    });
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await eventually('the quick toggle returns the app to the dark theme', async () =>
+      (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
 
     await app.close();
     app = null;
