@@ -212,6 +212,9 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.RepositoryPullRequests, ({ repositoryId }) =>
     repositoryInspector.pullRequests(repositoryId),
   );
+  handle(IPC.RepositoryPullRequestChecks, ({ repositoryId, pullRequestNumber }) =>
+    repositoryInspector.pullRequestChecks(repositoryId, pullRequestNumber),
+  );
   handle(IPC.RepositoryCommitDiff, ({ repositoryId, commitSha }) =>
     repositoryInspector.commitDiff(repositoryId, commitSha),
   );

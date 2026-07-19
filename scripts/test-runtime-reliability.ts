@@ -12,7 +12,12 @@ import {
 } from '../src/main/platform';
 import { failureNoticeFor, statusFor } from '../src/renderer/graph/graphModel';
 import type { Run, RunEvent, RunTask } from '../src/shared/types';
-import { resolveLaunchCommand, resolveTaskLaunchCommand } from '../src/shared/runtimes';
+import {
+  MANAGED_HARNESS_OVERRIDES,
+  effectiveParticipantAgent,
+  resolveLaunchCommand,
+  resolveTaskLaunchCommand,
+} from '../src/shared/runtimes';
 
 let passed = 0;
 let failed = 0;
@@ -133,6 +138,30 @@ async function main(): Promise<void> {
   } else {
     check('Codex stdin transport survives PowerShell 5.1 quotes without evaluation', codex?.transport === 'stdin');
   }
+
+  const overrideBase = {
+    id: 'override-agent',
+    categoryId: 'override-category',
+    name: 'Override fixture',
+    runtime: 'codex' as const,
+    permissionMode: 'default' as const,
+    workspaceDir: 'C:\\workspace\\override',
+    memoryDir: 'C:\\memory\\override',
+    customCommand: 'node run-my-own-harness.cjs',
+    codexModel: 'gpt-5.6-sol',
+  };
+  const overridden = effectiveParticipantAgent(overrideBase, 'claude');
+  const untouched = effectiveParticipantAgent(overrideBase, 'codex');
+  check('a differing harness override switches the runtime and drops customCommand',
+    overridden.runtime === 'claude'
+      && overridden.customCommand === undefined
+      && resolveLaunchCommand(overridden) === 'claude'
+      && overrideBase.runtime === 'codex');
+  check('a matching or absent override keeps the agent identity untouched',
+    untouched === overrideBase && effectiveParticipantAgent(overrideBase) === overrideBase);
+  check('every offered harness override has a real default launch command',
+    MANAGED_HARNESS_OVERRIDES.every((runtime) =>
+      resolveLaunchCommand({ runtime, permissionMode: 'default' }).trim().length > 0));
 
   const ollama = resolveTaskLaunchCommand(agent('ollama'), 'posix');
   check(

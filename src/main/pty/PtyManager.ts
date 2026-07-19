@@ -20,6 +20,7 @@ import {
 } from '../../shared/ipc';
 import {
   LAUNCH_PROFILES,
+  effectiveParticipantAgent,
   resolveLaunchCommand,
   resolveTaskLaunchCommand,
 } from '../../shared/runtimes';
@@ -340,7 +341,7 @@ export class PtyManager {
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
   ): Promise<SessionMeta> {
-    const agent = this.requireAgent(agentId);
+    const agent = this.effectiveTaskAgent(this.requireAgent(agentId), task?.runTaskId);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
@@ -640,6 +641,17 @@ export class PtyManager {
     const agent = this.store.get().agents.find((candidate) => candidate.id === agentId);
     if (!agent) throw new Error(`pty:create - unknown agent "${agentId}"`);
     return agent;
+  }
+
+  /** Run tasks launch with the participant's per-run harness override. */
+  private effectiveTaskAgent(agent: Agent, runTaskId?: string): Agent {
+    if (!runTaskId) return agent;
+    const config = this.store.get();
+    const runTask = config.runTasks.find((candidate) => candidate.id === runTaskId);
+    const participant = runTask
+      ? config.runParticipants.find((candidate) => candidate.id === runTask.participantId)
+      : undefined;
+    return effectiveParticipantAgent(agent, participant?.runtime);
   }
 
   private assertScopeAvailable(scope: ResolvedExecutionScope, runTaskId?: string): void {

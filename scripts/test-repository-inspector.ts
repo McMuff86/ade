@@ -11,6 +11,7 @@ import type {
   AdeConfig,
   GitStatus,
   Repository,
+  RunPublication,
 } from '../src/shared/types';
 import { DEFAULT_CONFIG } from '../src/shared/types';
 import {
@@ -19,7 +20,9 @@ import {
 } from '../src/shared/executionBackends';
 import {
   RepositoryInspectorService,
+  parsePullRequestChecks,
   parseRepositoryPullRequests,
+  summarizeCheckRollup,
   type RepositoryInspectorCommandPort,
   type RepositoryInspectorGitPort,
 } from '../src/main/repositories/RepositoryInspectorService';
@@ -64,6 +67,15 @@ function result(
   };
 }
 
+function rollupFixture(): Array<Record<string, unknown>> {
+  return [
+    { __typename: 'CheckRun', name: 'build', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { __typename: 'CheckRun', name: 'tests', status: 'COMPLETED', conclusion: 'FAILURE' },
+    { __typename: 'StatusContext', context: 'lint', state: 'PENDING' },
+    { __typename: 'CheckRun', name: 'docs', status: 'COMPLETED', conclusion: 'SKIPPED' },
+  ];
+}
+
 function prFixture(number = 12): Record<string, unknown> {
   return {
     number,
@@ -78,12 +90,22 @@ function prFixture(number = 12): Record<string, unknown> {
     changedFiles: 3,
     additions: 14,
     deletions: 2,
+    statusCheckRollup: rollupFixture(),
+  };
+}
+
+function checksViewFixture(number = 12): Record<string, unknown> {
+  return {
+    number,
+    url: `https://github.com/ade-e2e/inspector/pull/${number}`,
+    statusCheckRollup: rollupFixture(),
   };
 }
 
 class GithubFixtureCommands implements RepositoryInspectorCommandPort {
   private readonly execution = new ExecutionBackendService();
   ghMode: 'valid' | 'malformed' | 'failed' | 'timeout' = 'valid';
+  viewMode: 'valid' | 'wrong-number' | 'foreign-url' | 'malformed-rollup' = 'valid';
   ghCalls: Array<{ backend: ExecutionBackendId | undefined; args: string[]; options?: BackendCommandOptions }> = [];
 
   samePath(backend: ExecutionBackendId | undefined, left: string, right: string): boolean {
@@ -105,6 +127,19 @@ class GithubFixtureCommands implements RepositoryInspectorCommandPort {
       });
     }
     if (this.ghMode === 'timeout') return result('', { code: null, timedOut: true });
+    if (args[0] === 'pr' && args[1] === 'view') {
+      if (this.viewMode === 'wrong-number') return result(JSON.stringify(checksViewFixture(99)));
+      if (this.viewMode === 'foreign-url') {
+        return result(JSON.stringify({
+          ...checksViewFixture(),
+          url: 'https://github.com/other/repository/pull/12',
+        }));
+      }
+      if (this.viewMode === 'malformed-rollup') {
+        return result(JSON.stringify({ ...checksViewFixture(), statusCheckRollup: ['broken'] }));
+      }
+      return result(JSON.stringify(checksViewFixture()));
+    }
     if (this.ghMode === 'malformed') {
       return result(JSON.stringify([{ ...prFixture(), url: 'https://evil.invalid/pull/12' }]));
     }
@@ -202,9 +237,96 @@ async function testRealRepository(scratch: string): Promise<void> {
     ghCall?.backend === NATIVE_EXECUTION_BACKEND
       && ghCall.args.includes('github.com/ade-e2e/inspector')
       && ghCall.args.includes('open')
+      && ghCall.args.some((arg) => arg.includes('statusCheckRollup'))
       && ghCall.options?.cwd === repository.rootPath
-      && ghCall.options.maxBuffer === 512 * 1024
+      && ghCall.options.maxBuffer === 1024 * 1024
       && ghCall.options.timeoutMs === 15_000);
+  check('PR list carries a bounded CI rollup summary instead of raw provider checks',
+    prs.pullRequests[0]?.ci.state === 'failed'
+      && prs.pullRequests[0]?.ci.total === 4
+      && prs.pullRequests[0]?.ci.failed === 1
+      && prs.pullRequests[0]?.ci.pending === 1
+      && prs.pullRequests[0]?.adePublication === null);
+
+  const publication: RunPublication = {
+    id: 'publication-1',
+    runId: 'run-1',
+    repositoryId: repository.id,
+    provider: 'github',
+    providerRepository: 'ADE-E2E/Inspector',
+    remoteName: 'origin',
+    baseBranch: 'main',
+    headBranch: 'ade/inspector',
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+    status: 'draft',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    prNumber: 12,
+    prUrl: 'https://github.com/ade-e2e/inspector/pull/12',
+  };
+  config.runPublications = [publication];
+  const linkedByNumber = await providerInspector.pullRequests(repository.id);
+  check('open PRs link back to the ADE publication and run by exact PR number',
+    linkedByNumber.pullRequests[0]?.adePublication?.runId === 'run-1'
+      && linkedByNumber.pullRequests[0]?.adePublication?.publicationId === 'publication-1'
+      && linkedByNumber.pullRequests[0]?.adePublication?.status === 'draft');
+  const { prNumber: _unusedNumber, ...unnumberedPublication } = publication;
+  config.runPublications = [{ ...unnumberedPublication, status: 'publishing' }];
+  const linkedByBranch = await providerInspector.pullRequests(repository.id);
+  check('a not-yet-numbered publication attempt still links through its ADE branch',
+    linkedByBranch.pullRequests[0]?.adePublication?.status === 'publishing');
+  config.runPublications = [
+    { ...publication, repositoryId: 'someone-else', prNumber: 12 },
+    { ...publication, id: 'p2', providerRepository: 'other/repository', prNumber: 12 },
+    { ...publication, id: 'p3', prNumber: 500, headBranch: 'ade/unrelated' },
+  ];
+  const unlinked = await providerInspector.pullRequests(repository.id);
+  check('foreign repositories, providers and branches never claim a PR link',
+    unlinked.pullRequests[0]?.adePublication === null);
+  config.runPublications = [];
+
+  const checksCallIndex = commands.ghCalls.length;
+  const checks = await providerInspector.pullRequestChecks(repository.id, 12);
+  const checksCall = commands.ghCalls[checksCallIndex];
+  check('on-demand PR checks return bounded named states without provider URLs',
+    checks.status === 'ready'
+      && checks.pullRequestNumber === 12
+      && checks.checks.length === 4
+      && checks.checks[0]?.name === 'build' && checks.checks[0]?.state === 'passed'
+      && checks.checks[1]?.name === 'tests' && checks.checks[1]?.state === 'failed'
+      && checks.checks[2]?.name === 'lint' && checks.checks[2]?.state === 'pending'
+      && checks.checks[3]?.name === 'docs' && checks.checks[3]?.state === 'skipped'
+      && !checks.checksTruncated
+      && !JSON.stringify(checks).includes('http'));
+  check('the checks read is an exact numbered, host-qualified, capped gh view',
+    checksCall?.args[0] === 'pr' && checksCall.args[1] === 'view'
+      && checksCall.args[2] === '12'
+      && checksCall.args.includes('github.com/ade-e2e/inspector')
+      && checksCall.options?.cwd === repository.rootPath
+      && checksCall.options.maxBuffer === 1024 * 1024
+      && checksCall.options.timeoutMs === 15_000);
+
+  commands.viewMode = 'wrong-number';
+  const wrongNumber = await providerInspector.pullRequestChecks(repository.id, 12);
+  commands.viewMode = 'foreign-url';
+  const foreignUrl = await providerInspector.pullRequestChecks(repository.id, 12);
+  commands.viewMode = 'malformed-rollup';
+  const malformedRollup = await providerInspector.pullRequestChecks(repository.id, 12);
+  commands.viewMode = 'valid';
+  check('checks fail closed on wrong number, foreign URL or malformed rollup',
+    wrongNumber.status === 'unavailable'
+      && foreignUrl.status === 'unavailable'
+      && malformedRollup.status === 'unavailable'
+      && [wrongNumber, foreignUrl, malformedRollup]
+        .every((value) => value.checks.length === 0));
+  let invalidNumberRejected = false;
+  try {
+    await providerInspector.pullRequestChecks(repository.id, 1.5);
+  } catch {
+    invalidNumberRejected = true;
+  }
+  check('checks reject non-integer PR numbers before any provider call', invalidNumberRejected);
 
   commands.ghMode = 'malformed';
   const malformed = await providerInspector.pullRequests(repository.id);
@@ -226,8 +348,11 @@ async function testRealRepository(scratch: string): Promise<void> {
   const ghCallsBeforeUnsupported = commands.ghCalls.length;
   git(root, ['remote', 'set-url', 'origin', 'https://gitlab.com/ade-e2e/inspector.git']);
   const unsupported = await providerInspector.pullRequests(repository.id);
+  const unsupportedChecks = await providerInspector.pullRequestChecks(repository.id, 12);
   check('non-GitHub origin returns unsupported without invoking gh',
-    unsupported.status === 'unsupported' && commands.ghCalls.length === ghCallsBeforeUnsupported);
+    unsupported.status === 'unsupported'
+      && unsupportedChecks.status === 'unsupported'
+      && commands.ghCalls.length === ghCallsBeforeUnsupported);
 }
 
 async function testBackendPropagation(): Promise<void> {
@@ -288,6 +413,54 @@ function testStrictProviderAndIpcParsing(): void {
   check('provider parser rejects repository mismatch and oversized responses',
     unsafeRejected && overflowRejected);
 
+  const emptyRollup = summarizeCheckRollup(undefined);
+  const passedRollup = summarizeCheckRollup([
+    { status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { state: 'SUCCESS' },
+    { status: 'COMPLETED', conclusion: 'SKIPPED' },
+  ]);
+  const pendingRollup = summarizeCheckRollup([
+    { status: 'QUEUED', conclusion: '' },
+    { status: 'COMPLETED', conclusion: 'SUCCESS' },
+  ]);
+  const malformedEntryRollup = summarizeCheckRollup(['not-a-check']);
+  check('rollup summaries stay conservative: unknown counts as pending, failures win',
+    emptyRollup.state === 'none' && emptyRollup.total === 0
+      && passedRollup.state === 'passed' && passedRollup.total === 3
+      && pendingRollup.state === 'pending' && pendingRollup.pending === 1
+      && malformedEntryRollup.state === 'pending');
+
+  const oversizedChecks = parsePullRequestChecks(
+    JSON.stringify({
+      ...checksViewFixture(),
+      statusCheckRollup: Array.from({ length: 150 }, (_, index) => ({
+        __typename: 'CheckRun',
+        name: `check-${index}`,
+        status: 'COMPLETED',
+        conclusion: 'SUCCESS',
+      })),
+    }),
+    'ade-e2e/inspector',
+    12,
+  );
+  const nullRollupChecks = parsePullRequestChecks(
+    JSON.stringify({ ...checksViewFixture(), statusCheckRollup: null }),
+    'ade-e2e/inspector',
+    12,
+  );
+  let checksMismatchRejected = false;
+  try {
+    parsePullRequestChecks(JSON.stringify(checksViewFixture(13)), 'ade-e2e/inspector', 12);
+  } catch {
+    checksMismatchRejected = true;
+  }
+  check('check parsing caps at 100 named checks and stays exact about identity',
+    oversizedChecks.checks.length === 100
+      && oversizedChecks.checksTruncated
+      && nullRollupChecks.checks.length === 0
+      && !nullRollupChecks.checksTruncated
+      && checksMismatchRejected);
+
   let extraRejected = false;
   try {
     assertIpcPayload('repository:overview', { repositoryId: 'repo', path: 'C:\\secret' });
@@ -326,11 +499,35 @@ function testStrictProviderAndIpcParsing(): void {
       repositoryId: 'repo',
       commitSha: 'a'.repeat(40),
     });
+    assertIpcPayload('repository:pullRequestChecks', {
+      repositoryId: 'repo',
+      pullRequestNumber: 42,
+    });
   } catch {
     validAccepted = false;
   }
   check('inspector IPC accepts only repository ids and full lowercase object ids',
     extraRejected && shortRejected && shellRejected && partialFullRejected && validAccepted);
+
+  const invalidCheckPayloads: unknown[] = [
+    { repositoryId: 'repo' },
+    { repositoryId: 'repo', pullRequestNumber: 0 },
+    { repositoryId: 'repo', pullRequestNumber: -3 },
+    { repositoryId: 'repo', pullRequestNumber: 1.5 },
+    { repositoryId: 'repo', pullRequestNumber: '42' },
+    { repositoryId: 'repo', pullRequestNumber: 1_000_000_001 },
+    { repositoryId: 'repo', pullRequestNumber: 42, extra: true },
+  ];
+  const allChecksPayloadsRejected = invalidCheckPayloads.every((payload) => {
+    try {
+      assertIpcPayload('repository:pullRequestChecks', payload);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  check('checks IPC rejects missing, fractional, string, oversized and extra fields',
+    allChecksPayloadsRejected);
 }
 
 async function run(): Promise<void> {

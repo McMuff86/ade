@@ -90,9 +90,10 @@
   color: var(--accent);
 }
 
+/* Clean is the neutral expectation; only dirty state earns attention. */
 .rp-scope-meta .rp-scope-clean {
   flex: none;
-  color: var(--add);
+  color: var(--muted);
 }
 
 .rp-scope-meta .rp-scope-dirty {
@@ -150,6 +151,47 @@
 .rp-scope-remove-armed {
   color: var(--del);
   border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+.rp-scope-toggle {
+  flex: none;
+  min-width: 28px;
+  letter-spacing: 1px;
+}
+
+.rp-scope-toggle.open {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: var(--raised);
+}
+
+.rp-scope-manage {
+  margin-top: 7px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 65%, var(--raised));
+}
+
+.rp-scope-manage .rp-scope-actions {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.rp-scope-manage .rp-scope-controls {
+  margin-top: 7px;
+}
+
+.rp-scope-manage input {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
 }
 
 /* ------------------------------------------------------------------ tabs */
@@ -336,12 +378,17 @@
   white-space: nowrap;
 }
 
+/* Highlight only states that require a decision; neutral facts stay quiet. */
 .ri-health-grid .ri-clean {
-  color: var(--add);
+  color: var(--muted);
 }
 
 .ri-health-grid .ri-dirty {
   color: var(--del);
+}
+
+.ri-health-grid .ri-diverged {
+  color: var(--accent);
 }
 
 .ri-health-foot {
@@ -501,7 +548,14 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.ri-pr:focus-visible {
+.ri-pr-link {
+  min-width: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ri-pr-link:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -2px;
 }
@@ -575,15 +629,11 @@
   text-transform: uppercase;
 }
 
-.ri-tag-draft,
+/* Decision-relevant states only: review needed and requested changes speak
+   up; draft, approved, passing CI and the ADE provenance tag stay quiet. */
 .ri-tag-review-required {
   color: var(--accent);
   border-color: var(--accent-dim);
-}
-
-.ri-tag-approved {
-  color: var(--add);
-  border-color: color-mix(in srgb, var(--add) 45%, var(--line));
 }
 
 .ri-tag-changes-requested {
@@ -591,8 +641,81 @@
   border-color: color-mix(in srgb, var(--del) 45%, var(--line));
 }
 
+button.ri-tag-ci {
+  cursor: pointer;
+  text-transform: none;
+}
+
+button.ri-tag-ci:hover,
+button.ri-tag-ci.open {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.ri-ci-failed {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+button.ri-ci-failed:hover,
+button.ri-ci-failed.open {
+  color: var(--del);
+}
+
 .ri-pr-invalid {
   opacity: 0.7;
+}
+
+/* --------------------------------------------------- on-demand CI checks */
+
+.ri-check-list {
+  list-style: none;
+  padding: 6px 0;
+}
+
+.ri-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 14px;
+  font-size: 11px;
+}
+
+.ri-check-glyph {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.ri-check-failed .ri-check-glyph,
+.ri-check-failed .ri-check-state {
+  color: var(--del);
+}
+
+.ri-check-passed .ri-check-glyph {
+  color: var(--add);
+}
+
+.ri-check-pending .ri-check-glyph {
+  color: var(--accent);
+}
+
+.ri-check-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-check-state {
+  flex: none;
+  color: var(--faint);
+  font-size: 9.5px;
+  text-transform: uppercase;
 }
 
 @container (max-width: 330px) {

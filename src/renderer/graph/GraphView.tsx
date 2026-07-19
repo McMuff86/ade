@@ -11,9 +11,15 @@ import type {
   RunPublication,
   RunPublicationPreview,
   RunTaskResult,
+  RuntimeId,
   TaskProvenance,
 } from '../../shared/types';
-import type { ApprovalDiffResult } from '../../shared/ipc';
+import { MANAGED_HARNESS_OVERRIDES } from '../../shared/runtimes';
+import type { ApprovalDiffResult, WslDistributionInfo } from '../../shared/ipc';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  type ExecutionBackendId,
+} from '../../shared/executionBackends';
 import { useAppData } from '../stores/appdata';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
@@ -2205,6 +2211,14 @@ function NewRunModal(props: {
   );
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [leaders, setLeaders] = useState<Record<string, string>>({});
+  /** Per-run harness override per agent id; absent = agent's own runtime. */
+  const [harness, setHarness] = useState<Record<string, RuntimeId>>({});
+  const importRepository = useAppData((state) => state.importRepository);
+  /** null = hidden; string = direct native/WSL repository path entry. */
+  const [manualPath, setManualPath] = useState<string | null>(null);
+  const [importBackend, setImportBackend] = useState<ExecutionBackendId>(NATIVE_EXECUTION_BACKEND);
+  const [wslDistributions, setWslDistributions] = useState<WslDistributionInfo[]>([]);
+  const [importBusy, setImportBusy] = useState(false);
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(2);
   const [maxInputTokens, setMaxInputTokens] = useState('');
   const [maxOutputTokens, setMaxOutputTokens] = useState('');
@@ -2256,13 +2270,52 @@ function NewRunModal(props: {
   };
 
   const participantCount = Object.keys(selected).length + (orchestratorId ? 1 : 0);
+  const harnessFor = (agentId: string): RuntimeId | undefined => {
+    const agent = props.agents[agentId];
+    const override = harness[agentId];
+    return agent && override && override !== agent.runtime ? override : undefined;
+  };
+  const harnessOptions = (agent: Agent): RuntimeId[] => [
+    agent.runtime,
+    ...MANAGED_HARNESS_OVERRIDES.filter((runtime) => runtime !== agent.runtime),
+  ];
+  const toggleManualPath = (): void => {
+    setManualPath((current) => (current === null ? '' : null));
+    if (manualPath === null && wslDistributions.length === 0) {
+      void window.ade.invoke('wsl:list')
+        .then((result) => setWslDistributions(result.distributions))
+        .catch(() => setWslDistributions([]));
+    }
+  };
+  const importManualPath = async (): Promise<void> => {
+    const path = (manualPath ?? '').trim();
+    if (!path || importBusy) return;
+    setImportBusy(true);
+    setError(null);
+    try {
+      const repository = await importRepository(path, undefined, importBackend);
+      setRepositoryId(repository.id);
+      setManualPath(null);
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : String(importError));
+    } finally {
+      setImportBusy(false);
+    }
+  };
   const submit = async (): Promise<void> => {
     if (!name.trim() || participantCount === 0 || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       const participants: RunCreateInput['participants'] = [];
-      if (orchestratorId) participants.push({ agentId: orchestratorId, role: 'orchestrator' });
+      if (orchestratorId) {
+        const runtime = harnessFor(orchestratorId);
+        participants.push({
+          agentId: orchestratorId,
+          role: 'orchestrator',
+          ...(runtime ? { runtime } : {}),
+        });
+      }
       for (const category of availableCategories) {
         const memberIds = category.agents.filter((agentId) => selected[agentId] && props.agents[agentId]);
         if (!memberIds.length) continue;
@@ -2272,11 +2325,13 @@ function NewRunModal(props: {
         const teamId = globalThis.crypto?.randomUUID?.()
           ?? `team-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         for (const agentId of memberIds) {
+          const runtime = harnessFor(agentId);
           participants.push({
             agentId,
             role: agentId === leadId ? 'lead' : 'worker',
             teamId,
             teamName: category.name,
+            ...(runtime ? { runtime } : {}),
           });
         }
       }
@@ -2347,6 +2402,30 @@ function NewRunModal(props: {
               {allAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </select>
           </label>
+          {orchestratorId && props.agents[orchestratorId] ? (
+            <label className="grun-field">
+              <span>Harness</span>
+              <select
+                aria-label={`Harness für ${props.agents[orchestratorId]!.name}`}
+                value={harness[orchestratorId] ?? props.agents[orchestratorId]!.runtime}
+                onChange={(event) => setHarness((current) => ({
+                  ...current,
+                  [orchestratorId]: event.target.value as RuntimeId,
+                }))}
+              >
+                {harnessOptions(props.agents[orchestratorId]!).map((runtime) => (
+                  <option key={runtime} value={runtime}>
+                    {runtimeVisual(runtime).label}
+                    {runtime === props.agents[orchestratorId]!.runtime ? ' (Agent-Standard)' : ''}
+                  </option>
+                ))}
+              </select>
+              <small className="grun-hint">
+                Gilt nur für diesen Run. Das gewählte CLI muss installiert und
+                angemeldet sein (Diagnostics).
+              </small>
+            </label>
+          ) : null}
           <label className="grun-field">
             <span>Repository</span>
             <select value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
@@ -2363,6 +2442,62 @@ function NewRunModal(props: {
                 : 'Ohne Repository arbeiten alle Teilnehmer in ihren Home-Verzeichnissen (kein gemeinsamer Git-Stand).'}
             </small>
           </label>
+          <div className="grun-repo-import">
+              <button
+                type="button"
+                className="gact"
+                aria-expanded={manualPath !== null}
+                title="Repository-Pfad direkt eingeben und importieren"
+                onClick={toggleManualPath}
+              >
+                Pfad…
+              </button>
+              {manualPath !== null && (
+                <>
+                  <select
+                    aria-label="Execution backend"
+                    value={importBackend}
+                    disabled={importBusy}
+                    onChange={(event) => setImportBackend(event.target.value as ExecutionBackendId)}
+                  >
+                    <option value={NATIVE_EXECUTION_BACKEND}>Native</option>
+                    {wslDistributions.map((distribution) => (
+                      <option
+                        key={distribution.backend}
+                        value={distribution.backend}
+                        disabled={!distribution.available}
+                      >
+                        WSL · {distribution.name}{distribution.available ? '' : ' (unavailable)'}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    aria-label="Repository path"
+                    placeholder={importBackend === NATIVE_EXECUTION_BACKEND
+                      ? 'C:\\repos\\projekt'
+                      : '/home/name/projekt'}
+                    value={manualPath}
+                    disabled={importBusy}
+                    onChange={(event) => setManualPath(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void importManualPath();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="gact"
+                    disabled={importBusy || manualPath.trim().length === 0}
+                    onClick={() => void importManualPath()}
+                  >
+                    Importieren
+                  </button>
+                </>
+              )}
+            </div>
 
           <div className="grun-budget-title">
             <span>Run-Budgets</span>
@@ -2434,7 +2569,10 @@ function NewRunModal(props: {
                   <h3>{category.name}</h3>
                   {members.map((agent) => {
                     const checked = Boolean(selected[agent.id]);
-                    const runtime = runtimeVisual(agent.runtime);
+                    const effectiveRuntime = checked
+                      ? (harness[agent.id] ?? agent.runtime)
+                      : agent.runtime;
+                    const runtime = runtimeVisual(effectiveRuntime);
                     return (
                       <div key={agent.id} className="grun-agent">
                         <label>
@@ -2446,8 +2584,26 @@ function NewRunModal(props: {
                           />
                           <span className="grun-agent-glyph" style={{ ['--rt' as string]: runtime.color }}><runtime.Glyph /></span>
                           <span className="grun-agent-name">{agent.name}</span>
-                          <span className="grun-agent-runtime">{runtime.label}</span>
+                          {!checked && <span className="grun-agent-runtime">{runtime.label}</span>}
                         </label>
+                        {checked && (
+                          <select
+                            className="grun-agent-harness"
+                            aria-label={`Harness für ${agent.name}`}
+                            value={effectiveRuntime}
+                            onChange={(event) => setHarness((current) => ({
+                              ...current,
+                              [agent.id]: event.target.value as RuntimeId,
+                            }))}
+                          >
+                            {harnessOptions(agent).map((option) => (
+                              <option key={option} value={option}>
+                                {runtimeVisual(option).label}
+                                {option === agent.runtime ? ' (Standard)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         {checked && (
                           <label className="grun-lead">
                             <input

@@ -1,14 +1,68 @@
 # Handoff — 2026-07-19
 
 Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
-Abschluss, Verified Draft-PR Publishing und dem neuen Repository Inspector. Der
-vorherige dokumentierte Stand (`9349ab5`) liegt auf `origin/main`. Der Inspector
-wird mit synchroner Produkt-/Architektur-Dokumentation durch den vollständigen
-Windows-Gate verifiziert und anschließend auf ADE-`main` veröffentlicht; der
-Abschlusszustand soll identisches lokales `main`/`origin/main` und ein sauberer
-Git-Worktree sein.
+Abschluss, Verified Draft-PR Publishing, dem Repository Inspector (`40bc1b2`
+auf `origin/main`) und dessen neuem Progressive-Disclosure-Slice: kompakte
+`Scope & session`-Offenlegung, CI-Rollups mit On-demand-Einzelchecks,
+Run→Publication→PR-Traceability, ausschließlich entscheidungsrelevante
+Hervorhebung, visuelle Regressions-Baselines und die explizite Harness-Wahl
+pro Run im "Neuer Run"-Dialog. Der Slice wird mit synchroner
+Produkt-/Architektur-Dokumentation durch den vollständigen Windows-Gate
+verifiziert; der Abschlusszustand soll identisches lokales `main`/`origin/main`
+und ein sauberer Git-Worktree sein.
 
 ## Ergebnis dieser Session
+
+- **Progressive-Disclosure-Slice des Inspectors (neu):**
+  - Seltene Scope-Aktionen (`Add repo`, `Pfad…`, `Set agent default`,
+    `Remove worktree`) liegen hinter einer kompakten `⋯`-Offenlegung
+    (`Scope & session`) mit `aria-expanded`; Identität, Health, Repository-
+    Auswahl und `Open new session` bleiben sichtbar. Die Offenlegung übersteht
+    den 5-Sekunden-Poll und schließt nur bei Agent-/Session-Wechsel.
+  - PR-Zeilen tragen ein **CI-Rollup** (`none/pending/passed/failed` mit
+    Zählern), im Main-Prozess konservativ aus `statusCheckRollup` reduziert;
+    rohe Provider-Checks erreichen den Renderer im Listen-Read nie.
+  - **Traceability Run → Publication → PR:** offene PRs werden gegen die
+    durablen `runPublications` gematcht (exakte PR-Nummer zuerst, sonst
+    ADE-eigener Head-Branch) und tragen dann ein neutrales `ADE run`-Badge
+    mit Run-/Status-Tooltip.
+  - **Einzelchecks nur on demand:** Der CI-Chip ist ein Button und öffnet die
+    geteilte Detail-Pane; `repository:pullRequestChecks` validiert PR-Nummer
+    und URL erneut und liefert höchstens 100 benannte Check-Zustände ohne
+    Provider-URLs. Logs bleiben auf GitHub; Escape gibt den Fokus an den Chip
+    zurück.
+  - **Nur entscheidungsrelevante Zustände** sind farbig: dirty, Divergenz,
+    fehlgeschlagene CI, Reviewbedarf, Changes-requested. Clean, up to date,
+    draft, approved und passing CI sind bewusst neutral.
+  - **Visuelle Regression:** `pnpm test:visual` rendert die Sidebar
+    deterministisch (eingefrorene Renderer-Uhr, fixe Git-Daten, Scale 1.0,
+    en-US) in Dark/Light × 300/380/540 px plus offener Checks-Pane und
+    vergleicht Pixel-Baselines pro Plattform
+    (`scripts/fixtures/visual-baselines/`); Hosted-CI erfasst Screenshots und
+    Strukturchecks, überspringt aber den Pixel-Diff.
+  - Ein priorisiertes UI/UX-Review des Gesamtprodukts (Quick Wins wie der
+    Light-Theme-Terminalrahmen, Typografie-/Kontrast-/Sprachbefunde,
+    Run-Dialog-Entzerrung, Signatur-Vorschlag „Beweiskette“) steht in
+    `docs/DESIGN_REVIEW_2026-07-19.md`.
+
+- **Harness-Wahl pro Run (neu):** Der "Neuer Run"-Dialog bietet für den
+  Orchestrator und jeden ausgewählten Teilnehmer eine explizite Harness-
+  Auswahl (Agent-Standard plus Claude Code, Codex, OpenCode, Grok Build,
+  Gemini CLI). Der Override gilt nur für diesen Run: Er wird auf dem
+  RunParticipant gespeichert, verändert den Katalog-Agenten nicht und wird
+  über `effectiveParticipantAgent` an jeder Start-/Capability-/Manifest-Naht
+  angewendet (Roster, Task-Launch, PTY-Spawn). Ein Override verwirft bewusst
+  das agent-eigene `customCommand`; `shell`, `custom` und `ollama` bleiben
+  nur als Agent-eigene Runtimes zulässig, und IPC/Service lehnen unbekannte
+  Harnesses fail-closed ab. Das gewählte CLI muss installiert und angemeldet
+  sein — der Dialog sagt das ausdrücklich; eine Settings-Seite für
+  Harness-Anmeldung ist der nächste Schritt.
+
+- **Repo-Pfad-Import im "Neuer Run"-Dialog (neu):** Unter der Repository-
+  Auswahl öffnet `Pfad…` eine Zeile für die direkte Pfadeingabe mit bewusster
+  Backend-Wahl (Native/WSL-Distribution). Der Import nutzt denselben
+  verifizierten `repository:import`-Vertrag wie der Scope-Header, ist
+  idempotent und wählt das importierte Repository direkt für den Run aus.
 
 - Die rechte Sidebar besitzt jetzt ein bewusst getrenntes **Overview** für das
   im Katalog ausgewählte Repository. **Changes** und **Files** bleiben ehrlich
@@ -113,15 +167,20 @@ Windows-Ordner oben behält die beiden fertigen Pakete.
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
 - beide TypeScript-Projekte grün;
-- **465/465** fokussierte Unit-/Integrations-/Security-Assertions:
-  Memory 27, Dispatch 12, Runtime 29, Execution-Backends 16,
-  Orchestration 46, Orchestration-Beta 101, Publication 29, Prompts 31,
-  Repository-Scopes 43, Repository-Inspector 16, Workspace-FS 7, Security 108;
+- **483/483** fokussierte Unit-/Integrations-/Security-Assertions:
+  Memory 27, Dispatch 12, Runtime 32, Execution-Backends 16,
+  Orchestration 48, Orchestration-Beta 101, Publication 29, Prompts 31,
+  Repository-Scopes 43, Repository-Inspector 27, Workspace-FS 7, Security 110;
 - Production-Build grün;
-- **64/64** reale Electron-/Playwright-Checks grün, inklusive Repository-
-  Übersicht/PRs/Commit-Diff/Keyboard/Fokus sowie disabled-before-
-  confirm, realem isoliertem Git-Push, unverändertem Remote-`main`, Draft-PR-
-  Audit und Persistenz nach App-Neustart.
+- **72/72** reale Electron-/Playwright-Checks grün, inklusive Repository-
+  Übersicht/PRs/Commit-Diff/Keyboard/Fokus, Scope-&-Session-Offenlegung,
+  CI-Rollup-Chip, On-demand-Checks mit Fokusrückgabe, ADE-Run-Provenance des
+  veröffentlichten Draft-PR, Harness-Wahl und Repo-Pfad-Import im "Neuer
+  Run"-Dialog sowie disabled-before-confirm, realem isoliertem Git-Push,
+  unverändertem Remote-`main`, Draft-PR-Audit und Persistenz nach
+  App-Neustart;
+- **21/21** visuelle Regressionschecks (Dark/Light × 300/380/540 px plus
+  offene Checks-Pane) gegen die committeten `win32`-Baselines.
 
 Realer Windows-GUI→Ubuntu-Backend:
 
@@ -225,9 +284,9 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 
 ## Nächste Schritte
 
-1. Den Inspector als nächste progressive Ebene um CI-Check-Rollups und die
-   eindeutige Traceability Managed Run → Publication → PR ergänzen; Logs und
-   Einzelchecks bleiben dabei on demand statt permanentem Sidebar-Rauschen.
+1. **ADE-Settings-Seite für Harness-Verwaltung:** Anmeldung pro Harness
+   (OAuth bzw. API-Keys), Statusanzeige angemeldet/nicht angemeldet und
+   sichere Speicherung; Grundlage für die Harness-Wahl im Run-Dialog.
 2. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
    F6-Balanceänderung menschlich spielen. Erst nach expliziter Operator-
    Freigabe einen Remote-Branch/Draft-PR anlegen. Die historische Aggregation
@@ -249,6 +308,8 @@ Operator-Kommandos:
 
 ```powershell
 pnpm verify
+pnpm test:visual                  # visuelle Baselines prüfen
+pnpm test:visual:update           # Baselines nach gewollter UI-Änderung erneuern
 pnpm test:wsl-backend
 $env:ADE_WSL_BACKEND_E2E='1'; pnpm exec tsx scripts/test-electron-workflow.ts
 pnpm agents:codex                 # Audit/Vorschau

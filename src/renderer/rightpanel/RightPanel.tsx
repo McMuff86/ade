@@ -14,7 +14,11 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import type { RepositoryCommitSummary } from '../../shared/types';
+import type {
+  RepositoryCommitSummary,
+  RepositoryPullRequest,
+  RepositoryPullRequestChecksResult,
+} from '../../shared/types';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
 import { ChangesView } from './ChangesView';
@@ -22,12 +26,12 @@ import { FilesView } from './FilesView';
 import { DiffView } from './DiffView';
 import { useWorkspacePanel } from './useWorkspacePanel';
 import { RepositoryScopeHeader } from './RepositoryScopeHeader';
-import { RepositoryInspector } from './RepositoryInspector';
+import { RepositoryInspector, PullRequestChecksView } from './RepositoryInspector';
 import './rightpanel.css';
 
 type Tab = 'overview' | 'changes' | 'files';
 interface OpenItem {
-  kind: 'diff' | 'preview' | 'commit';
+  kind: 'diff' | 'preview' | 'commit' | 'checks';
   path: string;
   title: string;
   repositoryId?: string;
@@ -46,22 +50,28 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   const [inspectedRepositoryId, setInspectedRepositoryId] = useState<string | null>(null);
   const [open, setOpen] = useState<OpenItem | null>(null);
   const [content, setContent] = useState<string>('');
+  const [checks, setChecks] = useState<RepositoryPullRequestChecksResult | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
   const reqSeq = useRef(0);
   const returnFocus = useRef<HTMLButtonElement | null>(null);
-  const pendingCommitFocus = useRef<string | null>(null);
+  const pendingFocusSelector = useRef<string | null>(null);
 
   // Close the inline pane when switching agent or tab.
   useEffect(() => {
     setOpen(null);
     returnFocus.current = null;
-    pendingCommitFocus.current = null;
+    pendingFocusSelector.current = null;
   }, [agentId, sessionId, tab, inspectedRepositoryId]);
 
   const closeInline = useCallback((restoreFocus = true): void => {
-    pendingCommitFocus.current = restoreFocus
-      ? (returnFocus.current?.dataset['commitSha'] ?? null)
+    const dataset = returnFocus.current?.dataset;
+    pendingFocusSelector.current = restoreFocus
+      ? dataset?.['commitSha']
+        ? `[data-commit-sha="${dataset['commitSha']}"]`
+        : dataset?.['checksNumber']
+          ? `[data-checks-number="${dataset['checksNumber']}"]`
+          : null
       : null;
     setOpen(null);
     returnFocus.current = null;
@@ -70,10 +80,10 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   // Opening the split pane remounts the list inside react-resizable-panels.
   // Restore focus only after React has committed the non-split list again.
   useLayoutEffect(() => {
-    if (open !== null || !pendingCommitFocus.current) return;
-    const commitSha = pendingCommitFocus.current;
-    pendingCommitFocus.current = null;
-    document.querySelector<HTMLButtonElement>(`[data-commit-sha="${commitSha}"]`)?.focus();
+    if (open !== null || !pendingFocusSelector.current) return;
+    const selector = pendingFocusSelector.current;
+    pendingFocusSelector.current = null;
+    document.querySelector<HTMLButtonElement>(selector)?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -89,8 +99,9 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
 
   // Fetch the inline pane content whenever the open item changes.
   useEffect(() => {
-    if (!open || (open.kind !== 'commit' && !agentId)) {
+    if (!open || (open.kind !== 'commit' && open.kind !== 'checks' && !agentId)) {
       setContent('');
+      setChecks(null);
       setTruncated(false);
       return;
     }
@@ -98,7 +109,16 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
     setContentLoading(true);
     void (async () => {
       try {
-        if (open.kind === 'commit') {
+        if (open.kind === 'checks') {
+          const result = await window.ade.invoke('repository:pullRequestChecks', {
+            repositoryId: open.repositoryId!,
+            pullRequestNumber: Number(open.path),
+          });
+          if (seq === reqSeq.current) {
+            setChecks(result);
+            setTruncated(false);
+          }
+        } else if (open.kind === 'commit') {
           const result = await window.ade.invoke('repository:commitDiff', {
             repositoryId: open.repositoryId!,
             commitSha: open.path,
@@ -132,6 +152,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         console.error('[ade] inline content fetch failed:', err);
         if (seq === reqSeq.current) {
           setContent('');
+          setChecks(null);
           setTruncated(false);
         }
       } finally {
@@ -155,6 +176,24 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
       kind: 'commit',
       path: commit.sha,
       title: `${commit.shortSha} · ${commit.subject}`,
+      repositoryId: inspectedRepositoryId!,
+    });
+  };
+
+  const openChecks = (
+    pullRequest: RepositoryPullRequest,
+    trigger: HTMLButtonElement,
+  ): void => {
+    if (open?.kind === 'checks' && open.path === String(pullRequest.number)) {
+      closeInline();
+      return;
+    }
+    returnFocus.current = trigger;
+    setChecks(null);
+    setOpen({
+      kind: 'checks',
+      path: String(pullRequest.number),
+      title: `#${pullRequest.number} · CI checks`,
       repositoryId: inspectedRepositoryId!,
     });
   };
@@ -198,7 +237,9 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
       visible={visible}
       nonce={nonce}
       openCommitSha={open?.kind === 'commit' ? open.path : null}
+      openChecksNumber={open?.kind === 'checks' ? Number(open.path) : null}
       onOpenCommit={openCommit}
+      onOpenChecks={openChecks}
     />
   ) : tab === 'changes' ? (
     <ChangesView
@@ -237,7 +278,9 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         </button>
       </div>
       <div className="rp-inline-body">
-        {contentLoading ? (
+        {open.kind === 'checks' ? (
+          <PullRequestChecksView result={checks} loading={contentLoading} />
+        ) : contentLoading ? (
           <div className="ch-note">Loading…</div>
         ) : open.kind === 'diff' || open.kind === 'commit' ? (
           <DiffView text={content} />

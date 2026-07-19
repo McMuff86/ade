@@ -66,6 +66,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'repository:import': { path: 'C:\\repos\\project', name: 'Project' },
   'repository:overview': { repositoryId: 'repository' },
   'repository:pullRequests': { repositoryId: 'repository' },
+  'repository:pullRequestChecks': { repositoryId: 'repository', pullRequestNumber: 42 },
   'repository:commitDiff': {
     repositoryId: 'repository',
     commitSha: '0123456789abcdef0123456789abcdef01234567',
@@ -94,7 +95,7 @@ const valid: Record<InvokeChannel, unknown> = {
     name: 'Run',
     goal: 'Goal',
     repositoryId: 'repository',
-    participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    participants: [{ agentId: 'agent', role: 'orchestrator', runtime: 'codex' }],
   },
   'run:delete': { runId: 'run' },
   'run:start': { runId: 'run', commandId: 'cmd-start' },
@@ -152,6 +153,9 @@ check('empty run rosters are rejected', rejects('run:create', { name: 'Run', par
 check('invalid run concurrency is rejected', rejects('run:create', {
   name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
   budget: { maxConcurrentTasks: 5 },
+}));
+check('unknown participant harnesses are rejected', rejects('run:create', {
+  name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator', runtime: 'openclaw' }],
 }));
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',

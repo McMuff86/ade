@@ -24,6 +24,7 @@ import {
   type SessionMeta,
   type StructuredTaskResult,
 } from '../../shared/types';
+import { MANAGED_HARNESS_OVERRIDES } from '../../shared/runtimes';
 import { RUN_CONTEXT_MANIFEST_PATH, sha256 } from './contextManifest';
 import { hostPathKey } from '../platform';
 
@@ -301,12 +302,18 @@ export class OrchestrationService {
       if (item.role !== 'orchestrator' && (!teamId || !teamName)) {
         throw new Error(`ade: ${item.role} participant requires a team`);
       }
+      if (item.runtime !== undefined && item.runtime !== agent.runtime
+          && !MANAGED_HARNESS_OVERRIDES.includes(item.runtime)) {
+        throw new Error(
+          `ade: harness override "${item.runtime}" is not supported for "${agent.name}"`,
+        );
+      }
       return {
         id: randomUUID(),
         runId: run.id,
         agentId: agent.id,
         agentName: agent.name,
-        runtime: agent.runtime,
+        runtime: item.runtime ?? agent.runtime,
         role: item.role,
         teamId: item.role === 'orchestrator' ? undefined : teamId,
         teamName: item.role === 'orchestrator' ? undefined : teamName,

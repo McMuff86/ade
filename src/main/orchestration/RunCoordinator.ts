@@ -14,7 +14,7 @@ import {
   executionBackendPlatform,
   normalizeExecutionBackendId,
 } from '../../shared/executionBackends';
-import { resolveTaskLaunchCommand } from '../../shared/runtimes';
+import { effectiveParticipantAgent, resolveTaskLaunchCommand } from '../../shared/runtimes';
 import { MemoryStore } from '../memory/MemoryStore';
 import { snapshotAgentInstructions } from '../memory/agentInstructions';
 import { MailboxService } from './MailboxService';
@@ -168,9 +168,14 @@ export class RunCoordinator {
       if (workers.length === 0) throw new Error('ade: managed orchestration needs at least one lead or worker');
 
       const agents = new Map(this.store.get().agents.map((agent) => [agent.id, agent]));
+      // Every launch, capability check and manifest line below uses the
+      // participant's effective harness, not just the stored agent runtime.
       const roster = participants.map((participant) => ({
         participant,
-        agent: requireAgent(agents, participant.agentId),
+        agent: effectiveParticipantAgent(
+          requireAgent(agents, participant.agentId),
+          participant.runtime,
+        ),
       }));
       const capabilitiesByParticipant = new Map<string, ReturnType<RuntimeAdapterRegistry['capabilities']>>();
       for (const { participant, agent } of roster) {
@@ -961,7 +966,10 @@ export class RunCoordinator {
       task.participantId,
       task.runId,
     );
-    const agent = requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId);
+    const agent = effectiveParticipantAgent(
+      requireAgent(new Map(this.store.get().agents.map((item) => [item.id, item])), participant.agentId),
+      participant.runtime,
+    );
     const lease = this.orchestration.snapshot().workspaceLeases.find(
       (item) => item.runId === task.runId && item.participantId === participant.id && item.status === 'active',
     );

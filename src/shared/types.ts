@@ -762,6 +762,23 @@ export type PullRequestReviewDecision =
   | 'review-required'
   | 'none';
 
+export type PullRequestCiState = 'none' | 'pending' | 'passed' | 'failed';
+
+/** Bounded CI rollup counts for one open PR; individual checks stay on demand. */
+export interface RepositoryPullRequestCi {
+  state: PullRequestCiState;
+  total: number;
+  failed: number;
+  pending: number;
+}
+
+/** Traceability from an open PR back to the ADE publication that created it. */
+export interface RepositoryPullRequestAdeLink {
+  runId: string;
+  publicationId: string;
+  status: RunPublicationStatus;
+}
+
 export interface RepositoryPullRequest {
   number: number;
   title: string;
@@ -775,6 +792,8 @@ export interface RepositoryPullRequest {
   changedFiles: number;
   additions: number;
   deletions: number;
+  ci: RepositoryPullRequestCi;
+  adePublication: RepositoryPullRequestAdeLink | null;
 }
 
 /** Optional GitHub read; failure never suppresses the local overview. */
@@ -782,6 +801,29 @@ export interface RepositoryPullRequestResult {
   status: 'ready' | 'unsupported' | 'unavailable';
   providerRepository?: string;
   pullRequests: RepositoryPullRequest[];
+  message?: string;
+  refreshedAt: number;
+}
+
+export type RepositoryPullRequestCheckState =
+  | 'passed'
+  | 'failed'
+  | 'pending'
+  | 'skipped'
+  | 'neutral';
+
+/** One named CI check, loaded only after the user opens a PR's check list. */
+export interface RepositoryPullRequestCheck {
+  name: string;
+  state: RepositoryPullRequestCheckState;
+}
+
+/** On-demand individual checks for one open PR; logs stay on GitHub. */
+export interface RepositoryPullRequestChecksResult {
+  status: 'ready' | 'unsupported' | 'unavailable';
+  pullRequestNumber: number;
+  checks: RepositoryPullRequestCheck[];
+  checksTruncated: boolean;
   message?: string;
   refreshedAt: number;
 }
@@ -887,6 +929,12 @@ export interface RunCreateInput {
     role: RunParticipantRole;
     teamId?: string;
     teamName?: string;
+    /**
+     * Optional harness override for this run only. Defaults to the agent's
+     * configured runtime; overrides are limited to first-class managed
+     * harnesses (see MANAGED_HARNESS_OVERRIDES in shared/runtimes.ts).
+     */
+    runtime?: RuntimeId;
   }>;
   budget?: Partial<RunBudget>;
   /** Optional idempotency key; a replay returns the originally created run. */

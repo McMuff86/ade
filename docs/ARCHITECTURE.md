@@ -577,7 +577,13 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `pty:list()` → live/exited retained sessions + task queue status
 - `pty:cancelTasks({agentIds?, runTaskIds?})` → active/queued cancellation counts
 - `runtime:diagnose({agentId?})` → CLI/version/auth/task-transport readiness
-- `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs
+- `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs;
+  a `run:create` participant may carry an optional per-run harness override
+  (`runtime`, limited to MANAGED_HARNESS_OVERRIDES). The override is
+  snapshotted on the RunParticipant and applied through
+  `effectiveParticipantAgent` at every launch/capability/manifest seam; the
+  catalog agent is never mutated and its customCommand does not leak into an
+  overridden harness
 - `run:start`, `run:cancel`, `runApproval:resolve` → managed state machine and
   its durable human integration gate
 - `run:publicationPreview({runId})` → read-only verified publication candidate

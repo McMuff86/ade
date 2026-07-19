@@ -7,6 +7,11 @@ import type {
   RepositoryCommitSummary,
   RepositoryOverview,
   RepositoryPullRequest,
+  RepositoryPullRequestAdeLink,
+  RepositoryPullRequestCheck,
+  RepositoryPullRequestChecksResult,
+  RepositoryPullRequestCheckState,
+  RepositoryPullRequestCi,
   RepositoryPullRequestResult,
 } from '../../shared/types';
 import {
@@ -35,6 +40,9 @@ const SHORT_OBJECT_ID = /^[0-9a-f]{4,64}$/;
 const MAX_COMMITS = 12;
 const MAX_PULL_REQUESTS = 20;
 const MAX_COMMIT_FILES = 500;
+const MAX_PULL_REQUEST_CHECKS = 100;
+const MAX_PULL_REQUEST_NUMBER = 1_000_000_000;
+const PROVIDER_MAX_BUFFER = 1024 * 1024;
 const DIFF_TRUNCATION_MARKER = '… (diff truncated at 1048576 bytes)';
 
 export interface RepositoryInspectorStorePort {
@@ -152,13 +160,13 @@ export class RepositoryInspectorService {
         '--json', [
           'number', 'title', 'url', 'author', 'isDraft', 'updatedAt',
           'headRefName', 'baseRefName', 'reviewDecision',
-          'changedFiles', 'additions', 'deletions',
+          'changedFiles', 'additions', 'deletions', 'statusCheckRollup',
         ].join(','),
       ],
       {
         cwd: repository.rootPath,
         timeoutMs: 15_000,
-        maxBuffer: 512 * 1024,
+        maxBuffer: PROVIDER_MAX_BUFFER,
       },
     );
     if (result.timedOut || result.code !== 0) {
@@ -173,10 +181,17 @@ export class RepositoryInspectorService {
       };
     }
     try {
+      const pullRequests = parseRepositoryPullRequests(
+        decodeOutput(result.stdout),
+        providerRepository,
+      ).map((pullRequest) => ({
+        ...pullRequest,
+        adePublication: this.adePublicationLink(repository, providerRepository, pullRequest),
+      }));
       return {
         status: 'ready',
         providerRepository,
-        pullRequests: parseRepositoryPullRequests(decodeOutput(result.stdout), providerRepository),
+        pullRequests,
         refreshedAt: Date.now(),
       };
     } catch {
@@ -185,6 +200,84 @@ export class RepositoryInspectorService {
         providerRepository,
         pullRequests: [],
         message: 'GitHub returned an invalid Pull Request response.',
+        refreshedAt: Date.now(),
+      };
+    }
+  }
+
+  /**
+   * On-demand individual CI checks for one open PR. Logs and check details
+   * stay on GitHub; ADE never renders provider URLs from this read.
+   */
+  async pullRequestChecks(
+    repositoryId: string,
+    pullRequestNumber: number,
+  ): Promise<RepositoryPullRequestChecksResult> {
+    if (!Number.isSafeInteger(pullRequestNumber)
+        || pullRequestNumber < 1 || pullRequestNumber > MAX_PULL_REQUEST_NUMBER) {
+      throw new Error('ade: repository inspector requires a positive Pull Request number');
+    }
+    const repository = await this.requireRepository(repositoryId);
+    const remoteResult = await this.gitCommand(repository, [
+      'config', '--get-all', 'remote.origin.url',
+    ]);
+    const providerRepository = githubRemote(remoteResult);
+    if (!providerRepository) {
+      return {
+        status: 'unsupported',
+        pullRequestNumber,
+        checks: [],
+        checksTruncated: false,
+        message: 'CI checks require one unambiguous GitHub origin.',
+        refreshedAt: Date.now(),
+      };
+    }
+    const result = await this.commands.run(
+      repository.executionBackend,
+      'gh',
+      [
+        'pr', 'view', String(pullRequestNumber),
+        '--repo', githubRepository(providerRepository),
+        '--json', 'number,url,statusCheckRollup',
+      ],
+      {
+        cwd: repository.rootPath,
+        timeoutMs: 15_000,
+        maxBuffer: PROVIDER_MAX_BUFFER,
+      },
+    );
+    if (result.timedOut || result.code !== 0) {
+      return {
+        status: 'unavailable',
+        pullRequestNumber,
+        checks: [],
+        checksTruncated: false,
+        message: result.timedOut
+          ? 'GitHub check lookup timed out. Retry when the connection is available.'
+          : 'GitHub checks are unavailable. Check gh authentication in Diagnostics.',
+        refreshedAt: Date.now(),
+      };
+    }
+    try {
+      const parsed = parsePullRequestChecks(
+        decodeOutput(result.stdout),
+        providerRepository,
+        pullRequestNumber,
+      );
+      return {
+        status: 'ready',
+        pullRequestNumber,
+        checks: parsed.checks,
+        checksTruncated: parsed.checksTruncated,
+        refreshedAt: Date.now(),
+      };
+    } catch {
+      return {
+        status: 'unavailable',
+        pullRequestNumber,
+        checks: [],
+        checksTruncated: false,
+        message: 'GitHub returned an invalid check response.',
         refreshedAt: Date.now(),
       };
     }
@@ -220,6 +313,27 @@ export class RepositoryInspectorService {
       diff: view.diff,
       truncated: view.diff.includes(DIFF_TRUNCATION_MARKER),
     };
+  }
+
+  /**
+   * Exact traceability from an open PR to the ADE publication that created
+   * it: same repository and provider identity, matched by recorded PR number
+   * first and by the ADE-owned head branch for not-yet-numbered attempts.
+   */
+  private adePublicationLink(
+    repository: Repository,
+    providerRepository: string,
+    pullRequest: Pick<RepositoryPullRequest, 'number' | 'headBranch'>,
+  ): RepositoryPullRequestAdeLink | null {
+    const candidates = this.store.get().runPublications.filter((publication) =>
+      publication.repositoryId === repository.id
+      && publication.provider === 'github'
+      && publication.providerRepository.toLowerCase() === providerRepository.toLowerCase());
+    const match = candidates.find((publication) => publication.prNumber === pullRequest.number)
+      ?? candidates.find((publication) => publication.headBranch === pullRequest.headBranch);
+    return match
+      ? { runId: match.runId, publicationId: match.id, status: match.status }
+      : null;
   }
 
   private async requireRepository(repositoryId: string): Promise<Repository> {
@@ -324,8 +438,76 @@ export function parseRepositoryPullRequests(
       changedFiles: nonNegativeInteger(item.changedFiles),
       additions: nonNegativeInteger(item.additions),
       deletions: nonNegativeInteger(item.deletions),
+      ci: summarizeCheckRollup(item.statusCheckRollup),
+      adePublication: null,
     };
   }).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+/**
+ * Bounded rollup summary for the PR list. Mirrors the publication gate's
+ * conservative reading: unknown or malformed entries count as pending, and
+ * any failure-shaped conclusion marks the whole rollup as failed.
+ */
+export function summarizeCheckRollup(value: unknown): RepositoryPullRequestCi {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { state: 'none', total: 0, failed: 0, pending: 0 };
+  }
+  let failed = 0;
+  let pending = 0;
+  for (const raw of value) {
+    const state = classifyCheckEntry(raw);
+    if (state === 'failed') failed += 1;
+    else if (state === 'pending') pending += 1;
+  }
+  return {
+    state: failed > 0 ? 'failed' : pending > 0 ? 'pending' : 'passed',
+    total: value.length,
+    failed,
+    pending,
+  };
+}
+
+function classifyCheckEntry(raw: unknown): RepositoryPullRequestCheckState {
+  if (!isRecord(raw)) return 'pending';
+  const status = String(raw.status ?? raw.state ?? '').toUpperCase();
+  const conclusion = String(raw.conclusion ?? '').toUpperCase();
+  if (['FAILURE', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE'].includes(conclusion)
+      || ['ERROR', 'FAILURE'].includes(status)) return 'failed';
+  if (conclusion === 'SKIPPED' || status === 'SKIPPED') return 'skipped';
+  if (conclusion === 'NEUTRAL' || status === 'NEUTRAL') return 'neutral';
+  if (status === 'SUCCESS' || conclusion === 'SUCCESS') return 'passed';
+  return 'pending';
+}
+
+export function parsePullRequestChecks(
+  value: string,
+  providerRepository: string,
+  pullRequestNumber: number,
+): { checks: RepositoryPullRequestCheck[]; checksTruncated: boolean } {
+  const parsed: unknown = JSON.parse(value);
+  if (!isRecord(parsed) || parsed.number !== pullRequestNumber) {
+    throw new Error('ade: GitHub returned a different Pull Request');
+  }
+  if (typeof parsed.url !== 'string'
+      || !safeGithubPullRequestUrl(parsed.url, providerRepository, pullRequestNumber)) {
+    throw new Error('ade: GitHub returned a Pull Request outside this repository');
+  }
+  const rollup = parsed.statusCheckRollup;
+  if (rollup === null || rollup === undefined) return { checks: [], checksTruncated: false };
+  if (!Array.isArray(rollup)) throw new Error('ade: invalid GitHub check rollup');
+  const bounded = rollup.slice(0, MAX_PULL_REQUEST_CHECKS);
+  const checks = bounded.map((raw): RepositoryPullRequestCheck => {
+    if (!isRecord(raw)) throw new Error('ade: invalid GitHub check record');
+    const name = typeof raw.name === 'string' && raw.name.trim()
+      ? raw.name
+      : typeof raw.context === 'string' && raw.context.trim() ? raw.context : '';
+    return {
+      name: boundedText(name, 200) || '(unnamed check)',
+      state: classifyCheckEntry(raw),
+    };
+  });
+  return { checks, checksTruncated: rollup.length > checks.length };
 }
 
 function commandOutput(result: BackendCommandResult): string {

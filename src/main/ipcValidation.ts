@@ -290,9 +290,12 @@ function validateRunCreate(channel: string, payload: unknown): void {
   }
   request.participants.forEach((value, index) => {
     const participant = record(channel, value, `participants[${index}]`);
-    exactKeys(channel, participant, ['agentId', 'role', 'teamId', 'teamName'], `participants[${index}]`);
+    exactKeys(channel, participant, ['agentId', 'role', 'teamId', 'teamName', 'runtime'], `participants[${index}]`);
     id(channel, participant.agentId, `participants[${index}].agentId`);
     enumValue(channel, participant.role, `participants[${index}].role`, TEAM_ROLES);
+    if (participant.runtime !== undefined) {
+      enumValue(channel, participant.runtime, `participants[${index}].runtime`, RUNTIMES);
+    }
     optionalId(channel, participant.teamId, `participants[${index}].teamId`);
     optionalString(channel, participant.teamName, `participants[${index}].teamName`, {
       max: 200,
@@ -366,6 +369,17 @@ function validateRepositoryCommitDiff(channel: string, payload: unknown): void {
   exactKeys(channel, request, ['repositoryId', 'commitSha']);
   id(channel, request.repositoryId, 'repositoryId');
   gitObjectId(channel, request.commitSha, 'commitSha');
+}
+
+function validateRepositoryPullRequestChecks(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['repositoryId', 'pullRequestNumber']);
+  id(channel, request.repositoryId, 'repositoryId');
+  const number = request.pullRequestNumber;
+  if (typeof number !== 'number' || !Number.isSafeInteger(number)
+      || number < 1 || number > 1_000_000_000) {
+    invalid(channel, 'pullRequestNumber must be a positive integer');
+  }
 }
 
 function validateCategoryReorder(channel: string, payload: unknown): void {
@@ -507,6 +521,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.RepositoryOverview:
     case IPC.RepositoryPullRequests:
       validateIdRequest(channel, payload, 'repositoryId');
+      return;
+    case IPC.RepositoryPullRequestChecks:
+      validateRepositoryPullRequestChecks(channel, payload);
       return;
     case IPC.RepositoryCommitDiff:
       validateRepositoryCommitDiff(channel, payload);

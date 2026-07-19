@@ -37,6 +37,7 @@ import type {
   Repository,
   RepositoryCommitDiff,
   RepositoryOverview,
+  RepositoryPullRequestChecksResult,
   RepositoryPullRequestResult,
   WorkspaceScopeDescriptor,
 } from './types';
@@ -63,6 +64,7 @@ export const IPC = {
   RepositoryImport: 'repository:import',
   RepositoryOverview: 'repository:overview',
   RepositoryPullRequests: 'repository:pullRequests',
+  RepositoryPullRequestChecks: 'repository:pullRequestChecks',
   RepositoryCommitDiff: 'repository:commitDiff',
   WorkspaceDescribe: 'workspace:describe',
   WorkspaceRemoveBinding: 'workspace:removeBinding',
@@ -379,6 +381,11 @@ export interface RepositoryCommitDiffRequest extends RepositoryInspectRequest {
   commitSha: string;
 }
 
+export interface RepositoryPullRequestChecksRequest extends RepositoryInspectRequest {
+  /** Open PR number previously returned by repository:pullRequests. */
+  pullRequestNumber: number;
+}
+
 export interface WslDistributionInfo {
   name: string;
   backend: ExecutionBackendId;
@@ -451,6 +458,10 @@ export interface IpcInvokeMap {
   'repository:pullRequests': {
     req: RepositoryInspectRequest;
     res: RepositoryPullRequestResult;
+  };
+  'repository:pullRequestChecks': {
+    req: RepositoryPullRequestChecksRequest;
+    res: RepositoryPullRequestChecksResult;
   };
   'repository:commitDiff': { req: RepositoryCommitDiffRequest; res: RepositoryCommitDiff };
   'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };

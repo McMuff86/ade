@@ -2,7 +2,6 @@
 
 import { execFileSync } from 'node:child_process';
 import {
-  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -16,6 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
 import { publicationBranch } from '../src/main/publishing/PublicationService';
+import { writeFakeGithubCli } from './fixtures/fake-gh';
 
 let passed = 0;
 let failed = 0;
@@ -311,172 +311,6 @@ function bareRef(repository: string, ref: string): string | null {
   }
 }
 
-function writeFakeGithubCli(root: string, remote: string): { bin: string; statePath: string } {
-  const bin = join(root, 'fake-gh-bin');
-  const statePath = join(root, 'fake-gh-state.json');
-  mkdirSync(bin, { recursive: true });
-  const scriptPath = join(bin, 'gh.cjs');
-  const source = `
-const { execFileSync } = require('node:child_process');
-const fs = require('node:fs');
-const args = process.argv.slice(2);
-const statePath = process.env.ADE_E2E_FAKE_GH_STATE;
-const remote = process.env.ADE_E2E_MANAGED_REMOTE;
-const repo = 'ade-e2e/managed';
-const read = () => {
-  try { return JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return null; }
-};
-const write = (value) => fs.writeFileSync(statePath, JSON.stringify(value) + '\\n', 'utf8');
-const field = (name) => args[args.indexOf(name) + 1];
-if (args[0] === 'auth' && args[1] === 'status') {
-  process.stdout.write('authenticated fixture\\n');
-} else if (args[0] === 'repo' && args[1] === 'view') {
-  process.stdout.write(JSON.stringify({ nameWithOwner: repo }) + '\\n');
-} else if (args[0] === 'pr' && args[1] === 'list') {
-  if (args.includes('--limit')) {
-    process.stdout.write(JSON.stringify([{
-      number: 42,
-      title: 'Improve repository inspector fixture',
-      url: 'https://github.com/' + repo + '/pull/42',
-      author: { login: 'e2e-reviewer' },
-      isDraft: false,
-      updatedAt: '2026-07-19T12:00:00Z',
-      headRefName: 'feature/inspector',
-      baseRefName: 'main',
-      reviewDecision: 'REVIEW_REQUIRED',
-      changedFiles: 3,
-      additions: 21,
-      deletions: 4,
-    }]) + '\\n');
-  } else {
-    const state = read();
-    process.stdout.write(JSON.stringify(state ? [state] : []) + '\\n');
-  }
-} else if (args[0] === 'pr' && args[1] === 'create') {
-  const head = field('--head');
-  const base = field('--base');
-  if (!args.includes('--draft') || !head || !base) process.exit(7);
-  const headSha = execFileSync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/' + head], { encoding: 'utf8' }).trim();
-  const state = {
-    number: 71,
-    url: 'https://github.com/' + repo + '/pull/71',
-    isDraft: true,
-    state: 'OPEN',
-    baseRefName: base,
-    headRefName: head,
-    headRefOid: headSha,
-    statusCheckRollup: [{ name: 'E2E CI', status: 'IN_PROGRESS', conclusion: '' }],
-  };
-  write(state);
-  process.stdout.write(state.url + '\\n');
-} else if (args[0] === 'pr' && args[1] === 'view') {
-  const state = read();
-  if (!state) process.exit(8);
-  process.stdout.write(JSON.stringify(state) + '\\n');
-} else {
-  process.stderr.write('unsupported fake gh command: ' + args.join(' ') + '\\n');
-  process.exit(9);
-}
-`;
-  writeFileSync(scriptPath, source, 'utf8');
-  if (isWindows) {
-    const csharpPath = join(bin, 'GhFixture.cs');
-    const executablePath = join(bin, 'gh.exe');
-    const csharp = String.raw`
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-
-public static class GhFixture {
-  private static string Field(string[] args, string name) {
-    int index = Array.IndexOf(args, name);
-    return index >= 0 && index + 1 < args.Length ? args[index + 1] : "";
-  }
-
-  private static string Escape(string value) {
-    return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
-  }
-
-  private static string PullRequest(string head, string baseBranch, string headSha) {
-    return "{\"number\":71,\"url\":\"https://github.com/ade-e2e/managed/pull/71\","
-      + "\"isDraft\":true,\"state\":\"OPEN\",\"baseRefName\":\"" + Escape(baseBranch) + "\","
-      + "\"headRefName\":\"" + Escape(head) + "\",\"headRefOid\":\"" + Escape(headSha) + "\","
-      + "\"statusCheckRollup\":[{\"name\":\"E2E CI\",\"status\":\"IN_PROGRESS\",\"conclusion\":\"\"}]}";
-  }
-
-  private static string InspectorPullRequest() {
-    return "{\"number\":42,\"title\":\"Improve repository inspector fixture\","
-      + "\"url\":\"https://github.com/ade-e2e/managed/pull/42\","
-      + "\"author\":{\"login\":\"e2e-reviewer\"},\"isDraft\":false,"
-      + "\"updatedAt\":\"2026-07-19T12:00:00Z\","
-      + "\"headRefName\":\"feature/inspector\",\"baseRefName\":\"main\","
-      + "\"reviewDecision\":\"REVIEW_REQUIRED\",\"changedFiles\":3,"
-      + "\"additions\":21,\"deletions\":4}";
-  }
-
-  public static int Main(string[] args) {
-    string statePath = Environment.GetEnvironmentVariable("ADE_E2E_FAKE_GH_STATE");
-    if (args.Length >= 2 && args[0] == "auth" && args[1] == "status") {
-      Console.WriteLine("authenticated fixture");
-      return 0;
-    }
-    if (args.Length >= 2 && args[0] == "repo" && args[1] == "view") {
-      Console.WriteLine("{\"nameWithOwner\":\"ade-e2e/managed\"}");
-      return 0;
-    }
-    if (args.Length >= 2 && args[0] == "pr" && args[1] == "list") {
-      Console.WriteLine(args.Contains("--limit")
-        ? "[" + InspectorPullRequest() + "]"
-        : (File.Exists(statePath) ? "[" + File.ReadAllText(statePath).Trim() + "]" : "[]"));
-      return 0;
-    }
-    if (args.Length >= 2 && args[0] == "pr" && args[1] == "create") {
-      string head = Field(args, "--head");
-      string baseBranch = Field(args, "--base");
-      if (!args.Contains("--draft") || head.Length == 0 || baseBranch.Length == 0) return 7;
-      var info = new ProcessStartInfo("git", "rev-parse HEAD");
-      info.UseShellExecute = false;
-      info.RedirectStandardOutput = true;
-      info.CreateNoWindow = true;
-      using (var process = Process.Start(info)) {
-        string headSha = process.StandardOutput.ReadToEnd().Trim();
-        process.WaitForExit();
-        if (process.ExitCode != 0) return 8;
-        File.WriteAllText(statePath, PullRequest(head, baseBranch, headSha) + Environment.NewLine);
-      }
-      Console.WriteLine("https://github.com/ade-e2e/managed/pull/71");
-      return 0;
-    }
-    if (args.Length >= 2 && args[0] == "pr" && args[1] == "view") {
-      if (!File.Exists(statePath)) return 8;
-      Console.WriteLine(File.ReadAllText(statePath).Trim());
-      return 0;
-    }
-    Console.Error.WriteLine("unsupported fake gh command: " + string.Join(" ", args));
-    return 9;
-  }
-}
-`;
-    writeFileSync(csharpPath, csharp, 'utf8');
-    execFileSync('powershell.exe', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      'Add-Type -Path $env:ADE_FIXTURE_CS -OutputAssembly $env:ADE_FIXTURE_EXE -OutputType ConsoleApplication',
-    ], {
-      env: { ...process.env, ADE_FIXTURE_CS: csharpPath, ADE_FIXTURE_EXE: executablePath },
-      timeout: 60_000,
-      windowsHide: true,
-    });
-  } else {
-    const launcher = join(bin, 'gh');
-    writeFileSync(launcher, '#!/bin/sh\nexec node "$(dirname "$0")/gh.cjs" "$@"\n', 'utf8');
-    chmodSync(launcher, 0o755);
-  }
-  return { bin, statePath };
-}
-
 function writeManagedFixture(
   path: string,
   participantIds: { lead: string; worker: string } = {
@@ -718,6 +552,12 @@ async function run(): Promise<void> {
       const text = await scopeHeader.textContent();
       return text?.includes('No repository') === true && text.includes('Portable home');
     });
+    check('rare scope actions stay behind the compact Scope & session disclosure',
+      await scopeHeader.getByRole('button', { name: 'Pfad…' }).count() === 0
+        && await scopeHeader.getByRole('button', { name: 'Add repo' }).count() === 0
+        && await scopeHeader.getByRole('button', { name: 'Scope & session actions' })
+          .getAttribute('aria-expanded') === 'false');
+    await scopeHeader.getByRole('button', { name: 'Scope & session actions' }).click();
     await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
     const nativeBackendLabel = await scopeHeader.getByLabel('Execution backend')
       .locator('option')
@@ -729,6 +569,7 @@ async function run(): Promise<void> {
         : process.platform === 'darwin' ? 'Native macOS' : 'Native Linux'),
       nativeBackendLabel);
     await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
+    await scopeHeader.getByRole('button', { name: 'Scope & session actions' }).click();
     await scopeHeader.getByLabel('Repository for new session').selectOption({
       label: 'Managed E2E repository',
     });
@@ -769,6 +610,24 @@ async function run(): Promise<void> {
         && await link.getAttribute('href') === 'https://github.com/ade-e2e/managed/pull/42'
         && (await link.textContent())?.includes('Improve repository inspector fixture') === true;
     });
+    const ciChip = repositoryOverview.getByRole('button', {
+      name: 'Show CI checks for Pull Request #42',
+    });
+    await eventually('PR rows carry a bounded CI rollup that highlights the failure', async () =>
+      (await ciChip.textContent())?.includes('CI 1/3 failing') === true);
+    await ciChip.click();
+    await eventually('individual CI checks load only on demand into the shared pane', async () => {
+      const text = await page!.locator('.rp-inline').textContent();
+      return text?.includes('#42 · CI checks') === true
+        && text.includes('E2E Build')
+        && text.includes('E2E Tests')
+        && text.includes('E2E Lint');
+    });
+    await page.keyboard.press('Escape');
+    await eventually('Escape closes the checks pane and restores focus to the CI chip', async () =>
+      await page!.locator('.rp-inline').count() === 0
+        && await ciChip.evaluate((element) => element === document.activeElement),
+    );
     if (evidenceDir) {
       mkdirSync(resolve(evidenceDir), { recursive: true });
       await page.screenshot({
@@ -877,6 +736,37 @@ async function run(): Promise<void> {
     await eventually('Graph names the immutable repository selected by the run', async () =>
       (await page!.locator('.grun-repo').textContent()) === 'Managed E2E repository',
     );
+
+    await page.locator('button.grun-new', { hasText: 'Neuer Run' }).click();
+    const runModal = page.locator('.grun-modal');
+    await runModal.waitFor({ state: 'visible' });
+    await runModal.locator('label.grun-field', { hasText: 'Orchestrator' })
+      .locator('select').selectOption({ label: 'E2E Shell' });
+    const orchestratorHarness = runModal.getByLabel('Harness für E2E Shell');
+    const orchestratorHarnessOptions = (await orchestratorHarness.locator('option').allTextContents()).join('|');
+    check('the new-run dialog exposes an explicit per-run harness choice',
+      orchestratorHarnessOptions.includes('(Agent-Standard)')
+        && orchestratorHarnessOptions.includes('Claude Code')
+        && orchestratorHarnessOptions.includes('Codex')
+        && orchestratorHarnessOptions.includes('Grok Build'),
+      orchestratorHarnessOptions);
+    await runModal.locator('.grun-agent', { hasText: 'E2E Worker' })
+      .locator('input[type="checkbox"]').check();
+    const workerHarness = runModal.getByLabel('Harness für E2E Worker');
+    await workerHarness.selectOption('codex');
+    check('a participant harness override is selectable per run, not per agent',
+      await workerHarness.inputValue() === 'codex');
+    await runModal.getByRole('button', { name: 'Pfad…' }).click();
+    await runModal.getByLabel('Repository path').fill(managed.repo);
+    await runModal.getByRole('button', { name: 'Importieren' }).click();
+    await eventually('the run dialog imports a repository from a direct path', async () => {
+      const repositorySelect = runModal.locator('label.grun-field', { hasText: 'Repository' })
+        .locator('select');
+      return await repositorySelect.inputValue() === 'e2e-managed-repository';
+    });
+    await runModal.getByRole('button', { name: 'Abbrechen' }).click();
+    await runModal.waitFor({ state: 'hidden' });
+
     await page.getByLabel('Aktiver Run').selectOption('e2e-failed-run');
     await eventually('failed run exposes its persisted technical reason in the Graph UI', async () =>
       (await page!.locator('.grun-failure[role="alert"]').textContent())?.includes(
@@ -1053,8 +943,22 @@ async function run(): Promise<void> {
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true',
     );
 
+    await scopeHeader.getByLabel('Repository for new session').selectOption({
+      label: 'Managed E2E repository',
+    });
+    const publishedOverview = page.getByTestId('repository-overview');
+    await eventually('published Draft PR surfaces its ADE run provenance in the inspector', async () => {
+      const row = publishedOverview.locator('.ri-pr', { hasText: 'ADE: Managed E2E Run' });
+      return await row.count() === 1
+        && (await row.locator('.ri-tag-ade').textContent()) === 'ADE run'
+        && (await row.locator('.ri-tag-ade').getAttribute('title'))
+          ?.includes('e2e-managed-run') === true
+        && (await row.textContent())?.includes('CI running') === true;
+    });
+
     if (runWslBackend && wslRepository) {
       const scopePanel = page.getByTestId('repository-scope');
+      await scopePanel.getByRole('button', { name: 'Scope & session actions' }).click();
       await scopePanel.getByRole('button', { name: 'Pfad…' }).click();
       const backendSelect = scopePanel.getByLabel('Execution backend');
       await eventually('WSL distribution is discoverable in the repository UI', async () =>

@@ -3,6 +3,7 @@ import type {
   RepositoryCommitSummary,
   RepositoryOverview,
   RepositoryPullRequest,
+  RepositoryPullRequestChecksResult,
   RepositoryPullRequestResult,
 } from '../../shared/types';
 import { NATIVE_EXECUTION_BACKEND } from '../../shared/executionBackends';
@@ -12,8 +13,13 @@ interface RepositoryInspectorProps {
   visible: boolean;
   nonce: number;
   openCommitSha: string | null;
+  openChecksNumber: number | null;
   onOpenCommit: (
     commit: RepositoryCommitSummary,
+    trigger: HTMLButtonElement,
+  ) => void;
+  onOpenChecks: (
+    pullRequest: RepositoryPullRequest,
     trigger: HTMLButtonElement,
   ) => void;
 }
@@ -23,7 +29,9 @@ export function RepositoryInspector({
   visible,
   nonce,
   openCommitSha,
+  openChecksNumber,
   onOpenCommit,
+  onOpenChecks,
 }: RepositoryInspectorProps): JSX.Element {
   const [overview, setOverview] = useState<RepositoryOverview | null>(null);
   const [pullRequests, setPullRequests] = useState<RepositoryPullRequestResult | null>(null);
@@ -129,7 +137,12 @@ export function RepositoryInspector({
         </div>
       )}
 
-      <PullRequestSection result={pullRequests} loading={pullRequestsLoading} />
+      <PullRequestSection
+        result={pullRequests}
+        loading={pullRequestsLoading}
+        openChecksNumber={openChecksNumber}
+        onOpenChecks={onOpenChecks}
+      />
 
       <section className="ri-section" aria-labelledby="ri-commits-title">
         <header className="ri-section-head">
@@ -182,8 +195,9 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
   const backend = overview.executionBackend === NATIVE_EXECUTION_BACKEND
     ? 'Native'
     : `WSL · ${overview.executionBackend.slice('wsl:'.length)}`;
+  const diverged = Boolean(overview.upstream) && (overview.ahead > 0 || overview.behind > 0);
   const sync = overview.upstream
-    ? overview.ahead || overview.behind
+    ? diverged
       ? `↑${overview.ahead} ↓${overview.behind}`
       : 'Up to date'
     : 'No upstream';
@@ -207,7 +221,9 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
         </div>
         <div>
           <dt>Sync</dt>
-          <dd title={overview.upstream ?? undefined}>{sync}</dd>
+          <dd className={diverged ? 'ri-diverged' : undefined} title={overview.upstream ?? undefined}>
+            {sync}
+          </dd>
         </div>
         <div>
           <dt>Backend</dt>
@@ -227,9 +243,16 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
 function PullRequestSection({
   result,
   loading,
+  openChecksNumber,
+  onOpenChecks,
 }: {
   result: RepositoryPullRequestResult | null;
   loading: boolean;
+  openChecksNumber: number | null;
+  onOpenChecks: (
+    pullRequest: RepositoryPullRequest,
+    trigger: HTMLButtonElement,
+  ) => void;
 }): JSX.Element {
   return (
     <section className="ri-section" aria-labelledby="ri-prs-title">
@@ -249,6 +272,8 @@ function PullRequestSection({
               <PullRequestRow
                 pullRequest={pullRequest}
                 providerRepository={result.providerRepository ?? ''}
+                checksOpen={openChecksNumber === pullRequest.number}
+                onOpenChecks={onOpenChecks}
               />
             </li>
           ))}
@@ -267,18 +292,38 @@ function PullRequestSection({
 function PullRequestRow({
   pullRequest,
   providerRepository,
+  checksOpen,
+  onOpenChecks,
 }: {
   pullRequest: RepositoryPullRequest;
   providerRepository: string;
+  checksOpen: boolean;
+  onOpenChecks: (
+    pullRequest: RepositoryPullRequest,
+    trigger: HTMLButtonElement,
+  ) => void;
 }): JSX.Element {
   const href = safePullRequestUrl(pullRequest, providerRepository);
-  const content = (
-    <>
-      <span className="ri-pr-line">
-        <code>#{pullRequest.number}</code>
-        <strong>{pullRequest.title}</strong>
-        <span aria-hidden="true">↗</span>
-      </span>
+  const line = (
+    <span className="ri-pr-line">
+      <code>#{pullRequest.number}</code>
+      <strong>{pullRequest.title}</strong>
+      <span aria-hidden="true">↗</span>
+    </span>
+  );
+  return (
+    <div className={`ri-pr${href ? '' : ' ri-pr-invalid'}`}>
+      {href ? (
+        <a
+          className="ri-pr-link"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open Pull Request #${pullRequest.number} on GitHub: ${pullRequest.title}`}
+        >
+          {line}
+        </a>
+      ) : line}
       <span className="ri-pr-meta">
         <span>{pullRequest.author}</span>
         <span>{pullRequest.baseBranch} ← {pullRequest.headBranch}</span>
@@ -290,23 +335,83 @@ function PullRequestRow({
         <span>{pullRequest.changedFiles} files</span>
         <b className="plus">+{pullRequest.additions}</b>
         <b className="minus">−{pullRequest.deletions}</b>
+        {pullRequest.ci.state !== 'none' ? (
+          <button
+            type="button"
+            className={`ri-tag ri-tag-ci ri-ci-${pullRequest.ci.state}${checksOpen ? ' open' : ''}`}
+            data-checks-number={pullRequest.number}
+            aria-expanded={checksOpen}
+            aria-label={`Show CI checks for Pull Request #${pullRequest.number}`}
+            title="Individual checks load on demand; logs stay on GitHub"
+            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+              onOpenChecks(pullRequest, event.currentTarget);
+            }}
+          >
+            {ciLabel(pullRequest.ci)}
+          </button>
+        ) : null}
+        {pullRequest.adePublication ? (
+          <span
+            className="ri-tag ri-tag-ade"
+            title={`Published by ADE run ${pullRequest.adePublication.runId}`
+              + ` (${pullRequest.adePublication.status})`}
+          >
+            ADE run
+          </span>
+        ) : null}
         <span className={`ri-tag ri-tag-${pullRequest.isDraft ? 'draft' : pullRequest.reviewDecision}`}>
           {pullRequest.isDraft ? 'draft' : reviewLabel(pullRequest.reviewDecision)}
         </span>
       </span>
-    </>
+    </div>
   );
-  return href ? (
-    <a
-      className="ri-pr"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={`Open Pull Request #${pullRequest.number} on GitHub: ${pullRequest.title}`}
-    >
-      {content}
-    </a>
-  ) : <div className="ri-pr ri-pr-invalid">{content}</div>;
+}
+
+function ciLabel(ci: RepositoryPullRequest['ci']): string {
+  if (ci.state === 'failed') return `CI ${ci.failed}/${ci.total} failing`;
+  if (ci.state === 'pending') return 'CI running';
+  return 'CI passing';
+}
+
+/** Shared-detail-pane body for one PR's on-demand individual checks. */
+export function PullRequestChecksView({
+  result,
+  loading,
+}: {
+  result: RepositoryPullRequestChecksResult | null;
+  loading: boolean;
+}): JSX.Element {
+  if (loading && !result) return <div className="ch-note">Loading CI checks…</div>;
+  if (!result) return <div className="ch-note">CI checks are unavailable.</div>;
+  if (result.status !== 'ready') {
+    return <div className="ch-note">{result.message ?? 'CI checks are unavailable.'}</div>;
+  }
+  if (!result.checks.length) {
+    return <div className="ch-note">No CI checks are reported for this Pull Request.</div>;
+  }
+  return (
+    <div className="ri-checks">
+      <ul className="ri-check-list">
+        {result.checks.map((check, index) => (
+          <li key={`${check.name}-${index}`} className={`ri-check ri-check-${check.state}`}>
+            <span className="ri-check-glyph" aria-hidden="true">{checkGlyph(check.state)}</span>
+            <span className="ri-check-name">{check.name}</span>
+            <span className="ri-check-state">{check.state}</span>
+          </li>
+        ))}
+      </ul>
+      {result.checksTruncated ? (
+        <div className="ch-note">Further checks exist; open the Pull Request on GitHub.</div>
+      ) : null}
+    </div>
+  );
+}
+
+function checkGlyph(state: RepositoryPullRequestChecksResult['checks'][number]['state']): string {
+  if (state === 'failed') return '✕';
+  if (state === 'passed') return '✓';
+  if (state === 'pending') return '●';
+  return '–';
 }
 
 function safePullRequestUrl(

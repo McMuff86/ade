@@ -93,6 +93,28 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
 };
 
 /**
+ * Harnesses a run participant may switch to for one run. Deliberately only
+ * first-class CLIs with a real launch profile: `shell` has no managed-task
+ * transport, `custom` needs an agent-owned command, and `ollama` needs the
+ * agent's pinned model. Those stay available as the agent's own runtime.
+ */
+export const MANAGED_HARNESS_OVERRIDES: readonly RuntimeId[] = [
+  'claude', 'codex', 'opencode', 'grok', 'gemini',
+];
+
+/**
+ * The agent identity a run participant actually launches with. A differing
+ * per-run harness override drops the agent's customCommand (it belongs to
+ * the configured runtime); Codex model/reasoning pins only apply when the
+ * effective runtime is codex, which resolveLaunchCommand already guarantees.
+ */
+export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Agent {
+  if (!runtime || runtime === agent.runtime) return agent;
+  const { customCommand: _customCommand, ...rest } = agent;
+  return { ...rest, runtime };
+}
+
+/**
  * Resolve the command line to launch for an agent.
  * - customCommand always wins.
  * - unsupported permission modes fall back to the runtime's default command.

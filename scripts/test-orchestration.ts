@@ -542,9 +542,49 @@ function testRunDeletionAndScopeSnapshots(): void {
   check('deleting an already-deleted run stays a safe no-op', repeatedDeleteError === '');
 }
 
+function testHarnessOverride(): void {
+  const category = { id: 'harness-team', name: 'Harness', agents: ['harness-a', 'harness-b'] };
+  const agentA = testAgent('harness-a', category.id, 'Ada');
+  const agentB = testAgent('harness-b', category.id, 'Linus');
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [category],
+    agents: [agentA, agentB],
+  };
+  const store = memoryStore(config);
+  const service = new OrchestrationService(store);
+
+  const run = service.createRun({
+    name: 'Harness override run',
+    participants: [
+      { agentId: agentA.id, role: 'orchestrator', runtime: 'codex' },
+      { agentId: agentB.id, role: 'lead', teamId: 'harness-run-team', teamName: 'Harness', runtime: 'claude' },
+    ],
+  });
+  const participants = store.read().runParticipants.filter((item) => item.runId === run.id);
+  check('a per-run harness override is snapshotted on the participant, not the agent',
+    participants.find((item) => item.agentId === agentA.id)?.runtime === 'codex'
+      && participants.find((item) => item.agentId === agentB.id)?.runtime === 'claude'
+      && store.read().agents.find((agent) => agent.id === agentA.id)?.runtime === 'claude');
+
+  let unsupportedRejected = false;
+  try {
+    service.createRun({
+      name: 'Unsupported harness',
+      participants: [{ agentId: agentA.id, role: 'orchestrator', runtime: 'custom' }],
+    });
+  } catch {
+    unsupportedRejected = true;
+  }
+  check('overriding to a harness without a managed launch profile fails closed',
+    unsupportedRejected
+      && !store.read().runs.some((candidate) => candidate.name === 'Unsupported harness'));
+}
+
 testLegacyMigration();
 testRunJournal();
 testDomainFoundations();
+testHarnessOverride();
 testRunDeletionAndScopeSnapshots();
 
 console.log(`\n${failed ? 'FAILED' : 'PASSED'} - ${passed} passed, ${failed} failed`);
