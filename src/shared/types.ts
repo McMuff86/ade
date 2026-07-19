@@ -723,6 +723,79 @@ export interface GitStatus {
   files: GitFileChange[];
 }
 
+/** Bounded local commit metadata shown by the read-only repository inspector. */
+export interface RepositoryCommitSummary {
+  sha: string;
+  shortSha: string;
+  subject: string;
+  author: string;
+  /** ISO-8601 author timestamp emitted by Git. */
+  authoredAt: string;
+  parentCount: number;
+}
+
+export type RepositoryRemoteSummary =
+  | { kind: 'github'; providerRepository: string }
+  | { kind: 'other' | 'none' };
+
+/** Local, network-independent snapshot of one verified catalog repository. */
+export interface RepositoryOverview {
+  repositoryId: string;
+  repositoryName: string;
+  executionBackend: ExecutionBackendId;
+  branch: string;
+  headSha: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+  remote: RepositoryRemoteSummary;
+  commits: RepositoryCommitSummary[];
+  refreshedAt: number;
+}
+
+export type PullRequestReviewDecision =
+  | 'approved'
+  | 'changes-requested'
+  | 'review-required'
+  | 'none';
+
+export interface RepositoryPullRequest {
+  number: number;
+  title: string;
+  url: string;
+  author: string;
+  isDraft: boolean;
+  updatedAt: string;
+  headBranch: string;
+  baseBranch: string;
+  reviewDecision: PullRequestReviewDecision;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+}
+
+/** Optional GitHub read; failure never suppresses the local overview. */
+export interface RepositoryPullRequestResult {
+  status: 'ready' | 'unsupported' | 'unavailable';
+  providerRepository?: string;
+  pullRequests: RepositoryPullRequest[];
+  message?: string;
+  refreshedAt: number;
+}
+
+/** One explicitly opened commit patch; diff text remains capped in main. */
+export interface RepositoryCommitDiff {
+  commitSha: string;
+  title: string;
+  files: Array<{ path: string; additions: number; deletions: number }>;
+  filesTruncated: boolean;
+  diff: string;
+  truncated: boolean;
+}
+
 /** Workspace file-tree node (depth-limited; children lazy — undefined = not loaded). */
 export interface FsTreeNode {
   name: string;

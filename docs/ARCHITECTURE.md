@@ -1,7 +1,8 @@
 # ADE — Architecture (binding decisions)
 
-Status: v6, updated 2026-07-19 with implemented repository scopes/reusable
-agents (`docs/REPOSITORY_SCOPES_PLAN.md`), verified Draft-PR publishing
+Status: v7, updated 2026-07-19 with implemented repository scopes/reusable
+agents (`docs/REPOSITORY_SCOPES_PLAN.md`), the read-only repository inspector
+(`docs/REPOSITORY_INSPECTOR_PLAN.md`), verified Draft-PR publishing
 (`docs/VERIFIED_PUBLISHING_PLAN.md`) and planned remote control/mobile companion
 (`docs/REMOTE_CONTROL_PLAN.md`). Terminal, orchestration, repository-scope and
 publication implementation details supersede v5
@@ -129,7 +130,7 @@ src/
     config/store.ts        # atomic catalog/run/settings JSON + migration
     orchestration/         # run/task/event service and legacy Graph migration
     publishing/            # verified branch + GitHub Draft-PR boundary
-    repositories/          # repository catalog, bindings and scope resolution
+    repositories/          # catalog, bindings, scope resolution + read inspector
     memory/                # MemoryStore.ts port + managed-block injection
     photos.ts              # profile photo import/store (PNG/JPG, alpha kept)
   preload/index.ts         # contextBridge: typed invoke/on wrappers only
@@ -141,7 +142,7 @@ src/
     terminal/              # TerminalPane (xterm runtime, coalescer, attach)
     diagnostics/           # CLI/auth readiness modal
     keyboard/              # view/session shortcut routing
-    rightpanel/            # binding-aware scope header + Files/Changes
+    rightpanel/            # catalog Overview + binding-aware Changes/Files
     onboarding/            # first-run + new category/agent modals
     graph/                 # run-scoped control-plane canvas and dispatch
     stores/                # Zustand catalog, session, run, and UI mirrors
@@ -339,6 +340,30 @@ reproducibility guarantees.
   paths remain usable legacy plain workspaces and are reported for repair.
 - Default changes, detach and catalog cleanup never move/delete a worktree,
   branch or user file implicitly. Active references block destructive cleanup.
+
+## Repository inspector read boundary
+
+- The scope selector and the active session are intentionally different
+  identities. `Overview` resolves the selected catalog repository;
+  `Changes`/`Files` continue to resolve the immutable active session binding.
+  Only a user-initiated selection moves the tab to Overview.
+- `RepositoryInspectorService` accepts an exact catalog id, reloads the record
+  and re-proves root/common-Git identity before every read. Renderer paths,
+  remotes, refs and commands are never accepted.
+- Local overview uses bounded argv-only Git calls for branch, upstream,
+  ahead/behind, dirty counts and at most 12 commits. It never fetches. A commit
+  detail additionally requires a full lowercase SHA that resolves as a commit;
+  diff bytes and file counts are capped before reaching the renderer.
+- Optional PR discovery parses one unambiguous GitHub origin and invokes `gh pr
+  list` with an explicit `github.com/owner/repo`, timeout and output ceiling in
+  the repository's persisted native/WSL backend. Provider failure is returned
+  as a separate redacted state, so local history stays available.
+- Main and renderer independently constrain PR URLs to the same HTTPS GitHub
+  repository and numeric PR. The inspector exposes no fetch, checkout, push,
+  merge, PR edit or arbitrary external URL path.
+- The three views are semantic roving tabs. One shared resizable detail pane
+  stays mounted with the list, preserving scroll/data state; Escape closes a
+  commit patch and restores focus to its trigger.
 
 ## Run and task control plane (main/orchestration/)
 
@@ -636,9 +661,11 @@ explicitly enabled.
   verification. Its current source workflow also drives publication preview,
   explicit confirmation, an exact push to a real isolated bare remote, a
   deterministic fake GitHub Draft PR and restart-persisted audit. The same
-  script can target `ADE_E2E_EXECUTABLE`.
-- The current 2026-07-19 development gate passes 446 focused Windows
-  assertions and 56 source Electron/Playwright assertions. The previous hosted
+  script can target `ADE_E2E_EXECUTABLE`. It also proves catalog selection,
+  local repository health, independent PR rendering, tab keyboard behavior,
+  lazy commit diff, Escape focus restoration and manual refresh.
+- The current 2026-07-19 development gate passes 465 focused Windows
+  assertions and 64 source Electron/Playwright assertions. The previous hosted
   platform-closing gates passed 410 focused Windows assertions, 409 native
   Ubuntu assertions (the Windows `.cmd` probe is inapplicable), production
   builds and 47 Electron assertions on each native platform/artifact. The extended
@@ -695,7 +722,8 @@ explicitly enabled.
 
 No emojis. No model picker. No Open/Run buttons. No status-bar path.
 Sessions are terminal windows: tab strip has only tabs + `+`. Right panel:
-repository-scope header plus Files / Changes toggle, collapsible, resizable.
+repository-scope header plus Overview / Changes / Files tabs, collapsible,
+resizable and progressively disclosed through one shared detail pane.
 Rail resizable. Onboarding modals per mockup, plus photo upload.
 
 ## Build phases & ownership (agents)

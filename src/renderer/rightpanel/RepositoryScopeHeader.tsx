@@ -13,6 +13,7 @@ interface RepositoryScopeHeaderProps {
   sessionId: string | null;
   nonce: number;
   status: GitStatus | null;
+  onTargetRepositoryChange: (repositoryId: string | null, userInitiated: boolean) => void;
 }
 
 function shortPath(path: string): string {
@@ -31,6 +32,7 @@ export function RepositoryScopeHeader({
   sessionId,
   nonce,
   status,
+  onTargetRepositoryChange,
 }: RepositoryScopeHeaderProps): JSX.Element | null {
   const repositories = useAppData((state) => state.repositories);
   const agents = useAppData((state) => state.agents);
@@ -70,6 +72,7 @@ export function RepositoryScopeHeader({
       setScope(null);
       setTargetRepositoryId('');
       targetContext.current = '';
+      onTargetRepositoryChange(null, false);
       return;
     }
     let live = true;
@@ -80,7 +83,9 @@ export function RepositoryScopeHeader({
         const context = `${agentId}:${sessionId ?? ''}`;
         if (targetContext.current !== context) {
           targetContext.current = context;
-          setTargetRepositoryId(descriptor.repositoryId ?? '');
+          const repositoryId = descriptor.repositoryId ?? '';
+          setTargetRepositoryId(repositoryId);
+          onTargetRepositoryChange(repositoryId || null, false);
         }
         setError(null);
       })
@@ -90,7 +95,7 @@ export function RepositoryScopeHeader({
         setError(reason instanceof Error ? reason.message : String(reason));
       });
     return () => { live = false; };
-  }, [agentId, sessionId, nonce]);
+  }, [agentId, sessionId, nonce, onTargetRepositoryChange]);
 
   useEffect(() => {
     let live = true;
@@ -120,6 +125,7 @@ export function RepositoryScopeHeader({
     try {
       const repository = await importRepository(path, undefined, importBackend);
       setTargetRepositoryId(repository.id);
+      onTargetRepositoryChange(repository.id, true);
       setManualPath(null);
       setNotice(`Repository "${repository.name}" importiert.`);
     } catch (reason) {
@@ -138,6 +144,7 @@ export function RepositoryScopeHeader({
       if (!picked.isRepo) throw new Error('The selected folder is not a Git repository.');
       const repository = await importRepository(picked.path, undefined, NATIVE_EXECUTION_BACKEND);
       setTargetRepositoryId(repository.id);
+      onTargetRepositoryChange(repository.id, true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -213,7 +220,7 @@ export function RepositoryScopeHeader({
     <section className="rp-scope" data-testid="repository-scope">
       <div className="rp-scope-title">
         <div>
-          <span>Repository scope</span>
+          <span>Active session scope</span>
           <strong>{scope?.repositoryName ?? 'No repository'}</strong>
         </div>
         <span className="rp-scope-source">{scope ? sourceLabel(scope.source) : 'Loading'}</span>
@@ -240,7 +247,11 @@ export function RepositoryScopeHeader({
           aria-label="Repository for new session"
           value={targetRepositoryId}
           disabled={busy || locked}
-          onChange={(event) => setTargetRepositoryId(event.target.value)}
+          onChange={(event) => {
+            const repositoryId = event.target.value;
+            setTargetRepositoryId(repositoryId);
+            onTargetRepositoryChange(repositoryId || null, true);
+          }}
         >
           <option value="">No repository (portable home)</option>
           {sortedRepositories.map((repository) => (

@@ -1,6 +1,7 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.8 (verified Draft-PR publishing implemented; remote control planned,
+Status: v0.9 (repository inspector and verified Draft-PR publishing implemented;
+remote control planned,
 2026-07-19)
 Owner: Adi. This document is the source of truth for coding agents.
 
@@ -79,11 +80,12 @@ the migration never deletes user data.
   underneath (round avatar + name + role + presence dot when a session runs).
 - Top: session tabs of the selected agent. `+` opens a session, `×` closes.
 - Center: the terminal.
-- Right: collapsible panel with **Files** (agent files incl. MEMORY.md/USER.md,
-  and an all-files tree of the workspace) and **Changes** (real git diff). A
-  repository-scope header above those tabs names the selected execution's repo,
-  branch/worktree and binding source and offers safe choose/default/detach/new-
-  session actions.
+- Right: collapsible panel with **Overview**, **Changes** and **Files**. Overview
+  inspects the repository selected in the scope header: local health, recent
+  commits, on-demand commit patches and optional open GitHub Pull Requests.
+  Changes (real git diff) and Files (agent files plus lazy workspace tree) remain
+  bound to the active immutable session workspace. The header names both scopes
+  and offers safe choose/default/detach/new-session actions.
 - All three regions resizable via drag handles (rail width, panel width).
 - Top-level Terminals / Graph tabs switch views without creating a second copy
   of agent, workspace, session, or task state.
@@ -147,6 +149,14 @@ the migration never deletes user data.
 - The right-panel scope header shows repository, resolution source, branch,
   shortened worktree path, clean/dirty state and active lease. Repository and
   filesystem IPC resolves the selected session snapshot in main.
+- The default Overview tab inspects the selected catalog repository without
+  retargeting the active session. It shows at most 12 local commits and 20 open
+  GitHub PRs; a full-SHA commit patch is loaded only on demand and is capped.
+  GitHub failure is an independent state and cannot hide local repository data.
+  The inspector performs no fetch, checkout, branch/PR mutation or push.
+- Inspector IPC accepts catalog IDs and exact commit object IDs, never renderer-
+  supplied paths or commands. Main revalidates repository identity and routes
+  Git/`gh` through the repository's persisted native or WSL backend.
 - Agent settings can save an immutable template seed. New-agent onboarding can
   spawn that template into an independent identity and optionally bind it to a
   selected repository.

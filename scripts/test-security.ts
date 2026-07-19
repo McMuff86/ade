@@ -64,6 +64,12 @@ const valid: Record<InvokeChannel, unknown> = {
     defaultRepositoryId: 'repository',
   },
   'repository:import': { path: 'C:\\repos\\project', name: 'Project' },
+  'repository:overview': { repositoryId: 'repository' },
+  'repository:pullRequests': { repositoryId: 'repository' },
+  'repository:commitDiff': {
+    repositoryId: 'repository',
+    commitSha: '0123456789abcdef0123456789abcdef01234567',
+  },
   'workspace:describe': { agentId: 'agent', sessionId: 'session' },
   'workspace:removeBinding': { workspaceBindingId: 'binding' },
   'clipboard:readText': undefined,

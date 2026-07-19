@@ -6,6 +6,7 @@ Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
 sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
 is specified in `VERIFIED_PUBLISHING_PLAN.md`.
+The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 
 | Capability | State | Current behavior |
 |---|---|---|
@@ -17,6 +18,7 @@ is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 | Repository scopes | Real | First-class repository catalog, explicit execution backend, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots; legacy records migrate to native |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
+| Repository inspector | Real, read-only and backend-aware | The selected catalog repo has an Overview tab with bounded local health, 12 recent commits, lazy capped patches and up to 20 optional GitHub PRs; local state survives provider/offline errors, while Changes/Files stay on the active session binding |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
 | Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases, publication audits and messages are stored atomically in app config; logical phase transitions commit as one save |
@@ -50,7 +52,7 @@ is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real locally and hosted | The current Windows source gate passes 446 focused assertions plus 56 Electron/Playwright checks, including immutable verification-HEAD enforcement, an isolated real-Git publication push and fake-provider Draft PR; the last hosted cross-platform baseline remains 410/409 focused plus 47 Electron checks on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
+| CI and Electron E2E | Real locally and hosted | The current Windows source gate passes 465 focused assertions plus 64 Electron/Playwright checks, including repository inspection, immutable verification-HEAD enforcement, an isolated real-Git publication push and fake-provider Draft PR; the last hosted cross-platform baseline remains 410/409 focused plus 47 Electron checks on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
 
 ## Known constraints
 
@@ -125,6 +127,10 @@ is specified in `VERIFIED_PUBLISHING_PLAN.md`.
   join the next hosted/native-Linux matrix. Push hooks are disabled, so Git-LFS
   or other hook-dependent publication needs a later explicit contract/manual
   path.
+- Open-PR inspection currently supports one unambiguous GitHub `origin` and an
+  installed/authenticated `gh` in that repository's execution backend. It does
+  not fetch remote refs or show provider CI logs yet; unsupported/offline/auth
+  states remain separate from the always-local status and commit history.
 - There is currently no network listener, paired-device store, mobile build or
   remote ingress in ADE. Until the remote goals are implemented and verified,
   users must not expose Electron IPC or an ad-hoc local server through a router,

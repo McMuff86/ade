@@ -8,6 +8,7 @@
   min-height: 0;
   background: var(--panel);
   border-left: 1px solid var(--line);
+  container-type: inline-size;
 }
 
 /* ------------------------------------------------------ repository scope */
@@ -223,6 +224,389 @@
   color: var(--faint);
   font-size: 11.5px;
   padding: 14px;
+}
+
+/* ------------------------------------------------ repository inspector */
+
+.ri {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 10px 16px;
+}
+
+.ri-toolbar,
+.ri-section-head,
+.ri-health-foot,
+.ri-commit-line,
+.ri-commit-meta,
+.ri-pr-line,
+.ri-pr-meta,
+.ri-pr-stats {
+  display: flex;
+  align-items: center;
+}
+
+.ri-toolbar {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 3px 0;
+}
+
+.ri-toolbar > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ri-eyebrow {
+  color: var(--faint);
+  font-size: 9.5px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.ri-toolbar strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-refresh {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ri-refresh:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  color: var(--text);
+  background: var(--raised);
+}
+
+.ri-refresh:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ri-health,
+.ri-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--raised) 34%, var(--panel));
+  overflow: hidden;
+}
+
+.ri-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ri-health-grid > div {
+  min-width: 0;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ri-health-grid > div:nth-child(odd) {
+  border-right: 1px solid var(--line);
+}
+
+.ri-health-grid dt {
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.ri-health-grid dd {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-health-grid .ri-clean {
+  color: var(--add);
+}
+
+.ri-health-grid .ri-dirty {
+  color: var(--del);
+}
+
+.ri-health-foot {
+  justify-content: space-between;
+  min-width: 0;
+  gap: 10px;
+  padding: 7px 10px;
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.ri-health-foot > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-health-foot code,
+.ri-commit code,
+.ri-pr code {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.ri-health-skeleton {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.ri-health-skeleton span {
+  height: 48px;
+  background: var(--raised);
+}
+
+.ri-section-head {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ri-section-head > div {
+  min-width: 0;
+}
+
+.ri-section-head h3 {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.ri-section-head div > span {
+  display: block;
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.ri-count {
+  flex: none;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9.5px;
+  text-align: center;
+}
+
+.ri-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 10px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.ri-state button {
+  flex: none;
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.ri-state-error {
+  border: 1px solid color-mix(in srgb, var(--del) 45%, var(--line));
+  border-radius: 8px;
+  color: var(--del);
+}
+
+.ri-state-success {
+  color: var(--add);
+}
+
+.ri-empty {
+  flex: 1;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 24px;
+  color: var(--faint);
+  text-align: center;
+}
+
+.ri-empty strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ri-empty span {
+  max-width: 280px;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.ri-pr-list,
+.ri-commit-list {
+  list-style: none;
+}
+
+.ri-pr-list li + li,
+.ri-commit-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.ri-pr,
+.ri-commit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+}
+
+.ri-pr:hover,
+.ri-commit:hover,
+.ri-commit.open {
+  background: var(--raised);
+}
+
+.ri-commit.open {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.ri-pr:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ri-pr-line,
+.ri-commit-line {
+  min-width: 0;
+  gap: 7px;
+}
+
+.ri-pr-line code,
+.ri-commit-line code {
+  flex: none;
+  font-size: 10px;
+}
+
+.ri-pr-line strong,
+.ri-commit-line strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-pr-line strong,
+.ri-commit-line strong {
+  flex: 1;
+}
+
+.ri-pr-line > span:last-child {
+  flex: none;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.ri-pr-meta,
+.ri-commit-meta,
+.ri-pr-stats {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.ri-pr-meta span,
+.ri-commit-meta span,
+.ri-pr-meta time,
+.ri-commit-meta time {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-pr-stats b,
+.ri-health-foot b {
+  font-weight: 600;
+}
+
+.ri-tag {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.ri-tag-draft,
+.ri-tag-review-required {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.ri-tag-approved {
+  color: var(--add);
+  border-color: color-mix(in srgb, var(--add) 45%, var(--line));
+}
+
+.ri-tag-changes-requested {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+.ri-pr-invalid {
+  opacity: 0.7;
+}
+
+@container (max-width: 330px) {
+  .ri-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ri-health-grid > div:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .ri-pr-meta span:nth-child(2) {
+    width: 100%;
+  }
 }
 
 /* ------------------------------------------------------------ changes view */

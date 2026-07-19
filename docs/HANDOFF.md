@@ -1,15 +1,28 @@
 # Handoff — 2026-07-19
 
 Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
-Abschluss und dem neuen verifizierten Draft-PR-Workflow. Der vorherige Codex-/
-Goal-6-Abschluss (`7902b96`), die Linux-/WSL-Implementierung (`3762b00`) und die
-auf dem ersten Hosted-Run entdeckte E2E-Wartebedingung (`d32faa9`) sind auf
-`origin/main` veröffentlicht. Der neue Publishing-Stand ist durch den
-vollständigen Gate verifiziert und wird mit diesem Handoff auf ADE-`main`
-veröffentlicht; der Abschlusszustand ist identisches lokales
-`main`/`origin/main` und ein sauberer Git-Worktree.
+Abschluss, Verified Draft-PR Publishing und dem neuen Repository Inspector. Der
+vorherige dokumentierte Stand (`9349ab5`) liegt auf `origin/main`. Der Inspector
+wird mit synchroner Produkt-/Architektur-Dokumentation durch den vollständigen
+Windows-Gate verifiziert und anschließend auf ADE-`main` veröffentlicht; der
+Abschlusszustand soll identisches lokales `main`/`origin/main` und ein sauberer
+Git-Worktree sein.
 
 ## Ergebnis dieser Session
+
+- Die rechte Sidebar besitzt jetzt ein bewusst getrenntes **Overview** für das
+  im Katalog ausgewählte Repository. **Changes** und **Files** bleiben ehrlich
+  auf dem unveränderlichen Workspace der aktiven Session.
+- Overview zeigt lokalen Branch-/Dirty-/Upstream-/Backend-Zustand, die letzten
+  12 Commits und einen erst auf Klick geladenen, begrenzten Commit-Patch. Bis zu
+  20 offene GitHub-PRs kommen optional über das repo-eigene native/WSL-`gh`;
+  Offline/Auth/Provider-Fehler verdecken lokale Daten nicht.
+- Der Main-Prozess akzeptiert nur Repository-ID und exakte Full-SHA, prüft die
+  Repository-Identität erneut und validiert GitHub-PR-URLs doppelt. Es gibt
+  keinen Fetch, Checkout, Push, Merge oder PR-Schreibbefehl im Inspector.
+- Semantische Tabs unterstützen Pfeil/Home/End; die stabile Split-Pane erhält
+  Daten und Scrollzustand, und `Escape` gibt den Fokus an den Commit zurück.
+  Provider-Netzwerkreads hängen ausdrücklich nicht am 5-Sekunden-Lokalpolling.
 
 - ADE besitzt jetzt einen **lokalen, expliziten Verified-Publishing-Flow**:
   erfolgreicher Managed Run → unveränderliches HEAD-/Verify-Attest → read-only
@@ -100,12 +113,13 @@ Windows-Ordner oben behält die beiden fertigen Pakete.
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
 - beide TypeScript-Projekte grün;
-- **446/446** fokussierte Unit-/Integrations-/Security-Assertions:
+- **465/465** fokussierte Unit-/Integrations-/Security-Assertions:
   Memory 27, Dispatch 12, Runtime 29, Execution-Backends 16,
   Orchestration 46, Orchestration-Beta 101, Publication 29, Prompts 31,
-  Repository-Scopes 43, Workspace-FS 7, Security 105;
+  Repository-Scopes 43, Repository-Inspector 16, Workspace-FS 7, Security 108;
 - Production-Build grün;
-- **56/56** reale Electron-/Playwright-Checks grün, inklusive disabled-before-
+- **64/64** reale Electron-/Playwright-Checks grün, inklusive Repository-
+  Übersicht/PRs/Commit-Diff/Keyboard/Fokus sowie disabled-before-
   confirm, realem isoliertem Git-Push, unverändertem Remote-`main`, Draft-PR-
   Audit und Persistenz nach App-Neustart.
 
@@ -211,21 +225,24 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 
 ## Nächste Schritte
 
-1. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
+1. Den Inspector als nächste progressive Ebene um CI-Check-Rollups und die
+   eindeutige Traceability Managed Run → Publication → PR ergänzen; Logs und
+   Einzelchecks bleiben dabei on demand statt permanentem Sidebar-Rauschen.
+2. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
    F6-Balanceänderung menschlich spielen. Erst nach expliziter Operator-
    Freigabe einen Remote-Branch/Draft-PR anlegen. Die historische Aggregation
    trägt bewusst kein frisches ADE-Run-Attest: Für ADE-eigenes Verified
    Publishing muss der Inhalt einen neuen Managed Run durchlaufen; alternativ
    braucht der manuelle Push/PR eine separat freigegebene, wahrheitsgemäß als
    manuell aggregiert bezeichnete Publication.
-2. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
+3. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
-3. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
+4. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
    Onboarding integrieren.
-4. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
+5. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
    deaktiviert, loopback-only, versionierte DTOs, Auth/Audit, Idempotency und
    keine Roh-PTY-/Filesystem-Exposition.
-5. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
+6. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
    dann macOS/Updater als eigene Release-Tracks angehen.
 
 Operator-Kommandos:

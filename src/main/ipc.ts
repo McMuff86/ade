@@ -38,6 +38,7 @@ import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
 import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 import { PublicationService } from './publishing/PublicationService';
+import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -80,6 +81,10 @@ export function registerIpcHandlers(store: ConfigStore): void {
   const backendWorkspaces = new BackendWorkspaceService(store, execution);
   const backendFs = new BackendWorkspaceFs(execution);
   const scopes = new RepositoryScopeService(store, { execution, git: backendGit, backendWorkspaces });
+  const repositoryInspector = new RepositoryInspectorService(store, {
+    commands: execution,
+    git: backendGit,
+  });
   orchestration = new OrchestrationService(store, (snapshot) => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.OrchestrationChanged, snapshot);
@@ -200,6 +205,15 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.AgentTemplateSpawn, (input) => spawnAgentTemplate(store, input, scopes));
   handle(IPC.RepositoryImport, ({ path, name, executionBackend }) =>
     scopes.importRepository(path, name, executionBackend),
+  );
+  handle(IPC.RepositoryOverview, ({ repositoryId }) =>
+    repositoryInspector.overview(repositoryId),
+  );
+  handle(IPC.RepositoryPullRequests, ({ repositoryId }) =>
+    repositoryInspector.pullRequests(repositoryId),
+  );
+  handle(IPC.RepositoryCommitDiff, ({ repositoryId, commitSha }) =>
+    repositoryInspector.commitDiff(repositoryId, commitSha),
   );
   handle(IPC.WorkspaceDescribe, ({ agentId, sessionId }) => {
     const session = sessionId ? ptyManager!.getSessionMeta(sessionId) : undefined;

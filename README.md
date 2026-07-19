@@ -20,6 +20,10 @@ terminals around named agents.
   keep a general agent portable, or choose a repo per new session/run. Every
   agent/repo pair gets its own ADE worktree; the right panel names the exact
   repo, source, branch/path, changes and lease used by the selected session.
+- **Repository Inspector**: selecting a catalog repository opens a compact,
+  read-only overview with local branch/dirty/sync health, recent commits,
+  on-demand capped commit patches and optional open GitHub Pull Requests.
+  Local history remains useful when GitHub, `gh` or the network is unavailable.
 - **Explicit execution backends**: a Windows ADE repository can remain native
   or deliberately run through `wsl:<distribution>`. Linux paths, Git,
   worktrees, diagnostics, terminals and managed agents stay on the selected
@@ -55,7 +59,8 @@ terminals around named agents.
 Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
 Repository-scope plan: `docs/REPOSITORY_SCOPES_PLAN.md` · Remote-control plan:
 `docs/REMOTE_CONTROL_PLAN.md` · Verified-publishing contract:
-`docs/VERIFIED_PUBLISHING_PLAN.md` · Reference analyses: `docs/reports/`
+`docs/VERIFIED_PUBLISHING_PLAN.md` · Repository-Inspector contract:
+`docs/REPOSITORY_INSPECTOR_PLAN.md` · Reference analyses: `docs/reports/`
 
 ## Run
 
@@ -71,7 +76,8 @@ real Electron/ConPTY workflow against an isolated temporary profile.
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
 `pnpm test:runtime`, `pnpm test:backends`, `pnpm test:orchestration`,
 `pnpm test:orchestration-beta`, `pnpm test:publication`, `pnpm test:prompts`,
-`pnpm test:repositories`, `pnpm test:workspace-fs`, and
+`pnpm test:repositories`, `pnpm test:repository-inspector`,
+`pnpm test:workspace-fs`, and
 `pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
 On a Windows host with WSL, `pnpm test:wsl-backend` adds real distro/Git/files/

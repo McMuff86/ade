@@ -1,7 +1,15 @@
 /** Production-build Electron workflow for Windows and native POSIX desktops. */
 
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -114,7 +122,8 @@ function seedConfig(
   };
   mkdirSync(agent.memoryDir, { recursive: true });
   const repositoryId = 'e2e-managed-repository';
-  const commonGitDir = resolve(managedRepo, '.git');
+  const repositoryRoot = realpathSync.native(resolve(managedRepo));
+  const commonGitDir = realpathSync.native(resolve(managedRepo, '.git'));
   const managedCategory: Category = {
     id: 'e2e-managed-category',
     name: 'Managed E2E',
@@ -152,7 +161,7 @@ function seedConfig(
     repositories: [{
       id: repositoryId,
       name: 'Managed E2E repository',
-      rootPath: resolve(managedRepo),
+      rootPath: repositoryRoot,
       commonGitDir,
       verified: true,
       createdAt: now,
@@ -324,8 +333,25 @@ if (args[0] === 'auth' && args[1] === 'status') {
 } else if (args[0] === 'repo' && args[1] === 'view') {
   process.stdout.write(JSON.stringify({ nameWithOwner: repo }) + '\\n');
 } else if (args[0] === 'pr' && args[1] === 'list') {
-  const state = read();
-  process.stdout.write(JSON.stringify(state ? [state] : []) + '\\n');
+  if (args.includes('--limit')) {
+    process.stdout.write(JSON.stringify([{
+      number: 42,
+      title: 'Improve repository inspector fixture',
+      url: 'https://github.com/' + repo + '/pull/42',
+      author: { login: 'e2e-reviewer' },
+      isDraft: false,
+      updatedAt: '2026-07-19T12:00:00Z',
+      headRefName: 'feature/inspector',
+      baseRefName: 'main',
+      reviewDecision: 'REVIEW_REQUIRED',
+      changedFiles: 3,
+      additions: 21,
+      deletions: 4,
+    }]) + '\\n');
+  } else {
+    const state = read();
+    process.stdout.write(JSON.stringify(state ? [state] : []) + '\\n');
+  }
 } else if (args[0] === 'pr' && args[1] === 'create') {
   const head = field('--head');
   const base = field('--base');
@@ -379,6 +405,16 @@ public static class GhFixture {
       + "\"statusCheckRollup\":[{\"name\":\"E2E CI\",\"status\":\"IN_PROGRESS\",\"conclusion\":\"\"}]}";
   }
 
+  private static string InspectorPullRequest() {
+    return "{\"number\":42,\"title\":\"Improve repository inspector fixture\","
+      + "\"url\":\"https://github.com/ade-e2e/managed/pull/42\","
+      + "\"author\":{\"login\":\"e2e-reviewer\"},\"isDraft\":false,"
+      + "\"updatedAt\":\"2026-07-19T12:00:00Z\","
+      + "\"headRefName\":\"feature/inspector\",\"baseRefName\":\"main\","
+      + "\"reviewDecision\":\"REVIEW_REQUIRED\",\"changedFiles\":3,"
+      + "\"additions\":21,\"deletions\":4}";
+  }
+
   public static int Main(string[] args) {
     string statePath = Environment.GetEnvironmentVariable("ADE_E2E_FAKE_GH_STATE");
     if (args.Length >= 2 && args[0] == "auth" && args[1] == "status") {
@@ -390,7 +426,9 @@ public static class GhFixture {
       return 0;
     }
     if (args.Length >= 2 && args[0] == "pr" && args[1] == "list") {
-      Console.WriteLine(File.Exists(statePath) ? "[" + File.ReadAllText(statePath).Trim() + "]" : "[]");
+      Console.WriteLine(args.Contains("--limit")
+        ? "[" + InspectorPullRequest() + "]"
+        : (File.Exists(statePath) ? "[" + File.ReadAllText(statePath).Trim() + "]" : "[]"));
       return 0;
     }
     if (args.Length >= 2 && args[0] == "pr" && args[1] == "create") {
@@ -515,6 +553,7 @@ async function sendCommand(page: Page, command: string): Promise<void> {
 
 async function run(): Promise<void> {
   const root = process.cwd();
+  const evidenceDir = process.env['ADE_E2E_EVIDENCE_DIR'];
   const scratch = mkdtempSync(join(tmpdir(), 'ade-e2e-'));
   const userData = join(scratch, 'user-data');
   const workspace = join(scratch, 'workspace');
@@ -693,6 +732,81 @@ async function run(): Promise<void> {
     await scopeHeader.getByLabel('Repository for new session').selectOption({
       label: 'Managed E2E repository',
     });
+    const repositoryOverview = page.getByTestId('repository-overview');
+    const overviewLoaded = await eventually('selected repository opens a bounded local overview', async () => {
+      const text = await repositoryOverview.textContent();
+      return text?.includes('Managed E2E repository') === true
+        && text.includes('main')
+        && text.includes('Clean')
+        && text.includes('ade-e2e/managed')
+        && text.includes('managed e2e baseline');
+    });
+    if (!overviewLoaded) {
+      const directInspectorResult = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        try {
+          return {
+            ok: true,
+            value: await api.invoke('repository:overview', {
+              repositoryId: 'e2e-managed-repository',
+            }),
+          };
+        } catch (error) {
+          return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      });
+      throw new Error(`Repository overview diagnostic: UI=${JSON.stringify(
+        await repositoryOverview.textContent(),
+      )} IPC=${JSON.stringify(directInspectorResult)}`);
+    }
+    await eventually('repository overview renders open GitHub Pull Requests independently', async () => {
+      const link = repositoryOverview.getByRole('link', {
+        name: /Open Pull Request #42 on GitHub/,
+      });
+      return await link.count() === 1
+        && await link.getAttribute('href') === 'https://github.com/ade-e2e/managed/pull/42'
+        && (await link.textContent())?.includes('Improve repository inspector fixture') === true;
+    });
+    if (evidenceDir) {
+      mkdirSync(resolve(evidenceDir), { recursive: true });
+      await page.screenshot({
+        path: join(resolve(evidenceDir), 'repository-inspector.png'),
+        fullPage: true,
+      });
+    }
+    const overviewTab = page.getByRole('tab', { name: 'Overview', exact: true });
+    await overviewTab.focus();
+    await page.keyboard.press('End');
+    check('repository panel tabs support roving End/Home keyboard navigation',
+      await page.getByRole('tab', { name: 'Files', exact: true }).getAttribute('aria-selected') === 'true');
+    await page.keyboard.press('Home');
+    await eventually('Home returns focus and selection to repository overview', async () =>
+      await overviewTab.getAttribute('aria-selected') === 'true'
+        && await overviewTab.evaluate((element) => element === document.activeElement),
+    );
+    await eventually('overview reload after tab navigation remains deterministic', async () =>
+      (await repositoryOverview.textContent())?.includes('managed e2e baseline') === true,
+    );
+    const commitButton = repositoryOverview.getByRole('button', {
+      name: /Inspect commit .*managed e2e baseline/,
+    });
+    await commitButton.click();
+    await eventually('opening a recent commit loads its capped patch in the shared detail pane', async () =>
+      (await page!.locator('.rp-inline .diff-body').textContent())?.includes('baseline.txt') === true,
+    );
+    await page.keyboard.press('Escape');
+    await eventually('Escape closes commit detail and restores focus to its commit row', async () =>
+      await page!.locator('.rp-inline').count() === 0
+        && await commitButton.evaluate((element) => element === document.activeElement),
+    );
+    await repositoryOverview.getByRole('button', { name: 'Refresh repository overview' }).click();
+    await eventually('manual repository refresh preserves local and provider information', async () => {
+      const text = await repositoryOverview.textContent();
+      return text?.includes('managed e2e baseline') === true
+        && text.includes('Improve repository inspector fixture');
+    });
     await scopeHeader.getByRole('button', { name: 'Open new session' }).click();
     await eventually('repository chooser opens a second scoped session', async () => await tabs.count() === 2);
     const secondTab = await activeTabId(page);
@@ -735,7 +849,6 @@ async function run(): Promise<void> {
     await eventually('exit racing a stale reload snapshot has actionable failure UI', async () =>
       (await page!.locator('.session-notice.error').textContent())?.includes('Session failed (exit 7)') === true,
     );
-    const evidenceDir = process.env['ADE_E2E_EVIDENCE_DIR'];
     if (evidenceDir) {
       mkdirSync(resolve(evidenceDir), { recursive: true });
       await page.screenshot({ path: join(resolve(evidenceDir), 'failure-ui.png'), fullPage: true });

@@ -93,7 +93,9 @@ function id(channel: string, value: unknown, label: string): string {
 
 function gitObjectId(channel: string, value: unknown, label: string): void {
   const text = stringValue(channel, value, label, { max: 64 });
-  if (!/^[0-9a-f]{40,64}$/.test(text)) invalid(channel, `${label} must be a lowercase Git object id`);
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(text)) {
+    invalid(channel, `${label} must be a full lowercase Git object id`);
+  }
 }
 
 function publicationBranch(channel: string, value: unknown): void {
@@ -359,6 +361,13 @@ function validateWorkspaceTarget(channel: string, payload: unknown): void {
   optionalId(channel, request.sessionId, 'sessionId');
 }
 
+function validateRepositoryCommitDiff(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['repositoryId', 'commitSha']);
+  id(channel, request.repositoryId, 'repositoryId');
+  gitObjectId(channel, request.commitSha, 'commitSha');
+}
+
 function validateCategoryReorder(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, ['orderedIds']);
@@ -495,6 +504,13 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       }
       return;
     }
+    case IPC.RepositoryOverview:
+    case IPC.RepositoryPullRequests:
+      validateIdRequest(channel, payload, 'repositoryId');
+      return;
+    case IPC.RepositoryCommitDiff:
+      validateRepositoryCommitDiff(channel, payload);
+      return;
     case IPC.WorkspaceDescribe:
       validateWorkspaceTarget(channel, payload);
       return;

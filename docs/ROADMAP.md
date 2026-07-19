@@ -274,6 +274,30 @@ The full Windows source gate is 446 focused assertions plus 56 Electron checks.
 Before any real target-repository PR, its existing local worktree remains
 untouched and the external push receives separate operator authorization.
 
+## Repository inspector track - selected-repository context
+
+Status: **implemented and locally verified 2026-07-19.** The binding and noise
+budget are defined in `REPOSITORY_INSPECTOR_PLAN.md`.
+
+- Separate the selected catalog repository Overview from active-session
+  Changes/Files instead of silently mixing their scope.
+- Show bounded local branch, dirty/sync health and 12 recent commits without a
+  fetch; load only the chosen full-SHA commit patch into the shared capped diff
+  pane.
+- Discover at most 20 open GitHub PRs through host-qualified, backend-local
+  `gh`; render provider/offline/auth errors independently from local history.
+- Revalidate repository identity, IPC payloads and external PR URLs in the
+  trusted boundary; expose no repository or provider mutation.
+- Use semantic roving tabs, stable panel mounting, narrow-width reflow and
+  deterministic close/focus behavior so added information remains navigable.
+
+Exit criteria: 16 focused repository-inspector checks cover real isolated Git,
+dirty/history/diff caps, malformed provider data, unsafe URLs and WSL backend
+propagation; security reaches 108 assertions; the 64-check Electron/Playwright
+workflow proves selection, PR rendering, keyboard tabs, lazy diff, focus and
+refresh. The complete Windows gate is 465 focused assertions plus build and
+Electron workflow.
+
 ## Goal 7 - transport-neutral core and local host API
 
 Status: **bounded GO; implementation not started.** Goal 6 permits the

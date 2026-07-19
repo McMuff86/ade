@@ -138,9 +138,9 @@ export function App() {
                 <button
                   className={rightOpen ? 'btn btn-toggled' : 'btn'}
                   onClick={toggleRightPanel}
-                  title="Toggle right panel"
+                  title="Toggle repository inspector"
                 >
-                  Changes
+                  Inspector
                 </button>
               </div>
             </div>

@@ -15,9 +15,16 @@ import {
 import type { OrchestrationConfigPort } from '../orchestration/OrchestrationService';
 import { OrchestrationService } from '../orchestration/OrchestrationService';
 import type { WorkspaceInspection } from '../orchestration/WorkspaceService';
+import {
+  firstSafeGithubPullUrl,
+  githubRepository,
+  parseGithubRepository,
+  safeGithubPullRequestUrl,
+} from '../git/github';
+
+export { parseGithubRepository } from '../git/github';
 
 const GIT_OBJECT_ID = /^[0-9a-f]{40,64}$/;
-const PROVIDER_REPOSITORY = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 const PUBLICATION_BRANCH = /^ade\/[a-z0-9][a-z0-9._/-]{0,98}[a-z0-9]$/;
 const MAX_CHANGED_FILES = 200;
 const MAX_REASON_CHARS = 500;
@@ -599,25 +606,6 @@ export function publicationBranch(run: Pick<Run, 'id' | 'name'>): string {
   return branch;
 }
 
-export function parseGithubRepository(remoteUrl: string): string | null {
-  const trimmed = remoteUrl.trim();
-  let path = '';
-  if (/^git@github\.com:/i.test(trimmed)) {
-    path = trimmed.replace(/^git@github\.com:/i, '');
-  } else {
-    try {
-      const url = new URL(trimmed);
-      if (!['https:', 'ssh:'].includes(url.protocol)
-          || url.hostname.toLowerCase() !== 'github.com') return null;
-      path = url.pathname.replace(/^\/+/, '');
-    } catch {
-      return null;
-    }
-  }
-  const repository = path.replace(/\.git$/i, '').replace(/\/+$/, '');
-  return PROVIDER_REPOSITORY.test(repository) ? repository : null;
-}
-
 export function redactSensitiveText(value: string): string {
   return value
     .replace(/https?:\/\/[^/@\s]+:[^@/\s]+@/gi, 'https://[credentials]@')
@@ -676,10 +664,6 @@ function parseRepoView(value: Buffer): string | null {
 
 function sameProviderRepository(expected: string, actual: string | null): boolean {
   return actual !== null && expected.toLowerCase() === actual.toLowerCase();
-}
-
-function githubRepository(providerRepository: string): string {
-  return `github.com/${providerRepository}`;
 }
 
 function parsePullRequestList(value: Buffer, headBranch: string): PullRequestView | null {
@@ -754,41 +738,13 @@ function isExactDraftPullRequest(pr: PullRequestView, candidate: CandidateInspec
     && pr.baseRefName === candidate.baseBranch
     && pr.headRefName === candidate.headBranch
     && pr.headRefOid === candidate.headSha
-    && pullUrlMatchesRepository(pr.url, candidate.providerRepository);
+    && Boolean(candidate.providerRepository
+      && safeGithubPullRequestUrl(pr.url, candidate.providerRepository, pr.number));
 }
 
 function assertExactDraftPullRequest(pr: PullRequestView, candidate: CandidateInspection): void {
   if (!isExactDraftPullRequest(pr, candidate)) {
     throw new Error('ade: created Pull Request is not an exact open Draft for the attested candidate');
-  }
-}
-
-function firstSafeGithubPullUrl(value: string): string | null {
-  const match = value.match(/https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+/i);
-  if (!match) return null;
-  try {
-    const url = new URL(match[0]);
-    return url.hostname.toLowerCase() === 'github.com' && !url.username && !url.password
-      ? url.toString().replace(/\/$/, '')
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function pullUrlMatchesRepository(value: string, repository: string | undefined): boolean {
-  if (!repository) return false;
-  const safe = firstSafeGithubPullUrl(value);
-  if (!safe) return false;
-  try {
-    const url = new URL(safe);
-    const segments = url.pathname.split('/').filter(Boolean);
-    return segments.length === 4
-      && `${segments[0]}/${segments[1]}`.toLowerCase() === repository.toLowerCase()
-      && segments[2] === 'pull'
-      && /^\d+$/.test(segments[3] ?? '');
-  } catch {
-    return false;
   }
 }
 

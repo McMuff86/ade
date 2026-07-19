@@ -35,6 +35,9 @@ import type {
   ThemeName,
   PtyExitReason,
   Repository,
+  RepositoryCommitDiff,
+  RepositoryOverview,
+  RepositoryPullRequestResult,
   WorkspaceScopeDescriptor,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
@@ -58,6 +61,9 @@ export const IPC = {
   AgentTemplateDelete: 'agentTemplate:delete',
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
+  RepositoryOverview: 'repository:overview',
+  RepositoryPullRequests: 'repository:pullRequests',
+  RepositoryCommitDiff: 'repository:commitDiff',
   WorkspaceDescribe: 'workspace:describe',
   WorkspaceRemoveBinding: 'workspace:removeBinding',
   ClipboardReadText: 'clipboard:readText',
@@ -364,6 +370,15 @@ export interface RepositoryImportRequest {
   executionBackend?: ExecutionBackendId;
 }
 
+export interface RepositoryInspectRequest {
+  repositoryId: string;
+}
+
+export interface RepositoryCommitDiffRequest extends RepositoryInspectRequest {
+  /** Full lowercase SHA-1/SHA-256 object id returned by repository:overview. */
+  commitSha: string;
+}
+
 export interface WslDistributionInfo {
   name: string;
   backend: ExecutionBackendId;
@@ -432,6 +447,12 @@ export interface IpcInvokeMap {
   'agentTemplate:delete': { req: { id: string }; res: void };
   'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
   'repository:import': { req: RepositoryImportRequest; res: Repository };
+  'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
+  'repository:pullRequests': {
+    req: RepositoryInspectRequest;
+    res: RepositoryPullRequestResult;
+  };
+  'repository:commitDiff': { req: RepositoryCommitDiffRequest; res: RepositoryCommitDiff };
   'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };
   'workspace:removeBinding': { req: WorkspaceRemoveBindingRequest; res: WorkspaceRemoveBindingResult };
   'clipboard:readText': { req: void; res: ClipboardReadTextResult };
