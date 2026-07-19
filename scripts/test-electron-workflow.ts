@@ -976,11 +976,13 @@ async function run(): Promise<void> {
     }
 
     await page.getByRole('button', { name: 'Diagnostics' }).first().click();
-    await page.getByRole('dialog', { name: 'Runtime diagnostics' }).waitFor({ state: 'visible' });
-    const diagnosticText = await page.getByRole('dialog', { name: 'Runtime diagnostics' }).textContent();
-    check('diagnostics report configured shell readiness without mutation',
-      diagnosticText?.includes('E2E Shell') === true && diagnosticText.includes('Interactive shell is ready.'),
-      diagnosticText);
+    const diagnosticsDialog = page.getByRole('dialog', { name: 'Runtime diagnostics' });
+    await diagnosticsDialog.waitFor({ state: 'visible' });
+    await eventually('diagnostics report configured shell readiness without mutation', async () => {
+      const diagnosticText = await diagnosticsDialog.textContent();
+      return diagnosticText?.includes('E2E Shell') === true
+        && diagnosticText.includes('Interactive shell is ready.');
+    });
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'diagnostics-ui.png'), fullPage: true });
     }
