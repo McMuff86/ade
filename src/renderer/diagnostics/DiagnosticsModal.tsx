@@ -14,6 +14,7 @@ function safeMessage(error: unknown): string {
 export function DiagnosticsModal(): JSX.Element | null {
   const open = useDiagnostics((state) => state.open);
   const agentId = useDiagnostics((state) => state.agentId);
+  const sessionId = useDiagnostics((state) => state.sessionId);
   const hide = useDiagnostics((state) => state.hide);
   const [result, setResult] = useState<RuntimeDiagnosticsResult | null>(null);
   const [error, setError] = useState('');
@@ -23,14 +24,16 @@ export function DiagnosticsModal(): JSX.Element | null {
     setLoading(true);
     setError('');
     try {
-      setResult(await window.ade.invoke('runtime:diagnose', agentId ? { agentId } : {}));
+      setResult(await window.ade.invoke('runtime:diagnose', agentId
+        ? { agentId, sessionId }
+        : {}));
     } catch (cause) {
       setResult(null);
       setError(safeMessage(cause));
     } finally {
       setLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, sessionId]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,6 +70,12 @@ export function DiagnosticsModal(): JSX.Element | null {
                   </div>
                   <div className="diag-message">{item.message}</div>
                   <dl>
+                    <div>
+                      <dt>Backend</dt>
+                      <dd>{item.executionBackend?.startsWith('wsl:')
+                        ? `WSL · ${item.executionBackend.slice('wsl:'.length)}`
+                        : 'Native'}</dd>
+                    </div>
                     <div><dt>Command</dt><dd>{item.command}</dd></div>
                     <div>
                       <dt>Version</dt>

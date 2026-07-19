@@ -8,14 +8,14 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 
 | Capability | State | Current behavior |
 |---|---|---|
-| Interactive terminals | Real | Main-owned ConPTY/node-pty sessions, xterm UI, resize, replay, theme, exit state and restart action |
+| Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
 | Named agents and categories | Real | Persisted JSON config, photos, runtime/permission settings and native Codex model/reasoning profiles; the current pilot roster is Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) except deliberate shell utilities |
-| Git workspaces | Real, agent/repository-bound | Every agent/repository pair resolves one isolated ADE worktree/branch; category paths remain a migration/onboarding compatibility field |
-| Repository scopes | Real | First-class repository catalog, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots |
+| Git workspaces | Real, agent/repository/backend-bound | Every agent/repository pair resolves one isolated ADE worktree/branch and uses only the persisted `native` or `wsl:<distribution>` Git boundary; category paths remain compatibility storage |
+| Repository scopes | Real | First-class repository catalog, explicit execution backend, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots; legacy records migrate to native |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
-| Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible repo/source/branch/path/dirty/lease header all resolve the active session snapshot in main |
+| Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
 | Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases and messages are stored atomically in app config; logical phase transitions commit as one save |
@@ -29,25 +29,26 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 | Team pause | Real, main-owned | `run:pauseTeam`/`resumeTeam` journal `team.paused`/`team.resumed`; managed scheduling skips paused teams without cancelling running tasks; renderer `idleTeams` remains manual-dispatch-only |
 | Graph task launch | Real, bounded | One-shot non-interactive task sessions, FIFO limit of four active CLIs, queue status and cancellation |
 | Graph completion | Real, persisted signal | PTY start/exit/cancel events transition persisted tasks; success requires exit code 0 |
-| CLI/auth diagnostics | Real | Read-only availability/version checks; Claude/Codex auth status; Ollama service check; safe warnings for custom/unsupported probes |
+| CLI/auth diagnostics | Real, backend-aware | Read-only availability/version/auth/transport checks execute in the selected native or WSL backend; custom command text remains undisclosed and unexecuted |
 | Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next and direct session shortcuts |
 | Background notifications | Real | Native task completion/failure and abnormal interactive-exit notifications when ADE is unfocused |
 | Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; exact sender and payload validation on every invoke |
 | Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
-| Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; quote-safe stdin carries task prompts on Windows/POSIX; other non-shell runtimes use the same result schema through a file contract |
+| Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
 | Worktree ownership | Real | Clean workspaces are leased exclusively; runtimes cannot write linked-worktree Git metadata, while ADE commits only an exact reported/observed path-set match |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; the planner is told dependent workers inherit no upstream code |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
-| Linux/WSLg | Source-verified, not distributed | Ubuntu/WSL2 native install/build, Linux-built node-pty, 392 focused checks, real 46-check Electron/Playwright under Xvfb and an isolated Codex Sol/xhigh/bypass smoke pass; Ubuntu CI is defined but not yet observed remotely, and no Linux package/support promise exists |
+| Linux/WSLg | Package-verified locally | Ubuntu/WSL2 native install/build, Linux-built node-pty, 409 focused checks, 47-check Electron/Playwright under Xvfb, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/Debian-payload packaged workflows and valid Debian metadata; hosted package observation/public release remain pending |
+| Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are proven by 31 backend plus 67 Electron checks |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
 | Remote host API | Not built, bounded GO | Goal 6 permits starting Goal 7's disabled-by-default, loopback-only, transport-neutral control adapter; public remote exposure remains no-go until Goal 7's security gates pass |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real, Windows + local WSL proof | Windows runs 393 focused assertions and 46 production Electron/Playwright checks; native WSL runs 392 (one Windows-only security assertion is inapplicable) plus the same 46 UI checks. Ubuntu CI with Xvfb is defined; Windows CI also validates the unpacked package |
+| CI and Electron E2E | Real locally; hosted expansion defined | Windows passes 410 focused assertions plus 47 Electron checks; native Ubuntu passes 409 plus source/unpacked/AppImage/Debian-payload 47-check workflows; the hosted package workflow additionally installs the `.deb`; Windows→WSL passes 31 backend and 67 extended Electron checks |
 
 ## Known constraints
 
@@ -74,11 +75,21 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 - Auth status is definitive for Claude and Codex. Other third-party CLIs that
   lack a stable non-interactive status command report an explicit warning;
   custom command text is never executed or returned by diagnostics.
-- Windows packaging is x64-first and is the only supported distribution today.
-  Local/branch artifacts are unsigned; the release workflow requires
-  `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` to sign. Linux source/Playwright is
-  locally proven and its CI job is defined, but the first hosted result plus
-  Linux/macOS packages and auto-update remain outside completed milestones.
+- Windows packaging is x64-first; local/branch artifacts are unsigned and the
+  release workflow requires `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` to sign.
+  Linux x64 AppImage and Debian targets are locally built and package-tested,
+  but the first hosted package run, project-license decision and versioned
+  public release remain gates. Auto-update, Linux signing and macOS packages do
+  not exist yet.
+- The Windows-GUI→WSL backend is explicit and Windows-only. It requires WSL2
+  plus `/bin/bash`, Git, Python 3, `gio` and each selected agent CLI/credential
+  inside the distribution. Repository import accepts a Linux absolute path;
+  the native folder picker does not browse it. WSL worktrees use a sibling
+  `.ade-worktrees` root and ignore the Windows worktree-base setting.
+- Managed WSL tasks receive their durable, role-aware `AGENTS.md` snapshot and
+  Windows-owned task artifacts through controlled path translation. An
+  interactive WSL shell reads repository instructions normally, but ADE does
+  not yet inject its Windows-owned memory block into that Linux worktree.
 - The global task cap remains four CLIs; a managed run can choose a lower
   worker cap. Native Codex usage arrives with the final turn, so one task can
   overshoot a run token limit and concurrent tasks can consume tokens before a

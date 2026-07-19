@@ -4,6 +4,8 @@
  * must not change these shapes outside the contract.
  */
 
+import type { ExecutionBackendId } from './executionBackends';
+
 export type PermissionMode = 'default' | 'accept-edits' | 'bypass';
 
 /** Codex CLI reasoning levels supported by current config.toml/CLI releases. */
@@ -41,6 +43,8 @@ export interface Repository {
   rootPath: string;
   /** Canonical shared Git metadata directory used to deduplicate worktrees. */
   commonGitDir: string;
+  /** Process/filesystem boundary used for every operation on this repository. */
+  executionBackend: ExecutionBackendId;
   /** False only for a legacy record that still needs on-disk verification. */
   verified: boolean;
   createdAt: number;
@@ -53,6 +57,8 @@ export interface WorkspaceBinding {
   repositoryId: string;
   workspaceDir: string;
   branch: string;
+  /** Immutable snapshot; must match the owning repository backend. */
+  executionBackend: ExecutionBackendId;
   status: 'ready' | 'legacy-unverified' | 'invalid';
   createdAt: number;
   lastUsedAt: number;
@@ -87,6 +93,7 @@ export interface WorkspaceScopeDescriptor {
   repositoryName?: string;
   workspaceBindingId?: string;
   workspaceDir: string;
+  executionBackend: ExecutionBackendId;
   branch: string;
   isRepo: boolean;
   isDefault: boolean;
@@ -168,6 +175,8 @@ export interface SessionMeta {
   repositoryId?: string;
   workspaceBindingId?: string;
   workspaceDir?: string;
+  /** Immutable backend snapshot used by reload/restart and workspace panels. */
+  executionBackend?: ExecutionBackendId;
   scopeSource?: ExecutionScopeSource;
 }
 
@@ -192,6 +201,7 @@ export interface RuntimeDiagnostic {
   agentName: string;
   runtime: RuntimeId;
   label: string;
+  executionBackend?: ExecutionBackendId;
   /** Safe display value; custom command text is deliberately never returned. */
   command: string;
   /** null when a custom override is intentionally not executed. */

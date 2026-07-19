@@ -2,8 +2,15 @@
 
 import { execFile, spawn } from 'node:child_process';
 import type { Agent, RuntimeAuthStatus, RuntimeDiagnostic, RuntimeDiagnosticsResult, RuntimeId } from '../../shared/types';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  executionBackendPlatform,
+  normalizeExecutionBackendId,
+  type ExecutionBackendId,
+} from '../../shared/executionBackends';
 import { LAUNCH_PROFILES, resolveTaskLaunchCommand } from '../../shared/runtimes';
 import { resolveHostShell } from '../platform';
+import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 
 const COMMAND_TIMEOUT_MS = 5_000;
 const OUTPUT_CAP = 64 * 1024;
@@ -82,7 +89,15 @@ export function runDiagnosticCommand(
   });
 }
 
-function locate(binary: string): Promise<string | null> {
+async function locate(
+  binary: string,
+  backend: ExecutionBackendId,
+  execution: ExecutionBackendService,
+): Promise<string | null> {
+  if (backend !== NATIVE_EXECUTION_BACKEND) {
+    const result = await execution.run(backend, 'which', [binary], { timeoutMs: 3_000, maxBuffer: OUTPUT_CAP });
+    return result.code === 0 ? result.stdout.toString('utf8').split(/\r?\n/)[0]?.trim() || null : null;
+  }
   const locator = process.platform === 'win32' ? 'where.exe' : 'which';
   return new Promise((resolve) => {
     execFile(locator, [binary], { timeout: 3_000, windowsHide: true }, (error, stdout) => {
@@ -100,9 +115,38 @@ function locate(binary: string): Promise<string | null> {
   });
 }
 
-async function authProbe(runtime: RuntimeId, executable: string): Promise<AuthProbe> {
+async function backendCommand(
+  backend: ExecutionBackendId,
+  execution: ExecutionBackendService,
+  executable: string,
+  args: string[],
+): Promise<CommandResult> {
+  if (backend === NATIVE_EXECUTION_BACKEND) return runDiagnosticCommand(executable, args);
+  try {
+    const result = await execution.run(backend, executable, args, {
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      maxBuffer: OUTPUT_CAP,
+      env: { NO_COLOR: '1', FORCE_COLOR: '0' },
+    });
+    return {
+      code: result.code,
+      stdout: result.stdout.toString('utf8'),
+      stderr: result.stderr.toString('utf8'),
+      timedOut: result.timedOut,
+    };
+  } catch (error) {
+    return { code: null, stdout: '', stderr: error instanceof Error ? error.message : String(error), timedOut: false };
+  }
+}
+
+async function authProbe(
+  runtime: RuntimeId,
+  executable: string,
+  backend: ExecutionBackendId,
+  execution: ExecutionBackendService,
+): Promise<AuthProbe> {
   if (runtime === 'claude') {
-    const result = await runDiagnosticCommand(executable, ['auth', 'status', '--json']);
+    const result = await backendCommand(backend, execution, executable, ['auth', 'status', '--json']);
     if (result.timedOut) return { status: 'unknown', detail: 'Authentication check timed out.' };
     try {
       const parsed = JSON.parse(result.stdout) as { loggedIn?: unknown; authMethod?: unknown };
@@ -117,23 +161,24 @@ async function authProbe(runtime: RuntimeId, executable: string): Promise<AuthPr
   }
 
   if (runtime === 'codex') {
-    const result = await runDiagnosticCommand(executable, ['login', 'status']);
+    const result = await backendCommand(backend, execution, executable, ['login', 'status']);
     return result.code === 0
       ? { status: 'authenticated', detail: 'Signed in.' }
       : { status: 'not-authenticated', detail: 'Run `codex login` in a terminal.' };
   }
 
   if (runtime === 'ollama') {
-    const result = await runDiagnosticCommand(executable, ['list']);
+    const result = await backendCommand(backend, execution, executable, ['list']);
     return result.code === 0
       ? { status: 'not-required', detail: 'Local Ollama service is reachable.', serviceReady: true }
       : { status: 'not-required', detail: 'CLI found, but the local Ollama service is unavailable.', serviceReady: false };
   }
 
-  if (runtime === 'grok' && process.env['XAI_API_KEY']) {
+  if (backend === NATIVE_EXECUTION_BACKEND && runtime === 'grok' && process.env['XAI_API_KEY']) {
     return { status: 'authenticated', detail: 'XAI_API_KEY is available to ADE.' };
   }
-  if (runtime === 'gemini' && (process.env['GEMINI_API_KEY'] || process.env['GOOGLE_API_KEY'])) {
+  if (backend === NATIVE_EXECUTION_BACKEND && runtime === 'gemini'
+      && (process.env['GEMINI_API_KEY'] || process.env['GOOGLE_API_KEY'])) {
     return { status: 'authenticated', detail: 'A Gemini API key is available to ADE.' };
   }
 
@@ -143,14 +188,48 @@ async function authProbe(runtime: RuntimeId, executable: string): Promise<AuthPr
   };
 }
 
-function taskTransport(agent: Agent): RuntimeDiagnostic['taskTransport'] {
-  const task = resolveTaskLaunchCommand(agent, process.platform === 'win32' ? 'win32' : 'posix');
+function taskTransport(agent: Agent, backend: ExecutionBackendId): RuntimeDiagnostic['taskTransport'] {
+  const task = resolveTaskLaunchCommand(agent, executionBackendPlatform(backend));
   return task?.transport ?? 'unavailable';
 }
 
-async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
+async function diagnoseAgent(
+  agent: Agent,
+  backend: ExecutionBackendId,
+  execution: ExecutionBackendService,
+): Promise<RuntimeDiagnostic> {
   const label = LAUNCH_PROFILES[agent.runtime].label;
-  const transport = taskTransport(agent);
+  const transport = taskTransport(agent, backend);
+
+  if (backend !== NATIVE_EXECUTION_BACKEND) {
+    let backendReady = false;
+    let detail: string | undefined;
+    try {
+      const result = await execution.run(backend, 'test', ['-x', '/bin/bash'], {
+        timeoutMs: COMMAND_TIMEOUT_MS,
+        maxBuffer: OUTPUT_CAP,
+      });
+      backendReady = result.code === 0 && !result.timedOut;
+      detail = compactLine(result.stderr.toString('utf8'));
+    } catch (error) {
+      detail = compactLine(error instanceof Error ? error.message : String(error));
+    }
+    if (!backendReady) {
+      return {
+        agentId: agent.id,
+        agentName: agent.name,
+        runtime: agent.runtime,
+        label,
+        command: '/bin/bash',
+        installed: false,
+        authStatus: 'unknown',
+        authDetail: 'Authentication was not checked.',
+        taskTransport: transport,
+        status: 'error',
+        message: `The selected WSL distribution or /bin/bash is unavailable${detail ? `: ${detail}` : '.'}`,
+      };
+    }
+  }
 
   if (agent.customCommand?.trim()) {
     return {
@@ -174,7 +253,7 @@ async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
       agentName: agent.name,
       runtime: agent.runtime,
       label,
-      command: resolveHostShell(),
+      command: backend === NATIVE_EXECUTION_BACKEND ? resolveHostShell() : '/bin/bash',
       installed: true,
       authStatus: 'not-required',
       authDetail: 'Authentication is not required.',
@@ -201,7 +280,7 @@ async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
     };
   }
 
-  const executable = await locate(binary);
+  const executable = await locate(binary, backend, execution);
   if (!executable) {
     return {
       agentId: agent.id,
@@ -219,8 +298,8 @@ async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
   }
 
   const [versionResult, auth] = await Promise.all([
-    runDiagnosticCommand(executable, ['--version']),
-    authProbe(agent.runtime, executable),
+    backendCommand(backend, execution, executable, ['--version']),
+    authProbe(agent.runtime, executable, backend, execution),
   ]);
   const version = compactLine(versionResult.stdout) ?? compactLine(versionResult.stderr);
   const versionReady = versionResult.code === 0 && !versionResult.timedOut;
@@ -254,12 +333,20 @@ async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
   };
 }
 
-export async function diagnoseRuntimes(agents: Agent[], agentId?: string): Promise<RuntimeDiagnosticsResult> {
+export async function diagnoseRuntimes(
+  agents: Agent[],
+  agentId?: string,
+  backendFor: (agent: Agent) => ExecutionBackendId = () => NATIVE_EXECUTION_BACKEND,
+  execution = new ExecutionBackendService(),
+): Promise<RuntimeDiagnosticsResult> {
   const selected = agentId ? agents.filter((agent) => agent.id === agentId) : agents;
   if (agentId && selected.length === 0) throw new Error(`ade: agent not found "${agentId}"`);
   return {
     checkedAt: Date.now(),
     platform: process.platform,
-    items: await Promise.all(selected.map(diagnoseAgent)),
+    items: await Promise.all(selected.map(async (agent) => {
+      const backend = normalizeExecutionBackendId(backendFor(agent));
+      return { ...(await diagnoseAgent(agent, backend, execution)), executionBackend: backend };
+    })),
   };
 }

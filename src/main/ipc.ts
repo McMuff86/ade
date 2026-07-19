@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
+import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../shared/executionBackends';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
 import {
@@ -24,8 +25,7 @@ import {
   updateAgent,
 } from './identity';
 import { PtyManager } from './pty/PtyManager';
-import { gitDiff, gitShowCommit, gitStatus, isGitRepo } from './git/GitService';
-import { agentFiles, fsDelete, fsPathInfo, fsRead, fsRename, fsTree } from './git/workspaceFs';
+import { isGitRepo } from './git/GitService';
 import { readTaskActivity } from './orchestration/MailboxService';
 import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
@@ -33,6 +33,10 @@ import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
 import { assertIpcPayload } from './ipcValidation';
 import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
+import { ExecutionBackendService } from './execution/ExecutionBackendService';
+import { BackendGitService } from './execution/BackendGitService';
+import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
+import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -70,7 +74,11 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export function registerIpcHandlers(store: ConfigStore): void {
-  const scopes = new RepositoryScopeService(store);
+  const execution = new ExecutionBackendService();
+  const backendGit = new BackendGitService(execution);
+  const backendWorkspaces = new BackendWorkspaceService(store, execution);
+  const backendFs = new BackendWorkspaceFs(execution);
+  const scopes = new RepositoryScopeService(store, { execution, git: backendGit, backendWorkspaces });
   orchestration = new OrchestrationService(store, (snapshot) => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.OrchestrationChanged, snapshot);
@@ -80,8 +88,8 @@ export function registerIpcHandlers(store: ConfigStore): void {
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
   }
-  runCoordinator = new RunCoordinator(store, orchestration, undefined, undefined, scopes);
-  ptyManager = new PtyManager(store, runCoordinator, scopes);
+  runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
+  ptyManager = new PtyManager(store, runCoordinator, scopes, execution);
   runCoordinator.connect(
     (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
       ptyManager!.create(
@@ -107,14 +115,32 @@ export function registerIpcHandlers(store: ConfigStore): void {
     );
     if (lease) throw new Error(`ade: agent workspace is owned by active run ${lease.runId}`);
   };
-  const workspaceTarget = (agentId: string, sessionId?: string): { agent: Agent; workspaceDir: string } => {
+  const workspaceTarget = (agentId: string, sessionId?: string): {
+    agent: Agent;
+    workspaceDir: string;
+    executionBackend: ReturnType<typeof normalizeExecutionBackendId>;
+  } => {
     const agent = requireAgent(agentId);
-    if (!sessionId) return { agent, workspaceDir: scopes.describe(agentId).workspaceDir };
+    if (!sessionId) {
+      const descriptor = scopes.describe(agentId);
+      return {
+        agent,
+        workspaceDir: descriptor.workspaceDir,
+        executionBackend: descriptor.executionBackend,
+      };
+    }
     const session = ptyManager!.getSessionMeta(sessionId);
     if (!session || session.agentId !== agentId) {
       throw new Error(`ade: session does not belong to agent "${agentId}"`);
     }
-    return { agent, workspaceDir: session.workspaceDir ?? scopes.describe(agentId, session).workspaceDir };
+    const descriptor = scopes.describe(agentId, session);
+    return {
+      agent,
+      workspaceDir: session.workspaceDir ?? descriptor.workspaceDir,
+      executionBackend: normalizeExecutionBackendId(
+        session.executionBackend ?? descriptor.executionBackend,
+      ),
+    };
   };
 
   /* ------------------------------------------------------- config (real) */
@@ -166,7 +192,9 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.AgentTemplateCreate, (input) => createAgentTemplate(store, input));
   handle(IPC.AgentTemplateDelete, ({ id }) => deleteAgentTemplate(store, id));
   handle(IPC.AgentTemplateSpawn, (input) => spawnAgentTemplate(store, input, scopes));
-  handle(IPC.RepositoryImport, ({ path, name }) => scopes.importRepository(path, name));
+  handle(IPC.RepositoryImport, ({ path, name, executionBackend }) =>
+    scopes.importRepository(path, name, executionBackend),
+  );
   handle(IPC.WorkspaceDescribe, ({ agentId, sessionId }) => {
     const session = sessionId ? ptyManager!.getSessionMeta(sessionId) : undefined;
     if (sessionId && (!session || session.agentId !== agentId)) {
@@ -212,6 +240,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
     workspaceBindingId,
   ),
   );
+  handle(IPC.WslList, () => execution.listWslDistributions());
 
   // Forward keystrokes to the session's pty
   handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {
@@ -247,7 +276,25 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.PtyCancelTasks, (request) => ptyManager!.cancelTasks(request));
 
   // Safe readiness checks only: version/auth commands never modify credentials.
-  handle(IPC.RuntimeDiagnose, ({ agentId }) => diagnoseRuntimes(store.get().agents, agentId));
+  handle(IPC.RuntimeDiagnose, ({ agentId, sessionId }) => {
+    const session = sessionId ? ptyManager!.getSessionMeta(sessionId) : undefined;
+    if (sessionId && (!session || session.agentId !== agentId)) {
+      throw new Error('ade: diagnostic session does not belong to the requested agent');
+    }
+    return diagnoseRuntimes(
+      store.get().agents,
+      agentId,
+      (agent) => session && session.agentId === agent.id
+        ? normalizeExecutionBackendId(session.executionBackend)
+        : normalizeExecutionBackendId(
+            agent.defaultRepositoryId
+              ? store.get().repositories.find((repository) => repository.id === agent.defaultRepositoryId)
+                ?.executionBackend
+              : undefined,
+          ),
+      execution,
+    );
+  });
 
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 
@@ -286,7 +333,14 @@ export function registerIpcHandlers(store: ConfigStore): void {
           && candidate.participantId === result.participantId)
         .sort((a, b) => b.acquiredAt - a.acquiredAt)[0];
       if (!lease?.isRepo) continue;
-      const commit = await gitShowCommit(lease.workspaceDir, result.commitSha!);
+      const binding = lease.workspaceBindingId
+        ? store.get().workspaceBindings.find((candidate) => candidate.id === lease.workspaceBindingId)
+        : undefined;
+      const commit = await backendGit.showCommit(
+        normalizeExecutionBackendId(binding?.executionBackend),
+        lease.workspaceDir,
+        result.commitSha!,
+      );
       entries.push({
         participantName: participantName.get(result.participantId) ?? 'Unbekannt',
         branch: lease.branch,
@@ -321,66 +375,82 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   // Real git status for the agent's workspaceDir (non-repo → isRepo:false).
   handle(IPC.GitStatus, ({ agentId, sessionId }): Promise<GitStatus> =>
-    gitStatus(workspaceTarget(agentId, sessionId).workspaceDir),
+    (() => {
+      const target = workspaceTarget(agentId, sessionId);
+      return backendGit.status(target.executionBackend, target.workspaceDir);
+    })(),
   );
 
   // Unified diff for one file (staged+unstaged vs HEAD; untracked = additions).
-  handle(IPC.GitDiff, ({ agentId, sessionId, path }) =>
-    gitDiff(workspaceTarget(agentId, sessionId).workspaceDir, path),
-  );
+  handle(IPC.GitDiff, ({ agentId, sessionId, path }) => {
+    const target = workspaceTarget(agentId, sessionId);
+    return backendGit.diff(target.executionBackend, target.workspaceDir, path);
+  });
 
   // Depth-limited workspace tree; `path` lazily expands one directory level.
-  handle(IPC.FsTree, ({ agentId, sessionId, path }) =>
-    fsTree(workspaceTarget(agentId, sessionId).workspaceDir, path),
-  );
+  handle(IPC.FsTree, ({ agentId, sessionId, path }) => {
+    const target = workspaceTarget(agentId, sessionId);
+    return backendFs.tree(target.executionBackend, target.workspaceDir, path);
+  });
 
   // Size-capped text read (workspace file, or a pinned file from memoryDir).
   handle(IPC.FsRead, ({ agentId, sessionId, path }) => {
-    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
-    return fsRead(workspaceDir, agent.memoryDir, path);
+    const { agent, workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    return backendFs.read(executionBackend, workspaceDir, agent.memoryDir, path);
   });
 
   // Pinned agent files (MEMORY/USER/CLAUDE/AGENTS) that exist for this agent.
   handle(IPC.FsAgentFiles, ({ agentId, sessionId }) => {
-    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
-    return agentFiles(workspaceDir, agent.memoryDir);
+    const { agent, workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    return backendFs.agentFiles(executionBackend, workspaceDir, agent.memoryDir);
   });
 
   // Context-menu support: absolute location of a workspace/pinned file.
   handle(IPC.FsPathInfo, ({ agentId, sessionId, path }) => {
-    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
-    return fsPathInfo(workspaceDir, agent.memoryDir, path);
+    const { agent, workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    return backendFs.pathInfo(executionBackend, workspaceDir, agent.memoryDir, path);
   });
 
   // Select the file in the OS file manager (workspace-validated path only).
-  handle(IPC.FsReveal, ({ agentId, sessionId, path }) => {
-    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
-    const info = fsPathInfo(workspaceDir, agent.memoryDir, path);
+  handle(IPC.FsReveal, async ({ agentId, sessionId, path }) => {
+    const { agent, workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    const info = await backendFs.pathInfo(executionBackend, workspaceDir, agent.memoryDir, path);
     if (info.kind === 'missing') throw new Error(`ade: not found: "${path}"`);
-    shell.showItemInFolder(info.absolutePath);
+    const hostPath = info.location === 'workspace' && executionBackend !== NATIVE_EXECUTION_BACKEND
+      ? await execution.toHostPath(executionBackend, info.absolutePath)
+      : info.absolutePath;
+    shell.showItemInFolder(hostPath);
   });
 
   // Open with the OS default handler; user-initiated from the context menu.
   handle(IPC.FsOpenPath, async ({ agentId, sessionId, path }) => {
-    const { agent, workspaceDir } = workspaceTarget(agentId, sessionId);
-    const info = fsPathInfo(workspaceDir, agent.memoryDir, path);
+    const { agent, workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    const info = await backendFs.pathInfo(executionBackend, workspaceDir, agent.memoryDir, path);
     if (info.kind === 'missing') throw new Error(`ade: not found: "${path}"`);
-    const error = await shell.openPath(info.absolutePath);
+    const hostPath = info.location === 'workspace' && executionBackend !== NATIVE_EXECUTION_BACKEND
+      ? await execution.toHostPath(executionBackend, info.absolutePath)
+      : info.absolutePath;
+    const error = await shell.openPath(hostPath);
     if (error) throw new Error(`ade: could not open "${path}": ${error}`);
   });
 
   // Rename inside the workspace only (memoryDir scaffold stays untouchable).
   handle(IPC.FsRename, ({ agentId, sessionId, path, newName }) => {
     assertAgentNotLeased(agentId);
-    const { workspaceDir } = workspaceTarget(agentId, sessionId);
-    return fsRename(workspaceDir, path, newName);
+    const { workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    return backendFs.rename(executionBackend, workspaceDir, path, newName);
   });
 
   // Delete = synchronously quarantine, then move to OS trash (recoverable).
   handle(IPC.FsDelete, async ({ agentId, sessionId, path }) => {
     assertAgentNotLeased(agentId);
-    const { workspaceDir } = workspaceTarget(agentId, sessionId);
-    await fsDelete(workspaceDir, path, (quarantinedPath) => shell.trashItem(quarantinedPath));
+    const { workspaceDir, executionBackend } = workspaceTarget(agentId, sessionId);
+    await backendFs.delete(
+      executionBackend,
+      workspaceDir,
+      path,
+      (quarantinedPath) => shell.trashItem(quarantinedPath),
+    );
   });
 
   // Folder picker for repo-backed categories; validates the pick is a git repo.

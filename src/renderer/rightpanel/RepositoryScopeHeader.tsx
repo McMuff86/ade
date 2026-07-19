@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { GitStatus, WorkspaceScopeDescriptor } from '../../shared/types';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  type ExecutionBackendId,
+} from '../../shared/executionBackends';
+import type { WslDistributionInfo } from '../../shared/ipc';
 import { useAppData } from '../stores/appdata';
 import { useSessions } from '../stores/sessions';
 
@@ -38,10 +43,18 @@ export function RepositoryScopeHeader({
   const [error, setError] = useState<string | null>(null);
   const [removeArmed, setRemoveArmed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  /** null = hidden; string = manual path entry (UNC/WSL paths the OS folder
-   *  dialog cannot browse to, e.g. \\wsl.localhost\Ubuntu\...). */
+  /** null = hidden; string = explicit native/WSL path entry. */
   const [manualPath, setManualPath] = useState<string | null>(null);
+  const [importBackend, setImportBackend] = useState<ExecutionBackendId>(NATIVE_EXECUTION_BACKEND);
+  const [wslDistributions, setWslDistributions] = useState<WslDistributionInfo[]>([]);
+  const [wslSupported, setWslSupported] = useState<boolean | null>(null);
   const targetContext = useRef('');
+  const hostPlatform = typeof navigator === 'undefined' ? '' : navigator.platform;
+  const windowsHost = /^Win/i.test(hostPlatform);
+  const nativeHostLabel = windowsHost
+    ? 'Native Windows'
+    : /^Mac/i.test(hostPlatform) ? 'Native macOS' : 'Native Linux';
+  const nativePathPlaceholder = windowsHost ? 'C:\\repos\\projekt' : '/home/name/projekt';
 
   const agent = agentId ? agents[agentId] : undefined;
   const locked = scope?.activeLease === true;
@@ -79,6 +92,24 @@ export function RepositoryScopeHeader({
     return () => { live = false; };
   }, [agentId, sessionId, nonce]);
 
+  useEffect(() => {
+    let live = true;
+    void window.ade.invoke('wsl:list')
+      .then((result) => {
+        if (live) {
+          setWslSupported(result.supported);
+          setWslDistributions(result.distributions);
+        }
+      })
+      .catch(() => {
+        if (live) {
+          setWslSupported(false);
+          setWslDistributions([]);
+        }
+      });
+    return () => { live = false; };
+  }, []);
+
   if (!agentId || !agent) return null;
 
   const importManualPath = async (): Promise<void> => {
@@ -87,7 +118,7 @@ export function RepositoryScopeHeader({
     setBusy(true);
     setError(null);
     try {
-      const repository = await importRepository(path);
+      const repository = await importRepository(path, undefined, importBackend);
       setTargetRepositoryId(repository.id);
       setManualPath(null);
       setNotice(`Repository "${repository.name}" importiert.`);
@@ -105,7 +136,7 @@ export function RepositoryScopeHeader({
       const picked = await window.ade.invoke('dialog:pickFolder');
       if (!picked.path) return;
       if (!picked.isRepo) throw new Error('The selected folder is not a Git repository.');
-      const repository = await importRepository(picked.path);
+      const repository = await importRepository(picked.path, undefined, NATIVE_EXECUTION_BACKEND);
       setTargetRepositoryId(repository.id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -191,6 +222,11 @@ export function RepositoryScopeHeader({
         <div className="rp-scope-meta" title={scope.workspaceDir}>
           <span>{status?.branch || scope.branch || (scope.isRepo ? '(detached)' : 'plain workspace')}</span>
           <span>{shortPath(scope.workspaceDir)}</span>
+          <span className="rp-scope-backend">
+            {scope.executionBackend === NATIVE_EXECUTION_BACKEND
+              ? 'Native'
+              : `WSL · ${scope.executionBackend.slice('wsl:'.length)}`}
+          </span>
           {scope.isRepo && status ? (
             <span className={status.files.length ? 'rp-scope-dirty' : 'rp-scope-clean'}>
               {status.files.length ? `${status.files.length} changed` : 'Clean'}
@@ -208,7 +244,11 @@ export function RepositoryScopeHeader({
         >
           <option value="">No repository (portable home)</option>
           {sortedRepositories.map((repository) => (
-            <option key={repository.id} value={repository.id}>{repository.name}</option>
+            <option key={repository.id} value={repository.id}>
+              {repository.name}{repository.executionBackend === NATIVE_EXECUTION_BACKEND
+                ? ''
+                : ` · WSL ${repository.executionBackend.slice('wsl:'.length)}`}
+            </option>
           ))}
         </select>
         <button type="button" className="btn" disabled={busy || locked} onClick={() => void pickRepository()}>
@@ -218,7 +258,7 @@ export function RepositoryScopeHeader({
           type="button"
           className="btn"
           disabled={busy || locked}
-          title="Repository-Pfad direkt eingeben — auch UNC/WSL-Pfade wie \\wsl.localhost\Ubuntu\…"
+          title="Repository-Pfad direkt eingeben und den Ausführungsbackend bewusst auswählen"
           onClick={() => setManualPath((current) => (current === null ? '' : null))}
         >
           Pfad…
@@ -226,10 +266,29 @@ export function RepositoryScopeHeader({
       </div>
       {manualPath !== null && (
         <div className="rp-scope-controls">
+          <select
+            aria-label="Execution backend"
+            value={importBackend}
+            disabled={busy}
+            onChange={(event) => setImportBackend(event.target.value as ExecutionBackendId)}
+          >
+            <option value={NATIVE_EXECUTION_BACKEND}>{nativeHostLabel}</option>
+            {wslDistributions.map((distribution) => (
+              <option
+                key={distribution.backend}
+                value={distribution.backend}
+                disabled={!distribution.available}
+              >
+                WSL · {distribution.name}{distribution.available ? '' : ' (unavailable)'}
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             aria-label="Repository path"
-            placeholder="C:\repos\projekt oder \\wsl.localhost\Ubuntu\home\…"
+            placeholder={importBackend === NATIVE_EXECUTION_BACKEND
+              ? nativePathPlaceholder
+              : '/home/name/projekt'}
             value={manualPath}
             disabled={busy}
             onChange={(event) => setManualPath(event.target.value)}
@@ -245,6 +304,14 @@ export function RepositoryScopeHeader({
           </button>
         </div>
       )}
+      {manualPath !== null && windowsHost && wslSupported === false ? (
+        <div className="rp-scope-notice">
+          WSL is not available. Install/enable WSL2, then reopen ADE to use a Linux backend.
+        </div>
+      ) : null}
+      {manualPath !== null && windowsHost && wslSupported === true && wslDistributions.length === 0 ? (
+        <div className="rp-scope-notice">No WSL distributions were found.</div>
+      ) : null}
       <div className="rp-scope-actions">
         <button type="button" className="btn" disabled={busy || locked} onClick={() => void openSession()}>
           Open new session

@@ -37,7 +37,10 @@ export function TerminalArea(): JSX.Element {
           {error.source === 'recovery' ? (
             <button type="button" onClick={() => void hydrate(true)}>Retry</button>
           ) : null}
-          <button type="button" onClick={() => showDiagnostics(error.agentId ?? agentId ?? undefined)}>
+          <button
+            type="button"
+            onClick={() => showDiagnostics(error.agentId ?? agentId ?? undefined, error.sessionId)}
+          >
             Diagnostics
           </button>
           <button type="button" aria-label="Dismiss terminal error" onClick={clearError}>×</button>
@@ -70,7 +73,7 @@ export function TerminalArea(): JSX.Element {
               </button>
             ) : null}
             {failed ? (
-              <button type="button" onClick={() => showDiagnostics(meta.agentId)}>Diagnostics</button>
+              <button type="button" onClick={() => showDiagnostics(meta.agentId, meta.id)}>Diagnostics</button>
             ) : null}
             <button type="button" onClick={() => void closeSession(meta.id).catch(() => undefined)}>Close</button>
           </div>

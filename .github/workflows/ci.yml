@@ -49,10 +49,18 @@ jobs:
       - name: Build production app
         run: pnpm run build
 
+      - name: Build unpacked Linux package
+        run: pnpm exec electron-builder --linux --x64 --dir --publish never
+
       - name: Install Electron runtime dependencies
         run: pnpm exec playwright install-deps
 
-      - name: Run Electron workflow under Xvfb
+      - name: Run source Electron workflow under Xvfb
+        run: xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Run workflow against packaged Linux executable
+        env:
+          ADE_E2E_EXECUTABLE: ${{ github.workspace }}/dist/linux-unpacked/ade
         run: xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
 
   terminal-beta:

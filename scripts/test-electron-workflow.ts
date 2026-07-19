@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
 
@@ -31,6 +31,27 @@ function quoteShellArg(value: string): string {
   return isWindows
     ? `"${value.replace(/`/g, '``').replace(/"/g, '`"')}"`
     : `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function quotePosixArg(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function wslExec(
+  distribution: string,
+  args: string[],
+  input?: string,
+): string {
+  return execFileSync('wsl.exe', [
+    '--distribution', distribution,
+    '--exec',
+    ...args,
+  ], {
+    encoding: 'utf8',
+    input,
+    timeout: 30_000,
+    windowsHide: true,
+  });
 }
 
 function check(label: string, condition: boolean, detail?: unknown): void {
@@ -252,7 +273,13 @@ function git(cwd: string, args: string[]): string {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true });
 }
 
-function writeManagedFixture(path: string): void {
+function writeManagedFixture(
+  path: string,
+  participantIds: { lead: string; worker: string } = {
+    lead: 'e2e-lead-participant',
+    worker: 'e2e-worker-participant',
+  },
+): void {
   const source = `
 const fs = require('node:fs');
 const path = require('node:path');
@@ -272,14 +299,14 @@ if (prompt.includes('You are the ADE run orchestrator')) {
   base.summary = 'Created two distinct assignments.';
   base.assignments = [
     {
-      participantId: 'e2e-lead-participant',
+      participantId: ${JSON.stringify(participantIds.lead)},
       title: 'Lead E2E assignment',
       prompt: 'Produce the lead-specific E2E report.',
       acceptanceCriteria: ['Lead result is structured'],
       dependsOn: [],
     },
     {
-      participantId: 'e2e-worker-participant',
+      participantId: ${JSON.stringify(participantIds.worker)},
       title: 'Worker E2E assignment',
       prompt: 'Produce the worker-specific E2E report.',
       acceptanceCriteria: ['Worker result is structured'],
@@ -298,7 +325,7 @@ if (prompt.includes('You are the ADE run orchestrator')) {
   base.summary = lead ? 'Lead-specific result.' : 'Worker-specific result.';
   fs.writeFileSync(path.join(process.cwd(), changedFile), base.summary + '\\n', 'utf8');
   base.filesChanged = [changedFile];
-  base.tests = [{ command: 'fixture work', status: 'passed', output: 'ok' }];
+  base.tests = [{ command: 'fixture work', status: 'passed', output: process.platform + ':' + process.cwd() }];
 }
 const output = process.env.ADE_TASK_RESULT_PATH;
 if (!output) process.exit(9);
@@ -333,7 +360,24 @@ async function run(): Promise<void> {
 
   let app: ElectronApplication | null = null;
   let page: Page | null = null;
+  const runWslBackend = isWindows && process.env['ADE_WSL_BACKEND_E2E'] === '1';
+  const wslDistribution = process.env['ADE_WSL_DISTRO']?.trim() || 'Ubuntu';
+  let wslRepository: string | null = null;
+  let wslBindingIdsBeforeRestart: string[] = [];
+  const wslWorktreeContainers: string[] = [];
   try {
+    if (runWslBackend) {
+      wslRepository = wslExec(wslDistribution, ['mktemp', '-d', '/tmp/ade-electron-wsl.XXXXXX']).trim();
+      if (!/^\/tmp\/ade-electron-wsl\.[A-Za-z0-9]+$/.test(wslRepository)) {
+        throw new Error(`Unsafe WSL Electron fixture path: ${wslRepository}`);
+      }
+      wslExec(wslDistribution, ['git', 'init', '--initial-branch=main', wslRepository]);
+      wslExec(wslDistribution, ['git', '-C', wslRepository, 'config', 'user.name', 'ADE Electron WSL']);
+      wslExec(wslDistribution, ['git', '-C', wslRepository, 'config', 'user.email', 'ade-electron-wsl@test.invalid']);
+      wslExec(wslDistribution, ['tee', '--', `${wslRepository}/README.md`], 'Electron WSL fixture\n');
+      wslExec(wslDistribution, ['git', '-C', wslRepository, 'add', 'README.md']);
+      wslExec(wslDistribution, ['git', '-C', wslRepository, 'commit', '-m', 'fixture']);
+    }
     const packagedExecutable = process.env['ADE_E2E_EXECUTABLE'];
     const launchOptions = {
       ...(packagedExecutable
@@ -465,6 +509,17 @@ async function run(): Promise<void> {
       const text = await scopeHeader.textContent();
       return text?.includes('No repository') === true && text.includes('Portable home');
     });
+    await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
+    const nativeBackendLabel = await scopeHeader.getByLabel('Execution backend')
+      .locator('option')
+      .first()
+      .textContent();
+    check('manual repository import names the native host platform accurately',
+      nativeBackendLabel === (isWindows
+        ? 'Native Windows'
+        : process.platform === 'darwin' ? 'Native macOS' : 'Native Linux'),
+      nativeBackendLabel);
+    await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
     await scopeHeader.getByLabel('Repository for new session').selectOption({
       label: 'Managed E2E repository',
     });
@@ -650,6 +705,276 @@ async function run(): Promise<void> {
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true',
     );
 
+    if (runWslBackend && wslRepository) {
+      const scopePanel = page.getByTestId('repository-scope');
+      await scopePanel.getByRole('button', { name: 'Pfad…' }).click();
+      const backendSelect = scopePanel.getByLabel('Execution backend');
+      await eventually('WSL distribution is discoverable in the repository UI', async () =>
+        await backendSelect.locator(`option[value="wsl:${wslDistribution}"]`).count() === 1);
+      await backendSelect.selectOption(`wsl:${wslDistribution}`);
+      await scopePanel.getByLabel('Repository path').fill(wslRepository);
+      await scopePanel.getByRole('button', { name: 'Importieren' }).click();
+      await eventually('WSL repository import is visibly confirmed', async () =>
+        (await scopePanel.textContent())?.includes('importiert') === true);
+      await scopePanel.getByRole('button', { name: 'Set agent default' }).click();
+      const tabCountBeforeWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
+      await scopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await eventually('Windows UI opens a WSL-backed terminal session', async () =>
+        await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeWsl + 1,
+        20_000,
+      );
+      await eventually('WSL backend and Linux worktree are visible in the scope header', async () => {
+        const text = await scopePanel.textContent();
+        return text?.includes(`WSL · ${wslDistribution}`) === true && text.includes('.ade-worktrees');
+      });
+      await sendCommand(page, "printf 'ADE_ELECTRON_WSL_OK\\n'");
+      await eventually('Playwright receives output from the real WSL PTY', async () =>
+        (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes('ADE_ELECTRON_WSL_OK') === true,
+        15_000,
+      );
+      const scopedDiagnostic = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const sessions = await api.invoke('pty:list') as {
+          sessions: Array<{ id: string; agentId: string; executionBackend?: string; status: string }>;
+        };
+        const session = sessions.sessions.find((item) => (
+          item.agentId === 'e2e-agent'
+            && item.executionBackend?.startsWith('wsl:')
+            && item.status === 'running'
+        ));
+        if (!session) throw new Error('Active WSL session is missing');
+        const result = await api.invoke('runtime:diagnose', {
+          agentId: session.agentId,
+          sessionId: session.id,
+        }) as {
+          items: Array<{ agentId: string; executionBackend?: string; status: string }>;
+        };
+        return result.items.find((item) => item.agentId === session.agentId);
+      });
+      check('session-scoped diagnostics use the immutable WSL backend snapshot',
+        scopedDiagnostic?.executionBackend === `wsl:${wslDistribution}`
+          && scopedDiagnostic.status === 'ready',
+        scopedDiagnostic);
+
+      await page.getByRole('button', { name: 'Diagnostics' }).first().click();
+      const wslDiagnostics = page.getByRole('dialog', { name: 'Runtime diagnostics' });
+      await wslDiagnostics.waitFor({ state: 'visible' });
+      await eventually('runtime diagnostics execute against the selected WSL backend', async () =>
+        (await wslDiagnostics.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
+      await wslDiagnostics.getByRole('button', { name: 'Close' }).click();
+
+      const linuxFixturePath = wslExec(wslDistribution, ['wslpath', '-a', '-u', fixturePath]).trim();
+      const wslManaged = await page.evaluate(async ({ command }) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const config = await api.invoke('config:get') as {
+          agents: Array<{
+            id: string; name: string; role?: string; teamRole?: 'orchestrator' | 'lead' | 'worker';
+          }>;
+          repositories: Array<{ id: string; executionBackend: string }>;
+        };
+        const repository = config.repositories.find((item) => item.executionBackend.startsWith('wsl:'));
+        if (!repository) throw new Error('WSL repository is missing');
+        const agentIds = ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'];
+        for (const id of agentIds) {
+          const agent = config.agents.find((item) => item.id === id);
+          if (!agent) throw new Error(`Managed test agent is missing: ${id}`);
+          await api.invoke('agent:update', {
+            id: agent.id,
+            name: agent.name,
+            role: agent.role,
+            runtime: 'custom',
+            permissionMode: 'default',
+            customCommand: command,
+            teamRole: agent.teamRole,
+          });
+          await api.invoke('agent:setDefaultRepository', {
+            agentId: agent.id,
+            repositoryId: repository.id,
+          });
+        }
+        const run = await api.invoke('run:create', {
+          name: 'WSL Managed E2E',
+          goal: 'Prove managed task files, Git and runtimes stay inside the selected WSL backend.',
+          repositoryId: repository.id,
+          participants: [
+            { agentId: 'e2e-orchestrator', role: 'orchestrator' },
+            { agentId: 'e2e-lead', role: 'lead', teamId: 'wsl-team', teamName: 'WSL Team' },
+            { agentId: 'e2e-worker', role: 'worker', teamId: 'wsl-team', teamName: 'WSL Team' },
+          ],
+          budget: { maxConcurrentTasks: 2, maxApprovals: 1 },
+        }) as { id: string };
+        const snapshot = await api.invoke('run:get') as {
+          participants: Array<{ id: string; runId: string; role: string }>;
+        };
+        const participants = snapshot.participants.filter((item) => item.runId === run.id);
+        return {
+          runId: run.id,
+          leadParticipantId: participants.find((item) => item.role === 'lead')?.id,
+          workerParticipantId: participants.find((item) => item.role === 'worker')?.id,
+        };
+      }, { command: `node ${quotePosixArg(linuxFixturePath)}` });
+      if (!wslManaged.leadParticipantId || !wslManaged.workerParticipantId) {
+        throw new Error('WSL managed participants were not created');
+      }
+      writeManagedFixture(fixturePath, {
+        lead: wslManaged.leadParticipantId,
+        worker: wslManaged.workerParticipantId,
+      });
+      await page.evaluate(async (runId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        await api.invoke('run:start', { runId });
+      }, wslManaged.runId);
+      let wslApprovalId: string | null = null;
+      await eventually('WSL managed run reaches its durable approval gate', async () => {
+        const state = await page!.evaluate(async (runId) => {
+          const api = (window as unknown as {
+            ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+          }).ade;
+          const snapshot = await api.invoke('run:get') as {
+            runs: Array<{ id: string; phase: string; status: string }>;
+            approvals: Array<{ id: string; runId: string; status: string }>;
+          };
+          return {
+            run: snapshot.runs.find((item) => item.id === runId),
+            approval: snapshot.approvals.find((item) => item.runId === runId && item.status === 'pending'),
+          };
+        }, wslManaged.runId);
+        if (state.run?.status === 'failed') throw new Error('WSL managed run failed before approval');
+        wslApprovalId = state.approval?.id ?? null;
+        return state.run?.phase === 'approval' && Boolean(wslApprovalId);
+      }, 30_000);
+      await page.evaluate(async (approvalId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        await api.invoke('runApproval:resolve', { approvalId, decision: 'approve' });
+      }, wslApprovalId!);
+      await eventually('WSL managed run integrates and verifies through Linux Git', async () => {
+        const run = await page!.evaluate(async (runId) => {
+          const api = (window as unknown as {
+            ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+          }).ade;
+          const snapshot = await api.invoke('run:get') as {
+            runs: Array<{ id: string; status: string; phase: string }>;
+          };
+          return snapshot.runs.find((item) => item.id === runId);
+        }, wslManaged.runId);
+        if (run?.status === 'failed') throw new Error('WSL managed run failed after approval');
+        return run?.status === 'completed' && run.phase === 'completed';
+      }, 30_000);
+      const wslManagedEvidence = await page.evaluate(async (runId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const snapshot = await api.invoke('run:get') as {
+          tasks: Array<{ id: string; runId: string; workspaceDir?: string; workspaceBindingId?: string }>;
+          results: Array<{
+            runId: string; resultPath: string;
+            tests: Array<{ output: string }>;
+          }>;
+          workspaceLeases: Array<{
+            runId: string; participantId: string; workspaceDir: string; status: string;
+          }>;
+          participants: Array<{ id: string; runId: string; role: string }>;
+        };
+        return {
+          tasks: snapshot.tasks.filter((item) => item.runId === runId),
+          results: snapshot.results.filter((item) => item.runId === runId),
+          leases: snapshot.workspaceLeases.filter((item) => item.runId === runId),
+          participants: snapshot.participants.filter((item) => item.runId === runId),
+        };
+      }, wslManaged.runId);
+      check('managed task/result files cross the boundary without changing their Windows ownership',
+        wslManagedEvidence.tasks.length === 5
+          && wslManagedEvidence.results.length === 5
+          && wslManagedEvidence.results.every((result) => isAbsolute(result.resultPath)));
+      check('every managed process and leased worktree ran inside WSL',
+        wslManagedEvidence.tasks.every((task) => task.workspaceDir?.startsWith('/tmp/.ade-worktrees/'))
+          && wslManagedEvidence.results.filter((result) => result.tests.length > 0)
+            .some((result) => result.tests.some((test) => test.output.startsWith('linux:/tmp/.ade-worktrees/'))));
+      const orchestratorId = wslManagedEvidence.participants.find((item) => item.role === 'orchestrator')?.id;
+      const integratedWorkspace = wslManagedEvidence.leases.find(
+        (lease) => lease.participantId === orchestratorId,
+      )?.workspaceDir;
+      check('WSL transactional integration contains both worker results',
+        Boolean(integratedWorkspace)
+          && wslExec(wslDistribution, ['cat', '--', `${integratedWorkspace}/lead-e2e.txt`]).trim()
+            === 'Lead-specific result.'
+          && wslExec(wslDistribution, ['cat', '--', `${integratedWorkspace}/worker-e2e.txt`]).trim()
+            === 'Worker-specific result.');
+
+      const wslSessionId = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const list = await api.invoke('pty:list') as {
+          sessions: Array<{ id: string; executionBackend?: string; status: string }>;
+        };
+        return list.sessions.find((session) => session.executionBackend?.startsWith('wsl:'))?.id ?? null;
+      });
+      if (!wslSessionId) throw new Error('WSL PTY disappeared before close');
+      await page.evaluate(async (sessionId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        await api.invoke('pty:kill', { sessionId });
+      }, wslSessionId);
+      await eventually('closing the WSL tab releases its PTY', async () => {
+        const running = await page!.evaluate(async (sessionId) => {
+          const api = (window as unknown as {
+            ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+          }).ade;
+          const list = await api.invoke('pty:list') as { sessions: Array<{ id: string; status: string }> };
+          return list.sessions.some((session) => session.id === sessionId && session.status === 'running');
+        }, wslSessionId);
+        return !running;
+      }, 20_000);
+      const persistedWslScope = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const config = await api.invoke('config:get') as {
+          repositories: Array<{ id: string; executionBackend: string }>;
+          workspaceBindings: Array<{
+            id: string;
+            repositoryId: string;
+            workspaceDir: string;
+            executionBackend: string;
+          }>;
+        };
+        const repository = config.repositories.find((item) => item.executionBackend.startsWith('wsl:'));
+        const bindings = config.workspaceBindings.filter((item) => item.repositoryId === repository?.id);
+        return { repository, bindings };
+      }) as {
+        repository?: { id: string; executionBackend: string };
+        bindings: Array<{
+          id: string;
+          workspaceDir: string;
+          executionBackend: string;
+          status: string;
+        }>;
+      };
+      wslBindingIdsBeforeRestart = persistedWslScope.bindings.map((binding) => binding.id).sort();
+      for (const binding of persistedWslScope.bindings) {
+        const parts = binding.workspaceDir.split('/');
+        wslWorktreeContainers.push(parts.slice(0, -1).join('/'));
+      }
+      check('WSL repository and released worktree bindings are durable before restart',
+        persistedWslScope.repository?.executionBackend === `wsl:${wslDistribution}`
+          && persistedWslScope.bindings.length === 4
+          && persistedWslScope.bindings.every((binding) => (
+            binding.executionBackend === `wsl:${wslDistribution}` && binding.status === 'ready'
+          )),
+        persistedWslScope);
+    }
+
     await page.getByRole('button', { name: 'Diagnostics' }).first().click();
     await page.getByRole('dialog', { name: 'Runtime diagnostics' }).waitFor({ state: 'visible' });
     const diagnosticText = await page.getByRole('dialog', { name: 'Runtime diagnostics' }).textContent();
@@ -673,8 +998,15 @@ async function run(): Promise<void> {
         ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
       }).ade;
       return await api.invoke('config:get') as {
-        repositories: Array<{ id: string }>;
-        workspaceBindings: Array<{ agentId: string; repositoryId: string; status: string }>;
+        repositories: Array<{ id: string; executionBackend: string }>;
+        workspaceBindings: Array<{
+          id: string;
+          agentId: string;
+          repositoryId: string;
+          workspaceDir: string;
+          executionBackend: string;
+          status: string;
+        }>;
         runs: Array<{ id: string; status: string; repositoryId?: string | null }>;
       };
     });
@@ -692,6 +1024,93 @@ async function run(): Promise<void> {
             && run.status === 'completed'
             && run.repositoryId === 'e2e-managed-repository'
         )));
+
+    if (runWslBackend) {
+      const restartedWslRepository = restartedConfig.repositories.find(
+        (repository) => repository.executionBackend === `wsl:${wslDistribution}`,
+      );
+      const restartedWslBindings = restartedConfig.workspaceBindings.filter(
+        (binding) => binding.repositoryId === restartedWslRepository?.id,
+      );
+      check('full app restart preserves the exact WSL repository and binding identities',
+        Boolean(restartedWslRepository)
+          && JSON.stringify(restartedWslBindings.map((binding) => binding.id).sort())
+            === JSON.stringify(wslBindingIdsBeforeRestart)
+          && restartedWslBindings.every((binding) => (
+            binding.executionBackend === `wsl:${wslDistribution}`
+              && binding.workspaceDir.startsWith('/tmp/.ade-worktrees/')
+              && binding.status === 'ready'
+          )),
+        restartedWslBindings);
+
+      await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
+      const restartedScopePanel = page.getByTestId('repository-scope');
+      await eventually('restarted UI restores the WSL agent default scope', async () =>
+        (await restartedScopePanel.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
+      const tabCountBeforeRestartedWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
+      await restartedScopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await eventually('restarted Windows UI reopens the persisted WSL binding', async () =>
+        await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeRestartedWsl + 1,
+        20_000,
+      );
+      await sendCommand(page, "printf 'ADE_WSL_RESTART_OK\\n'");
+      await eventually('restarted WSL terminal remains interactive across the app boundary', async () =>
+        (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes('ADE_WSL_RESTART_OK') === true,
+        15_000,
+      );
+
+      const restartedWslSessionId = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const list = await api.invoke('pty:list') as {
+          sessions: Array<{ id: string; executionBackend?: string; status: string }>;
+        };
+        return list.sessions.find((session) => (
+          session.executionBackend?.startsWith('wsl:') && session.status === 'running'
+        ))?.id ?? null;
+      });
+      if (!restartedWslSessionId) throw new Error('Restarted WSL PTY is missing');
+      await page.evaluate(async (sessionId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        await api.invoke('pty:kill', { sessionId });
+      }, restartedWslSessionId);
+      await eventually('restarted WSL PTY closes before worktree cleanup', async () => {
+        const running = await page!.evaluate(async (sessionId) => {
+          const api = (window as unknown as {
+            ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+          }).ade;
+          const list = await api.invoke('pty:list') as { sessions: Array<{ id: string; status: string }> };
+          return list.sessions.some((session) => session.id === sessionId && session.status === 'running');
+        }, restartedWslSessionId);
+        return !running;
+      }, 20_000);
+
+      const cleanup = await page.evaluate(async (repositoryId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const config = await api.invoke('config:get') as {
+          workspaceBindings: Array<{ id: string; repositoryId: string; workspaceDir: string }>;
+        };
+        const bindings = config.workspaceBindings.filter((item) => item.repositoryId === repositoryId);
+        const removed = [];
+        for (const binding of bindings) {
+          const result = await api.invoke('workspace:removeBinding', { workspaceBindingId: binding.id });
+          removed.push({ binding, result });
+        }
+        return removed;
+      }, restartedWslRepository!.id) as Array<{
+        binding: { workspaceDir: string };
+        result: { branchDeleted: boolean };
+      }>;
+      check('ADE removes every clean WSL worktree after restart and lease release',
+        cleanup.length === 4 && cleanup.some((item) => item.result.branchDeleted),
+        cleanup);
+    }
   } catch (error) {
     console.error('Electron workflow threw:', error);
     failed += 1;
@@ -707,6 +1126,28 @@ async function run(): Promise<void> {
     const rel = relative(safeRoot, safeScratch);
     if (dirname(safeScratch) === safeRoot && rel.startsWith('ade-e2e-')) {
       rmSync(safeScratch, { recursive: true, force: true });
+    }
+    if (wslRepository && /^\/tmp\/ade-electron-wsl\.[A-Za-z0-9]+$/.test(wslRepository)) {
+      try {
+        const worktrees = wslExec(wslDistribution, [
+          'git', '-C', wslRepository, 'worktree', 'list', '--porcelain',
+        ]).split(/\r?\n/)
+          .filter((line) => line.startsWith('worktree '))
+          .map((line) => line.slice('worktree '.length).trim())
+          .filter((worktree) => /^\/tmp\/\.ade-worktrees\/ade-electron-wsl-[a-z0-9-]+\/[a-z0-9-]+$/.test(worktree));
+        for (const worktree of worktrees) {
+          wslExec(wslDistribution, ['git', '-C', wslRepository, 'worktree', 'remove', '--force', '--', worktree]);
+          const parts = worktree.split('/');
+          wslWorktreeContainers.push(parts.slice(0, -1).join('/'));
+        }
+      } catch { /* fixture repository may already be removed */ }
+    }
+    for (const container of [...new Set(wslWorktreeContainers)]) {
+      if (!container.startsWith('/tmp/.ade-worktrees/')) continue;
+      try { wslExec(wslDistribution, ['rmdir', '--', container]); } catch { /* not empty */ }
+    }
+    if (wslRepository && /^\/tmp\/ade-electron-wsl\.[A-Za-z0-9]+$/.test(wslRepository)) {
+      try { wslExec(wslDistribution, ['rm', '-rf', '--', wslRepository]); } catch { /* evidence remains */ }
     }
   }
 

@@ -220,6 +220,28 @@ baseline. Any critical safety failure blocks Goal 7.
 Verification plan: task fixtures and measurements are committed separately
 from changes to the pilot repository; ADE's full `pnpm verify` remains green.
 
+## Platform track - Linux package and Windows GUI→WSL backend
+
+Status: **implemented and locally verified 2026-07-19; hosted/publication gates
+remain.** This track is orthogonal to remote Goals 7-10 and is specified in
+`MULTIPLATFORM_PLAN.md`.
+
+- Native Ubuntu/WSL2 builds Linux `node-pty`, passes the focused/source
+  Electron gates and produces unpacked x64, AppImage and Debian artifacts.
+- AppImage, unpacked and Debian-payload artifacts pass the same 47-check
+  packaged workflow; Debian metadata/payload are valid. The release workflow adds installed-deb
+  verification and SHA-256 artifacts when it first runs on GitHub.
+- Windows ADE now imports an explicit `wsl:<distribution>` repository and
+  routes its Linux paths, Git, files, worktrees, diagnostics, PTY and managed
+  run through that distribution without fallback or mixed-Git access.
+- Local WSL evidence is 31/31 backend integration checks and 67/67 extended
+  Electron/Playwright checks, including a complete managed run, app restart,
+  reopen and cleanup.
+
+Remaining release gates: observe Ubuntu hosted workflows, establish the public
+license/release policy, publish checksummed versioned Linux assets, add clearer
+first-run WSL prerequisite guidance, and keep macOS explicitly unverified.
+
 ## Goal 7 - transport-neutral core and local host API
 
 Status: **bounded GO; implementation not started.** Goal 6 permits the
@@ -227,11 +249,10 @@ disabled-by-default, loopback-only local foundation. Public remote exposure
 remains no-go until this goal's authorization, idempotency, reconnect and audit
 exit criteria pass.
 
-The orthogonal Linux/WSL/macOS readiness track is specified in
-`MULTIPLATFORM_PLAN.md`. Native Ubuntu/WSL2 source validation now passes 392
-focused assertions, the build and 46 Electron/Playwright gates plus an
-isolated real Codex Sol/xhigh/bypass smoke. Hosted CI observation, packaging and the larger
-hybrid Windows-to-WSL execution backend remain separate gates.
+The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
+foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
+implemented locally. Their hosted release observation and macOS work remain
+separate from the remote API security gates below.
 
 - Extract a transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and

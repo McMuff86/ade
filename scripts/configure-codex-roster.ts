@@ -35,9 +35,13 @@ async function main(): Promise<void> {
   });
 
   try {
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.hide());
   const page = await app.firstWindow({ timeout: 20_000 });
+  await page.waitForURL((url) => (
+    url.protocol === 'file:' && url.pathname.endsWith('/out/renderer/index.html')
+  ), { timeout: 20_000 });
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForFunction(() => typeof window.ade?.invoke === 'function');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.hide());
 
   const preflight = await page.evaluate(async () => {
     const api = (window as unknown as {
@@ -50,6 +54,8 @@ async function main(): Promise<void> {
         role?: string;
         runtime: string;
         permissionMode: string;
+        codexModel?: string;
+        codexReasoningEffort?: string;
         teamRole?: string;
       }>;
       categories: Array<{ kind?: string; agents: string[] }>;
@@ -62,8 +68,7 @@ async function main(): Promise<void> {
       ...config.categories.filter((category) => category.kind === 'orchestrator').flatMap((category) => category.agents),
       ...config.runParticipants.filter((participant) => participant.role === 'orchestrator').map((participant) => participant.agentId),
     ]);
-    return {
-      targets: config.agents
+    const targets = config.agents
         .filter((agent) => agent.runtime === 'claude' || agent.runtime === 'codex')
         .map((agent) => {
           const participantRoles = config.runParticipants
@@ -77,7 +82,17 @@ async function main(): Promise<void> {
                 ? 'worker'
                 : agent.teamRole;
           return { ...agent, inferredRole, isOrchestrator: inferredRole === 'orchestrator' };
-        }),
+        });
+    const auditedTargets = [];
+    for (const target of targets) {
+      const files = await api.invoke('fs:agentFiles', { agentId: target.id }) as Array<{ name: string }>;
+      auditedTargets.push({
+        ...target,
+        hasAgentInstructions: files.some((file) => file.name === 'AGENTS.md'),
+      });
+    }
+    return {
+      targets: auditedTargets,
       activeRuns: config.runs.filter((run) => ['running', 'planning', 'working', 'integrating', 'verifying'].includes(run.status)),
       activeLeases: config.runWorkspaceLeases.filter((lease) => lease.status === 'active').length,
       activeSessions: sessions.sessions.filter((session) => session.status === 'running').length,
@@ -92,12 +107,22 @@ async function main(): Promise<void> {
   }
 
   console.log(`${apply ? 'Applying' : 'Dry run'}: enforce ${preflight.targets.length} coding identities on Codex ${MODEL}`);
+  const drift: string[] = [];
   for (const target of preflight.targets) {
     const effort = target.isOrchestrator ? 'xhigh' : 'high';
-    console.log(`- ${target.name}: bypass, ${effort}`);
+    const compliant = target.runtime === 'codex'
+      && target.permissionMode === 'bypass'
+      && target.codexModel === MODEL
+      && target.codexReasoningEffort === effort
+      && target.hasAgentInstructions;
+    console.log(`- ${target.name}: ${compliant ? 'ok' : 'needs update'} — bypass, ${effort}, AGENTS.md`);
+    if (!compliant) drift.push(target.name);
   }
   if (!apply) {
-    console.log('No changes written. Re-run with --apply.');
+    if (drift.length > 0) {
+      throw new Error(`agents:codex: ${drift.length} identity/identities require --apply: ${drift.join(', ')}`);
+    }
+    console.log('Roster audit passed. No changes written.');
   } else {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = join(userData, 'ade', `config.pre-codex-roster.${stamp}.json`);

@@ -1,6 +1,7 @@
 /** Runtime validation for every renderer -> main IPC request. */
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
+import { isExecutionBackendId } from '../shared/executionBackends';
 
 type RecordValue = Record<string, unknown>;
 
@@ -385,6 +386,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyList:
     case IPC.RunGet:
     case IPC.DialogPickFolder:
+    case IPC.WslList:
       voidRequest(channel, payload);
       return;
     case IPC.ConfigSave:
@@ -472,9 +474,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.RepositoryImport: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['path', 'name']);
+      exactKeys(channel, request, ['path', 'name', 'executionBackend']);
       stringValue(channel, request.path, 'path', { max: 32_768 });
       optionalString(channel, request.name, 'name', { max: 200, allowEmpty: true });
+      if (request.executionBackend !== undefined && !isExecutionBackendId(request.executionBackend)) {
+        invalid(channel, 'executionBackend is not supported');
+      }
       return;
     }
     case IPC.WorkspaceDescribe:
@@ -523,8 +528,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.RuntimeDiagnose: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['agentId']);
+      exactKeys(channel, request, ['agentId', 'sessionId']);
       optionalId(channel, request.agentId, 'agentId');
+      optionalId(channel, request.sessionId, 'sessionId');
+      if (request.sessionId !== undefined && request.agentId === undefined) {
+        invalid(channel, 'sessionId requires agentId');
+      }
       return;
     }
     case IPC.RunCreate:

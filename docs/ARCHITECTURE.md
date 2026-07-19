@@ -48,6 +48,26 @@ sibling instances never share mutable state. Existing category paths and agent
 workspaces migrate non-destructively. Full rules live in
 `docs/REPOSITORY_SCOPES_PLAN.md`.
 
+## Decision: execution backend is part of repository identity
+
+Platform selection is explicit data, never path inference. Every repository and
+workspace binding stores `native` or a validated `wsl:<distribution>` id; new
+session/task/run scope snapshots copy that value immutably. Migration assigns
+legacy records to `native` and makes a binding inherit its repository backend.
+
+`main/execution/ExecutionBackendService.ts` is the sole process/path boundary.
+Native calls retain the existing services. On a Windows host, WSL calls use
+argv-only `wsl.exe --distribution <name> [--cd <linux-path>] --exec ...`, with
+bounded output/time and no prompt, repository path or distribution interpolated
+into a shell string. `wslpath` is used only for Windows-owned control files or
+an OS integration boundary. Linux identity remains case-sensitive.
+
+Backend Git, workspace and filesystem facades guarantee that one binding uses
+one platform's Git and filesystem for its entire lifetime. The WSL filesystem
+helper receives JSON over stdin, enforces containment/no-symlink traversal and
+uses `renameat2(RENAME_NOREPLACE)` for atomic no-clobber rename. A missing
+distribution fails closed instead of falling back to Windows execution.
+
 ## Decision: mobile is a control adapter, not an execution plane
 
 The desktop remains authoritative for agents, runtime credentials, PTYs, files,
@@ -78,6 +98,9 @@ accounts and hosted relays are deferred until after personal-alpha validation.
   and the packaged executable against an isolated user-data directory.
 - Windows distribution: electron-builder + assisted x64 NSIS. The node-pty
   Node-API prebuild is retained rather than rebuilt with a machine toolchain.
+- Linux distribution: electron-builder unpacked x64, AppImage and Debian
+  targets from a Linux-native dependency install. `node-pty` is compiled with
+  Python 3, make and g++.
 - Git: `simple-git`. Config persistence: hand-rolled atomic JSON store in
   `app.getPath('userData')`.
 - Icons: text glyphs or lucide-react sparingly. No emojis anywhere (SPEC).
@@ -99,6 +122,7 @@ src/
     diagnostics/           # read-only CLI/version/auth checks
     notifications.ts       # background native exit/completion notifications
     platform.ts            # host path identity, null device, deterministic shell
+    execution/             # native/WSL command, Git, workspace and filesystem boundary
     pty/PtyManager.ts      # node-pty sessions, ring buffers, launch profiles
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
@@ -141,17 +165,21 @@ src/
     remote.ts              # versioned mobile DTOs and runtime schemas
 ```
 
-## Current core types through Goal 5 (shared/types.ts)
+## Current core types through the platform backend slice (shared/types.ts)
 
 ```ts
 type PermissionMode = 'default' | 'accept-edits' | 'bypass';
 type RuntimeId = 'claude' | 'codex' | 'opencode' | 'grok' | 'gemini'
                | 'ollama' | 'shell' | 'custom';
+type ExecutionBackendId = 'native' | `wsl:${string}`;
 
 interface Repository { id: string; name: string; rootPath: string;
-                       commonGitDir: string; verified: boolean }
+                       commonGitDir: string;
+                       executionBackend: ExecutionBackendId;
+                       verified: boolean }
 interface WorkspaceBinding { id: string; agentId: string; repositoryId: string;
                              workspaceDir: string; branch: string;
+                             executionBackend: ExecutionBackendId;
                              status: 'ready' | 'legacy-unverified' | 'invalid' }
 interface Category { id: string; name: string; photo?: string;
                      repoPath?: string;                          // compatibility
@@ -168,6 +196,7 @@ interface SessionMeta { id: string; agentId: string; title: string;
                         status: 'running' | 'exited'; createdAt: number;
                         repositoryId?: string; workspaceBindingId?: string;
                         workspaceDir?: string;
+                        executionBackend?: ExecutionBackendId;
                         scopeSource?: 'explicit' | 'agent-default' | 'plain-home' }
 interface Run { id: string; name: string; goal: string; status: RunStatus;
                 mode: 'manual' | 'managed'; phase: RunPhase;
@@ -193,10 +222,11 @@ interface RunEvent { id: string; runId: string; type: RunEventType;
 ```
 
 Goal 5 migration moves active repository ownership out of `Category.repoPath`
-and `Agent.workspaceDir` while retaining both compatibility fields. Repository,
+and `Agent.workspaceDir` while retaining both compatibility fields. The
+platform migration also persists a backend on repositories/bindings. Repository,
 binding and template records persist in the atomic config; sessions, tasks,
-runs and leases retain resolved ids/paths so later default changes or migration
-cannot rewrite an execution's meaning.
+runs and leases retain resolved ids/paths/backend so later default changes or
+migration cannot rewrite an execution's meaning.
 
 The remote contract will not serialize these storage/domain objects directly.
 It uses versioned, mobile-safe projections plus target records such as
@@ -255,6 +285,11 @@ reproducibility guarantees.
   after a fixed delay or expanded as a native PowerShell argument. This keeps
   quote-laden multiline prompts byte-stable under Windows PowerShell 5.1 and
   POSIX shells.
+- WSL task sessions translate only the five managed control-plane path fields,
+  write the prompt to a bounded Windows scratch file and let the Linux shell
+  read that file through its translated `/mnt/...` path. Interactive and task
+  PTYs execute with `wsl.exe --exec` in the immutable Linux worktree cwd;
+  prompt scratch is removed on exit, launch failure or cancellation.
 - Claude stream-json and Codex JSONL are parsed incrementally into the same
   bounded, sanitized activity model. Raw output retains its byte-exact replay;
   human-readable activity is also appended to task-local `ACTIVITY.jsonl` and
@@ -273,6 +308,11 @@ reproducibility guarantees.
 
 - `RepositoryScopeService` owns repository import/deduplication, agent defaults,
   binding/worktree resolution and non-destructive legacy migration.
+- Repository identity includes its execution backend. Native paths use the
+  existing host services; WSL repositories persist canonical absolute Linux
+  paths and all Git/worktree/file operations run in the selected distribution.
+  WSL worktrees live in a sibling `.ade-worktrees` root rather than reusing a
+  Windows worktree-base setting.
 - Repository identity is validated from normalized real paths plus Git common
   directory. Importing a repo through another casing, separator or linked
   worktree cannot create a second root record.
@@ -515,23 +555,28 @@ explicitly enabled.
 - `.github/workflows/ci.yml` runs typecheck, focused scripts and production
   build on Windows and Ubuntu. Windows additionally runs the real
   Electron/ConPTY workflow plus an unpacked package; Ubuntu builds Linux-native
-  `node-pty` and runs the same Electron/Playwright workflow under Xvfb.
+  `node-pty` and runs the same Electron/Playwright workflow against both source
+  and the unpacked Linux executable under Xvfb.
 - `.github/workflows/package-windows.yml` repeats verification, creates the
   x64 NSIS installer and uploads it. `WIN_CSC_LINK` and
   `WIN_CSC_KEY_PASSWORD` opt into Authenticode signing; local artifacts are
   expected to be unsigned.
+- `.github/workflows/package-linux.yml` repeats the native Ubuntu gate, builds
+  AppImage and Debian artifacts, runs the 47-check Electron workflow against
+  unpacked, AppImage and installed `.deb` executables, writes SHA-256 checksums
+  and uploads the unsigned artifacts.
 - `scripts/test-electron-workflow.ts` uses platform-specific shell commands,
   seeds only a temporary ADE profile and
   verifies sandbox/preload boundaries, IPC rejection, real terminal I/O,
   multi-tab shortcuts, renderer reload replay, non-zero failure/restart,
   diagnostics, worker-specific managed planning, approval, integration and
   verification. The same script can target `ADE_E2E_EXECUTABLE`.
-- The 2026-07-19 Windows gate passed 393 focused assertions, the production
-  build and all 46 Electron assertions. A native Ubuntu/WSL2 proof of the same
-  source passed 392 focused assertions (the Windows `.cmd` probe is
-  inapplicable), the production build and all 46 Electron assertions. This
-  validates the source path; Linux packaging and a remotely observed hosted-CI
-  result remain separate release gates.
+- The 2026-07-19 closing gates passed 410 focused Windows assertions, 409 native
+  Ubuntu assertions (the Windows `.cmd` probe is inapplicable), production
+  builds and 47 Electron assertions on each native platform/artifact. The extended
+  Windows-GUI→WSL gate adds 31 backend checks and 67 Electron assertions,
+  including a full managed run and app restart. Hosted observation and release
+  publication remain separate release gates.
 - Goal 7 adds host contract tests for malformed/unauthorized/replayed requests,
   event reconnection and mobile projections. Goal 8 adds pairing, revocation,
   CSRF, mutation-audit and browser workflows through an isolated loopback

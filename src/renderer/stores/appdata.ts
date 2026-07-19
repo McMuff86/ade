@@ -14,6 +14,7 @@ import type {
   Repository,
   WorkspaceBinding,
 } from '../../shared/types';
+import type { ExecutionBackendId } from '../../shared/executionBackends';
 
 interface CatalogSlice {
   categories: Category[];
@@ -34,7 +35,11 @@ interface AppDataState extends CatalogSlice {
   createAgent: (input: AgentCreateInput) => Promise<Agent>;
   updateAgent: (input: AgentUpdateInput) => Promise<Agent>;
   setAgentDefaultRepository: (agentId: string, repositoryId: string | null) => Promise<Agent>;
-  importRepository: (path: string, name?: string) => Promise<Repository>;
+  importRepository: (
+    path: string,
+    name?: string,
+    executionBackend?: ExecutionBackendId,
+  ) => Promise<Repository>;
   createAgentTemplate: (input: AgentTemplateCreateInput) => Promise<AgentTemplate>;
   deleteAgentTemplate: (id: string) => Promise<void>;
   spawnAgentTemplate: (input: AgentTemplateSpawnInput) => Promise<Agent>;
@@ -135,8 +140,8 @@ export const useAppData = create<AppDataState>((set, get) => ({
     return agent;
   },
 
-  importRepository: async (path, name) => {
-    const repository = await window.ade.invoke('repository:import', { path, name });
+  importRepository: async (path, name, executionBackend) => {
+    const repository = await window.ade.invoke('repository:import', { path, name, executionBackend });
     set(await readCatalog());
     return repository;
   },

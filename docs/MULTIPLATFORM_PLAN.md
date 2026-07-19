@@ -1,176 +1,178 @@
 # ADE multi-platform and WSL engineering plan
 
-Status: P0 implemented and native WSL2 source validation passed on 2026-07-19.
-Windows remains the supported packaged distribution; Linux/WSLg is now a
-verified developer/source workflow, not yet a shipped product.
+Status: P0-P3 are implemented and locally verified on 2026-07-19. Native
+Windows remains the primary release path. Native Linux now has reproducible
+AppImage and Debian packaging, and the Windows GUI can explicitly execute one
+repository scope inside a selected WSL distribution. The first hosted runs and
+publication of signed/versioned Linux release assets remain release gates.
 
 ## Product definitions
 
-These are separate deliverables and must not be conflated:
+These are separate deployment models:
 
-1. **Native Linux / WSLg ADE** — Electron, Git, PTY and agent CLIs all run as
-   Linux processes. On Windows this appears through WSLg and uses a separate
-   Linux checkout and Linux ADE profile.
-2. **Windows ADE with a WSL execution backend** — the GUI remains a Windows
-   process, while one repository binding deliberately executes filesystem,
-   Git, diagnostics, PTY and agent commands inside a selected WSL distro.
-3. **Native macOS ADE** — the POSIX runtime path plus macOS packaging,
-   signing/notarization and platform-specific UX verification.
+1. **Native Linux / WSLg ADE** — Electron, Git, PTY and agent CLIs are Linux
+   processes. WSLg uses a Linux checkout, Linux dependencies and a separate
+   Linux ADE profile.
+2. **Windows ADE with a WSL execution backend** — Electron remains a Windows
+   process. A repository explicitly stores `wsl:<distribution>`, and its
+   filesystem, Git, diagnostics, PTY and managed agent commands execute in that
+   distribution.
+3. **Native macOS ADE** — the portable POSIX path plus macOS packaging,
+   signing/notarization and platform-specific interaction verification.
 
-Accepting a `\\wsl.localhost\...` path in the current Windows build provides
-Windows access to files stored in WSL. It does not select Linux Git, a Linux
-shell, Linux credentials or Linux agent CLIs and is therefore not a WSL
-execution backend.
+A `\\wsl.localhost\...` path by itself does not select WSL execution. The
+backend is explicit, persisted and immutable for a repository/binding/session
+scope; ADE never infers it from path spelling.
 
 ## Current readiness
 
-| Area | Windows | Linux / WSLg | macOS |
-| --- | --- | --- | --- |
-| Electron source build | verified | **verified in Ubuntu/WSL2** | unverified |
-| PTY and shell transport | ConPTY verified | **native node-pty build + PTY workflow verified** | POSIX branch present |
-| Git/worktree orchestration | verified | **focused + Electron integration verified on ext4** | mostly portable, unverified |
-| Focused tests | **393 checks green locally** | **392 checks green locally; Ubuntu CI job added, first hosted run pending** | no CI job |
-| Electron/Playwright | **46/46** | **46/46 green under Xvfb in WSL2** | unverified |
-| Distribution | x64 NSIS | none | none |
+| Area | Native Windows | Native Linux / WSLg | Windows GUI → WSL | macOS |
+| --- | --- | --- | --- | --- |
+| Source/type contracts | verified | verified on Ubuntu 24.04 | verified | unverified |
+| PTY | ConPTY verified | Linux `node-pty` verified | Windows `node-pty` → `wsl.exe --exec` verified | POSIX branch present |
+| Git/worktrees/files | native services verified | native services verified on ext4 | backend-routed Linux Git/files verified | unverified |
+| Focused tests | 410/410 | 409/409 | 31/31 backend contracts and real integration | no CI job |
+| Electron/Playwright | 47/47 | 47/47 under Xvfb | 67/67 extended Windows/WSL workflow | unverified |
+| Distribution | x64 NSIS | unpacked, AppImage and `.deb` built locally | uses the Windows package | none |
 
-Known code gaps before support can be claimed:
+These are measured local results from the closing gates, not skipped or inferred
+checks.
 
-- POSIX directory rename currently fails closed instead of providing a safe
-  no-clobber implementation; the rename affordance still needs to be hidden or
-  explained for directories on POSIX.
-- Goal 6 operator/report scripts remain tied to the real Windows pilot profile;
-  they are measurement tooling, not the portable product E2E.
-- `node-pty` has no Linux prebuild in this dependency version. A fresh native
-  install successfully builds it with Python, make and g++, so those are Linux
-  developer/package prerequisites until a prebuild is adopted.
-- CI and electron-builder scripts produce only Windows artifacts.
+## Implemented platform contract
+
+- `Repository`, `WorkspaceBinding`, session scope and diagnostics carry an
+  `executionBackend`: `native` or a validated `wsl:<distribution>` id.
+- Legacy records migrate deterministically to `native`; bindings inherit their
+  repository backend and preserve it across app restarts.
+- `ExecutionBackendService` is the single argv-only process/path boundary. It
+  validates distribution names, caps time/output and uses controlled `wslpath`
+  conversion only when Windows-owned control files or OS UI need it.
+- WSL path identity is POSIX and case-sensitive. Windows path identity retains
+  its existing case-folded behavior.
+- Backend-aware Git, workspace and filesystem services keep one worktree on one
+  side of the boundary. WSL mutations use Linux Git and a containment-checked
+  Python helper with no-follow reads and atomic no-replace rename.
+- WSL managed prompts remain Windows-owned scratch artifacts and are read via a
+  translated file path; large or quote-rich prompts, result schemas, mailboxes,
+  activity and role-aware `AGENTS.md` contracts are never interpolated into the
+  `wsl.exe` command line.
+- The repository UI discovers available distributions, requires an explicit
+  backend selection, labels WSL scopes, and reports backend-specific runtime
+  diagnostics.
+- Missing distributions fail closed. A stopped installed distribution may be
+  started normally by `wsl.exe`; ADE never silently falls back to Windows Git or
+  a Windows runtime.
 
 ## P0 — portable contracts and CI
 
-- [x] Centralize host-platform semantics for case sensitivity, null device and
-  deterministic shell selection.
-- [x] Correct POSIX lease/worktree path keys and cover Windows case folding plus
-  POSIX case preservation in focused tests.
-- [ ] Implement safe POSIX directory no-clobber rename or explicitly remove/
-  explain that directory action on unsupported filesystems.
-- [x] Replace PowerShell literals in the Electron workflow with platform
-  command helpers while retaining the same PTY/reload/restart assertions.
-- [x] Add an Ubuntu CI job for typecheck, all focused suites, production build
-  and Electron/Playwright under Xvfb. The workflow is committed locally; its
-  first hosted GitHub execution remains pending until these changes are pushed.
-- Keep Windows `pnpm verify` and packaged-executable E2E mandatory throughout.
-
-Exit criteria: Windows verification remains green; Ubuntu runs every focused
-suite with platform-specific filesystem assertions and no skipped core
-orchestration/security checks.
+- [x] Centralized path identity, null device and deterministic host shell
+  selection.
+- [x] Preserved POSIX case sensitivity and Windows case folding in tests.
+- [x] Implemented atomic POSIX/WSL no-clobber rename and symlink refusal for
+  backend filesystem mutations.
+- [x] Made the Electron workflow platform-aware while retaining the same
+  reload/restart, repository, managed-run and security assertions.
+- [x] Added Ubuntu source, unpacked-package and Electron/Xvfb verification to
+  CI. Its first hosted result is pending publication of this change.
 
 ## P1 — native Linux and WSLg proof
 
-Local proof completed on Ubuntu 24.04 under WSL2/WSLg on 2026-07-19:
+Local Ubuntu 24.04/WSL2 proof uses a native ext4 checkout and Linux-built
+dependencies; it never shares the Windows `node_modules` tree through `/mnt/c`.
 
-- copied the current source into native ext4 at
-  `/tmp/ade-wsl-native-20260719-0038` without Windows dependencies;
-- `pnpm install --frozen-lockfile` built `node-pty` for Linux x64;
-- typecheck, 392 focused assertions and the production build passed;
-- the real Electron workflow passed 46/46 under Xvfb, including POSIX PTY,
-  reload/restart races, repository scopes, ADE-owned commits, approval,
-  integration, verification, Codex profile UI, durable `AGENTS.md` and the
-  directly visible failed-run reason;
-- native Codex CLI authentication was present and an isolated stdin smoke with
-  `gpt-5.6-sol`, `xhigh` and bypass returned
-  `ADE_WSL_CODEX_SOL_XHIGH_OK` (thread `019f776c-ad36-7412-a511-db08d3924e96`).
+- [x] `pnpm install --frozen-lockfile` builds `node-pty` with Python 3, make and
+  g++.
+- [x] Typecheck, focused suites, production build and the 47-check real
+  Electron workflow pass under Xvfb.
+- [x] POSIX PTY, repository worktrees, approval, ADE-owned commits,
+  transactional integration, verification and app restart are exercised.
+- [x] An isolated native Codex `gpt-5.6-sol`/`xhigh`/bypass stdin smoke passed.
 
-This proves the source/runtime path on this machine. A hosted CI pass, a clean
-machine reproduction and Linux packaging are still required before support is
-claimed.
+Native Linux profile location is
+`${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`. It is independent from
+the Windows profile and is not automatically migrated.
 
-- Use a fresh checkout below the distro's native filesystem (`/home/...`), a
-  Linux Node/pnpm install and Linux-built native dependencies. Never share the
-  Windows `node_modules` tree through `/mnt/c`.
-- Run typecheck, focused suites, production build, PTY smoke and the full
-  Electron/Playwright workflow under Linux.
-- Exercise repository import, linked worktrees, interactive shell, Claude and
-  Codex diagnostics, managed task transport, approval, integration and app
-  restart from WSLg.
-- Record Linux profile/config location explicitly; do not import Windows paths
-  into the Linux profile without a migration/translation design.
+## P2 — Linux distribution
 
-Exit criteria: the same behavioral Electron assertions pass under WSLg from a
-native Linux checkout, including a real PTY and managed Git integration.
+- [x] Added unpacked x64, AppImage and Debian targets with a 1024px icon,
+  desktop metadata, Development/devel categories and deterministic names.
+- [x] Added `pnpm package:linux:dir` and `pnpm package:linux`.
+- [x] Built AppImage and `.deb` locally from Linux-native dependencies; the
+  unpacked executable, AppImage and extracted Debian payload each pass the full
+  47-check packaged Electron workflow. Debian metadata is also validated.
+- [x] Added a release workflow that verifies source, unpacked executable,
+  AppImage and installed Debian package, writes SHA-256 checksums and uploads
+  artifacts.
+- [ ] Observe the first hosted package workflow and publish a versioned release.
+- [ ] Decide and record the project license before calling the package a public
+  stable release; no license is invented by the build.
 
-## P2 — supported Linux distribution
-
-- Add unpacked Linux plus AppImage/deb targets and suitable icons/desktop
-  metadata.
-- Run the Electron workflow against the unpacked Linux artifact in CI.
-- Document native-library prerequisites, installation, upgrade and profile
-  paths; publish checksums with artifacts.
-
-Exit criteria: a clean Ubuntu/WSLg environment installs or launches the
-artifact and passes the packaged smoke without developer tooling.
+Developer prerequisites are Node.js 22, pnpm 9, Python 3, make and g++. The
+Debian package declares Electron runtime libraries; AppImage users still need a
+working graphical Linux/WSLg session. Upgrade by installing/running the newer
+artifact against the same profile. Auto-update and package signing are not yet
+implemented.
 
 ## P3 — Windows GUI with WSL execution backend
 
-This requires an explicit execution abstraction; it must not be inferred from
-UNC-looking strings.
+- [x] Persist explicit backend identity through repository import, worktree
+  bindings, sessions, tasks, diagnostics and restart migration.
+- [x] Route canonical paths, Git, worktree creation/removal, file reads and
+  mutations, diagnostics, PTYs, managed task transport and integration through
+  the selected distribution.
+- [x] Preserve exact diff/path-set validation, exclusive leases, approval,
+  ADE-owned commits and fail-closed transactional integration.
+- [x] Cover invalid backend ids, a missing distribution, spaces, Unicode,
+  symlinks, case-sensitive identity, atomic rename, cancellation/PTY teardown,
+  full app restart and cleanup.
+- [x] Complete a real Windows Electron/Playwright managed run while evidence
+  proves every task process and leased worktree ran in Linux.
 
-- Store `native` or `wsl:<distro>` on the repository/workspace binding.
-- Give the backend one canonical path representation and controlled `wslpath`
-  conversion only at the Windows boundary.
-- Route Git, worktree creation, filesystem mutation, diagnostics, PTY launch,
-  task files and agent CLIs through the same backend. Never mix Windows Git
-  and Linux Git against one worktree.
-- Transport prompts and result paths without shell interpolation and preserve
-  the existing exact-diff, lease and approval guarantees.
-- Add cross-boundary tests for spaces, Unicode, symlinks, case-sensitive paths,
-  cancellation, restart and a stopped/missing distro.
+Current bounded limitations:
 
-Exit criteria: a Windows ADE run using a WSL binding completes the same
-managed-run E2E while every process and Git mutation is proven to occur inside
-the selected distro.
+- This backend is available only in the Windows build and requires WSL2 plus a
+  selected installed distribution.
+- The distribution needs `/bin/bash`, Git, Python 3 and `gio`; agent CLIs and
+  their credentials must also exist inside that distribution.
+- WSL repositories are entered as Linux absolute paths. The Windows folder
+  picker remains native and does not browse the Linux namespace.
+- WSL worktrees live beside the source under `../.ade-worktrees`; the Windows
+  global worktree-base setting is intentionally not reused across the boundary.
+- Native custom commands are not translated. A WSL-scoped custom command must
+  be valid for the Linux shell and use Linux paths.
+- Managed runs receive the durable role-aware `AGENTS.md` snapshot. Interactive
+  WSL sessions discover repository instructions normally, but ADE does not yet
+  inject its Windows-owned memory block into a Linux repository worktree.
 
 ## P4 — macOS support
 
-- Add macOS focused/Electron CI, shell/PATH resolution and native PTY coverage.
-- Produce signed/notarized arm64 and x64/universal artifacts as justified.
-- Verify native dialogs, notifications, keyboard conventions and window
-  behavior without introducing macOS-only visual styling into the design.
+- [ ] Add macOS focused/Electron CI and native PTY verification.
+- [ ] Verify shell/PATH, dialogs, notifications and keyboard conventions.
+- [ ] Produce signed/notarized arm64 and x64/universal artifacts only after the
+  behavioral gate passes.
 
 ## Test and documentation contract
 
-Every platform slice is complete only with:
-
-- focused unit/integration/security regression tests;
-- real Electron/Playwright automation for the user-visible workflow;
-- a production build and, once packaging exists, packaged-artifact smoke;
-- accessibility checks for keyboard flow, focus, names, contrast and reduced
-  motion where the UI changes;
-- updates to `ARCHITECTURE.md`, `STATUS.md`, `ROADMAP.md`, this plan and the
-  current `HANDOFF.md` in the same change.
+Every platform slice requires focused unit/integration/security tests, real
+Electron/Playwright automation, a production build, packaged-artifact smoke once
+packaging exists, deliberate cleanup/restart evidence and synchronized updates
+to `ARCHITECTURE.md`, `STATUS.md`, `ROADMAP.md`, this plan and `HANDOFF.md`.
 
 ## UI/UX quality bar
 
-Platform support must feel native without fragmenting ADE's identity:
+Platform choice is visible where it changes behavior, not sprayed across the
+interface. ADE keeps one calm hierarchy and copper accent; advanced backend
+details stay one interaction away. Loading, unavailable-distro, blocked,
+approval, failure, recovery and completed states must be actionable. Keyboard
+operation, visible focus, semantic names, contrast, responsive panels and
+reduced motion remain release gates alongside screenshot review.
 
-- one calm visual hierarchy with the current copper accent reserved for
-  selection, progress and primary actions;
-- progressive disclosure: common actions remain obvious, advanced run evidence
-  and diagnostics stay one interaction away;
-- every long operation immediately shows ownership, state, elapsed activity
-  and a safe cancel/recovery path;
-- empty, loading, blocked, failed, approval and completed states are designed
-  deliberately rather than falling back to generic text;
-- keyboard operation, visible focus, semantic labels, contrast and reduced
-  motion are release gates;
-- screenshots at representative compact, default and fullscreen sizes are
-  reviewed alongside Playwright behavior, not substituted for it.
+## Next sequence
 
-## Immediate sequence
-
-1. Observe the new Ubuntu hosted CI job and close any environment-only gaps.
-2. Resolve the POSIX directory-rename affordance and reproduce from a clean
-   WSL/Ubuntu environment.
-3. Fix the dependency-aware worker-base architecture found by F3/F4 or record
-   the exact bounded scope allowed to proceed into Goal 7.
-4. Add Linux packaging only after the source/CI proof stays green; design the
-   larger Windows-GUI/WSL backend separately after that.
+1. Observe both Ubuntu hosted workflows and close environment-only failures.
+2. Publish versioned Linux checksums/assets after the license/release policy is
+   explicit.
+3. Add a first-run prerequisite check and friendlier setup guidance for missing
+   WSL tools/agent credentials.
+4. Continue Goal 7 only inside its bounded loopback-only security contract.
+5. Plan macOS only after Linux and WSL support remain stable through releases.

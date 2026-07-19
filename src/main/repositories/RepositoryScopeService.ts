@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, posix, resolve } from 'node:path';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  normalizeExecutionBackendId,
+  type ExecutionBackendId,
+} from '../../shared/executionBackends';
 import type {
   AdeConfig,
   Agent,
@@ -9,13 +14,10 @@ import type {
   WorkspaceBinding,
   WorkspaceScopeDescriptor,
 } from '../../shared/types';
-import {
-  createAgentWorktree,
-  removeAgentWorktree,
-  repositoryIdentity,
-} from '../git/GitService';
-import { WorkspaceService, type WorkspacePort } from '../orchestration/WorkspaceService';
-import { sameHostPath } from '../platform';
+import type { WorkspacePort } from '../orchestration/WorkspaceService';
+import { BackendGitService } from '../execution/BackendGitService';
+import { BackendWorkspaceService } from '../execution/BackendWorkspaceService';
+import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 
 export interface RepositoryConfigPort {
   get(): AdeConfig;
@@ -35,6 +37,7 @@ export interface ResolvedExecutionScope {
   workspaceBindingId?: string;
   workspaceDir: string;
   branch: string;
+  executionBackend: ExecutionBackendId;
 }
 
 export interface ScopeReference {
@@ -42,6 +45,7 @@ export interface ScopeReference {
   workspaceBindingId?: string;
   workspaceDir?: string;
   scopeSource?: ExecutionScopeSource;
+  executionBackend?: ExecutionBackendId;
 }
 
 export interface RepositoryScopePort {
@@ -53,16 +57,28 @@ export class RepositoryScopeService implements RepositoryScopePort {
   /** Test/legacy override; production derives the root per repository. */
   private readonly explicitBaseDir?: string;
   private readonly bindingCreations = new Map<string, Promise<ResolvedExecutionScope>>();
+  private readonly execution: ExecutionBackendService;
+  private readonly git: BackendGitService;
+  private readonly backendWorkspaces: BackendWorkspaceService;
+  private readonly workspaceOverride?: WorkspacePort;
 
   constructor(
     private readonly store: RepositoryConfigPort,
-    options: { baseDir?: string; workspaces?: WorkspacePort } = {},
+    options: {
+      baseDir?: string;
+      workspaces?: WorkspacePort;
+      execution?: ExecutionBackendService;
+      git?: BackendGitService;
+      backendWorkspaces?: BackendWorkspaceService;
+    } = {},
   ) {
     this.explicitBaseDir = options.baseDir;
-    this.workspaces = options.workspaces ?? new WorkspaceService();
+    this.execution = options.execution ?? new ExecutionBackendService();
+    this.git = options.git ?? new BackendGitService(this.execution);
+    this.backendWorkspaces = options.backendWorkspaces
+      ?? new BackendWorkspaceService(store, this.execution);
+    this.workspaceOverride = options.workspaces;
   }
-
-  private readonly workspaces: WorkspacePort;
 
   /**
    * Where new worktrees for this repository live. Precedence:
@@ -71,18 +87,30 @@ export class RepositoryScopeService implements RepositoryScopePort {
    * the user's own clone instead of hiding in the roaming profile.
    */
   private worktreeRootFor(repository: Repository): string {
+    const backend = normalizeExecutionBackendId(repository.executionBackend);
+    if (backend !== NATIVE_EXECUTION_BACKEND) {
+      if (this.explicitBaseDir?.startsWith('/')) return posix.join(this.explicitBaseDir, 'worktrees');
+      return posix.join(posix.dirname(repository.rootPath), '.ade-worktrees');
+    }
     const custom = this.store.get().settings.worktreeBaseDir?.trim();
     if (custom) return resolve(custom);
     if (this.explicitBaseDir) return join(this.explicitBaseDir, 'worktrees');
     return join(dirname(repository.rootPath), '.ade-worktrees');
   }
 
-  async importRepository(path: string, requestedName?: string): Promise<Repository> {
-    const identity = await repositoryIdentity(path);
+  async importRepository(
+    path: string,
+    requestedName?: string,
+    backendValue: ExecutionBackendId = NATIVE_EXECUTION_BACKEND,
+  ): Promise<Repository> {
+    const executionBackend = normalizeExecutionBackendId(backendValue);
+    const identity = await this.git.identity(executionBackend, path);
     const config = this.store.get();
     const existing = config.repositories.find(
-      (repository) => samePath(repository.commonGitDir, identity.commonGitDir) ||
-        (!repository.verified && samePath(repository.rootPath, identity.rootPath)),
+      (repository) => repositoryBackend(repository) === executionBackend && (
+        samePath(this.execution, executionBackend, repository.commonGitDir, identity.commonGitDir) ||
+        (!repository.verified && samePath(this.execution, executionBackend, repository.rootPath, identity.rootPath))
+      ),
     );
     if (existing) {
       const updated = this.verifiedRepository(existing, identity, requestedName);
@@ -95,12 +123,17 @@ export class RepositoryScopeService implements RepositoryScopePort {
       return { ...updated };
     }
 
-    const name = requestedName?.trim() || basename(identity.rootPath) || 'Repository';
+    const name = requestedName?.trim()
+      || (executionBackend === NATIVE_EXECUTION_BACKEND
+        ? basename(identity.rootPath)
+        : posix.basename(identity.rootPath))
+      || 'Repository';
     const repository: Repository = {
       id: randomUUID(),
       name: name.slice(0, 200),
       rootPath: identity.rootPath,
       commonGitDir: identity.commonGitDir,
+      executionBackend,
       verified: true,
       createdAt: Date.now(),
     };
@@ -174,28 +207,35 @@ export class RepositoryScopeService implements RepositoryScopePort {
     const config = this.store.get();
     const binding = config.workspaceBindings.find((candidate) => candidate.id === bindingId);
     if (!binding) throw new Error(`ade: workspace binding not found "${bindingId}"`);
+    const backend = normalizeExecutionBackendId(binding.executionBackend);
     if (config.runWorkspaceLeases.some((lease) => lease.status === 'active' &&
-      (lease.workspaceBindingId === binding.id || samePath(lease.workspaceDir, binding.workspaceDir)))) {
+      (lease.workspaceBindingId === binding.id ||
+        samePath(this.execution, backend, lease.workspaceDir, binding.workspaceDir)))) {
       throw new Error('ade: workspace binding is owned by an active run');
     }
     if (config.runTasks.some((task) =>
       (task.status === 'queued' || task.status === 'running') &&
       (task.workspaceBindingId === binding.id ||
-        (task.workspaceDir !== undefined && samePath(task.workspaceDir, binding.workspaceDir))))) {
+        (task.workspaceDir !== undefined &&
+          samePath(this.execution, backend, task.workspaceDir, binding.workspaceDir))))) {
       throw new Error('ade: workspace binding still has queued or running tasks');
     }
-    if (options.busyWorkspaceDirs?.some((dir) => samePath(dir, binding.workspaceDir))) {
+    if (options.busyWorkspaceDirs?.some((dir) => (
+      samePath(this.execution, backend, dir, binding.workspaceDir)
+    ))) {
       throw new Error('ade: close the sessions running in this worktree first');
     }
 
     const repository = config.repositories.find((candidate) => candidate.id === binding.repositoryId);
-    const inspection = await this.workspaces.inspect(binding.workspaceDir);
+    const inspection = await this.workspacesFor(backend).inspect(binding.workspaceDir);
     let branchDeleted = false;
-    if (inspection.isRepo && repository && samePath(inspection.commonGitDir, repository.commonGitDir)) {
+    if (inspection.isRepo && repository && repositoryBackend(repository) === backend
+        && samePath(this.execution, backend, inspection.commonGitDir, repository.commonGitDir)) {
       if (!inspection.clean) {
         throw new Error('ade: worktree has uncommitted or untracked changes; commit or discard them first');
       }
-      const removal = await removeAgentWorktree(
+      const removal = await this.git.removeWorktree(
+        backend,
         repository.rootPath,
         binding.workspaceDir,
         binding.branch || inspection.branch,
@@ -226,11 +266,15 @@ export class RepositoryScopeService implements RepositoryScopePort {
       ? config.repositories.find((candidate) => candidate.id === repositoryId)
       : undefined;
     const workspaceDir = reference?.workspaceDir || binding?.workspaceDir || homeWorkspace(agent);
+    const executionBackend = normalizeExecutionBackendId(
+      reference?.executionBackend ?? binding?.executionBackend ?? repository?.executionBackend,
+    );
     const source = reference?.scopeSource
       ?? (repositoryId ? 'agent-default' : 'plain-home');
     const activeLease = config.runWorkspaceLeases.some((lease) => (
       lease.status === 'active' && (
-        (binding && lease.workspaceBindingId === binding.id) || samePath(lease.workspaceDir, workspaceDir)
+        (binding && lease.workspaceBindingId === binding.id)
+        || samePath(this.execution, executionBackend, lease.workspaceDir, workspaceDir)
       )
     ));
     return {
@@ -240,6 +284,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       repositoryName: repository?.name,
       workspaceBindingId: binding?.id,
       workspaceDir,
+      executionBackend,
       branch: binding?.branch ?? '',
       isRepo: Boolean(repository && binding && binding.status !== 'invalid'),
       isDefault: Boolean(repository?.id && repository.id === agent.defaultRepositoryId),
@@ -253,34 +298,40 @@ export class RepositoryScopeService implements RepositoryScopePort {
     source: ExecutionScopeSource,
   ): Promise<ResolvedExecutionScope> {
     const id = randomUUID();
+    const backend = repositoryBackend(repository);
     const agentSlug = `${slugify(agent.name)}-${agent.id.slice(0, 6).toLowerCase()}`;
     const repoSlug = `${slugify(repository.name)}-${repository.id.slice(0, 6).toLowerCase()}`;
-    const worktreePath = join(this.worktreeRootFor(repository), repoSlug, agentSlug);
+    const worktreePath = backend === NATIVE_EXECUTION_BACKEND
+      ? join(this.worktreeRootFor(repository), repoSlug, agentSlug)
+      : posix.join(this.worktreeRootFor(repository), repoSlug, agentSlug);
     const conflictingBinding = this.store.get().workspaceBindings.find(
-      (candidate) => candidate.status !== 'invalid' && samePath(candidate.workspaceDir, worktreePath),
+      (candidate) => candidate.status !== 'invalid'
+        && normalizeExecutionBackendId(candidate.executionBackend) === backend
+        && samePath(this.execution, backend, candidate.workspaceDir, worktreePath),
     );
     if (conflictingBinding) {
       throw new Error(`ade: worktree is already assigned to binding ${conflictingBinding.id}`);
     }
     // A process can stop after `git worktree add` but before config persistence.
     // Adopt that deterministic worktree on retry when its repository identity is exact.
-    let inspection = await this.workspaces.inspect(worktreePath);
+    let inspection = await this.workspacesFor(backend).inspect(worktreePath);
     let createdBranch = inspection.branch;
     let createdInThisAttempt = false;
     if (!inspection.isRepo) {
-      const result = await createAgentWorktree({
+      const result = await this.git.createWorktree(backend, {
         repoPath: repository.rootPath,
         agentSlug,
         worktreePath,
       });
       createdBranch = result.branch;
       createdInThisAttempt = true;
-      inspection = await this.workspaces.inspect(result.worktreePath);
+      inspection = await this.workspacesFor(backend).inspect(result.worktreePath);
     }
-    if (!inspection.isRepo || !samePath(inspection.commonGitDir, repository.commonGitDir)) {
+    if (!inspection.isRepo
+        || !samePath(this.execution, backend, inspection.commonGitDir, repository.commonGitDir)) {
       if (createdInThisAttempt) {
         try {
-          await removeAgentWorktree(repository.rootPath, worktreePath, createdBranch);
+          await this.git.removeWorktree(backend, repository.rootPath, worktreePath, createdBranch);
         } catch (rollbackError) {
           throw new Error(
             `ade: created worktree failed identity validation and rollback failed: ${errorMessage(rollbackError)}`,
@@ -296,6 +347,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       repositoryId: repository.id,
       workspaceDir: inspection.workspaceDir,
       branch: inspection.branch || createdBranch,
+      executionBackend: backend,
       status: 'ready',
       createdAt: now,
       lastUsedAt: now,
@@ -318,7 +370,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       }
       if (createdInThisAttempt) {
         try {
-          await removeAgentWorktree(repository.rootPath, worktreePath, createdBranch);
+          await this.git.removeWorktree(backend, repository.rootPath, worktreePath, createdBranch);
         } catch (rollbackError) {
           throw new Error(
             `ade: binding persistence failed and worktree rollback also failed: ${errorMessage(rollbackError)}`,
@@ -334,6 +386,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       workspaceBindingId: binding.id,
       workspaceDir: binding.workspaceDir,
       branch: binding.branch,
+      executionBackend: backend,
     };
   }
 
@@ -347,15 +400,28 @@ export class RepositoryScopeService implements RepositoryScopePort {
     }
     const conflict = this.store.get().workspaceBindings.find((candidate) => (
       candidate.id !== binding.id && candidate.status !== 'invalid' &&
-        samePath(candidate.workspaceDir, binding.workspaceDir)
+        normalizeExecutionBackendId(candidate.executionBackend)
+          === normalizeExecutionBackendId(binding.executionBackend) &&
+        samePath(
+          this.execution,
+          normalizeExecutionBackendId(binding.executionBackend),
+          candidate.workspaceDir,
+          binding.workspaceDir,
+        )
     ));
     if (conflict) {
       this.markBindingInvalid(binding.id);
       throw new Error(`ade: workspace is assigned to multiple bindings (${binding.id}, ${conflict.id})`);
     }
     const repository = knownRepository ?? await this.requireVerifiedRepository(binding.repositoryId);
-    const inspection = await this.workspaces.inspect(binding.workspaceDir);
-    if (!inspection.isRepo || !samePath(inspection.commonGitDir, repository.commonGitDir)) {
+    const backend = repositoryBackend(repository);
+    if (normalizeExecutionBackendId(binding.executionBackend) !== backend) {
+      this.markBindingInvalid(binding.id);
+      throw new Error('ade: workspace binding backend no longer matches its repository');
+    }
+    const inspection = await this.workspacesFor(backend).inspect(binding.workspaceDir);
+    if (!inspection.isRepo
+        || !samePath(this.execution, backend, inspection.commonGitDir, repository.commonGitDir)) {
       this.markBindingInvalid(binding.id);
       throw new Error(`ade: workspace binding no longer belongs to ${repository.name}`);
     }
@@ -364,6 +430,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       workspaceDir: inspection.workspaceDir,
       branch: inspection.branch,
       status: 'ready',
+      executionBackend: backend,
       lastUsedAt: Date.now(),
     };
     const config = this.store.get();
@@ -377,19 +444,25 @@ export class RepositoryScopeService implements RepositoryScopePort {
       workspaceBindingId: updated.id,
       workspaceDir: updated.workspaceDir,
       branch: updated.branch,
+      executionBackend: backend,
     };
   }
 
   private plainScope(agent: Agent): ResolvedExecutionScope {
     const workspaceDir = homeWorkspace(agent);
     mkdirSync(workspaceDir, { recursive: true });
-    return { source: 'plain-home', workspaceDir, branch: '' };
+    return {
+      source: 'plain-home',
+      workspaceDir,
+      branch: '',
+      executionBackend: NATIVE_EXECUTION_BACKEND,
+    };
   }
 
   private async requireVerifiedRepository(repositoryId: string): Promise<Repository> {
     const repository = this.store.get().repositories.find((candidate) => candidate.id === repositoryId);
     if (!repository) throw new Error(`ade: repository not found "${repositoryId}"`);
-    const identity = await repositoryIdentity(repository.rootPath);
+    const identity = await this.git.identity(repositoryBackend(repository), repository.rootPath);
     const verified = this.verifiedRepository(repository, identity);
     if (!sameRepository(repository, verified)) {
       const config = this.store.get();
@@ -411,6 +484,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       name: requestedName?.trim().slice(0, 200) || repository.name,
       rootPath: identity.rootPath,
       commonGitDir: identity.commonGitDir,
+      executionBackend: repositoryBackend(repository),
       verified: true,
     };
   }
@@ -428,6 +502,10 @@ export class RepositoryScopeService implements RepositoryScopePort {
     if (!agent) throw new Error(`ade: agent not found "${agentId}"`);
     return agent;
   }
+
+  private workspacesFor(backend: ExecutionBackendId): WorkspacePort {
+    return this.workspaceOverride ?? this.backendWorkspaces.forBackend(backend);
+  }
 }
 
 export function homeWorkspace(agent: Agent): string {
@@ -439,15 +517,25 @@ function slugify(value: string): string {
   return slug || 'item';
 }
 
-function samePath(left: string, right: string): boolean {
-  return sameHostPath(left, right);
+function samePath(
+  execution: ExecutionBackendService,
+  backend: ExecutionBackendId,
+  left: string,
+  right: string,
+): boolean {
+  return execution.samePath(backend, left, right);
 }
 
 function sameRepository(left: Repository, right: Repository): boolean {
   return left.name === right.name
-    && samePath(left.rootPath, right.rootPath)
-    && samePath(left.commonGitDir, right.commonGitDir)
+    && left.rootPath === right.rootPath
+    && left.commonGitDir === right.commonGitDir
+    && repositoryBackend(left) === repositoryBackend(right)
     && left.verified === right.verified;
+}
+
+function repositoryBackend(repository: Repository): ExecutionBackendId {
+  return normalizeExecutionBackendId(repository.executionBackend);
 }
 
 function errorMessage(error: unknown): string {

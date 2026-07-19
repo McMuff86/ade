@@ -8,7 +8,7 @@
  */
 
 import { BrowserWindow } from 'electron';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
 import * as pty from 'node-pty';
@@ -24,12 +24,16 @@ import {
   resolveTaskLaunchCommand,
 } from '../../shared/runtimes';
 import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  executionBackendPlatform,
+} from '../../shared/executionBackends';
 import type { ConfigStore } from '../config/store';
 import { ClaudeActivityParser, type ActivityLine } from '../orchestration/claudeStream';
 import { CodexActivityParser } from '../orchestration/codexStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
-import { resolveHostShell, sameHostPath } from '../platform';
+import { resolveHostShell } from '../platform';
 import {
   homeWorkspace,
   type RepositoryScopePort,
@@ -41,6 +45,7 @@ import {
   type TaskLease,
   type TaskQueueKey,
 } from './TaskQueue';
+import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 
 const RING_BUFFER_CAP = 256 * 1024;
 const ACTIVITY_LINE_CAP = 2_000;
@@ -52,6 +57,13 @@ const MAX_TASK_PROMPT_CHARS = 32_000;
 const EXITED_SESSION_RETENTION_MS = 30 * 60 * 1000;
 const FORCE_STOP_MS = 5_000;
 const CANCELLED_DISPATCH_TTL_MS = 10 * 60 * 1000;
+const WSL_MANAGED_PATH_ENV = new Set([
+  'ADE_TASK_DIR',
+  'ADE_TASK_RESULT_PATH',
+  'ADE_TASK_SCHEMA_PATH',
+  'ADE_MAILBOX_INBOX',
+  'ADE_MAILBOX_OUTBOX',
+]);
 
 export const MAX_ACTIVE_TASK_SESSIONS = 4;
 
@@ -86,6 +98,8 @@ interface Session {
   removeOnExit: boolean;
   reapTimer?: ReturnType<typeof setTimeout>;
   forceStopTimer?: ReturnType<typeof setTimeout>;
+  /** Host-side prompt transport scratch used only by WSL task sessions. */
+  promptScratchDir?: string;
   /** Live activity rendered from a machine-readable runtime stream. */
   activity?: {
     parser: ClaudeActivityParser | CodexActivityParser;
@@ -118,6 +132,7 @@ export class PtyManager {
     private readonly store: ConfigStore,
     private readonly taskLifecycle?: TaskLifecycleSink,
     scopes?: RepositoryScopePort,
+    private readonly execution = new ExecutionBackendService(),
   ) {
     this.scopes = scopes ?? {
       resolve: async (agentId) => {
@@ -127,6 +142,7 @@ export class PtyManager {
           repositoryId: agent.defaultRepositoryId,
           workspaceDir: agent.workspaceDir?.trim() || homeWorkspace(agent),
           branch: '',
+          executionBackend: NATIVE_EXECUTION_BACKEND,
         };
       },
     };
@@ -152,7 +168,7 @@ export class PtyManager {
     if (!text) {
       const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
       this.assertScopeAvailable(scope);
-      return this.spawn(agentId, scope);
+      return await this.spawn(agentId, scope);
     }
     if (text.includes('\0')) {
       const error = new Error('ade: task contains a null character');
@@ -181,7 +197,7 @@ export class PtyManager {
       if (dispatchId && this.cancelledDispatches.has(dispatchId)) {
         throw new Error('ade: task dispatch was cancelled');
       }
-      return this.spawn(agentId, scope, { task: text, dispatchId, runTaskId, lease });
+      return await this.spawn(agentId, scope, { task: text, dispatchId, runTaskId, lease });
     } catch (error) {
       lease?.release();
       const cancelled = error instanceof TaskQueueCancelledError ||
@@ -309,8 +325,7 @@ export class PtyManager {
         session.cancelled = true;
         this.notifyFinished(session, -1);
       }
-      session.taskLease?.release();
-      session.taskLease = undefined;
+      this.releaseTaskLease(session);
       try {
         session.proc.kill();
       } catch {
@@ -320,11 +335,11 @@ export class PtyManager {
     this.sessions.clear();
   }
 
-  private spawn(
+  private async spawn(
     agentId: string,
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
-  ): SessionMeta {
+  ): Promise<SessionMeta> {
     const agent = this.requireAgent(agentId);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
@@ -332,7 +347,7 @@ export class PtyManager {
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (!managedLaunch) {
+    if (!managedLaunch && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
         injectMemoryBlock(agent, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
@@ -340,24 +355,52 @@ export class PtyManager {
       }
     }
 
-    const cwd = this.resolveCwd(scope.workspaceDir);
-    const spec = task
-      ? this.resolveTaskSpawn(agent, task.task, managedLaunch)
-      : this.resolveInteractiveSpawn(agent);
-    const env = {
-      ...process.env,
-      TERM: 'xterm-256color',
-      ...(spec.env ?? {}),
-      ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
-    } as Record<string, string>;
-    const proc = pty.spawn(spec.file, spec.args, {
+    const cwd = await this.resolveCwd(scope);
+    const backendPlatform = executionBackendPlatform(scope.executionBackend);
+    const baseSpec = task
+      ? this.resolveTaskSpawn(agent, task.task, managedLaunch, backendPlatform)
+      : this.resolveInteractiveSpawn(agent, backendPlatform);
+    let spec = baseSpec;
+    let promptScratchDir: string | undefined;
+    let backendEnv: Record<string, string> | undefined;
+    if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND && task) {
+      const prepared = await this.prepareWslTask(baseSpec, scope.executionBackend);
+      spec = prepared.spec;
+      backendEnv = prepared.env;
+      promptScratchDir = prepared.promptScratchDir;
+    }
+    const command = this.execution.ptyCommand(
+      scope.executionBackend,
+      spec.file,
+      spec.args,
+      scope.workspaceDir,
+      scope.executionBackend === NATIVE_EXECUTION_BACKEND ? undefined : {
+        TERM: 'xterm-256color',
+        ...(backendEnv ?? spec.env ?? {}),
+      },
+    );
+    const env = scope.executionBackend === NATIVE_EXECUTION_BACKEND
+      ? {
+          ...process.env,
+          TERM: 'xterm-256color',
+          ...(spec.env ?? {}),
+          ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
+        } as Record<string, string>
+      : process.env as Record<string, string>;
+    let proc: pty.IPty;
+    try {
+      proc = pty.spawn(command.file, command.args, {
       name: 'xterm-256color',
       cols: DEFAULT_COLS,
       rows: DEFAULT_ROWS,
-      cwd,
+      cwd: command.hostCwd ?? (scope.executionBackend === NATIVE_EXECUTION_BACKEND ? cwd : os.homedir()),
       env,
       useConpty: true,
-    });
+      });
+    } catch (error) {
+      if (promptScratchDir) rmSync(promptScratchDir, { recursive: true, force: true });
+      throw error;
+    }
 
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
@@ -373,6 +416,7 @@ export class PtyManager {
       repositoryId: scope.repositoryId,
       workspaceBindingId: scope.workspaceBindingId,
       workspaceDir: scope.workspaceDir,
+      executionBackend: scope.executionBackend,
       scopeSource: scope.source,
     };
     const session: Session = {
@@ -385,6 +429,7 @@ export class PtyManager {
       cancelled: false,
       stopping: false,
       removeOnExit: false,
+      promptScratchDir,
       activity: managedLaunch?.activityFormat
         ? {
             parser: managedLaunch.activityFormat === 'codex-jsonl'
@@ -457,7 +502,7 @@ export class PtyManager {
 
     console.log(
       `[ade] pty:create ${id} agent=${agentId} kind=${meta.kind} runtime=${agent.runtime} ` +
-        `file=${spec.file} args=${JSON.stringify(spec.args)} ` +
+        `backend=${scope.executionBackend} file=${command.file} args=${JSON.stringify(command.args)} ` +
         `transport=${spec.taskTransport ?? 'interactive'} cwd=${cwd}`,
     );
     return { ...meta };
@@ -555,6 +600,10 @@ export class PtyManager {
   private releaseTaskLease(session: Session): void {
     session.taskLease?.release();
     session.taskLease = undefined;
+    if (session.promptScratchDir) {
+      rmSync(session.promptScratchDir, { recursive: true, force: true });
+      session.promptScratchDir = undefined;
+    }
   }
 
   private markDispatchCancelled(dispatchId: string): void {
@@ -598,7 +647,7 @@ export class PtyManager {
     const active = config.runWorkspaceLeases.find((lease) => (
       lease.status === 'active' && (
         (scope.workspaceBindingId && lease.workspaceBindingId === scope.workspaceBindingId) ||
-        sameWorkspace(lease.workspaceDir, scope.workspaceDir)
+        this.execution.samePath(scope.executionBackend, lease.workspaceDir, scope.workspaceDir)
       )
     ));
     if (!active) return;
@@ -641,20 +690,21 @@ export class PtyManager {
     }
   }
 
-  private resolveCwd(workspaceDir: string): string {
-    const dir = workspaceDir?.trim() || os.homedir();
+  private async resolveCwd(scope: ResolvedExecutionScope): Promise<string> {
+    const dir = scope.workspaceDir?.trim() || os.homedir();
     try {
-      mkdirSync(dir, { recursive: true });
+      if (scope.executionBackend === NATIVE_EXECUTION_BACKEND) mkdirSync(dir, { recursive: true });
+      else await this.execution.mkdir(scope.executionBackend, dir);
     } catch (error) {
       console.warn(`[ade] pty:create - could not create workspaceDir ${dir}:`, error);
     }
     return dir;
   }
 
-  private resolveInteractiveSpawn(agent: Agent): SpawnSpec {
+  private resolveInteractiveSpawn(agent: Agent, platform: 'win32' | 'posix'): SpawnSpec {
     const command = resolveLaunchCommand(agent);
-    const isWin = process.platform === 'win32';
-    const shell = resolveHostShell();
+    const isWin = platform === 'win32';
+    const shell = isWin ? resolveHostShell() : '/bin/bash';
     const args = isWin ? ['-NoLogo'] : ['-l'];
     const lineEnding = isWin ? '\r' : '\n';
     return command.trim()
@@ -671,15 +721,16 @@ export class PtyManager {
       command?: string;
       transport?: 'argument' | 'stdin';
     },
+    platform: 'win32' | 'posix' = process.platform === 'win32' ? 'win32' : 'posix',
   ): SpawnSpec {
-    const isWin = process.platform === 'win32';
+    const isWin = platform === 'win32';
     const task = managed?.command
       ? { command: managed.command, transport: managed.transport ?? 'argument' as const }
       : resolveTaskLaunchCommand(agent, isWin ? 'win32' : 'posix');
     if (!task) {
       throw new Error(`ade: runtime "${agent.runtime}" has no non-interactive task transport`);
     }
-    const shell = resolveHostShell();
+    const shell = isWin ? resolveHostShell() : '/bin/bash';
     return {
       file: shell,
       args: isWin ? ['-NoLogo', '-NoProfile', '-Command', task.command] : ['-lc', task.command],
@@ -690,13 +741,49 @@ export class PtyManager {
     };
   }
 
+  private async prepareWslTask(
+    spec: SpawnSpec,
+    backend: ResolvedExecutionScope['executionBackend'],
+  ): Promise<{ spec: SpawnSpec; env: Record<string, string>; promptScratchDir: string }> {
+    if (!spec.taskPrompt || spec.args[0] !== '-lc' || !spec.args[1]) {
+      throw new Error('ade: WSL task launch requires the POSIX stdin transport');
+    }
+    const mappings: Array<[string, string]> = [];
+    const env: Record<string, string> = {};
+    for (const [name, value] of Object.entries(spec.env ?? {})) {
+      if (WSL_MANAGED_PATH_ENV.has(name)) {
+        const translated = await this.execution.toBackendPath(backend, value);
+        env[name] = translated;
+        mappings.push([value, translated]);
+      } else {
+        env[name] = value;
+      }
+    }
+    let prompt = spec.taskPrompt;
+    for (const [hostPath, backendPath] of mappings.sort((left, right) => right[0].length - left[0].length)) {
+      prompt = prompt.split(hostPath).join(backendPath);
+    }
+    const promptScratchDir = mkdtempSync(join(os.tmpdir(), 'ade-wsl-prompt-'));
+    const promptHostPath = join(promptScratchDir, 'PROMPT.txt');
+    try {
+      writeFileSync(promptHostPath, prompt, 'utf8');
+      env['ADE_TASK_PROMPT_FILE'] = await this.execution.toBackendPath(backend, promptHostPath);
+      const command = 'ADE_TASK_PROMPT="$(cat -- "$ADE_TASK_PROMPT_FILE")"; ' +
+        `export ADE_TASK_PROMPT; ${spec.args[1]}`;
+      return {
+        spec: { ...spec, args: ['-lc', command], taskPrompt: undefined, env },
+        env,
+        promptScratchDir,
+      };
+    } catch (error) {
+      rmSync(promptScratchDir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
   private broadcast(channel: string, payload: unknown): void {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send(channel, payload);
     }
   }
-}
-
-function sameWorkspace(left: string, right: string): boolean {
-  return sameHostPath(left, right);
 }

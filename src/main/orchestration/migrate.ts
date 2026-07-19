@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, posix, resolve } from 'node:path';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  normalizeExecutionBackendId,
+  type ExecutionBackendId,
+} from '../../shared/executionBackends';
 import {
   DEFAULT_CONFIG,
   DEFAULT_RUN_BUDGET,
@@ -202,14 +207,29 @@ function migrateRepositoryScopes(
 ): RepositoryScopeMigration {
   let categories = sourceCategories;
   let agents = sourceAgents;
-  const repositories = [...sourceRepositories];
-  const workspaceBindings = [...sourceBindings];
-  let migrated = false;
+  const repositories = sourceRepositories.map((repository) => ({
+    ...repository,
+    executionBackend: normalizeExecutionBackendId(repository.executionBackend),
+  }));
+  const repositoryBackend = new Map(repositories.map((repository) => [
+    repository.id,
+    repository.executionBackend,
+  ]));
+  const workspaceBindings = sourceBindings.map((binding) => ({
+    ...binding,
+    executionBackend: repositoryBackend.get(binding.repositoryId)
+      ?? normalizeExecutionBackendId(binding.executionBackend),
+  }));
+  let migrated = repositories.some((repository, index) => (
+    repository.executionBackend !== sourceRepositories[index]?.executionBackend
+  )) || workspaceBindings.some((binding, index) => (
+    binding.executionBackend !== sourceBindings[index]?.executionBackend
+  ));
 
   const repositoryByPath = new Map<string, Repository>();
   for (const repository of repositories) {
-    repositoryByPath.set(pathKey(repository.rootPath), repository);
-    repositoryByPath.set(pathKey(repository.commonGitDir), repository);
+    repositoryByPath.set(pathKey(repository.rootPath, repository.executionBackend), repository);
+    repositoryByPath.set(pathKey(repository.commonGitDir, repository.executionBackend), repository);
   }
 
   const categoryUpdates = new Map<string, Category>();
@@ -218,7 +238,7 @@ function migrateRepositoryScopes(
 
   sourceCategories.forEach((category, categoryIndex) => {
     if (!category.repoPath) return;
-    const key = pathKey(category.repoPath);
+    const key = pathKey(category.repoPath, NATIVE_EXECUTION_BACKEND);
     let repository = category.defaultRepositoryId
       ? repositories.find((candidate) => candidate.id === category.defaultRepositoryId)
       : repositoryByPath.get(key);
@@ -228,6 +248,7 @@ function migrateRepositoryScopes(
         name: basename(resolve(category.repoPath)) || category.name,
         rootPath: resolve(category.repoPath),
         commonGitDir: resolve(category.repoPath),
+        executionBackend: NATIVE_EXECUTION_BACKEND,
         verified: false,
         createdAt: now + categoryIndex,
       };
@@ -265,6 +286,7 @@ function migrateRepositoryScopes(
           repositoryId: repository.id,
           workspaceDir: agent.workspaceDir,
           branch: '',
+          executionBackend: repository.executionBackend,
           status: 'legacy-unverified',
           createdAt: now + workspaceBindings.length,
           lastUsedAt: now + workspaceBindings.length,
@@ -284,8 +306,10 @@ function migrateRepositoryScopes(
   return { categories, agents, repositories, workspaceBindings, migrated };
 }
 
-function pathKey(path: string): string {
-  return hostPathKey(path);
+function pathKey(path: string, backend: ExecutionBackendId): string {
+  if (backend === NATIVE_EXECUTION_BACKEND) return `${backend}\0${hostPathKey(path)}`;
+  const normalized = posix.normalize(path.replace(/\\/g, '/'));
+  return `${backend}\0${normalized === '/' ? normalized : normalized.replace(/\/+$/, '')}`;
 }
 
 function deterministicId(kind: string, value: string): string {

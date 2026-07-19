@@ -35,6 +35,7 @@ import type {
   Repository,
   WorkspaceScopeDescriptor,
 } from './types';
+import type { ExecutionBackendId } from './executionBackends';
 
 /* --------------------------------------------------------------- channels */
 
@@ -94,6 +95,7 @@ export const IPC = {
   FsRename: 'fs:rename',
   FsDelete: 'fs:delete',
   DialogPickFolder: 'dialog:pickFolder',
+  WslList: 'wsl:list',
 } as const;
 
 /** Event channels (main -> renderer via webContents.send). */
@@ -219,6 +221,8 @@ export interface PtyCancelTasksResult {
 export interface RuntimeDiagnoseRequest {
   /** Omit to check every configured agent. */
   agentId?: string;
+  /** Optional immutable session scope; requires agentId. */
+  sessionId?: string;
 }
 export interface RunArtifactCreateRequest {
   runId: string;
@@ -352,6 +356,20 @@ export interface FsRenameResult {
 export interface RepositoryImportRequest {
   path: string;
   name?: string;
+  /** Omitted only for compatibility with pre-WSL renderer builds. */
+  executionBackend?: ExecutionBackendId;
+}
+
+export interface WslDistributionInfo {
+  name: string;
+  backend: ExecutionBackendId;
+  available: boolean;
+  error?: string;
+}
+
+export interface WslListResult {
+  supported: boolean;
+  distributions: WslDistributionInfo[];
 }
 
 export interface WorkspaceDescribeRequest {
@@ -452,6 +470,7 @@ export interface IpcInvokeMap {
   'fs:rename': { req: FsRenameRequest; res: FsRenameResult };
   'fs:delete': { req: FsReadRequest; res: void };
   'dialog:pickFolder': { req: void; res: DialogPickFolderResult };
+  'wsl:list': { req: void; res: WslListResult };
 }
 
 /** Payload map for every main -> renderer event channel. */

@@ -1,0 +1,92 @@
+name: Package Linux
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build Linux packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install native build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y python3 make g++
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4.4.0
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux-native dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source and Electron workflow
+        run: |
+          pnpm run typecheck
+          pnpm test
+          pnpm run build
+          pnpm exec playwright install-deps
+          xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Build AppImage and Debian package
+        run: pnpm exec electron-builder --linux AppImage deb --x64 --publish never
+
+      - name: Verify packaged executable
+        env:
+          ADE_E2E_EXECUTABLE: ${{ github.workspace }}/dist/linux-unpacked/ade
+        run: xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Verify AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          APPIMAGE_PATH="$(find "${{ github.workspace }}/dist" -maxdepth 1 -name 'ADE-*-x86_64.AppImage' -print -quit)"
+          test -n "$APPIMAGE_PATH"
+          chmod +x "$APPIMAGE_PATH"
+          ADE_E2E_EXECUTABLE="$APPIMAGE_PATH" xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Install and verify Debian package
+        run: |
+          sudo apt-get install -y ./dist/ADE-*-amd64.deb
+          ADE_E2E_EXECUTABLE=/opt/ADE/ade xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
+      - name: Write SHA-256 checksums
+        run: |
+          cd dist
+          sha256sum -- ADE-*.AppImage ADE-*.deb > SHA256SUMS.txt
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ADE-linux-x64
+          path: |
+            dist/ADE-*.AppImage
+            dist/ADE-*.deb
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Electron failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-electron-workflow-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

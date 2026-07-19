@@ -4,6 +4,8 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "author": "Adi Muff",
+  "homepage": "https://github.com/McMuff86/ade",
+  "desktopName": "com.adimuff.ade.desktop",
   "description": "ADE - agentic development environment (desktop workspace for CLI agents)",
   "main": "out/main/index.js",
   "scripts": {
@@ -11,10 +13,12 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "pnpm run test:memory && pnpm run test:dispatch && pnpm run test:runtime && pnpm run test:orchestration && pnpm run test:orchestration-beta && pnpm run test:prompts && pnpm run test:repositories && pnpm run test:workspace-fs && pnpm run test:security",
+    "test": "pnpm run test:memory && pnpm run test:dispatch && pnpm run test:runtime && pnpm run test:backends && pnpm run test:orchestration && pnpm run test:orchestration-beta && pnpm run test:prompts && pnpm run test:repositories && pnpm run test:workspace-fs && pnpm run test:security",
     "test:memory": "tsx scripts/test-memory.ts",
     "test:dispatch": "tsx scripts/test-worker-dispatch.ts",
     "test:runtime": "tsx scripts/test-runtime-reliability.ts",
+    "test:backends": "tsx scripts/test-execution-backends.ts",
+    "test:wsl-backend": "tsx scripts/test-execution-backends.ts --wsl",
     "test:orchestration": "tsx scripts/test-orchestration.ts",
     "test:orchestration-beta": "tsx scripts/test-orchestration-beta.ts",
     "test:prompts": "tsx scripts/test-prompts.ts",
@@ -27,6 +31,8 @@
     "verify": "pnpm run typecheck && pnpm test && pnpm run build && tsx scripts/test-electron-workflow.ts",
     "package:dir": "pnpm run build && electron-builder --win --x64 --dir",
     "package:win": "pnpm run build && electron-builder --win nsis --x64",
+    "package:linux:dir": "pnpm run build && electron-builder --linux --x64 --dir --publish never",
+    "package:linux": "pnpm run build && electron-builder --linux AppImage deb --x64 --publish never",
     "rebuild:pty": "electron-rebuild -f -w node-pty"
   },
   "build": {
@@ -56,6 +62,37 @@
       ],
       "icon": "agentic_coding_environment_icon.png",
       "artifactName": "ADE-${version}-${arch}-Setup.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "ade",
+      "icon": "agentic_coding_environment_icon.png",
+      "maintainer": "Adi Muff <McMuff86@users.noreply.github.com>",
+      "category": "Development",
+      "packageCategory": "devel",
+      "syncDesktopName": true,
+      "synopsis": "Desktop workspace for orchestrating CLI coding agents",
+      "desktop": {
+        "entry": {
+          "Name": "ADE",
+          "Comment": "Agentic development environment for CLI coding agents",
+          "Keywords": "development;agents;terminal;git;"
+        }
+      },
+      "artifactName": "ADE-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

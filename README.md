@@ -20,6 +20,10 @@ terminals around named agents.
   keep a general agent portable, or choose a repo per new session/run. Every
   agent/repo pair gets its own ADE worktree; the right panel names the exact
   repo, source, branch/path, changes and lease used by the selected session.
+- **Explicit execution backends**: a Windows ADE repository can remain native
+  or deliberately run through `wsl:<distribution>`. Linux paths, Git,
+  worktrees, diagnostics, terminals and managed agents stay on the selected
+  side of that boundary and the UI always labels WSL scopes.
 - **Reusable agent templates**: save an agent's runtime/profile and bounded
   memory seed, then spawn an independent identity and optionally attach it to
   another repository.
@@ -59,11 +63,14 @@ pnpm dev
 real Electron/ConPTY workflow against an isolated temporary profile.
 
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
-`pnpm test:runtime`, `pnpm test:orchestration`,
+`pnpm test:runtime`, `pnpm test:backends`, `pnpm test:orchestration`,
 `pnpm test:orchestration-beta`, `pnpm test:prompts`,
 `pnpm test:repositories`, `pnpm test:workspace-fs`, and
 `pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
+On a Windows host with WSL, `pnpm test:wsl-backend` adds real distro/Git/files/
+PTY integration; setting `ADE_WSL_BACKEND_E2E=1` on the Electron workflow adds
+the complete cross-boundary managed-run and restart scenario.
 
 `pnpm agents:codex` audits the saved ADE roster without changing it;
 `pnpm agents:codex -- --apply` safely backs up the inactive profile and migrates
@@ -93,13 +100,56 @@ The assisted NSIS installer is unsigned for local/branch builds. The Windows
 package workflow uses `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` when configured
 to Authenticode-sign release artifacts. Auto-update is not implemented yet.
 
-Native Linux/WSLg source execution is now locally verified (Linux-built
-`node-pty`, 392 focused assertions, production build and 46-check
-Electron/Playwright workflow). Windows passes 393 focused assertions plus the
-same 46 UI checks. A future Windows-to-WSL execution backend and macOS remain
-separate engineering milestones; exact readiness and exit criteria are tracked in
-`docs/MULTIPLATFORM_PLAN.md`. The supported packaged distribution is still
-Windows.
+## Linux package and WSLg
+
+Build from a native Linux checkout with Linux dependencies (not the Windows
+`node_modules` tree mounted through `/mnt/c`):
+
+```bash
+sudo apt install python3 make g++
+corepack enable
+pnpm install --frozen-lockfile
+pnpm package:linux:dir  # dist/linux-unpacked/ade
+pnpm package:linux      # dist/ADE-<version>-x86_64.AppImage + amd64.deb
+```
+
+Run the AppImage or install the Debian package:
+
+```bash
+chmod +x dist/ADE-*-x86_64.AppImage
+./dist/ADE-*-x86_64.AppImage
+# On systems without FUSE: APPIMAGE_EXTRACT_AND_RUN=1 ./dist/ADE-*-x86_64.AppImage
+
+sudo apt install ./dist/ADE-*-amd64.deb
+ade
+```
+
+The Linux profile is independent at
+`${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`. Local Ubuntu 24.04
+proof covers the native build, 409 focused contracts, and 47-check source,
+unpacked, AppImage and Debian-payload Electron workflows. The
+release workflow also installs the `.deb`, reruns the packaged workflow and
+publishes `SHA256SUMS.txt`; its first hosted execution remains pending.
+
+## Windows GUI with a WSL backend
+
+Install WSL2 and, inside the chosen distribution, provide `/bin/bash`, Git,
+Python 3 and `gio` (Ubuntu: `sudo apt install git python3 libglib2.0-bin`).
+Install/authenticate Codex and any other selected runtime in that distribution,
+because Windows credentials and executables are not reused.
+
+In the repository scope panel choose **Pfad…**, select the explicit
+`WSL · <distribution>` execution backend, enter a Linux absolute path such as
+`/home/adi/project`, import it and optionally set it as the agent default. The
+Windows folder picker remains for native paths only. WSL worktrees are created
+beside the repository under `.ade-worktrees`; ADE never mixes Windows Git with
+Linux Git for one binding.
+
+The extended local gate passes 31 backend integration checks and 67 real
+Electron/Playwright checks, including Unicode/spaces, symlink refusal, a
+missing distro, a managed approval/integration/verification run, app restart,
+reopen and cleanup. macOS remains a separate unverified milestone; exact
+support boundaries are in `docs/MULTIPLATFORM_PLAN.md`.
 
 ## Notes
 

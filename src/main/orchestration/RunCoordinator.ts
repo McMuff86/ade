@@ -9,6 +9,11 @@ import type {
   SessionMeta,
   StructuredTaskResult,
 } from '../../shared/types';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  executionBackendPlatform,
+  normalizeExecutionBackendId,
+} from '../../shared/executionBackends';
 import { resolveTaskLaunchCommand } from '../../shared/runtimes';
 import { MemoryStore } from '../memory/MemoryStore';
 import { snapshotAgentInstructions } from '../memory/agentInstructions';
@@ -90,6 +95,7 @@ export class RunCoordinator {
           repositoryId: agent.defaultRepositoryId,
           workspaceDir: agent.workspaceDir,
           branch: '',
+          executionBackend: NATIVE_EXECUTION_BACKEND,
         };
       },
     };
@@ -950,12 +956,16 @@ export class RunCoordinator {
     }
     const files = this.mailbox.taskFiles(agent, task.runId, task.id);
     this.writeTaskContext(task, agent, files);
+    const binding = lease.workspaceBindingId
+      ? this.store.get().workspaceBindings.find((candidate) => candidate.id === lease.workspaceBindingId)
+      : undefined;
+    const executionBackend = normalizeExecutionBackendId(binding?.executionBackend);
     const launch = this.adapters.prepare(
       agent,
       task,
       task.prompt,
       files,
-      process.platform === 'win32' ? 'win32' : 'posix',
+      executionBackendPlatform(executionBackend),
     );
     launch.workspaceHeadSha = workspaceHeadSha;
     this.launches.set(task.id, launch);
