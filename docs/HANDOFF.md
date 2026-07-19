@@ -143,6 +143,28 @@ GitHub Actions auf `d32faa9`:
   die unverändert strenge Inhaltsassertion; lokal 47/47 und beide Hosted-Runs
   bestätigen den Fix.
 
+Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
+
+- lokaler, nicht veröffentlichter Branch `ade/goal6-quality-candidate` im
+  separaten Worktree
+  `C:\Users\Adi.Muff\repos\.ade-quality-worktrees\2d-rpg-goal6-quality`,
+  finaler HEAD `77cdaff` auf unveränderter Basis `81820b9`;
+- ausschließlich die erfolgreich integrierten/verifizierten Managed-Ergebnisse
+  F1, F2, F5, F6 und F8; F3/F4 sowie Drafts, Abbrüche und Baseline-Arme bleiben
+  bewusst ausgeschlossen;
+- eine frische Frozen-Installation deckte beim kombinierten F2/F8-Test einen
+  zuvor ambient erfüllten Node-Typvertrag auf. Der Kandidat deklariert deshalb
+  `@types/node@22.18.0` explizit und reproduzierbar im Lockfile;
+- finaler HEAD: **130/130** Vitest-Tests, **5/5** Server-Tests, TypeScript und
+  Production-Build grün; die F8-Negativkontrolle nannte bei entferntem
+  `impact.png` exakt Waffe und Asset-Pfad und stellte die Datei wieder her;
+- der echte Headless-Chrome-Smoke lief vor und nach dem finalen Dokumentations-
+  commit grün und prüfte Gameplay, alle zwölf Waffen, Audio, Kamera/Pause,
+  Arena-Größen, Workshop/Arsenal, Team-Editor und 5v5-Setup. Die ignorierten
+  Screenshots liegen im Kandidaten-Worktree unter `artifacts/`;
+- vollständige Evidence und Grenzen stehen in
+  `docs/ade-goal6-quality-candidate.md` auf dem Kandidatenbranch.
+
 ## Sicherer Arbeitszustand
 
 - Die erweiterten WSL-Tests hinterließen keine Test-Repositories, Worktrees,
@@ -151,8 +173,10 @@ GitHub Actions auf `d32faa9`:
   oder Test-App-Prozesse. Die bereits laufende echte ADE-Instanz mit dem normalen
   `%APPDATA%\ade`-Profil wurde erkannt und bewusst nicht beendet.
 - Keine aktiven Goal-6-Runs oder Leases; das Pilot-Originalrepo und sein
-  `main` bleiben unverändert auf `81820b9`. Fremde lokale Änderungen dort
-  niemals anfassen oder bereinigen.
+  `main` sowie `origin/main` bleiben unverändert auf `81820b9`. Seine drei
+  modifizierten und sechs unversionierten, fremden Gameplay-Dateien sind
+  unverändert; niemals anfassen oder bereinigen. Nur der oben dokumentierte
+  Quality-Worktree und sein lokaler Kandidatenbranch kamen hinzu.
 - Das ADE-Pilotprofil bleibt unter `%APPDATA%\ADE`; echte Profil-Läufe brauchen
   weiterhin `ADE_USER_DATA_DIR=%APPDATA%\ADE`.
 - `out/` gehört zum geprüften Windows-Quellstand. `dist/linux-x64` ist bewusst
@@ -187,11 +211,13 @@ GitHub Actions auf `d32faa9`:
 
 ## Nächste Schritte
 
-1. Nach dem ADE-Commit einen sauberen, separaten Worktree aus den bereits
-   verifizierten Goal-6-Integrationsbranches für einen
-   `2D_rpg_jumpnrun`-Quality-Kandidaten aufbauen und vollständig testen. Den
-   vorhandenen schmutzigen Original-Worktree nicht verändern; externer Push/
-   Draft-PR erst nach eigener Operator-Freigabe.
+1. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
+   F6-Balanceänderung menschlich spielen. Erst nach expliziter Operator-
+   Freigabe einen Remote-Branch/Draft-PR anlegen. Die historische Aggregation
+   trägt bewusst kein frisches ADE-Run-Attest: Für ADE-eigenes Verified
+   Publishing muss der Inhalt einen neuen Managed Run durchlaufen; alternativ
+   braucht der manuelle Push/PR eine separat freigegebene, wahrheitsgemäß als
+   manuell aggregiert bezeichnete Publication.
 2. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
 3. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
