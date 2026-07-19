@@ -7,7 +7,7 @@
  * Pure Node — no Electron — so it runs under tsx.
  */
 
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -16,6 +16,12 @@ import {
   snapshotAgentInstructions,
   syncAgentInstructions,
 } from '../src/main/memory/agentInstructions';
+import {
+  inspectLegacyClaudeInstruction,
+  isEntirelyAdeManagedInstruction,
+  MEMORY_END_MARKER,
+  MEMORY_START_MARKER,
+} from '../src/main/memory/legacyInstructions';
 import { ENTRY_DELIMITER, MemoryStore } from '../src/main/memory/MemoryStore';
 import type { Agent } from '../src/shared/types';
 
@@ -176,11 +182,25 @@ section('role-aware AGENTS.md');
   const path = join(agent.memoryDir, 'AGENTS.md');
   writeFileSync(path, `${created}\nUser-owned local guidance.\n`, 'utf8');
   const worker = syncAgentInstructions({ ...agent, teamRole: 'worker', codexReasoningEffort: 'high' });
-  check('role updates replace exactly one managed block and preserve user guidance',
+  const legacyMemoryBlock = `${MEMORY_START_MARKER}\nlegacy ADE memory\n${MEMORY_END_MARKER}\n`;
+  const legacyRoleBlock = `${AGENT_ROLE_START_MARKER}\nlegacy ADE role\n${AGENT_ROLE_END_MARKER}\n`;
+  const legacyWorkspace = join(dir, 'legacy-workspace');
+  mkdirSync(legacyWorkspace, { recursive: true });
+  writeFileSync(join(legacyWorkspace, 'CLAUDE.md'), legacyMemoryBlock, 'utf8');
+  const managedLegacy = inspectLegacyClaudeInstruction(legacyWorkspace);
+  writeFileSync(join(legacyWorkspace, 'CLAUDE.md'), `User guidance.\n${legacyMemoryBlock}`, 'utf8');
+  const preservedLegacy = inspectLegacyClaudeInstruction(legacyWorkspace);
+  check('role updates preserve user guidance and legacy cleanup accepts only fully ADE-owned files',
     worker.includes('Orchestration role: worker')
       && worker.includes('User-owned local guidance.')
       && worker.split(AGENT_ROLE_START_MARKER).length === 2
-      && worker.split(AGENT_ROLE_END_MARKER).length === 2);
+      && worker.split(AGENT_ROLE_END_MARKER).length === 2
+      && isEntirelyAdeManagedInstruction(legacyMemoryBlock)
+      && isEntirelyAdeManagedInstruction(`${legacyRoleBlock}\n${legacyMemoryBlock}`)
+      && !isEntirelyAdeManagedInstruction(`User guidance.\n${legacyMemoryBlock}`)
+      && !isEntirelyAdeManagedInstruction(MEMORY_START_MARKER)
+      && managedLegacy.status === 'managed'
+      && preservedLegacy.status === 'preserved');
   const snapshot = snapshotAgentInstructions({ ...agent, teamRole: 'worker' }, 'orchestrator');
   check('managed task snapshot uses the run role and has verifiable provenance',
     snapshot.file === 'AGENTS.md'

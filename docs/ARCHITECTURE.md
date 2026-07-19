@@ -395,6 +395,12 @@ reproducibility guarantees.
   repository instruction files after leasing, preserving tracked instructions
   and a clean worktree. Interactive/manual sessions retain normal memory
   injection plus the durable role contract.
+- The Codex roster audit verifies the actual memory-directory `AGENTS.md`
+  rather than the workspace-preferred pinned-file UI projection. During an
+  inactive `--apply`, it may archive a stale provider `CLAUDE.md` only when the
+  entire regular file consists of well-formed ADE memory/role fences. Symlinks,
+  oversized/malformed files and any user text are preserved; each removal has
+  a hash-verified recovery copy below the ADE profile.
 - Before planning, every participant workspace is inspected and leased. Dirty
   git worktrees are rejected, duplicate or cross-run paths conflict, and all
   repo-backed participants must share one git common directory and base HEAD.

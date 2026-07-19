@@ -76,6 +76,8 @@ the complete cross-boundary managed-run and restart scenario.
 `pnpm agents:codex -- --apply` safely backs up the inactive profile and migrates
 Claude/Codex coding identities to native Codex, `gpt-5.6-sol`, bypass mode,
 role-aware reasoning (`xhigh` for the orchestrator) and durable `AGENTS.md`.
+Apply also archives and removes a stale `CLAUDE.md` only when the complete file
+consists of ADE-owned memory/role fences; mixed or user-owned files are preserved.
 Shell utility identities remain shell identities.
 
 ## Keyboard

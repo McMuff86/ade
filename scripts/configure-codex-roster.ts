@@ -8,12 +8,20 @@
  *
  * Main orchestrators receive gpt-5.6-sol/xhigh; leads, workers and ordinary
  * identities receive gpt-5.6-sol/high. Every migrated identity uses bypass and
- * must materialize a durable AGENTS.md before the script succeeds.
+ * must materialize a durable AGENTS.md before the script succeeds. Apply also
+ * archives stale CLAUDE.md files only when they contain ADE-owned fences and
+ * no repository/user content.
  */
 
-import { copyFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { constants, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { _electron as electron } from 'playwright';
+import {
+  AGENT_ROLE_END_MARKER,
+  AGENT_ROLE_START_MARKER,
+} from '../src/main/memory/agentInstructions';
+import { inspectLegacyClaudeInstruction } from '../src/main/memory/legacyInstructions';
 
 const MODEL = 'gpt-5.6-sol';
 const apply = process.argv.slice(2).includes('--apply');
@@ -25,6 +33,44 @@ const configPath = join(userData, 'ade', 'config.json');
 const buildPath = join(root, 'out', 'main', 'index.js');
 if (!existsSync(buildPath)) throw new Error('agents:codex: run pnpm build first');
 if (!existsSync(configPath)) throw new Error(`agents:codex: config not found at ${configPath}`);
+
+function pathKey(path: string): string {
+  const resolved = resolve(path);
+  return process.platform === 'win32' ? resolved.toLocaleLowerCase('en-US') : resolved;
+}
+
+function archiveLegacyInstruction(path: string, archiveDir: string, agentId: string): string {
+  const digest = createHash('sha256').update(pathKey(path)).digest('hex').slice(0, 12);
+  const archivePath = join(archiveDir, `${agentId}-${digest}-CLAUDE.md`);
+  mkdirSync(archiveDir, { recursive: true });
+  copyFileSync(path, archivePath, constants.COPYFILE_EXCL);
+  const originalHash = createHash('sha256').update(readFileSync(path)).digest('hex');
+  const archiveHash = createHash('sha256').update(readFileSync(archivePath)).digest('hex');
+  if (originalHash !== archiveHash) {
+    throw new Error(`agents:codex: legacy instruction backup verification failed for ${path}`);
+  }
+  unlinkSync(path);
+  return archivePath;
+}
+
+function hasDurableAgentInstructions(
+  target: { memoryDir: string; name: string },
+  reasoningEffort: 'high' | 'xhigh',
+): boolean {
+  const path = join(target.memoryDir, 'AGENTS.md');
+  try {
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 512 * 1024) return false;
+    const content = readFileSync(path, 'utf8');
+    return content.includes(AGENT_ROLE_START_MARKER)
+      && content.includes(AGENT_ROLE_END_MARKER)
+      && content.includes(`Identity: ${target.name}`)
+      && content.includes(`model ${MODEL}`)
+      && content.includes(`reasoning ${reasoningEffort}`);
+  } catch {
+    return false;
+  }
+}
 
 async function main(): Promise<void> {
   const app = await electron.launch({
@@ -57,8 +103,16 @@ async function main(): Promise<void> {
         codexModel?: string;
         codexReasoningEffort?: string;
         teamRole?: string;
+        workspaceDir: string;
+        homeWorkspaceDir?: string;
+        memoryDir: string;
       }>;
       categories: Array<{ kind?: string; agents: string[] }>;
+      workspaceBindings: Array<{
+        agentId: string;
+        workspaceDir: string;
+        executionBackend?: string;
+      }>;
       runParticipants: Array<{ agentId: string; role: string }>;
       runs: Array<{ id: string; name: string; status: string }>;
       runWorkspaceLeases: Array<{ status: string }>;
@@ -81,18 +135,25 @@ async function main(): Promise<void> {
               : participantRoles.includes('worker')
                 ? 'worker'
                 : agent.teamRole;
-          return { ...agent, inferredRole, isOrchestrator: inferredRole === 'orchestrator' };
+          const workspaceDirs = [
+            agent.workspaceDir,
+            agent.homeWorkspaceDir,
+            ...config.workspaceBindings
+              .filter((binding) => (
+                binding.agentId === agent.id
+                && (!binding.executionBackend || binding.executionBackend === 'native')
+              ))
+              .map((binding) => binding.workspaceDir),
+          ].filter((path): path is string => Boolean(path));
+          return {
+            ...agent,
+            inferredRole,
+            isOrchestrator: inferredRole === 'orchestrator',
+            workspaceDirs: [...new Set(workspaceDirs)],
+          };
         });
-    const auditedTargets = [];
-    for (const target of targets) {
-      const files = await api.invoke('fs:agentFiles', { agentId: target.id }) as Array<{ name: string }>;
-      auditedTargets.push({
-        ...target,
-        hasAgentInstructions: files.some((file) => file.name === 'AGENTS.md'),
-      });
-    }
     return {
-      targets: auditedTargets,
+      targets,
       activeRuns: config.runs.filter((run) => ['running', 'planning', 'working', 'integrating', 'verifying'].includes(run.status)),
       activeLeases: config.runWorkspaceLeases.filter((lease) => lease.status === 'active').length,
       activeSessions: sessions.sessions.filter((session) => session.status === 'running').length,
@@ -106,16 +167,27 @@ async function main(): Promise<void> {
     );
   }
 
-  console.log(`${apply ? 'Applying' : 'Dry run'}: enforce ${preflight.targets.length} coding identities on Codex ${MODEL}`);
+  const targets = preflight.targets.map((target) => ({
+    ...target,
+    legacyInstructions: target.workspaceDirs
+      .map((workspaceDir) => inspectLegacyClaudeInstruction(workspaceDir))
+      .filter((inspection) => inspection.status === 'managed'),
+  }));
+
+  console.log(`${apply ? 'Applying' : 'Dry run'}: enforce ${targets.length} coding identities on Codex ${MODEL}`);
   const drift: string[] = [];
-  for (const target of preflight.targets) {
+  for (const target of targets) {
     const effort = target.isOrchestrator ? 'xhigh' : 'high';
     const compliant = target.runtime === 'codex'
       && target.permissionMode === 'bypass'
       && target.codexModel === MODEL
       && target.codexReasoningEffort === effort
-      && target.hasAgentInstructions;
-    console.log(`- ${target.name}: ${compliant ? 'ok' : 'needs update'} — bypass, ${effort}, AGENTS.md`);
+      && hasDurableAgentInstructions(target, effort)
+      && target.legacyInstructions.length === 0;
+    const legacy = target.legacyInstructions.length > 0
+      ? `, ${target.legacyInstructions.length} ADE-owned legacy CLAUDE.md`
+      : '';
+    console.log(`- ${target.name}: ${compliant ? 'ok' : 'needs update'} — bypass, ${effort}, AGENTS.md${legacy}`);
     if (!compliant) drift.push(target.name);
   }
   if (!apply) {
@@ -128,7 +200,7 @@ async function main(): Promise<void> {
     const backupPath = join(userData, 'ade', `config.pre-codex-roster.${stamp}.json`);
     copyFileSync(configPath, backupPath);
 
-    const profiles = preflight.targets.map((target) => ({
+    const profiles = targets.map((target) => ({
       id: target.id,
       reasoningEffort: target.isOrchestrator ? 'xhigh' : 'high',
       teamRole: target.inferredRole,
@@ -162,10 +234,6 @@ async function main(): Promise<void> {
           codexReasoningEffort: profile.reasoningEffort,
           teamRole: profile.teamRole,
         });
-        const files = await api.invoke('fs:agentFiles', { agentId: agent.id }) as Array<{ name: string }>;
-        if (!files.some((file) => file.name === 'AGENTS.md')) {
-          throw new Error(`AGENTS.md was not materialized for ${agent.name}`);
-        }
         updated.push(agent.name);
       }
       const after = await api.invoke('config:get') as {
@@ -187,8 +255,35 @@ async function main(): Promise<void> {
       return updated;
     }, { profiles, model: MODEL });
 
+    for (const target of targets) {
+      const effort = target.isOrchestrator ? 'xhigh' : 'high';
+      if (!hasDurableAgentInstructions(target, effort)) {
+        throw new Error(`agents:codex: durable AGENTS.md verification failed for ${target.name}`);
+      }
+    }
+
     console.log(`Migrated and verified ${migrated.length} identities.`);
     console.log(`Backup: ${backupPath}`);
+
+    const archiveDir = join(userData, 'ade', 'legacy-instruction-backups', stamp);
+    const archived = new Set<string>();
+    for (const target of targets) {
+      for (const inspection of target.legacyInstructions) {
+        const key = pathKey(inspection.path);
+        if (archived.has(key)) continue;
+        const current = inspectLegacyClaudeInstruction(dirname(inspection.path));
+        if (current.status !== 'managed' || pathKey(current.path) !== key) {
+          throw new Error(`agents:codex: legacy instruction changed during migration: ${inspection.path}`);
+        }
+        const archivePath = archiveLegacyInstruction(inspection.path, archiveDir, target.id);
+        if (inspectLegacyClaudeInstruction(dirname(inspection.path)).status !== 'absent') {
+          throw new Error(`agents:codex: legacy instruction remains after archive: ${inspection.path}`);
+        }
+        archived.add(key);
+        console.log(`Archived ADE-owned legacy CLAUDE.md for ${target.name}: ${archivePath}`);
+      }
+    }
+    if (archived.size > 0) console.log(`Archived and removed ${archived.size} ADE-owned legacy instruction file(s).`);
   }
   } finally {
     await app.close().catch(() => undefined);

@@ -19,7 +19,9 @@ einen sauberen Git-Worktree.
 - Jede gespeicherte Identity besitzt ihr von ADE nachgeführtes Rollen-
   `AGENTS.md`. Managed Orchestrator-/Lead-/Worker-Tasks erhalten zusätzlich
   einen read-only Snapshot mit Digest und Provenance, ohne ihr Worktree zu
-  verschmutzen.
+  verschmutzen. Der Roster-Enforcer erkennt außerdem vollständig ADE-eigene
+  Legacy-`CLAUDE.md`-Scaffolds, archiviert sie im Apply-Lauf und verweigert die
+  Löschung, sobald fremder Inhalt oder fehlerhafte Marker vorhanden sind.
 - Der native Linux-/WSLg-Pfad ist nicht mehr nur ein Source-Smoke: ADE baut
   jetzt reproduzierbar als unpacked x64, AppImage und Debian-Paket.
 - Die Windows-GUI besitzt einen eigenständigen, expliziten
@@ -129,6 +131,11 @@ GitHub Actions auf `d32faa9`:
   weiterhin `ADE_USER_DATA_DIR=%APPDATA%\ADE`.
 - `out/` gehört zum geprüften Windows-Quellstand. `dist/linux-x64` ist bewusst
   Git-ignoriert und enthält die auslieferbaren lokalen Linux-Pakete.
+- Der abschließende Codex-Apply hat drei vollständig ADE-eigene Alt-Scaffolds
+  (RhinoClaw Home + Binding, Main-Chef-Binding) hash-verifiziert nach
+  `%APPDATA%\ADE\ade\legacy-instruction-backups\2026-07-19T06-46-58-123Z`
+  archiviert. Beide betroffenen Git-Worktrees sind clean; der anschließende
+  Dry-Run bestätigt fünf Codex-Identitäten und fünf echte Memory-`AGENTS.md`.
 
 ## Bewusste Grenzen
 
