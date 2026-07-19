@@ -222,15 +222,16 @@ from changes to the pilot repository; ADE's full `pnpm verify` remains green.
 
 ## Platform track - Linux package and Windows GUI→WSL backend
 
-Status: **implemented and locally verified 2026-07-19; hosted/publication gates
-remain.** This track is orthogonal to remote Goals 7-10 and is specified in
+Status: **implemented and locally plus hosted verified 2026-07-19; publication
+gates remain.** This track is orthogonal to remote Goals 7-10 and is specified in
 `MULTIPLATFORM_PLAN.md`.
 
 - Native Ubuntu/WSL2 builds Linux `node-pty`, passes the focused/source
   Electron gates and produces unpacked x64, AppImage and Debian artifacts.
 - AppImage, unpacked and Debian-payload artifacts pass the same 47-check
-  packaged workflow; Debian metadata/payload are valid. The release workflow adds installed-deb
-  verification and SHA-256 artifacts when it first runs on GitHub.
+  packaged workflow; Debian metadata/payload are valid. The first hosted
+  release workflow also passed installed-`.deb` verification and uploaded
+  SHA-256 artifacts.
 - Windows ADE now imports an explicit `wsl:<distribution>` repository and
   routes its Linux paths, Git, files, worktrees, diagnostics, PTY and managed
   run through that distribution without fallback or mixed-Git access.
@@ -238,8 +239,8 @@ remain.** This track is orthogonal to remote Goals 7-10 and is specified in
   Electron/Playwright checks, including a complete managed run, app restart,
   reopen and cleanup.
 
-Remaining release gates: observe Ubuntu hosted workflows, establish the public
-license/release policy, publish checksummed versioned Linux assets, add clearer
+Remaining release gates: establish the public license/release policy, publish
+checksummed versioned Linux assets, add clearer
 first-run WSL prerequisite guidance, and keep macOS explicitly unverified.
 
 ## Goal 7 - transport-neutral core and local host API
@@ -251,7 +252,7 @@ exit criteria pass.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
-implemented locally. Their hosted release observation and macOS work remain
+implemented and hosted-verified. Versioned publication and macOS work remain
 separate from the remote API security gates below.
 
 - Extract a transport-neutral ADE application boundary from Electron IPC so

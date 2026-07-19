@@ -1,10 +1,11 @@
 # ADE multi-platform and WSL engineering plan
 
-Status: P0-P3 are implemented and locally verified on 2026-07-19. Native
+Status: P0-P3 are implemented and locally plus hosted verified on 2026-07-19. Native
 Windows remains the primary release path. Native Linux now has reproducible
 AppImage and Debian packaging, and the Windows GUI can explicitly execute one
-repository scope inside a selected WSL distribution. The first hosted runs and
-publication of signed/versioned Linux release assets remain release gates.
+repository scope inside a selected WSL distribution. CI and the complete Linux
+package workflow passed on commit `d32faa9`; publication of versioned Linux
+release assets remains a separate release gate.
 
 ## Product definitions
 
@@ -33,10 +34,12 @@ scope; ADE never infers it from path spelling.
 | Git/worktrees/files | native services verified | native services verified on ext4 | backend-routed Linux Git/files verified | unverified |
 | Focused tests | 410/410 | 409/409 | 31/31 backend contracts and real integration | no CI job |
 | Electron/Playwright | 47/47 | 47/47 under Xvfb | 67/67 extended Windows/WSL workflow | unverified |
-| Distribution | x64 NSIS | unpacked, AppImage and `.deb` built locally | uses the Windows package | none |
+| Distribution | x64 NSIS | unpacked, AppImage and installed `.deb` verified locally and hosted | uses the Windows package | none |
 
-These are measured local results from the closing gates, not skipped or inferred
-checks.
+These are measured local and hosted results from the closing gates, not skipped
+or inferred checks. The hosted evidence is the green
+[cross-platform CI run](https://github.com/McMuff86/ade/actions/runs/29676483968)
+and [Linux package run](https://github.com/McMuff86/ade/actions/runs/29676490871).
 
 ## Implemented platform contract
 
@@ -73,7 +76,7 @@ checks.
 - [x] Made the Electron workflow platform-aware while retaining the same
   reload/restart, repository, managed-run and security assertions.
 - [x] Added Ubuntu source, unpacked-package and Electron/Xvfb verification to
-  CI. Its first hosted result is pending publication of this change.
+  CI. The first hosted Ubuntu and Windows jobs passed on commit `d32faa9`.
 
 ## P1 — native Linux and WSLg proof
 
@@ -103,7 +106,11 @@ the Windows profile and is not automatically migrated.
 - [x] Added a release workflow that verifies source, unpacked executable,
   AppImage and installed Debian package, writes SHA-256 checksums and uploads
   artifacts.
-- [ ] Observe the first hosted package workflow and publish a versioned release.
+- [x] Observed the first hosted package workflow: every source/package
+  Electron gate passed, the `.deb` installed successfully, and checksums plus
+  unsigned artifacts were uploaded.
+- [ ] Publish a checksummed versioned release after the license/release policy
+  is explicit.
 - [ ] Decide and record the project license before calling the package a public
   stable release; no license is invented by the build.
 
@@ -169,10 +176,9 @@ reduced motion remain release gates alongside screenshot review.
 
 ## Next sequence
 
-1. Observe both Ubuntu hosted workflows and close environment-only failures.
-2. Publish versioned Linux checksums/assets after the license/release policy is
+1. Publish versioned Linux checksums/assets after the license/release policy is
    explicit.
-3. Add a first-run prerequisite check and friendlier setup guidance for missing
+2. Add a first-run prerequisite check and friendlier setup guidance for missing
    WSL tools/agent credentials.
-4. Continue Goal 7 only inside its bounded loopback-only security contract.
-5. Plan macOS only after Linux and WSL support remain stable through releases.
+3. Continue Goal 7 only inside its bounded loopback-only security contract.
+4. Plan macOS only after Linux and WSL support remain stable through releases.

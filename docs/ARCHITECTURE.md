@@ -575,8 +575,10 @@ explicitly enabled.
   Ubuntu assertions (the Windows `.cmd` probe is inapplicable), production
   builds and 47 Electron assertions on each native platform/artifact. The extended
   Windows-GUI→WSL gate adds 31 backend checks and 67 Electron assertions,
-  including a full managed run and app restart. Hosted observation and release
-  publication remain separate release gates.
+  including a full managed run and app restart. The first hosted cross-platform
+  CI and Linux package workflows passed on `d32faa9`, including installation
+  and execution of the Debian package. Versioned release publication remains a
+  separate release gate.
 - Goal 7 adds host contract tests for malformed/unauthorized/replayed requests,
   event reconnection and mobile projections. Goal 8 adds pairing, revocation,
   CSRF, mutation-audit and browser workflows through an isolated loopback

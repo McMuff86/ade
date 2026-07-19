@@ -41,14 +41,14 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
 | Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; the planner is told dependent workers inherit no upstream code |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
-| Linux/WSLg | Package-verified locally | Ubuntu/WSL2 native install/build, Linux-built node-pty, 409 focused checks, 47-check Electron/Playwright under Xvfb, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/Debian-payload packaged workflows and valid Debian metadata; hosted package observation/public release remain pending |
+| Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, 409 focused checks, 47-check Electron/Playwright under Xvfb, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
 | Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are proven by 31 backend plus 67 Electron checks |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
 | Remote host API | Not built, bounded GO | Goal 6 permits starting Goal 7's disabled-by-default, loopback-only, transport-neutral control adapter; public remote exposure remains no-go until Goal 7's security gates pass |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real locally; hosted expansion defined | Windows passes 410 focused assertions plus 47 Electron checks; native Ubuntu passes 409 plus source/unpacked/AppImage/Debian-payload 47-check workflows; the hosted package workflow additionally installs the `.deb`; Windows→WSL passes 31 backend and 67 extended Electron checks |
+| CI and Electron E2E | Real locally and hosted | Windows passes 410 focused assertions plus 47 Electron checks; native Ubuntu passes 409 plus source/unpacked/AppImage/installed-Debian 47-check workflows; the first hosted CI and Linux package runs passed on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
 
 ## Known constraints
 
@@ -77,10 +77,9 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`.
   custom command text is never executed or returned by diagnostics.
 - Windows packaging is x64-first; local/branch artifacts are unsigned and the
   release workflow requires `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` to sign.
-  Linux x64 AppImage and Debian targets are locally built and package-tested,
-  but the first hosted package run, project-license decision and versioned
-  public release remain gates. Auto-update, Linux signing and macOS packages do
-  not exist yet.
+  Linux x64 AppImage and Debian targets are locally and hosted package-tested;
+  the project-license decision and versioned public release remain gates.
+  Auto-update, Linux signing and macOS packages do not exist yet.
 - The Windows-GUI→WSL backend is explicit and Windows-only. It requires WSL2
   plus `/bin/bash`, Git, Python 3, `gio` and each selected agent CLI/credential
   inside the distribution. Repository import accepts a Linux absolute path;

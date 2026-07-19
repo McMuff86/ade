@@ -1,10 +1,11 @@
 # Handoff — 2026-07-19
 
 Dieser Handoff beschreibt den zusammenhängenden Stand des aktuellen
-Plattform-Commits. Der vorherige Codex-/Goal-6-Abschluss wurde bereits als
-`7902b96` auf `origin/main` veröffentlicht. Nach Veröffentlichung dieses
-Commits müssen lokales `main`, `origin/main` und der Git-Worktree wieder
-identisch und sauber sein.
+Plattformabschlusses. Der vorherige Codex-/Goal-6-Abschluss (`7902b96`), die
+Linux-/WSL-Implementierung (`3762b00`) und die auf dem ersten Hosted-Run
+entdeckte E2E-Wartebedingung (`d32faa9`) sind auf `origin/main` veröffentlicht.
+Der Abschlusszustand verlangt identisches lokales `main`/`origin/main` und
+einen sauberen Git-Worktree.
 
 ## Ergebnis dieser Session
 
@@ -104,6 +105,19 @@ Ubuntu 24.04/WSL2, nativer ext4-Checkout mit Linux-`node_modules`:
 - `.deb`-Metadaten `amd64`, `devel`, Maintainer und Homepage korrekt;
 - der isolierte native Codex-Sol/xhigh/bypass-Smoke bleibt grün.
 
+GitHub Actions auf `d32faa9`:
+
+- [Main-CI](https://github.com/McMuff86/ade/actions/runs/29676483968)
+  vollständig grün: Ubuntu Source + unpacked und Windows Source + unpacked;
+- [Package Linux](https://github.com/McMuff86/ade/actions/runs/29676490871)
+  vollständig grün: 409 fokussierte Assertions sowie je 47/47 für Source,
+  unpacked, AppImage und das wirklich installierte `/opt/ADE/ade`; SHA-256 und
+  unsigned AppImage-/Debian-Artefakte wurden hochgeladen;
+- der erste Lauf fand eine reine Test-Harness-Race: Der Dialog war sichtbar,
+  bevor sein asynchrones Diagnoseergebnis gerendert war. `d32faa9` wartet auf
+  die unverändert strenge Inhaltsassertion; lokal 47/47 und beide Hosted-Runs
+  bestätigen den Fix.
+
 ## Sicherer Arbeitszustand
 
 - Die erweiterten WSL-Tests hinterließen keine Test-Repositories, Worktrees,
@@ -118,8 +132,6 @@ Ubuntu 24.04/WSL2, nativer ext4-Checkout mit Linux-`node_modules`:
 
 ## Bewusste Grenzen
 
-- Die neuen Ubuntu-Workflows müssen nach dem Push erstmals auf GitHub beobachtet
-  werden; lokale Evidenz ersetzt keinen gehosteten Release-Gate.
 - Vor einer öffentlichen stabilen Linux-Veröffentlichung muss die
   Projektlizenz bewusst festgelegt werden. Auto-update, Linux-Signierung und
   Release-Feed fehlen noch.
@@ -135,17 +147,14 @@ Ubuntu 24.04/WSL2, nativer ext4-Checkout mit Linux-`node_modules`:
 
 ## Nächste Schritte
 
-1. Diesen Plattformstand committen und direkt auf `origin/main` pushen; danach
-   `CI` und `Package Linux` beobachten und nur bei vollständig grünen Jobs den
-   `/goals`-Abschluss markieren.
-2. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
+1. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
-3. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
+2. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
    Onboarding integrieren.
-4. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
+3. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
    deaktiviert, loopback-only, versionierte DTOs, Auth/Audit, Idempotency und
    keine Roh-PTY-/Filesystem-Exposition.
-5. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
+4. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
    dann macOS/Updater als eigene Release-Tracks angehen.
 
 Operator-Kommandos:

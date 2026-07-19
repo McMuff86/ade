@@ -129,7 +129,9 @@ The Linux profile is independent at
 proof covers the native build, 409 focused contracts, and 47-check source,
 unpacked, AppImage and Debian-payload Electron workflows. The
 release workflow also installs the `.deb`, reruns the packaged workflow and
-publishes `SHA256SUMS.txt`; its first hosted execution remains pending.
+publishes `SHA256SUMS.txt`. Its first hosted execution passed on commit
+`d32faa9`, including 47/47 checks against source, unpacked, AppImage and the
+actually installed Debian application ([GitHub Actions evidence](https://github.com/McMuff86/ade/actions/runs/29676490871)).
 
 ## Windows GUI with a WSL backend
 
