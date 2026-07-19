@@ -1,152 +1,142 @@
-# Handoff — 2026-07-18 (Stand: lokal auf `main`, **noch nicht gepusht**)
+# Handoff — 2026-07-19
 
-Diese Session hat den Neuer-Run-Dialog gefixt (`aee2122`), **F2 komplett
-gemessen** (beide Arme + Verdikt), den F7-Reject-Pfad geschlossen, einen
-HIGH-Telemetrie-Bug gefunden und gefixt (`5d5c678`) und die Operator-Treiber
-als festes Skript ins Repo gebracht. Alles lief agentisch über die echte UI
-(Playwright gegen den Build, echtes Profil) — Screenshots und Diffs als
-Evidenz im Session-Scratchpad.
+`main` und `origin/main` des ADE-Repositories stehen weiterhin auf
+`03e6e6d`. Der aktuelle Codex-/Plattform-/UI-/Doku-Abschluss ist lokal
+implementiert und vollständig verifiziert, aber bewusst noch nicht committed
+oder gepusht. `out/` enthält den zu diesem Arbeitsbaum gehörenden grünen Build.
 
-## Sofort wissen
+## Ergebnis dieser Session
 
-1. **Nach Pull: `pnpm i` + ADE komplett neu starten** (Main-Prozess-Änderung:
-   `claudeStream.ts`-Parser).
-2. **App-Start via Playwright/dev IMMER mit
-   `ADE_USER_DATA_DIR=%APPDATA%\ADE`.** Ohne Override landet der unpaketierte
-   Build in `%APPDATA%\Electron` und sieht ein leeres Profil (diese Session
-   passiert und aufgeräumt; echte Config war gesichert und blieb unberührt).
-   Vor jeder Profil-Session: `config.json` wegkopieren.
-3. **Treiber: `scripts/goal6-drive.ts`** — Modi `managed | approve | reject |
-   baseline`, extrahiert den Fixture-Zielblock selbst aus dem Plan, macht
-   Screenshots und dumpt den Gate-Diff. Auf F2 (beide Arme + Reject) erprobt.
-4. **F5-Blocker GELÖST (18.07. nachmittags, via UI-Driver über die echte
-   App):** Es gibt jetzt DREI taugliche Claude-Worker: `Test_Agent_2D_Jump`,
-   `Test_Agent_2D_Jump_2`, `Test_Agent_2D_Jump_3` (alle claude/**bypass**,
-   Repo-Scope `2D_rpg_jumpnrun`). `ChibiChup` heisst jetzt
-   **`RhinoClaw_Agent`** (auf Adis Wunsch umbenannt, dabei auf bypass
-   umgestellt; Repo RhinoClaw — weiterhin NICHT Teil der Messreihe). Alle
-   vier ade-Worktrees des Pilot-Repos (inkl. der zwei neuen) sauber auf
-   `81820b9` verifiziert (Managed-Start verlangt seit `3b6d3b8` dieselbe
-   Git-Basis für alle Teilnehmer).
-5. **Telemetrie-Checkpoint BESTANDEN (F5, 18.07. nachmittags):** Beide
-   F5-Managed-Runs lieferten echte Token-/Kostenzahlen end-to-end (a1 $2.88,
-   a2 7.16M in / 180k out, $22.57; per-Task-Usage im Inspector). Baseline-
-   Arme bleiben adapter-los — Tokens dort weiterhin aus dem Claude-Session-
-   Transkript rekonstruieren (Muster siehe RESULTS.md F2/F5-Baseline).
+- **Goal 6 ist abgeschlossen.** F1-F8 samt Einzelagent-Baselines,
+  Sicherheitsfixtures, Reliability-Findings und Go/no-go stehen in
+  `docs/goal6/RESULTS.md`.
+- Entscheidung: **begrenztes GO für Goal 7** (deaktivierter, loopback-only,
+  transportneutraler lokaler Kern/API). Weiterhin **NO-GO für öffentliche
+  Remote-Beta** und für die Behauptung, beliebige abhängige Multi-Agent-Pläne
+  seien bereits produktionsreif.
+- Der aktuelle echte ADE-Pilot-Roster ist **Codex-only**: `Main Chef` =
+  `gpt-5.6-sol`, `xhigh`, bypass, Rolle `orchestrator`; die drei
+  `Test_Agent_2D_Jump*` = `gpt-5.6-sol`, `high`, bypass, Rollen
+  `lead`/`worker`; `RhinoClaw_Agent` ebenfalls Codex/Sol/high/bypass. Es gibt
+  keine gespeicherte Claude-Identity mehr. Zwei absichtliche Shell-Utilities
+  bleiben Shell-Runtimes.
+- Jede gespeicherte Identity besitzt ein von ADE nachgeführtes, rollenbezogenes
+  `AGENTS.md`. Managed Tasks erhalten zusätzlich einen read-only Snapshot mit
+  Digest/Provenance; Code- und Prompt-Tests decken das ab.
+- Native Codex-Tasks transportieren Prompts quote-sicher über stdin, pinnen
+  Modell/Reasoning, nutzen bei bypass
+  `--dangerously-bypass-approvals-and-sandbox`, liefern native JSONL-Aktivität
+  und persistieren `ACTIVITY.jsonl`.
+- Der Graph zeigt bei einem ausgewählten fehlgeschlagenen Run jetzt den
+  persistierten technischen Task-/Run-Grund direkt als barrierearmes
+  `role="alert"`, statt nur „Fehler“ anzuzeigen.
 
-## Goal 6: Stand der Messreihe
+## F8-Abschluss
 
-Plan: `docs/goal6/VALIDATION_PLAN.md` · Ergebnisse: `docs/goal6/RESULTS.md`
-· Metriken: `pnpm goal6:report --run <id> --md`.
+Finaler Run: `f504c8da-e69a-4c6d-b1e3-268237d42083`,
+`F8v6 honest-failure (managed Codex)`.
 
-| Fixture | Managed | Baseline | Verdikt |
-| --- | --- | --- | --- |
-| F1 settings-reduced-shake | ✅ `40fee766` | ✅ `cad775c2` | Einzelagent ~3× schneller bei gleicher Qualität; Managed kauft Nachweis + Kontrolle |
-| F2 weapon-presentation-tests | ✅ `759e49db` (a2, Ehrlichkeitsprobe **bestanden**; a1 `37d41c5d` am Gate rejected) | ✅ `8d8e3ffe` | Wie F1 (~3× Zeit, ~3× Tokens) — **plus**: beide Managed-Worker fanden und dokumentierten den latenten `colorToCss`-Bug, die Baseline nicht |
-| F7 approval-durability | ✅ Approve + **Reject** (Gate überlebte 4 Neustarts) | — | **pass**, beide Richtungen entscheidend |
-| F5 arena-presets | ✅ `da58df3b` (a2; a1 `e10c0b42` scheiterte am 12k-Summary-Bug, gefixt) | ✅ `a9ec5adb` | **Kernfrage beantwortet: Parallelität schlägt den Einzelagenten auf dieser Taskgrösse NICHT** (34m47s vs 7m15s, ~4.8×; Planung allein 19m). Qualität gleich, Managed kauft Integration+Gate+Verifikation+Kosten-Sichtbarkeit ($22.57). 2 neue Findings gefixt (12k-Summary, 2k-Dependency-Cut) |
-| F4 rng-stream-split | ❌→**Messergebnis**: `982d8a8e` an Integration gescheitert (Cherry-Pick-Konflikt des dependent D3-Union-Commits; Rollback sauber) | ✅ `599c0b52` (3m 5s, 80/80) | **These bestätigt: Planner zerlegt gekoppelte S-Tasks, obwohl er nicht sollte** — und die gewählte Topologie ist strukturell inkompatibel mit dem Integrationsmodell (Architektur-Finding, Fix nach F8) |
-| F3 playtest-export | ❌ `4ced0119` an Integration gescheitert (gleiche Architektur-Lücke wie F4; am Gate aus Blob-Hashes vorhergesagt) | ✅ `dcc0d363` (16m 37s, 88/88) | Managed liefert nichts Integriertes bei 1.4× Baseline-Zeit und $14.59 — aber: der Abstand schrumpft mit Taskgrösse; Dependency-Forwarding-Fix nachweislich wirksam (byte-identische Modul-Reproduktion) |
-| F6 balance-overlap | ✅ `15e25b96` (9m 53s, $6.14, 0 Konflikte) | — (nur managed) | **pass** — Worker erkannten die Same-File-Kollision selbst, partitionierten Regionen, Integration konfliktfrei; präzisiert F4-Finding: tödlich sind divergente Duplikate, nicht Datei-Overlap an sich |
-| F8 honest-failure | offen | — (nur managed) | **Letzte Fixture der Serie** |
+- vollständig: Planung → zwei Worker → Freigabe → Integration → unabhängige
+  Verifikation → completed;
+- 18m 18s elapsed, 14m 44s aktiv, 5/5 Tasks, keine Retries/Konflikte;
+- 1.397.452 Input- und 34.256 Output-Tokens, kein vom Codex-Adapter gelieferter
+  USD-Preis;
+- Worker `2be8cc6`: genau `src/ui/WeaponPresentation.test.ts`;
+- Integration `6bffe36`: genau ein Commit auf Baseline `81820b9`;
+- fokussiert 1/1, gesamte Pilot-Suite 78/78, tsc und Production-Build grün;
+- Worker, Integrationsreviewer, Verifier und eine operator-eigene isolierte
+  Negativkontrolle entfernten temporär `impact.png`, beobachteten Exit 1 mit
+  `impact` und `/assets/weapons/premium/v1/impact.png`, stellten die Datei
+  wieder her und liefen anschließend grün. Erwartetes Versagen wurde korrekt
+  als `skipped` dokumentiert.
 
-Beweis-Branches im Pilot-Repo: `goal6/f1-*` (5), `goal6/f2-a1-worker`
-(`810fed3`), `goal6/f2-a2-worker` (`e4fa6d7`), `goal6/f2-a2-integrated`
-(`effc60e`), `goal6/f2-baseline` (`a4bacb3`). Beide ade-Worktrees sauber auf
-Baseline `81820b9`. **Das Pilot-Repo selbst hat eigene uncommittete
-Änderungen von Adi (ballistics, AxeAim u.a.) — niemals anfassen.**
+Beweis-Branches im Pilot-Repo:
 
-## F5: erledigt am 18.07. — nächster Schritt ist F4 (wann NICHT zerlegen)
+- `goal6/f8-v6-worker` → `2be8cc605692822db6e50922973c1ae676523f09`
+- `goal6/f8-v6-integrated` → `6bffe36dd8c4bc46fcf89a8f4f9cfa9c9e263cb2`
 
-F5 komplett (beide Arme, Verdikt + 2 Findings in RESULTS.md). Für F4/F3/F6/F8
-gilt dasselbe Protokoll wie unten für F5 dokumentiert (Treiber-Einzeiler,
-Gate-Machine-Check, Evidenz-Branches `goal6/f<N>-...`, Worktree-Reset auf
-`81820b9` inkl. `git clean -f -- CLAUDE.md`). Neu seit F5: Managed-Tasks
-zeichnen ihre Aktivität als `ACTIVITY.jsonl` im Task-Dir auf („Aktivität
-anzeigen" im Inspector) — beim F4-Run erstmals live prüfen.
+Die historischen F8v2-v5-Versuche und ihre Ausschluss-/Fail-closed-Gründe sind
+vollständig in `RESULTS.md` erfasst. F8v5 bewies bereits den korrigierten
+Negativkontrollvertrag, scheiterte aber an einer missverständlichen
+Integrations-Pfadset-Anweisung; Prompt v2 und F8v6 schließen dieses Finding.
 
-## Archiv: F5-Protokoll (Referenz für die restlichen Fixtures)
+## Verifizierter Qualitätsstand
 
-0. ✅ erledigt am 18.07.: drei Worker vorhanden, Worktrees auf `81820b9`
-   verifiziert (siehe „Sofort wissen" 4).
-1. Managed-Arm starten (Gate-Timeout großzügig, M/L-Fixture):
+Windows, zusammenhängender `pnpm verify`-Lauf am 2026-07-19:
 
-   ```
-   pnpm exec tsx scripts/goal6-drive.ts --mode managed --fixture F5 \
-     --name "F5 arena-presets (managed)" --orchestrator "Main Chef" \
-     --agents "Test_Agent_2D_Jump,Test_Agent_2D_Jump_2,Test_Agent_2D_Jump_3" \
-     --parallel 4 \
-     --timeout-min 60
-   ```
+- beide TypeScript-Projekte grün;
+- **393/393** Assertions in neun fokussierten Unit-/Integrations-/Security-
+  Suiten: Memory 27, Dispatch 12, Runtime 29, Orchestration 45,
+  Orchestration-Beta 100, Prompts 31, Repository-Scopes 43, Workspace-FS 7,
+  Security 99;
+- Production-Build grün;
+- **46/46** reale Electron/Playwright-Checks grün, einschließlich ConPTY,
+  Reload/Restart, Scope-Bindings, Codex-Profil, `AGENTS.md`, Failure-Alert,
+  Managed Approval/Integration/Verify und App-Neustart.
 
-   Score-Fokus (NICHT ins Ziel!): Wie verteilt der Planner die vier Presets
-   und wem gehören Shared-Type + Registry? 2–4 Worker erwartet.
-2. Am Gate: pro Worker-Commit-Range Machine-Check
-   (`git diff --name-status <base>..<sha>` — nur `src/game/arenas/*`,
-   Registry-/Typ-Modul, Tests), Diff-Dump lesen, dann
-   `--mode approve --run "F5 arena"`.
-3. Metriken ziehen; **Token-Telemetrie prüfen** (Checkpoint oben).
-4. Evidenz: `goal6/f5-a1-worker[-n]` + `goal6/f5-a1-integrated`, dann ALLE
-   beteiligten Worktrees `reset --hard 81820b9`. Nie bei aktiver Lease.
-5. Baseline-Arm:
+Ubuntu 24.04 unter WSL2, nativer ext4-Checkout
+`/tmp/ade-wsl-native-20260719-0038` mit Linux-`node_modules`:
 
-   ```
-   pnpm exec tsx scripts/goal6-drive.ts --mode baseline --fixture F5 \
-     --name "F5 arena-presets (baseline)" --agents "Test_Agent_2D_Jump"
-   ```
+- Typecheck und Production-Build grün;
+- **392/392** fokussierte Assertions (nur der Windows-`.cmd`-Diagnostiktest ist
+  plattformgemäß nicht anwendbar);
+- **46/46** Electron/Playwright unter Xvfb, inklusive realem POSIX-PTY und
+  Managed Git-Integration;
+- nativer Codex-Sol/xhigh/bypass-stdin-Smoke war bereits erfolgreich
+  (`ADE_WSL_CODEX_SOL_XHIGH_OK`, Thread
+  `019f776c-ad36-7412-a511-db08d3924e96`).
 
-   Danach unabhängig verifizieren (`pnpm test`, `npx tsc --noEmit` im
-   Worktree), Evidenz `goal6/f5-baseline` (Operator-Commit), Worktree reset
-   **plus `git clean -f -- CLAUDE.md`** (Task-Sessions injizieren das
-   Scaffold; blockiert sonst die nächste Managed-Lease).
-6. RESULTS.md: Zeilen + F5-Verdikt — die Headline-Frage: schlägt
-   Managed-Parallelität den Einzelagenten auf der Wanduhr bei gleicher
-   Qualität? Danach in dieser Reihenfolge weiter: **F4** (wann NICHT
-   zerlegen), **F3**, **F6** (Overlap-Falle, 2 Worker, nur managed), **F8**
-   (Ehrlichkeit, nur managed).
+Das beweist einen nativen Linux/WSLg Source-/Developer-Workflow. Es gibt noch
+kein Linux-Paket und der Windows-GUI→WSL-Ausführungsbackend ist ein eigenes,
+größeres Vorhaben; Details und Exit-Kriterien stehen in
+`docs/MULTIPLATFORM_PLAN.md`.
 
-## colorToCss-Bug: Entscheid & vorbereiteter Fix-Run
+## Sicherer Arbeitszustand
 
-Beide Managed-Worker haben in `src/ui/WeaponPresentation.ts` dokumentiert
-(nicht gefixt, wie die Fixture es verlangte): `colorToCss` liefert für
-negative Zahlen `#0000-1`-artige Strings, für Werte > `0xffffff` 7+
-Hex-Stellen, für Nicht-Ganzzahlen einen Dezimalpunkt. Latent — mit gültigen
-Waffenfarben nie ausgelöst.
+- Keine aktiven Goal-6-Runs oder Leases; alle vier Pilot-Worktrees sind sauber
+  auf `81820b90e00cfb3a686f203e04a072919081e406` zurückgesetzt.
+- Das Original-Repo `2D_rpg_jumpnrun` und dessen `main` blieben auf
+  `81820b9`. Dort liegen Adis fremde lokale Änderungen (unter anderem
+  ballistics/AxeAim/CameraTracking/DrillTerrain); **niemals anfassen oder
+  bereinigen**.
+- Das ADE-Profil wurde vor der Migration gesichert:
+  `config.pre-codex-roster.2026-07-18T22-12-47-054Z.json` und
+  `config.pre-codex-roster.2026-07-18T22-14-27-150Z.json` unter
+  `%APPDATA%\ADE\ade\`.
+- Für echte Profil-Läufe immer `ADE_USER_DATA_DIR=%APPDATA%\ADE` verwenden;
+  ohne Override nutzt ein unpaketierter Electron-Build ein anderes Profil.
 
-**Empfehlung (von Adi am 2026-07-18 angefragt, Umsetzung noch nicht
-beauftragt):** Nach Abschluss der Messreihe als echten ADE-One-Shot-Run
-fixen lassen; Ergebnis bleibt als Branch (z.B. `fix/color-to-css`) im
-Pilot-Repo, den Merge in `main` macht Adi selbst (Safety-Regel: ADE pusht
-nie, fasst `main` nie an). So bleibt die Messumgebung bis F8 eingefroren und
-der Fix-Run ist ein weiterer Dogfood-Datenpunkt. Fertiger Zieltext:
+## Nächste Engineering-Schritte
 
-```text
-Fix the out-of-range handling of colorToCss in src/ui/WeaponPresentation.ts:
-clamp or mask the numeric input so any finite number yields a valid #rrggbb
-string (negative values, values above 0xffffff and non-integer values must
-not produce malformed CSS). Keep the output for valid 24-bit colors exactly
-as today. Extend src/ui/WeaponPresentation.test.ts with edge-case tests for
-negative, overflow and non-integer inputs. Acceptance: pnpm test green,
-npx tsc --noEmit green, no files changed outside src/ui/WeaponPresentation.ts
-and src/ui/WeaponPresentation.test.ts.
+1. Den aktuellen ADE-Diff bewusst reviewen, als zusammenhängenden
+   Codex/WSL/Goal6/UX-Abschluss committen und pushen; danach den neuen Ubuntu-
+   CI-Job auf GitHub erstmals beobachten. Diese Session hat nicht automatisch
+   committed oder gepusht.
+2. Die POSIX-Verzeichnis-Rename-Aktion entweder mit einer echten atomaren
+   No-clobber-Primitive implementieren oder im Linux-UI nachvollziehbar
+   ausblenden/erklären. Aktuell failt sie sicher geschlossen.
+3. Die in F3/F4 belegte Architektur-Lücke beheben: abhängige Worker brauchen
+   einen kontrollierten Upstream-Codezustand oder klare Datei-/Patch-Ownership,
+   statt denselben Base-Commit divergent nachzubauen.
+4. Goal 7 nur innerhalb des dokumentierten bounded GO beginnen: API standardmäßig
+   aus, loopback-only, versionierte DTOs, Idempotency Keys, Cursor-Reconnect,
+   Auth/Audit und keine Roh-IPC-/Terminal-Exposition.
+5. Vor größerer Nutzung Run-Historie/Activity aus der monolithischen Config in
+   eine indexierte, begrenzte Persistenz überführen; danach Linux-Packaging und
+   erst separat den Windows→WSL-Backend planen.
+
+Operator-Helfer:
+
+```powershell
+pnpm agents:codex                 # nur Vorschau
+pnpm agents:codex -- --apply      # gesicherten Roster anwenden
+pnpm verify                       # kompletter Windows-Gate
+pnpm goal6:report --run f504c8da-e69a-4c6d-b1e3-268237d42083 --md
 ```
 
-## Betriebsregeln (bewährt, unverändert gültig)
-
-- Ziel = **nur der Fenced-Block** der Fixture (der Treiber extrahiert ihn
-  selbst — Karten-Metadaten leaken das Messkriterium).
-- Vor einem Managed Run keine interaktive Session im selben Repo-Scope.
-- Nach jedem Run: Beweis-Branch, dann Worktrees hart auf Baseline; nie bei
-  aktiver Lease.
-- Pilot-Repo: Arbeitsbaum und `main` niemals anfassen, kein Push ohne
-  separate Freigabe.
-- Vor Profil-Sessions Config sichern; `%APPDATA%\Electron` gehört nicht uns.
-
-## Verifikation dieses Stands
-
-`pnpm run typecheck`, `pnpm test` (alle 9 Suiten grün, darunter
-Orchestration-Beta jetzt 86 Checks mit 3 neuen ConPTY-Reprint-Tests,
-Workspace-FS 7) und `pnpm build` sind grün. Der Telemetrie-Fix wurde gegen
-ein echtes ConPTY-Transkript verifiziert (Repro-Protokoll im Finding in
-RESULTS.md). Die Session-Commits: `aee2122` (Dialog), `5d5c678` (Parser +
-F2-a2-Doku), `54c8793` (Baseline-Doku), plus dieser Handoff-Commit.
+Die ausführliche Produktmeinung bleibt: ADE hat inzwischen einen ungewöhnlich
+starken, fail-closed Orchestrierungs-Kern. Das nächste Niveau entsteht weniger
+durch noch mehr sichtbare Features als durch bessere progressive Offenlegung,
+präzise Recovery-Zustände, messbare Accessibility/Performance, stabile
+plattformübergreifende Distribution und eine klare Trennung zwischen
+„einfacher Task“ und „Managed Run mit Beweiskette“.

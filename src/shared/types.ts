@@ -6,6 +6,21 @@
 
 export type PermissionMode = 'default' | 'accept-edits' | 'bypass';
 
+/** Codex CLI reasoning levels supported by current config.toml/CLI releases. */
+export type CodexReasoningEffort =
+  | 'none'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'ultra';
+
+/** Product defaults for newly created Codex agents. Existing agents migrate explicitly. */
+export const DEFAULT_CODEX_MODEL = 'gpt-5.6-sol';
+export const DEFAULT_CODEX_REASONING_EFFORT: CodexReasoningEffort = 'high';
+
 export type RuntimeId =
   | 'claude'
   | 'codex'
@@ -53,6 +68,9 @@ export interface AgentTemplate {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Exact Codex CLI model id, e.g. "gpt-5.6-sol". */
+  codexModel?: string;
+  codexReasoningEffort?: CodexReasoningEffort;
   memorySeed: {
     memory: string;
     user: string;
@@ -114,6 +132,10 @@ export interface Agent {
   customCommand?: string;
   /** model name for the ollama runtime, e.g. "llama3.3" */
   ollamaModel?: string;
+  /** Exact model pin for the Codex runtime, e.g. "gpt-5.6-sol". */
+  codexModel?: string;
+  /** Persisted Codex reasoning level passed to every interactive and managed launch. */
+  codexReasoningEffort?: CodexReasoningEffort;
   /** resolved absolute path of the agent workspace (worktree when repo-backed) */
   workspaceDir: string;
   /** Plain, repository-independent workspace. Missing only in pre-Goal-5 config. */
@@ -511,6 +533,7 @@ export interface TaskProvenance {
   contextBuilderVersion?: number;
   contextManifestHash?: string;
   modelId?: string;
+  reasoningEffort?: CodexReasoningEffort;
 }
 
 export interface OrchestrationSnapshot {
@@ -666,6 +689,8 @@ export interface AgentCreateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  codexModel?: string;
+  codexReasoningEffort?: CodexReasoningEffort;
   teamRole?: TeamRole;
   /** null creates a portable agent; undefined inherits the category default. */
   defaultRepositoryId?: string | null;
@@ -679,6 +704,10 @@ export interface AgentUpdateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  codexModel?: string;
+  codexReasoningEffort?: CodexReasoningEffort;
+  /** Optional topology repair/administration field; omitted updates preserve the role. */
+  teamRole?: TeamRole;
   /** null clears the default; undefined preserves it. */
   defaultRepositoryId?: string | null;
 }
@@ -698,6 +727,8 @@ export interface AgentTemplateSpawnInput {
   permissionMode?: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  codexModel?: string;
+  codexReasoningEffort?: CodexReasoningEffort;
   defaultRepositoryId?: string | null;
 }
 

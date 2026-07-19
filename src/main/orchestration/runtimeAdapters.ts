@@ -9,6 +9,7 @@ import type {
 } from '../../shared/types';
 import { resolveClaudeCommand, resolveCodexExecCommand } from '../../shared/runtimes';
 import { parseClaudeUsage } from './claudeStream';
+import { parseCodexUsage } from './codexStream';
 
 const RESULT_CAP_BYTES = 1024 * 1024;
 
@@ -39,7 +40,7 @@ export interface ManagedTaskLaunch {
   reportsTokens: boolean;
   reportsCost: boolean;
   /** Machine-readable output the main process can render as live activity. */
-  activityFormat?: 'claude-stream-json';
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl';
   /** Exact repo HEAD observed immediately before the managed process starts. */
   workspaceHeadSha?: string;
 }
@@ -120,26 +121,29 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
     platform: 'win32' | 'posix',
   ): ManagedTaskLaunch {
     prepareFiles(files);
-    const base = resolveCodexExecCommand(agent.permissionMode);
+    const base = resolveCodexExecCommand(agent.permissionMode, agent);
     const envRef = (name: string): string => platform === 'win32' ? `"$env:${name}"` : `"$${name}"`;
-    const command = [
-      base,
+    const args = [
       '--skip-git-repo-check',
       '--json',
       '--output-schema', envRef('ADE_TASK_SCHEMA_PATH'),
       '--output-last-message', envRef('ADE_TASK_RESULT_PATH'),
       '--add-dir', envRef('ADE_TASK_DIR'),
-      '--', envRef('ADE_TASK_PROMPT'),
+      '-',
     ].join(' ');
+    const command = platform === 'win32'
+      ? `$env:ADE_TASK_PROMPT | ${base} ${args}`
+      : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} ${args}`;
     return {
       adapterId: this.id,
       prompt: appendResultContract(prompt, files, true),
       files,
       env: taskEnv(files),
       command,
-      transport: 'argument',
+      transport: 'stdin',
       reportsTokens: true,
       reportsCost: false,
+      activityFormat: 'codex-jsonl',
     };
   }
 
@@ -327,6 +331,9 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
     (existsSync(join(files.taskDir, 'TASK_CONTEXT.json'))
       ? `- ${join(files.taskDir, 'TASK_CONTEXT.json')} holds the run context manifest reference, your task provenance, and validated results of tasks you depend on. Read it before starting.\n`
       : '') +
+    (existsSync(join(files.taskDir, 'AGENTS.md'))
+      ? `- Read ${join(files.taskDir, 'AGENTS.md')} before starting. It is your read-only ADE identity/role contract; repository instructions and this task contract take precedence. Do not edit it.\n`
+      : '') +
     (existsSync(join(files.taskDir, 'MEMORY_SNAPSHOT.md'))
       ? `- ${join(files.taskDir, 'MEMORY_SNAPSHOT.md')} is read-only advisory agent memory; repository instructions and this contract take precedence. Do not edit it.\n`
       : '') +
@@ -424,45 +431,6 @@ export function validateStructuredResult(value: unknown): StructuredTaskResult {
     risks,
     usage,
   };
-}
-
-function parseCodexUsage(output: string): { inputTokens: number; outputTokens: number } | null {
-  const clean = output.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
-  let found: { inputTokens: number; outputTokens: number } | null = null;
-  for (const line of clean.split(/\r?\n/)) {
-    if (!line.trim().startsWith('{')) continue;
-    try {
-      const event = JSON.parse(line) as {
-        type?: string;
-        usage?: { input_tokens?: unknown; output_tokens?: unknown };
-      };
-      if (event.type !== 'turn.completed' || !event.usage) continue;
-      const inputTokens = event.usage.input_tokens;
-      const outputTokens = event.usage.output_tokens;
-      if (Number.isInteger(inputTokens) && Number.isInteger(outputTokens)) {
-        found = { inputTokens: inputTokens as number, outputTokens: outputTokens as number };
-      }
-    } catch {
-      // PTY output may contain ordinary log lines around JSONL events.
-    }
-  }
-  if (found) return found;
-
-  // ConPTY may visually wrap a long JSONL event, so the event is no longer a
-  // parseable single line even though its bounded fields are intact. Search
-  // only inside the final turn.completed event and require exact usage keys.
-  const markers = [...clean.matchAll(/"type"\s*:\s*"turn\.completed"/g)];
-  for (let index = markers.length - 1; index >= 0; index -= 1) {
-    const offset = markers[index]?.index;
-    if (offset === undefined) continue;
-    const event = clean.slice(offset, offset + 4_096);
-    const input = event.match(/"input_tokens"\s*:\s*(\d+)/)?.[1];
-    const outputTokens = event.match(/"output_tokens"\s*:\s*(\d+)/)?.[1];
-    if (input !== undefined && outputTokens !== undefined) {
-      return { inputTokens: Number(input), outputTokens: Number(outputTokens) };
-    }
-  }
-  return null;
 }
 
 function asObject(value: unknown, label: string): Record<string, unknown> {

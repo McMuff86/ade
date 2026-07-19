@@ -226,7 +226,10 @@ The remote-control work depends on this model: mobile commands choose a
 `repositoryId` and one or more `agentId` values independently, while the ADE
 core resolves immutable bindings before any task starts.
 
-## Verification record
+## Goal 5 completion verification record
+
+The counts below are the historical Goal 5 checkpoint. Current regression
+totals live in `STATUS.md` and `HANDOFF.md`.
 
 - `pnpm run typecheck` and the production build pass.
 - `pnpm test` passes 198 focused assertions, including 21 Goal 5 repository-

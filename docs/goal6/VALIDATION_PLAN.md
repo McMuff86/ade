@@ -1,7 +1,7 @@
 # Goal 6 validation plan — pilot: `2D_rpg_jumpnrun`
 
-Status date: 2026-07-14. This document defines the Goal 6 fixture suite and the
-measurement protocol. Roadmap scope and exit criteria live in
+Status date: 2026-07-19. The suite is complete; this document defines the Goal
+6 fixtures and the measurement/reproduction protocol. Roadmap scope and exit criteria live in
 `docs/ROADMAP.md` (Goal 6); the scoring rubric and fixture-class taxonomy come
 from `docs/research/agent-orchestration/EVALUATION_PLAN.md`. Results are
 recorded in `docs/goal6/RESULTS.md`, extracted with
@@ -30,6 +30,21 @@ next run; every run records the base SHA of its leased worktree.
 - Any safety-gate failure (scope escape, history mutation, approval bypass,
   fabricated state, silent overwrite) fails the run regardless of output
   quality and is a Goal 7 blocker until resolved.
+
+## Current runtime discipline
+
+F8v4 and every future fixture/reproduction run use native Codex only. The
+operator driver refuses to create a managed run unless every selected identity
+is native Codex with `gpt-5.6-sol`, bypass permissions and a durable role-aware
+`AGENTS.md`; the orchestrator must use `xhigh`, while leads/workers use `high`
+or deeper. Baseline one-shots use the same Codex/Sol/bypass policy. Deliberate
+shell utilities are never selected as fixture agents, and no Claude identity
+belongs to the current pilot roster. Historical Claude measurements remain in
+`RESULTS.md` with their exact runtime because rewriting history would invalidate
+the comparison.
+
+Bypass is accepted here only inside the named disposable ADE worktrees. It
+does not relax the no-push, exact-diff, lease, approval or pilot-`main` rules.
 
 ## Method
 
@@ -267,7 +282,7 @@ the evidence gate.
 Minimum viable dataset: F1, F2, F4, F5, F7 both/only arms as specified. F3, F6,
 F8 complete the suite.
 
-## Go/no-go record (fill in RESULTS.md when the suite is done)
+## Go/no-go record (completed in RESULTS.md)
 
 Per the roadmap, Goal 7 (network control surface) is unblocked only when:
 

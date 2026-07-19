@@ -119,6 +119,50 @@
 }
 .grun-delete:disabled { opacity: 0.42; cursor: default; }
 .grun-delete svg { width: 13px; height: 13px; }
+.grun-failure {
+  position: absolute;
+  top: 64px;
+  left: 14px;
+  right: 14px;
+  z-index: 32;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--del) 48%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--del) 8%, var(--panel));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(10px);
+}
+.graph-inspecting .grun-failure { right: 328px; }
+.grun-failure-head {
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.grun-failure b { color: var(--del); font-size: 12px; }
+.grun-failure-head span {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grun-failure p {
+  flex: 1;
+  max-height: 24vh;
+  margin: 0;
+  overflow-y: auto;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .gapproval {
   position: absolute;
   top: 64px;
@@ -652,7 +696,11 @@
   .grunbar select { flex: 1; width: auto; }
   .ginspector { width: min(300px, calc(100% - 28px)); }
   .graph-inspecting .gapproval { right: 14px; }
+  .graph-inspecting .grun-failure { right: 14px; }
   .graph:has(.gapproval) .ginspector { top: 126px; max-height: calc(100% - 142px); }
+  .graph:has(.grun-failure) .ginspector { top: 146px; max-height: calc(100% - 162px); }
+  .grun-failure { flex-direction: column; gap: 6px; }
+  .grun-failure-head { min-width: 0; }
   .gdock { max-width: calc(100% - 84px); }
   .grun-field { grid-template-columns: 1fr; gap: 5px; }
   .grun-hint { grid-column: auto; }

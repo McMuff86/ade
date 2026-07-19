@@ -9,13 +9,14 @@
 
 import * as os from 'node:os';
 import * as pty from 'node-pty';
+import { resolveHostShell } from '../platform';
 
 const MARKER = 'ade-pty-ok';
 
 export function runPtySmoke(timeoutMs = 15_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const isWin = process.platform === 'win32';
-    const shell = isWin ? 'powershell.exe' : (process.env['SHELL'] ?? 'bash');
+    const shell = resolveHostShell();
 
     let proc: pty.IPty;
     try {

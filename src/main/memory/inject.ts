@@ -15,6 +15,12 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import type { Agent, MemorySettings, RuntimeId } from '../../shared/types';
 import { MemoryStore } from './MemoryStore';
+import {
+  AGENT_ROLE_END_MARKER,
+  AGENT_ROLE_START_MARKER,
+  buildAgentRoleBlock,
+  syncAgentInstructions,
+} from './agentInstructions';
 import { createMemoryScaffold } from './scaffold';
 
 const START_MARKER = '<!-- ADE:MEMORY:start -->';
@@ -56,6 +62,22 @@ export function injectMemoryBlock(
   workspaceDir = agent.workspaceDir,
 ): void {
   const cfg = settings ?? DEFAULT_SETTINGS;
+
+  // Role guidance is independent from optional Hermes memory. The persistent
+  // identity file always exists, and interactive runtimes receive the same
+  // fenced role block without replacing repository-owned instructions.
+  syncAgentInstructions(agent);
+  const files = targetFiles(agent.runtime);
+  mkdirSync(workspaceDir, { recursive: true });
+  for (const file of files) {
+    writeFencedBlock(
+      join(workspaceDir, file),
+      buildAgentRoleBlock(agent),
+      AGENT_ROLE_START_MARKER,
+      AGENT_ROLE_END_MARKER,
+    );
+  }
+
   if (!cfg.enabled) return;
 
   // Make sure the two memory files exist so the store renders a valid block.
@@ -68,8 +90,7 @@ export function injectMemoryBlock(
 
   const block = buildBlock(agent, store, cfg);
 
-  mkdirSync(workspaceDir, { recursive: true });
-  for (const file of targetFiles(agent.runtime)) {
+  for (const file of files) {
     writeManagedBlock(join(workspaceDir, file), block);
   }
 }
@@ -151,6 +172,15 @@ function buildBlock(agent: Agent, store: MemoryStore, cfg: MemorySettings): stri
  * the file has no markers yet; creates the file when missing.
  */
 function writeManagedBlock(file: string, block: string): void {
+  writeFencedBlock(file, block, START_MARKER, END_MARKER);
+}
+
+function writeFencedBlock(
+  file: string,
+  block: string,
+  startMarker: string,
+  endMarker: string,
+): void {
   let existing = '';
   if (existsSync(file)) {
     try {
@@ -160,13 +190,13 @@ function writeManagedBlock(file: string, block: string): void {
     }
   }
 
-  const start = existing.indexOf(START_MARKER);
-  const end = existing.indexOf(END_MARKER);
+  const start = existing.indexOf(startMarker);
+  const end = existing.indexOf(endMarker);
 
   let next: string;
   if (start !== -1 && end !== -1 && end > start) {
     const before = existing.slice(0, start);
-    const after = existing.slice(end + END_MARKER.length);
+    const after = existing.slice(end + endMarker.length);
     next = `${before}${block}${after}`;
   } else if (existing.trim().length === 0) {
     next = `${block}\n`;

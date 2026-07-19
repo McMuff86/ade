@@ -1,4 +1,4 @@
-/** Production-build Electron workflow smoke for Goals 3, 4 and 5 (Windows-first). */
+/** Production-build Electron workflow for Windows and native POSIX desktops. */
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -9,6 +9,29 @@ import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../sr
 
 let passed = 0;
 let failed = 0;
+const isWindows = process.platform === 'win32';
+
+function shellEcho(marker: string): string {
+  return isWindows ? `Write-Output ${marker}` : `printf '%s\\n' '${marker}'`;
+}
+
+function shellDelayThenEcho(milliseconds: number, marker: string): string {
+  return isWindows
+    ? `Start-Sleep -Milliseconds ${milliseconds}; Write-Output ${marker}`
+    : `sleep ${(milliseconds / 1_000).toFixed(3)}; printf '%s\\n' '${marker}'`;
+}
+
+function shellDelayThenExit(milliseconds: number, code: number): string {
+  return isWindows
+    ? `Start-Sleep -Milliseconds ${milliseconds}; exit ${code}`
+    : `sleep ${(milliseconds / 1_000).toFixed(3)}; exit ${code}`;
+}
+
+function quoteShellArg(value: string): string {
+  return isWindows
+    ? `"${value.replace(/`/g, '``').replace(/"/g, '`"')}"`
+    : `'${value.replace(/'/g, `'"'"'`)}'`;
+}
 
 function check(label: string, condition: boolean, detail?: unknown): void {
   if (condition) {
@@ -77,7 +100,7 @@ function seedConfig(
     defaultRepositoryId: repositoryId,
     agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
   };
-  const customCommand = `node "${fixturePath.replace(/"/g, '""')}"`;
+  const customCommand = `node ${quoteShellArg(fixturePath)}`;
   const managedAgents: Agent[] = [
     { id: 'e2e-orchestrator', name: 'E2E Orchestrator', teamRole: 'orchestrator' },
     { id: 'e2e-lead', name: 'E2E Lead', teamRole: 'lead' },
@@ -122,6 +145,24 @@ function seedConfig(
       lastUsedAt: now + index,
     })),
     runs: [{
+      id: 'e2e-failed-run',
+      name: 'Historical failed E2E Run',
+      goal: 'Expose a persisted fail-closed reason to the operator.',
+      status: 'failed',
+      mode: 'managed',
+      phase: 'failed',
+      budget: {
+        maxConcurrentTasks: 1,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxCostUsd: null,
+        maxApprovals: 1,
+      },
+      source: 'native',
+      repositoryId,
+      createdAt: now - 2_000,
+      updatedAt: now - 1_000,
+    }, {
       id: 'e2e-managed-run',
       name: 'Managed E2E Run',
       goal: 'Prove that ADE plans separate work, waits for approval, integrates, and verifies.',
@@ -142,6 +183,10 @@ function seedConfig(
     }],
     runParticipants: [
       {
+        id: 'e2e-failed-participant', runId: 'e2e-failed-run', agentId: 'e2e-orchestrator',
+        agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now - 2_000,
+      },
+      {
         id: 'e2e-orchestrator-participant', runId: 'e2e-managed-run', agentId: 'e2e-orchestrator',
         agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now,
       },
@@ -156,9 +201,27 @@ function seedConfig(
         teamName: 'Managed E2E', createdAt: now + 2,
       },
     ],
+    runTasks: [{
+      id: 'e2e-failed-task', runId: 'e2e-failed-run', participantId: 'e2e-failed-participant',
+      prompt: 'Integrate the validated worker result.', title: 'Validate integration result',
+      phase: 'integrate', managed: true, dependsOn: [], attempt: 1, status: 'failed',
+      error: 'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.',
+      createdAt: now - 1_500, updatedAt: now - 1_000, endedAt: now - 1_000,
+    }],
     runEvents: [{
-      id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
+      id: 'e2e-failed-created', runId: 'e2e-failed-run', type: 'run.created', createdAt: now - 2_000,
       data: { source: 'native', repositoryId }, seq: 1,
+    }, {
+      id: 'e2e-failed-task-event', runId: 'e2e-failed-run', type: 'task.failed', createdAt: now - 1_000,
+      taskId: 'e2e-failed-task', participantId: 'e2e-failed-participant',
+      data: { error: 'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.' },
+      seq: 2,
+    }, {
+      id: 'e2e-failed-event', runId: 'e2e-failed-run', type: 'run.failed', createdAt: now - 1_000,
+      data: { detail: 'Integration review failed closed.' }, seq: 3,
+    }, {
+      id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
+      data: { source: 'native', repositoryId }, seq: 4,
     }],
   };
   const configDir = join(userData, 'ade');
@@ -347,13 +410,52 @@ async function run(): Promise<void> {
     });
     check('preload rejects unknown channels', unknownChannel.includes('unknown invoke channel'), unknownChannel);
 
+    // Real UI coverage for first-class Codex model/reasoning persistence. The
+    // shell agent is restored before PTY checks so the rest of this workflow
+    // still exercises the platform shell transport.
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    let agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await agentDialog.waitFor({ state: 'visible' });
+    await agentDialog.locator('#edit-agent-runtime').selectOption('codex');
+    check('Codex settings reveal pinned model and reasoning controls',
+      await agentDialog.locator('#edit-agent-codex-model').inputValue() === 'gpt-5.6-sol'
+        && await agentDialog.locator('#edit-agent-codex-reasoning').inputValue() === 'high');
+    await agentDialog.locator('#edit-agent-codex-reasoning').selectOption('xhigh');
+    await agentDialog.locator('#edit-agent-perm').selectOption('bypass');
+    const commandPreview = await agentDialog.locator('#edit-agent-cmd').getAttribute('placeholder');
+    check('Codex command preview includes Sol, xhigh and bypass',
+      commandPreview?.includes('gpt-5.6-sol') === true
+        && commandPreview.includes('model_reasoning_effort="xhigh"')
+        && commandPreview.includes('dangerously-bypass-approvals-and-sandbox'),
+      commandPreview);
+    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.waitFor({ state: 'hidden' });
+
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await agentDialog.waitFor({ state: 'visible' });
+    check('saved Codex model/reasoning/bypass profile round-trips through Electron IPC',
+      await agentDialog.locator('#edit-agent-runtime').inputValue() === 'codex'
+        && await agentDialog.locator('#edit-agent-codex-model').inputValue() === 'gpt-5.6-sol'
+        && await agentDialog.locator('#edit-agent-codex-reasoning').inputValue() === 'xhigh'
+        && await agentDialog.locator('#edit-agent-perm').inputValue() === 'bypass');
+    const durableInstructions = readFileSync(join(userData, 'agent-memory', 'AGENTS.md'), 'utf8');
+    check('saving an agent guarantees its durable AGENTS.md identity contract',
+      durableInstructions.includes('Identity: E2E Shell')
+        && durableInstructions.includes('model gpt-5.6-sol')
+        && durableInstructions.includes('reasoning xhigh'));
+    await agentDialog.locator('#edit-agent-runtime').selectOption('shell');
+    await agentDialog.locator('#edit-agent-perm').selectOption('default');
+    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.waitFor({ state: 'hidden' });
+
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
     await page.keyboard.press('Control+Shift+T');
     const tabs = page.locator('[role="tab"][id^="session-tab-"]');
     await eventually('keyboard shortcut creates a terminal session', async () => await tabs.count() === 1);
     const firstTab = await activeTabId(page);
     check('new session becomes the active tab', Boolean(firstTab));
-    await sendCommand(page, 'Write-Output ADE_E2E_READY');
+    await sendCommand(page, shellEcho('ADE_E2E_READY'));
     await eventually('real ConPTY output reaches xterm', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_E2E_READY') === true,
     );
@@ -387,7 +489,7 @@ async function run(): Promise<void> {
       (await scopeHeader.textContent())?.includes('Managed E2E repository') === true,
     );
 
-    await sendCommand(page, 'Start-Sleep -Milliseconds 700; Write-Output ADE_RELOAD_OK');
+    await sendCommand(page, shellDelayThenEcho(700, 'ADE_RELOAD_OK'));
     await page.waitForTimeout(75);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
@@ -401,7 +503,7 @@ async function run(): Promise<void> {
       (await page!.locator('[data-testid="repository-scope"]').textContent())?.includes('Managed E2E repository') === true,
     );
 
-    await sendCommand(page, 'Start-Sleep -Milliseconds 300; exit 7');
+    await sendCommand(page, shellDelayThenExit(300, 7));
     await page.waitForTimeout(50);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
@@ -421,7 +523,7 @@ async function run(): Promise<void> {
     await eventually('session restart preserves the exact repository binding', async () =>
       (await page!.locator('[data-testid="repository-scope"]').textContent())?.includes('Managed E2E repository') === true,
     );
-    await sendCommand(page, 'Write-Output ADE_RESTART_OK');
+    await sendCommand(page, shellEcho('ADE_RESTART_OK'));
     await eventually('restarted terminal accepts input', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_RESTART_OK') === true,
     );
@@ -437,6 +539,16 @@ async function run(): Promise<void> {
     await eventually('Graph names the immutable repository selected by the run', async () =>
       (await page!.locator('.grun-repo').textContent()) === 'Managed E2E repository',
     );
+    await page.getByLabel('Aktiver Run').selectOption('e2e-failed-run');
+    await eventually('failed run exposes its persisted technical reason in the Graph UI', async () =>
+      (await page!.locator('.grun-failure[role="alert"]').textContent())?.includes(
+        'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.',
+      ) === true,
+    );
+    if (evidenceDir) {
+      await page.screenshot({ path: join(resolve(evidenceDir), 'run-failure-alert.png'), fullPage: true });
+    }
+    await page.getByLabel('Aktiver Run').selectOption('e2e-managed-run');
     await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
     await eventually('managed run reaches its real approval gate', async () =>
       await page!.locator('.gapproval').count() === 1 &&
@@ -448,15 +560,17 @@ async function run(): Promise<void> {
       return await api.invoke('run:get') as {
         tasks: Array<{
           id: string;
+          runId: string;
           phase: string;
           prompt: string;
           repositoryId?: string | null;
           workspaceBindingId?: string;
           workspaceDir?: string;
         }>;
-        results: Array<{ taskId: string; commitSha: string | null; filesChanged: string[] }>;
-        approvals: Array<{ status: string }>;
+        results: Array<{ runId: string; taskId: string; commitSha: string | null; filesChanged: string[] }>;
+        approvals: Array<{ runId: string; status: string }>;
         workspaceLeases: Array<{
+          runId: string;
           participantId: string;
           status: string;
           workspaceDir: string;
@@ -465,26 +579,28 @@ async function run(): Promise<void> {
         }>;
       };
     });
-    const workerPrompts = approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
+    const managedTasks = approvalSnapshot.tasks.filter((task) => task.runId === 'e2e-managed-run');
+    const managedLeases = approvalSnapshot.workspaceLeases.filter((lease) => lease.runId === 'e2e-managed-run');
+    const workerPrompts = managedTasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
     check('Electron flow persisted distinct worker assignments',
       workerPrompts.length === 2 && workerPrompts[0] !== workerPrompts[1]);
-    const workerTaskIds = new Set(approvalSnapshot.tasks.filter((task) => task.phase === 'work').map((task) => task.id));
+    const workerTaskIds = new Set(managedTasks.filter((task) => task.phase === 'work').map((task) => task.id));
     const workerResults = approvalSnapshot.results.filter((result) => workerTaskIds.has(result.taskId));
     check('ADE, not the sandboxed runtime, created one validated commit per worker diff',
       workerResults.length === 2 && workerResults.every((result) =>
         /^[a-f0-9]{40}$/i.test(result.commitSha ?? '') && result.filesChanged.length === 1));
     check('Electron flow keeps worktree leases active through approval',
-      approvalSnapshot.workspaceLeases.filter((lease) => lease.status === 'active').length === 3);
+      managedLeases.filter((lease) => lease.status === 'active').length === 3);
     check('managed tasks and leases persist exact Goal 5 repository bindings',
-      approvalSnapshot.tasks.every((task) => (
+      managedTasks.every((task) => (
         task.repositoryId === 'e2e-managed-repository'
           && Boolean(task.workspaceBindingId)
           && Boolean(task.workspaceDir)
-      )) && approvalSnapshot.workspaceLeases.every((lease) => (
+      )) && managedLeases.every((lease) => (
         lease.repositoryId === 'e2e-managed-repository' && Boolean(lease.workspaceBindingId)
       )));
     check('managed task setup does not dirty leased repository worktrees',
-      approvalSnapshot.workspaceLeases.every(
+      managedLeases.every(
         (lease) => git(lease.workspaceDir, ['status', '--porcelain']).trim() === '',
       ));
     if (evidenceDir) {
@@ -499,18 +615,27 @@ async function run(): Promise<void> {
     const completedSnapshot = await page.evaluate(async () => {
       const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
       return await api.invoke('run:get') as {
-        tasks: Array<{ phase: string }>;
-        results: unknown[];
-        approvals: Array<{ status: string }>;
-        workspaceLeases: Array<{ participantId: string; status: string; workspaceDir: string }>;
+        tasks: Array<{ runId: string; phase: string }>;
+        results: Array<{ runId: string }>;
+        approvals: Array<{ runId: string; status: string }>;
+        workspaceLeases: Array<{
+          runId: string;
+          participantId: string;
+          status: string;
+          workspaceDir: string;
+        }>;
       };
     });
+    const completedTasks = completedSnapshot.tasks.filter((task) => task.runId === 'e2e-managed-run');
+    const completedResults = completedSnapshot.results.filter((result) => result.runId === 'e2e-managed-run');
+    const completedApprovals = completedSnapshot.approvals.filter((approval) => approval.runId === 'e2e-managed-run');
+    const completedLeases = completedSnapshot.workspaceLeases.filter((lease) => lease.runId === 'e2e-managed-run');
     check('Electron flow records one validated result per managed task',
-      completedSnapshot.tasks.length === 5 && completedSnapshot.results.length === 5);
+      completedTasks.length === 5 && completedResults.length === 5);
     check('Electron approval is durable and all leases release after verification',
-      completedSnapshot.approvals.some((approval) => approval.status === 'approved') &&
-      completedSnapshot.workspaceLeases.every((lease) => lease.status === 'released'));
-    const integrationWorkspace = completedSnapshot.workspaceLeases.find(
+      completedApprovals.some((approval) => approval.status === 'approved') &&
+      completedLeases.every((lease) => lease.status === 'released'));
+    const integrationWorkspace = completedLeases.find(
       (lease) => lease.participantId === 'e2e-orchestrator-participant',
     )?.workspaceDir;
     check('transactional integration contains both ADE-authored worker commits',

@@ -3,6 +3,7 @@
 import type {
   Agent,
   Run,
+  RunEvent,
   RunParticipant,
   RunTask,
   RuntimeId,
@@ -51,6 +52,45 @@ export interface SessionsSlice {
     exitCode?: number;
   }>;
   orderByAgent: Record<string, string[]>;
+}
+
+export interface RunFailureNotice {
+  context: string;
+  detail: string;
+}
+
+/**
+ * Resolve the most actionable persisted reason for a failed run. Task errors
+ * take precedence over the run journal because they retain the precise guard
+ * or runtime failure; the journal remains the durable fallback for failures
+ * that happen between tasks.
+ */
+export function failureNoticeFor(
+  run: Run | null,
+  tasks: RunTask[],
+  events: RunEvent[],
+): RunFailureNotice | null {
+  if (!run || run.status !== 'failed') return null;
+
+  const failedTask = tasks
+    .filter((task) => task.runId === run.id && task.status === 'failed' && task.error?.trim())
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (failedTask?.error) {
+    return { context: failedTask.title, detail: failedTask.error.trim() };
+  }
+
+  const failedEvent = events
+    .filter((event) => event.runId === run.id && event.type === 'run.failed')
+    .sort((a, b) => b.seq - a.seq)[0];
+  const eventDetail = failedEvent?.data?.['detail'];
+  if (typeof eventDetail === 'string' && eventDetail.trim()) {
+    return { context: 'Orchestrierung', detail: eventDetail.trim() };
+  }
+
+  return {
+    context: 'Kein Fehlerdetail gespeichert',
+    detail: 'Der Run ist fehlgeschlagen, enthält aber keinen persistierten Fehlertext.',
+  };
 }
 
 export function hasRunningSession(agentId: string, sessions: SessionsSlice): boolean {

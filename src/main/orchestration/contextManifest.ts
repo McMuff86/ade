@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import type { RunTask, TaskProvenance } from '../../shared/types';
 import { PROMPT_VERSIONS, RESULT_SCHEMA_VERSION } from './prompts';
 
-export const CONTEXT_BUILDER_VERSION = 1;
+export const CONTEXT_BUILDER_VERSION = 2;
 export const RUN_CONTEXT_MANIFEST_PATH = 'context/run-manifest.json';
 
 const INSTRUCTION_FILE_NAMES = ['CLAUDE.md', 'AGENTS.md'] as const;
@@ -60,6 +60,8 @@ export interface ManifestParticipant {
   teamName?: string;
   runtime: string;
   permissionMode: string;
+  modelId?: string;
+  reasoningEffort?: string;
   adapterId: string;
   reportsTokens: boolean;
   reportsCost: boolean;
@@ -181,6 +183,8 @@ function isManifestParticipant(value: unknown): boolean {
     (value.teamName === undefined || typeof value.teamName === 'string') &&
     typeof value.runtime === 'string' &&
     typeof value.permissionMode === 'string' &&
+    (value.modelId === undefined || typeof value.modelId === 'string') &&
+    (value.reasoningEffort === undefined || typeof value.reasoningEffort === 'string') &&
     typeof value.adapterId === 'string' &&
     typeof value.reportsTokens === 'boolean' &&
     typeof value.reportsCost === 'boolean';
@@ -238,6 +242,8 @@ export function renderManifestBrief(manifest: RunContextManifest, hash: string):
     lines.push(
       `  - ${participant.participantId} | ${participant.agentName} | ${participant.role}` +
       `${participant.teamName ? ` | team ${participant.teamName}` : ''} | ${participant.runtime} | ` +
+      `${participant.modelId ? `model ${participant.modelId} | ` : ''}` +
+      `${participant.reasoningEffort ? `reasoning ${participant.reasoningEffort} | ` : ''}` +
       `adapter ${participant.adapterId} | tokens ${participant.reportsTokens ? 'yes' : 'no'} | ` +
       `cost ${participant.reportsCost ? 'yes' : 'no'}`,
     );
@@ -268,6 +274,8 @@ export interface TaskContextPacket {
   provenance: TaskProvenance;
   /** Structured results of upstream dependsOn tasks (information transfer). */
   dependencies: TaskDependencyResult[];
+  /** Read-only, role-aware AGENTS.md copied outside the leased repository. */
+  agentInstructions?: { file: 'AGENTS.md'; sha256: string; chars: number };
   memorySnapshot?: { file: string; sha256: string; chars: number };
 }
 
@@ -284,6 +292,7 @@ export interface BuildPacketInput {
     tests: Array<{ command: string; status: string }>;
     risks: string[];
   }>;
+  agentInstructions?: { file: 'AGENTS.md'; sha256: string; chars: number };
   memorySnapshot?: { file: string; sha256: string; chars: number };
 }
 
@@ -310,6 +319,7 @@ export function buildTaskContextPacket(input: BuildPacketInput): TaskContextPack
       risks: result.risks.slice(0, MAX_DEPENDENCY_RISKS)
         .map((risk) => clipped(risk, MAX_DEPENDENCY_RISK_CHARS)),
     })),
+    ...(input.agentInstructions ? { agentInstructions: input.agentInstructions } : {}),
     ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
   };
 }

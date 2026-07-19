@@ -42,7 +42,9 @@ const valid: Record<InvokeChannel, unknown> = {
     categoryId: 'category',
     name: 'Agent',
     runtime: 'codex',
-    permissionMode: 'default',
+    permissionMode: 'bypass',
+    codexModel: 'gpt-5.6-sol',
+    codexReasoningEffort: 'xhigh',
   },
   'agent:update': {
     id: 'agent',
@@ -97,6 +99,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:events': { sinceSeq: 0, limit: 200 },
   'run:approvalDiff': { runId: 'run' },
   'pty:activitySnapshot': { sessionId: 'session' },
+  'runTask:activity': { taskId: 'task' },
   'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
@@ -127,6 +130,9 @@ for (const channel of INVOKE_CHANNELS) {
 
 check('config writes cannot replace catalog data', rejects('config:save', { categories: [] }));
 check('unknown fields are rejected', rejects('pty:kill', { sessionId: 's', extra: true }));
+check('persisted task activity requires one exact task id',
+  rejects('runTask:activity', {})
+  && rejects('runTask:activity', { taskId: 'task', extra: true }));
 check('malformed base64 is rejected', rejects('pty:write', { sessionId: 's', dataBase64: '%' }));
 check('oversized terminal dimensions are rejected', rejects('pty:resize', { sessionId: 's', cols: 5000, rows: 20 }));
 check('empty run rosters are rejected', rejects('run:create', { name: 'Run', participants: [] }));
@@ -145,6 +151,18 @@ check('oversized journal pages are rejected', rejects('run:events', { limit: 501
 check('team pause requires a team id', rejects('run:pauseTeam', { runId: 'run' }));
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',
+}));
+check('Codex model ids reject shell metacharacters', rejects('agent:create', {
+  categoryId: 'c', name: 'a', runtime: 'codex', permissionMode: 'bypass',
+  codexModel: 'gpt-5.6-sol; Remove-Item C:\\', codexReasoningEffort: 'xhigh',
+}));
+check('unknown Codex reasoning levels are rejected', rejects('agent:create', {
+  categoryId: 'c', name: 'a', runtime: 'codex', permissionMode: 'bypass',
+  codexModel: 'gpt-5.6-sol', codexReasoningEffort: 'extreme',
+}));
+check('Codex model settings cannot leak onto another runtime', rejects('agent:update', {
+  id: 'agent', name: 'a', runtime: 'claude', permissionMode: 'default',
+  codexModel: 'gpt-5.6-sol',
 }));
 check('workspace traversal is rejected before filesystem handlers',
   rejects('fs:read', { agentId: 'agent', path: '../outside.txt' }));

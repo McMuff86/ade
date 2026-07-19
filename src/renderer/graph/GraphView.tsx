@@ -18,6 +18,7 @@ import { useSessions } from '../stores/sessions';
 import { useGraphStore, type GraphSelection, type Pos } from './graphStore';
 import {
   buildClusters,
+  failureNoticeFor,
   statusFor,
   type GraphMember,
   type NodeStatus,
@@ -175,6 +176,7 @@ export function GraphView(): JSX.Element {
   const runs = useRuns((state) => state.runs);
   const participants = useRuns((state) => state.participants);
   const tasks = useRuns((state) => state.tasks);
+  const events = useRuns((state) => state.events);
   const approvals = useRuns((state) => state.approvals);
   const messages = useRuns((state) => state.messages);
   const usageByRun = useRuns((state) => state.usageByRun);
@@ -223,6 +225,10 @@ export function GraphView(): JSX.Element {
   const activeRunTasks = useMemo(
     () => tasks.filter((task) => task.runId === activeRunId),
     [tasks, activeRunId],
+  );
+  const activeRunFailure = useMemo(
+    () => failureNoticeFor(activeRun, activeRunTasks, events),
+    [activeRun, activeRunTasks, events],
   );
 
   const [view, setView] = useState({ x: 40, y: 10, scale: 0.8 });
@@ -1104,6 +1110,16 @@ export function GraphView(): JSX.Element {
         </button>
       </div>
 
+      {activeRunFailure && (
+        <div className="grun-failure" role="alert">
+          <div className="grun-failure-head">
+            <b>Run fehlgeschlagen</b>
+            <span title={activeRunFailure.context}>{activeRunFailure.context}</span>
+          </div>
+          <p>{activeRunFailure.detail}</p>
+        </div>
+      )}
+
       {pendingApproval && (
         <div className={`gapproval${approvalOpen ? ' open' : ''}`} role="status">
           <div className="gapproval-row">
@@ -1595,6 +1611,12 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         v={`v${details.provenance.promptVersion} / v${details.provenance.resultSchemaVersion}`}
       />);
       rows.push(<KV key="adapter" k="Adapter" v={details.provenance.adapterId} />);
+      if (details.provenance.modelId) {
+        rows.push(<KV key="model" k="Modell" v={details.provenance.modelId} />);
+      }
+      if (details.provenance.reasoningEffort) {
+        rows.push(<KV key="reasoning" k="Reasoning" v={details.provenance.reasoningEffort} />);
+      }
       if (details.provenance.contextManifestHash) {
         rows.push(<KV key="manifest" k="Manifest" v={details.provenance.contextManifestHash.slice(0, 10)} />);
       }

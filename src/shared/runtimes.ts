@@ -5,7 +5,7 @@
  * to the default command).
  */
 
-import type { Agent, PermissionMode, RuntimeId } from './types';
+import type { Agent, CodexReasoningEffort, PermissionMode, RuntimeId } from './types';
 
 export interface LaunchProfile {
   label: string;
@@ -101,14 +101,17 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
  *   powershell.exe on Windows, $SHELL on POSIX).
  */
 export function resolveLaunchCommand(
-  agent: Pick<Agent, 'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel'>,
+  agent: Pick<Agent,
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
+    'codexModel' | 'codexReasoningEffort'>,
 ): string {
   if (agent.customCommand && agent.customCommand.trim().length > 0) {
     return agent.customCommand.trim();
   }
   const profile = LAUNCH_PROFILES[agent.runtime];
   const command = profile.commands[agent.permissionMode] ?? profile.commands['default'] ?? '';
-  return command.replace('${model}', agent.ollamaModel ?? '');
+  const resolved = command.replace('${model}', agent.ollamaModel ?? '');
+  return agent.runtime === 'codex' ? `${resolved}${codexConfigArgs(agent)}` : resolved;
 }
 
 /**
@@ -118,7 +121,9 @@ export function resolveLaunchCommand(
  * form; generic/custom CLIs receive the prompt over stdin.
  */
 export function resolveTaskLaunchCommand(
-  agent: Pick<Agent, 'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel'>,
+  agent: Pick<Agent,
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
+    'codexModel' | 'codexReasoningEffort'>,
   platform: 'win32' | 'posix',
 ): TaskLaunchCommand | null {
   const base = resolveLaunchCommand(agent).trim();
@@ -142,11 +147,18 @@ export function resolveTaskLaunchCommand(
         : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} -p`;
       return { command: pipe, transport: 'stdin' };
     }
-    case 'codex':
+    case 'codex': {
+      // PowerShell 5.1 corrupts an expanded native argument when the prompt
+      // itself contains quotes. Codex accepts `-` as a stdin prompt, which
+      // preserves arbitrary task text on Windows and is equally robust on POSIX.
+      const pipe = platform === 'win32'
+        ? `$env:ADE_TASK_PROMPT | ${resolveCodexExecCommand(agent.permissionMode, agent)}`
+        : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${resolveCodexExecCommand(agent.permissionMode, agent)}`;
       return {
-        command: `${resolveCodexExecCommand(agent.permissionMode)} --skip-git-repo-check -- ${prompt}`,
-        transport: 'argument',
+        command: `${pipe} --skip-git-repo-check -`,
+        transport: 'stdin',
       };
+    }
     case 'opencode':
       return { command: `${base} run ${prompt}`, transport: 'argument' };
     case 'gemini':
@@ -171,13 +183,45 @@ export function resolveClaudeCommand(permissionMode: PermissionMode): string {
 }
 
 /** Build the current non-interactive Codex command for ADE's permission mode. */
-export function resolveCodexExecCommand(permissionMode: PermissionMode): string {
+export function resolveCodexExecCommand(
+  permissionMode: PermissionMode,
+  config: Pick<Agent, 'codexModel' | 'codexReasoningEffort'> = {},
+): string {
+  let command: string;
   switch (permissionMode) {
     case 'accept-edits':
-      return 'codex exec --sandbox workspace-write';
+      command = 'codex exec --sandbox workspace-write';
+      break;
     case 'bypass':
-      return 'codex exec --dangerously-bypass-approvals-and-sandbox';
+      command = 'codex exec --dangerously-bypass-approvals-and-sandbox';
+      break;
     default:
-      return 'codex exec';
+      command = 'codex exec';
   }
+  return `${command}${codexConfigArgs(config)}`;
+}
+
+const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
+const CODEX_REASONING_EFFORTS = new Set<CodexReasoningEffort>([
+  'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+]);
+
+/** Shell-safe CLI options for first-class Codex model and reasoning pins. */
+function codexConfigArgs(config: Pick<Agent, 'codexModel' | 'codexReasoningEffort'>): string {
+  const args: string[] = [];
+  const model = config.codexModel?.trim();
+  if (model) {
+    if (!CODEX_MODEL_PATTERN.test(model)) {
+      throw new Error(`ade: unsafe Codex model id "${model}"`);
+    }
+    args.push('--model', model);
+  }
+  const effort = config.codexReasoningEffort;
+  if (effort) {
+    if (!CODEX_REASONING_EFFORTS.has(effort)) {
+      throw new Error(`ade: unsupported Codex reasoning effort "${String(effort)}"`);
+    }
+    args.push('-c', `model_reasoning_effort="${effort}"`);
+  }
+  return args.length > 0 ? ` ${args.join(' ')}` : '';
 }

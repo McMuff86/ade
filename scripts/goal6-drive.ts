@@ -35,6 +35,8 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 
 const root = join(__dirname, '..');
 const shots = join(tmpdir(), 'ade-goal6-shots');
+const GOAL6_CODEX_MODEL = 'gpt-5.6-sol';
+const GOAL6_WORKER_REASONING = new Set(['high', 'xhigh', 'max', 'ultra']);
 
 interface Options {
   mode: 'managed' | 'approve' | 'reject' | 'baseline';
@@ -129,6 +131,83 @@ async function selectRun(page: Page, match: string): Promise<string> {
   return label;
 }
 
+/**
+ * Goal 6 is a Codex-only measurement. Fail before run creation if a selected
+ * identity could silently fall back to Claude/custom/default model settings or
+ * lacks its durable AGENTS.md role contract.
+ */
+async function assertCodexRoster(page: Page, options: Options): Promise<void> {
+  const rosterNames = [options.orchestrator, ...options.agents].filter(Boolean) as string[];
+  const agents = await page.evaluate(async () => {
+    const api = (window as unknown as {
+      ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+    }).ade;
+    const config = await api.invoke('config:get') as {
+      agents: Array<{
+        id: string;
+        name: string;
+        runtime: string;
+        permissionMode: string;
+        teamRole?: string;
+        customCommand?: string;
+        codexModel?: string;
+        codexReasoningEffort?: string;
+      }>;
+    };
+    return config.agents;
+  });
+  const violations: string[] = [];
+  for (const name of rosterNames) {
+    const matches = agents.filter((agent) => agent.name === name);
+    if (matches.length !== 1) {
+      violations.push(`${name}: expected one saved identity, found ${matches.length}`);
+      continue;
+    }
+    const agent = matches[0]!;
+    if (agent.runtime !== 'codex') violations.push(`${name}: runtime=${agent.runtime}, expected codex`);
+    if (agent.permissionMode !== 'bypass') {
+      violations.push(`${name}: permissionMode=${agent.permissionMode}, expected bypass`);
+    }
+    if (agent.customCommand?.trim()) violations.push(`${name}: customCommand would bypass the native Codex adapter`);
+    if (agent.codexModel !== GOAL6_CODEX_MODEL) {
+      violations.push(`${name}: model=${agent.codexModel ?? 'unset'}, expected ${GOAL6_CODEX_MODEL}`);
+    }
+    const isOrchestrator = options.orchestrator === name;
+    if (isOrchestrator && agent.codexReasoningEffort !== 'xhigh') {
+      violations.push(`${name}: reasoning=${agent.codexReasoningEffort ?? 'unset'}, expected xhigh`);
+    }
+    if (!isOrchestrator && !GOAL6_WORKER_REASONING.has(agent.codexReasoningEffort ?? '')) {
+      violations.push(`${name}: reasoning=${agent.codexReasoningEffort ?? 'unset'}, expected high or deeper`);
+    }
+    const agentsContract = await page.evaluate(async ({ agentId }) => {
+      const api = (window as unknown as {
+        ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+      }).ade;
+      const files = await api.invoke('fs:agentFiles', { agentId }) as Array<{ name: string }>;
+      if (!files.some((file) => file.name === 'AGENTS.md')) return { exists: false, text: '' };
+      const content = await api.invoke('fs:read', { agentId, path: 'AGENTS.md' }) as { text: string };
+      return { exists: true, text: content.text };
+    }, { agentId: agent.id });
+    if (!agentsContract.exists) {
+      violations.push(`${name}: durable AGENTS.md is missing`);
+    } else {
+      const expectedRole = isOrchestrator
+        ? 'main orchestrator'
+        : agent.teamRole === 'lead'
+          ? 'team lead'
+          : 'worker';
+      if (!agentsContract.text.includes(`Orchestration role: ${expectedRole}`)) {
+        violations.push(`${name}: AGENTS.md does not declare role ${expectedRole}`);
+      }
+    }
+  }
+  check('selected Goal 6 roster is Codex-only with pinned model, reasoning, bypass and AGENTS.md',
+    violations.length === 0, violations);
+  if (violations.length > 0) {
+    throw new Error(`goal6-drive: Codex roster policy failed\n- ${violations.join('\n- ')}`);
+  }
+}
+
 async function createRun(app: ElectronApplication, page: Page, options: Options, goal: string): Promise<void> {
   await page.getByRole('button', { name: 'Neuer Run' }).first().click();
   const modal = page.locator('.grun-modal');
@@ -219,6 +298,7 @@ async function main(): Promise<void> {
       if (options.mode === 'managed' && !options.orchestrator) {
         throw new Error('goal6-drive: managed mode requires --orchestrator');
       }
+      await assertCodexRoster(page, options);
       const goal = fixtureGoal(options.fixture);
       console.log(`fixture ${options.fixture}: ${goal.length} chars`);
       await createRun(app, page, options, goal);

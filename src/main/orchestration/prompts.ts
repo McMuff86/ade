@@ -12,7 +12,7 @@ import type { Run, RunParticipant, StructuredTaskResult } from '../../shared/typ
 export const PROMPT_VERSIONS = {
   plan: 1,
   work: 1,
-  integrate: 1,
+  integrate: 2,
   verify: 1,
 } as const;
 
@@ -112,7 +112,10 @@ export function integrationPrompt(
       : 'This is a plain-workspace run; reconcile the worker reports without claiming git integration.',
     'Review the combined result for conflicts, missing behavior, security regressions, and consistency.',
     'Run relevant focused tests. Fix integration-only issues if needed.',
-    'Report the exact repository-relative paths you change. Do not run git add, git commit, reset, checkout, rebase, merge, or push.',
+    'The worker commits are already part of HEAD before this task starts. In filesChanged, report ONLY the ' +
+      'currently uncommitted paths created or modified by this integration review (the exact final git status path set). ' +
+      'Do not repeat files that arrived in worker commits unless you modify them again during this task; use [] when the worktree stays clean.',
+    'Do not run git add, git commit, reset, checkout, rebase, merge, or push.',
     'Return commitSha=null; ADE validates and commits any integration-only diff after you exit.',
     'Worker reports:',
     reports,

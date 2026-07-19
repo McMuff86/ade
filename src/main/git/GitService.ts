@@ -13,6 +13,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import simpleGit, { type SimpleGit } from 'simple-git';
 import type { GitFileChange, GitFileState, GitStatus } from '../../shared/types';
+import { hostNullDevice, hostPathKey } from '../platform';
 
 const execFileAsync = promisify(execFile);
 
@@ -230,7 +231,7 @@ function cap(text: string): string {
 
 /* --------------------------------------------------------------- worktrees */
 
-const NULL_DEVICE = process.platform === 'win32' ? 'NUL' : '/dev/null';
+const NULL_DEVICE = hostNullDevice();
 
 /** Local branch names in a repo (best-effort; [] on failure). */
 async function localBranches(repoPath: string): Promise<Set<string>> {
@@ -246,11 +247,11 @@ async function localBranches(repoPath: string): Promise<Set<string>> {
 async function worktreeRegistered(repoPath: string, worktreePath: string): Promise<boolean> {
   try {
     const out = await git(repoPath).raw(['worktree', 'list', '--porcelain']);
-    const want = worktreePath.replace(/\\/g, '/').toLowerCase();
+    const want = hostPathKey(worktreePath);
     return out
       .split('\n')
       .filter((l) => l.startsWith('worktree '))
-      .some((l) => l.slice('worktree '.length).trim().replace(/\\/g, '/').toLowerCase() === want);
+      .some((l) => hostPathKey(l.slice('worktree '.length).trim()) === want);
   } catch {
     return false;
   }

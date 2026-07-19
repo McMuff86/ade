@@ -15,6 +15,7 @@ import {
   repositoryIdentity,
 } from '../git/GitService';
 import { WorkspaceService, type WorkspacePort } from '../orchestration/WorkspaceService';
+import { sameHostPath } from '../platform';
 
 export interface RepositoryConfigPort {
   get(): AdeConfig;
@@ -439,11 +440,7 @@ function slugify(value: string): string {
 }
 
 function samePath(left: string, right: string): boolean {
-  const normalize = (value: string): string => {
-    const path = resolve(value).replace(/\\/g, '/').replace(/\/$/, '');
-    return process.platform === 'win32' ? path.toLowerCase() : path;
-  };
-  return normalize(left) === normalize(right);
+  return sameHostPath(left, right);
 }
 
 function sameRepository(left: Repository, right: Repository): boolean {

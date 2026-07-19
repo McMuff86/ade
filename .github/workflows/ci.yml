@@ -13,6 +13,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  linux-contracts:
+    name: Verify Linux contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install native build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y python3 make g++
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4.4.0
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux-native dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Run focused checks
+        run: pnpm test
+
+      - name: Build production app
+        run: pnpm run build
+
+      - name: Install Electron runtime dependencies
+        run: pnpm exec playwright install-deps
+
+      - name: Run Electron workflow under Xvfb
+        run: xvfb-run --auto-servernum pnpm exec tsx scripts/test-electron-workflow.ts
+
   terminal-beta:
     name: Verify Windows terminal beta
     runs-on: windows-latest

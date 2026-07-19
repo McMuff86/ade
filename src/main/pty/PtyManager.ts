@@ -10,7 +10,7 @@
 import { BrowserWindow } from 'electron';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import * as os from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import * as pty from 'node-pty';
 import {
   IPC_EVENTS,
@@ -26,8 +26,10 @@ import {
 import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { ConfigStore } from '../config/store';
 import { ClaudeActivityParser, type ActivityLine } from '../orchestration/claudeStream';
+import { CodexActivityParser } from '../orchestration/codexStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
+import { resolveHostShell, sameHostPath } from '../platform';
 import {
   homeWorkspace,
   type RepositoryScopePort,
@@ -59,7 +61,7 @@ export interface TaskLifecycleSink {
     env: Record<string, string>;
     command?: string;
     transport?: 'argument' | 'stdin';
-    activityFormat?: 'claude-stream-json';
+    activityFormat?: 'claude-stream-json' | 'codex-jsonl';
   } | undefined;
   handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
@@ -86,7 +88,7 @@ interface Session {
   forceStopTimer?: ReturnType<typeof setTimeout>;
   /** Live activity rendered from a machine-readable runtime stream. */
   activity?: {
-    parser: ClaudeActivityParser;
+    parser: ClaudeActivityParser | CodexActivityParser;
     lines: ActivityLine[];
     /** Task-dir JSONL so the feed survives session end; best effort. */
     filePath?: string;
@@ -383,9 +385,11 @@ export class PtyManager {
       cancelled: false,
       stopping: false,
       removeOnExit: false,
-      activity: managedLaunch?.activityFormat === 'claude-stream-json'
+      activity: managedLaunch?.activityFormat
         ? {
-            parser: new ClaudeActivityParser(),
+            parser: managedLaunch.activityFormat === 'codex-jsonl'
+              ? new CodexActivityParser()
+              : new ClaudeActivityParser(),
             lines: [],
             filePath: managedLaunch.env['ADE_TASK_DIR']
               ? join(managedLaunch.env['ADE_TASK_DIR'], 'ACTIVITY.jsonl')
@@ -650,7 +654,7 @@ export class PtyManager {
   private resolveInteractiveSpawn(agent: Agent): SpawnSpec {
     const command = resolveLaunchCommand(agent);
     const isWin = process.platform === 'win32';
-    const shell = isWin ? 'powershell.exe' : (process.env['SHELL'] ?? 'bash');
+    const shell = resolveHostShell();
     const args = isWin ? ['-NoLogo'] : ['-l'];
     const lineEnding = isWin ? '\r' : '\n';
     return command.trim()
@@ -675,7 +679,7 @@ export class PtyManager {
     if (!task) {
       throw new Error(`ade: runtime "${agent.runtime}" has no non-interactive task transport`);
     }
-    const shell = isWin ? 'powershell.exe' : (process.env['SHELL'] ?? 'bash');
+    const shell = resolveHostShell();
     return {
       file: shell,
       args: isWin ? ['-NoLogo', '-NoProfile', '-Command', task.command] : ['-lc', task.command],
@@ -694,9 +698,5 @@ export class PtyManager {
 }
 
 function sameWorkspace(left: string, right: string): boolean {
-  const normalize = (value: string): string => {
-    const path = resolve(value).replace(/\\/g, '/').replace(/\/$/, '');
-    return process.platform === 'win32' ? path.toLowerCase() : path;
-  };
-  return normalize(left) === normalize(right);
+  return sameHostPath(left, right);
 }

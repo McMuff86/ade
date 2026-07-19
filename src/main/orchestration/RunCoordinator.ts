@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   AdeConfig,
@@ -11,6 +11,7 @@ import type {
 } from '../../shared/types';
 import { resolveTaskLaunchCommand } from '../../shared/runtimes';
 import { MemoryStore } from '../memory/MemoryStore';
+import { snapshotAgentInstructions } from '../memory/agentInstructions';
 import { MailboxService } from './MailboxService';
 import { OrchestrationService } from './OrchestrationService';
 import {
@@ -275,6 +276,8 @@ export class RunCoordinator {
               ...(participant.teamName ? { teamName: participant.teamName } : {}),
               runtime: agent.runtime,
               permissionMode: agent.permissionMode,
+              ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
+              ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
               adapterId: capabilities.adapterId,
               reportsTokens: capabilities.reportsTokens,
               reportsCost: capabilities.reportsCost,
@@ -979,12 +982,20 @@ export class RunCoordinator {
   }
 
   /**
-   * Write MEMORY_SNAPSHOT.md and TASK_CONTEXT.json into the task directory
+   * Write the role-aware AGENTS.md, MEMORY_SNAPSHOT.md and TASK_CONTEXT.json into the task directory
    * (outside every leased worktree) and journal the packet as an artifact.
    * Context packets are observability plus advisory agent context — a failed
    * write is logged and must not fail an otherwise valid task launch.
    */
   private writeTaskContext(task: RunTask, agent: Agent, files: ManagedTaskFiles): void {
+    // Role guidance is a required launch invariant. It lives outside the
+    // leased worktree, so guaranteeing it never dirties repository state.
+    const snapshot = this.orchestration.snapshot();
+    const participant = snapshot.participants.find((item) => item.id === task.participantId);
+    const agentInstructions = snapshotAgentInstructions(agent, participant?.role);
+    mkdirSync(files.taskDir, { recursive: true });
+    writeFileSync(join(files.taskDir, agentInstructions.file), agentInstructions.content, 'utf8');
+
     try {
       const context = this.runContext(task.runId);
       const capabilities = this.adapters.capabilities(agent);
@@ -1010,7 +1021,6 @@ export class RunCoordinator {
         writeFileSync(join(files.taskDir, 'MEMORY_SNAPSHOT.md'), content, 'utf8');
         memorySnapshot = { file: 'MEMORY_SNAPSHOT.md', sha256: sha256(content), chars: content.length };
       }
-      const snapshot = this.orchestration.snapshot();
       const packet = buildTaskContextPacket({
         task,
         manifestHash: context?.hash ?? null,
@@ -1020,6 +1030,8 @@ export class RunCoordinator {
           adapterId: capabilities.adapterId,
           contextBuilderVersion: CONTEXT_BUILDER_VERSION,
           ...(context ? { contextManifestHash: context.hash } : {}),
+          ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
+          ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
         },
         dependencyResults: snapshot.results
           .filter((result) => result.runId === task.runId && task.dependsOn.includes(result.participantId))
@@ -1032,6 +1044,11 @@ export class RunCoordinator {
             tests: result.tests.map((test) => ({ command: test.command, status: test.status })),
             risks: result.risks,
           })),
+        agentInstructions: {
+          file: agentInstructions.file,
+          sha256: agentInstructions.sha256,
+          chars: agentInstructions.chars,
+        },
         ...(memorySnapshot ? { memorySnapshot } : {}),
       });
       const packetJson = stableStringify(packet);

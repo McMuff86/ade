@@ -3,6 +3,7 @@
 import { execFile, spawn } from 'node:child_process';
 import type { Agent, RuntimeAuthStatus, RuntimeDiagnostic, RuntimeDiagnosticsResult, RuntimeId } from '../../shared/types';
 import { LAUNCH_PROFILES, resolveTaskLaunchCommand } from '../../shared/runtimes';
+import { resolveHostShell } from '../platform';
 
 const COMMAND_TIMEOUT_MS = 5_000;
 const OUTPUT_CAP = 64 * 1024;
@@ -173,7 +174,7 @@ async function diagnoseAgent(agent: Agent): Promise<RuntimeDiagnostic> {
       agentName: agent.name,
       runtime: agent.runtime,
       label,
-      command: process.platform === 'win32' ? 'powershell.exe' : (process.env['SHELL'] ?? 'sh'),
+      command: resolveHostShell(),
       installed: true,
       authStatus: 'not-required',
       authDetail: 'Authentication is not required.',

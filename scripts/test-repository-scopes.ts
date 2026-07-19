@@ -327,6 +327,8 @@ async function run(): Promise<void> {
       name: 'Source Writer',
       runtime: 'codex',
       permissionMode: 'default',
+      codexModel: 'gpt-5.6-sol',
+      codexReasoningEffort: 'xhigh',
       workspaceDir: sourceHome,
       homeWorkspaceDir: sourceHome,
       memoryDir: sourceMemory,
@@ -470,12 +472,17 @@ async function run(): Promise<void> {
     check('template spawn creates an independent agent identity and memory directory',
       spawned.id !== sourceAgent.id
         && spawned.memoryDir !== sourceAgent.memoryDir
-        && spawned.defaultRepositoryId === repoB.id);
+        && spawned.defaultRepositoryId === repoB.id
+        && spawned.codexModel === 'gpt-5.6-sol'
+        && spawned.codexReasoningEffort === 'xhigh');
     check('template memory is copied as an independent snapshot',
       readFileSync(join(spawned.memoryDir, 'MEMORY.md'), 'utf8').includes('template memory seed\n')
         && readFileSync(join(spawned.memoryDir, 'MEMORY.md'), 'utf8').includes('[redacted by ADE template]')
         && !readFileSync(join(spawned.memoryDir, 'MEMORY.md'), 'utf8').includes('super-secret-template-value')
         && readFileSync(join(sourceMemory, 'MEMORY.md'), 'utf8') === 'source changed after template\n');
+    check('template spawn materializes a durable role-aware AGENTS.md',
+      readFileSync(join(spawned.memoryDir, 'AGENTS.md'), 'utf8').includes('Identity: Repo B Writer')
+        && readFileSync(join(spawned.memoryDir, 'AGENTS.md'), 'utf8').includes('model gpt-5.6-sol'));
     check('template spawn creates the selected repository binding',
       store.read().workspaceBindings.some((binding) => (
         binding.agentId === spawned.id && binding.repositoryId === repoB.id

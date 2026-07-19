@@ -1,10 +1,18 @@
 /** Pure checks for the bounded task queue and non-interactive runtime commands. */
 
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { TaskQueueCancelledError, TaskSlotQueue } from '../src/main/pty/TaskQueue';
-import { statusFor } from '../src/renderer/graph/graphModel';
-import type { RunTask } from '../src/shared/types';
-import { resolveTaskLaunchCommand } from '../src/shared/runtimes';
+import {
+  hostNullDevice,
+  hostPathKey,
+  resolveHostShell,
+} from '../src/main/platform';
+import { failureNoticeFor, statusFor } from '../src/renderer/graph/graphModel';
+import type { Run, RunEvent, RunTask } from '../src/shared/types';
+import { resolveLaunchCommand, resolveTaskLaunchCommand } from '../src/shared/runtimes';
 
 let passed = 0;
 let failed = 0;
@@ -20,10 +28,45 @@ function check(label: string, condition: boolean, detail?: unknown): void {
 }
 
 async function main(): Promise<void> {
+  check('Windows path identity folds case',
+    hostPathKey('C:\\Repo\\Worker', 'win32') === hostPathKey('c:\\repo\\worker\\', 'win32'));
+  check('POSIX path identity preserves case for leases',
+    hostPathKey('/tmp/ADE/Worker', 'posix') !== hostPathKey('/tmp/ADE/worker', 'posix'));
+  check('host null-device selection is explicit',
+    hostNullDevice('win32') === 'NUL' && hostNullDevice('linux') === '/dev/null');
+  check('desktop POSIX shell selection honors an executable absolute SHELL',
+    resolveHostShell({ SHELL: '/opt/test/zsh' }, 'linux', (path) => path === '/opt/test/zsh')
+      === '/opt/test/zsh');
+  check('desktop POSIX shell selection ignores relative SHELL and has an absolute fallback',
+    resolveHostShell({ SHELL: 'injected-shell' }, 'linux', (path) => path === '/bin/sh')
+      === '/bin/sh');
+
+  const failedRun: Run = {
+    id: 'failed-run', name: 'Failed run', goal: 'Expose the failure', status: 'failed',
+    mode: 'managed', phase: 'failed', budget: {
+      maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null,
+      maxCostUsd: null, maxApprovals: 1,
+    }, createdAt: 1, updatedAt: 4,
+  };
+  const failedTask: RunTask = {
+    id: 'failed-task', runId: failedRun.id, participantId: 'worker', prompt: 'work',
+    title: 'Validate integration result', phase: 'integrate', managed: true, dependsOn: [],
+    attempt: 1, status: 'failed', error: 'filesChanged did not match the final path set',
+    createdAt: 2, updatedAt: 4,
+  };
+  const failedEvent: RunEvent = {
+    id: 'failed-event', runId: failedRun.id, type: 'run.failed', createdAt: 4,
+    data: { detail: 'less precise coordinator failure' }, seq: 3,
+  };
+  check('failed-run notice prefers the actionable persisted task error',
+    failureNoticeFor(failedRun, [failedTask], [failedEvent])?.detail === failedTask.error);
+
   const agent = (runtime: 'claude' | 'codex' | 'ollama' | 'shell') => ({
     runtime,
     permissionMode: 'default' as const,
     ollamaModel: runtime === 'ollama' ? 'llama3.3' : undefined,
+    codexModel: runtime === 'codex' ? 'gpt-5.6-sol' : undefined,
+    codexReasoningEffort: runtime === 'codex' ? 'high' as const : undefined,
   });
 
   const claude = resolveTaskLaunchCommand(agent('claude'), 'win32');
@@ -43,8 +86,9 @@ async function main(): Promise<void> {
 
   const codex = resolveTaskLaunchCommand(agent('codex'), 'win32');
   check(
-    'Codex task uses exec mode',
-    codex?.command.includes('codex exec --skip-git-repo-check') === true,
+    'Codex task pins its model and reasoning in exec mode',
+    codex?.command.includes('$env:ADE_TASK_PROMPT | codex exec --model gpt-5.6-sol -c model_reasoning_effort="high" --skip-git-repo-check -') === true
+      && codex.transport === 'stdin',
     codex,
   );
   const codexAuto = resolveTaskLaunchCommand({
@@ -56,6 +100,39 @@ async function main(): Promise<void> {
     codexAuto?.command.includes('codex exec --sandbox workspace-write --skip-git-repo-check') === true,
     codexAuto,
   );
+  const codexBypass = resolveLaunchCommand({
+    runtime: 'codex',
+    permissionMode: 'bypass',
+    codexModel: 'gpt-5.6-sol',
+    codexReasoningEffort: 'xhigh',
+  });
+  check(
+    'Codex interactive bypass keeps the persisted Sol/xhigh profile',
+    codexBypass === 'codex --dangerously-bypass-approvals-and-sandbox --model gpt-5.6-sol -c model_reasoning_effort="xhigh"',
+    codexBypass,
+  );
+  let unsafeModelRejected = false;
+  try {
+    resolveLaunchCommand({
+      runtime: 'codex', permissionMode: 'bypass', codexModel: 'gpt-5.6-sol; whoami',
+    });
+  } catch {
+    unsafeModelRejected = true;
+  }
+  check('Codex model ids cannot inject shell syntax', unsafeModelRejected);
+  if (process.platform === 'win32' && codex) {
+    const shimDir = mkdtempSync(join(tmpdir(), 'ade-codex-stdin-'));
+    writeFileSync(join(shimDir, 'codex.cmd'), '@echo off\r\nmore\r\n', 'utf8');
+    const quotedPrompt = 'literal "quoted segment" $(Get-Date) $HOME';
+    const output = execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', codex.command], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${shimDir};${process.env['PATH'] ?? ''}`, ADE_TASK_PROMPT: quotedPrompt },
+    }).trim();
+    check('Codex stdin transport survives PowerShell 5.1 quotes without evaluation',
+      output === quotedPrompt, output);
+  } else {
+    check('Codex stdin transport survives PowerShell 5.1 quotes without evaluation', codex?.transport === 'stdin');
+  }
 
   const ollama = resolveTaskLaunchCommand(agent('ollama'), 'posix');
   check(

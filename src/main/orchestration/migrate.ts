@@ -11,6 +11,7 @@ import {
   type RunParticipant,
   type WorkspaceBinding,
 } from '../../shared/types';
+import { hostPathKey } from '../platform';
 
 const LEGACY_RUN_ID = 'legacy-graph-run-v1';
 
@@ -284,8 +285,7 @@ function migrateRepositoryScopes(
 }
 
 function pathKey(path: string): string {
-  const normalized = resolve(path).replace(/\\/g, '/').replace(/\/$/, '');
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+  return hostPathKey(path);
 }
 
 function deterministicId(kind: string, value: string): string {

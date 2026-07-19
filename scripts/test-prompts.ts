@@ -116,11 +116,13 @@ const manifestParticipants: ManifestParticipant[] = [
   {
     participantId: 'p-orchestrator', agentName: 'Conductor', role: 'orchestrator',
     runtime: 'codex', permissionMode: 'default', adapterId: 'codex-jsonl-v1',
+    modelId: 'gpt-5.6-sol', reasoningEffort: 'xhigh',
     reportsTokens: true, reportsCost: false,
   },
   {
     participantId: 'p-worker-1', agentName: 'Builder One', role: 'worker', teamName: 'Core',
     runtime: 'codex', permissionMode: 'default', adapterId: 'codex-jsonl-v1',
+    modelId: 'gpt-5.6-sol', reasoningEffort: 'high',
     reportsTokens: true, reportsCost: false,
   },
   {
@@ -226,12 +228,17 @@ check('dependent worker prompt points at TASK_CONTEXT.json', workRendered.includ
 check('independent worker prompt omits the dependency note',
   !workerPrompt(run, { ...assignment, dependsOn: [] }, { brief, hasDependencies: false }).includes('TASK_CONTEXT.json'));
 check('integration prompt references the manifest hash', integrateRendered.includes(hash.slice(0, 16)));
+check('integration prompt distinguishes review edits from already integrated worker files',
+  integrateRendered.includes('ONLY the currently uncommitted paths')
+    && integrateRendered.includes('Do not repeat files that arrived in worker commits'));
 for (const [name, rendered] of [
   ['plan', planRendered], ['work', workRendered], ['integrate', integrateRendered], ['verify', verifyRendered],
 ] as const) {
   check(`${name} prompt contains no absolute host path`, !ABSOLUTE_PATH_PATTERN.test(rendered));
 }
 check('brief lists instruction files with digests', brief.includes('CLAUDE.md (sha256'));
+check('brief makes Codex model and reasoning provenance visible',
+  brief.includes('model gpt-5.6-sol | reasoning xhigh'));
 
 /* ----------------------------------------------------------- packet bounds */
 
@@ -245,26 +252,37 @@ const packet = buildTaskContextPacket({
     adapterId: 'codex-jsonl-v1',
     contextBuilderVersion: manifest.contextBuilderVersion,
     contextManifestHash: hash,
+    modelId: 'gpt-5.6-sol',
+    reasoningEffort: 'high',
   },
   dependencyResults: Array.from({ length: 20 }, (_, index) => ({
     participantId: `p-${index}`,
     taskId: `t-${index}`,
-    summary: 'x'.repeat(5_000),
+    summary: 'x'.repeat(index === 0 ? 13_000 : 5_000),
     filesChanged: Array.from({ length: 300 }, (_f, fileIndex) => `src/file-${fileIndex}.ts`),
     commitSha: null,
     tests: Array.from({ length: 40 }, () => ({ command: 'pnpm test', status: 'passed' })),
     risks: Array.from({ length: 20 }, () => 'risk'),
   })),
+  agentInstructions: { file: 'AGENTS.md', sha256: 'b'.repeat(64), chars: 1_234 },
   memorySnapshot: { file: 'MEMORY_SNAPSHOT.md', sha256: 'a'.repeat(64), chars: 42 },
 });
 check('packet caps dependency entries at 16', packet.dependencies.length === 16);
-check('packet truncates dependency summaries', packet.dependencies[0]!.summary.length === 2_000);
+check('packet marks dependency summary cuts at the 12k result cap',
+  packet.dependencies[0]!.summary.length === 12_000
+  && packet.dependencies[0]!.summary.includes('[ADE: truncated, 13000 chars total]'));
+check('packet forwards dependency summaries intact below the result cap',
+  packet.dependencies[1]!.summary.length === 5_000
+  && !packet.dependencies[1]!.summary.includes('[ADE: truncated'));
 check('packet caps changed files per dependency at 200', packet.dependencies[0]!.filesChanged.length === 200);
 check('packet caps tests per dependency at 20', packet.dependencies[0]!.tests.length === 20);
 check('packet keeps provenance and manifest linkage',
   packet.provenance.adapterId === 'codex-jsonl-v1' && packet.manifestHash === hash &&
+  packet.provenance.modelId === 'gpt-5.6-sol' && packet.provenance.reasoningEffort === 'high' &&
+  packet.agentInstructions?.file === 'AGENTS.md' &&
   packet.memorySnapshot?.file === 'MEMORY_SNAPSHOT.md');
-check('packet JSON stays far below the artifact cap', stableStringify(packet).length < 200_000);
+const packetChars = stableStringify(packet).length;
+check('packet JSON stays within the 256 KiB artifact cap', packetChars < 256 * 1_024, packetChars);
 
 rmSync(workspaceRoot, { recursive: true, force: true });
 

@@ -5,10 +5,17 @@
 
 import { useState } from 'react';
 import { resolveLaunchCommand } from '../../shared/runtimes';
-import type { Agent, PermissionMode, RuntimeId } from '../../shared/types';
+import {
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_CODEX_REASONING_EFFORT,
+  type Agent,
+  type CodexReasoningEffort,
+  type PermissionMode,
+  type RuntimeId,
+} from '../../shared/types';
 import { useAppData } from '../stores/appdata';
 import { Modal } from './Modal';
-import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES } from './agentOptions';
+import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS } from './agentOptions';
 
 interface EditAgentModalProps {
   agent: Agent;
@@ -25,6 +32,10 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [runtime, setRuntime] = useState<RuntimeId>(agent.runtime);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(agent.permissionMode);
   const [ollamaModel, setOllamaModel] = useState(agent.ollamaModel ?? '');
+  const [codexModel, setCodexModel] = useState(agent.codexModel ?? DEFAULT_CODEX_MODEL);
+  const [codexReasoningEffort, setCodexReasoningEffort] = useState<CodexReasoningEffort>(
+    agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT,
+  );
   const [customCommand, setCustomCommand] = useState(agent.customCommand ?? '');
   const [defaultRepositoryId, setDefaultRepositoryId] = useState(agent.defaultRepositoryId ?? '');
   const [templateName, setTemplateName] = useState(`${agent.name} template`);
@@ -37,6 +48,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     permissionMode,
     customCommand: undefined,
     ollamaModel: runtime === 'ollama' ? ollamaModel.trim() || undefined : undefined,
+    codexModel: runtime === 'codex' ? codexModel.trim() || DEFAULT_CODEX_MODEL : undefined,
+    codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
   });
   const commandPlaceholder = defaultCommand.trim().length > 0 ? defaultCommand : 'default shell';
   const canSave = name.trim().length > 0 && !busy;
@@ -53,6 +66,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+        codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
+        codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
         defaultRepositoryId: defaultRepositoryId || null,
       });
       onClose();
@@ -127,6 +142,38 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
             placeholder="e.g. llama3.3"
             onChange={(e) => setOllamaModel(e.target.value)}
           />
+        </div>
+      ) : null}
+
+      {runtime === 'codex' ? (
+        <div className="codex-profile-grid">
+          <div className="field">
+            <label htmlFor="edit-agent-codex-model">CODEX MODEL</label>
+            <input
+              id="edit-agent-codex-model"
+              type="text"
+              value={codexModel}
+              maxLength={100}
+              autoComplete="off"
+              placeholder={DEFAULT_CODEX_MODEL}
+              onChange={(event) => setCodexModel(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="edit-agent-codex-reasoning">REASONING EFFORT</label>
+            <select
+              id="edit-agent-codex-reasoning"
+              value={codexReasoningEffort}
+              onChange={(event) => setCodexReasoningEffort(event.target.value as CodexReasoningEffort)}
+            >
+              {CODEX_REASONING_EFFORTS.map((effort) => (
+                <option key={effort.id} value={effort.id}>{effort.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="repo-hint codex-profile-hint">
+            Applied to interactive terminals and managed tasks. Extra high is recommended for the main orchestrator.
+          </div>
         </div>
       ) : null}
 

@@ -93,6 +93,9 @@ the migration never deletes user data.
   event but must never invent working or completion state.
 - Runs, tasks, participants, events, and artifacts survive renderer reloads and
   app restarts. Interrupted tasks must resolve to a terminal failure state.
+- Selecting a failed run must reveal its persisted actionable error directly
+  and accessibly; a generic red status without the task/journal reason is not a
+  sufficient recovery state.
 - Fan-out must state the process count before launch. Worker-specific planning,
   communication, verification and integration are required before Graph is
   described as orchestration rather than dispatch.
@@ -172,9 +175,12 @@ The complete scope, trust boundaries and sequenced delivery plan are binding in
 2. **No emojis anywhere** in the UI. Identity = profile photos.
 3. **Uploadable profile photo** per category and per agent (PNG/JPG, alpha
    respected). Fallback: initials avatar. Stored in app data.
-4. **Remove superfluous chrome**: no Open/Run buttons, no model picker,
-   no worktree path in a status bar, no setup buttons. Sessions are just
-   terminal windows you pull open.
+4. **Remove superfluous chrome**: no Open/Run buttons, no always-visible or
+   session-global model picker, no worktree path in a status bar, no setup
+   buttons. Sessions are just terminal windows you pull open. An agent's
+   advanced settings may persist the exact native runtime model/reasoning
+   profile needed for reproducible orchestration; changing it is an identity
+   configuration action, not transient terminal chrome.
 5. **Real CLI layer**: the terminal is a true PTY wrapper that launches the
    agent CLIs. No fake chat layer.
 6. **Supported runtimes** (launch profiles): Claude Code, Codex, OpenCode,

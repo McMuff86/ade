@@ -21,6 +21,11 @@ import type {
   Category,
   CategoryCreateInput,
 } from '../shared/types';
+import {
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_CODEX_REASONING_EFFORT,
+} from '../shared/types';
+import { syncAgentInstructions } from './memory/agentInstructions';
 import { createMemoryScaffold } from './memory/scaffold';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 
@@ -170,12 +175,19 @@ export async function createAgent(
     permissionMode: input.permissionMode,
     customCommand: input.customCommand,
     ollamaModel: input.ollamaModel,
+    codexModel: input.runtime === 'codex'
+      ? input.codexModel?.trim() || DEFAULT_CODEX_MODEL
+      : undefined,
+    codexReasoningEffort: input.runtime === 'codex'
+      ? input.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT
+      : undefined,
     workspaceDir: homeWorkspaceDir,
     homeWorkspaceDir,
     defaultRepositoryId,
     memoryDir,
     teamRole: input.teamRole,
   };
+  syncAgentInstructions(agent);
 
   store.save({
     categories: config.categories.map((c) =>
@@ -223,7 +235,16 @@ export async function updateAgent(
       input.runtime === 'ollama' && input.ollamaModel?.trim()
         ? input.ollamaModel.trim()
         : undefined,
+    codexModel: input.runtime === 'codex'
+      ? input.codexModel?.trim() || DEFAULT_CODEX_MODEL
+      : undefined,
+    codexReasoningEffort: input.runtime === 'codex'
+      ? input.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT
+      : undefined,
+    teamRole: input.teamRole ?? existing.teamRole,
   };
+
+  syncAgentInstructions(updated);
 
   store.save({
     agents: config.agents.map((a) => (a.id === updated.id ? updated : a)),
@@ -260,6 +281,7 @@ export function createAgentTemplate(
   const config = store.get();
   const agent = config.agents.find((candidate) => candidate.id === input.sourceAgentId);
   if (!agent) throw new Error(`ade: template source agent not found "${input.sourceAgentId}"`);
+  syncAgentInstructions(agent);
   const now = Date.now();
   const template: AgentTemplate = {
     id: randomUUID(),
@@ -270,6 +292,8 @@ export function createAgentTemplate(
     permissionMode: agent.permissionMode,
     customCommand: agent.customCommand,
     ollamaModel: agent.ollamaModel,
+    codexModel: agent.codexModel,
+    codexReasoningEffort: agent.codexReasoningEffort,
     memorySeed: {
       memory: readMemorySeed(join(agent.memoryDir, 'MEMORY.md')),
       user: readMemorySeed(join(agent.memoryDir, 'USER.md')),
@@ -304,6 +328,8 @@ export async function spawnAgentTemplate(
     permissionMode: input.permissionMode ?? template.permissionMode,
     customCommand: input.customCommand?.trim() || template.customCommand,
     ollamaModel: input.ollamaModel?.trim() || template.ollamaModel,
+    codexModel: input.codexModel?.trim() || template.codexModel,
+    codexReasoningEffort: input.codexReasoningEffort ?? template.codexReasoningEffort,
     defaultRepositoryId: input.defaultRepositoryId,
   }, scopes, options);
   writeFileSync(join(agent.memoryDir, 'MEMORY.md'), template.memorySeed.memory, 'utf8');

@@ -9,8 +9,14 @@ import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
-import type { PermissionMode, RuntimeId } from '../../shared/types';
-import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES } from './agentOptions';
+import {
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_CODEX_REASONING_EFFORT,
+  type CodexReasoningEffort,
+  type PermissionMode,
+  type RuntimeId,
+} from '../../shared/types';
+import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS } from './agentOptions';
 
 interface NewAgentModalProps {
   onClose: () => void;
@@ -34,9 +40,12 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     categories.find((category) => category.id === (categoryId ?? categories[0]?.id))
       ?.defaultRepositoryId ?? '',
   );
-  const [runtime, setRuntime] = useState<RuntimeId>('claude');
+  const [runtime, setRuntime] = useState<RuntimeId>('codex');
   const [ollamaModel, setOllamaModel] = useState('');
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
+  const [codexModel, setCodexModel] = useState(DEFAULT_CODEX_MODEL);
+  const [codexReasoningEffort, setCodexReasoningEffort] =
+    useState<CodexReasoningEffort>(DEFAULT_CODEX_REASONING_EFFORT);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>('bypass');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [role, setRole] = useState('');
   const [customCommand, setCustomCommand] = useState('');
@@ -57,6 +66,8 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+        codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
+        codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
         defaultRepositoryId: defaultRepositoryId || null,
       };
       const agent = templateId
@@ -81,6 +92,8 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     setPermissionMode(template.permissionMode);
     setCustomCommand(template.customCommand ?? '');
     setOllamaModel(template.ollamaModel ?? '');
+    setCodexModel(template.codexModel ?? DEFAULT_CODEX_MODEL);
+    setCodexReasoningEffort(template.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT);
   };
 
   return (
@@ -175,6 +188,38 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
             placeholder="e.g. llama3.3"
             onChange={(e) => setOllamaModel(e.target.value)}
           />
+        </div>
+      ) : null}
+
+      {runtime === 'codex' ? (
+        <div className="codex-profile-grid">
+          <div className="field">
+            <label htmlFor="agent-codex-model">CODEX MODEL</label>
+            <input
+              id="agent-codex-model"
+              type="text"
+              value={codexModel}
+              maxLength={100}
+              autoComplete="off"
+              placeholder={DEFAULT_CODEX_MODEL}
+              onChange={(event) => setCodexModel(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="agent-codex-reasoning">REASONING EFFORT</label>
+            <select
+              id="agent-codex-reasoning"
+              value={codexReasoningEffort}
+              onChange={(event) => setCodexReasoningEffort(event.target.value as CodexReasoningEffort)}
+            >
+              {CODEX_REASONING_EFFORTS.map((effort) => (
+                <option key={effort.id} value={effort.id}>{effort.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="repo-hint codex-profile-hint">
+            Persisted for interactive and managed Codex sessions. Orchestrators should use Extra high.
+          </div>
         </div>
       ) : null}
 

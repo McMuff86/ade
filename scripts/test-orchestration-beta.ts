@@ -27,6 +27,7 @@ import {
   validateStructuredResult,
 } from '../src/main/orchestration/runtimeAdapters';
 import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestration/claudeStream';
+import { CodexActivityParser, parseCodexUsage } from '../src/main/orchestration/codexStream';
 import { WorkspaceService, type WorkspacePort } from '../src/main/orchestration/WorkspaceService';
 import {
   buildRunContextManifest,
@@ -238,6 +239,18 @@ async function managedLifecycleChecks(root: string): Promise<void> {
   check('planner receives a persisted file mailbox message', snapshot.messages.some((message) => message.kind === 'plan'));
 
   const planTask = snapshot.tasks.find((task) => task.phase === 'plan')!;
+  const planLaunch = coordinator.getTaskLaunch(planTask.id)!;
+  const planAgentInstructions = readFileSync(join(planLaunch.files.taskDir, 'AGENTS.md'), 'utf8');
+  check('every managed task receives a read-only role-aware AGENTS.md contract',
+    planAgentInstructions.includes('Orchestration role: main orchestrator')
+      && planLaunch.prompt.includes('AGENTS.md'));
+  const planPacket = JSON.parse(snapshot.artifacts.find(
+    (artifact) => artifact.taskId === planTask.id && artifact.path === `context/task-${planTask.id}.json`,
+  )!.content!) as { agentInstructions?: { file: string; sha256: string; chars: number } };
+  check('task context journals AGENTS.md digest and size provenance',
+    planPacket.agentInstructions?.file === 'AGENTS.md'
+      && /^[0-9a-f]{64}$/.test(planPacket.agentInstructions.sha256)
+      && planPacket.agentInstructions.chars === planAgentInstructions.length);
   const participants = snapshot.participants.filter((item) => item.runId === run.id);
   const lead = participants.find((item) => item.agentId === 'lead')!;
   const worker = participants.find((item) => item.agentId === 'worker')!;
@@ -629,6 +642,8 @@ function adapterChecks(root: string): void {
     ...agent('codex', root),
     runtime: 'codex',
     customCommand: undefined,
+    codexModel: 'gpt-5.6-sol',
+    codexReasoningEffort: 'xhigh',
   };
   const task = {
     id: 'task', runId: 'run', participantId: 'participant', prompt: 'Do work', title: 'Work',
@@ -645,9 +660,12 @@ function adapterChecks(root: string): void {
   };
   const launch = adapter.prepare(codex, task, task.prompt, files, 'win32');
   check('Codex adapter uses native JSONL and output-schema flags',
-    Boolean(launch.command?.startsWith('codex exec ') && !launch.command.includes('exec exec') &&
+    Boolean(launch.command?.startsWith('$env:ADE_TASK_PROMPT | codex exec ') && !launch.command.includes('exec exec') &&
+      launch.command.includes('--model gpt-5.6-sol') &&
+      launch.command.includes('model_reasoning_effort="xhigh"') &&
       launch.command.includes('--json') && launch.command.includes('--output-schema') &&
-      launch.command.includes('--output-last-message')));
+      launch.command.includes('--output-last-message') && launch.command.endsWith(' -') &&
+      launch.transport === 'stdin'));
   writeFileSync(files.resultPath, JSON.stringify(result({
     usage: { inputTokens: null, outputTokens: null, costUsd: 999 },
   })), 'utf8');
@@ -657,6 +675,8 @@ function adapterChecks(root: string): void {
   );
   check('Codex JSONL token telemetry overrides model-authored usage', parsed.usage.inputTokens === 17 && parsed.usage.outputTokens === 5);
   check('Codex cost remains explicitly unknown', parsed.usage.costUsd === null);
+  check('Codex task declares its JSONL activity stream to the PTY layer',
+    launch.activityFormat === 'codex-jsonl');
   check('result schema is materialized next to the task output', existsSync(files.schemaPath));
   writeFileSync(files.resultPath, JSON.stringify(result()), 'utf8');
   const wrapped = adapter.readResult(
@@ -665,6 +685,41 @@ function adapterChecks(root: string): void {
   );
   check('Codex usage survives ConPTY wrapping and ANSI control sequences',
     wrapped.usage.inputTokens === 23 && wrapped.usage.outputTokens === 7);
+
+  const codexStream = [
+    '{"type":"thread.started","thread_id":"thread-1"}',
+    '{"type":"turn.started"}',
+    '{"type":"item.completed","item":{"id":"reason-1","type":"reasoning","text":"Ich prüfe den Bestand."}}',
+    '{"type":"item.started","item":{"id":"cmd-1","type":"command_execution","command":"pnpm test","status":"in_progress"}}',
+    '{"type":"item.completed","item":{"id":"cmd-1","type":"command_execution","command":"pnpm test","status":"completed","exit_code":0}}',
+    '{"type":"item.completed","item":{"id":"msg-1","type":"agent_message","text":"Prüfung abgeschlossen."}}',
+    '{"type":"turn.completed","usage":{"input_tokens":31,"cached_input_tokens":4,"output_tokens":9}}',
+  ].join('\n');
+  const codexFeed = new CodexActivityParser();
+  const codexRendered = codexFeed.push(codexStream);
+  check('Codex activity renders init, thought, one deduplicated tool, text and result',
+    codexRendered.length === 6
+      && codexRendered[0]?.kind === 'init'
+      && codexRendered[1]?.kind === 'thinking'
+      && codexRendered[2]?.text === 'Ich prüfe den Bestand.'
+      && codexRendered[3]?.text === 'Shell: pnpm test'
+      && codexRendered[4]?.text === 'Prüfung abgeschlossen.'
+      && codexRendered[5]?.text.includes('31 in / 9 out'));
+  const splitCodexFeed = new CodexActivityParser();
+  const splitCodexLines = [];
+  for (let index = 0; index < codexStream.length; index += 11) {
+    splitCodexLines.push(...splitCodexFeed.push(codexStream.slice(index, index + 11)));
+  }
+  check('Codex activity survives arbitrary chunk splits without duplicate tools',
+    splitCodexLines.length === 6);
+  const codexWrapped = `\u001b[?25l${(codexStream.match(/.{1,37}/gs) ?? []).join('\r\n')}\u001b[0m`;
+  check('Codex telemetry parser survives ConPTY wrapping',
+    JSON.stringify(parseCodexUsage(codexWrapped))
+      === JSON.stringify({ inputTokens: 31, outputTokens: 9 }));
+  const failedCodexFeed = new CodexActivityParser();
+  check('Codex failed turns surface a bounded error line',
+    failedCodexFeed.push('{"type":"turn.failed","error":{"message":"fixture failed"}}')[0]?.text
+      === 'Abgebrochen · fixture failed');
 
   // --- Claude stream-json adapter: live activity + trusted telemetry -------
   const claudeAdapter = new ClaudeStreamJsonAdapter();

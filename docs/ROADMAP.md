@@ -1,6 +1,6 @@
 # ADE delivery roadmap
 
-Status date: 2026-07-12. Goals are completed in order and published as separate
+Status date: 2026-07-19. Goals are completed in order and published as separate
 verified commits.
 
 ## Goal 1 - runtime reliability baseline
@@ -40,7 +40,7 @@ Status: implemented; verification recorded in the Goal 2 commit.
 Exit criteria: a run survives reload, status is reconstructible from its event
 journal, and spawning a run does not create permanent categories or identities.
 
-Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
+Goal 5 checkpoint verification (historical): `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
 16 runtime + 19 orchestration assertions), and `pnpm run build` pass. The
 orchestration checks cover one-time legacy migration, reload reconstruction,
 restart recovery, artifact journaling, and catalog identity preservation. An
@@ -174,17 +174,22 @@ Exit criteria: no orchestration semantics change beyond pause and atomicity;
 summaries, manifests and prompts contain no absolute host paths; the focused
 suite and the production Electron workflow stay green.
 
-Verification: `pnpm run typecheck`, `pnpm test` (24 memory + 12 dispatch +
-19 runtime + 37 orchestration + 47 orchestration-beta + 28 prompt + 21
-repository-scope + 72 Windows security assertions), `pnpm run build`, and the
-41-check production Electron workflow pass. Renderer behavior was additionally
+Current regression verification: `pnpm run typecheck`, `pnpm test` (Memory 27,
+Dispatch 12, Runtime 29, Orchestration 45, Orchestration-Beta 100, Prompts 31,
+Repository-Scopes 43, Workspace-FS 7 and Windows Security 99), `pnpm run
+build`, and the 46-check production Electron workflow pass. Renderer behavior
+was additionally
 verified headless against a deep-cloning `window.ade` stub: multi-run
 clusters, seq-gated travel dots, pause command wiring, provenance inspector
 and task-session attach.
 
 ## Goal 6 - product validation
 
-Status: in progress. Fixture suite, measurement protocol and result log live in
+Status: **completed 2026-07-19 with a bounded GO for Goal 7.** F1-F8 and the
+single-agent comparison arms are documented. The final F8v6 run completed on
+a Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) roster after closing
+the expected-failure representation, Codex stdin transport and integration
+path-set prompt findings. Fixture protocol and result log live in
 `docs/goal6/VALIDATION_PLAN.md` and `docs/goal6/RESULTS.md`; per-run metrics
 are extracted with `pnpm goal6:report` (`scripts/goal6-report.ts`). The pilot
 baseline (SHA `81820b9`, vitest 77/77, server 5/5, tsc clean) was recorded on
@@ -217,7 +222,16 @@ from changes to the pilot repository; ADE's full `pnpm verify` remains green.
 
 ## Goal 7 - transport-neutral core and local host API
 
-Status: planned after Goal 6 go/no-go.
+Status: **bounded GO; implementation not started.** Goal 6 permits the
+disabled-by-default, loopback-only local foundation. Public remote exposure
+remains no-go until this goal's authorization, idempotency, reconnect and audit
+exit criteria pass.
+
+The orthogonal Linux/WSL/macOS readiness track is specified in
+`MULTIPLATFORM_PLAN.md`. Native Ubuntu/WSL2 source validation now passes 392
+focused assertions, the build and 46 Electron/Playwright gates plus an
+isolated real Codex Sol/xhigh/bypass smoke. Hosted CI observation, packaging and the larger
+hybrid Windows-to-WSL execution backend remain separate gates.
 
 - Extract a transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and

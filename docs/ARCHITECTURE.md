@@ -98,6 +98,7 @@ src/
     security.ts            # renderer/navigation URL allowlists
     diagnostics/           # read-only CLI/version/auth checks
     notifications.ts       # background native exit/completion notifications
+    platform.ts            # host path identity, null device, deterministic shell
     pty/PtyManager.ts      # node-pty sessions, ring buffers, launch profiles
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
@@ -184,6 +185,8 @@ interface RunTask { id: string; runId: string; participantId: string;
                     workspaceDir?: string }
 interface AgentTemplate { id: string; name: string; runtime: RuntimeId;
                           permissionMode: PermissionMode;
+                          codexModel?: string;
+                          codexReasoningEffort?: CodexReasoningEffort;
                           memorySeed: { memory: string; user: string } }
 interface RunEvent { id: string; runId: string; type: RunEventType;
                      taskId?: string; participantId?: string; createdAt: number }
@@ -223,10 +226,22 @@ callers pass a repository/binding selector; main snapshots the resolved working
 directory before spawn. Renderer-provided absolute paths and later default
 changes never retarget a process.
 
+Native Codex identities additionally persist a validated model id and reasoning
+effort. ADE defaults them to `gpt-5.6-sol` and `high`; the saved role policy can
+raise the main orchestrator to `xhigh`. Interactive and managed launch commands
+append `--model <id> -c model_reasoning_effort=<effort>`, and task provenance
+records both values. Model ids accept only a conservative CLI-safe character
+set; custom commands deliberately opt out of the native adapter and its
+reproducibility guarantees.
+
 ## PTY layer (main/pty/PtyManager.ts)
 
 - `node-pty` spawn with ConPTY on Windows (`useConpty: true` default), shell
   fallback for POSIX.
+- `main/platform.ts` centralizes host semantics: Windows path keys fold case,
+  POSIX keys preserve it, null-device selection is explicit, and desktop
+  POSIX launches choose an executable absolute `$SHELL` or a standard
+  `/bin/*` fallback instead of assuming a terminal-inherited PATH.
 - Per session: 256 KB ring buffer of raw output for replay on (re)attach —
   Superset pty-daemon pattern. Output events carry a sequence number so replay
   and the live stream meet without a race.
@@ -235,8 +250,15 @@ changes never retarget a process.
 - Interactive sessions spawn immediately. One-shot task sessions acquire a
   FIFO lease with a global limit of four active task CLIs. The lease is held
   until exit/cancellation, not merely until process spawn.
-- Task prompts are passed through `ADE_TASK_PROMPT` into non-interactive CLI
-  forms (`claude -p`, `codex exec`, etc.), never typed after a fixed delay.
+- Task prompts are passed through `ADE_TASK_PROMPT` over stdin into supported
+  non-interactive CLI forms (`claude -p`, `codex exec … -`, etc.), never typed
+  after a fixed delay or expanded as a native PowerShell argument. This keeps
+  quote-laden multiline prompts byte-stable under Windows PowerShell 5.1 and
+  POSIX shells.
+- Claude stream-json and Codex JSONL are parsed incrementally into the same
+  bounded, sanitized activity model. Raw output retains its byte-exact replay;
+  human-readable activity is also appended to task-local `ACTIVITY.jsonl` and
+  survives session teardown.
 - Tab close and identity deletion stop and remove owned PTYs. Naturally exited
   sessions keep replay for 30 minutes and are then reaped.
 - Task sessions carry a `runTaskId`; normal shutdown journals cancellation and
@@ -301,6 +323,13 @@ changes never retarget a process.
   validates participant ids and an acyclic dependency graph, then starts only
   the worker tasks whose dependencies are complete and whose run concurrency
   slot is available. The global four-PTY queue remains an independent ceiling.
+- A dependency currently forwards validated result/context data only; it does
+  not rebase the dependent participant's isolated worktree onto an upstream
+  worker commit. All participants retain the common leased base. Goal 6 F3/F4
+  proved that dependent code tasks which duplicate upstream files can produce
+  structurally valid but non-integrable add/add or union commits. Until a
+  controlled worker-base/patch-ownership design ships, safe plans keep changing
+  tasks independent or assign the dependent vertical slice to one owner.
 - Every managed task must produce `StructuredTaskResult` version 1. The schema
   includes outcome, summary, worker assignments, changed files, real test
   command/status/output entries, commit SHA, risks and nullable usage. For
@@ -309,7 +338,8 @@ changes never retarget a process.
   without a valid result is a task failure.
 - `runtimeAdapters.ts` is the adapter boundary. The native Codex adapter uses
   `codex exec --json --output-schema --output-last-message` and reads token
-  usage from `turn.completed`. `file-mailbox-v1` injects result/schema/inbox/
+  usage from `turn.completed`; its JSONL also powers the live/persisted activity
+  feed. `file-mailbox-v1` injects result/schema/inbox/
   outbox paths for other non-shell runtimes and requires the result file before
   process exit.
 - `MailboxService` journals each delivery and mirrors JSONL under
@@ -317,10 +347,14 @@ changes never retarget a process.
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory
   through `--add-dir`. Linked-worktree Git metadata remains outside every
   runtime's writable roots.
-- Managed task PTYs do not regenerate the ordinary CLAUDE.md/AGENTS.md memory
-  block after leasing. Their complete contract is already prompt-injected, and
-  skipping that file mutation preserves both tracked instructions and a clean
-  worktree. Interactive and manual task sessions retain normal memory injection.
+- Every identity owns a durable, fenced `AGENTS.md` role contract below its
+  memory directory. Identity create/update/template flows synchronize it while
+  preserving user-authored content. Managed tasks copy a read-only, role-aware
+  `AGENTS.md` into their task directory, explicitly instruct the runtime to read
+  it, and journal its SHA-256/size in `TASK_CONTEXT.json`. They do not mutate
+  repository instruction files after leasing, preserving tracked instructions
+  and a clean worktree. Interactive/manual sessions retain normal memory
+  injection plus the durable role contract.
 - Before planning, every participant workspace is inspected and leased. Dirty
   git worktrees are rejected, duplicate or cross-run paths conflict, and all
   repo-backed participants must share one git common directory and base HEAD.
@@ -463,6 +497,10 @@ Every invoke passes two checks before its handler runs:
 - Native notifications fire only while ADE is in the background, for task
   completion/failure and abnormal interactive exits. Cancellation and clean
   interactive exits remain quiet.
+- The Graph resolves a failed selected run's newest persisted task error first,
+  then its `run.failed` journal detail, and renders the result directly as an
+  accessible alert. Legacy failures without either source show an explicit
+  missing-detail message instead of a silent generic status.
 
 The planned remote renderer has a separate trust boundary. It receives no
 preload bridge and no Electron privileges. HTTPS, ADE device authentication,
@@ -472,19 +510,28 @@ reachability alone is not authorization. Its restrictive CSP permits only the
 same-origin host and standards-based Web Push endpoints when notifications are
 explicitly enabled.
 
-## CI and Windows packaging
+## CI and packaging
 
-- `.github/workflows/ci.yml` runs typecheck, focused scripts, production build,
-  the real Electron/ConPTY workflow and an unpacked package build on Windows.
+- `.github/workflows/ci.yml` runs typecheck, focused scripts and production
+  build on Windows and Ubuntu. Windows additionally runs the real
+  Electron/ConPTY workflow plus an unpacked package; Ubuntu builds Linux-native
+  `node-pty` and runs the same Electron/Playwright workflow under Xvfb.
 - `.github/workflows/package-windows.yml` repeats verification, creates the
   x64 NSIS installer and uploads it. `WIN_CSC_LINK` and
   `WIN_CSC_KEY_PASSWORD` opt into Authenticode signing; local artifacts are
   expected to be unsigned.
-- `scripts/test-electron-workflow.ts` seeds only a temporary ADE profile and
+- `scripts/test-electron-workflow.ts` uses platform-specific shell commands,
+  seeds only a temporary ADE profile and
   verifies sandbox/preload boundaries, IPC rejection, real terminal I/O,
   multi-tab shortcuts, renderer reload replay, non-zero failure/restart,
   diagnostics, worker-specific managed planning, approval, integration and
   verification. The same script can target `ADE_E2E_EXECUTABLE`.
+- The 2026-07-19 Windows gate passed 393 focused assertions, the production
+  build and all 46 Electron assertions. A native Ubuntu/WSL2 proof of the same
+  source passed 392 focused assertions (the Windows `.cmd` probe is
+  inapplicable), the production build and all 46 Electron assertions. This
+  validates the source path; Linux packaging and a remotely observed hosted-CI
+  result remain separate release gates.
 - Goal 7 adds host contract tests for malformed/unauthorized/replayed requests,
   event reconnection and mobile projections. Goal 8 adds pairing, revocation,
   CSRF, mutation-audit and browser workflows through an isolated loopback

@@ -23,6 +23,7 @@
     "test:security": "tsx scripts/test-security.ts",
     "test:electron": "pnpm run build && tsx scripts/test-electron-workflow.ts",
     "goal6:report": "tsx scripts/goal6-report.ts",
+    "agents:codex": "tsx scripts/configure-codex-roster.ts",
     "verify": "pnpm run typecheck && pnpm test && pnpm run build && tsx scripts/test-electron-workflow.ts",
     "package:dir": "pnpm run build && electron-builder --win --x64 --dir",
     "package:win": "pnpm run build && electron-builder --win nsis --x64",

@@ -13,6 +13,9 @@ terminals around named agents.
 - **Permission modes** per agent, translated to the right CLI flags
   (`claude --dangerously-skip-permissions`,
   `codex --dangerously-bypass-approvals-and-sandbox`, …).
+- **First-class Codex profiles** persist an explicit model and reasoning
+  effort per identity. New Codex identities default to `gpt-5.6-sol`; managed
+  runs preserve the exact model/effort in their context and provenance.
 - **First-class repository scopes**: give a specialized agent a default repo,
   keep a general agent portable, or choose a repo per new session/run. Every
   agent/repo pair gets its own ADE worktree; the right panel names the exact
@@ -20,10 +23,10 @@ terminals around named agents.
 - **Reusable agent templates**: save an agent's runtime/profile and bounded
   memory seed, then spawn an independent identity and optionally attach it to
   another repository.
-- **Memory out of the box** (Hermes-style): every agent gets `MEMORY.md` +
-  `USER.md` with hard caps; a managed block is injected into
-  `CLAUDE.md`/`AGENTS.md` at each session start so the CLI agent reads and
-  maintains its own memory.
+- **Memory and durable role contracts**: every agent gets bounded `MEMORY.md`
+  + `USER.md` plus a role-aware `AGENTS.md`. Managed tasks receive a read-only
+  task-local copy and digest, so orchestrator/lead/worker responsibilities stay
+  explicit without dirtying a leased repository worktree.
 - **Light + dark theme** — including the terminal itself (full ANSI palette
   per theme).
 - **Terminal beta safeguards**: read-only CLI/auth diagnostics, actionable
@@ -57,9 +60,16 @@ real Electron/ConPTY workflow against an isolated temporary profile.
 
 Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
 `pnpm test:runtime`, `pnpm test:orchestration`,
-`pnpm test:orchestration-beta`, `pnpm test:repositories`, and
+`pnpm test:orchestration-beta`, `pnpm test:prompts`,
+`pnpm test:repositories`, `pnpm test:workspace-fs`, and
 `pnpm test:security`.
 `pnpm test:electron` builds and runs the Electron workflow separately.
+
+`pnpm agents:codex` audits the saved ADE roster without changing it;
+`pnpm agents:codex -- --apply` safely backs up the inactive profile and migrates
+Claude/Codex coding identities to native Codex, `gpt-5.6-sol`, bypass mode,
+role-aware reasoning (`xhigh` for the orchestrator) and durable `AGENTS.md`.
+Shell utility identities remain shell identities.
 
 ## Keyboard
 
@@ -83,10 +93,20 @@ The assisted NSIS installer is unsigned for local/branch builds. The Windows
 package workflow uses `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` when configured
 to Authenticode-sign release artifacts. Auto-update is not implemented yet.
 
+Native Linux/WSLg source execution is now locally verified (Linux-built
+`node-pty`, 392 focused assertions, production build and 46-check
+Electron/Playwright workflow). Windows passes 393 focused assertions plus the
+same 46 UI checks. A future Windows-to-WSL execution backend and macOS remain
+separate engineering milestones; exact readiness and exit criteria are tracked in
+`docs/MULTIPLATFORM_PLAN.md`. The supported packaged distribution is still
+Windows.
+
 ## Notes
 
-- node-pty 1.1.0 ships Node-API prebuilds — no Electron rebuild needed. If a
-  future version drops them, run `pnpm rebuild:pty`. PTY smoke test:
+- node-pty 1.1.0 ships the Windows/macOS Node-API prebuilds used by the current
+  distribution, so no Electron rebuild is needed there. Linux/WSL requires a
+  fresh platform-native install and local native build prerequisites; never
+  reuse the Windows `node_modules` directory from `/mnt/c`. PTY smoke test:
   `ADE_PTY_SMOKE=1` logs `[ade] pty-smoke: ade-pty-ok` at startup.
 - First session in a fresh agent workspace: Claude Code shows its one-time
   "trust this folder" prompt — answer it in the terminal like in any shell.

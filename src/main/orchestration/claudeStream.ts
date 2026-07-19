@@ -16,13 +16,13 @@
  */
 
 import type { ActivityLine } from '../../shared/ipc';
-
-const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
-const PENDING_CAP_BYTES = 2 * 1024 * 1024;
-/** Every CLI event object starts with its discriminator. */
-const EVENT_START = /\{\s*"type"\s*:\s*"/g;
-const MARKER_SPLIT_GUARD = 64;
-const ACTIVITY_TEXT_CAP = 160;
+import {
+  RUNTIME_EVENT_PENDING_CAP_BYTES,
+  condenseActivityText,
+  extractJsonEventObjects,
+  normalizePtyJsonStream,
+  parseJsonEventObject,
+} from './runtimeEventStream';
 
 export type { ActivityKind, ActivityLine } from '../../shared/ipc';
 
@@ -33,9 +33,8 @@ export interface ClaudeUsage {
 }
 
 /** Collapse whitespace and cap a free-text fragment for one activity line. */
-function condense(value: string, cap = ACTIVITY_TEXT_CAP): string {
-  const flat = value.replace(/\s+/g, ' ').trim();
-  return flat.length > cap ? `${flat.slice(0, cap - 1)}…` : flat;
+function condense(value: string, cap = 160): string {
+  return condenseActivityText(value, cap);
 }
 
 /** The one field that best describes a tool call, without dumping its input. */
@@ -53,98 +52,21 @@ function describeTool(name: string, input: unknown): string {
  * object (ordinary CLI logging) is ignored, as are the newlines ConPTY injects
  * inside one.
  */
-function extractObjects(buffer: string): { objects: string[]; rest: string } {
-  const objects: string[] = [];
-  let consumed = 0;
-  EVENT_START.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = EVENT_START.exec(buffer)) !== null) {
-    const start = match.index;
-    // Markers inside an already-extracted event (a nested content block also
-    // carries "type") are not separate events.
-    if (start < consumed) continue;
-    const end = objectEnd(buffer, start);
-    if (end < 0) return { objects, rest: buffer.slice(start) }; // incomplete tail
-    objects.push(buffer.slice(start, end));
-    consumed = end;
-    EVENT_START.lastIndex = end;
-  }
-
-  // No marker at all: keep only enough tail to rejoin one split across chunks,
-  // so ordinary CLI logging cannot grow the buffer without bound.
-  const rest = consumed === 0 && objects.length === 0
-    ? buffer.slice(Math.max(0, buffer.length - MARKER_SPLIT_GUARD))
-    : buffer.slice(consumed);
-  return { objects, rest };
-}
-
-/** Index just past the object opened at `start`, or -1 while it is incomplete. */
-function objectEnd(buffer: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < buffer.length; index += 1) {
-    const char = buffer[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') inString = true;
-    else if (char === '{') depth += 1;
-    else if (char === '}') {
-      depth -= 1;
-      if (depth === 0) return index + 1;
-    }
-  }
-  return -1;
-}
-
-function parseObject(text: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * ConPTY's deferred wrap reprints the last cell after repositioning: the byte
- * stream carries `X CRLF ESC[row;colH X` — the same character twice. Collapse
- * to one copy before the generic stripping, otherwise the duplicate (often a
- * quote) corrupts the JSON and poisons brace matching. Observed 20/20 wraps
- * on a live transcript; a genuine double character spans a wrap as three
- * copies, which this correctly reduces back to two.
- */
-const WRAP_REPRINT = /([\s\S])\r\n\u001b\[\d+;\d+H\1/g;
-
-/**
- * Normalize a raw PTY transcript: drop ANSI control sequences and every literal
- * newline. Newlines only ever separate events or come from a ConPTY wrap — JSON
- * escapes the real ones — so removing them rejoins events the terminal split,
- * including a marker torn in half.
- */
-function normalize(text: string): string {
-  return text.replace(WRAP_REPRINT, '$1').replace(ANSI, '').replace(/[\r\n]/g, '');
-}
-
 /** Incremental renderer: feed PTY chunks, receive readable activity lines. */
 export class ClaudeActivityParser {
   private pending = '';
 
   push(chunk: string): ActivityLine[] {
-    this.pending += normalize(chunk);
-    if (this.pending.length > PENDING_CAP_BYTES) {
+    this.pending += normalizePtyJsonStream(chunk);
+    if (this.pending.length > RUNTIME_EVENT_PENDING_CAP_BYTES) {
       // Never grow without bound on non-JSON noise; drop the stale head.
-      this.pending = this.pending.slice(-PENDING_CAP_BYTES);
+      this.pending = this.pending.slice(-RUNTIME_EVENT_PENDING_CAP_BYTES);
     }
-    const { objects, rest } = extractObjects(this.pending);
+    const { objects, rest } = extractJsonEventObjects(this.pending);
     this.pending = rest;
     const lines: ActivityLine[] = [];
     for (const raw of objects) {
-      const event = parseObject(raw);
+      const event = parseJsonEventObject(raw);
       if (event) lines.push(...this.render(event));
     }
     return lines;
@@ -232,10 +154,10 @@ function readUsage(event: Record<string, unknown>): ClaudeUsage | null {
  * fail closed instead of inventing zeros.
  */
 export function parseClaudeUsage(output: string): ClaudeUsage | null {
-  const { objects } = extractObjects(normalize(output));
+  const { objects } = extractJsonEventObjects(normalizePtyJsonStream(output));
   let found: ClaudeUsage | null = null;
   for (const raw of objects) {
-    const event = parseObject(raw);
+    const event = parseJsonEventObject(raw);
     if (!event || event['type'] !== 'result') continue;
     const usage = readUsage(event);
     if (usage) found = usage;

@@ -6,6 +6,8 @@ type RecordValue = Record<string, unknown>;
 
 const RUNTIMES = ['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom'] as const;
 const PERMISSION_MODES = ['default', 'accept-edits', 'bypass'] as const;
+const CODEX_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
+const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
 const CATEGORY_KINDS = ['plain', 'orchestrator', 'team'] as const;
 const TEAM_ROLES = ['orchestrator', 'lead', 'worker'] as const;
 
@@ -49,6 +51,14 @@ function optionalString(
 ): string | undefined {
   if (value === undefined) return undefined;
   return stringValue(channel, value, label, options);
+}
+
+function optionalCodexModel(channel: string, value: unknown): string | undefined {
+  const model = optionalString(channel, value, 'codexModel', { max: 100, allowEmpty: true });
+  if (model?.trim() && !CODEX_MODEL_PATTERN.test(model.trim())) {
+    invalid(channel, 'codexModel must be a shell-safe model id');
+  }
+  return model;
 }
 
 function enumValue<T extends string>(
@@ -154,6 +164,9 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'permissionMode',
     'customCommand',
     'ollamaModel',
+    'codexModel',
+    'codexReasoningEffort',
+    'teamRole',
     'defaultRepositoryId',
   ];
   const allowed = update
@@ -167,6 +180,17 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
   optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+  optionalCodexModel(channel, request.codexModel);
+  if (request.codexReasoningEffort !== undefined) {
+    enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);
+  }
+  if (request.runtime !== 'codex' &&
+      (request.codexModel !== undefined || request.codexReasoningEffort !== undefined)) {
+    invalid(channel, 'Codex model settings require runtime "codex"');
+  }
+  if (update && request.teamRole !== undefined) {
+    enumValue(channel, request.teamRole, 'teamRole', TEAM_ROLES);
+  }
   nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (!update) {
     filename(channel, request.photo, 'photo');
@@ -420,6 +444,8 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         'permissionMode',
         'customCommand',
         'ollamaModel',
+        'codexModel',
+        'codexReasoningEffort',
         'defaultRepositoryId',
       ]);
       id(channel, request.templateId, 'templateId');
@@ -433,6 +459,14 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       }
       optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
       optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+      optionalCodexModel(channel, request.codexModel);
+      if (request.codexReasoningEffort !== undefined) {
+        enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);
+      }
+      if (request.runtime !== undefined && request.runtime !== 'codex' &&
+          (request.codexModel !== undefined || request.codexReasoningEffort !== undefined)) {
+        invalid(channel, 'Codex model settings require runtime "codex"');
+      }
       nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
       return;
     }

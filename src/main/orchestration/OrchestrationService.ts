@@ -24,6 +24,7 @@ import {
   type StructuredTaskResult,
 } from '../../shared/types';
 import { RUN_CONTEXT_MANIFEST_PATH, sha256 } from './contextManifest';
+import { hostPathKey } from '../platform';
 
 export interface OrchestrationConfigPort {
   get(): AdeConfig;
@@ -812,11 +813,11 @@ export class OrchestrationService {
       if (!participant || participant.agentId !== input.agentId) {
         throw new Error(`ade: workspace lease participant is invalid "${input.participantId}"`);
       }
-      const key = normalizeWorkspacePath(input.workspaceDir);
+      const key = hostPathKey(input.workspaceDir);
       if (paths.has(key)) throw new Error(`ade: workspace appears twice in run: ${input.workspaceDir}`);
       paths.add(key);
       const conflict = config.runWorkspaceLeases.find(
-        (lease) => lease.status === 'active' && normalizeWorkspacePath(lease.workspaceDir) === key,
+        (lease) => lease.status === 'active' && hostPathKey(lease.workspaceDir) === key,
       );
       if (conflict) throw new Error(`ade: workspace is already owned by active run ${conflict.runId}`);
     }
@@ -1396,10 +1397,6 @@ function cloneResult(result: RunTaskResult): RunTaskResult {
   return { ...cloneStructuredResult(result), id: result.id, runId: result.runId, taskId: result.taskId,
     participantId: result.participantId, adapterId: result.adapterId, resultPath: result.resultPath,
     createdAt: result.createdAt };
-}
-
-function normalizeWorkspacePath(path: string): string {
-  return path.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
 }
 
 function normalizeCommandId(commandId: string | undefined): string | undefined {

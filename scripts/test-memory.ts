@@ -10,7 +10,14 @@
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  AGENT_ROLE_END_MARKER,
+  AGENT_ROLE_START_MARKER,
+  snapshotAgentInstructions,
+  syncAgentInstructions,
+} from '../src/main/memory/agentInstructions';
 import { ENTRY_DELIMITER, MemoryStore } from '../src/main/memory/MemoryStore';
+import type { Agent } from '../src/shared/types';
 
 let passed = 0;
 let failed = 0;
@@ -142,6 +149,44 @@ section('renderBlock header format');
 
   const user = new MemoryStore(freshDir()).renderBlock('user');
   check('user header label', user.split('\n')[1].startsWith('USER PROFILE (who the user is) [0% — 0/1,375 chars]'), user.split('\n')[1]);
+}
+
+/* ------------------------------------------ 7. durable role AGENTS.md */
+section('role-aware AGENTS.md');
+{
+  const dir = freshDir();
+  const agent: Agent = {
+    id: 'orchestrator',
+    categoryId: 'cat',
+    name: 'Main Chef',
+    role: 'Architecture and delivery',
+    runtime: 'codex',
+    permissionMode: 'bypass',
+    codexModel: 'gpt-5.6-sol',
+    codexReasoningEffort: 'xhigh',
+    workspaceDir: join(dir, 'workspace'),
+    memoryDir: join(dir, 'memory'),
+    teamRole: 'orchestrator',
+  };
+  const created = syncAgentInstructions(agent);
+  check('persistent AGENTS.md carries the orchestrator identity and Codex profile',
+    created.includes('Orchestration role: main orchestrator')
+      && created.includes('model gpt-5.6-sol')
+      && created.includes('reasoning xhigh'));
+  const path = join(agent.memoryDir, 'AGENTS.md');
+  writeFileSync(path, `${created}\nUser-owned local guidance.\n`, 'utf8');
+  const worker = syncAgentInstructions({ ...agent, teamRole: 'worker', codexReasoningEffort: 'high' });
+  check('role updates replace exactly one managed block and preserve user guidance',
+    worker.includes('Orchestration role: worker')
+      && worker.includes('User-owned local guidance.')
+      && worker.split(AGENT_ROLE_START_MARKER).length === 2
+      && worker.split(AGENT_ROLE_END_MARKER).length === 2);
+  const snapshot = snapshotAgentInstructions({ ...agent, teamRole: 'worker' }, 'orchestrator');
+  check('managed task snapshot uses the run role and has verifiable provenance',
+    snapshot.file === 'AGENTS.md'
+      && snapshot.content.includes('Orchestration role: main orchestrator')
+      && /^[0-9a-f]{64}$/.test(snapshot.sha256)
+      && snapshot.chars === snapshot.content.length);
 }
 
 /* ---------------------------------------------------------- summary */
