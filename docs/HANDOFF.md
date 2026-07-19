@@ -7,8 +7,9 @@ auf `origin/main`) und dessen neuem Progressive-Disclosure-Slice: kompakte
 Run→Publication→PR-Traceability, ausschließlich entscheidungsrelevante
 Hervorhebung, visuelle Regressions-Baselines, die explizite Harness-Wahl
 pro Run im "Neuer Run"-Dialog samt Repo-Pfad-Import sowie die Settings-Seite
-für Harness-Verwaltung mit verschlüsselter, write-only API-Key-Ablage. Der
-Slice wird mit synchroner
+für Harness-Verwaltung: Subscription-Anzeige aus dem CLI-Status, Login-
+Terminal pro Harness, verschlüsselte write-only API-Keys und generische
+Service-Keys mit Injektions-Scope. Der Slice wird mit synchroner
 Produkt-/Architektur-Dokumentation durch den vollständigen Windows-Gate
 verifiziert; der Abschlusszustand soll identisches lokales `main`/`origin/main`
 und ein sauberer Git-Worktree sein.
@@ -84,6 +85,28 @@ und ein sauberer Git-Worktree sein.
   Grok-Session sieht ihn als `XAI_API_KEY` → Status überlebt den
   App-Neustart. OAuth-basierte CLIs melden sich weiterhin selbst an; ADE
   führt bewusst keine eigenen OAuth-Flows aus.
+
+- **Settings v2 — Subscription-Anzeige, Login-Terminal, Service-Keys (neu):**
+  - Eine bestehende CLI-Anmeldung (z. B. Claude Pro/Max, ChatGPT für Codex)
+    wird als **„Angemeldet“ samt Methode** angezeigt; ADE ersetzt sie nicht.
+    Das API-Key-Feld ist ausdrücklich als Alternative gekennzeichnet
+    (API-Abrechnung), und liegen Anmeldung **und** gespeicherter Key
+    gleichzeitig vor, warnt die Seite, dass der Key die Subscription in
+    ADE-Sessions überschreiben würde.
+  - **„Anmelden im Terminal“** öffnet pro Harness eine Terminal-Session mit
+    dem dokumentierten Login-Kommando aus ADEs fester Tabelle (`claude auth
+    login`, `codex login`, `opencode auth login`); der OAuth-/Device-Flow
+    gehört vollständig dem CLI, die Login-Session erhält bewusst keine
+    gespeicherten Keys. Vorerst nativ; WSL-Distros haben eigenen
+    Login-Zustand pro Home.
+  - **Service-Keys** für Zusatzdienste (z. B. `ELEVENLABS_API_KEY`):
+    UPPER_SNAKE_CASE-Namen, reservierte Namen (PATH, NODE_OPTIONS, `ADE_*`,
+    Harness-Key-Slots …) werden abgelehnt, Werte verschlüsselt wie
+    Harness-Keys, Scope wählbar („alle Sessions“ oder bestimmte Harnesses),
+    Injektion in native und WSL-Session-Umgebungen. Der Playwright-Gate
+    beweist real: Subscription-Anzeige aus dem CLI-Status, Login-Terminal
+    führt das Kommando aus, ein Service-Key erreicht eine Shell-Session als
+    Umgebungsvariable, und beides überlebt den App-Neustart verschlüsselt.
 
 - Die rechte Sidebar besitzt jetzt ein bewusst getrenntes **Overview** für das
   im Katalog ausgewählte Repository. **Changes** und **Files** bleiben ehrlich
@@ -188,17 +211,18 @@ Windows-Ordner oben behält die beiden fertigen Pakete.
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
 - beide TypeScript-Projekte grün;
-- **499/499** fokussierte Unit-/Integrations-/Security-Assertions:
+- **507/507** fokussierte Unit-/Integrations-/Security-Assertions:
   Memory 27, Dispatch 12, Runtime 32, Execution-Backends 16,
   Orchestration 48, Orchestration-Beta 101, Publication 29, Prompts 31,
-  Repository-Scopes 43, Repository-Inspector 27, Harness-Credentials 12,
-  Workspace-FS 7, Security 114;
+  Repository-Scopes 43, Repository-Inspector 27, Harness-Credentials 17,
+  Workspace-FS 7, Security 117;
 - Production-Build grün;
-- **77/77** reale Electron-/Playwright-Checks grün, inklusive Repository-
+- **82/82** reale Electron-/Playwright-Checks grün, inklusive Repository-
   Übersicht/PRs/Commit-Diff/Keyboard/Fokus, Scope-&-Session-Offenlegung,
   CI-Rollup-Chip, On-demand-Checks mit Fokusrückgabe, ADE-Run-Provenance des
   veröffentlichten Draft-PR, Harness-Wahl und Repo-Pfad-Import im "Neuer
-  Run"-Dialog, Settings-Seite mit verschlüsseltem Key-Roundtrip bis in die
+  Run"-Dialog, Settings-Seite mit Subscription-Anzeige, Login-Terminal,
+  verschlüsseltem Harness-Key- und Service-Key-Roundtrip bis in die
   Session-Umgebung sowie disabled-before-confirm, realem isoliertem
   Git-Push, unverändertem Remote-`main`, Draft-PR-Audit und Persistenz nach
   App-Neustart;

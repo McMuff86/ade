@@ -221,6 +221,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.HarnessStatus, () => ({
     keyStorageAvailable: harnessCredentials.available(),
     items: harnessCredentials.status(),
+    serviceKeys: harnessCredentials.serviceKeyStatus(),
   }));
   handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {
     harnessCredentials.set(runtime, apiKey);
@@ -228,6 +229,15 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.HarnessClearKey, ({ runtime }) => {
     harnessCredentials.clear(runtime);
   });
+  handle(IPC.HarnessSetServiceKey, ({ name, value, scope }) => {
+    harnessCredentials.setServiceKey(name, value, scope);
+  });
+  handle(IPC.HarnessClearServiceKey, ({ name }) => {
+    harnessCredentials.clearServiceKey(name);
+  });
+  handle(IPC.HarnessLogin, ({ agentId, runtime }) =>
+    ptyManager!.createHarnessLogin(agentId, runtime),
+  );
   // Harness-level readiness reuses the agent diagnostics with one synthetic
   // probe identity per first-class CLI; nothing is executed beyond the safe
   // version/auth commands and nothing is persisted.

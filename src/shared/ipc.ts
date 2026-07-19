@@ -32,6 +32,7 @@ import type {
   RunTaskCreateInput,
   RuntimeDiagnosticsResult,
   RuntimeId,
+  ServiceKeyScope,
   SessionMeta,
   TaskQueueStatus,
   ThemeName,
@@ -71,6 +72,9 @@ export const IPC = {
   HarnessStatus: 'harness:status',
   HarnessSetKey: 'harness:setKey',
   HarnessClearKey: 'harness:clearKey',
+  HarnessSetServiceKey: 'harness:setServiceKey',
+  HarnessClearServiceKey: 'harness:clearServiceKey',
+  HarnessLogin: 'harness:login',
   HarnessDiagnose: 'harness:diagnose',
   WorkspaceDescribe: 'workspace:describe',
   WorkspaceRemoveBinding: 'workspace:removeBinding',
@@ -402,6 +406,26 @@ export interface HarnessClearKeyRequest {
   runtime: RuntimeId;
 }
 
+/** Write-only named service key (generic env secret) with an injection scope. */
+export interface HarnessSetServiceKeyRequest {
+  name: string;
+  value: string;
+  scope: ServiceKeyScope;
+}
+
+export interface HarnessClearServiceKeyRequest {
+  name: string;
+}
+
+/**
+ * Opens a terminal session running the harness's documented sign-in command.
+ * The command comes exclusively from ADE's fixed table, never from input.
+ */
+export interface HarnessLoginRequest {
+  agentId: string;
+  runtime: RuntimeId;
+}
+
 export interface WslDistributionInfo {
   name: string;
   backend: ExecutionBackendId;
@@ -483,6 +507,9 @@ export interface IpcInvokeMap {
   'harness:status': { req: void; res: HarnessStatusResult };
   'harness:setKey': { req: HarnessSetKeyRequest; res: void };
   'harness:clearKey': { req: HarnessClearKeyRequest; res: void };
+  'harness:setServiceKey': { req: HarnessSetServiceKeyRequest; res: void };
+  'harness:clearServiceKey': { req: HarnessClearServiceKeyRequest; res: void };
+  'harness:login': { req: HarnessLoginRequest; res: SessionMeta };
   'harness:diagnose': { req: void; res: RuntimeDiagnosticsResult };
   'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };
   'workspace:removeBinding': { req: WorkspaceRemoveBindingRequest; res: WorkspaceRemoveBindingResult };

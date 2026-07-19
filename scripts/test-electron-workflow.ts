@@ -374,6 +374,49 @@ fs.writeFileSync(output, JSON.stringify(base) + '\\n', 'utf8');
   writeFileSync(path, source, 'utf8');
 }
 
+/**
+ * Deterministic claude stand-in: reports a subscription sign-in and answers
+ * the documented login command, so the settings flow never depends on (or
+ * touches) the operator's real Claude Code auth state.
+ */
+function writeFakeClaudeCli(bin: string): void {
+  if (isWindows) {
+    writeFileSync(join(bin, 'claude.cmd'), [
+      '@echo off',
+      'if "%1"=="auth" if "%2"=="status" (',
+      '  echo {"loggedIn":true,"authMethod":"claude.ai Subscription Fixture"}',
+      '  exit /b 0',
+      ')',
+      'if "%1"=="auth" if "%2"=="login" (',
+      '  echo CLAUDE_LOGIN_FIXTURE_OK',
+      '  exit /b 0',
+      ')',
+      'if "%1"=="--version" (',
+      '  echo 9.9.9 fixture',
+      '  exit /b 0',
+      ')',
+      'echo CLAUDE_FIXTURE',
+      '',
+    ].join('\r\n'), 'utf8');
+  } else {
+    const launcher = join(bin, 'claude');
+    writeFileSync(launcher, [
+      '#!/bin/sh',
+      'if [ "$1" = "auth" ] && [ "$2" = "status" ]; then',
+      '  echo \'{"loggedIn":true,"authMethod":"claude.ai Subscription Fixture"}\'',
+      'elif [ "$1" = "auth" ] && [ "$2" = "login" ]; then',
+      '  echo CLAUDE_LOGIN_FIXTURE_OK',
+      'elif [ "$1" = "--version" ]; then',
+      '  echo "9.9.9 fixture"',
+      'else',
+      '  echo CLAUDE_FIXTURE',
+      'fi',
+      '',
+    ].join('\n'), 'utf8');
+    chmodSync(launcher, 0o755);
+  }
+}
+
 /** Env-echoing grok stand-in proving stored-key injection end to end. */
 function writeFakeGrokCli(bin: string): void {
   if (isWindows) {
@@ -409,6 +452,7 @@ async function run(): Promise<void> {
   const managed = createManagedWorktrees(scratch);
   const fakeGithub = writeFakeGithubCli(scratch, managed.remote);
   writeFakeGrokCli(fakeGithub.bin);
+  writeFakeClaudeCli(fakeGithub.bin);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
 
   let app: ElectronApplication | null = null;
@@ -1253,6 +1297,7 @@ async function run(): Promise<void> {
     }
     await page.getByRole('button', { name: 'Close' }).last().click();
 
+    await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
     await settingsDialog.waitFor({ state: 'visible' });
@@ -1263,22 +1308,49 @@ async function run(): Promise<void> {
         && text.includes('Grok Build')
         && text.includes('codex login');
     }, 20_000);
+    const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
+    await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {
+      const text = await claudeRow.textContent();
+      const keyPlaceholder = await claudeRow.getByLabel('API-Key für Claude Code')
+        .getAttribute('placeholder');
+      return text?.includes('Angemeldet') === true
+        && text.includes('claude.ai Subscription Fixture')
+        && keyPlaceholder?.includes('Alternative zur Subscription') === true;
+    }, 20_000);
     const grokRow = settingsDialog.locator('.st-harness', { hasText: 'Grok Build' });
     const grokKey = 'xai-e2e-secret-key-2026';
     await grokRow.getByLabel('API-Key für Grok Build').fill(grokKey);
     await grokRow.getByRole('button', { name: 'Speichern' }).click();
     await eventually('a saved harness key reports write-only boolean status', async () =>
       (await grokRow.textContent())?.includes('API-Key gespeichert (XAI_API_KEY)') === true);
+    const serviceValue = 'elevenlabs-e2e-value-2026';
+    await settingsDialog.getByLabel('Name des Service-Keys').fill('ELEVENLABS_API_KEY');
+    await settingsDialog.getByLabel('Wert des Service-Keys').fill(serviceValue);
+    await settingsDialog.locator('.st-service-add').getByRole('button', { name: 'Speichern' }).click();
+    await eventually('a stored service key lists its scope without its value', async () => {
+      const text = await settingsDialog.textContent();
+      return text?.includes('ELEVENLABS_API_KEY') === true
+        && text.includes('alle Sessions')
+        && !text.includes(serviceValue);
+    });
     const credentialsRaw = readFileSync(join(userData, 'ade', 'harness-credentials.json'), 'utf8');
     const configRaw = readFileSync(join(userData, 'ade', 'config.json'), 'utf8');
-    check('harness keys persist encrypted outside config.json without plaintext',
+    check('harness and service keys persist encrypted outside config.json without plaintext',
       !credentialsRaw.includes(grokKey)
+        && !credentialsRaw.includes(serviceValue)
         && credentialsRaw.includes('"grok"')
-        && !configRaw.includes(grokKey));
-    await settingsDialog.getByRole('button', { name: 'Schließen' }).click();
+        && credentialsRaw.includes('"ELEVENLABS_API_KEY"')
+        && !configRaw.includes(grokKey)
+        && !configRaw.includes(serviceValue));
+    const tabCountBeforeLogin = await page.locator('[role="tab"][id^="session-tab-"]').count();
+    await claudeRow.getByRole('button', { name: 'Anmelden im Terminal' }).click();
     await settingsDialog.waitFor({ state: 'hidden' });
-
-    await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
+    await eventually('the sign-in terminal runs the documented CLI login command', async () =>
+      await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeLogin + 1
+        && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes('CLAUDE_LOGIN_FIXTURE_OK') === true,
+      20_000,
+    );
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
     const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
     await grokAgentDialog.waitFor({ state: 'visible' });
@@ -1301,6 +1373,18 @@ async function run(): Promise<void> {
     await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
     await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
     await revertAgentDialog.waitFor({ state: 'hidden' });
+    const tabCountBeforeService = await page.locator('[role="tab"][id^="session-tab-"]').count();
+    await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+    await eventually('an all-sessions service key opens a session', async () =>
+      await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeService + 1);
+    await sendCommand(page, isWindows
+      ? 'Write-Output "SVC=$env:ELEVENLABS_API_KEY"'
+      : 'printf \'SVC=%s\\n\' "$ELEVENLABS_API_KEY"');
+    await eventually('an all-sessions service key reaches a plain shell session', async () =>
+      (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+        ?.includes('SVC=elevenlabs-e2e-value-2026') === true,
+      15_000,
+    );
 
     await app.close();
     app = null;
@@ -1354,11 +1438,15 @@ async function run(): Promise<void> {
       return await api.invoke('harness:status') as {
         keyStorageAvailable: boolean;
         items: Array<{ runtime: string; hasStoredKey: boolean }>;
+        serviceKeys: Array<{ name: string; scope: unknown }>;
       };
     });
     check('full app restart preserves the encrypted harness key status',
       restartedHarness.keyStorageAvailable
-        && restartedHarness.items.some((item) => item.runtime === 'grok' && item.hasStoredKey));
+        && restartedHarness.items.some((item) => item.runtime === 'grok' && item.hasStoredKey)
+        && restartedHarness.serviceKeys.some((key) => (
+          key.name === 'ELEVENLABS_API_KEY' && key.scope === 'all'
+        )));
 
     if (runWslBackend) {
       const restartedWslRepository = restartedConfig.repositories.find(

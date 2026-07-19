@@ -2,7 +2,7 @@
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isExecutionBackendId } from '../shared/executionBackends';
-import { HARNESS_API_KEY_ENV } from '../shared/runtimes';
+import { HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS } from '../shared/runtimes';
 
 type RecordValue = Record<string, unknown>;
 
@@ -373,8 +373,11 @@ function validateRepositoryCommitDiff(channel: string, payload: unknown): void {
 }
 
 const HARNESS_KEY_RUNTIMES = Object.keys(HARNESS_API_KEY_ENV) as readonly string[];
+const HARNESS_LOGIN_RUNTIMES = Object.keys(HARNESS_LOGIN_COMMANDS) as readonly string[];
 /** Printable ASCII without spaces; mirrors HarnessCredentialService. */
 const HARNESS_API_KEY_PATTERN = /^[\x21-\x7E]{1,512}$/;
+const SERVICE_KEY_VALUE_PATTERN = /^[\x21-\x7E]{1,1024}$/;
+const SERVICE_KEY_NAME_PATTERN = /^[A-Z][A-Z0-9_]{2,63}$/;
 
 function validateHarnessKeyRequest(channel: string, payload: unknown, withKey: boolean): void {
   const request = record(channel, payload);
@@ -387,6 +390,33 @@ function validateHarnessKeyRequest(channel: string, payload: unknown, withKey: b
     if (typeof request.apiKey !== 'string' || !HARNESS_API_KEY_PATTERN.test(request.apiKey)) {
       invalid(channel, 'apiKey must be 1-512 printable characters without spaces');
     }
+  }
+}
+
+function validateServiceKeyRequest(channel: string, payload: unknown, withValue: boolean): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, withValue ? ['name', 'value', 'scope'] : ['name']);
+  if (typeof request.name !== 'string' || !SERVICE_KEY_NAME_PATTERN.test(request.name)) {
+    invalid(channel, 'name must be an UPPER_SNAKE_CASE environment variable name');
+  }
+  if (!withValue) return;
+  // Never include the submitted value in the error.
+  if (typeof request.value !== 'string' || !SERVICE_KEY_VALUE_PATTERN.test(request.value)) {
+    invalid(channel, 'value must be 1-1024 printable characters without spaces');
+  }
+  const scope = request.scope;
+  const scopeValid = scope === 'all'
+    || (Array.isArray(scope) && scope.length >= 1 && scope.length <= RUNTIMES.length
+      && scope.every((item) => typeof item === 'string' && RUNTIMES.includes(item as never)));
+  if (!scopeValid) invalid(channel, 'scope must be "all" or a list of runtimes');
+}
+
+function validateHarnessLogin(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['agentId', 'runtime']);
+  id(channel, request.agentId, 'agentId');
+  if (typeof request.runtime !== 'string' || !HARNESS_LOGIN_RUNTIMES.includes(request.runtime)) {
+    invalid(channel, 'runtime has no documented sign-in command');
   }
 }
 
@@ -451,6 +481,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.HarnessClearKey:
       validateHarnessKeyRequest(channel, payload, false);
+      return;
+    case IPC.HarnessSetServiceKey:
+      validateServiceKeyRequest(channel, payload, true);
+      return;
+    case IPC.HarnessClearServiceKey:
+      validateServiceKeyRequest(channel, payload, false);
+      return;
+    case IPC.HarnessLogin:
+      validateHarnessLogin(channel, payload);
       return;
     case IPC.ConfigSave:
       validateConfigSave(channel, payload);

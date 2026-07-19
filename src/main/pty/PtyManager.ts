@@ -19,6 +19,7 @@ import {
   type PtyCancelTasksResult,
 } from '../../shared/ipc';
 import {
+  HARNESS_LOGIN_COMMANDS,
   LAUNCH_PROFILES,
   effectiveParticipantAgent,
   resolveLaunchCommand,
@@ -342,6 +343,7 @@ export class PtyManager {
     agentId: string,
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
+    login?: { command: string; title: string },
   ): Promise<SessionMeta> {
     const agent = this.effectiveTaskAgent(this.requireAgent(agentId), task?.runTaskId);
     const managedLaunch = task?.runTaskId
@@ -350,7 +352,7 @@ export class PtyManager {
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (!managedLaunch && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
+    if (!managedLaunch && !login && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
         injectMemoryBlock(agent, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
@@ -362,7 +364,9 @@ export class PtyManager {
     const backendPlatform = executionBackendPlatform(scope.executionBackend);
     const baseSpec = task
       ? this.resolveTaskSpawn(agent, task.task, managedLaunch, backendPlatform)
-      : this.resolveInteractiveSpawn(agent, backendPlatform);
+      : login
+        ? this.resolveLoginSpawn(login.command, backendPlatform)
+        : this.resolveInteractiveSpawn(agent, backendPlatform);
     let spec = baseSpec;
     let promptScratchDir: string | undefined;
     let backendEnv: Record<string, string> | undefined;
@@ -372,9 +376,11 @@ export class PtyManager {
       backendEnv = prepared.env;
       promptScratchDir = prepared.promptScratchDir;
     }
-    // Stored harness API keys reach only sessions whose effective runtime
-    // matches; explicit task/launch env always wins over a stored key.
-    const credentialEnv = this.harnessCredentials?.envFor(agent.runtime) ?? {};
+    // Stored service keys and the matching harness API key reach only
+    // sessions of the effective runtime; explicit task/launch env always
+    // wins. Login terminals stay credential-free so the CLI's own sign-in
+    // state is what gets created and checked.
+    const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
     const command = this.execution.ptyCommand(
       scope.executionBackend,
       spec.file,
@@ -415,7 +421,7 @@ export class PtyManager {
     const meta: SessionMeta = {
       id,
       agentId,
-      title: task ? `${label} task` : label,
+      title: login ? login.title : task ? `${label} task` : label,
       kind: task ? 'task' : 'interactive',
       status: 'running',
       createdAt: Date.now(),
@@ -718,6 +724,37 @@ export class PtyManager {
       console.warn(`[ade] pty:create - could not create workspaceDir ${dir}:`, error);
     }
     return dir;
+  }
+
+  /**
+   * Terminal running one harness's documented sign-in command in the agent's
+   * portable home. The command comes exclusively from ADE's fixed table; the
+   * CLI owns the whole OAuth/device flow. Native backend only for now — WSL
+   * distros hold their own per-home sign-in state.
+   */
+  async createHarnessLogin(agentId: string, runtime: RuntimeId): Promise<SessionMeta> {
+    const command = HARNESS_LOGIN_COMMANDS[runtime];
+    if (!command) throw new Error(`ade: harness "${runtime}" has no documented sign-in command`);
+    this.requireAgent(agentId);
+    const scope = await this.scopes.resolve(agentId, { repositoryId: null });
+    if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND) {
+      throw new Error('ade: the sign-in terminal currently supports the native backend only');
+    }
+    this.assertScopeAvailable(scope);
+    return this.spawn(agentId, scope, undefined, {
+      command,
+      title: `${LAUNCH_PROFILES[runtime].label} sign-in`,
+    });
+  }
+
+  private resolveLoginSpawn(command: string, platform: 'win32' | 'posix'): SpawnSpec {
+    const isWin = platform === 'win32';
+    return {
+      file: isWin ? resolveHostShell() : '/bin/bash',
+      args: isWin ? ['-NoLogo'] : ['-l'],
+      initialCommand: command,
+      lineEnding: isWin ? '\r' : '\n',
+    };
   }
 
   private resolveInteractiveSpawn(agent: Agent, platform: 'win32' | 'posix'): SpawnSpec {

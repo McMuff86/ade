@@ -584,8 +584,20 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
   config.json; refuses to store when OS encryption is unavailable). Stored
   keys are injected main-side as the harness's documented environment
   variable only into sessions whose effective runtime matches
+- `harness:setServiceKey({name, value, scope})` / `harness:clearServiceKey({name})`
+  → write-only encrypted generic service keys (e.g. ELEVENLABS_API_KEY) with
+  an injection scope of 'all' or a runtime list; reserved names (PATH,
+  NODE_OPTIONS, ADE_*, the harness API-key slots, …) are refused. Scoped
+  keys are injected main-side into matching native and WSL session
+  environments; explicit task/launch env always wins
+- `harness:login({agentId, runtime})` → terminal session running the
+  harness's documented sign-in command from ADE's fixed table (never from
+  renderer input); the CLI owns the whole OAuth/subscription flow and the
+  session receives no stored credentials. Subscription sign-ins therefore
+  stay with the CLI and keep applying to ADE sessions automatically
 - `harness:diagnose()` → harness-level readiness via one synthetic probe
-  identity per first-class CLI (same safe version/auth commands)
+  identity per first-class CLI (same safe version/auth commands); an
+  authenticated CLI is surfaced as signed in, including its auth method
 - `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs;
   a `run:create` participant may carry an optional per-run harness override
   (`runtime`, limited to MANAGED_HARNESS_OVERRIDES). The override is

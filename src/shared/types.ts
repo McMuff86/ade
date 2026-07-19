@@ -845,10 +845,21 @@ export interface HarnessKeyStatus {
   savedAt?: number;
 }
 
+/** Which launching sessions receive a stored service key. */
+export type ServiceKeyScope = 'all' | RuntimeId[];
+
+/** Value-free view of one stored service key (e.g. ELEVENLABS_API_KEY). */
+export interface ServiceKeyStatus {
+  name: string;
+  savedAt: number;
+  scope: ServiceKeyScope;
+}
+
 export interface HarnessStatusResult {
   /** false when the OS refuses safeStorage; ADE then refuses to store keys. */
   keyStorageAvailable: boolean;
   items: HarnessKeyStatus[];
+  serviceKeys: ServiceKeyStatus[];
 }
 
 /** Workspace file-tree node (depth-limited; children lazy — undefined = not loaded). */

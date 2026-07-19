@@ -1,7 +1,7 @@
 /** Renderer mirror of the PTYs owned by Electron main. */
 
 import { create } from 'zustand';
-import type { PtyExitReason, SessionMeta, TaskQueueStatus } from '../../shared/types';
+import type { PtyExitReason, RuntimeId, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { PtyCancelTasksRequest } from '../../shared/ipc';
 
 export interface SessionOperationError {
@@ -28,6 +28,8 @@ interface SessionsState {
     repositoryId?: string | null,
     workspaceBindingId?: string,
   ) => Promise<SessionMeta>;
+  /** Terminal running the harness's documented sign-in command. */
+  openHarnessLogin: (agentId: string, runtime: RuntimeId) => Promise<SessionMeta>;
   closeSession: (sessionId: string) => Promise<void>;
   restartSession: (sessionId: string) => Promise<SessionMeta | null>;
   cancelTasks: (request?: PtyCancelTasksRequest) => Promise<{
@@ -163,6 +165,26 @@ export const useSessions = create<SessionsState>((set, get) => ({
         repositoryId,
         workspaceBindingId,
       });
+      if (!get().hydrated) createdDuringHydrate.add(meta.id);
+      set((state) => ({
+        sessions: { ...state.sessions, [meta.id]: meta },
+        orderByAgent: {
+          ...state.orderByAgent,
+          [agentId]: [...(state.orderByAgent[agentId] ?? []), meta.id],
+        },
+        activeByAgent: { ...state.activeByAgent, [agentId]: meta.id },
+        error: state.error?.source === 'launch' ? null : state.error,
+      }));
+      return meta;
+    } catch (error) {
+      set({ error: { message: errorMessage(error), source: 'launch', agentId } });
+      throw error;
+    }
+  },
+
+  openHarnessLogin: async (agentId, runtime) => {
+    try {
+      const meta = await window.ade.invoke('harness:login', { agentId, runtime });
       if (!get().hydrated) createdDuringHydrate.add(meta.id);
       set((state) => ({
         sessions: { ...state.sessions, [meta.id]: meta },

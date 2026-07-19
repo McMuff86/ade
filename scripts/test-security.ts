@@ -71,6 +71,9 @@ const valid: Record<InvokeChannel, unknown> = {
   'harness:diagnose': undefined,
   'harness:setKey': { runtime: 'grok', apiKey: 'contract-fixture-key' },
   'harness:clearKey': { runtime: 'grok' },
+  'harness:setServiceKey': { name: 'ELEVENLABS_API_KEY', value: 'contract-fixture', scope: 'all' },
+  'harness:clearServiceKey': { name: 'ELEVENLABS_API_KEY' },
+  'harness:login': { agentId: 'agent', runtime: 'claude' },
   'repository:commitDiff': {
     repositoryId: 'repository',
     commitSha: '0123456789abcdef0123456789abcdef01234567',
