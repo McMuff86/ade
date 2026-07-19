@@ -24,7 +24,7 @@ import {
   resolveLaunchCommand,
   resolveTaskLaunchCommand,
 } from '../../shared/runtimes';
-import type { Agent, SessionMeta, TaskQueueStatus } from '../../shared/types';
+import type { Agent, RuntimeId, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import {
   NATIVE_EXECUTION_BACKEND,
   executionBackendPlatform,
@@ -134,6 +134,8 @@ export class PtyManager {
     private readonly taskLifecycle?: TaskLifecycleSink,
     scopes?: RepositoryScopePort,
     private readonly execution = new ExecutionBackendService(),
+    /** Main-only source of harness API-key env for the launching runtime. */
+    private readonly harnessCredentials?: { envFor(runtime: RuntimeId): Record<string, string> },
   ) {
     this.scopes = scopes ?? {
       resolve: async (agentId) => {
@@ -370,6 +372,9 @@ export class PtyManager {
       backendEnv = prepared.env;
       promptScratchDir = prepared.promptScratchDir;
     }
+    // Stored harness API keys reach only sessions whose effective runtime
+    // matches; explicit task/launch env always wins over a stored key.
+    const credentialEnv = this.harnessCredentials?.envFor(agent.runtime) ?? {};
     const command = this.execution.ptyCommand(
       scope.executionBackend,
       spec.file,
@@ -377,6 +382,7 @@ export class PtyManager {
       scope.workspaceDir,
       scope.executionBackend === NATIVE_EXECUTION_BACKEND ? undefined : {
         TERM: 'xterm-256color',
+        ...credentialEnv,
         ...(backendEnv ?? spec.env ?? {}),
       },
     );
@@ -384,6 +390,7 @@ export class PtyManager {
       ? {
           ...process.env,
           TERM: 'xterm-256color',
+          ...credentialEnv,
           ...(spec.env ?? {}),
           ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
         } as Record<string, string>

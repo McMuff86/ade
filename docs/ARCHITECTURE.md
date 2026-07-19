@@ -577,6 +577,15 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `pty:list()` → live/exited retained sessions + task queue status
 - `pty:cancelTasks({agentIds?, runTaskIds?})` → active/queued cancellation counts
 - `runtime:diagnose({agentId?})` → CLI/version/auth/task-transport readiness
+- `harness:status()` → boolean-only stored-API-key status per keyed harness
+  plus safeStorage availability; plaintext never crosses IPC
+- `harness:setKey({runtime, apiKey})` / `harness:clearKey({runtime})` →
+  write-only encrypted key storage (OS safeStorage, own file next to
+  config.json; refuses to store when OS encryption is unavailable). Stored
+  keys are injected main-side as the harness's documented environment
+  variable only into sessions whose effective runtime matches
+- `harness:diagnose()` → harness-level readiness via one synthetic probe
+  identity per first-class CLI (same safe version/auth commands)
 - `run:get`, `run:create`, `run:delete` → persisted orchestration snapshots/runs;
   a `run:create` participant may carry an optional per-run harness override
   (`runtime`, limited to MANAGED_HARNESS_OVERRIDES). The override is

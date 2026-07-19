@@ -20,6 +20,7 @@ import { useSessions } from './stores/sessions';
 import { useRuns } from './stores/runs';
 import { useDiagnostics } from './stores/diagnostics';
 import { DiagnosticsModal } from './diagnostics/DiagnosticsModal';
+import { SettingsModal } from './settings/SettingsModal';
 import { useSessionShortcuts } from './keyboard/useSessionShortcuts';
 import './graph/mode-switch.css';
 
@@ -46,6 +47,7 @@ export function App() {
 
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const [rightOpen, setRightOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const toggleRightPanel = (): void => {
     const panel = rightPanelRef.current;
@@ -110,6 +112,13 @@ export function App() {
         </div>
 
         <span className="spacer" />
+        <button
+          className="btn"
+          onClick={() => setSettingsOpen(true)}
+          title="Harness sign-in status and API keys"
+        >
+          Settings
+        </button>
         <button className="btn" onClick={() => showDiagnostics()} title="Check CLI and authentication">
           Diagnostics
         </button>
@@ -171,6 +180,7 @@ export function App() {
         )}
       </div>
       <DiagnosticsModal />
+      {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
     </div>
   );
 }

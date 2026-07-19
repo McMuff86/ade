@@ -67,6 +67,10 @@ const valid: Record<InvokeChannel, unknown> = {
   'repository:overview': { repositoryId: 'repository' },
   'repository:pullRequests': { repositoryId: 'repository' },
   'repository:pullRequestChecks': { repositoryId: 'repository', pullRequestNumber: 42 },
+  'harness:status': undefined,
+  'harness:diagnose': undefined,
+  'harness:setKey': { runtime: 'grok', apiKey: 'contract-fixture-key' },
+  'harness:clearKey': { runtime: 'grok' },
   'repository:commitDiff': {
     repositoryId: 'repository',
     commitSha: '0123456789abcdef0123456789abcdef01234567',

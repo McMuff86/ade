@@ -838,6 +838,19 @@ export interface RepositoryCommitDiff {
   truncated: boolean;
 }
 
+/** Boolean-only view of one harness API key; plaintext never crosses IPC. */
+export interface HarnessKeyStatus {
+  runtime: RuntimeId;
+  hasStoredKey: boolean;
+  savedAt?: number;
+}
+
+export interface HarnessStatusResult {
+  /** false when the OS refuses safeStorage; ADE then refuses to store keys. */
+  keyStorageAvailable: boolean;
+  items: HarnessKeyStatus[];
+}
+
 /** Workspace file-tree node (depth-limited; children lazy — undefined = not loaded). */
 export interface FsTreeNode {
   name: string;

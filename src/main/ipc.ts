@@ -4,11 +4,12 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
+import { HARNESS_RUNTIMES, LAUNCH_PROFILES } from '../shared/runtimes';
 import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../shared/executionBackends';
 import type { ConfigStore } from './config/store';
 import { importPhoto } from './photos';
@@ -38,6 +39,7 @@ import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
 import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 import { PublicationService } from './publishing/PublicationService';
+import { HarnessCredentialService } from './settings/HarnessCredentialService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
@@ -100,7 +102,8 @@ export function registerIpcHandlers(store: ConfigStore): void {
   }
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
-  ptyManager = new PtyManager(store, runCoordinator, scopes, execution);
+  const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
+  ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
   runCoordinator.connect(
     (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
       ptyManager!.create(
@@ -215,6 +218,33 @@ export function registerIpcHandlers(store: ConfigStore): void {
   handle(IPC.RepositoryPullRequestChecks, ({ repositoryId, pullRequestNumber }) =>
     repositoryInspector.pullRequestChecks(repositoryId, pullRequestNumber),
   );
+  handle(IPC.HarnessStatus, () => ({
+    keyStorageAvailable: harnessCredentials.available(),
+    items: harnessCredentials.status(),
+  }));
+  handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {
+    harnessCredentials.set(runtime, apiKey);
+  });
+  handle(IPC.HarnessClearKey, ({ runtime }) => {
+    harnessCredentials.clear(runtime);
+  });
+  // Harness-level readiness reuses the agent diagnostics with one synthetic
+  // probe identity per first-class CLI; nothing is executed beyond the safe
+  // version/auth commands and nothing is persisted.
+  handle(IPC.HarnessDiagnose, () => diagnoseRuntimes(
+    HARNESS_RUNTIMES.map((runtime): Agent => ({
+      id: `harness-${runtime}`,
+      categoryId: 'harness-probe',
+      name: LAUNCH_PROFILES[runtime].label,
+      runtime,
+      permissionMode: 'default',
+      workspaceDir: '',
+      memoryDir: '',
+    })),
+    undefined,
+    () => NATIVE_EXECUTION_BACKEND,
+    execution,
+  ));
   handle(IPC.RepositoryCommitDiff, ({ repositoryId, commitSha }) =>
     repositoryInspector.commitDiff(repositoryId, commitSha),
   );

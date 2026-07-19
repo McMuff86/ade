@@ -18,6 +18,7 @@ import type {
   CategoryCreateInput,
   FsTreeNode,
   GitStatus,
+  HarnessStatusResult,
   OrchestrationSnapshot,
   Run,
   RunArtifact,
@@ -30,6 +31,7 @@ import type {
   RunTask,
   RunTaskCreateInput,
   RuntimeDiagnosticsResult,
+  RuntimeId,
   SessionMeta,
   TaskQueueStatus,
   ThemeName,
@@ -66,6 +68,10 @@ export const IPC = {
   RepositoryPullRequests: 'repository:pullRequests',
   RepositoryPullRequestChecks: 'repository:pullRequestChecks',
   RepositoryCommitDiff: 'repository:commitDiff',
+  HarnessStatus: 'harness:status',
+  HarnessSetKey: 'harness:setKey',
+  HarnessClearKey: 'harness:clearKey',
+  HarnessDiagnose: 'harness:diagnose',
   WorkspaceDescribe: 'workspace:describe',
   WorkspaceRemoveBinding: 'workspace:removeBinding',
   ClipboardReadText: 'clipboard:readText',
@@ -386,6 +392,16 @@ export interface RepositoryPullRequestChecksRequest extends RepositoryInspectReq
   pullRequestNumber: number;
 }
 
+/** Write-only API key for one harness; status reads return booleans only. */
+export interface HarnessSetKeyRequest {
+  runtime: RuntimeId;
+  apiKey: string;
+}
+
+export interface HarnessClearKeyRequest {
+  runtime: RuntimeId;
+}
+
 export interface WslDistributionInfo {
   name: string;
   backend: ExecutionBackendId;
@@ -464,6 +480,10 @@ export interface IpcInvokeMap {
     res: RepositoryPullRequestChecksResult;
   };
   'repository:commitDiff': { req: RepositoryCommitDiffRequest; res: RepositoryCommitDiff };
+  'harness:status': { req: void; res: HarnessStatusResult };
+  'harness:setKey': { req: HarnessSetKeyRequest; res: void };
+  'harness:clearKey': { req: HarnessClearKeyRequest; res: void };
+  'harness:diagnose': { req: void; res: RuntimeDiagnosticsResult };
   'workspace:describe': { req: WorkspaceDescribeRequest; res: WorkspaceScopeDescriptor };
   'workspace:removeBinding': { req: WorkspaceRemoveBindingRequest; res: WorkspaceRemoveBindingResult };
   'clipboard:readText': { req: void; res: ClipboardReadTextResult };

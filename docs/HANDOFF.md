@@ -5,8 +5,10 @@ Abschluss, Verified Draft-PR Publishing, dem Repository Inspector (`40bc1b2`
 auf `origin/main`) und dessen neuem Progressive-Disclosure-Slice: kompakte
 `Scope & session`-Offenlegung, CI-Rollups mit On-demand-Einzelchecks,
 Run→Publication→PR-Traceability, ausschließlich entscheidungsrelevante
-Hervorhebung, visuelle Regressions-Baselines und die explizite Harness-Wahl
-pro Run im "Neuer Run"-Dialog. Der Slice wird mit synchroner
+Hervorhebung, visuelle Regressions-Baselines, die explizite Harness-Wahl
+pro Run im "Neuer Run"-Dialog samt Repo-Pfad-Import sowie die Settings-Seite
+für Harness-Verwaltung mit verschlüsselter, write-only API-Key-Ablage. Der
+Slice wird mit synchroner
 Produkt-/Architektur-Dokumentation durch den vollständigen Windows-Gate
 verifiziert; der Abschlusszustand soll identisches lokales `main`/`origin/main`
 und ein sauberer Git-Worktree sein.
@@ -63,6 +65,25 @@ und ein sauberer Git-Worktree sein.
   Backend-Wahl (Native/WSL-Distribution). Der Import nutzt denselben
   verifizierten `repository:import`-Vertrag wie der Scope-Header, ist
   idempotent und wählt das importierte Repository direkt für den Run aus.
+
+- **Settings-Seite für Harness-Verwaltung (neu):** Der Header besitzt einen
+  `Settings`-Dialog, der pro First-Class-Harness (Claude Code, Codex,
+  OpenCode, Grok Build, Gemini CLI, Ollama) den echten CLI-Status zeigt
+  (Installation/Version/Auth über einen synthetischen, read-only
+  Diagnose-Probe pro Harness), das dokumentierte Login-Kommando nennt und
+  optional einen API-Key entgegennimmt. Keys sind **write-only**: Sie werden
+  mit Electron `safeStorage` (Windows-DPAPI) verschlüsselt in einer eigenen
+  Datei neben `config.json` gespeichert, nie wieder angezeigt, nie über IPC
+  oder `config:get` herausgegeben und ausschließlich Sessions der passenden
+  effektiven Runtime als dokumentierte Umgebungsvariable übergeben
+  (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`).
+  Fehlende OS-Verschlüsselung schlägt fail-closed fehl statt Klartext zu
+  schreiben; unlesbare Records starten die Session ohne Key. Der
+  Playwright-Gate beweist die Kette real: Key im UI gespeichert →
+  verschlüsselt persistiert (kein Klartext in beiden Dateien) → eine
+  Grok-Session sieht ihn als `XAI_API_KEY` → Status überlebt den
+  App-Neustart. OAuth-basierte CLIs melden sich weiterhin selbst an; ADE
+  führt bewusst keine eigenen OAuth-Flows aus.
 
 - Die rechte Sidebar besitzt jetzt ein bewusst getrenntes **Overview** für das
   im Katalog ausgewählte Repository. **Changes** und **Files** bleiben ehrlich
@@ -167,17 +188,19 @@ Windows-Ordner oben behält die beiden fertigen Pakete.
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
 - beide TypeScript-Projekte grün;
-- **483/483** fokussierte Unit-/Integrations-/Security-Assertions:
+- **499/499** fokussierte Unit-/Integrations-/Security-Assertions:
   Memory 27, Dispatch 12, Runtime 32, Execution-Backends 16,
   Orchestration 48, Orchestration-Beta 101, Publication 29, Prompts 31,
-  Repository-Scopes 43, Repository-Inspector 27, Workspace-FS 7, Security 110;
+  Repository-Scopes 43, Repository-Inspector 27, Harness-Credentials 12,
+  Workspace-FS 7, Security 114;
 - Production-Build grün;
-- **72/72** reale Electron-/Playwright-Checks grün, inklusive Repository-
+- **77/77** reale Electron-/Playwright-Checks grün, inklusive Repository-
   Übersicht/PRs/Commit-Diff/Keyboard/Fokus, Scope-&-Session-Offenlegung,
   CI-Rollup-Chip, On-demand-Checks mit Fokusrückgabe, ADE-Run-Provenance des
   veröffentlichten Draft-PR, Harness-Wahl und Repo-Pfad-Import im "Neuer
-  Run"-Dialog sowie disabled-before-confirm, realem isoliertem Git-Push,
-  unverändertem Remote-`main`, Draft-PR-Audit und Persistenz nach
+  Run"-Dialog, Settings-Seite mit verschlüsseltem Key-Roundtrip bis in die
+  Session-Umgebung sowie disabled-before-confirm, realem isoliertem
+  Git-Push, unverändertem Remote-`main`, Draft-PR-Audit und Persistenz nach
   App-Neustart;
 - **21/21** visuelle Regressionschecks (Dark/Light × 300/380/540 px plus
   offene Checks-Pane) gegen die committeten `win32`-Baselines.
@@ -284,16 +307,17 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 
 ## Nächste Schritte
 
-1. **ADE-Settings-Seite für Harness-Verwaltung:** Anmeldung pro Harness
-   (OAuth bzw. API-Keys), Statusanzeige angemeldet/nicht angemeldet und
-   sichere Speicherung; Grundlage für die Harness-Wahl im Run-Dialog.
-2. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
+1. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
    F6-Balanceänderung menschlich spielen. Erst nach expliziter Operator-
    Freigabe einen Remote-Branch/Draft-PR anlegen. Die historische Aggregation
    trägt bewusst kein frisches ADE-Run-Attest: Für ADE-eigenes Verified
    Publishing muss der Inhalt einen neuen Managed Run durchlaufen; alternativ
    braucht der manuelle Push/PR eine separat freigegebene, wahrheitsgemäß als
    manuell aggregiert bezeichnete Publication.
+2. Die Quick Wins aus `docs/DESIGN_REVIEW_2026-07-19.md` umsetzen
+   (Light-Theme-Terminalrahmen, Select-Overflow im Scope-Header, Theme-
+   Toggle in die Settings-Seite umziehen) und danach Sprache/Typografie
+   vereinheitlichen.
 3. Eine Version/Tag-basierte Linux-Release-Runde erst nach expliziter Lizenz-
    und Release-Policy veröffentlichen.
 4. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das

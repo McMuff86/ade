@@ -2,6 +2,7 @@
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isExecutionBackendId } from '../shared/executionBackends';
+import { HARNESS_API_KEY_ENV } from '../shared/runtimes';
 
 type RecordValue = Record<string, unknown>;
 
@@ -371,6 +372,24 @@ function validateRepositoryCommitDiff(channel: string, payload: unknown): void {
   gitObjectId(channel, request.commitSha, 'commitSha');
 }
 
+const HARNESS_KEY_RUNTIMES = Object.keys(HARNESS_API_KEY_ENV) as readonly string[];
+/** Printable ASCII without spaces; mirrors HarnessCredentialService. */
+const HARNESS_API_KEY_PATTERN = /^[\x21-\x7E]{1,512}$/;
+
+function validateHarnessKeyRequest(channel: string, payload: unknown, withKey: boolean): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, withKey ? ['runtime', 'apiKey'] : ['runtime']);
+  if (typeof request.runtime !== 'string' || !HARNESS_KEY_RUNTIMES.includes(request.runtime)) {
+    invalid(channel, 'runtime does not accept a stored API key');
+  }
+  if (withKey) {
+    // Never include the submitted value in the error.
+    if (typeof request.apiKey !== 'string' || !HARNESS_API_KEY_PATTERN.test(request.apiKey)) {
+      invalid(channel, 'apiKey must be 1-512 printable characters without spaces');
+    }
+  }
+}
+
 function validateRepositoryPullRequestChecks(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, ['repositoryId', 'pullRequestNumber']);
@@ -423,7 +442,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.RunGet:
     case IPC.DialogPickFolder:
     case IPC.WslList:
+    case IPC.HarnessStatus:
+    case IPC.HarnessDiagnose:
       voidRequest(channel, payload);
+      return;
+    case IPC.HarnessSetKey:
+      validateHarnessKeyRequest(channel, payload, true);
+      return;
+    case IPC.HarnessClearKey:
+      validateHarnessKeyRequest(channel, payload, false);
       return;
     case IPC.ConfigSave:
       validateConfigSave(channel, payload);

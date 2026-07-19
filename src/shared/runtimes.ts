@@ -102,6 +102,33 @@ export const MANAGED_HARNESS_OVERRIDES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini',
 ];
 
+/** Harness CLIs listed on the settings page, in display order. */
+export const HARNESS_RUNTIMES: readonly RuntimeId[] = [
+  'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama',
+];
+
+/**
+ * The environment variable a stored ADE API key is exposed as, per harness.
+ * Only harnesses whose CLI documents an API-key environment variable are
+ * listed; the others authenticate through their own login flow.
+ */
+export const HARNESS_API_KEY_ENV: Partial<Record<RuntimeId, string>> = {
+  claude: 'ANTHROPIC_API_KEY',
+  codex: 'OPENAI_API_KEY',
+  gemini: 'GEMINI_API_KEY',
+  grok: 'XAI_API_KEY',
+};
+
+/**
+ * Documented interactive sign-in command per harness, where one exists.
+ * Shown as copyable guidance; ADE never runs these itself.
+ */
+export const HARNESS_LOGIN_COMMANDS: Partial<Record<RuntimeId, string>> = {
+  claude: 'claude auth login',
+  codex: 'codex login',
+  opencode: 'opencode auth login',
+};
+
 /**
  * The agent identity a run participant actually launches with. A differing
  * per-run harness override drops the agent's customCommand (it belongs to

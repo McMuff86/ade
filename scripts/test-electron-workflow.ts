@@ -2,6 +2,7 @@
 
 import { execFileSync } from 'node:child_process';
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -373,6 +374,17 @@ fs.writeFileSync(output, JSON.stringify(base) + '\\n', 'utf8');
   writeFileSync(path, source, 'utf8');
 }
 
+/** Env-echoing grok stand-in proving stored-key injection end to end. */
+function writeFakeGrokCli(bin: string): void {
+  if (isWindows) {
+    writeFileSync(join(bin, 'grok.cmd'), '@echo off\r\necho GROK_KEY=%XAI_API_KEY%\r\n', 'utf8');
+  } else {
+    const launcher = join(bin, 'grok');
+    writeFileSync(launcher, '#!/bin/sh\necho "GROK_KEY=$XAI_API_KEY"\n', 'utf8');
+    chmodSync(launcher, 0o755);
+  }
+}
+
 async function activeTabId(page: Page): Promise<string | null> {
   return page.locator('[role="tab"][id^="session-tab-"][aria-selected="true"]').getAttribute('id');
 }
@@ -396,6 +408,7 @@ async function run(): Promise<void> {
   writeManagedFixture(fixturePath);
   const managed = createManagedWorktrees(scratch);
   const fakeGithub = writeFakeGithubCli(scratch, managed.remote);
+  writeFakeGrokCli(fakeGithub.bin);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
 
   let app: ElectronApplication | null = null;
@@ -1240,6 +1253,55 @@ async function run(): Promise<void> {
     }
     await page.getByRole('button', { name: 'Close' }).last().click();
 
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+    await settingsDialog.waitFor({ state: 'visible' });
+    await eventually('settings list every first-class harness with sign-in guidance', async () => {
+      const text = await settingsDialog.textContent();
+      return text?.includes('Claude Code') === true
+        && text.includes('Codex')
+        && text.includes('Grok Build')
+        && text.includes('codex login');
+    }, 20_000);
+    const grokRow = settingsDialog.locator('.st-harness', { hasText: 'Grok Build' });
+    const grokKey = 'xai-e2e-secret-key-2026';
+    await grokRow.getByLabel('API-Key für Grok Build').fill(grokKey);
+    await grokRow.getByRole('button', { name: 'Speichern' }).click();
+    await eventually('a saved harness key reports write-only boolean status', async () =>
+      (await grokRow.textContent())?.includes('API-Key gespeichert (XAI_API_KEY)') === true);
+    const credentialsRaw = readFileSync(join(userData, 'ade', 'harness-credentials.json'), 'utf8');
+    const configRaw = readFileSync(join(userData, 'ade', 'config.json'), 'utf8');
+    check('harness keys persist encrypted outside config.json without plaintext',
+      !credentialsRaw.includes(grokKey)
+        && credentialsRaw.includes('"grok"')
+        && !configRaw.includes(grokKey));
+    await settingsDialog.getByRole('button', { name: 'Schließen' }).click();
+    await settingsDialog.waitFor({ state: 'hidden' });
+
+    await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await grokAgentDialog.waitFor({ state: 'visible' });
+    await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
+    await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await grokAgentDialog.waitFor({ state: 'hidden' });
+    const scopeForGrok = page.getByTestId('repository-scope');
+    await scopeForGrok.getByLabel('Repository for new session').selectOption('');
+    const tabCountBeforeGrok = await page.locator('[role="tab"][id^="session-tab-"]').count();
+    await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+    await eventually('a Grok session launches with the stored key as its environment', async () =>
+      await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeGrok + 1
+        && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes(`GROK_KEY=${grokKey}`) === true,
+      20_000,
+    );
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await revertAgentDialog.waitFor({ state: 'visible' });
+    await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
+    await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await revertAgentDialog.waitFor({ state: 'hidden' });
+
     await app.close();
     app = null;
     page = null;
@@ -1285,6 +1347,18 @@ async function run(): Promise<void> {
           && publication.status === 'draft'
           && publication.prNumber === 71
       )));
+    const restartedHarness = await page.evaluate(async () => {
+      const api = (window as unknown as {
+        ade: { invoke: (channel: string) => Promise<unknown> };
+      }).ade;
+      return await api.invoke('harness:status') as {
+        keyStorageAvailable: boolean;
+        items: Array<{ runtime: string; hasStoredKey: boolean }>;
+      };
+    });
+    check('full app restart preserves the encrypted harness key status',
+      restartedHarness.keyStorageAvailable
+        && restartedHarness.items.some((item) => item.runtime === 'grok' && item.hasStoredKey));
 
     if (runWslBackend) {
       const restartedWslRepository = restartedConfig.repositories.find(

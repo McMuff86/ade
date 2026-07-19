@@ -1,0 +1,134 @@
+/* Settings modal — harness list, key rows and status states. Colors come
+   from theme tokens only; the modal shell is shared onboarding CSS. */
+
+.st-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.st-error {
+  padding: 8px 10px;
+  border-left: 2px solid var(--del);
+  background: color-mix(in srgb, var(--del) 8%, transparent);
+  color: var(--del);
+  font-size: 11.5px;
+}
+
+.st-warning {
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.st-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.st-harness {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--raised) 34%, var(--panel));
+}
+
+.st-harness-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.st-harness-glyph {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--rt);
+}
+
+.st-harness-glyph svg {
+  width: 16px;
+  height: 16px;
+}
+
+.st-harness-head strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.st-harness-state {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-harness.error .st-harness-state {
+  color: var(--del);
+}
+
+.st-harness-message,
+.st-harness-login,
+.st-key-none {
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.st-harness-login code {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.st-key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.st-key-row input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.st-key-row .btn {
+  flex: none;
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 10.5px;
+}
+
+.st-key-saved {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-footnote {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.45;
+}
