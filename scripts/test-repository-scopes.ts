@@ -316,6 +316,9 @@ async function testWslAgentHome(scratch: string): Promise<void> {
   const mkdirs: Array<{ backend: string; dir: string }> = [];
   const fakeExecution = {
     mkdir: async (backend: string, dir: string) => {
+      if (dir.startsWith('/root/')) {
+        throw new Error(`mkdir: cannot create directory '${dir}': Permission denied`);
+      }
       mkdirs.push({ backend, dir });
     },
     samePath: (_backend: unknown, left: string, right: string) => left === right,
@@ -387,6 +390,25 @@ async function testWslAgentHome(scratch: string): Promise<void> {
       && reverted.homeWorkspaceDir === nativeHome
       && revertedScope.executionBackend === 'native'
       && revertedScope.workspaceDir === nativeHome);
+
+  // A home whose directory cannot be created must not survive as persisted
+  // state: the record rolls back to the previous agent.
+  let unreachableHomeRejected = false;
+  try {
+    await updateAgent(store, {
+      ...baseInput,
+      defaultRepositoryId: null,
+      homeExecutionBackend: 'wsl:Ubuntu',
+      homeWorkspaceDir: '/root/forbidden',
+    }, scopes);
+  } catch {
+    unreachableHomeRejected = true;
+  }
+  const afterFailure = store.read().agents.find((candidate) => candidate.id === agent.id);
+  check('an unreachable WSL home fails the save and rolls the agent back',
+    unreachableHomeRejected
+      && afterFailure?.homeExecutionBackend === undefined
+      && afterFailure?.homeWorkspaceDir === nativeHome);
 
   // Profile photos are editable after creation: string sets, undefined
   // preserves, null removes.

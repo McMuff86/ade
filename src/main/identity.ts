@@ -279,7 +279,17 @@ export async function updateAgent(
     agents: config.agents.map((a) => (a.id === updated.id ? updated : a)),
   });
   if (input.defaultRepositoryId !== undefined) {
-    updated = await scopes.setAgentDefault(updated.id, input.defaultRepositoryId);
+    try {
+      updated = await scopes.setAgentDefault(updated.id, input.defaultRepositoryId);
+    } catch (error) {
+      // The scope probe (e.g. mkdir of a WSL home) failed after the record was
+      // written; restore the previous agent so no broken home is persisted.
+      const current = store.get();
+      store.save({
+        agents: current.agents.map((a) => (a.id === existing.id ? existing : a)),
+      });
+      throw error;
+    }
   }
   return updated;
 }

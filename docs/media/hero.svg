@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-label="ade — agentic development environment. Three agent terminals boot in sequence.">
+  <style>
+    :root {
+      --bg: #0E0F12;
+      --panel: #16181D;
+      --edge: #23262D;
+      --amber: #E8B45A;
+      --copper: #C97B2E;
+      --text: #E6E1D7;
+      --faint: #7E7A70;
+      --green: #7BC9A0;
+      --blue: #7BA9C9;
+      --violet: #B99BD6;
+    }
+    text {
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    }
+    .wordmark { fill: var(--amber); font-size: 84px; font-weight: 700; letter-spacing: 2px; }
+    .tagline  { fill: var(--text); font-size: 19px; }
+    .subline  { fill: var(--faint); font-size: 15px; }
+    .chrome   { fill: var(--faint); font-size: 13px; }
+    .name     { fill: var(--text); font-size: 16px; font-weight: 700; }
+    .role     { fill: var(--faint); font-size: 13px; }
+    .cmd      { fill: var(--text); font-size: 14.5px; }
+    .prompt   { fill: var(--copper); font-size: 14.5px; }
+    .pill     { fill: var(--green); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+
+    /* Caret of the wordmark blinks forever. */
+    .caret { animation: blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Agent rows appear in sequence. */
+    .row { opacity: 1; animation: appear 0.45s ease-out both; }
+    .row-1 { animation-delay: 0.4s; }
+    .row-2 { animation-delay: 2.2s; }
+    .row-3 { animation-delay: 4.0s; }
+    @keyframes appear { from { opacity: 0; transform: translateY(6px); } }
+
+    /* Typing: a panel-colored cover slides right in character steps, then
+       disappears so it never overlaps the frame edge. */
+    .cover { animation: type 1.3s steps(26) both, tidy 0.01s linear both; }
+    .cover-1 { animation-delay: 0.7s, 2.0s; }
+    .cover-2 { animation-delay: 2.5s, 3.8s; }
+    .cover-3 { animation-delay: 4.3s, 5.6s; }
+    @keyframes type { from { transform: translateX(0); } to { transform: translateX(480px); } }
+    @keyframes tidy { to { opacity: 0; } }
+
+    /* Presence dot turns green, RUNNING pill fades in once typed. */
+    .dot { fill: var(--faint); animation: golive 0.3s ease-out both; }
+    .dot-1 { animation-delay: 2.0s; }
+    .dot-2 { animation-delay: 3.8s; }
+    .dot-3 { animation-delay: 5.6s; }
+    @keyframes golive { to { fill: var(--green); } }
+    .live { opacity: 1; animation: appear 0.35s ease-out both; }
+    .live-1 { animation-delay: 2.0s; }
+    .live-2 { animation-delay: 3.8s; }
+    .live-3 { animation-delay: 5.6s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .row, .cover, .dot, .live, .caret { animation: none !important; }
+      .cover { opacity: 0; }
+      .dot { fill: var(--green); }
+    }
+  </style>
+
+  <defs>
+    <!-- Keeps the sliding type-covers inside the window frame. -->
+    <clipPath id="cmd-clip">
+      <rect x="636" y="96" width="516" height="230"/>
+    </clipPath>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect width="1200" height="380" fill="#0E0F12"/>
+
+  <!-- Window frame -->
+  <rect x="24" y="24" width="1152" height="332" rx="16" fill="#111318" stroke="#23262D"/>
+  <rect x="24" y="24" width="1152" height="44" rx="16" fill="#16181D"/>
+  <rect x="24" y="52" width="1152" height="16" fill="#16181D"/>
+  <circle cx="56" cy="46" r="6" fill="#23262D"/>
+  <circle cx="78" cy="46" r="6" fill="#23262D"/>
+  <circle cx="100" cy="46" r="6" fill="#C97B2E"/>
+  <text class="chrome" x="128" y="51">ade_ — agentic development environment</text>
+
+  <!-- Left: wordmark -->
+  <text class="wordmark" x="88" y="205">ade</text>
+  <rect class="caret" x="258" y="188" width="34" height="14" fill="#E8B45A"/>
+  <text class="tagline" x="90" y="252">your CLI coding agents,</text>
+  <text class="tagline" x="90" y="278">living as real terminals.</text>
+  <text class="subline" x="90" y="316">Claude Code · Codex · Gemini · OpenCode · Ollama · your own</text>
+
+  <!-- Right: three agent rows boot in sequence -->
+  <!-- Row 1: Nova / Claude Code -->
+  <g class="row row-1">
+    <circle class="dot dot-1" cx="620" cy="118" r="7"/>
+    <text class="name" x="640" y="124">nova</text>
+    <text class="role" x="700" y="124">frontend &amp; design</text>
+    <g clip-path="url(#cmd-clip)">
+      <text class="prompt" x="640" y="152">$</text>
+      <text class="cmd" x="658" y="152">claude --permission-mode acceptEdits</text>
+      <rect class="cover cover-1" x="652" y="138" width="480" height="20" fill="#111318"/>
+    </g>
+    <text class="pill live live-1" x="1076" y="124">RUNNING</text>
+  </g>
+
+  <!-- Row 2: Milo / Codex -->
+  <g class="row row-2">
+    <circle class="dot dot-2" cx="620" cy="196" r="7"/>
+    <text class="name" x="640" y="202">milo</text>
+    <text class="role" x="700" y="202">refactoring</text>
+    <g clip-path="url(#cmd-clip)">
+      <text class="prompt" x="640" y="230">$</text>
+      <text class="cmd" x="658" y="230">codex exec --model gpt-5.6-sol</text>
+      <rect class="cover cover-2" x="652" y="216" width="480" height="20" fill="#111318"/>
+    </g>
+    <text class="pill live live-2" x="1076" y="202">RUNNING</text>
+  </g>
+
+  <!-- Row 3: Hermes / custom CLI inside WSL -->
+  <g class="row row-3">
+    <circle class="dot dot-3" cx="620" cy="274" r="7"/>
+    <text class="name" x="640" y="280">hermes</text>
+    <text class="role" x="712" y="280">wsl · ubuntu</text>
+    <g clip-path="url(#cmd-clip)">
+      <text class="prompt" x="640" y="308">$</text>
+      <text class="cmd" x="658" y="308">general --tui   # ~/hermes-work</text>
+      <rect class="cover cover-3" x="652" y="294" width="480" height="20" fill="#111318"/>
+    </g>
+    <text class="pill live live-3" x="1076" y="280">RUNNING</text>
+  </g>
+</svg>

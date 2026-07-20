@@ -1,132 +1,107 @@
-# ade_
+<p align="center">
+  <img src="docs/media/hero.svg" alt="ade — agentic development environment. Three agent terminals boot in sequence." width="100%">
+</p>
 
-Agentic development environment — one desktop workspace where all of your CLI
-agents (Claude Code, Codex, OpenCode, Grok Build, Ollama models) live as real
-terminals around named agents.
+<p align="center">
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux-1a1c22?labelColor=0e0f12&color=c97b2e">
+  <img alt="WSL" src="https://img.shields.io/badge/WSL2-first--class%20backend-1a1c22?labelColor=0e0f12&color=7bc9a0">
+  <img alt="Electron" src="https://img.shields.io/badge/Electron-ConPTY%20terminals-1a1c22?labelColor=0e0f12&color=7ba9c9">
+  <img alt="License" src="https://img.shields.io/badge/checks-500%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
+</p>
 
-- **Two-level rail**: categories (a channel, a repo, a book — each with a
-  profile photo) and named agents underneath, each with its own photo,
-  runtime and permission mode.
-- **Sessions are terminals**: selecting an agent shows its sessions as tabs;
-  each tab is a real PTY (ConPTY on Windows) auto-launching that agent's CLI.
-  Scrollback survives tab and agent switches.
-- **Permission modes** per agent, translated to the right CLI flags
-  (`claude --dangerously-skip-permissions`,
+**ADE** (agentic development environment) is a desktop workspace where your CLI
+coding agents — Claude Code, Codex, Gemini, OpenCode, Ollama models or any
+custom CLI — live as **named identities with real terminals**. Give each agent
+a face, a runtime, a permission mode and a home (native Windows or inside a
+WSL distribution), then work with them interactively or orchestrate them as
+managed runs on a graph.
+
+---
+
+## A tour
+
+**Terminals** — categories and agents on the left, real PTY sessions as tabs,
+repository scope and inspector on the right. Scrollback survives tab and agent
+switches; sessions reconnect across reloads.
+
+<p align="center">
+  <img src="docs/media/terminals.png" alt="Terminals view: agent rail, live PTY session and repository inspector" width="92%">
+</p>
+
+**Graph** — the same agents, orchestrated. A managed run wires an orchestrator
+to teams of leads and workers, schedules bounded one-shot tasks, waits for your
+integration approval and finishes with verification. It can then publish a
+verified Draft PR — never a direct push to `main`.
+
+<p align="center">
+  <img src="docs/media/graph.png" alt="Graph view: orchestrator connected to a team of lead and worker agents" width="92%">
+</p>
+
+**Agents are configurable identities** — photo, role, runtime, permission
+mode, default repository, and a home that can live inside a WSL distribution.
+An agent whose CLI only exists in Linux starts there natively, in the right
+directory, with the right PATH.
+
+<p align="center">
+  <img src="docs/media/agent-settings.png" alt="Agent settings: profile photo, WSL home backend, Linux home directory and start command" width="92%">
+</p>
+
+## Highlights
+
+**Terminals & identities**
+- Two-level rail: categories and agents, each with an editable name and
+  profile photo. Sessions are real terminals (ConPTY on Windows) that
+  auto-launch the agent's CLI.
+- Per-agent permission modes translate to the right CLI flags
+  (`claude --permission-mode acceptEdits`,
   `codex --dangerously-bypass-approvals-and-sandbox`, …).
-- **First-class Codex profiles** persist an explicit model and reasoning
-  effort per identity. New Codex identities default to `gpt-5.6-sol`; managed
-  runs preserve the exact model/effort in their context and provenance.
-- **First-class repository scopes**: give a specialized agent a default repo,
-  keep a general agent portable, or choose a repo per new session/run. Every
-  agent/repo pair gets its own ADE worktree; the right panel names the exact
-  repo, source, branch/path, changes and lease used by the selected session.
-- **Repository Inspector**: selecting a catalog repository opens a compact,
-  read-only overview with local branch/dirty/sync health, recent commits,
-  on-demand capped commit patches and optional open GitHub Pull Requests.
-  Local history remains useful when GitHub, `gh` or the network is unavailable.
-- **Explicit execution backends**: a Windows ADE repository can remain native
-  or deliberately run through `wsl:<distribution>`. Linux paths, Git,
-  worktrees, diagnostics, terminals and managed agents stay on the selected
-  side of that boundary and the UI always labels WSL scopes.
-- **Reusable agent templates**: save an agent's runtime/profile and bounded
-  memory seed, then spawn an independent identity and optionally attach it to
-  another repository.
-- **Memory and durable role contracts**: every agent gets bounded `MEMORY.md`
-  + `USER.md` plus a role-aware `AGENTS.md`. Managed tasks receive a read-only
-  task-local copy and digest, so orchestrator/lead/worker responsibilities stay
-  explicit without dirtying a leased repository worktree.
-- **Light + dark theme** — including the terminal itself (full ANSI palette
-  per theme).
-- **Terminal beta safeguards**: read-only CLI/auth diagnostics, actionable
-  exit/restart UI, background native completion notifications, keyboard tab
-  navigation, sandboxed renderer, strict CSP and runtime-validated IPC.
-- **Two views over the same agents**: Terminals is the interactive execution
-  workspace; Graph creates persisted runs that reference those catalog agents
-  with run-scoped roles. Its bounded one-shot tasks survive reload, can be
-  cancelled per run, and report completion from real process exit events.
-- **Orchestration beta**: a managed Graph run asks its orchestrator for a
-  worker-specific plan, schedules validated assignments within the run budget,
-  waits for an explicit integration approval, transactionally cherry-picks
-  worker commit ranges, and finishes with integration review plus read-only
-  verification. Codex uses native JSONL/schema output; other CLIs can use the
-  inspectable file-mailbox contract.
-- **Verified Draft-PR publishing**: after a completed repository-backed managed
-  run, Graph can re-check the exact verified HEAD, unchanged remote base,
-  GitHub access and generated `ade/**` ref. A separate operator confirmation
-  creates only that new branch plus a Draft Pull Request; ADE has no direct
-  `main` push or merge operation.
+- First-class Codex profiles pin an exact model and reasoning effort per
+  identity (default `gpt-5.6-sol`); managed runs preserve them in provenance.
+- Reusable agent templates: save runtime, profile and a bounded memory seed,
+  then spawn independent identities from it.
+- Bounded per-agent memory (`MEMORY.md` + `USER.md`) and a durable role-aware
+  `AGENTS.md` contract, injected without dirtying repository worktrees.
 
-Product spec: `docs/SPEC.md` · Architecture: `docs/ARCHITECTURE.md` ·
-Repository-scope plan: `docs/REPOSITORY_SCOPES_PLAN.md` · Remote-control plan:
-`docs/REMOTE_CONTROL_PLAN.md` · Verified-publishing contract:
-`docs/VERIFIED_PUBLISHING_PLAN.md` · Repository-Inspector contract:
-`docs/REPOSITORY_INSPECTOR_PLAN.md` · Reference analyses: `docs/reports/`
+**Repositories & execution backends**
+- First-class repository scopes: give a specialist a default repo, keep a
+  generalist portable, or pick a repo per session/run. Every agent/repo pair
+  gets its own ADE worktree under `.ade-worktrees`.
+- Explicit execution backends: a repository — or an agent's repo-less home —
+  runs natively on Windows or deliberately inside `wsl:<distribution>`. Paths,
+  Git, worktrees, diagnostics, terminals and managed tasks stay on the chosen
+  side, and the UI always labels WSL scopes.
+- Read-only Repository Inspector: branch/dirty/sync health, recent commits,
+  capped patches and open GitHub PRs — still useful offline.
 
-## Run
+**Orchestration & publishing**
+- Managed runs ask the orchestrator for a worker-specific plan, schedule
+  validated assignments inside the run budget, gate integration behind an
+  explicit approval, cherry-pick worker commit ranges transactionally and end
+  with independent verification.
+- Verified Draft-PR publishing re-checks the attested HEAD, the unchanged
+  remote base and GitHub access, then creates only a new `ade/**` branch plus
+  a Draft Pull Request. ADE has no direct push or merge to `main`.
 
-```
+**Safety net**
+- Sandboxed renderer, strict CSP, runtime-validated IPC, encrypted write-only
+  API-key storage (OS `safeStorage`), read-only runtime diagnostics and
+  fail-closed token/cost budgets.
+
+## Quickstart
+
+```bash
 pnpm i
-pnpm dev
+pnpm dev        # development
+pnpm build      # build to out/
+pnpm start      # run the built app
 ```
 
-`pnpm build` builds to `out/`; `pnpm start` previews the built app.
-`pnpm verify` runs typecheck, all focused checks, the production build and the
-real Electron/ConPTY workflow against an isolated temporary profile.
+First session in a fresh agent workspace: your CLI may show its own one-time
+trust/login prompt — answer it in the terminal like in any shell. Stored API
+keys and CLI sign-ins are per execution backend; authenticate WSL runtimes
+inside the distribution.
 
-Focused checks: `pnpm test:memory`, `pnpm test:dispatch`,
-`pnpm test:runtime`, `pnpm test:backends`, `pnpm test:orchestration`,
-`pnpm test:orchestration-beta`, `pnpm test:publication`, `pnpm test:prompts`,
-`pnpm test:repositories`, `pnpm test:repository-inspector`,
-`pnpm test:workspace-fs`, and
-`pnpm test:security`.
-`pnpm test:electron` builds and runs the Electron workflow separately.
-On a Windows host with WSL, `pnpm test:wsl-backend` adds real distro/Git/files/
-PTY integration; setting `ADE_WSL_BACKEND_E2E=1` on the Electron workflow adds
-the complete cross-boundary managed-run and restart scenario.
-
-`pnpm agents:codex` audits the saved ADE roster without changing it;
-`pnpm agents:codex -- --apply` safely backs up the inactive profile and migrates
-Claude/Codex coding identities to native Codex, `gpt-5.6-sol`, bypass mode,
-role-aware reasoning (`xhigh` for the orchestrator) and durable `AGENTS.md`.
-Apply also archives and removes a stale `CLAUDE.md` only when the complete file
-consists of ADE-owned memory/role fences; mixed or user-owned files are preserved.
-Shell utility identities remain shell identities.
-
-## Verified Draft Pull Requests
-
-A completed managed run now records its final Git HEAD, verification-task id
-and verification time atomically with completion. In Graph, select that run
-and choose **Draft-PR**. ADE first shows a read-only preflight with the exact
-repository, base/head SHAs, generated branch, changed files and final test
-commands. Only the separate confirmation checkbox enables the external write.
-
-The first provider supports a GitHub `origin` and the GitHub CLI. Install and
-authenticate `gh` in the same execution backend as the repository:
-
-```powershell
-gh auth login --hostname github.com
-```
-
-For a `wsl:<distribution>` repository, run that command inside the selected
-distribution; ADE does not reuse Windows Git or Windows `gh` credentials. The
-remote default branch must still equal the run's original base SHA, the
-verified worktree must remain clean at the attested HEAD, and the generated
-remote branch must not point elsewhere. A legacy completed run without the new
-attestation must be run and verified again.
-
-ADE then creates a new `ade/run-*` branch and a Draft PR, persists its audit
-record and displays the provider CI rollup. It never updates or merges the
-default branch. Configure required checks and branch protection in each target
-repository and keep the final merge a human decision. The complete fail-closed
-contract and recovery behavior are in `docs/VERIFIED_PUBLISHING_PLAN.md`.
-
-This gate protects ADE's own publishing path; it is not an OS sandbox. ADE
-does not inject provider credentials into managed-task contracts, but a Codex
-agent deliberately launched in bypass mode is a fully trusted process and may
-independently reach ambient Git credentials. Use a non-bypass or separately
-isolated credential boundary for agents that are not fully trusted.
-
-## Keyboard
+### Keyboard
 
 | Action | Shortcut |
 |---|---|
@@ -137,86 +112,79 @@ isolated credential boundary for agents that are not fully trusted.
 
 Tab lists also support arrow keys plus Home/End with visible focus.
 
-## Windows package
+## Windows + WSL
 
-```
-pnpm package:dir   # dist/win-unpacked/ADE.exe
-pnpm package:win   # dist/ADE-<version>-x64-Setup.exe
-```
+Install WSL2 and, inside the distribution, provide `/bin/bash`, Git, Python 3
+and `gio` (Ubuntu: `sudo apt install git python3 libglib2.0-bin`), plus the
+agent CLIs you want to run there.
 
-The assisted NSIS installer is unsigned for local/branch builds. The Windows
-package workflow uses `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` when configured
-to Authenticode-sign release artifacts. Auto-update is not implemented yet.
+- **Repositories**: in the scope panel choose the path entry, select the
+  `WSL · <distribution>` backend and import a Linux path such as
+  `/home/you/project`. Worktrees are created Linux-side; ADE never mixes
+  Windows Git with Linux Git for one binding.
+- **Agent homes**: in Agent settings set *Home backend* to the distribution
+  and *Home directory* to an absolute Linux path. Repo-less sessions then
+  start the agent's CLI inside WSL — ideal for CLIs that only exist in Linux.
 
-## Linux package and WSLg
-
-Build from a native Linux checkout with Linux dependencies (not the Windows
-`node_modules` tree mounted through `/mnt/c`):
+## Packaging
 
 ```bash
-sudo apt install python3 make g++
-corepack enable
-pnpm install --frozen-lockfile
+# Windows
+pnpm package:dir        # dist/win-unpacked/ADE.exe
+pnpm package:win        # dist/ADE-<version>-x64-Setup.exe
+
+# Linux (build from a native Linux checkout)
 pnpm package:linux:dir  # dist/linux-unpacked/ade
-pnpm package:linux      # dist/ADE-<version>-x86_64.AppImage + amd64.deb
+pnpm package:linux      # AppImage + .deb
 ```
 
-Run the AppImage or install the Debian package:
+The NSIS installer is unsigned for local builds; the release workflow signs
+with `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` when configured. The Linux profile
+lives at `${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`; release
+evidence including the hosted 47-check packaged workflow is linked from
+[GitHub Actions](https://github.com/McMuff86/ade/actions).
+
+## Testing
 
 ```bash
-chmod +x dist/ADE-*-x86_64.AppImage
-./dist/ADE-*-x86_64.AppImage
-# On systems without FUSE: APPIMAGE_EXTRACT_AND_RUN=1 ./dist/ADE-*-x86_64.AppImage
-
-sudo apt install ./dist/ADE-*-amd64.deb
-ade
+pnpm verify           # typecheck + all focused suites + build + Electron E2E
+pnpm test             # focused suites only
+pnpm test:electron    # build + real Electron/ConPTY workflow (isolated profile)
+pnpm test:wsl-backend # real WSL distro/Git/PTY integration (Windows + WSL)
 ```
 
-The Linux profile is independent at
-`${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`. Local Ubuntu 24.04
-proof covers the native build, 409 focused contracts, and 47-check source,
-unpacked, AppImage and Debian-payload Electron workflows. The
-release workflow also installs the `.deb`, reruns the packaged workflow and
-publishes `SHA256SUMS.txt`. Its first hosted execution passed on commit
-`d32faa9`, including 47/47 checks against source, unpacked, AppImage and the
-actually installed Debian application ([GitHub Actions evidence](https://github.com/McMuff86/ade/actions/runs/29676490871)).
+Setting `ADE_WSL_BACKEND_E2E=1` on the Electron workflow adds the complete
+cross-boundary scenario: WSL repository import, a WSL agent home, a managed
+run executing inside the distribution, restart and cleanup.
+`pnpm exec tsx scripts/readme-media.ts` regenerates the README screenshots
+from a fictional demo profile.
 
-## Windows GUI with a WSL backend
+## Documentation
 
-Install WSL2 and, inside the chosen distribution, provide `/bin/bash`, Git,
-Python 3 and `gio` (Ubuntu: `sudo apt install git python3 libglib2.0-bin`).
-Install/authenticate Codex and any other selected runtime in that distribution,
-because Windows credentials and executables are not reused.
-
-In the repository scope panel choose **Pfad…**, select the explicit
-`WSL · <distribution>` execution backend, enter a Linux absolute path such as
-`/home/adi/project`, import it and optionally set it as the agent default. The
-Windows folder picker remains for native paths only. WSL worktrees are created
-beside the repository under `.ade-worktrees`; ADE never mixes Windows Git with
-Linux Git for one binding.
-
-The extended local gate passes 31 backend integration checks and 67 real
-Electron/Playwright checks, including Unicode/spaces, symlink refusal, a
-missing distro, a managed approval/integration/verification run, app restart,
-reopen and cleanup. macOS remains a separate unverified milestone; exact
-support boundaries are in `docs/MULTIPLATFORM_PLAN.md`.
+| Topic | Where |
+|---|---|
+| Product spec | `docs/SPEC.md` |
+| Architecture | `docs/ARCHITECTURE.md` |
+| Repository scopes | `docs/REPOSITORY_SCOPES_PLAN.md` |
+| Verified publishing contract | `docs/VERIFIED_PUBLISHING_PLAN.md` |
+| Repository inspector | `docs/REPOSITORY_INSPECTOR_PLAN.md` |
+| Multi-platform boundaries | `docs/MULTIPLATFORM_PLAN.md` |
+| Remote control plan | `docs/REMOTE_CONTROL_PLAN.md` |
+| Reference analyses | `docs/reports/` |
 
 ## Notes
 
-- node-pty 1.1.0 ships the Windows/macOS Node-API prebuilds used by the current
-  distribution, so no Electron rebuild is needed there. Linux/WSL requires a
-  fresh platform-native install and local native build prerequisites; never
-  reuse the Windows `node_modules` directory from `/mnt/c`. PTY smoke test:
-  `ADE_PTY_SMOKE=1` logs `[ade] pty-smoke: ade-pty-ok` at startup.
-- First session in a fresh agent workspace: Claude Code shows its one-time
-  "trust this folder" prompt — answer it in the terminal like in any shell.
-- Dev/E2E affordances: `ADE_REMOTE_DEBUG_PORT`, `ADE_USER_DATA_DIR`,
-  `ADE_E2E_EXECUTABLE`, `ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS`, and
-  `window.__ade` (dev builds only).
-- Managed runs require exactly one orchestrator, at least one lead/worker, clean
-  exclusive workspaces, a concrete goal, and at least one approval in their
-  budget. Repo-backed participants must be worktrees of the same repository.
-- Token and monetary limits are fail-closed and are available only when every
-  selected runtime adapter provides the corresponding telemetry. Codex JSONL
-  currently provides tokens but not provider-billed USD; ADE keeps that cost
-  unknown instead of treating it as zero.
+- Managed runs require exactly one orchestrator, at least one lead/worker,
+  clean exclusive workspaces, a concrete goal and at least one approval in
+  their budget. Repo-backed participants must be worktrees of one repository.
+- The publishing gate protects ADE's own path; it is not an OS sandbox. An
+  agent deliberately launched in bypass mode is a fully trusted process — use
+  a separate credential boundary for agents that are not.
+- `pnpm agents:codex` audits the saved roster; `-- --apply` migrates coding
+  identities to native Codex profiles with durable `AGENTS.md` contracts.
+- node-pty 1.1.0 ships Windows/macOS prebuilds; Linux/WSL needs a
+  platform-native install (never reuse the Windows `node_modules` via
+  `/mnt/c`). PTY smoke test: `ADE_PTY_SMOKE=1`.
+- Token and monetary limits are fail-closed and only active when every
+  selected runtime adapter reports the telemetry; unknown cost stays unknown
+  instead of being treated as zero.
