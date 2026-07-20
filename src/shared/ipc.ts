@@ -17,6 +17,7 @@ import type {
   Category,
   CategoryCreateInput,
   CategoryUpdateInput,
+  DashboardTarget,
   FsTreeNode,
   GitStatus,
   HarnessStatusResult,
@@ -63,6 +64,7 @@ export const IPC = {
   AgentDelete: 'agent:delete',
   AgentMove: 'agent:move',
   AgentSetDefaultRepository: 'agent:setDefaultRepository',
+  AgentOpenDashboard: 'agent:openDashboard',
   AgentTemplateCreate: 'agentTemplate:create',
   AgentTemplateDelete: 'agentTemplate:delete',
   AgentTemplateSpawn: 'agentTemplate:spawn',
@@ -440,6 +442,12 @@ export interface WslListResult {
   distributions: WslDistributionInfo[];
 }
 
+/** Outcome of agent:openDashboard; the tokenized URL itself stays in main. */
+export interface AgentDashboardResult {
+  target: DashboardTarget;
+  origin: string;
+}
+
 export interface WorkspaceDescribeRequest {
   agentId: string;
   sessionId?: string;
@@ -487,6 +495,7 @@ export interface IpcInvokeMap {
   'category:reorder': { req: CategoryReorderRequest; res: void };
   'agent:create': { req: AgentCreateInput; res: Agent };
   'agent:update': { req: AgentUpdateInput; res: Agent };
+  'agent:openDashboard': { req: { agentId: string }; res: AgentDashboardResult };
   'agent:delete': { req: { id: string }; res: void };
   'agent:move': { req: AgentMoveRequest; res: void };
   'agent:setDefaultRepository': {

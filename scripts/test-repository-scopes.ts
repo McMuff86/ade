@@ -419,6 +419,39 @@ async function testWslAgentHome(scratch: string): Promise<void> {
   const removedPhoto = await updateAgent(store, { ...baseInput, photo: null }, scopes);
   check('a null photo removes the stored one', removedPhoto.photo === undefined);
 
+  // Dashboards: command/url/target round-trip, '' clears, bad URLs never persist.
+  const withDashboard = await updateAgent(store, {
+    ...baseInput,
+    dashboardCommand: 'openclaw dashboard --no-open',
+    dashboardUrl: 'https://host.tail.ts.net:8443/',
+    dashboardTarget: 'external',
+  }, scopes);
+  check('agent updates persist the dashboard command, url and target',
+    withDashboard.dashboardCommand === 'openclaw dashboard --no-open'
+      && withDashboard.dashboardUrl === 'https://host.tail.ts.net:8443/'
+      && withDashboard.dashboardTarget === 'external');
+  const keptDashboard = await updateAgent(store, { ...baseInput }, scopes);
+  check('agent updates without dashboard fields preserve them',
+    keptDashboard.dashboardCommand === 'openclaw dashboard --no-open'
+      && keptDashboard.dashboardTarget === 'external');
+  let badDashboardRejected = false;
+  try {
+    await updateAgent(store, { ...baseInput, dashboardUrl: 'http://remote.example:8443/' }, scopes);
+  } catch {
+    badDashboardRejected = true;
+  }
+  const afterBadDashboard = store.read().agents.find((candidate) => candidate.id === agent.id);
+  check('a remote http dashboard URL is rejected before persisting',
+    badDashboardRejected
+      && afterBadDashboard?.dashboardUrl === 'https://host.tail.ts.net:8443/');
+  const clearedDashboard = await updateAgent(store, {
+    ...baseInput,
+    dashboardCommand: '',
+    dashboardUrl: '',
+  }, scopes);
+  check('empty dashboard fields clear the stored configuration',
+    clearedDashboard.dashboardCommand === undefined && clearedDashboard.dashboardUrl === undefined);
+
   // Categories share the same editable name/photo contract.
   const renamed = updateCategory(store, { id: 'wsl-home-category', name: 'Hermes Crew', photo: 'crew.png' });
   check('categories can be renamed with a stored photo',

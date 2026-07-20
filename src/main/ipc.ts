@@ -42,6 +42,8 @@ import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 import { PublicationService } from './publishing/PublicationService';
 import { HarnessCredentialService } from './settings/HarnessCredentialService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
+import { DashboardWindows } from './dashboard/DashboardWindows';
+import { resolveDashboardUrl } from './dashboard/dashboardUrl';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -196,6 +198,20 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   // Create agent, workspace/worktree and memory scaffold.
   handle(IPC.AgentCreate, (input) => createAgent(store, input, scopes));
+
+  // Resolve the agent dashboard (fixed URL or freshly minted by its command)
+  // and open it origin-locked in an ADE window or the system browser.
+  const dashboardWindows = new DashboardWindows();
+  handle(IPC.AgentOpenDashboard, async ({ agentId }) => {
+    const agent = requireAgent(agentId);
+    const url = await resolveDashboardUrl(agent, execution);
+    if (agent.dashboardTarget === 'external') {
+      await shell.openExternal(url.toString());
+      return { target: 'external' as const, origin: url.origin };
+    }
+    dashboardWindows.open(agent.id, agent.name, url);
+    return { target: 'window' as const, origin: url.origin };
+  });
 
   // Update runtime/launch configuration and display metadata for an agent.
   handle(IPC.AgentUpdate, (input) => {

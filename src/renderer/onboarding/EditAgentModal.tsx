@@ -15,6 +15,7 @@ import {
   DEFAULT_CODEX_REASONING_EFFORT,
   type Agent,
   type CodexReasoningEffort,
+  type DashboardTarget,
   type PermissionMode,
   type RuntimeId,
 } from '../../shared/types';
@@ -49,6 +50,11 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     agent.homeExecutionBackend ?? NATIVE_EXECUTION_BACKEND,
   );
   const [homeDir, setHomeDir] = useState(agent.homeWorkspaceDir ?? '');
+  const [dashboardUrl, setDashboardUrl] = useState(agent.dashboardUrl ?? '');
+  const [dashboardCommand, setDashboardCommand] = useState(agent.dashboardCommand ?? '');
+  const [dashboardTarget, setDashboardTarget] = useState<DashboardTarget>(
+    agent.dashboardTarget ?? 'window',
+  );
   const [wslDistributions, setWslDistributions] = useState<WslDistributionInfo[]>([]);
   const [templateName, setTemplateName] = useState(`${agent.name} template`);
   const [templateBusy, setTemplateBusy] = useState(false);
@@ -113,6 +119,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         homeExecutionBackend: homeBackend,
         homeWorkspaceDir: homeDir.trim(),
         photo: photo ?? null,
+        dashboardUrl: dashboardUrl.trim(),
+        dashboardCommand: dashboardCommand.trim(),
+        dashboardTarget,
       });
       onClose();
     } catch (err) {
@@ -306,6 +315,48 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           placeholder={commandPlaceholder}
           onChange={(e) => setCustomCommand(e.target.value)}
         />
+      </div>
+
+      <div className="field">
+        <label htmlFor="edit-agent-dash-cmd">DASHBOARD COMMAND</label>
+        <input
+          id="edit-agent-dash-cmd"
+          type="text"
+          value={dashboardCommand}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="e.g. openclaw dashboard --no-open"
+          onChange={(e) => setDashboardCommand(e.target.value)}
+        />
+        <div className="repo-hint">
+          Runs in the agent&apos;s home backend; its output must contain the dashboard URL.
+          Wins over the fixed URL below.
+        </div>
+      </div>
+
+      <div className="field">
+        <label htmlFor="edit-agent-dash-url">DASHBOARD URL</label>
+        <input
+          id="edit-agent-dash-url"
+          type="text"
+          value={dashboardUrl}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="https://host.example:8443/"
+          onChange={(e) => setDashboardUrl(e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="edit-agent-dash-target">DASHBOARD OPENS IN</label>
+        <select
+          id="edit-agent-dash-target"
+          value={dashboardTarget}
+          onChange={(e) => setDashboardTarget(e.target.value as DashboardTarget)}
+        >
+          <option value="window">ADE window (origin-locked)</option>
+          <option value="external">External browser</option>
+        </select>
       </div>
 
       <div className="field">

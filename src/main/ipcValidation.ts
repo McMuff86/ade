@@ -12,6 +12,7 @@ const CODEX_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xh
 const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
 const CATEGORY_KINDS = ['plain', 'orchestrator', 'team'] as const;
 const TEAM_ROLES = ['orchestrator', 'lead', 'worker'] as const;
+const DASHBOARD_TARGETS = ['window', 'external'] as const;
 
 function invalid(channel: string, detail: string): never {
   throw new Error(`ade: invalid IPC payload for "${channel}": ${detail}`);
@@ -196,7 +197,8 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'defaultRepositoryId',
   ];
   const allowed = update
-    ? ['id', ...common, 'homeExecutionBackend', 'homeWorkspaceDir', 'photo']
+    ? ['id', ...common, 'homeExecutionBackend', 'homeWorkspaceDir', 'photo',
+      'dashboardUrl', 'dashboardCommand', 'dashboardTarget']
     : ['categoryId', ...common, 'photo', 'teamRole'];
   exactKeys(channel, request, allowed);
   id(channel, update ? request.id : request.categoryId, update ? 'id' : 'categoryId');
@@ -224,6 +226,11 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     optionalString(channel, request.homeWorkspaceDir, 'homeWorkspaceDir', { max: 4_096, allowEmpty: true });
     // null removes the stored photo; a string must be a stored filename.
     if (request.photo !== null) filename(channel, request.photo, 'photo');
+    optionalString(channel, request.dashboardUrl, 'dashboardUrl', { max: 2_048, allowEmpty: true });
+    optionalString(channel, request.dashboardCommand, 'dashboardCommand', { max: 4_096, allowEmpty: true });
+    if (request.dashboardTarget !== undefined) {
+      enumValue(channel, request.dashboardTarget, 'dashboardTarget', DASHBOARD_TARGETS);
+    }
   }
   nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (!update) {
@@ -541,6 +548,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.AgentUpdate:
       validateAgentInput(channel, payload, true);
       return;
+    case IPC.AgentOpenDashboard: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['agentId']);
+      id(channel, request.agentId, 'agentId');
+      break;
+    }
     case IPC.AgentSetDefaultRepository: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['agentId', 'repositoryId']);

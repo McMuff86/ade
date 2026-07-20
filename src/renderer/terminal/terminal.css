@@ -114,6 +114,37 @@
   flex: 1;
 }
 
+.tab-dashboard {
+  flex: none;
+  align-self: center;
+  margin: 0 8px 4px 0;
+  padding: 4px 10px;
+  border: 1px solid var(--edge, #23262d);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tab-dashboard:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+}
+.tab-dashboard:disabled {
+  opacity: 0.6;
+}
+
+.tab-dashboard-error {
+  flex: none;
+  align-self: center;
+  margin: 0 8px 4px 0;
+  color: var(--error, #e5484d);
+  font-size: 11.5px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .strip-actions {
   flex: none;
   display: flex;

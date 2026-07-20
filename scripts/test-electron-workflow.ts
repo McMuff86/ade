@@ -1,6 +1,7 @@
 /** Production-build Electron workflow for Windows and native POSIX desktops. */
 
 import { execFileSync } from 'node:child_process';
+import { createServer, type Server } from 'node:http';
 import {
   chmodSync,
   mkdirSync,
@@ -479,6 +480,19 @@ async function run(): Promise<void> {
   let wslAgentHomeDir: string | null = null;
   let wslBindingIdsBeforeRestart: string[] = [];
   const wslWorktreeContainers: string[] = [];
+  // Loopback page standing in for an agent's web dashboard (Control UI).
+  const dashboardServer: Server = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<!doctype html><title>fixture</title><h1>ADE_DASHBOARD_FIXTURE_OK</h1>');
+  });
+  const dashboardPort: number = await new Promise((resolvePort, rejectPort) => {
+    dashboardServer.once('error', rejectPort);
+    dashboardServer.listen(0, '127.0.0.1', () => {
+      const address = dashboardServer.address();
+      if (address && typeof address === 'object') resolvePort(address.port);
+      else rejectPort(new Error('dashboard fixture server has no port'));
+    });
+  });
   try {
     if (runWslBackend) {
       wslRepository = wslExec(wslDistribution, ['mktemp', '-d', '/tmp/ade-electron-wsl.XXXXXX']).trim();
@@ -696,6 +710,40 @@ async function run(): Promise<void> {
     await eventually('real ConPTY output reaches xterm', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())?.includes('ADE_E2E_READY') === true,
     );
+
+    // Agent dashboard: command output resolves to a URL that opens in an
+    // origin-locked ADE window; the tokenized URL never crosses to the renderer.
+    check('agents without a dashboard show no dashboard button',
+      await page.locator('.tab-dashboard').count() === 0);
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    const dashboardDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await dashboardDialog.waitFor({ state: 'visible' });
+    await dashboardDialog.locator('#edit-agent-dash-cmd').fill(
+      `node -e "console.log('dash: http://127.0.0.1:${dashboardPort}/?token=e2e-secret')"`,
+    );
+    await dashboardDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await dashboardDialog.waitFor({ state: 'hidden' });
+    await eventually('a configured dashboard reveals its strip button', async () =>
+      await page!.locator('.tab-dashboard').count() === 1);
+    const dashboardWindowPromise = app.waitForEvent('window', { timeout: 30_000 });
+    await page.locator('.tab-dashboard').click();
+    const dashboardPage = await dashboardWindowPromise;
+    await dashboardPage.waitForLoadState('domcontentloaded');
+    check('the dashboard command result opens in an ADE-managed window',
+      dashboardPage.url().startsWith(`http://127.0.0.1:${dashboardPort}/`)
+        && ((await dashboardPage.textContent('body')) ?? '').includes('ADE_DASHBOARD_FIXTURE_OK'));
+    await dashboardPage.evaluate(() => {
+      window.location.href = '/second';
+    });
+    await eventually('same-origin dashboard navigation stays inside the window', async () =>
+      dashboardPage.url() === `http://127.0.0.1:${dashboardPort}/second`);
+    await dashboardPage.close();
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    const dashboardCleanupDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await dashboardCleanupDialog.waitFor({ state: 'visible' });
+    await dashboardCleanupDialog.locator('#edit-agent-dash-cmd').fill('');
+    await dashboardCleanupDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await dashboardCleanupDialog.waitFor({ state: 'hidden' });
 
     const scopeHeader = page.locator('[data-testid="repository-scope"]');
     await eventually('plain session visibly reports its portable repository scope', async () => {
@@ -1764,6 +1812,7 @@ async function run(): Promise<void> {
       await page.screenshot({ path: join(resultDir, 'electron-workflow-failure.png'), fullPage: true }).catch(() => undefined);
     }
   } finally {
+    dashboardServer.close();
     await app?.close().catch(() => undefined);
     const safeRoot = resolve(tmpdir());
     const safeScratch = resolve(scratch);

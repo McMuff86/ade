@@ -31,6 +31,7 @@ import {
   isExecutionBackendId,
   type ExecutionBackendId,
 } from '../shared/executionBackends';
+import { assertAllowedDashboardUrl } from './dashboard/dashboardUrl';
 import { syncAgentInstructions } from './memory/agentInstructions';
 import { createMemoryScaffold } from './memory/scaffold';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
@@ -251,11 +252,21 @@ export async function updateAgent(
 
   const home = resolveAgentHome(existing, input);
 
+  const dashboardUrl = input.dashboardUrl === undefined
+    ? existing.dashboardUrl
+    : (input.dashboardUrl.trim() || undefined);
+  if (dashboardUrl) assertAllowedDashboardUrl(dashboardUrl);
+
   let updated: Agent = {
     ...existing,
     ...home,
     name,
     photo: input.photo === undefined ? existing.photo : (input.photo || undefined),
+    dashboardUrl,
+    dashboardCommand: input.dashboardCommand === undefined
+      ? existing.dashboardCommand
+      : (input.dashboardCommand.trim() || undefined),
+    dashboardTarget: input.dashboardTarget ?? existing.dashboardTarget,
     role: input.role?.trim() || undefined,
     runtime: input.runtime,
     permissionMode: input.permissionMode,

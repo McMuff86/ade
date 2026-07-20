@@ -158,7 +158,19 @@ export interface Agent {
   memoryDir: string;
   /** Graph-mode role; absent = a plain agent (not part of the orchestration). */
   teamRole?: TeamRole;
+  /** Fixed web dashboard URL (https, or http on localhost). */
+  dashboardUrl?: string;
+  /**
+   * Command run in the agent's home backend whose output contains the
+   * dashboard URL (e.g. `openclaw dashboard --no-open`). Wins over the URL.
+   */
+  dashboardCommand?: string;
+  /** Where the dashboard opens; missing = ADE-managed window. */
+  dashboardTarget?: DashboardTarget;
 }
+
+/** How an agent dashboard opens: an origin-locked ADE window or the browser. */
+export type DashboardTarget = 'window' | 'external';
 
 export type SessionKind = 'interactive' | 'task';
 export type PtyExitReason = 'exit' | 'cancelled';
@@ -939,6 +951,11 @@ export interface AgentUpdateInput {
   homeWorkspaceDir?: string;
   /** Stored photo filename; null removes the photo, undefined preserves it. */
   photo?: string | null;
+  /** undefined preserves; '' clears. */
+  dashboardUrl?: string;
+  /** undefined preserves; '' clears. */
+  dashboardCommand?: string;
+  dashboardTarget?: DashboardTarget;
 }
 
 export interface AgentTemplateCreateInput {

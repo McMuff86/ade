@@ -6,6 +6,7 @@ import { assertIpcPayload } from '../src/main/ipcValidation';
 import { runDiagnosticCommand } from '../src/main/diagnostics/RuntimeDiagnostics';
 import { sessionExitNotice } from '../src/main/notificationPolicy';
 import { isSafeExternalUrl, isTrustedRendererUrl } from '../src/main/security';
+import { assertAllowedDashboardUrl, extractDashboardUrl } from '../src/main/dashboard/dashboardUrl';
 import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
 import type { SessionMeta } from '../src/shared/types';
 
@@ -56,6 +57,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'agent:delete': { id: 'agent' },
   'agent:move': { agentId: 'agent', categoryId: 'category', index: 0 },
   'agent:setDefaultRepository': { agentId: 'agent', repositoryId: 'repository' },
+  'agent:openDashboard': { agentId: 'agent' },
   'agentTemplate:create': { sourceAgentId: 'agent', name: 'Reusable writer' },
   'agentTemplate:delete': { id: 'template' },
   'agentTemplate:spawn': {
@@ -256,6 +258,36 @@ check('lookalike dev origin is rejected', !isTrustedRendererUrl(
 check('ordinary HTTPS links may open externally', isSafeExternalUrl('https://example.com/docs'));
 check('credentialed and custom-protocol links are blocked',
   !isSafeExternalUrl('https://user:pass@example.com/') && !isSafeExternalUrl('file:///C:/secret'));
+
+function dashboardRejects(value: string): boolean {
+  try {
+    assertAllowedDashboardUrl(value);
+    return false;
+  } catch {
+    return true;
+  }
+}
+check('dashboard command output yields its first http(s) URL',
+  extractDashboardUrl(
+    'Gateway ready.\nControl UI: https://numbercruncher.tailfc0b86.ts.net:8443/?token=abc (press q)\n',
+  ) === 'https://numbercruncher.tailfc0b86.ts.net:8443/?token=abc'
+    && extractDashboardUrl('no url here at all') === null);
+check('dashboards allow https anywhere and http only on the local machine',
+  assertAllowedDashboardUrl('https://host.tail.ts.net:8443/?token=x').origin
+      === 'https://host.tail.ts.net:8443'
+    && assertAllowedDashboardUrl('http://127.0.0.1:18789/?token=x').hostname === '127.0.0.1'
+    && assertAllowedDashboardUrl('http://localhost:3000/').hostname === 'localhost');
+check('remote http, credentials and non-web schemes never become dashboards',
+  dashboardRejects('http://numbercruncher.local:8443/')
+    && dashboardRejects('https://user:pass@host.example/')
+    && dashboardRejects('file:///C:/dashboard.html')
+    && dashboardRejects('javascript:alert(1)')
+    && dashboardRejects('not a url'));
+check('dashboard target values are validated on agent:update',
+  rejects('agent:update', {
+    id: 'agent', name: 'Agent', runtime: 'shell', permissionMode: 'default',
+    dashboardTarget: 'popup',
+  }));
 
 const rendererHtml = readFileSync(join(process.cwd(), 'src/renderer/index.html'), 'utf8');
 check('renderer declares a default-deny CSP', rendererHtml.includes("default-src 'none'"));
