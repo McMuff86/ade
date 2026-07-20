@@ -339,12 +339,10 @@ export function RepositoryScopeHeader({
               >
                 <option value={NATIVE_EXECUTION_BACKEND}>{nativeHostLabel}</option>
                 {wslDistributions.map((distribution) => (
-                  <option
-                    key={distribution.backend}
-                    value={distribution.backend}
-                    disabled={!distribution.available}
-                  >
-                    WSL · {distribution.name}{distribution.available ? '' : ' (unavailable)'}
+                  // Availability is advisory only: a cold WSL VM can miss the
+                  // probe window, and the import itself reports real failures.
+                  <option key={distribution.backend} value={distribution.backend}>
+                    WSL · {distribution.name}{distribution.available ? '' : ' (unavailable?)'}
                   </option>
                 ))}
               </select>

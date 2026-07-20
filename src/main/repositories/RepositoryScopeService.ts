@@ -179,7 +179,9 @@ export class RepositoryScopeService implements RepositoryScopePort {
 
   async setAgentDefault(agentId: string, repositoryId: string | null): Promise<Agent> {
     const agent = this.requireAgent(agentId);
-    const scope = repositoryId ? await this.resolve(agent.id, { repositoryId }) : this.plainScope(agent);
+    const scope = repositoryId
+      ? await this.resolve(agent.id, { repositoryId })
+      : await this.plainScope(agent);
     const current = this.store.get();
     const updated: Agent = {
       ...this.requireAgent(agent.id),
@@ -267,7 +269,9 @@ export class RepositoryScopeService implements RepositoryScopePort {
       : undefined;
     const workspaceDir = reference?.workspaceDir || binding?.workspaceDir || homeWorkspace(agent);
     const executionBackend = normalizeExecutionBackendId(
-      reference?.executionBackend ?? binding?.executionBackend ?? repository?.executionBackend,
+      reference?.executionBackend ?? binding?.executionBackend ?? (repository
+        ? repository.executionBackend
+        : agent.homeExecutionBackend),
     );
     const source = reference?.scopeSource
       ?? (repositoryId ? 'agent-default' : 'plain-home');
@@ -448,14 +452,19 @@ export class RepositoryScopeService implements RepositoryScopePort {
     };
   }
 
-  private plainScope(agent: Agent): ResolvedExecutionScope {
+  private async plainScope(agent: Agent): Promise<ResolvedExecutionScope> {
+    const executionBackend = agentHomeBackend(agent);
     const workspaceDir = homeWorkspace(agent);
-    mkdirSync(workspaceDir, { recursive: true });
+    if (executionBackend === NATIVE_EXECUTION_BACKEND) {
+      mkdirSync(workspaceDir, { recursive: true });
+    } else {
+      await this.execution.mkdir(executionBackend, workspaceDir);
+    }
     return {
       source: 'plain-home',
       workspaceDir,
       branch: '',
-      executionBackend: NATIVE_EXECUTION_BACKEND,
+      executionBackend,
     };
   }
 
@@ -509,7 +518,16 @@ export class RepositoryScopeService implements RepositoryScopePort {
 }
 
 export function homeWorkspace(agent: Agent): string {
-  return resolve(agent.homeWorkspaceDir?.trim() || agent.workspaceDir);
+  const dir = agent.homeWorkspaceDir?.trim() || agent.workspaceDir;
+  if (agentHomeBackend(agent) !== NATIVE_EXECUTION_BACKEND) {
+    return posix.normalize(dir.replace(/\\/g, '/'));
+  }
+  return resolve(dir);
+}
+
+/** Backend of the agent's repo-less home scope; native unless explicitly WSL. */
+export function agentHomeBackend(agent: Agent): ExecutionBackendId {
+  return normalizeExecutionBackendId(agent.homeExecutionBackend);
 }
 
 function slugify(value: string): string {

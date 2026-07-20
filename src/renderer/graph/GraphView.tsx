@@ -2462,12 +2462,9 @@ function NewRunModal(props: {
                   >
                     <option value={NATIVE_EXECUTION_BACKEND}>Native</option>
                     {wslDistributions.map((distribution) => (
-                      <option
-                        key={distribution.backend}
-                        value={distribution.backend}
-                        disabled={!distribution.available}
-                      >
-                        WSL · {distribution.name}{distribution.available ? '' : ' (unavailable)'}
+                      // Advisory only — a cold WSL VM can miss the probe window.
+                      <option key={distribution.backend} value={distribution.backend}>
+                        WSL · {distribution.name}{distribution.available ? '' : ' (unavailable?)'}
                       </option>
                     ))}
                   </select>

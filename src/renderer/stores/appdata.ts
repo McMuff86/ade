@@ -11,6 +11,7 @@ import type {
   AgentUpdateInput,
   Category,
   CategoryCreateInput,
+  CategoryUpdateInput,
   Repository,
   WorkspaceBinding,
 } from '../../shared/types';
@@ -30,6 +31,7 @@ interface AppDataState extends CatalogSlice {
   load: () => Promise<void>;
   refresh: () => Promise<void>;
   createCategory: (input: CategoryCreateInput) => Promise<Category>;
+  updateCategory: (input: CategoryUpdateInput) => Promise<Category>;
   reorderCategories: (orderedIds: string[]) => Promise<void>;
   moveAgent: (agentId: string, categoryId: string, index: number) => Promise<void>;
   createAgent: (input: AgentCreateInput) => Promise<Agent>;
@@ -82,6 +84,12 @@ export const useAppData = create<AppDataState>((set, get) => ({
 
   createCategory: async (input) => {
     const category = await window.ade.invoke('category:create', input);
+    set(await readCatalog());
+    return category;
+  },
+
+  updateCategory: async (input) => {
+    const category = await window.ade.invoke('category:update', input);
     set(await readCatalog());
     return category;
   },

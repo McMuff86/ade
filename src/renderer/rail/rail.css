@@ -20,11 +20,17 @@
   margin-bottom: 14px;
 }
 
+.cat-entry {
+  display: flex;
+  align-items: center;
+}
+
 .cat-head {
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 6px;
   border-radius: 8px;
   text-align: left;
@@ -32,6 +38,29 @@
 
 .cat-head:hover {
   background: var(--raised);
+}
+
+.cat-settings {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  margin-right: 3px;
+  border-radius: 6px;
+  color: var(--faint);
+  opacity: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.cat-entry:hover .cat-settings,
+.cat-settings:focus-visible {
+  opacity: 1;
+}
+
+.cat-settings:hover {
+  color: var(--text);
+  background: var(--panel);
 }
 
 .cat-name {

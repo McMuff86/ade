@@ -75,6 +75,9 @@ function check(label: string, condition: boolean, detail?: unknown): void {
   }
 }
 
+/** Set after each Electron launch so failed waits leave visual evidence. */
+let evidencePage: Page | null = null;
+
 async function eventually(
   label: string,
   predicate: () => boolean | Promise<boolean>,
@@ -94,6 +97,19 @@ async function eventually(
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
   }
   check(label, false, lastError);
+  if (evidencePage) {
+    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
+    const dir = resolve('test-results', 'e2e-failures');
+    try {
+      mkdirSync(dir, { recursive: true });
+      await evidencePage.screenshot({ path: join(dir, `${slug}.png`), fullPage: true });
+      const terminal = await evidencePage
+        .locator('.terminal-pane-wrap:visible .xterm-rows')
+        .textContent({ timeout: 2_000 })
+        .catch(() => null);
+      if (terminal !== null) writeFileSync(join(dir, `${slug}.terminal.txt`), terminal, 'utf8');
+    } catch { /* evidence is best effort */ }
+  }
   return false;
 }
 
@@ -460,6 +476,7 @@ async function run(): Promise<void> {
   const runWslBackend = isWindows && process.env['ADE_WSL_BACKEND_E2E'] === '1';
   const wslDistribution = process.env['ADE_WSL_DISTRO']?.trim() || 'Ubuntu';
   let wslRepository: string | null = null;
+  let wslAgentHomeDir: string | null = null;
   let wslBindingIdsBeforeRestart: string[] = [];
   const wslWorktreeContainers: string[] = [];
   try {
@@ -494,6 +511,7 @@ async function run(): Promise<void> {
     };
     app = await electron.launch(launchOptions);
     page = await app.firstWindow({ timeout: 20_000 });
+    evidencePage = page;
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
 
@@ -583,6 +601,42 @@ async function run(): Promise<void> {
         && await agentDialog.locator('#edit-agent-codex-model').inputValue() === 'gpt-5.6-sol'
         && await agentDialog.locator('#edit-agent-codex-reasoning').inputValue() === 'xhigh'
         && await agentDialog.locator('#edit-agent-perm').inputValue() === 'bypass');
+
+    // Profile photos are editable after creation: real upload through the
+    // hidden file input, preview via ade-photo://, persisted into the rail.
+    const onePixelPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    await agentDialog.locator('.photo-picker input[type="file"]').setInputFiles({
+      name: 'avatar.png',
+      mimeType: 'image/png',
+      buffer: onePixelPng,
+    });
+    await eventually('an uploaded profile photo previews through ade-photo://', async () => {
+      const src = await agentDialog
+        .locator('.photo-picker img')
+        .getAttribute('src')
+        .catch(() => null);
+      return src?.startsWith('ade-photo://') === true;
+    });
+    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.waitFor({ state: 'hidden' });
+    await eventually('the saved profile photo reaches the rail avatar', async () => {
+      const src = await page!
+        .locator('.agent-row', { hasText: 'E2E Shell' })
+        .locator('.avatar img')
+        .getAttribute('src')
+        .catch(() => null);
+      return src?.startsWith('ade-photo://') === true;
+    });
+    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+    agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await agentDialog.waitFor({ state: 'visible' });
+    check('a reopened dialog still shows the stored photo and Codex profile',
+      (await agentDialog.locator('.photo-picker img').getAttribute('src'))
+        ?.startsWith('ade-photo://') === true
+        && await agentDialog.locator('#edit-agent-runtime').inputValue() === 'codex');
     const durableInstructions = readFileSync(join(userData, 'agent-memory', 'AGENTS.md'), 'utf8');
     check('saving an agent guarantees its durable AGENTS.md identity contract',
       durableInstructions.includes('Identity: E2E Shell')
@@ -592,6 +646,45 @@ async function run(): Promise<void> {
     await agentDialog.locator('#edit-agent-perm').selectOption('default');
     await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
     await agentDialog.waitFor({ state: 'hidden' });
+
+    // Categories are editable after creation too: gear on the header row,
+    // rename plus a real photo upload, both visible in the rail.
+    await page.getByRole('button', { name: 'Category settings for E2E', exact: true }).click({ force: true });
+    let categoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    await categoryDialog.waitFor({ state: 'visible' });
+    await categoryDialog.locator('.photo-picker input[type="file"]').setInputFiles({
+      name: 'category.png',
+      mimeType: 'image/png',
+      buffer: onePixelPng,
+    });
+    await eventually('an uploaded category photo previews through ade-photo://', async () => {
+      const src = await categoryDialog
+        .locator('.photo-picker img')
+        .getAttribute('src')
+        .catch(() => null);
+      return src?.startsWith('ade-photo://') === true;
+    });
+    await categoryDialog.locator('#edit-category-name').fill('E2E Crew');
+    await categoryDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await categoryDialog.waitFor({ state: 'hidden' });
+    await eventually('the renamed category and its photo reach the rail', async () => {
+      const src = await page!
+        .locator('.cat-head', { hasText: 'E2E Crew' })
+        .locator('.avatar img')
+        .getAttribute('src')
+        .catch(() => null);
+      return src?.startsWith('ade-photo://') === true;
+    });
+    await page.getByRole('button', { name: 'Category settings for E2E Crew', exact: true }).click({ force: true });
+    categoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    await categoryDialog.waitFor({ state: 'visible' });
+    check('a reopened category dialog still shows the stored photo',
+      (await categoryDialog.locator('.photo-picker img').getAttribute('src'))
+        ?.startsWith('ade-photo://') === true);
+    // Restore the original name so later locators stay stable.
+    await categoryDialog.locator('#edit-category-name').fill('E2E');
+    await categoryDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await categoryDialog.waitFor({ state: 'hidden' });
 
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
     await page.keyboard.press('Control+Shift+T');
@@ -1024,7 +1117,9 @@ async function run(): Promise<void> {
       await scopePanel.getByLabel('Repository path').fill(wslRepository);
       await scopePanel.getByRole('button', { name: 'Importieren' }).click();
       await eventually('WSL repository import is visibly confirmed', async () =>
-        (await scopePanel.textContent())?.includes('importiert') === true);
+        (await scopePanel.textContent())?.includes('importiert') === true,
+        45_000,
+      );
       await scopePanel.getByRole('button', { name: 'Set agent default' }).click();
       const tabCountBeforeWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
       await scopePanel.getByRole('button', { name: 'Open new session' }).click();
@@ -1074,6 +1169,98 @@ async function run(): Promise<void> {
       await eventually('runtime diagnostics execute against the selected WSL backend', async () =>
         (await wslDiagnostics.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
       await wslDiagnostics.getByRole('button', { name: 'Close' }).click();
+
+      // Agent home inside WSL: a portable (repo-less) agent starts its
+      // sessions in a Linux directory of the selected distribution.
+      const wslAgentHome = wslExec(wslDistribution, ['mktemp', '-d', '/tmp/ade-agent-home.XXXXXX']).trim();
+      if (!/^\/tmp\/ade-agent-home\.[A-Za-z0-9]+$/.test(wslAgentHome)) {
+        throw new Error(`Unsafe WSL agent home fixture path: ${wslAgentHome}`);
+      }
+      wslAgentHomeDir = wslAgentHome;
+      await page.getByRole('button', { name: 'Agent settings for E2E Lead' }).click({ force: true });
+      const homeDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      await homeDialog.waitFor({ state: 'visible' });
+      await homeDialog.locator('#edit-agent-repository').selectOption({ label: 'Portable agent (no default)' });
+      const homeBackendSelect = homeDialog.locator('#edit-agent-home-backend');
+      await eventually('agent settings list the WSL distribution as a home backend', async () =>
+        await homeBackendSelect.locator(`option[value="wsl:${wslDistribution}"]`).count() === 1,
+        30_000,
+      );
+      await homeBackendSelect.selectOption(`wsl:${wslDistribution}`);
+      check('switching the home backend never keeps a Windows path',
+        await homeDialog.locator('#edit-agent-home-dir').inputValue() === '');
+      await homeDialog.locator('#edit-agent-home-dir').fill(wslAgentHome);
+      await homeDialog.locator('#edit-agent-cmd')
+        .fill(`printf 'ADE_WSL_HOME_OK %s\\n' "$PWD"`);
+      await homeDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await homeDialog.waitFor({ state: 'hidden' });
+
+      await page.getByRole('button', { name: 'Agent settings for E2E Lead' }).click({ force: true });
+      const homeDialogReopened = page.getByRole('dialog', { name: 'Agent settings' });
+      await homeDialogReopened.waitFor({ state: 'visible' });
+      check('the WSL agent home round-trips through Electron IPC',
+        await homeDialogReopened.locator('#edit-agent-home-backend').inputValue() === `wsl:${wslDistribution}`
+          && await homeDialogReopened.locator('#edit-agent-home-dir').inputValue() === wslAgentHome);
+      await homeDialogReopened.getByRole('button', { name: 'Cancel' }).click();
+      await homeDialogReopened.waitFor({ state: 'hidden' });
+
+      await page.locator('.agent-row', { hasText: 'E2E Lead' }).click();
+      const homeScopePanel = page.getByTestId('repository-scope');
+      await eventually('a portable WSL agent advertises its Linux home scope', async () => {
+        const text = await homeScopePanel.textContent();
+        return text?.includes('No repository') === true && text.includes(`WSL · ${wslDistribution}`);
+      });
+      await homeScopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await eventually('a repo-less session opens inside the WSL distribution', async () =>
+        await page!.evaluate(async () => {
+          const api = (window as unknown as {
+            ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+          }).ade;
+          const list = await api.invoke('pty:list') as {
+            sessions: Array<{ agentId: string; status: string; executionBackend?: string }>;
+          };
+          return list.sessions.some((session) => (
+            session.agentId === 'e2e-lead'
+              && session.status === 'running'
+              && session.executionBackend?.startsWith('wsl:') === true
+          ));
+        }),
+        20_000,
+      );
+      await eventually('the start command runs in the configured Linux home', async () =>
+        (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes(`ADE_WSL_HOME_OK ${wslAgentHome}`) === true,
+        15_000,
+      );
+      const wslHomeSession = await page.evaluate(async () => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        const list = await api.invoke('pty:list') as {
+          sessions: Array<{
+            id: string;
+            agentId: string;
+            executionBackend?: string;
+            scopeSource?: string;
+            workspaceDir?: string;
+            status: string;
+          }>;
+        };
+        return list.sessions.find((session) => (
+          session.agentId === 'e2e-lead' && session.status === 'running'
+        )) ?? null;
+      });
+      check('the plain-home session snapshot is pinned to the WSL backend',
+        wslHomeSession?.executionBackend === `wsl:${wslDistribution}`
+          && wslHomeSession.scopeSource === 'plain-home'
+          && wslHomeSession.workspaceDir === wslAgentHome,
+        wslHomeSession);
+      await page.evaluate(async (sessionId) => {
+        const api = (window as unknown as {
+          ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
+        }).ade;
+        if (sessionId) await api.invoke('pty:kill', { sessionId });
+      }, wslHomeSession?.id ?? null);
 
       const linuxFixturePath = wslExec(wslDistribution, ['wslpath', '-a', '-u', fixturePath]).trim();
       const wslManaged = await page.evaluate(async ({ command }) => {
@@ -1362,7 +1549,9 @@ async function run(): Promise<void> {
     await grokAgentDialog.waitFor({ state: 'visible' });
     await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
     await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await grokAgentDialog.waitFor({ state: 'hidden' });
+    // Saving re-resolves the agent-default scope; over a cold WSL VM the Git
+    // inspection can legitimately exceed Playwright's 30s default.
+    await grokAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
     const scopeForGrok = page.getByTestId('repository-scope');
     await scopeForGrok.getByLabel('Repository for new session').selectOption('');
     const tabCountBeforeGrok = await page.locator('[role="tab"][id^="session-tab-"]').count();
@@ -1378,7 +1567,10 @@ async function run(): Promise<void> {
     await revertAgentDialog.waitFor({ state: 'visible' });
     await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
     await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await revertAgentDialog.waitFor({ state: 'hidden' });
+    await revertAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
+    // The target select follows the active session context; re-state the
+    // plain-home intent explicitly before opening the probe session.
+    await scopeForGrok.getByLabel('Repository for new session').selectOption('');
     const tabCountBeforeService = await page.locator('[role="tab"][id^="session-tab-"]').count();
     await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
     await eventually('an all-sessions service key opens a session', async () =>
@@ -1389,7 +1581,7 @@ async function run(): Promise<void> {
     await eventually('an all-sessions service key reaches a plain shell session', async () =>
       (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
         ?.includes('SVC=elevenlabs-e2e-value-2026') === true,
-      15_000,
+      30_000,
     );
 
     await page.getByRole('button', { name: 'Switch to light theme' }).click();
@@ -1418,6 +1610,7 @@ async function run(): Promise<void> {
     page = null;
     app = await electron.launch(launchOptions);
     page = await app.firstWindow({ timeout: 20_000 });
+    evidencePage = page;
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
     const restartedConfig = await page.evaluate(async () => {
@@ -1499,9 +1692,10 @@ async function run(): Promise<void> {
         (await restartedScopePanel.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
       const tabCountBeforeRestartedWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
       await restartedScopePanel.getByRole('button', { name: 'Open new session' }).click();
+      // First WSL touch after the app restart boots the utility VM again.
       await eventually('restarted Windows UI reopens the persisted WSL binding', async () =>
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeRestartedWsl + 1,
-        20_000,
+        45_000,
       );
       await sendCommand(page, "printf 'ADE_WSL_RESTART_OK\\n'");
       await eventually('restarted WSL terminal remains interactive across the app boundary', async () =>
@@ -1598,6 +1792,9 @@ async function run(): Promise<void> {
     }
     if (wslRepository && /^\/tmp\/ade-electron-wsl\.[A-Za-z0-9]+$/.test(wslRepository)) {
       try { wslExec(wslDistribution, ['rm', '-rf', '--', wslRepository]); } catch { /* evidence remains */ }
+    }
+    if (wslAgentHomeDir && /^\/tmp\/ade-agent-home\.[A-Za-z0-9]+$/.test(wslAgentHomeDir)) {
+      try { wslExec(wslDistribution, ['rm', '-rf', '--', wslAgentHomeDir]); } catch { /* evidence remains */ }
     }
   }
 

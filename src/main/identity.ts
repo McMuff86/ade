@@ -9,7 +9,7 @@
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join, posix } from 'node:path';
 import type {
   AdeConfig,
   Agent,
@@ -20,11 +20,17 @@ import type {
   AgentUpdateInput,
   Category,
   CategoryCreateInput,
+  CategoryUpdateInput,
 } from '../shared/types';
 import {
   DEFAULT_CODEX_MODEL,
   DEFAULT_CODEX_REASONING_EFFORT,
 } from '../shared/types';
+import {
+  NATIVE_EXECUTION_BACKEND,
+  isExecutionBackendId,
+  type ExecutionBackendId,
+} from '../shared/executionBackends';
 import { syncAgentInstructions } from './memory/agentInstructions';
 import { createMemoryScaffold } from './memory/scaffold';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
@@ -75,6 +81,25 @@ export async function createCategory(
   };
   store.save({ categories: [...config.categories, category] });
   return category;
+}
+
+/** Rename a category and set/remove its photo; structure and repo stay put. */
+export function updateCategory(store: IdentityConfigPort, input: CategoryUpdateInput): Category {
+  const name = input.name.trim();
+  if (!name) throw new Error('ade: category name is required');
+  const config = store.get();
+  const existing = config.categories.find((candidate) => candidate.id === input.id);
+  if (!existing) throw new Error(`ade: category not found "${input.id}"`);
+  const updated: Category = {
+    ...existing,
+    name,
+    photo: input.photo === undefined ? existing.photo : (input.photo || undefined),
+  };
+  store.save({
+    categories: config.categories.map((candidate) =>
+      candidate.id === updated.id ? updated : candidate),
+  });
+  return { ...updated };
 }
 
 /** Reorder the rail: `orderedIds` must list every category exactly once. */
@@ -224,9 +249,13 @@ export async function updateAgent(
   const existing = config.agents.find((a) => a.id === input.id);
   if (!existing) throw new Error(`ade: agent not found "${input.id}"`);
 
+  const home = resolveAgentHome(existing, input);
+
   let updated: Agent = {
     ...existing,
+    ...home,
     name,
+    photo: input.photo === undefined ? existing.photo : (input.photo || undefined),
     role: input.role?.trim() || undefined,
     runtime: input.runtime,
     permissionMode: input.permissionMode,
@@ -253,6 +282,42 @@ export async function updateAgent(
     updated = await scopes.setAgentDefault(updated.id, input.defaultRepositoryId);
   }
   return updated;
+}
+
+/**
+ * Validated home scope for repo-less sessions. Switching the backend never
+ * silently reuses a path from the other world: WSL requires an explicit
+ * POSIX-absolute directory, and leaving WSL falls back to the ADE-owned home.
+ */
+function resolveAgentHome(
+  existing: Agent,
+  input: Pick<AgentUpdateInput, 'homeExecutionBackend' | 'homeWorkspaceDir'>,
+): Pick<Agent, 'homeExecutionBackend' | 'homeWorkspaceDir'> {
+  if (input.homeExecutionBackend !== undefined && !isExecutionBackendId(input.homeExecutionBackend)) {
+    throw new Error('ade: home backend must be "native" or "wsl:<distribution>"');
+  }
+  const backend: ExecutionBackendId = input.homeExecutionBackend
+    ?? existing.homeExecutionBackend
+    ?? NATIVE_EXECUTION_BACKEND;
+  const requested = input.homeWorkspaceDir?.trim();
+  const defaultHome = join(dirname(existing.memoryDir), 'workspace');
+
+  if (backend === NATIVE_EXECUTION_BACKEND) {
+    const dir = requested === undefined
+      ? (existing.homeExecutionBackend ? defaultHome : existing.homeWorkspaceDir)
+      : (requested || defaultHome);
+    if (dir !== undefined && !isAbsolute(dir)) {
+      throw new Error('ade: agent home must be an absolute path');
+    }
+    return { homeExecutionBackend: undefined, homeWorkspaceDir: dir };
+  }
+
+  const dir = requested ?? (existing.homeExecutionBackend ? existing.homeWorkspaceDir : undefined);
+  const normalized = dir?.replace(/\\/g, '/');
+  if (!normalized || !posix.isAbsolute(normalized)) {
+    throw new Error('ade: a WSL agent home requires an absolute Linux path (e.g. /home/user/project)');
+  }
+  return { homeExecutionBackend: backend, homeWorkspaceDir: posix.normalize(normalized) };
 }
 
 export function deleteAgent(store: IdentityConfigPort, id: string): void {

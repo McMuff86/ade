@@ -40,6 +40,7 @@ export function Rail(): React.ReactElement {
   const selectedAgentId = useSelection((s) => s.selectedAgentId);
   const setSelectedAgent = useSelection((s) => s.setSelectedAgent);
   const openNewCategory = useOnboarding((s) => s.openNewCategory);
+  const openCategorySettings = useOnboarding((s) => s.openCategorySettings);
   const openNewAgent = useOnboarding((s) => s.openNewAgent);
   const openAgentSettings = useOnboarding((s) => s.openAgentSettings);
 
@@ -129,25 +130,36 @@ export function Rail(): React.ReactElement {
               key={cat.id}
               className={`cat${isCollapsed ? ' collapsed' : ''}${drag?.kind === 'category' && drag.id === cat.id ? ' dragging' : ''}${catDropClass}`}
             >
-              <button
-                type="button"
-                className="cat-head"
-                aria-expanded={!isCollapsed}
-                onClick={() => toggle(cat.id)}
-                draggable
-                onDragStart={startDrag({ kind: 'category', id: cat.id })}
-                onDragEnd={clearDnd}
-                onDragOver={allowDrop(catKey, ['agent', 'category'], true)}
-                onDragLeave={leaveDrop(catKey)}
-                onDrop={dropOnCategory(cat.id)}
-              >
-                <Avatar name={cat.name} photo={cat.photo} shape="square" size={30} seed={cat.id} />
-                <span className="cat-name">{cat.name}</span>
-                <span className="cat-meta">{cat.agents.length}</span>
-                <span className="cat-chevron" aria-hidden="true">
-                  ▾
-                </span>
-              </button>
+              <div className="cat-entry">
+                <button
+                  type="button"
+                  className="cat-head"
+                  aria-expanded={!isCollapsed}
+                  onClick={() => toggle(cat.id)}
+                  draggable
+                  onDragStart={startDrag({ kind: 'category', id: cat.id })}
+                  onDragEnd={clearDnd}
+                  onDragOver={allowDrop(catKey, ['agent', 'category'], true)}
+                  onDragLeave={leaveDrop(catKey)}
+                  onDrop={dropOnCategory(cat.id)}
+                >
+                  <Avatar name={cat.name} photo={cat.photo} shape="square" size={30} seed={cat.id} />
+                  <span className="cat-name">{cat.name}</span>
+                  <span className="cat-meta">{cat.agents.length}</span>
+                  <span className="cat-chevron" aria-hidden="true">
+                    ▾
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="cat-settings"
+                  aria-label={`Category settings for ${cat.name}`}
+                  title="Category settings"
+                  onClick={() => openCategorySettings(cat.id)}
+                >
+                  ⚙
+                </button>
+              </div>
 
               <div className="agents">
                 {cat.agents.map((agentId) => {

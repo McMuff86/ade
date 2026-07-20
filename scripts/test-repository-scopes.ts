@@ -17,8 +17,11 @@ import {
   moveAgent,
   reorderCategories,
   spawnAgentTemplate,
+  updateAgent,
+  updateCategory,
   type IdentityConfigPort,
 } from '../src/main/identity';
+import type { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import { fsMutablePath, fsPathInfo, fsRename } from '../src/main/git/workspaceFs';
 import {
   OrchestrationService,
@@ -287,6 +290,135 @@ function testWorkspaceFileActions(scratch: string): void {
     symlinkRenameRejected
       && existsSync(join(outsideDir, 'rename-me.md'))
       && !existsSync(join(outsideDir, 'renamed.md')));
+}
+
+/** Repo-less agent homes may live inside a WSL distro; no distro is needed here. */
+async function testWslAgentHome(scratch: string): Promise<void> {
+  const memoryDir = join(scratch, 'wsl-home-agent', 'memory');
+  const nativeHome = join(scratch, 'wsl-home-agent', 'workspace');
+  mkdirSync(memoryDir, { recursive: true });
+  const agent: Agent = {
+    id: 'wsl-home-agent',
+    categoryId: 'wsl-home-category',
+    name: 'Hermes',
+    runtime: 'custom',
+    customCommand: 'general --tui',
+    permissionMode: 'default',
+    workspaceDir: nativeHome,
+    homeWorkspaceDir: nativeHome,
+    memoryDir,
+  };
+  const store = memoryStore({
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [{ id: 'wsl-home-category', name: 'Hermes', agents: [agent.id] }],
+    agents: [agent],
+  });
+  const mkdirs: Array<{ backend: string; dir: string }> = [];
+  const fakeExecution = {
+    mkdir: async (backend: string, dir: string) => {
+      mkdirs.push({ backend, dir });
+    },
+    samePath: (_backend: unknown, left: string, right: string) => left === right,
+  } as unknown as ExecutionBackendService;
+  const scopes = new RepositoryScopeService(store, { execution: fakeExecution });
+  const baseInput = {
+    id: agent.id,
+    name: agent.name,
+    runtime: 'custom' as const,
+    permissionMode: 'default' as const,
+    customCommand: 'general --tui',
+  };
+
+  const updated = await updateAgent(store, {
+    ...baseInput,
+    homeExecutionBackend: 'wsl:Ubuntu',
+    homeWorkspaceDir: '/home/mcmuff/hermes-general-work',
+  }, scopes);
+  check('agent home accepts a WSL backend with a Linux path',
+    updated.homeExecutionBackend === 'wsl:Ubuntu'
+      && updated.homeWorkspaceDir === '/home/mcmuff/hermes-general-work');
+
+  const scope = await scopes.resolve(agent.id, { repositoryId: null });
+  check('plain-home scope resolves inside the WSL backend',
+    scope.source === 'plain-home'
+      && scope.executionBackend === 'wsl:Ubuntu'
+      && scope.workspaceDir === '/home/mcmuff/hermes-general-work'
+      && mkdirs.some((call) => (
+        call.backend === 'wsl:Ubuntu' && call.dir === '/home/mcmuff/hermes-general-work'
+      )));
+
+  const described = scopes.describe(agent.id);
+  check('scope descriptors surface the WSL home backend',
+    described.executionBackend === 'wsl:Ubuntu'
+      && described.workspaceDir === '/home/mcmuff/hermes-general-work');
+
+  let windowsPathRejected = false;
+  try {
+    await updateAgent(store, {
+      ...baseInput,
+      homeExecutionBackend: 'wsl:Ubuntu',
+      homeWorkspaceDir: 'C:\\hermes',
+    }, scopes);
+  } catch {
+    windowsPathRejected = true;
+  }
+  check('a Windows path cannot become a WSL home', windowsPathRejected);
+
+  let missingPathRejected = false;
+  try {
+    await updateAgent(store, {
+      ...baseInput,
+      homeWorkspaceDir: '',
+      homeExecutionBackend: 'wsl:Ubuntu',
+    }, scopes);
+  } catch {
+    missingPathRejected = true;
+  }
+  check('switching to WSL never reuses the native home silently', missingPathRejected);
+
+  const reverted = await updateAgent(store, {
+    ...baseInput,
+    homeExecutionBackend: 'native',
+    homeWorkspaceDir: '',
+  }, scopes);
+  const revertedScope = await scopes.resolve(agent.id, { repositoryId: null });
+  check('leaving WSL resets the home to the ADE-owned default',
+    reverted.homeExecutionBackend === undefined
+      && reverted.homeWorkspaceDir === nativeHome
+      && revertedScope.executionBackend === 'native'
+      && revertedScope.workspaceDir === nativeHome);
+
+  // Profile photos are editable after creation: string sets, undefined
+  // preserves, null removes.
+  const withPhoto = await updateAgent(store, { ...baseInput, photo: 'avatar.png' }, scopes);
+  check('agent updates can set a stored profile photo', withPhoto.photo === 'avatar.png');
+  const keptPhoto = await updateAgent(store, { ...baseInput }, scopes);
+  check('agent updates without a photo field preserve the stored one', keptPhoto.photo === 'avatar.png');
+  const removedPhoto = await updateAgent(store, { ...baseInput, photo: null }, scopes);
+  check('a null photo removes the stored one', removedPhoto.photo === undefined);
+
+  // Categories share the same editable name/photo contract.
+  const renamed = updateCategory(store, { id: 'wsl-home-category', name: 'Hermes Crew', photo: 'crew.png' });
+  check('categories can be renamed with a stored photo',
+    renamed.name === 'Hermes Crew'
+      && renamed.photo === 'crew.png'
+      && store.read().categories.find((c) => c.id === 'wsl-home-category')?.agents.length === 1);
+  const keptCategoryPhoto = updateCategory(store, { id: 'wsl-home-category', name: 'Hermes Crew' });
+  check('category updates without a photo field preserve the stored one',
+    keptCategoryPhoto.photo === 'crew.png');
+  const clearedCategoryPhoto = updateCategory(store, {
+    id: 'wsl-home-category',
+    name: 'Hermes Crew',
+    photo: null,
+  });
+  check('a null category photo removes the stored one', clearedCategoryPhoto.photo === undefined);
+  let blankNameRejected = false;
+  try {
+    updateCategory(store, { id: 'wsl-home-category', name: '   ' });
+  } catch {
+    blankNameRejected = true;
+  }
+  check('a blank category name is rejected', blankNameRejected);
 }
 
 async function run(): Promise<void> {
@@ -679,6 +811,7 @@ async function run(): Promise<void> {
     }
     check('an active run lease blocks worktree cleanup', leaseRejected);
 
+    await testWslAgentHome(scratch);
     testRailOrdering();
     testWorkspaceFileActions(scratch);
   } finally {

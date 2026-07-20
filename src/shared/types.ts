@@ -147,6 +147,11 @@ export interface Agent {
   workspaceDir: string;
   /** Plain, repository-independent workspace. Missing only in pre-Goal-5 config. */
   homeWorkspaceDir?: string;
+  /**
+   * Backend of the plain home workspace (repo-less sessions). Missing/native =
+   * host execution; `wsl:<distro>` requires a POSIX-absolute homeWorkspaceDir.
+   */
+  homeExecutionBackend?: ExecutionBackendId;
   /** Used for future executions that do not provide an explicit repository. */
   defaultRepositoryId?: string;
   /** absolute path of the agent memory directory (MEMORY.md / USER.md) */
@@ -891,6 +896,13 @@ export interface CategoryCreateInput {
   kind?: CategoryKind;
 }
 
+export interface CategoryUpdateInput {
+  id: string;
+  name: string;
+  /** Stored photo filename; null removes the photo, undefined preserves it. */
+  photo?: string | null;
+}
+
 export interface AgentCreateInput {
   categoryId: string;
   name: string;
@@ -921,6 +933,12 @@ export interface AgentUpdateInput {
   teamRole?: TeamRole;
   /** null clears the default; undefined preserves it. */
   defaultRepositoryId?: string | null;
+  /** undefined preserves; 'native' clears the WSL home backend. */
+  homeExecutionBackend?: ExecutionBackendId;
+  /** undefined preserves; '' resets to the ADE-owned default home. */
+  homeWorkspaceDir?: string;
+  /** Stored photo filename; null removes the photo, undefined preserves it. */
+  photo?: string | null;
 }
 
 export interface AgentTemplateCreateInput {

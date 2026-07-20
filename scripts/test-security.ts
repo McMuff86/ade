@@ -36,6 +36,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'config:save': { settings: { theme: 'dark' } },
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },
   'category:create': { name: 'Project', kind: 'plain' },
+  'category:update': { id: 'category', name: 'Project', photo: null },
   'category:delete': { id: 'category' },
   'category:reorder': { orderedIds: ['category-a', 'category-b'] },
   'agent:create': {

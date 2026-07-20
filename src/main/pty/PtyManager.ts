@@ -37,6 +37,7 @@ import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
 import { resolveHostShell } from '../platform';
 import {
+  agentHomeBackend,
   homeWorkspace,
   type RepositoryScopePort,
   type ResolvedExecutionScope,
@@ -141,12 +142,17 @@ export class PtyManager {
     this.scopes = scopes ?? {
       resolve: async (agentId) => {
         const agent = this.requireAgent(agentId);
+        const backend = agent.defaultRepositoryId
+          ? NATIVE_EXECUTION_BACKEND
+          : agentHomeBackend(agent);
         return {
           source: agent.defaultRepositoryId ? 'agent-default' : 'plain-home',
           repositoryId: agent.defaultRepositoryId,
-          workspaceDir: agent.workspaceDir?.trim() || homeWorkspace(agent),
+          workspaceDir: backend === NATIVE_EXECUTION_BACKEND
+            ? agent.workspaceDir?.trim() || homeWorkspace(agent)
+            : homeWorkspace(agent),
           branch: '',
-          executionBackend: NATIVE_EXECUTION_BACKEND,
+          executionBackend: backend,
         };
       },
     };

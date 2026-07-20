@@ -15,6 +15,7 @@ import { hostPathKey } from '../platform';
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_BUFFER = 4 * 1024 * 1024;
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const WSL_LIST_CACHE_MS = 30_000;
 
 export interface BackendCommandOptions {
   cwd?: string;
@@ -47,6 +48,8 @@ type SpawnProcess = typeof spawn;
  * command by this layer.
  */
 export class ExecutionBackendService {
+  private wslListCache?: { at: number; result: WslListResult };
+
   constructor(
     private readonly hostPlatform: NodeJS.Platform = process.platform,
     private readonly spawnProcess: SpawnProcess = spawn,
@@ -173,6 +176,10 @@ export class ExecutionBackendService {
 
   async listWslDistributions(): Promise<WslListResult> {
     if (this.hostPlatform !== 'win32') return { supported: false, distributions: [] };
+    // Every scope header / agent modal asks on mount; probing distros each
+    // time churns the WSL VM for no new information.
+    const cached = this.wslListCache;
+    if (cached && Date.now() - cached.at < WSL_LIST_CACHE_MS) return cached.result;
     const result = await this.spawnAndCollect('wsl.exe', ['--list', '--quiet'], {
       timeoutMs: 5_000,
       maxBuffer: 256 * 1024,
@@ -188,8 +195,16 @@ export class ExecutionBackendService {
       .map(async (name) => {
         const backend = wslExecutionBackend(name);
         try {
-          await this.checked(backend, 'true', [], { timeoutMs: 5_000, maxBuffer: 64 * 1024 });
-          return { name, backend, available: true } as const;
+          const probe = await this.run(backend, 'true', [], { timeoutMs: 5_000, maxBuffer: 64 * 1024 });
+          // A timed-out probe usually means a cold VM still booting, not a
+          // broken distro — availability is advisory, so assume the best.
+          if (probe.timedOut || probe.code === 0) return { name, backend, available: true } as const;
+          return {
+            name,
+            backend,
+            available: false,
+            error: decodeOutput(probe.stderr).trim().slice(0, 500) || `exit code ${probe.code ?? 'unknown'}`,
+          } as const;
         } catch (error) {
           return {
             name,
@@ -199,7 +214,9 @@ export class ExecutionBackendService {
           } as const;
         }
       }));
-    return { supported: true, distributions };
+    const listResult: WslListResult = { supported: true, distributions };
+    this.wslListCache = { at: Date.now(), result: listResult };
+    return listResult;
   }
 
   private wslArgs(

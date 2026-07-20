@@ -16,6 +16,7 @@ import type {
   AgentFile,
   Category,
   CategoryCreateInput,
+  CategoryUpdateInput,
   FsTreeNode,
   GitStatus,
   HarnessStatusResult,
@@ -54,6 +55,7 @@ export const IPC = {
   ConfigSave: 'config:save',
   PhotoImport: 'photo:import',
   CategoryCreate: 'category:create',
+  CategoryUpdate: 'category:update',
   CategoryDelete: 'category:delete',
   CategoryReorder: 'category:reorder',
   AgentCreate: 'agent:create',
@@ -480,6 +482,7 @@ export interface IpcInvokeMap {
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'photo:import': { req: PhotoImportRequest; res: PhotoImportResult };
   'category:create': { req: CategoryCreateInput; res: Category };
+  'category:update': { req: CategoryUpdateInput; res: Category };
   'category:delete': { req: { id: string }; res: void };
   'category:reorder': { req: CategoryReorderRequest; res: void };
   'agent:create': { req: AgentCreateInput; res: Agent };

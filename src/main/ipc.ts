@@ -24,6 +24,7 @@ import {
   reorderCategories,
   spawnAgentTemplate,
   updateAgent,
+  updateCategory,
 } from './identity';
 import { PtyManager } from './pty/PtyManager';
 import { isGitRepo } from './git/GitService';
@@ -169,6 +170,9 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   // Create category; persists via ConfigStore.
   handle(IPC.CategoryCreate, (input) => createCategory(store, input, scopes));
+
+  // Rename a category or set/remove its photo.
+  handle(IPC.CategoryUpdate, (input) => updateCategory(store, input));
 
   // Stop every owned PTY before removing config entries. User files stay put.
   handle(IPC.CategoryDelete, ({ id }) => {

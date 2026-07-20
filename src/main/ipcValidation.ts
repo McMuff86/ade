@@ -172,6 +172,15 @@ function validateCategoryCreate(channel: string, payload: unknown): void {
   if (request.kind !== undefined) enumValue(channel, request.kind, 'kind', CATEGORY_KINDS);
 }
 
+function validateCategoryUpdate(channel: string, payload: unknown): void {
+  const request = record(channel, payload);
+  exactKeys(channel, request, ['id', 'name', 'photo']);
+  id(channel, request.id, 'id');
+  stringValue(channel, request.name, 'name', { max: 200 });
+  // null removes the stored photo; a string must be a stored filename.
+  if (request.photo !== null) filename(channel, request.photo, 'photo');
+}
+
 function validateAgentInput(channel: string, payload: unknown, update: boolean): void {
   const request = record(channel, payload);
   const common = [
@@ -187,7 +196,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'defaultRepositoryId',
   ];
   const allowed = update
-    ? ['id', ...common]
+    ? ['id', ...common, 'homeExecutionBackend', 'homeWorkspaceDir', 'photo']
     : ['categoryId', ...common, 'photo', 'teamRole'];
   exactKeys(channel, request, allowed);
   id(channel, update ? request.id : request.categoryId, update ? 'id' : 'categoryId');
@@ -207,6 +216,14 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   }
   if (update && request.teamRole !== undefined) {
     enumValue(channel, request.teamRole, 'teamRole', TEAM_ROLES);
+  }
+  if (update) {
+    if (request.homeExecutionBackend !== undefined && !isExecutionBackendId(request.homeExecutionBackend)) {
+      invalid(channel, 'homeExecutionBackend must be "native" or "wsl:<distribution>"');
+    }
+    optionalString(channel, request.homeWorkspaceDir, 'homeWorkspaceDir', { max: 4_096, allowEmpty: true });
+    // null removes the stored photo; a string must be a stored filename.
+    if (request.photo !== null) filename(channel, request.photo, 'photo');
   }
   nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (!update) {
@@ -503,6 +520,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.CategoryCreate:
       validateCategoryCreate(channel, payload);
+      break;
+    case IPC.CategoryUpdate:
+      validateCategoryUpdate(channel, payload);
       return;
     case IPC.CategoryDelete:
     case IPC.AgentDelete:
