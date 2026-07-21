@@ -116,13 +116,26 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+.agent-avatar-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 5px 0 5px 7px;
+  border-radius: 8px;
+}
+
+.agent-avatar-btn:hover .avatar,
+.agent-avatar-btn:focus-visible .avatar {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .agent-row {
   display: flex;
   align-items: center;
   gap: 9px;
   min-width: 0;
   flex: 1;
-  padding: 5px 7px;
+  padding: 5px 7px 5px 9px;
   border-radius: 8px;
   text-align: left;
 }

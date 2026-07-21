@@ -7,6 +7,7 @@ import { runDiagnosticCommand } from '../src/main/diagnostics/RuntimeDiagnostics
 import { sessionExitNotice } from '../src/main/notificationPolicy';
 import { isSafeExternalUrl, isTrustedRendererUrl } from '../src/main/security';
 import { assertAllowedDashboardUrl, extractDashboardUrl } from '../src/main/dashboard/dashboardUrl';
+import { SESSION_COOKIE_TTL_SECONDS, toPersistentCookie } from '../src/main/dashboard/cookiePersistence';
 import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
 import type { SessionMeta } from '../src/shared/types';
 
@@ -288,6 +289,26 @@ check('dashboard target values are validated on agent:update',
     id: 'agent', name: 'Agent', runtime: 'shell', permissionMode: 'default',
     dashboardTarget: 'popup',
   }));
+
+const hostOnlySession = toPersistentCookie({
+  name: 'sid', value: 'abc', domain: 'host.tail.ts.net', path: '/', secure: true,
+  httpOnly: true, session: true, sameSite: 'lax',
+}, 1_000);
+const domainSession = toPersistentCookie({
+  name: 'sid', value: 'abc', domain: '.example.com', path: '/app', session: true,
+}, 1_000);
+check('dashboard session cookies gain a bounded expiry on persistence',
+  hostOnlySession?.expirationDate === 1_000 + SESSION_COOKIE_TTL_SECONDS
+    && hostOnlySession.url === 'https://host.tail.ts.net/'
+    && hostOnlySession.httpOnly === true
+    && hostOnlySession.sameSite === 'lax');
+check('host-only cookies stay host-only; domain cookies keep their domain',
+  hostOnlySession !== null && !('domain' in hostOnlySession)
+    && domainSession?.domain === '.example.com'
+    && domainSession.url === 'http://example.com/app');
+check('persistent or malformed cookies are left untouched',
+  toPersistentCookie({ name: 'sid', value: 'abc', domain: 'x.test', session: false }, 1_000) === null
+    && toPersistentCookie({ name: 'sid', value: 'abc', session: true }, 1_000) === null);
 
 const rendererHtml = readFileSync(join(process.cwd(), 'src/renderer/index.html'), 'utf8');
 check('renderer declares a default-deny CSP', rendererHtml.includes("default-src 'none'"));

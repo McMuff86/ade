@@ -7,6 +7,28 @@
 
 import { BrowserWindow, app, session, shell } from 'electron';
 import { isSafeExternalUrl } from '../security';
+import { toPersistentCookie, type StoredCookie } from './cookiePersistence';
+
+/**
+ * Electron drops session cookies on quit; dashboards that authenticate with
+ * them would demand a fresh login every launch. Rewrite them with a bounded
+ * expiry so the sign-in survives like it does in a regular browser.
+ */
+async function persistSessionCookies(partition: string): Promise<void> {
+  const dashboardSession = session.fromPartition(partition);
+  const cookies = await dashboardSession.cookies.get({});
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  for (const cookie of cookies) {
+    const persistent = toPersistentCookie(cookie as StoredCookie, nowSeconds);
+    if (!persistent) continue;
+    try {
+      await dashboardSession.cookies.set(persistent);
+    } catch (error) {
+      console.warn(`[ade] dashboard cookie persistence skipped ${cookie.name}:`, error);
+    }
+  }
+  await dashboardSession.cookies.flushStore();
+}
 
 interface DashboardEntry {
   win: BrowserWindow;
@@ -82,6 +104,15 @@ export class DashboardWindows {
       }
     });
     win.webContents.on('will-attach-webview', (event) => event.preventDefault());
+    // After every completed load (a login redirect included) and again on
+    // close, so quitting ADE with the window still open loses nothing.
+    const persist = (): void => {
+      void persistSessionCookies(partition).catch((error) => {
+        console.warn('[ade] dashboard cookie persistence failed:', error);
+      });
+    };
+    win.webContents.on('did-finish-load', persist);
+    win.on('close', persist);
     win.on('closed', () => {
       if (this.entries.get(agentId)?.win === win) this.entries.delete(agentId);
     });

@@ -43,6 +43,7 @@ export function Rail(): React.ReactElement {
   const openCategorySettings = useOnboarding((s) => s.openCategorySettings);
   const openNewAgent = useOnboarding((s) => s.openNewAgent);
   const openAgentSettings = useOnboarding((s) => s.openAgentSettings);
+  const openAgentCard = useOnboarding((s) => s.openAgentCard);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (id: string): void =>
@@ -181,14 +182,22 @@ export function Rail(): React.ReactElement {
                     >
                       <button
                         type="button"
-                        className="agent-row"
-                        aria-current={selected ? 'true' : undefined}
-                        onClick={() => setSelectedAgent(agent.id)}
+                        className="agent-avatar-btn"
+                        aria-label={`Agent card for ${agent.name}`}
+                        title="Agent card"
+                        onClick={() => openAgentCard(agent.id)}
                       >
                         <span className="agent-avatar-wrap">
                           <Avatar name={agent.name} photo={agent.photo} shape="round" size={26} seed={agent.id} />
                           <span className="presence" aria-hidden="true" />
                         </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="agent-row"
+                        aria-current={selected ? 'true' : undefined}
+                        onClick={() => setSelectedAgent(agent.id)}
+                      >
                         <span className="agent-name">
                           {agent.name}
                           {agent.role ? <span className="agent-role">{agent.role}</span> : null}

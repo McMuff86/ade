@@ -5,6 +5,7 @@
  */
 
 import { useAppData } from '../stores/appdata';
+import { AgentCardModal } from './AgentCardModal';
 import { EditAgentModal } from './EditAgentModal';
 import { EditCategoryModal } from './EditCategoryModal';
 import { NewAgentModal } from './NewAgentModal';
@@ -27,6 +28,10 @@ export function OnboardingModals(): React.ReactElement | null {
   if (open.kind === 'agentSettings') {
     const agent = agents[open.agentId];
     return agent ? <EditAgentModal agent={agent} onClose={close} /> : null;
+  }
+  if (open.kind === 'agentCard') {
+    const agent = agents[open.agentId];
+    return agent ? <AgentCardModal agent={agent} onClose={close} /> : null;
   }
   return <NewAgentModal onClose={close} categoryId={open.categoryId} />;
 }

@@ -481,9 +481,16 @@ async function run(): Promise<void> {
   let wslBindingIdsBeforeRestart: string[] = [];
   const wslWorktreeContainers: string[] = [];
   // Loopback page standing in for an agent's web dashboard (Control UI).
-  const dashboardServer: Server = createServer((_req, res) => {
-    res.writeHead(200, { 'content-type': 'text/html' });
-    res.end('<!doctype html><title>fixture</title><h1>ADE_DASHBOARD_FIXTURE_OK</h1>');
+  // It authenticates like Hermes does: an expiry-less session cookie.
+  const dashboardServer: Server = createServer((req, res) => {
+    res.writeHead(200, {
+      'content-type': 'text/html',
+      'set-cookie': 'ade_dash_sid=fixture; HttpOnly',
+    });
+    res.end(
+      '<!doctype html><title>fixture</title><h1>ADE_DASHBOARD_FIXTURE_OK</h1>'
+      + `<p id="echo">cookies: ${req.headers.cookie ?? '(none)'}</p>`,
+    );
   });
   const dashboardPort: number = await new Promise((resolvePort, rejectPort) => {
     dashboardServer.once('error', rejectPort);
@@ -638,7 +645,7 @@ async function run(): Promise<void> {
     await agentDialog.waitFor({ state: 'hidden' });
     await eventually('the saved profile photo reaches the rail avatar', async () => {
       const src = await page!
-        .locator('.agent-row', { hasText: 'E2E Shell' })
+        .locator('.agent-entry', { hasText: 'E2E Shell' })
         .locator('.avatar img')
         .getAttribute('src')
         .catch(() => null);
@@ -738,12 +745,47 @@ async function run(): Promise<void> {
     await eventually('same-origin dashboard navigation stays inside the window', async () =>
       dashboardPage.url() === `http://127.0.0.1:${dashboardPort}/second`);
     await dashboardPage.close();
+    await eventually('dashboard session cookies become persistent for the next launch', async () => {
+      const cookie = await app!.evaluate(async ({ session }) => {
+        const cookies = await session
+          .fromPartition('persist:ade-dashboard-e2e-agent')
+          .cookies.get({ name: 'ade_dash_sid' });
+        return cookies[0] ? { value: cookies[0].value, session: cookies[0].session } : null;
+      });
+      return cookie?.value === 'fixture' && cookie.session === false;
+    });
+    const dashboardReopenPromise = app.waitForEvent('window', { timeout: 30_000 });
+    await page.locator('.tab-dashboard').click();
+    const reopenedDashboard = await dashboardReopenPromise;
+    await reopenedDashboard.waitForLoadState('domcontentloaded');
+    check('a reopened dashboard is still signed in',
+      ((await reopenedDashboard.textContent('#echo')) ?? '').includes('ade_dash_sid=fixture'));
+    await reopenedDashboard.close();
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
     const dashboardCleanupDialog = page.getByRole('dialog', { name: 'Agent settings' });
     await dashboardCleanupDialog.waitFor({ state: 'visible' });
     await dashboardCleanupDialog.locator('#edit-agent-dash-cmd').fill('');
     await dashboardCleanupDialog.getByRole('button', { name: 'Save', exact: true }).click();
     await dashboardCleanupDialog.waitFor({ state: 'hidden' });
+
+    // Agent card: clicking the rail avatar opens the identity at a glance.
+    await page.getByRole('button', { name: 'Agent card for E2E Shell' }).click();
+    const agentCard = page.getByRole('dialog', { name: 'E2E Shell' });
+    await agentCard.waitFor({ state: 'visible' });
+    const agentCardText = (await agentCard.textContent()) ?? '';
+    check('the agent card shows the portrait, live status and key specs',
+      await agentCard.locator('.agent-card-portrait').count() === 1
+        && agentCardText.includes('session running')
+        && agentCardText.includes('Runtime')
+        && agentCardText.includes('Start command')
+        && agentCardText.includes('Portable (no default)'));
+    await agentCard.getByRole('button', { name: 'Agent settings' }).click();
+    const cardSettingsDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await cardSettingsDialog.waitFor({ state: 'visible' });
+    check('the agent card hands over to Agent settings in one click',
+      await cardSettingsDialog.locator('#edit-agent-name').inputValue() === 'E2E Shell');
+    await cardSettingsDialog.getByRole('button', { name: 'Cancel' }).click();
+    await cardSettingsDialog.waitFor({ state: 'hidden' });
 
     const scopeHeader = page.locator('[data-testid="repository-scope"]');
     await eventually('plain session visibly reports its portable repository scope', async () => {

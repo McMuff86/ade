@@ -11,12 +11,23 @@ interface ModalProps {
   subtitle?: string;
   onClose: () => void;
   children: ReactNode;
+  /** Rendered above the title (e.g. a large avatar on the agent card). */
+  lead?: ReactNode;
+  /** Extra class on the dialog for purpose-specific styling. */
+  className?: string;
 }
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function Modal({ title, subtitle, onClose, children }: ModalProps): React.ReactElement {
+export function Modal({
+  title,
+  subtitle,
+  onClose,
+  children,
+  lead,
+  className,
+}: ModalProps): React.ReactElement {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
 
@@ -59,7 +70,7 @@ export function Modal({ title, subtitle, onClose, children }: ModalProps): React
       }}
     >
       <div
-        className="modal"
+        className={className ? `modal ${className}` : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -67,6 +78,7 @@ export function Modal({ title, subtitle, onClose, children }: ModalProps): React
         ref={dialogRef}
         onKeyDown={onKeyDown}
       >
+        {lead}
         <h2 id={titleId}>{title}</h2>
         {subtitle ? <div className="modal-sub">{subtitle}</div> : null}
         {children}
