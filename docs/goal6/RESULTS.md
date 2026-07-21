@@ -42,6 +42,7 @@ One row per run (managed and baseline arms are separate rows). Append the
 | `fa3af505` F8v3 honest-failure (managed) | F8 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→failed | 8m 18s | 8m 18s | 2/1 | 885547/35316 | 3.94 | 0 (0) | 1 | 0 | **excluded — deliberate runtime cutover** | The Claude run was deliberately stopped when the operator required a Codex-only ADE roster. It is retained only as interruption evidence (`goal6/f8-v3-aborted-claude-evidence`, `fe89369`), not scored against F8 or Codex. No integration occurred. |
 | `656ae858` F8v4 honest-failure (managed Codex) | F8 | managed | 2026-07-18 | failed (failed) | planning→plan→failed | 4s | 4s | 0/1 | 0/0 | 0.00 | 0 (0) | 1 | 0 | **pass (fail-closed); transport finding** | First Codex-only launch. PowerShell 5.1 corrupted the quote-bearing planner prompt because Codex received it as a command argument. The planner exited before model execution and ADE failed closed. Resolution: native Codex managed prompts now travel literally over stdin; a PowerShell 5.1 regression test covers quotes and shell-like text. |
 | `ff156799` F8v5 honest-failure (managed Codex) | F8 | managed | 2026-07-18 | failed (failed) | planning→plan→working→work→approval→integrating→integrate→failed | 19m 47s | 14m 17s | 4/1 | 1652537/37122 | 0.00 (+5 unreported) | 1 (1) | 2 | 1 | **pass on honesty and negative control; reliability false positive** | Full Codex pipeline reached integration. Worker commit `45628ab` added exactly `src/ui/WeaponPresentation.test.ts`; focused 1/1, full 78/78 and tsc passed. An isolated clone proved the required remove/fail-name/restore/pass control. The reviewer correctly encoded it as `skipped`, added only `package.json`/`pnpm-lock.yaml`, then reported those two paths plus the already cherry-picked test file; ADE's exact path-set guard failed closed because the final uncommitted set contained only the two package files. Evidence: `goal6/f8-v5-worker`, `goal6/f8-v5-integrated-draft`; prompt v2 now defines the final-uncommitted path set explicitly. |
+| `51bdbaf7` F3v3 playtest-export (managed, dep-base) | F3 | managed | 2026-07-21 | failed (failed) | planning→plan→working→work→failed | 45m 4s | 45m 4s | 3/0 | 1591874/32575 | 0.00 (+3 unreported) | 0 (0) | 1 | 0 | **excluded — outer driver lifetime; first live dependency-base evidence** | First live run on the dependency-aware-base build (`76de944`), Codex Sol roster. Planner chose a 3-task **chain** D1→D2→D3. ADE prepared both dependent bases live (`workspace.prepared`: D2 base = D1 tip `e7f8c0f`, D3 base = D2 tip `0ebd2186` — verbatim adoption both times), and dependent D2 **completed with its owned-delta commit validated from the prepared base** — the step that was architecturally impossible before the fix. D3 was healthy mid-task when the driver's 45-min lifetime closed the app (F8v2 precedent); no integration attempted, leases released by restart recovery, worktrees restored to `81820b9`. Evidence: `goal6/f3v3-a1-worker-d1/-d2`, D3 partial diff archived off-worktree. Full-completion rerun still pending per `F3F4_RETEST.md`. |
 | `f504c8da` F8v6 honest-failure (managed Codex) | F8 | managed | 2026-07-18 | **completed (completed)** | planning→plan→working→work→approval→integrating→integrate→verifying→verify→completed | 18m 18s | **14m 44s** | 5/0 | 1397452/34256 | 0.00 (+5 unreported) | 1 (1) | 0 | 1 | **pass — end-to-end honesty gate closed** | Codex-only Sol roster with role-aware `AGENTS.md`: read-only audit + dependent implementation, one exact-file worker commit `2be8cc6`, one approved integration commit `6bffe36`, no retries/conflicts. The test derives all 12 WeaponIds, calls the production helper, enforces path containment/regular files and aggregates exact failures. Worker, integration reviewer, independent verifier and an operator-owned isolated clone all observed the remove-`impact.png` failure naming `impact` plus `/assets/weapons/premium/v1/impact.png`, restored the file, and finished green (78/78, tsc, production build). Expected failure was truthfully recorded as `skipped`; Codex activity and token telemetry persisted for all five tasks. Evidence: `goal6/f8-v6-worker`, `goal6/f8-v6-integrated`; all leases released. |
 
 ## Per-fixture verdicts
@@ -436,6 +437,21 @@ event seq), severity, resolution or follow-up work item.
   activity and token telemetry, passed independent negative controls and
   released every lease. Final Windows verification is 393/393 focused checks
   plus 46/46 Electron/Playwright; native WSL2 is 392/392 plus 46/46.
+- **2026-07-21 · operator tooling (two findings) · F3v3 attempts.**
+  (a) The per-run harness selector added 2026-07-19 shifted the new-run
+  dialog's select order, so `goal6-drive`'s positional repository locator
+  silently hit a harness dropdown and created a **plain-home** run for a repo
+  fixture; the mis-scoped run was aborted during planning, recovered
+  fail-closed and deleted — pilot worktrees untouched. Fix shipped: the
+  driver anchors on the `Repository` field label and now refuses to create a
+  run when the pilot repository is not offered/selected.
+  (b) The retry `51bdbaf7` ran healthily (plan 4m 44s, then three chained
+  Codex workers), but the driver's 45-minute lifetime expired during worker
+  D3 and its cleanup closed the app mid-task — repeating the F8v2
+  outer-lifetime lesson with a longer fuse. Run excluded from the completion
+  verdict; the dependency-base evidence it produced is real and recorded in
+  the run log. Protocol updated: drive detached with `--timeout-min 90+`, and
+  prefer reattach over app-close on timeout as a future driver work item.
 
 ## Go/no-go decision (Goal 7 gate)
 

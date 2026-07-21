@@ -221,11 +221,22 @@ async function createRun(app: ElectronApplication, page: Page, options: Options,
   if (options.orchestrator) {
     await modal.locator('select').first().selectOption({ label: options.orchestrator });
   }
-  const repoSelect = modal.locator('select').nth(1);
+  // Anchor on the field label, never on select order: the per-run harness
+  // choice inserts selects before the repository field (learned 2026-07-21
+  // when nth(1) silently hit the orchestrator harness select and produced a
+  // plain-home run for a repo fixture).
+  const repoSelect = modal
+    .locator('label.grun-field')
+    .filter({ has: page.getByText('Repository', { exact: true }) })
+    .locator('select');
   const repoLabels = await repoSelect.locator('option').allInnerTexts();
   const repoLabel = repoLabels.find((label) => label.includes('2D_rpg_jumpnrun') || label.includes('2d_rpg'));
   check('pilot repository offered', Boolean(repoLabel), repoLabels);
-  await repoSelect.selectOption({ label: repoLabel! });
+  if (!repoLabel) {
+    throw new Error('goal6-drive: pilot repository not offered; refusing to create a mis-scoped run');
+  }
+  await repoSelect.selectOption({ label: repoLabel });
+  check('pilot repository selected', (await repoSelect.locator('option:checked').innerText()) === repoLabel);
 
   for (const agent of options.agents) {
     // exact-name filter: hasText is a substring match and would hit

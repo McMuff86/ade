@@ -33,6 +33,24 @@ the still-pending **live managed** re-proof against the Goal 6 pilot repo.
   conflicting-producers negative control fails closed before the consumer
   launches with worktree restore and lease release.
 
+## Live attempt 2026-07-21 (`51bdbaf7`) — partial confirmation, rerun pending
+
+The first live F3 attempt on build `76de944` confirmed the mechanism in the
+real app with real Codex workers: the planner chose a 3-task chain D1→D2→D3,
+`workspace.prepared` fired for both dependent tasks with verbatim upstream
+adoption (D2 base = D1 tip, D3 base = D2 tip), and dependent D2 completed
+with its owned-delta commit validated from the prepared base. The run is
+nevertheless **excluded** for the completion verdict: the operator driver's
+45-minute lifetime closed the app while D3 was mid-task, so integration and
+verification never ran (details in `RESULTS.md`). What remains open is
+therefore only the completion half: integration + verification of a live
+dependent topology.
+
+Driver lessons folded into the protocol below: launch the driver detached
+from any tool/session lifetime, size `--timeout-min` to 90+ for Codex worker
+phases, and treat a driver timeout as "reattach later", never as app-close
+(driver work item).
+
 ## Live fixture protocol
 
 Preconditions (unchanged from `VALIDATION_PLAN.md`):

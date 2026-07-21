@@ -109,8 +109,10 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
   never duplicated; conflicting parent deltas fail the run closed before the
   dependent launches. This closes the Goal 6 F3/F4 add/add-union failure mode
   and is proven by focused real-Git coordinator tests that reconstruct the
-  2-producer→1-consumer topology; a live managed Goal-6-style fixture rerun is
-  still pending (protocol: `docs/goal6/F3F4_RETEST.md`). Base preparation and
+  2-producer→1-consumer topology. A first live Codex run (`51bdbaf7`)
+  confirmed prepared bases and dependent-worker completion in the real app but
+  was interrupted by operator tooling before integration; a completed live
+  rerun is still pending (protocol: `docs/goal6/F3F4_RETEST.md`). Base preparation and
   integration cherry-picks require a resolvable Git committer identity in the
   repository's backend, as integration always has.
 - Git integration requires each changing worker to report every changed path
