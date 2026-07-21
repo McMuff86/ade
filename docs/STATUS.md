@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-07-19. This is the short, factual capability matrix. Product
+Status date: 2026-07-21. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -36,13 +36,13 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next and direct session shortcuts |
 | Background notifications | Real | Native task completion/failure and abnormal interactive-exit notifications when ADE is unfocused |
 | Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; exact sender and payload validation on every invoke |
-| Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap |
+| Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap and prepares each dependent repo-backed worker's worktree with its dependencies' validated commits before launch |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
 | Worktree ownership | Real, trust-mode dependent | Clean workspaces are leased exclusively and ADE commits only an exact reported/observed path-set match; normal adapter roots exclude linked-worktree metadata, while an explicitly selected bypass runtime is fully trusted and violations are detected at task boundaries rather than OS-prevented |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Verified Draft-PR publishing | Real, local and explicit | A completed repo-backed managed run atomically attests its final verified HEAD; Graph rechecks clean/same worktree, unchanged GitHub base, generated `ade/**` ref and `gh` access, then a separate confirmation creates only a new branch plus Draft PR and journals the result |
-| Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; the planner is told dependent workers inherit no upstream code |
+| Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; planner and dependent workers are told the dependent worktree already contains upstream validated commits |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, 409 focused checks, 47-check Electron/Playwright under Xvfb, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
@@ -101,18 +101,24 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 - Codex reports token usage in native JSONL but no billed USD. Cost budgets are
   therefore unavailable for that adapter until the CLI/provider reports cost;
   custom wrappers may supply trusted token/cost fields through the file result.
-- Dependency edges currently forward validated result/context data, not an
-  upstream worker's Git state: every worker worktree starts from the run base.
-  Goal 6 F3/F4 proved that a dependent worker which re-authors upstream files
-  can produce divergent add/add or union commits that fail integration. Until
-  worker-base/patch ownership is redesigned, planners must keep code-changing
-  assignments independent or give one worker end-to-end ownership.
+- Dependency edges transfer Git state: before a dependent repo-backed worker
+  launches, ADE prepares its leased worktree with its dependencies' validated
+  commits (first parent adopted verbatim, further parents replayed as owned
+  deltas in assignment order) and persists the prepared base on the task.
+  Validation and integration count only owned deltas, so upstream ranges are
+  never duplicated; conflicting parent deltas fail the run closed before the
+  dependent launches. This closes the Goal 6 F3/F4 add/add-union failure mode
+  and is proven by focused real-Git coordinator tests that reconstruct the
+  2-producer→1-consumer topology; a live managed Goal-6-style fixture rerun is
+  still pending (protocol: `docs/goal6/F3F4_RETEST.md`). Base preparation and
+  integration cherry-picks require a resolvable Git committer identity in the
+  repository's backend, as integration always has.
 - Git integration requires each changing worker to report every changed path
   and leave HEAD untouched. ADE refuses a report/diff mismatch, creates the
   commit with hooks and signing disabled, and transactionally cherry-picks the
-  validated linear ranges. Merge commits are rejected and a conflict aborts
-  the whole sequence. The beta caps one worker range at 50 and one run
-  integration at 200 commits.
+  validated linear ranges from each task's owned base. Merge commits are
+  rejected and a conflict aborts the whole sequence. The beta caps one worker
+  range at 50 and one run integration at 200 commits.
 - Plain-workspace runs keep the same plan/result/approval/verification control
   plane but can only reconcile reports; they do not claim git integration.
 - Verified publishing currently supports only a GitHub `origin` plus an

@@ -1,5 +1,5 @@
 Run goal: Improve the sample feature end to end
-Run context (manifest 8dcc9f8821fd56d5, context builder v2):
+Run context (manifest 48281d413983a13d, context builder v2):
 - Repository: fixture-repo | branch ade/fixture | base 0123456789ab
 - Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
 - Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"
@@ -13,7 +13,7 @@ Implement the sample feature in src/feature.ts and cover it with a focused test.
 Acceptance criteria:
 - Focused test passes
 - No unrelated files change
-Your assignment depends on other tasks. Their validated structured results are in TASK_CONTEXT.json inside your ADE task directory (ADE_TASK_DIR). You do NOT inherit their code changes: your worktree starts from the run base commit, so rely only on the reported results, not on their files.
+Your assignment depends on other tasks. Their validated structured results are in TASK_CONTEXT.json inside your ADE task directory (ADE_TASK_DIR), and your worktree ALREADY CONTAINS their validated commits: ADE prepared your base on top of their work. Build on those files directly and do not re-create or re-apply anything your dependencies delivered.
 Work only in your leased workspace. Inspect existing conventions before editing.
 Run focused verification and report the exact repository-relative paths you changed.
 Do not run git add, git commit, reset, checkout, rebase, merge, or push. Return commitSha=null; ADE validates the exact diff and creates the task commit.

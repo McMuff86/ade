@@ -1,5 +1,5 @@
 Run goal: Improve the sample feature end to end
-Run context (manifest 8dcc9f8821fd56d5, context builder v2):
+Run context (manifest 48281d413983a13d, context builder v2):
 - Repository: fixture-repo | branch ade/fixture | base 0123456789ab
 - Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
 - Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"
@@ -8,7 +8,7 @@ Run context (manifest 8dcc9f8821fd56d5, context builder v2):
   - p-orchestrator | Conductor | orchestrator | codex | model gpt-5.6-sol | reasoning xhigh | adapter codex-jsonl-v1 | tokens yes | cost no
   - p-worker-1 | Builder One | worker | team Core | codex | model gpt-5.6-sol | reasoning high | adapter codex-jsonl-v1 | tokens yes | cost no
   - p-worker-2 | Builder Two | worker | team Core | claude | adapter file-mailbox-v1 | tokens no | cost no
-Run context manifest: 8dcc9f8821fd56d5 (full manifest in your TASK_CONTEXT.json).
+Run context manifest: 48281d413983a13d (full manifest in your TASK_CONTEXT.json).
 ADE already cherry-picked 2 validated worker commit(s) into this integration worktree.
 Review the combined result for conflicts, missing behavior, security regressions, and consistency.
 Run relevant focused tests. Fix integration-only issues if needed.

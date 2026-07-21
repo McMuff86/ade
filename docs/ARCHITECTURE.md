@@ -214,7 +214,7 @@ interface RunTask { id: string; runId: string; participantId: string;
                     managed: boolean; dependsOn: string[];
                     status: RunTaskStatus; sessionId?: string;
                     repositoryId?: string | null; workspaceBindingId?: string;
-                    workspaceDir?: string }
+                    workspaceDir?: string; preparedBaseSha?: string }
 interface AgentTemplate { id: string; name: string; runtime: RuntimeId;
                           permissionMode: PermissionMode;
                           codexModel?: string;
@@ -390,13 +390,28 @@ reproducibility guarantees.
   validates participant ids and an acyclic dependency graph, then starts only
   the worker tasks whose dependencies are complete and whose run concurrency
   slot is available. The global four-PTY queue remains an independent ceiling.
-- A dependency currently forwards validated result/context data only; it does
-  not rebase the dependent participant's isolated worktree onto an upstream
-  worker commit. All participants retain the common leased base. Goal 6 F3/F4
-  proved that dependent code tasks which duplicate upstream files can produce
-  structurally valid but non-integrable add/add or union commits. Until a
-  controlled worker-base/patch-ownership design ships, safe plans keep changing
-  tasks independent or assign the dependent vertical slice to one owner.
+- A dependency transfers Git state, not just result/context data. All
+  repo-backed leases share one Git common directory and base HEAD, so upstream
+  ADE-authored commits are already reachable objects in every linked worktree
+  and preparation only moves refs. Before a dependent work task launches, ADE
+  prepares its leased worktree from the run base: the first contributing
+  dependency is adopted verbatim (`reset --hard`, identical SHAs) and every
+  further dependency replays only its owned delta in work-task creation order
+  (the plan's assignment order), skipping already-reachable commits so diamond
+  graphs never duplicate work. The resulting HEAD is persisted on the task as
+  `preparedBaseSha` and journaled as a `workspace.prepared` event. A
+  dependency without a commit contributes information only. Conflicting
+  dependency deltas abort the replay, restore the run base and fail the run
+  closed with the Git reason journaled before the dependent ever launches —
+  ADE never merge-guesses a base.
+- Patch ownership follows from inheritance: a work task's owned delta is
+  `preparedBaseSha..tip` (run base when no preparation happened). A dependent
+  worker may modify files its dependencies changed — those are ordinary
+  descendant edits, which removes the Goal 6 F3/F4 re-author/union failure
+  mode — while parallel siblings keep the transactional cherry-pick contract
+  for overlapping paths. Validation and integration operate exclusively on
+  owned deltas, so an inherited upstream range is never counted against the
+  50/200 commit caps twice and never integrated twice.
 - Every managed task must produce `StructuredTaskResult` version 1. The schema
   includes outcome, summary, worker assignments, changed files, real test
   command/status/output entries, commit SHA, risks and nullable usage. For
@@ -445,11 +460,13 @@ reproducibility guarantees.
   untracked Git changes, rejects omissions/additions/conflicts, stages with a
   NUL-delimited pathspec, disables repository hooks/signing, and creates the
   task commit itself. It then validates the clean worktree and complete linear
-  range from the leased base before requesting durable integration approval.
-  Approval triggers one cherry-pick sequencer transaction in the orchestrator
-  worktree; any conflict aborts the full range. An integration-review task may
-  add a similarly ADE-validated commit, followed by a read-only verification
-  task.
+  range from the task's owned base (its prepared dependency base, or the
+  leased run base) before requesting durable integration approval. Approval
+  triggers one cherry-pick sequencer transaction in the orchestrator worktree,
+  replaying owned deltas in work-task creation order so dependencies precede
+  their dependents; any conflict aborts the full range. An integration-review
+  task may add a similarly ADE-validated commit, followed by a read-only
+  verification task.
 - Concurrency and approval limits are always enforceable. Token/cost limits are
   accepted only for adapters advertising that telemetry, and missing values
   fail closed. Exact usage is enforced at task-completion boundaries because

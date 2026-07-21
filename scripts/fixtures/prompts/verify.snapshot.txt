@@ -1,5 +1,5 @@
 Run goal: Improve the sample feature end to end
-Run context (manifest 8dcc9f8821fd56d5, context builder v2):
+Run context (manifest 48281d413983a13d, context builder v2):
 - Repository: fixture-repo | branch ade/fixture | base 0123456789ab
 - Instruction files (authoritative, read them first): CLAUDE.md (sha256 6542bc69f6a3, 40 chars), AGENTS.md (sha256 162d8622e674, 51 chars)
 - Package scripts: test: "tsx scripts/test.ts"; typecheck: "tsc --noEmit"; build: "vite build"

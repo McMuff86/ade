@@ -10,8 +10,8 @@ import type { Run, RunParticipant, StructuredTaskResult } from '../../shared/typ
 
 /** Bump the phase entry whenever that prompt's rendered content changes. */
 export const PROMPT_VERSIONS = {
-  plan: 1,
-  work: 1,
+  plan: 2,
+  work: 2,
   integrate: 2,
   verify: 1,
 } as const;
@@ -51,9 +51,11 @@ export function planningPrompt(
     ...(context.brief ? [context.brief] : []),
     'Create worker-specific, non-overlapping assignments using only the participant IDs below.',
     'Use dependsOn only for genuine sequencing. Every assignment needs concrete acceptance criteria and verification.',
-    'Dependent workers do NOT inherit upstream code: every worker starts from the same base commit in its own ' +
-    'isolated worktree. dependsOn only orders execution and forwards the upstream structured result as ' +
-    'information, so a dependent assignment must not assume upstream file changes exist in its worktree.',
+    'Dependent workers DO inherit upstream code: before a dependsOn assignment starts, ADE prepares its ' +
+    'isolated worktree to already contain every dependency\'s validated commits, replayed in assignment order. ' +
+    'A dependent assignment may therefore build on and modify files its dependencies changed, and must not ' +
+    're-create them from scratch. If two dependencies of one assignment change the same content divergently, ' +
+    'base preparation fails the run closed — keep parallel assignments mergeable or sequence them with dependsOn.',
     'Return one assignment per selected participant; do not assign the orchestrator.',
     'Eligible participants:',
     ...eligible.map((participant) =>
@@ -77,8 +79,9 @@ export function workerPrompt(
     ...(context.hasDependencies
       ? [
           'Your assignment depends on other tasks. Their validated structured results are in TASK_CONTEXT.json ' +
-          'inside your ADE task directory (ADE_TASK_DIR). You do NOT inherit their code changes: your worktree ' +
-          'starts from the run base commit, so rely only on the reported results, not on their files.',
+          'inside your ADE task directory (ADE_TASK_DIR), and your worktree ALREADY CONTAINS their validated ' +
+          'commits: ADE prepared your base on top of their work. Build on those files directly and do not ' +
+          're-create or re-apply anything your dependencies delivered.',
         ]
       : []),
     'Work only in your leased workspace. Inspect existing conventions before editing.',

@@ -1188,6 +1188,37 @@ export class OrchestrationService {
     return { ...message };
   }
 
+  /**
+   * Persist the dependency-aware base ADE prepared for one work task, in the
+   * same save as its journal event. The owned delta of that task is validated
+   * from this SHA instead of the run base; setting it twice with a different
+   * value is a contract violation and fails closed.
+   */
+  setTaskPreparedBase(runId: string, taskId: string, preparedBaseSha: string): RunTask {
+    const config = this.store.get();
+    const task = config.runTasks.find((candidate) => candidate.id === taskId && candidate.runId === runId);
+    if (!task) throw new Error(`ade: run task not found "${taskId}"`);
+    if (!GIT_OBJECT_ID.test(preparedBaseSha)) {
+      throw new Error('ade: prepared dependency base must be a full Git object id');
+    }
+    if (task.preparedBaseSha && task.preparedBaseSha !== preparedBaseSha) {
+      throw new Error('ade: a task dependency base cannot be re-prepared to a different commit');
+    }
+    const now = Date.now();
+    const updated: RunTask = { ...task, preparedBaseSha, updatedAt: now };
+    this.store.save({
+      runTasks: config.runTasks.map((candidate) => candidate.id === taskId ? updated : candidate),
+      runEvents: [...config.runEvents, this.event(runId, 'workspace.prepared', {
+        taskId,
+        participantId: task.participantId,
+        at: now,
+        data: { preparedBaseSha },
+      })],
+    });
+    this.emit();
+    return { ...updated, dependsOn: [...updated.dependsOn] };
+  }
+
   markIntegrationApplied(runId: string, commitCount: number): void {
     const config = this.store.get();
     this.store.save({

@@ -81,7 +81,7 @@ export function normalizeConfig(
     }),
     runParticipants: arrayOrEmpty(raw.runParticipants),
     runTasks: arrayOrEmpty(raw.runTasks).map((task) => {
-      const { expectedHeadSha, ...legacyTask } = task;
+      const { expectedHeadSha, preparedBaseSha, ...legacyTask } = task;
       return {
         ...legacyTask,
         title: task.title ?? task.prompt.slice(0, 80),
@@ -90,6 +90,7 @@ export function normalizeConfig(
         dependsOn: arrayOrEmpty(task.dependsOn),
         attempt: task.attempt ?? 1,
         ...(isGitObjectId(expectedHeadSha) ? { expectedHeadSha } : {}),
+        ...(isGitObjectId(preparedBaseSha) ? { preparedBaseSha } : {}),
       };
     }),
     runEvents: arrayOrEmpty(raw.runEvents),
@@ -147,7 +148,9 @@ export function normalizeConfig(
       raw.runTasks?.[index]?.dependsOn === undefined ||
       task.attempt !== raw.runTasks?.[index]?.attempt ||
       (raw.runTasks?.[index]?.expectedHeadSha !== undefined
-        && task.expectedHeadSha !== raw.runTasks[index]!.expectedHeadSha)
+        && task.expectedHeadSha !== raw.runTasks[index]!.expectedHeadSha) ||
+      (raw.runTasks?.[index]?.preparedBaseSha !== undefined
+        && task.preparedBaseSha !== raw.runTasks[index]!.preparedBaseSha)
     ));
 
   if (!hadRunSchema) {

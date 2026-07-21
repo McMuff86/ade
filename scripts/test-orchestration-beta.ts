@@ -105,6 +105,14 @@ class FakeWorkspaces implements WorkspacePort {
     this.integrations += 1;
     return commits.length;
   }
+
+  async prepareDependencyBase(
+    workspaceDir: string,
+    runBaseSha: string,
+    _parents: Array<{ tipSha: string; ownBaseSha: string }>,
+  ): Promise<string> {
+    return (await this.inspect(workspaceDir)).headSha || runBaseSha;
+  }
 }
 
 class RepoWorkspaces extends FakeWorkspaces {
@@ -1115,6 +1123,368 @@ async function realGitIntegrationChecks(root: string): Promise<void> {
     git(conflictRepo, ['status', '--porcelain']).trim() === '');
 }
 
+/**
+ * Dependency-aware worktree bases at the WorkspaceService level. The positive
+ * cases would have failed before the fix (no preparation existed: dependents
+ * started from the run base and re-authored upstream files); the negative
+ * cases pin the fail-closed contract for divergent duplication and for
+ * conflicting parent bases.
+ */
+async function dependencyBaseWorkspaceChecks(root: string): Promise<void> {
+  console.log('\n== dependency-aware worktree base preparation ==');
+  const workspace = new WorkspaceService();
+  const repo = join(root, 'dep-repo');
+  mkdirSync(repo, { recursive: true });
+  git(repo, ['init', '--initial-branch=main']);
+  git(repo, ['config', 'user.email', 'ade-test@example.invalid']);
+  git(repo, ['config', 'user.name', 'ADE test']);
+  writeFileSync(join(repo, 'base.txt'), 'base\n', 'utf8');
+  git(repo, ['add', 'base.txt']);
+  git(repo, ['commit', '-m', 'dependency base']);
+  const baseSha = git(repo, ['rev-parse', 'HEAD']).trim();
+  const worktree = (name: string): string => {
+    const dir = join(root, `dep-${name}`);
+    git(repo, ['worktree', 'add', '-b', `dep-${name}`, dir, baseSha]);
+    return dir;
+  };
+  const read = (dir: string, file: string): string =>
+    readFileSync(join(dir, file), 'utf8').replace(/\r\n/g, '\n');
+
+  const producerOne = worktree('p1');
+  mkdirSync(join(producerOne, 'src'), { recursive: true });
+  writeFileSync(join(producerOne, 'src', 'alpha.txt'), 'alpha v1\n', 'utf8');
+  const producerOneTip = (await workspace.commitChanges(producerOne, baseSha, ['src/alpha.txt'], 'ADE work: alpha'))!;
+  const producerTwo = worktree('p2');
+  mkdirSync(join(producerTwo, 'src'), { recursive: true });
+  writeFileSync(join(producerTwo, 'src', 'beta.txt'), 'beta v1\n', 'utf8');
+  const producerTwoTip = (await workspace.commitChanges(producerTwo, baseSha, ['src/beta.txt'], 'ADE work: beta'))!;
+
+  const dirty = worktree('dirty');
+  writeFileSync(join(dirty, 'stray.txt'), 'stray\n', 'utf8');
+  let dirtyRefused = '';
+  try {
+    await workspace.prepareDependencyBase(dirty, baseSha, [{ tipSha: producerOneTip, ownBaseSha: baseSha }]);
+  } catch (error) {
+    dirtyRefused = errorText(error);
+  }
+  check('a dirty worktree refuses dependency base preparation', dirtyRefused.includes('clean worktree'));
+  const moved = worktree('moved');
+  git(moved, ['reset', '--hard', producerOneTip]);
+  let movedRefused = '';
+  try {
+    await workspace.prepareDependencyBase(moved, baseSha, [{ tipSha: producerOneTip, ownBaseSha: baseSha }]);
+  } catch (error) {
+    movedRefused = errorText(error);
+  }
+  check('a worktree away from the run base refuses preparation', movedRefused.includes('run base HEAD'));
+
+  const consumer = worktree('consumer');
+  const prepared = await workspace.prepareDependencyBase(consumer, baseSha, [
+    { tipSha: producerOneTip, ownBaseSha: baseSha },
+    { tipSha: producerTwoTip, ownBaseSha: baseSha },
+  ]);
+  check('preparation adopts the first parent verbatim and replays the second',
+    isAncestorSync(consumer, producerOneTip, 'HEAD') &&
+    read(consumer, 'src/alpha.txt') === 'alpha v1\n' &&
+    read(consumer, 'src/beta.txt') === 'beta v1\n' &&
+    git(consumer, ['rev-parse', 'HEAD']).trim() === prepared &&
+    git(consumer, ['status', '--porcelain']).trim() === '');
+
+  writeFileSync(join(consumer, 'src', 'alpha.txt'), 'alpha v1\nconsumer extension\n', 'utf8');
+  writeFileSync(join(consumer, 'src', 'gamma.txt'), 'gamma uses alpha and beta\n', 'utf8');
+  const consumerTip = (await workspace.commitChanges(
+    consumer, prepared, ['src/alpha.txt', 'src/gamma.txt'], 'ADE work: consumer',
+  ))!;
+  const consumerRange = await workspace.validateCommit(consumer, prepared, consumerTip);
+  check('the dependent owns exactly its delta from the prepared base', consumerRange.length === 1);
+
+  const integration = worktree('integration');
+  const producerOneRange = await workspace.validateCommit(producerOne, baseSha, producerOneTip);
+  const producerTwoRange = await workspace.validateCommit(producerTwo, baseSha, producerTwoTip);
+  const applied = await workspace.integrateCommits(
+    integration, [...producerOneRange, ...producerTwoRange, ...consumerRange],
+  );
+  check('owned deltas integrate exactly once into the expected union',
+    applied === 3 &&
+    read(integration, 'src/alpha.txt') === 'alpha v1\nconsumer extension\n' &&
+    read(integration, 'src/beta.txt') === 'beta v1\n' &&
+    read(integration, 'src/gamma.txt') === 'gamma uses alpha and beta\n' &&
+    git(integration, ['rev-list', '--count', `${baseSha}..HEAD`]).trim() === '3' &&
+    git(integration, ['status', '--porcelain']).trim() === '');
+
+  // F3 failure-mode reconstruction: an unprepared dependent that re-authors an
+  // upstream path divergently must still die at integration, transactionally.
+  const legacy = worktree('legacy');
+  mkdirSync(join(legacy, 'src'), { recursive: true });
+  writeFileSync(join(legacy, 'src', 'alpha.txt'), 'divergent re-authored alpha\n', 'utf8');
+  const legacyTip = (await workspace.commitChanges(legacy, baseSha, ['src/alpha.txt'], 'ADE work: re-author'))!;
+  const legacyRange = await workspace.validateCommit(legacy, baseSha, legacyTip);
+  const target = worktree('target');
+  let reAuthorFailed = '';
+  try {
+    await workspace.integrateCommits(target, [...producerOneRange, ...legacyRange]);
+  } catch (error) {
+    reAuthorFailed = errorText(error);
+  }
+  check('a divergent re-author of an upstream path still fails integration closed with rollback',
+    reAuthorFailed.includes('cherry-pick') &&
+    git(target, ['rev-parse', 'HEAD']).trim() === baseSha &&
+    git(target, ['status', '--porcelain']).trim() === '' &&
+    !existsSync(join(target, 'src', 'alpha.txt')));
+
+  const conflictOne = worktree('p3');
+  writeFileSync(join(conflictOne, 'base.txt'), 'parent three version\n', 'utf8');
+  const conflictOneTip = (await workspace.commitChanges(conflictOne, baseSha, ['base.txt'], 'ADE work: p3'))!;
+  const conflictTwo = worktree('p4');
+  writeFileSync(join(conflictTwo, 'base.txt'), 'parent four version\n', 'utf8');
+  const conflictTwoTip = (await workspace.commitChanges(conflictTwo, baseSha, ['base.txt'], 'ADE work: p4'))!;
+  const conflictConsumer = worktree('conflict-consumer');
+  let prepConflict = '';
+  try {
+    await workspace.prepareDependencyBase(conflictConsumer, baseSha, [
+      { tipSha: conflictOneTip, ownBaseSha: baseSha },
+      { tipSha: conflictTwoTip, ownBaseSha: baseSha },
+    ]);
+  } catch (error) {
+    prepConflict = errorText(error);
+  }
+  check('conflicting parent bases fail preparation closed and restore the run base',
+    prepConflict.includes('dependency bases conflict') &&
+    git(conflictConsumer, ['rev-parse', 'HEAD']).trim() === baseSha &&
+    git(conflictConsumer, ['status', '--porcelain']).trim() === '' &&
+    read(conflictConsumer, 'base.txt') === 'base\n');
+
+  const diamond = worktree('diamond');
+  const diamondPrepared = await workspace.prepareDependencyBase(diamond, baseSha, [
+    { tipSha: producerOneTip, ownBaseSha: baseSha },
+    { tipSha: producerOneTip, ownBaseSha: baseSha },
+  ]);
+  check('already-reachable dependency commits are skipped, never duplicated',
+    diamondPrepared === producerOneTip &&
+    git(diamond, ['rev-list', '--count', `${baseSha}..HEAD`]).trim() === '1');
+}
+
+/**
+ * Full-coordinator reconstruction of the Goal 6 F3/F4 class (two parallel
+ * producers, one dependent consumer, repo-backed): pre-fix this failed at
+ * integration with add/add or union conflicts; with dependency-aware bases
+ * the run must complete with an exact integrated union. Plus the negative
+ * control: conflicting producers fail the dependent's base preparation closed.
+ */
+async function dependentTopologyCoordinatorChecks(root: string): Promise<void> {
+  console.log('\n== dependent 2-producers/1-consumer topology (real git, full coordinator) ==');
+  const agentIds = ['orchestrator', 'lead', 'worker', 'builder'];
+  const fixture = (name: string): { config: AdeConfig; repo: string; baseSha: string } => {
+    const home = join(root, name);
+    const repo = join(home, 'repo');
+    mkdirSync(repo, { recursive: true });
+    git(repo, ['init', '--initial-branch=main']);
+    git(repo, ['config', 'user.email', 'ade-test@example.invalid']);
+    git(repo, ['config', 'user.name', 'ADE test']);
+    writeFileSync(join(repo, 'base.txt'), 'base\n', 'utf8');
+    git(repo, ['add', 'base.txt']);
+    git(repo, ['commit', '-m', 'run base']);
+    const baseSha = git(repo, ['rev-parse', 'HEAD']).trim();
+    const agents = agentIds.map((id) => {
+      const item = { ...agent(id, home), workspaceDir: join(home, 'worktrees', id) };
+      git(repo, ['worktree', 'add', '-b', `run-${id}`, item.workspaceDir, baseSha]);
+      mkdirSync(item.memoryDir, { recursive: true });
+      return item;
+    });
+    const config: AdeConfig = {
+      ...structuredClone(DEFAULT_CONFIG),
+      categories: [{ id: 'cat', name: 'Team', agents: agentIds }],
+      agents,
+    };
+    return { config, repo, baseSha };
+  };
+  const runInputFor = (name: string): RunCreateInput => ({
+    name,
+    goal: 'Two producers deliver modules; a dependent consumer builds on their committed work.',
+    budget: { maxConcurrentTasks: 2, maxApprovals: 1 },
+    participants: [
+      { agentId: 'orchestrator', role: 'orchestrator' },
+      { agentId: 'lead', role: 'lead', teamId: 'team', teamName: 'Team' },
+      { agentId: 'worker', role: 'worker', teamId: 'team', teamName: 'Team' },
+      { agentId: 'builder', role: 'worker', teamId: 'team', teamName: 'Team' },
+    ],
+  });
+  const connectFixture = (coordinator: RunCoordinator, launched: string[]): void => {
+    coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+      launched.push(taskId);
+      const session: SessionMeta = {
+        id: `dep-run-${launched.length}`, agentId, title: 'fixture', kind: 'task',
+        status: 'running', createdAt: Date.now(), runTaskId: taskId,
+      };
+      coordinator.onTaskStarted(taskId, session);
+      return session;
+    }, () => undefined);
+  };
+  const assignments = (participants: { lead: string; worker: string; builder: string }, sharedFile = false) => [
+    {
+      participantId: participants.lead,
+      title: 'Produce alpha',
+      prompt: sharedFile ? 'Rewrite base.txt for producers.' : 'Add src/alpha.txt.',
+      acceptanceCriteria: ['alpha delivered'],
+      dependsOn: [],
+    },
+    {
+      participantId: participants.worker,
+      title: 'Produce beta',
+      prompt: sharedFile ? 'Rewrite base.txt differently.' : 'Add src/beta.txt.',
+      acceptanceCriteria: ['beta delivered'],
+      dependsOn: [],
+    },
+    {
+      participantId: participants.builder,
+      title: 'Consume both producers',
+      prompt: 'Extend src/alpha.txt and add src/gamma.txt on top of both deliveries.',
+      acceptanceCriteria: ['gamma delivered on the inherited tree'],
+      dependsOn: [participants.lead, participants.worker],
+    },
+  ];
+
+  // Positive control: the exact pre-fix F3/F4 failure topology now completes.
+  const positive = fixture('positive');
+  const store = new MemoryStore(positive.config);
+  const service = new OrchestrationService(store);
+  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), new WorkspaceService());
+  const launched: string[] = [];
+  connectFixture(coordinator, launched);
+  const run = service.createRun(runInputFor('Dependent vertical slice'));
+  await coordinator.start(run.id);
+  let snapshot = service.snapshot();
+  const participantOf = (agentId: string): string =>
+    snapshot.participants.find((item) => item.runId === run.id && item.agentId === agentId)!.id;
+  const ids = { lead: participantOf('lead'), worker: participantOf('worker'), builder: participantOf('builder') };
+  const dirOf = (agentId: string): string =>
+    positive.config.agents.find((item) => item.id === agentId)!.workspaceDir;
+  finish(coordinator, snapshot.tasks.find((task) => task.phase === 'plan')!.id, result({
+    assignments: assignments(ids),
+  }));
+  await waitFor(() => launched.length === 3, 'both producers launch in parallel');
+  snapshot = service.snapshot();
+  const taskOf = (participantId: string) =>
+    service.snapshot().tasks.find((task) => task.phase === 'work' && task.participantId === participantId)!;
+  check('the dependent consumer stays queued while its producers run',
+    taskOf(ids.builder).status === 'queued' && launched.length === 3);
+
+  mkdirSync(join(dirOf('lead'), 'src'), { recursive: true });
+  writeFileSync(join(dirOf('lead'), 'src', 'alpha.txt'), 'alpha v1\n', 'utf8');
+  finish(coordinator, taskOf(ids.lead).id, result({ summary: 'alpha delivered', filesChanged: ['src/alpha.txt'] }));
+  await waitFor(() => taskOf(ids.lead).status === 'completed', 'lead producer completion');
+  mkdirSync(join(dirOf('worker'), 'src'), { recursive: true });
+  writeFileSync(join(dirOf('worker'), 'src', 'beta.txt'), 'beta v1\n', 'utf8');
+  finish(coordinator, taskOf(ids.worker).id, result({ summary: 'beta delivered', filesChanged: ['src/beta.txt'] }));
+  await waitFor(() => launched.length === 4, 'dependent consumer launch');
+
+  snapshot = service.snapshot();
+  const builderTask = taskOf(ids.builder);
+  const builderDir = dirOf('builder');
+  const leadCommit = snapshot.results.find((item) => item.participantId === ids.lead)!.commitSha!;
+  check('the dependent worktree inherits both producer deliveries before launch',
+    readFileSync(join(builderDir, 'src', 'alpha.txt'), 'utf8').replace(/\r\n/g, '\n') === 'alpha v1\n' &&
+    existsSync(join(builderDir, 'src', 'beta.txt')) &&
+    isAncestorSync(builderDir, leadCommit, 'HEAD'));
+  check('the prepared base is persisted on the task and journaled',
+    /^[0-9a-f]{40}$/.test(builderTask.preparedBaseSha ?? '') &&
+    git(builderDir, ['rev-parse', 'HEAD']).trim() === builderTask.preparedBaseSha &&
+    snapshot.events.some((event) =>
+      event.type === 'workspace.prepared' &&
+      event.taskId === builderTask.id &&
+      event.data?.preparedBaseSha === builderTask.preparedBaseSha));
+
+  writeFileSync(join(builderDir, 'src', 'alpha.txt'), 'alpha v1\nextended by the consumer\n', 'utf8');
+  writeFileSync(join(builderDir, 'src', 'gamma.txt'), 'gamma composes alpha and beta\n', 'utf8');
+  finish(coordinator, builderTask.id, result({
+    summary: 'consumer delivered on the inherited tree',
+    filesChanged: ['src/alpha.txt', 'src/gamma.txt'],
+  }));
+  await waitFor(() => service.snapshot().runs[0]?.phase === 'approval', 'dependent-topology approval');
+  const approval = service.snapshot().approvals.find((item) => item.status === 'pending')!;
+  check('the approval gate counts only owned deltas', approval.reason.includes('3 validated commit(s)'));
+
+  await coordinator.resolveApproval(approval.id, 'approve');
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.phase === 'integrate' && task.status === 'running'), 'dependent-topology integration task');
+  const orchestratorDir = dirOf('orchestrator');
+  snapshot = service.snapshot();
+  check('integration applies the exact owned union without conflicts',
+    readFileSync(join(orchestratorDir, 'src', 'alpha.txt'), 'utf8').replace(/\r\n/g, '\n') === 'alpha v1\nextended by the consumer\n' &&
+    readFileSync(join(orchestratorDir, 'src', 'beta.txt'), 'utf8').replace(/\r\n/g, '\n') === 'beta v1\n' &&
+    readFileSync(join(orchestratorDir, 'src', 'gamma.txt'), 'utf8').replace(/\r\n/g, '\n') === 'gamma composes alpha and beta\n' &&
+    git(orchestratorDir, ['rev-list', '--count', `${positive.baseSha}..HEAD`]).trim() === '3' &&
+    snapshot.events.some((event) => event.type === 'integration.applied' && event.data?.commitCount === 3));
+
+  finish(coordinator, snapshot.tasks.find((task) => task.phase === 'integrate')!.id, result({
+    summary: 'integrated tree is coherent',
+    tests: [{ command: 'pnpm test', status: 'passed', output: 'ok' }],
+  }));
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.phase === 'verify' && task.status === 'running'), 'dependent-topology verification task');
+  finish(coordinator, service.snapshot().tasks.find((task) => task.phase === 'verify')!.id, result({
+    summary: 'verified',
+    tests: [{ command: 'pnpm test', status: 'passed', output: 'ok' }],
+  }));
+  await waitFor(() => service.snapshot().runs[0]?.status === 'completed', 'dependent-topology completion');
+  snapshot = service.snapshot();
+  check('the F3/F4-class dependent run completes with verification and released leases',
+    snapshot.runs[0]?.phase === 'completed' &&
+    snapshot.runs[0]?.verifiedHeadSha === git(orchestratorDir, ['rev-parse', 'HEAD']).trim() &&
+    snapshot.workspaceLeases.every((lease) => lease.status === 'released'));
+
+  // Negative control: divergent producer edits to one file make the dependent
+  // base unpreparable — the run must fail closed before the consumer launches.
+  const negative = fixture('conflict');
+  const negativeStore = new MemoryStore(negative.config);
+  const negativeService = new OrchestrationService(negativeStore);
+  const negativeCoordinator = new RunCoordinator(
+    negativeStore, negativeService, new RuntimeAdapterRegistry(), new WorkspaceService(),
+  );
+  const negativeLaunched: string[] = [];
+  connectFixture(negativeCoordinator, negativeLaunched);
+  const negativeRun = negativeService.createRun(runInputFor('Conflicting dependent slice'));
+  await negativeCoordinator.start(negativeRun.id);
+  let negativeSnapshot = negativeService.snapshot();
+  const negativeParticipantOf = (agentId: string): string =>
+    negativeSnapshot.participants.find((item) => item.runId === negativeRun.id && item.agentId === agentId)!.id;
+  const negativeIds = {
+    lead: negativeParticipantOf('lead'),
+    worker: negativeParticipantOf('worker'),
+    builder: negativeParticipantOf('builder'),
+  };
+  const negativeDirOf = (agentId: string): string =>
+    negative.config.agents.find((item) => item.id === agentId)!.workspaceDir;
+  finish(negativeCoordinator, negativeSnapshot.tasks.find((task) => task.phase === 'plan')!.id, result({
+    assignments: assignments(negativeIds, true),
+  }));
+  await waitFor(() => negativeLaunched.length === 3, 'conflicting producers launch');
+  const negativeTaskOf = (participantId: string) =>
+    negativeService.snapshot().tasks.find(
+      (task) => task.phase === 'work' && task.participantId === participantId)!;
+  writeFileSync(join(negativeDirOf('lead'), 'base.txt'), 'lead version\n', 'utf8');
+  finish(negativeCoordinator, negativeTaskOf(negativeIds.lead).id, result({
+    summary: 'lead rewrote base', filesChanged: ['base.txt'],
+  }));
+  await waitFor(() => negativeTaskOf(negativeIds.lead).status === 'completed', 'conflicting lead completion');
+  writeFileSync(join(negativeDirOf('worker'), 'base.txt'), 'worker version\n', 'utf8');
+  finish(negativeCoordinator, negativeTaskOf(negativeIds.worker).id, result({
+    summary: 'worker rewrote base', filesChanged: ['base.txt'],
+  }));
+  await waitFor(() => negativeService.snapshot().runs[0]?.status === 'failed', 'conflicting run fails closed');
+  negativeSnapshot = negativeService.snapshot();
+  check('conflicting dependency bases fail the run closed before the consumer launches',
+    negativeLaunched.length === 3 &&
+    negativeTaskOf(negativeIds.builder).status === 'cancelled' &&
+    negativeSnapshot.events.some((event) =>
+      event.type === 'run.failed' &&
+      String(event.data?.detail ?? '').includes('dependency bases conflict')));
+  check('the failed consumer worktree is restored to the run base with released leases',
+    git(negativeDirOf('builder'), ['rev-parse', 'HEAD']).trim() === negative.baseSha &&
+    git(negativeDirOf('builder'), ['status', '--porcelain']).trim() === '' &&
+    negativeSnapshot.workspaceLeases.every((lease) => lease.status === 'released'));
+}
+
 async function pauseSchedulingChecks(root: string): Promise<void> {
   console.log('\n== main-owned team pause ==');
   const store = new MemoryStore(configWithAgents(root));
@@ -1201,6 +1571,15 @@ function git(cwd: string, args: string[]): string {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', windowsHide: true });
 }
 
+function isAncestorSync(cwd: string, ancestor: string, descendant: string): boolean {
+  try {
+    git(cwd, ['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'ade-goal4-'));
   try {
@@ -1212,6 +1591,8 @@ async function main(): Promise<void> {
     await ownershipAndBudgetChecks(join(root, 'ownership'));
     await pauseSchedulingChecks(join(root, 'pause'));
     await realGitIntegrationChecks(root);
+    await dependencyBaseWorkspaceChecks(join(root, 'dependency-base'));
+    await dependentTopologyCoordinatorChecks(join(root, 'dependent-topology'));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

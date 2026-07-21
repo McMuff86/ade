@@ -222,9 +222,12 @@ checkSnapshot('integrate', integrateRendered);
 checkSnapshot('verify', verifyRendered);
 
 console.log('prompt invariants');
-check('planning prompt states that dependent workers do not inherit upstream code',
-  planRendered.includes('do NOT inherit upstream code'));
-check('dependent worker prompt points at TASK_CONTEXT.json', workRendered.includes('TASK_CONTEXT.json'));
+check('planning prompt states that dependent workers inherit prepared upstream code',
+  planRendered.includes('DO inherit upstream code')
+    && planRendered.includes('fails the run closed'));
+check('dependent worker prompt points at TASK_CONTEXT.json and the prepared base',
+  workRendered.includes('TASK_CONTEXT.json')
+    && workRendered.includes('ALREADY CONTAINS their validated'));
 check('independent worker prompt omits the dependency note',
   !workerPrompt(run, { ...assignment, dependsOn: [] }, { brief, hasDependencies: false }).includes('TASK_CONTEXT.json'));
 check('integration prompt references the manifest hash', integrateRendered.includes(hash.slice(0, 16)));

@@ -23,6 +23,16 @@ export interface WorkspaceInspection {
   commonGitDir: string;
 }
 
+/**
+ * One validated upstream contribution for dependency base preparation.
+ * `tipSha` is the parent's ADE-authored commit; `ownBaseSha` is where that
+ * parent's owned delta starts (its own prepared base, or the run base).
+ */
+export interface DependencyParent {
+  tipSha: string;
+  ownBaseSha: string;
+}
+
 export interface WorkspacePort {
   inspect(workspaceDir: string): Promise<WorkspaceInspection>;
   commitChanges(
@@ -33,6 +43,11 @@ export interface WorkspacePort {
   ): Promise<string | null>;
   validateCommit(workspaceDir: string, baseSha: string, commitSha: string): Promise<string[]>;
   integrateCommits(workspaceDir: string, commits: string[]): Promise<number>;
+  prepareDependencyBase(
+    workspaceDir: string,
+    runBaseSha: string,
+    parents: DependencyParent[],
+  ): Promise<string>;
 }
 
 export class WorkspaceService implements WorkspacePort {
@@ -193,6 +208,66 @@ export class WorkspaceService implements WorkspacePort {
         // A failure before cherry-pick starts has no sequence to abort.
       }
       throw new Error(`ade: integration cherry-pick failed: ${errorMessage(error)}`);
+    }
+  }
+
+  /**
+   * Advance a dependent worker's leased worktree from the run base to a tree
+   * that already contains its dependencies' validated ADE-authored commits.
+   * Linked worktrees share one object database, so this only moves refs: the
+   * first contributing parent is adopted verbatim (`reset --hard`, identical
+   * SHAs), every further parent replays only its owned delta and skips commits
+   * already reachable (diamond dependencies). Any replay conflict restores the
+   * run base and fails closed — ADE never merge-guesses a dependency base.
+   */
+  async prepareDependencyBase(
+    workspaceDir: string,
+    runBaseSha: string,
+    parents: DependencyParent[],
+  ): Promise<string> {
+    const inspection = await this.inspect(workspaceDir);
+    if (!inspection.isRepo) throw new Error('ade: dependency base workspace is not a git worktree');
+    if (!inspection.clean) throw new Error('ade: dependency base preparation requires a clean worktree');
+    if (inspection.headSha !== runBaseSha) {
+      throw new Error('ade: dependency base preparation requires the leased run base HEAD');
+    }
+    if (parents.length === 0) return inspection.headSha;
+    for (const parent of parents) {
+      if (!(await isAncestor(workspaceDir, runBaseSha, parent.tipSha))) {
+        throw new Error(`ade: dependency commit ${parent.tipSha} is not based on the leased run base`);
+      }
+    }
+    try {
+      const [first, ...rest] = parents;
+      await git(workspaceDir, ['reset', '--hard', first!.tipSha]);
+      for (const parent of rest) {
+        const range = await this.validateCommit(workspaceDir, parent.ownBaseSha, parent.tipSha);
+        const pending: string[] = [];
+        for (const commit of range) {
+          if (!(await isAncestor(workspaceDir, commit, 'HEAD'))) pending.push(commit);
+        }
+        if (pending.length === 0) continue;
+        try {
+          await git(workspaceDir, ['cherry-pick', '--no-edit', ...pending]);
+        } catch (error) {
+          try {
+            await git(workspaceDir, ['cherry-pick', '--abort']);
+          } catch {
+            // A failure before cherry-pick starts has no sequence to abort.
+          }
+          throw new Error(`ade: dependency bases conflict; the run must fail closed: ${errorMessage(error)}`);
+        }
+      }
+      const prepared = await this.inspect(workspaceDir);
+      if (!prepared.clean) throw new Error('ade: dependency base preparation left a dirty worktree');
+      return prepared.headSha;
+    } catch (error) {
+      try {
+        await git(workspaceDir, ['reset', '--hard', runBaseSha]);
+      } catch {
+        // Preserve whatever state exists for inspection if even restore fails.
+      }
+      throw new Error(`ade: failed to prepare dependency base: ${errorMessage(error)}`);
     }
   }
 }

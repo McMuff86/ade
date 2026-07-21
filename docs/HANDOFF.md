@@ -337,6 +337,29 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
   absichtlich deaktiviert; Git-LFS-/Hook-abhängige Repositories brauchen vorerst
   einen manuellen Publish oder einen späteren expliziten Provider-Vertrag.
 
+## Nachtrag 2026-07-21 — Dependency-aware Worker-Bases (F3/F4-Fix)
+
+- `dependsOn` überträgt jetzt Git-Zustand statt nur Ergebnisdaten: Vor dem
+  Start eines abhängigen repo-gestützten Workers präpariert ADE dessen
+  geleasten Worktree mit den validierten Commits seiner Abhängigkeiten
+  (erster Parent verbatim per `reset --hard`, weitere Parents als owned
+  Deltas in Assignment-Reihenfolge, Diamanten werden übersprungen). Die
+  präparierte Basis wird als `preparedBaseSha` auf dem Task persistiert und
+  als `workspace.prepared` journaliert; Validierung und Integration zählen
+  ausschließlich owned Deltas (`preparedBaseSha..tip`). Konfligierende
+  Parent-Deltas schlagen fail-closed VOR dem Worker-Start fehl und stellen
+  die Run-Basis wieder her.
+- Planner-/Worker-Prompts sprechen die neue Wahrheit (Versionen plan=2,
+  work=2): Abhängige Assignments dürfen auf Upstream-Dateien aufbauen und
+  sie verändern; Re-Authoring ist ausdrücklich verboten.
+- Beweis: `pnpm run test:orchestration-beta` (117 Checks) enthält die
+  F3/F4-Klasse als echten Koordinator-Test auf realem Git — 2 parallele
+  Producer → 1 abhängiger Consumer inklusive 3-Commit-Integration und
+  Verifikation — plus Negativkontrollen (divergentes Re-Authoring,
+  konfligierende Parents, dirty/falsche Basis). Voller `pnpm test` grün
+  (13 Suiten). Ein Live-Managed-Rerun der Goal-6-Fixtures steht noch aus;
+  Protokoll: `docs/goal6/F3F4_RETEST.md`.
+
 ## Nächste Schritte
 
 1. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die

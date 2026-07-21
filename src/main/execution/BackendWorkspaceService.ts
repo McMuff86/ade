@@ -6,6 +6,7 @@ import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../../sha
 import type { AdeConfig } from '../../shared/types';
 import {
   WorkspaceService,
+  type DependencyParent,
   type WorkspaceInspection,
   type WorkspacePort,
 } from '../orchestration/WorkspaceService';
@@ -62,6 +63,14 @@ export class BackendWorkspaceService implements WorkspacePort {
 
   integrateCommits(workspaceDir: string, commits: string[]): Promise<number> {
     return this.serviceFor(workspaceDir).integrateCommits(workspaceDir, commits);
+  }
+
+  prepareDependencyBase(
+    workspaceDir: string,
+    runBaseSha: string,
+    parents: DependencyParent[],
+  ): Promise<string> {
+    return this.serviceFor(workspaceDir).prepareDependencyBase(workspaceDir, runBaseSha, parents);
   }
 
   backendFor(workspaceDir: string): ExecutionBackendId {
@@ -244,6 +253,65 @@ class WslWorkspaceService implements WorkspacePort {
       }
       throw new Error(`ade: WSL integration cherry-pick failed: ${errorMessage(error)}`);
     }
+  }
+
+  /** WSL mirror of the native dependency-base contract; refs only, fail closed. */
+  async prepareDependencyBase(
+    workspaceDir: string,
+    runBaseSha: string,
+    parents: DependencyParent[],
+  ): Promise<string> {
+    const inspection = await this.inspect(workspaceDir);
+    if (!inspection.isRepo) throw new Error('ade: dependency base workspace is not a WSL git worktree');
+    if (!inspection.clean) throw new Error('ade: dependency base preparation requires a clean worktree');
+    if (inspection.headSha !== runBaseSha) {
+      throw new Error('ade: dependency base preparation requires the leased run base HEAD');
+    }
+    if (parents.length === 0) return inspection.headSha;
+    for (const parent of parents) {
+      if (!(await this.isAncestor(workspaceDir, runBaseSha, parent.tipSha))) {
+        throw new Error(`ade: dependency commit ${parent.tipSha} is not based on the leased run base`);
+      }
+    }
+    try {
+      const [first, ...rest] = parents;
+      await this.git(workspaceDir, ['reset', '--hard', first!.tipSha]);
+      for (const parent of rest) {
+        const range = await this.validateCommit(workspaceDir, parent.ownBaseSha, parent.tipSha);
+        const pending: string[] = [];
+        for (const commit of range) {
+          if (!(await this.isAncestor(workspaceDir, commit, 'HEAD'))) pending.push(commit);
+        }
+        if (pending.length === 0) continue;
+        try {
+          await this.git(workspaceDir, ['cherry-pick', '--no-edit', ...pending]);
+        } catch (error) {
+          try {
+            await this.git(workspaceDir, ['cherry-pick', '--abort']);
+          } catch {
+            // A failure before cherry-pick starts has no sequence to abort.
+          }
+          throw new Error(`ade: dependency bases conflict; the run must fail closed: ${errorMessage(error)}`);
+        }
+      }
+      const prepared = await this.inspect(workspaceDir);
+      if (!prepared.clean) throw new Error('ade: dependency base preparation left a dirty worktree');
+      return prepared.headSha;
+    } catch (error) {
+      try {
+        await this.git(workspaceDir, ['reset', '--hard', runBaseSha]);
+      } catch {
+        // Preserve whatever state exists for inspection if even restore fails.
+      }
+      throw new Error(`ade: failed to prepare WSL dependency base: ${errorMessage(error)}`);
+    }
+  }
+
+  private async isAncestor(workspaceDir: string, ancestor: string, descendant: string): Promise<boolean> {
+    const result = await this.execution.run(this.backend, 'git', [
+      '-C', workspaceDir, 'merge-base', '--is-ancestor', ancestor, descendant,
+    ]);
+    return result.code === 0;
   }
 
   private async changedPaths(workspaceDir: string): Promise<string[]> {

@@ -45,7 +45,11 @@ import {
   type ManagedTaskFiles,
   type ManagedTaskLaunch,
 } from './runtimeAdapters';
-import { WorkspaceService, type WorkspacePort } from './WorkspaceService';
+import {
+  WorkspaceService,
+  type DependencyParent,
+  type WorkspacePort,
+} from './WorkspaceService';
 import { showManagedTaskNotification } from '../notifications';
 import type {
   RepositoryScopePort,
@@ -640,7 +644,11 @@ export class RunCoordinator {
         throw new Error(`ade: ${task.phase} task reported changed files without a commit`);
       }
       if (result.commitSha) {
-        await this.workspaces.validateCommit(lease.workspaceDir, lease.baseSha, result.commitSha);
+        await this.workspaces.validateCommit(
+          lease.workspaceDir,
+          task.preparedBaseSha ?? lease.baseSha,
+          result.commitSha,
+        );
       }
       const inspection = await this.workspaces.inspect(lease.workspaceDir);
       if (!inspection.clean) {
@@ -750,7 +758,12 @@ export class RunCoordinator {
         }
         if (result.commitSha) {
           try {
-            const range = await this.workspaces.validateCommit(lease.workspaceDir, lease.baseSha, result.commitSha);
+            const resultTask = workTasks.find((task) => task.id === result.taskId);
+            const range = await this.workspaces.validateCommit(
+              lease.workspaceDir,
+              resultTask?.preparedBaseSha ?? lease.baseSha,
+              result.commitSha,
+            );
             rangeCounts.set(result.id, range.length);
             validatedCommitCount += range.length;
           } catch (error) {
@@ -805,6 +818,12 @@ export class RunCoordinator {
         !isPaused(task) &&
         task.dependsOn.every((participantId) => completedParticipants.has(participantId)));
       if (!next) break;
+      try {
+        await this.prepareDependentTaskBase(next);
+      } catch (error) {
+        await this.failRunCore(runId, errorMessage(error));
+        return;
+      }
       await this.launchTask(next, `work-${next.participantId}`);
       launched += 1;
     }
@@ -815,6 +834,55 @@ export class RunCoordinator {
     const anyPausedQueued = workTasks.some((task) => task.status === 'queued' && isPaused(task));
     if (blocked.length > 0 && !active && !anyPausedQueued) {
       await this.failRunCore(runId, 'Worker dependency graph made no scheduling progress');
+    }
+  }
+
+  /**
+   * Give a dependent repo-backed work task a worktree that already contains
+   * its dependencies' validated commits. Parents are replayed in work-task
+   * creation order (the plan's assignment order) — the same deterministic
+   * order integration uses — and the resulting HEAD is persisted as the
+   * task's owned base before launch. Ambiguous or conflicting dependency
+   * state throws, which fails the run closed with the exact reason journaled.
+   */
+  private async prepareDependentTaskBase(task: RunTask): Promise<void> {
+    if (task.dependsOn.length === 0 || task.preparedBaseSha) return;
+    const snapshot = this.orchestration.snapshot();
+    const lease = snapshot.workspaceLeases.find(
+      (item) => item.runId === task.runId && item.participantId === task.participantId && item.status === 'active',
+    );
+    if (!lease?.isRepo) return;
+    const workTasks = snapshot.tasks.filter((item) => item.runId === task.runId && item.phase === 'work');
+    const pendingDependencies = new Set(task.dependsOn);
+    const parents: DependencyParent[] = [];
+    for (const parentTask of workTasks) {
+      if (!pendingDependencies.has(parentTask.participantId)) continue;
+      pendingDependencies.delete(parentTask.participantId);
+      if (parentTask.status !== 'completed') {
+        throw new Error(`ade: dependency ${parentTask.participantId} is not completed; base preparation is unsafe`);
+      }
+      const result = snapshot.results.find((item) => item.taskId === parentTask.id);
+      if (!result) {
+        throw new Error(`ade: dependency ${parentTask.participantId} has no validated result; base preparation is unsafe`);
+      }
+      // A dependency without a commit contributes information, not Git state.
+      if (!result.commitSha) continue;
+      parents.push({
+        tipSha: result.commitSha,
+        ownBaseSha: parentTask.preparedBaseSha ?? lease.baseSha,
+      });
+    }
+    if (pendingDependencies.size > 0) {
+      throw new Error('ade: a declared dependency has no work task; base preparation is unsafe');
+    }
+    if (parents.length === 0) return;
+    const preparedBaseSha = await this.workspaces.prepareDependencyBase(
+      lease.workspaceDir,
+      lease.baseSha,
+      parents,
+    );
+    if (preparedBaseSha !== lease.baseSha) {
+      this.orchestration.setTaskPreparedBase(task.runId, task.id, preparedBaseSha);
     }
   }
 
@@ -834,7 +902,13 @@ export class RunCoordinator {
     let applied = 0;
     if (integratorLease.isRepo) {
       const commits: string[] = [];
-      for (const result of results) {
+      // Each task contributes only its owned delta (from its prepared base
+      // when ADE advanced the worktree for dependencies), replayed in
+      // work-task creation order: dependencies always precede dependents and
+      // an inherited upstream range is never integrated twice.
+      for (const workTask of workTasks) {
+        const result = results.find((item) => item.taskId === workTask.id);
+        if (!result) throw new Error(`ade: work task "${workTask.title}" has no validated result`);
         if (result.filesChanged.length > 0 && !result.commitSha) {
           throw new Error(`ade: ${result.participantId} reported changed files without a commit`);
         }
@@ -845,7 +919,7 @@ export class RunCoordinator {
         }
         const workerCommits = await this.workspaces.validateCommit(
           workerLease.workspaceDir,
-          workerLease.baseSha,
+          workTask.preparedBaseSha ?? workerLease.baseSha,
           result.commitSha,
         );
         commits.push(...workerCommits);

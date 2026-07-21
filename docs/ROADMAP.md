@@ -193,7 +193,11 @@ path-set prompt findings. Fixture protocol and result log live in
 `docs/goal6/VALIDATION_PLAN.md` and `docs/goal6/RESULTS.md`; per-run metrics
 are extracted with `pnpm goal6:report` (`scripts/goal6-report.ts`). The pilot
 baseline (SHA `81820b9`, vitest 77/77, server 5/5, tsc clean) was recorded on
-2026-07-14.
+2026-07-14. The go/no-go follow-up "dependency-aware worker bases/ownership"
+shipped 2026-07-21: dependent workers now start from a prepared worktree
+containing their dependencies' validated commits, proven by focused real-Git
+coordinator tests; the live fixture rerun protocol is
+`docs/goal6/F3F4_RETEST.md`.
 
 - Validate the orchestration beta and the new repository bindings on the
   `2D_rpg_jumpnrun` repository using disposable ADE worktrees and branches. Do

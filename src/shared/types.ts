@@ -271,6 +271,7 @@ export type RunEventType =
   | 'approval.requested'
   | 'approval.resolved'
   | 'workspace.acquired'
+  | 'workspace.prepared'
   | 'workspace.released'
   | 'message.sent'
   | 'integration.applied'
@@ -372,6 +373,12 @@ export interface RunTask {
   workspaceDir?: string;
   /** Repo HEAD that a read-only verification task must leave unchanged. */
   expectedHeadSha?: string;
+  /**
+   * Git HEAD this task's owned delta starts from. Set only when ADE prepared
+   * a dependency-aware worktree base (the leased worktree was advanced to the
+   * dependencies' validated commits before launch); absent means the run base.
+   */
+  preparedBaseSha?: string;
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
