@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-07-21. This is the short, factual capability matrix. Product
+Status date: 2026-07-22. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -109,12 +109,16 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
   never duplicated; conflicting parent deltas fail the run closed before the
   dependent launches. This closes the Goal 6 F3/F4 add/add-union failure mode
   and is proven by focused real-Git coordinator tests that reconstruct the
-  2-producer→1-consumer topology. A first live Codex run (`51bdbaf7`)
-  confirmed prepared bases and dependent-worker completion in the real app but
-  was interrupted by operator tooling before integration; a completed live
-  rerun is still pending (protocol: `docs/goal6/F3F4_RETEST.md`). Base preparation and
-  integration cherry-picks require a resolvable Git committer identity in the
-  repository's backend, as integration always has.
+  2-producer→1-consumer topology. The completed live Codex reruns
+  `3a2773cc` (F3) and `9bcd8932` (F4) then proved the same contract through
+  approval, conflict-free integration, integration review and read-only
+  verification: dependent prepared bases matched their upstream tips exactly,
+  integrated ranges equaled the union of owned deltas, and both runs had zero
+  rollback. The earlier `51bdbaf7` driver interruption and `c3c232c6` external
+  DNS outage remain explicitly excluded evidence; protocol and full SHAs are
+  in `docs/goal6/F3F4_RETEST.md`. Base preparation and integration cherry-picks
+  require a resolvable Git committer identity in the repository's backend, as
+  integration always has.
 - Git integration requires each changing worker to report every changed path
   and leave HEAD untouched. ADE refuses a report/diff mismatch, creates the
   commit with hooks and signing disabled, and transactionally cherry-picks the

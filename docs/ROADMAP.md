@@ -1,6 +1,6 @@
 # ADE delivery roadmap
 
-Status date: 2026-07-19. Goals are completed in order and published as separate
+Status date: 2026-07-22. Goals are completed in order and published as separate
 verified commits.
 
 ## Goal 1 - runtime reliability baseline
@@ -164,8 +164,9 @@ Graph P0a-P0c commits. Design sources: `docs/research/agent-orchestration/`
   completion) as one atomic save.
 - Move phase prompts into a versioned module; journal a path-free run context
   manifest and per-task context packets with bounded dependency results and
-  provenance; tell the planner dependent workers inherit no upstream code;
-  inject agent memory as a read-only snapshot outside the leased worktree.
+  provenance; tell the planner and workers that dependent worktrees inherit
+  their dependencies' validated commits; inject agent memory as a read-only
+  snapshot outside the leased worktree.
 - Render every non-terminal run as its own canvas cluster with journal-driven
   edge/node activity, a visible task-slot/queue panel, a provenance inspector
   and live task-session attach on double-click.
@@ -195,9 +196,12 @@ are extracted with `pnpm goal6:report` (`scripts/goal6-report.ts`). The pilot
 baseline (SHA `81820b9`, vitest 77/77, server 5/5, tsc clean) was recorded on
 2026-07-14. The go/no-go follow-up "dependency-aware worker bases/ownership"
 shipped 2026-07-21: dependent workers now start from a prepared worktree
-containing their dependencies' validated commits, proven by focused real-Git
-coordinator tests; the live fixture rerun protocol is
-`docs/goal6/F3F4_RETEST.md`.
+containing their dependencies' validated commits. Focused real-Git coordinator
+tests and completed live Codex reruns `3a2773cc` (F3) and `9bcd8932` (F4)
+prove exact prepared bases, owned-delta integration, integration review and
+verification with zero rollback. The excluded driver interruption and
+external DNS outage, complete SHA evidence and cleanup state are recorded in
+`docs/goal6/F3F4_RETEST.md` and `docs/goal6/RESULTS.md`.
 
 - Validate the orchestration beta and the new repository bindings on the
   `2D_rpg_jumpnrun` repository using disposable ADE worktrees and branches. Do

@@ -1,4 +1,4 @@
-# Handoff — 2026-07-19
+# Handoff — 2026-07-22
 
 Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
 Abschluss, Verified Draft-PR Publishing, dem Repository Inspector (`40bc1b2`
@@ -279,7 +279,9 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
   finaler HEAD `77cdaff` auf unveränderter Basis `81820b9`;
 - ausschließlich die erfolgreich integrierten/verifizierten Managed-Ergebnisse
   F1, F2, F5, F6 und F8; F3/F4 sowie Drafts, Abbrüche und Baseline-Arme bleiben
-  bewusst ausgeschlossen;
+  bewusst ausgeschlossen. Die späteren F3v4-/F4v3-Live-Ergebnisse liegen auf
+  separaten Evidence-Branches und wurden nicht nachträglich in diesen
+  historischen Kandidaten aggregiert;
 - eine frische Frozen-Installation deckte beim kombinierten F2/F8-Test einen
   zuvor ambient erfüllten Node-Typvertrag auf. Der Kandidat deklariert deshalb
   `@types/node@22.18.0` explizit und reproduzierbar im Lockfile;
@@ -300,11 +302,12 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 - Auch der Publishing-/Playwright-Gate hinterließ keine temporären Repositories
   oder Test-App-Prozesse. Die bereits laufende echte ADE-Instanz mit dem normalen
   `%APPDATA%\ade`-Profil wurde erkannt und bewusst nicht beendet.
-- Keine aktiven Goal-6-Runs oder Leases; das Pilot-Originalrepo und sein
-  `main` sowie `origin/main` bleiben unverändert auf `81820b9`. Seine drei
-  modifizierten und sechs unversionierten, fremden Gameplay-Dateien sind
-  unverändert; niemals anfassen oder bereinigen. Nur der oben dokumentierte
-  Quality-Worktree und sein lokaler Kandidatenbranch kamen hinzu.
+- Keine aktiven Goal-6-Runs oder Leases. Das Pilot-Originalrepo ist clean;
+  `main` und `origin/main` blieben während der Retests unverändert auf
+  `ee28d79`. Die vier disponiblen ADE-Pilot-Worktrees sind clean auf der
+  gemeinsamen Run-Basis `81820b9`. F3v4/F4v3 bleiben über lokale
+  `goal6/f3v4-*`-/`goal6/f4v3-*`-Evidence-Refs erreichbar; der ausgeschlossene
+  F4v2-D1 über `goal6/f4v2-a1-worker-d1`.
 - Das ADE-Pilotprofil bleibt unter `%APPDATA%\ADE`; echte Profil-Läufe brauchen
   weiterhin `ADE_USER_DATA_DIR=%APPDATA%\ADE`.
 - `out/` gehört zum geprüften Windows-Quellstand. `dist/linux-x64` ist bewusst
@@ -357,8 +360,16 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
   Producer → 1 abhängiger Consumer inklusive 3-Commit-Integration und
   Verifikation — plus Negativkontrollen (divergentes Re-Authoring,
   konfligierende Parents, dirty/falsche Basis). Voller `pnpm test` grün
-  (13 Suiten). Ein Live-Managed-Rerun der Goal-6-Fixtures steht noch aus;
-  Protokoll: `docs/goal6/F3F4_RETEST.md`.
+  (13 Suiten).
+- Live-Reproof abgeschlossen: F3v4 `3a2773cc` führte eine Kette mit drei
+  Owned-Commits durch zwei exakt übernommene Prepared-Bases bis zum
+  tree-identischen integrierten/verifizierten HEAD `06962ae9`; F4v3
+  `9bcd8932` führte zwei Owned-Commits plus read-only Audit analog bis
+  `b8a1229d`. Beide Runs: `completed`, null Rollbacks, Integration-Review und
+  unabhängige Verifikation grün, alle Leases freigegeben. F4v2 `c3c232c6`
+  bleibt wegen eines belegten externen DNS/API-Ausfalls ausgeschlossen (D2
+  ohne Partial-Diff, keine Integration). Vollständiges Protokoll und Refs:
+  `docs/goal6/F3F4_RETEST.md` und `docs/goal6/RESULTS.md`.
 
 ## Nächste Schritte
 
