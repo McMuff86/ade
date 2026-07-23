@@ -133,11 +133,14 @@ This slice implements the follow-on design direction above:
 - **Visual regression.** `scripts/test-visual-regression.ts` captures the
   sidebar in dark and light themes at 300/380/540 px (plus the open checks
   pane) with a frozen renderer clock, fixed Git dates, forced 1.0 device
-  scale and `en-US` locale, then compares against per-platform pixelmatch
-  baselines in `scripts/fixtures/visual-baselines/`. Baselines are
-  authoritative on the machine that captured them; hosted CI captures and
-  runs the structural checks (deterministic width, no horizontal overflow)
-  but skips the pixel diff. `pnpm test:visual:update` rewrites baselines.
+  scale and `en-US` locale. Explicitly listed authoritative platforms
+  (currently `win32`) compare against pixelmatch baselines in
+  `scripts/fixtures/visual-baselines/`; a missing expected baseline fails even
+  in hosted CI. CI still skips pixel diffs because runner font rasterization is
+  not authoritative. Non-authoritative platforms (currently Linux) always
+  capture under `test-results/visual/` and never read or write repository
+  baselines. `pnpm test:visual:update` rewrites baselines only on an explicitly
+  authoritative platform.
 
 ## Verification gates
 
@@ -152,8 +155,7 @@ This slice implements the follow-on design direction above:
   Scope & session disclosure, published-run traceability, commit-diff
   open/close/focus, refresh, empty/error states and tab keyboard behavior;
 - visual regression compares dark/light × narrow/medium/wide sidebar
-  baselines plus the open checks pane on the capturing platform;
-- repository-wide completion passes `pnpm verify`: 483 focused assertions,
-  production build, 72 Electron/Playwright checks and 21 visual checks on
-  Windows (totals include the same-day per-run harness-choice and
-  run-dialog path-import slices).
+  baselines plus the open checks pane on authoritative platforms and captures
+  the same states without repository mutation elsewhere;
+- repository-wide completion passes the full `pnpm verify` contract: focused
+  assertions, production build, Electron/Playwright and visual checks.

@@ -9,8 +9,10 @@
  * --force-device-scale-factor=1, --lang=en-US, reduced motion, a fixed
  * window size and no running PTY session (so no 5s workspace poll).
  *
- * A missing baseline is created and reported; `--update` rewrites all
- * baselines. Mismatches write actual/diff PNGs to test-results/visual/.
+ * Missing baselines on authoritative platforms fail the gate. Platforms with
+ * no committed baseline set are captured to test-results/visual/ without
+ * mutating the repository. Only `--update` writes baselines. Mismatches write
+ * actual/diff PNGs to test-results/visual/.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -43,6 +45,7 @@ const WINDOW = { width: 1400, height: 900 };
 const WIDTHS = { narrow: 300, medium: 380, wide: 540 } as const;
 const DIFF_THRESHOLD = 0.12;
 const MAX_DIFF_RATIO = 0.003;
+const AUTHORITATIVE_BASELINE_PLATFORMS = new Set<NodeJS.Platform>(['win32']);
 const BASELINE_DIR = join(__dirname, 'fixtures', 'visual-baselines', process.platform);
 const ACTUAL_DIR = join(__dirname, '..', 'test-results', 'visual');
 
@@ -50,6 +53,10 @@ let passed = 0;
 let failed = 0;
 let baselinesCreated = 0;
 const update = process.argv.includes('--update');
+
+function missingBaselineMode(platform: NodeJS.Platform): 'required' | 'capture' {
+  return AUTHORITATIVE_BASELINE_PLATFORMS.has(platform) ? 'required' : 'capture';
+}
 
 function check(label: string, condition: boolean, detail?: unknown): void {
   if (condition) {
@@ -232,18 +239,35 @@ async function waitForStableOverview(page: Page): Promise<void> {
 function comparePng(name: string, actual: Buffer): void {
   // Hosted runners rasterize fonts differently than the operator machine;
   // pixel baselines are only authoritative where they were captured.
+  const baselinePath = join(BASELINE_DIR, `${name}.png`);
+  const missingMode = missingBaselineMode(process.platform);
+
+  if (!update && !existsSync(baselinePath) && missingMode === 'required') {
+    mkdirSync(ACTUAL_DIR, { recursive: true });
+    writeFileSync(join(ACTUAL_DIR, `${name}.actual.png`), actual);
+    check(`${name}: committed ${process.platform} baseline exists`, false,
+      `run pnpm test:visual:update on ${process.platform} to create it`);
+    return;
+  }
+
+  if (missingMode === 'capture') {
+    mkdirSync(ACTUAL_DIR, { recursive: true });
+    writeFileSync(join(ACTUAL_DIR, `${name}.actual.png`), actual);
+    check(`${name}: captured (${process.platform} is not an authoritative baseline platform)`, true);
+    return;
+  }
+
   if (process.env['CI']) {
     mkdirSync(ACTUAL_DIR, { recursive: true });
     writeFileSync(join(ACTUAL_DIR, `${name}.actual.png`), actual);
     check(`${name}: captured (pixel comparison skipped on CI)`, true);
     return;
   }
-  const baselinePath = join(BASELINE_DIR, `${name}.png`);
-  if (update || !existsSync(baselinePath)) {
+  if (update) {
     mkdirSync(BASELINE_DIR, { recursive: true });
     writeFileSync(baselinePath, actual);
     baselinesCreated += 1;
-    check(`${name}: baseline ${update ? 'updated' : 'created'}`, true);
+    check(`${name}: baseline updated`, true);
     return;
   }
   const expected = PNG.sync.read(readFileSync(baselinePath));
@@ -292,6 +316,10 @@ async function captureState(page: Page, name: string): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  check('baseline authority keeps win32 strict and unbaselined Linux capture-only',
+    missingBaselineMode('win32') === 'required'
+      && missingBaselineMode('linux') === 'capture');
+
   const root = process.cwd();
   const scratch = mkdtempSync(join(tmpdir(), 'ade-visual-'));
   const userData = join(scratch, 'user-data');

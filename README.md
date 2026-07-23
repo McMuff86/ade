@@ -159,6 +159,12 @@ run executing inside the distribution, restart and cleanup.
 `pnpm exec tsx scripts/readme-media.ts` regenerates the README screenshots
 from a fictional demo profile.
 
+Automated source/package workflows use disposable synthetic repositories so
+CI stays deterministic. Operator-driven general-use and managed-run validation
+uses RhinoClaw as the preferred real repository, always through disposable ADE
+worktrees/branches; its working tree, `main`, deployed skill and live Rhino
+installation remain untouched unless an operator separately authorizes them.
+
 ## Documentation
 
 | Topic | Where |

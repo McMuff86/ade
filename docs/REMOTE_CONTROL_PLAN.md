@@ -145,6 +145,13 @@ scopes as specified in `REPOSITORY_SCOPES_PLAN.md`. Goal 6 then validates the
 resulting model and orchestration beta on the `2D_rpg_jumpnrun` repository
 before adding a network control surface.
 
+That completed Goal 6 pilot remains historical evidence. Ongoing
+operator-driven product and general-use validation uses RhinoClaw as the
+preferred real repository through disposable ADE worktrees/branches, while
+deterministic automated workflows retain synthetic fixture repositories. The
+same no-working-tree/no-main/no-push rule below applies, and RhinoClaw's
+deployed skill or live Rhino installation requires separate approval as well.
+
 - Define 6-10 representative tasks across isolated bug fixes, tests, a
   cross-file feature, refactoring and genuinely parallel work.
 - Run suitable tasks once with a single agent and once as a managed run.

@@ -25,6 +25,9 @@ const API_KEY_PATTERN = /^[\x21-\x7E]{1,512}$/;
 const SERVICE_VALUE_PATTERN = /^[\x21-\x7E]{1,1024}$/;
 const SERVICE_NAME_PATTERN = /^[A-Z][A-Z0-9_]{2,63}$/;
 const MAX_SERVICE_KEYS = 50;
+const SECURE_LINUX_STORAGE_BACKENDS = new Set([
+  'gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6',
+]);
 const RUNTIME_IDS: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
 ];
@@ -44,6 +47,17 @@ export interface HarnessKeyEncryptor {
   available(): boolean;
   encrypt(plain: string): Buffer;
   decrypt(encrypted: Buffer): string;
+}
+
+/** Linux fails closed unless Electron selected a known OS-backed secret store. */
+export function isSafeStorageSecure(
+  encryptionAvailable: boolean,
+  platform: NodeJS.Platform,
+  selectedBackend: string,
+): boolean {
+  return encryptionAvailable && (
+    platform !== 'linux' || SECURE_LINUX_STORAGE_BACKENDS.has(selectedBackend)
+  );
 }
 
 interface StoredCredential {
@@ -66,7 +80,11 @@ function electronEncryptor(): HarnessKeyEncryptor {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { safeStorage } = require('electron') as typeof import('electron');
   return {
-    available: () => safeStorage.isEncryptionAvailable(),
+    available: () => isSafeStorageSecure(
+      safeStorage.isEncryptionAvailable(),
+      process.platform,
+      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : 'unknown',
+    ),
     encrypt: (plain) => safeStorage.encryptString(plain),
     decrypt: (encrypted) => safeStorage.decryptString(encrypted),
   };
@@ -180,6 +198,7 @@ export class HarnessCredentialService {
    * blocking the launch.
    */
   envFor(runtime: RuntimeId): Record<string, string> {
+    if (!this.available()) return {};
     const file = this.read();
     const env: Record<string, string> = {};
     for (const [name, record] of Object.entries(file.serviceKeys)) {

@@ -598,15 +598,19 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
   plus safeStorage availability; plaintext never crosses IPC
 - `harness:setKey({runtime, apiKey})` / `harness:clearKey({runtime})` →
   write-only encrypted key storage (OS safeStorage, own file next to
-  config.json; refuses to store when OS encryption is unavailable). Stored
-  keys are injected main-side as the harness's documented environment
-  variable only into sessions whose effective runtime matches
+  config.json; refuses to store when OS encryption is unavailable). On Linux,
+  only known OS-backed Secret Service/KWallet backends are accepted;
+  Electron's `basic_text` and `unknown` backends fail closed. Stored keys are
+  injected main-side as the harness's documented environment variable only
+  while secure storage remains available and only into sessions whose
+  effective runtime matches
 - `harness:setServiceKey({name, value, scope})` / `harness:clearServiceKey({name})`
   → write-only encrypted generic service keys (e.g. ELEVENLABS_API_KEY) with
   an injection scope of 'all' or a runtime list; reserved names (PATH,
   NODE_OPTIONS, ADE_*, the harness API-key slots, …) are refused. Scoped
   keys are injected main-side into matching native and WSL session
-  environments; explicit task/launch env always wins
+  environments only while secure storage remains available; explicit
+  task/launch env always wins
 - `harness:login({agentId, runtime})` → terminal session running the
   harness's documented sign-in command from ADE's fixed table (never from
   renderer input); the CLI owns the whole OAuth/subscription flow and the

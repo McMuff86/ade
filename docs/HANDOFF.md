@@ -1,4 +1,4 @@
-# Handoff — 2026-07-22
+# Handoff — 2026-07-23
 
 Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
 Abschluss, Verified Draft-PR Publishing, dem Repository Inspector (`40bc1b2`
@@ -214,7 +214,7 @@ Der native Linux-Build-/Evidence-Checkout liegt unter
 Test-/Paketartefakte und kann später vollständig entfernt werden; der
 Windows-Ordner oben behält die beiden fertigen Pakete.
 
-## Verifizierter Qualitätsstand
+## Historischer verifizierter Qualitätsstand vor dem Linux-Vertragsnachtrag
 
 Windows, zusammenhängender `pnpm verify`-Lauf:
 
@@ -373,13 +373,14 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 
 ## Nächste Schritte
 
-1. Den lokalen `2D_rpg_jumpnrun`-Kandidaten `77cdaff` fachlich reviewen und die
-   F6-Balanceänderung menschlich spielen. Erst nach expliziter Operator-
-   Freigabe einen Remote-Branch/Draft-PR anlegen. Die historische Aggregation
-   trägt bewusst kein frisches ADE-Run-Attest: Für ADE-eigenes Verified
-   Publishing muss der Inhalt einen neuen Managed Run durchlaufen; alternativ
-   braucht der manuelle Push/PR eine separat freigegebene, wahrheitsgemäß als
-   manuell aggregiert bezeichnete Publication.
+1. Für neue operator-gesteuerte ADE-Produkt-, Managed-Run- und General-Use-
+   Tests RhinoClaw als bevorzugtes reales Repository verwenden. Ausschließlich
+   disposable ADE-Worktrees/-Branches nutzen; RhinoClaw-Arbeitsbaum, `main`,
+   deployed Skill und laufende Rhino-Installation bleiben ohne separate
+   Freigabe unverändert. Deterministische CI-/Electron-Tests behalten ihre
+   synthetischen lokalen Fixture-Repositories. Der lokale
+   `2D_rpg_jumpnrun`-Kandidat `77cdaff` bleibt historische Goal-6-Evidence und
+   wird nicht als laufendes Standard-Testziel weitergeführt oder veröffentlicht.
 2. Sprache (DE/EN-Mix) und Typografie (zweite Schriftstimme für Fließtext,
    Typo-Skala als Tokens, eigenes Warn-Token) gemäß
    `docs/DESIGN_REVIEW_2026-07-19.md` vereinheitlichen; die dortigen Quick
@@ -412,3 +413,31 @@ entsteht nicht durch möglichst viele neue Schalter, sondern durch geführtes
 Onboarding, progressive Offenlegung, hervorragende Recovery-Zustände,
 messbare Accessibility/Performance und wenige, sehr gut gestaltete
 End-to-End-Flows für „schnelle Aufgabe“ versus „Managed Run mit Beweiskette“.
+
+## Nachtrag 2026-07-23 — Linux-E2E- und Baseline-Vertrag
+
+- Der aktuelle WSL-Lauf `NODE_ENV=development pnpm verify` ist vollständig
+  grün: beide TypeScript-Projekte, **553/553** fokussierte Assertions,
+  Production-Build, **96/96** Source-Electron-Checks und **22/22** visuelle
+  Struktur-/Baseline-Policy-Checks. Das frisch gebaute unpacked Linux-Paket
+  besteht denselben **96/96**-Electron-Vertrag.
+- Der Settings-E2E fragt den realen `harness:status` ab. Windows/DPAPI behält
+  den positiven verschlüsselten Harness-/Service-Key-Roundtrip bis in die
+  Session-Umgebung und über den App-Neustart. Headless Linux ohne Secret
+  Service prüft stattdessen den vorgesehenen Fail-closed-Vertrag: sichtbare
+  Warnung, deaktivierte Secret-Eingaben, keine Credential-Records und derselbe
+  Zustand nach Neustart. Electrons Linux-Backend `basic_text` und unbekannte
+  Backends werden trotz `isEncryptionAvailable() === true` abgelehnt; nur
+  bekannte OS-Secret-Stores sind zulässig. Produktion fällt weiterhin nie auf
+  Klartext zurück. Bereits gespeicherte Records werden bei späterer Storage-
+  Unverfügbarkeit weder entschlüsselt noch in neue Session-Umgebungen injiziert.
+- Der visuelle Test schreibt auf Plattformen ohne autoritativen Baseline-Satz
+  (aktuell Linux) unabhängig von `--update` nur nach `test-results/visual/`
+  und ignoriert dort versehentlich vorhandene Repository-Baselines. Auf der
+  autoritativen Windows-Plattform schlägt bereits eine fehlende erwartete
+  Baseline auch im CI fehl. Repository-Baselines entstehen oder ändern sich
+  ausschließlich mit `pnpm test:visual:update`; ein normaler Verify-Lauf
+  verschmutzt den Worktree nicht mehr.
+- Historische Goal-6-Dokumente und der abgeschlossene Driver bleiben bewusst an
+  `2D_rpg_jumpnrun` gebunden. Neue reale ADE-General-Use-Validierung verwendet
+  RhinoClaw unter den oben beschriebenen Worktree- und Freigabegrenzen.

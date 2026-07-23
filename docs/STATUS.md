@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-07-22. This is the short, factual capability matrix. Product
+Status date: 2026-07-23. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -45,14 +45,24 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; planner and dependent workers are told the dependent worktree already contains upstream validated commits |
 | Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
-| Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, 409 focused checks, 47-check Electron/Playwright under Xvfb, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
-| Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are proven by 31 backend plus 67 Electron checks |
+| Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, the full focused suite, platform-aware source and unpacked Electron/Playwright workflows, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
+| Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are covered by focused backend and cross-boundary Electron workflows |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
 | Remote host API | Not built, bounded GO | Goal 6 permits starting Goal 7's disabled-by-default, loopback-only, transport-neutral control adapter; public remote exposure remains no-go until Goal 7's security gates pass |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
-| CI and Electron E2E | Real locally and hosted | The current Windows source gate passes 465 focused assertions plus 64 Electron/Playwright checks, including repository inspection, immutable verification-HEAD enforcement, an isolated real-Git publication push and fake-provider Draft PR; the last hosted cross-platform baseline remains 410/409 focused plus 47 Electron checks on `d32faa9`; Windows→WSL passes 31 backend and 67 extended Electron checks |
+| CI and Electron E2E | Real, platform-aware | Focused checks, production build and Electron workflows run on Windows and Linux. Windows with DPAPI proves the real encrypted key/service-key roundtrip; headless Linux without a Secret Service proves the explicit fail-closed UI and empty credential state instead of attempting the unavailable positive path. Visual checks require every expected baseline on authoritative platforms (currently Windows); non-authoritative platforms always capture under `test-results/` without reading or writing repository baselines, and `test:visual:update` writes only on an explicitly authoritative platform |
+
+## Validation repository policy
+
+The completed Goal 6 record on `2D_rpg_jumpnrun` remains immutable historical
+evidence. New operator-driven ADE product, managed-run and general-use
+validation prefers RhinoClaw. Such runs use disposable ADE worktrees and
+branches and must not mutate RhinoClaw's ordinary working tree, `main`, deployed
+skill or live Rhino installation without separate operator approval.
+Deterministic automated CI/Electron workflows continue to use synthetic local
+fixture repositories rather than depending on any personal checkout.
 
 ## Known constraints
 

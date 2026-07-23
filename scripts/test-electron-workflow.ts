@@ -1601,30 +1601,53 @@ async function run(): Promise<void> {
         && keyPlaceholder?.includes('Alternative zur Subscription') === true;
     }, 20_000);
     const grokRow = settingsDialog.locator('.st-harness', { hasText: 'Grok Build' });
-    const grokKey = 'xai-e2e-secret-key-2026';
-    await grokRow.getByLabel('API-Key für Grok Build').fill(grokKey);
-    await grokRow.getByRole('button', { name: 'Speichern' }).click();
-    await eventually('a saved harness key reports write-only boolean status', async () =>
-      (await grokRow.textContent())?.includes('API-Key gespeichert (XAI_API_KEY)') === true);
-    const serviceValue = 'elevenlabs-e2e-value-2026';
-    await settingsDialog.getByLabel('Name des Service-Keys').fill('ELEVENLABS_API_KEY');
-    await settingsDialog.getByLabel('Wert des Service-Keys').fill(serviceValue);
-    await settingsDialog.locator('.st-service-add').getByRole('button', { name: 'Speichern' }).click();
-    await eventually('a stored service key lists its scope without its value', async () => {
-      const text = await settingsDialog.textContent();
-      return text?.includes('ELEVENLABS_API_KEY') === true
-        && text.includes('alle Sessions')
-        && !text.includes(serviceValue);
+    const initialHarnessStatus = await page.evaluate(async () => {
+      const api = (window as unknown as {
+        ade: { invoke: (channel: string) => Promise<unknown> };
+      }).ade;
+      return await api.invoke('harness:status') as {
+        keyStorageAvailable: boolean;
+        items: Array<{ runtime: string; hasStoredKey: boolean }>;
+        serviceKeys: Array<{ name: string; scope: unknown }>;
+      };
     });
-    const credentialsRaw = readFileSync(join(userData, 'ade', 'harness-credentials.json'), 'utf8');
-    const configRaw = readFileSync(join(userData, 'ade', 'config.json'), 'utf8');
-    check('harness and service keys persist encrypted outside config.json without plaintext',
-      !credentialsRaw.includes(grokKey)
-        && !credentialsRaw.includes(serviceValue)
-        && credentialsRaw.includes('"grok"')
-        && credentialsRaw.includes('"ELEVENLABS_API_KEY"')
-        && !configRaw.includes(grokKey)
-        && !configRaw.includes(serviceValue));
+    const keyStorageAvailable = initialHarnessStatus.keyStorageAvailable;
+    const grokKey = 'xai-e2e-secret-key-2026';
+    const serviceValue = 'elevenlabs-e2e-value-2026';
+    if (keyStorageAvailable) {
+      await grokRow.getByLabel('API-Key für Grok Build').fill(grokKey);
+      await grokRow.getByRole('button', { name: 'Speichern' }).click();
+      await eventually('a saved harness key reports write-only boolean status', async () =>
+        (await grokRow.textContent())?.includes('API-Key gespeichert (XAI_API_KEY)') === true);
+      await settingsDialog.getByLabel('Name des Service-Keys').fill('ELEVENLABS_API_KEY');
+      await settingsDialog.getByLabel('Wert des Service-Keys').fill(serviceValue);
+      await settingsDialog.locator('.st-service-add').getByRole('button', { name: 'Speichern' }).click();
+      await eventually('a stored service key lists its scope without its value', async () => {
+        const text = await settingsDialog.textContent();
+        return text?.includes('ELEVENLABS_API_KEY') === true
+          && text.includes('alle Sessions')
+          && !text.includes(serviceValue);
+      });
+      const credentialsRaw = readFileSync(join(userData, 'ade', 'harness-credentials.json'), 'utf8');
+      const configRaw = readFileSync(join(userData, 'ade', 'config.json'), 'utf8');
+      check('harness and service keys persist encrypted outside config.json without plaintext',
+        !credentialsRaw.includes(grokKey)
+          && !credentialsRaw.includes(serviceValue)
+          && credentialsRaw.includes('"grok"')
+          && credentialsRaw.includes('"ELEVENLABS_API_KEY"')
+          && !configRaw.includes(grokKey)
+          && !configRaw.includes(serviceValue));
+    } else {
+      check('unavailable secure storage is explicit and disables every secret input',
+        await settingsDialog.getByText('Sichere Schlüsselablage ist auf diesem System nicht verfügbar.')
+          .isVisible()
+          && await grokRow.getByLabel('API-Key für Grok Build').isDisabled()
+          && await settingsDialog.getByLabel('Name des Service-Keys').isDisabled()
+          && await settingsDialog.getByLabel('Wert des Service-Keys').isDisabled());
+      check('unavailable secure storage exposes no stored credential status',
+        initialHarnessStatus.items.every((item) => !item.hasStoredKey)
+          && initialHarnessStatus.serviceKeys.length === 0);
+    }
     const tabCountBeforeLogin = await page.locator('[role="tab"][id^="session-tab-"]').count();
     await claudeRow.getByRole('button', { name: 'Anmelden im Terminal' }).click();
     await settingsDialog.waitFor({ state: 'hidden' });
@@ -1634,45 +1657,47 @@ async function run(): Promise<void> {
           ?.includes('CLAUDE_LOGIN_FIXTURE_OK') === true,
       20_000,
     );
-    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
-    await grokAgentDialog.waitFor({ state: 'visible' });
-    await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
-    await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
-    // Saving re-resolves the agent-default scope; over a cold WSL VM the Git
-    // inspection can legitimately exceed Playwright's 30s default.
-    await grokAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
-    const scopeForGrok = page.getByTestId('repository-scope');
-    await scopeForGrok.getByLabel('Repository for new session').selectOption('');
-    const tabCountBeforeGrok = await page.locator('[role="tab"][id^="session-tab-"]').count();
-    await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
-    await eventually('a Grok session launches with the stored key as its environment', async () =>
-      await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeGrok + 1
-        && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
-          ?.includes(`GROK_KEY=${grokKey}`) === true,
-      20_000,
-    );
-    await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
-    await revertAgentDialog.waitFor({ state: 'visible' });
-    await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
-    await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await revertAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
-    // The target select follows the active session context; re-state the
-    // plain-home intent explicitly before opening the probe session.
-    await scopeForGrok.getByLabel('Repository for new session').selectOption('');
-    const tabCountBeforeService = await page.locator('[role="tab"][id^="session-tab-"]').count();
-    await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
-    await eventually('an all-sessions service key opens a session', async () =>
-      await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeService + 1);
-    await sendCommand(page, isWindows
-      ? 'Write-Output "SVC=$env:ELEVENLABS_API_KEY"'
-      : 'printf \'SVC=%s\\n\' "$ELEVENLABS_API_KEY"');
-    await eventually('an all-sessions service key reaches a plain shell session', async () =>
-      (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
-        ?.includes('SVC=elevenlabs-e2e-value-2026') === true,
-      30_000,
-    );
+    if (keyStorageAvailable) {
+      await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+      const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      await grokAgentDialog.waitFor({ state: 'visible' });
+      await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
+      await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      // Saving re-resolves the agent-default scope; over a cold WSL VM the Git
+      // inspection can legitimately exceed Playwright's 30s default.
+      await grokAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
+      const scopeForGrok = page.getByTestId('repository-scope');
+      await scopeForGrok.getByLabel('Repository for new session').selectOption('');
+      const tabCountBeforeGrok = await page.locator('[role="tab"][id^="session-tab-"]').count();
+      await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+      await eventually('a Grok session launches with the stored key as its environment', async () =>
+        await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeGrok + 1
+          && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+            ?.includes(`GROK_KEY=${grokKey}`) === true,
+        20_000,
+      );
+      await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
+      const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      await revertAgentDialog.waitFor({ state: 'visible' });
+      await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
+      await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await revertAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
+      // The target select follows the active session context; re-state the
+      // plain-home intent explicitly before opening the probe session.
+      await scopeForGrok.getByLabel('Repository for new session').selectOption('');
+      const tabCountBeforeService = await page.locator('[role="tab"][id^="session-tab-"]').count();
+      await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+      await eventually('an all-sessions service key opens a session', async () =>
+        await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeService + 1);
+      await sendCommand(page, isWindows
+        ? 'Write-Output "SVC=$env:ELEVENLABS_API_KEY"'
+        : 'printf \'SVC=%s\\n\' "$ELEVENLABS_API_KEY"');
+      await eventually('an all-sessions service key reaches a plain shell session', async () =>
+        (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes('SVC=elevenlabs-e2e-value-2026') === true,
+        30_000,
+      );
+    }
 
     await page.getByRole('button', { name: 'Switch to light theme' }).click();
     await eventually('the terminal surface follows the light theme without a dark ring', async () => {
@@ -1751,12 +1776,19 @@ async function run(): Promise<void> {
         serviceKeys: Array<{ name: string; scope: unknown }>;
       };
     });
-    check('full app restart preserves the encrypted harness key status',
-      restartedHarness.keyStorageAvailable
-        && restartedHarness.items.some((item) => item.runtime === 'grok' && item.hasStoredKey)
-        && restartedHarness.serviceKeys.some((key) => (
-          key.name === 'ELEVENLABS_API_KEY' && key.scope === 'all'
-        )));
+    if (keyStorageAvailable) {
+      check('full app restart preserves the encrypted harness key status',
+        restartedHarness.keyStorageAvailable
+          && restartedHarness.items.some((item) => item.runtime === 'grok' && item.hasStoredKey)
+          && restartedHarness.serviceKeys.some((key) => (
+            key.name === 'ELEVENLABS_API_KEY' && key.scope === 'all'
+          )));
+    } else {
+      check('full app restart preserves unavailable secure storage without credential records',
+        !restartedHarness.keyStorageAvailable
+          && restartedHarness.items.every((item) => !item.hasStoredKey)
+          && restartedHarness.serviceKeys.length === 0);
+    }
 
     if (runWslBackend) {
       const restartedWslRepository = restartedConfig.repositories.find(
