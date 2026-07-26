@@ -1,7 +1,8 @@
 # ADE remote control and mobile companion plan
 
-Status: planned, 2026-07-12. No remote listener or mobile client is implemented
-yet. The delivery order and exit criteria are tracked in `ROADMAP.md`.
+Status: Goal-7 read-only foundation implemented 2026-07-26; no mobile client,
+device pairing, SSE or remote mutation is implemented yet. The delivery order
+and exit criteria are tracked in `ROADMAP.md`.
 
 ## Decision
 
@@ -69,19 +70,28 @@ mutation is included in the remote endpoint allowlist.
 
 ## Application boundary
 
-Electron IPC is currently the only adapter into ADE's services. Goal 7 will
-introduce a transport-neutral application boundary that owns command
-authorization, payload validation and event publication. Electron IPC and the
-remote HTTP adapter will call the same boundary; the HTTP server must never
-proxy arbitrary IPC channel names.
+Electron IPC and the first remote HTTP adapter now share a transport-neutral
+application service for the sanitized run-summary projection. The same service
+also owns path-free health and catalog projections. The HTTP server never
+proxies arbitrary IPC channel names. Command authorization/validation and event
+publication remain the next Goal-7 extensions of this boundary.
+
+The implemented development listener is disabled unless
+`ADE_HOST_API_ENABLED=1`; enabled startup also requires a non-logged
+`ADE_HOST_API_TOKEN` of 32-128 URL-safe ASCII characters and accepts an
+optional bounded `ADE_HOST_API_PORT` (default `4317`). Its bind address is not
+configurable and is always `127.0.0.1`. This token is a local Goal-7 bootstrap
+control. ADE removes it from `process.env` after startup so agent subprocesses
+cannot inherit it. It is not the future paired-device/session design and is not
+approval to expose the listener through Tailscale yet.
 
 The first remote contract is intentionally small:
 
 | Operation | Purpose |
 |---|---|
-| `GET /api/v1/health` | Host version, readiness and queue summary |
-| `GET /api/v1/catalog` | Sanitized projects, agents and runtime readiness |
-| `GET /api/v1/runs` | Mobile-safe orchestration snapshot |
+| `GET /api/v1/health` | **Implemented:** API version, readiness and queue summary |
+| `GET /api/v1/catalog` | **Implemented:** sanitized projects and agents without paths/commands/secrets |
+| `GET /api/v1/runs` | **Implemented:** mobile-safe orchestration summaries |
 | `POST /api/v1/tasks` | Submit one bounded task with explicit agent/repo scope |
 | `POST /api/v1/runs` | Create a managed run draft |
 | `POST /api/v1/runs/{id}/start` | Start a draft once |

@@ -48,7 +48,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, the full focused suite, platform-aware source and unpacked Electron/Playwright workflows, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
 | Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are covered by focused backend and cross-boundary Electron workflows |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
-| Remote host API | Not built, bounded GO | Goal 6 permits starting Goal 7's disabled-by-default, loopback-only, transport-neutral control adapter; public remote exposure remains no-go until Goal 7's security gates pass |
+| Remote host API | Foundation implemented, read-only and disabled by default | A transport-neutral application service projects mobile-safe health, repository/agent catalog and sanitized runs. An opt-in HTTP adapter is fixed to `127.0.0.1`, requires a strong Bearer token, rejects unknown Hosts/methods/paths and exposes only `GET /api/v1/{health,catalog,runs}`. SSE, pairing, audit and every remote mutation remain unbuilt; Tailscale/public exposure is still no-go |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
@@ -154,6 +154,9 @@ fixture repositories rather than depending on any personal checkout.
   not fetch remote refs or show provider CI logs yet; unsupported/offline/auth
   states remain separate from the always-local status and commit history.
 - There is currently no network listener, paired-device store, mobile build or
-  remote ingress in ADE. Until the remote goals are implemented and verified,
+  remote ingress in ADE by default. The Goal-7 development listener exists only
+  after explicit environment opt-in, remains loopback-only and read-only, and
+  has no pairing/PWA/Tailscale contract yet. Until the remaining remote goals
+  are implemented and verified,
   users must not expose Electron IPC or an ad-hoc local server through a router,
   LAN bind, Tailscale Funnel or public tunnel.
