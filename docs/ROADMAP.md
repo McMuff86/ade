@@ -308,23 +308,27 @@ Electron workflow.
 
 ## Goal 7 - transport-neutral core and local host API
 
-Status: **bounded GO; implementation not started.** Goal 6 permits the
-disabled-by-default, loopback-only local foundation. Public remote exposure
-remains no-go until this goal's authorization, idempotency, reconnect and audit
-exit criteria pass.
+Status: **in progress; read-only foundation implemented.** The first slice adds
+a transport-neutral application service plus mobile-safe health/catalog/run
+DTOs and a disabled-by-default, Bearer-authorized HTTP adapter fixed to
+`127.0.0.1`. It exposes only `GET /api/v1/health`, `/catalog` and `/runs`.
+Public/Tailscale exposure and every remote mutation remain no-go until this
+goal's pairing/authorization, idempotency, reconnect and audit exit criteria
+pass.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
 implemented and hosted-verified. Versioned package publication and macOS work
 remain separate from the remote API security gates below.
 
-- Extract a transport-neutral ADE application boundary from Electron IPC so
+- [x] Extract the first transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and
-  orchestration behavior.
-- Add mobile-specific DTOs with repositories and agents as independent choices
+  orchestration behavior; `run:getSummary` now uses the shared projection.
+- [x] Add mobile-specific DTOs with repositories and agents as independent choices
   instead of exposing `AdeConfig`, raw IPC channels or the complete desktop
   orchestration snapshot.
-- Add a versioned loopback-only HTTP API for health, sanitized catalog, runs,
+- [ ] Extend the implemented versioned loopback-only read API for health,
+  sanitized catalog and runs with
   bounded task submission with explicit agent/repository ids, managed-run
   create/start/cancel and a resumable server-sent event stream.
 - Require idempotency keys for mutations and monotonic cursors for reconnecting

@@ -44,11 +44,15 @@ import { HarnessCredentialService } from './settings/HarnessCredentialService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
 import { DashboardWindows } from './dashboard/DashboardWindows';
 import { resolveDashboardUrl } from './dashboard/dashboardUrl';
+import { AdeApplicationService } from './application/AdeApplicationService';
+import { HostApiServer } from './remote/HostApiServer';
+import { consumeHostApiConfig } from './remote/hostApiConfig';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
+let hostApiServer: HostApiServer | null = null;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
 
@@ -107,6 +111,23 @@ export function registerIpcHandlers(store: ConfigStore): void {
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
+  const application = new AdeApplicationService(
+    store,
+    orchestration,
+    { status: () => ptyManager!.queueStatus() },
+  );
+  const hostApiConfig = consumeHostApiConfig(process.env);
+  if (hostApiConfig.enabled) {
+    hostApiServer = new HostApiServer(application, hostApiConfig.token, hostApiConfig.port);
+    void hostApiServer.start()
+      .then((address) => {
+        console.log(`[ade] host API listening on ${address.host}:${address.port}`);
+      })
+      .catch((error) => {
+        hostApiServer = null;
+        console.error('[ade] host API failed to start:', error);
+      });
+  }
   runCoordinator.connect(
     (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
       ptyManager!.create(
@@ -396,7 +417,7 @@ export function registerIpcHandlers(store: ConfigStore): void {
   });
 
   handle(IPC.RunGet, () => orchestration!.snapshot());
-  handle(IPC.RunGetSummary, ({ runId }) => orchestration!.summarize(runId));
+  handle(IPC.RunGetSummary, ({ runId }) => application.runs(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));
   handle(IPC.RunApprovalDiff, async ({ runId }) => {
     // Validated work commits behind the pending integration approval, read
@@ -552,6 +573,10 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
 export function disposePtyManager(): void {
+  void hostApiServer?.stop().catch((error) => {
+    console.warn('[ade] host API failed to stop cleanly:', error);
+  });
+  hostApiServer = null;
   ptyManager?.disposeAll();
   ptyManager = null;
   runCoordinator = null;

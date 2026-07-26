@@ -77,8 +77,10 @@ Git worktrees, integration and persisted run state. The planned mobile PWA
 submits a deliberately small set of commands and observes authoritative events;
 it never executes an agent locally and is not a streamed Electron renderer.
 
-Electron IPC and remote HTTP will be adapters around one transport-neutral ADE
-application boundary. The remote host must not expose arbitrary IPC names,
+Electron IPC and remote HTTP now share the first transport-neutral ADE
+application boundary for sanitized run summaries. The bounded Goal-7 foundation
+also projects health and a path-free repository/agent catalog for HTTP. The
+remote host must not expose arbitrary IPC names,
 `AdeConfig`, raw PTY methods or desktop filesystem methods. This keeps the
 existing sender-validated IPC boundary intact while giving both clients the
 same command semantics.
@@ -106,9 +108,11 @@ accounts and hosted relays are deferred until after personal-alpha validation.
 - Git: `simple-git`. Config persistence: hand-rolled atomic JSON store in
   `app.getPath('userData')`.
 - Icons: text glyphs or lucide-react sparingly. No emojis anywhere (SPEC).
-- Planned remote transport: a small Node HTTP server bound to loopback, JSON
-  commands plus server-sent events, and a separate React/Vite PWA. WebSocket is
-  deferred because Goals 7-10 have no bidirectional terminal stream.
+- Remote transport foundation: a disabled-by-default Node HTTP server fixed to
+  `127.0.0.1`, with exact Bearer authorization and read-only versioned JSON for
+  health, catalog and runs. Mutating commands, server-sent events, device
+  pairing and the separate React/Vite PWA remain later Goal-7/8 slices.
+  WebSocket is deferred because Goals 7-10 have no bidirectional terminal stream.
 
 ## Repo layout (this repo, root = the app)
 
@@ -128,6 +132,8 @@ src/
     pty/PtyManager.ts      # node-pty sessions, ring buffers, launch profiles
     git/                   # status/diff/worktree (simple-git)
     config/store.ts        # atomic catalog/run/settings JSON + migration
+    application/           # transport-neutral mobile-safe ADE boundary
+    remote/                # loopback-only authenticated host API adapter
     orchestration/         # run/task/event service and legacy Graph migration
     publishing/            # verified branch + GitHub Draft-PR boundary
     repositories/          # catalog, bindings, scope resolution + read inspector
@@ -148,6 +154,7 @@ src/
     stores/                # Zustand catalog, session, run, and UI mirrors
   shared/
     types.ts               # catalog, session, run/task/event, runtime contracts
+    remote.ts              # mobile-safe health/catalog/run DTOs
     ipc.ts                 # IPC channel names + payload types (contract)
     runtimes.ts            # launch profiles incl. permission-mode flags
 docs/                      # SPEC, this file, reports/
@@ -155,17 +162,15 @@ mock/  mockup/             # references (kept)
 reference/                 # cloned Superset/Hermes — git-ignored
 ```
 
-Planned additions for Goals 7-10 (names may be refined without changing the
-boundaries):
+Remaining planned additions for Goals 7-10 (names may be refined without
+changing the boundaries):
 
 ```
 src/
   main/
-    core/                  # ADE application commands/events shared by adapters
-    remote/                # loopback HTTP host, pairing, sessions, audit
+    application/           # add authorized commands/events shared by adapters
+    remote/                # add pairing, sessions, audit and SSE
   mobile/                  # responsive PWA; no Electron or Node assumptions
-  shared/
-    remote.ts              # versioned mobile DTOs and runtime schemas
 ```
 
 ## Current core types through the platform backend slice (shared/types.ts)

@@ -390,8 +390,9 @@ Goal-6-Quality-Kandidat für `2D_rpg_jumpnrun`:
 4. Einen geführten WSL-Prerequisite-Check mit klaren Reparaturaktionen in das
    Onboarding integrieren.
 5. Goal 7 ausschließlich im bereits dokumentierten bounded GO fortsetzen:
-   deaktiviert, loopback-only, versionierte DTOs, Auth/Audit, Idempotency und
-   keine Roh-PTY-/Filesystem-Exposition.
+   Der read-only Foundation-Slice ist umgesetzt; als Nächstes folgen SSE,
+   Geräte-Pairing/Audit und erst danach idempotente Schreibkommandos. Der Host
+   bleibt deaktiviert, loopback-only und ohne Roh-PTY-/Filesystem-Exposition.
 6. Danach Persistenz/Retention, Accessibility-/Performance-Budgets und erst
    dann macOS/Updater als eigene Release-Tracks angehen.
 
