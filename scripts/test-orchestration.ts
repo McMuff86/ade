@@ -438,6 +438,7 @@ function testRunDeletionAndScopeSnapshots(): void {
       name: 'Deletion Repo',
       rootPath: 'C:\\repos\\deletion',
       commonGitDir: 'C:\\repos\\deletion\\.git',
+      executionBackend: 'native',
       verified: true,
       createdAt: 1_000,
     }],

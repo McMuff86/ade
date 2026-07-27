@@ -9,7 +9,8 @@ import { join } from 'node:path';
 
 const isWindows = process.platform === 'win32';
 
-export function writeFakeGithubCli(root: string, remote: string): { bin: string; statePath: string } {
+/** The generated CLI reads the remote from ADE_E2E_MANAGED_REMOTE at run time. */
+export function writeFakeGithubCli(root: string): { bin: string; statePath: string } {
   const bin = join(root, 'fake-gh-bin');
   const statePath = join(root, 'fake-gh-state.json');
   mkdirSync(bin, { recursive: true });

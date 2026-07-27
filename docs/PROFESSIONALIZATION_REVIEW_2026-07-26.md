@@ -191,18 +191,53 @@ schenkt Goal 9 die DTO-Form.
 
 ## Thema 4 — Evidenz echt machen
 
-- **Verifiziert:** `tsconfig.node.json` und `tsconfig.web.json` schließen
-  `scripts/**` nicht ein, `tsx` transpiliert ungeprüft. Damit läuft der
-  Vollständigkeits-Guard der IPC-Oberfläche ins Leere:
+> **Status: die ersten zwei Punkte umgesetzt am 2026-07-27.** Kontrakt in
+> `ARCHITECTURE.md` („How the evidence is kept honest"), Guards in
+> `tsconfig.scripts.json` und `scripts/run-suites.ts`.
+
+- **Verifiziert, umgesetzt:** `tsconfig.node.json` und `tsconfig.web.json`
+  schlossen `scripts/**` nicht ein, `tsx` transpilierte ungeprüft. Damit lief
+  der Vollständigkeits-Guard der IPC-Oberfläche ins Leere:
   `scripts/test-security.ts` deklariert `Record<InvokeChannel, unknown>`
   genau deshalb, damit ein neuer Channel ohne Fixture ein Typfehler ist — die
   Laufzeitschleife kann das nicht ersetzen, weil ein fehlender Key als
-  `undefined` durch jeden void-Request rutscht. Gefundene Lücke: `wsl:list`
-  (mit diesem Commit ergänzt). Nächster Schritt: `tsconfig.scripts.json` und
-  ein dritter `tsc --noEmit` in `pnpm typecheck`.
-- Die 13-gliedrige `&&`-Kette in `package.json` bricht beim ersten Fehler ab
-  und kennt keine Mindest-Check-Zahl je Driver; ein halbierter Lauf liest sich
-  grün (*Hinweis*).
+  `undefined` durch jeden void-Request rutscht. Gefundene Lücke: `wsl:list`.
+
+  `tsconfig.scripts.json` ist jetzt der dritte `tsc --noEmit` in
+  `pnpm typecheck`. Das Einschalten förderte **16 echte Typfehler** in den
+  Drivern zutage, überwiegend Fixtures, die eine Form konstruierten, die die
+  Produktionstypen nicht zulassen: `Repository`/`WorkspaceBinding` ohne
+  `executionBackend` (3×), `RunTask` ohne `title`/`phase`/`managed`/
+  `dependsOn`/`attempt` (2×, darunter der Fake für `runTask:create`, der damit
+  eine Antwort lieferte, die der echte Handler nie erzeugt), ein Cast in
+  `test-electron-workflow.ts`, dessen äußerer Typ ein Feld behauptete, das die
+  innere Auswahl nicht deklarierte, ein toter Parameter in `fake-gh.ts` und
+  ein `check(…)`-Aufruf in `test-prompts.ts`, dessen drittes Argument die
+  Signatur gar nicht kannte.
+
+  **Gegenprobe:** ein testweise ergänzter Channel `probe:guard` erzeugt
+  `scripts/test-security.ts(36,7): TS2741 … Property '"probe:guard"' is
+  missing`. Zur Einordnung: ein Channel *ohne Validierung* war nie ungeschützt
+  — `ipcValidation.ts` endet in `const exhaustive: never = channel` und fängt
+  das im bestehenden Typecheck. Ungedeckt war der validierte Channel ohne
+  Security-Fixture.
+- **Verifiziert, umgesetzt:** Die 13-gliedrige `&&`-Kette in `package.json`
+  brach beim ersten Fehler ab und kannte keine Mindest-Check-Zahl je Driver;
+  ein halbierter Lauf las sich grün. `pnpm test` ruft jetzt
+  `scripts/run-suites.ts`: alle Suiten laufen (eine kaputte verdeckt die
+  übrigen nicht mehr), und jede hat einen gemessenen Boden.
+
+  **Gegenprobe:** wird ein einzelner Check aus `test-workspace-fs.ts`
+  entfernt, meldet die Suite selbst `6 passed, 0 failed` und beendet sich mit
+  0 — also grün — und der Runner lehnt sie ab:
+  `workspace-fs: only 6 checks, floor for win32 is 7`.
+
+  Böden sind plattformabhängig, weil vier Driver Checks an `process.platform`
+  binden. Gemessen und erzwungen ist bisher nur `win32`; der Runner benennt
+  jede Plattform ohne Messung ausdrücklich, statt eine Zahl zu erfinden. Für
+  Linux fehlt die Messung noch — sie braucht einen grünen Lauf auf einer
+  Linux-Installation (`pnpm test -- --record`), nicht eine Herleitung am
+  Schreibtisch.
 - `scripts/test-visual-regression.ts` überspringt den Pixelvergleich, sobald
   `CI` gesetzt ist, und beide `ci.yml`-Jobs setzen `CI: '1'`: die Baselines
   werden ausschließlich lokal verglichen (*Hinweis*).

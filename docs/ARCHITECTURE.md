@@ -727,6 +727,37 @@ reachability alone is not authorization. Its restrictive CSP permits only the
 same-origin host and standards-based Web Push endpoints when notifications are
 explicitly enabled.
 
+## How the evidence is kept honest (tsconfig.scripts.json, scripts/run-suites.ts)
+
+The suites are the project's proof; two guards keep them from proving less
+than they appear to.
+
+- **The drivers are typechecked.** `tsconfig.scripts.json` covers `scripts/**`
+  and joins `pnpm typecheck` as a third `tsc --noEmit`. Before it existed,
+  `tsx` transpiled the drivers without checking them, so compile-time guards
+  written *inside* a driver never ran. `scripts/test-security.ts` declares its
+  fixture map as `Record<InvokeChannel, unknown>` precisely so a new IPC
+  channel without a fixture is a type error — the runtime loop cannot catch it,
+  because a missing key reads as `undefined` and passes every void request.
+  That guard first fired when it was switched on, and found `wsl:list`.
+  (A channel with no *validation* was already caught: `ipcValidation.ts` ends
+  in `const exhaustive: never = channel`. The uncovered case was a validated
+  channel with no security fixture.)
+  The project is standalone rather than a reference: the drivers pull
+  main-process modules in transitively, and `composite` would require every one
+  of them to be listed here too.
+- **Each suite has a floor.** `scripts/run-suites.ts` is what `pnpm test` runs.
+  It executes every suite (a failure no longer stops the rest, as the old `&&`
+  chain did), reads each `<n> passed, <m> failed` summary and fails when a
+  suite reports fewer checks than its recorded floor. A driver that silently
+  stops emitting checks — an early return, a skipped branch, a fixture that no
+  longer builds — otherwise prints a green summary and exits 0. Floors are per
+  platform because several drivers gate checks on `process.platform`; only
+  platforms whose counts were actually observed are enforced, and the runner
+  names any platform it has no measurement for instead of guessing. A suite
+  that grows past its floor is reported so the floor gets raised.
+  `pnpm test -- --record` prints a paste-ready manifest.
+
 ## CI and packaging
 
 - `.github/workflows/ci.yml` runs typecheck, focused scripts and production

@@ -472,3 +472,34 @@ End-to-End-Flows für „schnelle Aufgabe“ versus „Managed Run mit Beweisket
   **104/104** Electron-/Playwright-Checks (inkl. truncated-config Restart mit
   Banner, byte-identischer Quarantäne und Dismiss) und **22/22** visuelle
   Checks gegen die committeten `win32`-Baselines.
+
+
+## Nachtrag 2026-07-27 — Thema 4, erste zwei Punkte
+
+- **Die Driver werden jetzt typgeprüft.** `tsconfig.scripts.json` deckt
+  `scripts/**` ab und ist der dritte `tsc --noEmit` in `pnpm typecheck`. Das
+  Einschalten förderte 16 echte Typfehler zutage, überwiegend Fixtures, die
+  eine Form bauten, die die Produktionstypen nicht zulassen: `Repository` und
+  `WorkspaceBinding` ohne `executionBackend`, `RunTask` ohne `title`/`phase`/
+  `managed`/`dependsOn`/`attempt` — darunter der Fake für `runTask:create`,
+  der damit eine Antwort lieferte, die der echte Handler nie erzeugt. Alle
+  behoben, ohne Testsemantik zu ändern (ein fehlender `executionBackend`
+  normalisiert ohnehin zu `native`).
+- **Jede Suite hat einen Boden.** `pnpm test` ruft `scripts/run-suites.ts`:
+  alle 15 Suiten laufen (eine kaputte verdeckt die übrigen nicht mehr), jede
+  meldet ihre Check-Zahl, und ein Unterschreiten des gemessenen Bodens ist ein
+  Fehler. Böden sind plattformabhängig; gemessen und erzwungen ist bisher
+  nur `win32`, und der Runner benennt jede Plattform ohne Messung ausdrücklich,
+  statt eine Zahl zu erfinden. Für Linux fehlt die Messung noch
+  (`pnpm test -- --record` auf einer Linux-Installation).
+- **Beide Guards gegengeprüft, nicht nur behauptet.** Ein testweise
+  ergänzter Channel `probe:guard` erzeugt in `scripts/test-security.ts` einen
+  TS2741; beide Sonden wurden zurückgenommen. Wird ein einzelner Check aus
+  `test-workspace-fs.ts` entfernt, meldet die Suite selbst `6 passed, 0 failed`
+  und beendet sich mit 0 — grün — und der Runner lehnt sie trotzdem ab.
+  Zur Einordnung des Vortags-Nachtrags: ein Channel *ohne Validierung* war nie
+  ungeschützt, weil `ipcValidation.ts` in `const exhaustive: never = channel`
+  endet. Ungedeckt war der validierte Channel ohne Security-Fixture.
+- Gate auf diesem Stand (Windows): Typecheck über drei Projekte grün,
+  **597/597** fokussierte Assertions über 15 Suiten, Production-Build grün,
+  **104/104** Electron-/Playwright-Checks, **22/22** visuelle Checks.

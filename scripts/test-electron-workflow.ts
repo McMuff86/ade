@@ -17,7 +17,14 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
-import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
+import {
+  DEFAULT_CONFIG,
+  type AdeConfig,
+  type Agent,
+  type Category,
+  type TeamRole,
+} from '../src/shared/types';
+import { NATIVE_EXECUTION_BACKEND } from '../src/shared/executionBackends';
 import { publicationBranch } from '../src/main/publishing/PublicationService';
 import { writeFakeGithubCli } from './fixtures/fake-gh';
 
@@ -153,11 +160,12 @@ function seedConfig(
     agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
   };
   const customCommand = `node ${quoteShellArg(fixturePath)}`;
-  const managedAgents: Agent[] = [
+  const managedRoster: Array<Pick<Agent, 'id' | 'name'> & { teamRole: TeamRole }> = [
     { id: 'e2e-orchestrator', name: 'E2E Orchestrator', teamRole: 'orchestrator' },
     { id: 'e2e-lead', name: 'E2E Lead', teamRole: 'lead' },
     { id: 'e2e-worker', name: 'E2E Worker', teamRole: 'worker' },
-  ].map((item) => ({
+  ];
+  const managedAgents: Agent[] = managedRoster.map((item) => ({
     ...item,
     categoryId: managedCategory.id,
     runtime: 'custom' as const,
@@ -183,6 +191,7 @@ function seedConfig(
       name: 'Managed E2E repository',
       rootPath: repositoryRoot,
       commonGitDir,
+      executionBackend: NATIVE_EXECUTION_BACKEND,
       verified: true,
       createdAt: now,
     }],
@@ -192,6 +201,7 @@ function seedConfig(
       repositoryId,
       workspaceDir: item.workspaceDir,
       branch: `ade/${item.id}`,
+      executionBackend: NATIVE_EXECUTION_BACKEND,
       status: 'ready' as const,
       createdAt: now + index,
       lastUsedAt: now + index,
@@ -469,7 +479,7 @@ async function run(): Promise<void> {
   const fixturePath = join(scratch, 'managed-fixture.cjs');
   writeManagedFixture(fixturePath);
   const managed = createManagedWorktrees(scratch);
-  const fakeGithub = writeFakeGithubCli(scratch, managed.remote);
+  const fakeGithub = writeFakeGithubCli(scratch);
   writeFakeGrokCli(fakeGithub.bin);
   writeFakeClaudeCli(fakeGithub.bin);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
@@ -557,7 +567,18 @@ async function run(): Promise<void> {
 
     const preferences = await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
-      const prefs = window?.webContents.getLastWebPreferences();
+      // Present in the Electron 43 binary, absent from its public typings.
+      // Should it ever disappear, prefs is undefined and the assertions below
+      // fail rather than silently pass.
+      const contents = window?.webContents as unknown as {
+        getLastWebPreferences?: () => {
+          sandbox?: boolean;
+          contextIsolation?: boolean;
+          nodeIntegration?: boolean;
+          webviewTag?: boolean;
+        } | null;
+      } | undefined;
+      const prefs = contents?.getLastWebPreferences?.();
       return {
         sandbox: prefs?.sandbox,
         contextIsolation: prefs?.contextIsolation,
@@ -1535,20 +1556,13 @@ async function run(): Promise<void> {
             repositoryId: string;
             workspaceDir: string;
             executionBackend: string;
+            status: string;
           }>;
         };
         const repository = config.repositories.find((item) => item.executionBackend.startsWith('wsl:'));
         const bindings = config.workspaceBindings.filter((item) => item.repositoryId === repository?.id);
         return { repository, bindings };
-      }) as {
-        repository?: { id: string; executionBackend: string };
-        bindings: Array<{
-          id: string;
-          workspaceDir: string;
-          executionBackend: string;
-          status: string;
-        }>;
-      };
+      });
       wslBindingIdsBeforeRestart = persistedWslScope.bindings.map((binding) => binding.id).sort();
       for (const binding of persistedWslScope.bindings) {
         const parts = binding.workspaceDir.split('/');

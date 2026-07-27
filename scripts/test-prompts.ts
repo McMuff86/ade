@@ -33,13 +33,13 @@ import {
 let passed = 0;
 let failed = 0;
 
-function check(label: string, condition: unknown): void {
+function check(label: string, condition: unknown, detail?: unknown): void {
   if (condition) {
     passed += 1;
     console.log(`  ok  ${label}`);
   } else {
     failed += 1;
-    console.error(`FAIL  ${label}`);
+    console.error(`FAIL  ${label}`, detail ?? '');
   }
 }
 

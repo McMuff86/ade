@@ -1,6 +1,6 @@
 /** Drive the real Graph dispatch actions against a typed-enough IPC stub. */
 
-import type { RunTask, SessionMeta } from '../src/shared/types';
+import type { Agent, RunTask, SessionMeta } from '../src/shared/types';
 
 let passed = 0;
 let failed = 0;
@@ -53,11 +53,18 @@ const localStore = new Map<string, string>();
         const request = payload as TaskCreate;
         taskCreates.push({ ...request });
         taskSequence += 1;
+        // Mirrors OrchestrationService.createTask(), which is what the real
+        // runTask:create handler returns to the renderer.
         const task: RunTask = {
           id: `run-task-${taskSequence}`,
           runId: request.runId,
           participantId: request.participantId,
           prompt: request.prompt,
+          title: request.prompt.trim().slice(0, 80),
+          phase: 'manual',
+          managed: false,
+          dependsOn: [],
+          attempt: 1,
           status: 'queued',
           createdAt: taskSequence,
           updatedAt: taskSequence,
@@ -99,7 +106,7 @@ void (async (): Promise<void> => {
       `${teamId}-lead`,
       ...Array.from({ length: workerCount }, (_, index) => `${teamId}-worker-${index}`),
     ];
-    const agents = Object.fromEntries(agentIds.map((id, index) => [id, {
+    const agents = Object.fromEntries(agentIds.map((id, index): [string, Agent] => [id, {
       id,
       categoryId: 'catalog',
       name: index === 0 ? 'lead' : `worker-${index - 1}`,
