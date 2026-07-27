@@ -17,6 +17,7 @@ import type {
   Category,
   CategoryCreateInput,
   CategoryUpdateInput,
+  ConfigHealth,
   DashboardTarget,
   FsTreeNode,
   GitStatus,
@@ -53,6 +54,7 @@ import type { ExecutionBackendId } from './executionBackends';
 /** Invoke channels (renderer -> main via ipcRenderer.invoke). */
 export const IPC = {
   ConfigGet: 'config:get',
+  ConfigHealth: 'config:health',
   ConfigSave: 'config:save',
   PhotoImport: 'photo:import',
   CategoryCreate: 'category:create',
@@ -487,6 +489,7 @@ export interface GitChangedEvent {
  */
 export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
+  'config:health': { req: void; res: ConfigHealth };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'photo:import': { req: PhotoImportRequest; res: PhotoImportResult };
   'category:create': { req: CategoryCreateInput; res: Category };

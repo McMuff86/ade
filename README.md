@@ -176,6 +176,7 @@ installation remain untouched unless an operator separately authorizes them.
 | Repository inspector | `docs/REPOSITORY_INSPECTOR_PLAN.md` |
 | Multi-platform boundaries | `docs/MULTIPLATFORM_PLAN.md` |
 | Remote control plan | `docs/REMOTE_CONTROL_PLAN.md` |
+| Professionalization review | `docs/PROFESSIONALIZATION_REVIEW_2026-07-26.md` |
 | Reference analyses | `docs/reports/` |
 
 ## Notes

@@ -492,6 +492,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
 ): asserts payload is IpcInvokeMap[K]['req'] {
   switch (channel) {
     case IPC.ConfigGet:
+    case IPC.ConfigHealth:
     case IPC.PtyList:
     case IPC.RunGet:
     case IPC.DialogPickFolder:

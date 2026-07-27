@@ -442,3 +442,33 @@ End-to-End-Flows für „schnelle Aufgabe“ versus „Managed Run mit Beweisket
 - Historische Goal-6-Dokumente und der abgeschlossene Driver bleiben bewusst an
   `2D_rpg_jumpnrun` gebunden. Neue reale ADE-General-Use-Validierung verwendet
   RhinoClaw unter den oben beschriebenen Worktree- und Freigabegrenzen.
+
+## Nachtrag 2026-07-26 — Professionalisierungs-Review und Config-Durability
+
+- Ein Multi-Agent-Review des gesamten Quellstands liegt als
+  `docs/PROFESSIONALIZATION_REVIEW_2026-07-26.md` vor: sechs Subsystem-Reader,
+  adversarielle Gegenprüfung der kritischen Befunde, sechs Themen mit
+  Exit-Kriterien und eine ausdrückliche „nicht jetzt"-Liste. Belegstufen sind
+  im Dokument je Befund markiert (*verifiziert* vs. *Hinweis*).
+- **Thema 1 ist umgesetzt.** `ConfigStore.load()` ersetzte bisher bei jedem
+  Lesefehler — gesperrte Datei, korruptes Byte, Throw in `normalizeConfig` —
+  die einzige Kopie von Katalog, Bindings, Run-Journal und Publication-Audit
+  durch Defaults, ohne Log, Backup oder UI-Fehler. Jetzt seeded nur `ENOENT`;
+  jeder andere Fall wandert zuerst nach `userData/ade/corrupt/config-<ISO>.json`
+  und schlägt, falls auch das scheitert, in einen read-only Store um, der jedes
+  `save()` verweigert, bevor er den In-Memory-Snapshot verändert. `persist()`
+  fsynct jetzt vor dem Rename.
+- Der Zustand ist sichtbar: `config:health` liefert eine `ConfigLoadFailure`
+  ohne absoluten Pfad, der Renderer zeigt sie als Banner über der Shell — im
+  read-only-Fall blockierend. Ein leerer Katalog sieht sonst wie eine
+  Neuinstallation aus.
+- Nebenbefund mit behoben: `scripts/test-security.ts` deklariert
+  `Record<InvokeChannel, unknown>`, damit ein Channel ohne Fixture ein
+  Typfehler ist — aber `scripts/**` steht in keinem tsconfig-`include`, also
+  lief der Guard nie. `wsl:list` fehlte tatsächlich und ist ergänzt. Der
+  dritte `tsc`-Lauf über `scripts/` steht als Thema 4 aus.
+- Gate auf diesem Stand (Windows): Typecheck grün, **597/597** fokussierte
+  Assertions (inkl. 12 neuer Config-Store-Checks), Production-Build grün,
+  **104/104** Electron-/Playwright-Checks (inkl. truncated-config Restart mit
+  Banner, byte-identischer Quarantäne und Dismiss) und **22/22** visuelle
+  Checks gegen die committeten `win32`-Baselines.

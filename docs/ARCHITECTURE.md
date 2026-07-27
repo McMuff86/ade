@@ -242,6 +242,42 @@ It uses versioned, mobile-safe projections plus target records such as
 `RemoteIdempotencyEntry`. Device/session secrets are stored separately from the
 catalog snapshot and are never returned after issuance.
 
+## Config store durability (main/config/store.ts)
+
+`userData/ade/config.json` is the single atomic store for the catalog, the
+repository bindings, the run journal, structured results, approvals, leases,
+the command log and the publication audit. It is therefore also the only
+record whose loss is unrecoverable, so load and write are separate contracts.
+
+Writes are atomic **and durable**: temp file in the same directory →
+`fsyncSync` → `renameSync`. Without the fsync a hard power loss can publish a
+renamed but truncated file, which the next launch would classify as malformed.
+
+Loading never destroys an existing file:
+
+| Situation | Behavior |
+|---|---|
+| File missing (`ENOENT`) | First run: seed `DEFAULT_CONFIG` and write it |
+| File unreadable | Preserve, then seed — `reason: 'unreadable'` |
+| Invalid JSON | Preserve, then seed — `reason: 'malformed'` |
+| `normalizeConfig` throws | Preserve, then seed — `reason: 'incompatible'` |
+| Preservation itself fails | Keep the original untouched; store turns read-only |
+
+Preservation moves the file to `userData/ade/corrupt/config-<ISO>.json` and
+never overwrites an earlier quarantine. Only after that succeeds may defaults
+reach disk. When the move fails, `ConfigStore.readOnly` is true and every
+`save()` throws before mutating the in-memory snapshot, so a caller that
+ignores the error cannot observe a divergent catalog either.
+
+The failure is a first-class product state, not just a log line: `config:health`
+returns a `ConfigLoadFailure` whose `detail` has the config path replaced by
+placeholders and whose `quarantinedTo` is config-directory-relative. The
+renderer shows it as a banner above the shell — blocking and non-dismissible in
+the read-only case — because an empty catalog is otherwise indistinguishable
+from a fresh install. Focused coverage: `scripts/test-config-store.ts`;
+user-visible coverage: the truncated-config restart at the end of the Electron
+workflow.
+
 ## Launch profiles (shared/runtimes.ts)
 
 Command per runtime × permission mode (adapted from Superset's

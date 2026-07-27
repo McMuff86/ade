@@ -4,8 +4,10 @@ import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -1877,6 +1879,43 @@ async function run(): Promise<void> {
         cleanup.length === 4 && cleanup.some((item) => item.result.branchDeleted),
         cleanup);
     }
+
+    /* ------------------------------------------ config quarantine, last case */
+    // Deliberately last: it replaces the profile's config with defaults, so no
+    // later check may depend on the catalog this workflow built.
+    const configPath = join(userData, 'ade', 'config.json');
+    const goodConfigBytes = readFileSync(configPath, 'utf8');
+    await app.close();
+    app = null;
+    page = null;
+    const corruptedBytes = `${goodConfigBytes.slice(0, Math.floor(goodConfigBytes.length / 2))}`;
+    writeFileSync(configPath, corruptedBytes, 'utf8');
+
+    app = await electron.launch(launchOptions);
+    page = await app.firstWindow({ timeout: 20_000 });
+    evidencePage = page;
+    await page.waitForLoadState('domcontentloaded');
+    const quarantineAlert = page.getByTestId('config-health-alert');
+    await quarantineAlert.waitFor({ state: 'visible', timeout: 20_000 });
+    const alertText = (await quarantineAlert.textContent()) ?? '';
+    check('a truncated config file is reported instead of silently starting empty',
+      alertText.includes('Configuration recovered')
+        && alertText.includes('corrupt/config-')
+        && !alertText.includes(userData),
+      alertText);
+
+    const quarantineDir = join(userData, 'ade', 'corrupt');
+    const quarantined = existsSync(quarantineDir) ? readdirSync(quarantineDir) : [];
+    check('the unusable config is preserved byte-identically beside config.json',
+      quarantined.length === 1
+        && readFileSync(join(quarantineDir, quarantined[0]!), 'utf8') === corruptedBytes,
+      quarantined);
+    check('the reseeded config is valid and writable again',
+      (JSON.parse(readFileSync(configPath, 'utf8')) as { agents: unknown[] }).agents.length === 0);
+
+    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await eventually('the recovery notice is dismissible once acknowledged', async () =>
+      (await page!.getByTestId('config-health-alert').count()) === 0);
   } catch (error) {
     console.error('Electron workflow threw:', error);
     failed += 1;

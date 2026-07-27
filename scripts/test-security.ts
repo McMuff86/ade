@@ -35,6 +35,7 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 
 const valid: Record<InvokeChannel, unknown> = {
   'config:get': undefined,
+  'config:health': undefined,
   'config:save': { settings: { theme: 'dark' } },
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },
   'category:create': { name: 'Project', kind: 'plain' },
@@ -140,6 +141,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'fs:rename': { agentId: 'agent', sessionId: 'session', path: 'notes.md', newName: 'notes-2.md' },
   'fs:delete': { agentId: 'agent', sessionId: 'session', path: 'notes.md' },
   'dialog:pickFolder': undefined,
+  'wsl:list': undefined,
 };
 
 for (const channel of INVOKE_CHANNELS) {
