@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -16,6 +17,8 @@ import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:pa
 import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
+import { exportWorkspaceBundle } from '../src/main/portability/WorkspaceBundleExporter';
+import { serializeWorkspaceBundle } from '../src/shared/workspaceBundle';
 import { publicationBranch } from '../src/main/publishing/PublicationService';
 import { writeFakeGithubCli } from './fixtures/fake-gh';
 
@@ -1591,6 +1594,84 @@ async function run(): Promise<void> {
     await settingsDialog.getByRole('button', { name: 'Dunkel' }).click();
     await eventually('Settings switches the theme back to dark', async () =>
       (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
+    check('workspace bundle controls are available only inside Settings',
+      await settingsDialog.getByTestId('workspace-bundle-settings').isVisible()
+        && await settingsDialog.getByRole('button', { name: 'Bundle exportieren' }).isVisible()
+        && await settingsDialog.getByRole('button', { name: 'Workspace/Profil importieren…' }).isVisible());
+    const preImportConfig = JSON.parse(
+      readFileSync(join(userData, 'ade', 'config.json'), 'utf8'),
+    ) as AdeConfig;
+    const portableCategory: Category = {
+      id: 'portable-source-category', name: preImportConfig.categories[0]!.name, kind: 'plain',
+      agents: ['portable-source-agent'],
+    };
+    const portableAgent: Agent = {
+      id: 'portable-source-agent', categoryId: portableCategory.id, name: preImportConfig.agents[0]!.name,
+      runtime: 'shell', permissionMode: 'default', workspaceDir: '/source/not-portable',
+      memoryDir: '/source/not-portable-memory',
+    };
+    const portableConfig: AdeConfig = {
+      ...structuredClone(DEFAULT_CONFIG), categories: [portableCategory], agents: [portableAgent],
+    };
+    const bundleFixturePath = join(userData, 'portable-e2e-workspace.json');
+    writeFileSync(bundleFixturePath, serializeWorkspaceBundle(exportWorkspaceBundle(portableConfig, {
+      sourcePlatform: 'linux', exportedAt: '2026-07-31T16:30:00.000Z',
+    }).bundle));
+    const portableHome = join(userData, 'portable-imported-home');
+    const selectedBundle = await page.evaluate(async () => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;
+      return await api.invoke('workspaceBundle:pickImport') as { selectionId: string };
+    });
+    const conflictPreview = await page.evaluate(async ({ selectionId, home }) => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload: unknown) => Promise<unknown> } }).ade;
+      const mappings = {
+        repositories: {},
+        agentHomes: { 'portable-source-agent': { backend: 'native', path: home } },
+      };
+      const authorization = await api.invoke('workspaceBundle:authorizeMappings', { mappings }) as { authorizationId: string };
+      return await api.invoke('workspaceBundle:preview', {
+        selectionId,
+        mappingAuthorizationId: authorization.authorizationId,
+      }) as {
+        canApplyFully: boolean;
+        categories: Array<{ status: string }>;
+        agents: Array<{ status: string }>;
+      };
+    }, { selectionId: selectedBundle.selectionId, home: portableHome });
+    check('workspace bundle E2E exposes identity conflicts before mutation',
+      !conflictPreview.canApplyFully
+        && conflictPreview.categories[0]?.status === 'conflict'
+        && conflictPreview.agents[0]?.status === 'conflict');
+    const portablePreview = await page.evaluate(async ({ selectionId, home }) => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload: unknown) => Promise<unknown> } }).ade;
+      const mappings = {
+        repositories: {},
+        agentHomes: { 'portable-source-agent': { backend: 'native', path: home } },
+        names: {
+          categories: { 'portable-source-category': 'Portable E2E Import' },
+          agents: { 'portable-source-agent': 'Portable Imported Agent' },
+        },
+      };
+      const authorization = await api.invoke('workspaceBundle:authorizeMappings', { mappings }) as { authorizationId: string };
+      return await api.invoke('workspaceBundle:preview', {
+        selectionId,
+        mappingAuthorizationId: authorization.authorizationId,
+      }) as { sessionId: string; token: string; canApplyFully: boolean };
+    }, { selectionId: selectedBundle.selectionId, home: portableHome });
+    check('workspace bundle IPC produces an applicable dry-run without changing the target',
+      portablePreview.canApplyFully
+        && !readFileSync(join(userData, 'ade', 'config.json'), 'utf8').includes('Portable Imported Agent'));
+    const portableReceipt = await page.evaluate(async ({ sessionId, token }) => {
+      const api = (window as unknown as { ade: { invoke: (channel: string, payload: unknown) => Promise<unknown> } }).ade;
+      return await api.invoke('workspaceBundle:apply', { sessionId, token }) as {
+        backupPath: string; receiptPath: string;
+      };
+    }, portablePreview);
+    check('confirmed workspace bundle apply persists imported identity, backup and receipt',
+      readFileSync(join(userData, 'ade', 'config.json'), 'utf8').includes('Portable Imported Agent')
+        && existsSync(portableReceipt.backupPath)
+        && existsSync(portableReceipt.receiptPath)
+        && existsSync(portableHome));
     const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
     await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {
       const text = await claudeRow.textContent();

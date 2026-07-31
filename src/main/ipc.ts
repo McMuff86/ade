@@ -5,9 +5,11 @@
  */
 
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
-import { join } from 'node:path';
+import { basename, dirname, extname, join, resolve, sep } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { existsSync, renameSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { IPC, IPC_EVENTS, type IpcInvokeMap } from '../shared/ipc';
+import { IPC, IPC_EVENTS, type IpcInvokeMap, type WorkspaceBundleMappings } from '../shared/ipc';
 import type { Agent, GitStatus } from '../shared/types';
 import { HARNESS_RUNTIMES, LAUNCH_PROFILES } from '../shared/runtimes';
 import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../shared/executionBackends';
@@ -47,6 +49,13 @@ import { resolveDashboardUrl } from './dashboard/dashboardUrl';
 import { AdeApplicationService } from './application/AdeApplicationService';
 import { HostApiServer } from './remote/HostApiServer';
 import { consumeHostApiConfig } from './remote/hostApiConfig';
+import { TargetPathProbe } from './portability/TargetPathProbe';
+import { WorkspaceImportService } from './portability/WorkspaceImportService';
+import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendHomeProvisioner';
+import { WorkspaceBundleController } from './portability/WorkspaceBundleController';
+import { exportWorkspaceBundle } from './portability/WorkspaceBundleExporter';
+import { exportProfileWorkspaceBundle, openManagedProfileReader } from './portability/ProfileMigrationSource';
+import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
@@ -84,8 +93,51 @@ function handle<K extends keyof IpcInvokeMap>(
   });
 }
 
-export function registerIpcHandlers(store: ConfigStore): void {
+function handleWithEvent<K extends keyof IpcInvokeMap>(
+  channel: K,
+  handler: (
+    payload: IpcInvokeMap[K]['req'],
+    event: IpcMainInvokeEvent,
+  ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
+): void {
+  ipcMain.handle(channel, (event, payload: unknown) => {
+    assertTrustedSender(event);
+    assertIpcPayload(channel, payload);
+    return handler(payload, event);
+  });
+}
+
+export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const execution = new ExecutionBackendService();
+  const portabilityProfileDir = join(app.getPath('userData'), 'ade');
+  const portabilityProbe = new TargetPathProbe({ hostPlatform: process.platform }, execution);
+  const workspaceImport = new WorkspaceImportService({
+    profileDir: portabilityProfileDir,
+    store,
+    probe: portabilityProbe,
+    hostPlatform: process.platform,
+    homeProvisioner: new ExecutionBackendHomeProvisioner(execution),
+  });
+  await workspaceImport.recoverPending();
+  const workspaceBundles = new WorkspaceBundleController({
+    store,
+    probe: portabilityProbe,
+    importer: workspaceImport,
+    hostPlatform: process.platform,
+  });
+  const importSelections = new Map<string, {
+    path: string;
+    kind: 'bundle' | 'profile';
+    ownerId: number;
+    createdAt: number;
+  }>();
+  const mappingAuthorizations = new Map<string, {
+    mappings: WorkspaceBundleMappings;
+    ownerId: number;
+    createdAt: number;
+  }>();
+  const previewOwners = new Map<string, number>();
+  const importSelectionTtlMs = 10 * 60 * 1_000;
   const backendGit = new BackendGitService(execution);
   const backendWorkspaces = new BackendWorkspaceService(store, execution);
   const backendFs = new BackendWorkspaceFs(execution);
@@ -185,6 +237,180 @@ export function registerIpcHandlers(store: ConfigStore): void {
 
   handle(IPC.ConfigGet, () => store.get());
   handle(IPC.ConfigSave, (partial) => store.save(partial));
+
+  handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {
+    const e2eFixture = join(app.getPath('userData'), 'portable-e2e-workspace.json');
+    let selectedPath: string | undefined;
+    let kind: 'bundle' | 'profile' = 'bundle';
+    if (process.env.NODE_ENV === 'test' && existsSync(e2eFixture)) {
+      selectedPath = e2eFixture;
+    } else {
+      const source = await dialog.showMessageBox({
+        type: 'question',
+        title: 'Importquelle wählen',
+        message: 'Möchtest du ein Workspace-Bundle oder ein vorhandenes ADE-Profil importieren?',
+        buttons: ['Workspace-Bundle', 'ADE-Profilordner', 'Abbrechen'],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+      });
+      if (source.response === 2) return null;
+      kind = source.response === 1 ? 'profile' : 'bundle';
+      const result = await dialog.showOpenDialog({
+        properties: kind === 'profile' ? ['openDirectory'] : ['openFile'],
+        ...(kind === 'bundle' ? {
+          filters: [{ name: 'ADE Workspace Bundle', extensions: ['json', 'ade-workspace'] }],
+        } : {}),
+      });
+      if (!result.canceled) selectedPath = result.filePaths[0];
+    }
+    if (!selectedPath) return null;
+    const now = Date.now();
+    for (const [id, selection] of Array.from(importSelections.entries())) {
+      if (selection.ownerId === event.sender.id || now - selection.createdAt > importSelectionTtlMs) {
+        importSelections.delete(id);
+      }
+    }
+    const selectionId = randomUUID();
+    importSelections.set(selectionId, { path: selectedPath, kind, ownerId: event.sender.id, createdAt: now });
+    return { selectionId, displayName: basename(selectedPath) };
+  });
+  handleWithEvent(IPC.WorkspaceBundleAuthorizeMappings, async ({ mappings }, event) => {
+    const targets = [
+      ...Object.entries(mappings.repositories).flatMap(([id, target]) => (
+        target ? [`Repository ${id}: [${target.backend}] ${target.path}`] : []
+      )),
+      ...Object.entries(mappings.agentHomes).flatMap(([id, target]) => (
+        target ? [`Agent home ${id}: [${target.backend}] ${target.path}`] : []
+      )),
+    ];
+    if (process.env.NODE_ENV !== 'test') {
+      const confirmation = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Importziele autorisieren',
+        message: 'ADE darf bei diesem Import ausschließlich die folgenden Ziele verwenden:',
+        detail: targets.length > 0 ? targets.join('\n') : 'Keine Dateisystemziele ausgewählt.',
+        buttons: ['Abbrechen', 'Ziele autorisieren'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (confirmation.response !== 1) return null;
+    }
+    const now = Date.now();
+    for (const [id, authorization] of Array.from(mappingAuthorizations.entries())) {
+      if (authorization.ownerId === event.sender.id || now - authorization.createdAt > importSelectionTtlMs) {
+        mappingAuthorizations.delete(id);
+      }
+    }
+    const authorizationId = randomUUID();
+    mappingAuthorizations.set(authorizationId, {
+      mappings: structuredClone(mappings), ownerId: event.sender.id, createdAt: now,
+    });
+    return { authorizationId };
+  });
+  handleWithEvent(IPC.WorkspaceBundlePreview, ({ selectionId, mappingAuthorizationId }, event) => {
+    const selection = importSelections.get(selectionId);
+    if (!selection || selection.ownerId !== event.sender.id
+        || Date.now() - selection.createdAt > importSelectionTtlMs) {
+      importSelections.delete(selectionId);
+      throw new Error('workspace import: selected bundle is missing or expired');
+    }
+    const authorization = mappingAuthorizations.get(mappingAuthorizationId);
+    if (!authorization || authorization.ownerId !== event.sender.id
+        || Date.now() - authorization.createdAt > importSelectionTtlMs) {
+      mappingAuthorizations.delete(mappingAuthorizationId);
+      throw new Error('workspace import: target authorization is missing or expired');
+    }
+    const mappings = structuredClone(authorization.mappings);
+    const previewPromise = selection.kind === 'profile'
+      ? workspaceBundles.previewBundle(exportProfileWorkspaceBundle(selection.path, {
+        sourcePlatform: process.platform === 'win32' ? 'win32'
+          : process.platform === 'darwin' ? 'darwin' : 'linux',
+        includeMemory: false,
+        includePhotos: false,
+        repositoryRemote: () => null,
+      }).bundle, mappings)
+      : workspaceBundles.previewFile(selection.path, mappings);
+    return previewPromise.then((preview) => {
+      previewOwners.set(preview.sessionId, event.sender.id);
+      while (previewOwners.size > 16) {
+        previewOwners.delete(previewOwners.keys().next().value!);
+      }
+      return preview;
+    });
+  });
+  handleWithEvent(IPC.WorkspaceBundleApply, async ({ sessionId, token }, event) => {
+    if (previewOwners.get(sessionId) !== event.sender.id) {
+      throw new Error('workspace import: preview session is not owned by this renderer');
+    }
+    try {
+      return await workspaceBundles.apply(sessionId, token);
+    } finally {
+      previewOwners.delete(sessionId);
+    }
+  });
+  handle(IPC.WorkspaceBundleExport, async ({ includeMemory, includePhotos }) => {
+    if (process.platform !== 'linux' && (includeMemory || includePhotos)) {
+      throw new Error('Memory and photo export is unavailable on this host because descriptor-safe managed-resource reads are not supported.');
+    }
+    const result = await dialog.showSaveDialog({
+      defaultPath: `ade-workspace-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'ADE Workspace Bundle', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    const config = store.get();
+    const remotes = new Map<string, string>();
+    for (const repository of config.repositories) {
+      const remote = await execution.run(repository.executionBackend, 'git', [
+        '-C', repository.rootPath, 'remote', 'get-url', 'origin',
+      ], { timeoutMs: 15_000, maxBuffer: 64 * 1024 });
+      if (remote.code === 0) remotes.set(repository.id, Buffer.from(remote.stdout).toString('utf8').trim());
+    }
+    const managedReader = process.platform === 'linux' && (includeMemory || includePhotos)
+      ? openManagedProfileReader(portabilityProfileDir)
+      : null;
+    let exported: ReturnType<typeof exportWorkspaceBundle>;
+    try {
+      exported = exportWorkspaceBundle(config, {
+      sourcePlatform: process.platform === 'win32' || process.platform === 'darwin' ? process.platform : 'linux',
+      includeMemory,
+      includePhotos,
+      resources: {
+        repositoryRemote: (repository) => remotes.get(repository.id) ?? null,
+        photo: (file, maxBytes) => {
+          const bytes = managedReader?.read(['photos', file], maxBytes) ?? null;
+          if (!bytes) return null;
+          const extension = extname(file).toLowerCase();
+          const mime = extension === '.png' ? 'image/png'
+            : extension === '.webp' ? 'image/webp'
+              : extension === '.jpg' || extension === '.jpeg' ? 'image/jpeg' : null;
+          return mime ? { bytes, mime } : null;
+        },
+        memory: (agentId, target, maxBytes) => {
+          const agent = config.agents.find((candidate) => candidate.id === agentId);
+          if (!agent) return null;
+          const managedDir = resolve(portabilityProfileDir, 'agents', agent.id, 'memory');
+          const configuredDir = resolve(agent.memoryDir);
+          if (configuredDir !== managedDir || !configuredDir.startsWith(`${resolve(portabilityProfileDir)}${sep}`)) {
+            return null;
+          }
+          return managedReader?.read(
+            ['agents', agent.id, 'memory', target === 'memory' ? 'MEMORY.md' : 'USER.md'],
+            maxBytes,
+          ) ?? null;
+        },
+      },
+      });
+    } finally {
+      managedReader?.close();
+    }
+    const serialized = serializeWorkspaceBundle(exported.bundle);
+    const temporary = join(dirname(result.filePath), `.${Date.now()}-${process.pid}.workspace.tmp`);
+    writeFileSync(temporary, serialized, { encoding: 'utf8', flag: 'wx' });
+    renameSync(temporary, result.filePath);
+    return { path: result.filePath, notices: exported.warnings };
+  });
 
   /* ------------------------------------------ identity + photos (Phase B2) */
 

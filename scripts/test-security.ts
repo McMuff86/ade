@@ -36,6 +36,19 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 const valid: Record<InvokeChannel, unknown> = {
   'config:get': undefined,
   'config:save': { settings: { theme: 'dark' } },
+  'workspaceBundle:pickImport': undefined,
+  'workspaceBundle:authorizeMappings': {
+    mappings: { repositories: {}, agentHomes: {} },
+  },
+  'workspaceBundle:preview': {
+    selectionId: '12345678-1234-1234-1234-123456789abc',
+    mappingAuthorizationId: 'abcdefab-1234-1234-1234-123456789abc',
+  },
+  'workspaceBundle:apply': {
+    sessionId: '12345678-1234-1234-1234-123456789abc',
+    token: 'a'.repeat(64),
+  },
+  'workspaceBundle:export': { includeMemory: false, includePhotos: false },
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },
   'category:create': { name: 'Project', kind: 'plain' },
   'category:update': { id: 'category', name: 'Project', photo: null },
@@ -140,6 +153,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'fs:rename': { agentId: 'agent', sessionId: 'session', path: 'notes.md', newName: 'notes-2.md' },
   'fs:delete': { agentId: 'agent', sessionId: 'session', path: 'notes.md' },
   'dialog:pickFolder': undefined,
+  'wsl:list': undefined,
 };
 
 for (const channel of INVOKE_CHANNELS) {
@@ -155,6 +169,20 @@ for (const channel of INVOKE_CHANNELS) {
 
 check('config writes cannot replace catalog data', rejects('config:save', { categories: [] }));
 check('unknown fields are rejected', rejects('pty:kill', { sessionId: 's', extra: true }));
+check('workspace bundle preview accepts only a main-issued selection id',
+  rejects('workspaceBundle:preview', {
+    path: '/tmp/renderer-controlled.json',
+    mappingAuthorizationId: 'abcdefab-1234-1234-1234-123456789abc',
+  })
+  && rejects('workspaceBundle:preview', {
+    selectionId: '../renderer-controlled',
+    mappingAuthorizationId: 'abcdefab-1234-1234-1234-123456789abc',
+  }));
+check('workspace bundle preview rejects renderer-supplied destination mappings',
+  rejects('workspaceBundle:preview', {
+    selectionId: '12345678-1234-1234-1234-123456789abc',
+    mappings: { repositories: {}, agentHomes: {} },
+  }));
 check('persisted task activity requires one exact task id',
   rejects('runTask:activity', {})
   && rejects('runTask:activity', { taskId: 'task', extra: true }));
