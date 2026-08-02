@@ -1,23 +1,4 @@
-import {
-  closeSync,
-  constants,
-  fstatSync,
-  fsyncSync,
-  linkSync,
-  lstatSync,
-  mkdirSync,
-  openSync,
-  readdirSync,
-  readSync,
-  realpathSync,
-  renameSync,
-  rmdirSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { createHash } from 'node:crypto';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { extname } from 'node:path';
 import { normalizeConfig } from '../orchestration/migrate';
 import { isExecutionBackendId } from '../../shared/executionBackends';
 import type { AdeConfig, Repository } from '../../shared/types';
@@ -31,6 +12,14 @@ import {
   type WorkspaceBundleExportResult,
   type WorkspaceBundlePhotoResource,
 } from './WorkspaceBundleExporter';
+import {
+  readBoundedRelativeFile,
+  resolveProfileRootAnchor,
+  safelyReadManagedFile,
+  type ProfileRootAnchor,
+} from './managed/ManagedProfileAccess';
+import { createManagedHost } from './managed/createManagedHost';
+import type { ManagedHost } from './managed/ManagedHost';
 
 const MAX_SOURCE_CONFIG_BYTES = 8 * 1024 * 1024;
 const PHOTO_MIME: Record<string, WorkspaceBundlePhotoResource['mime']> = {
@@ -50,473 +39,13 @@ export interface ProfileWorkspaceBundleOptions {
   auditFileOpen?(path: string): void;
 }
 
-function sameCanonicalPath(left: string, right: string): boolean {
-  const normalize = (value: string): string => process.platform === 'win32' ? value.toLowerCase() : value;
-  return normalize(resolve(left)) === normalize(resolve(right));
-}
-
-function assertCanonicalDirectory(path: string, label: string): void {
-  const info = lstatSync(path);
-  if (!info.isDirectory() || info.isSymbolicLink() || !sameCanonicalPath(path, realpathSync.native(path))) {
-    throw new Error(`workspace profile: ${label} must be a canonical non-symlink directory`);
-  }
-}
-
-interface ProfileRootAnchor {
-  path: string;
-  fd: number;
-}
-
-export interface ManagedProfileReader {
-  read(relativeParts: string[], maxBytes: number): Buffer | null;
-  readStrict(relativeParts: string[], maxBytes: number): Buffer | null;
-  close(): void;
-}
-
-/** Open a canonical ADE profile root and keep every managed read descriptor-relative. */
-export function openManagedProfileReader(profileDir: string): ManagedProfileReader {
-  const anchor = createProfileRootAnchor(resolve(profileDir));
-  let closed = false;
-  return {
-    read(relativeParts, maxBytes) {
-      if (closed) throw new Error('workspace profile: managed reader is closed');
-      return safelyReadManagedFile(anchor, relativeParts, maxBytes);
-    },
-    readStrict(relativeParts, maxBytes) {
-      if (closed) throw new Error('workspace profile: managed reader is closed');
-      try {
-        return readBoundedRelativeFile(anchor, relativeParts, maxBytes, 'managed resource');
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-        throw error;
-      }
-    },
-    close() {
-      if (!closed) closeSync(anchor.fd);
-      closed = true;
-    },
-  };
-}
-
-/** Linux-only descriptor-anchored writer for paths owned by the ADE profile. */
-export class ManagedProfileWriter {
-  private readonly rootFd: number;
-
-  constructor(private readonly rootPath: string) {
-    const anchor = createProfileRootAnchor(resolve(rootPath));
-    this.rootFd = anchor.fd;
-  }
-
-  close(): void { closeSync(this.rootFd); }
-
-  mkdir(parts: string[]): void {
-    this.withParent(parts, true, (parent, leaf, parentFd) => {
-      const candidate = `${parent}/${leaf}`;
-      try { mkdirSync(candidate, { recursive: false, mode: 0o700 }); } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      }
-      const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-      const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-      const fd = openSync(candidate, constants.O_RDONLY | directoryFlag | noFollow);
-      try {
-        if (!fstatSync(fd).isDirectory()) throw new Error('Managed profile path is not a directory.');
-      } finally { closeSync(fd); }
-      fsyncSync(parentFd);
-    });
-  }
-
-  write(parts: string[], content: string | Buffer): void {
-    this.withParent(parts, false, (parent, leaf, parentFd) => {
-      const fd = openSync(
-        `${parent}/${leaf}`,
-        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-        0o600,
-      );
-      try {
-        writeFileSync(fd, content);
-        fsyncSync(fd);
-      } finally { closeSync(fd); }
-      fsyncSync(parentFd);
-    });
-  }
-
-  rename(fromParts: string[], toParts: string[]): void {
-    this.withParent(fromParts, false, (fromParent, fromLeaf, fromFd) => {
-      this.withParent(toParts, false, (toParent, toLeaf, toFd) => {
-        renameSync(`${fromParent}/${fromLeaf}`, `${toParent}/${toLeaf}`);
-        fsyncSync(toFd);
-        if (fromFd !== toFd) fsyncSync(fromFd);
-      });
-    });
-  }
-
-  link(fromParts: string[], toParts: string[]): void {
-    this.withParent(fromParts, false, (fromParent, fromLeaf) => {
-      this.withParent(toParts, false, (toParent, toLeaf, toFd) => {
-        linkSync(`${fromParent}/${fromLeaf}`, `${toParent}/${toLeaf}`);
-        fsyncSync(toFd);
-      });
-    });
-  }
-
-  remove(parts: string[]): void {
-    this.withParent(parts, false, (parent, leaf, parentFd) => {
-      rmSync(`${parent}/${leaf}`, { recursive: true, force: true });
-      fsyncSync(parentFd);
-    });
-  }
-
-  removeOwnedFile(parts: string[], expectedSha256: string): void {
-    try { this.withParent(parts, false, (parent, leaf, parentFd) => {
-      const path = `${parent}/${leaf}`;
-      let fd: number;
-      try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW); } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
-        throw error;
-      }
-      try {
-        const opened = fstatSync(fd, { bigint: true });
-        const current = lstatSync(path, { bigint: true });
-        if (!opened.isFile() || current.dev !== opened.dev || current.ino !== opened.ino) {
-          throw new Error('Managed profile file identity changed before removal.');
-        }
-        const hash = createHash('sha256');
-        const buffer = Buffer.allocUnsafe(64 * 1024);
-        let offset = 0;
-        while (true) {
-          const count = readSync(fd, buffer, 0, buffer.length, offset);
-          if (count === 0) break;
-          hash.update(buffer.subarray(0, count));
-          offset += count;
-        }
-        if (hash.digest('hex') !== expectedSha256) throw new Error('Managed profile file ownership mismatch.');
-        const final = lstatSync(path, { bigint: true });
-        if (final.dev !== opened.dev || final.ino !== opened.ino) throw new Error('Managed profile file changed before removal.');
-        unlinkSync(path);
-        fsyncSync(parentFd);
-      } finally { closeSync(fd); }
-    }); } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-  }
-
-  assertOwnedDirectory(parts: string[], expectedToken: string): boolean {
-    try { this.withParent(parts, false, (parent, leaf) => {
-      const path = `${parent}/${leaf}`;
-      const directoryFlag = (constants as typeof constants & { O_DIRECTORY?: number }).O_DIRECTORY ?? 0;
-      const dirFd = openSync(path, constants.O_RDONLY | directoryFlag | constants.O_NOFOLLOW);
-      try {
-        const stat = fstatSync(dirFd);
-        if (!stat.isDirectory() || stat.nlink < 1) {
-          throw new Error('Managed profile directory ownership target is invalid.');
-        }
-        const markerPath = `/proc/self/fd/${dirFd}/.ade-workspace-import-owner`;
-        let markerFd: number;
-        try { markerFd = openSync(markerPath, constants.O_RDONLY | constants.O_NOFOLLOW); }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            throw new Error('Managed profile directory ownership marker is missing.');
-          }
-          throw error;
-        }
-        try {
-          const markerStat = fstatSync(markerFd);
-          const markerBytes = Buffer.alloc(expectedToken.length);
-          const count = readSync(markerFd, markerBytes, 0, markerBytes.length, 0);
-          if (!markerStat.isFile() || markerStat.nlink !== 1 || markerStat.size !== expectedToken.length
-              || count !== markerBytes.length || markerBytes.toString('utf8') !== expectedToken) {
-            throw new Error('Managed profile directory ownership mismatch.');
-          }
-        } finally { closeSync(markerFd); }
-      } finally { closeSync(dirFd); }
-    }); } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-      throw error;
-    }
-    return true;
-  }
-
-  removeOwnedDirectory(parts: string[], expectedToken: string): void {
-    try { this.withParent(parts, false, (parent, leaf, parentFd) => {
-      const path = `${parent}/${leaf}`;
-      const sidecar = `${parent}/.${leaf}.ade-import-owner-${expectedToken.slice(0, 16)}`;
-      const markerMatches = (markerPath: string): boolean => {
-        const markerFd = openSync(markerPath, constants.O_RDONLY | constants.O_NOFOLLOW);
-        try {
-          const marker = Buffer.alloc(128);
-          const count = readSync(markerFd, marker, 0, marker.length, 0);
-          const markerStat = fstatSync(markerFd);
-          return markerStat.isFile() && markerStat.nlink === 1 && markerStat.size === count
-            && marker.subarray(0, count).toString('utf8') === expectedToken;
-        } finally { closeSync(markerFd); }
-      };
-      let dirFd: number;
-      try {
-        const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-        dirFd = openSync(path, constants.O_RDONLY | directoryFlag | constants.O_NOFOLLOW);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          try {
-            if (!markerMatches(sidecar)) throw new Error('Managed profile directory sidecar ownership mismatch.');
-            unlinkSync(sidecar);
-            fsyncSync(parentFd);
-          } catch (sidecarError) {
-            if ((sidecarError as NodeJS.ErrnoException).code !== 'ENOENT') throw sidecarError;
-          }
-          return;
-        }
-        throw error;
-      }
-      try {
-        const opened = fstatSync(dirFd, { bigint: true });
-        const current = lstatSync(path, { bigint: true });
-        if (!opened.isDirectory() || current.dev !== opened.dev || current.ino !== opened.ino) {
-          throw new Error('Managed profile directory identity changed before removal.');
-        }
-        const entries = readdirSync(`/proc/self/fd/${dirFd}`);
-        let sidecarPresent = false;
-        try {
-          sidecarPresent = markerMatches(sidecar);
-          if (!sidecarPresent) throw new Error('Managed profile directory sidecar ownership mismatch.');
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        }
-        if (sidecarPresent) {
-          if (entries.length !== 0) throw new Error('Managed profile directory contains unowned content.');
-        } else {
-          if (entries.length !== 1 || entries[0] !== '.ade-workspace-import-owner'
-              || !markerMatches(`/proc/self/fd/${dirFd}/.ade-workspace-import-owner`)) {
-            throw new Error('Managed profile directory ownership mismatch.');
-          }
-          renameSync(`/proc/self/fd/${dirFd}/.ade-workspace-import-owner`, sidecar);
-          fsyncSync(dirFd);
-          fsyncSync(parentFd);
-        }
-      } finally { closeSync(dirFd); }
-      // Never recursively delete: later/unowned content makes rmdir fail closed while the sidecar survives.
-      rmdirSync(path);
-      fsyncSync(parentFd);
-      unlinkSync(sidecar);
-      fsyncSync(parentFd);
-    }); } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-  }
-
-  relative(absolutePath: string): string[] {
-    const root = resolve(this.rootPath);
-    const absolute = resolve(absolutePath);
-    if (!absolute.startsWith(`${root}/`)) throw new Error('Managed path escapes the profile root.');
-    return absolute.slice(root.length + 1).split('/').filter(Boolean);
-  }
-
-  private withParent<T>(
-    parts: string[],
-    createParents: boolean,
-    callback: (parent: string, leaf: string, parentFd: number) => T,
-  ): T {
-    if (parts.length === 0 || parts.some((part) => !part || part === '.' || part === '..' || /[/\\\0]/.test(part))) {
-      throw new Error('Invalid managed profile path.');
-    }
-    let fd = this.rootFd;
-    const opened: number[] = [];
-    const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-    const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-    try {
-      for (const part of parts.slice(0, -1)) {
-        const candidate = `/proc/self/fd/${fd}/${part}`;
-        if (createParents) {
-          try { mkdirSync(candidate, { recursive: false, mode: 0o700 }); } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-          }
-        }
-        const next = openSync(candidate, constants.O_RDONLY | directoryFlag | noFollow);
-        if (!fstatSync(next).isDirectory()) {
-          closeSync(next);
-          throw new Error('Managed profile ancestor is not a directory.');
-        }
-        opened.push(next);
-        fd = next;
-      }
-      return callback(`/proc/self/fd/${fd}`, parts.at(-1)!, fd);
-    } finally {
-      for (const openedFd of opened.reverse()) closeSync(openedFd);
-    }
-  }
-}
-
-function createProfileRootAnchor(path: string): ProfileRootAnchor {
-  if (process.platform !== 'linux') {
-    throw new Error('workspace profile: safe descriptor-relative profile reads are not supported on this platform');
-  }
-  assertCanonicalDirectory(path, 'ADE data directory');
-  const info = lstatSync(path, { bigint: true });
-  const real = realpathSync.native(path);
-  const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-  const fd = openSync(path, constants.O_RDONLY | directoryFlag | noFollow);
-  const opened = fstatSync(fd, { bigint: true });
-  const descriptorReal = realpathSync.native(`/proc/self/fd/${fd}`);
-  if (!opened.isDirectory() || opened.dev !== info.dev || opened.ino !== info.ino
-      || descriptorReal !== real) {
-    closeSync(fd);
-    throw new Error('workspace profile: ADE data directory could not be anchored safely');
-  }
-  return { path, fd };
-}
-
-function openAnchoredChildDirectory(parent: ProfileRootAnchor, name: string): ProfileRootAnchor | null {
-  const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-  try {
-    const fd = openSync(
-      `/proc/self/fd/${parent.fd}/${name}`,
-      constants.O_RDONLY | directoryFlag | noFollow,
-    );
-    const info = fstatSync(fd, { bigint: true });
-    if (!info.isDirectory()) {
-      closeSync(fd);
-      throw new Error('workspace profile: nested ADE data path is not a directory');
-    }
-    return { path: join(parent.path, name), fd };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw new Error('workspace profile: nested ADE data directory could not be anchored safely');
-  }
-}
-
-function hasAnchoredConfig(anchor: ProfileRootAnchor): boolean {
-  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-  let fd: number | undefined;
-  try {
-    fd = openSync(`/proc/self/fd/${anchor.fd}/config.json`, constants.O_RDONLY | noFollow);
-    const info = fstatSync(fd, { bigint: true });
-    if (!info.isFile() || info.nlink !== BigInt(1)) {
-      throw new Error('workspace profile: config.json must be a singly-linked regular file');
-    }
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-    throw error;
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-  }
-}
-
-function resolveProfileRootAnchor(source: string): ProfileRootAnchor {
-  const absolute = resolve(source);
-  if (basename(absolute).toLowerCase() === 'config.json') {
-    const anchor = createProfileRootAnchor(dirname(absolute));
-    try {
-      if (hasAnchoredConfig(anchor)) return anchor;
-      throw new Error('workspace profile: selected config.json does not exist');
-    } catch (error) {
-      closeSync(anchor.fd);
-      throw error;
-    }
-  }
-
-  const selected = createProfileRootAnchor(absolute);
-  let returnSelected = false;
-  try {
-    const nested = openAnchoredChildDirectory(selected, 'ade');
-    if (nested) {
-      let returnNested = false;
-      try {
-        if (hasAnchoredConfig(nested)) {
-          returnNested = true;
-          return nested;
-        }
-      } finally {
-        if (!returnNested) closeSync(nested.fd);
-      }
-    }
-    if (hasAnchoredConfig(selected)) {
-      returnSelected = true;
-      return selected;
-    }
-    throw new Error('workspace profile: config.json was not found in the selected profile');
-  } finally {
-    if (!returnSelected) closeSync(selected.fd);
-  }
-}
-
-function validRelativeParts(parts: string[]): boolean {
-  return parts.length > 0 && parts.every((part) => part !== '' && part !== '.' && part !== '..'
-    && !part.includes('/') && !part.includes('\\') && !part.includes('\0'));
-}
-
-function readBoundedRelativeFile(
-  anchor: ProfileRootAnchor,
-  relativeParts: string[],
-  maxBytes: number,
-  label: string,
-  auditFileOpen?: (path: string) => void,
-): Buffer {
-  if (!validRelativeParts(relativeParts)) {
-    throw new Error(`workspace profile: ${label} has an invalid managed path`);
-  }
-  const openedDirectories: number[] = [];
-  let parentFd = anchor.fd;
-  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
-  const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-  let fd: number | undefined;
-  try {
-    for (const part of relativeParts.slice(0, -1)) {
-      const directoryFd = openSync(
-        `/proc/self/fd/${parentFd}/${part}`,
-        constants.O_RDONLY | directoryFlag | noFollow,
-      );
-      const directoryInfo = fstatSync(directoryFd, { bigint: true });
-      if (!directoryInfo.isDirectory()) {
-        closeSync(directoryFd);
-        throw new Error(`workspace profile: ${label} traversed a non-directory component`);
-      }
-      openedDirectories.push(directoryFd);
-      parentFd = directoryFd;
-    }
-    const logicalPath = join(anchor.path, ...relativeParts);
-    auditFileOpen?.(logicalPath);
-    fd = openSync(
-      `/proc/self/fd/${parentFd}/${relativeParts.at(-1)!}`,
-      constants.O_RDONLY | noFollow,
-    );
-    const before = fstatSync(fd, { bigint: true });
-    if (!before.isFile() || before.nlink !== BigInt(1) || before.size > BigInt(maxBytes)) {
-      throw new Error(`workspace profile: ${label} exceeds its migration limit`);
-    }
-    const allocation = Number(before.size);
-    const bytes = Buffer.alloc(allocation);
-    let offset = 0;
-    while (offset < bytes.length) {
-      const read = readSync(fd, bytes, offset, bytes.length - offset, offset);
-      if (read === 0) break;
-      offset += read;
-    }
-    const after = fstatSync(fd, { bigint: true });
-    if (offset !== bytes.length || before.dev !== after.dev || before.ino !== after.ino
-        || before.size !== after.size || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) {
-      throw new Error(`workspace profile: ${label} changed while it was read`);
-    }
-    return bytes;
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-    for (const directoryFd of openedDirectories.reverse()) closeSync(directoryFd);
-  }
-}
-
-function safelyReadManagedFile(
-  anchor: ProfileRootAnchor,
-  relativeParts: string[],
-  maxBytes: number,
-  auditFileOpen?: (path: string) => void,
-): Buffer | null {
-  try {
-    return readBoundedRelativeFile(anchor, relativeParts, maxBytes, 'managed resource', auditFileOpen);
-  } catch {
-    return null;
-  }
-}
+// The managed reader/writer moved to ./managed so a second host implementation
+// could exist without the semantics drifting. Re-exported here because every
+// caller already imports them from this module.
+export {
+  ManagedProfileWriter, openManagedProfileReader,
+  type ManagedProfileReader, type ProfileRootAnchor,
+} from './managed/ManagedProfileAccess';
 
 function assertPortableLegacyBackends(parsed: Record<string, unknown>): void {
   const checkEntries = (value: unknown, field: string, label: string): void => {
@@ -590,8 +119,12 @@ function assertPortableResourceReferences(config: AdeConfig): void {
     for (let index = 0; index < values.length; index += 1) {
       const photo = values[index]?.photo;
       if (photo === undefined) continue;
+      // Deliberately the platform-neutral rule, not this host's addressing
+      // grammar: the question here is whether the *source* profile named a
+      // single managed file, which does not depend on where the export runs.
       if (typeof photo !== 'string' || photo.length === 0 || photo.length > 255
-          || !validRelativeParts([photo])) {
+          || photo === '.' || photo === '..'
+          || photo.includes('/') || photo.includes('\\') || photo.includes('\0')) {
         throw new Error(`workspace profile: ${label}[${index}].photo is not a valid managed filename`);
       }
     }
@@ -602,23 +135,26 @@ export function exportProfileWorkspaceBundle(
   source: string,
   options: ProfileWorkspaceBundleOptions,
 ): WorkspaceBundleExportResult {
-  const anchor = resolveProfileRootAnchor(source);
+  const host = createManagedHost();
+  const anchor = resolveProfileRootAnchor(source, host);
   try {
-    return exportAnchoredProfileWorkspaceBundle(anchor, options);
+    return exportAnchoredProfileWorkspaceBundle(anchor, options, host);
   } finally {
-    closeSync(anchor.fd);
+    anchor.anchor.close();
   }
 }
 
 function exportAnchoredProfileWorkspaceBundle(
   anchor: ProfileRootAnchor,
   options: ProfileWorkspaceBundleOptions,
+  host: ManagedHost,
 ): WorkspaceBundleExportResult {
   const configBytes = readBoundedRelativeFile(
     anchor,
     ['config.json'],
     MAX_SOURCE_CONFIG_BYTES,
     'config.json',
+    host,
     options.auditFileOpen,
   );
   let parsed: unknown;
@@ -657,6 +193,7 @@ function exportAnchoredProfileWorkspaceBundle(
           anchor,
           ['photos', file],
           Math.min(maxBytes, WORKSPACE_BUNDLE_MAX_ASSET_BYTES),
+          host,
           options.auditFileOpen,
         );
         return bytes ? { bytes, mime } : null;
@@ -667,6 +204,7 @@ function exportAnchoredProfileWorkspaceBundle(
           anchor,
           ['agents', agentId, 'memory', file],
           Math.min(maxBytes, WORKSPACE_BUNDLE_MAX_MEMORY_CHARS * 4),
+          host,
           options.auditFileOpen,
         );
       },

@@ -5,6 +5,7 @@ import { validateCompleteConfig } from '../config/store';
 import type { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { buildAgentRoleBlock } from '../memory/agentInstructions';
 import { ManagedProfileWriter, openManagedProfileReader } from './ProfileMigrationSource';
+import { managedProfileSupport } from './managed/ManagedHost';
 import { ExecutionBackendHomeProvisioner } from './ExecutionBackendHomeProvisioner';
 import {
   planWorkspaceImport,
@@ -184,9 +185,10 @@ function managedAssetManifest(profileDir: string, config: AdeConfig): Array<{
   size: number;
   sha256: string;
 }> {
-  // Existing assets are never overwritten. On hosts without descriptor-relative reads,
-  // omit hashes rather than risk following a reparse-point ancestor during backup.
-  if (process.platform !== 'linux') return [];
+  // Existing assets are never overwritten. Hosts that cannot address managed
+  // paths safely omit the hashes rather than risk following a reparse-point
+  // ancestor while building the backup manifest.
+  if (!managedProfileSupport(process.platform).managedAssets) return [];
   const relativePaths = new Set<string>();
   for (const identity of [...config.categories, ...config.agents, ...config.agentTemplates]) {
     if (!identity.photo) continue;
@@ -242,7 +244,12 @@ export class WorkspaceImportService {
    * and replace() already guard their own calls.
    */
   private acquireLock(): (() => void) | undefined {
-    if (this.options.hostPlatform !== 'linux') return undefined;
+    // Deliberately still descriptor-anchored-only: ConfigStore implements this
+    // with /proc/self/fd lock files and there is no Windows equivalent short of
+    // a native addon. The apply path is not left unguarded — ConfigStore.replace
+    // fails closed on a compare-and-swap of the on-disk fingerprint, so a
+    // concurrent writer is detected rather than merged.
+    if (managedProfileSupport(this.options.hostPlatform).level !== 'descriptor-anchored') return undefined;
     return this.options.store.acquireWorkspaceImportLock?.();
   }
 
@@ -274,7 +281,7 @@ export class WorkspaceImportService {
   }
 
   private async recoverPendingUnlocked(): Promise<void> {
-    if (this.options.hostPlatform !== 'linux') return;
+    if (!managedProfileSupport(this.options.hostPlatform).canApply) return;
     const journalParts = ['import-transactions', 'pending.json'];
     const reader = openManagedProfileReader(this.options.profileDir);
     let bytes: Buffer | null;
@@ -567,7 +574,8 @@ export class WorkspaceImportService {
         version: 1,
         planToken: plan.token,
         createdAt: new Date(now).toISOString(),
-        managedAssetsStatus: process.platform === 'linux' ? 'complete' : 'omitted-unsupported-host',
+        managedAssetsStatus: managedProfileSupport(process.platform).managedAssets
+          ? 'complete' : 'omitted-unsupported-host',
         managedAssets: existingManagedAssets,
       }, null, 2)}\n`);
       managedWriter.rename(managedParts(backupTempPath), managedParts(backupPath));

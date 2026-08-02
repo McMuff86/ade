@@ -1,11 +1,15 @@
 import {
-  closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync,
-  readdirSync, renameSync, rmdirSync, unlinkSync, writeFileSync,
+  closeSync, fstatSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, posix, resolve } from 'node:path';
 import type { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import type { WorkspaceAgentHomeProvisioner } from './WorkspaceImportService';
 import type { WorkspaceTargetMapping } from './WorkspaceImportPlanner';
+import type { ManagedAnchor } from './managed/ManagedHost';
+import { createManagedHost } from './managed/createManagedHost';
+import {
+  IMPORT_OWNER_MARKER, assertManagedComponent, importOwnerSidecar,
+} from './managed/ManagedPathNames';
 
 const ENSURE_SCRIPT = String.raw`
 import json, os, sys
@@ -88,78 +92,86 @@ for item in reversed(paths):
     finally: os.close(parent_fd)
 `;
 
-function openNativeParent(canonicalPath: string): { fd: number; leaf: string } {
+/**
+ * Anchor the directory the agent home will be created in.
+ *
+ * The parent is anchored through the managed host, which gives each platform
+ * its best available guarantee and — importantly on Windows — does NOT require
+ * the caller's spelling to equal the canonical one. `os.tmpdir()` yields an 8.3
+ * short name on Windows that `realpathSync.native` expands, and the probe hands
+ * back whichever form the user's mapping used.
+ */
+function openNativeParent(canonicalPath: string): { anchor: ManagedAnchor; leaf: string } {
+  const host = createManagedHost();
   const parent = dirname(canonicalPath);
-  if (resolve(canonicalPath) !== canonicalPath || lstatSync(parent).isSymbolicLink()
-      || !lstatSync(parent).isDirectory() || realpathSync.native(parent) !== parent) {
+  const leaf = basename(canonicalPath);
+  if (resolve(canonicalPath) !== canonicalPath) {
     throw new Error('workspace import: agent-home target must be absent below an existing parent');
   }
-  const before = lstatSync(parent, { bigint: true });
-  const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-  const fd = openSync(parent, constants.O_RDONLY | directoryFlag | constants.O_NOFOLLOW);
   try {
-    const opened = fstatSync(fd, { bigint: true });
-    if (!opened.isDirectory() || opened.dev !== before.dev || opened.ino !== before.ino
-        || realpathSync.native(`/proc/self/fd/${fd}`) !== parent) {
-      throw new Error('workspace import: agent-home parent changed during authorization');
-    }
-    return { fd, leaf: basename(canonicalPath) };
-  } catch (error) {
-    closeSync(fd);
-    throw error;
+    assertManagedComponent(leaf, host.platform);
+  } catch {
+    throw new Error('workspace import: agent-home target must be absent below an existing parent');
   }
+  let anchor: ManagedAnchor;
+  try {
+    anchor = host.anchorRoot(parent);
+  } catch {
+    throw new Error('workspace import: agent-home target must be absent below an existing parent');
+  }
+  return { anchor, leaf };
 }
 
 function ensureNative(canonicalPath: string, ownershipToken: string): string[] {
+  const host = createManagedHost();
   const parent = openNativeParent(canonicalPath);
   try {
-    const anchored = `/proc/self/fd/${parent.fd}/${parent.leaf}`;
-    mkdirSync(anchored, { recursive: false, mode: 0o700 });
-    const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-    const createdFd = openSync(anchored, constants.O_RDONLY | directoryFlag | constants.O_NOFOLLOW);
+    // Exclusive on purpose: the contract is that the target is absent, so an
+    // existing entry must fail rather than be adopted.
+    mkdirSync(`${parent.anchor.addr}/${parent.leaf}`, { recursive: false, mode: 0o700 });
+    // openDir re-checks that this resolves to exactly one component below the
+    // anchored parent and is not a link, on either host.
+    const created = host.openDir(parent.anchor, parent.leaf);
     try {
-      if (!fstatSync(createdFd).isDirectory() || realpathSync.native(`/proc/self/fd/${createdFd}`) !== canonicalPath) {
-        throw new Error('workspace import: agent-home identity changed during creation');
-      }
-      const markerFd = openSync(`/proc/self/fd/${createdFd}/.ade-workspace-import-owner`,
-        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-      try { writeFileSync(markerFd, ownershipToken); fsyncSync(markerFd); } finally { closeSync(markerFd); }
-      fsyncSync(createdFd);
-      fsyncSync(parent.fd);
-    } finally { closeSync(createdFd); }
+      const markerFd = host.createFile(created, IMPORT_OWNER_MARKER, 0o600);
+      try { writeFileSync(markerFd, ownershipToken); host.syncFile(markerFd); } finally { closeSync(markerFd); }
+      host.syncDir(created);
+      host.syncDir(parent.anchor);
+    } finally { created.close(); }
     return [canonicalPath];
   } catch (error) {
-    try { rmdirSync(`/proc/self/fd/${parent.fd}/${parent.leaf}`); } catch { /* preserve non-empty paths */ }
+    try { rmdirSync(`${parent.anchor.addr}/${parent.leaf}`); } catch { /* preserve non-empty paths */ }
     throw error;
-  } finally { closeSync(parent.fd); }
+  } finally { parent.anchor.close(); }
 }
 
 function rollbackNative(canonicalPath: string, ownershipToken: string): void {
+  const host = createManagedHost();
   const parent = openNativeParent(canonicalPath);
   try {
-    const sidecarLeaf = `.${parent.leaf}.ade-import-owner-${ownershipToken.slice(0, 16)}`;
-    const sidecarPath = `/proc/self/fd/${parent.fd}/${sidecarLeaf}`;
-    const markerMatches = (path: string): boolean => {
-      const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-      try {
-        const stat = fstatSync(fd);
-        return stat.isFile() && stat.nlink === 1 && stat.size === ownershipToken.length
-          && readFileSync(fd, 'utf8') === ownershipToken;
-      } finally { closeSync(fd); }
+    const sidecarLeaf = importOwnerSidecar(parent.leaf, ownershipToken);
+    const sidecarPath = `${parent.anchor.addr}/${sidecarLeaf}`;
+    const holdsToken = (fd: number): boolean => {
+      const stat = fstatSync(fd);
+      return stat.isFile() && stat.nlink === 1 && stat.size === ownershipToken.length
+        && readFileSync(fd, 'utf8') === ownershipToken;
     };
-    const directoryFlag = (constants as unknown as Record<string, number>).O_DIRECTORY ?? 0;
-    let childFd: number;
+    const sidecarMatches = (): boolean => {
+      const fd = host.openFile(parent.anchor, sidecarLeaf);
+      try { return holdsToken(fd); } finally { closeSync(fd); }
+    };
+
+    let child: ManagedAnchor;
     try {
-      childFd = openSync(`/proc/self/fd/${parent.fd}/${parent.leaf}`,
-        constants.O_RDONLY | directoryFlag | constants.O_NOFOLLOW);
+      child = host.openDir(parent.anchor, parent.leaf);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         try {
-          if (!markerMatches(sidecarPath)) {
+          if (!sidecarMatches()) {
             throw new Error('workspace import: agent-home sidecar ownership mismatch');
           }
           unlinkSync(sidecarPath);
-          fsyncSync(parent.fd);
+          host.syncDir(parent.anchor);
         } catch (sidecarError) {
           if ((sidecarError as NodeJS.ErrnoException).code !== 'ENOENT') throw sidecarError;
         }
@@ -168,31 +180,32 @@ function rollbackNative(canonicalPath: string, ownershipToken: string): void {
       throw error;
     }
     try {
-      const markerPath = `/proc/self/fd/${childFd}/.ade-workspace-import-owner`;
       let sidecarPresent = false;
       try {
-        sidecarPresent = markerMatches(sidecarPath);
+        sidecarPresent = sidecarMatches();
         if (!sidecarPresent) throw new Error('workspace import: agent-home sidecar ownership mismatch');
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
       if (!sidecarPresent) {
-        if (!markerMatches(markerPath)
-            || readdirSync(`/proc/self/fd/${childFd}`).some((entry) => entry !== '.ade-workspace-import-owner')) {
+        const markerFd = host.openFile(child, IMPORT_OWNER_MARKER);
+        let markerHeld: boolean;
+        try { markerHeld = holdsToken(markerFd); } finally { closeSync(markerFd); }
+        if (!markerHeld || host.entries(child).some((entry) => entry !== IMPORT_OWNER_MARKER)) {
           throw new Error('workspace import: agent-home ownership marker mismatch');
         }
-        renameSync(markerPath, sidecarPath);
-        fsyncSync(childFd);
-        fsyncSync(parent.fd);
-      } else if (readdirSync(`/proc/self/fd/${childFd}`).length !== 0) {
+        renameSync(`${child.addr}/${IMPORT_OWNER_MARKER}`, sidecarPath);
+        host.syncDir(child);
+        host.syncDir(parent.anchor);
+      } else if (host.entries(child).length !== 0) {
         throw new Error('workspace import: agent-home contains unowned content');
       }
-    } finally { closeSync(childFd); }
-    rmdirSync(`/proc/self/fd/${parent.fd}/${parent.leaf}`);
-    fsyncSync(parent.fd);
+    } finally { child.close(); }
+    rmdirSync(`${parent.anchor.addr}/${parent.leaf}`);
+    host.syncDir(parent.anchor);
     unlinkSync(sidecarPath);
-    fsyncSync(parent.fd);
-  } finally { closeSync(parent.fd); }
+    host.syncDir(parent.anchor);
+  } finally { parent.anchor.close(); }
 }
 
 function validateCreatedPaths(canonicalPath: string, value: unknown): string[] {
