@@ -30,6 +30,7 @@ import {
   type AdeWorkspaceBundleV1,
 } from '../src/shared/workspaceBundle';
 import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
+import { managedProfileSupport } from '../src/main/portability/managed/ManagedHost';
 
 let passed = 0;
 let failed = 0;
@@ -43,6 +44,7 @@ let skipped = 0;
  * still states what it did not cover.
  */
 const IS_LINUX = process.platform === 'linux';
+const MANAGED = managedProfileSupport(process.platform);
 
 function skip(group: string, reason: string): void {
   skipped += 1;
@@ -1440,9 +1442,9 @@ async function testWorkspaceImportService(): Promise<void> {
       repository: async (_source, target) => ({ ok: true, canonicalPath: target.path }),
       agentHome: async (target) => ({ ok: true, canonicalPath: target.path }),
     };
-    const plan = await planWorkspaceImport(bundle, config, mappings, probe, { hostPlatform: 'linux' });
+    const plan = await planWorkspaceImport(bundle, config, mappings, probe, { hostPlatform: process.platform });
     const service = new WorkspaceImportService({
-      profileDir, store, probe, hostPlatform: 'linux', now: () => 1_754_000_000_000,
+      profileDir, store, probe, hostPlatform: process.platform, now: () => 1_754_000_000_000,
     });
     const receipt = await service.apply(plan, mappings);
     check('transactional apply imports ready identities into a fresh target config',
@@ -1589,13 +1591,13 @@ async function testWorkspaceImportService(): Promise<void> {
         agentHomes: { [bundle.agents[0]!.id]: { backend: 'native', path: faultHome } },
       };
       const faultPlan = await planWorkspaceImport(
-        bundle, original, faultMappings, probe, { hostPlatform: 'linux' },
+        bundle, original, faultMappings, probe, { hostPlatform: process.platform },
       );
       const faultService = new WorkspaceImportService({
         profileDir: faultProfile,
         store: faultStore,
         probe,
-        hostPlatform: 'linux',
+        hostPlatform: process.platform,
         now: () => 1_754_000_100_000 + index,
         fault: (point) => {
           if (point === faultPoint) throw new Error(`injected ${faultPoint}`);
@@ -1719,21 +1721,27 @@ function pathExists(path: string): boolean {
 
 async function main(): Promise<void> {
   testSchemaAndExporter();
-  if (IS_LINUX) {
+  if (MANAGED.canApply) {
     testProfileSource();
     testProfileSourceBoundaries();
+  } else {
+    skip('profile source', `managed profile access is ${MANAGED.level} on this host`);
+    skip('profile source boundaries', `managed profile access is ${MANAGED.level} on this host`);
+  }
+  if (IS_LINUX) {
     testProfileRootSwap();
   } else {
-    skip('profile source', 'descriptor-relative profile reads are Linux-only');
-    skip('profile source boundaries', 'descriptor-relative profile reads are Linux-only');
-    skip('profile root swap', 'descriptor-relative profile reads are Linux-only');
+    // Honest gap, not an oversight: a Windows directory handle does not pin its
+    // directory (measured), so the host revalidates identity instead of
+    // preventing the swap. It cannot pass a test written for prevention.
+    skip('profile root swap', 'the Windows host revalidates identity instead of pinning it');
   }
   await testImportPlanner();
   await testRealTargetProbe();
-  if (IS_LINUX) {
+  if (MANAGED.canApply) {
     await testWorkspaceImportService();
   } else {
-    skip('workspace import service', 'the managed profile writer is Linux-only');
+    skip('workspace import service', `managed profile access is ${MANAGED.level} on this host`);
   }
   await testExecutionBackendHomeProvisioner();
   testConfigStoreReplacement();

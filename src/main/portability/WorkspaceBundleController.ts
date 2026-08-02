@@ -2,6 +2,7 @@ import {
   closeSync, constants, fstatSync, lstatSync, openSync, readSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { managedProfileSupport } from './managed/ManagedHost';
 import type {
   WorkspaceBundleMappings,
   WorkspaceBundlePreviewItem,
@@ -111,19 +112,18 @@ export class WorkspaceBundleController {
     const sessionId = randomUUID();
     this.previews.set(sessionId, { plan, mappings: structuredClone(mappings), createdAt: now });
     while (this.previews.size > 4) this.previews.delete(this.previews.keys().next().value!);
-    const hostSupported = this.options.hostPlatform === 'linux';
+    const support = managedProfileSupport(this.options.hostPlatform);
     const notices = structuredClone(plan.bundle.notices);
-    if (!hostSupported) {
-      notices.push({
-        code: 'workspace-import-host-unsupported',
-        subjectType: 'bundle',
-        message: 'Workspace import apply is currently supported only on Linux hosts.',
-      });
+    if (support.notice) {
+      // Reported on every host that is not descriptor-anchored, including the
+      // ones that CAN apply: the user is told what the weaker guarantee is
+      // rather than the button silently doing less than it does on Linux.
+      notices.push({ ...support.notice, subjectType: 'bundle' });
     }
     return {
       sessionId,
       token: plan.token,
-      canApplyFully: plan.canApplyFully && hostSupported,
+      canApplyFully: plan.canApplyFully && support.canApply,
       notices,
       repositories: plan.repositories.map(viewItem),
       categories: plan.categories.map(viewItem),
@@ -138,6 +138,12 @@ export class WorkspaceBundleController {
     if (!cached || Date.now() - cached.createdAt > PREVIEW_TTL_MS || cached.plan.token !== token) {
       if (cached) this.previews.delete(sessionId);
       throw new Error('workspace import: preview session is missing, expired, or does not match the token');
+    }
+    // The gate the preview advertised, enforced here too. Until now it held only
+    // because the renderer disables the button and the write layer happened to
+    // fail on an unsupported host — neither is a check.
+    if (!managedProfileSupport(this.options.hostPlatform).canApply) {
+      throw new Error('workspace import: this host cannot apply a workspace import');
     }
     try {
       return await this.options.importer.apply(cached.plan, cached.mappings);

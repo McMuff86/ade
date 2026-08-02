@@ -20,6 +20,7 @@
     "test:runtime": "tsx scripts/test-runtime-reliability.ts",
     "test:backends": "tsx scripts/test-execution-backends.ts",
     "test:wsl-backend": "tsx scripts/test-execution-backends.ts --wsl",
+    "test:wsl-import": "tsx scripts/test-wsl-import.ts",
     "test:orchestration": "tsx scripts/test-orchestration.ts",
     "test:orchestration-beta": "tsx scripts/test-orchestration-beta.ts",
     "test:publication": "tsx scripts/test-publication.ts",

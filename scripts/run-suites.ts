@@ -40,9 +40,11 @@ const SUITES: Suite[] = [
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 30 } },
-  // win32 runs 5 groups fewer than Linux (managed profile reader/writer), so
-  // this floor guards the Windows-reachable part only.
-  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 143 } },
+  // win32 runs two groups fewer than Linux: the root-swap test, which the
+  // verified-path host honestly cannot pass, and the descriptor-anchored
+  // profile-lock check. Everything else, including the whole apply
+  // transaction, is exercised on both.
+  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 182 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
   { id: 'security', script: 'test-security.ts', floors: { win32: 140 } },
 ];

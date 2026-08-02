@@ -55,6 +55,7 @@ import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendH
 import { WorkspaceBundleController } from './portability/WorkspaceBundleController';
 import { exportWorkspaceBundle } from './portability/WorkspaceBundleExporter';
 import { exportProfileWorkspaceBundle, openManagedProfileReader } from './portability/ProfileMigrationSource';
+import { managedProfileSupport } from './portability/managed/ManagedHost';
 import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
@@ -368,8 +369,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     }
   });
   handle(IPC.WorkspaceBundleExport, async ({ includeMemory, includePhotos }) => {
-    if (process.platform !== 'linux' && (includeMemory || includePhotos)) {
-      throw new Error('Memory and photo export is unavailable on this host because descriptor-safe managed-resource reads are not supported.');
+    if (!managedProfileSupport(process.platform).managedAssets && (includeMemory || includePhotos)) {
+      throw new Error('Memory and photo export is unavailable on this host because ADE cannot address managed profile resources safely here.');
     }
     const result = await dialog.showSaveDialog({
       defaultPath: `ade-workspace-${new Date().toISOString().slice(0, 10)}.json`,
@@ -384,7 +385,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       ], { timeoutMs: 15_000, maxBuffer: 64 * 1024 });
       if (remote.code === 0) remotes.set(repository.id, Buffer.from(remote.stdout).toString('utf8').trim());
     }
-    const managedReader = process.platform === 'linux' && (includeMemory || includePhotos)
+    const managedReader = managedProfileSupport(process.platform).managedAssets && (includeMemory || includePhotos)
       ? openManagedProfileReader(portabilityProfileDir)
       : null;
     let exported: ReturnType<typeof exportWorkspaceBundle>;
