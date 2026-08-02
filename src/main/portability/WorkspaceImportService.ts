@@ -232,12 +232,26 @@ export class WorkspaceImportService {
     this.options = options;
   }
 
+  /**
+   * The profile lock is a Linux-only construct: ConfigStore implements it with
+   * descriptor-anchored lock files under /proc/self/fd and throws outright on
+   * every other host (config/store.ts). Acquiring it unconditionally made
+   * recoverPending() reject during startup on Windows and macOS, which
+   * registerIpcHandlers propagates and index.ts answers with app.quit() — the
+   * app never opened a window. Guard it here the same way ConfigStore.save()
+   * and replace() already guard their own calls.
+   */
+  private acquireLock(): (() => void) | undefined {
+    if (this.options.hostPlatform !== 'linux') return undefined;
+    return this.options.store.acquireWorkspaceImportLock?.();
+  }
+
   async recoverPending(): Promise<void> {
     if (this.applying) throw new Error('A workspace import is already running for this profile.');
     this.applying = true;
     let releaseLock: (() => void) | undefined;
     try {
-      releaseLock = this.options.store.acquireWorkspaceImportLock?.();
+      releaseLock = this.acquireLock();
       await this.recoverPendingUnlocked();
     } finally {
       releaseLock?.();
@@ -250,7 +264,7 @@ export class WorkspaceImportService {
     this.applying = true;
     let releaseLock: (() => void) | undefined;
     try {
-      releaseLock = this.options.store.acquireWorkspaceImportLock?.();
+      releaseLock = this.acquireLock();
       await this.recoverPendingUnlocked();
       return await this.applyUnlocked(plan, mappings);
     } finally {
