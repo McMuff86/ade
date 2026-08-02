@@ -22,7 +22,19 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 import { DEFAULT_CONFIG, type AdeConfig, type ConfigLoadFailure } from '../../shared/types';
 import { isExecutionBackendId } from '../../shared/executionBackends';
+import { CODEX_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
+
+/** Model ids reach a shell command line through resolveLaunchCommand, so a
+ *  config that carries an unsafe one must never be persisted — not from the
+ *  IPC boundary, not from a workspace-bundle import, not from a hand-edited
+ *  file. boundedString already rejected the empty string above. */
+function modelId(value: unknown, pattern: RegExp, label: string): void {
+  if (value === undefined) return;
+  if (typeof value !== 'string' || !pattern.test(value.trim())) {
+    throw new Error(`${label} is not a shell-safe model id.`);
+  }
+}
 
 /** Lazily binds Electron so tests can construct a store with an explicit path. */
 function defaultConfigPath(): string {
@@ -151,6 +163,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['homeWorkspaceDir', agent.homeWorkspaceDir], ['dashboardUrl', agent.dashboardUrl],
       ['dashboardCommand', agent.dashboardCommand],
     ] as const) boundedString(value, `agent.${field}`, true);
+    modelId(agent.ollamaModel, OLLAMA_MODEL_PATTERN, 'agent.ollamaModel');
+    modelId(agent.codexModel, CODEX_MODEL_PATTERN, 'agent.codexModel');
     if (!categoryIds.has(agent.categoryId) || !RUNTIMES.has(agent.runtime) || !PERMISSIONS.has(agent.permissionMode)
         || (agent.homeExecutionBackend !== undefined && !isExecutionBackendId(agent.homeExecutionBackend))
         || (agent.defaultRepositoryId !== undefined && !repositoryIds.has(agent.defaultRepositoryId))
@@ -198,6 +212,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['role', template.role], ['photo', template.photo], ['customCommand', template.customCommand],
       ['ollamaModel', template.ollamaModel], ['codexModel', template.codexModel],
     ] as const) boundedString(value, `agentTemplate.${field}`, true);
+    modelId(template.ollamaModel, OLLAMA_MODEL_PATTERN, 'agentTemplate.ollamaModel');
+    modelId(template.codexModel, CODEX_MODEL_PATTERN, 'agentTemplate.codexModel');
     if (!RUNTIMES.has(template.runtime) || !PERMISSIONS.has(template.permissionMode)
         || (template.codexReasoningEffort !== undefined && !REASONING.has(template.codexReasoningEffort))
         || typeof template.memorySeed?.memory !== 'string' || typeof template.memorySeed?.user !== 'string') {

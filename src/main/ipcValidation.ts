@@ -2,14 +2,15 @@
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isExecutionBackendId } from '../shared/executionBackends';
-import { HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS } from '../shared/runtimes';
+import {
+  CODEX_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS, OLLAMA_MODEL_PATTERN,
+} from '../shared/runtimes';
 
 type RecordValue = Record<string, unknown>;
 
 const RUNTIMES = ['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom'] as const;
 const PERMISSION_MODES = ['default', 'accept-edits', 'bypass'] as const;
 const CODEX_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
-const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
 const CATEGORY_KINDS = ['plain', 'orchestrator', 'team'] as const;
 const TEAM_ROLES = ['orchestrator', 'lead', 'worker'] as const;
 const DASHBOARD_TARGETS = ['window', 'external'] as const;
@@ -60,6 +61,16 @@ function optionalCodexModel(channel: string, value: unknown): string | undefined
   const model = optionalString(channel, value, 'codexModel', { max: 100, allowEmpty: true });
   if (model?.trim() && !CODEX_MODEL_PATTERN.test(model.trim())) {
     invalid(channel, 'codexModel must be a shell-safe model id');
+  }
+  return model;
+}
+
+/** Same reasoning as optionalCodexModel: this value reaches a shell command
+ *  line via resolveLaunchCommand's `${model}` substitution. */
+function optionalOllamaModel(channel: string, value: unknown): string | undefined {
+  const model = optionalString(channel, value, 'ollamaModel', { max: 300, allowEmpty: true });
+  if (model?.trim() && !OLLAMA_MODEL_PATTERN.test(model.trim())) {
+    invalid(channel, 'ollamaModel must be a shell-safe model id');
   }
   return model;
 }
@@ -208,7 +219,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.runtime, 'runtime', RUNTIMES);
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
-  optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+  optionalOllamaModel(channel, request.ollamaModel);
   optionalCodexModel(channel, request.codexModel);
   if (request.codexReasoningEffort !== undefined) {
     enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);
@@ -689,7 +700,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
       }
       optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
-      optionalString(channel, request.ollamaModel, 'ollamaModel', { max: 300, allowEmpty: true });
+      optionalOllamaModel(channel, request.ollamaModel);
       optionalCodexModel(channel, request.codexModel);
       if (request.codexReasoningEffort !== undefined) {
         enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);
