@@ -22,7 +22,19 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 import { DEFAULT_CONFIG, type AdeConfig, type ConfigLoadFailure } from '../../shared/types';
 import { isExecutionBackendId } from '../../shared/executionBackends';
+import { CODEX_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
+
+/** Model ids reach a shell command line through resolveLaunchCommand, so a
+ *  config that carries an unsafe one must never be persisted — not from the
+ *  IPC boundary, not from a workspace-bundle import, not from a hand-edited
+ *  file. boundedString already rejected the empty string above. */
+function modelId(value: unknown, pattern: RegExp, label: string): void {
+  if (value === undefined) return;
+  if (typeof value !== 'string' || !pattern.test(value.trim())) {
+    throw new Error(`${label} is not a shell-safe model id.`);
+  }
+}
 
 /** Lazily binds Electron so tests can construct a store with an explicit path. */
 function defaultConfigPath(): string {
@@ -151,6 +163,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['homeWorkspaceDir', agent.homeWorkspaceDir], ['dashboardUrl', agent.dashboardUrl],
       ['dashboardCommand', agent.dashboardCommand],
     ] as const) boundedString(value, `agent.${field}`, true);
+    modelId(agent.ollamaModel, OLLAMA_MODEL_PATTERN, 'agent.ollamaModel');
+    modelId(agent.codexModel, CODEX_MODEL_PATTERN, 'agent.codexModel');
     if (!categoryIds.has(agent.categoryId) || !RUNTIMES.has(agent.runtime) || !PERMISSIONS.has(agent.permissionMode)
         || (agent.homeExecutionBackend !== undefined && !isExecutionBackendId(agent.homeExecutionBackend))
         || (agent.defaultRepositoryId !== undefined && !repositoryIds.has(agent.defaultRepositoryId))
@@ -198,6 +212,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['role', template.role], ['photo', template.photo], ['customCommand', template.customCommand],
       ['ollamaModel', template.ollamaModel], ['codexModel', template.codexModel],
     ] as const) boundedString(value, `agentTemplate.${field}`, true);
+    modelId(template.ollamaModel, OLLAMA_MODEL_PATTERN, 'agentTemplate.ollamaModel');
+    modelId(template.codexModel, CODEX_MODEL_PATTERN, 'agentTemplate.codexModel');
     if (!RUNTIMES.has(template.runtime) || !PERMISSIONS.has(template.permissionMode)
         || (template.codexReasoningEffort !== undefined && !REASONING.has(template.codexReasoningEffort))
         || typeof template.memorySeed?.memory !== 'string' || typeof template.memorySeed?.user !== 'string') {
@@ -917,7 +933,9 @@ export class ConfigStore {
   private persistConfig(config: AdeConfig): void {
     const dir = dirname(this.filePath);
     mkdirSync(dir, { recursive: true });
-    const tmp = join(dir, `config.json.${process.pid}.${Date.now()}.tmp`);
+    // Unguessable: the previous `config.json.<pid>.<Date.now()>.tmp` could be
+    // predicted and pre-planted as a symlink before the write below reached it.
+    const tmp = join(dir, `config.json.${randomUUID()}.tmp`);
     try {
       const serialized = JSON.stringify(config, null, 2) + '\n';
       if (process.platform === 'linux') {
@@ -948,7 +966,26 @@ export class ConfigStore {
           }
         } finally { closeSync(fd); }
       } else {
-        writeFileSync(tmp, serialized, 'utf8');
+        // Windows and macOS have neither O_NOFOLLOW nor descriptor-relative
+        // addressing, so what was opened is verified after the fact instead of
+        // being refused during the open. Both halves are needed, and measured
+        // on this host: writeFileSync through a planted symlink writes the
+        // link's target, and O_CREAT|O_EXCL still succeeds through a DANGLING
+        // symlink and writes the target — so an exclusive create is not by
+        // itself evidence of what the descriptor points at.
+        const tempFd = openSync(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+        try {
+          const opened = fstatSync(tempFd, { bigint: true });
+          const named = lstatSync(tmp, { bigint: true });
+          if (!opened.isFile() || opened.nlink !== BigInt(1)
+              || opened.dev !== named.dev || opened.ino !== named.ino) {
+            // Worst case reached here is an empty file at a path the attacker
+            // chose; no config bytes have been written yet.
+            throw new Error('Config temp file was substituted while it was created.');
+          }
+          writeFileSync(tempFd, serialized, { encoding: 'utf8' });
+          fsyncSync(tempFd);
+        } finally { closeSync(tempFd); }
         if (this.diskFingerprint !== null && this.readDiskFingerprint() !== this.diskFingerprint) {
           throw new Error('Config changed on disk immediately before publication.');
         }
@@ -978,7 +1015,22 @@ export class ConfigStore {
   }
 
   private readDiskBytes(): Buffer {
-    if (process.platform !== 'linux') return readFileSync(this.filePath);
+    if (process.platform !== 'linux') {
+      // Same bound as the Linux path below, verified after the open rather
+      // than refused during it. ENOENT still escapes with its code intact,
+      // which is what load() distinguishes a first run by.
+      const fd = openSync(this.filePath, constants.O_RDONLY);
+      try {
+        const opened = fstatSync(fd, { bigint: true });
+        const named = lstatSync(this.filePath, { bigint: true });
+        if (!opened.isFile() || opened.nlink !== BigInt(1)
+            || opened.size > BigInt(8 * 1024 * 1024)
+            || opened.dev !== named.dev || opened.ino !== named.ino) {
+          throw new Error('Config file is not a bounded regular file.');
+        }
+        return readFileSync(fd);
+      } finally { closeSync(fd); }
+    }
     const dir = dirname(this.filePath);
     const dirFd = this.openAnchoredDirectory(dir);
     try {

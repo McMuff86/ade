@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { basename, join, posix } from 'node:path';
+import { basename, join, posix, win32 } from 'node:path';
 import type { AdeConfig, Agent, AgentTemplate, Category, Repository } from '../../shared/types';
 import { validateCompleteConfig } from '../config/store';
 import type { ExecutionBackendService } from '../execution/ExecutionBackendService';
@@ -232,12 +232,26 @@ export class WorkspaceImportService {
     this.options = options;
   }
 
+  /**
+   * The profile lock is a Linux-only construct: ConfigStore implements it with
+   * descriptor-anchored lock files under /proc/self/fd and throws outright on
+   * every other host (config/store.ts). Acquiring it unconditionally made
+   * recoverPending() reject during startup on Windows and macOS, which
+   * registerIpcHandlers propagates and index.ts answers with app.quit() — the
+   * app never opened a window. Guard it here the same way ConfigStore.save()
+   * and replace() already guard their own calls.
+   */
+  private acquireLock(): (() => void) | undefined {
+    if (this.options.hostPlatform !== 'linux') return undefined;
+    return this.options.store.acquireWorkspaceImportLock?.();
+  }
+
   async recoverPending(): Promise<void> {
     if (this.applying) throw new Error('A workspace import is already running for this profile.');
     this.applying = true;
     let releaseLock: (() => void) | undefined;
     try {
-      releaseLock = this.options.store.acquireWorkspaceImportLock?.();
+      releaseLock = this.acquireLock();
       await this.recoverPendingUnlocked();
     } finally {
       releaseLock?.();
@@ -250,7 +264,7 @@ export class WorkspaceImportService {
     this.applying = true;
     let releaseLock: (() => void) | undefined;
     try {
-      releaseLock = this.options.store.acquireWorkspaceImportLock?.();
+      releaseLock = this.acquireLock();
       await this.recoverPendingUnlocked();
       return await this.applyUnlocked(plan, mappings);
     } finally {
@@ -357,11 +371,20 @@ export class WorkspaceImportService {
           || !Object.prototype.hasOwnProperty.call(target as unknown as Record<string, unknown>, 'path')) {
         throw new Error('workspace import: pending recovery home target has unknown fields');
       }
+      // A wsl:<distro> home is always a POSIX path. A native home follows the
+      // host: on Windows it is C:\..., which the POSIX rule below would reject
+      // outright — and a journal that cannot be validated can never be
+      // recovered, which is a permanent failure rather than a safe one. Keep
+      // the two rules apart so that stays true when the host is not Linux.
+      const nativeOnWindows = target.backend === 'native' && this.options.hostPlatform === 'win32';
+      const shapedPath = typeof target.path === 'string' && (nativeOnWindows
+        ? win32.isAbsolute(target.path) && win32.normalize(target.path) === target.path
+        : target.path.startsWith('/') && posix.normalize(target.path) === target.path);
       if (!target || (target.backend !== 'native' && !/^wsl:[A-Za-z0-9._-]{1,64}$/.test(target.backend))
           || typeof target.path !== 'string' || typeof home.canonicalPath !== 'string'
           || typeof home.ownershipToken !== 'string' || !/^[a-f0-9]{64}$/.test(home.ownershipToken)
           || target.path !== home.canonicalPath || target.path.length > 4_096
-          || !target.path.startsWith('/') || posix.normalize(target.path) !== target.path
+          || !shapedPath
           || /[\0-\x1f\x7f]/.test(target.path)) {
         throw new Error('workspace import: pending recovery home target is invalid');
       }

@@ -159,8 +159,25 @@ export function resolveLaunchCommand(
   }
   const profile = LAUNCH_PROFILES[agent.runtime];
   const command = profile.commands[agent.permissionMode] ?? profile.commands['default'] ?? '';
-  const resolved = command.replace('${model}', agent.ollamaModel ?? '');
+  const resolved = command.includes('${model}')
+    ? command.replace('${model}', safeOllamaModel(agent.ollamaModel))
+    : command;
   return agent.runtime === 'codex' ? `${resolved}${codexConfigArgs(agent)}` : resolved;
+}
+
+/**
+ * Fail closed, exactly like codexConfigArgs. The result is interpolated into a
+ * command line that PtyManager types into a login shell, so a value carrying
+ * `;`, `|`, `&&` or `$()` would execute. Refusing is the only safe answer —
+ * there is no escaping layer between here and the shell.
+ */
+function safeOllamaModel(model: string | undefined): string {
+  const value = model?.trim() ?? '';
+  if (!value) return '';
+  if (!OLLAMA_MODEL_PATTERN.test(value)) {
+    throw new Error(`ade: unsafe Ollama model id "${value}"`);
+  }
+  return value;
 }
 
 /**
@@ -250,7 +267,14 @@ export function resolveCodexExecCommand(
   return `${command}${codexConfigArgs(config)}`;
 }
 
-const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
+export const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
+/**
+ * Ollama model ids: `llama3`, `llama3:8b`, `hf.co/org/repo:Q4_K_M`. Same
+ * grammar as the Codex ids, with room for registry-qualified names. Exported
+ * so the IPC boundary, the bundle parser and the config validator all reject
+ * the same set instead of drifting apart.
+ */
+export const OLLAMA_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/;
 const CODEX_REASONING_EFFORTS = new Set<CodexReasoningEffort>([
   'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
 ]);

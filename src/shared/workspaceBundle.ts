@@ -9,6 +9,7 @@ import type {
   ThemeName,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
+import { CODEX_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from './runtimes';
 
 export const WORKSPACE_BUNDLE_FORMAT = 'ade-workspace-bundle' as const;
 export const WORKSPACE_BUNDLE_VERSION = 1 as const;
@@ -299,8 +300,8 @@ function parseAgent(value: unknown, index: number): WorkspaceBundleAgent {
     ...(text(raw.role, `${label}.role`, 500, { optional: true }) ? { role: raw.role as string } : {}),
     runtime,
     permissionMode: enumeration(raw.permissionMode, PERMISSION_MODES, `${label}.permissionMode`),
-    ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true }) ? { ollamaModel: raw.ollamaModel as string } : {}),
-    ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true }) ? { codexModel: raw.codexModel as string } : {}),
+    ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
+    ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true, pattern: CODEX_MODEL_PATTERN }) ? { codexModel: raw.codexModel as string } : {}),
     ...(effort ? { codexReasoningEffort: effort } : {}),
     ...(optionalId(raw.defaultRepositoryId, `${label}.defaultRepositoryId`) ? { defaultRepositoryId: raw.defaultRepositoryId as string } : {}),
     ...(teamRole ? { teamRole } : {}),
@@ -327,8 +328,8 @@ function parseTemplate(value: unknown, index: number): WorkspaceBundleAgentTempl
     ...(text(raw.role, `${label}.role`, 500, { optional: true }) ? { role: raw.role as string } : {}),
     runtime: enumeration(raw.runtime, RUNTIMES, `${label}.runtime`),
     permissionMode: enumeration(raw.permissionMode, PERMISSION_MODES, `${label}.permissionMode`),
-    ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true }) ? { ollamaModel: raw.ollamaModel as string } : {}),
-    ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true }) ? { codexModel: raw.codexModel as string } : {}),
+    ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
+    ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true, pattern: CODEX_MODEL_PATTERN }) ? { codexModel: raw.codexModel as string } : {}),
     ...(effort ? { codexReasoningEffort: effort } : {}),
     ...(optionalId(raw.photoAssetId, `${label}.photoAssetId`) ? { photoAssetId: raw.photoAssetId as string } : {}),
     memorySeed: parseMemory(raw.memorySeed, `${label}.memorySeed`),

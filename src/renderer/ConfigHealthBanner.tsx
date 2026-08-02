@@ -19,19 +19,43 @@ const REASON: Record<ConfigLoadFailure['reason'], string> = {
 
 export function ConfigHealthBanner() {
   const [failure, setFailure] = useState<ConfigLoadFailure | null>(null);
+  const [recoveryFailure, setRecoveryFailure] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     let active = true;
     window.ade.invoke('config:health')
       .then((health) => {
-        if (active) setFailure(health.loadFailure);
+        if (!active) return;
+        setFailure(health.loadFailure);
+        setRecoveryFailure(health.importRecoveryFailure);
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
   }, []);
+
+  // An interrupted workspace import that could not be finished at startup. ADE
+  // still runs, but no new import may start until this is resolved, so the
+  // notice is not dismissible.
+  if (!failure && recoveryFailure) {
+    return (
+      <div className="config-alert config-alert-blocking" role="alert" data-testid="config-health-alert">
+        <div className="config-alert-body">
+          <strong className="config-alert-title">
+            An interrupted workspace import could not be finished
+          </strong>
+          <span className="config-alert-detail">
+            ADE started normally and your configuration is intact, but the pending import journal
+            in the ADE data directory could not be replayed. Further imports are refused until it
+            is resolved.
+          </span>
+          <code className="config-alert-cause">{recoveryFailure}</code>
+        </div>
+      </div>
+    );
+  }
 
   if (!failure) return null;
   if (dismissed && !failure.readOnly) return null;

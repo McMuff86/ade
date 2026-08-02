@@ -118,7 +118,20 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     hostPlatform: process.platform,
     homeProvisioner: new ExecutionBackendHomeProvisioner(execution),
   });
-  await workspaceImport.recoverPending();
+  // Never fatal. registerIpcHandlers is awaited by index.ts, which answers a
+  // rejection with app.quit() — so a single unreplayable pending.json used to
+  // mean ADE would not open at all. The failure is surfaced through
+  // IPC.ConfigHealth instead; apply() re-runs recovery at its head and stays
+  // fail-closed, so an import cannot start on top of an unresolved journal.
+  let importRecoveryFailure: string | null = null;
+  try {
+    await workspaceImport.recoverPending();
+  } catch (error) {
+    importRecoveryFailure = (error instanceof Error ? error.message : String(error))
+      .split(portabilityProfileDir).join('<profile>')
+      .slice(0, 300);
+    console.error('[ade] workspace import recovery failed; continuing without it:', error);
+  }
   const workspaceBundles = new WorkspaceBundleController({
     store,
     probe: portabilityProbe,
@@ -239,7 +252,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   // Startup integrity of the persisted config. The renderer must be able to
   // tell an empty catalog apart from a quarantined one.
-  handle(IPC.ConfigHealth, () => ({ loadFailure: store.getLoadFailure() }));
+  handle(IPC.ConfigHealth, () => ({ loadFailure: store.getLoadFailure(), importRecoveryFailure }));
   handle(IPC.ConfigSave, (partial) => store.save(partial));
 
   handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {

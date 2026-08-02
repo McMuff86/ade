@@ -10,12 +10,14 @@
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -167,6 +169,50 @@ function run(): void {
         && new Set(repeats.map((name) => readFileSync(
           join(repeatPath, '..', 'corrupt', name), 'utf8'))).size === 2,
       repeats);
+
+    /* ------------------------------------------- planted temp-file symlinks */
+
+    // A config.json that is really a symlink must be refused, never followed:
+    // following it would let anyone who can write the profile directory
+    // redirect both the read and the subsequent atomic publish at a file
+    // outside the profile. Measured on Windows: a bare writeFileSync through a
+    // planted symlink writes the link's target, and O_CREAT|O_EXCL still
+    // succeeds through a *dangling* symlink — which is why the store verifies
+    // the descriptor it opened instead of trusting the open to have failed.
+    const plantedDir = join(scratch, 'planted');
+    mkdirSync(plantedDir, { recursive: true });
+    const plantedPath = join(plantedDir, 'config.json');
+    const victim = join(scratch, 'victim-outside-profile.json');
+    writeFileSync(victim, 'UNTOUCHED', 'utf8');
+    let symlinksUsable = true;
+    try {
+      symlinkSync(victim, plantedPath);
+    } catch {
+      // Unprivileged Windows without Developer Mode cannot create symlinks.
+      symlinksUsable = false;
+    }
+    if (symlinksUsable) {
+      const store = new ConfigStore(plantedPath);
+      store.save({ settings: { ...store.get().settings, theme: 'light' } });
+      check('a config.json that is a symlink is quarantined, never followed',
+        readFileSync(victim, 'utf8') === 'UNTOUCHED'
+          && store.getLoadFailure()?.reason === 'unreadable'
+          && quarantinedFiles(plantedPath).length === 1);
+      check('the republished config is a plain file, not a link',
+        !lstatSync(plantedPath).isSymbolicLink()
+          && readFileSync(plantedPath, 'utf8').includes('"theme": "light"'));
+    } else {
+      console.log('  --  planted config symlink (skipped: symlinks need Developer Mode)');
+    }
+
+    /* ---------------------------------------------------- bounded disk read */
+
+    const oversizePath = caseDir(scratch, 'oversize');
+    writeFileSync(oversizePath, `{"padding":"${'a'.repeat(9 * 1024 * 1024)}"}`, 'utf8');
+    const oversize = new ConfigStore(oversizePath);
+    check('a config file beyond the 8 MiB bound is quarantined, not loaded',
+      oversize.getLoadFailure()?.reason === 'unreadable'
+        && quarantinedFiles(oversizePath).length === 1);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

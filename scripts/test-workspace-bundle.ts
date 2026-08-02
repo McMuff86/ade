@@ -33,6 +33,21 @@ import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
 
 let passed = 0;
 let failed = 0;
+let skipped = 0;
+
+/**
+ * The managed-profile reader/writer is descriptor-anchored through
+ * /proc/self/fd with O_NOFOLLOW and refuses to run anywhere else
+ * (ProfileMigrationSource.createProfileRootAnchor). Groups that exercise it
+ * are announced as skipped rather than silently dropped, so a Windows run
+ * still states what it did not cover.
+ */
+const IS_LINUX = process.platform === 'linux';
+
+function skip(group: string, reason: string): void {
+  skipped += 1;
+  console.log(`  --  ${group} (skipped: ${reason})`);
+}
 
 function check(label: string, condition: boolean, detail?: unknown): void {
   if (condition) {
@@ -1349,13 +1364,19 @@ async function testRealTargetProbe(): Promise<void> {
     mkdirSync(plain);
     execFileSync('git', ['init', repository], { stdio: 'ignore' });
     execFileSync('git', ['-C', repository, 'remote', 'add', 'origin', 'git@github.com:McMuff86/RhinoClaw.git']);
-    const probe = new TargetPathProbe({ hostPlatform: 'linux' });
+    // This group probes the real filesystem, so it must judge paths by the
+    // rules of the host it is actually running on; pinning 'linux' made every
+    // C:\ path fail the POSIX-absolute check on Windows.
+    const probe = new TargetPathProbe({ hostPlatform: process.platform });
     const repositoryResult = await probe.repository(validBundle().repositories[0]!, {
       backend: 'native', path: repository,
     });
     check('real target probe canonicalizes Git repositories and normalizes their remote',
       repositoryResult.ok
-        && repositoryResult.canonicalPath === realpathSync(repository)
+        // realpathSync keeps the 8.3 short component that os.tmpdir() hands
+        // back on Windows ("ADI~1.MUF"); the probe resolves the long form, so
+        // only the native variant is a fair comparison. Identical on Linux.
+        && repositoryResult.canonicalPath === realpathSync.native(repository)
         && repositoryResult.remoteIdentity === 'github.com/McMuff86/RhinoClaw');
 
     const plainResult = await probe.repository(validBundle().repositories[0]!, {
@@ -1668,12 +1689,16 @@ function testConfigStoreReplacement(): void {
     try { validateCompleteConfig(crossRun); } catch { crossRunRejected = true; }
     check('complete config validation rejects cross-run task participants', crossRunRejected);
 
-    const peer = new ConfigStore(path);
-    const release = store.acquireWorkspaceImportLock();
-    let concurrentWriterRejected = false;
-    try { peer.save({}); } catch { concurrentWriterRejected = true; }
-    release();
-    check('profile lock serializes ordinary config writers with workspace imports', concurrentWriterRejected);
+    if (IS_LINUX) {
+      const peer = new ConfigStore(path);
+      const release = store.acquireWorkspaceImportLock();
+      let concurrentWriterRejected = false;
+      try { peer.save({}); } catch { concurrentWriterRejected = true; }
+      release();
+      check('profile lock serializes ordinary config writers with workspace imports', concurrentWriterRejected);
+    } else {
+      skip('profile lock serialization', 'the workspace import lock is Linux-only');
+    }
 
     const valid = structuredClone(store.get());
     writeFileSync(path, `${JSON.stringify(valid)}\n `);
@@ -1694,15 +1719,26 @@ function pathExists(path: string): boolean {
 
 async function main(): Promise<void> {
   testSchemaAndExporter();
-  testProfileSource();
-  testProfileSourceBoundaries();
-  testProfileRootSwap();
+  if (IS_LINUX) {
+    testProfileSource();
+    testProfileSourceBoundaries();
+    testProfileRootSwap();
+  } else {
+    skip('profile source', 'descriptor-relative profile reads are Linux-only');
+    skip('profile source boundaries', 'descriptor-relative profile reads are Linux-only');
+    skip('profile root swap', 'descriptor-relative profile reads are Linux-only');
+  }
   await testImportPlanner();
   await testRealTargetProbe();
-  await testWorkspaceImportService();
+  if (IS_LINUX) {
+    await testWorkspaceImportService();
+  } else {
+    skip('workspace import service', 'the managed profile writer is Linux-only');
+  }
   await testExecutionBackendHomeProvisioner();
   testConfigStoreReplacement();
-  console.log(`\nWorkspace bundle: ${passed} passed, ${failed} failed`);
+  console.log(`\nWorkspace bundle: ${passed} passed, ${failed} failed`
+    + (skipped > 0 ? `, ${skipped} group(s) skipped on ${process.platform}` : ''));
   if (failed > 0) process.exitCode = 1;
 }
 

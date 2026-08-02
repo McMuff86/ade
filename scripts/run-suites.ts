@@ -27,7 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 12 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 15 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 27 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 32 } },
@@ -40,11 +40,11 @@ const SUITES: Suite[] = [
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 30 } },
-  // Floor deliberately unrecorded until this suite runs green on Windows; the
-  // runner reports it as unmeasured rather than pretending it is enforced.
-  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: {} },
+  // win32 runs 5 groups fewer than Linux (managed profile reader/writer), so
+  // this floor guards the Windows-reachable part only.
+  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 143 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 127 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 140 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
