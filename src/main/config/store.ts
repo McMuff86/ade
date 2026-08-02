@@ -933,7 +933,9 @@ export class ConfigStore {
   private persistConfig(config: AdeConfig): void {
     const dir = dirname(this.filePath);
     mkdirSync(dir, { recursive: true });
-    const tmp = join(dir, `config.json.${process.pid}.${Date.now()}.tmp`);
+    // Unguessable: the previous `config.json.<pid>.<Date.now()>.tmp` could be
+    // predicted and pre-planted as a symlink before the write below reached it.
+    const tmp = join(dir, `config.json.${randomUUID()}.tmp`);
     try {
       const serialized = JSON.stringify(config, null, 2) + '\n';
       if (process.platform === 'linux') {
@@ -964,7 +966,26 @@ export class ConfigStore {
           }
         } finally { closeSync(fd); }
       } else {
-        writeFileSync(tmp, serialized, 'utf8');
+        // Windows and macOS have neither O_NOFOLLOW nor descriptor-relative
+        // addressing, so what was opened is verified after the fact instead of
+        // being refused during the open. Both halves are needed, and measured
+        // on this host: writeFileSync through a planted symlink writes the
+        // link's target, and O_CREAT|O_EXCL still succeeds through a DANGLING
+        // symlink and writes the target — so an exclusive create is not by
+        // itself evidence of what the descriptor points at.
+        const tempFd = openSync(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+        try {
+          const opened = fstatSync(tempFd, { bigint: true });
+          const named = lstatSync(tmp, { bigint: true });
+          if (!opened.isFile() || opened.nlink !== BigInt(1)
+              || opened.dev !== named.dev || opened.ino !== named.ino) {
+            // Worst case reached here is an empty file at a path the attacker
+            // chose; no config bytes have been written yet.
+            throw new Error('Config temp file was substituted while it was created.');
+          }
+          writeFileSync(tempFd, serialized, { encoding: 'utf8' });
+          fsyncSync(tempFd);
+        } finally { closeSync(tempFd); }
         if (this.diskFingerprint !== null && this.readDiskFingerprint() !== this.diskFingerprint) {
           throw new Error('Config changed on disk immediately before publication.');
         }
@@ -994,7 +1015,22 @@ export class ConfigStore {
   }
 
   private readDiskBytes(): Buffer {
-    if (process.platform !== 'linux') return readFileSync(this.filePath);
+    if (process.platform !== 'linux') {
+      // Same bound as the Linux path below, verified after the open rather
+      // than refused during it. ENOENT still escapes with its code intact,
+      // which is what load() distinguishes a first run by.
+      const fd = openSync(this.filePath, constants.O_RDONLY);
+      try {
+        const opened = fstatSync(fd, { bigint: true });
+        const named = lstatSync(this.filePath, { bigint: true });
+        if (!opened.isFile() || opened.nlink !== BigInt(1)
+            || opened.size > BigInt(8 * 1024 * 1024)
+            || opened.dev !== named.dev || opened.ino !== named.ino) {
+          throw new Error('Config file is not a bounded regular file.');
+        }
+        return readFileSync(fd);
+      } finally { closeSync(fd); }
+    }
     const dir = dirname(this.filePath);
     const dirFd = this.openAnchoredDirectory(dir);
     try {
