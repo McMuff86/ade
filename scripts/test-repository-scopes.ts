@@ -726,7 +726,10 @@ async function run(): Promise<void> {
         repositoryId: repoA.id,
         workspaceDir: scopeA.workspaceDir,
         branch: scopeA.branch,
-        status: 'legacy-unverified',
+        // A record loaded from disk always carries a backend; normalizeConfig
+        // fills it in. Omitting it here would test an unreachable state.
+        executionBackend: repoA.executionBackend,
+        status: 'legacy-unverified' as const,
         createdAt: Date.now(),
         lastUsedAt: Date.now(),
       }],

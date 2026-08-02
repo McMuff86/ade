@@ -17,6 +17,7 @@ import type {
   Category,
   CategoryCreateInput,
   CategoryUpdateInput,
+  ConfigHealth,
   DashboardTarget,
   FsTreeNode,
   GitStatus,
@@ -54,6 +55,7 @@ import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspa
 /** Invoke channels (renderer -> main via ipcRenderer.invoke). */
 export const IPC = {
   ConfigGet: 'config:get',
+  ConfigHealth: 'config:health',
   ConfigSave: 'config:save',
   WorkspaceBundlePickImport: 'workspaceBundle:pickImport',
   WorkspaceBundleAuthorizeMappings: 'workspaceBundle:authorizeMappings',
@@ -569,6 +571,7 @@ export interface WorkspaceBundleExportResult {
  */
 export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
+  'config:health': { req: void; res: ConfigHealth };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'workspaceBundle:pickImport': { req: void; res: { selectionId: string; displayName: string } | null };
   'workspaceBundle:authorizeMappings': {

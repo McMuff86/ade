@@ -242,6 +242,42 @@ It uses versioned, mobile-safe projections plus target records such as
 `RemoteIdempotencyEntry`. Device/session secrets are stored separately from the
 catalog snapshot and are never returned after issuance.
 
+## Config store durability (main/config/store.ts)
+
+`userData/ade/config.json` is the single atomic store for the catalog, the
+repository bindings, the run journal, structured results, approvals, leases,
+the command log and the publication audit. It is therefore also the only
+record whose loss is unrecoverable, so load and write are separate contracts.
+
+Writes are atomic **and durable**: temp file in the same directory →
+`fsyncSync` → `renameSync`. Without the fsync a hard power loss can publish a
+renamed but truncated file, which the next launch would classify as malformed.
+
+Loading never destroys an existing file:
+
+| Situation | Behavior |
+|---|---|
+| File missing (`ENOENT`) | First run: seed `DEFAULT_CONFIG` and write it |
+| File unreadable | Preserve, then seed — `reason: 'unreadable'` |
+| Invalid JSON | Preserve, then seed — `reason: 'malformed'` |
+| `normalizeConfig` throws | Preserve, then seed — `reason: 'incompatible'` |
+| Preservation itself fails | Keep the original untouched; store turns read-only |
+
+Preservation moves the file to `userData/ade/corrupt/config-<ISO>.json` and
+never overwrites an earlier quarantine. Only after that succeeds may defaults
+reach disk. When the move fails, `ConfigStore.readOnly` is true and every
+`save()` throws before mutating the in-memory snapshot, so a caller that
+ignores the error cannot observe a divergent catalog either.
+
+The failure is a first-class product state, not just a log line: `config:health`
+returns a `ConfigLoadFailure` whose `detail` has the config path replaced by
+placeholders and whose `quarantinedTo` is config-directory-relative. The
+renderer shows it as a banner above the shell — blocking and non-dismissible in
+the read-only case — because an empty catalog is otherwise indistinguishable
+from a fresh install. Focused coverage: `scripts/test-config-store.ts`;
+user-visible coverage: the truncated-config restart at the end of the Electron
+workflow.
+
 ## Launch profiles (shared/runtimes.ts)
 
 Command per runtime × permission mode (adapted from Superset's
@@ -690,6 +726,37 @@ idempotency, revocation and audit are cumulative requirements; private-network
 reachability alone is not authorization. Its restrictive CSP permits only the
 same-origin host and standards-based Web Push endpoints when notifications are
 explicitly enabled.
+
+## How the evidence is kept honest (tsconfig.scripts.json, scripts/run-suites.ts)
+
+The suites are the project's proof; two guards keep them from proving less
+than they appear to.
+
+- **The drivers are typechecked.** `tsconfig.scripts.json` covers `scripts/**`
+  and joins `pnpm typecheck` as a third `tsc --noEmit`. Before it existed,
+  `tsx` transpiled the drivers without checking them, so compile-time guards
+  written *inside* a driver never ran. `scripts/test-security.ts` declares its
+  fixture map as `Record<InvokeChannel, unknown>` precisely so a new IPC
+  channel without a fixture is a type error — the runtime loop cannot catch it,
+  because a missing key reads as `undefined` and passes every void request.
+  That guard first fired when it was switched on, and found `wsl:list`.
+  (A channel with no *validation* was already caught: `ipcValidation.ts` ends
+  in `const exhaustive: never = channel`. The uncovered case was a validated
+  channel with no security fixture.)
+  The project is standalone rather than a reference: the drivers pull
+  main-process modules in transitively, and `composite` would require every one
+  of them to be listed here too.
+- **Each suite has a floor.** `scripts/run-suites.ts` is what `pnpm test` runs.
+  It executes every suite (a failure no longer stops the rest, as the old `&&`
+  chain did), reads each `<n> passed, <m> failed` summary and fails when a
+  suite reports fewer checks than its recorded floor. A driver that silently
+  stops emitting checks — an early return, a skipped branch, a fixture that no
+  longer builds — otherwise prints a green summary and exits 0. Floors are per
+  platform because several drivers gate checks on `process.platform`; only
+  platforms whose counts were actually observed are enforced, and the runner
+  names any platform it has no measurement for instead of guessing. A suite
+  that grows past its floor is reported so the floor gets raised.
+  `pnpm test -- --record` prints a paste-ready manifest.
 
 ## CI and packaging
 

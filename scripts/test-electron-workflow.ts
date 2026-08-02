@@ -7,6 +7,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -16,7 +17,14 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
-import { DEFAULT_CONFIG, type AdeConfig, type Agent, type Category } from '../src/shared/types';
+import {
+  DEFAULT_CONFIG,
+  type AdeConfig,
+  type Agent,
+  type Category,
+  type TeamRole,
+} from '../src/shared/types';
+import { NATIVE_EXECUTION_BACKEND } from '../src/shared/executionBackends';
 import { exportWorkspaceBundle } from '../src/main/portability/WorkspaceBundleExporter';
 import { serializeWorkspaceBundle } from '../src/shared/workspaceBundle';
 import { publicationBranch } from '../src/main/publishing/PublicationService';
@@ -154,11 +162,12 @@ function seedConfig(
     agents: ['e2e-orchestrator', 'e2e-lead', 'e2e-worker'],
   };
   const customCommand = `node ${quoteShellArg(fixturePath)}`;
-  const managedAgents: Agent[] = [
+  const managedRoster: Array<Pick<Agent, 'id' | 'name'> & { teamRole: TeamRole }> = [
     { id: 'e2e-orchestrator', name: 'E2E Orchestrator', teamRole: 'orchestrator' },
     { id: 'e2e-lead', name: 'E2E Lead', teamRole: 'lead' },
     { id: 'e2e-worker', name: 'E2E Worker', teamRole: 'worker' },
-  ].map((item) => ({
+  ];
+  const managedAgents: Agent[] = managedRoster.map((item) => ({
     ...item,
     categoryId: managedCategory.id,
     runtime: 'custom' as const,
@@ -184,6 +193,7 @@ function seedConfig(
       name: 'Managed E2E repository',
       rootPath: repositoryRoot,
       commonGitDir,
+      executionBackend: NATIVE_EXECUTION_BACKEND,
       verified: true,
       createdAt: now,
     }],
@@ -193,6 +203,7 @@ function seedConfig(
       repositoryId,
       workspaceDir: item.workspaceDir,
       branch: `ade/${item.id}`,
+      executionBackend: NATIVE_EXECUTION_BACKEND,
       status: 'ready' as const,
       createdAt: now + index,
       lastUsedAt: now + index,
@@ -470,7 +481,7 @@ async function run(): Promise<void> {
   const fixturePath = join(scratch, 'managed-fixture.cjs');
   writeManagedFixture(fixturePath);
   const managed = createManagedWorktrees(scratch);
-  const fakeGithub = writeFakeGithubCli(scratch, managed.remote);
+  const fakeGithub = writeFakeGithubCli(scratch);
   writeFakeGrokCli(fakeGithub.bin);
   writeFakeClaudeCli(fakeGithub.bin);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
@@ -558,7 +569,18 @@ async function run(): Promise<void> {
 
     const preferences = await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
-      const prefs = window?.webContents.getLastWebPreferences();
+      // Present in the Electron 43 binary, absent from its public typings.
+      // Should it ever disappear, prefs is undefined and the assertions below
+      // fail rather than silently pass.
+      const contents = window?.webContents as unknown as {
+        getLastWebPreferences?: () => {
+          sandbox?: boolean;
+          contextIsolation?: boolean;
+          nodeIntegration?: boolean;
+          webviewTag?: boolean;
+        } | null;
+      } | undefined;
+      const prefs = contents?.getLastWebPreferences?.();
       return {
         sandbox: prefs?.sandbox,
         contextIsolation: prefs?.contextIsolation,
@@ -1536,20 +1558,13 @@ async function run(): Promise<void> {
             repositoryId: string;
             workspaceDir: string;
             executionBackend: string;
+            status: string;
           }>;
         };
         const repository = config.repositories.find((item) => item.executionBackend.startsWith('wsl:'));
         const bindings = config.workspaceBindings.filter((item) => item.repositoryId === repository?.id);
         return { repository, bindings };
-      }) as {
-        repository?: { id: string; executionBackend: string };
-        bindings: Array<{
-          id: string;
-          workspaceDir: string;
-          executionBackend: string;
-          status: string;
-        }>;
-      };
+      });
       wslBindingIdsBeforeRestart = persistedWslScope.bindings.map((binding) => binding.id).sort();
       for (const binding of persistedWslScope.bindings) {
         const parts = binding.workspaceDir.split('/');
@@ -1958,6 +1973,43 @@ async function run(): Promise<void> {
         cleanup.length === 4 && cleanup.some((item) => item.result.branchDeleted),
         cleanup);
     }
+
+    /* ------------------------------------------ config quarantine, last case */
+    // Deliberately last: it replaces the profile's config with defaults, so no
+    // later check may depend on the catalog this workflow built.
+    const configPath = join(userData, 'ade', 'config.json');
+    const goodConfigBytes = readFileSync(configPath, 'utf8');
+    await app.close();
+    app = null;
+    page = null;
+    const corruptedBytes = `${goodConfigBytes.slice(0, Math.floor(goodConfigBytes.length / 2))}`;
+    writeFileSync(configPath, corruptedBytes, 'utf8');
+
+    app = await electron.launch(launchOptions);
+    page = await app.firstWindow({ timeout: 20_000 });
+    evidencePage = page;
+    await page.waitForLoadState('domcontentloaded');
+    const quarantineAlert = page.getByTestId('config-health-alert');
+    await quarantineAlert.waitFor({ state: 'visible', timeout: 20_000 });
+    const alertText = (await quarantineAlert.textContent()) ?? '';
+    check('a truncated config file is reported instead of silently starting empty',
+      alertText.includes('Configuration recovered')
+        && alertText.includes('corrupt/config-')
+        && !alertText.includes(userData),
+      alertText);
+
+    const quarantineDir = join(userData, 'ade', 'corrupt');
+    const quarantined = existsSync(quarantineDir) ? readdirSync(quarantineDir) : [];
+    check('the unusable config is preserved byte-identically beside config.json',
+      quarantined.length === 1
+        && readFileSync(join(quarantineDir, quarantined[0]!), 'utf8') === corruptedBytes,
+      quarantined);
+    check('the reseeded config is valid and writable again',
+      (JSON.parse(readFileSync(configPath, 'utf8')) as { agents: unknown[] }).agents.length === 0);
+
+    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await eventually('the recovery notice is dismissible once acknowledged', async () =>
+      (await page!.getByTestId('config-health-alert').count()) === 0);
   } catch (error) {
     console.error('Electron workflow threw:', error);
     failed += 1;

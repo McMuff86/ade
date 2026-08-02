@@ -35,6 +35,7 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 
 const valid: Record<InvokeChannel, unknown> = {
   'config:get': undefined,
+  'config:health': undefined,
   'config:save': { settings: { theme: 'dark' } },
   'workspaceBundle:pickImport': undefined,
   'workspaceBundle:authorizeMappings': {

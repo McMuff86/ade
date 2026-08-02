@@ -194,6 +194,7 @@ function seedConfig(userData: string, workspace: string, repositoryRoot: string)
       name: 'Visual fixture repository',
       rootPath: identityRoot,
       commonGitDir,
+      executionBackend: 'native',
       verified: true,
       createdAt: now,
     }],
@@ -326,7 +327,7 @@ async function run(): Promise<void> {
   const workspace = join(scratch, 'workspace');
   mkdirSync(workspace, { recursive: true });
   const fixture = createFixtureRepository(scratch);
-  const fakeGithub = writeFakeGithubCli(scratch, fixture.remote);
+  const fakeGithub = writeFakeGithubCli(scratch);
   seedFakeGithubState(fakeGithub.statePath);
   seedConfig(userData, workspace, fixture.repo);
 

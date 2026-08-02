@@ -724,6 +724,30 @@ export const DEFAULT_CONFIG: AdeConfig = {
   },
 };
 
+/**
+ * Why an existing config file could not be loaded, and where its bytes went.
+ * A missing file is first-run seeding, not a failure, and never produces one.
+ */
+export interface ConfigLoadFailure {
+  /** `unreadable`: the file exists but could not be read. `malformed`: invalid
+   *  JSON. `incompatible`: valid JSON that normalization refused. */
+  reason: 'unreadable' | 'malformed' | 'incompatible';
+  /** Cause, with the config path replaced by placeholders. */
+  detail: string;
+  /** Config-directory-relative location of the preserved original, or `null`
+   *  when preservation itself failed. */
+  quarantinedTo: string | null;
+  /** True when the original could not be preserved. ADE then refuses every
+   *  write rather than overwrite the only copy of the catalog and journal. */
+  readOnly: boolean;
+  at: number;
+}
+
+/** Startup integrity of the persisted config, for a blocking renderer notice. */
+export interface ConfigHealth {
+  loadFailure: ConfigLoadFailure | null;
+}
+
 /* ------------------------------------------------------------ git & files */
 
 export type GitFileState = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';

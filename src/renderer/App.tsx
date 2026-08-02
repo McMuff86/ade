@@ -22,6 +22,7 @@ import { useDiagnostics } from './stores/diagnostics';
 import { DiagnosticsModal } from './diagnostics/DiagnosticsModal';
 import { SettingsModal } from './settings/SettingsModal';
 import { useSessionShortcuts } from './keyboard/useSessionShortcuts';
+import { ConfigHealthBanner } from './ConfigHealthBanner';
 import './graph/mode-switch.css';
 
 export function App() {
@@ -132,6 +133,8 @@ export function App() {
           <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
         </button>
       </header>
+
+      <ConfigHealthBanner />
 
       <div className="shell" style={{ position: 'relative' }}>
         {mode === 'graph' ? (

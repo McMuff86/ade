@@ -236,6 +236,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   /* ------------------------------------------------------- config (real) */
 
   handle(IPC.ConfigGet, () => store.get());
+
+  // Startup integrity of the persisted config. The renderer must be able to
+  // tell an empty catalog apart from a quarantined one.
+  handle(IPC.ConfigHealth, () => ({ loadFailure: store.getLoadFailure() }));
   handle(IPC.ConfigSave, (partial) => store.save(partial));
 
   handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {

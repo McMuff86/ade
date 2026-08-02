@@ -21,6 +21,8 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Repository inspector | Real, read-only and backend-aware | The selected catalog repo has an Overview tab with bounded local health, 12 recent commits, lazy capped patches and up to 20 optional GitHub PRs; local state survives provider/offline errors, while Changes/Files stay on the active session binding |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
+| Test evidence | Real | `scripts/**` is a third typechecked project, so the compile-time guards inside the drivers actually run; `pnpm test` executes every suite and fails one that reports fewer checks than its measured floor. Floors are recorded for `win32`; other platforms are named as unmeasured rather than guessed |
+| Config durability | Real | Writes are atomic and fsynced; only a missing file seeds defaults. An unreadable, malformed or unmigratable config is preserved under `ade/corrupt/` before defaults are written, a failed preservation leaves the original untouched and turns the store read-only, and `config:health` surfaces either state as a renderer banner |
 | Persisted run model | Real | Runs, participants, phased tasks, events, artifacts, structured results, approvals, workspace leases, publication audits and messages are stored atomically in app config; logical phase transitions commit as one save |
 | Run journal cursor | Real | Events and messages carry one global monotonic `seq` (backfilled once by migration); `run:events` returns a cursor-paged chronological stream as the future SSE base |
 | Command idempotency | Real, opt-in | Mutating run commands accept an optional `commandId`; a bounded command log replays the recorded successful outcome instead of re-executing |
@@ -75,7 +77,10 @@ fixture repositories rather than depending on any personal checkout.
 - The event journal, structured results, approvals, messages, artifacts and
   the new command log currently share the atomic JSON config. Long histories
   need indexed storage/retention before large-scale production use; parallel
-  multi-run canvases increase this pressure.
+  multi-run canvases increase this pressure. Corruption recovery no longer
+  waits for that work: loading preserves an unusable file instead of replacing
+  it, and refuses to write when it cannot. Retention, write coalescing and an
+  archive command remain open.
 - Team pause does not survive an ADE restart: restart recovery fails runs with
   queued tasks, so a paused run closes fail-closed instead of resuming paused.
   Restart-persistent pause is a separate work item.

@@ -148,7 +148,8 @@ evidence including the hosted 47-check packaged workflow is linked from
 
 ```bash
 pnpm verify           # typecheck + all focused suites + build + Electron E2E
-pnpm test             # focused suites only
+pnpm test             # focused suites only (every suite runs; each has a floor)
+pnpm test -- --record # print the check floors measured on this platform
 pnpm test:electron    # build + real Electron/ConPTY workflow (isolated profile)
 pnpm test:wsl-backend # real WSL distro/Git/PTY integration (Windows + WSL)
 ```
@@ -176,6 +177,7 @@ installation remain untouched unless an operator separately authorizes them.
 | Repository inspector | `docs/REPOSITORY_INSPECTOR_PLAN.md` |
 | Multi-platform boundaries | `docs/MULTIPLATFORM_PLAN.md` |
 | Remote control plan | `docs/REMOTE_CONTROL_PLAN.md` |
+| Professionalization review | `docs/PROFESSIONALIZATION_REVIEW_2026-07-26.md` |
 | Reference analyses | `docs/reports/` |
 
 ## Notes

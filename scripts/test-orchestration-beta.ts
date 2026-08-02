@@ -620,8 +620,8 @@ async function verificationHeadDriftChecks(root: string): Promise<void> {
       .every((lease) => lease.status === 'released'),
     failureJournaled: snapshot.events.some((event) => event.runId === run.id
       && event.type === 'run.failed'
-      && (event.data?.detail?.includes('HEAD changed')
-        || event.data?.detail?.includes('changed Git history'))),
+      && (String(event.data?.detail ?? '').includes('HEAD changed')
+        || String(event.data?.detail ?? '').includes('changed Git history'))),
   };
   const driftBlocked = Object.values(driftEvidence).every(Boolean);
   check('a clean HEAD change during verification fails without creating an attestation', driftBlocked);

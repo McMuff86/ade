@@ -1,0 +1,28 @@
+{
+  // Standalone, not a project reference: the drivers pull main-process modules
+  // in transitively, and `composite` would demand every one of them be listed
+  // here as well. This project only ever runs as `tsc --noEmit -p`.
+  "compilerOptions": {
+    "target": "ES2023",
+    // Drivers reach into main-process modules (ES2023/node) and, through
+    // Playwright's page.evaluate, into renderer globals. Both libs are needed.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "scripts/**/*.ts",
+    // Drivers reach renderer stores transitively; without the preload's ambient
+    // declaration every `window.ade` in them is an error here but not in web.
+    "src/preload/index.d.ts"
+  ]
+}
