@@ -746,6 +746,11 @@ export interface ConfigLoadFailure {
 /** Startup integrity of the persisted config, for a blocking renderer notice. */
 export interface ConfigHealth {
   loadFailure: ConfigLoadFailure | null;
+  /** Why finishing an interrupted workspace import failed at startup, with the
+   *  profile path replaced by placeholders. Null when there was nothing to
+   *  finish or it finished cleanly. Reported rather than thrown: a journal ADE
+   *  cannot replay must not cost the user their app. */
+  importRecoveryFailure: string | null;
 }
 
 /* ------------------------------------------------------------ git & files */
