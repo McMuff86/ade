@@ -13,6 +13,11 @@ import type {
   RuntimeId,
   ServiceKeyScope,
 } from '../../shared/types';
+import type {
+  WorkspaceBundleMappings,
+  WorkspaceBundlePreviewItem,
+  WorkspaceBundlePreviewResult,
+} from '../../shared/ipc';
 import {
   HARNESS_API_KEY_ENV,
   HARNESS_LOGIN_COMMANDS,
@@ -25,6 +30,7 @@ import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
 import { useSettings } from '../stores/settings';
 import { useMode } from '../stores/mode';
+import { useAppData } from '../stores/appdata';
 import '../onboarding/onboarding.css';
 import './settings.css';
 
@@ -55,6 +61,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   const setMode = useMode((state) => state.setMode);
   const theme = useSettings((state) => state.theme);
   const setTheme = useSettings((state) => state.setTheme);
+  const hydrateSettings = useSettings((state) => state.hydrate);
   const [status, setStatus] = useState<HarnessStatusResult | null>(null);
   const [diagnosis, setDiagnosis] = useState<RuntimeDiagnosticsResult | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
@@ -65,6 +72,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   const [newKeyValue, setNewKeyValue] = useState('');
   const [newKeyAllSessions, setNewKeyAllSessions] = useState(true);
   const [newKeyRuntimes, setNewKeyRuntimes] = useState<Record<string, boolean>>({});
+  const [bundleSelection, setBundleSelection] = useState<{ id: string; name: string } | null>(null);
+  const [bundleMappings, setBundleMappings] = useState<WorkspaceBundleMappings>({
+    repositories: {}, agentHomes: {}, settings: 'keep-target',
+  });
+  const [bundlePreview, setBundlePreview] = useState<WorkspaceBundlePreviewResult | null>(null);
+  const [bundlePreviewCurrent, setBundlePreviewCurrent] = useState(false);
+  const [bundleConfirmed, setBundleConfirmed] = useState(false);
+  const [bundlePartialConfirmed, setBundlePartialConfirmed] = useState(false);
+  const [bundleMessage, setBundleMessage] = useState('');
+  const [exportMemory, setExportMemory] = useState(false);
+  const [exportPhotos, setExportPhotos] = useState(false);
 
   const refreshStatus = useCallback(async (): Promise<void> => {
     try {
@@ -147,6 +165,184 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     await refreshStatus();
   });
 
+  const previewBundle = async (
+    selection = bundleSelection,
+    mappings = bundleMappings,
+  ): Promise<void> => {
+    if (!selection) return;
+    const authorization = await window.ade.invoke('workspaceBundle:authorizeMappings', { mappings });
+    if (!authorization) return;
+    const preview = await window.ade.invoke('workspaceBundle:preview', {
+      selectionId: selection.id,
+      mappingAuthorizationId: authorization.authorizationId,
+    });
+    setBundlePreview(preview);
+    setBundlePreviewCurrent(true);
+    setBundleConfirmed(false);
+    setBundlePartialConfirmed(false);
+    setBundleMessage('Vorschau aktualisiert. Noch wurden keine Zielprofile geändert.');
+  };
+
+  const pickBundle = (): Promise<void> => guarded(async () => {
+    const selected = await window.ade.invoke('workspaceBundle:pickImport');
+    if (!selected) return;
+    const mappings: WorkspaceBundleMappings = {
+      repositories: {}, agentHomes: {}, settings: 'keep-target',
+    };
+    const selection = { id: selected.selectionId, name: selected.displayName };
+    setBundleSelection(selection);
+    setBundleMappings(mappings);
+    await previewBundle(selection, mappings);
+  });
+
+  const updateMapping = (
+    collection: 'repositories' | 'agentHomes',
+    sourceId: string,
+    field: 'backend' | 'path',
+    value: string,
+  ): void => {
+    setBundlePreviewCurrent(false);
+    setBundleConfirmed(false);
+    setBundleMappings((current) => ({
+      ...current,
+      [collection]: {
+        ...current[collection],
+        [sourceId]: {
+          backend: current[collection][sourceId]?.backend ?? 'native',
+          path: current[collection][sourceId]?.path ?? '',
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const toggleBundleSkip = (
+    collection: 'repositories' | 'categories' | 'agents' | 'agentTemplates',
+    sourceId: string,
+    skipped: boolean,
+  ): void => {
+    setBundlePreviewCurrent(false);
+    setBundleConfirmed(false);
+    setBundleMappings((current) => {
+      const decisions = { ...(current.skip?.[collection] ?? {}) };
+      if (skipped) decisions[sourceId] = true;
+      else delete decisions[sourceId];
+      return { ...current, skip: { ...current.skip, [collection]: decisions } };
+    });
+  };
+
+  const updateBundleName = (
+    collection: 'repositories' | 'categories' | 'agents' | 'agentTemplates',
+    sourceId: string,
+    name: string,
+  ): void => {
+    setBundlePreviewCurrent(false);
+    setBundleConfirmed(false);
+    setBundleMappings((current) => ({
+      ...current,
+      names: {
+        ...current.names,
+        [collection]: { ...(current.names?.[collection] ?? {}), [sourceId]: name },
+      },
+    }));
+  };
+
+  const applyBundle = (): Promise<void> => guarded(async () => {
+    const hasSkipped = [
+      ...bundlePreview?.repositories ?? [], ...bundlePreview?.categories ?? [],
+      ...bundlePreview?.agents ?? [], ...bundlePreview?.agentTemplates ?? [],
+      ...bundlePreview?.agentHomes ?? [],
+    ].some((item) => item.status === 'skipped');
+    if (!bundlePreview?.canApplyFully || !bundlePreviewCurrent || !bundleConfirmed
+        || (hasSkipped && !bundlePartialConfirmed)) return;
+    const receipt = await window.ade.invoke('workspaceBundle:apply', {
+      sessionId: bundlePreview.sessionId,
+      token: bundlePreview.token,
+    });
+    await Promise.all([useAppData.getState().refresh(), hydrateSettings()]);
+    const skipped = receipt.items.filter((item) => item.outcome === 'skipped').length;
+    const imported = Object.values(receipt.imported).reduce((sum, count) => sum + count, 0);
+    const details = receipt.items.map((item) => `${item.kind}: ${item.outcome}`
+      + (item.targetId && item.targetId !== item.sourceId ? ' (ID remapped)' : '')
+      + (item.reasonCode ? ` (${item.reasonCode})` : '')).join(' · ');
+    setBundleMessage(`Import abgeschlossen: ${imported} importiert, ${skipped} übersprungen. `
+      + `Backup: ${receipt.backupPath} · Receipt: ${receipt.receiptPath}${details ? ` · Ergebnisse: ${details}` : ''}`);
+    setBundlePreview(null);
+    setBundleConfirmed(false);
+  });
+
+  const exportBundle = (): Promise<void> => guarded(async () => {
+    const result = await window.ade.invoke('workspaceBundle:export', {
+      includeMemory: exportMemory,
+      includePhotos: exportPhotos,
+    });
+    if (result) {
+      const warnings = result.notices.map((notice) => notice.message).join(' · ');
+      setBundleMessage(`Bundle exportiert: ${result.path}${warnings ? ` — Hinweise: ${warnings}` : ''}`);
+    }
+  });
+
+  const mappingRow = (
+    item: WorkspaceBundlePreviewItem,
+    collection: 'repositories' | 'agentHomes',
+  ): JSX.Element => {
+    const mapping = bundleMappings[collection][item.sourceId] ?? { backend: 'native', path: '' };
+    const skipCollection = collection === 'repositories' ? 'repositories' : 'agents';
+    const skipped = bundleMappings.skip?.[skipCollection]?.[item.sourceId] === true;
+    return (
+      <div key={`${collection}-${item.sourceId}`} className={`st-bundle-item is-${item.status}`}>
+        <div className="st-bundle-item-head">
+          <strong>{item.name}</strong><span>{item.status}</span>
+        </div>
+        <div className="st-key-row">
+          <input
+            aria-label={`Importname für ${item.name}`}
+            value={bundleMappings.names?.[skipCollection]?.[item.sourceId] ?? item.name}
+            disabled={busy}
+            onChange={(event) => updateBundleName(skipCollection, item.sourceId, event.target.value)}
+          />
+          <input
+            aria-label={`Backend für ${item.name}`}
+            value={mapping.backend}
+            disabled={busy}
+            onChange={(event) => updateMapping(collection, item.sourceId, 'backend', event.target.value)}
+          />
+          <input
+            aria-label={`Zielpfad für ${item.name}`}
+            placeholder={collection === 'repositories' ? 'Pfad zum vorhandenen Git-Clone' : 'Neues Agent-Home'}
+            value={mapping.path}
+            disabled={busy}
+            onChange={(event) => updateMapping(collection, item.sourceId, 'path', event.target.value)}
+          />
+        </div>
+        {item.reason ? <div className="st-harness-message">{item.reason}</div> : null}
+        {item.remediation ? <div className="st-bundle-remediation">{item.remediation}</div> : null}
+        <label className="st-scope-all">
+          <input type="checkbox" checked={skipped} disabled={busy}
+            onChange={(event) => toggleBundleSkip(skipCollection, item.sourceId, event.target.checked)} />
+          Diesen Eintrag überspringen
+        </label>
+      </div>
+    );
+  };
+
+  const identityDecision = (
+    item: WorkspaceBundlePreviewItem,
+    collection: 'categories' | 'agents' | 'agentTemplates',
+  ): JSX.Element => (
+    <div key={`${collection}-${item.sourceId}`} className={`st-bundle-decision is-${item.status}`}>
+      <input aria-label={`Importname für ${item.name}`}
+        value={bundleMappings.names?.[collection]?.[item.sourceId] ?? item.name}
+        disabled={busy}
+        onChange={(event) => updateBundleName(collection, item.sourceId, event.target.value)} />
+      <label><input type="checkbox" disabled={busy}
+          checked={bundleMappings.skip?.[collection]?.[item.sourceId] === true}
+          onChange={(event) => toggleBundleSkip(collection, item.sourceId, event.target.checked)} />
+        Überspringen</label>
+      <span>{item.name}: {item.status} {item.reason ? `— ${item.reason}` : ''}</span>
+    </div>
+  );
+
   const keyStatusFor = (runtime: RuntimeId): { hasStoredKey: boolean; savedAt?: number } =>
     status?.items.find((item) => item.runtime === runtime) ?? { hasStoredKey: false };
   const diagnosisFor = (runtime: RuntimeId): RuntimeDiagnosticsResult['items'][number] | undefined =>
@@ -182,6 +378,86 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             </button>
           </div>
         </div>
+        <section className="st-bundle-section" data-testid="workspace-bundle-settings">
+          <div className="st-section-head">
+            <strong>Workspace-Bundles</strong>
+            <span>Agents und Workspace-Zustand portabel exportieren oder mit Preflight importieren.</span>
+          </div>
+          <div className="st-bundle-actions">
+            <label><input type="checkbox" checked={exportMemory} disabled={busy}
+              onChange={(event) => setExportMemory(event.target.checked)} /> Memory einschließen</label>
+            <label><input type="checkbox" checked={exportPhotos} disabled={busy}
+              onChange={(event) => setExportPhotos(event.target.checked)} /> Fotos einschließen</label>
+            <label><input type="checkbox" disabled={busy}
+              checked={bundleMappings.settings === 'use-bundle'}
+              onChange={(event) => {
+                setBundlePreviewCurrent(false);
+                setBundleConfirmed(false);
+                setBundleMappings((current) => ({
+                  ...current, settings: event.target.checked ? 'use-bundle' : 'keep-target',
+                }));
+              }} /> Bundle-Theme und Memory-Einstellungen übernehmen</label>
+            <button type="button" className="btn" disabled={busy} onClick={() => void exportBundle()}>
+              Bundle exportieren
+            </button>
+            <button type="button" className="btn" disabled={busy} onClick={() => void pickBundle()}>
+              Workspace/Profil importieren…
+            </button>
+          </div>
+          {bundleSelection ? <div className="st-bundle-path">{bundleSelection.name}</div> : null}
+          {bundlePreview ? (
+            <div className="st-bundle-preview">
+              <div className="st-bundle-summary">
+                Preflight: {!bundlePreviewCurrent ? 'veraltet – Vorschau aktualisieren'
+                  : bundlePreview.canApplyFully ? 'bereit' : 'Mappings oder Konfliktlösungen erforderlich'}
+              </div>
+              {bundlePreview.notices.length > 0 ? (
+                <div className="st-warning">
+                  {bundlePreview.notices.map((notice) => notice.message).join(' · ')}
+                </div>
+              ) : null}
+              {bundlePreview.repositories.length > 0 ? (
+                <><h4>Repositories</h4>{bundlePreview.repositories.map((item) => mappingRow(item, 'repositories'))}</>
+              ) : null}
+              {bundlePreview.agentHomes.length > 0 ? (
+                <><h4>Agent-Homes</h4>{bundlePreview.agentHomes.map((item) => mappingRow(item, 'agentHomes'))}</>
+              ) : null}
+              <div className="st-bundle-status-list">
+                {bundlePreview.categories.map((item) => identityDecision(item, 'categories'))}
+                {bundlePreview.agents.map((item) => identityDecision(item, 'agents'))}
+                {bundlePreview.agentTemplates.map((item) => identityDecision(item, 'agentTemplates'))}
+              </div>
+              <button type="button" className="btn" disabled={busy}
+                onClick={() => void guarded(() => previewBundle())}>Vorschau aktualisieren</button>
+              <label className="st-scope-all">
+                <input type="checkbox" checked={bundleConfirmed}
+                  disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully}
+                  onChange={(event) => setBundleConfirmed(event.target.checked)} />
+                Geprüften Plan anwenden; ADE legt vorher ein Backup an.
+              </label>
+              {[...bundlePreview.repositories, ...bundlePreview.categories, ...bundlePreview.agents,
+                ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
+                .some((item) => item.status === 'skipped') ? (
+                  <label className="st-scope-all">
+                    <input type="checkbox" checked={bundlePartialConfirmed}
+                      disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully}
+                      onChange={(event) => setBundlePartialConfirmed(event.target.checked)} />
+                    Teilimport bestätigen: {[...bundlePreview.repositories, ...bundlePreview.categories,
+                      ...bundlePreview.agents, ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
+                      .filter((item) => item.status === 'skipped').slice(0, 12)
+                      .map((item) => `${item.name}${item.reason ? ` (${item.reason})` : ''}`).join(', ')}
+                  </label>
+                ) : null}
+              <button type="button" className="btn primary"
+                disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully || !bundleConfirmed
+                  || ([...bundlePreview.repositories, ...bundlePreview.categories, ...bundlePreview.agents,
+                    ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
+                    .some((item) => item.status === 'skipped') && !bundlePartialConfirmed)}
+                onClick={() => void applyBundle()}>Import anwenden</button>
+            </div>
+          ) : null}
+          {bundleMessage ? <div className="st-bundle-message">{bundleMessage}</div> : null}
+        </section>
         {!storageAvailable ? (
           <div className="st-warning">
             Sichere Schlüsselablage ist auf diesem System nicht verfügbar.

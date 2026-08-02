@@ -114,7 +114,8 @@ function optionalId(channel: string, value: unknown, label: string): string | un
 }
 
 function nullableId(channel: string, value: unknown, label: string): string | null | undefined {
-  if (value === undefined || value === null) return value;
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   return id(channel, value, label);
 }
 
@@ -485,6 +486,63 @@ function validateFsRename(channel: string, payload: unknown): void {
   }
 }
 
+function validateWorkspaceBundleMappings(channel: string, value: unknown): void {
+  const mappings = record(channel, value, 'mappings');
+  exactKeys(channel, mappings, ['repositories', 'agentHomes', 'skip', 'settings', 'names'], 'mappings');
+  if (mappings.settings !== undefined
+      && mappings.settings !== 'keep-target' && mappings.settings !== 'use-bundle') {
+    invalid(channel, 'mappings.settings is invalid');
+  }
+  for (const label of ['repositories', 'agentHomes'] as const) {
+    const entries = record(channel, mappings[label], `mappings.${label}`);
+    if (Object.keys(entries).length > 64) invalid(channel, `mappings.${label} has too many entries`);
+    for (const [sourceId, rawTarget] of Object.entries(entries)) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(sourceId)) {
+        invalid(channel, `mappings.${label} contains an invalid source id`);
+      }
+      const target = record(channel, rawTarget, `mappings.${label}.${sourceId}`);
+      exactKeys(channel, target, ['backend', 'path'], `mappings.${label}.${sourceId}`);
+      if (!isExecutionBackendId(target.backend)) {
+        invalid(channel, `mappings.${label}.${sourceId}.backend is invalid`);
+      }
+      const path = stringValue(channel, target.path, `mappings.${label}.${sourceId}.path`, { min: 1, max: 1_024 });
+      if (/[\0-\x1f\x7f]/.test(path)) invalid(channel, `mappings.${label}.${sourceId}.path is invalid`);
+    }
+  }
+  if (mappings.skip !== undefined) {
+    const skip = record(channel, mappings.skip, 'mappings.skip');
+    exactKeys(channel, skip, ['repositories', 'categories', 'agents', 'agentTemplates'], 'mappings.skip');
+    for (const label of ['repositories', 'categories', 'agents', 'agentTemplates'] as const) {
+      if (skip[label] === undefined) continue;
+      const decisions = record(channel, skip[label], `mappings.skip.${label}`);
+      if (Object.keys(decisions).length > 1_000) invalid(channel, `mappings.skip.${label} has too many entries`);
+      for (const [sourceId, decision] of Object.entries(decisions)) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(sourceId) || decision !== true) {
+          invalid(channel, `mappings.skip.${label} contains an invalid decision`);
+        }
+      }
+    }
+  }
+  if (mappings.names !== undefined) {
+    const names = record(channel, mappings.names, 'mappings.names');
+    exactKeys(channel, names, ['repositories', 'categories', 'agents', 'agentTemplates'], 'mappings.names');
+    for (const label of ['repositories', 'categories', 'agents', 'agentTemplates'] as const) {
+      if (names[label] === undefined) continue;
+      const decisions = record(channel, names[label], `mappings.names.${label}`);
+      if (Object.keys(decisions).length > 1_000) invalid(channel, `mappings.names.${label} has too many entries`);
+      for (const [sourceId, name] of Object.entries(decisions)) {
+        if (!sourceId || sourceId.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(sourceId)) {
+          invalid(channel, `mappings.names.${label} has an invalid source id`);
+        }
+        if (typeof name !== 'string' || name.length === 0 || name.length > 200
+            || name.trim() !== name || /[\0-\x1f\x7f]/.test(name)) {
+          invalid(channel, `mappings.names.${label}.${sourceId} is invalid`);
+        }
+      }
+    }
+  }
+}
+
 /** Throws before a privileged handler sees malformed or over-sized input. */
 export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   channel: K,
@@ -493,6 +551,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   switch (channel) {
     case IPC.ConfigGet:
     case IPC.ConfigHealth:
+    case IPC.WorkspaceBundlePickImport:
     case IPC.PtyList:
     case IPC.RunGet:
     case IPC.DialogPickFolder:
@@ -501,6 +560,40 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.HarnessDiagnose:
       voidRequest(channel, payload);
       return;
+    case IPC.WorkspaceBundlePreview: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['selectionId', 'mappingAuthorizationId']);
+      const selectionId = stringValue(channel, request.selectionId, 'selectionId', { min: 36, max: 36 });
+      if (!/^[0-9a-f-]{36}$/.test(selectionId)) invalid(channel, 'selectionId is invalid');
+      const authorizationId = stringValue(
+        channel, request.mappingAuthorizationId, 'mappingAuthorizationId', { min: 36, max: 36 },
+      );
+      if (!/^[0-9a-f-]{36}$/.test(authorizationId)) invalid(channel, 'mappingAuthorizationId is invalid');
+      return;
+    }
+    case IPC.WorkspaceBundleAuthorizeMappings: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['mappings']);
+      validateWorkspaceBundleMappings(channel, request.mappings);
+      return;
+    }
+    case IPC.WorkspaceBundleApply: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['sessionId', 'token']);
+      const sessionId = stringValue(channel, request.sessionId, 'sessionId', { min: 16, max: 128 });
+      const token = stringValue(channel, request.token, 'token', { min: 64, max: 64 });
+      if (!/^[0-9a-f-]+$/.test(sessionId)) invalid(channel, 'sessionId is invalid');
+      if (!/^[0-9a-f]{64}$/.test(token)) invalid(channel, 'token is invalid');
+      return;
+    }
+    case IPC.WorkspaceBundleExport: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['includeMemory', 'includePhotos']);
+      if (typeof request.includeMemory !== 'boolean' || typeof request.includePhotos !== 'boolean') {
+        invalid(channel, 'export flags must be booleans');
+      }
+      return;
+    }
     case IPC.HarnessSetKey:
       validateHarnessKeyRequest(channel, payload, true);
       return;

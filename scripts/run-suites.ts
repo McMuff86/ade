@@ -40,6 +40,9 @@ const SUITES: Suite[] = [
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 30 } },
+  // Floor deliberately unrecorded until this suite runs green on Windows; the
+  // runner reports it as unmeasured rather than pretending it is enforced.
+  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: {} },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
   { id: 'security', script: 'test-security.ts', floors: { win32: 127 } },
 ];

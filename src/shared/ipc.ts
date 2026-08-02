@@ -48,6 +48,7 @@ import type {
   WorkspaceScopeDescriptor,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
+import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspaceBundle';
 
 /* --------------------------------------------------------------- channels */
 
@@ -56,6 +57,11 @@ export const IPC = {
   ConfigGet: 'config:get',
   ConfigHealth: 'config:health',
   ConfigSave: 'config:save',
+  WorkspaceBundlePickImport: 'workspaceBundle:pickImport',
+  WorkspaceBundleAuthorizeMappings: 'workspaceBundle:authorizeMappings',
+  WorkspaceBundlePreview: 'workspaceBundle:preview',
+  WorkspaceBundleApply: 'workspaceBundle:apply',
+  WorkspaceBundleExport: 'workspaceBundle:export',
   PhotoImport: 'photo:import',
   CategoryCreate: 'category:create',
   CategoryUpdate: 'category:update',
@@ -481,6 +487,82 @@ export interface GitChangedEvent {
   agentId: string;
 }
 
+export interface WorkspaceBundleTargetMapping {
+  backend: ExecutionBackendId;
+  path: string;
+}
+
+export interface WorkspaceBundleMappings {
+  repositories: Record<string, WorkspaceBundleTargetMapping | undefined>;
+  agentHomes: Record<string, WorkspaceBundleTargetMapping | undefined>;
+  skip?: {
+    repositories?: Record<string, true>;
+    categories?: Record<string, true>;
+    agents?: Record<string, true>;
+    agentTemplates?: Record<string, true>;
+  };
+  settings?: 'keep-target' | 'use-bundle';
+  names?: {
+    repositories?: Record<string, string>;
+    categories?: Record<string, string>;
+    agents?: Record<string, string>;
+    agentTemplates?: Record<string, string>;
+  };
+}
+
+export interface WorkspaceBundlePreviewItem {
+  sourceId: string;
+  name: string;
+  status: WorkspaceImportItemStatus;
+  reason?: string;
+  remediation?: string;
+  targetId?: string;
+  target?: WorkspaceBundleTargetMapping;
+  canonicalPath?: string;
+}
+
+export interface WorkspaceBundlePreviewRequest {
+  selectionId: string;
+  mappingAuthorizationId: string;
+}
+
+export interface WorkspaceBundlePreviewResult {
+  sessionId: string;
+  token: string;
+  canApplyFully: boolean;
+  notices: WorkspaceBundleNotice[];
+  repositories: WorkspaceBundlePreviewItem[];
+  categories: WorkspaceBundlePreviewItem[];
+  agents: WorkspaceBundlePreviewItem[];
+  agentHomes: WorkspaceBundlePreviewItem[];
+  agentTemplates: WorkspaceBundlePreviewItem[];
+}
+
+export interface WorkspaceBundleApplyResult {
+  appliedAt: string;
+  planToken: string;
+  backupPath: string;
+  receiptPath: string;
+  imported: {
+    repositories: number;
+    categories: number;
+    agents: number;
+    agentTemplates: number;
+  };
+  items: Array<{
+    kind: 'repository' | 'category' | 'agent' | 'agent-home' | 'agent-template';
+    sourceId: string;
+    targetId?: string;
+    outcome: 'imported' | 'reused' | 'skipped';
+    reasonCode?: 'user-or-dependency-skip';
+  }>;
+}
+
+export interface WorkspaceBundleExportResult {
+  path: string;
+  notices: WorkspaceBundleNotice[];
+}
+
 /* ------------------------------------------------------------- typed maps */
 
 /**
@@ -491,6 +573,20 @@ export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
   'config:health': { req: void; res: ConfigHealth };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
+  'workspaceBundle:pickImport': { req: void; res: { selectionId: string; displayName: string } | null };
+  'workspaceBundle:authorizeMappings': {
+    req: { mappings: WorkspaceBundleMappings };
+    res: { authorizationId: string } | null;
+  };
+  'workspaceBundle:preview': { req: WorkspaceBundlePreviewRequest; res: WorkspaceBundlePreviewResult };
+  'workspaceBundle:apply': {
+    req: { sessionId: string; token: string };
+    res: WorkspaceBundleApplyResult;
+  };
+  'workspaceBundle:export': {
+    req: { includeMemory: boolean; includePhotos: boolean };
+    res: WorkspaceBundleExportResult | null;
+  };
   'photo:import': { req: PhotoImportRequest; res: PhotoImportResult };
   'category:create': { req: CategoryCreateInput; res: Category };
   'category:update': { req: CategoryUpdateInput; res: Category };

@@ -95,7 +95,13 @@ void app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
   const store = new ConfigStore();
-  registerIpcHandlers(store);
+  try {
+    await registerIpcHandlers(store);
+  } catch (error) {
+    console.error('[ade] startup recovery failed; refusing to initialize the application:', error);
+    app.quit();
+    return;
+  }
   registerPhotoProtocolHandler();
   createWindow();
 
