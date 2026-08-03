@@ -1709,6 +1709,20 @@ async function run(): Promise<void> {
     check('the proposal is an absolute path under this profile',
       /^([A-Za-z]:[\\/]|\/)/.test(await homeField.inputValue()));
 
+    // A real import reported "bereit" and then produced 2 of 5 categories and
+    // 0 of 7 agents, because every individual skip looked plausible and nothing
+    // ever added them up. The counts now sit above the confirmation.
+    const totals = settingsDialog.getByTestId('bundle-import-totals');
+    await eventually('the preview states how much will actually be imported', async () =>
+      /\d+ von \d+ (Kategorien|Agents)/.test((await totals.textContent()) ?? ''), 20_000);
+
+    // An agent home is not its own identity: its name and skip belong to the
+    // agent. A second control bound to the same state is how seven ready agents
+    // came to import as none.
+    const homeRow = settingsDialog.locator('.st-bundle-item').filter({ has: homeField });
+    check('an agent home offers no second skip control of its own',
+      await homeRow.getByRole('checkbox').count() === 0);
+
     await homeField.fill('');
     await settingsDialog.getByRole('button', { name: 'Vorschau aktualisieren' }).click();
     await eventually('clearing a target leaves the import usable instead of wedging it', async () => {
