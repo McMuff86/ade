@@ -228,9 +228,16 @@ export async function createAgent(
   } catch (error) {
     const latest = store.get();
     store.save({
-      categories: latest.categories.map((candidate) => candidate.id === category.id
-        ? { ...candidate, agents: candidate.agents.filter((agentId) => agentId !== agent.id) }
-        : candidate),
+      // Unlink from EVERY category, not just the one requested before the
+      // await: a concurrent agent:move may have relocated this agent while
+      // setAgentDefault was adding a worktree or spawning wsl.exe, and
+      // compensating only against the stale category leaves its id behind as a
+      // member of a category whose agent no longer exists.
+      categories: latest.categories.map((candidate) => (
+        candidate.agents.includes(agent.id)
+          ? { ...candidate, agents: candidate.agents.filter((agentId) => agentId !== agent.id) }
+          : candidate
+      )),
       agents: latest.agents.filter((candidate) => candidate.id !== agent.id),
       workspaceBindings: latest.workspaceBindings.filter((binding) => binding.agentId !== agent.id),
     });
@@ -295,9 +302,16 @@ export async function updateAgent(
     } catch (error) {
       // The scope probe (e.g. mkdir of a WSL home) failed after the record was
       // written; restore the previous agent so no broken home is persisted.
+      // categoryId is deliberately taken from the live record rather than the
+      // pre-await snapshot: it is co-owned with categories[].agents, and a
+      // concurrent agent:move during this await would otherwise be reverted on
+      // one side only, leaving the agent pointing at a category that no longer
+      // lists it — or at one that no longer exists.
       const current = store.get();
       store.save({
-        agents: current.agents.map((a) => (a.id === existing.id ? existing : a)),
+        agents: current.agents.map((a) => (a.id === existing.id
+          ? { ...existing, categoryId: a.categoryId }
+          : a)),
       });
       throw error;
     }

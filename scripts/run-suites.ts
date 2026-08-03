@@ -27,7 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 15 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 20 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 27 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 32 } },
@@ -44,7 +44,7 @@ const SUITES: Suite[] = [
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
-  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 186 } },
+  { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 190 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
   { id: 'security', script: 'test-security.ts', floors: { win32: 140 } },
 ];

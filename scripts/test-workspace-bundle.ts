@@ -405,9 +405,43 @@ function testSchemaAndExporter(): void {
       },
     },
   });
+  // 20 distinct 1 MiB photos against an 8 MiB aggregate budget: it must stop,
+  // and it must stop having taken close to 8 MiB rather than 8 slots. The
+  // exporter reserves the 2 MiB per-asset maximum before each untrusted read
+  // and settles it to the real size afterwards, so the bound is on bytes.
   check('exporter stops reading photos when the aggregate asset budget is exhausted',
-    photoReads === 4
-      && boundedExport.warnings.some((warning) => warning.code === 'asset-budget-exhausted'));
+    photoReads > 4 && photoReads < 20
+      // The budget is checked before each read, so every read that happened
+      // also produced an asset; the blocked one never called the reader.
+      && boundedExport.bundle.assets.length === photoReads
+      && boundedExport.warnings.some((warning) => warning.code === 'asset-budget-exhausted'),
+    { photoReads, assets: boundedExport.bundle.assets.length });
+
+  // The old accounting charged every photo the 2 MiB maximum, so a profile with
+  // five small photos silently lost one. Sizes here are realistic, not maximal.
+  const smallPhotos = structuredClone(DEFAULT_CONFIG);
+  smallPhotos.categories = Array.from({ length: 12 }, (_, index) => ({
+    id: `small-photo-category-${index}`, name: `Small photo category ${index}`, agents: [],
+    photo: `small-${index}.png`,
+  }));
+  let smallPhotoReads = 0;
+  const smallPhotoExport = exportWorkspaceBundle(smallPhotos, {
+    sourcePlatform: 'linux', exportedAt: '2026-07-31T10:00:00.000Z', includePhotos: true,
+    resources: {
+      photo: () => {
+        const bytes = Buffer.alloc(200 * 1024);
+        Buffer.from('89504e470d0a1a0a', 'hex').copy(bytes);
+        // Distinct content per photo, or they would dedupe by sha256 and this
+        // would measure deduplication instead of the budget.
+        bytes.writeUInt32BE(smallPhotoReads += 1, bytes.length - 4);
+        return { bytes, mime: 'image/png' };
+      },
+    },
+  });
+  check('a profile of ordinary-sized photos exports all of them',
+    smallPhotoExport.bundle.assets.length === 12
+      && !smallPhotoExport.warnings.some((warning) => warning.code === 'asset-budget-exhausted'),
+    { assets: smallPhotoExport.bundle.assets.length });
 
   let duplicatePhotoReads = 0;
   const duplicateBytes = Buffer.alloc(1024 * 1024);
@@ -421,9 +455,13 @@ function testSchemaAndExporter(): void {
       },
     },
   });
+  // Deduplicated by content, so only one asset is stored — but each distinct
+  // filename still costs its real bytes, so the budget is not a free pass.
   check('duplicate photo content still consumes the fetched-byte budget',
-    duplicatePhotoReads === 4 && duplicatePhotoExport.bundle.assets.length === 1
-      && duplicatePhotoExport.warnings.some((warning) => warning.code === 'asset-budget-exhausted'));
+    duplicatePhotoReads > 4 && duplicatePhotoReads < 20
+      && duplicatePhotoExport.bundle.assets.length === 1
+      && duplicatePhotoExport.warnings.some((warning) => warning.code === 'asset-budget-exhausted'),
+    { duplicatePhotoReads });
 
   const repeatedInvalidPhotos = structuredClone(DEFAULT_CONFIG);
   repeatedInvalidPhotos.categories = Array.from({ length: 500 }, (_, index) => ({
@@ -1734,6 +1772,48 @@ function testConfigStoreReplacement(): void {
     let crossRunRejected = false;
     try { validateCompleteConfig(crossRun); } catch { crossRunRejected = true; }
     check('complete config validation rejects cross-run task participants', crossRunRejected);
+
+    // RunTask.dependsOn names the PARTICIPANTS a task waits on, not other
+    // tasks: buildTaskRecord rejects a dependency equal to the task's own
+    // participant id, and contextManifest resolves each entry to that
+    // participant's result. Validating them as task ids rejected every config
+    // that had ever run a managed run with dependencies, which in turn blocked
+    // all workspace imports.
+    const withDependencies = structuredClone(store.get());
+    withDependencies.runs = [runBase];
+    withDependencies.runParticipants = [
+      { id: 'participant-lead', runId: 'run-a', agentId: 'historical-agent', agentName: 'Lead', runtime: 'codex', role: 'lead', createdAt: 1 },
+      { id: 'participant-worker', runId: 'run-a', agentId: 'historical-agent', agentName: 'Worker', runtime: 'codex', role: 'worker', createdAt: 1 },
+    ];
+    withDependencies.runTasks = [{
+      id: 'task-dependent', runId: 'run-a', participantId: 'participant-worker',
+      prompt: 'Work', title: 'Work', phase: 'work', managed: true,
+      dependsOn: ['participant-lead'], attempt: 0, status: 'queued', createdAt: 1, updatedAt: 1,
+    }];
+    let participantDependencyAccepted = true;
+    try { validateCompleteConfig(withDependencies); } catch { participantDependencyAccepted = false; }
+    check('a task may depend on another participant of its run', participantDependencyAccepted);
+
+    const taskShapedDependency = structuredClone(withDependencies);
+    taskShapedDependency.runTasks = [
+      { ...withDependencies.runTasks[0]!, dependsOn: ['task-dependent'] },
+    ];
+    let taskShapedRejected = false;
+    try { validateCompleteConfig(taskShapedDependency); } catch { taskShapedRejected = true; }
+    check('a dependency naming a task instead of a participant is rejected', taskShapedRejected);
+
+    const foreignDependency = structuredClone(withDependencies);
+    foreignDependency.runs = [runBase, { ...runBase, id: 'run-b', name: 'Run B' }];
+    foreignDependency.runParticipants = [
+      ...withDependencies.runParticipants,
+      { id: 'participant-foreign', runId: 'run-b', agentId: 'historical-agent', agentName: 'Other', runtime: 'codex', role: 'worker', createdAt: 1 },
+    ];
+    foreignDependency.runTasks = [
+      { ...withDependencies.runTasks[0]!, dependsOn: ['participant-foreign'] },
+    ];
+    let foreignRejected = false;
+    try { validateCompleteConfig(foreignDependency); } catch { foreignRejected = true; }
+    check('a dependency on a participant of another run is rejected', foreignRejected);
 
     if (IS_LINUX) {
       const peer = new ConfigStore(path);

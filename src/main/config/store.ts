@@ -497,10 +497,20 @@ export function validateCompleteConfig(config: AdeConfig): void {
         throw new Error('run task workspace binding relationship is invalid.');
       }
     }
-    if (!Array.isArray(task.dependsOn) || task.dependsOn.some((id) => !taskIds.has(id))) {
+    // dependsOn names PARTICIPANTS, not tasks: an assignment declares which
+    // other workers in the run it depends on. OrchestrationService.buildTaskRecord
+    // rejects a dependency equal to the task's own participant id, prompts.ts
+    // describes them as "dependsOn participants", and contextManifest resolves
+    // each one to that participant's task result. Validating them as task ids
+    // rejected every config that had ever run a managed run with dependencies —
+    // which silently blocked all workspace imports, since the importer validates
+    // the current config before applying.
+    if (!Array.isArray(task.dependsOn) || task.dependsOn.some((id) => !participantIds.has(id))) {
       throw new Error('run task dependencies are invalid.');
     }
-    for (const dependency of task.dependsOn) sameRun(task.runId, tasksById.get(dependency)?.runId, 'run task dependency');
+    for (const dependency of task.dependsOn) {
+      sameRun(task.runId, participantsById.get(dependency)?.runId, 'run task dependency');
+    }
   }
   for (const collection of [config.runEvents, config.runArtifacts, config.runTaskResults,
     config.runApprovals, config.runWorkspaceLeases, config.runPublications, config.runMessages]) {
@@ -890,10 +900,102 @@ export class ConfigStore {
 
     try {
       const normalized = normalizeConfig(parsed);
-      return { config: normalized.config, failure: null, persist: normalized.migrated };
+      const reconciled = this.reconcileCatalog(normalized.config);
+      return {
+        config: reconciled.config,
+        failure: null,
+        persist: normalized.migrated || reconciled.repaired,
+      };
     } catch (error) {
       return this.recover('incompatible', error);
     }
+  }
+
+  /**
+   * Repair the category/agent graph before anything else sees it.
+   *
+   * Both the rail and the graph enumerate agents by walking category.agents, so
+   * an agent no category can reach is invisible in the app: it cannot be
+   * opened, edited or deleted, yet validateCompleteConfig refuses it — which
+   * silently blocks every workspace import, since the importer validates the
+   * CURRENT config before applying. Leaving the damage in place therefore costs
+   * the user a feature they have no way to unblock.
+   *
+   * Nothing is destroyed. A membership id with no agent is a dead pointer and
+   * is simply dropped; an orphaned agent record is written to
+   * `corrupt/orphaned-agents-<ISO>.json` next to config.json before it leaves
+   * the catalog, so it can be inspected or restored by hand.
+   */
+  private reconcileCatalog(config: AdeConfig): { config: AdeConfig; repaired: boolean } {
+    const agentIds = new Set(config.agents.map((agent) => agent.id));
+    const categoryIds = new Set(config.categories.map((category) => category.id));
+    const listed = new Set(config.categories.flatMap((category) => category.agents));
+
+    // An agent whose categoryId is gone but which a category still lists is a
+    // one-sided break, not an orphan: the surviving membership names its owner.
+    const adopted = new Map<string, string>();
+    for (const category of config.categories) {
+      for (const agentId of category.agents) {
+        if (!adopted.has(agentId)) adopted.set(agentId, category.id);
+      }
+    }
+
+    const orphans = config.agents.filter(
+      (agent) => !categoryIds.has(agent.categoryId) && !listed.has(agent.id),
+    );
+    const staleMembers = config.categories.some(
+      (category) => category.agents.some((agentId) => !agentIds.has(agentId)),
+    );
+    const repairable = config.agents.some(
+      (agent) => !categoryIds.has(agent.categoryId) && adopted.has(agent.id),
+    );
+    if (orphans.length === 0 && !staleMembers && !repairable) return { config, repaired: false };
+
+    let quarantinedTo: string | null = null;
+    if (orphans.length > 0) {
+      try {
+        quarantinedTo = this.quarantineRecords('orphaned-agents', orphans);
+      } catch (error) {
+        console.error('[ade] could not preserve orphaned agents; leaving the catalog as it is:', error);
+        return { config, repaired: false };
+      }
+    }
+
+    const removed = new Set(orphans.map((agent) => agent.id));
+    const next: AdeConfig = {
+      ...config,
+      agents: config.agents
+        .filter((agent) => !removed.has(agent.id))
+        .map((agent) => (categoryIds.has(agent.categoryId)
+          ? agent
+          : { ...agent, categoryId: adopted.get(agent.id) ?? agent.categoryId })),
+      categories: config.categories.map((category) => (
+        category.agents.every((agentId) => agentIds.has(agentId) && !removed.has(agentId))
+          ? category
+          : {
+            ...category,
+            agents: category.agents.filter((agentId) => agentIds.has(agentId) && !removed.has(agentId)),
+          }
+      )),
+    };
+    console.error('[ade] repaired the agent catalog on load:'
+      + ` ${orphans.length} orphaned agent(s) preserved at ${quarantinedTo ?? 'n/a'}`
+      + `${staleMembers ? ', dropped membership entries with no agent' : ''}`
+      + `${repairable ? ', re-linked agents their category still listed' : ''}`);
+    return { config: next, repaired: true };
+  }
+
+  /** Write records aside under `corrupt/` without touching config.json itself. */
+  private quarantineRecords(label: string, records: unknown[]): string {
+    const dir = join(dirname(this.filePath), 'corrupt');
+    mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    let target = join(dir, `${label}-${stamp}.json`);
+    for (let attempt = 1; existsSync(target); attempt += 1) {
+      target = join(dir, `${label}-${stamp}-${attempt}.json`);
+    }
+    writeFileSync(target, `${JSON.stringify(records, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    return `corrupt/${basename(target)}`;
   }
 
   /** Preserve the unusable file, then decide whether defaults may be written. */
