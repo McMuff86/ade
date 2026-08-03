@@ -2,11 +2,14 @@ import {
   closeSync, constants, fstatSync, lstatSync, openSync, readSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
+import { NATIVE_EXECUTION_BACKEND } from '../../shared/executionBackends';
 import { managedProfileSupport } from './managed/ManagedHost';
 import type {
   WorkspaceBundleMappings,
   WorkspaceBundlePreviewItem,
   WorkspaceBundlePreviewResult,
+  WorkspaceBundleTargetMapping,
 } from '../../shared/ipc';
 import {
   parseSerializedWorkspaceBundle,
@@ -39,6 +42,8 @@ export interface WorkspaceBundleControllerOptions {
   probe: WorkspaceTargetProbe;
   importer: WorkspaceImportService;
   hostPlatform: NodeJS.Platform;
+  /** Root the suggested agent-home targets are proposed under. */
+  profileDir: string;
 }
 
 function readBundleFile(path: string): string {
@@ -72,7 +77,11 @@ function readBundleFile(path: string): string {
   }
 }
 
-function viewItem(item: WorkspaceImportPlanItem): WorkspaceBundlePreviewItem {
+function viewItem(
+  item: WorkspaceImportPlanItem,
+  suggest?: (item: WorkspaceImportPlanItem) => WorkspaceBundleTargetMapping | undefined,
+): WorkspaceBundlePreviewItem {
+  const suggestedTarget = item.target ? undefined : suggest?.(item);
   return {
     sourceId: item.sourceId,
     name: item.name,
@@ -82,7 +91,14 @@ function viewItem(item: WorkspaceImportPlanItem): WorkspaceBundlePreviewItem {
     ...(item.targetId ? { targetId: item.targetId } : {}),
     ...(item.target ? { target: item.target } : {}),
     ...(item.canonicalPath ? { canonicalPath: item.canonicalPath } : {}),
+    ...(suggestedTarget ? { suggestedTarget } : {}),
   };
+}
+
+/** Filesystem-safe, readable and collision-free within one bundle. */
+function homeLeafName(item: WorkspaceImportPlanItem): string {
+  const slug = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return `${slug || 'agent'}-${item.sourceId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`;
 }
 
 export class WorkspaceBundleController {
@@ -125,11 +141,18 @@ export class WorkspaceBundleController {
       token: plan.token,
       canApplyFully: plan.canApplyFully && support.canApply,
       notices,
-      repositories: plan.repositories.map(viewItem),
-      categories: plan.categories.map(viewItem),
-      agents: plan.agents.map(viewItem),
-      agentHomes: plan.agentHomes.map(viewItem),
-      agentTemplates: plan.agentTemplates.map(viewItem),
+      // Only agent homes get a proposal. They are created by the import, so
+      // this profile's own layout is the right answer; a repository has to name
+      // a clone that already exists on this host, and a guess there would send
+      // the user at a path that cannot work.
+      repositories: plan.repositories.map((item) => viewItem(item)),
+      categories: plan.categories.map((item) => viewItem(item)),
+      agents: plan.agents.map((item) => viewItem(item)),
+      agentHomes: plan.agentHomes.map((item) => viewItem(item, (candidate) => ({
+        backend: NATIVE_EXECUTION_BACKEND,
+        path: join(this.options.profileDir, 'agents', homeLeafName(candidate)),
+      }))),
+      agentTemplates: plan.agentTemplates.map((item) => viewItem(item)),
     };
   }
 

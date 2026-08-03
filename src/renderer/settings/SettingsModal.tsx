@@ -181,6 +181,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     setBundleConfirmed(false);
     setBundlePartialConfirmed(false);
     setBundleMessage('Vorschau aktualisiert. Noch wurden keine Zielprofile geändert.');
+    seedSuggestedTargets(preview);
   };
 
   const pickBundle = (): Promise<void> => guarded(async () => {
@@ -203,18 +204,66 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   ): void => {
     setBundlePreviewCurrent(false);
     setBundleConfirmed(false);
-    setBundleMappings((current) => ({
-      ...current,
-      [collection]: {
-        ...current[collection],
-        [sourceId]: {
-          backend: current[collection][sourceId]?.backend ?? 'native',
-          path: current[collection][sourceId]?.path ?? '',
-          [field]: value,
-        },
-      },
-    }));
+    setBundleMappings((current) => {
+      const next = {
+        backend: current[collection][sourceId]?.backend ?? 'native',
+        path: current[collection][sourceId]?.path ?? '',
+        [field]: value,
+      };
+      const entries = { ...current[collection] };
+      // An entry with an empty path is not "no mapping yet" — IPC validation
+      // requires at least one character, so keeping it would reject every
+      // further preview and strand the user with no way back except re-picking
+      // the bundle. Clearing the field removes the mapping instead.
+      if (next.path.trim().length === 0) delete entries[sourceId];
+      else entries[sourceId] = next;
+      return { ...current, [collection]: entries };
+    });
   };
+
+  /**
+   * Suggested targets arrive with the preview. They are only seeded into empty
+   * fields, so a value the user typed is never overwritten, and the preview is
+   * marked stale because the fields no longer describe what was planned.
+   */
+  const seedSuggestedTargets = (preview: WorkspaceBundlePreviewResult): void => {
+    const suggestions = preview.agentHomes.filter((item) => item.suggestedTarget);
+    if (suggestions.length === 0) return;
+    setBundleMappings((current) => {
+      const homes = { ...current.agentHomes };
+      let seeded = false;
+      for (const item of suggestions) {
+        if (homes[item.sourceId]) continue;
+        homes[item.sourceId] = { ...item.suggestedTarget! };
+        seeded = true;
+      }
+      if (!seeded) return current;
+      setBundlePreviewCurrent(false);
+      return { ...current, agentHomes: homes };
+    });
+  };
+
+  const browseForTarget = (
+    collection: 'repositories' | 'agentHomes',
+    item: WorkspaceBundlePreviewItem,
+  ): Promise<void> => guarded(async () => {
+    const picked = await window.ade.invoke('dialog:pickFolder');
+    if (!picked.path) return;
+    if (collection === 'repositories') {
+      if (!picked.isRepo) throw new Error('Der gewählte Ordner ist kein Git-Repository.');
+      updateMapping(collection, item.sourceId, 'path', picked.path);
+      return;
+    }
+    // An agent home must not exist yet — the provisioner creates it and refuses
+    // an occupied path — so the picker chooses its PARENT and the leaf is
+    // appended. Reuse the host's own suggestion for the leaf so the layout
+    // matches the profile's other agents.
+    const leaf = (bundleMappings.agentHomes[item.sourceId]?.path ?? item.suggestedTarget?.path ?? '')
+      .split(/[\\/]/).filter(Boolean).pop() ?? item.sourceId;
+    const separator = picked.path.includes('\\') && !picked.path.includes('/') ? '\\' : '/';
+    updateMapping(collection, item.sourceId, 'path',
+      `${picked.path.replace(/[\\/]+$/, '')}${separator}${leaf}`);
+  });
 
   const toggleBundleSkip = (
     collection: 'repositories' | 'categories' | 'agents' | 'agentTemplates',
@@ -308,12 +357,23 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             onChange={(event) => updateMapping(collection, item.sourceId, 'backend', event.target.value)}
           />
           <input
+            className="st-bundle-target"
             aria-label={`Zielpfad für ${item.name}`}
             placeholder={collection === 'repositories' ? 'Pfad zum vorhandenen Git-Clone' : 'Neues Agent-Home'}
             value={mapping.path}
             disabled={busy}
             onChange={(event) => updateMapping(collection, item.sourceId, 'path', event.target.value)}
           />
+          <button
+            className="btn"
+            disabled={busy}
+            title={collection === 'repositories'
+              ? 'Vorhandenen Git-Clone wählen'
+              : 'Übergeordneten Ordner wählen — das Home selbst wird beim Import angelegt'}
+            onClick={() => void browseForTarget(collection, item)}
+          >
+            Durchsuchen…
+          </button>
         </div>
         {item.reason ? <div className="st-harness-message">{item.reason}</div> : null}
         {item.remediation ? <div className="st-bundle-remediation">{item.remediation}</div> : null}

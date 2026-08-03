@@ -1687,6 +1687,27 @@ async function run(): Promise<void> {
         && existsSync(portableReceipt.backupPath)
         && existsSync(portableReceipt.receiptPath)
         && existsSync(portableHome));
+    // The mapping form itself, not the IPC underneath it. An agent home is
+    // created by the import, so the host proposes one and the field is never a
+    // blank prompt; and clearing that field must not strand the user, which it
+    // did while an empty path was kept as a mapping IPC validation rejects.
+    await settingsDialog.getByRole('button', { name: 'Workspace/Profil importieren…' }).click();
+    // The fixture bundle carries no repositories, so the only target field is
+    // the agent home — which is exactly the one the host can propose.
+    const homeField = settingsDialog.locator('input.st-bundle-target').first();
+    await eventually('an agent home target is proposed instead of an empty field', async () =>
+      ((await homeField.inputValue()) ?? '').includes('agents'), 20_000);
+    check('the proposal is an absolute path under this profile',
+      /^([A-Za-z]:[\\/]|\/)/.test(await homeField.inputValue()));
+
+    await homeField.fill('');
+    await settingsDialog.getByRole('button', { name: 'Vorschau aktualisieren' }).click();
+    await eventually('clearing a target leaves the import usable instead of wedging it', async () => {
+      const text = await settingsDialog.textContent();
+      return text?.includes('Vorschau aktualisiert') === true
+        && text.includes('ade: invalid IPC payload') === false;
+    }, 20_000);
+
     const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
     await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {
       const text = await claudeRow.textContent();
