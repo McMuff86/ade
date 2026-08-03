@@ -436,20 +436,31 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     );
   };
 
+  // Same shape as the mapping rows above: a head naming the entry and its
+  // status, then the editable name, then the decision. Previously the name
+  // appeared twice — once in the field, once in a trailing sentence — which
+  // read like the row was listed a second time.
   const identityDecision = (
     item: WorkspaceBundlePreviewItem,
     collection: 'categories' | 'agents' | 'agentTemplates',
   ): JSX.Element => (
-    <div key={`${collection}-${item.sourceId}`} className={`st-bundle-decision is-${item.status}`}>
-      <input aria-label={`Importname für ${item.name}`}
-        value={bundleMappings.names?.[collection]?.[item.sourceId] ?? item.name}
-        disabled={busy}
-        onChange={(event) => updateBundleName(collection, item.sourceId, event.target.value)} />
-      <label><input type="checkbox" disabled={busy}
+    <div key={`${collection}-${item.sourceId}`} className={`st-bundle-item is-${item.status}`}>
+      <div className="st-bundle-item-head">
+        <strong>{item.name}</strong><span>{item.status}</span>
+      </div>
+      <div className="st-key-row">
+        <input aria-label={`Importname für ${item.name}`}
+          value={bundleMappings.names?.[collection]?.[item.sourceId] ?? item.name}
+          disabled={busy}
+          onChange={(event) => updateBundleName(collection, item.sourceId, event.target.value)} />
+      </div>
+      {item.reason ? <div className="st-harness-message">{item.reason}</div> : null}
+      <label className="st-scope-all">
+        <input type="checkbox" disabled={busy}
           checked={bundleMappings.skip?.[collection]?.[item.sourceId] === true}
           onChange={(event) => toggleBundleSkip(collection, item.sourceId, event.target.checked)} />
-        Überspringen</label>
-      <span>{item.name}: {item.status} {item.reason ? `— ${item.reason}` : ''}</span>
+        Diesen Eintrag überspringen
+      </label>
     </div>
   );
 
@@ -541,10 +552,23 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               {bundlePreview.agentHomes.length > 0 ? (
                 <><h4>Agent-Homes</h4>{bundlePreview.agentHomes.map((item) => mappingRow(item, 'agentHomes'))}</>
               ) : null}
+              {/* Headings, because a repository, a category and an agent can
+                  carry the same name — "RhinoClaw" is all three on a real
+                  profile — and an unlabelled run of rows reads as a repeat of
+                  the sections above rather than as different objects. */}
               <div className="st-bundle-status-list">
-                {bundlePreview.categories.map((item) => identityDecision(item, 'categories'))}
-                {bundlePreview.agents.map((item) => identityDecision(item, 'agents'))}
-                {bundlePreview.agentTemplates.map((item) => identityDecision(item, 'agentTemplates'))}
+                {bundlePreview.categories.length > 0 ? (
+                  <><h4>Kategorien</h4>
+                    {bundlePreview.categories.map((item) => identityDecision(item, 'categories'))}</>
+                ) : null}
+                {bundlePreview.agents.length > 0 ? (
+                  <><h4>Agents</h4>
+                    {bundlePreview.agents.map((item) => identityDecision(item, 'agents'))}</>
+                ) : null}
+                {bundlePreview.agentTemplates.length > 0 ? (
+                  <><h4>Agent-Vorlagen</h4>
+                    {bundlePreview.agentTemplates.map((item) => identityDecision(item, 'agentTemplates'))}</>
+                ) : null}
               </div>
               <button type="button" className="btn" disabled={busy}
                 onClick={() => void guarded(() => previewBundle())}>Vorschau aktualisieren</button>
