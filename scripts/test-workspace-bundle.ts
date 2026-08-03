@@ -197,6 +197,50 @@ function testSchemaAndExporter(): void {
 
   check('V1 bundle round-trips through strict runtime validation',
     bundle.format === 'ade-workspace-bundle' && bundle.version === 1);
+
+  // An agent whose category is gone cannot be reached in ADE at all — the rail
+  // and the graph both list agents through category.agents — so the user has no
+  // way to repair it and an export that failed on it would be a dead end.
+  const orphanConfig = sampleConfig();
+  orphanConfig.agents.push({
+    ...structuredClone(orphanConfig.agents[0]!),
+    id: 'orphan-agent', name: 'Orphaned Agent', categoryId: 'category-that-was-deleted',
+  });
+  const orphanExport = exportWorkspaceBundle(orphanConfig, {
+    sourcePlatform: 'win32', exportedAt: '2026-07-31T10:00:00.000Z',
+  });
+  const orphanBundle = parseWorkspaceBundle(JSON.parse(serializeWorkspaceBundle(orphanExport.bundle)));
+  check('an agent whose category no longer exists is omitted instead of failing the export',
+    orphanBundle.agents.every((agent) => agent.id !== 'orphan-agent')
+      && orphanBundle.agents.length === sampleConfig().agents.length);
+  check('the omitted agent is named in a notice rather than dropped silently',
+    orphanExport.warnings.some((notice) => notice.code === 'agent-unreachable-omitted'
+      && notice.subjectId === 'orphan-agent'
+      && notice.message.includes('Orphaned Agent')));
+
+  // Membership is rebuilt from the agents themselves, so neither direction of a
+  // half-broken link can produce an unparseable bundle.
+  const membershipConfig = sampleConfig();
+  membershipConfig.categories[0]!.agents = ['agent-that-was-deleted', 'agent-one'];
+  const membershipExport = exportWorkspaceBundle(membershipConfig, {
+    sourcePlatform: 'win32', exportedAt: '2026-07-31T10:00:00.000Z',
+  });
+  const membershipBundle = parseWorkspaceBundle(
+    JSON.parse(serializeWorkspaceBundle(membershipExport.bundle)),
+  );
+  check('a category listing an agent that no longer exists still exports',
+    membershipBundle.categories[0]?.agentIds.includes('agent-one') === true
+      && membershipBundle.categories[0]?.agentIds.includes('agent-that-was-deleted') === false);
+
+  const unlistedConfig = sampleConfig();
+  unlistedConfig.categories[0]!.agents = [];
+  const unlistedBundle = parseWorkspaceBundle(JSON.parse(serializeWorkspaceBundle(
+    exportWorkspaceBundle(unlistedConfig, {
+      sourcePlatform: 'win32', exportedAt: '2026-07-31T10:00:00.000Z',
+    }).bundle,
+  )));
+  check('an agent missing from its own category membership is restored on export',
+    unlistedBundle.categories[0]?.agentIds.includes('agent-one') === true);
   check('category ordering and logical default repository survive export',
     bundle.categories[0]?.agentIds[0] === 'agent-one'
       && bundle.categories[0]?.defaultRepositoryId === 'repo-one');
