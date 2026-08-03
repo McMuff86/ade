@@ -337,6 +337,26 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     }
   });
 
+  /** What the plan will actually produce, per collection, as "kept of total". */
+  const importTotals = ((): { parts: string[]; skippedAny: boolean } => {
+    if (!bundlePreview) return { parts: [], skippedAny: false };
+    const groups: Array<[string, WorkspaceBundlePreviewItem[]]> = [
+      ['Repositories', bundlePreview.repositories],
+      ['Kategorien', bundlePreview.categories],
+      ['Agents', bundlePreview.agents],
+      ['Vorlagen', bundlePreview.agentTemplates],
+    ];
+    const parts: string[] = [];
+    let skippedAny = false;
+    for (const [label, items] of groups) {
+      if (items.length === 0) continue;
+      const kept = items.filter((item) => item.status !== 'skipped' && item.status !== 'invalid').length;
+      if (kept !== items.length) skippedAny = true;
+      parts.push(`${kept} von ${items.length} ${label}`);
+    }
+    return { parts, skippedAny };
+  })();
+
   const mappingRow = (
     item: WorkspaceBundlePreviewItem,
     collection: 'repositories' | 'agentHomes',
@@ -350,12 +370,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           <strong>{item.name}</strong><span>{item.status}</span>
         </div>
         <div className="st-key-row">
-          <input
-            aria-label={`Importname für ${item.name}`}
-            value={bundleMappings.names?.[skipCollection]?.[item.sourceId] ?? item.name}
-            disabled={busy}
-            onChange={(event) => updateBundleName(skipCollection, item.sourceId, event.target.value)}
-          />
+          {/* An agent home is not its own identity: the name and the skip
+              decision belong to the agent, which has its own row further down.
+              Rendering them here too bound a second checkbox to the same state
+              in a different section — ticking either one silently dropped the
+              agent AND its home, which is how an import of seven ready agents
+              imported none. A repository has no identity row, so it keeps them. */}
+          {collection === 'repositories' ? (
+            <input
+              aria-label={`Importname für ${item.name}`}
+              value={bundleMappings.names?.[skipCollection]?.[item.sourceId] ?? item.name}
+              disabled={busy}
+              onChange={(event) => updateBundleName(skipCollection, item.sourceId, event.target.value)}
+            />
+          ) : null}
           <input
             aria-label={`Backend für ${item.name}`}
             value={mapping.backend}
@@ -392,11 +420,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         </div>
         {item.reason ? <div className="st-harness-message">{item.reason}</div> : null}
         {item.remediation ? <div className="st-bundle-remediation">{item.remediation}</div> : null}
-        <label className="st-scope-all">
-          <input type="checkbox" checked={skipped} disabled={busy}
-            onChange={(event) => toggleBundleSkip(skipCollection, item.sourceId, event.target.checked)} />
-          Diesen Eintrag überspringen
-        </label>
+        {collection === 'repositories' ? (
+          <label className="st-scope-all">
+            <input type="checkbox" checked={skipped} disabled={busy}
+              onChange={(event) => toggleBundleSkip(skipCollection, item.sourceId, event.target.checked)} />
+            Diesen Eintrag überspringen
+          </label>
+        ) : skipped ? (
+          <div className="st-bundle-remediation">
+            Der zugehörige Agent ist zum Überspringen markiert, deshalb wird auch dieses Home
+            nicht angelegt.
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -485,6 +520,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               <div className="st-bundle-summary">
                 Preflight: {!bundlePreviewCurrent ? 'veraltet – Vorschau aktualisieren'
                   : bundlePreview.canApplyFully ? 'bereit' : 'Mappings oder Konfliktlösungen erforderlich'}
+              </div>
+              {/* The counts the import will actually produce. "bereit" was true
+                  for a plan that imported two categories and none of seven
+                  agents, because every skip is individually plausible and
+                  nothing ever added them up. */}
+              <div className={importTotals.skippedAny ? 'st-warning' : 'st-bundle-summary'}
+                data-testid="bundle-import-totals">
+                Es werden übernommen: {importTotals.parts.join(' · ')}
+                {importTotals.skippedAny ? ' — der Rest ist zum Überspringen markiert.' : ''}
               </div>
               {bundlePreview.notices.length > 0 ? (
                 <div className="st-warning">
