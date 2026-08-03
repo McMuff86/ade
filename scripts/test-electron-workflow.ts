@@ -1764,6 +1764,15 @@ async function run(): Promise<void> {
     check('an agent home offers no second skip control of its own',
       await homeRow.getByRole('checkbox').count() === 0);
 
+    // A repository, a category and an agent can share a name, so an unlabelled
+    // run of rows reads as a repeat of the sections above.
+    const identityHeadings = await settingsDialog.locator('.st-bundle-status-list h4').allTextContents();
+    check('the identity decisions are grouped under their own headings',
+      identityHeadings.includes('Kategorien') && identityHeadings.includes('Agents'),
+      identityHeadings);
+    check('an agent is named once per row, not repeated as a sentence',
+      await settingsDialog.locator('.st-bundle-decision').count() === 0);
+
     await homeField.fill('');
     await settingsDialog.getByRole('button', { name: 'Vorschau aktualisieren' }).click();
     await eventually('clearing a target leaves the import usable instead of wedging it', async () => {
