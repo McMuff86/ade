@@ -1781,6 +1781,12 @@ async function run(): Promise<void> {
         && text.includes('ade: invalid IPC payload') === false;
     }, 20_000);
 
+    // A refresh that ran must clear the stale marker, or the statuses on screen
+    // keep describing the previous plan while the fields show the new one —
+    // which reads as "the button does nothing".
+    check('a completed refresh clears the stale-preview marker',
+      ((await settingsDialog.textContent()) ?? '').includes('Preflight: veraltet') === false);
+
     const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
     await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {
       const text = await claudeRow.textContent();

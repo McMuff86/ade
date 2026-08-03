@@ -169,10 +169,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   const previewBundle = async (
     selection = bundleSelection,
     mappings = bundleMappings,
-  ): Promise<void> => {
+  ): Promise<WorkspaceBundlePreviewResult | undefined> => {
     if (!selection) return;
+    // Clear first: leaving the previous success line standing while the refresh
+    // silently does nothing is what made a declined authorization look like a
+    // dead button — the statuses still described the old plan, the fields
+    // already showed the new one, and the message said it had worked.
+    setBundleMessage('');
     const authorization = await window.ade.invoke('workspaceBundle:authorizeMappings', { mappings });
-    if (!authorization) return;
+    if (!authorization) {
+      setBundleMessage('Vorschau nicht aktualisiert: Die Ziele wurden nicht autorisiert. '
+        + 'Die angezeigten Status gehören noch zum vorherigen Plan.');
+      return;
+    }
     const preview = await window.ade.invoke('workspaceBundle:preview', {
       selectionId: selection.id,
       mappingAuthorizationId: authorization.authorizationId,
@@ -182,7 +191,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     setBundleConfirmed(false);
     setBundlePartialConfirmed(false);
     setBundleMessage('Vorschau aktualisiert. Noch wurden keine Zielprofile geändert.');
-    seedSuggestedTargets(preview);
+    return preview;
   };
 
   const pickBundle = (): Promise<void> => guarded(async () => {
@@ -194,7 +203,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     const selection = { id: selected.selectionId, name: selected.displayName };
     setBundleSelection(selection);
     setBundleMappings(mappings);
-    await previewBundle(selection, mappings);
+    const preview = await previewBundle(selection, mappings);
+    if (preview) seedSuggestedTargets(preview);
   });
 
   const shapeTargetPath = (value: string): string => (
@@ -232,21 +242,25 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
    * fields, so a value the user typed is never overwritten, and the preview is
    * marked stale because the fields no longer describe what was planned.
    */
+  /**
+   * Fill the agent-home fields once, when a bundle is first opened.
+   *
+   * Deliberately not on every refresh: the suggestion would then reappear in a
+   * field the user had just cleared, and each reappearance marked the preview
+   * stale again — so "Vorschau aktualisieren" could never settle. A proposal is
+   * a starting point for this bundle, not a value the form keeps restoring.
+   */
   const seedSuggestedTargets = (preview: WorkspaceBundlePreviewResult): void => {
-    const suggestions = preview.agentHomes.filter((item) => item.suggestedTarget);
-    if (suggestions.length === 0) return;
-    setBundleMappings((current) => {
-      const homes = { ...current.agentHomes };
-      let seeded = false;
-      for (const item of suggestions) {
-        if (homes[item.sourceId]) continue;
-        homes[item.sourceId] = { ...item.suggestedTarget! };
-        seeded = true;
-      }
-      if (!seeded) return current;
-      setBundlePreviewCurrent(false);
-      return { ...current, agentHomes: homes };
-    });
+    const seeded = preview.agentHomes.filter((item) => item.suggestedTarget);
+    if (seeded.length === 0) return;
+    setBundleMappings((current) => ({
+      ...current,
+      agentHomes: {
+        ...current.agentHomes,
+        ...Object.fromEntries(seeded.map((item) => [item.sourceId, { ...item.suggestedTarget! }])),
+      },
+    }));
+    setBundlePreviewCurrent(false);
   };
 
   const browseForTarget = (
@@ -571,7 +585,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 ) : null}
               </div>
               <button type="button" className="btn" disabled={busy}
-                onClick={() => void guarded(() => previewBundle())}>Vorschau aktualisieren</button>
+                onClick={() => void guarded(async () => { await previewBundle(); })}>
+                Vorschau aktualisieren
+              </button>
               <label className="st-scope-all">
                 <input type="checkbox" checked={bundleConfirmed}
                   disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully}
