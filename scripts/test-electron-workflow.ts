@@ -817,6 +817,15 @@ async function run(): Promise<void> {
       const text = await scopeHeader.textContent();
       return text?.includes('No repository') === true && text.includes('Portable home');
     });
+    // The compact line abbreviates to the last three segments, which for a
+    // managed worktree is all separator and no answer. "Where does this agent
+    // actually work" has to be readable without hovering for a tooltip.
+    const workspacePath = page.getByTestId('scope-workspace-path');
+    await eventually('the working directory is shown in full, not abbreviated', async () => {
+      const shown = (await workspacePath.textContent()) ?? '';
+      return shown.length > 0 && /^([A-Za-z]:[\\/]|\/)/.test(shown) && !shown.includes('…');
+    }, 20_000);
+
     check('rare scope actions stay behind the compact Scope & session disclosure',
       await scopeHeader.getByRole('button', { name: 'Pfad…' }).count() === 0
         && await scopeHeader.getByRole('button', { name: 'Add repo' }).count() === 0

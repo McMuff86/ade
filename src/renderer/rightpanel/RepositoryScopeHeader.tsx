@@ -251,6 +251,26 @@ export function RepositoryScopeHeader({
           {scope.activeLease ? <span className="rp-scope-lease">Run lease</span> : null}
         </div>
       ) : null}
+      {scope ? (
+        // The line above abbreviates to the last three segments, which for a
+        // managed worktree is all separator and no answer. "Where does this
+        // agent actually work" deserves the whole path, selectable and
+        // copyable, not a tooltip.
+        <div className="rp-scope-path">
+          <span className="rp-scope-path-label">Workspace</span>
+          <code data-testid="scope-workspace-path">{scope.workspaceDir}</code>
+          <button
+            className="rp-scope-path-copy"
+            title="Pfad kopieren"
+            aria-label={`Arbeitsverzeichnis kopieren: ${scope.workspaceDir}`}
+            onClick={() => void window.ade.invoke('clipboard:writeText', { text: scope.workspaceDir })
+              .then(() => setNotice('Arbeitsverzeichnis kopiert.'))
+              .catch(() => undefined)}
+          >
+            Kopieren
+          </button>
+        </div>
+      ) : null}
       <div className="rp-scope-controls">
         <select
           aria-label="Repository for new session"
