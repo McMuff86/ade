@@ -236,19 +236,41 @@ export function exportWorkspaceBundle(
     };
   });
 
+  // An agent whose category is gone is unreachable inside ADE itself: the rail
+  // and the graph both list agents by walking category.agents, so it cannot be
+  // opened, edited or deleted. Failing the whole export over such a record
+  // would block the feature on a row the user has no way to fix. It is left
+  // out, with a notice naming it, instead.
+  const categoryIds = new Set(config.categories.map((category) => category.id));
+  const exportableAgents = config.agents.filter((agent) => categoryIds.has(agent.categoryId));
+  for (const agent of config.agents) {
+    if (categoryIds.has(agent.categoryId)) continue;
+    warnings.push({
+      code: 'agent-unreachable-omitted', subjectType: 'agent', subjectId: agent.id,
+      message: `Agent "${agent.name}" belongs to a category that no longer exists, so it is not `
+        + 'reachable in ADE and was not exported.',
+    });
+  }
+
   const categories = config.categories.map((category) => {
     const photoAssetId = photoAsset(category.photo, 'category', category.id);
+    // Rebuilt rather than copied, so membership is reciprocal by construction:
+    // stored order is kept, ids of agents that no longer exist drop out, and an
+    // agent pointing at this category but missing from its list is restored.
+    const members = exportableAgents.filter((agent) => agent.categoryId === category.id);
+    const ordered = category.agents.filter((id) => members.some((agent) => agent.id === id));
+    const unlisted = members.filter((agent) => !ordered.includes(agent.id)).map((agent) => agent.id);
     return {
       id: category.id,
       name: category.name,
-      agentIds: [...category.agents],
+      agentIds: [...ordered, ...unlisted],
       ...(category.defaultRepositoryId ? { defaultRepositoryId: category.defaultRepositoryId } : {}),
       ...(category.kind ? { kind: category.kind } : {}),
       ...(photoAssetId ? { photoAssetId } : {}),
     };
   });
 
-  const agents = config.agents.map((agent) => {
+  const agents = exportableAgents.map((agent) => {
     const photoAssetId = photoAsset(agent.photo, 'agent', agent.id);
     let memory: { memory: string; user: string } | undefined;
     if (options.includeMemory) {
