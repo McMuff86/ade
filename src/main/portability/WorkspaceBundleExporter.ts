@@ -150,6 +150,11 @@ export function exportWorkspaceBundle(
       exhaustMemoryBudget();
       return '';
     }
+    // Settle the worst-case reservation down to what was actually read. The
+    // reservation has to happen before the call, because an untrusted reader
+    // may return more than it was asked for — but keeping the whole amount
+    // charged means a handful of small files exhaust the budget.
+    fetchedMemoryBytes -= maxBytes - raw.byteLength;
     return retainPortableMemory(raw.toString('utf8'), 'agent', subjectId);
   };
 
@@ -208,6 +213,11 @@ export function exportWorkspaceBundle(
       });
       return undefined;
     }
+    // As with memory: reserve the worst case before an untrusted read, then
+    // settle to the real size once the bytes are in hand and bounded. Charging
+    // every photo the 2 MiB maximum capped a bundle at four photos regardless
+    // of how small they were, against an 8 MiB aggregate budget.
+    fetchedAssetBytes -= WORKSPACE_BUNDLE_MAX_ASSET_BYTES - resource.bytes.byteLength;
     const sha256 = createHash('sha256').update(resource.bytes).digest('hex');
     const id = `photo-${sha256.slice(0, 24)}`;
     if (!assets.some((asset) => asset.id === id)) {

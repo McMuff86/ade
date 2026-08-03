@@ -22,7 +22,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ConfigStore } from '../src/main/config/store';
+import { ConfigStore, validateCompleteConfig } from '../src/main/config/store';
+import { DEFAULT_CONFIG } from '../src/shared/types';
 
 let passed = 0;
 let failed = 0;
@@ -204,6 +205,47 @@ function run(): void {
     } else {
       console.log('  --  planted config symlink (skipped: symlinks need Developer Mode)');
     }
+
+    /* ------------------------------------------------- catalog reconciliation */
+
+    // The rail and the graph both enumerate agents through category.agents, so
+    // an agent no category reaches is invisible in the app while
+    // validateCompleteConfig still refuses it — which blocks every workspace
+    // import, because the importer validates the current config first.
+    const catalogPath = caseDir(scratch, 'catalog');
+    const damaged = {
+      ...structuredClone(DEFAULT_CONFIG),
+      categories: [
+        { id: 'cat-a', name: 'Alpha', agents: ['agent-a', 'agent-vanished'] },
+        { id: 'cat-b', name: 'Beta', agents: ['agent-relinked'] },
+      ],
+      agents: [
+        { id: 'agent-a', categoryId: 'cat-a', name: 'A', runtime: 'shell', permissionMode: 'default', workspaceDir: 'C:/w/a', memoryDir: 'C:/w/a/m' },
+        { id: 'agent-relinked', categoryId: 'cat-gone', name: 'Relinked', runtime: 'shell', permissionMode: 'default', workspaceDir: 'C:/w/r', memoryDir: 'C:/w/r/m' },
+        { id: 'agent-orphan', categoryId: 'cat-gone', name: 'Orphan', runtime: 'shell', permissionMode: 'default', workspaceDir: 'C:/w/o', memoryDir: 'C:/w/o/m' },
+      ],
+    };
+    writeFileSync(catalogPath, `${JSON.stringify(damaged, null, 2)}\n`, 'utf8');
+    const repaired = new ConfigStore(catalogPath).get();
+
+    check('an agent no category can reach is removed from the catalog',
+      repaired.agents.every((agent) => agent.id !== 'agent-orphan'));
+    check('the orphaned record is preserved, not destroyed', (() => {
+      const files = quarantinedFiles(catalogPath).filter((name) => name.startsWith('orphaned-agents-'));
+      if (files.length !== 1) return false;
+      const kept = JSON.parse(readFileSync(
+        join(catalogPath, '..', 'corrupt', files[0]!), 'utf8',
+      )) as Array<{ id: string }>;
+      return kept.length === 1 && kept[0]?.id === 'agent-orphan';
+    })());
+    check('an agent its category still lists is re-linked rather than removed',
+      repaired.agents.find((agent) => agent.id === 'agent-relinked')?.categoryId === 'cat-b');
+    check('a membership entry naming no agent is dropped',
+      repaired.categories.find((category) => category.id === 'cat-a')?.agents
+        .includes('agent-vanished') === false);
+    check('the repair is durable and leaves a config that validates',
+      new ConfigStore(catalogPath).get().agents.length === 2
+        && !rejects(() => validateCompleteConfig(new ConfigStore(catalogPath).get())));
 
     /* ---------------------------------------------------- bounded disk read */
 
