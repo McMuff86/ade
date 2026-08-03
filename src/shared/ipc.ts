@@ -535,6 +535,10 @@ export interface WorkspaceBundlePreviewResult {
   sessionId: string;
   token: string;
   canApplyFully: boolean;
+  /** The host the targets are resolved against, so the form can shape a pasted
+   *  path for it — the same `\\wsl.localhost\...` string is a valid native path
+   *  on Windows and a meaningless one inside the distribution it points at. */
+  hostPlatform: NodeJS.Platform;
   notices: WorkspaceBundleNotice[];
   repositories: WorkspaceBundlePreviewItem[];
   categories: WorkspaceBundlePreviewItem[];

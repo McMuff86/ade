@@ -31,6 +31,7 @@ import {
 } from '../src/shared/workspaceBundle';
 import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
 import { managedProfileSupport } from '../src/main/portability/managed/ManagedHost';
+import { shapeImportTargetPath } from '../src/shared/importTargetPath';
 
 let passed = 0;
 let failed = 0;
@@ -183,6 +184,30 @@ function validBundle(): AdeWorkspaceBundleV1 {
     includePhotos: true,
     resources: sampleResources(),
   }).bundle;
+}
+
+function testImportTargetPathShaping(): void {
+  // Pasting a target out of Windows Explorer while ADE runs inside the
+  // distribution is the obvious thing to do, and it used to be rejected with
+  // "The POSIX target path is not absolute."
+  check('the WSL share UNC path becomes the POSIX path it addresses',
+    shapeImportTargetPath('\\\\wsl.localhost\\Ubuntu\\home\\mcmuff\\repos\\RhinoClaw', 'linux')
+      === '/home/mcmuff/repos/RhinoClaw');
+  check('the older wsl$ spelling is handled too',
+    shapeImportTargetPath('\\\\wsl$\\Ubuntu\\home\\mcmuff\\work', 'linux') === '/home/mcmuff/work');
+  check('a drive letter becomes its /mnt mount',
+    shapeImportTargetPath('C:\\Users\\Adi.Muff\\repos\\ade', 'linux') === '/mnt/c/Users/Adi.Muff/repos/ade');
+  check('a POSIX path is left exactly as it is',
+    shapeImportTargetPath('/home/mcmuff/.config/ADE/ade/agents/main-chef', 'linux')
+      === '/home/mcmuff/.config/ADE/ade/agents/main-chef');
+  check('a half-typed path is not mangled while it is being typed',
+    shapeImportTargetPath('/home/mc', 'linux') === '/home/mc'
+      && shapeImportTargetPath('', 'linux') === '');
+  // On Windows those same strings are valid native targets.
+  check('nothing is rewritten on a Windows host',
+    shapeImportTargetPath('\\\\wsl.localhost\\Ubuntu\\home\\mcmuff', 'win32')
+      === '\\\\wsl.localhost\\Ubuntu\\home\\mcmuff'
+      && shapeImportTargetPath('C:\\repos\\ade', 'win32') === 'C:\\repos\\ade');
 }
 
 function testSchemaAndExporter(): void {
@@ -1844,6 +1869,7 @@ function pathExists(path: string): boolean {
 }
 
 async function main(): Promise<void> {
+  testImportTargetPathShaping();
   testSchemaAndExporter();
   if (MANAGED.canApply) {
     testProfileSource();
