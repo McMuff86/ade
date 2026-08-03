@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { Category } from '../../shared/types';
 import { useAppData } from '../stores/appdata';
+import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
 
@@ -16,6 +17,7 @@ interface EditCategoryModalProps {
 
 export function EditCategoryModal({ category, onClose }: EditCategoryModalProps): React.ReactElement {
   const updateCategory = useAppData((s) => s.updateCategory);
+  const deleteCategory = useAppData((s) => s.deleteCategory);
   const [name, setName] = useState(category.name);
   const [photo, setPhoto] = useState<string | undefined>(category.photo);
   const [busy, setBusy] = useState(false);
@@ -64,6 +66,19 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
       {saveError ? <div className="modal-error" role="alert">{saveError}</div> : null}
 
       <div className="modal-actions">
+        <DeleteAction
+          label="Kategorie löschen"
+          consequence={category.agents.length > 0
+            ? `Löscht auch ${category.agents.length} ${category.agents.length === 1 ? 'Agent' : 'Agents'} `
+              + 'in dieser Kategorie und beendet deren Terminals. Workspaces, Memory und Fotos '
+              + 'bleiben auf der Festplatte erhalten.'
+            : 'Entfernt die leere Kategorie aus ADE.'}
+          busy={busy}
+          onDelete={async () => {
+            await deleteCategory(category.id);
+            onClose();
+          }}
+        />
         <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>

@@ -177,9 +177,53 @@
 
 .modal-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* Destructive actions sit apart from Cancel/Save so neither is hit by accident. */
+.modal-delete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.modal-delete.is-armed {
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.modal-delete-consequence {
+  flex: 1;
+  min-width: 180px;
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.modal-delete-error {
+  color: var(--danger, #e5484d);
+  font-size: 11px;
+}
+
+.btn.danger-quiet {
+  color: var(--danger, #e5484d);
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn.danger-quiet:hover:not(:disabled) {
+  border-color: var(--danger, #e5484d);
+}
+
+.btn.danger {
+  color: #fff;
+  border-color: var(--danger, #e5484d);
+  background: var(--danger, #e5484d);
 }
 
 .modal-error {
