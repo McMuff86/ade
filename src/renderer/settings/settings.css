@@ -117,10 +117,14 @@
   font-size: 10.5px;
 }
 
-/* The target path shares its row with a name, a backend and a browse button;
-   it is the field that actually needs the width. */
+/* The target path owns its row. Paths are long, often absolute and sometimes
+   pasted, so it also gets a monospace face where every separator is legible. */
 .st-key-row input.st-bundle-target {
-  flex: 2.5;
+  flex: 1;
+  font-family: var(--mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  direction: ltr;
 }
 
 .st-key-saved {

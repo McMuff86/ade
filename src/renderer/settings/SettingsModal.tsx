@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { shapeImportTargetPath } from '../../shared/importTargetPath';
 import type {
   HarnessStatusResult,
   RuntimeDiagnosticsResult,
@@ -196,12 +197,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     await previewBundle(selection, mappings);
   });
 
+  const shapeTargetPath = (value: string): string => (
+    bundlePreview ? shapeImportTargetPath(value, bundlePreview.hostPlatform) : value
+  );
+
   const updateMapping = (
     collection: 'repositories' | 'agentHomes',
     sourceId: string,
     field: 'backend' | 'path',
-    value: string,
+    rawValue: string,
   ): void => {
+    const value = field === 'path' ? shapeTargetPath(rawValue) : rawValue;
     setBundlePreviewCurrent(false);
     setBundleConfirmed(false);
     setBundleMappings((current) => {
@@ -356,11 +362,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             disabled={busy}
             onChange={(event) => updateMapping(collection, item.sourceId, 'backend', event.target.value)}
           />
+        </div>
+        {/* The target gets its own full-width row: it is the longest value on
+            the form by far, and sharing a row with the name and the backend
+            left it showing about a dozen characters. */}
+        <div className="st-key-row">
           <input
             className="st-bundle-target"
             aria-label={`Zielpfad für ${item.name}`}
-            placeholder={collection === 'repositories' ? 'Pfad zum vorhandenen Git-Clone' : 'Neues Agent-Home'}
+            placeholder={collection === 'repositories'
+              ? 'Pfad zum vorhandenen Git-Clone'
+              : 'Neues Agent-Home (wird beim Import angelegt)'}
             value={mapping.path}
+            title={mapping.path}
+            spellCheck={false}
             disabled={busy}
             onChange={(event) => updateMapping(collection, item.sourceId, 'path', event.target.value)}
           />

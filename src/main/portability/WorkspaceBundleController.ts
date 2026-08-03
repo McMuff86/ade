@@ -140,6 +140,7 @@ export class WorkspaceBundleController {
       sessionId,
       token: plan.token,
       canApplyFully: plan.canApplyFully && support.canApply,
+      hostPlatform: this.options.hostPlatform,
       notices,
       // Only agent homes get a proposal. They are created by the import, so
       // this profile's own layout is the right answer; a repository has to name
