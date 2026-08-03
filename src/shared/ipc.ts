@@ -519,6 +519,11 @@ export interface WorkspaceBundlePreviewItem {
   targetId?: string;
   target?: WorkspaceBundleTargetMapping;
   canonicalPath?: string;
+  /** A target the host can propose so the field is not a blank prompt. Only
+   *  offered where a sensible one exists: an agent home is created by the
+   *  import and can follow this profile's own layout, whereas a repository must
+   *  point at a clone that already exists here and cannot be guessed. */
+  suggestedTarget?: WorkspaceBundleTargetMapping;
 }
 
 export interface WorkspaceBundlePreviewRequest {

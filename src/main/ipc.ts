@@ -138,6 +138,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     probe: portabilityProbe,
     importer: workspaceImport,
     hostPlatform: process.platform,
+    profileDir: portabilityProfileDir,
   });
   const importSelections = new Map<string, {
     path: string;
