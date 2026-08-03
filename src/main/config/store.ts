@@ -59,6 +59,39 @@ interface LoadOutcome {
   persist: boolean;
 }
 
+/**
+ * Refuse a write that would leave an agent or a category pointing at something
+ * that does not exist.
+ *
+ * save() is the only entry point every identity mutation uses, and it validated
+ * nothing — validateCompleteConfig runs solely from replace(), whose callers are
+ * the workspace importer. That is how an agent came to reference a category that
+ * had been deleted: unreachable in the UI, because the rail and the graph both
+ * enumerate agents through category.agents, and therefore impossible for the
+ * user to repair, while it blocked every workspace import.
+ *
+ * Deliberately narrower than validateCompleteConfig: only the two references
+ * that made that state reachable, checked only when a write touches them.
+ * Reciprocity is not required here — load() reconciles a one-sided link rather
+ * than rejecting it, and save() must not be stricter than what load guarantees.
+ */
+function assertCatalogIntegrity(config: AdeConfig): void {
+  const categoryIds = new Set(config.categories.map((category) => category.id));
+  const agentIds = new Set(config.agents.map((agent) => agent.id));
+  for (const agent of config.agents) {
+    if (!categoryIds.has(agent.categoryId)) {
+      throw new Error(`Refusing to save agent ${agent.id}: its category no longer exists.`);
+    }
+  }
+  for (const category of config.categories) {
+    for (const agentId of category.agents) {
+      if (!agentIds.has(agentId)) {
+        throw new Error(`Refusing to save category ${category.id}: it lists a missing agent.`);
+      }
+    }
+  }
+}
+
 const ROOT_KEYS = [
   'categories', 'agents', 'repositories', 'workspaceBindings', 'agentTemplates', 'runs',
   'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults', 'runApprovals',
@@ -842,6 +875,9 @@ export class ConfigStore {
         ...defined,
         settings: { ...this.config.settings, ...(defined.settings ?? {}) },
       };
+      if (defined.agents !== undefined || defined.categories !== undefined) {
+        assertCatalogIntegrity(next);
+      }
       this.persistConfig(next);
       this.config = next;
       this.revision += 1;

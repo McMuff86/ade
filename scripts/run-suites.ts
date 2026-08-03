@@ -27,7 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 20 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 25 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 27 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 32 } },
