@@ -92,8 +92,17 @@ dependencies; it never shares the Windows `node_modules` tree through `/mnt/c`.
 - [x] An isolated native Codex `gpt-5.6-sol`/`xhigh`/bypass stdin smoke passed.
 
 Native Linux profile location is
-`${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`. It is independent from
-the Windows profile and is not automatically migrated.
+`${XDG_CONFIG_HOME:-$HOME/.config}/<app-name>/ade/config.json`, where
+`<app-name>` follows Electron's own resolution — `ADE` for a packaged build,
+`ade` when running from source. It is independent from the Windows profile and
+is never migrated implicitly.
+
+Moving one profile to another is explicit and supported: export a workspace
+bundle on the source host and import it on the target, or point the target at
+the source profile directory. Categories, agents, templates, repository
+identities, photos and agent memory cross; credentials, host paths and run
+history do not. See `docs/WORKSPACE_BUNDLES.md` for what each route carries and
+what has to be re-established afterwards.
 
 ## P2 — Linux distribution
 

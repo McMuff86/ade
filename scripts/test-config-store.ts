@@ -247,6 +247,33 @@ function run(): void {
       new ConfigStore(catalogPath).get().agents.length === 2
         && !rejects(() => validateCompleteConfig(new ConfigStore(catalogPath).get())));
 
+    /* ------------------------------------------------ catalog write guard */
+
+    // save() is the entry point every identity mutation uses and it validated
+    // nothing — validateCompleteConfig runs only from replace(). That is how an
+    // agent came to reference a deleted category: invisible in the UI, so
+    // unrepairable, while it blocked every workspace import.
+    const guardPath = caseDir(scratch, 'guard');
+    const guardBase = {
+      ...structuredClone(DEFAULT_CONFIG),
+      categories: [{ id: 'cat-a', name: 'Alpha', agents: ['agent-a'] }],
+      agents: [{ id: 'agent-a', categoryId: 'cat-a', name: 'A', runtime: 'shell', permissionMode: 'default', workspaceDir: 'C:/w/a', memoryDir: 'C:/w/a/m' }],
+    };
+    writeFileSync(guardPath, `${JSON.stringify(guardBase, null, 2)}\n`, 'utf8');
+    const guard = new ConfigStore(guardPath);
+
+    check('a write that orphans an agent is refused',
+      rejects(() => guard.save({ categories: [] })));
+    check('a write that leaves a category listing a missing agent is refused',
+      rejects(() => guard.save({ agents: [] })));
+    check('the refused writes never reached disk',
+      new ConfigStore(guardPath).get().agents.length === 1
+        && new ConfigStore(guardPath).get().categories.length === 1);
+    check('removing a category together with its agents is still allowed',
+      guard.save({ categories: [], agents: [] }).agents.length === 0);
+    check('writes that do not touch the catalog are unaffected',
+      guard.save({ settings: { ...guard.get().settings, theme: 'light' } }).settings.theme === 'light');
+
     /* ---------------------------------------------------- bounded disk read */
 
     const oversizePath = caseDir(scratch, 'oversize');

@@ -176,6 +176,7 @@ installation remain untouched unless an operator separately authorizes them.
 | Verified publishing contract | `docs/VERIFIED_PUBLISHING_PLAN.md` |
 | Repository inspector | `docs/REPOSITORY_INSPECTOR_PLAN.md` |
 | Multi-platform boundaries | `docs/MULTIPLATFORM_PLAN.md` |
+| Workspace bundles and profile migration | `docs/WORKSPACE_BUNDLES.md` |
 | Remote control plan | `docs/REMOTE_CONTROL_PLAN.md` |
 | Professionalization review | `docs/PROFESSIONALIZATION_REVIEW_2026-07-26.md` |
 | Reference analyses | `docs/reports/` |
