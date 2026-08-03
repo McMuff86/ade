@@ -7,6 +7,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exportProfileWorkspaceBundle } from '../src/main/portability/ProfileMigrationSource';
+import { buildProfileImportBundle } from '../src/main/portability/ProfileImportPreview';
 import { ConfigStore, validateCompleteConfig } from '../src/main/config/store';
 import {
   exportWorkspaceBundle,
@@ -703,6 +704,66 @@ function testProfileSource(): void {
     const stat = statSync(configPath);
     check('profile source remains a regular file after migration reads',
       stat.isFile() && realpathSync(configPath).startsWith(realpathSync(root)));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The "ADE-Profilordner" import route. It used to hardcode includeMemory:false,
+ * includePhotos:false and repositoryRemote:()=>null at the IPC call site, so it
+ * reported a successful import that carried empty memory, no photos and no
+ * origin identity — the last of which silently disables the planner's
+ * repository match. None of it was visible anywhere.
+ */
+async function testProfileImportPreview(): Promise<void> {
+  const root = mkdtempSync(join(tmpdir(), 'ade-profile-preview-'));
+  try {
+    const userData = join(root, 'ADE');
+    const adeDir = join(userData, 'ade');
+    const memoryDir = join(adeDir, 'agents', 'agent-one', 'memory');
+    mkdirSync(join(adeDir, 'photos'), { recursive: true });
+    mkdirSync(memoryDir, { recursive: true });
+    writeFileSync(join(adeDir, 'config.json'), `${JSON.stringify(sampleConfig(), null, 2)}\n`, 'utf8');
+    writeFileSync(join(adeDir, 'photos', 'builder.png'), PNG);
+    writeFileSync(join(memoryDir, 'MEMORY.md'), 'profile memory\n', 'utf8');
+    writeFileSync(join(memoryDir, 'USER.md'), 'profile user\n', 'utf8');
+
+    const probed: string[] = [];
+    const exported = await buildProfileImportBundle(userData, {
+      sourcePlatform: 'win32',
+      exportedAt: '2026-07-31T10:00:00.000Z',
+      resolveRemote: async (repository) => {
+        probed.push(repository.id);
+        // The origin URL as `git remote get-url` prints it; the exporter
+        // normalises it into the comparable identity.
+        return 'git@github.com:McMuff86/RhinoClaw.git';
+      },
+    });
+
+    check('a profile import carries agent memory instead of writing it empty',
+      exported.bundle.agents[0]?.memory?.memory === 'profile memory\n'
+        && exported.bundle.agents[0]?.memory?.user === 'profile user\n');
+    check('a profile import carries the profile photos',
+      exported.bundle.assets.length === 1 && exported.bundle.assets[0]?.mime === 'image/png'
+        && Boolean(exported.bundle.agents[0]?.photoAssetId
+          || exported.bundle.categories[0]?.photoAssetId));
+    check('a profile import resolves the repository origin so the planner can match it',
+      probed.length === exported.bundle.repositories.length
+        && exported.bundle.repositories.every(
+          (item) => item.remoteIdentity === 'github.com/McMuff86/RhinoClaw'));
+
+    // A profile copied from another machine names paths this host does not
+    // have. That must cost the origin check for that repository, not the run.
+    const unreachable = await buildProfileImportBundle(userData, {
+      sourcePlatform: 'win32',
+      exportedAt: '2026-07-31T10:00:00.000Z',
+      resolveRemote: async () => null,
+    });
+    check('an unreachable repository loses only its origin check, not the import',
+      unreachable.bundle.agents.length === exported.bundle.agents.length
+        && unreachable.bundle.repositories.every((item) => item.remoteIdentity === undefined)
+        && unreachable.bundle.agents[0]?.memory?.memory === 'profile memory\n');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1873,6 +1934,7 @@ async function main(): Promise<void> {
   testSchemaAndExporter();
   if (MANAGED.canApply) {
     testProfileSource();
+    await testProfileImportPreview();
     testProfileSourceBoundaries();
   } else {
     skip('profile source', `managed profile access is ${MANAGED.level} on this host`);
