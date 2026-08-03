@@ -54,7 +54,8 @@ import { WorkspaceImportService } from './portability/WorkspaceImportService';
 import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendHomeProvisioner';
 import { WorkspaceBundleController } from './portability/WorkspaceBundleController';
 import { exportWorkspaceBundle } from './portability/WorkspaceBundleExporter';
-import { exportProfileWorkspaceBundle, openManagedProfileReader } from './portability/ProfileMigrationSource';
+import { openManagedProfileReader } from './portability/ProfileMigrationSource';
+import { buildProfileImportBundle } from './portability/ProfileImportPreview';
 import { managedProfileSupport } from './portability/managed/ManagedHost';
 import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 
@@ -343,13 +344,19 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     }
     const mappings = structuredClone(authorization.mappings);
     const previewPromise = selection.kind === 'profile'
-      ? workspaceBundles.previewBundle(exportProfileWorkspaceBundle(selection.path, {
+      ? buildProfileImportBundle(selection.path, {
         sourcePlatform: process.platform === 'win32' ? 'win32'
           : process.platform === 'darwin' ? 'darwin' : 'linux',
-        includeMemory: false,
-        includePhotos: false,
-        repositoryRemote: () => null,
-      }).bundle, mappings)
+        resolveRemote: async (repository) => {
+          const remote = await execution.run(repository.executionBackend, 'git', [
+            '-C', repository.rootPath, 'remote', 'get-url', 'origin',
+          ], { timeoutMs: 15_000, maxBuffer: 64 * 1024 });
+          // A profile copied from another machine names paths this host may
+          // not have; that costs the origin check for one repository rather
+          // than the import.
+          return remote.code === 0 ? Buffer.from(remote.stdout).toString('utf8').trim() : null;
+        },
+      }).then((exported) => workspaceBundles.previewBundle(exported.bundle, mappings))
       : workspaceBundles.previewFile(selection.path, mappings);
     return previewPromise.then((preview) => {
       previewOwners.set(preview.sessionId, event.sender.id);
