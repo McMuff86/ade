@@ -20,6 +20,7 @@ import {
   type RuntimeId,
 } from '../../shared/types';
 import { useAppData } from '../stores/appdata';
+import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
 import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS } from './agentOptions';
@@ -31,6 +32,7 @@ interface EditAgentModalProps {
 
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.ReactElement {
   const updateAgent = useAppData((s) => s.updateAgent);
+  const deleteAgent = useAppData((s) => s.deleteAgent);
   const repositories = useAppData((s) => s.repositories);
   const createAgentTemplate = useAppData((s) => s.createAgentTemplate);
 
@@ -387,6 +389,16 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       {saveError ? <div className="modal-error" role="alert">{saveError}</div> : null}
 
       <div className="modal-actions">
+        <DeleteAction
+          label="Agent löschen"
+          consequence={'Entfernt den Agent aus ADE und beendet seine laufenden Terminals. '
+            + 'Workspace, Memory und Foto bleiben auf der Festplatte erhalten.'}
+          busy={busy}
+          onDelete={async () => {
+            await deleteAgent(agent.id);
+            onClose();
+          }}
+        />
         <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>

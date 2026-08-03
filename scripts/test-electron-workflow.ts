@@ -138,6 +138,23 @@ function seedConfig(
     kind: 'plain',
     agents: ['e2e-agent'],
   };
+  // Exists only to be deleted, so the delete flow can be exercised without
+  // removing anything the rest of the run depends on.
+  const disposableCategory: Category = {
+    id: 'e2e-disposable-category',
+    name: 'E2E Disposable',
+    kind: 'plain',
+    agents: ['e2e-disposable-agent'],
+  };
+  const disposableAgent: Agent = {
+    id: 'e2e-disposable-agent',
+    categoryId: disposableCategory.id,
+    name: 'E2E Disposable Agent',
+    runtime: 'shell',
+    permissionMode: 'default',
+    workspaceDir: workspace,
+    memoryDir: join(userData, 'agent-memory'),
+  };
   const agent: Agent = {
     id: 'e2e-agent',
     categoryId: category.id,
@@ -186,8 +203,8 @@ function seedConfig(
   const now = Date.now();
   const config: AdeConfig = {
     ...structuredClone(DEFAULT_CONFIG),
-    categories: [category, managedCategory],
-    agents: [agent, ...managedAgents],
+    categories: [category, managedCategory, disposableCategory],
+    agents: [agent, ...managedAgents, disposableAgent],
     repositories: [{
       id: repositoryId,
       name: 'Managed E2E repository',
@@ -811,6 +828,30 @@ async function run(): Promise<void> {
       await cardSettingsDialog.locator('#edit-agent-name').inputValue() === 'E2E Shell');
     await cardSettingsDialog.getByRole('button', { name: 'Cancel' }).click();
     await cardSettingsDialog.waitFor({ state: 'hidden' });
+
+    // Deleting had no affordance at all: category:delete and agent:delete were
+    // handled in main and exposed on the store, but no component ever called
+    // them, so a category or agent could only be removed by invoking the
+    // channel by hand.
+    await page.getByRole('button', { name: 'Agent settings for E2E Disposable Agent' })
+      .click({ force: true });
+    const disposableDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await disposableDialog.waitFor({ state: 'visible' });
+    await disposableDialog.getByRole('button', { name: 'Agent löschen' }).click();
+    check('deleting an agent states what is lost and what survives on disk',
+      ((await disposableDialog.textContent()) ?? '').includes('bleiben auf der Festplatte erhalten'));
+    await disposableDialog.getByRole('button', { name: 'Endgültig löschen' }).click();
+    await eventually('an agent can be deleted from its settings', async () =>
+      await page!.locator('.agent-row', { hasText: 'E2E Disposable Agent' }).count() === 0, 20_000);
+
+    await page.getByRole('button', { name: 'Category settings for E2E Disposable' })
+      .click({ force: true });
+    const disposableCategoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    await disposableCategoryDialog.waitFor({ state: 'visible' });
+    await disposableCategoryDialog.getByRole('button', { name: 'Kategorie löschen' }).click();
+    await disposableCategoryDialog.getByRole('button', { name: 'Endgültig löschen' }).click();
+    await eventually('a category can be deleted from its settings', async () =>
+      await page!.locator('.cat-name', { hasText: 'E2E Disposable' }).count() === 0, 20_000);
 
     const scopeHeader = page.locator('[data-testid="repository-scope"]');
     await eventually('plain session visibly reports its portable repository scope', async () => {
