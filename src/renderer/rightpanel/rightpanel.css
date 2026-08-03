@@ -67,6 +67,51 @@
   text-transform: none;
 }
 
+/* The full working directory. Wraps rather than truncates: an abbreviated
+   worktree path answers nothing, and this is the field users check when they
+   want to know where an agent is really operating. */
+.rp-scope-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rp-scope-path-label {
+  flex: none;
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.rp-scope-path code {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 10.5px;
+  line-height: 1.45;
+  word-break: break-all;
+  user-select: text;
+  cursor: text;
+}
+
+.rp-scope-path-copy {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.rp-scope-path-copy:hover {
+  color: var(--text);
+}
+
 .rp-scope-meta {
   min-width: 0;
   margin-top: 6px;
