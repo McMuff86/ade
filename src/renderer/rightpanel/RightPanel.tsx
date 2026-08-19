@@ -41,6 +41,7 @@ const TABS: readonly Tab[] = ['overview', 'changes', 'files'];
 
 export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   const agentId = useSelection((s) => s.selectedAgentId);
+  const catalogRepositoryId = useSelection((s) => s.selectedRepositoryId);
   const sessionId = useSessions((state) => (
     agentId ? (state.activeByAgent[agentId] ?? null) : null
   ));
@@ -48,6 +49,10 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
 
   const [tab, setTab] = useState<Tab>('overview');
   const [inspectedRepositoryId, setInspectedRepositoryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (catalogRepositoryId) setInspectedRepositoryId(catalogRepositoryId);
+  }, [catalogRepositoryId]);
   const [open, setOpen] = useState<OpenItem | null>(null);
   const [content, setContent] = useState<string>('');
   const [checks, setChecks] = useState<RepositoryPullRequestChecksResult | null>(null);

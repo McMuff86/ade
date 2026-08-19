@@ -306,6 +306,24 @@ workflow proves selection, PR rendering, keyboard tabs, lazy diff, focus and
 refresh. The complete Windows gate is 465 focused assertions plus build and
 Electron workflow.
 
+## Overview home track - ADE journal inventory
+
+Status: **slices A and B implemented 2026-08-19.** Densification/charts
+stay unbuilt until the interactive journal has operator time.
+
+- Project catalog, bindings, runs and live PTYs into a third top-level mode
+  without new telemetry or inspector polls.
+- Keep unknown token/cost fields unknown; do not reuse `usageByRun`'s zero
+  fill for the hero number.
+- Persist interactive session bookends (start/end, no transcripts) and mix
+  closed sessions into Work; last activity includes bookends.
+- Leave Overview on click: agents, projects and sessions open Terminals,
+  runs open Graph.
+
+Exit criteria: focused projection and bookend-journal checks; config
+migrates a missing `sessionBookends` array; Electron/Playwright proves a
+closed interactive session appears in Work and opens Terminals.
+
 ## Goal 7 - transport-neutral core and local host API
 
 Status: **in progress; read-only foundation implemented.** The first slice adds

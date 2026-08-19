@@ -25,9 +25,12 @@ export function useSessionShortcuts(): void {
       if (modalOpen()) return;
       const primary = isMac() ? event.metaKey : event.ctrlKey;
 
-      if (primary && !event.altKey && !event.shiftKey && (event.key === '1' || event.key === '2')) {
+      if (primary && !event.altKey && !event.shiftKey
+          && (event.key === '1' || event.key === '2' || event.key === '3')) {
         event.preventDefault();
-        useMode.getState().setMode(event.key === '1' ? 'terminals' : 'graph');
+        useMode.getState().setMode(
+          event.key === '1' ? 'terminals' : event.key === '2' ? 'graph' : 'overview',
+        );
         return;
       }
       if (useMode.getState().mode !== 'terminals') return;

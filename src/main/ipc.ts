@@ -47,6 +47,7 @@ import { RepositoryInspectorService } from './repositories/RepositoryInspectorSe
 import { DashboardWindows } from './dashboard/DashboardWindows';
 import { resolveDashboardUrl } from './dashboard/dashboardUrl';
 import { AdeApplicationService } from './application/AdeApplicationService';
+import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
 import { consumeHostApiConfig } from './remote/hostApiConfig';
 import { TargetPathProbe } from './portability/TargetPathProbe';
@@ -676,6 +677,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return { lines: readTaskActivity(requireAgent(participant.agentId), task.runId, task.id) };
   });
 
+  handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
   handle(IPC.RunGet, () => orchestration!.snapshot());
   handle(IPC.RunGetSummary, ({ runId }) => application.runs(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));

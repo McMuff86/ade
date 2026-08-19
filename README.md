@@ -20,6 +20,11 @@ managed runs on a graph.
 
 ## A tour
 
+**Overview** — a read-only home over ADE's own journal: live sessions, open
+runs, reported tokens, every agent, every catalog project and the last twenty
+runs. Clicks jump to Terminals or Graph. Missing token or cost data stays
+unknown instead of becoming zero.
+
 **Terminals** — categories and agents on the left, real PTY sessions as tabs,
 repository scope and inspector on the right. Scrollback survives tab and agent
 switches; sessions reconnect across reloads.
@@ -110,7 +115,7 @@ inside the distribution.
 | New / close terminal session | `Ctrl+Shift+T` / `Ctrl+Shift+W` |
 | Previous / next session | `Ctrl+PageUp` / `Ctrl+PageDown` |
 | Select session 1–9 | `Alt+1` … `Alt+9` |
-| Terminals / Graph view | `Ctrl+1` / `Ctrl+2` |
+| Terminals / Graph / Overview | `Ctrl+1` / `Ctrl+2` / `Ctrl+3` |
 
 Tab lists also support arrow keys plus Home/End with visible focus.
 

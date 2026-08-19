@@ -954,7 +954,8 @@ async function run(): Promise<void> {
         fullPage: true,
       });
     }
-    const overviewTab = page.getByRole('tab', { name: 'Overview', exact: true });
+    const overviewTab = page.getByRole('tablist', { name: 'Repository panel' })
+      .getByRole('tab', { name: 'Overview', exact: true });
     await overviewTab.focus();
     await page.keyboard.press('End');
     check('repository panel tabs support roving End/Home keyboard navigation',
@@ -1054,6 +1055,55 @@ async function run(): Promise<void> {
     );
     await eventually('Graph names the immutable repository selected by the run', async () =>
       (await page!.locator('.grun-repo').textContent()) === 'Managed E2E repository',
+    );
+
+    await page.getByRole('tab', { name: 'Overview view' }).click();
+    await eventually('Overview tab opens the read-only home', async () =>
+      await page!.getByTestId('overview').count() === 1
+        && await page!.getByRole('tab', { name: 'Overview view' }).getAttribute('aria-selected') === 'true',
+    );
+    await eventually('Overview renders live, open and token figures', async () => {
+      const live = await page!.getByTestId('overview-live').textContent();
+      const open = await page!.getByTestId('overview-open').textContent();
+      const tokens = await page!.getByTestId('overview-tokens').textContent();
+      return live !== null && live.length > 0
+        && open !== null && open.length > 0
+        && tokens !== null && tokens.length > 0;
+    });
+    await eventually('Overview lists agents, catalog projects and recent work', async () =>
+      await page!.getByTestId('overview-agent').count() >= 1
+        && await page!.getByTestId('overview-project').filter({ hasText: 'Managed E2E repository' }).count() === 1
+        && await page!.getByTestId('overview-run').filter({ hasText: 'Managed E2E Run' }).count() === 1,
+    );
+    await eventually('Overview lists a closed interactive session as work', async () =>
+      await page!.getByTestId('overview-session').filter({ hasText: 'E2E Shell' }).count() >= 1,
+    );
+    await page.getByTestId('overview-session').filter({ hasText: 'E2E Shell' }).first().click();
+    await eventually('clicking a session work row opens Terminals with that identity', async () =>
+      await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true'
+        && await page!.locator('.agent-row[aria-current="true"]', { hasText: 'E2E Shell' }).count() === 1,
+    );
+    await page.getByRole('tab', { name: 'Overview view' }).click();
+    await eventually('Overview tab returns after a session work click', async () =>
+      await page!.getByTestId('overview').count() === 1,
+    );
+    await page.getByTestId('overview-run').filter({ hasText: 'Managed E2E Run' }).click();
+    await eventually('clicking a work row opens Graph on that run', async () =>
+      await page!.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected') === 'true'
+        && await page!.getByLabel('Aktiver Run').inputValue() === 'e2e-managed-run',
+    );
+    await page.keyboard.press('Control+3');
+    await eventually('Ctrl+3 returns to Overview', async () =>
+      await page!.getByTestId('overview').count() === 1,
+    );
+    await page.getByTestId('overview-agent').filter({ hasText: 'E2E Shell' }).click();
+    await eventually('clicking an agent opens Terminals with that identity', async () =>
+      await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true'
+        && await page!.locator('.agent-row[aria-current="true"]', { hasText: 'E2E Shell' }).count() === 1,
+    );
+    await page.keyboard.press('Control+2');
+    await eventually('Ctrl+2 restores Graph after Overview navigation', async () =>
+      await page!.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected') === 'true',
     );
 
     await page.locator('button.grun-new', { hasText: 'Neuer Run' }).click();
@@ -1663,6 +1713,14 @@ async function run(): Promise<void> {
     await settingsDialog.getByRole('button', { name: 'Dunkel' }).click();
     await eventually('Settings switches the theme back to dark', async () =>
       (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
+    check('the default inspector stays on the right of the terminal',
+      await page.locator('.shell').getAttribute('data-inspector-side') === 'right');
+    await settingsDialog.getByTestId('settings-inspector-side').getByRole('button', { name: 'Links' }).click();
+    await eventually('Settings can move the inspector to the left', async () =>
+      await page!.locator('.shell').getAttribute('data-inspector-side') === 'left');
+    await settingsDialog.getByTestId('settings-inspector-side').getByRole('button', { name: 'Rechts' }).click();
+    await eventually('Settings can restore the inspector to the right', async () =>
+      await page!.locator('.shell').getAttribute('data-inspector-side') === 'right');
     check('workspace bundle controls are available only inside Settings',
       await settingsDialog.getByTestId('workspace-bundle-settings').isVisible()
         && await settingsDialog.getByRole('button', { name: 'Bundle exportieren' }).isVisible()

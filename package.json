@@ -27,6 +27,7 @@
     "test:prompts": "tsx scripts/test-prompts.ts",
     "test:repositories": "tsx scripts/test-repository-scopes.ts",
     "test:repository-inspector": "tsx scripts/test-repository-inspector.ts",
+    "test:overview": "tsx scripts/test-overview.ts",
     "test:harness": "tsx scripts/test-harness-credentials.ts",
     "test:host-api": "tsx scripts/test-host-api.ts",
     "test:workspace-bundle": "tsx scripts/test-workspace-bundle.ts",

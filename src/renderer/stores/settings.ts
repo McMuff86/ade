@@ -4,25 +4,32 @@
  */
 
 import { create } from 'zustand';
-import type { ThemeName } from '../../shared/types';
+import { DEFAULT_INSPECTOR_SIDE, type InspectorSide, type ThemeName } from '../../shared/types';
 
 interface SettingsState {
   theme: ThemeName;
+  inspectorSide: InspectorSide;
   /** true once the persisted config has been loaded */
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setTheme: (theme: ThemeName) => void;
   toggleTheme: () => void;
+  setInspectorSide: (inspectorSide: InspectorSide) => void;
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
   theme: 'dark',
+  inspectorSide: DEFAULT_INSPECTOR_SIDE,
   hydrated: false,
 
   hydrate: async () => {
     try {
       const config = await window.ade.invoke('config:get');
-      set({ theme: config.settings.theme, hydrated: true });
+      set({
+        theme: config.settings.theme,
+        inspectorSide: config.settings.inspectorSide === 'left' ? 'left' : DEFAULT_INSPECTOR_SIDE,
+        hydrated: true,
+      });
     } catch (err) {
       console.error('[ade] failed to load config, using defaults:', err);
       set({ hydrated: true });
@@ -38,5 +45,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
 
   toggleTheme: () => {
     get().setTheme(get().theme === 'dark' ? 'light' : 'dark');
+  },
+
+  setInspectorSide: (inspectorSide) => {
+    set({ inspectorSide });
+    window.ade.invoke('config:save', { settings: { inspectorSide } }).catch((err) => {
+      console.error('[ade] failed to persist inspector side:', err);
+    });
   },
 }));

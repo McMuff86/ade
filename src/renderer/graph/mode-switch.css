@@ -1,4 +1,4 @@
-/* Titlebar mode switch (Terminals | Graph). Colours via theme tokens. */
+/* Titlebar mode switch (Overview | Terminals | Graph). Colours via theme tokens. */
 
 .mode-switch {
   display: flex;

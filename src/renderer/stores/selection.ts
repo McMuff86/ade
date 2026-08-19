@@ -7,10 +7,14 @@ import { create } from 'zustand';
  */
 interface SelectionState {
   selectedAgentId: string | null;
+  selectedRepositoryId: string | null;
   setSelectedAgent: (id: string | null) => void;
+  setSelectedRepository: (id: string | null) => void;
 }
 
 export const useSelection = create<SelectionState>((set) => ({
   selectedAgentId: null,
+  selectedRepositoryId: null,
   setSelectedAgent: (id) => set({ selectedAgentId: id }),
+  setSelectedRepository: (id) => set({ selectedRepositoryId: id }),
 }));

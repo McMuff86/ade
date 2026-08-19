@@ -62,6 +62,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   const setMode = useMode((state) => state.setMode);
   const theme = useSettings((state) => state.theme);
   const setTheme = useSettings((state) => state.setTheme);
+  const inspectorSide = useSettings((state) => state.inspectorSide);
+  const setInspectorSide = useSettings((state) => state.setInspectorSide);
   const hydrateSettings = useSettings((state) => state.hydrate);
   const [status, setStatus] = useState<HarnessStatusResult | null>(null);
   const [diagnosis, setDiagnosis] = useState<RuntimeDiagnosticsResult | null>(null);
@@ -512,6 +514,27 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               onClick={() => setTheme('light')}
             >
               Hell
+            </button>
+          </div>
+        </div>
+        <div className="st-theme-row" role="group" aria-label="Inspector-Seite" data-testid="settings-inspector-side">
+          <span className="st-theme-label">Inspector</span>
+          <div className="st-theme-choice">
+            <button
+              type="button"
+              className={`btn${inspectorSide === 'right' ? ' st-theme-active' : ''}`}
+              aria-pressed={inspectorSide === 'right'}
+              onClick={() => setInspectorSide('right')}
+            >
+              Rechts
+            </button>
+            <button
+              type="button"
+              className={`btn${inspectorSide === 'left' ? ' st-theme-active' : ''}`}
+              aria-pressed={inspectorSide === 'left'}
+              onClick={() => setInspectorSide('left')}
+            >
+              Links
             </button>
           </div>
         </div>

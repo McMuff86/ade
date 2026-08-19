@@ -27,7 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 25 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 27 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 43 } },
@@ -39,6 +39,7 @@ const SUITES: Suite[] = [
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 61 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
+  { id: 'overview', script: 'test-overview.ts', floors: { win32: 30 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 30 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
@@ -46,7 +47,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 144 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 147 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

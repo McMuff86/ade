@@ -2,6 +2,39 @@
 
 ## Ergebnis dieser Session
 
+- **Terminals-Layout (optional):** Settings → Inspector Rechts/Links.
+  Default bleibt Rail links / Inspector rechts. Persistiert in
+  `settings.inspectorSide`. Kein Zwangstausch.
+
+- **Overview Schnitt B (Session-Bookends):** Interaktive PTY-Spawns
+  schreiben einen path-freien Bookend (`endedAt: null`), Exit füllt
+  `endedAt`/`exitReason`. Task-PTYs bleiben im Run-Journal. Restart
+  schließt verwaiste offene Bookends als `interrupted`. Journal ist
+  FIFO 100 in `AdeConfig.sessionBookends`. Overview-Work mischt
+  geschlossene Sessions mit Runs (20 newest); Live bleibt die PTY-Liste.
+  Klick auf Session → Terminals. Fokus overview 30, config 26.
+
+- **Overview A-Schliff:** Agent-Zeilen nehmen `lastActivityAt` als
+  `max(letzter Run, binding.lastUsedAt)`. Ohne beides steht „keine
+  Aktivität“, nicht mehr „kein Run“. Ein Run-Name bleibt Zusatz, nicht
+  die einzige Uhr. Fokus 19.
+
+- **Overview Home (Schnitt A):**
+  - Dritte Top-Level-Ansicht (`Overview` / `Ctrl+3`) über Katalog,
+    Bindings, Runs und lebende PTYs. Kein Inspector-Poll, keine neue
+    Telemetrie, keine Charts.
+  - `overview:get` projiziert path-frei: Live = laufende PTYs, Offen =
+    `running` oder Phase `approval`, Tokens = Summe gemeldeter in+out
+    sonst `—`. Kosten stehen separat mit Unknown-Zählern; `null` wird
+    nicht zu 0.
+  - Agenten folgen Kategorie-Mitgliedschaft, Projects sind nur
+    Katalog-Repos, Work sind die 20 neuesten Runs. Klick auf Agent/Projekt
+    → Terminals, Klick auf Run → Graph.
+  - Fokus: `scripts/test-overview.ts` (17). Security 145 inkl. void-Channel
+    `overview:get`. Electron/Playwright: Tab, `Ctrl+3`, drei Zahlen,
+    Work-Zeile → Graph, Agent-Zeile → Terminals. Der Inspector-Tab
+    „Overview“ bleibt über `Repository panel` adressiert.
+
 - **Grok Build Activity-Feed (Schnitt 3):**
   - `GrokActivityParser` rendert `thought` / `tool_call` / `text` / `end` /
     `error` aus `--output-format streaming-json`. Tools werden einmal pro

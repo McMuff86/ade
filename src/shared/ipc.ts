@@ -23,6 +23,7 @@ import type {
   GitStatus,
   HarnessStatusResult,
   OrchestrationSnapshot,
+  OverviewSnapshot,
   Run,
   RunArtifact,
   RunCreateInput,
@@ -39,6 +40,7 @@ import type {
   SessionMeta,
   TaskQueueStatus,
   ThemeName,
+  InspectorSide,
   PtyExitReason,
   Repository,
   RepositoryCommitDiff,
@@ -102,6 +104,7 @@ export const IPC = {
   PtyList: 'pty:list',
   PtyCancelTasks: 'pty:cancelTasks',
   RuntimeDiagnose: 'runtime:diagnose',
+  OverviewGet: 'overview:get',
   RunGet: 'run:get',
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
@@ -220,7 +223,8 @@ export interface PtyActivityEvent {
 /** Renderer config writes are intentionally narrower than the stored model. */
 export interface ConfigSaveRequest {
   settings: {
-    theme: ThemeName;
+    theme?: ThemeName;
+    inspectorSide?: InspectorSide;
   };
 }
 export interface WorkspaceRemoveBindingRequest {
@@ -643,6 +647,7 @@ export interface IpcInvokeMap {
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
   'runTask:activity': { req: { taskId: string }; res: PtyActivityResult };
   'pty:list': { req: void; res: PtyListResult };
+  'overview:get': { req: void; res: OverviewSnapshot };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };
   'run:get': { req: void; res: OrchestrationSnapshot };

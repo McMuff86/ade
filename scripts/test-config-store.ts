@@ -79,6 +79,24 @@ function run(): void {
         && reloaded.get().settings.theme === 'light'
         && quarantinedFiles(seedPath).length === 0);
 
+    const legacyPath = caseDir(scratch, 'legacy-bookends');
+    const legacy = structuredClone(DEFAULT_CONFIG) as unknown as Record<string, unknown>;
+    delete legacy['sessionBookends'];
+    writeFileSync(legacyPath, `${JSON.stringify(legacy, null, 2)}\n`, 'utf8');
+    const migratedBookends = new ConfigStore(legacyPath).get();
+    check('a config without sessionBookends migrates to an empty journal',
+      migratedBookends.sessionBookends.length === 0
+        && JSON.parse(readFileSync(legacyPath, 'utf8')).sessionBookends.length === 0);
+
+    const legacyLayoutPath = caseDir(scratch, 'legacy-inspector-side');
+    const legacyLayout = structuredClone(DEFAULT_CONFIG) as unknown as Record<string, unknown>;
+    legacyLayout['settings'] = { theme: 'dark', memory: DEFAULT_CONFIG.settings.memory };
+    writeFileSync(legacyLayoutPath, `${JSON.stringify(legacyLayout, null, 2)}\n`, 'utf8');
+    const migratedLayout = new ConfigStore(legacyLayoutPath).get();
+    check('a config without inspectorSide keeps the inspector on the right',
+      migratedLayout.settings.inspectorSide === 'right'
+        && JSON.parse(readFileSync(legacyLayoutPath, 'utf8')).settings.inspectorSide === 'right');
+
     check('atomic writes leave no temp files behind',
       readdirSync(join(seedPath, '..')).every((entry) => !entry.endsWith('.tmp')));
 

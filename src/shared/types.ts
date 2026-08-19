@@ -188,6 +188,21 @@ export type DashboardTarget = 'window' | 'external';
 
 export type SessionKind = 'interactive' | 'task';
 export type PtyExitReason = 'exit' | 'cancelled';
+/** Durable Overview journal reason. `interrupted` is a restart close, not a PTY exit. */
+export type SessionBookendExitReason = PtyExitReason | 'interrupted';
+
+/** Path-free interactive session bookend. Task PTYs are not recorded here. */
+export interface SessionBookend {
+  id: string;
+  agentId: string;
+  agentName: string;
+  runtime: RuntimeId;
+  repositoryId: string | null;
+  repositoryName: string | null;
+  startedAt: number;
+  endedAt: number | null;
+  exitReason?: SessionBookendExitReason;
+}
 
 export interface SessionMeta {
   id: string;
@@ -619,6 +634,90 @@ export interface RunSummary {
   seqCursor: number;
 }
 
+/** Honest managed-task telemetry rollup. Unknown stays unknown — never a zero fill. */
+export interface OverviewUsageRollup {
+  reportedInputTokens: number;
+  reportedOutputTokens: number;
+  reportedCostUsd: number;
+  tasksWithTokens: number;
+  tasksWithoutTokens: number;
+  tasksWithCost: number;
+  tasksWithoutCost: number;
+}
+
+export interface OverviewHero {
+  liveSessions: number;
+  openRuns: number;
+  /** Null when no managed task reported tokens. */
+  tokens: number | null;
+  usage: OverviewUsageRollup;
+}
+
+export interface OverviewAgentRow {
+  id: string;
+  name: string;
+  photo?: string;
+  runtime: RuntimeId;
+  runtimeLabel: string;
+  liveSessions: number;
+  defaultRepositoryName: string | null;
+  /** Max of last run `updatedAt` and this agent's binding `lastUsedAt`. */
+  lastActivityAt: number | null;
+  lastRunId?: string;
+  lastRunName?: string;
+  lastRunAt?: number;
+}
+
+export interface OverviewProjectCard {
+  id: string;
+  name: string;
+  backendLabel: string;
+  boundAgentCount: number;
+  boundAgentNames: string[];
+  lastActivityAt: number | null;
+  lastRunId?: string;
+  lastRunName?: string;
+  lastRunStatus?: RunStatus;
+  lastRunPhase?: RunPhase;
+}
+
+export type OverviewWorkKind = 'run' | 'session';
+
+export type OverviewWorkRow = OverviewRunWorkRow | OverviewSessionWorkRow;
+
+export interface OverviewRunWorkRow {
+  kind: 'run';
+  id: string;
+  name: string;
+  updatedAt: number;
+  status: RunStatus;
+  phase: RunPhase;
+  repositoryName: string | null;
+  participantNames: string[];
+  usage: OverviewUsageRollup;
+}
+
+export interface OverviewSessionWorkRow {
+  kind: 'session';
+  id: string;
+  name: string;
+  updatedAt: number;
+  agentId: string;
+  exitReason: SessionBookendExitReason;
+  repositoryName: string | null;
+  participantNames: string[];
+  usage: OverviewUsageRollup;
+}
+
+/** Path-free Overview projection for the read-only home view. */
+export interface OverviewSnapshot {
+  generatedAt: number;
+  hero: OverviewHero;
+  agents: OverviewAgentRow[];
+  projects: OverviewProjectCard[];
+  work: OverviewWorkRow[];
+}
+
 /** One recorded mutating command; the same commandId replays resultJson. */
 export interface CommandLogEntry {
   commandId: string;
@@ -673,8 +772,16 @@ export interface MemorySettings {
   userCharLimit: number;
 }
 
+export type InspectorSide = 'left' | 'right';
+export const DEFAULT_INSPECTOR_SIDE: InspectorSide = 'right';
+
 export interface Settings {
   theme: ThemeName;
+  /**
+   * Which side of Terminals holds the repository inspector. Default `right`
+   * keeps the approved rail | terminal | inspector mockup.
+   */
+  inspectorSide?: InspectorSide;
   /**
    * Optional for migration compatibility; the store fills it from
    * DEFAULT_CONFIG when older config files are loaded.
@@ -707,6 +814,8 @@ export interface AdeConfig {
   runMessages: RunMessage[];
   /** Bounded FIFO idempotency journal for mutating orchestration commands. */
   commandLog: CommandLogEntry[];
+  /** Bounded FIFO of interactive session start/end; task PTYs are not stored. */
+  sessionBookends: SessionBookend[];
   settings: Settings;
 }
 
@@ -727,8 +836,10 @@ export const DEFAULT_CONFIG: AdeConfig = {
   runPublications: [],
   runMessages: [],
   commandLog: [],
+  sessionBookends: [],
   settings: {
     theme: 'dark',
+    inspectorSide: DEFAULT_INSPECTOR_SIDE,
     memory: {
       enabled: true,
       userProfileEnabled: true,

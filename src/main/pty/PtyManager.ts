@@ -25,7 +25,14 @@ import {
   resolveLaunchCommand,
   resolveTaskLaunchCommand,
 } from '../../shared/runtimes';
-import type { Agent, RuntimeId, SessionMeta, TaskQueueStatus } from '../../shared/types';
+import type {
+  Agent,
+  RuntimeId,
+  SessionBookend,
+  SessionBookendExitReason,
+  SessionMeta,
+  TaskQueueStatus,
+} from '../../shared/types';
 import {
   NATIVE_EXECUTION_BACKEND,
   executionBackendPlatform,
@@ -50,6 +57,11 @@ import {
   type TaskQueueKey,
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
+import {
+  closeInteractiveBookend,
+  interruptOrphanBookends,
+  startInteractiveBookend,
+} from '../overview/sessionBookends';
 
 const RING_BUFFER_CAP = 256 * 1024;
 const ACTIVITY_LINE_CAP = 2_000;
@@ -161,6 +173,7 @@ export class PtyManager {
     this.taskQueue = new TaskSlotQueue(MAX_ACTIVE_TASK_SESSIONS, (status) => {
       this.broadcast(IPC_EVENTS.PtyTaskQueue, status);
     });
+    this.interruptOrphanBookends();
   }
 
   async create(
@@ -464,6 +477,7 @@ export class PtyManager {
         : undefined,
     };
     this.sessions.set(id, session);
+    if (meta.kind === 'interactive') this.recordInteractiveStart(meta, agent);
     if (task?.runTaskId) {
       try {
         this.taskLifecycle?.onTaskStarted(task.runTaskId, { ...meta });
@@ -542,6 +556,7 @@ export class PtyManager {
     session.meta.exitCode = exitCode;
     session.meta.endedAt = Date.now();
     session.meta.exitReason = session.cancelled ? 'cancelled' : 'exit';
+    this.recordInteractiveEnd(session, session.cancelled ? 'cancelled' : 'exit');
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
       exitCode,
@@ -588,6 +603,7 @@ export class PtyManager {
     session.meta.exitCode = -1;
     session.meta.endedAt = Date.now();
     session.meta.exitReason = 'cancelled';
+    this.recordInteractiveEnd(session, 'cancelled');
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
       exitCode: -1,
@@ -653,6 +669,45 @@ export class PtyManager {
       this.taskLifecycle?.onTaskFinished(runTaskId, status, exitCode, terminalOutput);
     } catch (error) {
       console.error(`[ade] run task completion persistence failed for ${runTaskId}:`, error);
+    }
+  }
+
+  private interruptOrphanBookends(): void {
+    this.persistBookends((bookends) => interruptOrphanBookends(bookends, new Set(), Date.now()));
+  }
+
+  private recordInteractiveStart(meta: SessionMeta, agent: Agent): void {
+    const config = this.store.get();
+    const repositoryName = meta.repositoryId
+      ? (config.repositories.find((repository) => repository.id === meta.repositoryId)?.name ?? null)
+      : null;
+    const record: SessionBookend = {
+      id: meta.id,
+      agentId: agent.id,
+      agentName: agent.name,
+      runtime: agent.runtime,
+      repositoryId: meta.repositoryId ?? null,
+      repositoryName,
+      startedAt: meta.createdAt,
+      endedAt: null,
+    };
+    this.persistBookends((bookends) => startInteractiveBookend(bookends, record));
+  }
+
+  private recordInteractiveEnd(session: Session, exitReason: SessionBookendExitReason): void {
+    if (session.meta.kind !== 'interactive') return;
+    const endedAt = session.meta.endedAt ?? Date.now();
+    this.persistBookends((bookends) => closeInteractiveBookend(bookends, session.meta.id, endedAt, exitReason));
+  }
+
+  private persistBookends(mutator: (bookends: SessionBookend[]) => SessionBookend[]): void {
+    try {
+      const current = this.store.get().sessionBookends;
+      const next = mutator(current);
+      if (next === current) return;
+      this.store.save({ sessionBookends: next });
+    } catch (error) {
+      console.error('[ade] session bookend persist failed:', error);
     }
   }
 

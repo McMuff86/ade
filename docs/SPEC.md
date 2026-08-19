@@ -1,8 +1,7 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.9 (repository inspector and verified Draft-PR publishing implemented;
-remote control planned,
-2026-07-19)
+Status: v0.10 (Overview home, repository inspector and verified Draft-PR
+publishing implemented; remote control planned, 2026-08-19)
 Owner: Adi. This document is the source of truth for coding agents.
 
 ## What it is
@@ -12,6 +11,10 @@ and content work. The terminal is the execution plane: every interactive
 session is a real terminal running a real CLI agent. Graph is the optional
 control plane for dispatching and observing bounded task runs over those same
 agents. It is not a separate fake-agent system or a replacement chat UI.
+
+Overview is the read-only home over that same journal: who is live, which
+catalog projects exist, and which runs last moved. It does not invent
+telemetry or replace Terminals or Graph.
 
 The desktop remains the only execution host. After local product validation,
 an installable mobile companion may submit, observe and cancel a narrow set of
@@ -87,8 +90,38 @@ the migration never deletes user data.
   bound to the active immutable session workspace. The header names both scopes
   and offers safe choose/default/detach/new-session actions.
 - All three regions resizable via drag handles (rail width, panel width).
-- Top-level Terminals / Graph tabs switch views without creating a second copy
-  of agent, workspace, session, or task state.
+  The default order is rail | terminal | inspector. Settings may place the
+  inspector on the left instead; the choice is optional and persisted. Overview
+  and Graph stay full-bleed.
+- Top-level Overview / Terminals / Graph tabs switch views without creating a
+  second copy of agent, workspace, session, or task state. Overview is a
+  full-bleed inventory; Terminals keeps the rail, session tabs and inspector;
+  Graph keeps the orchestration canvas. A per-agent OpenClaw Dashboard window
+  is a different surface and is not this home view.
+
+## Overview home (implemented)
+
+- Overview is a third top-level mode (`Ctrl+3`; `Ctrl+1` Terminals, `Ctrl+2`
+  Graph). It is read-only: no spawn, no run start, no inspector Git poll.
+- The projection is `overview:get` over the persisted catalog, workspace
+  bindings, run journal and the live PTY list. It never includes host paths,
+  prompts, mailbox bodies or diagnostics.
+- Three hero numbers: **Live** (running PTYs), **Offen** (runs with status
+  `running` or phase `approval`), **Tokens** (sum of reported input+output;
+  `—` when no managed task reported tokens). Cost is a caption with an
+  explicit unknown-task count; missing telemetry is never filled with zero.
+- Agent rows follow category membership then leftovers. An agent's
+  `lastActivityAt` is the max of its last run `updatedAt`, any binding
+  `lastUsedAt`, and interactive session bookends; a run name is extra context,
+  never the only clock. Project cards are catalog repositories only —
+  portable homes do not appear.
+- Work is the 20 newest **closed** interactive sessions and runs. Live
+  sessions stay in the Live figure, not in Work. Session rows have no token
+  rollup. Task PTYs are not booked here; they already live in the run journal.
+- Clicks leave Overview: an agent or project opens Terminals; a run opens
+  Graph on that run; a session opens Terminals on that agent (and that tab
+  if the PTY is still live). Refresh is event-driven (`orchestration:changed`,
+  `pty:exit`, `pty:removed`), not a timer.
 
 ## Graph control plane
 

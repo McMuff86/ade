@@ -1,12 +1,13 @@
 # ADE — Architecture (binding decisions)
 
-Status: v7, updated 2026-07-19 with implemented repository scopes/reusable
-agents (`docs/REPOSITORY_SCOPES_PLAN.md`), the read-only repository inspector
-(`docs/REPOSITORY_INSPECTOR_PLAN.md`), verified Draft-PR publishing
-(`docs/VERIFIED_PUBLISHING_PLAN.md`) and planned remote control/mobile companion
-(`docs/REMOTE_CONTROL_PLAN.md`). Terminal, orchestration, repository-scope and
-publication implementation details supersede v5
-(`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
+Status: v8, updated 2026-08-19 with the read-only Overview home
+(`src/main/overview`, `src/renderer/overview`), implemented repository
+scopes/reusable agents (`docs/REPOSITORY_SCOPES_PLAN.md`), the read-only
+repository inspector (`docs/REPOSITORY_INSPECTOR_PLAN.md`), verified Draft-PR
+publishing (`docs/VERIFIED_PUBLISHING_PLAN.md`) and planned remote
+control/mobile companion (`docs/REMOTE_CONTROL_PLAN.md`). Terminal,
+orchestration, repository-scope and publication implementation details
+supersede v5 (`docs/reports/superset.md`, `docs/reports/hermes-memory.md`).
 Product requirements live in `docs/SPEC.md`. When this doc and SPEC conflict,
 SPEC wins.
 
@@ -124,6 +125,7 @@ src/
     index.ts               # window, app lifecycle (small; no updater/cloud)
     ipc.ts                 # channel registration
     ipcValidation.ts       # exact runtime request validation for every invoke
+    overview/              # path-free catalog/run/PTY projection for Overview
     security.ts            # renderer/navigation URL allowlists
     diagnostics/           # read-only CLI/version/auth checks
     notifications.ts       # background native exit/completion notifications
@@ -141,13 +143,14 @@ src/
     photos.ts              # profile photo import/store (PNG/JPG, alpha kept)
   preload/index.ts         # contextBridge: typed invoke/on wrappers only
   renderer/
-    App.tsx                # layout shell (rail | tabs+terminal | right panel)
+    App.tsx                # layout shell (Overview | rail+tabs+terminal | Graph; inspector side optional)
     theme/                 # tokens.css, themes.ts (incl. xterm ITheme), provider
     rail/                  # categories + agents, avatars, presence
     tabs/                  # session tab strip
     terminal/              # TerminalPane (xterm runtime, coalescer, attach)
     diagnostics/           # CLI/auth readiness modal
     keyboard/              # view/session shortcut routing
+    overview/              # read-only home over catalog, bindings and runs
     rightpanel/            # catalog Overview + binding-aware Changes/Files
     onboarding/            # first-run + new category/agent modals
     graph/                 # run-scoped control-plane canvas and dispatch
@@ -396,6 +399,29 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   paths remain usable legacy plain workspaces and are reported for repair.
 - Default changes, detach and catalog cleanup never move/delete a worktree,
   branch or user file implicitly. Active references block destructive cleanup.
+
+## Overview home projection
+
+- `overview:get` is a void invoke. Main projects `AdeConfig` plus
+  `PtyManager.list()` into a path-free `OverviewSnapshot`. The renderer never
+  receives host paths, prompts, mailbox bodies or inspector Git data.
+- Live sessions count `status === 'running'` PTYs only. Open runs are
+  `status === 'running'` or `phase === 'approval'`. Token and cost rollups
+  increment `tasksWith*` / `tasksWithout*` separately; a null token field does
+  not become zero in the hero number (`tokens` stays `null` until at least one
+  task reported input or output).
+- Agent order follows category membership, then leftover identities. Agent
+  and project `lastActivityAt` are the max of binding `lastUsedAt`, run
+  `updatedAt` and interactive session bookends.
+- Work is the 20 newest closed interactive bookends plus runs. Open bookends
+  and live PTYs are not listed there. Session rows carry `kind: 'session'`
+  and an empty usage rollup.
+- Interactive spawn/exit writes `AdeConfig.sessionBookends` (FIFO 100,
+  path-free). Task PTYs do not. On PtyManager construct, open bookends whose
+  session is gone close as `interrupted`.
+- The view is event-driven (`orchestration:changed`, `pty:exit`,
+  `pty:removed`). It does not poll `repository:overview`. Clicks set existing
+  selection/run/session stores and switch to Terminals or Graph.
 
 ## Repository inspector read boundary
 
@@ -727,8 +753,9 @@ Every invoke passes two checks before its handler runs:
   auth probes; Ollama checks its local service; other runtimes report unknown
   auth explicitly when no stable probe exists.
 - Keyboard: Ctrl+Shift+T/W create/close, Ctrl+PageUp/PageDown cycle sessions,
-  Alt+1..9 selects a session, Ctrl+1/2 changes top-level view. Tab lists also
-  implement roving focus and arrow/Home/End navigation.
+  Alt+1..9 selects a session, Ctrl+1/2/3 changes top-level view (Terminals /
+  Graph / Overview). Tab lists also implement roving focus and
+  arrow/Home/End navigation.
 - Native notifications fire only while ADE is in the background, for task
   completion/failure and abnormal interactive exits. Cancellation and clean
   interactive exits remain quiet.
@@ -859,10 +886,11 @@ than they appear to.
 ## UI rules distilled from feedback (see SPEC)
 
 No emojis. No model picker. No Open/Run buttons. No status-bar path.
-Sessions are terminal windows: tab strip has only tabs + `+`. Right panel:
+Sessions are terminal windows: tab strip has only tabs + `+`. Inspector:
 repository-scope header plus Overview / Changes / Files tabs, collapsible,
 resizable and progressively disclosed through one shared detail pane.
-Rail resizable. Onboarding modals per mockup, plus photo upload.
+Default order is rail | terminal | inspector; Settings may put the inspector
+on the left. Rail resizable. Onboarding modals per mockup, plus photo upload.
 
 ## Build phases & ownership (agents)
 

@@ -224,12 +224,6 @@ function describeGrokTool(event: Record<string, unknown>): string {
   return detail ? `${name}: ${condenseActivityText(detail, 120)}` : name;
 }
 
-function textLine(kind: 'thinking' | 'text', value: unknown): ActivityLine[] {
-  if (typeof value !== 'string') return [];
-  const text = condenseActivityText(value);
-  return text ? [{ kind, text }] : [];
-}
-
 function integer(value: unknown): number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 }

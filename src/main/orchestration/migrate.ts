@@ -101,9 +101,13 @@ export function normalizeConfig(
     runPublications: arrayOrEmpty(raw.runPublications),
     runMessages: arrayOrEmpty(raw.runMessages),
     commandLog: arrayOrEmpty(raw.commandLog),
+    sessionBookends: arrayOrEmpty(raw.sessionBookends),
     settings: {
       ...DEFAULT_CONFIG.settings,
       ...(raw.settings ?? {}),
+      inspectorSide: raw.settings?.inspectorSide === 'left' || raw.settings?.inspectorSide === 'right'
+        ? raw.settings.inspectorSide
+        : DEFAULT_CONFIG.settings.inspectorSide,
       memory: {
         ...DEFAULT_CONFIG.settings.memory!,
         ...(raw.settings?.memory ?? {}),
@@ -123,9 +127,11 @@ export function normalizeConfig(
     !Array.isArray(raw.runPublications) ||
     !Array.isArray(raw.runMessages) ||
     !Array.isArray(raw.commandLog) ||
+    !Array.isArray(raw.sessionBookends) ||
     !Array.isArray(raw.repositories) ||
     !Array.isArray(raw.workspaceBindings) ||
     !Array.isArray(raw.agentTemplates) ||
+    (raw.settings?.inspectorSide !== 'left' && raw.settings?.inspectorSide !== 'right') ||
     scopeMigration.migrated ||
     config.runs.some((run, index) => (
       run.mode !== raw.runs?.[index]?.mode ||

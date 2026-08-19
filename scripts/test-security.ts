@@ -115,6 +115,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'pty:kill': { sessionId: 'session' },
   'pty:attach': { sessionId: 'session' },
   'pty:list': undefined,
+  'overview:get': undefined,
   'pty:cancelTasks': {},
   'runtime:diagnose': {},
   'run:get': undefined,
@@ -171,6 +172,10 @@ for (const channel of INVOKE_CHANNELS) {
 }
 
 check('config writes cannot replace catalog data', rejects('config:save', { categories: [] }));
+check('config save accepts an inspector side without changing the theme',
+  !rejects('config:save', { settings: { inspectorSide: 'left' } }));
+check('config save rejects an unknown inspector side',
+  rejects('config:save', { settings: { inspectorSide: 'top' } }));
 check('unknown fields are rejected', rejects('pty:kill', { sessionId: 's', extra: true }));
 check('workspace bundle preview accepts only a main-issued selection id',
   rejects('workspaceBundle:preview', {

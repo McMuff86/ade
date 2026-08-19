@@ -95,7 +95,7 @@ function assertCatalogIntegrity(config: AdeConfig): void {
 const ROOT_KEYS = [
   'categories', 'agents', 'repositories', 'workspaceBindings', 'agentTemplates', 'runs',
   'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults', 'runApprovals',
-  'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'settings',
+  'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'sessionBookends', 'settings',
 ] as const;
 const RUNTIMES = new Set(['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom']);
 const PERMISSIONS = new Set(['default', 'accept-edits', 'bypass']);
@@ -104,6 +104,7 @@ const GROK_REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhi
 const REPLACE_IMMUTABLE_KEYS = [
   'runs', 'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults',
   'runApprovals', 'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog',
+  'sessionBookends',
 ] as const;
 
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
@@ -129,8 +130,12 @@ export function validateCompleteConfig(config: AdeConfig): void {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
-  exactKeys(settings, ['theme', 'memory', 'worktreeBaseDir'], 'config.settings');
+  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir'], 'config.settings');
   if (settings.theme !== 'dark' && settings.theme !== 'light') throw new Error('config.settings.theme is invalid.');
+  if (settings.inspectorSide !== undefined
+      && settings.inspectorSide !== 'left' && settings.inspectorSide !== 'right') {
+    throw new Error('config.settings.inspectorSide is invalid.');
+  }
   boundedString(settings.worktreeBaseDir, 'config.settings.worktreeBaseDir', true);
   const memory = object(settings.memory, 'config.settings.memory');
   exactKeys(memory, ['enabled', 'userProfileEnabled', 'memoryCharLimit', 'userCharLimit'], 'config.settings.memory');
@@ -352,6 +357,10 @@ export function validateCompleteConfig(config: AdeConfig): void {
   ], ['id', 'runId', 'toParticipantId', 'kind', 'text', 'createdAt', 'seq']);
   schema(config.commandLog, 'config.commandLog', ['commandId', 'channel', 'createdAt', 'resultJson'],
     ['commandId', 'channel', 'createdAt', 'resultJson'], 'commandId');
+  schema(config.sessionBookends, 'config.sessionBookends', [
+    'id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName',
+    'startedAt', 'endedAt', 'exitReason',
+  ], ['id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName', 'startedAt', 'endedAt']);
 
   const text = (value: unknown, label: string, optional = false): void => {
     if (value === undefined && optional) return;
@@ -493,6 +502,21 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const command of config.commandLog) {
     text(command.channel, 'commandLog.channel'); number(command.createdAt, 'commandLog.createdAt'); text(command.resultJson, 'commandLog.resultJson');
+  }
+  for (const bookend of config.sessionBookends) {
+    text(bookend.agentId, 'sessionBookend.agentId');
+    text(bookend.agentName, 'sessionBookend.agentName');
+    if (!RUNTIMES.has(bookend.runtime)) throw new Error('sessionBookend.runtime is invalid.');
+    if (bookend.repositoryId !== null) text(bookend.repositoryId, 'sessionBookend.repositoryId');
+    if (bookend.repositoryName !== null) text(bookend.repositoryName, 'sessionBookend.repositoryName');
+    number(bookend.startedAt, 'sessionBookend.startedAt');
+    if (bookend.endedAt !== null) number(bookend.endedAt, 'sessionBookend.endedAt');
+    if (bookend.endedAt !== null && bookend.exitReason === undefined) {
+      throw new Error('sessionBookend.exitReason is required when endedAt is set.');
+    }
+    if (bookend.exitReason !== undefined) {
+      enumValue(bookend.exitReason, ['exit', 'cancelled', 'interrupted'], 'sessionBookend.exitReason');
+    }
   }
 
   const requireRef = (value: unknown, values: Set<string>, label: string): void => {
@@ -868,7 +892,7 @@ export class ConfigStore {
    * Shallow-merge a partial config (settings merged one level deep) and
    * persist atomically. Returns the saved config.
    */
-  save(partial: Partial<AdeConfig>): AdeConfig {
+  save(partial: Omit<Partial<AdeConfig>, 'settings'> & { settings?: Partial<AdeConfig['settings']> }): AdeConfig {
     this.assertWritable();
     const releaseLock = process.platform === 'linux' ? this.acquireWorkspaceImportLock() : () => {};
     try {

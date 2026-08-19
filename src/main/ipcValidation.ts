@@ -181,8 +181,14 @@ function validateConfigSave(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, ['settings']);
   const settings = record(channel, request.settings, 'settings');
-  exactKeys(channel, settings, ['theme'], 'settings');
-  enumValue(channel, settings.theme, 'settings.theme', ['dark', 'light']);
+  exactKeys(channel, settings, ['theme', 'inspectorSide'], 'settings');
+  if (settings.theme === undefined && settings.inspectorSide === undefined) {
+    invalid(channel, 'settings must include theme or inspectorSide');
+  }
+  if (settings.theme !== undefined) enumValue(channel, settings.theme, 'settings.theme', ['dark', 'light']);
+  if (settings.inspectorSide !== undefined) {
+    enumValue(channel, settings.inspectorSide, 'settings.inspectorSide', ['left', 'right']);
+  }
 }
 
 function validateCategoryCreate(channel: string, payload: unknown): void {
@@ -584,6 +590,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ConfigHealth:
     case IPC.WorkspaceBundlePickImport:
     case IPC.PtyList:
+    case IPC.OverviewGet:
     case IPC.RunGet:
     case IPC.DialogPickFolder:
     case IPC.WslList:
