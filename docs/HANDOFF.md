@@ -1,20 +1,67 @@
-# Handoff — 2026-07-23
+# Handoff — 2026-08-19
 
-Dieser Handoff beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
+## Ergebnis dieser Session
+
+- **Grok Build Activity-Feed (Schnitt 3):**
+  - `GrokActivityParser` rendert `thought` / `tool_call` / `text` / `end` /
+    `error` aus `--output-format streaming-json`. Tools werden einmal pro
+    `toolCallId` genannt, ohne Rohpayloads.
+  - Der Adapter startet jetzt `streaming-json` statt des einzelnen JSON-
+    Envelopes. Ergebnis und Usage kommen aus `text`/`end`; das alte Envelope
+    bleibt lesbar.
+  - Operator-Check (nicht im `pnpm test`-Floor):
+    `pnpm exec tsx scripts/test-grok-operator.ts` — echter CLI-Lauf in einem
+    Wegwerf-Repo. Lokal 2026-08-19 grün: `hello-ade.txt` geschrieben,
+    14 Activity-Zeilen, outcome `succeeded`, 63257 in / 982 out,
+    `$0.0132`. Der echte Stream ist tokenweise; der Parser coalesced
+    Thought/Text und zieht das letzte JSON-Objekt aus dem Text.
+
+- **Grok Build native Managed-Task-Adapter (Schnitt 2):**
+  - `GrokJsonAdapter` (`grok-json-v1`) vor dem File-Fallback: `--prompt-file`,
+    `--output-format streaming-json`, `--no-auto-update`, Permission/Modell/
+    Reasoning der Identity. Niemals `--worktree`. `--json-schema` bleibt
+    ungenutzt, weil die CLI nur Inline-JSON akzeptiert.
+  - ADE schreibt `PROMPT.txt`, WSL übersetzt den Prompt weiter über
+    `ADE_TASK_PROMPT_FILE`. Tokens (uncached + Cache-Buckets) und
+    `total_cost_usd` überschreiben modellgeschriebene Usage, fehlende/
+    partielle Kosten bleiben `null`.
+  - Fokus-Evidenz: Runtime (Prompt-File-Transport, kein Worktree),
+    Orchestration-Beta (Adapterwahl, Stream/Envelope, Activity, ConPTY,
+    fail-closed Cost).
+
+- **Grok Build interaktiv first-class (Schnitt 1):**
+  - Launch-Profil: `default` → `grok`, `accept-edits` →
+    `grok --permission-mode acceptEdits`, `bypass` → `grok --always-approve`.
+  - Identitäten persistieren `grokModel` / `grokReasoningEffort` analog Codex
+    (Default `grok-4.6` / `high`; `ultra` ist Codex-only und wird fail-closed
+    abgelehnt). Interactive Launch hängt `--model` und `--reasoning-effort` an.
+  - New/Edit-Agent und die Agent-Card zeigen das Grok-Profil. Templates,
+    Workspace-Bundles und die Rollen-`AGENTS.md` tragen die Pins mit.
+  - Settings öffnet `grok login`. Diagnose wertet `grok models` (Login-Zeile),
+    einen gespeicherten ADE-`XAI_API_KEY` und die Prozessumgebung; gespeicherte
+    Keys zählen jetzt als angemeldet, nicht nur `process.env`.
+  - **Nicht** in diesem Schnitt: native Managed-Task-Adapter (`--prompt-file`,
+    `--json-schema`, `streaming-json`). Graph-Tasks für Grok bleiben der
+    generische File-Result-Adapter mit stdin.
+  - Fokus-Evidenz: Runtime 40, Security 144, Memory 28, Harness 21. Electron-
+    Workflow muss den interaktiven Launch mit Key + `--always-approve --model
+    grok-4.6 --reasoning-effort high` plus Login-Kommando und Auth-Badge
+    nachweisen.
+
+## Vorheriger Stand (2026-07-23)
+
+Dieser Abschnitt beschreibt den zusammenhängenden Stand aus Goal-6-/Plattform-
 Abschluss, Verified Draft-PR Publishing, dem Repository Inspector (`40bc1b2`
-auf `origin/main`) und dessen neuem Progressive-Disclosure-Slice: kompakte
+auf `origin/main`) und dessen Progressive-Disclosure-Slice: kompakte
 `Scope & session`-Offenlegung, CI-Rollups mit On-demand-Einzelchecks,
 Run→Publication→PR-Traceability, ausschließlich entscheidungsrelevante
 Hervorhebung, visuelle Regressions-Baselines, die explizite Harness-Wahl
 pro Run im "Neuer Run"-Dialog samt Repo-Pfad-Import sowie die Settings-Seite
 für Harness-Verwaltung: Subscription-Anzeige aus dem CLI-Status, Login-
 Terminal pro Harness, verschlüsselte write-only API-Keys und generische
-Service-Keys mit Injektions-Scope. Der Slice wird mit synchroner
-Produkt-/Architektur-Dokumentation durch den vollständigen Windows-Gate
-verifiziert; der Abschlusszustand soll identisches lokales `main`/`origin/main`
-und ein sauberer Git-Worktree sein.
+Service-Keys mit Injektions-Scope.
 
-## Ergebnis dieser Session
+## Ergebnis der Session 2026-07-23
 
 - **Progressive-Disclosure-Slice des Inspectors (neu):**
   - Seltene Scope-Aktionen (`Add repo`, `Pfad…`, `Set agent default`,

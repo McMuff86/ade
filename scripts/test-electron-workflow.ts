@@ -468,10 +468,14 @@ function writeFakeClaudeCli(bin: string): void {
 /** Env-echoing grok stand-in proving stored-key injection end to end. */
 function writeFakeGrokCli(bin: string): void {
   if (isWindows) {
-    writeFileSync(join(bin, 'grok.cmd'), '@echo off\r\necho GROK_KEY=%XAI_API_KEY%\r\n', 'utf8');
+    writeFileSync(
+      join(bin, 'grok.cmd'),
+      '@echo off\r\necho GROK_KEY=%XAI_API_KEY%\r\necho GROK_ARGS=%*\r\n',
+      'utf8',
+    );
   } else {
     const launcher = join(bin, 'grok');
-    writeFileSync(launcher, '#!/bin/sh\necho "GROK_KEY=$XAI_API_KEY"\n', 'utf8');
+    writeFileSync(launcher, '#!/bin/sh\necho "GROK_KEY=$XAI_API_KEY"\necho "GROK_ARGS=$*"\n', 'utf8');
     chmodSync(launcher, 0o755);
   }
 }
@@ -1797,6 +1801,9 @@ async function run(): Promise<void> {
         && keyPlaceholder?.includes('Alternative zur Subscription') === true;
     }, 20_000);
     const grokRow = settingsDialog.locator('.st-harness', { hasText: 'Grok Build' });
+    check('Grok Build documents grok login as a first-class harness sign-in',
+      ((await grokRow.textContent()) ?? '').includes('grok login')
+        && await grokRow.getByRole('button', { name: 'Anmelden im Terminal' }).isVisible());
     const initialHarnessStatus = await page.evaluate(async () => {
       const api = (window as unknown as {
         ade: { invoke: (channel: string) => Promise<unknown> };
@@ -1815,6 +1822,11 @@ async function run(): Promise<void> {
       await grokRow.getByRole('button', { name: 'Speichern' }).click();
       await eventually('a saved harness key reports write-only boolean status', async () =>
         (await grokRow.textContent())?.includes('API-Key gespeichert (XAI_API_KEY)') === true);
+      await eventually('a stored Grok key is diagnosed as authenticated', async () => {
+        const text = await grokRow.textContent();
+        return text?.includes('Angemeldet') === true
+          && text.includes('Stored XAI_API_KEY is available to ADE sessions.');
+      }, 20_000);
       await settingsDialog.getByLabel('Name des Service-Keys').fill('ELEVENLABS_API_KEY');
       await settingsDialog.getByLabel('Wert des Service-Keys').fill(serviceValue);
       await settingsDialog.locator('.st-service-add').getByRole('button', { name: 'Speichern' }).click();
@@ -1858,6 +1870,10 @@ async function run(): Promise<void> {
       const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
       await grokAgentDialog.waitFor({ state: 'visible' });
       await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
+      await grokAgentDialog.locator('#edit-agent-perm').selectOption('bypass');
+      check('Grok agent settings expose model and reasoning pins',
+        await grokAgentDialog.locator('#edit-agent-grok-model').inputValue() === 'grok-4.6'
+          && await grokAgentDialog.locator('#edit-agent-grok-reasoning').inputValue() === 'high');
       await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
       // Saving re-resolves the agent-default scope; over a cold WSL VM the Git
       // inspection can legitimately exceed Playwright's 30s default.
@@ -1872,6 +1888,10 @@ async function run(): Promise<void> {
             ?.includes(`GROK_KEY=${grokKey}`) === true,
         20_000,
       );
+      const grokTerminal = await page.locator('.terminal-pane-wrap:visible .xterm-rows').textContent();
+      check('a Grok session launches with always-approve and the pinned model profile',
+        grokTerminal?.includes('GROK_ARGS=--always-approve --model grok-4.6 --reasoning-effort high') === true,
+        grokTerminal);
       await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
       const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
       await revertAgentDialog.waitFor({ state: 'visible' });

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type {
   CategoryKind,
   CodexReasoningEffort,
+  GrokReasoningEffort,
   MemorySettings,
   PermissionMode,
   RuntimeId,
@@ -9,7 +10,7 @@ import type {
   ThemeName,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
-import { CODEX_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from './runtimes';
+import { CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from './runtimes';
 
 export const WORKSPACE_BUNDLE_FORMAT = 'ade-workspace-bundle' as const;
 export const WORKSPACE_BUNDLE_VERSION = 1 as const;
@@ -63,6 +64,8 @@ export interface WorkspaceBundleAgent {
   ollamaModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   defaultRepositoryId?: string;
   teamRole?: TeamRole;
   photoAssetId?: string;
@@ -80,6 +83,8 @@ export interface WorkspaceBundleAgentTemplate {
   ollamaModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   photoAssetId?: string;
   memorySeed: WorkspaceBundleMemory;
 }
@@ -117,6 +122,9 @@ const RUNTIMES = new Set<RuntimeId>([
 const PERMISSION_MODES = new Set<PermissionMode>(['default', 'accept-edits', 'bypass']);
 const REASONING_EFFORTS = new Set<CodexReasoningEffort>([
   'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+]);
+const GROK_REASONING_EFFORTS = new Set<GrokReasoningEffort>([
+  'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
 ]);
 const CATEGORY_KINDS = new Set<CategoryKind>(['plain', 'orchestrator', 'team']);
 const TEAM_ROLES = new Set<TeamRole>(['orchestrator', 'lead', 'worker']);
@@ -285,13 +293,17 @@ function parseAgent(value: unknown, index: number): WorkspaceBundleAgent {
   const raw = record(value, label);
   exactKeys(raw, [
     'id', 'categoryId', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel',
-    'codexModel', 'codexReasoningEffort', 'defaultRepositoryId', 'teamRole',
+    'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+    'defaultRepositoryId', 'teamRole',
     'photoAssetId', 'memory', 'sourceHomeBackend', 'sourceHomePathStyle',
   ], label);
   const runtime = enumeration(raw.runtime, RUNTIMES, `${label}.runtime`);
   const effort = raw.codexReasoningEffort === undefined
     ? undefined
     : enumeration(raw.codexReasoningEffort, REASONING_EFFORTS, `${label}.codexReasoningEffort`);
+  const grokEffort = raw.grokReasoningEffort === undefined
+    ? undefined
+    : enumeration(raw.grokReasoningEffort, GROK_REASONING_EFFORTS, `${label}.grokReasoningEffort`);
   const teamRole = raw.teamRole === undefined ? undefined : enumeration(raw.teamRole, TEAM_ROLES, `${label}.teamRole`);
   return {
     id: id(raw.id, `${label}.id`),
@@ -303,6 +315,8 @@ function parseAgent(value: unknown, index: number): WorkspaceBundleAgent {
     ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
     ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true, pattern: CODEX_MODEL_PATTERN }) ? { codexModel: raw.codexModel as string } : {}),
     ...(effort ? { codexReasoningEffort: effort } : {}),
+    ...(text(raw.grokModel, `${label}.grokModel`, 200, { optional: true, pattern: GROK_MODEL_PATTERN }) ? { grokModel: raw.grokModel as string } : {}),
+    ...(grokEffort ? { grokReasoningEffort: grokEffort } : {}),
     ...(optionalId(raw.defaultRepositoryId, `${label}.defaultRepositoryId`) ? { defaultRepositoryId: raw.defaultRepositoryId as string } : {}),
     ...(teamRole ? { teamRole } : {}),
     ...(optionalId(raw.photoAssetId, `${label}.photoAssetId`) ? { photoAssetId: raw.photoAssetId as string } : {}),
@@ -317,11 +331,14 @@ function parseTemplate(value: unknown, index: number): WorkspaceBundleAgentTempl
   const raw = record(value, label);
   exactKeys(raw, [
     'id', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel', 'codexModel',
-    'codexReasoningEffort', 'photoAssetId', 'memorySeed',
+    'codexReasoningEffort', 'grokModel', 'grokReasoningEffort', 'photoAssetId', 'memorySeed',
   ], label);
   const effort = raw.codexReasoningEffort === undefined
     ? undefined
     : enumeration(raw.codexReasoningEffort, REASONING_EFFORTS, `${label}.codexReasoningEffort`);
+  const grokEffort = raw.grokReasoningEffort === undefined
+    ? undefined
+    : enumeration(raw.grokReasoningEffort, GROK_REASONING_EFFORTS, `${label}.grokReasoningEffort`);
   return {
     id: id(raw.id, `${label}.id`),
     name: identityName(raw.name, `${label}.name`),
@@ -331,6 +348,8 @@ function parseTemplate(value: unknown, index: number): WorkspaceBundleAgentTempl
     ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
     ...(text(raw.codexModel, `${label}.codexModel`, 200, { optional: true, pattern: CODEX_MODEL_PATTERN }) ? { codexModel: raw.codexModel as string } : {}),
     ...(effort ? { codexReasoningEffort: effort } : {}),
+    ...(text(raw.grokModel, `${label}.grokModel`, 200, { optional: true, pattern: GROK_MODEL_PATTERN }) ? { grokModel: raw.grokModel as string } : {}),
+    ...(grokEffort ? { grokReasoningEffort: grokEffort } : {}),
     ...(optionalId(raw.photoAssetId, `${label}.photoAssetId`) ? { photoAssetId: raw.photoAssetId as string } : {}),
     memorySeed: parseMemory(raw.memorySeed, `${label}.memorySeed`),
   };

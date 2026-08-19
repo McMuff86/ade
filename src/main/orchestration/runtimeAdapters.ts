@@ -7,9 +7,10 @@ import type {
   StructuredTaskResult,
   TaskUsage,
 } from '../../shared/types';
-import { resolveClaudeCommand, resolveCodexExecCommand } from '../../shared/runtimes';
+import { resolveClaudeCommand, resolveCodexExecCommand, resolveLaunchCommand } from '../../shared/runtimes';
 import { parseClaudeUsage } from './claudeStream';
 import { parseCodexUsage } from './codexStream';
+import { parseGrokUsage, structuredResultFromGrokStream } from './grokStream';
 
 const RESULT_CAP_BYTES = 1024 * 1024;
 
@@ -40,7 +41,7 @@ export interface ManagedTaskLaunch {
   reportsTokens: boolean;
   reportsCost: boolean;
   /** Machine-readable output the main process can render as live activity. */
-  activityFormat?: 'claude-stream-json' | 'codex-jsonl';
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
   /** Exact repo HEAD observed immediately before the managed process starts. */
   workspaceHeadSha?: string;
 }
@@ -65,6 +66,7 @@ export class RuntimeAdapterRegistry {
   constructor(adapters: RuntimeTaskAdapter[] = [
     new CodexJsonAdapter(),
     new ClaudeStreamJsonAdapter(),
+    new GrokJsonAdapter(),
     new FileResultAdapter(),
   ]) {
     this.adapters = adapters;
@@ -158,6 +160,72 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
     }
     // Codex CLI currently reports tokens, not monetary cost. Preserve unknown.
     result.usage.costUsd = null;
+    return result;
+  }
+}
+
+/**
+ * Grok Build headless: `--prompt-file` (stdin is not a prompt) plus
+ * `--output-format streaming-json` for the live activity feed. The CLI does
+ * not accept a schema *file* for `--json-schema` — only inline JSON, which
+ * ADE will not interpolate into a shell. ADE therefore extracts the
+ * structured result from streamed `text` / `end` events and overlays trusted
+ * usage/cost from the terminal `end` event.
+ */
+export class GrokJsonAdapter implements RuntimeTaskAdapter {
+  readonly id = 'grok-json-v1';
+
+  supports(agent: Agent): boolean {
+    return agent.runtime === 'grok' && !agent.customCommand?.trim();
+  }
+
+  capabilities(): { reportsTokens: boolean; reportsCost: boolean } {
+    return { reportsTokens: true, reportsCost: true };
+  }
+
+  prepare(
+    agent: Agent,
+    _task: RunTask,
+    prompt: string,
+    files: ManagedTaskFiles,
+    platform: 'win32' | 'posix',
+  ): ManagedTaskLaunch {
+    prepareFiles(files);
+    const fullPrompt = appendResultContract(prompt, files, true);
+    const promptPath = join(files.taskDir, 'PROMPT.txt');
+    writeFileSync(promptPath, fullPrompt, 'utf8');
+    const base = resolveLaunchCommand(agent).trim();
+    const fileRef = platform === 'win32' ? '"$env:ADE_TASK_PROMPT_FILE"' : '"$ADE_TASK_PROMPT_FILE"';
+    const command = `${base} --prompt-file ${fileRef} --output-format streaming-json --no-auto-update`;
+    return {
+      adapterId: this.id,
+      prompt: fullPrompt,
+      files,
+      env: {
+        ...taskEnv(files),
+        ADE_TASK_PROMPT_FILE: promptPath,
+        GROK_DISABLE_AUTOUPDATER: '1',
+      },
+      command,
+      // stdin keeps the WSL prepare path, which rewrites host paths inside the
+      // prompt and publishes ADE_TASK_PROMPT_FILE. The CLI itself reads the file.
+      transport: 'stdin',
+      reportsTokens: true,
+      reportsCost: true,
+      activityFormat: 'grok-streaming-json',
+    };
+  }
+
+  readResult(launch: ManagedTaskLaunch, terminalOutput: string): StructuredTaskResult {
+    const structured = structuredResultFromGrokStream(terminalOutput);
+    if (structured !== null) {
+      writeFileSync(launch.files.resultPath, `${JSON.stringify(structured)}\n`, 'utf8');
+    }
+    const result = readStructuredResult(launch.files.resultPath);
+    const usage = parseGrokUsage(terminalOutput);
+    result.usage.inputTokens = usage ? usage.inputTokens : null;
+    result.usage.outputTokens = usage ? usage.outputTokens : null;
+    result.usage.costUsd = usage ? usage.costUsd : null;
     return result;
   }
 }
@@ -339,7 +407,7 @@ function appendResultContract(prompt: string, files: ManagedTaskFiles, nativeOut
       : '') +
     `- The JSON Schema is ${files.schemaPath}.\n` +
     (nativeOutput
-      ? '- Return only the final JSON object; ADE/Codex writes and validates the result file.\n'
+      ? '- Return only the final JSON object; ADE writes and validates the result file.\n'
       : `- Before exiting, write exactly one JSON object (no Markdown fences) to ${files.resultPath}.\n`) +
     '- Use empty arrays when a field has no entries and null when usage/cost or commitSha is unavailable.\n' +
     '- Keep prose within the schema maxLength limits (summary ≤ 12000 chars); overlong summary/risks/test output is truncated, structural fields are rejected.\n' +

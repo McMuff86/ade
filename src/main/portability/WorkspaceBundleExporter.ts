@@ -309,6 +309,8 @@ export function exportWorkspaceBundle(
       ...(agent.ollamaModel ? { ollamaModel: agent.ollamaModel } : {}),
       ...(agent.codexModel ? { codexModel: agent.codexModel } : {}),
       ...(agent.codexReasoningEffort ? { codexReasoningEffort: agent.codexReasoningEffort } : {}),
+      ...(agent.grokModel ? { grokModel: agent.grokModel } : {}),
+      ...(agent.grokReasoningEffort ? { grokReasoningEffort: agent.grokReasoningEffort } : {}),
       ...(agent.defaultRepositoryId ? { defaultRepositoryId: agent.defaultRepositoryId } : {}),
       ...(agent.teamRole ? { teamRole: agent.teamRole } : {}),
       ...(photoAssetId ? { photoAssetId } : {}),
@@ -330,6 +332,8 @@ export function exportWorkspaceBundle(
       ...(template.ollamaModel ? { ollamaModel: template.ollamaModel } : {}),
       ...(template.codexModel ? { codexModel: template.codexModel } : {}),
       ...(template.codexReasoningEffort ? { codexReasoningEffort: template.codexReasoningEffort } : {}),
+      ...(template.grokModel ? { grokModel: template.grokModel } : {}),
+      ...(template.grokReasoningEffort ? { grokReasoningEffort: template.grokReasoningEffort } : {}),
       ...(photoAssetId ? { photoAssetId } : {}),
       memorySeed: {
         memory: portableTemplateMemory(template.memorySeed.memory, template.id),

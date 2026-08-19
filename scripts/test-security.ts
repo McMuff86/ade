@@ -250,6 +250,20 @@ check('Codex model settings cannot leak onto another runtime', rejects('agent:up
   id: 'agent', name: 'a', runtime: 'claude', permissionMode: 'default',
   codexModel: 'gpt-5.6-sol',
 }));
+check('Grok model ids reject shell metacharacters', rejects('agent:create', {
+  categoryId: 'c', name: 'a', runtime: 'grok', permissionMode: 'bypass',
+  grokModel: 'grok-4.6; Remove-Item C:\\', grokReasoningEffort: 'high',
+}));
+check('unknown Grok reasoning levels are rejected', rejects('agent:create', {
+  categoryId: 'c', name: 'a', runtime: 'grok', permissionMode: 'bypass',
+  grokModel: 'grok-4.6', grokReasoningEffort: 'ultra',
+}));
+check('Grok model settings cannot leak onto another runtime', rejects('agent:update', {
+  id: 'agent', name: 'a', runtime: 'codex', permissionMode: 'default',
+  grokModel: 'grok-4.6',
+}));
+check('Grok login is a documented harness login command',
+  !rejects('harness:login', { agentId: 'agent', runtime: 'grok' }));
 check('workspace traversal is rejected before filesystem handlers',
   rejects('fs:read', { agentId: 'agent', path: '../outside.txt' }));
 check('deletion traversal is rejected before filesystem handlers',

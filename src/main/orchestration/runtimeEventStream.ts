@@ -51,6 +51,25 @@ export function extractJsonEventObjects(buffer: string): { objects: string[]; re
   return { objects, rest };
 }
 
+/**
+ * Same ConPTY-safe object walk as extractJsonEventObjects, but for JSON that
+ * does not carry a `"type"` discriminator — Grok's `--output-format json`
+ * envelope starts with `text` / `stopReason` / `usage`.
+ */
+export function extractBalancedJsonObjects(buffer: string): { objects: string[]; rest: string } {
+  const objects: string[] = [];
+  let consumed = 0;
+  while (consumed < buffer.length) {
+    const start = buffer.indexOf('{', consumed);
+    if (start < 0) return { objects, rest: '' };
+    const end = objectEnd(buffer, start);
+    if (end < 0) return { objects, rest: buffer.slice(start) };
+    objects.push(buffer.slice(start, end));
+    consumed = end;
+  }
+  return { objects, rest: '' };
+}
+
 export function parseJsonEventObject(text: string): Record<string, unknown> | null {
   try {
     const value = JSON.parse(text) as unknown;

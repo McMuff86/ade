@@ -1,4 +1,4 @@
-import type { CodexReasoningEffort, PermissionMode, RuntimeId } from '../../shared/types';
+import type { CodexReasoningEffort, GrokReasoningEffort, PermissionMode, RuntimeId } from '../../shared/types';
 
 export const AGENT_RUNTIMES: ReadonlyArray<{ id: RuntimeId; label: string }> = [
   { id: 'codex', label: 'Codex (recommended)' },
@@ -26,6 +26,19 @@ export const CODEX_REASONING_EFFORTS: ReadonlyArray<{
   { id: 'xhigh', label: 'Extra high' },
   { id: 'max', label: 'Max' },
   { id: 'ultra', label: 'Ultra (multi-agent)' },
+  { id: 'low', label: 'Low' },
+  { id: 'minimal', label: 'Minimal' },
+  { id: 'none', label: 'None' },
+];
+
+export const GROK_REASONING_EFFORTS: ReadonlyArray<{
+  id: GrokReasoningEffort;
+  label: string;
+}> = [
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'Extra high' },
+  { id: 'max', label: 'Max' },
   { id: 'low', label: 'Low' },
   { id: 'minimal', label: 'Minimal' },
   { id: 'none', label: 'None' },

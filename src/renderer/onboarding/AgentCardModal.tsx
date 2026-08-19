@@ -32,6 +32,11 @@ function runtimeLine(agent: Agent): string {
     const effort = agent.codexReasoningEffort ? ` · ${agent.codexReasoningEffort}` : '';
     return `${label} · ${model}${effort}`;
   }
+  if (agent.runtime === 'grok') {
+    const model = agent.grokModel ?? 'default model';
+    const effort = agent.grokReasoningEffort ? ` · ${agent.grokReasoningEffort}` : '';
+    return `${label} · ${model}${effort}`;
+  }
   if (agent.runtime === 'ollama' && agent.ollamaModel) return `${label} · ${agent.ollamaModel}`;
   return label;
 }

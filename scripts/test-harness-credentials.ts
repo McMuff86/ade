@@ -200,6 +200,7 @@ function run(): void {
       });
       assertIpcPayload('harness:clearServiceKey', { name: 'ELEVENLABS_API_KEY' });
       assertIpcPayload('harness:login', { agentId: 'agent', runtime: 'claude' });
+      assertIpcPayload('harness:login', { agentId: 'agent', runtime: 'grok' });
     } catch {
       validAccepted = false;
     }
@@ -220,7 +221,7 @@ function run(): void {
       ['harness:setServiceKey', { name: 'GOOD_NAME', value: 'with space', scope: 'all' }],
       ['harness:setServiceKey', { name: 'GOOD_NAME', value: 'v' }],
       ['harness:clearServiceKey', { name: 'GOOD_NAME', value: 'v' }],
-      ['harness:login', { agentId: 'agent', runtime: 'grok' }],
+      ['harness:login', { agentId: 'agent', runtime: 'ollama' }],
       ['harness:login', { agentId: 'agent', runtime: 'shell' }],
       ['harness:login', { agentId: 'agent' }],
     ];

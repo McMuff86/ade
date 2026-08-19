@@ -124,6 +124,8 @@ function importedConfig(
       ...(source.ollamaModel ? { ollamaModel: source.ollamaModel } : {}),
       ...(source.codexModel ? { codexModel: source.codexModel } : {}),
       ...(source.codexReasoningEffort ? { codexReasoningEffort: source.codexReasoningEffort } : {}),
+      ...(source.grokModel ? { grokModel: source.grokModel } : {}),
+      ...(source.grokReasoningEffort ? { grokReasoningEffort: source.grokReasoningEffort } : {}),
       ...(source.defaultRepositoryId && readyRepositoryIds.has(source.defaultRepositoryId)
         ? { defaultRepositoryId: plan.idMap.repositories[source.defaultRepositoryId] }
         : {}),
@@ -150,6 +152,8 @@ function importedConfig(
       ...(source.ollamaModel ? { ollamaModel: source.ollamaModel } : {}),
       ...(source.codexModel ? { codexModel: source.codexModel } : {}),
       ...(source.codexReasoningEffort ? { codexReasoningEffort: source.codexReasoningEffort } : {}),
+      ...(source.grokModel ? { grokModel: source.grokModel } : {}),
+      ...(source.grokReasoningEffort ? { grokReasoningEffort: source.grokReasoningEffort } : {}),
       ...(source.photoAssetId ? { photo: assetNames.get(source.photoAssetId) } : {}),
       memorySeed: structuredClone(source.memorySeed),
       createdAt: now,

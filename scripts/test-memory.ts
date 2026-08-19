@@ -179,6 +179,19 @@ section('role-aware AGENTS.md');
     created.includes('Orchestration role: main orchestrator')
       && created.includes('model gpt-5.6-sol')
       && created.includes('reasoning xhigh'));
+  const grokAgent: Agent = {
+    ...agent,
+    id: 'grok-orchestrator',
+    name: 'Grok Chef',
+    runtime: 'grok',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'xhigh',
+    memoryDir: join(dir, 'grok-memory'),
+  };
+  const grokCreated = syncAgentInstructions(grokAgent);
+  check('persistent AGENTS.md carries the Grok Build model and reasoning profile',
+    grokCreated.includes('Runtime profile: grok | model grok-4.6 | reasoning xhigh')
+      && grokCreated.includes('Identity: Grok Chef'));
   const path = join(agent.memoryDir, 'AGENTS.md');
   writeFileSync(path, `${created}\nUser-owned local guidance.\n`, 'utf8');
   const worker = syncAgentInstructions({ ...agent, teamRole: 'worker', codexReasoningEffort: 'high' });

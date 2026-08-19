@@ -13,9 +13,12 @@ import { resolveLaunchCommand } from '../../shared/runtimes';
 import {
   DEFAULT_CODEX_MODEL,
   DEFAULT_CODEX_REASONING_EFFORT,
+  DEFAULT_GROK_MODEL,
+  DEFAULT_GROK_REASONING_EFFORT,
   type Agent,
   type CodexReasoningEffort,
   type DashboardTarget,
+  type GrokReasoningEffort,
   type PermissionMode,
   type RuntimeId,
 } from '../../shared/types';
@@ -23,7 +26,9 @@ import { useAppData } from '../stores/appdata';
 import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
-import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS } from './agentOptions';
+import {
+  AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS, GROK_REASONING_EFFORTS,
+} from './agentOptions';
 
 interface EditAgentModalProps {
   agent: Agent;
@@ -45,6 +50,10 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [codexModel, setCodexModel] = useState(agent.codexModel ?? DEFAULT_CODEX_MODEL);
   const [codexReasoningEffort, setCodexReasoningEffort] = useState<CodexReasoningEffort>(
     agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT,
+  );
+  const [grokModel, setGrokModel] = useState(agent.grokModel ?? DEFAULT_GROK_MODEL);
+  const [grokReasoningEffort, setGrokReasoningEffort] = useState<GrokReasoningEffort>(
+    agent.grokReasoningEffort ?? DEFAULT_GROK_REASONING_EFFORT,
   );
   const [customCommand, setCustomCommand] = useState(agent.customCommand ?? '');
   const [defaultRepositoryId, setDefaultRepositoryId] = useState(agent.defaultRepositoryId ?? '');
@@ -71,6 +80,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     ollamaModel: runtime === 'ollama' ? ollamaModel.trim() || undefined : undefined,
     codexModel: runtime === 'codex' ? codexModel.trim() || DEFAULT_CODEX_MODEL : undefined,
     codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
+    grokModel: runtime === 'grok' ? grokModel.trim() || DEFAULT_GROK_MODEL : undefined,
+    grokReasoningEffort: runtime === 'grok' ? grokReasoningEffort : undefined,
   });
   useEffect(() => {
     let disposed = false;
@@ -117,6 +128,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
         codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
+        grokModel: runtime === 'grok' && grokModel.trim() ? grokModel.trim() : undefined,
+        grokReasoningEffort: runtime === 'grok' ? grokReasoningEffort : undefined,
         defaultRepositoryId: defaultRepositoryId || null,
         homeExecutionBackend: homeBackend,
         homeWorkspaceDir: homeDir.trim(),
@@ -234,6 +247,38 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           </div>
           <div className="repo-hint codex-profile-hint">
             Applied to interactive terminals and managed tasks. Extra high is recommended for the main orchestrator.
+          </div>
+        </div>
+      ) : null}
+
+      {runtime === 'grok' ? (
+        <div className="codex-profile-grid">
+          <div className="field">
+            <label htmlFor="edit-agent-grok-model">GROK MODEL</label>
+            <input
+              id="edit-agent-grok-model"
+              type="text"
+              value={grokModel}
+              maxLength={100}
+              autoComplete="off"
+              placeholder={DEFAULT_GROK_MODEL}
+              onChange={(event) => setGrokModel(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="edit-agent-grok-reasoning">REASONING EFFORT</label>
+            <select
+              id="edit-agent-grok-reasoning"
+              value={grokReasoningEffort}
+              onChange={(event) => setGrokReasoningEffort(event.target.value as GrokReasoningEffort)}
+            >
+              {GROK_REASONING_EFFORTS.map((effort) => (
+                <option key={effort.id} value={effort.id}>{effort.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="repo-hint codex-profile-hint">
+            Applied to interactive Grok Build terminals. Extra high is recommended for the main orchestrator.
           </div>
         </div>
       ) : null}

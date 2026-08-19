@@ -23,6 +23,13 @@ export type CodexReasoningEffort =
 export const DEFAULT_CODEX_MODEL = 'gpt-5.6-sol';
 export const DEFAULT_CODEX_REASONING_EFFORT: CodexReasoningEffort = 'high';
 
+/** Grok Build reasoning levels advertised by the current CLI (no `ultra`). */
+export type GrokReasoningEffort = Exclude<CodexReasoningEffort, 'ultra'>;
+
+/** Product defaults for newly created Grok Build agents. */
+export const DEFAULT_GROK_MODEL = 'grok-4.6';
+export const DEFAULT_GROK_REASONING_EFFORT: GrokReasoningEffort = 'high';
+
 export type RuntimeId =
   | 'claude'
   | 'codex'
@@ -77,6 +84,9 @@ export interface AgentTemplate {
   /** Exact Codex CLI model id, e.g. "gpt-5.6-sol". */
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  /** Exact Grok Build CLI model id, e.g. "grok-4.6". */
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   memorySeed: {
     memory: string;
     user: string;
@@ -143,6 +153,10 @@ export interface Agent {
   codexModel?: string;
   /** Persisted Codex reasoning level passed to every interactive and managed launch. */
   codexReasoningEffort?: CodexReasoningEffort;
+  /** Exact model pin for the Grok Build runtime, e.g. "grok-4.6". */
+  grokModel?: string;
+  /** Persisted Grok Build reasoning level passed to every interactive and managed launch. */
+  grokReasoningEffort?: GrokReasoningEffort;
   /** resolved absolute path of the agent workspace (worktree when repo-backed) */
   workspaceDir: string;
   /** Plain, repository-independent workspace. Missing only in pre-Goal-5 config. */
@@ -962,6 +976,8 @@ export interface AgentCreateInput {
   ollamaModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   teamRole?: TeamRole;
   /** null creates a portable agent; undefined inherits the category default. */
   defaultRepositoryId?: string | null;
@@ -977,6 +993,8 @@ export interface AgentUpdateInput {
   ollamaModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   /** Optional topology repair/administration field; omitted updates preserve the role. */
   teamRole?: TeamRole;
   /** null clears the default; undefined preserves it. */
@@ -1011,6 +1029,8 @@ export interface AgentTemplateSpawnInput {
   ollamaModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
+  grokModel?: string;
+  grokReasoningEffort?: GrokReasoningEffort;
   defaultRepositoryId?: string | null;
 }
 

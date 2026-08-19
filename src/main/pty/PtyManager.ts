@@ -33,6 +33,7 @@ import {
 import type { ConfigStore } from '../config/store';
 import { ClaudeActivityParser, type ActivityLine } from '../orchestration/claudeStream';
 import { CodexActivityParser } from '../orchestration/codexStream';
+import { GrokActivityParser } from '../orchestration/grokStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
 import { resolveHostShell } from '../platform';
@@ -64,6 +65,7 @@ const WSL_MANAGED_PATH_ENV = new Set([
   'ADE_TASK_DIR',
   'ADE_TASK_RESULT_PATH',
   'ADE_TASK_SCHEMA_PATH',
+  'ADE_TASK_PROMPT_FILE',
   'ADE_MAILBOX_INBOX',
   'ADE_MAILBOX_OUTBOX',
 ]);
@@ -76,7 +78,7 @@ export interface TaskLifecycleSink {
     env: Record<string, string>;
     command?: string;
     transport?: 'argument' | 'stdin';
-    activityFormat?: 'claude-stream-json' | 'codex-jsonl';
+    activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
   } | undefined;
   handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
@@ -105,7 +107,7 @@ interface Session {
   promptScratchDir?: string;
   /** Live activity rendered from a machine-readable runtime stream. */
   activity?: {
-    parser: ClaudeActivityParser | CodexActivityParser;
+    parser: ClaudeActivityParser | CodexActivityParser | GrokActivityParser;
     lines: ActivityLine[];
     /** Task-dir JSONL so the feed survives session end; best effort. */
     filePath?: string;
@@ -452,9 +454,7 @@ export class PtyManager {
       promptScratchDir,
       activity: managedLaunch?.activityFormat
         ? {
-            parser: managedLaunch.activityFormat === 'codex-jsonl'
-              ? new CodexActivityParser()
-              : new ClaudeActivityParser(),
+            parser: activityParserFor(managedLaunch.activityFormat),
             lines: [],
             filePath: managedLaunch.env['ADE_TASK_DIR']
               ? join(managedLaunch.env['ADE_TASK_DIR'], 'ACTIVITY.jsonl')
@@ -848,4 +848,12 @@ export class PtyManager {
       if (!win.isDestroyed()) win.webContents.send(channel, payload);
     }
   }
+}
+
+function activityParserFor(
+  format: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json',
+): ClaudeActivityParser | CodexActivityParser | GrokActivityParser {
+  if (format === 'codex-jsonl') return new CodexActivityParser();
+  if (format === 'grok-streaming-json') return new GrokActivityParser();
+  return new ClaudeActivityParser();
 }

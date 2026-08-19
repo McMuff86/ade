@@ -22,7 +22,7 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 import { DEFAULT_CONFIG, type AdeConfig, type ConfigLoadFailure } from '../../shared/types';
 import { isExecutionBackendId } from '../../shared/executionBackends';
-import { CODEX_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
+import { CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
 
 /** Model ids reach a shell command line through resolveLaunchCommand, so a
@@ -100,6 +100,7 @@ const ROOT_KEYS = [
 const RUNTIMES = new Set(['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom']);
 const PERMISSIONS = new Set(['default', 'accept-edits', 'bypass']);
 const REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+const GROK_REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const REPLACE_IMMUTABLE_KEYS = [
   'runs', 'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults',
   'runApprovals', 'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog',
@@ -183,7 +184,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const agent of config.agents) {
     exactKeys(agent as unknown as Record<string, unknown>, [
       'id', 'categoryId', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand',
-      'ollamaModel', 'codexModel', 'codexReasoningEffort', 'workspaceDir', 'homeWorkspaceDir',
+      'ollamaModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+      'workspaceDir', 'homeWorkspaceDir',
       'homeExecutionBackend', 'defaultRepositoryId', 'memoryDir', 'teamRole', 'dashboardUrl',
       'dashboardCommand', 'dashboardTarget',
     ], 'agent');
@@ -193,15 +195,18 @@ export function validateCompleteConfig(config: AdeConfig): void {
     for (const [field, value] of [
       ['role', agent.role], ['photo', agent.photo], ['customCommand', agent.customCommand],
       ['ollamaModel', agent.ollamaModel], ['codexModel', agent.codexModel],
+      ['grokModel', agent.grokModel],
       ['homeWorkspaceDir', agent.homeWorkspaceDir], ['dashboardUrl', agent.dashboardUrl],
       ['dashboardCommand', agent.dashboardCommand],
     ] as const) boundedString(value, `agent.${field}`, true);
     modelId(agent.ollamaModel, OLLAMA_MODEL_PATTERN, 'agent.ollamaModel');
     modelId(agent.codexModel, CODEX_MODEL_PATTERN, 'agent.codexModel');
+    modelId(agent.grokModel, GROK_MODEL_PATTERN, 'agent.grokModel');
     if (!categoryIds.has(agent.categoryId) || !RUNTIMES.has(agent.runtime) || !PERMISSIONS.has(agent.permissionMode)
         || (agent.homeExecutionBackend !== undefined && !isExecutionBackendId(agent.homeExecutionBackend))
         || (agent.defaultRepositoryId !== undefined && !repositoryIds.has(agent.defaultRepositoryId))
         || (agent.codexReasoningEffort !== undefined && !REASONING.has(agent.codexReasoningEffort))
+        || (agent.grokReasoningEffort !== undefined && !GROK_REASONING.has(agent.grokReasoningEffort))
         || (agent.teamRole !== undefined && !['orchestrator', 'lead', 'worker'].includes(agent.teamRole))
         || (agent.dashboardTarget !== undefined && !['window', 'external'].includes(agent.dashboardTarget))) {
       throw new Error('Agent identity or relationships are invalid.');
@@ -238,17 +243,21 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const template of config.agentTemplates) {
     exactKeys(template as unknown as Record<string, unknown>, [
       'id', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand', 'ollamaModel',
-      'codexModel', 'codexReasoningEffort', 'memorySeed', 'createdAt', 'updatedAt',
+      'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+      'memorySeed', 'createdAt', 'updatedAt',
     ], 'agent template');
     boundedString(template.name, 'agentTemplate.name');
     for (const [field, value] of [
       ['role', template.role], ['photo', template.photo], ['customCommand', template.customCommand],
       ['ollamaModel', template.ollamaModel], ['codexModel', template.codexModel],
+      ['grokModel', template.grokModel],
     ] as const) boundedString(value, `agentTemplate.${field}`, true);
     modelId(template.ollamaModel, OLLAMA_MODEL_PATTERN, 'agentTemplate.ollamaModel');
     modelId(template.codexModel, CODEX_MODEL_PATTERN, 'agentTemplate.codexModel');
+    modelId(template.grokModel, GROK_MODEL_PATTERN, 'agentTemplate.grokModel');
     if (!RUNTIMES.has(template.runtime) || !PERMISSIONS.has(template.permissionMode)
         || (template.codexReasoningEffort !== undefined && !REASONING.has(template.codexReasoningEffort))
+        || (template.grokReasoningEffort !== undefined && !GROK_REASONING.has(template.grokReasoningEffort))
         || typeof template.memorySeed?.memory !== 'string' || typeof template.memorySeed?.user !== 'string') {
       throw new Error('Agent template is invalid.');
     }

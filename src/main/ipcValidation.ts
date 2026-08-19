@@ -3,7 +3,8 @@
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import {
-  CODEX_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS, OLLAMA_MODEL_PATTERN,
+  CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS,
+  OLLAMA_MODEL_PATTERN,
 } from '../shared/runtimes';
 
 type RecordValue = Record<string, unknown>;
@@ -11,6 +12,7 @@ type RecordValue = Record<string, unknown>;
 const RUNTIMES = ['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom'] as const;
 const PERMISSION_MODES = ['default', 'accept-edits', 'bypass'] as const;
 const CODEX_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
+const GROK_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 const CATEGORY_KINDS = ['plain', 'orchestrator', 'team'] as const;
 const TEAM_ROLES = ['orchestrator', 'lead', 'worker'] as const;
 const DASHBOARD_TARGETS = ['window', 'external'] as const;
@@ -61,6 +63,14 @@ function optionalCodexModel(channel: string, value: unknown): string | undefined
   const model = optionalString(channel, value, 'codexModel', { max: 100, allowEmpty: true });
   if (model?.trim() && !CODEX_MODEL_PATTERN.test(model.trim())) {
     invalid(channel, 'codexModel must be a shell-safe model id');
+  }
+  return model;
+}
+
+function optionalGrokModel(channel: string, value: unknown): string | undefined {
+  const model = optionalString(channel, value, 'grokModel', { max: 100, allowEmpty: true });
+  if (model?.trim() && !GROK_MODEL_PATTERN.test(model.trim())) {
+    invalid(channel, 'grokModel must be a shell-safe model id');
   }
   return model;
 }
@@ -205,6 +215,8 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'ollamaModel',
     'codexModel',
     'codexReasoningEffort',
+    'grokModel',
+    'grokReasoningEffort',
     'teamRole',
     'defaultRepositoryId',
   ];
@@ -227,6 +239,14 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   if (request.runtime !== 'codex' &&
       (request.codexModel !== undefined || request.codexReasoningEffort !== undefined)) {
     invalid(channel, 'Codex model settings require runtime "codex"');
+  }
+  optionalGrokModel(channel, request.grokModel);
+  if (request.grokReasoningEffort !== undefined) {
+    enumValue(channel, request.grokReasoningEffort, 'grokReasoningEffort', GROK_REASONING_EFFORTS);
+  }
+  if (request.runtime !== 'grok' &&
+      (request.grokModel !== undefined || request.grokReasoningEffort !== undefined)) {
+    invalid(channel, 'Grok model settings require runtime "grok"');
   }
   if (update && request.teamRole !== undefined) {
     enumValue(channel, request.teamRole, 'teamRole', TEAM_ROLES);
@@ -688,6 +708,8 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         'ollamaModel',
         'codexModel',
         'codexReasoningEffort',
+        'grokModel',
+        'grokReasoningEffort',
         'defaultRepositoryId',
       ]);
       id(channel, request.templateId, 'templateId');
@@ -708,6 +730,14 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       if (request.runtime !== undefined && request.runtime !== 'codex' &&
           (request.codexModel !== undefined || request.codexReasoningEffort !== undefined)) {
         invalid(channel, 'Codex model settings require runtime "codex"');
+      }
+      optionalGrokModel(channel, request.grokModel);
+      if (request.grokReasoningEffort !== undefined) {
+        enumValue(channel, request.grokReasoningEffort, 'grokReasoningEffort', GROK_REASONING_EFFORTS);
+      }
+      if (request.runtime !== undefined && request.runtime !== 'grok' &&
+          (request.grokModel !== undefined || request.grokReasoningEffort !== undefined)) {
+        invalid(channel, 'Grok model settings require runtime "grok"');
       }
       nullableId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
       return;

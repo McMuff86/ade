@@ -195,6 +195,8 @@ interface Category { id: string; name: string; photo?: string;
 interface Agent    { id: string; categoryId: string; name: string; role?: string;
                      photo?: string; runtime: RuntimeId;
                      permissionMode: PermissionMode;
+                     codexModel?: string; codexReasoningEffort?: CodexReasoningEffort;
+                     grokModel?: string; grokReasoningEffort?: GrokReasoningEffort;
                      defaultRepositoryId?: string;
                      workspaceDir: string;                       // compatibility alias
                      homeWorkspaceDir?: string;
@@ -288,7 +290,7 @@ builtin-terminal-agents; every profile user-overridable via `customCommand`):
 | claude | `claude` | `claude --permission-mode acceptEdits` | `claude --dangerously-skip-permissions` |
 | codex | `codex` | `codex --sandbox workspace-write --ask-for-approval on-request` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | opencode | `opencode` | — | — |
-| grok | `grok` | — | — (flags configurable; CLI naming varies) |
+| grok | `grok` | `grok --permission-mode acceptEdits` | `grok --always-approve` |
 | gemini | `gemini` | `gemini --approval-mode=auto_edit` | `gemini --yolo` |
 | ollama | `ollama run <model>` | — | — |
 | shell | user's default shell (PowerShell on Windows) | — | — |
@@ -304,9 +306,22 @@ Native Codex identities additionally persist a validated model id and reasoning
 effort. ADE defaults them to `gpt-5.6-sol` and `high`; the saved role policy can
 raise the main orchestrator to `xhigh`. Interactive and managed launch commands
 append `--model <id> -c model_reasoning_effort=<effort>`, and task provenance
-records both values. Model ids accept only a conservative CLI-safe character
-set; custom commands deliberately opt out of the native adapter and its
-reproducibility guarantees.
+records both values. Native Grok Build identities persist the same kind of pin
+(`grok-4.6` / `high` by default, `xhigh` for orchestrators). Interactive launch
+commands append `--model <id> --reasoning-effort <effort>` and translate ADE
+permission modes onto `--permission-mode acceptEdits` or `--always-approve`.
+Grok auth diagnostics treat `grok login` (via `grok models`) and a stored
+`XAI_API_KEY` as first-class; Settings can open `grok login`. Managed Grok
+tasks use the native `grok-json-v1` adapter: `--prompt-file` (never stdin),
+`--output-format streaming-json`, the identity's permission/model/reasoning
+pins, and `--no-auto-update`. ADE never passes `--worktree`. The CLI's
+`--json-schema` flag accepts only inline JSON, which ADE will not interpolate
+into a shell; the structured result is taken from streamed `text` / `end`
+events (the older single JSON envelope remains readable) and usage/cost
+overlay the model-authored fields, fail-closed when absent or partial. The
+stream also drives the Graph activity feed (`grok-streaming-json`). Custom
+commands deliberately opt out of the native adapter and its reproducibility
+guarantees. Model ids accept only a conservative CLI-safe character set.
 
 ## PTY layer (main/pty/PtyManager.ts)
 
@@ -462,9 +477,12 @@ reproducibility guarantees.
 - `runtimeAdapters.ts` is the adapter boundary. The native Codex adapter uses
   `codex exec --json --output-schema --output-last-message` and reads token
   usage from `turn.completed`; its JSONL also powers the live/persisted activity
-  feed. `file-mailbox-v1` injects result/schema/inbox/
-  outbox paths for other non-shell runtimes and requires the result file before
-  process exit.
+  feed. The native Grok adapter (`grok-json-v1`) launches
+  `grok --prompt-file --output-format streaming-json`, renders the Graph
+  activity feed, and reads the structured result plus token/cost from `text` /
+  `end` events. `file-mailbox-v1` injects
+  result/schema/inbox/outbox paths for other non-shell runtimes and requires the
+  result file before process exit.
 - `MailboxService` journals each delivery and mirrors JSONL under
   `<memoryDir>/mailbox/<runId>/`. Task schema/result files live under
   `<memoryDir>/orchestration/<runId>/<taskId>/`; Codex receives that directory

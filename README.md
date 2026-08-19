@@ -54,9 +54,11 @@ directory, with the right PATH.
   auto-launch the agent's CLI.
 - Per-agent permission modes translate to the right CLI flags
   (`claude --permission-mode acceptEdits`,
-  `codex --dangerously-bypass-approvals-and-sandbox`, …).
-- First-class Codex profiles pin an exact model and reasoning effort per
-  identity (default `gpt-5.6-sol`); managed runs preserve them in provenance.
+  `codex --dangerously-bypass-approvals-and-sandbox`,
+  `grok --always-approve`, …).
+- First-class Codex and Grok Build profiles pin an exact model and reasoning
+  effort per identity (defaults `gpt-5.6-sol` and `grok-4.6`); managed Codex
+  runs preserve them in provenance.
 - Reusable agent templates: save runtime, profile and a bounded memory seed,
   then spawn independent identities from it.
 - Bounded per-agent memory (`MEMORY.md` + `USER.md`) and a durable role-aware

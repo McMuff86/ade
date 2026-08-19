@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-07-23. This is the short, factual capability matrix. Product
+Status date: 2026-08-19. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -13,7 +13,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
-| Named agents and categories | Real | Persisted JSON config, photos, runtime/permission settings and native Codex model/reasoning profiles; the current pilot roster is Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) except deliberate shell utilities; its audit archives only fully ADE-owned legacy `CLAUDE.md` scaffolds and preserves all mixed/user content |
+| Named agents and categories | Real | Persisted JSON config, photos, runtime/permission settings and native Codex plus Grok Build model/reasoning profiles; the current pilot roster is Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) except deliberate shell utilities; its audit archives only fully ADE-owned legacy `CLAUDE.md` scaffolds and preserves all mixed/user content |
 | Git workspaces | Real, agent/repository/backend-bound | Every agent/repository pair resolves one isolated ADE worktree/branch and uses only the persisted `native` or `wsl:<distribution>` Git boundary; category paths remain compatibility storage |
 | Repository scopes | Real | First-class repository catalog, explicit execution backend, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots; legacy records migrate to native |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
@@ -40,7 +40,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; exact sender and payload validation on every invoke |
 | Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap and prepares each dependent repo-backed worker's worktree with its dependencies' validated commits before launch |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
-| Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
+| Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; Grok Build uses `--prompt-file` plus `--output-format streaming-json` (`grok-json-v1`) for the live activity feed and result/usage extraction; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
 | Worktree ownership | Real, trust-mode dependent | Clean workspaces are leased exclusively and ADE commits only an exact reported/observed path-set match; normal adapter roots exclude linked-worktree metadata, while an explicitly selected bypass runtime is fully trusted and violations are detected at task boundaries rather than OS-prevented |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Verified Draft-PR publishing | Real, local and explicit | A completed repo-backed managed run atomically attests its final verified HEAD; Graph rechecks clean/same worktree, unchanged GitHub base, generated `ade/**` ref and `gh` access, then a separate confirmation creates only a new branch plus Draft PR and journals the result |
@@ -88,12 +88,18 @@ fixture repositories rather than depending on any personal checkout.
   journaled task-context artifact rather than directly on the task record.
   Restart restoration validates uniqueness, digest and version compatibility
   before reusing the persisted manifest and brief.
-- Task transports are deterministic for supported non-interactive CLIs. Custom
-  commands and Grok receive the prompt over stdin and depend on the command
-  honoring stdin.
-- Auth status is definitive for Claude and Codex. Other third-party CLIs that
-  lack a stable non-interactive status command report an explicit warning;
-  custom command text is never executed or returned by diagnostics.
+- Task transports are deterministic for supported non-interactive CLIs. Native
+  Grok Build managed tasks use `--prompt-file` plus `--output-format streaming-json`
+  (`grok-json-v1`); ADE renders a live activity feed, extracts the structured
+  result from streamed `text` / `end` events, and overlays token/cost
+  telemetry fail-closed. `--json-schema` is not used because the CLI accepts
+  only inline JSON, which ADE will not interpolate into a shell. Custom
+  commands still receive the prompt over stdin.
+- Auth status is definitive for Claude, Codex and Grok Build (`grok models`
+  login line, a stored ADE `XAI_API_KEY`, or the process environment). Other
+  third-party CLIs that lack a stable non-interactive status command report an
+  explicit warning; custom command text is never executed or returned by
+  diagnostics.
 - Windows packaging is x64-first; local/branch artifacts are unsigned and the
   release workflow requires `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` to sign.
   Linux x64 AppImage and Debian targets are locally and hosted package-tested;

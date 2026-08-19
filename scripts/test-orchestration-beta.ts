@@ -22,12 +22,14 @@ import { RunCoordinator } from '../src/main/orchestration/RunCoordinator';
 import {
   ClaudeStreamJsonAdapter,
   CodexJsonAdapter,
+  GrokJsonAdapter,
   RuntimeAdapterRegistry,
   STRUCTURED_RESULT_SCHEMA,
   validateStructuredResult,
 } from '../src/main/orchestration/runtimeAdapters';
 import { ClaudeActivityParser, parseClaudeUsage } from '../src/main/orchestration/claudeStream';
 import { CodexActivityParser, parseCodexUsage } from '../src/main/orchestration/codexStream';
+import { GrokActivityParser, parseGrokUsage } from '../src/main/orchestration/grokStream';
 import { WorkspaceService, type WorkspacePort } from '../src/main/orchestration/WorkspaceService';
 import {
   buildRunContextManifest,
@@ -876,6 +878,126 @@ function adapterChecks(root: string): void {
       && noTelemetry.usage.costUsd === null);
   check('usage is unknown, not invented, when the stream carries no result',
     parseClaudeUsage('{"type":"assistant","message":{"content":[]}}') === null);
+
+  const grokAdapter = new GrokJsonAdapter();
+  const grokAgent: Agent = {
+    ...agent('grok', root),
+    runtime: 'grok',
+    customCommand: undefined,
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'xhigh',
+    permissionMode: 'bypass',
+  };
+  const grokDir = join(root, 'grok-adapter');
+  const grokFiles = {
+    taskDir: grokDir,
+    resultPath: join(grokDir, 'RESULT.json'),
+    schemaPath: join(grokDir, 'RESULT.schema.json'),
+    inboxPath: join(grokDir, 'INBOX.jsonl'),
+    outboxPath: join(grokDir, 'OUTBOX.jsonl'),
+  };
+  const grokLaunch = grokAdapter.prepare(grokAgent, task, task.prompt, grokFiles, 'win32');
+  check('registry prefers the native grok adapter over the file fallback',
+    new RuntimeAdapterRegistry().capabilities(grokAgent).adapterId === 'grok-json-v1');
+  check('Grok task uses --prompt-file and never creates its own worktree',
+    Boolean(grokLaunch.command?.includes('--prompt-file "$env:ADE_TASK_PROMPT_FILE"')
+      && grokLaunch.command?.includes('--output-format streaming-json')
+      && grokLaunch.activityFormat === 'grok-streaming-json'
+      && grokLaunch.command?.includes('--always-approve')
+      && grokLaunch.command?.includes('--model grok-4.6')
+      && grokLaunch.command?.includes('--reasoning-effort xhigh')
+      && !grokLaunch.command?.includes('--worktree')
+      && !grokLaunch.command?.includes('$env:ADE_TASK_PROMPT |')
+      && grokLaunch.transport === 'stdin'
+      && grokLaunch.env['ADE_TASK_PROMPT_FILE'] === join(grokDir, 'PROMPT.txt')
+      && existsSync(join(grokDir, 'PROMPT.txt'))));
+  check('Grok adapter advertises token and cost telemetry',
+    grokLaunch.reportsTokens && grokLaunch.reportsCost);
+  const grokResult = result({
+    usage: { inputTokens: 1, outputTokens: 1, costUsd: 999 },
+  });
+  const grokEnvelope = JSON.stringify({
+    text: grokResult,
+    stopReason: 'end_turn',
+    sessionId: 'sess-1',
+    usage: {
+      input_tokens: 12,
+      cache_read_input_tokens: 100,
+      cache_creation_input_tokens: 8,
+      output_tokens: 4,
+    },
+    total_cost_usd: 0.037,
+  });
+  const grokParsed = grokAdapter.readResult(grokLaunch, grokEnvelope);
+  check('Grok envelope text becomes the structured result',
+    grokParsed.outcome === 'succeeded' && grokParsed.summary === grokResult.summary);
+  check('Grok telemetry sums uncached plus cache buckets and reports billed cost',
+    grokParsed.usage.inputTokens === 120 && grokParsed.usage.outputTokens === 4
+      && grokParsed.usage.costUsd === 0.037);
+  const grokWrapped = `\u001b[?25l${(grokEnvelope.match(/.{1,29}/gs) ?? []).join('\r\n')}\u001b[0m`;
+  const grokWrappedParsed = grokAdapter.readResult(grokLaunch, grokWrapped);
+  check('Grok usage survives ConPTY wrapping and ANSI control sequences',
+    grokWrappedParsed.usage.inputTokens === 120
+      && grokWrappedParsed.usage.outputTokens === 4
+      && grokWrappedParsed.usage.costUsd === 0.037);
+  const fencedEnvelope = JSON.stringify({
+    text: `\`\`\`json\n${JSON.stringify(grokResult)}\n\`\`\``,
+    stopReason: 'end_turn',
+    usage: { input_tokens: 3, output_tokens: 2 },
+    cost_is_partial: true,
+    total_cost_usd: 0.5,
+  });
+  const fencedParsed = grokAdapter.readResult(grokLaunch, fencedEnvelope);
+  check('Grok unwraps fenced JSON text and treats partial cost as unknown',
+    fencedParsed.summary === grokResult.summary
+      && fencedParsed.usage.inputTokens === 3
+      && fencedParsed.usage.costUsd === null);
+  const proseThenJson = `I'll write the file first.\n${JSON.stringify(grokResult)}`;
+  const mixedEnvelope = JSON.stringify({
+    text: proseThenJson,
+    stopReason: 'end_turn',
+    usage: { input_tokens: 4, output_tokens: 1 },
+  });
+  const mixedParsed = grokAdapter.readResult(grokLaunch, mixedEnvelope);
+  check('Grok extracts the ADE result after leading prose',
+    mixedParsed.summary === grokResult.summary && mixedParsed.usage.inputTokens === 4);
+  check('a missing Grok envelope fails closed to unknown usage',
+    parseGrokUsage('not a grok envelope') === null);
+  const grokStream = [
+    '{"type":"thought","data":"Ich prüfe den Workspace."}',
+    '{"type":"tool_call","toolCallId":"call_1","title":"Read","kind":"read","status":"in_progress","toolName":"read_file","rawInput":{"path":"README.md"}}',
+    '{"type":"tool_call_update","toolCallId":"call_1","status":"completed"}',
+    `{"type":"text","data":${JSON.stringify(JSON.stringify(grokResult))}}`,
+    '{"type":"end","stopReason":"end_turn","num_turns":2,"usage":{"input_tokens":12,"cache_read_input_tokens":100,"cache_creation_input_tokens":8,"output_tokens":4},"total_cost_usd":0.037}',
+  ].join('\n');
+  const grokFeed = new GrokActivityParser();
+  const grokRendered = grokFeed.push(grokStream);
+  check('Grok activity renders thought, one deduplicated tool, text and result',
+    grokRendered.length === 4
+      && grokRendered[0]?.kind === 'thinking'
+      && grokRendered[0]?.text === 'Ich prüfe den Workspace.'
+      && grokRendered[1]?.text === 'read_file: README.md'
+      && grokRendered[2]?.kind === 'text'
+      && grokRendered[3]?.kind === 'result'
+      && grokRendered[3]?.text.includes('2 Turns')
+      && grokRendered[3]?.text.includes('120 in / 4 out')
+      && grokRendered[3]?.text.includes('$0.0370'));
+  const splitGrokFeed = new GrokActivityParser();
+  const splitGrokLines = [];
+  for (let index = 0; index < grokStream.length; index += 17) {
+    splitGrokLines.push(...splitGrokFeed.push(grokStream.slice(index, index + 17)));
+  }
+  check('Grok activity survives arbitrary chunk splits without duplicate tools',
+    splitGrokLines.length === 4);
+  const grokStreamParsed = grokAdapter.readResult(grokLaunch, grokStream);
+  check('Grok streaming-json text events become the structured result',
+    grokStreamParsed.summary === grokResult.summary
+      && grokStreamParsed.usage.inputTokens === 120
+      && grokStreamParsed.usage.costUsd === 0.037);
+  const grokErrorFeed = new GrokActivityParser();
+  check('Grok stream errors surface a bounded error line',
+    grokErrorFeed.push('{"type":"error","message":"fixture failed"}')[0]?.text
+      === 'fixture failed');
 
   // Live rendering: chunk boundaries must not lose or duplicate a line.
   const feed = new ClaudeActivityParser();

@@ -5,7 +5,7 @@
  * to the default command).
  */
 
-import type { Agent, CodexReasoningEffort, PermissionMode, RuntimeId } from './types';
+import type { Agent, CodexReasoningEffort, GrokReasoningEffort, PermissionMode, RuntimeId } from './types';
 
 export interface LaunchProfile {
   label: string;
@@ -49,11 +49,10 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
   },
   grok: {
     label: 'Grok Build',
-    // flags configurable; CLI naming varies — override via customCommand
     commands: {
       'default': 'grok',
-      'accept-edits': null,
-      'bypass': null,
+      'accept-edits': 'grok --permission-mode acceptEdits',
+      'bypass': 'grok --always-approve',
     },
   },
   gemini: {
@@ -126,14 +125,16 @@ export const HARNESS_API_KEY_ENV: Partial<Record<RuntimeId, string>> = {
 export const HARNESS_LOGIN_COMMANDS: Partial<Record<RuntimeId, string>> = {
   claude: 'claude auth login',
   codex: 'codex login',
+  grok: 'grok login',
   opencode: 'opencode auth login',
 };
 
 /**
  * The agent identity a run participant actually launches with. A differing
  * per-run harness override drops the agent's customCommand (it belongs to
- * the configured runtime); Codex model/reasoning pins only apply when the
- * effective runtime is codex, which resolveLaunchCommand already guarantees.
+ * the configured runtime); Codex and Grok model/reasoning pins only apply
+ * when the effective runtime matches, which resolveLaunchCommand already
+ * guarantees.
  */
 export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Agent {
   if (!runtime || runtime === agent.runtime) return agent;
@@ -152,7 +153,7 @@ export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Ag
 export function resolveLaunchCommand(
   agent: Pick<Agent,
     'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
-    'codexModel' | 'codexReasoningEffort'>,
+    'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
 ): string {
   if (agent.customCommand && agent.customCommand.trim().length > 0) {
     return agent.customCommand.trim();
@@ -162,7 +163,9 @@ export function resolveLaunchCommand(
   const resolved = command.includes('${model}')
     ? command.replace('${model}', safeOllamaModel(agent.ollamaModel))
     : command;
-  return agent.runtime === 'codex' ? `${resolved}${codexConfigArgs(agent)}` : resolved;
+  if (agent.runtime === 'codex') return `${resolved}${codexConfigArgs(agent)}`;
+  if (agent.runtime === 'grok') return `${resolved}${grokConfigArgs(agent)}`;
+  return resolved;
 }
 
 /**
@@ -189,7 +192,7 @@ function safeOllamaModel(model: string | undefined): string {
 export function resolveTaskLaunchCommand(
   agent: Pick<Agent,
     'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
-    'codexModel' | 'codexReasoningEffort'>,
+    'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
   platform: 'win32' | 'posix',
 ): TaskLaunchCommand | null {
   const base = resolveLaunchCommand(agent).trim();
@@ -232,10 +235,14 @@ export function resolveTaskLaunchCommand(
     case 'ollama':
       return { command: `${base} ${prompt}`, transport: 'argument' };
     case 'grok': {
-      const pipe = platform === 'win32'
-        ? `$env:ADE_TASK_PROMPT | ${base}`
-        : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base}`;
-      return { command: pipe, transport: 'stdin' };
+      // Headless Grok does not read stdin as the prompt. --prompt-file is the
+      // documented transport; ADE_TASK_PROMPT_FILE is written by the adapter
+      // (native) or WSL task prepare (rewritten Linux path).
+      const file = platform === 'win32' ? '"$env:ADE_TASK_PROMPT_FILE"' : '"$ADE_TASK_PROMPT_FILE"';
+      return {
+        command: `${base} --prompt-file ${file} --output-format streaming-json --no-auto-update`,
+        transport: 'stdin',
+      };
     }
     case 'custom':
     default:
@@ -268,6 +275,8 @@ export function resolveCodexExecCommand(
 }
 
 export const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
+/** Same shell-safe grammar as Codex; Grok model ids are `grok-4.6`, `grok-4.5`. */
+export const GROK_MODEL_PATTERN = CODEX_MODEL_PATTERN;
 /**
  * Ollama model ids: `llama3`, `llama3:8b`, `hf.co/org/repo:Q4_K_M`. Same
  * grammar as the Codex ids, with room for registry-qualified names. Exported
@@ -277,6 +286,9 @@ export const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
 export const OLLAMA_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/;
 const CODEX_REASONING_EFFORTS = new Set<CodexReasoningEffort>([
   'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+]);
+const GROK_REASONING_EFFORTS = new Set<GrokReasoningEffort>([
+  'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
 ]);
 
 /** Shell-safe CLI options for first-class Codex model and reasoning pins. */
@@ -295,6 +307,26 @@ function codexConfigArgs(config: Pick<Agent, 'codexModel' | 'codexReasoningEffor
       throw new Error(`ade: unsupported Codex reasoning effort "${String(effort)}"`);
     }
     args.push('-c', `model_reasoning_effort="${effort}"`);
+  }
+  return args.length > 0 ? ` ${args.join(' ')}` : '';
+}
+
+/** Shell-safe CLI options for first-class Grok Build model and reasoning pins. */
+function grokConfigArgs(config: Pick<Agent, 'grokModel' | 'grokReasoningEffort'>): string {
+  const args: string[] = [];
+  const model = config.grokModel?.trim();
+  if (model) {
+    if (!GROK_MODEL_PATTERN.test(model)) {
+      throw new Error(`ade: unsafe Grok model id "${model}"`);
+    }
+    args.push('--model', model);
+  }
+  const effort = config.grokReasoningEffort;
+  if (effort) {
+    if (!GROK_REASONING_EFFORTS.has(effort)) {
+      throw new Error(`ade: unsupported Grok reasoning effort "${String(effort)}"`);
+    }
+    args.push('--reasoning-effort', effort);
   }
   return args.length > 0 ? ` ${args.join(' ')}` : '';
 }

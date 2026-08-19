@@ -12,11 +12,16 @@ import { useSelection } from '../stores/selection';
 import {
   DEFAULT_CODEX_MODEL,
   DEFAULT_CODEX_REASONING_EFFORT,
+  DEFAULT_GROK_MODEL,
+  DEFAULT_GROK_REASONING_EFFORT,
   type CodexReasoningEffort,
+  type GrokReasoningEffort,
   type PermissionMode,
   type RuntimeId,
 } from '../../shared/types';
-import { AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS } from './agentOptions';
+import {
+  AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS, GROK_REASONING_EFFORTS,
+} from './agentOptions';
 
 interface NewAgentModalProps {
   onClose: () => void;
@@ -45,6 +50,9 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
   const [codexModel, setCodexModel] = useState(DEFAULT_CODEX_MODEL);
   const [codexReasoningEffort, setCodexReasoningEffort] =
     useState<CodexReasoningEffort>(DEFAULT_CODEX_REASONING_EFFORT);
+  const [grokModel, setGrokModel] = useState(DEFAULT_GROK_MODEL);
+  const [grokReasoningEffort, setGrokReasoningEffort] =
+    useState<GrokReasoningEffort>(DEFAULT_GROK_REASONING_EFFORT);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('bypass');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [role, setRole] = useState('');
@@ -68,6 +76,8 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
         codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
+        grokModel: runtime === 'grok' && grokModel.trim() ? grokModel.trim() : undefined,
+        grokReasoningEffort: runtime === 'grok' ? grokReasoningEffort : undefined,
         defaultRepositoryId: defaultRepositoryId || null,
       };
       const agent = templateId
@@ -94,6 +104,8 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     setOllamaModel(template.ollamaModel ?? '');
     setCodexModel(template.codexModel ?? DEFAULT_CODEX_MODEL);
     setCodexReasoningEffort(template.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT);
+    setGrokModel(template.grokModel ?? DEFAULT_GROK_MODEL);
+    setGrokReasoningEffort(template.grokReasoningEffort ?? DEFAULT_GROK_REASONING_EFFORT);
   };
 
   return (
@@ -219,6 +231,38 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
           </div>
           <div className="repo-hint codex-profile-hint">
             Persisted for interactive and managed Codex sessions. Orchestrators should use Extra high.
+          </div>
+        </div>
+      ) : null}
+
+      {runtime === 'grok' ? (
+        <div className="codex-profile-grid">
+          <div className="field">
+            <label htmlFor="agent-grok-model">GROK MODEL</label>
+            <input
+              id="agent-grok-model"
+              type="text"
+              value={grokModel}
+              maxLength={100}
+              autoComplete="off"
+              placeholder={DEFAULT_GROK_MODEL}
+              onChange={(event) => setGrokModel(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="agent-grok-reasoning">REASONING EFFORT</label>
+            <select
+              id="agent-grok-reasoning"
+              value={grokReasoningEffort}
+              onChange={(event) => setGrokReasoningEffort(event.target.value as GrokReasoningEffort)}
+            >
+              {GROK_REASONING_EFFORTS.map((effort) => (
+                <option key={effort.id} value={effort.id}>{effort.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="repo-hint codex-profile-hint">
+            Persisted for interactive Grok Build sessions. Orchestrators should use Extra high.
           </div>
         </div>
       ) : null}

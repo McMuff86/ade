@@ -12,6 +12,7 @@ import {
 } from '../src/main/platform';
 import { failureNoticeFor, statusFor } from '../src/renderer/graph/graphModel';
 import type { Run, RunEvent, RunTask } from '../src/shared/types';
+import { interpretGrokAuth } from '../src/main/diagnostics/RuntimeDiagnostics';
 import {
   MANAGED_HARNESS_OVERRIDES,
   effectiveParticipantAgent,
@@ -125,6 +126,147 @@ async function main(): Promise<void> {
     unsafeModelRejected = true;
   }
   check('Codex model ids cannot inject shell syntax', unsafeModelRejected);
+
+  const grokDefault = resolveLaunchCommand({
+    runtime: 'grok',
+    permissionMode: 'default',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'high',
+  });
+  check(
+    'Grok interactive default pins model and reasoning',
+    grokDefault === 'grok --model grok-4.6 --reasoning-effort high',
+    grokDefault,
+  );
+  const grokAccept = resolveLaunchCommand({
+    runtime: 'grok',
+    permissionMode: 'accept-edits',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'high',
+  });
+  check(
+    'Grok accept-edits uses permission-mode acceptEdits',
+    grokAccept === 'grok --permission-mode acceptEdits --model grok-4.6 --reasoning-effort high',
+    grokAccept,
+  );
+  const grokBypass = resolveLaunchCommand({
+    runtime: 'grok',
+    permissionMode: 'bypass',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'xhigh',
+  });
+  check(
+    'Grok interactive bypass keeps the persisted grok-4.6/xhigh profile',
+    grokBypass === 'grok --always-approve --model grok-4.6 --reasoning-effort xhigh',
+    grokBypass,
+  );
+  let unsafeGrokRejected = false;
+  try {
+    resolveLaunchCommand({
+      runtime: 'grok', permissionMode: 'bypass', grokModel: 'grok-4.6; whoami',
+    });
+  } catch {
+    unsafeGrokRejected = true;
+  }
+  check('Grok model ids cannot inject shell syntax', unsafeGrokRejected);
+  let ultraGrokRejected = false;
+  try {
+    resolveLaunchCommand({
+      runtime: 'grok',
+      permissionMode: 'default',
+      grokReasoningEffort: 'ultra' as 'high',
+    });
+  } catch {
+    ultraGrokRejected = true;
+  }
+  check('Grok reasoning rejects Codex-only ultra', ultraGrokRejected);
+  const grokTask = resolveTaskLaunchCommand({
+    runtime: 'grok',
+    permissionMode: 'bypass',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'high',
+  }, 'win32');
+  check(
+    'Grok task uses --prompt-file, not stdin, and stays headless',
+    grokTask?.transport === 'stdin'
+      && grokTask.command.includes('grok --always-approve --model grok-4.6 --reasoning-effort high --prompt-file "$env:ADE_TASK_PROMPT_FILE" --output-format streaming-json --no-auto-update') === true
+      && !grokTask.command.includes('--worktree')
+      && !grokTask.command.includes('$env:ADE_TASK_PROMPT |'),
+    grokTask,
+  );
+  const grokTaskPosix = resolveTaskLaunchCommand({
+    runtime: 'grok',
+    permissionMode: 'default',
+    grokModel: 'grok-4.6',
+    grokReasoningEffort: 'high',
+  }, 'posix');
+  check(
+    'Grok posix task reads ADE_TASK_PROMPT_FILE',
+    grokTaskPosix?.command === 'grok --model grok-4.6 --reasoning-effort high --prompt-file "$ADE_TASK_PROMPT_FILE" --output-format streaming-json --no-auto-update'
+      && grokTaskPosix.transport === 'stdin',
+    grokTaskPosix,
+  );
+  if (process.platform === 'win32' && grokTask) {
+    const shimDir = mkdtempSync(join(tmpdir(), 'ade-grok-prompt-'));
+    const promptFile = join(shimDir, 'PROMPT.txt');
+    writeFileSync(join(shimDir, 'grok.cmd'),
+      '@echo off\r\necho GROK_FILE=%ADE_TASK_PROMPT_FILE%\r\necho GROK_ARGS=%*\r\n', 'utf8');
+    writeFileSync(promptFile, 'managed prompt with "quotes" and $HOME', 'utf8');
+    const output = execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', grokTask.command], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${shimDir};${process.env['PATH'] ?? ''}`,
+        ADE_TASK_PROMPT_FILE: promptFile,
+      },
+    });
+    check('Grok prompt-file transport reaches the CLI without stdin interpolation',
+      output.includes(`GROK_FILE=${promptFile}`)
+        && output.includes('--prompt-file')
+        && output.includes('--output-format streaming-json')
+        && !output.includes('--worktree'),
+      output);
+  } else {
+    check('Grok prompt-file transport reaches the CLI without stdin interpolation',
+      grokTask?.command.includes('--prompt-file') === true);
+  }
+  check(
+    'Grok login is reported as signed in when the CLI says so',
+    interpretGrokAuth({
+      modelsCode: 0,
+      modelsOutput: 'You are logged in with grok.com.\n\nDefault model: grok-4.6\n',
+      timedOut: false,
+      hasStoredKey: false,
+      envHasKey: false,
+    }).status === 'authenticated'
+      && interpretGrokAuth({
+        modelsCode: 0,
+        modelsOutput: 'You are logged in with grok.com.\n',
+        timedOut: false,
+        hasStoredKey: false,
+        envHasKey: false,
+      }).detail.includes('logged in'),
+  );
+  check(
+    'a stored ADE Grok key counts as authenticated when the CLI has no login',
+    interpretGrokAuth({
+      modelsCode: 1,
+      modelsOutput: 'not signed in',
+      timedOut: false,
+      hasStoredKey: true,
+      envHasKey: false,
+    }).detail.includes('Stored XAI_API_KEY'),
+  );
+  check(
+    'Grok without login or key is not authenticated',
+    interpretGrokAuth({
+      modelsCode: 1,
+      modelsOutput: 'error: authentication required',
+      timedOut: false,
+      hasStoredKey: false,
+      envHasKey: false,
+    }).status === 'not-authenticated',
+  );
   if (process.platform === 'win32' && codex) {
     const shimDir = mkdtempSync(join(tmpdir(), 'ade-codex-stdin-'));
     writeFileSync(join(shimDir, 'codex.cmd'), '@echo off\r\nmore\r\n', 'utf8');

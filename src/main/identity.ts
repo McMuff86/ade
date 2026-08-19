@@ -25,6 +25,8 @@ import type {
 import {
   DEFAULT_CODEX_MODEL,
   DEFAULT_CODEX_REASONING_EFFORT,
+  DEFAULT_GROK_MODEL,
+  DEFAULT_GROK_REASONING_EFFORT,
 } from '../shared/types';
 import {
   NATIVE_EXECUTION_BACKEND,
@@ -207,6 +209,12 @@ export async function createAgent(
     codexReasoningEffort: input.runtime === 'codex'
       ? input.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT
       : undefined,
+    grokModel: input.runtime === 'grok'
+      ? input.grokModel?.trim() || DEFAULT_GROK_MODEL
+      : undefined,
+    grokReasoningEffort: input.runtime === 'grok'
+      ? input.grokReasoningEffort ?? DEFAULT_GROK_REASONING_EFFORT
+      : undefined,
     workspaceDir: homeWorkspaceDir,
     homeWorkspaceDir,
     defaultRepositoryId,
@@ -287,6 +295,12 @@ export async function updateAgent(
       : undefined,
     codexReasoningEffort: input.runtime === 'codex'
       ? input.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT
+      : undefined,
+    grokModel: input.runtime === 'grok'
+      ? input.grokModel?.trim() || DEFAULT_GROK_MODEL
+      : undefined,
+    grokReasoningEffort: input.runtime === 'grok'
+      ? input.grokReasoningEffort ?? DEFAULT_GROK_REASONING_EFFORT
       : undefined,
     teamRole: input.teamRole ?? existing.teamRole,
   };
@@ -394,6 +408,8 @@ export function createAgentTemplate(
     ollamaModel: agent.ollamaModel,
     codexModel: agent.codexModel,
     codexReasoningEffort: agent.codexReasoningEffort,
+    grokModel: agent.grokModel,
+    grokReasoningEffort: agent.grokReasoningEffort,
     memorySeed: {
       memory: readMemorySeed(join(agent.memoryDir, 'MEMORY.md')),
       user: readMemorySeed(join(agent.memoryDir, 'USER.md')),
@@ -430,6 +446,8 @@ export async function spawnAgentTemplate(
     ollamaModel: input.ollamaModel?.trim() || template.ollamaModel,
     codexModel: input.codexModel?.trim() || template.codexModel,
     codexReasoningEffort: input.codexReasoningEffort ?? template.codexReasoningEffort,
+    grokModel: input.grokModel?.trim() || template.grokModel,
+    grokReasoningEffort: input.grokReasoningEffort ?? template.grokReasoningEffort,
     defaultRepositoryId: input.defaultRepositoryId,
   }, scopes, options);
   writeFileSync(join(agent.memoryDir, 'MEMORY.md'), template.memorySeed.memory, 'utf8');

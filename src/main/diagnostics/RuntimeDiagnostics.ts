@@ -37,6 +37,39 @@ interface AuthProbe {
   serviceReady?: boolean;
 }
 
+export interface RuntimeDiagnoseOptions {
+  hasStoredKey?: (runtime: RuntimeId) => boolean;
+}
+
+/** Pure Grok auth interpretation so tests can cover login vs stored key vs env. */
+export function interpretGrokAuth(input: {
+  modelsCode: number | null;
+  modelsOutput: string;
+  timedOut: boolean;
+  hasStoredKey: boolean;
+  envHasKey: boolean;
+}): AuthProbe {
+  const output = input.modelsOutput;
+  if (/you are logged in/i.test(output)) {
+    const source = compactLine(output) ?? 'Signed in.';
+    return { status: 'authenticated', detail: source };
+  }
+  if (input.modelsCode === 0 && !input.timedOut && /(?:available models|default model)/i.test(output)) {
+    return { status: 'authenticated', detail: 'CLI credentials can list models.' };
+  }
+  if (input.hasStoredKey) {
+    return { status: 'authenticated', detail: 'Stored XAI_API_KEY is available to ADE sessions.' };
+  }
+  if (input.envHasKey) {
+    return { status: 'authenticated', detail: 'XAI_API_KEY is available to ADE.' };
+  }
+  if (input.timedOut) return { status: 'unknown', detail: 'Authentication check timed out.' };
+  return {
+    status: 'not-authenticated',
+    detail: 'Run `grok login` in a terminal or store an XAI_API_KEY.',
+  };
+}
+
 function compactLine(value: string): string | undefined {
   const line = value
     .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
@@ -144,6 +177,7 @@ async function authProbe(
   executable: string,
   backend: ExecutionBackendId,
   execution: ExecutionBackendService,
+  options: RuntimeDiagnoseOptions = {},
 ): Promise<AuthProbe> {
   if (runtime === 'claude') {
     const result = await backendCommand(backend, execution, executable, ['auth', 'status', '--json']);
@@ -174,8 +208,15 @@ async function authProbe(
       : { status: 'not-required', detail: 'CLI found, but the local Ollama service is unavailable.', serviceReady: false };
   }
 
-  if (backend === NATIVE_EXECUTION_BACKEND && runtime === 'grok' && process.env['XAI_API_KEY']) {
-    return { status: 'authenticated', detail: 'XAI_API_KEY is available to ADE.' };
+  if (runtime === 'grok') {
+    const result = await backendCommand(backend, execution, executable, ['models']);
+    return interpretGrokAuth({
+      modelsCode: result.code,
+      modelsOutput: `${result.stdout}\n${result.stderr}`,
+      timedOut: result.timedOut,
+      hasStoredKey: options.hasStoredKey?.(runtime) === true,
+      envHasKey: Boolean(process.env['XAI_API_KEY']),
+    });
   }
   if (backend === NATIVE_EXECUTION_BACKEND && runtime === 'gemini'
       && (process.env['GEMINI_API_KEY'] || process.env['GOOGLE_API_KEY'])) {
@@ -197,6 +238,7 @@ async function diagnoseAgent(
   agent: Agent,
   backend: ExecutionBackendId,
   execution: ExecutionBackendService,
+  options: RuntimeDiagnoseOptions = {},
 ): Promise<RuntimeDiagnostic> {
   const label = LAUNCH_PROFILES[agent.runtime].label;
   const transport = taskTransport(agent, backend);
@@ -299,7 +341,7 @@ async function diagnoseAgent(
 
   const [versionResult, auth] = await Promise.all([
     backendCommand(backend, execution, executable, ['--version']),
-    authProbe(agent.runtime, executable, backend, execution),
+    authProbe(agent.runtime, executable, backend, execution, options),
   ]);
   const version = compactLine(versionResult.stdout) ?? compactLine(versionResult.stderr);
   const versionReady = versionResult.code === 0 && !versionResult.timedOut;
@@ -338,6 +380,7 @@ export async function diagnoseRuntimes(
   agentId?: string,
   backendFor: (agent: Agent) => ExecutionBackendId = () => NATIVE_EXECUTION_BACKEND,
   execution = new ExecutionBackendService(),
+  options: RuntimeDiagnoseOptions = {},
 ): Promise<RuntimeDiagnosticsResult> {
   const selected = agentId ? agents.filter((agent) => agent.id === agentId) : agents;
   if (agentId && selected.length === 0) throw new Error(`ade: agent not found "${agentId}"`);
@@ -346,7 +389,7 @@ export async function diagnoseRuntimes(
     platform: process.platform,
     items: await Promise.all(selected.map(async (agent) => {
       const backend = normalizeExecutionBackendId(backendFor(agent));
-      return { ...(await diagnoseAgent(agent, backend, execution)), executionBackend: backend };
+      return { ...(await diagnoseAgent(agent, backend, execution, options)), executionBackend: backend };
     })),
   };
 }

@@ -291,8 +291,15 @@ export class RunCoordinator {
               ...(participant.teamName ? { teamName: participant.teamName } : {}),
               runtime: agent.runtime,
               permissionMode: agent.permissionMode,
-              ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
-              ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
+              ...(agent.runtime === 'grok'
+                ? {
+                    ...(agent.grokModel ? { modelId: agent.grokModel } : {}),
+                    ...(agent.grokReasoningEffort ? { reasoningEffort: agent.grokReasoningEffort } : {}),
+                  }
+                : {
+                    ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
+                    ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
+                  }),
               adapterId: capabilities.adapterId,
               reportsTokens: capabilities.reportsTokens,
               reportsCost: capabilities.reportsCost,
@@ -1143,8 +1150,15 @@ export class RunCoordinator {
           adapterId: capabilities.adapterId,
           contextBuilderVersion: CONTEXT_BUILDER_VERSION,
           ...(context ? { contextManifestHash: context.hash } : {}),
-          ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
-          ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
+          ...(agent.runtime === 'grok'
+            ? {
+                ...(agent.grokModel ? { modelId: agent.grokModel } : {}),
+                ...(agent.grokReasoningEffort ? { reasoningEffort: agent.grokReasoningEffort } : {}),
+              }
+            : {
+                ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
+                ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
+              }),
         },
         dependencyResults: snapshot.results
           .filter((result) => result.runId === task.runId && task.dependsOn.includes(result.participantId))

@@ -128,11 +128,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     await window.ade.invoke('harness:setKey', { runtime, apiKey });
     setDrafts((current) => ({ ...current, [runtime]: '' }));
     await refreshStatus();
+    await runDiagnose();
   });
 
   const clearKey = (runtime: RuntimeId): Promise<void> => guarded(async () => {
     await window.ade.invoke('harness:clearKey', { runtime });
     await refreshStatus();
+    await runDiagnose();
   });
 
   const openLogin = (runtime: RuntimeId): Promise<void> => guarded(async () => {

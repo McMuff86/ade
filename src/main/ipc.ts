@@ -547,6 +547,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     undefined,
     () => NATIVE_EXECUTION_BACKEND,
     execution,
+    {
+      hasStoredKey: (runtime) => harnessCredentials.status()
+        .some((item) => item.runtime === runtime && item.hasStoredKey),
+    },
   ));
   handle(IPC.RepositoryCommitDiff, ({ repositoryId, commitSha }) =>
     repositoryInspector.commitDiff(repositoryId, commitSha),
@@ -649,6 +653,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
               : undefined,
           ),
       execution,
+      {
+        hasStoredKey: (runtime) => harnessCredentials.status()
+          .some((item) => item.runtime === runtime && item.hasStoredKey),
+      },
     );
   });
 

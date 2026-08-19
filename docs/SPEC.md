@@ -218,7 +218,8 @@ Git and recovery contract is binding in `docs/VERIFIED_PUBLISHING_PLAN.md`.
    - Claude Code: default / `--permission-mode acceptEdits` /
      `--dangerously-skip-permissions`
    - Codex: default / `--sandbox workspace-write` / `--dangerously-bypass-approvals-and-sandbox`
-   - OpenCode / Grok Build: their equivalents; plain shell: none.
+   - Grok Build: default / `--permission-mode acceptEdits` / `--always-approve`
+   - OpenCode: their equivalents; plain shell: none.
 8. **Light mode must theme the terminal too** — the xterm theme (background,
    foreground, ANSI palette, cursor) switches with the app theme, not only
    the surrounding chrome.
