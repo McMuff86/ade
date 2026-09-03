@@ -20,7 +20,12 @@ import {
   realpathSync, readdirSync, renameSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { DEFAULT_CONFIG, type AdeConfig, type ConfigLoadFailure } from '../../shared/types';
+import {
+  DEFAULT_CONFIG,
+  WORKSPACE_PREPARE_MODES,
+  type AdeConfig,
+  type ConfigLoadFailure,
+} from '../../shared/types';
 import { isExecutionBackendId } from '../../shared/executionBackends';
 import { CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
@@ -319,7 +324,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
   };
   const runIds = schema(config.runs, 'config.runs', [
     'id', 'name', 'goal', 'status', 'mode', 'phase', 'budget', 'createdAt', 'updatedAt', 'source',
-    'repositoryId', 'contextManifestHash', 'verifiedHeadSha', 'verificationTaskId', 'verifiedAt', 'pausedTeamIds',
+    'repositoryId', 'workspacePrepare', 'contextManifestHash', 'verifiedHeadSha', 'verificationTaskId',
+    'verifiedAt', 'pausedTeamIds',
   ], ['id', 'name', 'goal', 'status', 'mode', 'phase', 'budget', 'createdAt', 'updatedAt']);
   const participantIds = schema(config.runParticipants, 'config.runParticipants', [
     'id', 'runId', 'agentId', 'agentName', 'runtime', 'role', 'teamId', 'teamName', 'repositoryId', 'createdAt',
@@ -387,7 +393,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
     'run.created', 'run.started', 'run.phase_changed', 'run.completed', 'run.failed', 'run.cancelled',
     'participant.added', 'task.queued', 'task.started', 'task.completed', 'task.failed', 'task.cancelled',
     'task.result_recorded', 'approval.requested', 'approval.resolved', 'workspace.acquired',
-    'workspace.prepared', 'workspace.released', 'message.sent', 'integration.applied',
+    'workspace.prepared', 'workspace.rebased', 'workspace.released', 'message.sent', 'integration.applied',
     'publication.requested', 'publication.completed', 'publication.failed', 'budget.exhausted',
     'artifact.created', 'team.paused', 'team.resumed',
   ];
@@ -396,10 +402,13 @@ export function validateCompleteConfig(config: AdeConfig): void {
     enumValue(run.status, RUN_STATUSES, 'run.status'); enumValue(run.mode, ['manual', 'managed'], 'run.mode');
     enumValue(run.phase, RUN_PHASES, 'run.phase'); number(run.createdAt, 'run.createdAt'); number(run.updatedAt, 'run.updatedAt');
     if (run.source !== undefined) enumValue(run.source, ['native', 'legacy-graph'], 'run.source');
+    if (run.workspacePrepare !== undefined) enumValue(run.workspacePrepare, [...WORKSPACE_PREPARE_MODES], 'run.workspacePrepare');
     const budget = object(run.budget, 'run.budget');
-    exactKeys(budget, ['maxConcurrentTasks', 'maxInputTokens', 'maxOutputTokens', 'maxCostUsd', 'maxApprovals'], 'run.budget');
+    exactKeys(budget, [
+      'maxConcurrentTasks', 'maxInputTokens', 'maxOutputTokens', 'maxCostUsd', 'maxApprovals', 'maxTaskMinutes',
+    ], 'run.budget');
     number(budget.maxConcurrentTasks, 'run.budget.maxConcurrentTasks'); number(budget.maxApprovals, 'run.budget.maxApprovals');
-    for (const field of ['maxInputTokens', 'maxOutputTokens', 'maxCostUsd'] as const) {
+    for (const field of ['maxInputTokens', 'maxOutputTokens', 'maxCostUsd', 'maxTaskMinutes'] as const) {
       if (budget[field] !== null) {
         number(budget[field], `run.budget.${field}`);
         if ((budget[field] as number) < 0

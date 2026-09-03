@@ -33,6 +33,20 @@ export interface DependencyParent {
   ownBaseSha: string;
 }
 
+/** Outcome of moving a leased worktree back onto a run base. */
+export interface WorkspaceReset {
+  /** HEAD before the move; the archive ref points here. */
+  previousHeadSha: string;
+  /** HEAD after the move; equals the requested base. */
+  headSha: string;
+  archiveRef: string;
+}
+
+/** Only ADE-owned archive refs may be created by a base reset. */
+export const ARCHIVE_REF_PATTERN = /^refs\/ade\/archive\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const GIT_OBJECT_ID = /^[0-9a-f]{40}$/;
+const NULL_OBJECT_ID = '0'.repeat(40);
+
 export interface WorkspacePort {
   inspect(workspaceDir: string): Promise<WorkspaceInspection>;
   commitChanges(
@@ -48,6 +62,7 @@ export interface WorkspacePort {
     runBaseSha: string,
     parents: DependencyParent[],
   ): Promise<string>;
+  resetToBase(workspaceDir: string, baseSha: string, archiveRef: string): Promise<WorkspaceReset>;
 }
 
 export class WorkspaceService implements WorkspacePort {
@@ -269,6 +284,59 @@ export class WorkspaceService implements WorkspacePort {
       }
       throw new Error(`ade: failed to prepare dependency base: ${errorMessage(error)}`);
     }
+  }
+
+  /**
+   * Move a clean, branch-attached worktree onto `baseSha` so a new managed run
+   * can reuse it. The previous tip is first pinned under an ADE-owned archive
+   * ref — created only if that ref does not exist yet — so a plain
+   * `reset --hard` never leaves earlier run commits reachable through the
+   * reflog alone. The base must share history with the current HEAD; ADE does
+   * not jump a worktree onto an unrelated commit.
+   */
+  async resetToBase(workspaceDir: string, baseSha: string, archiveRef: string): Promise<WorkspaceReset> {
+    assertResetArguments(baseSha, archiveRef);
+    const inspection = await this.inspect(workspaceDir);
+    if (!inspection.isRepo) throw new Error('ade: base reset workspace is not a git worktree');
+    if (!inspection.clean) throw new Error('ade: base reset requires a clean worktree');
+    if (!inspection.branch) throw new Error('ade: base reset requires a worktree on a branch');
+    if (inspection.headSha === baseSha) {
+      return { previousHeadSha: baseSha, headSha: baseSha, archiveRef };
+    }
+    try {
+      await git(workspaceDir, ['cat-file', '-e', `${baseSha}^{commit}`]);
+    } catch {
+      throw new Error(`ade: base reset target ${baseSha} is not a commit in this repository`);
+    }
+    try {
+      await git(workspaceDir, ['merge-base', inspection.headSha, baseSha]);
+    } catch {
+      throw new Error('ade: base reset target does not share history with the worktree HEAD');
+    }
+    try {
+      // The zero old-value makes update-ref refuse an existing ref, so one
+      // archive slot can never be silently overwritten.
+      await git(workspaceDir, ['update-ref', archiveRef, inspection.headSha, NULL_OBJECT_ID]);
+    } catch (error) {
+      throw new Error(`ade: failed to archive the worktree tip before reset: ${errorMessage(error)}`);
+    }
+    try {
+      await git(workspaceDir, ['reset', '--hard', baseSha]);
+    } catch (error) {
+      throw new Error(`ade: failed to reset the worktree onto the run base: ${errorMessage(error)}`);
+    }
+    const after = await this.inspect(workspaceDir);
+    if (!after.clean || after.headSha !== baseSha || after.branch !== inspection.branch) {
+      throw new Error('ade: base reset did not produce a clean worktree on the requested base');
+    }
+    return { previousHeadSha: inspection.headSha, headSha: after.headSha, archiveRef };
+  }
+}
+
+export function assertResetArguments(baseSha: string, archiveRef: string): void {
+  if (!GIT_OBJECT_ID.test(baseSha)) throw new Error('ade: base reset target must be a full Git object id');
+  if (!ARCHIVE_REF_PATTERN.test(archiveRef)) {
+    throw new Error('ade: base reset archive ref must live under refs/ade/archive/<run>/<participant>');
   }
 }
 

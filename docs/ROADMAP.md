@@ -1,6 +1,6 @@
 # ADE delivery roadmap
 
-Status date: 2026-07-22. Goals are completed in order and published as separate
+Status date: 2026-09-03. Goals are completed in order and published as separate
 verified commits.
 
 ## Goal 1 - runtime reliability baseline
@@ -338,6 +338,14 @@ The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
 implemented and hosted-verified. Versioned package publication and macOS work
 remain separate from the remote API security gates below.
+
+Prerequisite closed 2026-09-03 (`PROFESSIONALIZATION_REVIEW_2026-07-26.md`,
+Thema 2): the managed-run loop is repeatable over the same worktrees without
+manual Git — an explicit per-run opt-in archives and resets divergent worker
+worktrees onto the orchestrator base, late results on ended runs no longer leak
+leases, and a per-task time budget bounds hanging CLIs. The loopback API can
+therefore drive consecutive runs without inheriting a one-shot defect.
+Thema 6 (boundary hardening) is the remaining gate before the write/SSE slice.
 
 - [x] Extract the first transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and

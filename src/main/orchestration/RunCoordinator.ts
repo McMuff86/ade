@@ -48,9 +48,11 @@ import {
 import {
   WorkspaceService,
   type DependencyParent,
+  type WorkspaceInspection,
   type WorkspacePort,
 } from './WorkspaceService';
 import { showManagedTaskNotification } from '../notifications';
+import { hostPathKey } from '../platform';
 import type {
   RepositoryScopePort,
   ResolvedExecutionScope,
@@ -58,6 +60,30 @@ import type {
 
 interface ConfigPort {
   get(): AdeConfig;
+}
+
+/** Injectable timer seam so the task time budget is testable without waiting. */
+export interface TaskTimerPort {
+  set(callback: () => void, delayMs: number): unknown;
+  clear(handle: unknown): void;
+}
+
+const REAL_TIMERS: TaskTimerPort = {
+  set(callback, delayMs) {
+    const handle = setTimeout(callback, delayMs);
+    handle.unref?.();
+    return handle;
+  },
+  clear(handle) {
+    clearTimeout(handle as ReturnType<typeof setTimeout>);
+  },
+};
+
+interface InspectedParticipant {
+  participant: RunParticipant;
+  agent: Agent;
+  scope: ResolvedExecutionScope;
+  workspace: WorkspaceInspection;
 }
 
 type TaskLauncher = (
@@ -78,9 +104,12 @@ export class RunCoordinator {
   /** In-memory cache, lazily restored from the journaled manifest artifact. */
   private readonly runContexts = new Map<string, { manifest: RunContextManifest; hash: string; brief: string }>();
   private readonly attemptedContextRestores = new Set<string>();
+  /** Armed per running managed task when the run carries a task time budget. */
+  private readonly taskTimers = new Map<string, unknown>();
   private taskLauncher: TaskLauncher | null = null;
   private taskCanceller: TaskCanceller | null = null;
   private readonly scopes: RepositoryScopePort;
+  private readonly timers: TaskTimerPort;
 
   constructor(
     private readonly store: ConfigPort,
@@ -88,7 +117,9 @@ export class RunCoordinator {
     private readonly adapters: RuntimeAdapterRegistry = new RuntimeAdapterRegistry(),
     private readonly workspaces: WorkspacePort = new WorkspaceService(),
     scopes?: RepositoryScopePort,
+    timers: TaskTimerPort = REAL_TIMERS,
   ) {
+    this.timers = timers;
     this.mailbox = new MailboxService(orchestration);
     this.scopes = scopes ?? {
       resolve: async (agentId): Promise<ResolvedExecutionScope> => {
@@ -202,7 +233,7 @@ export class RunCoordinator {
         }
       }
 
-      const inspected = await Promise.all(roster.map(async ({ participant, agent }) => {
+      const inspected: InspectedParticipant[] = await Promise.all(roster.map(async ({ participant, agent }) => {
         const scope = await this.scopes.resolve(agent.id, { repositoryId: run.repositoryId });
         return {
           participant,
@@ -228,10 +259,7 @@ export class RunCoordinator {
         if (repoItems.some((item) => item.workspace.commonGitDir !== common)) {
           throw new Error('ade: all managed-run worktrees must belong to the same git repository');
         }
-        const baseSha = repoItems[0]!.workspace.headSha;
-        if (repoItems.some((item) => item.workspace.headSha !== baseSha)) {
-          throw new Error('ade: all managed-run worktrees must use the same Git base');
-        }
+        await this.alignWorkspaceBases(run, repoItems);
       }
 
       this.orchestration.acquireWorkspaceLeases(runId, inspected.map(({ participant, agent, scope, workspace }) => ({
@@ -343,6 +371,56 @@ export class RunCoordinator {
     });
   }
 
+  /**
+   * Every repo-backed participant must start on the orchestrator worktree's
+   * HEAD: integration cherry-picks worker deltas onto exactly that commit, and
+   * a worktree left on a previous run's tip would otherwise block the whole
+   * roster. Without the operator's explicit `reset-to-base` choice a divergent
+   * worktree fails the start closed and is named. With it, ADE first pins each
+   * divergent tip under `refs/ade/archive/<runId>/<participantId>`, then moves
+   * the worktree and journals `workspace.rebased` — never while another run
+   * still leases that worktree, and never before the clean check above.
+   */
+  private async alignWorkspaceBases(run: Run, repoItems: InspectedParticipant[]): Promise<void> {
+    const orchestratorItem = repoItems.find((item) => item.participant.role === 'orchestrator') ?? repoItems[0]!;
+    const baseSha = orchestratorItem.workspace.headSha;
+    const diverged = repoItems.filter((item) => item.workspace.headSha !== baseSha);
+    if (diverged.length === 0) return;
+    const names = diverged
+      .map((item) => `${item.agent.name} (${item.workspace.headSha.slice(0, 12)})`)
+      .join(', ');
+    if (run.workspacePrepare !== 'reset-to-base') {
+      throw new Error(
+        `ade: all managed-run worktrees must use the same Git base; ${names} ` +
+        `differ from ${orchestratorItem.agent.name}'s HEAD ${baseSha.slice(0, 12)}. ` +
+        'Create the run with "reset worktrees to the orchestrator base" to archive and reset them.',
+      );
+    }
+    const activeLeases = this.orchestration.snapshot().workspaceLeases
+      .filter((lease) => lease.status === 'active');
+    for (const item of diverged) {
+      const key = hostPathKey(item.workspace.workspaceDir);
+      const held = activeLeases.find((lease) => hostPathKey(lease.workspaceDir) === key);
+      if (held) {
+        throw new Error(`ade: ${item.agent.name}'s worktree is leased by active run ${held.runId}; refusing to reset it`);
+      }
+    }
+    for (const item of diverged) {
+      const archiveRef = `refs/ade/archive/${run.id}/${item.participant.id}`;
+      const reset = await this.workspaces.resetToBase(item.workspace.workspaceDir, baseSha, archiveRef);
+      this.orchestration.recordWorkspaceRebased(run.id, {
+        participantId: item.participant.id,
+        fromSha: reset.previousHeadSha,
+        toSha: reset.headSha,
+        archiveRef,
+      });
+      item.workspace = await this.workspaces.inspect(item.workspace.workspaceDir);
+      if (!item.workspace.clean || item.workspace.headSha !== baseSha) {
+        throw new Error(`ade: ${item.agent.name}'s worktree did not settle on the orchestrator base after reset`);
+      }
+    }
+  }
+
   async cancel(runId: string, reason = 'Cancelled by user', commandId?: string): Promise<void> {
     await this.serialized(runId, async () => {
       if (this.orchestration.recallCommand<null>('run:cancel', commandId)) return;
@@ -434,11 +512,47 @@ export class RunCoordinator {
 
   onTaskStarted(taskId: string, session: SessionMeta): void {
     this.orchestration.onTaskStarted(taskId, session);
+    this.armTaskTimer(taskId);
+  }
+
+  /**
+   * A managed task may hold one of the four global CLI slots only for the
+   * run's `maxTaskMinutes`. When the limit passes the run fails closed with
+   * the exact reason and cancels its tasks; the journal records the exhausted
+   * budget like every other limit. No limit means no timer.
+   */
+  private armTaskTimer(taskId: string): void {
+    const snapshot = this.orchestration.snapshot();
+    const task = snapshot.tasks.find((candidate) => candidate.id === taskId);
+    if (!task?.managed || task.status !== 'running') return;
+    const run = snapshot.runs.find((candidate) => candidate.id === task.runId);
+    const limit = run?.budget.maxTaskMinutes ?? null;
+    if (run === undefined || limit === null) return;
+    this.disarmTaskTimer(taskId);
+    const handle = this.timers.set(() => {
+      this.taskTimers.delete(taskId);
+      void this.serialized(task.runId, async () => {
+        const current = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === taskId);
+        if (!current || current.status !== 'running') return;
+        const reason = `ade: task "${current.title}" exceeded the run's task time budget of ${limit} minute(s)`;
+        this.orchestration.recordBudgetExhausted(task.runId, 'task minutes', limit, limit);
+        await this.failRunCore(task.runId, reason);
+      });
+    }, limit * 60_000);
+    this.taskTimers.set(taskId, handle);
+  }
+
+  private disarmTaskTimer(taskId: string): void {
+    const handle = this.taskTimers.get(taskId);
+    if (handle === undefined) return;
+    this.taskTimers.delete(taskId);
+    this.timers.clear(handle);
   }
 
   onTaskLaunchFailed(taskId: string, cancelled: boolean, error?: string): void {
     const task = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === taskId);
     this.launches.delete(taskId);
+    this.disarmTaskTimer(taskId);
     this.orchestration.onTaskLaunchFailed(taskId, cancelled, error);
     if (!task?.managed) return;
     this.notifyTask(task, cancelled ? 'cancelled' : 'failed', error);
@@ -460,6 +574,7 @@ export class RunCoordinator {
   ): void {
     const task = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === taskId);
     if (!task) return;
+    this.disarmTaskTimer(taskId);
     if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
       this.launches.delete(taskId);
       if (task.managed) this.releaseIfDrained(task.runId);
@@ -480,6 +595,21 @@ export class RunCoordinator {
         } else {
           await this.failRunCore(task.runId, `Managed task ${task.title} ${status} (exit ${exitCode})`);
         }
+        return;
+      }
+      if (isTerminalRun(currentRun)) {
+        // A sibling failure or a cancel already ended this run while the
+        // process was still exiting. Its late result must neither create an
+        // ADE commit in a worktree the run no longer owns nor advance the
+        // phase machine; it only has to stop holding the leases.
+        this.launches.delete(taskId);
+        this.orchestration.onTaskFinished(
+          taskId,
+          'cancelled',
+          exitCode,
+          `Run ended (${currentRun.phase}) before this task result was processed`,
+        );
+        this.releaseIfDrained(task.runId);
         return;
       }
 

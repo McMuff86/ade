@@ -301,6 +301,7 @@ export type RunEventType =
   | 'approval.resolved'
   | 'workspace.acquired'
   | 'workspace.prepared'
+  | 'workspace.rebased'
   | 'workspace.released'
   | 'message.sent'
   | 'integration.applied'
@@ -319,7 +320,15 @@ export interface RunBudget {
   maxOutputTokens: number | null;
   maxCostUsd: number | null;
   maxApprovals: number;
+  /**
+   * Wall-clock minutes one managed task may stay running. ADE fails the run
+   * closed and cancels the task when the limit passes, so a CLI waiting on an
+   * interactive prompt cannot hold one of the global task slots forever.
+   */
+  maxTaskMinutes: number | null;
 }
+
+export const MAX_TASK_MINUTES_LIMIT = 1_440;
 
 export const DEFAULT_RUN_BUDGET: RunBudget = {
   maxConcurrentTasks: 2,
@@ -327,7 +336,19 @@ export const DEFAULT_RUN_BUDGET: RunBudget = {
   maxOutputTokens: null,
   maxCostUsd: null,
   maxApprovals: 1,
+  maxTaskMinutes: null,
 };
+
+/**
+ * How a managed run treats repo-backed participant worktrees whose HEAD does
+ * not match the orchestrator worktree when the run starts. Absent means
+ * strict: divergent worktrees fail the start closed. `reset-to-base` lets ADE
+ * archive each divergent tip under `refs/ade/archive/<runId>/<participantId>`
+ * and reset the worktree onto the orchestrator HEAD before any lease is taken.
+ */
+export type WorkspacePrepareMode = 'reset-to-base';
+
+export const WORKSPACE_PREPARE_MODES: readonly WorkspacePrepareMode[] = ['reset-to-base'];
 
 export interface RunUsage {
   inputTokens: number;
@@ -351,6 +372,8 @@ export interface Run {
   source?: 'native' | 'legacy-graph';
   /** undefined = legacy/default resolution; null = explicit plain workspace. */
   repositoryId?: string | null;
+  /** Explicit operator opt-in recorded at creation; absent means strict. */
+  workspacePrepare?: WorkspacePrepareMode;
   /**
    * Main-owned SHA-256 of the canonical run-context manifest. Older runs do
   * not have one and intentionally cannot restore context from artifacts.
@@ -1163,6 +1186,11 @@ export interface RunCreateInput {
     runtime?: RuntimeId;
   }>;
   budget?: Partial<RunBudget>;
+  /**
+   * Explicit confirmation that ADE may archive and reset divergent participant
+   * worktrees onto the orchestrator base when the run starts.
+   */
+  workspacePrepare?: WorkspacePrepareMode;
   /** Optional idempotency key; a replay returns the originally created run. */
   commandId?: string;
 }

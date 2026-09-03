@@ -145,6 +145,7 @@ void (async (): Promise<void> => {
           maxOutputTokens: null,
           maxCostUsd: null,
           maxApprovals: 1,
+          maxTaskMinutes: null,
         },
         createdAt: 1,
         updatedAt: 1,

@@ -87,6 +87,15 @@ function testLegacyMigration(): void {
   check('migration is idempotent after the run schema is persisted', !secondPass.migrated);
   check('second normalization does not duplicate the imported run', secondPass.config.runs.length === 1);
 
+  const preTimeBudget = structuredClone(secondPass.config);
+  delete (preTimeBudget.runs[0]!.budget as Partial<AdeConfig['runs'][number]['budget']>).maxTaskMinutes;
+  const withTimeBudget = normalizeConfig(preTimeBudget, 2_500);
+  check('budgets written before the task time limit gain an explicit null once and stay canonical',
+    withTimeBudget.migrated
+      && withTimeBudget.config.runs[0]?.budget.maxTaskMinutes === null
+      && withTimeBudget.config.runs[0]?.budget.maxApprovals === secondPass.config.runs[0]?.budget.maxApprovals
+      && !normalizeConfig(withTimeBudget.config, 2_600).migrated);
+
   const partialAttestation = structuredClone(migrated.config);
   partialAttestation.runs[0]!.verificationTaskId = 'orphaned-verify-task';
   partialAttestation.runTasks.push({

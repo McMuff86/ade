@@ -137,6 +137,9 @@ export function normalizeConfig(
       run.mode !== raw.runs?.[index]?.mode ||
       run.phase !== raw.runs?.[index]?.phase ||
       raw.runs?.[index]?.budget === undefined ||
+      // Budgets written before the task time limit existed gain the explicit
+      // `null` once, so the on-disk record matches the validated shape.
+      !('maxTaskMinutes' in (raw.runs[index]!.budget as object)) ||
       (raw.runs?.[index]?.contextManifestHash !== undefined &&
         !isSha256(raw.runs[index]!.contextManifestHash)) ||
       ((raw.runs?.[index]?.verifiedHeadSha !== undefined

@@ -94,6 +94,23 @@ Neuinstallation aussieht.
 
 ## Thema 2 — Wiederholbare Run-Schleife
 
+> **Status: Kern umgesetzt am 2026-09-03.** Vertrag in `ARCHITECTURE.md`
+> („Managed-run coordinator": Repeatable run loop, späte Ergebnisse,
+> `maxTaskMinutes`), Nachweis in `scripts/test-orchestration-beta.ts`
+> (`repeatableRunLoopChecks`, `lateResultAfterRunEndChecks`,
+> `taskTimeBudgetChecks`; Floor 130 → 151), `scripts/test-security.ts`
+> (149) und im Electron-Workflow (Opt-in-Checkbox, Tastatur, Hinweistext,
+> Minutenfeld). Umgesetzt: `resetToBase` nativ + WSL mit Archiv-Ref vor jeder
+> Ref-Bewegung, `Run.workspacePrepare` aus expliziter Bestätigung im Dialog,
+> `workspace.rebased`-Event, benannte Worktrees im Fail-closed-Fehler, der
+> `isTerminalRun`-Guard im Erfolgszweig, `RunBudget.maxTaskMinutes`. Die
+> Basis ist der HEAD des Orchestrator-Worktrees (das Integrationsziel), nicht
+> ein Repo-Default-Branch. **Offen bleiben** aus den Hinweisen: Kill-Eskalation
+> in `forceStop`, `cols: 4096` für Task-PTYs, `attempt > 1`. Der Goal-6-Treiber
+> setzt weiterhin auf die *aufgezeichnete Baseline* zurück, weil die Messung
+> jedes Fixture vom selben Stand starten muss — das ist ein anderer Vertrag
+> als der Alltagsbetrieb und bleibt bewusst manuell.
+
 **Befund (verifiziert).** `RunCoordinator.start()` verlangt für alle
 repo-gestützten Teilnehmer denselben `headSha`
 (`src/main/orchestration/RunCoordinator.ts:231-234`), aber **nichts** re-based
@@ -123,14 +140,17 @@ aber die abweichenden Worktrees.
 
 **Weitere Befunde in diesem Thema (Hinweise):**
 
-- `RunCoordinator.ts:479`: Der Erfolgszweig prüft weder `isTerminalRun` noch
-  `releaseIfDrained`. Ein Worker, der nach einem gescheiterten Geschwister
-  fertig wird, hinterlässt dauerhaft `active`-Leases, die anschließend
-  `deleteRun`, `removeBinding` und jeden weiteren Run auf diesem Worktree
-  blockieren.
-- `RunBudget` (`src/shared/types.ts:295`) hat keine Zeitdimension und
-  `PtyManager` keinen Task-Timer: eine CLI, die auf einen interaktiven Prompt
-  wartet, hält einen der vier globalen Slots unbegrenzt, ohne Benachrichtigung.
+- *(erledigt 2026-09-03)* `RunCoordinator.ts:479`: Der Erfolgszweig prüfte
+  weder `isTerminalRun` noch `releaseIfDrained`. Ein Worker, der nach einem
+  gescheiterten Geschwister fertig wurde, hinterließ dauerhaft
+  `active`-Leases. Jetzt wird ein spätes Ergebnis auf einem beendeten Run als
+  `cancelled` protokolliert, nicht validiert, nicht committet; der Run wird
+  gedraint und gibt alle Leases frei (`lateResultAfterRunEndChecks`).
+- *(erledigt 2026-09-03)* `RunBudget` hatte keine Zeitdimension: eine CLI,
+  die auf einen interaktiven Prompt wartet, hielt einen der vier globalen
+  Slots unbegrenzt. `maxTaskMinutes` (Dialog-Default 60, Modell-Default
+  `null`) lässt den Coordinator den Run mit exaktem Grund fail-closed beenden
+  und journaliert `budget.exhausted` (`task minutes`).
 - `PtyManager.forceStop` eskaliert den Kill nie (node-pty sendet ein SIGHUP an
   die Shell-PID) und `removeSession` disposed die PTY-Listener nicht.
 - Task-PTYs laufen auf festen 120×32, weshalb ConPTY genau das JSONL hart
@@ -150,6 +170,10 @@ Lease noch Task an, (b) setzt mit Flag jedes Worktree auf die Basis zurück,
 während `refs/ade/archive/*` weiterhin auf die Tips des ersten Runs zeigt, und
 erreicht seinen Planning-Task, (c) bricht bei einem dirty Worktree ab, bevor
 ein Ref bewegt wird. Kein manuelles `git` mehr im Operator-Protokoll.
+*Erfüllt 2026-09-03:* `repeatableRunLoopChecks` fährt genau (a), (b) und (c)
+mit echtem Git, dazu die Verweigerung bei fremdem aktiven Lease, einen
+vollständigen zweiten Run bis `completed` auf den zurückgesetzten Bases und
+einen dritten Run über dieselben Bindings.
 
 **Bezug zur Roadmap.** Parallel zu Goal 7, muss dessen Exit-Kriterium aber
 vorausgehen: Goal 7 verspricht „local API integration tests can drive and

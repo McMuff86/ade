@@ -49,7 +49,7 @@ function run(partial: Partial<Run> & Pick<Run, 'id' | 'name'>): Run {
     phase: 'completed',
     budget: {
       maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null,
-      maxCostUsd: null, maxApprovals: 1,
+      maxCostUsd: null, maxApprovals: 1, maxTaskMinutes: null,
     },
     createdAt: 1,
     updatedAt: 1,

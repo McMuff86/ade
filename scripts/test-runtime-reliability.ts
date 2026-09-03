@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     id: 'failed-run', name: 'Failed run', goal: 'Expose the failure', status: 'failed',
     mode: 'managed', phase: 'failed', budget: {
       maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null,
-      maxCostUsd: null, maxApprovals: 1,
+      maxCostUsd: null, maxApprovals: 1, maxTaskMinutes: null,
     }, createdAt: 1, updatedAt: 4,
   };
   const failedTask: RunTask = {

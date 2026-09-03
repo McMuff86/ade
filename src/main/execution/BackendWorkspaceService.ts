@@ -6,13 +6,16 @@ import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../../sha
 import type { AdeConfig } from '../../shared/types';
 import {
   WorkspaceService,
+  assertResetArguments,
   type DependencyParent,
   type WorkspaceInspection,
   type WorkspacePort,
+  type WorkspaceReset,
 } from '../orchestration/WorkspaceService';
 import { ExecutionBackendService } from './ExecutionBackendService';
 
 const MAX_WORKER_COMMITS = 50;
+const NULL_OBJECT_ID = '0'.repeat(40);
 
 interface ConfigPort {
   get(): AdeConfig;
@@ -71,6 +74,10 @@ export class BackendWorkspaceService implements WorkspacePort {
     parents: DependencyParent[],
   ): Promise<string> {
     return this.serviceFor(workspaceDir).prepareDependencyBase(workspaceDir, runBaseSha, parents);
+  }
+
+  resetToBase(workspaceDir: string, baseSha: string, archiveRef: string): Promise<WorkspaceReset> {
+    return this.serviceFor(workspaceDir).resetToBase(workspaceDir, baseSha, archiveRef);
   }
 
   backendFor(workspaceDir: string): ExecutionBackendId {
@@ -305,6 +312,45 @@ class WslWorkspaceService implements WorkspacePort {
       }
       throw new Error(`ade: failed to prepare WSL dependency base: ${errorMessage(error)}`);
     }
+  }
+
+  /** WSL mirror of the native base-reset contract: archive first, refs only, fail closed. */
+  async resetToBase(workspaceDir: string, baseSha: string, archiveRef: string): Promise<WorkspaceReset> {
+    assertResetArguments(baseSha, archiveRef);
+    const inspection = await this.inspect(workspaceDir);
+    if (!inspection.isRepo) throw new Error('ade: base reset workspace is not a WSL git worktree');
+    if (!inspection.clean) throw new Error('ade: base reset requires a clean worktree');
+    if (!inspection.branch) throw new Error('ade: base reset requires a worktree on a branch');
+    if (inspection.headSha === baseSha) {
+      return { previousHeadSha: baseSha, headSha: baseSha, archiveRef };
+    }
+    const exists = await this.execution.run(this.backend, 'git', [
+      '-C', workspaceDir, 'cat-file', '-e', `${baseSha}^{commit}`,
+    ]);
+    if (exists.code !== 0) {
+      throw new Error(`ade: base reset target ${baseSha} is not a commit in this repository`);
+    }
+    const related = await this.execution.run(this.backend, 'git', [
+      '-C', workspaceDir, 'merge-base', inspection.headSha, baseSha,
+    ]);
+    if (related.code !== 0) {
+      throw new Error('ade: base reset target does not share history with the worktree HEAD');
+    }
+    try {
+      await this.git(workspaceDir, ['update-ref', archiveRef, inspection.headSha, NULL_OBJECT_ID]);
+    } catch (error) {
+      throw new Error(`ade: failed to archive the WSL worktree tip before reset: ${errorMessage(error)}`);
+    }
+    try {
+      await this.git(workspaceDir, ['reset', '--hard', baseSha]);
+    } catch (error) {
+      throw new Error(`ade: failed to reset the WSL worktree onto the run base: ${errorMessage(error)}`);
+    }
+    const after = await this.inspect(workspaceDir);
+    if (!after.clean || after.headSha !== baseSha || after.branch !== inspection.branch) {
+      throw new Error('ade: WSL base reset did not produce a clean worktree on the requested base');
+    }
+    return { previousHeadSha: inspection.headSha, headSha: after.headSha, archiveRef };
   }
 
   private async isAncestor(workspaceDir: string, ancestor: string, descendant: string): Promise<boolean> {

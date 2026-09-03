@@ -192,7 +192,12 @@ installation remain untouched unless an operator separately authorizes them.
 
 - Managed runs require exactly one orchestrator, at least one lead/worker,
   clean exclusive workspaces, a concrete goal and at least one approval in
-  their budget. Repo-backed participants must be worktrees of one repository.
+  their budget. Repo-backed participants must be worktrees of one repository
+  on the orchestrator worktree's HEAD. Tick "reset worktrees to the
+  orchestrator base" in the run dialog to let ADE archive divergent worker tips
+  under `refs/ade/archive/<run>/<participant>` and reset them before the run;
+  otherwise a divergent worktree fails the start closed and is named. An
+  optional per-task time limit (default 60 min) fails a run whose CLI hangs.
 - The publishing gate protects ADE's own path; it is not an OS sandbox. An
   agent deliberately launched in bypass mode is a fully trusted process — use
   a separate credential boundary for agents that are not.

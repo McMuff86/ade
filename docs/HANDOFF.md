@@ -1,3 +1,63 @@
+# Handoff — 2026-09-03
+
+## Ergebnis dieser Session — Thema 2 „Wiederholbare Run-Schleife“
+
+Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md`, Thema 2. Vertrag in
+`ARCHITECTURE.md` („Managed-run coordinator“), Matrix in `STATUS.md`.
+
+- **`resetToBase` (nativ + WSL):** `WorkspacePort.resetToBase(dir, baseSha,
+  archiveRef)`. Guards: Repo, clean, auf Branch, Ziel ist Commit und teilt
+  Historie mit HEAD (`merge-base`). Vor dem `reset --hard` wird der alte Tip
+  per `update-ref <ref> <head> 0000…` unter
+  `refs/ade/archive/<runId>/<participantId>` gepinnt — existiert der Ref
+  schon, bricht es ab statt zu überschreiben. Danach Re-Inspektion: clean,
+  HEAD = Basis, Branch unverändert.
+- **`Run.workspacePrepare = 'reset-to-base'`:** nur aus der expliziten
+  Checkbox im „Neuer Run“-Dialog (sichtbar nur mit Repository, Default aus,
+  Hinweistext wechselt mit dem Zustand, `aria-describedby`). Persistiert auf
+  dem Run, IPC-validiert als Enum, Store-Schema erweitert.
+- **`start()`:** Basis = HEAD des Orchestrator-Worktrees (Integrationsziel).
+  Ohne Flag: Fehler `same Git base` nennt jetzt jede abweichende Worktree
+  mit Kurz-SHA und den Opt-in. Mit Flag: erst Prüfung, ob ein anderer aktiver
+  Run eines der Worktrees leased (dann Abbruch ohne Ref-Bewegung), dann je
+  Worktree Reset + `workspace.rebased` (`fromSha`, `toSha`, `archiveRef`),
+  dann Re-Inspektion, dann Leases auf der angeglichenen Basis. Reihenfolge:
+  nach dem Clean-Check, vor `acquireWorkspaceLeases`.
+- **Lease-Leak geschlossen:** Erfolgszweig in `onTaskFinished` prüft
+  `isTerminalRun`. Ein spätes `completed` auf einem beendeten Run wird als
+  `cancelled` mit Grund protokolliert, weder validiert noch committet, und
+  der Run wird gedraint → alle Leases `released`.
+- **`RunBudget.maxTaskMinutes`:** `null` = kein Limit (Modell-Default),
+  Dialog-Default 60, Bereich 1–1440. Coordinator-eigener Timer pro laufendem
+  Managed-Task (`TaskTimerPort`, injizierbar), disarmed auf jedem
+  Finish/Launch-Fail-Pfad. Läuft er ab: `budget.exhausted` (`task minutes`)
+  + `failRunCore` mit Task-Titel und Limit → normaler Cancel-Pfad über den
+  PtyManager. Migration: alte Budgets erhalten einmalig `maxTaskMinutes:
+  null` und gelten danach als kanonisch.
+- **Nachweis:** `test-orchestration-beta.ts` 130 → 151
+  (`repeatableRunLoopChecks` mit echtem Git: (a) strict fail-closed ohne
+  Lease/Task/Ref, (b) Opt-in → Archiv-Refs zeigen auf alte Tips, beide
+  Worker auf Orchestrator-HEAD, `workspace.rebased` ×2, Run läuft bis
+  `completed`, dritter Run startet ohne Handarbeit, (c) dirty → Abbruch vor
+  jeder Ref-Bewegung, fremder Lease → Verweigerung;
+  `lateResultAfterRunEndChecks`; `taskTimeBudgetChecks` mit Fake-Timern).
+  `test-orchestration.ts` 48 → 49 (Budget-Migration). `test-security.ts`
+  147 → 149. Electron-Workflow: Checkbox vorhanden/aus, Tastatur-Toggle,
+  Hinweistext, Minutenfeld mit Default 60 und `max=1440`.
+- **Bewusst offen (Thema 2, Hinweise):** Kill-Eskalation in `forceStop`,
+  `cols: 4096` für Task-PTYs, `attempt > 1`. Archiv-Refs werden nicht
+  automatisch gepruned. Goal-6-Treiber setzt weiterhin auf die
+  aufgezeichnete Baseline zurück (anderer Vertrag als der Alltagsbetrieb).
+
+## Nächster Schritt
+
+Thema 6 (Grenze härten: Channel-Privilegien, Redaktion um `handle()`,
+`WSLENV`-Keys, `will-redirect`, Broadcast-Ziele), danach der Goal-7
+SSE-Slice über den vorhandenen `seq`-Cursor. Danach Thema 3 (beendete Runs
+lesbar, Graph-Tastaturpfad).
+
+---
+
 # Handoff — 2026-08-19
 
 ## Ergebnis dieser Session

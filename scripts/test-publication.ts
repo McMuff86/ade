@@ -195,7 +195,7 @@ function fixture(label: string): Fixture {
     status: 'completed',
     mode: 'managed',
     phase: 'completed',
-    budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1 },
+    budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1, maxTaskMinutes: null },
     repositoryId: 'repository',
     verifiedHeadSha: headSha,
     verificationTaskId: 'verify-task',

@@ -160,6 +160,7 @@ function sampleConfig(): AdeConfig {
         maxOutputTokens: null,
         maxCostUsd: null,
         maxApprovals: 1,
+        maxTaskMinutes: null,
       },
     }],
   };
@@ -1830,7 +1831,7 @@ function testConfigStoreReplacement(): void {
     const runBase = {
       id: 'run-a', name: 'Run A', goal: 'Validate', status: 'draft' as const, mode: 'managed' as const,
       phase: 'draft' as const,
-      budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1 },
+      budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1, maxTaskMinutes: null },
       createdAt: 1, updatedAt: 1,
     };
     const invalidEnum = structuredClone(store.get());

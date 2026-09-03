@@ -238,6 +238,7 @@ function seedConfig(
         maxOutputTokens: null,
         maxCostUsd: null,
         maxApprovals: 1,
+        maxTaskMinutes: null,
       },
       source: 'native',
       repositoryId,
@@ -256,6 +257,7 @@ function seedConfig(
         maxOutputTokens: null,
         maxCostUsd: null,
         maxApprovals: 1,
+        maxTaskMinutes: null,
       },
       source: 'native',
       repositoryId,
@@ -1133,6 +1135,25 @@ async function run(): Promise<void> {
         .locator('select');
       return await repositorySelect.inputValue() === 'e2e-managed-repository';
     });
+    // Thema 2: the worktree reset is an explicit, keyboard-reachable opt-in
+    // that only exists for repository-backed runs and defaults to strict.
+    const prepareChoice = runModal.locator('.grun-prepare-choice input[type="checkbox"]');
+    check('a repository-backed run exposes the worktree reset as an unchecked opt-in',
+      await prepareChoice.count() === 1 && !(await prepareChoice.isChecked()));
+    const strictHint = (await runModal.locator('#grun-prepare-hint').textContent()) ?? '';
+    await prepareChoice.focus();
+    await page.keyboard.press('Space');
+    const preparedHint = (await runModal.locator('#grun-prepare-hint').textContent()) ?? '';
+    check('the worktree reset opt-in toggles by keyboard and explains the archive ref before any start',
+      await prepareChoice.isChecked()
+        && strictHint.includes('bricht der Start ab')
+        && preparedHint.includes('refs/ade/archive/')
+        && await prepareChoice.getAttribute('aria-describedby') === 'grun-prepare-hint',
+      { strictHint, preparedHint });
+    const taskMinutes = runModal.locator('.grun-budget label', { hasText: 'Min. pro Task' }).locator('input');
+    check('the run budgets carry a per-task time limit with a bounded default',
+      await taskMinutes.inputValue() === '60'
+        && await taskMinutes.getAttribute('max') === '1440');
     await runModal.getByRole('button', { name: 'Abbrechen' }).click();
     await runModal.waitFor({ state: 'hidden' });
 

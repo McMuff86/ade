@@ -486,6 +486,37 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   dependency deltas abort the replay, restore the run base and fail the run
   closed with the Git reason journaled before the dependent ever launches —
   ADE never merge-guesses a base.
+- Repeatable run loop over the same worktrees. Integration cherry-picks worker
+  deltas onto the orchestrator worktree's HEAD, so after a completed run the
+  orchestrator carries the result while every worker worktree still sits on its
+  own validated tip. `start()` therefore treats the orchestrator HEAD as the
+  run base. Without an opt-in a divergent repo-backed worktree fails the start
+  closed before any lease or task exists, and the error names each divergent
+  worktree with its short SHA. With `Run.workspacePrepare = 'reset-to-base'` —
+  set only from an explicit confirmation in the "Neuer Run" dialog and
+  persisted on the run — the coordinator first pins each divergent tip under
+  `refs/ade/archive/<runId>/<participantId>` (`update-ref` with a zero
+  old-value, so an existing archive slot is never overwritten), then
+  `reset --hard`s the clean, branch-attached worktree onto the base and
+  journals one `workspace.rebased` event (`fromSha`, `toSha`, `archiveRef`).
+  `WorkspacePort.resetToBase` refuses non-repo, dirty or detached worktrees and
+  bases that share no history with the current HEAD; the coordinator refuses
+  worktrees still leased by another active run. The reset runs after the clean
+  check and before lease acquisition; leases and the manifest then record the
+  aligned base. The orchestrator worktree is never reset by this path.
+- A managed task result that arrives after its run already ended (a sibling
+  failed, or the operator cancelled, while this process was still exiting) is
+  recorded as `cancelled` with that reason. It never creates an ADE commit in
+  a worktree the run no longer owns and never advances the phase machine; it
+  only drains the run so `releaseIfDrained` can release every lease.
+- `RunBudget.maxTaskMinutes` is the run's wall-clock limit per managed task
+  (`null` = none; 1–1440). The coordinator arms one timer per running managed
+  task and disarms it on any finish/launch-failure path. When the limit passes
+  it journals `budget.exhausted` (`kind: 'task minutes'`) and fails the run
+  closed with the task title and limit in the reason, which cancels the task
+  through the normal PTY cancellation path. A hanging CLI therefore cannot hold
+  one of the four global slots past the budget. The timer seam is injectable
+  (`TaskTimerPort`) so the contract is tested without waiting.
 - Patch ownership follows from inheritance: a work task's owned delta is
   `preparedBaseSha..tip` (run base when no preparation happened). A dependent
   worker may modify files its dependencies changed — those are ordinary

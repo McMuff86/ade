@@ -27,6 +27,10 @@
  *   - Before approving, machine-check the worker commit range yourself.
  *   - After a run terminates: evidence branches, then reset the ade
  *     worktrees to the recorded baseline SHA. Never while a lease is active.
+ *     This stays manual on purpose: Goal 6 measures every fixture from one
+ *     recorded baseline, whereas the run dialog's "reset worktrees to the
+ *     orchestrator base" opt-in (docs/ARCHITECTURE.md, repeatable run loop)
+ *     targets the orchestrator HEAD and is meant for day-to-day runs.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_RUN_BUDGET,
+  MAX_TASK_MINUTES_LIMIT,
+  WORKSPACE_PREPARE_MODES,
   type AdeConfig,
   type CommandLogEntry,
   type OrchestrationSnapshot,
@@ -276,6 +278,9 @@ export class OrchestrationService {
     const agents = new Map(config.agents.map((agent) => [agent.id, agent]));
     const seen = new Set<string>();
     const now = Date.now();
+    if (input.workspacePrepare !== undefined && !WORKSPACE_PREPARE_MODES.includes(input.workspacePrepare)) {
+      throw new Error(`ade: unknown workspace preparation mode "${String(input.workspacePrepare)}"`);
+    }
     const run: Run = {
       id: randomUUID(),
       name,
@@ -286,6 +291,7 @@ export class OrchestrationService {
       budget: normalizeBudget(input.budget),
       source: 'native',
       repositoryId: input.repositoryId,
+      ...(input.workspacePrepare ? { workspacePrepare: input.workspacePrepare } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -1219,6 +1225,35 @@ export class OrchestrationService {
     return { ...updated, dependsOn: [...updated.dependsOn] };
   }
 
+  /**
+   * Journal that ADE archived a participant worktree tip and moved the
+   * worktree onto the run base before leasing it. Recorded after the Git
+   * refs moved, so the event describes what actually happened; the archive
+   * ref itself is the durable pointer to the previous run's commits.
+   */
+  recordWorkspaceRebased(runId: string, input: {
+    participantId: string;
+    fromSha: string;
+    toSha: string;
+    archiveRef: string;
+  }): void {
+    const config = this.store.get();
+    if (!config.runs.some((run) => run.id === runId)) throw new Error(`ade: run not found "${runId}"`);
+    if (!config.runParticipants.some((item) => item.id === input.participantId && item.runId === runId)) {
+      throw new Error(`ade: run participant not found "${input.participantId}"`);
+    }
+    if (!GIT_OBJECT_ID.test(input.fromSha) || !GIT_OBJECT_ID.test(input.toSha)) {
+      throw new Error('ade: workspace rebase must record full Git object ids');
+    }
+    this.store.save({
+      runEvents: [...config.runEvents, this.event(runId, 'workspace.rebased', {
+        participantId: input.participantId,
+        data: { fromSha: input.fromSha, toSha: input.toSha, archiveRef: input.archiveRef },
+      })],
+    });
+    this.emit();
+  }
+
   markIntegrationApplied(runId: string, commitCount: number): void {
     const config = this.store.get();
     this.store.save({
@@ -1535,6 +1570,9 @@ function normalizeBudget(input: Partial<Run['budget']> | undefined): Run['budget
   if (budget.maxCostUsd !== null && (
     !Number.isFinite(budget.maxCostUsd) || budget.maxCostUsd <= 0 || budget.maxCostUsd > 1_000_000
   )) throw new Error('ade: maxCostUsd must be null or a positive number');
+  if (budget.maxTaskMinutes !== null && (
+    !Number.isInteger(budget.maxTaskMinutes) || budget.maxTaskMinutes < 1 || budget.maxTaskMinutes > MAX_TASK_MINUTES_LIMIT
+  )) throw new Error(`ade: maxTaskMinutes must be null or an integer from 1 to ${MAX_TASK_MINUTES_LIMIT}`);
   return budget;
 }
 

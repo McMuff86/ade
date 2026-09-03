@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -18,7 +19,7 @@ import {
   type StructuredTaskResult,
 } from '../src/shared/types';
 import { OrchestrationService } from '../src/main/orchestration/OrchestrationService';
-import { RunCoordinator } from '../src/main/orchestration/RunCoordinator';
+import { RunCoordinator, type TaskTimerPort } from '../src/main/orchestration/RunCoordinator';
 import {
   ClaudeStreamJsonAdapter,
   CodexJsonAdapter,
@@ -114,6 +115,35 @@ class FakeWorkspaces implements WorkspacePort {
     _parents: Array<{ tipSha: string; ownBaseSha: string }>,
   ): Promise<string> {
     return (await this.inspect(workspaceDir)).headSha || runBaseSha;
+  }
+
+  resets: Array<{ workspaceDir: string; baseSha: string; archiveRef: string }> = [];
+
+  async resetToBase(workspaceDir: string, baseSha: string, archiveRef: string) {
+    this.resets.push({ workspaceDir, baseSha, archiveRef });
+    return { previousHeadSha: (await this.inspect(workspaceDir)).headSha, headSha: baseSha, archiveRef };
+  }
+}
+
+/** Deterministic stand-in for setTimeout so the task time budget is provable without waiting. */
+class FakeTimers implements TaskTimerPort {
+  readonly pending = new Map<number, { callback: () => void; delayMs: number }>();
+  private nextHandle = 1;
+
+  set(callback: () => void, delayMs: number): unknown {
+    const handle = this.nextHandle++;
+    this.pending.set(handle, { callback, delayMs });
+    return handle;
+  }
+
+  clear(handle: unknown): void {
+    this.pending.delete(handle as number);
+  }
+
+  fireAll(): void {
+    const armed = [...this.pending.values()];
+    this.pending.clear();
+    for (const timer of armed) timer.callback();
   }
 }
 
@@ -1682,6 +1712,374 @@ async function pauseSchedulingChecks(root: string): Promise<void> {
     service.snapshot().approvals.some((approval) => approval.status === 'pending'));
 }
 
+/**
+ * Thema 2 — repeatable run loop over the same worktrees (real git). After a
+ * completed run the orchestrator worktree carries the integrated result while
+ * every worker worktree still sits on its own validated tip. The next run must
+ * (a) fail closed and name the divergent worktrees without the opt-in,
+ * (b) archive and reset them with the opt-in and reach planning, and
+ * (c) refuse to move any ref while a worktree is dirty or leased elsewhere.
+ */
+async function repeatableRunLoopChecks(root: string): Promise<void> {
+  console.log('\n== repeatable run loop: second run over the same worktrees (real git) ==');
+  const agentIds = ['orchestrator', 'lead', 'worker'];
+  const home = root;
+  const repo = join(home, 'repo');
+  mkdirSync(repo, { recursive: true });
+  git(repo, ['init', '--initial-branch=main']);
+  git(repo, ['config', 'user.email', 'ade-test@example.invalid']);
+  git(repo, ['config', 'user.name', 'ADE test']);
+  writeFileSync(join(repo, 'base.txt'), 'base\n', 'utf8');
+  git(repo, ['add', 'base.txt']);
+  git(repo, ['commit', '-m', 'run base']);
+  const baseSha = git(repo, ['rev-parse', 'HEAD']).trim();
+  const agents = agentIds.map((id) => {
+    const item = { ...agent(id, home), workspaceDir: join(home, 'worktrees', id) };
+    git(repo, ['worktree', 'add', '-b', `run-${id}`, item.workspaceDir, baseSha]);
+    mkdirSync(item.memoryDir, { recursive: true });
+    return item;
+  });
+  const dirOf = (agentId: string): string => agents.find((item) => item.id === agentId)!.workspaceDir;
+  const headOf = (agentId: string): string => git(dirOf(agentId), ['rev-parse', 'HEAD']).trim();
+  const commitIn = (agentId: string, file: string, content: string, message: string): string => {
+    writeFileSync(join(dirOf(agentId), file), content, 'utf8');
+    git(dirOf(agentId), ['add', file]);
+    git(dirOf(agentId), ['-c', 'user.email=ade-test@example.invalid', '-c', 'user.name=ADE test', 'commit', '-m', message]);
+    return headOf(agentId);
+  };
+  const archiveRefs = (runId: string): Map<string, string> => {
+    const lines = git(repo, ['for-each-ref', '--format=%(refname) %(objectname)', `refs/ade/archive/${runId}/`])
+      .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    return new Map(lines.map((line) => line.split(' ') as [string, string]));
+  };
+
+  // A previous run's end state, reproduced by hand: workers delivered on their
+  // own tips, the orchestrator integrated (cherry-picked copies) and moved on.
+  const leadTip = commitIn('lead', 'lead.txt', 'lead v1\n', 'lead delivery');
+  const workerTip = commitIn('worker', 'worker.txt', 'worker v1\n', 'worker delivery');
+  git(dirOf('orchestrator'), ['cherry-pick', leadTip, workerTip]);
+  const integratedHead = headOf('orchestrator');
+  check('fixture: worker worktrees diverge from the integrated orchestrator HEAD',
+    integratedHead !== baseSha && headOf('lead') !== integratedHead && headOf('worker') !== integratedHead);
+
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [{ id: 'cat', name: 'Team', agents: agentIds }],
+    agents,
+  };
+  const store = new MemoryStore(config);
+  const service = new OrchestrationService(store);
+  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), new WorkspaceService());
+  const launched: string[] = [];
+  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    launched.push(taskId);
+    const session: SessionMeta = {
+      id: `loop-${launched.length}`, agentId, title: 'fixture', kind: 'task',
+      status: 'running', createdAt: Date.now(), runTaskId: taskId,
+    };
+    coordinator.onTaskStarted(taskId, session);
+    return session;
+  }, () => undefined);
+  const inputFor = (name: string, prepare: boolean): RunCreateInput => ({
+    ...runInput(name, { maxConcurrentTasks: 2 }),
+    ...(prepare ? { workspacePrepare: 'reset-to-base' } : {}),
+  });
+
+  // (a) strict default: fail closed, name the worktrees, move nothing.
+  const strict = service.createRun(inputFor('Second run, strict', false));
+  let strictFailure = '';
+  try {
+    await coordinator.start(strict.id);
+  } catch (error) {
+    strictFailure = errorText(error);
+  }
+  check('without the opt-in a second run fails closed and names the divergent worktrees',
+    strictFailure.includes('same Git base') &&
+    strictFailure.includes('lead (') && strictFailure.includes('worker (') &&
+    strictFailure.includes('reset worktrees to the orchestrator base') &&
+    launched.length === 0 &&
+    service.snapshot().workspaceLeases.length === 0 &&
+    service.snapshot().runs.find((item) => item.id === strict.id)?.status === 'draft');
+  check('the strict failure moved no ref and archived nothing',
+    headOf('lead') === leadTip && headOf('worker') === workerTip &&
+    archiveRefs(strict.id).size === 0 &&
+    !service.snapshot().events.some((event) => event.type === 'workspace.rebased'));
+
+  // (c1) dirty worktree with the opt-in: abort before any ref moves.
+  writeFileSync(join(dirOf('worker'), 'base.txt'), 'uncommitted edit\n', 'utf8');
+  const dirty = service.createRun(inputFor('Second run, dirty worker', true));
+  let dirtyFailure = '';
+  try {
+    await coordinator.start(dirty.id);
+  } catch (error) {
+    dirtyFailure = errorText(error);
+  }
+  check('a dirty worktree aborts the prepared start before any ref is moved',
+    dirtyFailure.includes('not clean') &&
+    headOf('lead') === leadTip && headOf('worker') === workerTip &&
+    archiveRefs(dirty.id).size === 0 &&
+    !service.snapshot().events.some((event) => event.type === 'workspace.rebased'));
+  git(dirOf('worker'), ['checkout', '--', 'base.txt']);
+
+  // (c2) a worktree still leased by another run is never reset.
+  const holder = service.createRun(inputFor('Lease holder', false));
+  const holderParticipant = service.snapshot().participants.find(
+    (item) => item.runId === holder.id && item.agentId === 'worker')!;
+  service.acquireWorkspaceLeases(holder.id, [{
+    participantId: holderParticipant.id,
+    agentId: 'worker',
+    // Leases always carry the inspected (canonical) path, like the coordinator does.
+    workspaceDir: realpathSync.native(dirOf('worker')),
+    isRepo: true,
+    branch: 'run-worker',
+    baseSha: workerTip,
+    commonGitDir: join(repo, '.git'),
+  }]);
+  const contested = service.createRun(inputFor('Second run, contested worker', true));
+  let contestedFailure = '';
+  try {
+    await coordinator.start(contested.id);
+  } catch (error) {
+    contestedFailure = errorText(error);
+  }
+  check('a worktree leased by another active run is refused instead of reset',
+    contestedFailure.includes('leased by active run') &&
+    contestedFailure.includes(holder.id) &&
+    headOf('lead') === leadTip && headOf('worker') === workerTip &&
+    archiveRefs(contested.id).size === 0);
+  service.releaseWorkspaceLeases(holder.id);
+
+  // (b) explicit opt-in: archive, reset, lease on the orchestrator base, plan.
+  const prepared = service.createRun(inputFor('Second run, prepared', true));
+  await coordinator.start(prepared.id);
+  let snapshot = service.snapshot();
+  const participantOf = (runId: string, agentId: string): string =>
+    service.snapshot().participants.find((item) => item.runId === runId && item.agentId === agentId)!.id;
+  const preparedArchive = archiveRefs(prepared.id);
+  check('with the opt-in both worker worktrees are reset onto the orchestrator HEAD',
+    headOf('lead') === integratedHead && headOf('worker') === integratedHead &&
+    git(dirOf('lead'), ['status', '--porcelain']).trim() === '' &&
+    git(dirOf('lead'), ['branch', '--show-current']).trim() === 'run-lead' &&
+    headOf('orchestrator') === integratedHead);
+  check('every previous tip is pinned under refs/ade/archive/<run>/<participant> before the move',
+    preparedArchive.get(`refs/ade/archive/${prepared.id}/${participantOf(prepared.id, 'lead')}`) === leadTip &&
+    preparedArchive.get(`refs/ade/archive/${prepared.id}/${participantOf(prepared.id, 'worker')}`) === workerTip &&
+    preparedArchive.size === 2);
+  const rebased = snapshot.events.filter((event) => event.type === 'workspace.rebased' && event.runId === prepared.id);
+  check('workspace.rebased is journaled per reset worktree with from/to SHAs and the archive ref',
+    rebased.length === 2 &&
+    rebased.some((event) => event.participantId === participantOf(prepared.id, 'lead') &&
+      event.data?.fromSha === leadTip && event.data?.toSha === integratedHead &&
+      event.data?.archiveRef === `refs/ade/archive/${prepared.id}/${participantOf(prepared.id, 'lead')}`) &&
+    rebased.some((event) => event.participantId === participantOf(prepared.id, 'worker') &&
+      event.data?.fromSha === workerTip && event.data?.toSha === integratedHead));
+  check('the prepared run leases every worktree on the shared base and reaches its planning task',
+    snapshot.workspaceLeases.filter((lease) => lease.runId === prepared.id && lease.status === 'active').length === 3 &&
+    snapshot.workspaceLeases.filter((lease) => lease.runId === prepared.id)
+      .every((lease) => lease.baseSha === integratedHead) &&
+    launched.length === 1 &&
+    snapshot.runs.find((item) => item.id === prepared.id)?.phase === 'planning');
+
+  // The prepared run completes end to end, proving the reset worktrees are
+  // real ADE-owned bases: worker deltas validate against them and integrate.
+  const ids = { lead: participantOf(prepared.id, 'lead'), worker: participantOf(prepared.id, 'worker') };
+  finish(coordinator, snapshot.tasks.find((task) => task.runId === prepared.id && task.phase === 'plan')!.id, result({
+    assignments: [
+      { participantId: ids.lead, title: 'Lead v2', prompt: 'Extend lead.txt.', acceptanceCriteria: ['done'], dependsOn: [] },
+      { participantId: ids.worker, title: 'Worker v2', prompt: 'Extend worker.txt.', acceptanceCriteria: ['done'], dependsOn: [] },
+    ],
+  }));
+  await waitFor(() => launched.length === 3, 'second-run workers launch');
+  const taskOf = (participantId: string) =>
+    service.snapshot().tasks.find((task) => task.phase === 'work' && task.participantId === participantId)!;
+  writeFileSync(join(dirOf('lead'), 'lead.txt'), 'lead v1\nlead v2\n', 'utf8');
+  finish(coordinator, taskOf(ids.lead).id, result({ summary: 'lead v2', filesChanged: ['lead.txt'] }));
+  await waitFor(() => taskOf(ids.lead).status === 'completed', 'second-run lead completion');
+  writeFileSync(join(dirOf('worker'), 'worker.txt'), 'worker v1\nworker v2\n', 'utf8');
+  finish(coordinator, taskOf(ids.worker).id, result({ summary: 'worker v2', filesChanged: ['worker.txt'] }));
+  await waitFor(() => service.snapshot().runs.find((item) => item.id === prepared.id)?.phase === 'approval',
+    'second-run approval gate');
+  const approval = service.snapshot().approvals.find((item) => item.runId === prepared.id && item.status === 'pending')!;
+  await coordinator.resolveApproval(approval.id, 'approve');
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.runId === prepared.id && task.phase === 'integrate' && task.status === 'running'),
+  'second-run integration task');
+  check('the second run integrates both v2 deltas on top of the first run\'s integrated HEAD',
+    readFileSync(join(dirOf('orchestrator'), 'lead.txt'), 'utf8').replace(/\r\n/g, '\n') === 'lead v1\nlead v2\n' &&
+    readFileSync(join(dirOf('orchestrator'), 'worker.txt'), 'utf8').replace(/\r\n/g, '\n') === 'worker v1\nworker v2\n' &&
+    isAncestorSync(dirOf('orchestrator'), integratedHead, 'HEAD'));
+  finish(coordinator, service.snapshot().tasks.find(
+    (task) => task.runId === prepared.id && task.phase === 'integrate')!.id, result({
+    summary: 'stable', tests: [{ command: 'pnpm test', status: 'passed', output: 'ok' }],
+  }));
+  await waitFor(() => service.snapshot().tasks.some(
+    (task) => task.runId === prepared.id && task.phase === 'verify' && task.status === 'running'),
+  'second-run verification task');
+  finish(coordinator, service.snapshot().tasks.find(
+    (task) => task.runId === prepared.id && task.phase === 'verify')!.id, result({
+    summary: 'verified', tests: [{ command: 'pnpm test', status: 'passed', output: 'ok' }],
+  }));
+  await waitFor(() => service.snapshot().runs.find((item) => item.id === prepared.id)?.status === 'completed',
+    'second-run completion');
+  snapshot = service.snapshot();
+  check('the second run completes with released leases; the archived first-run tips stay reachable',
+    snapshot.workspaceLeases.filter((lease) => lease.runId === prepared.id).every((lease) => lease.status === 'released') &&
+    git(repo, ['cat-file', '-t', leadTip]).trim() === 'commit' &&
+    archiveRefs(prepared.id).get(`refs/ade/archive/${prepared.id}/${ids.lead}`) === leadTip);
+
+  // A third run over the same bindings needs no manual removeBinding either.
+  const secondIntegratedHead = headOf('orchestrator');
+  const third = service.createRun(inputFor('Third run, prepared', true));
+  await coordinator.start(third.id);
+  check('a third run over the same bindings archives the second-run tips and starts planning',
+    headOf('lead') === secondIntegratedHead && headOf('worker') === secondIntegratedHead &&
+    archiveRefs(third.id).size === 2 &&
+    service.snapshot().runs.find((item) => item.id === third.id)?.phase === 'planning');
+  await coordinator.cancel(third.id);
+}
+
+/**
+ * Thema 2 — a worker that finishes successfully after a sibling already failed
+ * the run must not commit into a worktree the run no longer owns and must not
+ * leave the run's leases active.
+ */
+async function lateResultAfterRunEndChecks(root: string): Promise<void> {
+  console.log('\n== late successful result after the run already ended ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const service = new OrchestrationService(store);
+  const workspaces = new FakeWorkspaces();
+  const coordinator = new RunCoordinator(store, service, new RuntimeAdapterRegistry(), workspaces);
+  const launched: string[] = [];
+  let cancelRequests = 0;
+  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    launched.push(taskId);
+    const session: SessionMeta = {
+      id: `late-${launched.length}`, agentId, title: 'fixture', kind: 'task',
+      status: 'running', createdAt: Date.now(), runTaskId: taskId,
+    };
+    coordinator.onTaskStarted(taskId, session);
+    return session;
+  }, () => { cancelRequests += 1; });
+
+  const run = service.createRun(runInput('Late result', { maxConcurrentTasks: 2 }));
+  await coordinator.start(run.id);
+  const participants = service.snapshot().participants.filter((item) => item.runId === run.id);
+  const lead = participants.find((item) => item.agentId === 'lead')!;
+  const worker = participants.find((item) => item.agentId === 'worker')!;
+  finish(coordinator, service.snapshot().tasks.find((task) => task.phase === 'plan')!.id, result({
+    assignments: [
+      { participantId: lead.id, title: 'Lead task', prompt: 'Do lead work.', acceptanceCriteria: ['ok'], dependsOn: [] },
+      { participantId: worker.id, title: 'Worker task', prompt: 'Do worker work.', acceptanceCriteria: ['ok'], dependsOn: [] },
+    ],
+  }));
+  await waitFor(() => launched.length === 3, 'both workers launch');
+  const taskOf = (participantId: string) =>
+    service.snapshot().tasks.find((task) => task.phase === 'work' && task.participantId === participantId)!;
+
+  // The lead's CLI crashes; the run fails closed while the worker is still running.
+  coordinator.onTaskFinished(taskOf(lead.id).id, 'failed', 1, '');
+  await waitFor(() => service.snapshot().runs[0]?.status === 'failed', 'run fails on the crashed sibling');
+  check('the failed run keeps its leases while a sibling task is still running',
+    cancelRequests >= 1 &&
+    taskOf(worker.id).status === 'running' &&
+    service.snapshot().workspaceLeases.some((lease) => lease.runId === run.id && lease.status === 'active'));
+
+  // The worker exits 0 anyway (its process finished before the cancel landed).
+  finish(coordinator, taskOf(worker.id).id, result({ summary: 'worker done', filesChanged: ['late.txt'] }));
+  await waitFor(() => taskOf(worker.id).status !== 'running', 'late worker result is processed');
+  const snapshot = service.snapshot();
+  check('a late successful result on a terminal run is recorded as cancelled, not validated or committed',
+    taskOf(worker.id).status === 'cancelled' &&
+    (taskOf(worker.id).error ?? '').includes('Run ended') &&
+    !snapshot.results.some((item) => item.taskId === taskOf(worker.id).id) &&
+    snapshot.runs[0]?.status === 'failed');
+  check('the drained run releases every lease so the next run can lease the same worktrees',
+    snapshot.workspaceLeases.filter((lease) => lease.runId === run.id).length === 3 &&
+    snapshot.workspaceLeases.every((lease) => lease.status === 'released'));
+}
+
+/** Thema 2 — a hanging CLI cannot hold a task slot past the run's task time budget. */
+async function taskTimeBudgetChecks(root: string): Promise<void> {
+  console.log('\n== task time budget ==');
+  const store = new MemoryStore(configWithAgents(root));
+  const service = new OrchestrationService(store);
+  const timers = new FakeTimers();
+  const coordinator = new RunCoordinator(
+    store, service, new RuntimeAdapterRegistry(), new FakeWorkspaces(), undefined, timers,
+  );
+  const launched: string[] = [];
+  const cancelled: string[] = [];
+  coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
+    launched.push(taskId);
+    const session: SessionMeta = {
+      id: `budget-${launched.length}`, agentId, title: 'fixture', kind: 'task',
+      status: 'running', createdAt: Date.now(), runTaskId: taskId,
+    };
+    coordinator.onTaskStarted(taskId, session);
+    return session;
+  }, (ids) => { cancelled.push(...ids); });
+
+  let rejected = '';
+  try {
+    service.createRun(runInput('Bad minutes', { maxTaskMinutes: 0 }));
+  } catch (error) {
+    rejected = errorText(error);
+  }
+  check('maxTaskMinutes must be null or a bounded whole number', rejected.includes('maxTaskMinutes'));
+
+  const unlimited = service.createRun(runInput('No time limit'));
+  await coordinator.start(unlimited.id);
+  check('a run without a task time budget arms no timer',
+    unlimited.budget.maxTaskMinutes === null && timers.pending.size === 0);
+  await coordinator.cancel(unlimited.id);
+  coordinator.onTaskFinished(launched[0]!, 'cancelled', -1, '');
+  await waitFor(() => service.snapshot().workspaceLeases
+    .filter((lease) => lease.runId === unlimited.id).every((lease) => lease.status === 'released'),
+  'unlimited run releases its leases');
+
+  const limited = service.createRun(runInput('Forty minutes per task', { maxTaskMinutes: 40 }));
+  await coordinator.start(limited.id);
+  const planTask = service.snapshot().tasks.find((task) => task.runId === limited.id && task.phase === 'plan')!;
+  check('a running managed task arms exactly one timer for the configured minutes',
+    timers.pending.size === 1 && [...timers.pending.values()][0]!.delayMs === 40 * 60_000);
+
+  // Finishing in time disarms the timer.
+  const participants = service.snapshot().participants.filter((item) => item.runId === limited.id);
+  const lead = participants.find((item) => item.agentId === 'lead')!;
+  finish(coordinator, planTask.id, result({
+    assignments: [
+      { participantId: lead.id, title: 'Slow lead task', prompt: 'Hang forever.', acceptanceCriteria: ['ok'], dependsOn: [] },
+    ],
+  }));
+  await waitFor(() => launched.length === 3, 'limited-run worker launch');
+  check('a task that finishes in time disarms its timer; the next task arms its own',
+    timers.pending.size === 1 &&
+    !service.snapshot().events.some((event) => event.type === 'budget.exhausted'));
+
+  // The worker hangs: the timer fires, the run fails closed with the reason.
+  const workTask = service.snapshot().tasks.find((task) => task.runId === limited.id && task.phase === 'work')!;
+  timers.fireAll();
+  await waitFor(() => service.snapshot().runs.find((item) => item.id === limited.id)?.status === 'failed',
+    'time budget fails the run');
+  let snapshot = service.snapshot();
+  check('an exhausted task time budget fails the run closed with the exact reason and cancels the task',
+    cancelled.includes(workTask.id) &&
+    snapshot.events.some((event) => event.type === 'run.failed' &&
+      String(event.data?.detail ?? '').includes('task time budget of 40 minute(s)')) &&
+    snapshot.events.some((event) => event.type === 'budget.exhausted' &&
+      event.runId === limited.id && event.data?.kind === 'task minutes' && event.data?.limit === 40));
+
+  // PtyManager reports the killed process; the drained run releases its leases.
+  coordinator.onTaskFinished(workTask.id, 'cancelled', -1, '');
+  await waitFor(() => service.snapshot().workspaceLeases
+    .filter((lease) => lease.runId === limited.id).every((lease) => lease.status === 'released'),
+  'timed-out run releases leases');
+  snapshot = service.snapshot();
+  check('the timed-out task ends cancelled and the run holds no lease afterwards',
+    snapshot.tasks.find((task) => task.id === workTask.id)?.status === 'cancelled' &&
+    timers.pending.size === 0);
+}
+
 function finish(coordinator: RunCoordinator, taskId: string, value: StructuredTaskResult): void {
   const launch = coordinator.getTaskLaunch(taskId);
   if (!launch) throw new Error(`missing launch for ${taskId}`);
@@ -1715,6 +2113,9 @@ async function main(): Promise<void> {
     await realGitIntegrationChecks(root);
     await dependencyBaseWorkspaceChecks(join(root, 'dependency-base'));
     await dependentTopologyCoordinatorChecks(join(root, 'dependent-topology'));
+    await repeatableRunLoopChecks(join(root, 'repeatable-loop'));
+    await lateResultAfterRunEndChecks(join(root, 'late-result'));
+    await taskTimeBudgetChecks(join(root, 'task-time-budget'));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import type {
-  Agent,
-  Category,
-  Repository,
-  Run,
-  RunCreateInput,
-  RunPublication,
-  RunPublicationPreview,
-  RunTaskResult,
-  RuntimeId,
-  TaskProvenance,
+import {
+  MAX_TASK_MINUTES_LIMIT,
+  type Agent,
+  type Category,
+  type Repository,
+  type Run,
+  type RunCreateInput,
+  type RunPublication,
+  type RunPublicationPreview,
+  type RunTaskResult,
+  type RuntimeId,
+  type TaskProvenance,
 } from '../../shared/types';
 import { MANAGED_HARNESS_OVERRIDES } from '../../shared/runtimes';
 import type { ApprovalDiffResult, WslDistributionInfo } from '../../shared/ipc';
@@ -1101,6 +1102,8 @@ export function GraphView(): JSX.Element {
               {activeRunTasks.length} Tasks
               {activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
               {activeRun.mode === 'managed' && ` · Parallel ≤${activeRun.budget.maxConcurrentTasks}`}
+              {activeRun.mode === 'managed' && activeRun.budget.maxTaskMinutes !== null &&
+                ` · ≤${activeRun.budget.maxTaskMinutes} min/Task`}
               {activeUsage && ` · Freigaben ${activeUsage.approvals}/${activeRun.budget.maxApprovals}`}
               {activeRun.budget.maxCostUsd !== null && activeUsage &&
                 ` · $${activeUsage.costUsd.toFixed(2)}/$${activeRun.budget.maxCostUsd.toFixed(2)}`}
@@ -2224,6 +2227,10 @@ function NewRunModal(props: {
   const [maxOutputTokens, setMaxOutputTokens] = useState('');
   const [maxCostUsd, setMaxCostUsd] = useState('');
   const [maxApprovals, setMaxApprovals] = useState(1);
+  /** Empty = no wall-clock limit per managed task. */
+  const [maxTaskMinutes, setMaxTaskMinutes] = useState('60');
+  /** Explicit opt-in: archive and reset divergent worktrees onto the orchestrator base. */
+  const [resetWorktrees, setResetWorktrees] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const allAgents = Object.values(props.agents);
@@ -2347,7 +2354,9 @@ function NewRunModal(props: {
           maxOutputTokens: optionalNumber(maxOutputTokens),
           maxCostUsd: optionalNumber(maxCostUsd),
           maxApprovals,
+          maxTaskMinutes: optionalNumber(maxTaskMinutes),
         },
+        ...(repositoryId && resetWorktrees ? { workspacePrepare: 'reset-to-base' as const } : {}),
       });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : String(createError));
@@ -2442,6 +2451,25 @@ function NewRunModal(props: {
                 : 'Ohne Repository arbeiten alle Teilnehmer in ihren Home-Verzeichnissen (kein gemeinsamer Git-Stand).'}
             </small>
           </label>
+          {repositoryId ? (
+            <div className="grun-field grun-prepare">
+              <span id="grun-prepare-label">Worktrees</span>
+              <label className="grun-prepare-choice">
+                <input
+                  type="checkbox"
+                  aria-describedby="grun-prepare-hint"
+                  checked={resetWorktrees}
+                  onChange={(event) => setResetWorktrees(event.target.checked)}
+                />
+                <span>Abweichende Teilnehmer-Worktrees auf die Orchestrator-Basis zurücksetzen</span>
+              </label>
+              <small className="grun-hint" id="grun-prepare-hint">
+                {resetWorktrees
+                  ? 'Vor dem Start sichert ADE den bisherigen Stand jedes abweichenden Worktrees unter refs/ade/archive/<run>/<teilnehmer> und setzt ihn dann auf den HEAD des Orchestrator-Worktrees. Dirty Worktrees und Worktrees eines aktiven Runs werden nicht angefasst.'
+                  : 'Ohne Häkchen bricht der Start ab, sobald ein Teilnehmer-Worktree nicht auf dem HEAD des Orchestrator-Worktrees steht, und nennt die betroffenen Worktrees.'}
+              </small>
+            </div>
+          ) : null}
           <div className="grun-repo-import">
               <button
                 type="button"
@@ -2498,7 +2526,7 @@ function NewRunModal(props: {
 
           <div className="grun-budget-title">
             <span>Run-Budgets</span>
-            <small>Leere Token-/Kostenfelder = kein Limit; Limits benötigen Adapter-Telemetrie.</small>
+            <small>Leere Token-/Kosten-/Zeitfelder = kein Limit; Token-/Kostenlimits benötigen Adapter-Telemetrie.</small>
           </div>
           <div className="grun-budget">
             <label>
@@ -2550,6 +2578,18 @@ function NewRunModal(props: {
                 max={20}
                 value={maxApprovals}
                 onChange={(event) => setMaxApprovals(Number(event.target.value))}
+              />
+            </label>
+            <label>
+              <span>Min. pro Task</span>
+              <input
+                type="number"
+                min={1}
+                max={MAX_TASK_MINUTES_LIMIT}
+                step={1}
+                placeholder="unbegrenzt"
+                value={maxTaskMinutes}
+                onChange={(event) => setMaxTaskMinutes(event.target.value)}
               />
             </label>
           </div>

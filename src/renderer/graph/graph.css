@@ -726,9 +726,15 @@
 }
 .grun-field input:focus, .grun-field textarea:focus, .grun-field select:focus { border-color: var(--accent); }
 .grun-hint { grid-column: 2; color: var(--faint); font-size: 10px; line-height: 1.45; }
+/* Explicit worktree-preparation opt-in: a checkbox row inside the field grid. */
+.grun-prepare { align-items: start; }
+.grun-prepare > span { padding-top: 2px; }
+.grun-prepare-choice { display: flex; align-items: flex-start; gap: 8px; color: var(--text); font-size: 11.5px; line-height: 1.4; cursor: pointer; }
+.grun-prepare-choice input[type='checkbox'] { flex: none; width: 14px; height: 14px; margin: 2px 0 0; accent-color: var(--accent); }
+.grun-prepare-choice input[type='checkbox']:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grun-budget-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 11.5px; }
 .grun-budget-title small { color: var(--faint); font-size: 10px; text-align: right; }
-.grun-budget { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.grun-budget { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .grun-budget label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 10.5px; }
 .grun-budget input { width: 100%; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
 .grun-budget input:focus { outline: none; border-color: var(--accent); }
@@ -797,7 +803,7 @@
   .grun-field { grid-template-columns: 1fr; gap: 5px; }
   .grun-hint { grid-column: auto; }
   .grun-goal-meta, .grun-goal-warn { grid-column: auto; }
-  .grun-budget { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grun-budget { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .gpublish-summary { grid-template-columns: 1fr; }
   .gpublish-files { columns: 1; }
 }

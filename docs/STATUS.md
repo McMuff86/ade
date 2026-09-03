@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-08-19. This is the short, factual capability matrix. Product
+Status date: 2026-09-03. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -44,10 +44,11 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; Grok Build uses `--prompt-file` plus `--output-format streaming-json` (`grok-json-v1`) for the live activity feed and result/usage extraction; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
 | Worktree ownership | Real, trust-mode dependent | Clean workspaces are leased exclusively and ADE commits only an exact reported/observed path-set match; normal adapter roots exclude linked-worktree metadata, while an explicitly selected bypass runtime is fully trusted and violations are detected at task boundaries rather than OS-prevented |
+| Repeatable run loop | Real, explicit opt-in | A second managed run over the same worktrees fails closed by default and names each worktree that diverges from the orchestrator HEAD. With the run's "reset worktrees to the orchestrator base" confirmation, ADE pins every divergent tip under `refs/ade/archive/<run>/<participant>`, resets the clean, branch-attached worktree onto the orchestrator HEAD and journals `workspace.rebased` before leasing; dirty worktrees and worktrees leased by another active run are never moved. A late successful task result on an already-ended run is recorded as cancelled and drains the run's leases instead of leaking them |
 | Orchestrator behavior | Real, beta | Deterministic planning → worker edits/tests → ADE-owned commits → approval → transactional integration → integration review → read-only verification |
 | Verified Draft-PR publishing | Real, local and explicit | A completed repo-backed managed run atomically attests its final verified HEAD; Graph rechecks clean/same worktree, unchanged GitHub base, generated `ade/**` ref and `gh` access, then a separate confirmation creates only a new branch plus Draft PR and journals the result |
 | Prompt/context observability | Real | Context builder v2 journals a path-free manifest plus per-task packets with bounded dependency results, role-instruction digest, model/reasoning and adapter provenance; planner and dependent workers are told the dependent worktree already contains upstream validated commits |
-| Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost and approval counts; exact telemetry is enforced at task-completion boundaries and missing values fail closed |
+| Run budgets | Real, adapter-dependent | Per-run worker concurrency, input/output tokens, USD cost, approval counts and an optional wall-clock limit per managed task (`maxTaskMinutes`, dialog default 60); token/cost telemetry is enforced at task-completion boundaries and missing values fail closed, while an exceeded task time limit fails the run closed with the task named and cancels the process |
 | Windows packaging | Real, unsigned by default | x64 assisted NSIS installer; release workflow signs when certificate secrets are configured |
 | Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, the full focused suite, platform-aware source and unpacked Electron/Playwright workflows, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
 | Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are covered by focused backend and cross-boundary Electron workflows |
@@ -74,6 +75,14 @@ fixture repositories rather than depending on any personal checkout.
   live sessions and dirty worktrees; unmerged branches remain reachable.
   Repository-catalog deletion and bulk cleanup are not exposed. Agent/category
   deletion removes catalog references without deleting user files.
+- The repeatable-run reset targets the orchestrator worktree's HEAD, not a
+  repository default branch, and never touches the orchestrator worktree
+  itself. Archive refs under `refs/ade/archive/` accumulate one entry per
+  reset participant per run and are not pruned automatically. The task time
+  budget is coordinator-owned: the timer is not persisted, so after an ADE
+  restart interrupted tasks fail through restart recovery rather than through
+  the budget. `forceStop` still does not escalate the kill, task PTYs still
+  run at 120 columns, and `attempt` never exceeds 1.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
 - The event journal, structured results, approvals, messages, artifacts and

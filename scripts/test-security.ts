@@ -204,6 +204,40 @@ check('invalid run concurrency is rejected', rejects('run:create', {
 check('unknown participant harnesses are rejected', rejects('run:create', {
   name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator', runtime: 'openclaw' }],
 }));
+check('workspace preparation accepts only the documented reset mode',
+  !rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    workspacePrepare: 'reset-to-base',
+  })
+  && rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    workspacePrepare: 'force',
+  })
+  && rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    workspacePrepare: true,
+  }));
+check('task time budgets are bounded whole minutes or null',
+  !rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    budget: { maxTaskMinutes: 45 },
+  })
+  && !rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    budget: { maxTaskMinutes: null },
+  })
+  && rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    budget: { maxTaskMinutes: 0 },
+  })
+  && rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    budget: { maxTaskMinutes: 1_441 },
+  })
+  && rejects('run:create', {
+    name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
+    budget: { maxTaskMinutes: 2.5 },
+  }));
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',
 }));

@@ -2,6 +2,7 @@
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isExecutionBackendId } from '../shared/executionBackends';
+import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
   CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS,
   OLLAMA_MODEL_PATTERN,
@@ -343,10 +344,15 @@ function validateTeamPause(channel: string, payload: unknown): void {
 
 function validateRunCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'goal', 'repositoryId', 'participants', 'budget', 'commandId']);
+  exactKeys(channel, request, [
+    'name', 'goal', 'repositoryId', 'participants', 'budget', 'workspacePrepare', 'commandId',
+  ]);
   stringValue(channel, request.name, 'name', { max: 200 });
   optionalString(channel, request.goal, 'goal', { max: 8_000, allowEmpty: true });
   nullableId(channel, request.repositoryId, 'repositoryId');
+  if (request.workspacePrepare !== undefined) {
+    enumValue(channel, request.workspacePrepare, 'workspacePrepare', WORKSPACE_PREPARE_MODES);
+  }
   commandId(channel, request.commandId);
   if (!Array.isArray(request.participants) || request.participants.length < 1 || request.participants.length > 100) {
     invalid(channel, 'participants must contain between 1 and 100 entries');
@@ -373,7 +379,11 @@ function validateRunCreate(channel: string, payload: unknown): void {
       'maxOutputTokens',
       'maxCostUsd',
       'maxApprovals',
+      'maxTaskMinutes',
     ], 'budget');
+    optionalBoundedNumber(channel, budget.maxTaskMinutes, 'budget.maxTaskMinutes', {
+      min: 1, max: MAX_TASK_MINUTES_LIMIT, integer: true,
+    });
     optionalBoundedNumber(channel, budget.maxConcurrentTasks, 'budget.maxConcurrentTasks', {
       min: 1, max: 4, integer: true,
     });

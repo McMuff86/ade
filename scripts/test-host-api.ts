@@ -137,7 +137,7 @@ const runSummary: RunSummary = {
   teams: [],
   participants: [],
   tasks: [],
-  budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1 },
+  budget: { maxConcurrentTasks: 1, maxInputTokens: null, maxOutputTokens: null, maxCostUsd: null, maxApprovals: 1, maxTaskMinutes: null },
   usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, approvals: 0, unreportedCostTasks: 0 },
   pendingApprovalId: null,
   pausedTeamIds: [],
