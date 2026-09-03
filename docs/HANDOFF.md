@@ -1,6 +1,63 @@
 # Handoff — 2026-09-03
 
-## Ergebnis dieser Session — Thema 2 „Wiederholbare Run-Schleife“
+## Ergebnis dieser Session — Thema 6 „Grenze härten“
+
+Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md`, Thema 6. Vertrag in
+`ARCHITECTURE.md` („Electron IPC contract“, „Terminal beta security and UX“,
+„execution backend“), Matrix in `STATUS.md`.
+
+- **Channel-Policy (`src/main/ipcPolicy.ts`):** `CHANNEL_POLICY` klassifiziert
+  alle 78 Invoke-Channels als `read | mutate | host | launch | shell` mit
+  `surface: desktop | shared` und `audit`. Exhaustiv per Typ (neuer Channel
+  ohne Eintrag = Compile-Fehler). `handle()` ruft `assertChannelPolicy` bei
+  Registrierung; `shell` nur `agent:openDashboard`, `shared` nur `read`,
+  `armsShell` auf `agent:create/update`, `agentTemplate:create/spawn`,
+  `workspaceBundle:apply`. Auditierte Channels (launch/shell/host außer
+  `pty:write`/`pty:resize`) loggen eine Zeile pro Aufruf.
+- **Redaktions-Trichter (`src/main/errors.ts`):** `redactSensitiveText`
+  (aus `PublicationService` hochgezogen, dort re-exportiert) plus Vendor-Key-
+  Formen (`sk-…`, `sk-ant-…`, `xai-…`, `AIza…`, `ghp_…`, `xox…`) und
+  `NAME=value` für KEY/TOKEN/SECRET/PASSWORD-Namen. `handle()` loggt
+  redigiert mit Stack und wirft `toIpcError` (2000 Zeichen). Ebenfalls im
+  Trichter: `ExecutionBackendService.checked` (stderr), `pty:create`-argv-Log.
+- **WSLENV statt argv:** `wslHostEnvironment(process.env, fields)` legt
+  Backend-Felder ins Host-Env von `wsl.exe` und listet sie als `NAME/u` in
+  `WSLENV`; kein `/usr/bin/env NAME=value` mehr in argv. Guards: kein
+  Override von `WSLENV`, keine Case-Kollision, kein NUL, 32 000-Zeichen-
+  Grenze; inherited `WSLENV`-Einträge bleiben, außer ADE besitzt den Namen.
+  `PtyBackendCommand.hostEnv` wird vom PtyManager als PTY-Env verwendet;
+  `run()` nutzt es für `spawnAndCollect`. Echt belegt mit Ubuntu:
+  `printf "$ADE_WSLENV_PROBE|$ADE_PROBE_TOKEN"` → `via wslenv ü|sk-ant-probe-value`.
+- **Dashboard-Fenster:** `will-redirect` teilt den Origin-Guard mit
+  `will-navigate` (fremder Origin → block + Systembrowser bei http(s)).
+  `persistSessionCookies(partition, origin)` filtert per
+  `cookies.get({url})` und `cookieBelongsToOrigin` (host-only exakt, Domain-
+  Cookies inkl. Subdomains, Secure nur https/loopback). `forget(agentId)`
+  schließt das Fenster und ruft `clearStorageData` + `clearCache`;
+  `agent:delete` ruft es.
+- **Renderer-Fenster-Registry (`src/main/rendererWindows.ts`):**
+  `registerRendererWindow` im `createWindow`; `broadcastToRenderers` für
+  Orchestration/PTY-Events; `rendererWindows()` für Notification-Ziel,
+  Dialog-Parent und `activate`; `assertTrustedSender` verlangt
+  `isRendererWindow(owner)` zusätzlich zur URL-Prüfung.
+- **Lesepfad-Symlink-Parität (`workspaceFs`):** `readableEntryExists` prüft
+  Root bis Blatt per `lstat` (Link/Junction → Fehler), dann Realpath-
+  Containment; `readLevel` nutzt `lstat` (Link-Verzeichnis erscheint als
+  Datei, nicht expandierbar); `agentFiles` nur reguläre Dateien. Missing
+  bleibt missing.
+- **Nachweis:** `test-security.ts` 149 → 169 (Cookie-Origin, Policy-
+  Invarianten, Fehlinjektion → 3 Violations, Redaktion inkl. Idempotenz und
+  Pfad-/SHA-Erhalt, `toIpcError`). `test-execution-backends.ts` 16 → 27 pure
+  (+16 mit `--wsl`, davon 1 neu: WSLENV-Probe). `test-workspace-fs.ts`
+  7 → 14. Floors in `run-suites.ts` angehoben. `pnpm verify` grün.
+- **Bewusst offen:** kein „Dashboard abmelden“ in der UI; Audit nur im Main-
+  Log; `dashboardCommand` bleibt Shell-Text; Workspace-Roots, die selbst
+  Junctions sind, sind im Files-Panel jetzt unlesbar (konsistent mit den
+  Mutationsguards — bewusst so gelassen).
+
+---
+
+## Ergebnis der Vorsession — Thema 2 „Wiederholbare Run-Schleife“
 
 Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md`, Thema 2. Vertrag in
 `ARCHITECTURE.md` („Managed-run coordinator“), Matrix in `STATUS.md`.
@@ -51,10 +108,11 @@ Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md`, Thema 2. Vertrag in
 
 ## Nächster Schritt
 
-Thema 6 (Grenze härten: Channel-Privilegien, Redaktion um `handle()`,
-`WSLENV`-Keys, `will-redirect`, Broadcast-Ziele), danach der Goal-7
-SSE-Slice über den vorhandenen `seq`-Cursor. Danach Thema 3 (beendete Runs
-lesbar, Graph-Tastaturpfad).
+Goal-7 Write/SSE-Slice über den vorhandenen `seq`-Cursor: die benötigten
+Channels in `ipcPolicy.ts` auf `shared` heben — der Policy-Test verlangt
+dafür ein Autorisierungsmodell jenseits des Bearer-Tokens (bis dahin bleibt
+`shared` = `read`). Danach Thema 3 (beendete Runs lesbar, Graph-Tastaturpfad),
+dann Thema 5.
 
 ---
 

@@ -15,6 +15,7 @@ import {
 import type { OrchestrationConfigPort } from '../orchestration/OrchestrationService';
 import { OrchestrationService } from '../orchestration/OrchestrationService';
 import type { WorkspaceInspection } from '../orchestration/WorkspaceService';
+import { redactSensitiveText } from '../errors';
 import {
   firstSafeGithubPullUrl,
   githubRepository,
@@ -606,15 +607,8 @@ export function publicationBranch(run: Pick<Run, 'id' | 'name'>): string {
   return branch;
 }
 
-export function redactSensitiveText(value: string): string {
-  return value
-    .replace(/https?:\/\/[^/@\s]+:[^@/\s]+@/gi, 'https://[credentials]@')
-    .replace(/\b(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]+)\b/g, '[credential]')
-    .replace(/\bauthorization\s*:\s*[^\r\n]+/gi, 'authorization: [credential]')
-    .replace(/\bbearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [credential]')
-    .replace(/\b(token|password|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '$1=[credential]')
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
-}
+/** Publication text shares the main-process redaction funnel (`src/main/errors.ts`). */
+export { redactSensitiveText };
 
 function redactForPublication(value: string): string {
   return redactSensitiveText(value)

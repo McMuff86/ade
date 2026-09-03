@@ -1,8 +1,11 @@
 /** Pure backend contracts plus an opt-in real Windows GUI→WSL integration. */
 
+import type { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix, resolve } from 'node:path';
+import { PassThrough } from 'node:stream';
 import * as pty from 'node-pty';
 import { BackendGitService, parseBranch } from '../src/main/execution/BackendGitService';
 import { BackendWorkspaceFs } from '../src/main/execution/BackendWorkspaceFs';
@@ -10,6 +13,7 @@ import { BackendWorkspaceService } from '../src/main/execution/BackendWorkspaceS
 import {
   ExecutionBackendService,
   decodeWslOutput,
+  wslHostEnvironment,
 } from '../src/main/execution/ExecutionBackendService';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { normalizeConfig } from '../src/main/orchestration/migrate';
@@ -73,18 +77,77 @@ async function pureContracts(): Promise<void> {
     '/bin/bash',
     ['-lc', 'printf ok'],
     '/home/test/project with spaces',
-    { TERM: 'xterm-256color' },
+    { TERM: 'xterm-256color', ANTHROPIC_API_KEY: 'sk-ant-api03-SECRETSECRETSECRETSECRET' },
   );
   check('WSL PTY uses argv-only distro and cwd selection',
     ptyCommand.file === 'wsl.exe'
       && ptyCommand.args.includes('--distribution')
       && ptyCommand.args.includes('Ubuntu')
       && ptyCommand.args.includes('/home/test/project with spaces')
-      && ptyCommand.args.includes('/usr/bin/env'),
+      && ptyCommand.args.includes('--exec'),
     ptyCommand);
   check('WSL PTY does not interpolate the distro or cwd into a shell fragment',
     !ptyCommand.args.some((arg) => arg.includes('wsl.exe ') || arg.includes('--cd /home')),
     ptyCommand.args);
+  check('WSL PTY argv carries no environment assignment and no credential',
+    !ptyCommand.args.includes('/usr/bin/env')
+      && !ptyCommand.args.some((arg) => arg.includes('=') || arg.includes('sk-ant-')),
+    ptyCommand.args);
+  check('WSL PTY routes backend fields through WSLENV in the host environment',
+    ptyCommand.hostEnv?.['ANTHROPIC_API_KEY'] === 'sk-ant-api03-SECRETSECRETSECRETSECRET'
+      && ptyCommand.hostEnv['TERM'] === 'xterm-256color'
+      && (ptyCommand.hostEnv['WSLENV'] ?? '').split(':').includes('ANTHROPIC_API_KEY/u')
+      && (ptyCommand.hostEnv['WSLENV'] ?? '').split(':').includes('TERM/u'),
+    ptyCommand.hostEnv?.['WSLENV']);
+  check('native PTY launches carry no host environment override',
+    execution.ptyCommand('native', 'pwsh', ['-NoLogo'], 'C:\\repo').hostEnv === undefined);
+
+  const inheritedHost = wslHostEnvironment(
+    { Path: 'C:\\Windows', WSLENV: 'WT_SESSION:ANTHROPIC_API_KEY/p', anthropic_api_key: 'stale-host-value' },
+    { ANTHROPIC_API_KEY: 'fresh', ADE_TASK_DIR: '/tmp/task' },
+  );
+  check('WSLENV keeps unrelated inherited entries and replaces flags for ADE-owned names',
+    inheritedHost['WSLENV'] === 'WT_SESSION:ANTHROPIC_API_KEY/u:ADE_TASK_DIR/u'
+      && inheritedHost['Path'] === 'C:\\Windows',
+    inheritedHost['WSLENV']);
+  check('case-insensitive host variables never shadow a backend field',
+    inheritedHost['ANTHROPIC_API_KEY'] === 'fresh' && !('anthropic_api_key' in inheritedHost));
+  check('an empty field set leaves the host environment untouched',
+    JSON.stringify(wslHostEnvironment({ A: '1', WSLENV: 'X/u' }, {})) === JSON.stringify({ A: '1', WSLENV: 'X/u' }));
+  await rejects('backend fields cannot override WSLENV itself', () =>
+    wslHostEnvironment({}, { WSLENV: 'PATH/l' }));
+  await rejects('backend fields reject shell-unsafe names', () =>
+    wslHostEnvironment({}, { 'A B': 'x' }));
+  await rejects('backend fields reject NUL bytes', () =>
+    wslHostEnvironment({}, { A: 'x\0y' }));
+  await rejects('backend fields that collide by case are refused', () =>
+    wslHostEnvironment({}, { Token: 'a', TOKEN: 'b' }));
+
+  const stderrLeak = Buffer.from('fatal: unable to access https://oauth2:ghp_AbCdEfGh0123456789@github.com/o/r.git\n');
+  const fakeSpawn = (): ChildProcessWithoutNullStreams => {
+    const child = new EventEmitter() as ChildProcessWithoutNullStreams;
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    Object.assign(child, { stdout, stderr, stdin: new PassThrough(), kill: () => true });
+    setImmediate(() => {
+      stderr.end(stderrLeak);
+      stdout.end();
+      child.emit('close', 128, null);
+    });
+    return child;
+  };
+  const leakyExecution = new ExecutionBackendService('win32', fakeSpawn as unknown as typeof spawn);
+  let checkedMessage = '';
+  try {
+    await leakyExecution.checked('native', 'git', ['fetch']);
+  } catch (error) {
+    checkedMessage = error instanceof Error ? error.message : String(error);
+  }
+  check('backend stderr embedded in errors passes the redaction funnel',
+    checkedMessage.startsWith('ade: backend command exited with code 128: fatal:')
+      && !checkedMessage.includes('ghp_AbCd')
+      && checkedMessage.includes('[credentials]@github.com'),
+    checkedMessage);
 
   const utf16 = Buffer.from('\uFEFFUbuntu\r\ndocker-desktop\r\n', 'utf16le');
   check('WSL distro output accepts UTF-16LE Windows output',
@@ -161,6 +224,15 @@ async function realWslIntegration(): Promise<void> {
   const missingWorkspaces = new BackendWorkspaceService(missingStore, execution);
   await rejects('workspace inspection does not downgrade an unavailable distro to a missing directory', () =>
     missingWorkspaces.forBackend(missingBackend).inspect('/tmp/missing'));
+
+  const probe = await execution.text(
+    backend,
+    'sh',
+    ['-c', 'printf "%s|%s" "$ADE_WSLENV_PROBE" "$ADE_PROBE_TOKEN"'],
+    { env: { ADE_WSLENV_PROBE: 'via wslenv ü', ADE_PROBE_TOKEN: 'sk-ant-probe-value' }, timeoutMs: 15_000 },
+  );
+  check('WSLENV delivers backend fields into the Linux session without touching argv',
+    probe === 'via wslenv ü|sk-ant-probe-value', probe);
 
   const root = (await execution.text(backend, 'mktemp', ['-d', '/tmp/ade-wsl-backend.XXXXXX'])).trim();
   if (!/^\/tmp\/ade-wsl-backend\.[A-Za-z0-9]+$/.test(root)) {
@@ -254,7 +326,7 @@ async function realWslIntegration(): Promise<void> {
     const output = await new Promise<string>((resolveOutput, rejectOutput) => {
       const terminal = pty.spawn(command.file, command.args, {
         name: 'xterm-256color', cols: 80, rows: 24, cwd: hostScratch,
-        env: process.env as Record<string, string>, useConpty: true,
+        env: command.hostEnv ?? (process.env as Record<string, string>), useConpty: true,
       });
       let text = '';
       terminal.onData((chunk) => { text += chunk; });

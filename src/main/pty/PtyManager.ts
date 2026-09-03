@@ -7,7 +7,6 @@
  * and the slot is released only when the process exits or is cancelled.
  */
 
-import { BrowserWindow } from 'electron';
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
@@ -43,7 +42,9 @@ import { CodexActivityParser } from '../orchestration/codexStream';
 import { GrokActivityParser } from '../orchestration/grokStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
+import { redactArgs } from '../errors';
 import { resolveHostShell } from '../platform';
+import { broadcastToRenderers } from '../rendererWindows';
 import {
   agentHomeBackend,
   homeWorkspace,
@@ -413,6 +414,9 @@ export class PtyManager {
         ...(backendEnv ?? spec.env ?? {}),
       },
     );
+    // WSL launches receive their backend fields through WSLENV in the host
+    // environment of wsl.exe (see ExecutionBackendService.wslLaunch), never
+    // through argv, so the credential is not on the relay's command line.
     const env = scope.executionBackend === NATIVE_EXECUTION_BACKEND
       ? {
           ...process.env,
@@ -421,7 +425,7 @@ export class PtyManager {
           ...(spec.env ?? {}),
           ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
         } as Record<string, string>
-      : process.env as Record<string, string>;
+      : command.hostEnv ?? (process.env as Record<string, string>);
     let proc: pty.IPty;
     try {
       proc = pty.spawn(command.file, command.args, {
@@ -534,9 +538,11 @@ export class PtyManager {
 
     if (spec.initialCommand) proc.write(`${spec.initialCommand}${spec.lineEnding}`);
 
+    // argv is logged through the redaction funnel: interactive launch profiles
+    // are operator-authored and may carry `--api-key`-style flags.
     console.log(
       `[ade] pty:create ${id} agent=${agentId} kind=${meta.kind} runtime=${agent.runtime} ` +
-        `backend=${scope.executionBackend} file=${command.file} args=${JSON.stringify(command.args)} ` +
+        `backend=${scope.executionBackend} file=${command.file} args=${JSON.stringify(redactArgs(command.args))} ` +
         `transport=${spec.taskTransport ?? 'interactive'} cwd=${cwd}`,
     );
     return { ...meta };
@@ -899,9 +905,7 @@ export class PtyManager {
   }
 
   private broadcast(channel: string, payload: unknown): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send(channel, payload);
-    }
+    broadcastToRenderers(channel, payload);
   }
 }
 

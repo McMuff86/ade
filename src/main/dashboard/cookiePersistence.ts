@@ -35,6 +35,34 @@ export interface PersistedCookie {
 
 export const SESSION_COOKIE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * True when the cookie would be sent to the dashboard origin: host-only
+ * cookies must match the host exactly, domain cookies (leading dot) the host
+ * or one of its subdomains, and Secure cookies need an https (or loopback)
+ * origin. Persistence is granted to these cookies only — a login redirect
+ * through a foreign identity provider must not earn that origin 30 days of
+ * storage inside an ADE partition.
+ */
+export function cookieBelongsToOrigin(cookie: StoredCookie, origin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.toLowerCase();
+  const domain = (cookie.domain ?? '').toLowerCase();
+  if (!host || !domain) return false;
+  if (cookie.secure && url.protocol !== 'https:' && !LOCAL_HOSTS.has(host)) return false;
+  if (domain.startsWith('.')) {
+    const bare = domain.slice(1);
+    return host === bare || host.endsWith(`.${bare}`);
+  }
+  return host === domain;
+}
+
 /**
  * Convert one session cookie into its persistent equivalent, or null when the
  * cookie is already persistent or too malformed to rebuild. Host-only cookies

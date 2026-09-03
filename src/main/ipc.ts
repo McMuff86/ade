@@ -35,6 +35,9 @@ import { OrchestrationService } from './orchestration/OrchestrationService';
 import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
 import { assertIpcPayload } from './ipcValidation';
+import { assertChannelPolicy } from './ipcPolicy';
+import { redactedErrorDetail, toIpcError } from './errors';
+import { broadcastToRenderers, isRendererWindow, rendererWindows } from './rendererWindows';
 import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ExecutionBackendService } from './execution/ExecutionBackendService';
@@ -68,11 +71,15 @@ let hostApiServer: HostApiServer | null = null;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
 
+/**
+ * A sender is trusted only when it is the main frame of a *registered* ADE
+ * renderer window on the trusted URL. Dashboard windows (arbitrary https
+ * origins, no preload) fail the registry check regardless of their URL.
+ */
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
   const owner = BrowserWindow.fromWebContents(event.sender);
   const frame = event.senderFrame;
-  const trusted = owner
-    && !owner.isDestroyed()
+  const trusted = isRendererWindow(owner)
     && frame === event.sender.mainFrame
     && isTrustedRendererUrl(
       frame.url,
@@ -82,20 +89,12 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   if (!trusted) throw new Error('ade: rejected IPC from an untrusted renderer');
 }
 
-/** Typed ipcMain.handle wrapper: payload/result checked against IpcInvokeMap. */
-function handle<K extends keyof IpcInvokeMap>(
-  channel: K,
-  handler: (
-    payload: IpcInvokeMap[K]['req'],
-  ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
-): void {
-  ipcMain.handle(channel, (event, payload: unknown) => {
-    assertTrustedSender(event);
-    assertIpcPayload(channel, payload);
-    return handler(payload);
-  });
-}
-
+/**
+ * Typed ipcMain.handle wrapper. Every call passes sender trust, payload
+ * validation, the channel's privilege policy (audit line for launch/shell/host
+ * effects) and — on failure — the redaction funnel, so a handler error never
+ * carries backend stderr or a credential verbatim into the renderer.
+ */
 function handleWithEvent<K extends keyof IpcInvokeMap>(
   channel: K,
   handler: (
@@ -103,11 +102,27 @@ function handleWithEvent<K extends keyof IpcInvokeMap>(
     event: IpcMainInvokeEvent,
   ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
 ): void {
-  ipcMain.handle(channel, (event, payload: unknown) => {
+  const policy = assertChannelPolicy(channel);
+  ipcMain.handle(channel, async (event, payload: unknown) => {
     assertTrustedSender(event);
     assertIpcPayload(channel, payload);
-    return handler(payload, event);
+    if (policy.audit) console.log(`[ade] ipc ${channel} effect=${policy.effect}`);
+    try {
+      return await handler(payload, event);
+    } catch (error) {
+      console.error(`[ade] ipc ${channel} failed:`, redactedErrorDetail(error));
+      throw toIpcError(error);
+    }
   });
+}
+
+function handle<K extends keyof IpcInvokeMap>(
+  channel: K,
+  handler: (
+    payload: IpcInvokeMap[K]['req'],
+  ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
+): void {
+  handleWithEvent(channel, (payload) => handler(payload));
 }
 
 export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
@@ -164,9 +179,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     git: backendGit,
   });
   orchestration = new OrchestrationService(store, (snapshot) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send(IPC_EVENTS.OrchestrationChanged, snapshot);
-    }
+    broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, snapshot);
   });
   const recoveredTasks = orchestration.recoverInterruptedTasks();
   if (recoveredTasks > 0) {
@@ -576,10 +589,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.ClipboardWriteText, ({ text }) => { clipboard.writeText(text); });
 
   // Stop live/queued work, then remove config only (workspace files remain).
-  handle(IPC.AgentDelete, ({ id }) => {
+  handle(IPC.AgentDelete, async ({ id }) => {
     assertAgentNotLeased(id);
     ptyManager!.killByAgent(id);
     deleteAgent(store, id);
+    // The dashboard partition (cookies, storage, cache) belongs to the agent
+    // identity; it must not outlive it on disk.
+    await dashboardWindows.forget(id);
   });
 
   /* --------------------------------------------------- pty (Phase B1) */
@@ -823,7 +839,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   // Folder picker for repo-backed categories; validates the pick is a git repo.
   handle(IPC.DialogPickFolder, async () => {
-    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+    // Parent the dialog to an ADE window only; a focused dashboard window
+    // must not become the owner of a native file picker.
+    const focused = BrowserWindow.getFocusedWindow();
+    const win = (isRendererWindow(focused) ? focused : null) ?? rendererWindows()[0] ?? null;
     const result = win
       ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
       : await dialog.showOpenDialog({ properties: ['openDirectory'] });

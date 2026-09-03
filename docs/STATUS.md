@@ -39,7 +39,10 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Terminals layout | Real, optional | Settings can put the repository inspector on the left; the default remains rail left / inspector right and is not swapped unless the user chooses |
 | Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next, direct session shortcuts and Ctrl+1/2/3 for Terminals / Graph / Overview |
 | Background notifications | Real | Native task completion/failure and abnormal interactive-exit notifications when ADE is unfocused |
-| Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; exact sender and payload validation on every invoke |
+| Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; every invoke passes registered-window sender check, payload validation, the exhaustive channel privilege policy (`ipcPolicy.ts`: effect/surface/audit, shell confined to `agent:openDashboard`) and the redaction funnel (`errors.ts`) for error replies; main→renderer events reach registered ADE windows only |
+| Credential handling at the WSL boundary | Real | Stored harness/service keys and `ADE_*` fields reach WSL sessions through `WSLENV` in the `wsl.exe` host environment, not argv; the `pty:create` argv log and backend stderr in errors are redacted (verified against a real Ubuntu distro) |
+| Dashboard windows | Real, origin-locked | Per-agent partition, deny-all permissions, no preload, fixed title; `will-navigate` and `will-redirect` share the origin guard; session-cookie persistence is limited to the dashboard origin; agent deletion clears the partition's storage and cache |
+| Workspace read boundary | Real, link-safe | Native `fs:tree`/`fs:read`/`fs:pathInfo`/`fs:agentFiles` refuse link or junction components and real-path escapes exactly like mutations and the WSL helper; listings never follow links |
 | Worker decomposition | Real, managed-run beta | The planner returns schema-validated, participant-specific assignments with optional acyclic dependencies; the run scheduler enforces its own concurrency cap and prepares each dependent repo-backed worker's worktree with its dependencies' validated commits before launch |
 | Agent communication | Real, file fallback | Assignment/result messages are journaled and mirrored to per-run INBOX/OUTBOX JSONL under each agent memory directory |
 | Structured runtime results | Real | Codex uses native JSONL plus output-schema/output-last-message; Grok Build uses `--prompt-file` plus `--output-format streaming-json` (`grok-json-v1`) for the live activity feed and result/usage extraction; quote-safe stdin or a translated WSL prompt file carries task prompts without command-line interpolation; all managed adapters use the same result/file contract |
@@ -83,6 +86,16 @@ fixture repositories rather than depending on any personal checkout.
   restart interrupted tasks fail through restart recovery rather than through
   the budget. `forceStop` still does not escalate the kill, task PTYs still
   run at 120 columns, and `attempt` never exceeds 1.
+- Dashboards whose sign-in redirects through a foreign identity provider
+  cannot complete that hop inside the ADE window (the redirect opens in the
+  system browser); use `dashboardTarget: 'external'` for such dashboards.
+  Clearing a dashboard partition is exposed only through agent deletion; there
+  is no "sign out of dashboard" action yet. The channel policy's `audit` lines
+  go to the main-process log only; there is no audit journal.
+- Workspaces whose root or a component is itself a symlink/junction are now
+  unreadable in the Files panel, consistent with the mutation guards. A
+  `dashboardCommand` remains operator text executed through a shell; the
+  policy marks it, it does not sandbox it.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
 - The event journal, structured results, approvals, messages, artifacts and

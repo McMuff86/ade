@@ -7,7 +7,25 @@ import { runDiagnosticCommand } from '../src/main/diagnostics/RuntimeDiagnostics
 import { sessionExitNotice } from '../src/main/notificationPolicy';
 import { isSafeExternalUrl, isTrustedRendererUrl } from '../src/main/security';
 import { assertAllowedDashboardUrl, extractDashboardUrl } from '../src/main/dashboard/dashboardUrl';
-import { SESSION_COOKIE_TTL_SECONDS, toPersistentCookie } from '../src/main/dashboard/cookiePersistence';
+import {
+  SESSION_COOKIE_TTL_SECONDS,
+  cookieBelongsToOrigin,
+  toPersistentCookie,
+} from '../src/main/dashboard/cookiePersistence';
+import {
+  MAX_IPC_ERROR_CHARS,
+  redactArgs,
+  redactEnvForLog,
+  redactSensitiveText,
+  redactedErrorMessage,
+  toIpcError,
+} from '../src/main/errors';
+import {
+  CHANNEL_POLICY,
+  SHELL_CHANNELS,
+  assertChannelPolicy,
+  channelPolicyViolations,
+} from '../src/main/ipcPolicy';
 import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
 import { resolveLaunchCommand } from '../src/shared/runtimes';
 import { parseWorkspaceBundle } from '../src/shared/workspaceBundle';
@@ -393,6 +411,106 @@ check('host-only cookies stay host-only; domain cookies keep their domain',
 check('persistent or malformed cookies are left untouched',
   toPersistentCookie({ name: 'sid', value: 'abc', domain: 'x.test', session: false }, 1_000) === null
     && toPersistentCookie({ name: 'sid', value: 'abc', session: true }, 1_000) === null);
+
+/* ------------------------------------------ Thema 6: dashboard cookie scope */
+
+const dashboardOrigin = 'https://hermes.tail.ts.net';
+check('cookie persistence covers host-only and domain cookies of the dashboard origin',
+  cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'hermes.tail.ts.net', secure: true }, dashboardOrigin)
+    && cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: '.tail.ts.net' }, dashboardOrigin)
+    && cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: '.ts.net' }, dashboardOrigin));
+check('cookie persistence refuses foreign origins reached through a login redirect',
+  !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'accounts.idp.example' }, dashboardOrigin)
+    && !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: '.idp.example' }, dashboardOrigin)
+    && !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'ts.net' }, dashboardOrigin)
+    && !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'evil-hermes.tail.ts.net' }, dashboardOrigin));
+check('secure cookies persist only for https or loopback dashboards',
+  !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'intranet.local', secure: true }, 'http://intranet.local')
+    && cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'localhost', secure: true }, 'http://localhost:3000')
+    && !cookieBelongsToOrigin({ name: 'sid', value: 'a' }, dashboardOrigin)
+    && !cookieBelongsToOrigin({ name: 'sid', value: 'a', domain: 'x.test' }, 'not a url'));
+
+/* ---------------------------------------- Thema 6: channel privilege policy */
+
+check('every invoke channel carries a privilege policy',
+  INVOKE_CHANNELS.every((channel) => CHANNEL_POLICY[channel] !== undefined)
+    && Object.keys(CHANNEL_POLICY).length === INVOKE_CHANNELS.length);
+check('the channel policy satisfies its invariants', channelPolicyViolations().length === 0,
+  channelPolicyViolations());
+check('the shell effect is confined to the dashboard command channel',
+  INVOKE_CHANNELS.filter((channel) => CHANNEL_POLICY[channel].effect === 'shell').join(',')
+    === 'agent:openDashboard'
+    && SHELL_CHANNELS.length === 1);
+check('channels that store dashboard commands are marked as arming the shell boundary',
+  (['agent:create', 'agent:update', 'agentTemplate:create', 'agentTemplate:spawn', 'workspaceBundle:apply'] as const)
+    .every((channel) => CHANNEL_POLICY[channel].armsShell === true));
+check('host-API shared channels are read-only',
+  INVOKE_CHANNELS.filter((channel) => CHANNEL_POLICY[channel].surface === 'shared')
+    .every((channel) => CHANNEL_POLICY[channel].effect === 'read'));
+check('process-launching channels are classified as launch and audited',
+  (['pty:create', 'pty:kill', 'harness:login', 'run:start', 'run:cancel', 'run:publish', 'runApproval:resolve'] as const)
+    .every((channel) => CHANNEL_POLICY[channel].effect === 'launch' && CHANNEL_POLICY[channel].audit));
+check('high-frequency terminal input is launch-classified but not audited per call',
+  CHANNEL_POLICY['pty:write'].effect === 'launch' && !CHANNEL_POLICY['pty:write'].audit
+    && CHANNEL_POLICY['pty:resize'].effect === 'launch' && !CHANNEL_POLICY['pty:resize'].audit);
+check('host-reaching channels are classified as host',
+  (['clipboard:readText', 'clipboard:writeText', 'fs:reveal', 'fs:openPath', 'fs:delete', 'dialog:pickFolder'] as const)
+    .every((channel) => CHANNEL_POLICY[channel].effect === 'host'));
+check('policy violations are reported, not swallowed',
+  channelPolicyViolations({
+    ...CHANNEL_POLICY,
+    'fs:read': { effect: 'shell', surface: 'desktop', audit: false },
+    'run:getSummary': { effect: 'mutate', surface: 'shared', audit: false },
+  }).length === 3);
+check('registering a misclassified channel fails closed',
+  (() => {
+    try {
+      assertChannelPolicy('config:get');
+      return true;
+    } catch {
+      return false;
+    }
+  })());
+
+/* ------------------------------------------- Thema 6: redaction funnel */
+
+const leakyStderr = 'remote: https://oauth2:ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789@github.com/o/r.git '
+  + 'ANTHROPIC_API_KEY=sk-ant-api03-SECRETSECRETSECRETSECRET OPENAI_API_KEY="sk-proj-AAAAAAAAAAAAAAAAAAAA" '
+  + 'XAI_API_KEY=xai-BBBBBBBBBBBBBBBBBBBBBBBB GEMINI=AIzaSyCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC '
+  + 'Authorization: Bearer eyJhbGciOi.payload.sig \u001b[31mred\u001b[0m';
+const funnelled = redactSensitiveText(leakyStderr);
+check('the redaction funnel strips URL credentials, vendor keys and env assignments',
+  !funnelled.includes('ghp_AbCd')
+    && !funnelled.includes('sk-ant-api03')
+    && !funnelled.includes('sk-proj-AAAA')
+    && !funnelled.includes('xai-BBBB')
+    && !funnelled.includes('AIzaSyCCCC')
+    && !funnelled.includes('eyJhbGciOi')
+    && funnelled.includes('ANTHROPIC_API_KEY=[credential]')
+    && funnelled.includes('OPENAI_API_KEY=[credential]')
+    && !funnelled.includes('\u001b'),
+  funnelled);
+check('redaction leaves paths, SHAs and ordinary identifiers intact',
+  redactSensitiveText('C:\\Users\\me\\repo at 0123456789abcdef0123456789abcdef01234567 run-abc task=t1 ADE_TASK_DIR=/tmp/x')
+    === 'C:\\Users\\me\\repo at 0123456789abcdef0123456789abcdef01234567 run-abc task=t1 ADE_TASK_DIR=/tmp/x');
+check('redaction is idempotent', redactSensitiveText(funnelled) === funnelled);
+check('argv redaction masks secrets element-wise',
+  JSON.stringify(redactArgs(['--exec', 'claude', '--api-key', 'sk-ant-api03-SECRETSECRETSECRETSECRET', 'TOKEN=abc']))
+    === JSON.stringify(['--exec', 'claude', '--api-key', '[credential]', 'TOKEN=[credential]']));
+check('env log redaction hides secret-named values and keeps the rest readable',
+  JSON.stringify(redactEnvForLog({ ANTHROPIC_API_KEY: 'sk-ant-x', TERM: 'xterm-256color', ADE_TASK_DIR: '/tmp/t' }))
+    === JSON.stringify({ ANTHROPIC_API_KEY: '[credential]', TERM: 'xterm-256color', ADE_TASK_DIR: '/tmp/t' }));
+const ipcError = toIpcError(new Error(`ade: backend command exited with code 128: ${leakyStderr}`));
+check('IPC errors are rebuilt through the funnel and bounded',
+  ipcError instanceof Error
+    && ipcError.message.startsWith('ade: backend command exited with code 128')
+    && !ipcError.message.includes('ghp_AbCd')
+    && !ipcError.message.includes('sk-ant-api03')
+    && toIpcError(new Error('x'.repeat(5_000))).message.length === MAX_IPC_ERROR_CHARS);
+check('non-Error rejections still become bounded, redacted Error replies',
+  toIpcError({ stderr: 'fatal: https://u:p@host/x' }).message === 'fatal: https://[credentials]@host/x'
+    && toIpcError('token=abc').message === 'token=[credential]'
+    && redactedErrorMessage(42) === '42');
 
 const rendererHtml = readFileSync(join(process.cwd(), 'src/renderer/index.html'), 'utf8');
 check('renderer declares a default-deny CSP', rendererHtml.includes("default-src 'none'"));

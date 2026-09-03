@@ -12,9 +12,13 @@ import {
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import {
+  agentFiles,
   fsDelete,
   fsMutablePath,
+  fsPathInfo,
+  fsRead,
   fsRename,
+  fsTree,
 } from '../src/main/git/workspaceFs';
 
 let passed = 0;
@@ -125,6 +129,58 @@ async function run(): Promise<void> {
     }
     check('delete revalidates link components before quarantine',
       deleteSwapRejected && !trashCalled && existsSync(join(outside, 'victim.txt')));
+
+    /* ---------------- Thema 6: read-path parity with the mutation guards */
+
+    const memory = join(scratch, 'memory');
+    mkdirSync(memory);
+    writeFileSync(join(memory, 'MEMORY.md'), 'memory\n');
+    writeFileSync(join(outside, 'secret.txt'), 'outside secret\n');
+    mkdirSync(join(workspace, 'plain'));
+    writeFileSync(join(workspace, 'plain', 'note.md'), 'note\n');
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    symlinkSync(outside, join(workspace, 'linked-dir'), linkType);
+    try {
+      symlinkSync(join(outside, 'secret.txt'), join(workspace, 'linked-file.txt'), 'file');
+    } catch {
+      // Windows without developer mode cannot create file symlinks; a junction
+      // under the same name is the same class of entry for the lstat guard.
+      symlinkSync(outside, join(workspace, 'linked-file.txt'), 'junction');
+    }
+
+    check('plain reads still work and pinned files fall back to the memory dir',
+      fsRead(workspace, memory, 'plain/note.md').text === 'note\n'
+        && fsRead(workspace, memory, 'MEMORY.md').text === 'memory\n'
+        && fsPathInfo(workspace, memory, 'MEMORY.md').location === 'memory');
+    check('reads refuse a linked directory component instead of following it',
+      rejects(() => fsRead(workspace, memory, 'linked-dir/secret.txt'))
+        && rejects(() => fsPathInfo(workspace, memory, 'linked-dir/secret.txt'))
+        && rejects(() => fsTree(workspace, 'linked-dir')));
+    check('reads refuse a linked file leaf',
+      rejects(() => fsRead(workspace, memory, 'linked-file.txt'))
+        && rejects(() => fsPathInfo(workspace, memory, 'linked-file.txt')));
+    const rootTree = fsTree(workspace, '');
+    check('directory listings never follow links: a linked directory is not expandable',
+      rootTree.children?.some((node) => node.name === 'linked-dir' && node.kind === 'file') === true
+        && rootTree.children?.some((node) => node.name === 'plain' && node.kind === 'dir') === true,
+      rootTree.children);
+    check('missing entries stay missing rather than becoming errors',
+      fsRead(workspace, memory, 'plain/nope.md').text === ''
+        && fsPathInfo(workspace, memory, 'plain/nope.md').kind === 'missing'
+        && fsTree(workspace, 'plain/nope').children?.length === 0);
+    check('lexical escapes are still rejected before any filesystem access',
+      rejects(() => fsPathInfo(workspace, memory, '../outside/secret.txt'))
+        && fsRead(workspace, memory, '../outside/secret.txt').text === '');
+    try {
+      symlinkSync(join(outside, 'secret.txt'), join(memory, 'USER.md'), 'file');
+    } catch {
+      // No file-symlink privilege: a junction named like the pinned file is
+      // the same class of entry for the lstat-based check.
+      symlinkSync(outside, join(memory, 'USER.md'), 'junction');
+    }
+    check('pinned agent files that are links are not offered',
+      !agentFiles(workspace, memory).some((file) => file.name === 'USER.md')
+        && agentFiles(workspace, memory).some((file) => file.name === 'MEMORY.md' && file.location === 'memory'));
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

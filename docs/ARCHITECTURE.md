@@ -62,8 +62,14 @@ legacy records to `native` and makes a binding inherit its repository backend.
 Native calls retain the existing services. On a Windows host, WSL calls use
 argv-only `wsl.exe --distribution <name> [--cd <linux-path>] --exec ...`, with
 bounded output/time and no prompt, repository path or distribution interpolated
-into a shell string. `wslpath` is used only for Windows-owned control files or
-an OS integration boundary. Linux identity remains case-sensitive.
+into a shell string. Backend environment fields (TERM, translated `ADE_*`
+paths, stored harness/service keys) never enter that argv: `wslHostEnvironment`
+places them in the Windows environment of the `wsl.exe` client and lists them
+in `WSLENV` as `NAME/u`, so a credential is visible neither on the long-lived
+relay's command line nor in ADE's argv log. Fields may not override `WSLENV`
+itself, collide by case, or contain NUL; inherited `WSLENV` entries survive
+unless ADE owns the name. `wslpath` is used only for Windows-owned control
+files or an OS integration boundary. Linux identity remains case-sensitive.
 
 Backend Git, workspace and filesystem facades guarantee that one binding uses
 one platform's Git and filesystem for its entire lifetime. The WSL filesystem
@@ -762,13 +768,38 @@ Events (main → renderer, `webContents.send`):
   run usage
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
-Every invoke passes two checks before its handler runs:
+Every invoke passes through one wrapper (`handle()` in `main/ipc.ts`) that
+applies four checks/steps in order:
 
-1. The sender is the main frame of an ADE-owned BrowserWindow at the exact
-   configured Vite URL (development) or packaged renderer file (production).
-2. The payload has only the channel's allowed fields, runtime enum values and
-   bounded strings/arrays/base64/dimensions. Compile-time TypeScript types are
-   not treated as a security boundary.
+1. **Sender.** The sender is the main frame of a *registered* ADE renderer
+   window (`main/rendererWindows.ts`) at the exact configured Vite URL
+   (development) or packaged renderer file (production). Dashboard windows
+   are never registered, so they cannot invoke ADE IPC regardless of URL.
+2. **Payload.** The payload has only the channel's allowed fields, runtime
+   enum values and bounded strings/arrays/base64/dimensions. Compile-time
+   TypeScript types are not treated as a security boundary.
+3. **Privilege policy.** `main/ipcPolicy.ts` holds
+   `CHANNEL_POLICY: Record<InvokeChannel, {effect, surface, audit, armsShell?}>`,
+   exhaustive by type: an unclassified channel does not compile, a
+   misclassified one throws at registration. `effect` is the highest
+   privilege the handler exercises (`read` < `mutate` < `host` < `launch` <
+   `shell`); `shell` — operator command text through a shell — is confined to
+   `SHELL_CHANNELS` (`agent:openDashboard` only). `surface: 'shared'` marks
+   the operations the Goal 7 host API may also expose and must be `read`
+   until the API has an authorization model. Channels whose payload stores a
+   `dashboardCommand` carry `armsShell`. Audited channels (launch/shell/host,
+   never `pty:write`/`pty:resize`) log one line per call.
+4. **Redaction funnel.** A handler error is logged main-side (redacted, with
+   stack) and rebuilt for the reply through `main/errors.ts`
+   (`toIpcError`): URL credentials, vendor key shapes, `NAME=value` secret
+   assignments, bearer/authorization headers and control characters are
+   removed and the message is bounded to 2000 characters. The same module
+   redacts backend stderr inside `ExecutionBackendService.checked`, the
+   `pty:create` argv log and publication text.
+
+Main → renderer events use `broadcastToRenderers`; nothing iterates
+`BrowserWindow.getAllWindows()` for ADE payloads, dialogs or notification
+targets.
 
 ## Terminal beta security and UX
 
@@ -779,6 +810,21 @@ Every invoke passes two checks before its handler runs:
   `ade-photo:` image scheme, and denies objects, frames, forms and base URLs.
 - Main-frame navigation stays on the ADE renderer; only credential-free HTTP(S)
   links may be handed to the system browser. Web permissions default to deny.
+- Agent dashboards (`main/dashboard/DashboardWindows.ts`) open in a separate,
+  unregistered BrowserWindow per agent with its own `persist:` partition,
+  deny-all permissions, no preload and a fixed title. `will-navigate` and
+  `will-redirect` share one origin guard: anything off the dashboard origin —
+  a server 302 included — is blocked and, when it is a plain http(s) URL,
+  handed to the system browser. Session cookies are rewritten with a bounded
+  expiry only when they belong to the dashboard origin
+  (`cookieBelongsToOrigin`, applied on top of Electron's URL filter); a login
+  hop through a foreign identity provider earns no persistence. Deleting the
+  agent closes the window and clears the partition's storage and cache.
+- Workspace reads (`fs:tree`, `fs:read`, `fs:pathInfo`, `fs:agentFiles`) apply
+  the same link discipline as mutations and the WSL helper: every component
+  from the workspace root to the leaf is `lstat`-checked, a link or junction
+  anywhere fails closed, the real path must stay inside the real root, and
+  listings never follow links (a linked directory is shown as a plain entry).
 - Diagnostics execute fixed version/auth probes for known runtimes. Custom
   command strings are neither executed nor echoed. Claude/Codex expose stable
   auth probes; Ollama checks its local service; other runtimes report unknown

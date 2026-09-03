@@ -345,7 +345,17 @@ manual Git — an explicit per-run opt-in archives and resets divergent worker
 worktrees onto the orchestrator base, late results on ended runs no longer leak
 leases, and a per-task time budget bounds hanging CLIs. The loopback API can
 therefore drive consecutive runs without inheriting a one-shot defect.
-Thema 6 (boundary hardening) is the remaining gate before the write/SSE slice.
+
+Prerequisite closed 2026-09-03 (Thema 6, boundary hardening): every IPC
+channel carries a typed privilege policy (`effect`/`surface`/`audit`) with
+`surface: 'shared'` reserved for read-only operations the host API may expose;
+handler errors and backend stderr leave main only through one redaction
+funnel; stored keys reach WSL through `WSLENV` instead of argv; dashboard
+windows guard redirects and scope cookie persistence to their origin; ADE
+events and sender trust are bound to registered renderer windows; native
+workspace reads apply the link discipline of mutations. The write/SSE slice
+may now start; its first step is to move the channels it needs to `shared`
+together with the authorization model the policy test demands.
 
 - [x] Extract the first transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and

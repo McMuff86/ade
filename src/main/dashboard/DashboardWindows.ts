@@ -1,25 +1,36 @@
 /**
  * One ADE-managed window per agent dashboard. The page runs in its own
  * persistent partition (logins survive restarts) with the same deny-all
- * permission posture as the main renderer. Navigation is locked to the
- * dashboard's origin; everything else leaves through the system browser.
+ * permission posture as the main renderer. Navigation — including server
+ * redirects — is locked to the dashboard's origin; everything else leaves
+ * through the system browser. Dashboard windows are never registered as ADE
+ * renderer windows (see rendererWindows.ts): they receive no ADE events and
+ * cannot invoke ADE IPC.
  */
 
 import { BrowserWindow, app, session, shell } from 'electron';
 import { isSafeExternalUrl } from '../security';
-import { toPersistentCookie, type StoredCookie } from './cookiePersistence';
+import { cookieBelongsToOrigin, toPersistentCookie, type StoredCookie } from './cookiePersistence';
+
+function dashboardPartition(agentId: string): string {
+  return `persist:ade-dashboard-${agentId}`;
+}
 
 /**
  * Electron drops session cookies on quit; dashboards that authenticate with
  * them would demand a fresh login every launch. Rewrite them with a bounded
- * expiry so the sign-in survives like it does in a regular browser.
+ * expiry so the sign-in survives like it does in a regular browser — but only
+ * for cookies the dashboard origin itself would receive. Electron's URL
+ * filter and the pure origin check are applied together on purpose.
  */
-async function persistSessionCookies(partition: string): Promise<void> {
+async function persistSessionCookies(partition: string, allowedOrigin: string): Promise<void> {
   const dashboardSession = session.fromPartition(partition);
-  const cookies = await dashboardSession.cookies.get({});
+  const cookies = await dashboardSession.cookies.get({ url: `${allowedOrigin}/` });
   const nowSeconds = Math.floor(Date.now() / 1000);
   for (const cookie of cookies) {
-    const persistent = toPersistentCookie(cookie as StoredCookie, nowSeconds);
+    const stored = cookie as StoredCookie;
+    if (!cookieBelongsToOrigin(stored, allowedOrigin)) continue;
+    const persistent = toPersistentCookie(stored, nowSeconds);
     if (!persistent) continue;
     try {
       await dashboardSession.cookies.set(persistent);
@@ -49,7 +60,7 @@ export class DashboardWindows {
       return;
     }
 
-    const partition = `persist:ade-dashboard-${agentId}`;
+    const partition = dashboardPartition(agentId);
     if (!this.hardenedPartitions.has(partition)) {
       const dashboardSession = session.fromPartition(partition);
       dashboardSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
@@ -88,7 +99,9 @@ export class DashboardWindows {
       }
       return { action: 'deny' };
     });
-    win.webContents.on('will-navigate', (event, target) => {
+    // One guard for user navigation and server redirects: a 302 to a foreign
+    // origin must not land that origin inside an ADE-branded window either.
+    const guardNavigation = (event: { preventDefault(): void }, target: string): void => {
       let origin: string | null = null;
       try {
         origin = new URL(target).origin;
@@ -102,12 +115,14 @@ export class DashboardWindows {
           console.warn('[ade] dashboard external link failed:', error);
         });
       }
-    });
+    };
+    win.webContents.on('will-navigate', guardNavigation);
+    win.webContents.on('will-redirect', guardNavigation);
     win.webContents.on('will-attach-webview', (event) => event.preventDefault());
     // After every completed load (a login redirect included) and again on
     // close, so quitting ADE with the window still open loses nothing.
     const persist = (): void => {
-      void persistSessionCookies(partition).catch((error) => {
+      void persistSessionCookies(partition, entry.allowedOrigin).catch((error) => {
         console.warn('[ade] dashboard cookie persistence failed:', error);
       });
     };
@@ -119,5 +134,22 @@ export class DashboardWindows {
 
     this.entries.set(agentId, entry);
     void win.loadURL(url.toString());
+  }
+
+  /**
+   * Close the agent's dashboard window and wipe its partition — cookies,
+   * storage, cache. Called when the agent identity is deleted so a sign-in
+   * never outlives the agent it belonged to.
+   */
+  async forget(agentId: string): Promise<void> {
+    const existing = this.entries.get(agentId);
+    if (existing && !existing.win.isDestroyed()) {
+      existing.win.removeAllListeners('close');
+      existing.win.destroy();
+    }
+    this.entries.delete(agentId);
+    const dashboardSession = session.fromPartition(dashboardPartition(agentId));
+    await dashboardSession.clearStorageData();
+    await dashboardSession.clearCache();
   }
 }

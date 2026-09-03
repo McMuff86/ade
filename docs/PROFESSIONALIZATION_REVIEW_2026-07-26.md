@@ -289,6 +289,35 @@ verweigert genau die erfolgreichen Runs, die der Alltag erzeugt.
 
 ## Thema 6 — Die Grenze härten, die Goal 7 erbt
 
+**Umgesetzt am 2026-09-03** (Vertrag in `ARCHITECTURE.md`, „Electron IPC
+contract“ und „Terminal beta security and UX“; Matrix in `STATUS.md`):
+
+- `src/main/ipcPolicy.ts`: `CHANNEL_POLICY: Record<InvokeChannel, {effect,
+  surface, audit, armsShell?}>`, exhaustiv per Typ; `handle()` prüft die
+  Policy bei Registrierung und loggt auditierte Effekte pro Aufruf. `shell`
+  ist auf `agent:openDashboard` beschränkt, `shared` (Host-API) ist nur mit
+  `read` zulässig — beides als Test-Invariante.
+- `src/main/errors.ts`: ein Redaktions-Trichter (URL-Credentials, Vendor-Key-
+  Formen, `NAME=value`-Zuweisungen, Bearer/Authorization, Steuerzeichen,
+  2000-Zeichen-Grenze) um `handle()`, in `ExecutionBackendService.checked`,
+  im `pty:create`-argv-Log und in der Publikation.
+- `wslHostEnvironment`: Backend-Env läuft über `WSLENV=NAME/u` im Host-Env
+  von `wsl.exe`; argv enthält keine Zuweisung mehr. Mit echtem Ubuntu belegt
+  (`test-execution-backends.ts --wsl`, inkl. Unicode-Wert).
+- `DashboardWindows`: `will-redirect` teilt den Origin-Guard mit
+  `will-navigate`; Cookie-Persistenz nur für `cookieBelongsToOrigin`;
+  `forget(agentId)` (clearStorageData + clearCache) beim Agent-Löschen.
+- `src/main/rendererWindows.ts`: Registry der ADE-Fenster; Broadcasts,
+  Notification-Ziele, Dialog-Parent, `activate` und `assertTrustedSender`
+  nutzen sie statt `getAllWindows()`.
+- `workspaceFs`: Lesepfad prüft jede Komponente per `lstat` plus Realpath-
+  Containment; Listings folgen keinen Links.
+
+Offen aus diesem Thema: kein „Dashboard abmelden“ in der UI (Partition wird
+nur beim Löschen des Agenten geleert); Audit-Zeilen landen nur im Main-Log,
+nicht im Journal; `dashboardCommand` bleibt Shell-Text (markiert, nicht
+sandboxed). Ursprünglicher Befund:
+
 Goal 7s Exit-Kriterien sind Sicherheitsaussagen; drei davon sind mit der
 heutigen Struktur nicht konstruktiv erzwingbar (*Hinweise*, sofern nicht
 anders markiert):
@@ -329,8 +358,8 @@ anders markiert):
    `normalizeConfig`-Stellen.
 2. **Thema 4, erste zwei Punkte** (`tsconfig.scripts.json`, Suite-Runner mit
    Check-Untergrenze) — Stunden, und sie sichern alles Folgende ab.
-3. **Thema 2** — beseitigt die tägliche Handarbeit.
-4. **Thema 6** — vor dem nächsten Goal-7-Slice.
+3. **Thema 2** — beseitigt die tägliche Handarbeit. *(erledigt 2026-09-03)*
+4. **Thema 6** — vor dem nächsten Goal-7-Slice. *(erledigt 2026-09-03)*
 5. **Thema 3**, dann **Thema 5**.
 
 ## Ausdrücklich nicht jetzt

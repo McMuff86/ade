@@ -11,11 +11,14 @@ import {
   type ExecutionBackendId,
 } from '../../shared/executionBackends';
 import { hostPathKey } from '../platform';
+import { redactSensitiveText } from '../errors';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_BUFFER = 4 * 1024 * 1024;
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const WSL_LIST_CACHE_MS = 30_000;
+/** Windows' per-variable environment limit; a longer WSLENV would be truncated silently. */
+const MAX_WSLENV_CHARS = 32_000;
 
 export interface BackendCommandOptions {
   cwd?: string;
@@ -38,9 +41,74 @@ export interface PtyBackendCommand {
   args: string[];
   /** Host cwd used only to start the Windows-side wsl.exe client. */
   hostCwd?: string;
+  /**
+   * Complete Windows-side environment for the wsl.exe client (host env plus
+   * the backend fields routed through WSLENV). Undefined for native launches,
+   * whose env the caller assembles itself.
+   */
+  hostEnv?: Record<string, string>;
+}
+
+interface WslLaunch {
+  args: string[];
+  hostEnv: Record<string, string>;
 }
 
 type SpawnProcess = typeof spawn;
+
+/**
+ * Build the Windows environment that carries `fields` into a WSL session via
+ * WSLENV (`NAME/u` = forwarded only on the Win32→WSL direction, no path
+ * translation). Pure so the contract tests can prove the argv stays clean.
+ *
+ * Windows environment names are case-insensitive; a host variable that
+ * differs from a field only by case is removed so the field wins
+ * unambiguously. Existing WSLENV entries survive unless they name one of the
+ * fields, whose flags ADE controls.
+ */
+export function wslHostEnvironment(
+  hostEnv: NodeJS.ProcessEnv,
+  fields: Record<string, string>,
+): Record<string, string> {
+  const names = Object.keys(fields);
+  const seen = new Set<string>();
+  for (const name of names) {
+    const value = fields[name]!;
+    if (!ENV_NAME.test(name) || value.includes('\0')) {
+      throw new Error(`ade: invalid backend environment field ${name}`);
+    }
+    const folded = name.toUpperCase();
+    if (folded === 'WSLENV') throw new Error('ade: backend environment must not override WSLENV');
+    if (seen.has(folded)) throw new Error(`ade: backend environment field ${name} collides by case`);
+    seen.add(folded);
+  }
+
+  const out: Record<string, string> = {};
+  let inheritedWslenv = '';
+  for (const [name, value] of Object.entries(hostEnv)) {
+    if (value === undefined) continue;
+    const folded = name.toUpperCase();
+    if (folded === 'WSLENV') {
+      inheritedWslenv = value;
+      continue;
+    }
+    if (seen.has(folded)) continue;
+    out[name] = value;
+  }
+  if (names.length === 0) {
+    if (inheritedWslenv) out['WSLENV'] = inheritedWslenv;
+    return out;
+  }
+
+  const inherited = inheritedWslenv
+    .split(':')
+    .filter((entry) => entry !== '' && !seen.has(entry.split('/')[0]!.toUpperCase()));
+  const wslenv = [...inherited, ...names.map((name) => `${name}/u`)].join(':');
+  if (wslenv.length > MAX_WSLENV_CHARS) throw new Error('ade: backend environment exceeds the WSLENV limit');
+  for (const name of names) out[name] = fields[name]!;
+  out['WSLENV'] = wslenv;
+  return out;
+}
 
 /**
  * Single argv-only boundary for native and Windows→WSL process execution.
@@ -81,12 +149,12 @@ export class ExecutionBackendService {
     }
     this.assertWslHost();
     const distro = wslDistribution(backend)!;
-    const command = this.wslArgs(distro, executable, args, options.cwd, options.env);
-    return this.spawnAndCollect('wsl.exe', command, {
+    const launch = this.wslLaunch(distro, executable, args, options.cwd, options.env);
+    return this.spawnAndCollect('wsl.exe', launch.args, {
       input: options.input,
       timeoutMs: options.timeoutMs,
       maxBuffer: options.maxBuffer,
-      env: process.env as Record<string, string>,
+      env: launch.hostEnv,
     });
   }
 
@@ -98,9 +166,14 @@ export class ExecutionBackendService {
   ): Promise<BackendCommandResult> {
     const result = await this.run(backend, executable, args, options);
     if (result.code === 0 && !result.timedOut) return result;
-    const detail = decodeOutput(result.stderr).trim() || decodeOutput(result.stdout).trim();
+    // Backend stderr is untrusted text (Git remotes echo URLs with embedded
+    // credentials, CLIs print the key they rejected); redact before it
+    // becomes an error message that IPC or a journal may carry onward.
+    const detail = redactSensitiveText(
+      decodeOutput(result.stderr).trim() || decodeOutput(result.stdout).trim(),
+    ).slice(0, 2_000);
     const reason = result.timedOut ? 'timed out' : `exited with code ${result.code ?? 'unknown'}`;
-    throw new Error(`ade: backend command ${reason}${detail ? `: ${detail.slice(0, 2_000)}` : ''}`);
+    throw new Error(`ade: backend command ${reason}${detail ? `: ${detail}` : ''}`);
   }
 
   async text(
@@ -168,10 +241,8 @@ export class ExecutionBackendService {
     const backend = normalizeExecutionBackendId(backendValue);
     if (backend === NATIVE_EXECUTION_BACKEND) return { file: executable, args };
     this.assertWslHost();
-    return {
-      file: 'wsl.exe',
-      args: this.wslArgs(wslDistribution(backend)!, executable, args, backendCwd, env),
-    };
+    const launch = this.wslLaunch(wslDistribution(backend)!, executable, args, backendCwd, env);
+    return { file: 'wsl.exe', args: launch.args, hostEnv: launch.hostEnv };
   }
 
   async listWslDistributions(): Promise<WslListResult> {
@@ -219,23 +290,25 @@ export class ExecutionBackendService {
     return listResult;
   }
 
-  private wslArgs(
+  /**
+   * argv plus the Windows-side environment for one wsl.exe launch. Backend
+   * environment fields never enter argv: they travel through WSLENV, so a
+   * stored API key is visible neither in the long-lived wsl.exe command line
+   * (Task Manager, `Get-CimInstance Win32_Process`) nor in ADE's argv log.
+   */
+  private wslLaunch(
     distro: string,
     executable: string,
     args: string[],
     cwd?: string,
     env?: Record<string, string>,
-  ): string[] {
+  ): WslLaunch {
     const prefix = ['--distribution', distro];
     if (cwd) prefix.push('--cd', cwd);
-    prefix.push('--exec');
-    const environment = Object.entries(env ?? {});
-    if (environment.length === 0) return [...prefix, executable, ...args];
-    const assignments = environment.map(([name, value]) => {
-      if (!ENV_NAME.test(name) || value.includes('\0')) throw new Error(`ade: invalid backend environment field ${name}`);
-      return `${name}=${value}`;
-    });
-    return [...prefix, '/usr/bin/env', ...assignments, executable, ...args];
+    return {
+      args: [...prefix, '--exec', executable, ...args],
+      hostEnv: wslHostEnvironment(process.env, env ?? {}),
+    };
   }
 
   private wslUncPath(backend: ExecutionBackendId, value: string): string | null {

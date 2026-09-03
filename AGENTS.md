@@ -27,5 +27,6 @@
 ## Product quality
 
 - Preserve Electron sandboxing, context isolation, strict IPC validation, bounded artifacts, truthful telemetry, and fail-closed integration.
+- Main-process boundary rules (see `docs/ARCHITECTURE.md`, "Electron IPC contract"): classify every new invoke channel in `src/main/ipcPolicy.ts` (`shell` stays confined to `agent:openDashboard`; `shared` stays read-only until the host API has authorization); route every error, stderr fragment or argv that leaves main through `src/main/errors.ts`; send main→renderer events only via `src/main/rendererWindows.ts`; pass WSL environment through `WSLENV`, never argv; keep workspace reads and mutations under the same link discipline.
 - UI changes must include keyboard/focus/accessibility behavior, useful empty/error/loading states, responsive layout, and Playwright coverage for the user-visible flow.
 - Platform work must distinguish native Windows, native Linux/WSLg, Windows UI with a WSL backend, and macOS; do not blur those deployment models.

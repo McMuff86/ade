@@ -31,7 +31,7 @@ const SUITES: Suite[] = [
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 43 } },
-  { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 16 } },
+  { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 27 } },
   { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 49 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
@@ -46,8 +46,8 @@ const SUITES: Suite[] = [
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
-  { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 7 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 149 } },
+  { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 169 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

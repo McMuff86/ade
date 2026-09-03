@@ -18,7 +18,6 @@ import {
   realpathSync,
   renameSync,
   rmdirSync,
-  statSync,
   unlinkSync,
 } from 'node:fs';
 import type { Stats } from 'node:fs';
@@ -33,7 +32,7 @@ const READ_CAP = 256 * 1024;
 /** The pinned agent-file basenames, in display order. */
 export const PINNED_AGENT_FILES = ['MEMORY.md', 'USER.md', 'CLAUDE.md', 'AGENTS.md'] as const;
 
-/** Resolve a renderer-supplied relative path safely inside `root`. Null if it escapes. */
+/** Resolve a renderer-supplied relative path lexically inside `root`. Null if it escapes. */
 function safeResolve(root: string, rel: string): string | null {
   const cleaned = (rel ?? '').replace(/^[/\\]+/, '');
   if (isAbsolute(cleaned)) return null;
@@ -43,10 +42,49 @@ function safeResolve(root: string, rel: string): string | null {
   return abs;
 }
 
+/**
+ * Read-path parity with the mutation guards and the WSL backend: every
+ * component from `root` to the leaf (root included) must be a real entry, and
+ * the resolved real path must stay inside the real root. Returns false when
+ * the entry is missing; throws when a link or junction is involved so a read
+ * never follows a link out of the workspace silently.
+ */
+function readableEntryExists(root: string, abs: string): boolean {
+  const rel = relative(root, abs);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error('ade: path escapes the selected workspace');
+  }
+  const components = rel === '' ? [] : rel.split(sep).filter(Boolean);
+  let current = root;
+  const paths = [current];
+  for (const component of components) {
+    current = join(current, component);
+    paths.push(current);
+  }
+  for (const path of paths) {
+    let info: Stats;
+    try {
+      info = lstatSync(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
+    if (info.isSymbolicLink()) {
+      throw new Error('ade: workspace read refuses symlink or junction components');
+    }
+  }
+  const realRoot = realpathSync.native(root);
+  const realAbs = realpathSync.native(abs);
+  if (realAbs !== realRoot && !isChildPath(realRoot, realAbs)) {
+    throw new Error('ade: path escapes the selected workspace through a link');
+  }
+  return true;
+}
+
 /** Read one directory level: dirs first, then files, both alphabetical. */
 function readLevel(root: string, relDir: string): FsTreeNode[] {
   const abs = safeResolve(root, relDir);
-  if (!abs || !existsSync(abs)) return [];
+  if (!abs || !readableEntryExists(root, abs)) return [];
   let entries: string[];
   try {
     entries = readdirSync(abs);
@@ -60,7 +98,9 @@ function readLevel(root: string, relDir: string): FsTreeNode[] {
     if (SKIP_DIRS.has(name)) continue;
     let isDir = false;
     try {
-      isDir = statSync(join(abs, name)).isDirectory();
+      // Never follow links while listing: a linked directory is shown as a
+      // plain entry and refused on read, exactly like the WSL backend.
+      isDir = lstatSync(join(abs, name)).isDirectory();
     } catch {
       continue;
     }
@@ -96,17 +136,21 @@ export function fsTree(workspaceDir: string, relPath = ''): FsTreeNode {
 /** fs:read — capped text read. Resolves pinned agent files across memoryDir. */
 export function fsRead(workspaceDir: string, memoryDir: string, relPath: string): FsReadResult {
   let abs = safeResolve(workspaceDir, relPath);
+  let exists = abs ? readableEntryExists(workspaceDir, abs) : false;
 
   // Pinned agent files may live in memoryDir instead of the workspace.
   const base = relPath.split('/').pop() ?? relPath;
-  if ((!abs || !existsSync(abs)) && (PINNED_AGENT_FILES as readonly string[]).includes(base)) {
+  if (!exists && (PINNED_AGENT_FILES as readonly string[]).includes(base)) {
     const memAbs = join(memoryDir, base);
-    if (existsSync(memAbs)) abs = memAbs;
+    if (readableEntryExists(memoryDir, memAbs)) {
+      abs = memAbs;
+      exists = true;
+    }
   }
 
-  if (!abs || !existsSync(abs)) return { text: '', truncated: false };
+  if (!abs || !exists) return { text: '', truncated: false };
   try {
-    if (statSync(abs).isDirectory()) return { text: '', truncated: false };
+    if (lstatSync(abs).isDirectory()) return { text: '', truncated: false };
     const buf = readFileSync(abs);
     const truncated = buf.length > READ_CAP;
     const slice = truncated ? buf.subarray(0, READ_CAP) : buf;
@@ -126,21 +170,26 @@ export function fsPathInfo(
   relPath: string,
 ): FsPathInfoResult {
   let abs = safeResolve(workspaceDir, relPath);
+  let exists = abs ? readableEntryExists(workspaceDir, abs) : false;
   let location: FsPathInfoResult['location'] = 'workspace';
   const base = relPath.split('/').pop() ?? relPath;
-  if ((!abs || !existsSync(abs)) && (PINNED_AGENT_FILES as readonly string[]).includes(base)) {
+  if (!exists && (PINNED_AGENT_FILES as readonly string[]).includes(base)) {
     const memAbs = join(memoryDir, base);
-    if (existsSync(memAbs)) {
+    if (readableEntryExists(memoryDir, memAbs)) {
       abs = memAbs;
+      exists = true;
       location = 'memory';
     }
   }
   if (!abs) throw new Error('ade: path escapes the selected workspace');
   let kind: FsPathInfoResult['kind'] = 'missing';
-  try {
-    kind = statSync(abs).isDirectory() ? 'dir' : 'file';
-  } catch {
-    kind = 'missing';
+  if (exists) {
+    try {
+      const info = lstatSync(abs);
+      kind = info.isDirectory() ? 'dir' : info.isFile() ? 'file' : 'missing';
+    } catch {
+      kind = 'missing';
+    }
   }
   return { absolutePath: abs, kind, location };
 }
@@ -358,11 +407,20 @@ export async function fsDelete(
 export function agentFiles(workspaceDir: string, memoryDir: string): AgentFile[] {
   const out: AgentFile[] = [];
   for (const name of PINNED_AGENT_FILES) {
-    if (existsSync(join(workspaceDir, name))) {
+    if (isRegularFile(join(workspaceDir, name))) {
       out.push({ name, path: name, location: 'workspace' });
-    } else if (existsSync(join(memoryDir, name))) {
+    } else if (isRegularFile(join(memoryDir, name))) {
       out.push({ name, path: name, location: 'memory' });
     }
   }
   return out;
+}
+
+/** lstat-based: a pinned name that is a link is not offered (WSL parity). */
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
 }

@@ -10,6 +10,7 @@ import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
 import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
 import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
+import { registerRendererWindow, rendererWindows } from './rendererWindows';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
 registerPhotoProtocolScheme();
@@ -54,6 +55,8 @@ function createWindow(): void {
       backgroundThrottling: !remoteDebugPort,
     },
   });
+  // The only window that may send or receive ADE IPC (see rendererWindows.ts).
+  registerRendererWindow(mainWindow);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -108,7 +111,8 @@ void app.whenReady().then(async () => {
   console.log('[ade] app ready — window created');
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    // A lingering dashboard window is not an ADE window: reopen the UI anyway.
+    if (rendererWindows().length === 0) createWindow();
   });
 
   // Phase A de-risk: node-pty/ConPTY smoke test, opt-in via env var

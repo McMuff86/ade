@@ -1,8 +1,9 @@
 /** Native completion notifications, emitted only while ADE is in the background. */
 
-import { BrowserWindow, Notification } from 'electron';
+import { Notification } from 'electron';
 import type { SessionMeta } from '../shared/types';
 import { sessionExitNotice } from './notificationPolicy';
+import { rendererWindows } from './rendererWindows';
 
 export function showSessionExitNotification(meta: SessionMeta, agentName: string): void {
   const notice = sessionExitNotice(meta, agentName);
@@ -23,7 +24,9 @@ export function showManagedTaskNotification(
 function showNotice(notice: { title: string; body: string }): void {
   try {
     if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
-    const windows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed());
+    // Only ADE's own windows count as "in the foreground" and only they are
+    // focused on click; a focused dashboard window must not swallow the notice.
+    const windows = rendererWindows();
     if (windows.some((window) => window.isFocused() && !window.isMinimized())) return;
 
     const notification = new Notification(notice);
