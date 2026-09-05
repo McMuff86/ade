@@ -34,6 +34,8 @@ import type {
   RunSummary,
   RunTask,
   RunTaskCreateInput,
+  RunTaskSubmission,
+  RunTaskSubmitInput,
   RuntimeDiagnosticsResult,
   RuntimeId,
   ServiceKeyScope,
@@ -119,6 +121,7 @@ export const IPC = {
   RunResumeTeam: 'run:resumeTeam',
   RunApprovalResolve: 'runApproval:resolve',
   RunTaskCreate: 'runTask:create',
+  RunTaskSubmit: 'runTask:submit',
   RunTaskFail: 'runTask:fail',
   RunArtifactCreate: 'runArtifact:create',
   GitStatus: 'git:status',
@@ -675,6 +678,7 @@ export interface IpcInvokeMap {
     res: void;
   };
   'runTask:create': { req: RunTaskCreateInput; res: RunTask };
+  'runTask:submit': { req: RunTaskSubmitInput; res: RunTaskSubmission };
   'runTask:fail': { req: { taskId: string; error: string }; res: void };
   'runArtifact:create': { req: RunArtifactCreateRequest; res: RunArtifact };
   'git:status': { req: GitStatusRequest; res: GitStatus };

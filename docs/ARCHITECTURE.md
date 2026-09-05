@@ -670,7 +670,29 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   exposes the top of the journal and `eventsSince()` pages strictly after a
   cursor. A `JournalChangeHub` notifies the desktop broadcast and the remote
   streams from one publication point.
-- `submitSingleTask` as a first-class bounded command remains open (Goal 8+).
+- `RunCoordinator.submitSingleTask` is the first-class bounded single-task
+  command (`runTask:submit`, `POST /api/v1/tasks`). It takes only an explicit
+  `agentId`, `repositoryId`, `prompt` and optional `name`; the caller never
+  names a run, participant, workspace binding or PTY.
+  `OrchestrationService.createSingleTaskRun` persists the wrapping manual run,
+  one worker participant (a one-member team named after the agent), the queued
+  task and — when a `commandId` is present — the idempotency record in **one
+  atomic save**, with journal `seq` in logical order (`run.created` with
+  `kind: 'single-task'`, `participant.added`, `task.queued`). The recorded
+  command result is the compact `{runId, taskId}` pair, resolved against the
+  journal on replay, so a long prompt can never overflow the command-log bound.
+  The coordinator then launches the one-shot task session through the same
+  `TaskLauncher` managed tasks use (`PtyManager.create` with the task id, so
+  agent/repository/binding checks and the global FIFO of four apply) **without
+  awaiting the queue**: the reply carries the persisted run and task, and
+  `task.started` / terminal transitions reach callers through the journal. A
+  launcher rejection that the PTY layer could not report itself is journaled as
+  `task.failed` by the coordinator, so a submission never leaves a task queued
+  forever. Cancellation reuses `run:cancel`: for a manual run (single-task or
+  desktop-created) the coordinator cancels the queued and running tasks and the
+  run status follows from its tasks; a manual draft without work is rejected,
+  and managed runs keep their phase-machine cancel. A single-task run cannot be
+  started as a managed orchestration (direct tasks already exist).
 
 ## ADE host API (Goal 7 write/SSE slice) and mobile PWA (Goals 8-10)
 
@@ -694,13 +716,21 @@ Endpoints are allowlisted operations, not generic RPC. Implemented today:
 - `POST /api/v1/runs` - create a managed run from explicit `repositoryId`,
   `agentIds`, `name`, `goal` (desktop-only fields such as
   `resetWorktreeToBase` are refused, not ignored);
-- `POST /api/v1/runs/{id}/start` and `/cancel` - managed-run lifecycle.
+- `POST /api/v1/runs/{id}/start` and `/cancel` - run lifecycle (`start` is
+  managed-only; `cancel` also ends a single-task run's work);
+- `POST /api/v1/tasks` - submit one bounded task for an explicit `agentId` and
+  `repositoryId` with a `prompt` (≤ 8000 characters, control-character free)
+  and optional `name`. The reply is the wrapping run summary plus `taskId`;
+  `run.tasks[].title` is the 80-character title, never the prompt. There is
+  no task listing and no per-task action path: progress arrives over
+  `/events`, cancellation goes through the run. Plain-workspace (no
+  repository) submission is deliberately not offered.
 
-Still planned: `POST /api/v1/tasks` (one bounded task), Goal 9 approval
-resolution after step-up authentication and evidence review. Category, agent
-and config mutation, interactive PTY methods, filesystem reads, arbitrary IPC
-and deletion stay absent. The API never returns absolute paths, custom
-command text, environment values or credentials.
+Still planned: Goal 9 approval resolution after step-up authentication and
+evidence review. Category, agent and config mutation, interactive PTY methods
+(write, resize, attach), filesystem reads, arbitrary IPC and deletion stay
+absent. The API never returns absolute paths, prompts, custom command text,
+environment values or credentials.
 
 #### Authentication and authorization
 
@@ -878,7 +908,7 @@ applies four checks/steps in order:
    line enough to expose a mutation. Instead the invariant is lifted per
    channel and only under the strongest requirement: a shared channel whose
    effect is not `read` must be listed in `REMOTE_COMMAND_CHANNELS`
-   (`run:create`, `run:start`, `run:cancel`), demand `scope: 'runs:write'`,
+   (`run:create`, `run:start`, `run:cancel`, `runTask:submit`), demand `scope: 'runs:write'`,
    `idempotency: 'required'`, `proof: 'device-signature'` and `audit: true`;
    shared `read` channels demand `scope: 'read'` without idempotency; `host`
    and `shell` effects can never be shared; desktop channels carry no remote

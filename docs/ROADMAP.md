@@ -326,18 +326,21 @@ closed interactive session appears in Work and opens Terminals.
 
 ## Goal 7 - transport-neutral core and local host API
 
-Status: **in progress; read foundation and the write/SSE slice implemented.**
-The first slice added a transport-neutral application service plus mobile-safe
-health/catalog/run DTOs and a disabled-by-default, Bearer-authorized HTTP
-adapter fixed to `127.0.0.1` with `GET /api/v1/health`, `/catalog` and
-`/runs`. The second slice (2026-09-03) adds the resumable
-`GET /api/v1/events` stream over the journal `seq`, the device-signed,
-idempotent managed-run commands `POST /api/v1/runs`, `/runs/{id}/start` and
-`/runs/{id}/cancel`, the per-channel remote authorization requirement in the
-IPC policy and host-path redaction for everything that leaves over the wire.
-Public/Tailscale exposure stays no-go: the single command device is an
-environment bootstrap, not a paired identity, and bounded task submission
-(`POST /tasks`) is still open.
+Status: **local command surface complete (2026-09-06); only the paired-device
+model remains and moves to Goal 8.** The first slice added a transport-neutral
+application service plus mobile-safe health/catalog/run DTOs and a
+disabled-by-default, Bearer-authorized HTTP adapter fixed to `127.0.0.1` with
+`GET /api/v1/health`, `/catalog` and `/runs`. The second slice (2026-09-03)
+added the resumable `GET /api/v1/events` stream over the journal `seq`, the
+device-signed, idempotent managed-run commands `POST /api/v1/runs`,
+`/runs/{id}/start` and `/runs/{id}/cancel`, the per-channel remote
+authorization requirement in the IPC policy and host-path redaction for
+everything that leaves over the wire. The third slice (2026-09-06) adds the
+bounded single-task submission `POST /api/v1/tasks` as the first-class
+`runTask:submit` command (atomic run/participant/task record, main-owned
+launch, journal-driven progress) and lets `run:cancel` end a manual run's
+work. Public/Tailscale exposure stays no-go: the single command device is an
+environment bootstrap, not a paired identity.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
@@ -374,16 +377,24 @@ per-channel authorization requirement the policy test now demands.
   resume, strictly ascending `seq`, no duplicates, bounded clients and
   per-client buffer). Proven by `scripts/test-host-api.ts` against a real
   loopback server, a real `RunCoordinator` and real TCP reconnects.
-- [ ] Bounded single-task submission (`POST /api/v1/tasks`) with explicit
-  agent/repository ids as a first-class application command.
+- [x] Bounded single-task submission (`POST /api/v1/tasks`) with explicit
+  agent/repository ids as a first-class application command
+  (`runTask:submit`): one atomic save for run, participant, task and
+  idempotency record; the one-shot task session launches through the managed
+  task launcher without blocking the reply; a refused launch is journaled as
+  a failed task; the wrapping run is cancellable and cannot be started as a
+  managed orchestration. Proven by `scripts/test-host-api.ts` (122 → 163)
+  against a real coordinator, including replay, key reuse, concurrent
+  duplicates, prompt/path absence on the wire and the launch-failure path.
 - [x] Require idempotency keys for mutations and monotonic cursors for reconnecting
   event clients. The key is bound to channel and payload digest through the
   coordinator command log; exact retries replay, concurrent duplicates coalesce,
   and a retry with another payload is rejected — no duplicate run or launch.
 - [x] Lift `shared ⇒ read` per channel instead of deleting it: shared mutations
-  must be in `REMOTE_COMMAND_CHANNELS` and demand `runs:write` scope, a device
-  signature, an idempotency key and audit (`ipcPolicy.ts`, pinned by the
-  security suite; rationale in `ARCHITECTURE.md`).
+  must be in `REMOTE_COMMAND_CHANNELS` (`run:create/start/cancel`,
+  `runTask:submit`) and demand `runs:write` scope, a device signature, an
+  idempotency key and audit (`ipcPolicy.ts`, pinned by the security suite;
+  rationale in `ARCHITECTURE.md`).
 - [x] Keep the listener disabled by default and reject non-loopback binds, unknown
   hosts/origins, invalid content types, chunked or oversized requests,
   malformed payloads, unknown/unsigned/stale/tampered device proofs and
@@ -396,8 +407,9 @@ Exit criteria: local API integration tests can drive and reconnect to a full
 managed run without changing the Electron workflow; duplicate, reordered,
 unauthorized and malformed requests fail closed. No interactive PTY, arbitrary
 IPC, filesystem/configuration mutation or absolute host path crosses the API.
-Met for create/start/cancel and the event stream on 2026-09-03; open for
-bounded task submission and for the paired-device model.
+Met for create/start/cancel and the event stream on 2026-09-03 and for
+bounded task submission on 2026-09-06; the paired-device model is Goal 8's
+first deliverable.
 
 ## Goal 8 - personal mobile companion alpha
 

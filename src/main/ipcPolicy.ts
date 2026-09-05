@@ -158,6 +158,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'run:resumeTeam': mutate,
   'runApproval:resolve': launch,
   'runTask:create': mutate,
+  'runTask:submit': sharedLaunch,
   'runTask:fail': mutate,
   'runArtifact:create': mutate,
   'git:status': read,
@@ -179,10 +180,15 @@ export const SHELL_CHANNELS: readonly InvokeChannel[] = ['agent:openDashboard'];
 
 /**
  * The only non-read channels the host API may mirror. Each one is a bounded
- * managed-run command with explicit ids; nothing here touches PTYs, the
- * filesystem, configuration, credentials or publication. Grow deliberately.
+ * run or single-task command with explicit ids; nothing here touches
+ * interactive PTYs, the filesystem, configuration, credentials or
+ * publication. `runTask:submit` launches one one-shot task session for an
+ * explicit agent/repository pair — it is a `launch`, not a PTY channel: the
+ * caller cannot write to, resize or attach to the session. Grow deliberately.
  */
-export const REMOTE_COMMAND_CHANNELS: readonly InvokeChannel[] = ['run:create', 'run:start', 'run:cancel'];
+export const REMOTE_COMMAND_CHANNELS: readonly InvokeChannel[] = [
+  'run:create', 'run:start', 'run:cancel', 'runTask:submit',
+];
 
 /** Channels the host API may serve at all (read projections plus the commands above). */
 export function remoteChannels(

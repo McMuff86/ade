@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -6,6 +7,8 @@ import type {
   Run,
   RunParticipant,
   RunTask,
+  RunTaskSubmission,
+  RunTaskSubmitInput,
   SessionMeta,
   StructuredTaskResult,
 } from '../../shared/types';
@@ -421,12 +424,55 @@ export class RunCoordinator {
     }
   }
 
+  /**
+   * One bounded task for one agent in one repository. The run/participant/task
+   * records commit atomically (with the idempotency record); the one-shot task
+   * session is then launched through the same launcher managed tasks use. The
+   * launch is not awaited: the global task queue may hold it for minutes, and
+   * a launch failure is journaled on the task by the PTY layer (or here, when
+   * the launcher rejects before reporting). Callers observe `task.started` /
+   * terminal transitions through the journal, exactly like managed work.
+   */
+  async submitSingleTask(input: RunTaskSubmitInput): Promise<RunTaskSubmission> {
+    const recalled = this.orchestration.recallCommand<{ runId: string; taskId: string }>(
+      'runTask:submit',
+      input.commandId,
+    );
+    if (recalled) return this.orchestration.createSingleTaskRun(input);
+    if (!this.taskLauncher) throw new Error('ade: orchestration task launcher is not connected');
+    const submission = this.orchestration.createSingleTaskRun(input);
+    const { run, task } = submission;
+    const participant = requireParticipant(
+      this.orchestration.snapshot().participants,
+      task.participantId,
+      run.id,
+    );
+    void this.taskLauncher(participant.agentId, task.prompt, randomUUID(), task.id, run.repositoryId)
+      .catch((error) => {
+        const current = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === task.id);
+        if (current?.status === 'queued') this.onTaskLaunchFailed(task.id, false, errorMessage(error));
+      });
+    return submission;
+  }
+
+  /**
+   * Cancel a run's remaining work. Managed runs additionally close their phase
+   * machine and release leases; a manual run (including a single-task
+   * submission) derives its status from its tasks, so cancelling the queued
+   * and running tasks is the whole operation.
+   */
   async cancel(runId: string, reason = 'Cancelled by user', commandId?: string): Promise<void> {
     await this.serialized(runId, async () => {
       if (this.orchestration.recallCommand<null>('run:cancel', commandId)) return;
       const run = requireRun(this.orchestration.snapshot().runs, runId);
       if (isTerminalRun(run)) return;
-      if (run.mode !== 'managed') throw new Error('ade: only managed runs use run cancellation');
+      if (run.mode !== 'managed') {
+        if (run.status === 'draft') throw new Error('ade: a draft run has no work to cancel');
+        this.orchestration.cancelQueuedTasks(runId, reason);
+        await this.cancelActiveTasks(runId);
+        this.orchestration.recordCommand('run:cancel', commandId, null);
+        return;
+      }
       this.orchestration.cancelQueuedTasks(runId, reason);
       await this.cancelActiveTasks(runId);
       this.orchestration.setManagedRunPhase(runId, 'cancelled', reason);

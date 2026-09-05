@@ -6,8 +6,11 @@ tablet companion described in
 `REMOTE_CONTROL_PLAN.md`; it does not expose ADE through Tailscale yet and it
 does not add remote mutations. The follow-up write/SSE slice (2026-09-03:
 resumable `GET /api/v1/events`, device-signed idempotent managed-run
-create/start/cancel, per-channel remote authorization in the IPC policy) is
-documented in `../ARCHITECTURE.md` ("ADE host API") and `../HANDOFF.md`.
+create/start/cancel, per-channel remote authorization in the IPC policy) and
+the single-task slice (2026-09-06: `POST /api/v1/tasks` as the first-class
+`runTask:submit` command, manual-run cancellation) are documented in
+`../ARCHITECTURE.md` ("ADE host API") and `../HANDOFF.md`. Of the "next
+slices" below, 1 and 3 are done; 2, 4 and 5 are Goals 8-10.
 
 ## Objective
 

@@ -1200,3 +1200,26 @@ export interface RunTaskCreateInput {
   participantId: string;
   prompt: string;
 }
+
+/**
+ * One bounded task for one agent in one repository, submitted as a single
+ * command. ADE creates a manual run around it, records the task and launches
+ * the agent's one-shot task session; the caller never names a run, participant
+ * or workspace. Used by the host API and available to the desktop.
+ */
+export interface RunTaskSubmitInput {
+  agentId: string;
+  /** Explicit repository scope; plain-workspace submission is not offered. */
+  repositoryId: string;
+  prompt: string;
+  /** Optional run name; defaults to the task title derived from the prompt. */
+  name?: string;
+  /** Optional idempotency key; a replay returns the originally created run and task. */
+  commandId?: string;
+}
+
+/** Result of a single-task submission: the wrapping run plus its one task. */
+export interface RunTaskSubmission {
+  run: Run;
+  task: RunTask;
+}

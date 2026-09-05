@@ -99,10 +99,10 @@ The first remote contract is intentionally small:
 | `GET /api/v1/health` | **Implemented:** API version, readiness, queue summary, whether commands are enabled |
 | `GET /api/v1/catalog` | **Implemented:** sanitized projects and agents without paths/commands/secrets |
 | `GET /api/v1/runs` | **Implemented:** mobile-safe orchestration summaries |
-| `POST /api/v1/tasks` | Submit one bounded task with explicit agent/repo scope (open) |
+| `POST /api/v1/tasks` | **Implemented:** submit one bounded task with explicit `agentId`/`repositoryId`/`prompt`; reply is the wrapping run summary plus `taskId`, progress over `/events` |
 | `POST /api/v1/runs` | **Implemented:** create a managed run draft from explicit `repositoryId`/`agentIds` |
-| `POST /api/v1/runs/{id}/start` | **Implemented:** start a draft exactly once |
-| `POST /api/v1/runs/{id}/cancel` | **Implemented:** cancel active/queued work for that run |
+| `POST /api/v1/runs/{id}/start` | **Implemented:** start a draft exactly once (managed runs only) |
+| `POST /api/v1/runs/{id}/cancel` | **Implemented:** cancel active/queued work for that run, including a single-task run |
 | `GET /api/v1/events` | **Implemented:** resumable server-sent event stream over the journal `seq` |
 
 Approval resolution is added only in Goal 9. Every mutating request carries an

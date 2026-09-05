@@ -1,3 +1,89 @@
+# Handoff — 2026-09-06
+
+## Ergebnis dieser Session — Goal 7 abgeschlossen: `POST /api/v1/tasks`
+
+Bezug: `ROADMAP.md` Goal 7 (Checkliste geschlossen bis auf den Paired-Device-
+Store, der Goal 8 eröffnet), Vertrag in `ARCHITECTURE.md` („Transport-neutral
+application boundary“, „ADE host API“), Matrix in `STATUS.md` (neue Zeile
+„Single-task submission“), Tabelle in `REMOTE_CONTROL_PLAN.md`. Der bisher
+uncommittete Write/SSE-Slice vom 2026-09-03 wurde zuerst mit grünem `pnpm
+verify` als eigener Commit gesichert und gepusht (`ad891a6`).
+
+- **Neuer Invoke-Channel `runTask:submit`** (`src/shared/ipc.ts`,
+  `RunTaskSubmitInput = {agentId, repositoryId, prompt, name?, commandId?}`
+  → `RunTaskSubmission = {run, task}`). Validator in `ipcValidation.ts`
+  (exakte Keys, IDs, Prompt ≤ 8000, Name ≤ 200, commandId ≤ 128). Policy:
+  `sharedLaunch` und Aufnahme in `REMOTE_COMMAND_CHANNELS` — die einzige
+  Allowlist-Erweiterung dieser Session. `runTask:create`, `pty:*` bleiben
+  Desktop-only; der Remote-Aufrufer bekommt keinen PTY-Zugriff (kein write/
+  resize/attach), nur den Launch.
+- **`OrchestrationService.createSingleTaskRun`:** ein atomarer Save für
+  manuellen Run (Name = optional oder 80-Zeichen-Titel), einen Worker-
+  Participant in einem Ein-Personen-Team mit Agentennamen, den Task
+  (`phase: 'manual'`, `managed: false`) und den Command-Log-Eintrag.
+  Journal-`seq` in logischer Reihenfolge (`run.created` mit
+  `kind: 'single-task'`, `participant.added`, `task.queued`). Der
+  Command-Log speichert nur `{runId, taskId}` und löst beim Replay gegen den
+  Snapshot auf — ein 8000-Zeichen-Prompt kann das 16-KiB-Result-Limit nicht
+  reißen.
+- **`RunCoordinator.submitSingleTask`:** Replay-Prüfung, dann Create, dann
+  Launch über den verbundenen `TaskLauncher` (= `PtyManager.create` mit
+  `runTaskId`, also mit `assertTaskTarget`/Scope-Auflösung/Lease-Prüfung und
+  der globalen FIFO) **ohne await** — die HTTP-Antwort wartet nicht auf einen
+  Queue-Slot. Rejected der Launcher, bevor die PTY-Schicht den Fehler selbst
+  meldet, journaliert der Coordinator `task.failed` (Muster aus dem Managed-
+  Launch übernommen). `run:cancel` gilt jetzt auch für manuelle Runs:
+  queued + running Tasks werden abgebrochen, der Run-Status folgt aus den
+  Tasks; ein manueller Draft ohne Arbeit wird abgelehnt (`422`). Managed-
+  Cancel unverändert.
+- **Facade/Adapter:** `AdeApplicationService.submitTask` +
+  `validateRemoteTaskSubmit` (verweigert `runId`, `participantId`,
+  `workspaceBindingId`, `commandId`, `repositoryId: null`, Pfade als IDs,
+  Steuerzeichen — ohne Echo). `command()` liefert jetzt `{runId, taskId?}`;
+  `MobileCommandResult.taskId` ist neu, Audit-Target ist die Task-ID.
+  `HostApiServer`: Route `/api/v1/tasks` (nur POST, JSON-Body Pflicht),
+  keine Task-Liste, kein `/tasks/{id}/…`.
+- **Nachweis:** `test-host-api.ts` 122 → 163 (Validator-Negativkontrollen;
+  HTTP gegen echten Coordinator: 415/400 ohne Body, Desktop-Felder → 400,
+  Pfad-ID ohne Echo, unbekannter Agent/Repo → 422 ohne Run/Task/Launch,
+  Submit ⇒ Summary mit `taskId`, Worker-Team, Status running, genau ein
+  Launch, Titel = 80 Zeichen und **Prompt-Tail nirgends auf dem Draht**
+  (Antwort, Stream, Runs-Liste), Audit auf Task-ID, Replay ohne zweiten
+  Launch, Key-Reuse 409, Key-Crossover 409, gleichzeitige Duplikate ⇒ ein
+  Task, `start` auf Single-Task-Run → 422, Draft-Cancel → 422, Cancel ⇒
+  Task cancelled + Run cancelled + Replay ohne zweiten Cancel; separater
+  Fixture mit ablehnendem Launcher ⇒ `task.failed` im Journal pfadfrei, Run
+  failed, Replay liefert den gescheiterten Task statt neu zu starten).
+  `test-security.ts` 182 → 185 (Contract-Payload, Feldgrenzen, Allowlist-Pin
+  auf vier Channels, `runTask:submit` = shared launch, PTY-Channels bleiben
+  desktop). Floors angehoben; `pnpm verify` grün (siehe unten).
+- **Bewusst offen:** Desktop-Renderer nutzt weiterhin `runTask:create` +
+  `pty:create` (zwei Schritte) — Umstellung auf `runTask:submit` wäre eine
+  UI-Vereinfachung, kein Muss. Eine remote gestartete Session erscheint im
+  Renderer erst nach Reload als Terminal-Tab (gleiches Verhalten wie
+  Managed-Tasks; Graph/Status aktualisieren sofort über
+  `orchestration:changed`). Plain-Workspace-Submission (ohne Repository)
+  absichtlich nicht angeboten. Alles Weitere aus Session 2 (Pairing,
+  Revocation, durables Audit, TLS) unverändert offen → Goal 8.
+
+## Nächster Schritt
+
+Goal 8 beginnen: Paired-Device-Store mit Revocation ersetzt den
+`ADE_HOST_API_COMMAND_DEVICE`-Bootstrap ohne Änderung des Signaturvertrags;
+durables Remote-Audit; Tailscale-Serve-Vertrag; erst danach PWA-Shell.
+Parallel oder davor: Thema 3 (beendete Runs lesbar, Graph-Tastaturpfad) und
+Thema 5 (Journal-Retention) aus `PROFESSIONALIZATION_REVIEW_2026-07-26.md`.
+
+Manuell prüfen (Loopback): mit gesetztem Device wie unten ein
+`POST /api/v1/tasks` mit `{"agentId":…, "repositoryId":…, "prompt":…}`,
+`Content-Type: application/json`, `Idempotency-Key` und Device-Headern
+antwortet `200` mit `taskId` und `run.tasks[0].status` `queued`/`running`;
+der `/events`-Stream zeigt `run.created` (`kind: single-task`),
+`task.queued`, `task.started`; im Desktop-Graph erscheint der Run mit einem
+Team.
+
+---
+
 # Handoff — 2026-09-03 (Session 2)
 
 ## Ergebnis dieser Session — Goal 7 Write/SSE-Slice der lokalen Host-API

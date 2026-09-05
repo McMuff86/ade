@@ -8,6 +8,7 @@ import {
   JournalChangeHub,
   RemoteApiError,
   validateRemoteRunCreate,
+  validateRemoteTaskSubmit,
   type RemoteAuditEntry,
 } from '../src/main/application/AdeApplicationService';
 import { OrchestrationService } from '../src/main/orchestration/OrchestrationService';
@@ -270,6 +271,38 @@ remoteRejects('remote run creation bounds the roster', {
 remoteRejects('remote run creation refuses unknown budget fields',
   { ...validCreate, budget: { maxWorkers: 2 } }, /unknown field/);
 remoteRejects('remote run creation refuses non-object bodies', [], /must be an object/);
+
+const validSubmit = { agentId: 'worker', repositoryId: 'repo-1', prompt: 'Fix the flaky test\nand explain why.' };
+check('remote task submission accepts agent, repository, a multi-line prompt and an optional name',
+  validateRemoteTaskSubmit(validSubmit).agentId === 'worker'
+    && validateRemoteTaskSubmit({ ...validSubmit, name: 'Quick fix' }).name === 'Quick fix'
+    && validateRemoteTaskSubmit(validSubmit).name === undefined);
+const submitRejects = (label: string, payload: unknown, pattern: RegExp): void => {
+  try {
+    validateRemoteTaskSubmit(payload);
+    check(label, false, 'accepted');
+  } catch (error) {
+    check(label, error instanceof RemoteApiError && error.status === 400 && pattern.test(error.message), error);
+  }
+};
+submitRejects('remote task submission refuses caller-chosen commandIds',
+  { ...validSubmit, commandId: 'mine' }, /unknown field/);
+submitRejects('remote task submission refuses run, participant and workspace binding fields',
+  { ...validSubmit, runId: 'run-1' }, /unknown field/);
+submitRejects('remote task submission requires an explicit repository id',
+  { agentId: 'worker', prompt: 'x' }, /repositoryId/);
+submitRejects('remote task submission refuses a null repository (plain-workspace) scope',
+  { ...validSubmit, repositoryId: null }, /repositoryId/);
+submitRejects('remote task submission refuses path-like agent ids without echoing them',
+  { ...validSubmit, agentId: '/home/me/agent' }, /^agentId must be an opaque identifier$/);
+submitRejects('remote task submission requires a prompt',
+  { ...validSubmit, prompt: '   ' }, /prompt is required/);
+submitRejects('remote task submission bounds the prompt',
+  { ...validSubmit, prompt: 'x'.repeat(8_001) }, /prompt exceeds 8000/);
+submitRejects('remote task submission refuses control characters in the prompt',
+  { ...validSubmit, prompt: 'rm\u0000-rf' }, /control/);
+submitRejects('remote task submission bounds the run name',
+  { ...validSubmit, name: 'n'.repeat(81) }, /name exceeds/);
 
 /* ------------------------------------------------------ static projections */
 
@@ -707,7 +740,7 @@ interface Fixture {
   cancelled: string[];
 }
 
-function createFixture(devices: RemoteDevice[]): Fixture {
+function createFixture(devices: RemoteDevice[], options: { failLaunch?: boolean } = {}): Fixture {
   const root = mkdtempSync(join(tmpdir(), 'ade-host-api-'));
   const agents = [fixtureAgent('orchestrator', root), fixtureAgent('lead', root), fixtureAgent('worker', root)];
   for (const item of agents) {
@@ -735,6 +768,12 @@ function createFixture(devices: RemoteDevice[]): Fixture {
   const cancelled: string[] = [];
   coordinator.connect(async (agentId, _prompt, _dispatchId, taskId) => {
     launched.push(taskId);
+    if (options.failLaunch) {
+      // Mirrors a PTY layer that rejects before it can report the failure
+      // itself (e.g. the launcher is torn down): the coordinator must still
+      // journal the task as failed rather than leave it queued forever.
+      throw new Error(`ade: fixture launch refused at ${join(root, 'workspaces', agentId)}`);
+    }
     const session: SessionMeta = {
       id: `pty-${launched.length}`,
       agentId,
@@ -760,6 +799,7 @@ function createFixture(devices: RemoteDevice[]): Fixture {
       createRun: (input) => orchestration.createRun(input),
       startRun: (runId, commandId) => coordinator.start(runId, commandId),
       cancelRun: (runId, commandId) => coordinator.cancel(runId, undefined, commandId),
+      submitTask: (input) => coordinator.submitSingleTask(input),
     },
     changes,
     commandsEnabled: () => devices.length > 0,
@@ -767,6 +807,15 @@ function createFixture(devices: RemoteDevice[]): Fixture {
   });
   return { root, store, orchestration, coordinator, application, audit, launched, cancelled };
 }
+
+/** Longer than the 80-character title so the tail proves the prompt itself never reaches the wire. */
+const PROMPT_TAIL = 'SECRET-PROMPT-TAIL-7c1f';
+const submitBody = {
+  agentId: 'worker',
+  repositoryId: 'repo-1',
+  prompt: 'Fix the flaky `date` test in tests/time.spec.ts, keep the public API unchanged and '
+    + `explain the root cause in detail. ${PROMPT_TAIL}`,
+};
 
 const createBody = {
   name: 'Mobile run',
@@ -885,6 +934,16 @@ async function testReadAdapter(): Promise<void> {
     });
     check('the listener bearer token alone can never issue a command',
       bearerOnlyCommand.status === 401 && JSON.parse(bearerOnlyCommand.body).error === 'device_proof_required');
+    const tasksGet = await httpRequest(address.port, '/api/v1/tasks', { token });
+    check('the tasks collection is command-only (no listing of prompts) and advertises POST',
+      tasksGet.status === 405 && tasksGet.headers['allow'] === 'POST');
+    const bearerOnlyTask = await command(address.port, '/api/v1/tasks', {
+      key: 'key-bearer0002', body: submitBody, device: null,
+    });
+    check('the bearer token alone cannot submit a task either',
+      bearerOnlyTask.status === 401 && JSON.parse(bearerOnlyTask.body).error === 'device_proof_required');
+    const unknownTaskAction = await httpRequest(address.port, '/api/v1/tasks/t1/cancel', { method: 'POST', token });
+    check('there is no per-task action surface; tasks are cancelled through their run', unknownTaskAction.status === 404);
   } finally {
     await server.stop();
   }
@@ -1211,6 +1270,199 @@ async function testCommandsAndStream(): Promise<void> {
   }
 }
 
+/* ------------------------------------------- HTTP: single-task submission */
+
+async function testSingleTaskSubmission(): Promise<void> {
+  console.log('\n== HTTP single-task submission (real coordinator) ==');
+  const fixture = createFixture([device]);
+  const server = new HostApiServer(fixture.application, {
+    authorizer: new RemoteAuthorizer(token, [device]),
+    port: 0,
+    heartbeatMs: 60,
+  });
+  const address = await server.start();
+  const port = address.port;
+  const stream = new SseClient(port, '/api/v1/events');
+  const journalEvents = () => stream.frames.flatMap((frame) => frame.event === 'journal'
+    ? (frame.data as MobileJournalPage).events : []);
+  try {
+    await stream.ready();
+    await stream.until(() => stream.frames.length >= 1, 'initial snapshot');
+
+    // --- refusals that create nothing ------------------------------------
+    const noType = await command(port, '/api/v1/tasks', { key: 'key-tasknotype' });
+    const emptyBody = await command(port, '/api/v1/tasks', { key: 'key-tasknobody', rawBody: '' });
+    check('a task submission requires a JSON body', noType.status === 415 && emptyBody.status === 400);
+    const withRunId = await command(port, '/api/v1/tasks', { key: 'key-taskrunid1', body: { ...submitBody, runId: 'run-1' } });
+    check('a task submission cannot target an existing run or participant',
+      withRunId.status === 400 && JSON.parse(withRunId.body).error === 'invalid_payload');
+    const withCommandId = await command(port, '/api/v1/tasks', { key: 'key-taskcmdid1', body: { ...submitBody, commandId: 'mine' } });
+    check('a task submission cannot choose its own commandId; the Idempotency-Key owns replay',
+      withCommandId.status === 400);
+    const pathAgent = await command(port, '/api/v1/tasks', {
+      key: 'key-taskpath01', body: { ...submitBody, agentId: 'C:\\Users\\me\\agent' },
+    });
+    check('a path-like agent id is refused without echoing it',
+      pathAgent.status === 400 && !pathAgent.body.includes('Users'));
+    const unknownAgent = await command(port, '/api/v1/tasks', { key: 'key-taskagent1', body: { ...submitBody, agentId: 'ghost' } });
+    check('an unknown agent is a redacted command rejection',
+      unknownAgent.status === 422 && JSON.parse(unknownAgent.body).error === 'command_rejected');
+    const unknownRepo = await command(port, '/api/v1/tasks', { key: 'key-taskrepo01', body: { ...submitBody, repositoryId: 'nope' } });
+    check('an unknown repository is a command rejection', unknownRepo.status === 422);
+    check('no refused submission created a run, a task or a launch',
+      fixture.orchestration.snapshot().runs.length === 0
+        && fixture.orchestration.snapshot().tasks.length === 0
+        && fixture.launched.length === 0);
+    check('every refusal is audited under the submission channel without paths',
+      fixture.audit.filter((entry) => entry.channel === 'runTask:submit').length >= 4
+        && fixture.audit.every((entry) => !(entry.reason ?? '').includes(fixture.root)
+          && !(entry.reason ?? '').includes('Users')));
+
+    // --- submit -----------------------------------------------------------
+    const submitted = await command(port, '/api/v1/tasks', { key: 'key-tasksub001', body: submitBody });
+    const submittedBody = JSON.parse(submitted.body);
+    const taskId: string = submittedBody.taskId;
+    const runId: string = submittedBody.run.id;
+    check('a signed, keyed submission answers with the wrapping run summary and the task id',
+      submitted.status === 200
+        && submittedBody.replayed === false
+        && typeof taskId === 'string'
+        && submittedBody.run.mode === 'manual'
+        && submittedBody.run.repositoryId === 'repo-1'
+        && submittedBody.run.participants.length === 1
+        && submittedBody.run.participants[0].role === 'worker'
+        && submittedBody.run.participants[0].agentName === 'worker'
+        && submittedBody.run.teams.length === 1
+        && submittedBody.run.tasks.length === 1
+        && submittedBody.run.tasks[0].id === taskId
+        && submittedBody.run.tasks[0].managed === false
+        && ['queued', 'running'].includes(submittedBody.run.tasks[0].status)
+        && submittedBody.run.status === 'running', submittedBody);
+    check('the run name defaults to the bounded task title and the summary carries no prompt tail or path',
+      submittedBody.run.name === submitBody.prompt.slice(0, 80)
+        && submittedBody.run.tasks[0].title === submitBody.prompt.slice(0, 80)
+        && !submitted.body.includes(PROMPT_TAIL)
+        && !submitted.body.includes(fixture.root));
+    check('the submission launched exactly one task session for the chosen agent',
+      fixture.launched.length === 1 && fixture.launched[0] === taskId);
+    const persistedTask = fixture.orchestration.snapshot().tasks.find((task) => task.id === taskId);
+    check('the persisted task is a manual, unmanaged task scoped to the repository',
+      persistedTask?.managed === false
+        && persistedTask.phase === 'manual'
+        && persistedTask.repositoryId === 'repo-1'
+        && persistedTask.prompt === submitBody.prompt
+        && persistedTask.status === 'running');
+    check('the submission is audited as executed against the task id by the device principal',
+      fixture.audit.at(-1)?.outcome === 'executed'
+        && fixture.audit.at(-1)?.channel === 'runTask:submit'
+        && fixture.audit.at(-1)?.target === taskId
+        && fixture.audit.at(-1)?.principalKind === 'device');
+
+    // --- idempotency ------------------------------------------------------
+    const replay = await command(port, '/api/v1/tasks', { key: 'key-tasksub001', body: submitBody });
+    check('retrying the same key and body replays the original run and task without a second launch',
+      replay.status === 200
+        && JSON.parse(replay.body).replayed === true
+        && JSON.parse(replay.body).taskId === taskId
+        && JSON.parse(replay.body).run.id === runId
+        && fixture.launched.length === 1
+        && fixture.orchestration.snapshot().runs.length === 1);
+    const reused = await command(port, '/api/v1/tasks', { key: 'key-tasksub001', body: { ...submitBody, prompt: 'Something else entirely' } });
+    check('reusing the key with another prompt is refused and launches nothing',
+      reused.status === 409 && fixture.launched.length === 1);
+    const crossChannel = await command(port, `/api/v1/runs/${runId}/cancel`, { key: 'key-tasksub001' });
+    check('a submission key cannot be replayed as another command', crossChannel.status === 409);
+    const [first, second] = await Promise.all([
+      command(port, '/api/v1/tasks', { key: 'key-taskconc01', body: { ...submitBody, name: 'Concurrent' } }),
+      command(port, '/api/v1/tasks', { key: 'key-taskconc01', body: { ...submitBody, name: 'Concurrent' } }),
+    ]);
+    check('concurrent duplicates of one submission key produce exactly one task and one launch',
+      first.status === 200 && second.status === 200
+        && JSON.parse(first.body).taskId === JSON.parse(second.body).taskId
+        && fixture.launched.length === 2
+        && fixture.orchestration.snapshot().runs.length === 2
+        && [JSON.parse(first.body).replayed, JSON.parse(second.body).replayed].filter(Boolean).length === 1);
+
+    // --- the run is a plain container, not a managed run ------------------
+    const startIt = await command(port, `/api/v1/runs/${runId}/start`, { key: 'key-taskstart1' });
+    check('a single-task run cannot be started as a managed orchestration', startIt.status === 422);
+    const draft = await command(port, '/api/v1/runs', { key: 'key-taskdraft1', body: { ...createBody, name: 'Draft only' } });
+    const draftCancel = await command(port, `/api/v1/runs/${JSON.parse(draft.body).run.id}/cancel`, { key: 'key-taskdraft2' });
+    check('cancelling a draft run without any work is a command rejection, not a silent success',
+      draft.status === 200 && draftCancel.status === 422 && fixture.cancelled.length === 0);
+
+    // --- journal ----------------------------------------------------------
+    await stream.until(() => journalEvents().some((event) => event.type === 'task.started' && event.taskId === taskId), 'task.started');
+    const created = journalEvents().find((event) => event.type === 'run.created' && event.runId === runId);
+    const queued = journalEvents().find((event) => event.type === 'task.queued' && event.taskId === taskId);
+    const transcript = JSON.stringify(stream.frames);
+    check('the stream shows the single-task run creation, the queued task and its start in order',
+      created?.data?.kind === 'single-task'
+        && created.data.repositoryId === 'repo-1'
+        && queued !== undefined
+        && created.seq < queued.seq
+        && queued.seq < journalEvents().find((event) => event.type === 'task.started' && event.taskId === taskId)!.seq);
+    check('the stream carries neither the prompt, the workspace path nor the PTY session id',
+      !transcript.includes(PROMPT_TAIL)
+        && !transcript.includes(fixture.root)
+        && !transcript.includes('pty-1'));
+
+    // --- cancel -----------------------------------------------------------
+    const cancelled = await command(port, `/api/v1/runs/${runId}/cancel`, { key: 'key-taskcancel' });
+    check('cancelling the wrapping run stops the single task and the derived run status follows',
+      cancelled.status === 200
+        && fixture.cancelled.includes(taskId)
+        && JSON.parse(cancelled.body).run.status === 'cancelled'
+        && JSON.parse(cancelled.body).run.tasks[0].status === 'cancelled');
+    const cancelReplay = await command(port, `/api/v1/runs/${runId}/cancel`, { key: 'key-taskcancel' });
+    check('retrying the cancel replays without cancelling twice',
+      cancelReplay.status === 200 && JSON.parse(cancelReplay.body).replayed === true
+        && fixture.cancelled.filter((id) => id === taskId).length === 1);
+    const runs = await httpRequest(port, '/api/v1/runs', { token });
+    check('the runs listing includes the cancelled single-task run without its prompt',
+      runs.status === 200
+        && (JSON.parse(runs.body) as RunSummary[]).some((run) => run.id === runId && run.status === 'cancelled')
+        && !runs.body.includes(PROMPT_TAIL));
+  } finally {
+    stream.close();
+    await server.stop();
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+}
+
+async function testSingleTaskLaunchFailure(): Promise<void> {
+  const fixture = createFixture([device], { failLaunch: true });
+  const server = new HostApiServer(fixture.application, { authorizer: new RemoteAuthorizer(token, [device]), port: 0 });
+  const address = await server.start();
+  try {
+    const submitted = await command(address.port, '/api/v1/tasks', { key: 'key-taskfail01', body: submitBody });
+    const taskId: string = JSON.parse(submitted.body).taskId;
+    check('a submission whose launch is refused still answers with the persisted run and task',
+      submitted.status === 200 && typeof taskId === 'string' && fixture.launched.length === 1);
+    await waitFor(() => fixture.orchestration.snapshot().tasks.find((task) => task.id === taskId)?.status === 'failed',
+      'launch failure journaled');
+    const task = fixture.orchestration.snapshot().tasks.find((candidate) => candidate.id === taskId);
+    const run = fixture.orchestration.snapshot().runs.find((candidate) => candidate.id === task?.runId);
+    check('a refused launch fails the task and the wrapping run closed instead of leaving them queued',
+      task?.status === 'failed' && typeof task.error === 'string' && run?.status === 'failed');
+    const page = fixture.application.events(0);
+    const failedEvent = page.events.find((event) => event.type === 'task.failed' && event.taskId === taskId);
+    check('the journaled launch failure reaches the wire path-free',
+      failedEvent !== undefined
+        && typeof failedEvent.data?.error === 'string'
+        && !JSON.stringify(page).includes(fixture.root));
+    const replay = await command(address.port, '/api/v1/tasks', { key: 'key-taskfail01', body: submitBody });
+    check('replaying a failed submission returns the failed task rather than relaunching it',
+      replay.status === 200
+        && JSON.parse(replay.body).replayed === true
+        && JSON.parse(replay.body).run.tasks[0].status === 'failed'
+        && fixture.launched.length === 1);
+  } finally {
+    await server.stop();
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+}
+
 async function testStreamBackpressure(): Promise<void> {
   console.log('\n== event stream backpressure ==');
   const fixture = createFixture([device]);
@@ -1312,6 +1564,8 @@ async function testStopWithOpenStream(): Promise<void> {
 void (async () => {
   await testReadAdapter();
   await testCommandsAndStream();
+  await testSingleTaskSubmission();
+  await testSingleTaskLaunchFailure();
   await testStreamBackpressure();
   await testResponseBounds();
   await testErrorRedaction();

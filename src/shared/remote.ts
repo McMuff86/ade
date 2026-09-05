@@ -111,8 +111,26 @@ export interface MobileRunCreateInput {
   budget?: Partial<RunBudget>;
 }
 
+/**
+ * Bounded single-task submission over the host API (`POST /api/v1/tasks`).
+ * The caller chooses one agent and one repository from the catalog; ADE
+ * creates the wrapping manual run, the participant and the task, and
+ * launches the agent's one-shot task session. No run, participant, workspace
+ * binding or commandId is accepted from the wire — the idempotency key owns
+ * replay, and plain-workspace (no repository) submission is not offered.
+ */
+export interface MobileTaskSubmitInput {
+  agentId: string;
+  repositoryId: string;
+  prompt: string;
+  /** Optional run name; defaults to the task title derived from the prompt. */
+  name?: string;
+}
+
 export interface MobileCommandResult {
   run: RunSummary;
+  /** Present for a single-task submission: the id of the task inside `run.tasks`. */
+  taskId?: string;
   /** True when the idempotency key replayed an already-recorded outcome. */
   replayed: boolean;
 }

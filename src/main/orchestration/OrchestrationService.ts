@@ -21,6 +21,8 @@ import {
   type RunTaskPhase,
   type RunTaskResult,
   type RunTaskStatus,
+  type RunTaskSubmission,
+  type RunTaskSubmitInput,
   type RunUsage,
   type RunWorkspaceLease,
   type SessionMeta,
@@ -543,6 +545,107 @@ export class OrchestrationService {
       dependsOn: [],
       attempt: 1,
     });
+  }
+
+  /**
+   * One bounded task for one agent in one repository, persisted as a single
+   * atomic save: a manual run, its one worker participant (a one-member team
+   * named after the agent), the queued task and — when a commandId is given —
+   * the idempotency record. The caller launches the task session afterwards;
+   * a launch failure is journaled on the task like every other launch.
+   * The recorded command result is the compact `{ runId, taskId }` pair so a
+   * long prompt can never push the record over the command-log size bound.
+   */
+  createSingleTaskRun(input: RunTaskSubmitInput): RunTaskSubmission {
+    const commandId = normalizeCommandId(input.commandId);
+    const recalled = this.recallCommand<{ runId: string; taskId: string }>('runTask:submit', commandId);
+    if (recalled) return this.requireSubmission(recalled.result);
+
+    const config = this.store.get();
+    const agent = config.agents.find((candidate) => candidate.id === input.agentId);
+    if (!agent) throw new Error(`ade: run participant agent not found "${input.agentId}"`);
+    if (!config.repositories.some((repository) => repository.id === input.repositoryId)) {
+      throw new Error(`ade: run repository not found "${input.repositoryId}"`);
+    }
+    const prompt = input.prompt.trim();
+    if (!prompt) throw new Error('ade: task prompt is required');
+    const title = prompt.slice(0, 80);
+    const name = (input.name?.trim() || title).slice(0, MAX_RUN_NAME_CHARS);
+
+    const now = Date.now();
+    const run: Run = {
+      id: randomUUID(),
+      name,
+      goal: '',
+      status: 'draft',
+      mode: 'manual',
+      phase: 'draft',
+      budget: normalizeBudget(undefined),
+      source: 'native',
+      repositoryId: input.repositoryId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const participant = {
+      id: randomUUID(),
+      runId: run.id,
+      agentId: agent.id,
+      agentName: agent.name,
+      runtime: agent.runtime,
+      role: 'worker' as const,
+      teamId: randomUUID(),
+      teamName: agent.name,
+      repositoryId: input.repositoryId,
+      createdAt: now,
+    };
+    const staged: AdeConfig = {
+      ...config,
+      runs: [...config.runs, run],
+      runParticipants: [...config.runParticipants, participant],
+    };
+    // Journal seq follows logical order: run, participant, then the queued task.
+    const created = this.event(run.id, 'run.created', {
+      data: { source: 'native', repositoryId: input.repositoryId, kind: 'single-task' },
+      at: now,
+    });
+    const added = this.event(run.id, 'participant.added', { participantId: participant.id, at: now });
+    const { task, event: queued } = this.buildTaskRecord(staged, {
+      runId: run.id,
+      participantId: participant.id,
+      prompt,
+      title,
+      phase: 'manual',
+      managed: false,
+      dependsOn: [],
+      attempt: 1,
+    }, run);
+    const events: RunEvent[] = [...config.runEvents, created, added, queued];
+    const tasks = [...config.runTasks, task];
+    this.store.save({
+      runs: updateRunStatus(staged.runs, run.id, tasks, events, task.createdAt),
+      runParticipants: staged.runParticipants,
+      runTasks: tasks,
+      runEvents: events,
+      ...(commandId ? {
+        commandLog: appendCommandLog(config.commandLog, {
+          commandId,
+          channel: 'runTask:submit',
+          createdAt: now,
+          resultJson: serializeCommandResult({ runId: run.id, taskId: task.id }),
+        }),
+      } : {}),
+    });
+    this.emit();
+    return this.requireSubmission({ runId: run.id, taskId: task.id });
+  }
+
+  /** Resolve a recorded submission against the current journal-derived state. */
+  private requireSubmission(ref: { runId: string; taskId: string }): RunTaskSubmission {
+    const snapshot = this.snapshot();
+    const run = snapshot.runs.find((candidate) => candidate.id === ref.runId);
+    const task = snapshot.tasks.find((candidate) => candidate.id === ref.taskId && candidate.runId === ref.runId);
+    if (!run || !task) throw new Error(`ade: submitted task no longer exists "${ref.taskId}"`);
+    return { run: { ...run, budget: { ...run.budget } }, task: { ...task, dependsOn: [...task.dependsOn] } };
   }
 
   createManagedTask(input: ManagedTaskInput): RunTask {

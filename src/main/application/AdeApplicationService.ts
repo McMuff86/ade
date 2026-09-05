@@ -6,6 +6,8 @@ import type {
   RunEvent,
   RunMessage,
   RunSummary,
+  RunTaskSubmission,
+  RunTaskSubmitInput,
   TaskQueueStatus,
 } from '../../shared/types';
 import type {
@@ -19,6 +21,7 @@ import type {
   MobileJournalValue,
   MobileRunCreateInput,
   MobileSnapshot,
+  MobileTaskSubmitInput,
 } from '../../shared/remote';
 import { IPC, type InvokeChannel } from '../../shared/ipc';
 import { assertIpcPayload } from '../ipcValidation';
@@ -46,14 +49,16 @@ export interface ApplicationQueuePort {
 }
 
 /**
- * The three bounded managed-run commands the host API may issue. Each port
- * method already honors `commandId` replay inside the orchestration layer;
- * this service adds the remote key→commandId binding on top.
+ * The bounded commands the host API may issue: three managed-run commands
+ * plus one single-task submission. Each port method already honors
+ * `commandId` replay inside the orchestration layer; this service adds the
+ * remote key→commandId binding on top.
  */
 export interface ApplicationCommandPort {
   createRun(input: RunCreateInput): Run;
   startRun(runId: string, commandId: string): Promise<Run>;
   cancelRun(runId: string, commandId: string): Promise<void>;
+  submitTask(input: RunTaskSubmitInput): Promise<RunTaskSubmission>;
 }
 
 /** Fires after every journal change; the SSE adapter flushes deltas on it. */
@@ -127,6 +132,8 @@ const FINGERPRINT_CHARS = 32;
 const MAX_EVENT_PAGE = 500;
 const MAX_REMOTE_NAME_CHARS = 80;
 const MAX_REMOTE_GOAL_CHARS = 1_000;
+/** Same bound as the desktop `runTask:create` validator; the PTY layer allows more, the wire does not. */
+const MAX_REMOTE_PROMPT_CHARS = 8_000;
 const MAX_REMOTE_PARTICIPANTS = 32;
 const MAX_REMOTE_TEAM_NAME_CHARS = 80;
 const MAX_REMOTE_ID_CHARS = 128;
@@ -263,7 +270,7 @@ export class AdeApplicationService {
       const input = toRunCreateInput(validateRemoteRunCreate(payload), commandId);
       assertIpcPayload(IPC.RunCreate, input);
       const run = commands.createRun(input);
-      return run.id;
+      return { runId: run.id };
     });
   }
 
@@ -271,7 +278,7 @@ export class AdeApplicationService {
     return this.command(IPC.RunStart, context, { runId }, runId, async (commandId, commands) => {
       assertIpcPayload(IPC.RunStart, { runId, commandId });
       const run = await commands.startRun(runId, commandId);
-      return run.id;
+      return { runId: run.id };
     });
   }
 
@@ -279,21 +286,39 @@ export class AdeApplicationService {
     return this.command(IPC.RunCancel, context, { runId }, runId, async (commandId, commands) => {
       assertIpcPayload(IPC.RunCancel, { runId, commandId });
       await commands.cancelRun(runId, commandId);
-      return runId;
+      return { runId };
+    });
+  }
+
+  /**
+   * One bounded task for an explicit agent/repository pair. The response is
+   * the wrapping run's summary plus the task id; progress arrives through the
+   * journal stream like every other task.
+   */
+  submitTask(context: RemoteCommandContext, payload: unknown): Promise<MobileCommandResult> {
+    return this.command(IPC.RunTaskSubmit, context, payload, null, async (commandId, commands) => {
+      const input: RunTaskSubmitInput = { ...validateRemoteTaskSubmit(payload), commandId };
+      assertIpcPayload(IPC.RunTaskSubmit, input);
+      const submission = await commands.submitTask(input);
+      return { runId: submission.run.id, taskId: submission.task.id };
     });
   }
 
   /**
    * Shared command pipeline: policy requirement → scope → idempotency key
    * binding → in-flight coalescing → execute → audit. `execute` returns the
-   * run id whose summary becomes the response.
+   * run id whose summary becomes the response (plus the task id for a
+   * single-task submission).
    */
   private async command(
     channel: InvokeChannel,
     context: RemoteCommandContext,
     payload: unknown,
     target: string | null,
-    execute: (commandId: string, commands: ApplicationCommandPort) => Promise<string>,
+    execute: (
+      commandId: string,
+      commands: ApplicationCommandPort,
+    ) => Promise<{ runId: string; taskId?: string }>,
   ): Promise<MobileCommandResult> {
     const requirement = remoteRequirement(channel);
     const deny = (status: number, code: MobileErrorCode, reason: string): never => {
@@ -338,9 +363,9 @@ export class AdeApplicationService {
 
     const replayed = recorded !== undefined;
     const execution = (async (): Promise<MobileCommandResult> => {
-      let runId: string;
+      let outcome: { runId: string; taskId?: string };
       try {
-        runId = await execute(commandId, commands!);
+        outcome = await execute(commandId, commands!);
       } catch (error) {
         if (error instanceof RemoteApiError) {
           this.audit(context, channel, target, 'rejected', error.message);
@@ -358,10 +383,14 @@ export class AdeApplicationService {
         this.audit(context, channel, target, 'rejected', 'internal error');
         throw error;
       }
-      const summary = this.runsPort.summarize(runId)[0];
+      const summary = this.runsPort.summarize(outcome.runId)[0];
       if (!summary) throw new Error('ade: command produced no run summary');
-      this.audit(context, channel, runId, replayed ? 'replayed' : 'executed');
-      return { run: summary, replayed };
+      this.audit(context, channel, outcome.taskId ?? outcome.runId, replayed ? 'replayed' : 'executed');
+      return {
+        run: summary,
+        ...(outcome.taskId !== undefined ? { taskId: outcome.taskId } : {}),
+        replayed,
+      };
     })();
     this.inFlight.set(keyPrefix, { commandId, result: execution });
     try {
@@ -538,6 +567,23 @@ export function validateRemoteRunCreate(payload: unknown): MobileRunCreateInput 
     }
   }
   return { name, goal, repositoryId, participants, ...(budget ? { budget } : {}) };
+}
+
+/**
+ * Narrow remote validation for a single-task submission. Ids are opaque, the
+ * prompt is bounded and control-character free, and no desktop-only field
+ * (run id, participant id, workspace binding, commandId) is accepted.
+ */
+export function validateRemoteTaskSubmit(payload: unknown): MobileTaskSubmitInput {
+  const request = requireRecord(payload, 'request');
+  requireKeys(request, ['agentId', 'repositoryId', 'prompt', 'name'], 'request');
+  const agentId = requireId(request.agentId, 'agentId');
+  const repositoryId = requireId(request.repositoryId, 'repositoryId');
+  const prompt = requireText(request.prompt, 'prompt', MAX_REMOTE_PROMPT_CHARS);
+  const name = request.name !== undefined
+    ? requireText(request.name, 'name', MAX_REMOTE_NAME_CHARS)
+    : undefined;
+  return { agentId, repositoryId, prompt, ...(name !== undefined ? { name } : {}) };
 }
 
 function toRunCreateInput(input: MobileRunCreateInput, commandId: string): RunCreateInput {

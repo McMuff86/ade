@@ -167,6 +167,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'runTask:activity': { taskId: 'task' },
   'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
+  'runTask:submit': { agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', commandId: 'cmd-submit' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
   'runArtifact:create': { runId: 'run', kind: 'result', content: 'done' },
   'git:status': { agentId: 'agent', sessionId: 'session' },
@@ -260,6 +261,20 @@ check('task time budgets are bounded whole minutes or null',
   && rejects('run:create', {
     name: 'Run', participants: [{ agentId: 'agent', role: 'orchestrator' }],
     budget: { maxTaskMinutes: 2.5 },
+  }));
+check('single-task submission accepts only agent, repository, prompt, name and commandId',
+  !rejects('runTask:submit', { agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', name: 'Quick fix' })
+  && rejects('runTask:submit', { agentId: 'agent', prompt: 'Do it' })
+  && rejects('runTask:submit', { agentId: 'agent', repositoryId: 'repository', prompt: '' })
+  && rejects('runTask:submit', { agentId: 'agent', repositoryId: 'repository', prompt: 'x'.repeat(8_001) })
+  && rejects('runTask:submit', {
+    agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', runId: 'run',
+  })
+  && rejects('runTask:submit', {
+    agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', workspaceBindingId: 'binding',
+  })
+  && rejects('runTask:submit', {
+    agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', commandId: 'x'.repeat(129),
   }));
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',
@@ -456,9 +471,16 @@ check('host-API shared channels are read-only unless allowlisted as remote comma
     .every((channel) => CHANNEL_POLICY[channel].effect === 'read'
       && CHANNEL_POLICY[channel].remote?.scope === 'read'
       && CHANNEL_POLICY[channel].remote?.proof === 'bearer'));
-check('the remote command allowlist is exactly managed-run create/start/cancel',
-  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:cancel,run:create,run:start'
+check('the remote command allowlist is exactly run create/start/cancel plus single-task submission',
+  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:cancel,run:create,run:start,runTask:submit'
     && REMOTE_COMMAND_CHANNELS.every((channel) => sharedChannels.includes(channel)));
+check('single-task submission is a shared launch that never exposes the desktop task-create or PTY channels',
+  CHANNEL_POLICY['runTask:submit'].effect === 'launch'
+    && CHANNEL_POLICY['runTask:submit'].surface === 'shared'
+    && CHANNEL_POLICY['runTask:create'].surface === 'desktop'
+    && CHANNEL_POLICY['pty:create'].surface === 'desktop'
+    && CHANNEL_POLICY['pty:write'].surface === 'desktop'
+    && CHANNEL_POLICY['pty:attach'].surface === 'desktop');
 check('remote commands demand write scope, idempotency key, device signature and audit',
   REMOTE_COMMAND_CHANNELS.every((channel) => {
     const policy = CHANNEL_POLICY[channel];
@@ -481,7 +503,10 @@ check('desktop-only channels never carry a remote requirement',
 check('remoteChannels() lists exactly the shared surface',
   remoteChannels().sort().join(',') === [...sharedChannels].sort().join(','));
 check('process-launching channels are classified as launch and audited',
-  (['pty:create', 'pty:kill', 'harness:login', 'run:start', 'run:cancel', 'run:publish', 'runApproval:resolve'] as const)
+  ([
+    'pty:create', 'pty:kill', 'harness:login', 'run:start', 'run:cancel', 'run:publish', 'runApproval:resolve',
+    'runTask:submit',
+  ] as const)
     .every((channel) => CHANNEL_POLICY[channel].effect === 'launch' && CHANNEL_POLICY[channel].audit));
 check('high-frequency terminal input is launch-classified but not audited per call',
   CHANNEL_POLICY['pty:write'].effect === 'launch' && !CHANNEL_POLICY['pty:write'].audit

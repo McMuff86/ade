@@ -49,8 +49,10 @@ const CURSOR_PATTERN = /^\d{1,16}$/;
 const REQUEST_ID_HEADER = 'x-ade-request-id';
 
 type Route =
-  | { kind: 'health' | 'catalog' | 'runs' | 'events' | 'createRun' }
+  | { kind: 'health' | 'catalog' | 'runs' | 'events' | 'tasks' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
+
+type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask';
 
 interface ParsedTarget {
   path: string;
@@ -96,6 +98,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/health': return { route: { kind: 'health' }, allow: ['GET'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
     case '/api/v1/runs': return { route: { kind: 'runs' }, allow: ['GET', 'POST'] };
+    case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
     case '/api/v1/events': return { route: { kind: 'events' }, allow: ['GET'] };
     default: {
       const match = /^\/api\/v1\/runs\/([^/]+)\/(start|cancel)$/.exec(path);
@@ -284,6 +287,9 @@ export class HostApiServer {
           }
           await this.handleCommand(request, response, requestId, bearer, target.path, 'createRun');
           return;
+        case 'tasks':
+          await this.handleCommand(request, response, requestId, bearer, target.path, 'submitTask');
+          return;
         case 'events':
           this.handleStream(request, response, target.query);
           return;
@@ -311,10 +317,11 @@ export class HostApiServer {
     requestId: string,
     bearer: RemotePrincipal,
     path: string,
-    kind: 'createRun' | 'startRun' | 'cancelRun',
+    kind: CommandKind,
     runId?: string,
   ): Promise<void> {
-    const body = await this.readBody(request, response, kind === 'createRun');
+    const expectsJson = kind === 'createRun' || kind === 'submitTask';
+    const body = await this.readBody(request, response, expectsJson);
     if (body === null) return;
 
     let principal = bearer;
@@ -343,7 +350,7 @@ export class HostApiServer {
 
     const context: RemoteCommandContext = { principal, idempotencyKey, requestId };
     let payload: unknown = undefined;
-    if (kind === 'createRun') {
+    if (expectsJson) {
       try {
         payload = JSON.parse(body.toString('utf8'));
       } catch {
@@ -355,9 +362,11 @@ export class HostApiServer {
     try {
       const result = kind === 'createRun'
         ? await this.application.createRun(context, payload)
-        : kind === 'startRun'
-          ? await this.application.startRun(context, runId!)
-          : await this.application.cancelRun(context, runId!);
+        : kind === 'submitTask'
+          ? await this.application.submitTask(context, payload)
+          : kind === 'startRun'
+            ? await this.application.startRun(context, runId!)
+            : await this.application.cancelRun(context, runId!);
       writeJson(response, 200, result);
     } catch (error) {
       if (error instanceof RemoteApiError) {

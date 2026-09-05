@@ -211,6 +211,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
         createRun: (input) => orchestration!.createRun(input),
         startRun: (runId, commandId) => runCoordinator!.start(runId, commandId),
         cancelRun: (runId, commandId) => runCoordinator!.cancel(runId, undefined, commandId),
+        submitTask: (input) => runCoordinator!.submitSingleTask(input),
       },
       changes: journalChanges,
       commandsEnabled: () => hostApiConfig.enabled && hostApiConfig.devices.length > 0,
@@ -759,6 +760,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RunCreate, (input) => orchestration!.createRun(input));
   handle(IPC.RunDelete, ({ runId }) => runCoordinator!.deleteRun(runId));
   handle(IPC.RunTaskCreate, (input) => orchestration!.createTask(input));
+  // One bounded task for an explicit agent/repository pair: run, participant
+  // and task commit atomically, then the task session launches main-owned.
+  handle(IPC.RunTaskSubmit, (input) => runCoordinator!.submitSingleTask(input));
   handle(IPC.RunStart, ({ runId, commandId }) => runCoordinator!.start(runId, commandId));
   handle(IPC.RunCancel, ({ runId, commandId }) =>
     runCoordinator!.cancel(runId, undefined, commandId),
