@@ -39,7 +39,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Terminals layout | Real, optional | Settings can put the repository inspector on the left; the default remains rail left / inspector right and is not swapped unless the user chooses |
 | Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next, direct session shortcuts and Ctrl+1/2/3 for Terminals / Graph / Overview |
 | Background notifications | Real | Native task completion/failure and abnormal interactive-exit notifications when ADE is unfocused |
-| Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; every invoke passes registered-window sender check, payload validation, the exhaustive channel privilege policy (`ipcPolicy.ts`: effect/surface/audit, shell confined to `agent:openDashboard`) and the redaction funnel (`errors.ts`) for error replies; main→renderer events reach registered ADE windows only |
+| Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; every invoke passes registered-window sender check, payload validation, the exhaustive channel privilege policy (`ipcPolicy.ts`: effect/surface/audit/remote, shell confined to `agent:openDashboard`) and the redaction funnel (`errors.ts`) for error replies; text that leaves over the host API additionally passes `redactForWire` (credentials and absolute host paths removed, bounded); main→renderer events reach registered ADE windows only |
 | Credential handling at the WSL boundary | Real | Stored harness/service keys and `ADE_*` fields reach WSL sessions through `WSLENV` in the `wsl.exe` host environment, not argv; the `pty:create` argv log and backend stderr in errors are redacted (verified against a real Ubuntu distro) |
 | Dashboard windows | Real, origin-locked | Per-agent partition, deny-all permissions, no preload, fixed title; `will-navigate` and `will-redirect` share the origin guard; session-cookie persistence is limited to the dashboard origin; agent deletion clears the partition's storage and cache |
 | Workspace read boundary | Real, link-safe | Native `fs:tree`/`fs:read`/`fs:pathInfo`/`fs:agentFiles` refuse link or junction components and real-path escapes exactly like mutations and the WSL helper; listings never follow links |
@@ -56,7 +56,8 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, the full focused suite, platform-aware source and unpacked Electron/Playwright workflows, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
 | Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are covered by focused backend and cross-boundary Electron workflows |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
-| Remote host API | Foundation implemented, read-only and disabled by default | A transport-neutral application service projects mobile-safe health, repository/agent catalog and sanitized runs. An opt-in HTTP adapter is fixed to `127.0.0.1`, requires a strong Bearer token, rejects unknown Hosts/methods/paths and exposes only `GET /api/v1/{health,catalog,runs}`. SSE, pairing, audit and every remote mutation remain unbuilt; Tailscale/public exposure is still no-go |
+| Remote host API | Write/SSE slice implemented, loopback-only and disabled by default | The transport-neutral application service projects mobile-safe health, catalog, sanitized runs and a whitelisted journal projection. The opt-in HTTP adapter is fixed to `127.0.0.1`, requires a strong Bearer token, rejects unknown Hosts/Origins/methods/paths, and serves `GET /api/v1/{health,catalog,runs}`, a resumable `GET /api/v1/events` SSE stream (bundled snapshot, `Last-Event-ID`/`?cursor=` resume over the journal `seq`, strictly ascending, no duplicates, 8 clients, 256 KiB bound per client) and the bounded commands `POST /api/v1/runs`, `/runs/{id}/start`, `/runs/{id}/cancel`. Commands need a device-signed request (`ADE_HOST_API_COMMAND_DEVICE`, HMAC over method/path/timestamp/key/body digest) plus an `Idempotency-Key` bound to channel and payload; the bearer token alone stays read-only. Content-Type, Content-Length (64 KiB), payload shape and identifiers fail closed; every decision is audited path-free. Pairing UI, `POST /tasks`, approvals and Tailscale/public exposure remain unbuilt/no-go |
+| Remote channel policy | Real, allowlisted | `ipcPolicy.ts` gives every `shared` channel a `remote` requirement; `shared ⇒ read` holds for all channels except `REMOTE_COMMAND_CHANNELS` (`run:create/start/cancel`), which must demand `runs:write` scope, a required idempotency key, a device signature and audit. Host/shell effects can never be shared; `channelPolicyViolations()` and the security suite pin every rule |
 | Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
 | Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
 | Updates | Not built | No updater or release feed yet |
@@ -189,9 +190,16 @@ fixture repositories rather than depending on any personal checkout.
   not fetch remote refs or show provider CI logs yet; unsupported/offline/auth
   states remain separate from the always-local status and commit history.
 - There is currently no network listener, paired-device store, mobile build or
-  remote ingress in ADE by default. The Goal-7 development listener exists only
-  after explicit environment opt-in, remains loopback-only and read-only, and
-  has no pairing/PWA/Tailscale contract yet. Until the remaining remote goals
-  are implemented and verified,
-  users must not expose Electron IPC or an ad-hoc local server through a router,
-  LAN bind, Tailscale Funnel or public tunnel.
+  remote ingress in ADE by default. The Goal-7 listener exists only after
+  explicit environment opt-in and remains loopback-only. Its commands are
+  reachable solely with a device secret provisioned through
+  `ADE_HOST_API_COMMAND_DEVICE` at startup; there is one such device, no
+  pairing UI, no revocation store and no rotation without a restart. Remote
+  audit lines go to the main-process log, not a durable audit journal. SSE
+  clients that fall behind are disconnected and must resume from their last
+  id; the journal shares the atomic JSON config, so retention limits apply to
+  the stream as well. The bearer token and device secret travel in plaintext
+  on loopback only; there is no TLS termination, Tailscale or PWA contract
+  yet. Until the remaining remote goals are implemented and verified, users
+  must not expose Electron IPC or the local listener through a router, LAN
+  bind, Tailscale Funnel or public tunnel.

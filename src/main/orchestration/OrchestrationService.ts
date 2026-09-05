@@ -158,6 +158,16 @@ export class OrchestrationService {
     };
   }
 
+  /** Highest journal seq across events and messages; 0 for an empty journal. */
+  journalCursor(): number {
+    const config = this.store.get();
+    let seqCursor = 0;
+    for (const record of [...config.runEvents, ...config.runMessages]) {
+      if (record.seq > seqCursor) seqCursor = record.seq;
+    }
+    return seqCursor;
+  }
+
   /**
    * Sanitized projection for the Graph canvas and the future mobile DTO.
    * Never emits absolute paths, prompts, mailbox texts, artifact contents,
@@ -171,10 +181,7 @@ export class OrchestrationService {
     const derivedTasks = deriveTasks(config.runTasks, config.runEvents);
     const usage = usageByRun(config);
     const repositories = new Map(config.repositories.map((repository) => [repository.id, repository]));
-    let seqCursor = 0;
-    for (const record of [...config.runEvents, ...config.runMessages]) {
-      if (record.seq > seqCursor) seqCursor = record.seq;
-    }
+    const seqCursor = this.journalCursor();
     const runs = runId ? config.runs.filter((run) => run.id === runId) : config.runs;
     return runs.map((run): RunSummary => {
       const participants = config.runParticipants.filter((participant) => participant.runId === run.id);

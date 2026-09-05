@@ -3,8 +3,9 @@
  * exhaustive by type: adding a channel to `IPC` without classifying it here is
  * a compile error, so "what may this channel do, and from where" is a typed
  * fact rather than a review convention. `handle()` in ipc.ts consults the
- * policy at registration and per call; the Goal 7 host API must expose only
- * `shared` channels (see the security suite).
+ * policy at registration and per call; the Goal 7 host API serves only
+ * `shared` channels and enforces their `remote` requirement before a command
+ * reaches the application service (see the security suite).
  *
  * Pure module (no Electron import) so contract tests can read it directly.
  */
@@ -29,10 +30,35 @@ export type ChannelEffect = 'read' | 'mutate' | 'host' | 'launch' | 'shell';
  * Where the channel's operation may be served from:
  * - `desktop`: only the sandboxed ADE renderer in a registered window.
  * - `shared`: the same operation is (or may be) exposed through the local
- *   host API. Shared channels must be `read` until the host API gains a
- *   real authorization model beyond its bearer token.
+ *   host API. A shared channel must declare the `remote` requirement a
+ *   caller has to satisfy; a shared non-read channel is additionally confined
+ *   to `REMOTE_COMMAND_CHANNELS` and must demand a signed device proof plus an
+ *   idempotency key (see `channelPolicyViolations`).
  */
 export type ChannelSurface = 'desktop' | 'shared';
+
+/**
+ * Capability a remote principal must hold. `read` is granted to every
+ * authenticated listener client; `runs:write` only to a device identity that
+ * the operator configured (Goal 7 bootstrap) or paired (Goal 8).
+ */
+export type RemoteScope = 'read' | 'runs:write';
+
+/**
+ * How a remote caller proves it may run this channel:
+ * - `bearer`: the listener access token is sufficient (read-only data).
+ * - `device-signature`: the request must additionally carry a per-request
+ *   HMAC signature from a device secret, binding method, path, timestamp,
+ *   idempotency key and body. A leaked bearer token alone cannot mutate.
+ */
+export type RemoteProof = 'bearer' | 'device-signature';
+
+export interface RemoteAccess {
+  scope: RemoteScope;
+  /** Mutations must carry an idempotency key that maps to `commandId`. */
+  idempotency: 'none' | 'required';
+  proof: RemoteProof;
+}
 
 export interface ChannelPolicy {
   effect: ChannelEffect;
@@ -45,7 +71,16 @@ export interface ChannelPolicy {
    * treat their validators as part of the shell boundary.
    */
   armsShell?: true;
+  /** Required for `surface: 'shared'`, forbidden for `desktop`. */
+  remote?: RemoteAccess;
 }
+
+const REMOTE_READ: RemoteAccess = { scope: 'read', idempotency: 'none', proof: 'bearer' };
+const REMOTE_COMMAND: RemoteAccess = {
+  scope: 'runs:write',
+  idempotency: 'required',
+  proof: 'device-signature',
+};
 
 const read: ChannelPolicy = { effect: 'read', surface: 'desktop', audit: false };
 const mutate: ChannelPolicy = { effect: 'mutate', surface: 'desktop', audit: false };
@@ -54,7 +89,10 @@ const launch: ChannelPolicy = { effect: 'launch', surface: 'desktop', audit: tru
 const launchQuiet: ChannelPolicy = { effect: 'launch', surface: 'desktop', audit: false };
 const shell: ChannelPolicy = { effect: 'shell', surface: 'desktop', audit: true };
 const armsShell: ChannelPolicy = { ...mutate, armsShell: true };
-const shared: ChannelPolicy = { effect: 'read', surface: 'shared', audit: false };
+const shared: ChannelPolicy = { effect: 'read', surface: 'shared', audit: false, remote: REMOTE_READ };
+/** Remote-capable mutation: audited on every surface, device-signed and idempotent remotely. */
+const sharedMutate: ChannelPolicy = { effect: 'mutate', surface: 'shared', audit: true, remote: REMOTE_COMMAND };
+const sharedLaunch: ChannelPolicy = { effect: 'launch', surface: 'shared', audit: true, remote: REMOTE_COMMAND };
 
 export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'config:get': shared,
@@ -108,14 +146,14 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'runtime:diagnose': launch,
   'run:get': read,
   'run:getSummary': shared,
-  'run:events': read,
+  'run:events': shared,
   'run:approvalDiff': read,
   'run:publicationPreview': read,
   'run:publish': launch,
-  'run:create': mutate,
+  'run:create': sharedMutate,
   'run:delete': mutate,
-  'run:start': launch,
-  'run:cancel': launch,
+  'run:start': sharedLaunch,
+  'run:cancel': sharedLaunch,
   'run:pauseTeam': mutate,
   'run:resumeTeam': mutate,
   'runApproval:resolve': launch,
@@ -140,6 +178,20 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
 export const SHELL_CHANNELS: readonly InvokeChannel[] = ['agent:openDashboard'];
 
 /**
+ * The only non-read channels the host API may mirror. Each one is a bounded
+ * managed-run command with explicit ids; nothing here touches PTYs, the
+ * filesystem, configuration, credentials or publication. Grow deliberately.
+ */
+export const REMOTE_COMMAND_CHANNELS: readonly InvokeChannel[] = ['run:create', 'run:start', 'run:cancel'];
+
+/** Channels the host API may serve at all (read projections plus the commands above). */
+export function remoteChannels(
+  policy: Readonly<Record<InvokeChannel, ChannelPolicy>> = CHANNEL_POLICY,
+): InvokeChannel[] {
+  return (Object.keys(policy) as InvokeChannel[]).filter((channel) => policy[channel].surface === 'shared');
+}
+
+/**
  * Invariants every policy must satisfy. Returned as a list so the security
  * suite can print each violation; `handle()` throws on the first one at
  * registration so a misclassified channel never reaches a renderer.
@@ -155,11 +207,45 @@ export function channelPolicyViolations(
     if (entry.effect === 'shell' && !entry.audit) {
       violations.push(`${channel}: shell effect must be audited`);
     }
-    if (entry.surface === 'shared' && entry.effect !== 'read') {
-      violations.push(`${channel}: shared surface requires the read effect`);
-    }
     if (entry.armsShell && entry.effect !== 'mutate') {
       violations.push(`${channel}: armsShell applies to mutate channels only`);
+    }
+    if (entry.surface === 'desktop' && entry.remote) {
+      violations.push(`${channel}: desktop channels carry no remote requirement`);
+    }
+    if (entry.surface !== 'shared') continue;
+
+    // Shared channels: the read invariant stays the default. Lifting it is a
+    // per-channel, allowlisted decision that must demand the strongest remote
+    // requirement, so a policy line alone can never make a mutation reachable
+    // with only the listener bearer token.
+    if (!entry.remote) {
+      violations.push(`${channel}: shared surface requires a remote access requirement`);
+      continue;
+    }
+    if (entry.effect === 'host' || entry.effect === 'shell') {
+      violations.push(`${channel}: ${entry.effect} effect can never be shared`);
+    }
+    if (entry.effect === 'read') {
+      if (entry.remote.scope !== 'read' || entry.remote.idempotency !== 'none') {
+        violations.push(`${channel}: shared read channels use the read scope without idempotency`);
+      }
+      continue;
+    }
+    if (!REMOTE_COMMAND_CHANNELS.includes(channel)) {
+      violations.push(`${channel}: shared surface requires the read effect outside REMOTE_COMMAND_CHANNELS`);
+    }
+    if (entry.remote.scope !== 'runs:write') {
+      violations.push(`${channel}: remote commands require the runs:write scope`);
+    }
+    if (entry.remote.idempotency !== 'required') {
+      violations.push(`${channel}: remote commands require an idempotency key`);
+    }
+    if (entry.remote.proof !== 'device-signature') {
+      violations.push(`${channel}: remote commands require a device signature, not only the bearer token`);
+    }
+    if (!entry.audit) {
+      violations.push(`${channel}: remote commands must be audited`);
     }
   }
   return violations;

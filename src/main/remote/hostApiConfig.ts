@@ -1,3 +1,5 @@
+import { parseCommandDevice, type RemoteDevice } from './authorization';
+
 export const HOST_API_LOOPBACK = '127.0.0.1' as const;
 export const DEFAULT_HOST_API_PORT = 4317;
 export const MIN_HOST_API_TOKEN_CHARS = 32;
@@ -11,6 +13,12 @@ export type HostApiConfig =
       host: typeof HOST_API_LOOPBACK;
       port: number;
       token: string;
+      /**
+       * Device identities allowed to sign commands. Empty by default: the
+       * listener then serves reads only, because no principal can hold the
+       * `runs:write` scope. Bootstrap source is `ADE_HOST_API_COMMAND_DEVICE`.
+       */
+      devices: RemoteDevice[];
     };
 
 export function parseHostApiConfig(
@@ -35,22 +43,29 @@ export function parseHostApiConfig(
     throw new Error('ade: host API port must be an integer between 1024 and 65535');
   }
 
+  const device = parseCommandDevice(env['ADE_HOST_API_COMMAND_DEVICE']);
+  if (device && device.secret === token) {
+    throw new Error('ade: host API device secret must differ from the listener token');
+  }
+
   return {
     enabled: true,
     host: HOST_API_LOOPBACK,
     port,
     token,
+    devices: device ? [device] : [],
   };
 }
 
 /**
- * Read the bootstrap secret exactly once, then remove it from the ambient
- * environment so subsequently launched agent processes cannot inherit it.
+ * Read the bootstrap secrets exactly once, then remove them from the ambient
+ * environment so subsequently launched agent processes cannot inherit them.
  */
 export function consumeHostApiConfig(env: Record<string, string | undefined>): HostApiConfig {
   try {
     return parseHostApiConfig(env);
   } finally {
     delete env['ADE_HOST_API_TOKEN'];
+    delete env['ADE_HOST_API_COMMAND_DEVICE'];
   }
 }

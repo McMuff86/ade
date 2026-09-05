@@ -49,9 +49,10 @@ import { HarnessCredentialService } from './settings/HarnessCredentialService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
 import { DashboardWindows } from './dashboard/DashboardWindows';
 import { resolveDashboardUrl } from './dashboard/dashboardUrl';
-import { AdeApplicationService } from './application/AdeApplicationService';
+import { AdeApplicationService, JournalChangeHub } from './application/AdeApplicationService';
 import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
+import { RemoteAuthorizer } from './remote/authorization';
 import { consumeHostApiConfig } from './remote/hostApiConfig';
 import { TargetPathProbe } from './portability/TargetPathProbe';
 import { WorkspaceImportService } from './portability/WorkspaceImportService';
@@ -178,8 +179,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     commands: execution,
     git: backendGit,
   });
+  // Desktop renderers receive snapshots; the host API's event streams flush
+  // journal deltas from the same change signal.
+  const journalChanges = new JournalChangeHub();
   orchestration = new OrchestrationService(store, (snapshot) => {
     broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, snapshot);
+    journalChanges.publish();
   });
   const recoveredTasks = orchestration.recoverInterruptedTasks();
   if (recoveredTasks > 0) {
@@ -193,14 +198,29 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
+  const hostApiConfig = consumeHostApiConfig(process.env);
   const application = new AdeApplicationService(
     store,
     orchestration,
     { status: () => ptyManager!.queueStatus() },
+    {
+      // The same coordinator/service methods the desktop IPC handlers call
+      // below; the remote path adds nothing the renderer could not do, it
+      // only reaches fewer channels.
+      commands: {
+        createRun: (input) => orchestration!.createRun(input),
+        startRun: (runId, commandId) => runCoordinator!.start(runId, commandId),
+        cancelRun: (runId, commandId) => runCoordinator!.cancel(runId, undefined, commandId),
+      },
+      changes: journalChanges,
+      commandsEnabled: () => hostApiConfig.enabled && hostApiConfig.devices.length > 0,
+    },
   );
-  const hostApiConfig = consumeHostApiConfig(process.env);
   if (hostApiConfig.enabled) {
-    hostApiServer = new HostApiServer(application, hostApiConfig.token, hostApiConfig.port);
+    hostApiServer = new HostApiServer(application, {
+      authorizer: new RemoteAuthorizer(hostApiConfig.token, hostApiConfig.devices),
+      port: hostApiConfig.port,
+    });
     void hostApiServer.start()
       .then((address) => {
         console.log(`[ade] host API listening on ${address.host}:${address.port}`);

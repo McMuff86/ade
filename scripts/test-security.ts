@@ -14,17 +14,22 @@ import {
 } from '../src/main/dashboard/cookiePersistence';
 import {
   MAX_IPC_ERROR_CHARS,
+  MAX_WIRE_TEXT_CHARS,
   redactArgs,
   redactEnvForLog,
+  redactForWire,
   redactSensitiveText,
   redactedErrorMessage,
+  redactedWireMessage,
   toIpcError,
 } from '../src/main/errors';
 import {
   CHANNEL_POLICY,
+  REMOTE_COMMAND_CHANNELS,
   SHELL_CHANNELS,
   assertChannelPolicy,
   channelPolicyViolations,
+  remoteChannels,
 } from '../src/main/ipcPolicy';
 import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
 import { resolveLaunchCommand } from '../src/shared/runtimes';
@@ -444,9 +449,37 @@ check('the shell effect is confined to the dashboard command channel',
 check('channels that store dashboard commands are marked as arming the shell boundary',
   (['agent:create', 'agent:update', 'agentTemplate:create', 'agentTemplate:spawn', 'workspaceBundle:apply'] as const)
     .every((channel) => CHANNEL_POLICY[channel].armsShell === true));
-check('host-API shared channels are read-only',
-  INVOKE_CHANNELS.filter((channel) => CHANNEL_POLICY[channel].surface === 'shared')
-    .every((channel) => CHANNEL_POLICY[channel].effect === 'read'));
+const sharedChannels = INVOKE_CHANNELS.filter((channel) => CHANNEL_POLICY[channel].surface === 'shared');
+check('host-API shared channels are read-only unless allowlisted as remote commands',
+  sharedChannels
+    .filter((channel) => !REMOTE_COMMAND_CHANNELS.includes(channel))
+    .every((channel) => CHANNEL_POLICY[channel].effect === 'read'
+      && CHANNEL_POLICY[channel].remote?.scope === 'read'
+      && CHANNEL_POLICY[channel].remote?.proof === 'bearer'));
+check('the remote command allowlist is exactly managed-run create/start/cancel',
+  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:cancel,run:create,run:start'
+    && REMOTE_COMMAND_CHANNELS.every((channel) => sharedChannels.includes(channel)));
+check('remote commands demand write scope, idempotency key, device signature and audit',
+  REMOTE_COMMAND_CHANNELS.every((channel) => {
+    const policy = CHANNEL_POLICY[channel];
+    return policy.remote?.scope === 'runs:write'
+      && policy.remote.idempotency === 'required'
+      && policy.remote.proof === 'device-signature'
+      && policy.audit;
+  }));
+check('no shared channel reaches the PTY, filesystem, config mutation, host or shell boundaries',
+  sharedChannels.every((channel) => !channel.startsWith('pty:')
+    && !channel.startsWith('fs:')
+    && !channel.startsWith('dialog:')
+    && !channel.startsWith('clipboard:')
+    && channel !== 'config:save'
+    && channel !== 'run:publish'
+    && !['host', 'shell'].includes(CHANNEL_POLICY[channel].effect)));
+check('desktop-only channels never carry a remote requirement',
+  INVOKE_CHANNELS.filter((channel) => CHANNEL_POLICY[channel].surface === 'desktop')
+    .every((channel) => CHANNEL_POLICY[channel].remote === undefined));
+check('remoteChannels() lists exactly the shared surface',
+  remoteChannels().sort().join(',') === [...sharedChannels].sort().join(','));
 check('process-launching channels are classified as launch and audited',
   (['pty:create', 'pty:kill', 'harness:login', 'run:start', 'run:cancel', 'run:publish', 'runApproval:resolve'] as const)
     .every((channel) => CHANNEL_POLICY[channel].effect === 'launch' && CHANNEL_POLICY[channel].audit));
@@ -462,6 +495,31 @@ check('policy violations are reported, not swallowed',
     'fs:read': { effect: 'shell', surface: 'desktop', audit: false },
     'run:getSummary': { effect: 'mutate', surface: 'shared', audit: false },
   }).length === 3);
+const remoteWrite = { scope: 'runs:write', idempotency: 'required', proof: 'device-signature' } as const;
+check('a shared mutation outside the remote command allowlist is a violation',
+  channelPolicyViolations({
+    ...CHANNEL_POLICY,
+    'run:publish': { effect: 'launch', surface: 'shared', audit: true, remote: remoteWrite },
+  }).some((violation) => violation.startsWith('run:publish: shared surface requires the read effect')));
+check('a remote command that accepts the bearer token alone is a violation',
+  channelPolicyViolations({
+    ...CHANNEL_POLICY,
+    'run:create': { effect: 'mutate', surface: 'shared', audit: true, remote: { ...remoteWrite, proof: 'bearer' } },
+  }).some((violation) => violation.includes('device signature')));
+check('a remote command without idempotency, write scope or audit is a violation',
+  channelPolicyViolations({
+    ...CHANNEL_POLICY,
+    'run:start': {
+      effect: 'launch', surface: 'shared', audit: false,
+      remote: { scope: 'read', idempotency: 'none', proof: 'device-signature' },
+    },
+  }).filter((violation) => violation.startsWith('run:start:')).length === 3);
+check('shared host or shell effects and desktop remote requirements are violations',
+  channelPolicyViolations({
+    ...CHANNEL_POLICY,
+    'fs:reveal': { effect: 'host', surface: 'shared', audit: true, remote: remoteWrite },
+    'config:health': { effect: 'read', surface: 'desktop', audit: false, remote: { scope: 'read', idempotency: 'none', proof: 'bearer' } },
+  }).filter((violation) => violation.startsWith('fs:reveal:') || violation.startsWith('config:health:')).length >= 2);
 check('registering a misclassified channel fails closed',
   (() => {
     try {
@@ -511,6 +569,31 @@ check('non-Error rejections still become bounded, redacted Error replies',
   toIpcError({ stderr: 'fatal: https://u:p@host/x' }).message === 'fatal: https://[credentials]@host/x'
     && toIpcError('token=abc').message === 'token=[credential]'
     && redactedErrorMessage(42) === '42');
+
+/* -------------------------------- Goal 7: wire redaction for the host API */
+
+const wireLeak = 'clone failed for C:\\Users\\me\\repos\\secret-project into /home/me/.ade/worktrees/run-1 '
+  + 'and \\\\wsl$\\Ubuntu\\home\\me\\x; token=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789 ADE_TASK_DIR=/tmp/task';
+const wired = redactForWire(wireLeak);
+check('wire redaction removes Windows, POSIX and UNC host paths and credentials',
+  !wired.includes('C:\\Users')
+    && !wired.includes('/home/me')
+    && !wired.includes('wsl$')
+    && !wired.includes('ghp_AbCd')
+    && wired.includes('[path]')
+    && wired.includes('token=[credential]'),
+  wired);
+check('wire redaction keeps identifiers, URLs without credentials and relative names readable',
+  redactForWire('run-abc task=t1 https://github.com/o/r.git src/main/index.ts exited with code 128')
+    === 'run-abc task=t1 https://github.com/o/r.git src/main/index.ts exited with code 128');
+check('wire redaction is bounded and idempotent',
+  redactForWire('x'.repeat(5_000)).length === MAX_WIRE_TEXT_CHARS
+    && redactForWire(wired) === wired);
+check('wire error messages are redacted Error texts, never raw objects',
+  redactedWireMessage(new Error('ade: failed at /var/lib/ade/x with sk-ant-api03-SECRETSECRETSECRETSECRET'))
+    === 'ade: failed at [path] with [credential]'
+    && redactedWireMessage({ stack: 'at C:\\Users\\me\\x.ts:1' }).length > 0
+    && !redactedWireMessage({ stack: 'at C:\\Users\\me\\x.ts:1' }).includes('C:\\Users'));
 
 const rendererHtml = readFileSync(join(process.cwd(), 'src/renderer/index.html'), 'utf8');
 check('renderer declares a default-deny CSP', rendererHtml.includes("default-src 'none'"));

@@ -4,7 +4,10 @@ Status: implemented and locally verified on 2026-07-26 on branch
 `feat/goal7-host-api-foundation`. This slice is the first bounded step toward the
 tablet companion described in
 `REMOTE_CONTROL_PLAN.md`; it does not expose ADE through Tailscale yet and it
-does not add remote mutations.
+does not add remote mutations. The follow-up write/SSE slice (2026-09-03:
+resumable `GET /api/v1/events`, device-signed idempotent managed-run
+create/start/cancel, per-channel remote authorization in the IPC policy) is
+documented in `../ARCHITECTURE.md` ("ADE host API") and `../HANDOFF.md`.
 
 ## Objective
 

@@ -1,4 +1,91 @@
-# Handoff — 2026-09-03
+# Handoff — 2026-09-03 (Session 2)
+
+## Ergebnis dieser Session — Goal 7 Write/SSE-Slice der lokalen Host-API
+
+Bezug: `ROADMAP.md` Goal 7 (Checkliste aktualisiert), Vertrag in
+`ARCHITECTURE.md` („Transport-neutral application boundary“, „ADE host API
+(Goal 7 write/SSE slice)“, „Electron IPC contract“ Schritt 3/4), Matrix und
+Known constraints in `STATUS.md`. Bewusst nicht enthalten: PWA-UI (Goal 8),
+Tailscale/öffentliche Exposition, Remote-Approvals (Goal 9), Thema 3/5.
+
+- **Policy-Öffnung (`src/main/ipcPolicy.ts`):** `ChannelPolicy.remote =
+  {scope: 'read' | 'runs:write', idempotency: 'none' | 'required', proof:
+  'bearer' | 'device-signature'}` ist für jeden `shared`-Channel Pflicht.
+  Die Invariante `shared ⇒ read` gilt weiter für alle Channels außer der
+  Allowlist `REMOTE_COMMAND_CHANNELS = run:create/start/cancel`; diese
+  müssen `runs:write` + `required` + `device-signature` + `audit: true`
+  tragen. `host`/`shell` sind nie shared, Desktop-Channels tragen kein
+  `remote`. `run:events` ist jetzt shared/read (SSE-Basis).
+  `channelPolicyViolations()` meldet jede Abweichung; `handle()` wirft bei
+  Registrierung. Begründung in `ARCHITECTURE.md` (Schritt 3).
+- **Wire-Redaktion (`src/main/errors.ts`):** `redactHostPaths` (Windows-
+  Laufwerk, UNC/`\\wsl$`, mehrsegmentige POSIX-Absolutpfade, `~/`),
+  `redactForWire` (Credential-Trichter + Pfade, 300 Zeichen) und
+  `redactedWireMessage`. Relative Repo-Pfade und URLs bleiben lesbar.
+- **Autorisierung (`src/main/remote/authorization.ts`):** zwei Schichten.
+  Bearer-Token ⇒ `bootstrap-token`-Principal mit nur `read`. Kommandos
+  brauchen zusätzlich `X-ADE-Device`/`X-ADE-Timestamp`/`X-ADE-Signature`
+  (`v1=` HMAC-SHA256 über `ADE-HTTP-V1\nMETHOD\npath\ntimestamp\nIdempotency-
+  Key\nsha256(body)`, ±5 min Skew, constant-time compare) ⇒ `device`-
+  Principal mit `runs:write`. Einziges Device in diesem Slice aus
+  `ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>` (32–128 URL-safe Zeichen,
+  ≠ Listener-Token); `consumeHostApiConfig` löscht beide Variablen aus dem
+  Prozess-Env vor jedem Child-Spawn. Ohne Device: `health.commands =
+  'disabled'`, jedes signierte Kommando ⇒ `unknown_device`.
+- **Application-Facade (`src/main/application/AdeApplicationService.ts`):**
+  `command(channel, principal, key, payload)` prüft Policy-Requirement
+  (Proof, Scope, Idempotenz), bindet `commandId = remote:<key>:<sha256
+  (channel+payload)>` an den vorhandenen Coordinator-Command-Log (exakter
+  Retry ⇒ Replay; anderer Payload ⇒ `409 idempotency_key_reused`;
+  gleichzeitige Duplikate koalieren auf einem In-flight-Promise), ruft den
+  injizierten `ApplicationCommandPort` (createRun/startRun/cancelRun aus
+  `ipc.ts`) und auditiert jede Entscheidung pfadfrei. `events(cursor)`,
+  `snapshot()`, `journalCursor()` projizieren das Journal mit
+  `WIRE_EVENT_DATA_KEYS`-Whitelist (kein `workspaceDir`, keine PTY-
+  `sessionId`, keine Mailbox-Bodies; Freitext durch `redactForWire`).
+  `validateRemoteRunCreate` verweigert Desktop-Felder
+  (`resetWorktreeToBase`), Pfade als IDs, Steuerzeichen, Übergröße — ohne
+  den Wert zu echoen. `RemoteApiError` mappt auf stabile Codes
+  (`422 command_rejected`, `401 device_proof_required`,
+  `403 scope_not_granted`).
+- **Journal-Cursor (`OrchestrationService`):** `journalCursor()` liefert
+  den höchsten `seq`; `JournalChangeHub` (in `ipc.ts`) versorgt Desktop-
+  Broadcast und SSE-Streams aus einem Publikationspunkt.
+- **HTTP-Adapter (`src/main/remote/HostApiServer.ts`):** zusätzlich zu den
+  drei GETs: `GET /api/v1/events` (SSE: `Accept: text/event-stream`, Cursor
+  aus `Last-Event-ID` oder `?cursor=` — beide müssen übereinstimmen; ohne
+  brauchbaren Cursor ein gebündeltes `snapshot`-Event, danach `journal`-
+  Events strikt aufsteigend, max. 200 Records/Frame, `id` = höchster `seq`;
+  `retry: 2000`, `: ping` alle 15 s; 8 Clients ⇒ `503 too_many_streams`;
+  >256 KiB ungesendet ⇒ Verbindung getrennt, Client resumed vom letzten id)
+  und `POST /api/v1/runs`, `/runs/{id}/start`, `/runs/{id}/cancel`
+  (`Content-Length` Pflicht ⇒ `411` bei chunked; 64 KiB ⇒ `413` vor dem
+  Parsen; `application/json` ⇒ `415`; `Idempotency-Key` 8–64 URL-safe;
+  Refused-Bodies ≤ 1 MiB werden gedraint, damit der Client die Antwort
+  liest). Host-Header exakt, Browser-`Origin` immer abgelehnt,
+  `X-ADE-Request-Id` pro Antwort, JSON-Antworten ≤ 512 KiB. `stop()`
+  beendet offene Streams sofort.
+- **Nachweis:** `test-host-api.ts` 30 → 122 (echter Loopback-Server, echter
+  `RunCoordinator` mit Fake-Runtime, echte TCP-Reconnects: Snapshot,
+  Heartbeat, Denials/Audit, jede Signatur-Negativkontrolle, chunked/415/
+  413/malformed, create/start/cancel mit Replay, Key-Reuse-Konflikt,
+  gleichzeitige Duplikate ⇒ genau ein Run, Start-Retry ⇒ genau ein Launch,
+  Reconnect mit `Last-Event-ID` ⇒ Union beider Verbindungen = Journal exakt
+  einmal, `?cursor=`, Cursor jenseits des Journals ⇒ Snapshot, Client-Limit,
+  Backpressure-Trennung, Redaktion von Anwendungsfehlern, Stop mit offenen
+  Streams). `test-security.ts` 169 → 182 (Allowlist gepinnt, vier neue
+  Policy-Negativkontrollen, Wire-Redaktion). Floors in `run-suites.ts`
+  angehoben; `pnpm test` 17 Suiten / 1054 Checks grün. `pnpm verify` grün
+  (siehe Abschnitt unten).
+- **Bewusst offen:** ein Device per Env-Bootstrap, kein Pairing, keine
+  Revocation/Rotation ohne Neustart; Remote-Audit nur im Main-Log;
+  `POST /api/v1/tasks` (gebundener Einzeltask) nicht gebaut; kein TLS auf
+  Loopback (Tailscale-Serve-Vertrag folgt mit Goal 8); Journal teilt weiter
+  die atomare JSON-Config (Retention gilt auch für den Stream).
+
+---
+
+# Handoff — 2026-09-03 (Session 1)
 
 ## Ergebnis dieser Session — Thema 6 „Grenze härten“
 
@@ -108,11 +195,21 @@ Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md`, Thema 2. Vertrag in
 
 ## Nächster Schritt
 
-Goal-7 Write/SSE-Slice über den vorhandenen `seq`-Cursor: die benötigten
-Channels in `ipcPolicy.ts` auf `shared` heben — der Policy-Test verlangt
-dafür ein Autorisierungsmodell jenseits des Bearer-Tokens (bis dahin bleibt
-`shared` = `read`). Danach Thema 3 (beendete Runs lesbar, Graph-Tastaturpfad),
-dann Thema 5.
+Goal 7 abschließen: `POST /api/v1/tasks` als gebundenes First-Class-Kommando
+(`submitSingleTask` in der Facade, gleiche Policy-Anforderungen wie
+`run:create`) — danach ist die Goal-7-Checkliste bis auf den Paired-Device-
+Store vollständig. Anschließend Thema 3 (beendete Runs lesbar, Graph-
+Tastaturpfad), dann Thema 5. Goal 8 (Pairing-UI, Device-Store mit
+Revocation, durables Remote-Audit, Tailscale-Serve-Vertrag) ersetzt den
+`ADE_HOST_API_COMMAND_DEVICE`-Bootstrap, ohne den Signaturvertrag zu ändern.
+
+Manuell prüfen (Loopback, ohne UI): `ADE_HOST_API_ENABLED=1
+ADE_HOST_API_TOKEN=<32+ Zeichen> ADE_HOST_API_COMMAND_DEVICE=phone:<32+
+Zeichen>` setzen, ADE starten,
+`curl -H "Authorization: Bearer …" -H "Accept: text/event-stream"
+http://127.0.0.1:4317/api/v1/events` liefert `event: snapshot` und danach
+`: ping`; ein `POST /api/v1/runs` ohne Device-Header antwortet
+`401 device_proof_required`.
 
 ---
 

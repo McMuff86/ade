@@ -645,45 +645,124 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   Goal 7 remote contract. Repository CI/branch protection and human review are
   authoritative after the Draft PR exists.
 
-### Transport-neutral application boundary (Goal 7 target)
+### Transport-neutral application boundary (Goal 7)
 
-- A composition root owns `OrchestrationService`, `RunCoordinator`,
-  `PtyManager` and the command/event facade. `ipc.ts` registers Electron
-  handlers against that facade instead of constructing a second behavior path.
-- Remote authorization is evaluated before a facade command. Domain invariants
-  remain inside orchestration services, so an adapter cannot bypass leases,
-  budgets, result validation or approval gates.
-- `submitSingleTask` is a first-class bounded command rather than a sequence the
-  mobile client assembles from `runTask:create` and `pty:create` calls.
-- Every mutation accepts a caller identity, request id and idempotency key. The
-  stored outcome is returned for an exact retry; key reuse with a different
-  payload is rejected.
-- Application events receive a monotonic cursor in addition to domain ids.
-  Desktop IPC may continue publishing snapshots, while remote SSE resumes from
-  a cursor and refreshes a mobile projection after retention gaps.
+- `AdeApplicationService` (`main/application`) is the transport-neutral
+  facade. `ipc.ts` composes it once with the same `OrchestrationService`,
+  `RunCoordinator` and `PtyManager` the Electron handlers use; the host API
+  adapter (`main/remote/HostApiServer.ts`) calls the facade and never an
+  orchestration service directly.
+- Remote authorization is evaluated inside the facade, before the command
+  port is called: the channel policy names the required scope, proof and
+  idempotency rule, and the facade refuses a principal that does not meet all
+  three. Domain invariants (leases, budgets, phase transitions, result
+  validation, approval gates) remain inside orchestration services, so an
+  adapter cannot bypass them.
+- Every remote mutation carries a caller identity (principal), request id and
+  idempotency key. The key is bound to one channel and payload digest through
+  `commandId = remote:<key>:<sha256(channel+payload)>`, so the coordinator's
+  existing command log returns the stored outcome for an exact retry, and a
+  retry with another body or another command is rejected
+  (`idempotency_key_reused`). Concurrent duplicates coalesce on one in-flight
+  promise; a retry can never start a second run or a second planner launch.
+- Journal records (`RunEvent`, `RunMessage`) carry the monotonic `seq` the
+  orchestration service already assigns; `OrchestrationService.journalCursor()`
+  exposes the top of the journal and `eventsSince()` pages strictly after a
+  cursor. A `JournalChangeHub` notifies the desktop broadcast and the remote
+  streams from one publication point.
+- `submitSingleTask` as a first-class bounded command remains open (Goal 8+).
 
-## Planned ADE host API and mobile PWA (Goals 7-10)
+## ADE host API (Goal 7 write/SSE slice) and mobile PWA (Goals 8-10)
 
-The host is disabled by default and listens on an ephemeral/configured
-loopback port. Personal-alpha setup configures Tailscale Serve to terminate
-HTTPS and proxy to that port. ADE validates the proxy host/origin and does not
-fall back to a direct LAN bind. Funnel and public port forwarding are rejected
-by product policy, not offered as convenience toggles.
+The host is disabled by default and listens on the configured IPv4 loopback
+port only (`ADE_HOST_API_ENABLED=1` plus a 32-128 character
+`ADE_HOST_API_TOKEN` enable it, `ADE_HOST_API_PORT` chooses the port,
+default `4317`). Personal-alpha setup will configure Tailscale Serve to terminate HTTPS
+and proxy to that port; ADE validates the `Host` header, rejects every
+browser `Origin` and does not fall back to a direct LAN bind. Funnel and
+public port forwarding are rejected by product policy, not offered as
+convenience toggles. Nothing in this slice exposes the listener beyond
+`127.0.0.1`.
 
-Initial endpoints are allowlisted operations, not generic RPC:
+Endpoints are allowlisted operations, not generic RPC. Implemented today:
 
-- `GET /api/v1/health` - version, readiness and queue summary;
+- `GET /api/v1/health` - API version, readiness, bounded queue summary and
+  whether commands are enabled on this host;
 - `GET /api/v1/catalog` - sanitized repositories, agents and runtime readiness;
-- `GET /api/v1/runs` - mobile-safe run projection;
-- `POST /api/v1/tasks` - one bounded task with independent agent/repo ids;
-- `POST /api/v1/runs` and `/runs/{id}/start|cancel` - managed-run control with
-  one explicit repository scope; and
-- `GET /api/v1/events` - resumable server-sent events.
+- `GET /api/v1/runs` - mobile-safe run projection (`RunSummary` incl. `seqCursor`);
+- `GET /api/v1/events` - resumable server-sent events over the journal `seq`;
+- `POST /api/v1/runs` - create a managed run from explicit `repositoryId`,
+  `agentIds`, `name`, `goal` (desktop-only fields such as
+  `resetWorktreeToBase` are refused, not ignored);
+- `POST /api/v1/runs/{id}/start` and `/cancel` - managed-run lifecycle.
 
-Goal 9 adds approval resolution only after step-up authentication and evidence
-review. Category/agent/config mutation, interactive PTY methods, filesystem
-reads, arbitrary IPC and deletion stay absent. The API never returns absolute
-paths, custom command text, environment values or credentials.
+Still planned: `POST /api/v1/tasks` (one bounded task), Goal 9 approval
+resolution after step-up authentication and evidence review. Category, agent
+and config mutation, interactive PTY methods, filesystem reads, arbitrary IPC
+and deletion stay absent. The API never returns absolute paths, custom
+command text, environment values or credentials.
+
+#### Authentication and authorization
+
+Two layers, deliberately separate (`main/remote/authorization.ts`):
+
+- The listener bearer token authenticates the client and yields the
+  `bootstrap-token` principal, which holds the `read` scope only. It can
+  never issue a command, regardless of headers.
+- A command additionally requires a **device signature**: `X-ADE-Device`,
+  `X-ADE-Timestamp` (Unix ms, ±5 minutes skew) and `X-ADE-Signature`
+  (`v1=<hex HMAC-SHA256>` over `ADE-HTTP-V1\n<METHOD>\n<path>\n<timestamp>\n<Idempotency-Key>\n<sha256(body)>`)
+  using the device secret. A valid signature yields a `device` principal with
+  `read` and `runs:write`. Unknown device, wrong secret, altered path, body,
+  key or timestamp all fail closed with distinct, path-free error codes.
+- In this slice the single command device is provisioned at startup from
+  `ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>` (secret 32-128 URL-safe chars,
+  must differ from the listener token; both variables are consumed from the
+  process environment before any child spawns). Without it the listener
+  serves reads only and `health.commands` reports `disabled`. Goal 8 replaces
+  the bootstrap with the paired, revocable device store without changing the
+  verification contract.
+
+#### Request discipline (fail closed)
+
+Every request: exact `Host` match against the bound loopback address, no
+browser `Origin`, `Authorization: Bearer` with a constant-time compare, one
+`X-ADE-Request-Id` per response, defensive headers (`no-store`, deny-all
+CSP, `nosniff`, `DENY`), JSON replies bounded to 512 KiB. Commands add:
+`Content-Length` required (`411` for chunked or missing), body ≤ 64 KiB
+(`413` before parsing), `Content-Type: application/json` (`415`), JSON object
+with only the allowed fields, plain identifiers (`invalid_payload` without
+echoing the offending value), `Idempotency-Key` of 8-64 URL-safe characters
+(`idempotency_key_required` / `_invalid`). Application rejections
+(unknown repository or agent, illegal phase transition) are returned as
+`422 command_rejected` with a message that passed `redactForWire`; a missing
+device proof is `401 device_proof_required`, a principal without the scope or
+a host without command devices is `403 scope_not_granted`, and key reuse
+with another payload is `409 idempotency_key_reused`.
+
+#### Event stream contract
+
+`GET /api/v1/events` requires `Accept: text/event-stream` and at most one
+cursor, either `Last-Event-ID` (EventSource reconnect) or `?cursor=`; both
+present must agree. Without a usable cursor (absent, `0`, or beyond the
+journal top) the stream first sends one bundled `snapshot` event whose `id`
+is the current journal cursor; every following `journal` event carries
+`events` and `messages` strictly after the previous `id`, in ascending
+`seq`, at most 200 records per frame, with `id` = highest `seq` in the frame.
+Reconnecting with the last id therefore receives exactly the records it has
+not seen, without a snapshot and without duplicates; the union of the
+connections equals the journal exactly once. The server sends `retry: 2000`
+and a `: ping` comment every 15 s. Streams are bounded: eight concurrent
+clients per host (`503 too_many_streams`, `Retry-After`), and a client whose
+unsent bytes exceed 256 KiB is disconnected instead of buffering — the
+journal is durable, so it resumes from its last id. Stopping the host API
+ends every open stream promptly.
+
+Wire projections (`shared/remote.ts`, built in `AdeApplicationService`)
+whitelist journal `data` keys (`WIRE_EVENT_DATA_KEYS`); `workspaceDir`,
+PTY `sessionId`, mailbox bodies and other host detail never leave main, and
+free-text details pass `redactForWire` (credential funnel plus host-path
+redaction, bounded to 300 characters).
 
 Pairing begins in the trusted desktop UI with a short-lived single-use QR
 challenge. The device completes possession proof over HTTPS and receives its
@@ -779,23 +858,47 @@ applies four checks/steps in order:
    enum values and bounded strings/arrays/base64/dimensions. Compile-time
    TypeScript types are not treated as a security boundary.
 3. **Privilege policy.** `main/ipcPolicy.ts` holds
-   `CHANNEL_POLICY: Record<InvokeChannel, {effect, surface, audit, armsShell?}>`,
+   `CHANNEL_POLICY: Record<InvokeChannel, {effect, surface, audit, armsShell?, remote?}>`,
    exhaustive by type: an unclassified channel does not compile, a
    misclassified one throws at registration. `effect` is the highest
    privilege the handler exercises (`read` < `mutate` < `host` < `launch` <
    `shell`); `shell` — operator command text through a shell — is confined to
    `SHELL_CHANNELS` (`agent:openDashboard` only). `surface: 'shared'` marks
-   the operations the Goal 7 host API may also expose and must be `read`
-   until the API has an authorization model. Channels whose payload stores a
-   `dashboardCommand` carry `armsShell`. Audited channels (launch/shell/host,
-   never `pty:write`/`pty:resize`) log one line per call.
+   the operations the host API may also expose; every shared channel must
+   carry a `remote` requirement `{scope, idempotency, proof}` that the
+   application facade enforces before the handler runs. Channels whose
+   payload stores a `dashboardCommand` carry `armsShell`. Audited channels
+   (launch/shell/host, remote commands, never `pty:write`/`pty:resize`) log
+   one line per call.
+
+   *Why the `shared ⇒ read` invariant became `shared ⇒ read unless
+   allowlisted`.* Until Goal 7 the only remote principal was the listener
+   bearer token, so any shared mutation would have been reachable with one
+   secret; the invariant was the lock. Deleting it would make a single policy
+   line enough to expose a mutation. Instead the invariant is lifted per
+   channel and only under the strongest requirement: a shared channel whose
+   effect is not `read` must be listed in `REMOTE_COMMAND_CHANNELS`
+   (`run:create`, `run:start`, `run:cancel`), demand `scope: 'runs:write'`,
+   `idempotency: 'required'`, `proof: 'device-signature'` and `audit: true`;
+   shared `read` channels demand `scope: 'read'` without idempotency; `host`
+   and `shell` effects can never be shared; desktop channels carry no remote
+   requirement. `channelPolicyViolations()` reports every deviation and
+   `handle()` throws on the first one at registration, so a misclassified
+   line never reaches a renderer or the host API. The security suite pins the
+   allowlist and each negative control (`test-security.ts`, "channel
+   privilege policy").
 4. **Redaction funnel.** A handler error is logged main-side (redacted, with
    stack) and rebuilt for the reply through `main/errors.ts`
    (`toIpcError`): URL credentials, vendor key shapes, `NAME=value` secret
    assignments, bearer/authorization headers and control characters are
    removed and the message is bounded to 2000 characters. The same module
    redacts backend stderr inside `ExecutionBackendService.checked`, the
-   `pty:create` argv log and publication text.
+   `pty:create` argv log and publication text. Text that leaves the host
+   over the network additionally passes `redactForWire` /
+   `redactedWireMessage`: the credential funnel plus `redactHostPaths`
+   (Windows drive paths, UNC/`\\wsl$` paths, multi-segment POSIX absolute
+   paths and `~/` paths become `[path]`; relative repository paths and URLs
+   stay readable), bounded to 300 characters.
 
 Main → renderer events use `broadcastToRenderers`; nothing iterates
 `BrowserWindow.getAllWindows()` for ADE payloads, dialogs or notification

@@ -1,8 +1,11 @@
 # ADE remote control and mobile companion plan
 
-Status: Goal-7 read-only foundation implemented 2026-07-26; no mobile client,
-device pairing, SSE or remote mutation is implemented yet. The delivery order
-and exit criteria are tracked in `ROADMAP.md`.
+Status: Goal-7 read-only foundation implemented 2026-07-26; the write/SSE
+slice (resumable event stream, device-signed idempotent managed-run
+create/start/cancel) implemented 2026-09-03. No mobile client, pairing UI,
+revocable device store or bounded task submission is implemented yet. The
+delivery order and exit criteria are tracked in `ROADMAP.md`; the wire
+contract lives in `ARCHITECTURE.md` ("ADE host API").
 
 ## Decision
 
@@ -70,38 +73,45 @@ mutation is included in the remote endpoint allowlist.
 
 ## Application boundary
 
-Electron IPC and the first remote HTTP adapter now share a transport-neutral
-application service for the sanitized run-summary projection. The same service
-also owns path-free health and catalog projections. The HTTP server never
-proxies arbitrary IPC channel names. Command authorization/validation and event
-publication remain the next Goal-7 extensions of this boundary.
+Electron IPC and the remote HTTP adapter share one transport-neutral
+application service (`AdeApplicationService`) for path-free health, catalog,
+run-summary and journal projections and for the remote commands. The HTTP
+server never proxies arbitrary IPC channel names: the channel policy
+(`ipcPolicy.ts`) names which channels are `shared`, and every shared channel
+carries the remote scope, proof and idempotency requirement the service
+enforces before a command runs.
 
-The implemented development listener is disabled unless
-`ADE_HOST_API_ENABLED=1`; enabled startup also requires a non-logged
-`ADE_HOST_API_TOKEN` of 32-128 URL-safe ASCII characters and accepts an
-optional bounded `ADE_HOST_API_PORT` (default `4317`). Its bind address is not
-configurable and is always `127.0.0.1`. This token is a local Goal-7 bootstrap
-control. ADE removes it from `process.env` after startup so agent subprocesses
-cannot inherit it. It is not the future paired-device/session design and is not
-approval to expose the listener through Tailscale yet.
+The implemented listener is disabled unless `ADE_HOST_API_ENABLED=1`; enabled
+startup also requires a non-logged `ADE_HOST_API_TOKEN` of 32-128 URL-safe
+ASCII characters and accepts an optional bounded `ADE_HOST_API_PORT` (default
+`4317`). Its bind address is not configurable and is always `127.0.0.1`. The
+token authenticates the client for reads only. Commands additionally require
+a device-signed request; the single device of this slice comes from
+`ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>`. ADE removes both variables from
+`process.env` after startup so agent subprocesses cannot inherit them. This
+bootstrap is not the future paired-device/session design and is not approval
+to expose the listener through Tailscale yet.
 
 The first remote contract is intentionally small:
 
 | Operation | Purpose |
 |---|---|
-| `GET /api/v1/health` | **Implemented:** API version, readiness and queue summary |
+| `GET /api/v1/health` | **Implemented:** API version, readiness, queue summary, whether commands are enabled |
 | `GET /api/v1/catalog` | **Implemented:** sanitized projects and agents without paths/commands/secrets |
 | `GET /api/v1/runs` | **Implemented:** mobile-safe orchestration summaries |
-| `POST /api/v1/tasks` | Submit one bounded task with explicit agent/repo scope |
-| `POST /api/v1/runs` | Create a managed run draft |
-| `POST /api/v1/runs/{id}/start` | Start a draft once |
-| `POST /api/v1/runs/{id}/cancel` | Cancel active/queued work for that run |
-| `GET /api/v1/events` | Resumable server-sent event stream |
+| `POST /api/v1/tasks` | Submit one bounded task with explicit agent/repo scope (open) |
+| `POST /api/v1/runs` | **Implemented:** create a managed run draft from explicit `repositoryId`/`agentIds` |
+| `POST /api/v1/runs/{id}/start` | **Implemented:** start a draft exactly once |
+| `POST /api/v1/runs/{id}/cancel` | **Implemented:** cancel active/queued work for that run |
+| `GET /api/v1/events` | **Implemented:** resumable server-sent event stream over the journal `seq` |
 
 Approval resolution is added only in Goal 9. Every mutating request carries an
-idempotency key. Replaying the same key must return the original outcome rather
-than launch duplicate work. Events carry a monotonic cursor so a client can
-resume after switching networks or returning from the background.
+`Idempotency-Key`; it is bound to the command and payload digest, so replaying
+the same key returns the original outcome, a concurrent duplicate coalesces,
+and the same key with another payload is rejected — a retry never launches
+duplicate work. Events carry the journal's monotonic `seq` as SSE `id`, so a
+client resumes with `Last-Event-ID` after switching networks or returning from
+the background and receives a bundled snapshot only when its cursor is unusable.
 
 The mobile DTO is separate from `AdeConfig` and `OrchestrationSnapshot`. It
 includes only fields required by the mobile workflow and never inherits new

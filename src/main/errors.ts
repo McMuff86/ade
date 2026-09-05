@@ -99,3 +99,42 @@ export function toIpcError(error: unknown): Error {
   safe.name = error instanceof Error && error.name ? error.name : 'Error';
   return safe;
 }
+
+/* ------------------------------------------------------------ wire (host API) */
+
+/** Longest free-text detail the host API puts on the wire. */
+export const MAX_WIRE_TEXT_CHARS = 300;
+
+/**
+ * Absolute host path shapes. The IPC funnel deliberately keeps paths (the
+ * trusted renderer shows them); the remote wire never carries one. Windows
+ * drive and UNC paths, POSIX absolute paths with at least two segments and
+ * `~/` home-relative paths are replaced. Single-segment `/x` forms, URL
+ * paths, Git refs (`refs/ade/...`) and branch names (`ade/run-1`) do not
+ * start with an unanchored slash and survive.
+ */
+const HOST_PATH_PATTERN = new RegExp([
+  String.raw`\b[A-Za-z]:[\\/][^\s"'<>|*?]*`,
+  String.raw`\\\\[^\s"'<>|*?]+`,
+  String.raw`(?<![\w:.\\/-])/(?:[\w.@+-]+/)+[\w.@+-]*`,
+  String.raw`(?<![\w])~[\\/][^\s"'<>|*?]*`,
+].join('|'), 'g');
+
+/** Replace absolute host paths with `[path]`. Idempotent. */
+export function redactHostPaths(value: string): string {
+  return value.replace(HOST_PATH_PATTERN, '[path]');
+}
+
+/**
+ * Free text that may leave the process over the network: credentials AND
+ * host paths removed, control characters stripped, bounded. This is the only
+ * way journal details or error messages reach the host API wire format.
+ */
+export function redactForWire(value: string, max = MAX_WIRE_TEXT_CHARS): string {
+  return redactHostPaths(redactSensitiveText(value)).slice(0, max);
+}
+
+/** Error text for the host API wire: same funnel as IPC plus path removal. */
+export function redactedWireMessage(error: unknown, max = MAX_WIRE_TEXT_CHARS): string {
+  return redactForWire(errorMessage(error), max);
+}

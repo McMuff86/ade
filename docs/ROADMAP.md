@@ -326,13 +326,18 @@ closed interactive session appears in Work and opens Terminals.
 
 ## Goal 7 - transport-neutral core and local host API
 
-Status: **in progress; read-only foundation implemented.** The first slice adds
-a transport-neutral application service plus mobile-safe health/catalog/run
-DTOs and a disabled-by-default, Bearer-authorized HTTP adapter fixed to
-`127.0.0.1`. It exposes only `GET /api/v1/health`, `/catalog` and `/runs`.
-Public/Tailscale exposure and every remote mutation remain no-go until this
-goal's pairing/authorization, idempotency, reconnect and audit exit criteria
-pass.
+Status: **in progress; read foundation and the write/SSE slice implemented.**
+The first slice added a transport-neutral application service plus mobile-safe
+health/catalog/run DTOs and a disabled-by-default, Bearer-authorized HTTP
+adapter fixed to `127.0.0.1` with `GET /api/v1/health`, `/catalog` and
+`/runs`. The second slice (2026-09-03) adds the resumable
+`GET /api/v1/events` stream over the journal `seq`, the device-signed,
+idempotent managed-run commands `POST /api/v1/runs`, `/runs/{id}/start` and
+`/runs/{id}/cancel`, the per-channel remote authorization requirement in the
+IPC policy and host-path redaction for everything that leaves over the wire.
+Public/Tailscale exposure stays no-go: the single command device is an
+environment bootstrap, not a paired identity, and bounded task submission
+(`POST /tasks`) is still open.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
@@ -354,8 +359,8 @@ funnel; stored keys reach WSL through `WSLENV` instead of argv; dashboard
 windows guard redirects and scope cookie persistence to their origin; ADE
 events and sender trust are bound to registered renderer windows; native
 workspace reads apply the link discipline of mutations. The write/SSE slice
-may now start; its first step is to move the channels it needs to `shared`
-together with the authorization model the policy test demands.
+built on this: the run channels it needs moved to `shared` together with the
+per-channel authorization requirement the policy test now demands.
 
 - [x] Extract the first transport-neutral ADE application boundary from Electron IPC so
   desktop IPC and remote HTTP commands share authorization, validation and
@@ -363,20 +368,36 @@ together with the authorization model the policy test demands.
 - [x] Add mobile-specific DTOs with repositories and agents as independent choices
   instead of exposing `AdeConfig`, raw IPC channels or the complete desktop
   orchestration snapshot.
-- [ ] Extend the implemented versioned loopback-only read API for health,
-  sanitized catalog and runs with
-  bounded task submission with explicit agent/repository ids, managed-run
-  create/start/cancel and a resumable server-sent event stream.
-- Require idempotency keys for mutations and monotonic cursors for reconnecting
-  event clients. A retried mobile request must never launch duplicate work.
-- Keep the listener disabled by default and reject non-loopback binds, unknown
-  hosts/origins, invalid content types, oversized requests and unauthorized
-  devices.
+- [x] Extend the versioned loopback-only read API with managed-run
+  create/start/cancel (explicit `repositoryId`/`agentIds`) and a resumable
+  server-sent event stream (bundled snapshot, `Last-Event-ID`/`?cursor=`
+  resume, strictly ascending `seq`, no duplicates, bounded clients and
+  per-client buffer). Proven by `scripts/test-host-api.ts` against a real
+  loopback server, a real `RunCoordinator` and real TCP reconnects.
+- [ ] Bounded single-task submission (`POST /api/v1/tasks`) with explicit
+  agent/repository ids as a first-class application command.
+- [x] Require idempotency keys for mutations and monotonic cursors for reconnecting
+  event clients. The key is bound to channel and payload digest through the
+  coordinator command log; exact retries replay, concurrent duplicates coalesce,
+  and a retry with another payload is rejected — no duplicate run or launch.
+- [x] Lift `shared ⇒ read` per channel instead of deleting it: shared mutations
+  must be in `REMOTE_COMMAND_CHANNELS` and demand `runs:write` scope, a device
+  signature, an idempotency key and audit (`ipcPolicy.ts`, pinned by the
+  security suite; rationale in `ARCHITECTURE.md`).
+- [x] Keep the listener disabled by default and reject non-loopback binds, unknown
+  hosts/origins, invalid content types, chunked or oversized requests,
+  malformed payloads, unknown/unsigned/stale/tampered device proofs and
+  bearer-only commands.
+- [ ] Replace the `ADE_HOST_API_COMMAND_DEVICE` bootstrap with the paired,
+  revocable device store (Goal 8) and persist remote audit entries in a
+  durable journal instead of the main-process log.
 
 Exit criteria: local API integration tests can drive and reconnect to a full
 managed run without changing the Electron workflow; duplicate, reordered,
 unauthorized and malformed requests fail closed. No interactive PTY, arbitrary
 IPC, filesystem/configuration mutation or absolute host path crosses the API.
+Met for create/start/cancel and the event stream on 2026-09-03; open for
+bounded task submission and for the paired-device model.
 
 ## Goal 8 - personal mobile companion alpha
 
