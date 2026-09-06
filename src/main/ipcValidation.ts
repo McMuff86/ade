@@ -864,6 +864,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       optionalId(channel, request.runId, 'runId');
       return;
     }
+    case IPC.RunReport: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runId']);
+      id(channel, request.runId, 'runId');
+      return;
+    }
     case IPC.RunApprovalResolve: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['approvalId', 'decision', 'commandId']);

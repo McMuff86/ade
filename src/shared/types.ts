@@ -765,6 +765,7 @@ export interface TaskProvenance {
   reasoningEffort?: CodexReasoningEffort;
 }
 
+/** Complete main-internal orchestration state, prompts and payloads included. */
 export interface OrchestrationSnapshot {
   runs: Run[];
   participants: RunParticipant[];
@@ -778,6 +779,208 @@ export interface OrchestrationSnapshot {
   messages: RunMessage[];
   usageByRun: Record<string, RunUsage>;
 }
+
+/* ---------------------------------------------------- renderer view (slim) */
+
+/**
+ * Task record as the renderer sees it: the prompt itself never leaves main
+ * through the snapshot channel. `promptDigest` (SHA-256 hex) and
+ * `promptChars` let the UI and tests tell prompts apart without carrying the
+ * text; `provenance` is the parsed context-packet metadata that used to
+ * require shipping every artifact body.
+ */
+export type RunTaskView = Omit<RunTask, 'prompt'> & {
+  promptDigest: string;
+  promptChars: number;
+  provenance: TaskProvenance | null;
+};
+
+/** Artifact metadata without its body; `contentChars` keeps the size visible. */
+export type RunArtifactView = Omit<RunArtifact, 'content'> & { contentChars: number };
+
+/** Mailbox routing without the message body (the body repeats a task prompt). */
+export type RunMessageView = Omit<RunMessage, 'text'> & { textChars: number };
+
+/**
+ * What `run:get` returns and `orchestration:changed` carries. Same record set
+ * as the snapshot, minus every large payload (prompts, artifact bodies,
+ * mailbox texts). Thema 5: one save no longer serializes the whole journal
+ * body to every window.
+ */
+export interface OrchestrationView {
+  runs: Run[];
+  participants: RunParticipant[];
+  tasks: RunTaskView[];
+  events: RunEvent[];
+  artifacts: RunArtifactView[];
+  results: RunTaskResult[];
+  approvals: RunApproval[];
+  workspaceLeases: RunWorkspaceLease[];
+  publications: RunPublication[];
+  messages: RunMessageView[];
+  usageByRun: Record<string, RunUsage>;
+  /** Highest journal seq (events, messages and pruned history) at view time. */
+  seqCursor: number;
+}
+
+/* -------------------------------------------------------------- run report */
+
+export interface RunReportTest {
+  command: string;
+  status: RunTaskTestResult['status'];
+  /** Bounded test output; the full record stays in `RunTaskResult`. */
+  output: string;
+}
+
+export interface RunReportResult {
+  outcome: StructuredTaskResult['outcome'];
+  /** Bounded to MAX_RUN_REPORT_TEXT_CHARS, never cut to a teaser. */
+  summary: string;
+  /** Repository-relative paths as validated by ADE — never absolute. */
+  filesChanged: string[];
+  tests: RunReportTest[];
+  risks: string[];
+  commitSha: string | null;
+  usage: TaskUsage;
+  adapterId: string;
+}
+
+export interface RunReportTask {
+  id: string;
+  participantId: string;
+  participantName: string;
+  role: RunParticipantRole;
+  teamName?: string;
+  title: string;
+  phase: RunTaskPhase;
+  status: RunTaskStatus;
+  attempt: number;
+  createdAt: number;
+  startedAt?: number;
+  endedAt?: number;
+  exitCode?: number;
+  /** Persisted technical reason (bounded); may name the failing guard. */
+  error?: string;
+  result: RunReportResult | null;
+  provenance: TaskProvenance | null;
+}
+
+export interface RunReportFailure {
+  /** Task title or a phase label naming where the run failed. */
+  context: string;
+  detail: string;
+  /** Commands of tests the failing task reported as failed. */
+  failedTests: string[];
+}
+
+export interface RunReportIntegration {
+  commitCount: number;
+  /** Integration worktree HEAD before the cherry-pick transaction. */
+  fromSha: string | null;
+  /** HEAD after integration — the pointer a post-integration failure leaves behind. */
+  toSha: string | null;
+  at: number;
+}
+
+export interface RunReportApproval {
+  id: string;
+  status: RunApprovalStatus;
+  reason: string;
+  requestedAt: number;
+  resolvedAt?: number;
+}
+
+export interface RunReportPublication {
+  status: RunPublicationStatus;
+  headBranch: string;
+  prNumber?: number;
+  prUrl?: string;
+}
+
+export interface RunReportTotals {
+  tasks: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  /** Distinct repository-relative paths across all task results. */
+  filesChanged: number;
+  testsPassed: number;
+  testsFailed: number;
+  testsSkipped: number;
+}
+
+/**
+ * Everything a finished (or failed) run left behind, projected once in main:
+ * per-task outcomes with the complete changed-file set, every test command
+ * with status and bounded output, risks, commit SHAs, the integration range,
+ * the verification attestation, approvals and the publication. This is the
+ * projection the Goal 9 mobile approval view needs; the desktop reads it
+ * through `run:report`.
+ */
+export interface RunReport {
+  runId: string;
+  name: string;
+  goal: string;
+  status: RunStatus;
+  mode: RunMode;
+  phase: RunPhase;
+  repositoryId?: string | null;
+  createdAt: number;
+  updatedAt: number;
+  /** Timestamp of the terminal journal event; null while the run is open. */
+  endedAt: number | null;
+  failure: RunReportFailure | null;
+  integration: RunReportIntegration | null;
+  verification: { headSha: string; taskId: string; verifiedAt: number } | null;
+  approvals: RunReportApproval[];
+  publication: RunReportPublication | null;
+  tasks: RunReportTask[];
+  totals: RunReportTotals;
+  usage: RunUsage;
+  /** Journal cursor the report was projected at. */
+  seqCursor: number;
+}
+
+export const MAX_RUN_REPORT_TEXT_CHARS = 4_000;
+
+/* --------------------------------------------------------------- retention */
+
+/**
+ * Durable memory of what history retention removed from the journal. The
+ * seq floor keeps `run:events` cursors strictly monotonic across restarts even
+ * when the newest journal record was pruned or deleted; without it a restart
+ * could re-issue a seq that a resumed SSE client has already seen.
+ */
+export interface JournalRetention {
+  /** Highest seq of any pruned or deleted journal record (0 = none). */
+  prunedSeq: number;
+  /** Terminal runs moved to the archive directory by retention. */
+  archivedRuns: number;
+  lastPrunedAt: number | null;
+}
+
+export const DEFAULT_JOURNAL_RETENTION: JournalRetention = {
+  prunedSeq: 0,
+  archivedRuns: 0,
+  lastPrunedAt: null,
+};
+
+/**
+ * Retention policy for terminal runs (constants, not settings — see
+ * ARCHITECTURE "History retention"). Non-terminal runs and runs with a
+ * publication audit are never pruned.
+ */
+export const HISTORY_RETENTION = {
+  /** Newest terminal runs that always stay in the journal. */
+  keepTerminalRuns: 40,
+  /** Terminal runs younger than this are kept even beyond the count. */
+  keepTerminalDays: 30,
+  /**
+   * Serialized config size above which retention prunes the oldest terminal
+   * runs regardless of age and count. Half of the store's 8 MiB read bound.
+   */
+  maxConfigBytes: 4 * 1024 * 1024,
+} as const;
 
 /* ---------------------------------------------------------------- settings */
 
@@ -839,6 +1042,8 @@ export interface AdeConfig {
   commandLog: CommandLogEntry[];
   /** Bounded FIFO of interactive session start/end; task PTYs are not stored. */
   sessionBookends: SessionBookend[];
+  /** What history retention removed; keeps the journal cursor monotonic. */
+  journalRetention: JournalRetention;
   settings: Settings;
 }
 
@@ -860,6 +1065,7 @@ export const DEFAULT_CONFIG: AdeConfig = {
   runMessages: [],
   commandLog: [],
   sessionBookends: [],
+  journalRetention: { ...DEFAULT_JOURNAL_RETENTION },
   settings: {
     theme: 'dark',
     inspectorSide: DEFAULT_INSPECTOR_SIDE,

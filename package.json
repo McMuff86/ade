@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.scripts.json",
     "test": "tsx scripts/run-suites.ts",
     "test:config": "tsx scripts/test-config-store.ts",
+    "test:main-log": "tsx scripts/test-main-log.ts",
     "test:memory": "tsx scripts/test-memory.ts",
     "test:dispatch": "tsx scripts/test-worker-dispatch.ts",
     "test:runtime": "tsx scripts/test-runtime-reliability.ts",

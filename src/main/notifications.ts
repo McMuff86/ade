@@ -2,12 +2,20 @@
 
 import { Notification } from 'electron';
 import type { SessionMeta } from '../shared/types';
-import { sessionExitNotice } from './notificationPolicy';
+import { runApprovalNotice, sessionExitNotice } from './notificationPolicy';
 import { rendererWindows } from './rendererWindows';
 
 export function showSessionExitNotification(meta: SessionMeta, agentName: string): void {
   const notice = sessionExitNotice(meta, agentName);
   if (notice) showNotice(notice);
+}
+
+export function showRunApprovalNotification(
+  runName: string,
+  workTaskCount: number,
+  validatedCommitCount: number,
+): void {
+  showNotice(runApprovalNotice(runName, workTaskCount, validatedCommitCount));
 }
 
 export function showManagedTaskNotification(

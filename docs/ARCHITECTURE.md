@@ -465,9 +465,75 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   from the journal so stale cached values cannot change history.
 - Pre-run Graph topology is imported once into `legacy-graph-run-v1`; legacy
   categories and agents remain untouched.
-- The renderer receives authoritative snapshots through
+- The renderer receives the authoritative **view** through
   `orchestration:changed`; Graph transient state is limited to layout, selection,
   and pause controls. Real task status replaces the old completion timer.
+
+### Renderer view, run report and history retention (Thema 3 / Thema 5)
+
+- **Two projections of one journal.** `OrchestrationService.snapshot()` is the
+  full-fidelity internal state for main (coordinator, publication, host API).
+  `view()` (`OrchestrationView` in `src/shared/types.ts`) is what renderers
+  get from `run:get` and `orchestration:changed`: identical runs, participants,
+  events, results, approvals, leases, publications and usage, but tasks carry
+  `promptDigest`/`promptChars` plus their parsed `provenance` instead of the
+  prompt, artifacts carry `contentChars` instead of `content`, and mailbox
+  messages carry `textChars` instead of `text`. Prompts, artifact bodies and
+  message texts never reach a renderer window. `onChange` carries no payload;
+  `ipc.ts` coalesces broadcasts to one `view()` per event-loop tick, so a save
+  burst costs one projection, not one per save.
+- **`run:report({runId})`** returns a `RunReport`: per task the complete
+  `filesChanged`, every test with status and bounded output (16 KiB each,
+  redacted), risks, commit SHA, participant name/role, timing and error; per
+  run the failure (terminal detail plus the failed test commands of this run),
+  integration range (`commitCount`, `fromSha`, `toSha`), verification
+  attestation, approvals and publication. Text is bounded, not teased (4 KiB
+  summaries/errors). Desktop-only `read` channel until the host adapter routes
+  it through `redactForWire`.
+- **`integration.applied`** journals `{commitCount, fromSha, toSha}`: the
+  coordinator inspects the integrator worktree HEAD before and after
+  `integrateCommits`, so a post-integration failure leaves a pointer to the
+  composed, unverified state. Both SHAs are validated as Git object ids.
+- **Approval notice.** `beginApprovalPhase` triggers a native notification
+  (`runApprovalNotice`: run name, worker-task and validated-commit counts, no
+  prompt or path) so the human gate that holds exclusive leases is visible
+  outside the Graph. It follows the same foreground suppression as
+  session-exit notices.
+- **History retention (`applyRetention`).** Terminal runs beyond the newest
+  `HISTORY_RETENTION.keepTerminalRuns` (40) that are also older than
+  `keepTerminalDays` (30) are archived and pruned; if the serialized config
+  would still exceed `maxConfigBytes` (4 MiB), the oldest remaining terminal
+  runs go too. Never touched: open runs, runs with a publication audit, runs
+  holding an active lease. Each `RunArchive` (`ade-run-archive` v1: run,
+  participants, tasks, events, artifacts, results, approvals, leases,
+  messages) is written by `RunArchiveStore` to
+  `userData/ade/archive/runs/<runId>.json` (UUID-checked name, atomic
+  temp+rename) **before** the single save that removes the records; without an
+  archive port retention refuses to prune. `AdeConfig.journalRetention =
+  {prunedSeq, archivedRuns, lastPrunedAt}` records the floor: `nextSeq()` and
+  `journalCursor()` never fall below `prunedSeq`, so SSE and `run:events`
+  cursors stay monotonic across pruning and `deleteRun`. Retention runs at
+  startup and hourly (`ipc.ts`); the config itself is now serialized compact
+  (`JSON.stringify(config)`), roughly halving the bytes stringified, hashed,
+  written and fsynced on every save.
+- **Main log.** `MainLogSink` (`src/main/logging/mainLog.ts`) tees
+  `console.log/info/warn/error` into `userData/ade/logs/main.log` (2 MiB per
+  file, 5 files, 8 KiB per line), one timestamped, levelled line per call,
+  every line through the credential redactor with secret-named object fields
+  replaced by `[credential]`. A sink that cannot write disables itself once
+  instead of throwing into the caller. Installed first thing in `index.ts`.
+- **Graph readability and keyboard path.** The run selector groups open and
+  finished runs with their status; selecting a finished run older than the two
+  newest pins it onto the canvas (`buildClusters(..., pinnedRunId)`) instead of
+  leaving an empty canvas. The failure alert lists the failed test commands
+  and opens the report. Cards, cluster bars and team bars are `role="button"`
+  with `tabIndex`, `aria-pressed`/`aria-label`, Enter/Space to select, Enter
+  on a selected card to activate, Escape to clear the selection or close the
+  report; `.gteam-actions` also appears on `:focus-within`. The inspector
+  renders `ResultDetails` (full summary, files, tests with expandable output,
+  risks, SHA) instead of a 220-character teaser. `RunReportPanel` is a
+  `role="dialog"` that takes focus on open, closes on Escape and returns focus
+  to its opener or, when the opener unmounted, to the toolbar report button.
 
 ### Managed-run coordinator
 
@@ -862,6 +928,9 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
 - `run:publicationPreview({runId})` → read-only verified publication candidate
 - `run:publish({runId, expectedHeadSha, expectedHeadBranch, commandId?})` →
   explicit new `ade/**` branch plus GitHub Draft PR; no merge/default update
+- `run:get` → `OrchestrationView` (no prompts, artifact bodies or mailbox texts)
+- `run:report({runId})` → `RunReport`: files, tests with output, risks, SHAs,
+  failure with failed test commands, integration range (desktop-only read)
 - `runTask:create`, `runTask:fail`, `runArtifact:create` → journal-backed entities
 - `git:status({agentId})` → branch, ahead/behind, files [{path,+,-,state}]
 - `git:diff({agentId, path})` → unified diff text
@@ -872,9 +941,11 @@ Events (main → renderer, `webContents.send`):
 - `pty:data` `{sessionId, dataBase64, sequence}` (coalesced renderer-side)
 - `pty:exit` `{sessionId, exitCode, reason}`
 - `pty:removed` `{sessionId}`; `pty:taskQueue` `{active,queued,maxActive}`
-- `orchestration:changed` → authoritative runs/participants/tasks/events,
-  artifacts, results, approvals, workspace leases, publications, messages and
-  run usage
+- `orchestration:changed` → authoritative `OrchestrationView`: runs/
+  participants/tasks (prompt digest and length, parsed provenance)/events,
+  artifacts (content length only), results, approvals, workspace leases,
+  publications, messages (text length only), run usage and `seqCursor`;
+  coalesced to one broadcast per event-loop tick
 - `git:changed` `{agentId}` (debounced watcher, v1 optional: poll on focus)
 
 Every invoke passes through one wrapper (`handle()` in `main/ipc.ts`) that

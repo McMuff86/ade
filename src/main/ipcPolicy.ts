@@ -147,6 +147,9 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'run:get': read,
   'run:getSummary': shared,
   'run:events': shared,
+  // Desktop-only until the host adapter funnels task errors/summaries through
+  // redactForWire; the projection itself is what Goal 9's approval view needs.
+  'run:report': read,
   'run:approvalDiff': read,
   'run:publicationPreview': read,
   'run:publish': launch,

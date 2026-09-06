@@ -135,6 +135,38 @@
 }
 .grun-delete:disabled { opacity: 0.42; cursor: default; }
 .grun-delete svg { width: 13px; height: 13px; }
+.grun-report {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11.5px;
+}
+.grun-report:hover { border-color: var(--faint); background: var(--raised); }
+.grun-report.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.grun-report svg { width: 13px; height: 13px; }
+.grun-failure-report {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--del) 40%, var(--line));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+}
+.grun-failure-report:hover { background: color-mix(in srgb, var(--del) 12%, var(--raised)); }
+.grun-failure-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; max-height: 28vh; overflow-y: auto; }
+.grun-failure-body p { max-height: none; overflow: visible; }
+.grun-failure-tests { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.grun-failure-tests li::before { content: '✕ '; color: var(--del); }
+.grun-failure-tests code { color: var(--text); font-family: var(--mono); font-size: 10.5px; overflow-wrap: anywhere; }
 .grun-failure {
   position: absolute;
   top: 64px;
@@ -271,6 +303,8 @@
 }
 .gcluster.active { border-color: var(--accent-dim); }
 .gcluster.terminal { opacity: 0.55; }
+/* The selected finished run is being read, not skimmed. */
+.gcluster.terminal.active { opacity: 0.92; }
 .gcluster-bar {
   display: flex;
   align-items: center;
@@ -421,7 +455,16 @@
 .gteam-tt b { color: var(--text); }
 .gteam-grow { flex: 1; }
 .gteam-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
-.gteam:hover .gteam-actions, .gteam.sel .gteam-actions { opacity: 1; }
+.gteam:hover .gteam-actions, .gteam.sel .gteam-actions, .gteam:focus-within .gteam-actions { opacity: 1; }
+
+/* Keyboard path: every canvas node is focusable and shows a visible ring. */
+.gcard:focus-visible, .gcluster-bar:focus-visible, .gteam-bar:focus-visible, .gtbtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gcard:focus-visible { border-color: var(--accent); }
+.gcluster-bar:focus-visible, .gteam-bar:focus-visible { outline-offset: -2px; border-radius: 8px 8px 0 0; }
+.gcluster.terminal .gcard:focus-visible, .gcluster.terminal .gcluster-bar:focus-visible { opacity: 1; }
 .gtbtn { width: 24px; height: 22px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; background: var(--raised); }
 .gtbtn:hover { color: var(--text); border-color: var(--faint); }
 .gtbtn.danger:hover { color: var(--del); border-color: color-mix(in srgb, var(--del) 40%, var(--line)); }
@@ -554,6 +597,99 @@
 .gkv span:first-child { color: var(--muted); }
 .gkv .val { color: var(--text); text-align: right; word-break: break-word; }
 .ginsp-summary { margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+/* ------------------------------------------------- result details (Thema 3) */
+.gresult { margin-top: 9px; display: flex; flex-direction: column; gap: 7px; font-size: 11px; }
+.gresult-summary { margin: 0; color: var(--text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gresult-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
+.gresult-row code { color: var(--text); font-family: var(--mono); font-size: 10.5px; }
+.gresult-block { border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--raised) 60%, transparent); }
+.gresult-block > summary { padding: 6px 9px; color: var(--muted); cursor: pointer; user-select: none; list-style: none; }
+.gresult-block > summary::before { content: '▸ '; color: var(--faint); }
+.gresult-block[open] > summary::before { content: '▾ '; }
+.gresult-block > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.gresult-failed { color: var(--del); font-weight: 600; }
+.gresult-files, .gresult-tests, .gresult-risks { margin: 0; padding: 0 9px 8px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.gresult-files code, .gresult-test-head code { font-family: var(--mono); font-size: 10.5px; color: var(--text); overflow-wrap: anywhere; }
+.gresult-risks li { color: var(--text); line-height: 1.45; padding-left: 12px; position: relative; }
+.gresult-risks li::before { content: '⚠'; position: absolute; left: 0; color: var(--del); font-size: 9px; top: 1px; }
+.gresult-tests li { border-top: 1px dashed var(--line); padding-top: 5px; }
+.gresult-tests li:first-child { border-top: none; padding-top: 0; }
+.gresult-test-head { display: flex; align-items: baseline; gap: 7px; }
+.gresult-test-status { flex: none; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 9.5px; }
+.gresult-tests li[data-s='passed'] .gresult-test-status { color: var(--add); border-color: color-mix(in srgb, var(--add) 50%, var(--line)); }
+.gresult-tests li[data-s='failed'] .gresult-test-status { color: var(--del); border-color: color-mix(in srgb, var(--del) 50%, var(--line)); font-weight: 600; }
+.gresult-tests details { margin-top: 4px; }
+.gresult-tests details > summary { color: var(--muted); font-size: 10px; cursor: pointer; }
+.gresult-tests details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.gresult-tests pre {
+  margin: 4px 0 0;
+  max-height: 220px;
+  padding: 6px 8px;
+  overflow: auto;
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------ run report (Thema 3) */
+.greport {
+  position: absolute; top: 64px; left: 14px; width: min(620px, calc(100% - 28px)); max-height: calc(100% - 80px);
+  background: color-mix(in srgb, var(--panel) 96%, transparent); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); backdrop-filter: blur(10px); z-index: 34;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.graph-inspecting .greport { width: min(620px, calc(100% - 342px)); }
+.greport-head { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.greport-title { flex: 1; min-width: 0; }
+.greport-title h3 { margin: 0; color: var(--text); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.greport-title p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.greport-close { width: 26px; height: 26px; flex: none; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); color: var(--muted); }
+.greport-close:hover { color: var(--text); border-color: var(--faint); }
+.greport-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.greport-body { padding: 12px 14px 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; font-size: 12px; }
+.greport-note { margin: 0; color: var(--muted); font-size: 11.5px; }
+.greport-error { color: var(--del); }
+.greport-goal { margin: 0; color: var(--text); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.greport-chip { display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; vertical-align: middle; }
+.greport-chip[data-s='completed'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 50%, var(--line)); }
+.greport-chip[data-s='failed'] { color: var(--del); border-color: color-mix(in srgb, var(--del) 50%, var(--line)); }
+.greport-chip[data-s='running'] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.greport-failure {
+  padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--del) 48%, var(--line)); border-radius: 8px;
+  background: color-mix(in srgb, var(--del) 8%, var(--panel));
+}
+.greport-failure h4 { margin: 0 0 6px; color: var(--del); font-size: 12px; }
+.greport-failure h5 { margin: 8px 0 4px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.greport-failure pre, .greport-task-error {
+  margin: 0; max-height: 200px; overflow: auto; color: var(--text); font-family: var(--mono); font-size: 10.5px;
+  line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.greport-failure ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.greport-failure ul li::before { content: '✕ '; color: var(--del); }
+.greport-failure code { color: var(--text); font-family: var(--mono); font-size: 10.5px; }
+.greport-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.greport-totals div { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--raised) 60%, transparent); }
+.greport-totals dt { color: var(--muted); font-size: 10px; }
+.greport-totals dd { margin: 2px 0 0; color: var(--text); font-size: 14px; font-weight: 600; }
+.greport-totals dd[data-warn] { color: var(--del); }
+.greport-git { display: flex; flex-direction: column; gap: 4px; }
+.greport-kv { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px dashed var(--line); font-size: 11.5px; }
+.greport-kv span:first-child { flex: none; color: var(--muted); }
+.greport-kv span:last-child { color: var(--text); text-align: right; overflow-wrap: anywhere; }
+.greport-kv code { font-family: var(--mono); font-size: 10.5px; }
+.greport-tasks { display: flex; flex-direction: column; gap: 10px; }
+.greport-task { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--raised) 50%, transparent); }
+.greport-task[data-s='failed'] { border-color: color-mix(in srgb, var(--del) 40%, var(--line)); }
+.greport-task > header { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.greport-task > header b { color: var(--text); font-size: 12.5px; }
+.greport-task-meta { color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.greport-task-error { margin-top: 6px; padding: 6px 8px; border-left: 2px solid var(--del); background: color-mix(in srgb, var(--del) 8%, transparent); }
 
 .ginsp-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line); }
 .gact { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font-size: 12.5px; text-align: left; width: 100%; }
@@ -799,6 +935,8 @@
   .graph:has(.grun-failure) .ginspector { top: 146px; max-height: calc(100% - 162px); }
   .grun-failure { flex-direction: column; gap: 6px; }
   .grun-failure-head { min-width: 0; }
+  .greport, .graph-inspecting .greport { width: calc(100% - 28px); }
+  .greport-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gdock { max-width: calc(100% - 84px); }
   .grun-field { grid-template-columns: 1fr; gap: 5px; }
   .grun-hint { grid-column: auto; }

@@ -354,6 +354,14 @@ worktrees onto the orchestrator base, late results on ended runs no longer leak
 leases, and a per-task time budget bounds hanging CLIs. The loopback API can
 therefore drive consecutive runs without inheriting a one-shot defect.
 
+Prerequisites closed 2026-09-06 (Thema 3 and Thema 5): finished and failed
+runs stay readable long after their sessions ended (pinned older runs, full
+results, `run:report`, failed test commands in the alert, approval
+notification, `integration.applied` with `fromSha`/`toSha`, rotating main log,
+Graph keyboard path); the journal is bounded (compact config, `OrchestrationView`
+without prompts/bodies coalesced per tick, archive-before-prune retention with
+a monotonic `seq` floor so the SSE cursor contract survives pruning).
+
 Prerequisite closed 2026-09-03 (Thema 6, boundary hardening): every IPC
 channel carries a typed privilege policy (`effect`/`surface`/`audit`) with
 `surface: 'shared'` reserved for read-only operations the host API may expose;
@@ -482,7 +490,10 @@ remote wake and unattended pre-login execution remain out of scope.
 Status: planned after personal-alpha validation.
 
 - Move long run/event/audit histories from the atomic config JSON to indexed
-  storage with migrations, retention, backup and corruption recovery.
+  storage with migrations, backup and corruption recovery. Bounded retention
+  with per-run archive files exists since 2026-09-06 (Thema 5); an archive
+  browser, `run:events` delta consumption in the renderer and `React.memo`
+  on Graph slices are the remaining renderer-side cost items.
 - Ship signed releases and an authenticated auto-update path before asking
   non-technical users to keep an always-available host current.
 - Decide from alpha evidence whether to support Cloudflare Tunnel plus Access

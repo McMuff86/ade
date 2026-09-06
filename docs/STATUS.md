@@ -37,8 +37,11 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Graph completion | Real, persisted signal | PTY start/exit/cancel events transition persisted tasks; success requires exit code 0 |
 | CLI/auth diagnostics | Real, backend-aware | Read-only availability/version/auth/transport checks execute in the selected native or WSL backend; custom command text remains undisclosed and unexecuted |
 | Terminals layout | Real, optional | Settings can put the repository inspector on the left; the default remains rail left / inspector right and is not swapped unless the user chooses |
-| Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next, direct session shortcuts and Ctrl+1/2/3 for Terminals / Graph / Overview |
-| Background notifications | Real | Native task completion/failure and abnormal interactive-exit notifications when ADE is unfocused |
+| Keyboard navigation | Real | Roving terminal/view tabs plus create, close, previous/next, direct session shortcuts and Ctrl+1/2/3 for Terminals / Graph / Overview. Graph cards, cluster bars and team bars are focusable buttons (Enter/Space select, Enter activates a selected card, Escape clears the selection or closes the report); team actions appear on `:focus-within` |
+| Finished-run readability | Real | Any finished or failed run stays reachable: the run selector groups open/finished runs with status, an older selected run is pinned onto the canvas, the failure alert names the failed test commands, the inspector shows the full result (summary, every changed file, every test with expandable output, risks, SHA) and `run:report` opens a per-run report dialog with integration range (`fromSha → toSha`), verification, approvals and publication. Retention-archived runs are not browsable in the UI yet |
+| Background notifications | Real | Native task completion/failure, abnormal interactive-exit and run-awaits-approval notifications when ADE is unfocused |
+| Main-process log | Real, rotating | `console.*` in main is teed into `userData/ade/logs/main.log` (2 MiB × 5 files, 8 KiB per line, credential-redacted); a failing sink disables itself instead of throwing |
+| History retention | Real, bounded | Compact config serialization; terminal runs beyond the newest 40 and older than 30 days — or the oldest terminal runs above 4 MiB — are archived to `userData/ade/archive/runs/<runId>.json` before pruning, at startup and hourly; open, leased and published runs are never pruned; the journal `seq` floor keeps SSE/`run:events` cursors monotonic. Renderers receive a slim `OrchestrationView` (digests and lengths instead of prompts, artifact bodies and mailbox texts), coalesced per tick |
 | Renderer/IPC security | Real | Sandboxed, context-isolated renderer; default-deny CSP; navigation allowlist; every invoke passes registered-window sender check, payload validation, the exhaustive channel privilege policy (`ipcPolicy.ts`: effect/surface/audit/remote, shell confined to `agent:openDashboard`) and the redaction funnel (`errors.ts`) for error replies; text that leaves over the host API additionally passes `redactForWire` (credentials and absolute host paths removed, bounded); main→renderer events reach registered ADE windows only |
 | Credential handling at the WSL boundary | Real | Stored harness/service keys and `ADE_*` fields reach WSL sessions through `WSLENV` in the `wsl.exe` host environment, not argv; the `pty:create` argv log and backend stderr in errors are redacted (verified against a real Ubuntu distro) |
 | Dashboard windows | Real, origin-locked | Per-agent partition, deny-all permissions, no preload, fixed title; `will-navigate` and `will-redirect` share the origin guard; session-cookie persistence is limited to the dashboard origin; agent deletion clears the partition's storage and cache |
@@ -101,12 +104,17 @@ fixture repositories rather than depending on any personal checkout.
 - Legacy Graph categories and `teamRole` fields are retained to avoid deleting
   user data, but new runs and the Graph renderer do not use them as ownership.
 - The event journal, structured results, approvals, messages, artifacts and
-  the new command log currently share the atomic JSON config. Long histories
-  need indexed storage/retention before large-scale production use; parallel
-  multi-run canvases increase this pressure. Corruption recovery no longer
-  waits for that work: loading preserves an unusable file instead of replacing
-  it, and refuses to write when it cannot. Retention, write coalescing and an
-  archive command remain open.
+  the command log share the atomic JSON config, now written compact. History
+  retention bounds it: terminal runs beyond the newest 40 that are older than
+  30 days — and, above 4 MiB, the oldest terminal runs regardless — are
+  archived to `userData/ade/archive/runs/<runId>.json` and pruned at startup
+  and hourly; open, leased and published runs are never pruned, and the
+  journal `seq` floor keeps cursors monotonic. Archived runs are no longer
+  visible in the Graph or the host API (there is no archive browser yet).
+  Renderers receive a slim `OrchestrationView` (no prompts, artifact bodies or
+  mailbox texts), coalesced per tick; the renderer still replaces whole slices
+  on every broadcast (no `run:events` delta consumer, no `React.memo`).
+  Indexed storage remains Goal 11.
 - Team pause does not survive an ADE restart: restart recovery fails runs with
   queued tasks, so a paused run closes fail-closed instead of resuming paused.
   Restart-persistent pause is a separate work item.

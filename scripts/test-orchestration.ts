@@ -3,13 +3,16 @@
 import {
   OrchestrationService,
   type OrchestrationConfigPort,
+  type RunArchive,
 } from '../src/main/orchestration/OrchestrationService';
 import { normalizeConfig } from '../src/main/orchestration/migrate';
 import {
   DEFAULT_CONFIG,
+  MAX_RUN_REPORT_TEXT_CHARS,
   type AdeConfig,
   type Agent,
   type SessionMeta,
+  type StructuredTaskResult,
 } from '../src/shared/types';
 
 let passed = 0;
@@ -134,7 +137,8 @@ function testRunJournal(): void {
   };
   const store = memoryStore(config);
   const snapshots: number[] = [];
-  const service = new OrchestrationService(store, (snapshot) => snapshots.push(snapshot.events.length));
+  // onChange carries nothing (Thema 5): the owner reads view() or snapshot().
+  const service = new OrchestrationService(store, () => snapshots.push(store.read().runEvents.length));
   const catalogCounts = [store.read().categories.length, store.read().agents.length];
 
   const run = service.createRun({
@@ -591,11 +595,284 @@ function testHarnessOverride(): void {
       && !store.read().runs.some((candidate) => candidate.name === 'Unsupported harness'));
 }
 
+const DAY_MS = 24 * 60 * 60 * 1_000;
+const SHA_A = 'a'.repeat(40);
+const SHA_B = 'b'.repeat(40);
+
+function structuredResult(overrides: Partial<StructuredTaskResult> = {}): StructuredTaskResult {
+  return {
+    version: 1,
+    outcome: 'succeeded',
+    summary: 'Implemented the feature.',
+    assignments: [],
+    filesChanged: ['src/a.ts', 'src/b.ts'],
+    tests: [{ command: 'pnpm test:unit', status: 'passed', output: 'ok' }],
+    commitSha: SHA_A,
+    risks: [],
+    usage: { inputTokens: 10, outputTokens: 5, costUsd: null },
+    ...overrides,
+  };
+}
+
+/** Thema 5: the renderer view carries no prompts, bodies or texts. */
+function testRendererView(): void {
+  const category = { id: 'view-cat', name: 'View', agents: ['view-a', 'view-b'] };
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [category],
+    agents: [testAgent('view-a', category.id, 'Ada'), testAgent('view-b', category.id, 'Linus')],
+  };
+  const store = memoryStore(config);
+  let changes = 0;
+  const service = new OrchestrationService(store, () => { changes += 1; });
+  const run = service.createRun({
+    name: 'View run',
+    goal: 'Slim projection',
+    participants: [
+      { agentId: 'view-a', role: 'orchestrator' },
+      { agentId: 'view-b', role: 'lead', teamId: 'view-team', teamName: 'View' },
+    ],
+  });
+  service.setManagedRunPhase(run.id, 'planning');
+  const lead = store.read().runParticipants.find((participant) => participant.role === 'lead')!;
+  const secretPrompt = 'SECRET-PROMPT-BODY do the work';
+  // A manual task without a title derives one from its prompt; the title is a
+  // deliberate, bounded projection and not what this check is about.
+  const task = service.createManagedTask({
+    runId: run.id, participantId: lead.id, prompt: secretPrompt, title: 'Do the work', phase: 'work',
+  });
+  service.createArtifact({ runId: run.id, taskId: task.id, kind: 'file', path: 'notes.md', content: 'ARTIFACT-BODY' });
+  service.createArtifact({
+    runId: run.id,
+    taskId: task.id,
+    kind: 'file',
+    path: `context/task-${task.id}.json`,
+    content: JSON.stringify({ provenance: { promptVersion: 3, resultSchemaVersion: 1, adapterId: 'codex', modelId: 'gpt-5' } }),
+  });
+  service.sendMessage({ runId: run.id, taskId: task.id, toParticipantId: lead.id, kind: 'assignment', text: 'MAILBOX-TEXT' });
+
+  const view = service.view();
+  const serialized = JSON.stringify(view);
+  check('view carries no prompt, artifact body or mailbox text',
+    !serialized.includes('SECRET-PROMPT-BODY') && !serialized.includes('ARTIFACT-BODY') && !serialized.includes('MAILBOX-TEXT'));
+  check('view tasks expose digest and length instead of the prompt',
+    view.tasks[0]?.promptChars === secretPrompt.length
+      && /^[0-9a-f]{64}$/.test(view.tasks[0]?.promptDigest ?? '')
+      && !('prompt' in (view.tasks[0] ?? {})));
+  check('view artifacts and messages keep their sizes',
+    view.artifacts.find((artifact) => artifact.path === 'notes.md')?.contentChars === 'ARTIFACT-BODY'.length
+      && view.messages[0]?.textChars === 'MAILBOX-TEXT'.length);
+  check('view parses provenance in main from the context packet',
+    view.tasks[0]?.provenance?.modelId === 'gpt-5' && view.tasks[0]?.provenance?.promptVersion === 3);
+  check('view seqCursor equals the journal cursor', view.seqCursor === service.journalCursor() && view.seqCursor > 0);
+  check('view keeps the same record counts as the snapshot',
+    view.events.length === service.snapshot().events.length && view.runs.length === 1 && view.tasks.length === 1);
+  const digestBefore = view.tasks[0]?.promptDigest;
+  check('prompt digests are stable across views', service.view().tasks[0]?.promptDigest === digestBefore);
+  check('snapshot still carries the full prompt for main-internal callers',
+    service.snapshot().tasks[0]?.prompt === secretPrompt);
+  check('onChange fired once per persisted mutation', changes === 6, changes);
+}
+
+/** Thema 3: the report names files, tests, risks, SHAs and the failed test. */
+function testRunReport(): void {
+  const category = { id: 'report-cat', name: 'Report', agents: ['rep-a', 'rep-b'] };
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [category],
+    agents: [testAgent('rep-a', category.id, 'Orchestrator'), testAgent('rep-b', category.id, 'Worker')],
+  };
+  const store = memoryStore(config);
+  const service = new OrchestrationService(store);
+  const run = service.createRun({
+    name: 'Report run',
+    goal: 'Ship it',
+    participants: [
+      { agentId: 'rep-a', role: 'orchestrator' },
+      { agentId: 'rep-b', role: 'worker', teamId: 'rep-team', teamName: 'Report' },
+    ],
+  });
+  service.setManagedRunPhase(run.id, 'planning');
+  const orchestrator = store.read().runParticipants.find((participant) => participant.role === 'orchestrator')!;
+  const worker = store.read().runParticipants.find((participant) => participant.role === 'worker')!;
+  const work = service.createManagedTask({
+    runId: run.id, participantId: worker.id, prompt: 'work', title: 'Implement feature', phase: 'work',
+  });
+  service.onTaskStarted(work.id, {
+    id: 's-work', agentId: worker.agentId, title: 'work', kind: 'task', status: 'running', createdAt: 1, runTaskId: work.id,
+  });
+  const longSummary = 'x'.repeat(MAX_RUN_REPORT_TEXT_CHARS + 500);
+  service.recordResult({
+    runId: run.id, taskId: work.id, participantId: worker.id, adapterId: 'codex', resultPath: 'r.json',
+    result: structuredResult({ summary: longSummary, risks: ['touches auth'] }),
+  });
+  service.onTaskFinished(work.id, 'completed', 0);
+  service.markIntegrationApplied(run.id, { commitCount: 1, fromSha: SHA_A, toSha: SHA_B });
+  const verify = service.createManagedTask({
+    runId: run.id, participantId: orchestrator.id, prompt: 'verify', title: 'Verify integrated work', phase: 'verify',
+  });
+  service.onTaskStarted(verify.id, {
+    id: 's-verify', agentId: orchestrator.agentId, title: 'verify', kind: 'task', status: 'running', createdAt: 2, runTaskId: verify.id,
+  });
+  service.recordResult({
+    runId: run.id, taskId: verify.id, participantId: orchestrator.id, adapterId: 'codex', resultPath: 'v.json',
+    result: structuredResult({
+      filesChanged: [],
+      commitSha: null,
+      tests: [
+        { command: 'pnpm lint', status: 'passed', output: '' },
+        { command: 'pnpm test:integration', status: 'failed', output: 'AssertionError: expected 1 to equal 2' },
+      ],
+    }),
+  });
+  service.onTaskFinished(verify.id, 'completed', 0);
+  service.setManagedRunPhase(run.id, 'failed', 'verification reported one or more failed tests');
+
+  const report = service.report(run.id);
+  check('report names the failed test command behind a verification failure',
+    report.status === 'failed'
+      && report.failure?.failedTests.join(',') === 'pnpm test:integration'
+      && report.failure.detail === 'verification reported one or more failed tests'
+      && report.failure.context === 'Verify integrated work');
+  check('report carries the complete changed-file set and risks',
+    report.tasks[0]?.result?.filesChanged.join(',') === 'src/a.ts,src/b.ts'
+      && report.tasks[0]?.result?.risks[0] === 'touches auth'
+      && report.totals.filesChanged === 2);
+  check('report bounds long text without cutting it to a teaser',
+    (report.tasks[0]?.result?.summary.length ?? 0) === MAX_RUN_REPORT_TEXT_CHARS
+      && report.tasks[0]!.result!.summary.startsWith('xxxx'));
+  check('report keeps every test with status and output',
+    report.tasks[1]?.result?.tests.length === 2
+      && report.tasks[1]?.result?.tests[1]?.output.includes('AssertionError')
+      && report.totals.testsPassed === 2 && report.totals.testsFailed === 1);
+  check('report carries the integration range and commit SHAs',
+    report.integration?.fromSha === SHA_A && report.integration?.toSha === SHA_B
+      && report.integration.commitCount === 1 && report.tasks[0]?.result?.commitSha === SHA_A);
+  check('report resolves participant names and roles',
+    report.tasks[0]?.participantName === 'Worker' && report.tasks[0]?.role === 'worker'
+      && report.tasks[0]?.teamName === 'Report' && report.tasks[1]?.role === 'orchestrator');
+  check('report has an endedAt for a terminal run and a seq cursor',
+    typeof report.endedAt === 'number' && report.seqCursor === service.journalCursor());
+  check('report usage is summed from the results',
+    report.usage.inputTokens === 20 && report.usage.outputTokens === 10 && report.usage.unreportedCostTasks === 2);
+  let missing = '';
+  try {
+    service.report('no-such-run');
+  } catch (error) {
+    missing = error instanceof Error ? error.message : String(error);
+  }
+  check('report of an unknown run fails closed', missing.includes('run not found'));
+
+  let badSha = '';
+  try {
+    service.markIntegrationApplied(run.id, { commitCount: 1, fromSha: 'not-a-sha', toSha: null });
+  } catch (error) {
+    badSha = error instanceof Error ? error.message : String(error);
+  }
+  check('integration SHAs are validated as git object ids', badSha.includes('git object id'));
+}
+
+/** Thema 5: history retention archives before pruning and keeps seq monotonic. */
+function testHistoryRetention(): void {
+  const category = { id: 'ret-cat', name: 'Retention', agents: ['ret-a'] };
+  const config: AdeConfig = {
+    ...structuredClone(DEFAULT_CONFIG),
+    categories: [category],
+    agents: [testAgent('ret-a', category.id, 'Ada')],
+  };
+  const store = memoryStore(config);
+  const archives: RunArchive[] = [];
+  const service = new OrchestrationService(store, () => undefined, { write: (archive) => archives.push(archive) });
+  const now = 100 * DAY_MS;
+  const finished = (name: string, ageDays: number): string => {
+    const run = service.createRun({ name, participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
+    const lead = store.read().runParticipants.find((participant) => participant.runId === run.id)!;
+    const task = service.createTask({ runId: run.id, participantId: lead.id, prompt: `prompt for ${name}` });
+    service.onTaskFinished(task.id, 'completed', 0);
+    store.read().runs = store.read().runs.map((candidate) =>
+      candidate.id === run.id ? { ...candidate, updatedAt: now - ageDays * DAY_MS } : candidate);
+    return run.id;
+  };
+  const oldRun = finished('old', 45);
+  const oldPublished = finished('old published', 50);
+  const recentRun = finished('recent', 2);
+  const openRun = service.createRun({ name: 'open', participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
+  // A publication audit pins the run; seeded directly because beginPublication
+  // demands a completed managed run, and this fixture is manual.
+  store.read().runPublications.push({
+    id: 'pub-1', runId: oldPublished, repositoryId: 'repo', provider: 'github', providerRepository: 'o/r',
+    remoteName: 'origin', baseBranch: 'main', headBranch: 'ade/x', baseSha: SHA_A, headSha: SHA_B,
+    status: 'draft', prNumber: 1, prUrl: 'https://github.com/o/r/pull/1', createdAt: now, updatedAt: now,
+  });
+  const cursorBefore = service.journalCursor();
+  const policy = { keepTerminalRuns: 1, keepTerminalDays: 30, maxConfigBytes: 100 * 1024 * 1024 };
+
+  const noArchiveService = new OrchestrationService(memoryStore(store.read()));
+  const skipped = noArchiveService.applyRetention(now, policy);
+  check('without an archive port retention prunes nothing and says why',
+    skipped.skipped === 'no-archive' && skipped.archivedRunIds.length === 0);
+
+  const outcome = service.applyRetention(now, policy);
+  check('retention archives exactly the old, unpublished terminal run',
+    outcome.archivedRunIds.join(',') === oldRun && archives.length === 1 && archives[0]?.run.id === oldRun);
+  check('archive carries the complete record set including the prompt',
+    archives[0]?.tasks[0]?.prompt === 'prompt for old' && archives[0]?.events.length > 0 && archives[0]?.format === 'ade-run-archive');
+  const after = store.read();
+  check('pruned run leaves no record behind',
+    !after.runs.some((run) => run.id === oldRun) && !after.runTasks.some((task) => task.runId === oldRun)
+      && !after.runEvents.some((event) => event.runId === oldRun));
+  check('recent, open and published runs survive',
+    after.runs.some((run) => run.id === recentRun) && after.runs.some((run) => run.id === openRun.id)
+      && after.runs.some((run) => run.id === oldPublished));
+  check('retention bookkeeping is persisted',
+    after.journalRetention.archivedRuns === 1 && after.journalRetention.lastPrunedAt === now
+      && after.journalRetention.prunedSeq > 0);
+  check('journal cursor never moves backwards after pruning', service.journalCursor() >= cursorBefore);
+  const nextRun = service.createRun({ name: 'after prune', participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
+  const nextSeq = store.read().runEvents.find((event) => event.runId === nextRun.id)?.seq ?? 0;
+  check('new events continue above every seq ever issued', nextSeq > cursorBefore);
+  check('retention reports byte sizes', outcome.bytesBefore > outcome.bytesAfter && outcome.bytesAfter > 0);
+
+  const idle = service.applyRetention(now, policy);
+  check('a second pass with nothing to prune is a no-op', idle.archivedRunIds.length === 0 && archives.length === 1);
+
+  // Byte pressure prunes the oldest terminal runs even inside the age window.
+  const pressure = service.applyRetention(now, { keepTerminalRuns: 40, keepTerminalDays: 30, maxConfigBytes: 1 });
+  check('byte pressure prunes recent terminal runs but never open or published ones',
+    pressure.archivedRunIds.join(',') === recentRun
+      && store.read().runs.some((run) => run.id === openRun.id)
+      && store.read().runs.some((run) => run.id === oldPublished));
+
+  // deleteRun advances the same floor so a restart cannot re-issue a seq.
+  const deleteStore = memoryStore({ ...structuredClone(DEFAULT_CONFIG), categories: [category], agents: config.agents });
+  const deleteService = new OrchestrationService(deleteStore);
+  const doomed = deleteService.createRun({ name: 'doomed', participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
+  const doomedSeq = deleteService.journalCursor();
+  deleteService.deleteRun(doomed.id);
+  const restarted = new OrchestrationService(deleteStore);
+  const fresh = restarted.createRun({ name: 'fresh', participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
+  check('after deleting the newest run a restarted service still issues higher seqs',
+    (deleteStore.read().runEvents.find((event) => event.runId === fresh.id)?.seq ?? 0) > doomedSeq
+      && deleteStore.read().journalRetention.prunedSeq === doomedSeq);
+
+  const migratedRetention = normalizeConfig(
+    { ...structuredClone(DEFAULT_CONFIG), journalRetention: { prunedSeq: 7 } } as unknown as AdeConfig,
+    1,
+  );
+  check('a damaged retention record is repaired field by field and keeps its seq floor',
+    migratedRetention.migrated && migratedRetention.config.journalRetention.prunedSeq === 7
+      && migratedRetention.config.journalRetention.archivedRuns === 0
+      && !normalizeConfig(migratedRetention.config, 2).migrated);
+}
+
 testLegacyMigration();
 testRunJournal();
 testDomainFoundations();
 testHarnessOverride();
 testRunDeletionAndScopeSnapshots();
+testRendererView();
+testRunReport();
+testHistoryRetention();
 
 console.log(`\n${failed ? 'FAILED' : 'PASSED'} - ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

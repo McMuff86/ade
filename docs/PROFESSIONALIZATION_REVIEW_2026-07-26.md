@@ -182,6 +182,29 @@ nur einmal funktioniert, erbt den Defekt und macht ihn remote.
 
 ## Thema 3 — Beendete und gescheiterte Runs lesbar machen
 
+> **Status: umgesetzt am 2026-09-06.** Vertrag in `ARCHITECTURE.md`
+> („Renderer view, run report and history retention"), Matrix in `STATUS.md`
+> („Finished-run readability", „Keyboard navigation", „Background
+> notifications", „Main-process log"). Umgesetzt: ausgewählte ältere Runs
+> werden auf die Canvas gepinnt (`buildClusters(..., pinnedRunId)`), der
+> Selector gruppiert Aktiv/Beendet mit Status; `ResultDetails` zeigt im
+> Inspector Zusammenfassung, jede Datei, jeden Test mit ausklappbarer
+> Ausgabe, Risiken und SHA; `run:report` liefert den vollständigen
+> `RunReport` und `RunReportPanel` zeigt ihn als Dialog (Fokus rein, Escape
+> raus, Fokusrückgabe); der Fehler-Alert nennt die fehlgeschlagenen
+> Testkommandos; `runApprovalNotice` meldet den Approval-Gate nativ;
+> `integration.applied` trägt `fromSha`/`toSha`; `MainLogSink` rotiert
+> `userData/ade/logs/main.log`; Karten/Cluster-/Team-Bars sind fokussierbare
+> Buttons mit Enter/Space/Escape, `.gteam-actions` erscheint per
+> `:focus-within`. Nachweis: `test-orchestration.ts` (Report), `test-
+> runtime-reliability.ts` (Pinning, Failed-Test-Notice), `test-security.ts`
+> (Notice, Log-Redaktion, `run:report`-Policy), neue Suite `test-main-log.ts`,
+> Electron-Workflow (Seed mit drei beendeten Runs, Alert mit Testnamen,
+> Enter/Escape auf Karte, Report-Dialog mit SHAs, Fokusrückgabe, Pinning).
+> Offen: `useSessionShortcuts` außerhalb des Terminals-Modus (die Graph-
+> Tastaturpfade laufen über die Elemente selbst), kein Archiv-Browser für
+> per Retention ausgelagerte Runs.
+
 Alles, was ein Run erzeugt, ist persistiert; fast nichts davon ist am Tag 30
 im UI erreichbar (*alle Punkte Hinweise*):
 
@@ -274,6 +297,25 @@ schenkt Goal 9 die DTO-Form.
   nie entstehen, und `app.getVersion()` kommt in `src/` nicht vor (*Hinweis*).
 
 ## Thema 5 — Kosten der Historie begrenzen
+
+> **Status: umgesetzt am 2026-09-06.** Vertrag in `ARCHITECTURE.md`
+> („Renderer view, run report and history retention"), Matrix in `STATUS.md`
+> („History retention"). Umgesetzt: `ConfigStore` schreibt kompakt
+> (`JSON.stringify(config)`); Renderer erhalten `OrchestrationView` statt des
+> Snapshots (Prompt-Digest/-Länge, Artefakt-/Mailbox-Längen, geparste
+> Provenance), pro Tick koalesziert; `applyRetention` archiviert terminale
+> Runs jenseits der 40 jüngsten und älter als 30 Tage — oberhalb von 4 MiB
+> auch die ältesten übrigen — nach `userData/ade/archive/runs/<runId>.json`
+> **vor** dem einzigen Save, der sie entfernt; offene, geleaste und
+> veröffentlichte Runs bleiben; `journalRetention.prunedSeq` hält `seq`
+> und Cursor monoton (auch nach `deleteRun`). Läuft beim Start und stündlich.
+> Nachweis: `test-orchestration.ts` (View ohne Prompts, Retention-Regeln,
+> Seq-Floor, Migration; Floor 49 → 81), `test-config-store.ts` (kompakt,
+> Retention-Migration/-Validierung; 27 → 30), `test-main-log.ts`
+> (Archiv-Datei atomar, UUID-Pfad), Electron-Workflow („the renderer view
+> never carries a task prompt"). Offen: Renderer ersetzt weiterhin ganze
+> Slices (kein `run:events`-Konsument, kein `React.memo`); kein Archiv-
+> Browser; `deleteRun` unverändert.
 
 Noch nicht blockierend, aber jede Messung zeigt eine Gerade in die Wand
 (*Hinweise*): `JSON.stringify(cfg, null, 2)` für eine Datei, die kein Mensch

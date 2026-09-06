@@ -27,12 +27,13 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 27 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 30 } },
+  { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
-  { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 43 } },
+  { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 47 } },
   { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 27 } },
-  { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 49 } },
+  { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 81 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
@@ -47,7 +48,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 185 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 192 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

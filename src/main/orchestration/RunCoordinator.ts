@@ -54,7 +54,7 @@ import {
   type WorkspaceInspection,
   type WorkspacePort,
 } from './WorkspaceService';
-import { showManagedTaskNotification } from '../notifications';
+import { showManagedTaskNotification, showRunApprovalNotification } from '../notifications';
 import { hostPathKey } from '../platform';
 import type {
   RepositoryScopePort,
@@ -975,6 +975,9 @@ export class RunCoordinator {
           'Approve to integrate their commits into the orchestrator worktree and run integration plus verification.\n' +
           details,
         );
+        // The human gate holds exclusive leases until someone answers; it
+        // must be visible outside the graph (Thema 3).
+        showRunApprovalNotification(run.name, workTasks.length, validatedCommitCount);
       } catch (error) {
         await this.failRunCore(runId, errorMessage(error));
       }
@@ -1083,7 +1086,13 @@ export class RunCoordinator {
     if (!integratorLease) throw new Error('ade: integration workspace lease is missing');
 
     let applied = 0;
+    // Integration HEAD before and after the cherry-pick transaction is
+    // journaled so a post-integration failure still points at the assembled,
+    // unverified worktree state (Thema 3). Both stay null for plain workspaces.
+    let fromSha: string | null = null;
+    let toSha: string | null = null;
     if (integratorLease.isRepo) {
+      fromSha = (await this.workspaces.inspect(integratorLease.workspaceDir)).headSha || null;
       const commits: string[] = [];
       // Each task contributes only its owned delta (from its prepared base
       // when ADE advanced the worktree for dependencies), replayed in
@@ -1109,8 +1118,9 @@ export class RunCoordinator {
       }
       if (commits.length > 200) throw new Error('ade: run integration exceeds 200 worker commits');
       applied = await this.workspaces.integrateCommits(integratorLease.workspaceDir, commits);
+      toSha = (await this.workspaces.inspect(integratorLease.workspaceDir)).headSha || null;
     }
-    this.orchestration.markIntegrationApplied(runId, applied);
+    this.orchestration.markIntegrationApplied(runId, { commitCount: applied, fromSha, toSha });
 
     const context = this.runContext(runId);
     const task = this.orchestration.createManagedTask({

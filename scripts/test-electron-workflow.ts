@@ -19,6 +19,7 @@ import { pathToFileURL } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import {
   DEFAULT_CONFIG,
+  DEFAULT_RUN_BUDGET,
   type AdeConfig,
   type Agent,
   type Category,
@@ -226,6 +227,32 @@ function seedConfig(
       lastUsedAt: now + index,
     })),
     runs: [{
+      // Thema 3: two finished runs older than the failed one, so the oldest
+      // is hidden from the canvas by default and must come back when selected.
+      id: 'e2e-older-run',
+      name: 'Oldest finished E2E Run',
+      goal: 'Prove that the oldest finished run stays reachable.',
+      status: 'completed',
+      mode: 'managed',
+      phase: 'completed',
+      budget: { ...DEFAULT_RUN_BUDGET },
+      source: 'native',
+      repositoryId,
+      createdAt: now - 6_000,
+      updatedAt: now - 5_000,
+    }, {
+      id: 'e2e-old-run',
+      name: 'Old finished E2E Run',
+      goal: 'Fill the second recent-terminal slot.',
+      status: 'completed',
+      mode: 'managed',
+      phase: 'completed',
+      budget: { ...DEFAULT_RUN_BUDGET },
+      source: 'native',
+      repositoryId,
+      createdAt: now - 4_000,
+      updatedAt: now - 3_000,
+    }, {
       id: 'e2e-failed-run',
       name: 'Historical failed E2E Run',
       goal: 'Expose a persisted fail-closed reason to the operator.',
@@ -266,6 +293,14 @@ function seedConfig(
     }],
     runParticipants: [
       {
+        id: 'e2e-older-participant', runId: 'e2e-older-run', agentId: 'e2e-orchestrator',
+        agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now - 6_000,
+      },
+      {
+        id: 'e2e-old-participant', runId: 'e2e-old-run', agentId: 'e2e-orchestrator',
+        agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now - 4_000,
+      },
+      {
         id: 'e2e-failed-participant', runId: 'e2e-failed-run', agentId: 'e2e-orchestrator',
         agentName: 'E2E Orchestrator', runtime: 'custom', role: 'orchestrator', createdAt: now - 2_000,
       },
@@ -291,20 +326,54 @@ function seedConfig(
       error: 'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.',
       createdAt: now - 1_500, updatedAt: now - 1_000, endedAt: now - 1_000,
     }],
+    // Thema 3: the failed integration left a full result behind — every changed
+    // file, the failed test with its output and the risk must be readable.
+    runTaskResults: [{
+      id: 'e2e-failed-result', runId: 'e2e-failed-run', taskId: 'e2e-failed-task',
+      participantId: 'e2e-failed-participant', adapterId: 'custom', resultPath: 'RESULT.json',
+      createdAt: now - 1_000, version: 1, outcome: 'failed',
+      summary: 'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.',
+      assignments: [], filesChanged: ['src/integration.ts', 'RESULT.json'],
+      tests: [
+        { command: 'pnpm typecheck', status: 'passed', output: '' },
+        { command: 'pnpm test:integration', status: 'failed', output: 'FAIL  RESULT.json path set drifted\n  expected 1 file, saw 2\n' },
+      ],
+      commitSha: null,
+      risks: ['RESULT.json path set drifted from the worktree; the integrated worktree is unverified.'],
+      usage: { inputTokens: null, outputTokens: null, costUsd: null },
+    }],
     runEvents: [{
-      id: 'e2e-failed-created', runId: 'e2e-failed-run', type: 'run.created', createdAt: now - 2_000,
+      id: 'e2e-older-created', runId: 'e2e-older-run', type: 'run.created', createdAt: now - 6_000,
       data: { source: 'native', repositoryId }, seq: 1,
+    }, {
+      id: 'e2e-older-completed', runId: 'e2e-older-run', type: 'run.completed', createdAt: now - 5_000, seq: 2,
+    }, {
+      id: 'e2e-old-created', runId: 'e2e-old-run', type: 'run.created', createdAt: now - 4_000,
+      data: { source: 'native', repositoryId }, seq: 3,
+    }, {
+      id: 'e2e-old-completed', runId: 'e2e-old-run', type: 'run.completed', createdAt: now - 3_000, seq: 4,
+    }, {
+      id: 'e2e-failed-created', runId: 'e2e-failed-run', type: 'run.created', createdAt: now - 2_000,
+      data: { source: 'native', repositoryId }, seq: 5,
+    }, {
+      id: 'e2e-failed-integrated', runId: 'e2e-failed-run', type: 'integration.applied', createdAt: now - 1_200,
+      data: {
+        commitCount: 2,
+        fromSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        toSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      },
+      seq: 6,
     }, {
       id: 'e2e-failed-task-event', runId: 'e2e-failed-run', type: 'task.failed', createdAt: now - 1_000,
       taskId: 'e2e-failed-task', participantId: 'e2e-failed-participant',
       data: { error: 'Integration guard rejected RESULT.json: filesChanged did not match the final worktree path set.' },
-      seq: 2,
+      seq: 7,
     }, {
       id: 'e2e-failed-event', runId: 'e2e-failed-run', type: 'run.failed', createdAt: now - 1_000,
-      data: { detail: 'Integration review failed closed.' }, seq: 3,
+      data: { detail: 'Integration review failed closed.' }, seq: 8,
     }, {
       id: 'e2e-run-created', runId: 'e2e-managed-run', type: 'run.created', createdAt: now,
-      data: { source: 'native', repositoryId }, seq: 4,
+      data: { source: 'native', repositoryId }, seq: 9,
     }],
   };
   const configDir = join(userData, 'ade');
@@ -1166,6 +1235,60 @@ async function run(): Promise<void> {
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'run-failure-alert.png'), fullPage: true });
     }
+    // Thema 3: a finished run older than the two newest still has a canvas,
+    // the failure alert names the failed tests, and the full report opens
+    // and closes by keyboard.
+    const failedAlert = page.locator('.grun-failure[role="alert"]');
+    check('the failure alert lists the failed test commands',
+      (await failedAlert.locator('.grun-failure-tests li').allTextContents()).join('|') === 'pnpm test:integration',
+      await failedAlert.textContent());
+    check('the canvas shows the two newest finished runs and hides the oldest by default',
+      await page.locator('.gcluster[data-run-id="e2e-failed-run"]').count() === 1
+        && await page.locator('.gcluster[data-run-id="e2e-old-run"]').count() === 1
+        && await page.locator('.gcluster[data-run-id="e2e-older-run"]').count() === 0,
+      await page.locator('.gcluster').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-run-id'))));
+    const failedCard = page.locator('.gcluster[data-run-id="e2e-failed-run"] .gcard').first();
+    await failedCard.focus();
+    await page.keyboard.press('Enter');
+    await eventually('Enter on a focused card opens the inspector for that agent', async () =>
+      await page!.locator('.graph.graph-inspecting').count() === 1
+        && (await page!.locator('.ginspector').textContent())?.includes('Validate integration result') === true,
+    );
+    check('the inspector shows the complete changed-file set and the failed test with its output',
+      (await page.locator('.ginspector .gresult-files li').allTextContents()).join('|') === 'src/integration.ts|RESULT.json'
+        && await page.locator('.ginspector .gresult-tests li[data-s="failed"]').count() === 1
+        && (await page.locator('.ginspector .gresult-tests li[data-s="failed"]').textContent())?.includes('expected 1 file, saw 2') === true,
+      await page.locator('.ginspector').textContent());
+    await page.keyboard.press('Escape');
+    await eventually('Escape clears the inspector selection', async () =>
+      await page!.locator('.graph.graph-inspecting').count() === 0,
+    );
+    await failedAlert.getByRole('button', { name: 'Bericht öffnen' }).click();
+    const report = page.locator('.greport[role="dialog"]');
+    await report.waitFor({ state: 'visible' });
+    const reportText = (await report.textContent()) ?? '';
+    check('the run report names the failed test, the risks and the integration range',
+      reportText.includes('pnpm test:integration')
+        && reportText.includes('Integration guard rejected RESULT.json')
+        && reportText.includes('RESULT.json path set drifted from the worktree')
+        && reportText.includes('src/integration.ts')
+        && reportText.includes('aaaaaaa') && reportText.includes('bbbbbbb'),
+      reportText.slice(0, 600));
+    check('the report dialog takes focus so Escape reaches it',
+      await report.evaluate((node) => node.contains(document.activeElement)));
+    if (evidenceDir) {
+      await page.screenshot({ path: join(resolve(evidenceDir), 'run-report.png'), fullPage: true });
+    }
+    await page.keyboard.press('Escape');
+    await eventually('Escape closes the run report', async () => await page!.locator('.greport').count() === 0);
+    check('closing the report returns focus to the toolbar report button because its opener unmounted',
+      await page.evaluate(() => document.activeElement?.classList.contains('grun-report') === true),
+      await page.evaluate(() => `${document.activeElement?.tagName}.${document.activeElement?.className}`));
+    await page.getByLabel('Aktiver Run').selectOption('e2e-older-run');
+    await eventually('selecting the oldest finished run pins it onto the canvas', async () =>
+      await page!.locator('.gcluster[data-run-id="e2e-older-run"]').count() === 1
+        && await page!.locator('.gcluster[data-run-id="e2e-failed-run"]').count() === 1,
+    );
     await page.getByLabel('Aktiver Run').selectOption('e2e-managed-run');
     await page.getByRole('button', { name: 'Orchestrierung starten' }).click();
     await eventually('managed run reaches its real approval gate', async () =>
@@ -1180,7 +1303,9 @@ async function run(): Promise<void> {
           id: string;
           runId: string;
           phase: string;
-          prompt: string;
+          prompt?: string;
+          promptDigest: string;
+          promptChars: number;
           repositoryId?: string | null;
           workspaceBindingId?: string;
           workspaceDir?: string;
@@ -1199,9 +1324,13 @@ async function run(): Promise<void> {
     });
     const managedTasks = approvalSnapshot.tasks.filter((task) => task.runId === 'e2e-managed-run');
     const managedLeases = approvalSnapshot.workspaceLeases.filter((lease) => lease.runId === 'e2e-managed-run');
-    const workerPrompts = managedTasks.filter((task) => task.phase === 'work').map((task) => task.prompt);
+    const workerTasks = managedTasks.filter((task) => task.phase === 'work');
     check('Electron flow persisted distinct worker assignments',
-      workerPrompts.length === 2 && workerPrompts[0] !== workerPrompts[1]);
+      workerTasks.length === 2 && workerTasks[0]!.promptDigest !== workerTasks[1]!.promptDigest
+        && workerTasks.every((task) => task.promptChars > 0));
+    // Thema 5: the renderer view carries digests and lengths, never the prompt.
+    check('the renderer view never carries a task prompt',
+      managedTasks.every((task) => !('prompt' in task)));
     const workerTaskIds = new Set(managedTasks.filter((task) => task.phase === 'work').map((task) => task.id));
     const workerResults = approvalSnapshot.results.filter((result) => workerTaskIds.has(result.taskId));
     check('ADE, not the sandboxed runtime, created one validated commit per worker diff',

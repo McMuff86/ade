@@ -100,6 +100,32 @@ function run(): void {
     check('atomic writes leave no temp files behind',
       readdirSync(join(seedPath, '..')).every((entry) => !entry.endsWith('.tmp')));
 
+    // Thema 5: the file is machine-read only; compact JSON halves what every
+    // managed-run save stringifies, hashes, writes and fsyncs.
+    const seedBytes = readFileSync(seedPath, 'utf8');
+    check('the config is persisted as compact single-line JSON',
+      seedBytes.endsWith('\n') && seedBytes.slice(0, -1).split('\n').length === 1
+        && seedBytes.length < `${JSON.stringify(JSON.parse(seedBytes), null, 2)}\n`.length);
+
+    const legacyRetentionPath = caseDir(scratch, 'legacy-retention');
+    const legacyRetention = structuredClone(DEFAULT_CONFIG) as unknown as Record<string, unknown>;
+    delete legacyRetention['journalRetention'];
+    writeFileSync(legacyRetentionPath, `${JSON.stringify(legacyRetention)}\n`, 'utf8');
+    const migratedRetention = new ConfigStore(legacyRetentionPath).get();
+    check('a config without journalRetention migrates to an empty retention record',
+      migratedRetention.journalRetention.prunedSeq === 0
+        && migratedRetention.journalRetention.archivedRuns === 0
+        && migratedRetention.journalRetention.lastPrunedAt === null
+        && JSON.parse(readFileSync(legacyRetentionPath, 'utf8')).journalRetention.prunedSeq === 0);
+    check('a replacement config with a malformed retention record is refused',
+      rejects(() => validateCompleteConfig({
+        ...structuredClone(DEFAULT_CONFIG),
+        journalRetention: { prunedSeq: -1, archivedRuns: 0, lastPrunedAt: null },
+      })) && rejects(() => validateCompleteConfig({
+        ...structuredClone(DEFAULT_CONFIG),
+        journalRetention: { prunedSeq: 0, archivedRuns: 0 } as never,
+      })));
+
     /* -------------------------------------------------------- malformed JSON */
 
     const malformedPath = caseDir(scratch, 'malformed');
@@ -219,7 +245,7 @@ function run(): void {
           && quarantinedFiles(plantedPath).length === 1);
       check('the republished config is a plain file, not a link',
         !lstatSync(plantedPath).isSymbolicLink()
-          && readFileSync(plantedPath, 'utf8').includes('"theme": "light"'));
+          && readFileSync(plantedPath, 'utf8').includes('"theme":"light"'));
     } else {
       console.log('  --  planted config symlink (skipped: symlinks need Developer Mode)');
     }

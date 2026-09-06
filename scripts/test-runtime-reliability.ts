@@ -66,6 +66,40 @@ async function main(): Promise<void> {
   };
   check('failed-run notice prefers the actionable persisted task error',
     failureNoticeFor(failedRun, [failedTask], [failedEvent])?.detail === failedTask.error);
+  const verifyResults = [
+    { runId: failedRun.id, taskId: 'verify-1', createdAt: 3, tests: [
+      { command: 'pnpm lint', status: 'passed' as const, output: '' },
+      { command: 'pnpm test:e2e', status: 'failed' as const, output: 'boom' },
+    ] },
+    { runId: failedRun.id, taskId: 'verify-2', createdAt: 5, tests: [
+      { command: 'pnpm test:e2e', status: 'failed' as const, output: 'boom again' },
+      { command: 'pnpm typecheck', status: 'failed' as const, output: 'TS2322' },
+    ] },
+    { runId: 'other-run', taskId: 'x', createdAt: 9, tests: [{ command: 'unrelated', status: 'failed' as const, output: '' }] },
+  ];
+  const noticeWithTests = failureNoticeFor(
+    failedRun,
+    [{ ...failedTask, error: undefined }],
+    [{ ...failedEvent, data: { detail: 'verification reported one or more failed tests' } }],
+    verifyResults,
+  );
+  check('failed-run notice names the failed test commands of this run, newest first, without duplicates',
+    noticeWithTests?.failedTests.join(',') === 'pnpm test:e2e,pnpm typecheck'
+      && noticeWithTests.detail === 'verification reported one or more failed tests');
+
+  const { buildClusters } = await import('../src/renderer/graph/graphModel');
+  const terminalRun = (id: string, updatedAt: number): Run => ({
+    ...failedRun, id, name: id, status: 'completed', phase: 'completed', updatedAt,
+  });
+  const olderRuns = [terminalRun('t1', 10), terminalRun('t2', 20), terminalRun('t3', 30), terminalRun('t4', 40)];
+  const noSessions = { sessions: {}, orderByAgent: {} };
+  const clusterIds = (pinned: string | null): string =>
+    buildClusters(olderRuns, [], {}, [], noSessions, {}, {}, 2, pinned).map((cluster) => cluster.run.id).sort().join(',');
+  check('canvas shows the two newest finished runs by default', clusterIds(null) === 't3,t4');
+  check('selecting an older finished run pins it onto the canvas instead of leaving it empty',
+    clusterIds('t1') === 't1,t3,t4');
+  check('pinning an already visible run does not duplicate it',
+    buildClusters(olderRuns, [], {}, [], noSessions, {}, {}, 2, 't4').length === 2);
 
   const agent = (runtime: 'claude' | 'codex' | 'ollama' | 'shell') => ({
     runtime,

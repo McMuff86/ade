@@ -46,6 +46,8 @@ import {
 } from './graphActions';
 import { ActivityFeed } from './ActivityFeed';
 import { SessionTail } from './SessionTail';
+import { ResultDetails, outcomeText } from './ResultDetails';
+import { RunReportPanel } from './RunReportPanel';
 import './graph.css';
 
 const CARD_W = 150;
@@ -93,6 +95,7 @@ const I = {
   close: <path d="M7 7l10 10M17 7L7 17" />,
   trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M10 11v5M14 11v5" />,
   publish: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 14v5h14v-5" /></>,
+  report: <><path d="M6 3h9l4 4v14H6z" /><path d="M9 12h6M9 16h6M15 3v4h4" /></>,
 };
 
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
@@ -190,6 +193,8 @@ export function GraphView(): JSX.Element {
   const approvals = useRuns((state) => state.approvals);
   const publications = useRuns((state) => state.publications);
   const messages = useRuns((state) => state.messages);
+  const results = useRuns((state) => state.results);
+  const seqCursor = useRuns((state) => state.seqCursor);
   const usageByRun = useRuns((state) => state.usageByRun);
   const runsLoaded = useRuns((state) => state.loaded);
   const activeRunId = useRuns((state) => state.activeRunId);
@@ -215,9 +220,11 @@ export function GraphView(): JSX.Element {
   const clearRunPositions = useGraphStore((state) => state.clearRunPositions);
 
   const sessionsSlice = useMemo(() => ({ sessions, orderByAgent }), [sessions, orderByAgent]);
+  // The selected run is pinned: an older finished run chosen in the run bar
+  // renders like any other cluster instead of leaving the canvas empty.
   const clusters = useMemo(
-    () => buildClusters(runs, participants, agents, tasks, sessionsSlice, busy, idleTeams),
-    [runs, participants, agents, tasks, sessionsSlice, busy, idleTeams],
+    () => buildClusters(runs, participants, agents, tasks, sessionsSlice, busy, idleTeams, 2, activeRunId),
+    [runs, participants, agents, tasks, sessionsSlice, busy, idleTeams, activeRunId],
   );
 
   const activeCluster = clusters.find((cluster) => cluster.run.id === activeRunId) ?? null;
@@ -240,9 +247,15 @@ export function GraphView(): JSX.Element {
     [tasks, activeRunId],
   );
   const activeRunFailure = useMemo(
-    () => failureNoticeFor(activeRun, activeRunTasks, events),
-    [activeRun, activeRunTasks, events],
+    () => failureNoticeFor(activeRun, activeRunTasks, events, results),
+    [activeRun, activeRunTasks, events, results],
   );
+  const [reportOpen, setReportOpen] = useState(false);
+  // Focus lands here when the report closes and its opener is gone (the
+  // failure alert's button unmounts while the report is open).
+  const reportButtonRef = useRef<HTMLButtonElement>(null);
+  // A report belongs to exactly one run; switching runs closes it.
+  useEffect(() => { setReportOpen(false); }, [activeRunId]);
 
   const [view, setView] = useState({ x: 40, y: 10, scale: 0.8 });
   const [edges, setEdges] = useState<EdgeSpec[]>([]);
@@ -840,6 +853,34 @@ export function GraphView(): JSX.Element {
     selection && selection.kind === candidate.kind && selection.id === candidate.id,
   );
 
+  /**
+   * Keyboard path for canvas nodes (cards, team bars, cluster bars): Enter or
+   * Space selects; Enter on an already selected, available card opens its
+   * terminal like a double-click. Escape on the canvas clears the selection.
+   */
+  const nodeKeyHandler = (
+    onSelect: () => void,
+    selected: boolean,
+    onActivate?: () => void,
+  ) => (event: React.KeyboardEvent): void => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Enter' && selected && onActivate) onActivate();
+    else onSelect();
+  };
+  const onGraphKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (reportOpen) {
+      setReportOpen(false);
+      return;
+    }
+    if (selection) {
+      event.preventDefault();
+      select(null);
+    }
+  };
+
   const nodeStatus = (cluster: RunClusterModel, member: GraphMember, idle: boolean): NodeStatus => statusFor(
     member.id,
     member.agentId,
@@ -864,20 +905,29 @@ export function GraphView(): JSX.Element {
     const selected = isSelected({ kind: role, id: member.id });
     const flashClass = flashes[member.id] ? ` gflash-${flashes[member.id]}` : '';
     const branch = member.available ? branchFor(cluster.run, member.agentId) : null;
+    const selectCard = (): void => selectInCluster(cluster.run.id, { kind: role, id: member.id, teamId: team.id });
+    const openCard = (): void => {
+      if (member.available) void openParticipantTerminal(member.agentId, member.id, cluster.run.id);
+    };
     return (
       <div
         key={member.id}
         className={`gcard gcard-static${selected ? ' sel' : ''}${member.available ? '' : ' unavailable'}${flashClass}`}
         data-status={status}
+        role="button"
+        tabIndex={0}
+        aria-pressed={selected}
+        aria-label={`${role === 'lead' ? 'Lead' : 'Worker'} ${member.name} · ${team.name} · ${cluster.run.name} · ${member.available ? statusText(status) : 'nicht im Katalog'}`}
         style={{ ['--rt' as string]: runtime.color }}
         onClick={(event) => {
           event.stopPropagation();
-          selectInCluster(cluster.run.id, { kind: role, id: member.id, teamId: team.id });
+          selectCard();
         }}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          if (member.available) void openParticipantTerminal(member.agentId, member.id, cluster.run.id);
+          openCard();
         }}
+        onKeyDown={nodeKeyHandler(selectCard, selected, openCard)}
       >
         <div className="gcard-bar nograb">
           <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
@@ -932,13 +982,19 @@ export function GraphView(): JSX.Element {
       <section
         key={run.id}
         className={`gcluster${run.id === activeRunId ? ' active' : ''}${cluster.terminal ? ' terminal' : ''}`}
+        data-run-id={run.id}
         style={{ left: position.x, top: position.y, width, height }}
       >
         <header
           className="gcluster-bar"
+          role="button"
+          tabIndex={0}
+          aria-pressed={run.id === activeRunId}
+          aria-label={`Run ${run.name} · ${runStatusText(run.status)}${run.id === activeRunId ? ' · ausgewählt' : ''}`}
           onPointerDown={(event) => startDrag('cluster', run.id, 'cluster', event, () => {
             selectInCluster(run.id, null);
           })}
+          onKeyDown={nodeKeyHandler(() => selectInCluster(run.id, null), run.id === activeRunId)}
         >
           <b>{run.name}</b>
           <span className="gcluster-chip" data-s={run.status}>{runStatusText(run.status)}</span>
@@ -965,6 +1021,10 @@ export function GraphView(): JSX.Element {
           <div
             className={`gcard orch${orchestratorSelected ? ' sel' : ''}${orchestrator.available ? '' : ' unavailable'}${orchestratorFlash}`}
             data-status={nodeStatus(cluster, orchestrator, false)}
+            role="button"
+            tabIndex={0}
+            aria-pressed={orchestratorSelected}
+            aria-label={`Orchestrator ${orchestrator.name} · ${run.name} · ${orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : 'nicht im Katalog'}`}
             style={{
               left: orchestratorPosition.x,
               top: orchestratorPosition.y,
@@ -980,6 +1040,15 @@ export function GraphView(): JSX.Element {
                 void openParticipantTerminal(orchestrator.agentId, orchestrator.id, run.id);
               }
             }}
+            onKeyDown={nodeKeyHandler(
+              () => selectInCluster(run.id, { kind: 'orchestrator', id: orchestrator.id }),
+              orchestratorSelected,
+              () => {
+                if (orchestrator.available) {
+                  void openParticipantTerminal(orchestrator.agentId, orchestrator.id, run.id);
+                }
+              },
+            )}
           >
             <div
               className="gcard-bar"
@@ -1019,9 +1088,14 @@ export function GraphView(): JSX.Element {
             >
               <div
                 className="gteam-bar"
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                aria-label={`Team ${team.name} · ${run.name} · ${statusText(team.status)}${team.idle ? ' · pausiert' : ''}`}
                 onPointerDown={(event) => startDrag('node', run.id, team.id, event, () => {
                   selectInCluster(run.id, { kind: 'team', id: team.id });
                 })}
+                onKeyDown={nodeKeyHandler(() => selectInCluster(run.id, { kind: 'team', id: team.id }), selected)}
               >
                 <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
                 <div className="gteam-tt">team · <b>{team.name}</b></div>
@@ -1029,10 +1103,17 @@ export function GraphView(): JSX.Element {
                   <span className="gteam-paused">{managed ? 'pausiert' : 'manuell pausiert'}</span>
                 )}
                 <div className="gteam-grow" />
-                <div className="gteam-actions" onPointerDown={(event) => event.stopPropagation()}>
+                <div
+                  className="gteam-actions"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
                   <button
                     className="gtbtn"
                     disabled={cluster.terminal}
+                    aria-label={managed
+                      ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren')
+                      : (team.idle ? 'Manuellen Dispatch reaktivieren' : 'Manuell pausieren')}
                     title={managed
                       ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren (laufende Tasks laufen weiter)')
                       : (team.idle ? 'Manuellen Dispatch reaktivieren' : 'Manuell pausieren (nur Dispatch)')}
@@ -1051,6 +1132,7 @@ export function GraphView(): JSX.Element {
                   <button
                     className="gtbtn"
                     title="Laufende Team-Tasks stoppen"
+                    aria-label="Laufende Team-Tasks stoppen"
                     onClick={() => void cancelTeamTasks(team.id).then(() => flash('Team-Tasks gestoppt'))}
                   >
                     <Ico>{I.stop}</Ico>
@@ -1072,8 +1154,17 @@ export function GraphView(): JSX.Element {
     (cluster) => cluster.runningTaskCount > 0 || cluster.queuedTaskCount > 0,
   );
 
+  const sortedRuns = [...runs].sort((a, b) => b.updatedAt - a.updatedAt);
+  const openRuns = sortedRuns.filter((run) => !['completed', 'failed', 'cancelled'].includes(run.status));
+  const endedRuns = sortedRuns.filter((run) => ['completed', 'failed', 'cancelled'].includes(run.status));
+  const runOption = (run: Run): JSX.Element => (
+    <option key={run.id} value={run.id}>
+      {run.name} · {runStatusText(run.status)}
+    </option>
+  );
+
   return (
-    <div className={`graph${selection ? ' graph-inspecting' : ''}`}>
+    <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
       <div className="grunbar">
         <select
           aria-label="Aktiver Run"
@@ -1082,9 +1173,14 @@ export function GraphView(): JSX.Element {
           disabled={runs.length === 0}
         >
           {runs.length === 0 && <option value="">Kein Run</option>}
-          {[...runs].sort((a, b) => b.updatedAt - a.updatedAt).map((run) => (
-            <option key={run.id} value={run.id}>{run.name}</option>
-          ))}
+          {openRuns.length > 0 && endedRuns.length > 0
+            ? (
+                <>
+                  <optgroup label="Aktiv">{openRuns.map(runOption)}</optgroup>
+                  <optgroup label="Beendet">{endedRuns.map(runOption)}</optgroup>
+                </>
+              )
+            : sortedRuns.map(runOption)}
         </select>
         {activeRun && (
           <>
@@ -1109,6 +1205,17 @@ export function GraphView(): JSX.Element {
                 ` · $${activeUsage.costUsd.toFixed(2)}/$${activeRun.budget.maxCostUsd.toFixed(2)}`}
             </span>
           </>
+        )}
+        {activeRun && (
+          <button
+            ref={reportButtonRef}
+            className={`grun-report${reportOpen ? ' active' : ''}`}
+            aria-pressed={reportOpen}
+            title="Vollständiger Bericht: Dateien, Tests mit Ausgabe, Risiken, Commits"
+            onClick={() => setReportOpen((open) => !open)}
+          >
+            <Ico>{I.report}</Ico>Bericht
+          </button>
         )}
         {activeRun?.mode === 'managed' && activeRun.status === 'completed' && activeRun.repositoryId && (
           <button
@@ -1140,13 +1247,23 @@ export function GraphView(): JSX.Element {
         </button>
       </div>
 
-      {activeRunFailure && (
+      {activeRunFailure && !reportOpen && (
         <div className="grun-failure" role="alert">
           <div className="grun-failure-head">
             <b>Run fehlgeschlagen</b>
             <span title={activeRunFailure.context}>{activeRunFailure.context}</span>
+            <button type="button" className="grun-failure-report" onClick={() => setReportOpen(true)}>
+              Bericht öffnen
+            </button>
           </div>
-          <p>{activeRunFailure.detail}</p>
+          <div className="grun-failure-body">
+            <p>{activeRunFailure.detail}</p>
+            {activeRunFailure.failedTests.length > 0 && (
+              <ul className="grun-failure-tests" aria-label="Fehlgeschlagene Tests">
+                {activeRunFailure.failedTests.map((command) => <li key={command}><code>{command}</code></li>)}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
@@ -1273,6 +1390,15 @@ export function GraphView(): JSX.Element {
             <Ico>{I.plus}</Ico>Ersten Run erstellen
           </button>
         </div>
+      )}
+
+      {reportOpen && activeRunId && (
+        <RunReportPanel
+          runId={activeRunId}
+          seqCursor={seqCursor}
+          fallbackFocusRef={reportButtonRef}
+          onClose={() => setReportOpen(false)}
+        />
       )}
 
       <Inspector
@@ -1520,7 +1646,6 @@ interface ParticipantDetails {
 function Inspector(props: InspectorProps): JSX.Element | null {
   const tasks = useRuns((state) => state.tasks);
   const results = useRuns((state) => state.results);
-  const artifacts = useRuns((state) => state.artifacts);
   const workspaceLeases = useRuns((state) => state.workspaceLeases);
   const busy = useGraphStore((state) => state.busy);
   const sessions = useSessions((state) => state.sessions);
@@ -1592,19 +1717,9 @@ function Inspector(props: InspectorProps): JSX.Element | null {
     const latestResult = results
       .filter((result) => result.runId === cluster.run.id && result.participantId === participantId)
       .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
-    let provenance: TaskProvenance | null = null;
-    if (latestTask) {
-      const packetArtifact = artifacts.find((artifact) =>
-        artifact.runId === cluster.run.id && artifact.path === `context/task-${latestTask.id}.json`);
-      if (packetArtifact?.content) {
-        try {
-          const parsed = JSON.parse(packetArtifact.content) as { provenance?: TaskProvenance };
-          if (parsed && typeof parsed === 'object' && parsed.provenance) provenance = parsed.provenance;
-        } catch {
-          // Context packets are observability data; a malformed one renders as absent.
-        }
-      }
-    }
+    // Provenance is parsed once in main from the context packet; the artifact
+    // body itself never reaches the renderer.
+    const provenance: TaskProvenance | null = latestTask?.provenance ?? null;
     return {
       taskTitle: latestTask?.title ?? null,
       taskStatus: latestTask?.status ?? null,
@@ -1630,13 +1745,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
     }
     const result = details.result;
     if (result) {
-      rows.push(<KV key="outcome" k="Ergebnis" v={result.outcome} />);
-      rows.push(<KV key="files" k="Geänderte Dateien" v={String(result.filesChanged.length)} />);
-      if (result.tests.length > 0) {
-        const passed = result.tests.filter((test) => test.status === 'passed').length;
-        const failed = result.tests.filter((test) => test.status === 'failed').length;
-        rows.push(<KV key="tests" k="Tests" v={`${passed} ok · ${failed} fehlgeschlagen`} />);
-      }
+      rows.push(<KV key="outcome" k="Ergebnis" v={outcomeText(result.outcome)} />);
       if (result.usage.inputTokens !== null || result.usage.outputTokens !== null) {
         rows.push(<KV
           key="tokens"
@@ -1681,7 +1790,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <KV k="Status" v={statusText(memberStatus(orchestrator, false))} />
           <KV k="Teams" v={String(cluster.teams.length)} />
           {detailRows(details)}
-          {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
+          {details.result && <ResultDetails result={details.result} idPrefix={`ginsp-${orchestrator.id}`} />}
           {liveSessionId && <ActivityFeed sessionId={liveSessionId} />}
         </div>
         <div className="ginsp-actions">
@@ -1748,6 +1857,9 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           <KV k="Worker" v={String(team.workers.length)} />
           {team.idle && <KV k="Pause" v={managed ? 'Scheduling pausiert' : 'Manuell (nur Dispatch)'} />}
           {selection.kind === 'lead' && leadDetails && detailRows(leadDetails)}
+          {selection.kind === 'lead' && leadDetails?.result && team.lead && (
+            <ResultDetails result={leadDetails.result} idPrefix={`ginsp-${team.lead.id}`} />
+          )}
         </div>
         <div className="ginsp-actions">
           <button
@@ -1832,7 +1944,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
         <KV k="Katalog" v={worker.available ? 'Verfügbar' : 'Agent entfernt'} />
         {team.idle && <KV k="Team" v={managed ? 'Scheduling pausiert' : 'Manuell pausiert'} />}
         {detailRows(details)}
-        {details.result?.summary && <p className="ginsp-summary">{details.result.summary.slice(0, 220)}</p>}
+        {details.result && <ResultDetails result={details.result} idPrefix={`ginsp-${worker.id}`} />}
         {liveSessionId && <ActivityFeed sessionId={liveSessionId} />}
       </div>
       <div className="ginsp-actions">

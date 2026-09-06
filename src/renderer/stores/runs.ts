@@ -1,8 +1,12 @@
-/** Renderer mirror of persisted orchestration runs, tasks, events and artifacts. */
+/**
+ * Renderer mirror of persisted orchestration runs, tasks, events and artifacts.
+ * Holds the slim `OrchestrationView`: prompts, artifact bodies and mailbox
+ * texts never reach this process (Thema 5).
+ */
 
 import { create } from 'zustand';
 import type {
-  OrchestrationSnapshot,
+  OrchestrationView,
   Run,
   RunCreateInput,
   RunPublication,
@@ -13,7 +17,7 @@ import type {
 
 const ACTIVE_RUN_KEY = 'ade:activeRun';
 
-interface RunsState extends OrchestrationSnapshot {
+interface RunsState extends OrchestrationView {
   activeRunId: string | null;
   loaded: boolean;
 
@@ -36,7 +40,7 @@ interface RunsState extends OrchestrationSnapshot {
   }) => Promise<RunPublication>;
 }
 
-const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
+const EMPTY_SNAPSHOT: OrchestrationView = {
   runs: [],
   participants: [],
   tasks: [],
@@ -48,6 +52,7 @@ const EMPTY_SNAPSHOT: OrchestrationSnapshot = {
   publications: [],
   messages: [],
   usageByRun: {},
+  seqCursor: 0,
 };
 
 let loadInFlight: Promise<void> | null = null;
@@ -69,7 +74,7 @@ function persistRunId(runId: string | null): void {
   }
 }
 
-function selectRunId(snapshot: OrchestrationSnapshot, preferred: string | null): string | null {
+function selectRunId(snapshot: OrchestrationView, preferred: string | null): string | null {
   if (preferred && snapshot.runs.some((run) => run.id === preferred)) return preferred;
   const saved = readSavedRunId();
   if (saved && snapshot.runs.some((run) => run.id === saved)) return saved;
@@ -77,9 +82,9 @@ function selectRunId(snapshot: OrchestrationSnapshot, preferred: string | null):
 }
 
 function snapshotState(
-  snapshot: OrchestrationSnapshot,
+  snapshot: OrchestrationView,
   preferred: string | null,
-): Pick<RunsState, keyof OrchestrationSnapshot | 'activeRunId'> {
+): Pick<RunsState, keyof OrchestrationView | 'activeRunId'> {
   const activeRunId = selectRunId(snapshot, preferred);
   persistRunId(activeRunId);
   return { ...snapshot, activeRunId };

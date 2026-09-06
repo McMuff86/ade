@@ -7,10 +7,12 @@ import {
 } from '../../shared/executionBackends';
 import {
   DEFAULT_CONFIG,
+  DEFAULT_JOURNAL_RETENTION,
   DEFAULT_RUN_BUDGET,
   type AdeConfig,
   type Agent,
   type Category,
+  type JournalRetention,
   type Repository,
   type RunEvent,
   type RunParticipant,
@@ -30,6 +32,40 @@ function isSha256(value: unknown): value is string {
 
 function isGitObjectId(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{40,64}$/.test(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+/** Exactly the persisted shape; anything else is rewritten from defaults. */
+function isCanonicalJournalRetention(value: unknown): value is JournalRetention {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort().join(',');
+  return keys === 'archivedRuns,lastPrunedAt,prunedSeq'
+    && isNonNegativeInteger(record.prunedSeq)
+    && isNonNegativeInteger(record.archivedRuns)
+    && (record.lastPrunedAt === null || isNonNegativeInteger(record.lastPrunedAt));
+}
+
+/**
+ * Configs written before history retention existed have no record; a
+ * damaged record is repaired field by field so a stale seq floor is kept
+ * whenever it is still a valid number (losing it could re-issue a seq).
+ */
+function normalizeJournalRetention(value: unknown): JournalRetention {
+  if (isCanonicalJournalRetention(value)) return { ...value };
+  const record = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    prunedSeq: isNonNegativeInteger(record.prunedSeq) ? record.prunedSeq : DEFAULT_JOURNAL_RETENTION.prunedSeq,
+    archivedRuns: isNonNegativeInteger(record.archivedRuns)
+      ? record.archivedRuns
+      : DEFAULT_JOURNAL_RETENTION.archivedRuns,
+    lastPrunedAt: isNonNegativeInteger(record.lastPrunedAt) ? record.lastPrunedAt : null,
+  };
 }
 
 /** Normalize older config files and import their persisted Graph topology once. */
@@ -102,6 +138,7 @@ export function normalizeConfig(
     runMessages: arrayOrEmpty(raw.runMessages),
     commandLog: arrayOrEmpty(raw.commandLog),
     sessionBookends: arrayOrEmpty(raw.sessionBookends),
+    journalRetention: normalizeJournalRetention(raw.journalRetention),
     settings: {
       ...DEFAULT_CONFIG.settings,
       ...(raw.settings ?? {}),
@@ -128,6 +165,7 @@ export function normalizeConfig(
     !Array.isArray(raw.runMessages) ||
     !Array.isArray(raw.commandLog) ||
     !Array.isArray(raw.sessionBookends) ||
+    !isCanonicalJournalRetention(raw.journalRetention) ||
     !Array.isArray(raw.repositories) ||
     !Array.isArray(raw.workspaceBindings) ||
     !Array.isArray(raw.agentTemplates) ||

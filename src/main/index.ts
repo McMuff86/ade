@@ -11,6 +11,7 @@ import { runPtySmoke } from './pty/smoke';
 import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
 import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
 import { registerRendererWindow, rendererWindows } from './rendererWindows';
+import { MainLogSink } from './logging/mainLog';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
 registerPhotoProtocolScheme();
@@ -30,6 +31,12 @@ const userDataOverride = process.env['ADE_USER_DATA_DIR'];
 if (userDataOverride) {
   app.setPath('userData', userDataOverride);
 }
+
+// Packaged builds have no console: tee main-process output into a rotating
+// userData/ade/logs/main.log. Installed after the userData override so tests
+// and throwaway profiles log into their own directory.
+const mainLog = new MainLogSink({ dir: join(app.getPath('userData'), 'ade', 'logs') });
+mainLog.install();
 
 function createWindow(): void {
   const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();

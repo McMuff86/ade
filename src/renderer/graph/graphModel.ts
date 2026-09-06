@@ -6,11 +6,21 @@ import type {
   RunEvent,
   RunParticipant,
   RunTask,
+  RunTaskTestResult,
   RuntimeId,
 } from '../../shared/types';
 import type { TransientStatus } from './graphStore';
 
 export type NodeStatus = 'running' | 'idle' | 'working' | 'done' | 'failed';
+
+/**
+ * The task fields the canvas reads. Structural so both the main-internal
+ * `RunTask` and the renderer's prompt-free `RunTaskView` satisfy it.
+ */
+export type GraphTask = Pick<RunTask, 'id' | 'runId' | 'participantId' | 'status' | 'updatedAt' | 'title' | 'error'>;
+
+/** The result fields the failure notice reads to name failed test commands. */
+export type GraphTaskResult = { runId: string; taskId: string; createdAt: number; tests: RunTaskTestResult[] };
 
 export interface GraphMember {
   /** Run-scoped participant id. */
@@ -57,26 +67,31 @@ export interface SessionsSlice {
 export interface RunFailureNotice {
   context: string;
   detail: string;
+  /** Commands of the tests the run's results reported as failed (newest result first). */
+  failedTests: string[];
 }
 
 /**
  * Resolve the most actionable persisted reason for a failed run. Task errors
  * take precedence over the run journal because they retain the precise guard
  * or runtime failure; the journal remains the durable fallback for failures
- * that happen between tasks.
+ * that happen between tasks. Failed test commands come from the persisted
+ * results, so "verification reported one or more failed tests" names them.
  */
 export function failureNoticeFor(
   run: Run | null,
-  tasks: RunTask[],
+  tasks: GraphTask[],
   events: RunEvent[],
+  results: GraphTaskResult[] = [],
 ): RunFailureNotice | null {
   if (!run || run.status !== 'failed') return null;
+  const failedTests = failedTestCommands(run.id, results);
 
   const failedTask = tasks
     .filter((task) => task.runId === run.id && task.status === 'failed' && task.error?.trim())
     .sort((a, b) => b.updatedAt - a.updatedAt)[0];
   if (failedTask?.error) {
-    return { context: failedTask.title, detail: failedTask.error.trim() };
+    return { context: failedTask.title, detail: failedTask.error.trim(), failedTests };
   }
 
   const failedEvent = events
@@ -84,13 +99,24 @@ export function failureNoticeFor(
     .sort((a, b) => b.seq - a.seq)[0];
   const eventDetail = failedEvent?.data?.['detail'];
   if (typeof eventDetail === 'string' && eventDetail.trim()) {
-    return { context: 'Orchestrierung', detail: eventDetail.trim() };
+    return { context: 'Orchestrierung', detail: eventDetail.trim(), failedTests };
   }
 
   return {
     context: 'Kein Fehlerdetail gespeichert',
     detail: 'Der Run ist fehlgeschlagen, enthält aber keinen persistierten Fehlertext.',
+    failedTests,
   };
+}
+
+function failedTestCommands(runId: string, results: GraphTaskResult[]): string[] {
+  const commands: string[] = [];
+  for (const result of [...results].filter((item) => item.runId === runId).sort((a, b) => b.createdAt - a.createdAt)) {
+    for (const test of result.tests) {
+      if (test.status === 'failed' && !commands.includes(test.command)) commands.push(test.command);
+    }
+  }
+  return commands;
 }
 
 export function hasRunningSession(agentId: string, sessions: SessionsSlice): boolean {
@@ -111,7 +137,7 @@ export function statusFor(
     idle: boolean;
     busy: Record<string, TransientStatus>;
     sessions: SessionsSlice;
-    tasks: RunTask[];
+    tasks: GraphTask[];
   },
 ): NodeStatus {
   const transient = opts.busy[participantId];
@@ -158,7 +184,7 @@ function buildCluster(
   run: Run,
   participants: RunParticipant[],
   agents: Record<string, Agent>,
-  tasks: RunTask[],
+  tasks: GraphTask[],
   sessions: SessionsSlice,
   busy: Record<string, TransientStatus>,
   manualIdleTeams: Record<string, true>,
@@ -223,24 +249,30 @@ function buildCluster(
 /**
  * Build every visible run cluster: all non-terminal runs plus the most recent
  * `completedLimit` terminal runs (dimmed), ordered by creation for a stable
- * left-to-right layout.
+ * left-to-right layout. The `pinnedRunId` (the run selected in the run bar)
+ * is always rendered, however old — selecting a run must never yield an
+ * empty canvas (Thema 3).
  */
 export function buildClusters(
   runs: Run[],
   participants: RunParticipant[],
   agents: Record<string, Agent>,
-  tasks: RunTask[],
+  tasks: GraphTask[],
   sessions: SessionsSlice,
   busy: Record<string, TransientStatus>,
   manualIdleTeams: Record<string, true>,
   completedLimit = 2,
+  pinnedRunId: string | null = null,
 ): RunClusterModel[] {
   const active = runs.filter((run) => !isTerminalRunStatus(run.status));
   const recentTerminal = runs
     .filter((run) => isTerminalRunStatus(run.status))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, completedLimit);
-  return [...active, ...recentTerminal]
+  const visible = [...active, ...recentTerminal];
+  const pinned = pinnedRunId ? runs.find((run) => run.id === pinnedRunId) : undefined;
+  if (pinned && !visible.some((run) => run.id === pinned.id)) visible.push(pinned);
+  return visible
     .sort((a, b) => a.createdAt - b.createdAt)
     .map((run) => buildCluster(run, participants, agents, tasks, sessions, busy, manualIdleTeams));
 }

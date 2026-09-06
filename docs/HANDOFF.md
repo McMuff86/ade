@@ -1,4 +1,80 @@
-# Handoff — 2026-09-06
+# Handoff — 2026-09-06 (Session 2)
+
+## Ergebnis dieser Session — Thema 3 und Thema 5
+
+Bezug: `PROFESSIONALIZATION_REVIEW_2026-07-26.md` (beide Themen mit
+Status-Block), Vertrag in `ARCHITECTURE.md` („Renderer view, run report and
+history retention", IPC-Katalog), Matrix in `STATUS.md` (neue Zeilen
+„Finished-run readability", „Main-process log", „History retention";
+„Keyboard navigation" und „Background notifications" erweitert), Roadmap-
+Voraussetzung unter Goal 7 und Goal-11-Hinweis.
+
+- **Zwei Projektionen (`src/shared/types.ts`, `OrchestrationService`):**
+  `snapshot()` bleibt die interne Vollform; `view()` liefert
+  `OrchestrationView` für `run:get` und `orchestration:changed` — Tasks mit
+  `promptDigest`/`promptChars`/`provenance` statt Prompt, Artefakte mit
+  `contentChars`, Mailbox mit `textChars`, plus `seqCursor`. `onChange` trägt
+  keinen Payload mehr; `ipc.ts` koalesziert den Broadcast pro Tick.
+- **`run:report({runId})` → `RunReport`** (Policy `read`/desktop, Validator,
+  Security-Fixture): pro Task alle Dateien, alle Tests mit gebundener
+  Ausgabe (16 KiB), Risiken, SHA, Participant-Name/Rolle; pro Run Failure mit
+  den fehlgeschlagenen Testkommandos, Integrationsbereich, Verifikation,
+  Approvals, Publication. Texte gebunden (4 KiB), nicht geteasert.
+- **`integration.applied`** trägt `{commitCount, fromSha, toSha}` — der
+  Coordinator inspiziert das Integrator-HEAD vor/nach `integrateCommits`.
+- **Approval-Notice:** `runApprovalNotice` + `showRunApprovalNotification`
+  in `beginApprovalPhase` (Name, Task-/Commit-Zahlen, kein Prompt/Pfad).
+- **Main-Log:** `src/main/logging/mainLog.ts` (`MainLogSink`,
+  `userData/ade/logs/main.log`, 2 MiB × 5, 8 KiB/Zeile, Redaktion inkl.
+  Secret-Feldnamen, Selbstabschaltung statt Throw), installiert in `index.ts`.
+- **Graph:** Selector mit Aktiv/Beendet-Gruppen und Status; ausgewählter
+  älterer Run wird gepinnt (`buildClusters(..., pinnedRunId)`,
+  `data-run-id` auf `.gcluster`); Fehler-Alert listet Testkommandos und
+  öffnet den Bericht; `ResultDetails` (neu) im Inspector; `RunReportPanel`
+  (neu, `role="dialog"`, Fokus rein/Escape/Fokusrückgabe mit Fallback auf
+  den Toolbar-Button, weil der Alert-Button beim Öffnen unmountet);
+  Karten/Cluster-/Team-Bars `role="button"` + `tabIndex` + Enter/Space,
+  Escape löscht Auswahl; `.gteam-actions` per `:focus-within`.
+- **Retention (`applyRetention`, `RunArchiveStore`, `journalRetention`):**
+  `HISTORY_RETENTION = {keepTerminalRuns: 40, keepTerminalDays: 30,
+  maxConfigBytes: 4 MiB}`; Archiv `ade-run-archive` v1 nach
+  `userData/ade/archive/runs/<uuid>.json` (atomar) vor dem Save; offene,
+  geleaste, veröffentlichte Runs nie; `prunedSeq` als Seq-Floor (auch
+  `deleteRun`); Start + stündlich. Config kompakt serialisiert.
+  Migration/Validierung von `journalRetention` in `migrate.ts`/`store.ts`
+  (die Root-Key-Schleife im Validator behandelt den Nicht-Array-Key
+  explizit — ohne das schlug jedes `replace()` fehl).
+- **Nachweis:** `pnpm test` 18 Suiten / **1158** Checks (Orchestration
+  49 → 81, Runtime 43 → 47, Config 27 → 30, Security 185 → 192, neu
+  `test-main-log.ts` 14 mit Rotation, Redaktion, Tee/Restore, Selbst-
+  abschaltung, Archiv atomar/UUID). Electron-Workflow **151** Checks, neu: Seed
+  mit drei beendeten Runs (der älteste standardmäßig unsichtbar), Alert mit
+  `pnpm test:integration`, Enter auf fokussierter Karte → Inspector mit
+  beiden Dateien und Test-Ausgabe, Escape, Bericht mit Risiko und
+  `aaaaaaa → bbbbbbb`, Fokus im Dialog, Escape → Fokus auf Toolbar-Button,
+  Pinning des ältesten Runs, `run:get` ohne `prompt`. `pnpm verify` grün.
+- **Bewusst offen:** kein Archiv-Browser (archivierte Runs verschwinden aus
+  Graph und Host-API); Renderer ersetzt weiter ganze Slices (kein
+  `run:events`-Konsument, kein `React.memo`); `run:report` bleibt Desktop-
+  only bis der Host-Adapter es durch `redactForWire` führt (Goal 9);
+  `deleteRun` unverändert; `useSessionShortcuts` außerhalb des Terminals-
+  Modus unverändert.
+
+## Nächster Schritt
+
+Goal 8 beginnen: Paired-Device-Store mit Revocation ersetzt den
+`ADE_HOST_API_COMMAND_DEVICE`-Bootstrap ohne Änderung des Signaturvertrags;
+durables Remote-Audit; Tailscale-Serve-Vertrag; erst danach PWA-Shell.
+
+Manuell prüfen: ADE mit einem alten Profil starten — in
+`userData/ade/logs/main.log` erscheint eine Zeile `history retention archived
+N run(s)`, sobald mehr als 40 beendete Runs älter als 30 Tage vorliegen, und
+`userData/ade/archive/runs/` enthält je eine Datei; im Graph einen beendeten
+Run auswählen, `Bericht` öffnen, mit Escape schließen.
+
+---
+
+# Handoff — 2026-09-06 (Session 1)
 
 ## Ergebnis dieser Session — Goal 7 abgeschlossen: `POST /api/v1/tasks`
 
@@ -66,13 +142,10 @@ verify` als eigener Commit gesichert und gepusht (`ad891a6`).
   absichtlich nicht angeboten. Alles Weitere aus Session 2 (Pairing,
   Revocation, durables Audit, TLS) unverändert offen → Goal 8.
 
-## Nächster Schritt
+## Nächster Schritt (Stand Session 1, erledigt in Session 2)
 
-Goal 8 beginnen: Paired-Device-Store mit Revocation ersetzt den
-`ADE_HOST_API_COMMAND_DEVICE`-Bootstrap ohne Änderung des Signaturvertrags;
-durables Remote-Audit; Tailscale-Serve-Vertrag; erst danach PWA-Shell.
-Parallel oder davor: Thema 3 (beendete Runs lesbar, Graph-Tastaturpfad) und
-Thema 5 (Journal-Retention) aus `PROFESSIONALIZATION_REVIEW_2026-07-26.md`.
+Thema 3 und Thema 5 aus `PROFESSIONALIZATION_REVIEW_2026-07-26.md` — siehe
+oben. Danach Goal 8.
 
 Manuell prüfen (Loopback): mit gesetztem Device wie unten ein
 `POST /api/v1/tasks` mit `{"agentId":…, "repositoryId":…, "prompt":…}`,

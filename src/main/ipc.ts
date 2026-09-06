@@ -32,6 +32,7 @@ import { PtyManager } from './pty/PtyManager';
 import { isGitRepo } from './git/GitService';
 import { readTaskActivity } from './orchestration/MailboxService';
 import { OrchestrationService } from './orchestration/OrchestrationService';
+import { RunArchiveStore } from './orchestration/RunArchiveStore';
 import { RunCoordinator } from './orchestration/RunCoordinator';
 import { diagnoseRuntimes } from './diagnostics/RuntimeDiagnostics';
 import { assertIpcPayload } from './ipcValidation';
@@ -69,6 +70,8 @@ let ptyManager: PtyManager | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
+let retentionTimer: NodeJS.Timeout | null = null;
+const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
 
@@ -179,13 +182,22 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     commands: execution,
     git: backendGit,
   });
-  // Desktop renderers receive snapshots; the host API's event streams flush
-  // journal deltas from the same change signal.
+  // Desktop renderers receive the slim view, coalesced per event-loop tick so a
+  // burst of saves (phase change + lease release + event) costs one projection
+  // and one broadcast; the host API's event streams flush journal deltas from
+  // the same change signal immediately (Thema 5).
   const journalChanges = new JournalChangeHub();
-  orchestration = new OrchestrationService(store, (snapshot) => {
-    broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, snapshot);
+  let viewBroadcastPending = false;
+  orchestration = new OrchestrationService(store, () => {
     journalChanges.publish();
-  });
+    if (viewBroadcastPending) return;
+    viewBroadcastPending = true;
+    setImmediate(() => {
+      viewBroadcastPending = false;
+      if (!orchestration) return;
+      broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, orchestration.view());
+    });
+  }, new RunArchiveStore(join(app.getPath('userData'), 'ade', 'archive', 'runs')));
   const recoveredTasks = orchestration.recoverInterruptedTasks();
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
@@ -194,6 +206,25 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   if (recoveredPublications > 0) {
     console.warn(`[ade] recovered ${recoveredPublications} interrupted publication(s)`);
   }
+  // History retention: once after recovery, then hourly. Never fatal — a
+  // failed archive write leaves the journal exactly as it was.
+  const runRetention = (): void => {
+    if (!orchestration) return;
+    try {
+      const outcome = orchestration.applyRetention();
+      if (outcome.archivedRunIds.length > 0) {
+        console.log(`[ade] history retention archived ${outcome.archivedRunIds.length} run(s); `
+          + `config ${outcome.bytesBefore} -> ${outcome.bytesAfter} bytes`);
+      } else if (outcome.skipped) {
+        console.warn(`[ade] history retention skipped: ${outcome.skipped}`);
+      }
+    } catch (error) {
+      console.error('[ade] history retention failed:', error);
+    }
+  };
+  runRetention();
+  retentionTimer = setInterval(runRetention, RETENTION_INTERVAL_MS);
+  retentionTimer.unref();
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
@@ -715,7 +746,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
 
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
-  handle(IPC.RunGet, () => orchestration!.snapshot());
+  handle(IPC.RunGet, () => orchestration!.view());
+  handle(IPC.RunReport, ({ runId }) => orchestration!.report(runId));
   handle(IPC.RunGetSummary, ({ runId }) => application.runs(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));
   handle(IPC.RunApprovalDiff, async ({ runId }) => {
@@ -878,6 +910,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
 export function disposePtyManager(): void {
+  if (retentionTimer) {
+    clearInterval(retentionTimer);
+    retentionTimer = null;
+  }
   void hostApiServer?.stop().catch((error) => {
     console.warn('[ade] host API failed to stop cleanly:', error);
   });

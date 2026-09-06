@@ -1,19 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_RUN_BUDGET,
+  HISTORY_RETENTION,
+  MAX_RUN_REPORT_TEXT_CHARS,
   MAX_TASK_MINUTES_LIMIT,
   WORKSPACE_PREPARE_MODES,
   type AdeConfig,
   type CommandLogEntry,
   type OrchestrationSnapshot,
+  type OrchestrationView,
   type Run,
   type RunApproval,
   type RunArtifact,
   type RunCreateInput,
   type RunEvent,
   type RunMessage,
+  type RunParticipant,
   type RunPhase,
   type RunPublication,
+  type RunReport,
+  type RunReportFailure,
+  type RunReportTask,
   type RunStatus,
   type RunSummary,
   type RunTask,
@@ -23,10 +30,12 @@ import {
   type RunTaskStatus,
   type RunTaskSubmission,
   type RunTaskSubmitInput,
+  type RunTaskView,
   type RunUsage,
   type RunWorkspaceLease,
   type SessionMeta,
   type StructuredTaskResult,
+  type TaskProvenance,
 } from '../../shared/types';
 import { MANAGED_HARNESS_OVERRIDES } from '../../shared/runtimes';
 import { RUN_CONTEXT_MANIFEST_PATH, sha256 } from './contextManifest';
@@ -36,6 +45,50 @@ export interface OrchestrationConfigPort {
   get(): AdeConfig;
   save(partial: Partial<AdeConfig>): AdeConfig;
 }
+
+/**
+ * Every record of one run, written to the archive before retention removes
+ * it from the journal. Nothing is summarized: the archive is the full history
+ * the config no longer carries.
+ */
+export interface RunArchive {
+  format: 'ade-run-archive';
+  version: 1;
+  archivedAt: number;
+  run: Run;
+  participants: RunParticipant[];
+  tasks: RunTask[];
+  events: RunEvent[];
+  artifacts: RunArtifact[];
+  results: RunTaskResult[];
+  approvals: RunApproval[];
+  workspaceLeases: RunWorkspaceLease[];
+  messages: RunMessage[];
+}
+
+/** Where retention parks a run before pruning it. Must be durable before it returns. */
+export interface RunArchivePort {
+  write(archive: RunArchive): void;
+}
+
+export interface RetentionPolicy {
+  keepTerminalRuns: number;
+  keepTerminalDays: number;
+  maxConfigBytes: number;
+}
+
+export interface RetentionOutcome {
+  archivedRunIds: string[];
+  bytesBefore: number;
+  bytesAfter: number;
+  /** Why nothing was pruned although candidates existed. */
+  skipped: 'no-archive' | null;
+}
+
+const TERMINAL_RUN_EVENT_TYPES = new Set<RunEvent['type']>(['run.completed', 'run.failed', 'run.cancelled']);
+const TASK_CONTEXT_PACKET_PREFIX = 'context/task-';
+/** Caches keyed by immutable record ids; cleared when they outgrow the journal. */
+const VIEW_CACHE_LIMIT = 20_000;
 
 export interface ManagedTaskInput extends RunTaskCreateInput {
   title: string;
@@ -72,30 +125,335 @@ const EVENT_STATUS: Partial<Record<RunEvent['type'], RunTaskStatus>> = {
 export class OrchestrationService {
   /** Cached top of the journal cursor; lazily derived from persisted records. */
   private seqCounter: number | null = null;
+  private readonly promptDigests = new Map<string, { digest: string; chars: number }>();
+  private readonly provenanceByArtifact = new Map<string, TaskProvenance | null>();
 
+  /**
+   * `onChange` fires after every persisted change and carries nothing: the
+   * owner decides whether to read `view()` (coalesced renderer broadcast) or
+   * `snapshot()`. `archive` is where retention parks a run before pruning it;
+   * without one, retention reports candidates but prunes nothing.
+   */
   constructor(
     private readonly store: OrchestrationConfigPort,
-    private readonly onChange: (snapshot: OrchestrationSnapshot) => void = () => undefined,
+    private readonly onChange: () => void = () => undefined,
+    private readonly archive: RunArchivePort | null = null,
   ) {}
 
   /**
    * Next globally monotonic journal seq. Gaps are fine (a built event may
    * never be saved); the cursor only promises strict monotonic growth, so
-   * run:events consumers never see a record twice for the same cursor.
+   * run:events consumers never see a record twice for the same cursor. The
+   * retention floor keeps that promise across restarts after the newest
+   * record was pruned or deleted.
    */
   private nextSeq(): number {
     if (this.seqCounter === null) {
-      const config = this.store.get();
-      let max = 0;
-      for (const record of [...config.runEvents, ...config.runMessages]) {
-        if (typeof record.seq === 'number' && Number.isFinite(record.seq) && record.seq > max) {
-          max = record.seq;
-        }
-      }
-      this.seqCounter = max;
+      this.seqCounter = journalCursorOf(this.store.get());
     }
     this.seqCounter += 1;
     return this.seqCounter;
+  }
+
+  /**
+   * Renderer-facing projection (Thema 5): the same records as the snapshot
+   * minus prompts, artifact bodies and mailbox texts. Prompt digests and
+   * parsed provenance are cached per immutable record id, so a save costs one
+   * pass over the journal, not one SHA-256 per task.
+   */
+  view(): OrchestrationView {
+    const config = this.store.get();
+    if (this.promptDigests.size > VIEW_CACHE_LIMIT) this.promptDigests.clear();
+    if (this.provenanceByArtifact.size > VIEW_CACHE_LIMIT) this.provenanceByArtifact.clear();
+    const tasks = deriveTasks(config.runTasks, config.runEvents);
+    return {
+      runs: config.runs.map((run) => ({
+        ...run,
+        budget: { ...run.budget },
+        status: run.mode === 'managed' ? run.status : deriveRunStatus(run.id, tasks),
+      })),
+      participants: config.runParticipants.map((participant) => ({ ...participant })),
+      tasks: tasks.map((task): RunTaskView => {
+        const { prompt, ...rest } = task;
+        const digest = this.promptDigestFor(task.id, prompt);
+        return {
+          ...rest,
+          dependsOn: [...task.dependsOn],
+          promptDigest: digest.digest,
+          promptChars: digest.chars,
+          provenance: this.provenanceFor(config, task.runId, task.id),
+        };
+      }),
+      events: config.runEvents.map((event) => ({ ...event, data: event.data ? { ...event.data } : undefined })),
+      artifacts: config.runArtifacts.map((artifact) => {
+        const { content, ...rest } = artifact;
+        return { ...rest, contentChars: content?.length ?? 0 };
+      }),
+      results: config.runTaskResults.map(cloneResult),
+      approvals: config.runApprovals.map((approval) => ({ ...approval })),
+      workspaceLeases: config.runWorkspaceLeases.map((lease) => ({ ...lease })),
+      publications: config.runPublications.map((publication) => ({ ...publication })),
+      messages: config.runMessages.map((message) => {
+        const { text, ...rest } = message;
+        return { ...rest, textChars: text.length };
+      }),
+      usageByRun: usageByRun(config),
+      seqCursor: journalCursorOf(config),
+    };
+  }
+
+  private promptDigestFor(taskId: string, prompt: string): { digest: string; chars: number } {
+    const cached = this.promptDigests.get(taskId);
+    if (cached && cached.chars === prompt.length) return cached;
+    const entry = { digest: sha256(prompt), chars: prompt.length };
+    this.promptDigests.set(taskId, entry);
+    return entry;
+  }
+
+  private provenanceFor(config: AdeConfig, runId: string, taskId: string): TaskProvenance | null {
+    const path = `${TASK_CONTEXT_PACKET_PREFIX}${taskId}.json`;
+    const artifact = config.runArtifacts.find((entry) => entry.runId === runId && entry.path === path);
+    if (!artifact?.content) return null;
+    const cached = this.provenanceByArtifact.get(artifact.id);
+    if (cached !== undefined) return cached;
+    const parsed = parseTaskProvenance(artifact.content);
+    this.provenanceByArtifact.set(artifact.id, parsed);
+    return parsed;
+  }
+
+  /**
+   * Everything one run left behind, projected once in main (Thema 3). Text
+   * fields are bounded to MAX_RUN_REPORT_TEXT_CHARS, never cut to a teaser;
+   * file lists, test commands and risks are complete. Task `error` strings
+   * are passed through as persisted — the IPC/host layers redact them.
+   */
+  report(runId: string): RunReport {
+    const config = this.store.get();
+    const run = config.runs.find((entry) => entry.id === runId);
+    if (!run) throw new Error(`ade: run not found "${runId}"`);
+    const allTasks = deriveTasks(config.runTasks, config.runEvents);
+    // Stable sort: tasks created in the same millisecond keep journal order.
+    const tasks = allTasks
+      .filter((task) => task.runId === runId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    const participants = new Map(config.runParticipants.map((participant) => [participant.id, participant]));
+    const resultsByTask = new Map<string, RunTaskResult>();
+    for (const result of config.runTaskResults) {
+      if (result.runId !== runId) continue;
+      const existing = resultsByTask.get(result.taskId);
+      if (!existing || existing.createdAt <= result.createdAt) resultsByTask.set(result.taskId, result);
+    }
+    const events = config.runEvents.filter((event) => event.runId === runId).sort((a, b) => a.seq - b.seq);
+    const status = run.mode === 'managed' ? run.status : deriveRunStatus(runId, allTasks);
+    const terminalEvent = [...events].reverse().find((event) => TERMINAL_RUN_EVENT_TYPES.has(event.type));
+    const lastTaskEnd = tasks.reduce<number>((max, task) => Math.max(max, task.endedAt ?? 0), 0);
+    const endedAt = isTerminalRunStatus(status)
+      ? terminalEvent?.createdAt ?? (lastTaskEnd > 0 ? lastTaskEnd : run.updatedAt)
+      : null;
+
+    const reportTasks = tasks.map((task): RunReportTask => {
+      const participant = participants.get(task.participantId);
+      const result = resultsByTask.get(task.id);
+      return {
+        id: task.id,
+        participantId: task.participantId,
+        participantName: participant?.agentName ?? task.participantId,
+        role: participant?.role ?? 'worker',
+        teamName: participant?.teamName,
+        title: task.title,
+        phase: task.phase,
+        status: task.status,
+        attempt: task.attempt,
+        createdAt: task.createdAt,
+        startedAt: task.startedAt,
+        endedAt: task.endedAt,
+        exitCode: task.exitCode,
+        error: task.error,
+        result: result
+          ? {
+              outcome: result.outcome,
+              summary: boundReportText(result.summary),
+              filesChanged: [...result.filesChanged],
+              tests: result.tests.map((test) => ({
+                command: test.command,
+                status: test.status,
+                output: boundReportText(test.output ?? ''),
+              })),
+              risks: [...result.risks],
+              commitSha: result.commitSha ?? null,
+              usage: { ...result.usage },
+              adapterId: result.adapterId,
+            }
+          : null,
+        provenance: this.provenanceFor(config, runId, task.id),
+      };
+    });
+
+    const filesChanged = new Set<string>();
+    const totals = {
+      tasks: reportTasks.length,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+      filesChanged: 0,
+      testsPassed: 0,
+      testsFailed: 0,
+      testsSkipped: 0,
+    };
+    for (const task of reportTasks) {
+      if (task.status === 'completed') totals.completed += 1;
+      else if (task.status === 'failed') totals.failed += 1;
+      else if (task.status === 'cancelled') totals.cancelled += 1;
+      for (const file of task.result?.filesChanged ?? []) filesChanged.add(file);
+      for (const test of task.result?.tests ?? []) {
+        if (test.status === 'passed') totals.testsPassed += 1;
+        else if (test.status === 'failed') totals.testsFailed += 1;
+        else totals.testsSkipped += 1;
+      }
+    }
+    totals.filesChanged = filesChanged.size;
+
+    const integrationEvent = [...events].reverse().find((event) => event.type === 'integration.applied');
+    const integrationData = (integrationEvent?.data ?? {}) as Record<string, unknown>;
+    const publication = config.runPublications.find((entry) => entry.runId === runId);
+
+    return {
+      runId: run.id,
+      name: run.name,
+      goal: run.goal,
+      status,
+      mode: run.mode,
+      phase: run.phase,
+      repositoryId: run.repositoryId,
+      createdAt: run.createdAt,
+      updatedAt: run.updatedAt,
+      endedAt,
+      failure: status === 'failed' ? failureFor(reportTasks, terminalEvent) : null,
+      integration: integrationEvent
+        ? {
+            commitCount: typeof integrationData.commitCount === 'number' ? integrationData.commitCount : 0,
+            fromSha: typeof integrationData.fromSha === 'string' ? integrationData.fromSha : null,
+            toSha: typeof integrationData.toSha === 'string' ? integrationData.toSha : null,
+            at: integrationEvent.createdAt,
+          }
+        : null,
+      verification: run.verifiedHeadSha && run.verificationTaskId && run.verifiedAt
+        ? { headSha: run.verifiedHeadSha, taskId: run.verificationTaskId, verifiedAt: run.verifiedAt }
+        : null,
+      approvals: config.runApprovals
+        .filter((approval) => approval.runId === runId)
+        .map((approval) => ({
+          id: approval.id,
+          status: approval.status,
+          reason: approval.reason,
+          requestedAt: approval.requestedAt,
+          resolvedAt: approval.resolvedAt,
+        })),
+      publication: publication
+        ? {
+            status: publication.status,
+            headBranch: publication.headBranch,
+            prNumber: publication.prNumber,
+            prUrl: publication.prUrl,
+          }
+        : null,
+      tasks: reportTasks,
+      totals,
+      usage: usageByRun(config)[runId] ?? {
+        inputTokens: 0, outputTokens: 0, costUsd: 0, approvals: 0, unreportedCostTasks: 0,
+      },
+      seqCursor: journalCursorOf(config),
+    };
+  }
+
+  /**
+   * History retention (Thema 5). Terminal runs beyond the newest
+   * `keepTerminalRuns` that are also older than `keepTerminalDays` are archived
+   * and pruned; if the serialized config would still exceed `maxConfigBytes`,
+   * the oldest remaining terminal runs go too, until it fits. Open runs, runs
+   * with a publication audit and runs holding an active lease are never
+   * touched. Every archive is written before the single save that removes the
+   * records, and the seq floor advances so cursors stay monotonic.
+   */
+  applyRetention(now = Date.now(), policy: RetentionPolicy = HISTORY_RETENTION): RetentionOutcome {
+    const config = this.store.get();
+    const bytesBefore = Buffer.byteLength(JSON.stringify(config));
+    const tasks = deriveTasks(config.runTasks, config.runEvents);
+    const publishedRuns = new Set(config.runPublications.map((publication) => publication.runId));
+    const leasedRuns = new Set(
+      config.runWorkspaceLeases.filter((lease) => lease.status === 'active').map((lease) => lease.runId),
+    );
+    const terminal = config.runs
+      .filter((run) => {
+        if (publishedRuns.has(run.id) || leasedRuns.has(run.id)) return false;
+        const status = run.mode === 'managed' ? run.status : deriveRunStatus(run.id, tasks);
+        return isTerminalRunStatus(status);
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt);
+    const maxAgeMs = policy.keepTerminalDays * 24 * 60 * 60 * 1000;
+    const candidates = new Map<string, Run>();
+    terminal.forEach((run, index) => {
+      if (index >= policy.keepTerminalRuns && now - run.updatedAt > maxAgeMs) candidates.set(run.id, run);
+    });
+    const archives = new Map<string, RunArchive>();
+    const archiveFor = (run: Run): RunArchive => {
+      const existing = archives.get(run.id);
+      if (existing) return existing;
+      const archive = buildRunArchive(config, run, now);
+      archives.set(run.id, archive);
+      return archive;
+    };
+    let estimate = bytesBefore;
+    for (const run of candidates.values()) estimate -= Buffer.byteLength(JSON.stringify(archiveFor(run)));
+    if (estimate > policy.maxConfigBytes) {
+      for (const run of [...terminal].reverse()) {
+        if (estimate <= policy.maxConfigBytes) break;
+        if (candidates.has(run.id)) continue;
+        candidates.set(run.id, run);
+        estimate -= Buffer.byteLength(JSON.stringify(archiveFor(run)));
+      }
+    }
+    if (candidates.size === 0) {
+      return { archivedRunIds: [], bytesBefore, bytesAfter: bytesBefore, skipped: null };
+    }
+    if (!this.archive) {
+      return { archivedRunIds: [], bytesBefore, bytesAfter: bytesBefore, skipped: 'no-archive' };
+    }
+    const archived = [...candidates.values()].map(archiveFor);
+    for (const archive of archived) this.archive.write(archive);
+    const removed = new Set(archived.map((archive) => archive.run.id));
+    let prunedSeq = config.journalRetention.prunedSeq;
+    for (const archive of archived) {
+      for (const event of archive.events) prunedSeq = Math.max(prunedSeq, event.seq);
+      for (const message of archive.messages) prunedSeq = Math.max(prunedSeq, message.seq);
+    }
+    const next = this.store.save({
+      runs: config.runs.filter((run) => !removed.has(run.id)),
+      runParticipants: config.runParticipants.filter((participant) => !removed.has(participant.runId)),
+      runTasks: config.runTasks.filter((task) => !removed.has(task.runId)),
+      runEvents: config.runEvents.filter((event) => !removed.has(event.runId)),
+      runArtifacts: config.runArtifacts.filter((artifact) => !removed.has(artifact.runId)),
+      runTaskResults: config.runTaskResults.filter((result) => !removed.has(result.runId)),
+      runApprovals: config.runApprovals.filter((approval) => !removed.has(approval.runId)),
+      runWorkspaceLeases: config.runWorkspaceLeases.filter((lease) => !removed.has(lease.runId)),
+      runMessages: config.runMessages.filter((message) => !removed.has(message.runId)),
+      journalRetention: {
+        prunedSeq,
+        archivedRuns: config.journalRetention.archivedRuns + archived.length,
+        lastPrunedAt: now,
+      },
+    });
+    for (const archive of archived) {
+      for (const task of archive.tasks) this.promptDigests.delete(task.id);
+      for (const artifact of archive.artifacts) this.provenanceByArtifact.delete(artifact.id);
+    }
+    this.emit();
+    return {
+      archivedRunIds: archived.map((archive) => archive.run.id),
+      bytesBefore,
+      bytesAfter: Buffer.byteLength(JSON.stringify(next)),
+      skipped: null,
+    };
   }
 
   snapshot(): OrchestrationSnapshot {
@@ -160,14 +518,12 @@ export class OrchestrationService {
     };
   }
 
-  /** Highest journal seq across events and messages; 0 for an empty journal. */
+  /**
+   * Highest journal seq across events, messages and the retention floor; 0
+   * for an empty journal that never pruned anything.
+   */
   journalCursor(): number {
-    const config = this.store.get();
-    let seqCursor = 0;
-    for (const record of [...config.runEvents, ...config.runMessages]) {
-      if (record.seq > seqCursor) seqCursor = record.seq;
-    }
-    return seqCursor;
+    return journalCursorOf(this.store.get());
   }
 
   /**
@@ -521,7 +877,12 @@ export class OrchestrationService {
     if (config.runPublications.some((publication) => publication.runId === runId)) {
       throw new Error('ade: a run with an external publication audit cannot be deleted');
     }
+    let prunedSeq = config.journalRetention.prunedSeq;
+    for (const record of [...config.runEvents, ...config.runMessages]) {
+      if (record.runId === runId && record.seq > prunedSeq) prunedSeq = record.seq;
+    }
     this.store.save({
+      journalRetention: { ...config.journalRetention, prunedSeq },
       runs: config.runs.filter((candidate) => candidate.id !== runId),
       runParticipants: config.runParticipants.filter((participant) => participant.runId !== runId),
       runTasks: config.runTasks.filter((task) => task.runId !== runId),
@@ -1364,11 +1725,32 @@ export class OrchestrationService {
     this.emit();
   }
 
-  markIntegrationApplied(runId: string, commitCount: number): void {
+  /**
+   * Journals the integration range. `fromSha`/`toSha` are the integration
+   * worktree HEAD before and after the cherry-pick transaction: after a
+   * post-integration failure they are the only pointer to the assembled,
+   * unverified worktree state (Thema 3).
+   */
+  markIntegrationApplied(
+    runId: string,
+    integration: { commitCount: number; fromSha: string | null; toSha: string | null },
+  ): void {
     const config = this.store.get();
+    for (const [key, value] of [['fromSha', integration.fromSha], ['toSha', integration.toSha]] as const) {
+      if (value !== null && !GIT_OBJECT_ID.test(value)) {
+        throw new Error(`ade: integration ${key} is not a git object id`);
+      }
+    }
+    if (!Number.isSafeInteger(integration.commitCount) || integration.commitCount < 0) {
+      throw new Error('ade: integration commitCount must be a non-negative integer');
+    }
     this.store.save({
       runEvents: [...config.runEvents, this.event(runId, 'integration.applied', {
-        data: { commitCount },
+        data: {
+          commitCount: integration.commitCount,
+          ...(integration.fromSha ? { fromSha: integration.fromSha } : {}),
+          ...(integration.toSha ? { toSha: integration.toSha } : {}),
+        },
       })],
     });
     this.emit();
@@ -1590,8 +1972,91 @@ export class OrchestrationService {
   }
 
   private emit(): void {
-    this.onChange(this.snapshot());
+    this.onChange();
   }
+}
+
+function journalCursorOf(config: AdeConfig): number {
+  let seqCursor = config.journalRetention.prunedSeq;
+  for (const record of [...config.runEvents, ...config.runMessages]) {
+    if (typeof record.seq === 'number' && Number.isFinite(record.seq) && record.seq > seqCursor) {
+      seqCursor = record.seq;
+    }
+  }
+  return seqCursor;
+}
+
+function isTerminalRunStatus(status: RunStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
+
+function boundReportText(text: string): string {
+  if (text.length <= MAX_RUN_REPORT_TEXT_CHARS) return text;
+  return `${text.slice(0, MAX_RUN_REPORT_TEXT_CHARS - 1)}…`;
+}
+
+/** Context packets are observability data; a malformed one reads as absent. */
+function parseTaskProvenance(content: string): TaskProvenance | null {
+  try {
+    const parsed = JSON.parse(content) as { provenance?: unknown };
+    const provenance = parsed && typeof parsed === 'object' ? parsed.provenance : undefined;
+    if (!provenance || typeof provenance !== 'object' || Array.isArray(provenance)) return null;
+    const record = provenance as Record<string, unknown>;
+    if (typeof record.promptVersion !== 'number' || typeof record.resultSchemaVersion !== 'number'
+      || typeof record.adapterId !== 'string') {
+      return null;
+    }
+    return record as unknown as TaskProvenance;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Names where a failed run failed. Prefers the failed task and its persisted
+ * error; a run whose tasks all completed but that failed on verification
+ * (`completeAfterVerification`) is explained by the `run.failed` detail plus
+ * the failed test commands of the newest result that reported one.
+ */
+function failureFor(tasks: RunReportTask[], terminalEvent: RunEvent | undefined): RunReportFailure {
+  const failedTask = [...tasks].reverse().find((task) => task.status === 'failed');
+  const failedTestsOf = (task: RunReportTask | undefined): string[] =>
+    (task?.result?.tests ?? []).filter((test) => test.status === 'failed').map((test) => test.command);
+  const eventDetail = typeof terminalEvent?.data?.detail === 'string' ? terminalEvent.data.detail : undefined;
+  if (failedTask) {
+    const failedTests = failedTestsOf(failedTask);
+    return {
+      context: failedTask.title,
+      detail: failedTask.error ?? eventDetail ?? 'Task failed.',
+      failedTests: failedTests.length > 0
+        ? failedTests
+        : failedTestsOf([...tasks].reverse().find((task) => failedTestsOf(task).length > 0)),
+    };
+  }
+  const withFailedTests = [...tasks].reverse().find((task) => failedTestsOf(task).length > 0);
+  return {
+    context: withFailedTests?.title ?? 'Run',
+    detail: eventDetail ?? 'Run failed.',
+    failedTests: failedTestsOf(withFailedTests),
+  };
+}
+
+function buildRunArchive(config: AdeConfig, run: Run, archivedAt: number): RunArchive {
+  const own = <T extends { runId: string }>(records: T[]): T[] => records.filter((record) => record.runId === run.id);
+  return {
+    format: 'ade-run-archive',
+    version: 1,
+    archivedAt,
+    run,
+    participants: own(config.runParticipants),
+    tasks: own(config.runTasks),
+    events: own(config.runEvents),
+    artifacts: own(config.runArtifacts),
+    results: own(config.runTaskResults),
+    approvals: own(config.runApprovals),
+    workspaceLeases: own(config.runWorkspaceLeases),
+    messages: own(config.runMessages),
+  };
 }
 
 export function deriveTaskStatus(task: RunTask, events: RunEvent[]): RunTaskStatus {

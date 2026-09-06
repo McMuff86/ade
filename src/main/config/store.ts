@@ -100,7 +100,8 @@ function assertCatalogIntegrity(config: AdeConfig): void {
 const ROOT_KEYS = [
   'categories', 'agents', 'repositories', 'workspaceBindings', 'agentTemplates', 'runs',
   'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults', 'runApprovals',
-  'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'sessionBookends', 'settings',
+  'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'sessionBookends',
+  'journalRetention', 'settings',
 ] as const;
 const RUNTIMES = new Set(['claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom']);
 const PERMISSIONS = new Set(['default', 'accept-edits', 'bypass']);
@@ -109,7 +110,7 @@ const GROK_REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhi
 const REPLACE_IMMUTABLE_KEYS = [
   'runs', 'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults',
   'runApprovals', 'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog',
-  'sessionBookends',
+  'sessionBookends', 'journalRetention',
 ] as const;
 
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
@@ -131,7 +132,7 @@ function boundedString(value: unknown, label: string, optional = false): void {
 export function validateCompleteConfig(config: AdeConfig): void {
   const root = object(config, 'config');
   exactKeys(root, ROOT_KEYS, 'config');
-  for (const key of ROOT_KEYS.filter((key) => key !== 'settings')) {
+  for (const key of ROOT_KEYS.filter((key) => key !== 'settings' && key !== 'journalRetention')) {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
@@ -512,6 +513,15 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const command of config.commandLog) {
     text(command.channel, 'commandLog.channel'); number(command.createdAt, 'commandLog.createdAt'); text(command.resultJson, 'commandLog.resultJson');
   }
+  const retention = object(config.journalRetention, 'config.journalRetention');
+  exactKeys(retention, ['prunedSeq', 'archivedRuns', 'lastPrunedAt'], 'config.journalRetention');
+  for (const field of ['prunedSeq', 'archivedRuns'] as const) {
+    number(retention[field], `journalRetention.${field}`);
+    if (!Number.isSafeInteger(retention[field]) || (retention[field] as number) < 0) {
+      throw new Error(`journalRetention.${field} is invalid.`);
+    }
+  }
+  if (retention.lastPrunedAt !== null) number(retention.lastPrunedAt, 'journalRetention.lastPrunedAt');
   for (const bookend of config.sessionBookends) {
     text(bookend.agentId, 'sessionBookend.agentId');
     text(bookend.agentName, 'sessionBookend.agentName');
@@ -1117,7 +1127,10 @@ export class ConfigStore {
     // predicted and pre-planted as a symlink before the write below reached it.
     const tmp = join(dir, `config.json.${randomUUID()}.tmp`);
     try {
-      const serialized = JSON.stringify(config, null, 2) + '\n';
+      // Compact on purpose: nobody reads this file by eye, and the indented
+      // form roughly doubled the bytes stringified, hashed, written and fsynced
+      // on every one of the ~50 saves a managed run performs (Thema 5).
+      const serialized = JSON.stringify(config) + '\n';
       if (process.platform === 'linux') {
         const fd = this.openAnchoredDirectory(dir);
         try {

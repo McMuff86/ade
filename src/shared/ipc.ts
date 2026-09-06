@@ -22,8 +22,9 @@ import type {
   FsTreeNode,
   GitStatus,
   HarnessStatusResult,
-  OrchestrationSnapshot,
+  OrchestrationView,
   OverviewSnapshot,
+  RunReport,
   Run,
   RunArtifact,
   RunCreateInput,
@@ -110,6 +111,7 @@ export const IPC = {
   RunGet: 'run:get',
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
+  RunReport: 'run:report',
   RunApprovalDiff: 'run:approvalDiff',
   RunPublicationPreview: 'run:publicationPreview',
   RunPublish: 'run:publish',
@@ -653,9 +655,11 @@ export interface IpcInvokeMap {
   'overview:get': { req: void; res: OverviewSnapshot };
   'pty:cancelTasks': { req: PtyCancelTasksRequest; res: PtyCancelTasksResult };
   'runtime:diagnose': { req: RuntimeDiagnoseRequest; res: RuntimeDiagnosticsResult };
-  'run:get': { req: void; res: OrchestrationSnapshot };
+  'run:get': { req: void; res: OrchestrationView };
   'run:getSummary': { req: RunSummaryRequest; res: RunSummary[] };
   'run:events': { req: RunEventsRequest; res: RunEventsResult };
+  /** Full outcome of one run — files, tests with output, risks, SHAs (Thema 3). */
+  'run:report': { req: { runId: string }; res: RunReport };
   'run:approvalDiff': { req: { runId: string }; res: ApprovalDiffResult };
   'run:publicationPreview': { req: { runId: string }; res: RunPublicationPreview };
   'run:publish': {
@@ -702,7 +706,8 @@ export interface IpcEventMap {
   'pty:exit': PtyExitEvent;
   'pty:removed': PtyRemovedEvent;
   'pty:taskQueue': TaskQueueStatus;
-  'orchestration:changed': OrchestrationSnapshot;
+  /** Slim view (no prompts, artifact bodies or mailbox texts), coalesced per tick. */
+  'orchestration:changed': OrchestrationView;
   'git:changed': GitChangedEvent;
 }
 

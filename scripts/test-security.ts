@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { runDiagnosticCommand } from '../src/main/diagnostics/RuntimeDiagnostics';
-import { sessionExitNotice } from '../src/main/notificationPolicy';
+import { runApprovalNotice, sessionExitNotice } from '../src/main/notificationPolicy';
+import { formatLogLine } from '../src/main/logging/mainLog';
 import { isSafeExternalUrl, isTrustedRendererUrl } from '../src/main/security';
 import { assertAllowedDashboardUrl, extractDashboardUrl } from '../src/main/dashboard/dashboardUrl';
 import {
@@ -155,6 +156,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:resumeTeam': { runId: 'run', teamId: 'team' },
   'run:getSummary': { runId: 'run' },
   'run:events': { sinceSeq: 0, limit: 200 },
+  'run:report': { runId: 'run' },
   'run:approvalDiff': { runId: 'run' },
   'run:publicationPreview': { runId: 'run' },
   'run:publish': {
@@ -284,6 +286,10 @@ check('oversized command ids are rejected', rejects('run:start', {
 }));
 check('null journal cursors are rejected', rejects('run:events', { sinceSeq: null }));
 check('oversized journal pages are rejected', rejects('run:events', { limit: 501 }));
+check('run reports require exactly one run id',
+  rejects('run:report', {}) && rejects('run:report', { runId: 'run', extra: true }) && rejects('run:report', { runId: 7 }));
+check('run reports are a desktop-only read channel',
+  CHANNEL_POLICY['run:report'].effect === 'read' && CHANNEL_POLICY['run:report'].surface === 'desktop');
 check('team pause requires a team id', rejects('run:pauseTeam', { runId: 'run' }));
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',
@@ -713,6 +719,24 @@ check('failed sessions include the exit code',
 check('cancelled and clean interactive exits stay quiet',
   sessionExitNotice(session({ exitReason: 'cancelled' }), 'Agent') === null
   && sessionExitNotice(session({ kind: 'interactive', exitCode: 0 }), 'Agent') === null);
+const approvalNotice = runApprovalNotice('  Release train  ', 3, 1);
+check('an approval gate produces a notice naming only the run and counts',
+  approvalNotice.title === 'Release train awaits your approval'
+  && approvalNotice.body.startsWith('3 worker tasks finished with 1 validated commit.'));
+check('approval notices bound the run name and never go quiet',
+  runApprovalNotice('x'.repeat(200), 1, 0).title.length <= 'awaits your approval'.length + 81
+  && runApprovalNotice('', 0, 0).title.startsWith('Run '));
+
+const logLine = formatLogLine(new Date('2026-09-06T10:11:12.345Z'), 'warn', [
+  '[ade] token=abc123 failed for', new Error('multi\nline'), { OPENAI_API_KEY: 'sk-live-1' },
+]);
+check('main log lines are single-line, timestamped and redact credentials',
+  logLine.startsWith('2026-09-06T10:11:12.345Z WARN ')
+  && !logLine.includes('abc123') && !logLine.includes('sk-live-1')
+  && logLine.endsWith('\n') && logLine.slice(0, -1).split('\n').length === 1);
+check('main log lines are bounded',
+  formatLogLine(new Date(0), 'log', ['y'.repeat(20_000)], 1_000).length <= 1_000 + 40
+  && formatLogLine(new Date(0), 'log', ['y'.repeat(20_000)], 1_000).includes('[truncated]'));
 
 async function finish(): Promise<void> {
   if (process.platform === 'win32') {
