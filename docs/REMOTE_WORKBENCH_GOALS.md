@@ -44,4 +44,9 @@ order. Existing Goals 12–15 remain the provisioning/synchronization foundation
 
 - [x] Architecture/spec/status/roadmap/handoff and operator grant guide updated.
 - [x] Full native Windows pnpm verify succeeds; record exact evidence and limits.
-- [ ] Commit and push verified delivery. Home activation remains an operator step.
+- [x] Commit and push verified delivery. Home activation remains an operator step.
+
+Implementation and verification were committed as `d27b78f`
+(`feat(remote): add workspace tools and scoped terminals`) and pushed to
+`origin/main` on 2026-09-08. The following documentation commit records this
+completed delivery; home activation is still pending.
