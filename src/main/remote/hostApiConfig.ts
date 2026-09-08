@@ -6,6 +6,23 @@ export const MIN_HOST_API_TOKEN_CHARS = 32;
 export const MAX_HOST_API_TOKEN_CHARS = 128;
 const HOST_API_TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
 
+export function mobileListenerPort(value: string | undefined): number {
+  if (value === undefined) return DEFAULT_HOST_API_PORT;
+  if (!/^\d{4,5}$/.test(value) || Number(value) < 1024 || Number(value) > 65535) {
+    throw new Error('ade: mobile listener port must be between 1024 and 65535');
+  }
+  return Number(value);
+}
+
+/** Only private Tailscale HTTPS names can become a browser origin. */
+export function parseMobileOrigin(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.[a-z0-9-]+\.ts\.net$/.test(url.hostname)
+    || url.username || url.password || url.pathname !== '/' || url.search || url.hash
+    || value !== url.origin) throw new Error('ade: mobile origin must be an exact Tailscale HTTPS origin');
+  return url.origin;
+}
+
 export type HostApiConfig =
   | { enabled: false }
   | {
@@ -14,9 +31,9 @@ export type HostApiConfig =
       port: number;
       token: string;
       /**
-       * Device identities allowed to sign commands. Empty by default: the
-       * listener then serves reads only, because no principal can hold the
-       * `runs:write` scope. Bootstrap source is `ADE_HOST_API_COMMAND_DEVICE`.
+       * One-time migration seed from `ADE_HOST_API_COMMAND_DEVICE`. The
+       * production composition imports it into RemoteDeviceStore, then clears
+       * this array and resolves all authorization from the durable store.
        */
       devices: RemoteDevice[];
     };

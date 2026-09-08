@@ -1,6 +1,20 @@
 /* Settings modal — harness list, key rows and status states. Colors come
    from theme tokens only; the modal shell is shared onboarding CSS. */
 
+.st-devices { border-top: 1px solid var(--line); padding-top: 10px; }
+.st-device-heading, .st-device-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.st-device-heading h3 { flex: 1; }
+.st-device-list { list-style: none; padding: 0; margin: 0; }
+.st-device { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-top: 8px; overflow-wrap: anywhere; }
+.st-device-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.st-device-form input {
+  width: 100%; min-width: 0; box-sizing: border-box;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--text); font-family: var(--mono);
+}
+.st-device-hint { color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+.st-devices :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .st-body {
   display: flex;
   flex-direction: column;
@@ -325,3 +339,10 @@
   font-size: 11px;
   font-weight: 600;
 }
+.st-mobile { margin: 20px 0; padding: 18px 0; border-top: 1px solid var(--border, #363b43); }
+.st-mobile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-mobile-address, .st-mobile-pair label { display: grid; gap: 6px; margin: 12px 0; }
+.st-mobile input { width: 100%; min-width: 0; }
+.st-mobile-pair { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 18px; }
+.st-mobile-pair canvas { width: 224px; height: 224px; border-radius: 8px; }
+.st-mobile-pair > div { flex: 1; min-width: min(260px, 100%); }

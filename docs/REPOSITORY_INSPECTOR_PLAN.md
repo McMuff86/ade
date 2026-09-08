@@ -41,7 +41,10 @@ never hides local status/history and never turns the whole view into an error.
 One refresh action re-runs both bounded reads. Automatic workspace polling
 refreshes local data only; it never repeats the provider/network read. No
 `git fetch`, checkout, remote write, branch mutation or PR mutation belongs to
-this inspector.
+these read endpoints. Since 2026-09-06 the separate **Git-Abgleich** action opens
+the explicit comparison/fetch/fast-forward workflow in `REPOSITORY_SYNC_PLAN.md`.
+The cached upstream equality label is **Lokal gleichauf**, with a tooltip that
+explains it is not a network freshness check.
 
 ## Trusted contract
 

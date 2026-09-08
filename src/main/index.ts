@@ -2,10 +2,11 @@
  * Electron main entry — window + app lifecycle only (no updater, no cloud).
  */
 
-import { app, BrowserWindow, Menu, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, nativeImage, session, shell, Tray } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { registerIpcHandlers, disposePtyManager } from './ipc';
+import { registerIpcHandlers, disposePtyManager, mobileHostEnabled } from './ipc';
+import { redactedErrorDetail } from './errors';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
 import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
@@ -18,6 +19,30 @@ registerPhotoProtocolScheme();
 app.enableSandbox();
 
 let mainWindow: BrowserWindow | null = null;
+let hostTray: Tray | null = null;
+let quitting = false;
+
+function showDesktop(): void {
+  if (!mainWindow) createWindow();
+  else { mainWindow.show(); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
+}
+
+function ensureHostTray(): boolean {
+  if (hostTray) return true;
+  try {
+    const icon = nativeImage.createFromPath(join(__dirname, 'tray.png'));
+    if (icon.isEmpty()) throw new Error('ade: tray icon unavailable');
+    hostTray = new Tray(icon.resize({ width: 20, height: 20 }));
+    hostTray.setToolTip('ADE · Mobiler Zugriff bleibt aktiv');
+    hostTray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'ADE öffnen', click: showDesktop },
+      { type: 'separator' },
+      { label: 'ADE und mobilen Zugriff beenden', click: () => app.quit() },
+    ]));
+    hostTray.on('double-click', showDesktop);
+    return true;
+  } catch (error) { console.warn('[ade] host tray unavailable:', redactedErrorDetail(error)); return false; }
+}
 
 // Opt-in renderer CDP endpoint for end-to-end verification (no prod impact).
 const remoteDebugPort = !app.isPackaged ? process.env['ADE_REMOTE_DEBUG_PORT'] : undefined;
@@ -90,6 +115,11 @@ function createWindow(): void {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
+  mainWindow.on('close', (event) => {
+    if (!quitting && mobileHostEnabled() && ensureHostTray()) {
+      event.preventDefault(); mainWindow?.hide();
+    }
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -140,5 +170,7 @@ app.on('window-all-closed', () => {
 
 // kill every live pty on quit so no orphan ConPTY process lingers
 app.on('before-quit', () => {
+  quitting = true;
+  hostTray?.destroy(); hostTray = null;
   disposePtyManager();
 });

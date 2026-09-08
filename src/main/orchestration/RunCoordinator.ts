@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { workspaceOperations } from '../repositories/WorkspaceOperationGate';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -183,6 +184,10 @@ export class RunCoordinator {
   }
 
   async start(runId: string, commandId?: string): Promise<Run> {
+    return workspaceOperations.use(() => this.startInWorkspace(runId, commandId));
+  }
+
+  private async startInWorkspace(runId: string, commandId?: string): Promise<Run> {
     return this.serialized(runId, async () => {
       const recalled = this.orchestration.recallCommand<Run>('run:start', commandId);
       if (recalled) return recalled.result;

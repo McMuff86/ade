@@ -4,8 +4,11 @@ import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
 import { redactedErrorDetail } from '../errors';
 import type { MobileErrorBody, MobileErrorCode } from '../../shared/remote';
-import { HOST_API_LOOPBACK } from './hostApiConfig';
+import { HOST_API_LOOPBACK, parseMobileOrigin } from './hostApiConfig';
 import { RemoteAuthorizer, sha256Hex, type RemotePrincipal } from './authorization';
+import type { DeviceAuditEntry } from './RemoteDeviceStore';
+import type { BrowserSessions } from './BrowserSessions';
+import type { MobileAsset } from './mobileAssets';
 
 export interface HostApiAddress {
   host: typeof HOST_API_LOOPBACK;
@@ -13,6 +16,7 @@ export interface HostApiAddress {
 }
 
 export interface HostApiServerOptions {
+  browser?: { origin: string; sessions: BrowserSessions; assets: ReadonlyMap<string, MobileAsset> };
   authorizer: RemoteAuthorizer;
   port: number;
   /** SSE keep-alive comment interval. */
@@ -23,6 +27,9 @@ export interface HostApiServerOptions {
   maxStreamBufferBytes?: number;
   /** Largest accepted JSON request body. */
   maxBodyBytes?: number;
+  /** Production device-store mode also binds reads and SSE to a revocable device. */
+  requireDeviceReads?: boolean;
+  audit?: (entry: DeviceAuditEntry) => void;
 }
 
 const RESPONSE_HEADERS = {
@@ -47,9 +54,10 @@ const SSE_RETRY_MS = 2_000;
 const RUN_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
 const CURSOR_PATTERN = /^\d{1,16}$/;
 const REQUEST_ID_HEADER = 'x-ade-request-id';
+const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
-  | { kind: 'health' | 'catalog' | 'runs' | 'events' | 'tasks' }
+  | { kind: 'health' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
 
 type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask';
@@ -82,6 +90,7 @@ function writeError(
   extra: Record<string, string> = {},
 ): void {
   const body: MobileErrorBody = message ? { error: code, message } : { error: code };
+  responseErrors.set(response, code);
   writeJson(response, status, body, extra);
 }
 
@@ -95,6 +104,9 @@ function parseTarget(requestTarget: string): ParsedTarget | null {
 /** Exact raw-path routing: no normalization, no trailing slashes, no aliases. */
 function matchRoute(path: string): { route: Route; allow: string[] } | null {
   switch (path) {
+    case '/api/v1/pair': return { route: { kind: 'pair' }, allow: ['POST'] };
+    case '/api/v1/session': return { route: { kind: 'session' }, allow: ['GET', 'POST'] };
+    case '/api/v1/logout': return { route: { kind: 'logout' }, allow: ['POST'] };
     case '/api/v1/health': return { route: { kind: 'health' }, allow: ['GET'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
     case '/api/v1/runs': return { route: { kind: 'runs' }, allow: ['GET', 'POST'] };
@@ -120,8 +132,8 @@ function singleHeader(request: IncomingMessage, name: string): string | undefine
 /**
  * Disabled-by-default startup is owned by the Electron lifecycle. This adapter
  * itself has no configurable bind address: every listener is IPv4 loopback.
- * Reads need the bearer token; commands additionally need a signed device
- * proof and an idempotency key, enforced by the application service against
+ * Production reads/SSE need bearer plus a signed device proof; commands also
+ * need an idempotency key, enforced by the application service against
  * the channel policy. The event stream resumes from the journal `seq`.
  */
 export class HostApiServer {
@@ -135,11 +147,15 @@ export class HostApiServer {
   private readonly maxStreamBufferBytes: number;
   private readonly maxBodyBytes: number;
   private readonly streams = new Set<() => void>();
+  private readonly connections = new Map<ServerResponse, string>();
+  private unsubscribeRevocation: (() => void) | null = null;
+  private rateWindow = { at: Date.now(), requests: 0, auth: 0 };
 
   constructor(
     private readonly application: AdeApplicationService,
-    options: HostApiServerOptions,
+    private readonly options: HostApiServerOptions,
   ) {
+    if (options.browser) parseMobileOrigin(options.browser.origin);
     this.authorizer = options.authorizer;
     this.port = options.port;
     this.heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
@@ -151,7 +167,12 @@ export class HostApiServer {
   async start(): Promise<HostApiAddress> {
     if (this.server || this.address) throw new Error('ade: host API is already started');
     const server = createServer((request, response) => {
-      void this.handle(request, response);
+      void this.handle(request, response).catch((error) => this.fail(response, error));
+    });
+    this.unsubscribeRevocation = this.authorizer.onRevoked((id) => {
+      for (const [response, deviceId] of this.connections) {
+        if (id === null || id === deviceId) response.destroy();
+      }
     });
     // Header/request timeouts protect against slowloris-style clients. Both
     // count until the request message is complete, so an open SSE response
@@ -179,6 +200,8 @@ export class HostApiServer {
       await starting;
     } catch (error) {
       this.server = null;
+      this.unsubscribeRevocation?.();
+      this.unsubscribeRevocation = null;
       if (server.listening) server.close();
       throw error;
     } finally {
@@ -203,6 +226,8 @@ export class HostApiServer {
     const server = this.server;
     this.server = null;
     this.address = null;
+    this.unsubscribeRevocation?.();
+    this.unsubscribeRevocation = null;
     for (const close of [...this.streams]) close();
     if (!server) return;
     await new Promise<void>((resolve, reject) => {
@@ -220,33 +245,52 @@ export class HostApiServer {
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const requestId = randomUUID();
+    // Record transport denials too (bad proof, payload, origin, bearer). No raw URL/header is logged.
+    let authenticatedDevice: string | null = null;
+    response.once('finish', () => {
+      if (response.statusCode < 400) return;
+      try {
+        const deviceId = authenticatedDevice ?? this.connections.get(response);
+        this.options.audit?.({ at: Date.now(), principalId: deviceId ?? 'unverified',
+          principalKind: deviceId ? 'device' : 'anonymous', requestId,
+          channel: 'http:request', target: null, outcome: 'denied', reason: responseErrors.get(response) ?? `http_${response.statusCode}` });
+      } catch { console.warn('[ade] remote denial audit unavailable'); }
+    });
     response.setHeader(REQUEST_ID_HEADER, requestId);
+    // Serve strips spoofed values and marks public Funnel ingress itself.
+    if (request.headers['tailscale-funnel-request'] !== undefined) {
+      writeError(response, 403, 'origin_not_allowed'); return;
+    }
     const address = this.address;
     if (!address) {
       writeError(response, 503, 'unavailable');
       return;
     }
 
+    const browser = this.options.browser;
     const host = request.headers.host?.toLowerCase();
+    const browserRequest = !!browser && host === new URL(browser.origin).host;
     const allowedHosts = new Set([
       `${HOST_API_LOOPBACK}:${address.port}`,
       `localhost:${address.port}`,
     ]);
-    if (!host || !allowedHosts.has(host)) {
+    if (!host || (!allowedHosts.has(host) && !browserRequest)) {
       writeError(response, 400, 'invalid_host');
       return;
     }
 
-    // No browser client is authorized yet. The paired PWA will add an exact
-    // configured origin; accepting arbitrary origins now would create a
-    // DNS-rebinding/CORS policy that later code might accidentally keep.
-    if (request.headers.origin !== undefined) {
+    const origin = singleHeader(request, 'origin');
+    if (browserRequest ? (origin !== undefined && origin !== browser!.origin)
+      || (request.method !== 'GET' && origin !== browser!.origin)
+      || ![undefined, 'same-origin', 'none'].includes(singleHeader(request, 'sec-fetch-site'))
+      : origin !== undefined) {
       writeError(response, 403, 'origin_not_allowed');
       return;
     }
 
-    const bearer = this.authorizer.authenticateBearer(singleHeader(request, 'authorization'));
-    if (!bearer) {
+    // Browsers never receive the legacy listener token; their gate is session + device proof.
+    const bearer = browserRequest ? null : this.authorizer.authenticateBearer(singleHeader(request, 'authorization'));
+    if (!browserRequest && !bearer) {
       writeError(response, 401, 'unauthorized', undefined, { 'www-authenticate': 'Bearer' });
       return;
     }
@@ -256,10 +300,24 @@ export class HostApiServer {
       writeError(response, 400, 'invalid_request_target');
       return;
     }
+    if (browserRequest && target.query === null && request.method === 'GET') {
+      const asset = browser!.assets.get(target.path);
+      if (asset) {
+        response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': asset.contentType,
+          'content-length': asset.body.length,
+          'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+          'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'service-worker-allowed': '/',
+        });
+        response.end(asset.body); return;
+      }
+    }
     const matched = matchRoute(target.path);
     if (!matched) {
       writeError(response, 404, 'not_found');
       return;
+    }
+    if (!browserRequest && ['pair', 'session', 'logout'].includes(matched.route.kind)) {
+      writeError(response, 404, 'not_found'); return;
     }
     // Query strings exist for exactly one purpose: the stream cursor.
     if (target.query !== null && matched.route.kind !== 'events') {
@@ -273,7 +331,52 @@ export class HostApiServer {
     }
 
     try {
+      if (browserRequest) {
+        if (Date.now() - this.rateWindow.at >= 60_000) this.rateWindow = { at: Date.now(), requests: 0, auth: 0 };
+        const authRoute = matched.route.kind === 'pair' || (matched.route.kind === 'session' && method === 'POST');
+        if (++this.rateWindow.requests > 600 || (authRoute && ++this.rateWindow.auth > 30)) {
+          writeError(response, 429, 'rate_limited', undefined, { 'retry-after': '60' }); return;
+        }
+        if (matched.route.kind === 'pair') {
+          const body = await this.readBody(request, response, true);
+          if (body === null) return;
+          let payload: unknown;
+          try { payload = JSON.parse(body.toString('utf8')); }
+          catch { writeError(response, 400, 'invalid_payload'); return; }
+          const paired = browser!.sessions.pair(payload);
+          writeJson(response, 200, paired.info, { 'set-cookie': paired.cookie }); return;
+        }
+      }
+      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest)) {
+        const verdict = this.authorizer.verifyDeviceSignature(
+          singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
+          { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
+            idempotencyKey: '', bodySha256: sha256Hex('') },
+        );
+        if (!verdict.ok) { writeError(response, 401, verdict.reason); return; }
+        if (!verdict.principal.scopes.has('read')) { writeError(response, 403, 'scope_not_granted'); return; }
+        authenticatedDevice = verdict.principal.id;
+        if (browserRequest) {
+          const session = browser!.sessions.get(singleHeader(request, 'cookie'), authenticatedDevice);
+          if (!session) { writeError(response, 401, 'unauthorized'); return; }
+          if (matched.route.kind === 'session') {
+            writeJson(response, 200, browser!.sessions.info(session)); return;
+          }
+          // Idle streams also close at expiry/rotation/logout.
+          const timer = setTimeout(() => response.destroy(), Math.max(1, session.expiresAt - Date.now()));
+          timer.unref();
+          const unsubscribe = browser!.sessions.onExpired((digest) => { if (digest === session.digest) response.destroy(); });
+          response.once('close', () => { clearTimeout(timer); unsubscribe(); });
+        }
+        this.options.audit?.({ at: Date.now(), principalId: authenticatedDevice, principalKind: 'device',
+          requestId, channel: 'http:read', target: null, outcome: 'authenticated' });
+        this.trackConnection(response, authenticatedDevice);
+      }
       switch (matched.route.kind) {
+        case 'pair': return;
+        case 'session':
+        case 'logout':
+          await this.handleBrowserAuth(request, response, matched.route.kind); return;
         case 'health':
           writeJson(response, 200, this.application.health());
           return;
@@ -285,10 +388,10 @@ export class HostApiServer {
             writeJson(response, 200, this.application.runs());
             return;
           }
-          await this.handleCommand(request, response, requestId, bearer, target.path, 'createRun');
+          await this.handleCommand(request, response, requestId, bearer, target.path, 'createRun', undefined, browserRequest);
           return;
         case 'tasks':
-          await this.handleCommand(request, response, requestId, bearer, target.path, 'submitTask');
+          await this.handleCommand(request, response, requestId, bearer, target.path, 'submitTask', undefined, browserRequest);
           return;
         case 'events':
           this.handleStream(request, response, target.query);
@@ -296,7 +399,7 @@ export class HostApiServer {
         case 'startRun':
         case 'cancelRun':
           await this.handleCommand(
-            request, response, requestId, bearer, target.path, matched.route.kind, matched.route.runId,
+            request, response, requestId, bearer, target.path, matched.route.kind, matched.route.runId, browserRequest,
           );
           return;
       }
@@ -315,10 +418,11 @@ export class HostApiServer {
     request: IncomingMessage,
     response: ServerResponse,
     requestId: string,
-    bearer: RemotePrincipal,
+    bearer: RemotePrincipal | null,
     path: string,
     kind: CommandKind,
     runId?: string,
+    browserRequest = false,
   ): Promise<void> {
     const expectsJson = kind === 'createRun' || kind === 'submitTask';
     const body = await this.readBody(request, response, expectsJson);
@@ -348,7 +452,15 @@ export class HostApiServer {
       principal = verdict.principal;
     }
 
+    if (!principal) { writeError(response, 401, 'device_proof_required'); return; }
+    if (browserRequest) {
+      const sessions = this.options.browser!.sessions;
+      const session = sessions.get(singleHeader(request, 'cookie'), principal.id);
+      if (!session) { writeError(response, 401, 'unauthorized'); return; }
+      sessions.requireCsrf(session, singleHeader(request, 'x-ade-csrf'));
+    }
     const context: RemoteCommandContext = { principal, idempotencyKey, requestId };
+    if (principal.kind === 'device') this.trackConnection(response, principal.id);
     let payload: unknown = undefined;
     if (expectsJson) {
       try {
@@ -367,7 +479,11 @@ export class HostApiServer {
           : kind === 'startRun'
             ? await this.application.startRun(context, runId!)
             : await this.application.cancelRun(context, runId!);
-      writeJson(response, 200, result);
+      if (principal.kind === 'device' && !this.authorizer.isActive(principal.id)) {
+        response.destroy();
+        return;
+      }
+      if (!response.destroyed) writeJson(response, 200, result);
     } catch (error) {
       if (error instanceof RemoteApiError) {
         const detailed = error.status === 400 || error.status === 409 || error.status === 422;
@@ -506,6 +622,11 @@ export class HostApiServer {
 
     const flush = (): void => {
       scheduled = false;
+      if (!closed && lastSent < this.application.journalFloor()) {
+        const snapshot = this.application.snapshot();
+        if (!send('snapshot', snapshot.cursor, snapshot)) return;
+        lastSent = snapshot.cursor;
+      }
       while (!closed && !waitingForDrain) {
         const page = this.application.events(lastSent, STREAM_PAGE_LIMIT);
         if (page.events.length === 0 && page.messages.length === 0) return;
@@ -517,13 +638,20 @@ export class HostApiServer {
     const schedule = (): void => {
       if (closed || scheduled || waitingForDrain) return;
       scheduled = true;
-      setImmediate(flush);
+      setImmediate(() => {
+        try { flush(); }
+        catch (error) { this.fail(response, error); close(); }
+      });
     };
 
     const unsubscribe = this.application.subscribe(schedule);
     const heartbeat = setInterval(() => {
-      if (closed) return;
-      if (!response.write(': ping\n\n')) waitingForDrain = true;
+      if (closed || waitingForDrain) return;
+      if (response.writableLength + 8 > this.maxStreamBufferBytes) { response.destroy(); close(); return; }
+      if (!response.write(': ping\n\n')) {
+        waitingForDrain = true;
+        response.once('drain', () => { waitingForDrain = false; schedule(); });
+      }
     }, this.heartbeatMs);
     heartbeat.unref();
     this.streams.add(close);
@@ -532,7 +660,7 @@ export class HostApiServer {
 
     try {
       const top = this.application.journalCursor();
-      if (cursor === undefined || cursor === 0 || cursor > top) {
+      if (cursor === undefined || cursor === 0 || cursor > top || cursor < this.application.journalFloor()) {
         // Unknown or unusable cursor: bundle the current picture first.
         const snapshot = this.application.snapshot();
         lastSent = snapshot.cursor;
@@ -565,14 +693,42 @@ export class HostApiServer {
     return Number.isSafeInteger(value) && value >= 0 ? value : 'invalid';
   }
 
+  private async handleBrowserAuth(request: IncomingMessage, response: ServerResponse, kind: 'session' | 'logout'): Promise<void> {
+    const body = await this.readBody(request, response, false);
+    if (body === null) return;
+    const verdict = this.authorizer.verifyDeviceSignature(singleHeader(request, 'x-ade-device') ?? '',
+      singleHeader(request, 'x-ade-signature') ?? '', { method: 'POST', path: request.url!,
+        timestamp: singleHeader(request, 'x-ade-timestamp') ?? '', idempotencyKey: '', bodySha256: sha256Hex(body) });
+    if (!verdict.ok) { writeError(response, 401, verdict.reason); return; }
+    const sessions = this.options.browser!.sessions;
+    if (kind === 'session') {
+      const issued = sessions.issue(verdict.principal.id, singleHeader(request, 'cookie'));
+      writeJson(response, 200, issued.info, { 'set-cookie': issued.cookie });
+    } else {
+      const session = sessions.get(singleHeader(request, 'cookie'), verdict.principal.id);
+      if (!session) { writeError(response, 401, 'unauthorized'); return; }
+      sessions.requireCsrf(session, singleHeader(request, 'x-ade-csrf'));
+      writeJson(response, 200, { disconnected: true }, { 'set-cookie': sessions.logout(session) });
+    }
+  }
+
   private fail(response: ServerResponse, error: unknown): void {
+    if (error instanceof RemoteApiError && !response.headersSent && !response.destroyed) {
+      writeError(response, error.status, error.code); return;
+    }
     // Application errors may contain paths or provider details. Keep the wire
     // free of them; the main-process log gets the redacted detail only.
     console.warn('[ade] host API request failed:', redactedErrorDetail(error));
+    if (response.destroyed) return;
     if (!response.headersSent) {
       writeError(response, 500, 'internal_error');
     } else {
       response.destroy();
     }
+  }
+
+  private trackConnection(response: ServerResponse, id: string): void {
+    this.connections.set(response, id);
+    response.once('close', () => { this.connections.delete(response); });
   }
 }

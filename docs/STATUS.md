@@ -1,6 +1,6 @@
 # ADE implementation status
 
-Status date: 2026-09-06. This is the short, factual capability matrix. Product
+Status date: 2026-09-08. This is the short, factual capability matrix. Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in
 `REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
@@ -16,6 +16,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Named agents and categories | Real | Persisted JSON config, photos, runtime/permission settings and native Codex plus Grok Build model/reasoning profiles; the current pilot roster is Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) except deliberate shell utilities; its audit archives only fully ADE-owned legacy `CLAUDE.md` scaffolds and preserves all mixed/user content |
 | Git workspaces | Real, agent/repository/backend-bound | Every agent/repository pair resolves one isolated ADE worktree/branch and uses only the persisted `native` or `wsl:<distribution>` Git boundary; category paths remain compatibility storage |
 | Repository scopes | Real | First-class repository catalog, explicit execution backend, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots; legacy records migrate to native |
+| Git comparison and explicit update | Implemented; new flow tested on native Windows | Graph, inspector and New Run compare main and agent worktrees with a selected local/origin basis; explicit Fetch, truthful session-local freshness and per-target preview/confirmed fast-forward. Dirty/divergent/detached/busy targets block updates; source/binding/HEAD drift invalidates previews. No automatic stash/reset/push, persisted Run basis or mobile Git command. See `REPOSITORY_SYNC_PLAN.md` |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
 | Overview home | Real, read-only | Third top-level mode (`Ctrl+3`) projects catalog, bindings, runs, live PTYs and interactive session bookends into Live / Offen / Tokens, agent rows, project cards and the 20 newest closed sessions+runs; last activity is max(run, binding, bookend); unknown token/cost counts stay unknown; clicks leave for Terminals or Graph; no inspector poll and no interactive token invention |
@@ -59,11 +60,12 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Linux/WSLg | Package-verified locally and hosted | Ubuntu/WSL2 native install/build, Linux-built node-pty, the full focused suite, platform-aware source and unpacked Electron/Playwright workflows, Codex Sol/xhigh/bypass smoke, unpacked/AppImage/installed-Debian packaged workflows, valid metadata and uploaded SHA-256 artifacts; only versioned public release policy remains pending |
 | Windows GUI → WSL | Real, explicit backend | UI discovers distributions and stores `wsl:<distribution>` per repository; canonical paths, Linux Git/files/worktrees, diagnostics, PTY, managed prompt/results, approval/integration and restart are covered by focused backend and cross-boundary Electron workflows |
 | macOS | Prepared, unverified | POSIX runtime branches exist; native CI, Electron behavior, signing/notarization and packages remain unverified |
-| Remote host API | Local command surface complete, loopback-only and disabled by default | The transport-neutral application service projects mobile-safe health, catalog, sanitized runs and a whitelisted journal projection. The opt-in HTTP adapter is fixed to `127.0.0.1`, requires a strong Bearer token, rejects unknown Hosts/Origins/methods/paths, and serves `GET /api/v1/{health,catalog,runs}`, a resumable `GET /api/v1/events` SSE stream (bundled snapshot, `Last-Event-ID`/`?cursor=` resume over the journal `seq`, strictly ascending, no duplicates, 8 clients, 256 KiB bound per client) and the bounded commands `POST /api/v1/runs`, `/runs/{id}/start`, `/runs/{id}/cancel` and `POST /api/v1/tasks`. Commands need a device-signed request (`ADE_HOST_API_COMMAND_DEVICE`, HMAC over method/path/timestamp/key/body digest) plus an `Idempotency-Key` bound to channel and payload; the bearer token alone stays read-only. Content-Type, Content-Length (64 KiB), payload shape and identifiers fail closed; every decision is audited path-free. Pairing UI, approvals and Tailscale/public exposure remain unbuilt/no-go |
-| Single-task submission | Real, main-owned | `runTask:submit` / `POST /api/v1/tasks` takes an explicit agent id, repository id, prompt (≤ 8000 chars) and optional name. One atomic save creates a manual run, one worker participant (one-member team named after the agent), the queued task and the idempotency record; the one-shot task session then launches through the managed task launcher (same agent/repository/binding checks and global FIFO of four) without blocking the reply. Progress and completion are journal events; a refused launch is journaled as a failed task; the wrapping run is cancellable via `run:cancel` and cannot be started as a managed orchestration. The wire never carries the prompt, only the 80-character title |
+| Remote host API | Local command surface complete, loopback-only and disabled by default | The transport-neutral application service projects mobile-safe health, catalog, sanitized runs and a whitelisted journal projection. The opt-in HTTP adapter is fixed to `127.0.0.1`, requires a strong Bearer token plus an active stored device signature for all reads/SSE/commands, rejects unknown Hosts/Origins/methods/paths, and serves `GET /api/v1/{health,catalog,runs}`, resumable `GET /api/v1/events` (8 clients, 256 KiB per client) and bounded `POST /api/v1/runs`, `/runs/{id}/start`, `/runs/{id}/cancel`, `/api/v1/tasks`. Commands additionally require an `Idempotency-Key` bound to channel and payload. Content-Type, Content-Length (64 KiB), payload shape and identifiers fail closed. The private browser path adds device signatures plus secure session cookies; pairing and Tailscale setup are implemented. Approval and public ingress remain unavailable |
+| Remote device inventory and audit | Real, desktop-only; locally verified on native Windows | Settings lists, renames and revokes durable device identities. Secrets use OS safeStorage outside config/bundles; revoked tombstones prevent stale startup credentials from reviving a device. The environment device is migrated once. Revocation closes active device HTTP/SSE responses and denies subsequent access; accepted runs continue. A separate fsynced append-only audit records admission/outcomes and transport denials without payloads/keys/host paths. Corrupt or unavailable storage and the 8 MiB audit cap disable device authorization; QR pairing is implemented; audit viewer and maintenance UI remain pending |
+| Single-task submission | Real, main-owned | `runTask:submit` / `POST /api/v1/tasks` takes an explicit agent id, repository id, prompt (≤ 8000 chars) and optional name. One atomic save creates a manual run, one worker participant (one-member team named after the agent), the queued task and the idempotency record; the one-shot task session then launches through the managed task launcher (same agent/repository/binding checks and global FIFO of four) without blocking the reply. Progress and completion are journal events; a refused launch is journaled as a failed task; the wrapping run is cancellable via `run:cancel` and cannot be started as a managed orchestration. The wire carries neither prompts nor automatic prompt-derived title excerpts; independent names remain visible |
 | Remote channel policy | Real, allowlisted | `ipcPolicy.ts` gives every `shared` channel a `remote` requirement; `shared ⇒ read` holds for all channels except `REMOTE_COMMAND_CHANNELS` (`run:create/start/cancel`, `runTask:submit`), which must demand `runs:write` scope, a required idempotency key, a device signature and audit. Host/shell effects can never be shared; `channelPolicyViolations()` and the security suite pin every rule |
-| Mobile companion | Not built, planned | Goals 8-9 add a private-tailnet PWA for bounded task/run control, pairing, approvals and notifications; no raw terminal |
-| Background host mode | Not built, planned | Goal 10 adds logged-in-user tray/startup operation and explicit online/offline health; no pre-login service or remote wake |
+| Mobile companion | Personal-alpha implementation, native Windows automation | Settings enables private Tailscale Serve and five-minute QR/manual pairing. Responsive PWA supports separate project/agent choice, bounded tasks, managed-run prepare/start, state/cancel, remembered device proof, host/network reconnection and shell-only offline startup. Secure HttpOnly Strict sessions, CSRF and signed idempotent commands. Detailed reports/approvals/notifications remain desktop or future scope. Physical-device/carrier and other native platform evidence remains open; see `goal8/MOBILE_CONNECT_RESULTS.md` |
+| Background host mode | Close-to-tray implemented and tested on native Windows | Closing the window while mobile access is enabled keeps the host available via tray; explicit quit stops it. Login autostart, headless startup, sleep prevention, pre-login service and remote wake are not implemented |
 | Updates | Not built | No updater or release feed yet |
 | CI and Electron E2E | Real, platform-aware | Focused checks, production build and Electron workflows run on Windows and Linux. Windows with DPAPI proves the real encrypted key/service-key roundtrip; headless Linux without a Secret Service proves the explicit fail-closed UI and empty credential state instead of attempting the unavailable positive path. Visual checks require every expected baseline on authoritative platforms (currently Windows); non-authoritative platforms always capture under `test-results/` without reading or writing repository baselines, and `test:visual:update` writes only on an explicitly authoritative platform |
 
@@ -96,7 +98,8 @@ fixture repositories rather than depending on any personal checkout.
   system browser); use `dashboardTarget: 'external'` for such dashboards.
   Clearing a dashboard partition is exposed only through agent deletion; there
   is no "sign out of dashboard" action yet. The channel policy's `audit` lines
-  go to the main-process log only; there is no audit journal.
+  go to the main-process log. Remote requests and device administration additionally
+  have their own durable audit journal; general desktop calls do not.
 - Workspaces whose root or a component is itself a symlink/junction are now
   unreadable in the Files panel, consistent with the mutation guards. A
   `dashboardCommand` remains operator text executed through a shell; the
@@ -198,17 +201,17 @@ fixture repositories rather than depending on any personal checkout.
   installed/authenticated `gh` in that repository's execution backend. It does
   not fetch remote refs or show provider CI logs yet; unsupported/offline/auth
   states remain separate from the always-local status and commit history.
-- There is currently no network listener, paired-device store, mobile build or
-  remote ingress in ADE by default. The Goal-7 listener exists only after
-  explicit environment opt-in and remains loopback-only. Its commands are
-  reachable solely with a device secret provisioned through
-  `ADE_HOST_API_COMMAND_DEVICE` at startup; there is one such device, no
-  pairing UI, no revocation store and no rotation without a restart. Remote
-  audit lines go to the main-process log, not a durable audit journal. SSE
-  clients that fall behind are disconnected and must resume from their last
-  id; the journal shares the atomic JSON config, so retention limits apply to
-  the stream as well. The bearer token and device secret travel in plaintext
-  on loopback only; there is no TLS termination, Tailscale or PWA contract
-  yet. Until the remaining remote goals are implemented and verified, users
-  must not expose Electron IPC or the local listener through a router, LAN
-  bind, Tailscale Funnel or public tunnel.
+- Mobile access is opt-in in desktop Settings and remains loopback-only behind
+  private Tailscale Serve. Physical phone/tablet and carrier-network acceptance
+  must be measured separately from Chromium/Electron automation. The legacy
+  environment API cannot run concurrently with the mobile controller.
+- The fsynced remote audit has an 8 MiB hard cap; full/broken storage disables
+  device authorization until offline maintenance. Device history is capped at
+  100 records including revoked tombstones. Maintenance/recovery UI is pending.
+- SSE resumes from the journal cursor, resets to an authoritative snapshot
+  behind retained history and closes on session expiry, rotation or revocation.
+  Browser private state is in memory; a lost command response can be retried
+  with the same key while the page remains open. Reloading does not restore
+  an unfinished command form; inspect the run list before submitting new work.
+- Keep Electron IPC, terminals, configuration and Git publishing local. Direct
+  LAN binds, router forwarding, Tailscale Funnel and public tunnels are unsupported.

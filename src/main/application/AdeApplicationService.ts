@@ -73,7 +73,7 @@ export interface RemoteAuditEntry {
   requestId: string;
   channel: InvokeChannel;
   target: string | null;
-  outcome: 'executed' | 'replayed' | 'denied' | 'rejected';
+  outcome: 'requested' | 'executed' | 'replayed' | 'denied' | 'rejected';
   /** Redacted, bounded reason for denied/rejected outcomes. */
   reason?: string;
 }
@@ -206,14 +206,14 @@ export class AdeApplicationService {
     return {
       repositories: config.repositories.map((repository) => ({
         id: repository.id,
-        name: repository.name,
+        name: redactForWire(repository.name, 160),
         executionBackend: repository.executionBackend,
         verified: repository.verified,
       })),
       agents: config.agents.map((agent) => ({
         id: agent.id,
-        name: agent.name,
-        ...(agent.role ? { role: agent.role } : {}),
+        name: redactForWire(agent.name, 160),
+        ...(agent.role ? { role: redactForWire(agent.role, 160) } : {}),
         runtime: agent.runtime,
         ...(agent.defaultRepositoryId ? { defaultRepositoryId: agent.defaultRepositoryId } : {}),
         ...(agent.homeExecutionBackend
@@ -235,6 +235,9 @@ export class AdeApplicationService {
   journalCursor(): number {
     return this.runsPort.journalCursor();
   }
+
+  /** A client behind this cursor has missed records that were archived/deleted. */
+  journalFloor(): number { return this.store.get().journalRetention.prunedSeq; }
 
   /**
    * Sanitized journal window after `sinceSeq`. Records keep their seq so the
@@ -258,7 +261,7 @@ export class AdeApplicationService {
     return this.changes.subscribe(listener);
   }
 
-  /** Bounded in-memory audit ring (newest last). Not durable yet — see STATUS. */
+  /** Bounded diagnostic ring (newest last); production also supplies the durable device-store sink. */
   auditTrail(): RemoteAuditEntry[] {
     return this.auditRing.map((entry) => ({ ...entry }));
   }
@@ -362,6 +365,8 @@ export class AdeApplicationService {
     }
 
     const replayed = recorded !== undefined;
+    // Durable admission precedes domain side effects; a broken audit sink fails closed.
+    this.audit(context, channel, target, 'requested');
     const execution = (async (): Promise<MobileCommandResult> => {
       let outcome: { runId: string; taskId?: string };
       try {

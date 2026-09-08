@@ -53,6 +53,9 @@ import type {
   WorkspaceScopeDescriptor,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
+import type { RemoteDeviceInventory } from './remoteDevices';
+import type { MobileAccessStatus, MobilePairingChallenge } from './mobileAccess';
+import type { GitSyncOverview, GitSyncPreview, GitSyncRequest } from './gitSync';
 import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspaceBundle';
 
 /* --------------------------------------------------------------- channels */
@@ -61,6 +64,13 @@ import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspa
 export const IPC = {
   ConfigGet: 'config:get',
   ConfigHealth: 'config:health',
+  RemoteDevicesList: 'remoteDevices:list',
+  MobileAccessStatus: 'mobileAccess:status',
+  MobileAccessSetEnabled: 'mobileAccess:setEnabled',
+  MobileAccessPair: 'mobileAccess:pair',
+  MobileAccessCancelPair: 'mobileAccess:cancelPair',
+  RemoteDevicesRename: 'remoteDevices:rename',
+  RemoteDevicesRevoke: 'remoteDevices:revoke',
   ConfigSave: 'config:save',
   WorkspaceBundlePickImport: 'workspaceBundle:pickImport',
   WorkspaceBundleAuthorizeMappings: 'workspaceBundle:authorizeMappings',
@@ -83,6 +93,10 @@ export const IPC = {
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
   RepositoryOverview: 'repository:overview',
+  RepositorySyncOverview: 'repository:syncOverview',
+  RepositoryFetch: 'repository:fetch',
+  RepositorySyncPreview: 'repository:syncPreview',
+  RepositorySyncApply: 'repository:syncApply',
   RepositoryPullRequests: 'repository:pullRequests',
   RepositoryPullRequestChecks: 'repository:pullRequestChecks',
   RepositoryCommitDiff: 'repository:commitDiff',
@@ -590,6 +604,13 @@ export interface WorkspaceBundleExportResult {
 export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
   'config:health': { req: void; res: ConfigHealth };
+  'remoteDevices:list': { req: void; res: RemoteDeviceInventory };
+  'mobileAccess:status': { req: void; res: MobileAccessStatus };
+  'mobileAccess:setEnabled': { req: { enabled: boolean }; res: MobileAccessStatus };
+  'mobileAccess:pair': { req: void; res: MobilePairingChallenge };
+  'mobileAccess:cancelPair': { req: void; res: void };
+  'remoteDevices:rename': { req: { deviceId: string; name: string }; res: RemoteDeviceInventory };
+  'remoteDevices:revoke': { req: { deviceId: string }; res: RemoteDeviceInventory };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'workspaceBundle:pickImport': { req: void; res: { selectionId: string; displayName: string } | null };
   'workspaceBundle:authorizeMappings': {
@@ -624,6 +645,10 @@ export interface IpcInvokeMap {
   'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
   'repository:import': { req: RepositoryImportRequest; res: Repository };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
+  'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
+  'repository:fetch': { req: { repositoryId: string }; res: GitSyncOverview };
+  'repository:syncPreview': { req: GitSyncRequest & { targetId: string }; res: GitSyncPreview };
+  'repository:syncApply': { req: { previewId: string }; res: GitSyncOverview };
   'repository:pullRequests': {
     req: RepositoryInspectRequest;
     res: RepositoryPullRequestResult;

@@ -1,8 +1,16 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.10 (Overview home, repository inspector and verified Draft-PR
-publishing implemented; remote control planned, 2026-08-19)
+Status: v0.13 (desktop Git sync, mobile pairing/PWA, private Tailscale setup and
+close-to-tray implemented; physical-device acceptance tracked separately, 2026-09-08)
 Owner: Adi. This document is the source of truth for coding agents.
+
+Desktop Git workflow: Graph and the repository inspector expose **Git-Abgleich**;
+New Run exposes the same preflight panel. The user chooses a local/origin basis,
+compares each worktree, explicitly fetches remote state and confirms one exact
+fast-forward at a time. Uncommitted files, own commits, active sessions/leases
+and unfinished Git operations block target updates. A local refresh never means
+the server was checked. New worktrees still use main HEAD and managed runs use
+orchestrator HEAD. Full boundary and mobile follow-up: `REPOSITORY_SYNC_PLAN.md`.
 
 ## What it is
 
@@ -65,13 +73,14 @@ References:
   Pull Request. It is not a merge approval or an agent capability.
 - **Participant role** — orchestrator/lead/worker is scoped to a run. The same
   named agent may play a different role in a different run.
-- **ADE host** *(planned)* — the logged-in desktop process that owns all
+- **ADE host** — the logged-in desktop process that owns all
   runtime credentials, PTYs, repositories and orchestration state. It may
   expose a disabled-by-default, loopback-only control API through an explicitly
   configured private ingress.
-- **Remote device** *(planned)* — a separately paired and revocable mobile
-  control identity. Pairing never grants raw terminal, configuration or
-  unrestricted filesystem access.
+- **Remote device** — a durable revocable control identity with an OS-encrypted
+  secret, desktop name and revocation record. Settings can list, rename and
+  revoke imported and QR-paired identities. Pairing never
+  grants raw terminal, configuration or unrestricted filesystem access.
 
 Graph assigns participants and roles per run. Older Graph-created categories
 and agent `teamRole` fields are imported once as a legacy run and retained so
@@ -197,7 +206,7 @@ the migration never deletes user data.
 Detailed model, UI behavior, migration and exit criteria are binding in
 `docs/REPOSITORY_SCOPES_PLAN.md` and `docs/ROADMAP.md`.
 
-## Mobile companion (planned after product validation)
+## Mobile companion (personal alpha implementation)
 
 - The first client is a responsive installable PWA for iOS and Android. A
   native mobile package is justified only by validated platform gaps.
@@ -209,8 +218,8 @@ Detailed model, UI behavior, migration and exit criteria are binding in
   command for implicit execution after connectivity returns.
 - A paired phone may inspect host readiness and a sanitized catalog, choose
   repository and agent independently, submit a bounded single-agent task,
-  create/start/cancel a managed run, and observe tasks, usage, results and
-  approvals.
+  create/start/cancel a managed run, and observe task/run status and approval
+  requirements. Detailed results and approval decisions remain on the desktop.
 - Interactive PTY access, arbitrary commands, permission/configuration changes,
   deletion, absolute paths and unrestricted file reads are excluded from the
   personal alpha.
@@ -220,6 +229,22 @@ Detailed model, UI behavior, migration and exit criteria are binding in
 - Every device has a distinct identity that can be listed and revoked from the
   desktop. Tailscale is an outer access boundary, not a replacement for ADE's
   endpoint authorization.
+- Implemented desktop slice: Settings → Verbundene Geräte persists names and
+  revocations, closes the revoked device's HTTP/SSE connections immediately and
+  records device changes and remote requests in a bounded durable audit. Already
+  accepted tasks continue and can be cancelled separately. Desktop Settings
+  creates five-minute single-use QR/manual challenges. Browser identity keys
+  are non-exportable WebCrypto keys in IndexedDB; reads/commands require signed
+  proof plus a Secure HttpOnly Strict 30-minute cookie, with exact Origin and
+  CSRF on mutations. The listener remains disabled by default and loopback-only.
+- Settings enables/rechecks/disables the native host's private Tailscale Serve
+  route and distinguishes configuration from HTTPS reachability verified with
+  normal certificate validation. Initial certificate provisioning can take time.
+  Unrelated routes are preserved. Unsafe ingress stops the host.
+  Closing the window with mobile access enabled keeps ADE in the tray; explicit
+  quit ends the host. Login autostart and remote wake remain future work.
+- Implementation and platform evidence are in `goal8/MOBILE_CONNECT_RESULTS.md`;
+  physical iOS/Android and mobile-network acceptance must be measured separately.
 - The service worker caches only the versioned application shell. Credentials,
   API responses, patches and run details are not intentionally available
   offline.

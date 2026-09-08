@@ -17,6 +17,20 @@ export interface MobileHealth {
   commands: 'enabled' | 'disabled';
 }
 
+export interface MobilePairInput {
+  challenge: string;
+  deviceId: string;
+  name: string;
+  secret: string;
+}
+
+/** Cookie is HttpOnly; only its CSRF counterpart is returned to the browser. */
+export interface MobileSessionInfo {
+  deviceId: string;
+  csrf: string;
+  expiresAt: number;
+}
+
 export interface MobileRepositorySummary {
   id: string;
   name: string;
@@ -141,6 +155,9 @@ export type MobileErrorCode =
   | 'invalid_host'
   | 'origin_not_allowed'
   | 'unauthorized'
+  | 'pairing_expired'
+  | 'csrf_required'
+  | 'rate_limited'
   | 'device_proof_required'
   | 'unknown_device'
   | 'invalid_signature'

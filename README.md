@@ -20,6 +20,11 @@ managed runs on a graph.
 
 ## A tour
 
+**Git-Abgleich** — compare main and agent worktrees in Graph, the repository
+inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
+confirm a clean worktree's fast-forward. Dirty or divergent worktrees show why
+they need attention. [Workflow and boundaries](docs/REPOSITORY_SYNC_PLAN.md).
+
 **Overview** — a read-only home over ADE's own journal: live sessions, open
 runs, reported tokens, every agent, every catalog project and the last twenty
 runs. Clicks jump to Terminals or Graph. Missing token or cost data stays
@@ -93,6 +98,13 @@ directory, with the right PATH.
 - Sandboxed renderer, strict CSP, runtime-validated IPC, encrypted write-only
   API-key storage (OS `safeStorage`), read-only runtime diagnostics and
   fail-closed token/cost budgets.
+- Settings → **Verbundene Geräte** lists, renames and revokes stored remote
+  devices. Keys stay OS-encrypted; revocation closes device connections and
+  survives restart. Device actions and remote requests have a durable local
+  audit. Settings → **Mobiler Zugriff** adds private Tailscale HTTPS, one-use
+  QR pairing and a responsive mobile companion. The host stays opt-in and
+  loopback-only. See [mobile setup](docs/goal8/MOBILE_CONNECT_GUIDE.md) and
+  [measured evidence](docs/goal8/MOBILE_CONNECT_RESULTS.md).
 
 ## Quickstart
 

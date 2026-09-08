@@ -48,6 +48,8 @@ import { ActivityFeed } from './ActivityFeed';
 import { SessionTail } from './SessionTail';
 import { ResultDetails, outcomeText } from './ResultDetails';
 import { RunReportPanel } from './RunReportPanel';
+import { RepositorySyncModal } from '../repositories/RepositorySyncModal';
+import { RepositorySyncPanel } from '../repositories/RepositorySyncPanel';
 import './graph.css';
 
 const CARD_W = 150;
@@ -264,6 +266,7 @@ export function GraphView(): JSX.Element {
   const [flashes, setFlashes] = useState<Record<string, 'ok' | 'bad'>>({});
   const [composer, setComposer] = useState<ComposerTarget | null>(null);
   const [showNewRun, setShowNewRun] = useState(false);
+  const [showGitSync, setShowGitSync] = useState(false);
   const [publicationRun, setPublicationRun] = useState<Run | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
@@ -1166,6 +1169,7 @@ export function GraphView(): JSX.Element {
   return (
     <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
       <div className="grunbar">
+        <button type="button" className="btn" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
         <select
           aria-label="Aktiver Run"
           value={activeRunId ?? ''}
@@ -1592,6 +1596,7 @@ export function GraphView(): JSX.Element {
         />
       )}
 
+      {showGitSync && <RepositorySyncModal repositoryId={activeRepository?.id} onClose={() => setShowGitSync(false)} />}
       {showNewRun && (
         <NewRunModal
           categories={categories}
@@ -2565,6 +2570,10 @@ function NewRunModal(props: {
           </label>
           {repositoryId ? (
             <div className="grun-field grun-prepare">
+              <details>
+                <summary>Git-Basis vor dem Run prüfen und aktualisieren</summary>
+                <RepositorySyncPanel key={repositoryId} repositoryId={repositoryId} />
+              </details>
               <span id="grun-prepare-label">Worktrees</span>
               <label className="grun-prepare-choice">
                 <input

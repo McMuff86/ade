@@ -34,6 +34,8 @@ import { useMode } from '../stores/mode';
 import { useAppData } from '../stores/appdata';
 import '../onboarding/onboarding.css';
 import './settings.css';
+import { RemoteDevicesSection } from './RemoteDevicesSection';
+import { MobileAccessSection } from './MobileAccessSection';
 
 const SCOPE_RUNTIMES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
@@ -491,7 +493,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   return (
     <Modal
       title="Settings"
-      subtitle="Harness-Verwaltung: Anmeldung, CLI-Status, API-Keys und Service-Keys."
+      subtitle="Darstellung, verbundene Geräte, Workspaces und Harness-Verwaltung."
       onClose={onClose}
     >
       <div className="st-body" data-testid="settings-harnesses">
@@ -538,6 +540,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             </button>
           </div>
         </div>
+        <MobileAccessSection />
+        <RemoteDevicesSection />
         <section className="st-bundle-section" data-testid="workspace-bundle-settings">
           <div className="st-section-head">
             <strong>Workspace-Bundles</strong>

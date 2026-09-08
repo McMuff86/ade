@@ -1,3 +1,176 @@
+# Handoff — 2026-09-08
+
+## Goal 8.2–8.5 — Tablet/Smartphone über privates Tailscale
+
+Auftrag: Nach Git-Abgleich und Geräteverwaltung den mobilen Einstieg umsetzen,
+weitere Goals definieren und die Verbindung bis zur echten HTTPS-Messung testen.
+Die vorhandenen uncommitteten Git-/Geräteänderungen und visuellen Baselines wurden
+erhalten. Neue Goals und Abnahmekriterien: `goal8/MOBILE_CONNECT_PLAN.md`.
+
+- **Bedienung:** Settings → **Mobiler Zugriff** aktiviert die private
+  Tailscale-Serve-Freigabe. **Tablet oder Smartphone koppeln** zeigt einen
+  fünf Minuten gültigen einmaligen QR-/manuellen Code. Das Mobilgerät braucht
+  Tailscale im selben Tailnet. Die responsive PWA kann Einzelaufgaben starten,
+  Managed Runs vorbereiten/starten, Fortschritt anzeigen und Runs abbrechen.
+  Gerätewiderruf bleibt in Settings → Verbundene Geräte.
+- **Vertrag:** Loopback `127.0.0.1:4317`, exakter privater HTTPS-Origin,
+  OS-verschlüsselte Host-Keys, nicht exportierbarer Browser-Schlüssel,
+  Secure/HttpOnly/Strict-Sitzung, CSRF und signierte idempotente Befehle.
+  Lebenszyklus/Kopplung sind vier Desktop-only IPC-Kanäle; kein erweiterter
+  Remote-Command-Allowlist. Audit, Rate-/Asset-Grenzen und Widerruf greifen
+  auch bei offenen SSE-Verbindungen. Fremde Serve-Routen und Funnel blockieren
+  die Aktivierung. Automatisch aus Prompts gebildete Titel werden in Summaries
+  ersetzt, auch bei vorhandenen Records; gespeicherte Daten bleiben erhalten.
+- **Zuverlässigkeit:** Neuladen und Host-/Netzwechsel stellen die Gerätesitzung
+  wieder her. Ein unklarer Auftrag wird mit derselben ID geprüft; Widerruf
+  löscht alte Wiederholungen. Abbrechen erhält andere Formularentwürfe und
+  setzt den Fokus auf den Run. Der Service Worker hält nur die öffentliche
+  App-Hülle. Bei aktiviertem mobilem Zugriff hält Schliessen ADE im Tray;
+  ausdrückliches Beenden stoppt den Host. Loginstart und Schlafpolitik folgen.
+- **Echte Verbindung:** Tailscales erste DNS-/ACME-Bereitstellung verursachte
+  zunächst Timeouts. Nach abgeschlossener Bereitstellung bestanden **9 echte
+  HTTPS-Checks**, ohne TLS-Bypass oder DNS-Fixture. ADE unterscheidet jetzt
+  eingerichtete Freigabe und per Zertifikatsprüfung bestätigte Erreichbarkeit.
+  Fehler sind nicht als positive Evidenz gezählt. Details/Operatoraufruf:
+  `goal8/MOBILE_CONNECT_RESULTS.md` und `goal8/MOBILE_CONNECT_GUIDE.md`.
+- **Gesamt-Gate:** `pnpm verify` vollständig grün auf nativem Windows:
+  drei TypeScript-Projekte, **21 Suiten / 1337 Checks**, beide Production-UIs,
+  **163** bestehende Electron-, **20** Git-sync-, **24** Chromium-Mobile-,
+  **15** Mobile-Electron- und **22** visuelle Checks. Zusätzlich **23 WebKit-
+  Checks**; dessen Windows-SameSite-Introspektion und Offline-Kaltstart gelten
+  ausdrücklich nicht als iOS-Evidenz. Das bestehende Grok-Terminaltest-Rennen
+  wartet nun auf beide Ausgabezeilen, statt die erste als vollständige Ausgabe
+  zu behandeln. Finales Gate: `test-results/mobile-verify-final.log`.
+- **Operatorzustand:** Mobiler Zugriff im vorhandenen persönlichen Profil
+  aktiviert und ADE regulär mit `pnpm start` gestartet. HTTPS-Hülle 200,
+  ungepaarter Katalog 401, Loopback-Bind und kein Debugging-Endpunkt bestätigt.
+  **9 Agents, 4 Repositories und 4 Runs** vor/nach Aktivierung unverändert;
+  lokale Config-Sicherung unter `userData/ade/backups`. Keine Testidentität
+  im persönlichen Profil. Private Serve-Route und Opt-in bleiben für Neustarts
+  erhalten. Keine persönlichen Repository-Aufgaben gestartet, nichts committed
+  oder veröffentlicht. Für das echte Gerät jetzt in Settings den QR-Code öffnen.
+- **Offene Abnahme / Folgegoals:** Physisches iOS/Android, Home-Screen-Installation
+  und Mobilfunkzugriff brauchen die tatsächlichen Geräte. Native Linux/WSLg,
+  Windows-UI mit WSL-Ausführung und macOS haben keine neue Plattformmessung.
+  Goal 10: Loginstart/Verfügbarkeit/Recovery; Goal 9: begrenzte Ergebnisansicht,
+  zusätzliche Authentisierung vor Freigaben und Benachrichtigungen; Goal 11:
+  Audit-Wartung, Updates und gemessene Geräte-/Browser-Matrix.
+
+---
+
+# Handoff — 2026-09-06 (Session 4)
+
+## Git-Abgleich in Graph, Inspector und Run-Vorbereitung
+
+Auslöser: Der Inspector zeigte das lokale RhinoClaw-Hauptrepository, während
+der Agent einen deutlich älteren eigenen Worktree verwendete. Ein lokaler
+Refresh war bisher leicht mit einem Remote-Update zu verwechseln.
+
+- **Bedienung:** `Git-Abgleich` öffnet den gemeinsamen Dialog. `Anzeige
+  aktualisieren` liest lokal, `Remote prüfen · Fetch` holt origin-Refs. Danach
+  lokale oder Remote-Basis wählen und je Ziel `Update prüfen`, Checkbox und
+  `Fast-forward ausführen`. Der Run-Dialog bietet denselben Vergleich vorab.
+  Der alte Gleichstands-Text lautet jetzt `Lokal gleichauf` mit Erklärung.
+- **Vertrag:** Desktop-only IPC für Übersicht, Fetch, Vorschau und Apply;
+  Daten ohne Host-Pfade. Vorschau ist fünf Minuten gültig, einmalig nutzbar und
+  bindet konkrete SHAs, Repository und Ziel. Apply prüft den Stand erneut.
+  Dirty-/Divergenz-/Detached-/Git-Operations-/Session-/Lease-Blocker bleiben
+  sichtbar. Unlesbare Worktrees sind unbekannt, nicht sauber. Fetch überschreibt
+  keine lokalen Refs, auch bei abweichendem konfiguriertem Fetch-Refspec.
+  Kein Auto-Stash, Reset, Push oder Merge-Commit; ignorierte Dateien werden
+  nicht überschrieben und Repository-Hooks laufen nicht.
+- **Koordination:** Ein Prozess-Gate verhindert Überlappung mit ADE-eigenem
+  Scope-/PTY-/Login-/Run-Start. Externe Git-Prozesse werden nicht gesperrt;
+  erneute Prüfung plus Git-eigene Fast-forward-/Worktree-Guards bleiben nötig.
+- **Grenzen:** Vergleichsbasis ist kein persistiertes Run-Feld. Neue Worktrees
+  starten weiterhin vom Hauptrepository, Managed Runs vom Orchestrator-HEAD.
+  Bestehende Teilnehmer einzeln angleichen. Remote-Zeit gilt nur für diese
+  App-Sitzung; ein Neustart setzt sie auf ungeprüft. Mobile Git ist nicht
+  freigeschaltet. QR-/Handy-Pairing bleibt der nächste separate Produkt-Schritt
+  auf Basis der Geräteverwaltung aus Session 3.
+- **Fokussierte Evidenz:** 38 echte Git-Fixture-Checks und 20 neue
+  Electron-/Playwright-Checks grün. Abgewiesene Updates wegen später Änderungen,
+  ignorierter Dateien oder geänderter Zuordnung haben jeweils positive
+  Folgekontrollen. UI-Evidenz unter `test-results/git-sync/`, Logs unter
+  `test-results/repository-sync.log` und `test-results/git-sync-electron.log`.
+  Sieben Windows-Inspector-Baselines wegen des neuen Git-Einstiegs bewusst
+  aktualisiert; 22 visuelle Checks grün.
+- **Gesamt-Gate:** `pnpm verify` auf nativem Windows vollständig grün:
+  drei TypeScript-Projekte, **20 Suiten / 1262 Checks**, Production-Build,
+  **163 bestehende + 20 neue Electron-/Playwright-Checks** und **22 visuelle
+  Checks**. Log: `test-results/git-sync-verify-final.log`. Für die neue
+  Git-Funktion wird damit keine Linux-, WSL- oder macOS-Evidenz behauptet.
+- **Operatorzustand:** Kein persönliches Repository/Profil durch die neuen
+  Tests geändert, nichts committed oder veröffentlicht. Build: `pnpm build`,
+  Start nach Schliessen der alten App: `pnpm start`. Vertrag und Bedienfolge:
+  `REPOSITORY_SYNC_PLAN.md`.
+
+---
+
+# Handoff — 2026-09-06 (Session 3)
+
+## Goal 8, Schritt 1 — Geräteverwaltung und dauerhaftes Remote-Audit
+
+Auftrag: Geräte in ADE anzeigen, dauerhaft benennen und widerrufen können;
+ein Widerruf beendet die aktiven Verbindungen. QR-Pairing ist der nächste Schritt.
+
+- **Desktop:** Settings → **Verbundene Geräte** zeigt aktive und widerrufene
+  Identitäten. Enter speichert den Namen; danach erhält das Namensfeld den Fokus
+  nach dem React-Commit. Entfernen persistiert den Widerruf und gibt den Fokus
+  an den stabilen Aktualisieren-Button zurück. Lade-, Leer- und Fehlerzustände,
+  ein schmaler umgebrochener Aufbau und die Settings-Fokusrückgabe sind abgedeckt.
+- **Speicher:** `RemoteDeviceStore` hält `ade/remote/devices.json` neben der
+  App-Konfiguration. Geheimnisse sind OS-verschlüsselt (`safeStorage`, dieselbe
+  Linux-Provider-Prüfung wie bei Harness-Keys); weder Config, Bundles noch IPC
+  erhalten sie. Atomarer Rename nach fsync; begrenztes Lesen; Link-Komponenten,
+  kaputte Dateien und fehlende Entschlüsselung sperren den Zugriff.
+- **Migration:** `ADE_HOST_API_COMMAND_DEVICE` wird einmalig übernommen. Danach
+  liest der Authorizer ausschließlich den persistenten Store. Entfernte Geräte
+  behalten einen Tombstone ohne verschlüsselten Schlüssel; alte oder geänderte
+  Bootstrap-Werte können sie nach Neustart nicht wieder aktivieren. Fehlt die
+  Gerätedatei trotz vorhandener Geräte-Audit-Historie, wird ebenfalls gesperrt.
+- **Zugriffsvertrag:** In der Produktion brauchen auch GET und SSE einen aktiven
+  Gerätenachweis zusätzlich zum Bearer. GET signiert den vollständigen Request-
+  Target inklusive Query mit leerem Idempotency-Key-Feld und Empty-Body-Digest;
+  POST bleibt unverändert. Widerruf zerstört aktive HTTP/SSE-Antworten des Geräts
+  und verweigert neue Anfragen. Andere Geräte bleiben verbunden. Bereits
+  akzeptierte Aufgaben laufen weiter und bleiben lokal abbrechbar.
+- **Audit:** `ade/remote/audit.jsonl` ist append-only und fsynced, unabhängig von
+  Run-Journal und Retention. Geräteänderungen und Commands protokollieren vor dem
+  Effekt `requested` und danach den Ausgang; HTTP-Ablehnungen tragen stabile
+  Gründe und unbewiesene Absender bleiben anonym. Erfolgreiche Leseanfragen
+  protokollieren Authentifizierung. Keine Namen, Bodies, Signaturen, Schlüssel
+  oder Host-Pfade. 8 MiB Obergrenze; beschädigtes/volles oder nicht schreibbares
+  Audit sperrt Gerätezugriffe und trennt Verbindungen. Diagnose über Main-Log.
+- **Grenzen:** Kein QR-Pairing, keine neue Geräteanlage in der UI, keine PWA,
+  keine Session-Cookies und kein Tailscale-Vertrag. Der Listener bleibt opt-in
+  und loopback-only. Audit-Browser/Export und Wartungs-/Recovery-UI fehlen.
+  Volle/defekte Audit-Dateien müssen vor Offline-Wartung gesichert und geprüft
+  werden. Die Anwendung löscht Audit-Historie nicht automatisch.
+- **Prüfstand:** 38 fokussierte Store-/IPC-Prüfungen und 184 Host-API-Prüfungen
+  grün, inklusive echtem TCP/SSE, Neustart, zwei Geräten und Audit-Ausfall vor
+  Domain-Effekten. Vollständiges `pnpm verify` auf dem finalen Stand grün:
+  drei TypeScript-Projekte, **19 Suiten / 1220 Checks**, Production-Build,
+  **163/163 Electron-/Playwright-Checks**, **22/22 visuelle Checks** gegen
+  unveränderte Windows-Baselines. Die gemessenen Suite-Böden wurden angehoben
+  (Host-API 184, Remote-Devices 38, Security 195). Der zunächst fehlgeschlagene
+  Fokus-Check nach Rename ist mit einer Layout-Effect-Fokusrückgabe behoben;
+  gezielter positiver Electron-Test und abschließendes vollständiges Gate grün.
+  Lokales Prüfprotokoll: `test-results/device-verify-final.log`.
+  Ausgeführte Plattform ist natives Windows; neue Linux-/macOS-Evidenz wird
+  damit nicht behauptet.
+- **Operatorzustand:** Nur Repository-Dateien und isolierte temporäre
+  Testprofile geändert. Kein persönliches ADE-Profil migriert, kein dauerhafter
+  Netzwerkzugang eingerichtet und nichts veröffentlicht.
+
+## Nächster Schritt
+
+Kurzlebiges, einmalig nutzbares Pairing aus dem Desktop heraus entwerfen und
+implementieren; danach Tailscale-Serve-/Session-Vertrag und erst dann PWA-Shell.
+Die Geräteverwaltung und der Widerrufsvertrag können dabei wiederverwendet werden.
+
+---
+
 # Handoff — 2026-09-06 (Session 2)
 
 ## Ergebnis dieser Session — Thema 3 und Thema 5

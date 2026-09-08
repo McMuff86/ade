@@ -7,6 +7,7 @@ import type {
   RepositoryPullRequestResult,
 } from '../../shared/types';
 import { NATIVE_EXECUTION_BACKEND } from '../../shared/executionBackends';
+import { RepositorySyncModal } from '../repositories/RepositorySyncModal';
 
 interface RepositoryInspectorProps {
   repositoryId: string | null;
@@ -34,6 +35,7 @@ export function RepositoryInspector({
   onOpenChecks,
 }: RepositoryInspectorProps): JSX.Element {
   const [overview, setOverview] = useState<RepositoryOverview | null>(null);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [pullRequests, setPullRequests] = useState<RepositoryPullRequestResult | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [pullRequestsLoading, setPullRequestsLoading] = useState(false);
@@ -107,11 +109,13 @@ export function RepositoryInspector({
 
   return (
     <div className="ri" data-testid="repository-overview" aria-busy={overviewLoading}>
+      {syncOpen && repositoryId && <RepositorySyncModal repositoryId={repositoryId} onClose={() => { setSyncOpen(false); refresh(); }} />}
       <div className="ri-toolbar">
         <div>
           <span className="ri-eyebrow">Selected repository</span>
           <strong>{overview?.repositoryName ?? (overviewLoading ? 'Loading…' : 'Repository')}</strong>
         </div>
+        <button type="button" className="btn" data-open-git-sync onClick={() => setSyncOpen(true)}>Git-Abgleich</button>
         <button
           type="button"
           className="ri-refresh"
@@ -199,7 +203,7 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
   const sync = overview.upstream
     ? diverged
       ? `↑${overview.ahead} ↓${overview.behind}`
-      : 'Up to date'
+      : 'Lokal gleichauf'
     : 'No upstream';
   const remote = overview.remote.kind === 'github'
     ? overview.remote.providerRepository
@@ -221,7 +225,7 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
         </div>
         <div>
           <dt>Sync</dt>
-          <dd className={diverged ? 'ri-diverged' : undefined} title={overview.upstream ?? undefined}>
+          <dd className={diverged ? 'ri-diverged' : undefined} title={`${overview.upstream ?? 'Kein Upstream'} · Vergleich mit gespeicherten Remote-Refs; kein aktueller Netzwerkabruf`}>
             {sync}
           </dd>
         </div>

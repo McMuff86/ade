@@ -39,16 +39,19 @@ const SUITES: Suite[] = [
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 61 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
+  { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 30 } },
-  { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 163 } },
+  { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },
+  { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 38 } },
+  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 71 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 192 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 203 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

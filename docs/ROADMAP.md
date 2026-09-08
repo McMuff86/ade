@@ -1,7 +1,16 @@
 # ADE delivery roadmap
 
-Status date: 2026-09-03. Goals are completed in order and published as separate
-verified commits.
+Status date: 2026-09-08. Goals carry separate implementation and execution
+evidence; the Git-sync, device-inventory and mobile slices share one verified delivery.
+
+## Current desktop Git slice (2026-09-06)
+
+Implemented comparison, explicit origin Fetch and preview-confirmed fast-forward
+for main/agent worktrees in Graph, inspector and New Run. The cached inspector
+sync label now says `Lokal gleichauf`. No automatic reset or new persisted Run
+basis is introduced. `REPOSITORY_SYNC_PLAN.md` defines the guards; `HANDOFF.md`
+records verification. One-use pairing, private Tailscale transport, browser
+sessions and the mobile PWA are now implemented; see Goal 8 and its evidence.
 
 ## Goal 1 - runtime reliability baseline
 
@@ -326,8 +335,8 @@ closed interactive session appears in Work and opens Terminals.
 
 ## Goal 7 - transport-neutral core and local host API
 
-Status: **local command surface complete (2026-09-06); only the paired-device
-model remains and moves to Goal 8.** The first slice added a transport-neutral
+Status: **local command surface complete (2026-09-06). Goal 8 now supplies
+the durable device store, audit and interactive browser pairing.** The first slice added a transport-neutral
 application service plus mobile-safe health/catalog/run DTOs and a
 disabled-by-default, Bearer-authorized HTTP adapter fixed to `127.0.0.1` with
 `GET /api/v1/health`, `/catalog` and `/runs`. The second slice (2026-09-03)
@@ -339,8 +348,9 @@ everything that leaves over the wire. The third slice (2026-09-06) adds the
 bounded single-task submission `POST /api/v1/tasks` as the first-class
 `runTask:submit` command (atomic run/participant/task record, main-owned
 launch, journal-driven progress) and lets `run:cancel` end a manual run's
-work. Public/Tailscale exposure stays no-go: the single command device is an
-environment bootstrap, not a paired identity.
+work. The original environment bootstrap stays loopback-only. Goal 8 adds a
+separate paired browser path through private Tailscale Serve; public ingress
+remains unavailable.
 
 The orthogonal Linux/WSL/macOS track no longer blocks this goal's local
 foundation: Linux packaging and the hybrid Windows-to-WSL execution backend are
@@ -407,9 +417,9 @@ per-channel authorization requirement the policy test now demands.
   hosts/origins, invalid content types, chunked or oversized requests,
   malformed payloads, unknown/unsigned/stale/tampered device proofs and
   bearer-only commands.
-- [ ] Replace the `ADE_HOST_API_COMMAND_DEVICE` bootstrap with the paired,
-  revocable device store (Goal 8) and persist remote audit entries in a
-  durable journal instead of the main-process log.
+- [x] Replace live environment-device authorization with a durable revocable
+  store and persist remote audit entries outside the main log (Goal 8 step 1).
+  The old environment device is a one-time migration; Goal 8 adds QR pairing.
 
 Exit criteria: local API integration tests can drive and reconnect to a full
 managed run without changing the Electron workflow; duplicate, reordered,
@@ -421,7 +431,31 @@ first deliverable.
 
 ## Goal 8 - personal mobile companion alpha
 
-Status: planned after Goal 7.
+Status: device inventory, pairing, browser sessions, private Tailscale setup and
+responsive PWA implemented (2026-09-08). Physical-device/carrier acceptance stays
+open until measured. Concrete Goals **8.2 pairing**, **8.3 Tailscale**, **8.4 PWA**
+and **8.5 connection evidence** are defined in `goal8/MOBILE_CONNECT_PLAN.md`;
+validation and limitations are in `goal8/MOBILE_CONNECT_RESULTS.md`.
+
+Step 1 adds Settings → Verbundene Geräte, encrypted persistent identities,
+rename/revoke, tombstones, immediate HTTP/SSE disconnection and a bounded fsynced
+audit. Production reads require a signed active device as well as the bearer.
+Already accepted runs continue; revoke removes access, not completed domain effects.
+The new storage suite and real HTTP/Electron workflows cover restart, stale
+bootstrap, audit failure, encryption, keyboard/focus and compact layout.
+The follow-on implementation includes five-minute one-use QR/manual pairing,
+non-exportable browser signing keys, 30-minute secure sessions, exact origin/CSRF,
+signed idempotent commands, independent task/managed-run forms and resumable
+fetch-based SSE. Offline state disables submissions and caches only public shell
+assets. Desktop opt-in controls a private Serve route; conflicting routes and
+Funnel fail closed. Next: real devices on a mobile network, platform/browser
+matrix, then the remaining availability work before privileged remote approvals.
+
+Windows evidence and exact final gate counts are recorded in
+`goal8/MOBILE_CONNECT_RESULTS.md`: all three TypeScript projects, focused suites,
+production build, real Electron, Chromium mobile and visual flows, additional
+WebKit measurements, and the actual PC's private HTTPS route. Physical iOS and
+Android acceptance and new Linux/macOS execution evidence remain open.
 
 - Build an installable responsive PWA for host readiness, sanitized project
   and agent selection, single-agent tasks, managed runs, budgets, live run
@@ -446,7 +480,9 @@ start, observe, reconnect to and cancel single- and multi-agent work. An
 unpaired or revoked device receives no catalog, project or run data; a network
 retry cannot duplicate a command. The mobile client exposes no terminal,
 configuration, raw command or unrestricted file surface. Every mutation is
-attributable, and device revocation ends commands and event streams immediately.
+attributable, and device revocation closes active HTTP responses and event streams
+immediately and denies subsequent requests. Already accepted ADE work remains
+locally controllable and is not implicitly rolled back or cancelled.
 
 ## Goal 9 - remote approvals, audit review and notifications
 
@@ -468,10 +504,13 @@ run state.
 
 ## Goal 10 - available and recoverable desktop host
 
-Status: planned after Goal 9.
+Status: close-to-tray slice implemented alongside Goal 8 (2026-09-08).
+Login startup, sleep policy and broader restart recovery remain planned.
 
 - Add tray/headless host mode in the logged-in user session and an opt-in start
   at Windows login. Do not run task CLIs as a pre-login Windows service.
+  Closing an enabled mobile host now keeps the existing process/window in the
+  tray; explicit tray quit shuts down normally. This is not headless startup.
 - Publish host/version/readiness health and a clear last-seen/offline state.
 - Reconnect the mobile event stream after host, app or network restart without
   losing or inventing run transitions.

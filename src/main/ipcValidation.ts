@@ -1,6 +1,9 @@
 /** Runtime validation for every renderer -> main IPC request. */
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
+import { isValidDeviceId } from './remote/authorization';
+import { isValidRemoteDeviceName } from '../shared/remoteDevices';
+import { validSyncRef } from '../shared/gitSync';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
@@ -598,6 +601,10 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   switch (channel) {
     case IPC.ConfigGet:
     case IPC.ConfigHealth:
+    case IPC.RemoteDevicesList:
+    case IPC.MobileAccessStatus:
+    case IPC.MobileAccessPair:
+    case IPC.MobileAccessCancelPair:
     case IPC.WorkspaceBundlePickImport:
     case IPC.PtyList:
     case IPC.OverviewGet:
@@ -608,6 +615,21 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.HarnessDiagnose:
       voidRequest(channel, payload);
       return;
+    case IPC.MobileAccessSetEnabled: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['enabled']);
+      if (typeof request.enabled !== 'boolean') invalid(channel, 'enabled must be a boolean');
+      return;
+    }
+    case IPC.RemoteDevicesRename:
+    case IPC.RemoteDevicesRevoke: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, channel === IPC.RemoteDevicesRename ? ['deviceId', 'name'] : ['deviceId']);
+      const id = stringValue(channel, request.deviceId, 'deviceId', { min: 1, max: 64 });
+      if (!isValidDeviceId(id)) invalid(channel, 'deviceId is invalid');
+      if (channel === IPC.RemoteDevicesRename && !isValidRemoteDeviceName(request.name)) invalid(channel, 'name is invalid');
+      return;
+    }
     case IPC.WorkspaceBundlePreview: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['selectionId', 'mappingAuthorizationId']);
@@ -623,6 +645,24 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       const request = record(channel, payload);
       exactKeys(channel, request, ['mappings']);
       validateWorkspaceBundleMappings(channel, request.mappings);
+      return;
+    }
+    case IPC.RepositorySyncOverview:
+    case IPC.RepositoryFetch:
+    case IPC.RepositorySyncPreview: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, channel === IPC.RepositoryFetch ? ['repositoryId']
+        : channel === IPC.RepositorySyncPreview ? ['repositoryId', 'sourceRef', 'targetId'] : ['repositoryId', 'sourceRef']);
+      stringValue(channel, request.repositoryId, 'repositoryId', { min: 1, max: 128 });
+      if (request.sourceRef !== undefined && (typeof request.sourceRef !== 'string' || !validSyncRef(request.sourceRef))) invalid(channel, 'sourceRef is invalid');
+      if (channel === IPC.RepositorySyncPreview) stringValue(channel, request.targetId, 'targetId', { min: 1, max: 128 });
+      return;
+    }
+    case IPC.RepositorySyncApply: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['previewId']);
+      const id = stringValue(channel, request.previewId, 'previewId', { min: 36, max: 36 });
+      if (!/^[a-f0-9-]{36}$/.test(id)) invalid(channel, 'previewId is invalid');
       return;
     }
     case IPC.WorkspaceBundleApply: {

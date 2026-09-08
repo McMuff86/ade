@@ -542,6 +542,10 @@ export class OrchestrationService {
     const seqCursor = this.journalCursor();
     const runs = runId ? config.runs.filter((run) => run.id === runId) : config.runs;
     return runs.map((run): RunSummary => {
+      const runTasks = derivedTasks.filter((task) => task.runId === run.id);
+      // Older manual/single-task records derive both labels from prompt text.
+      // Keep the records intact, but do not expose those excerpts in summaries.
+      const promptTitles = new Set(runTasks.map((task) => task.prompt.trim().slice(0, 80)).filter(Boolean));
       const participants = config.runParticipants.filter((participant) => participant.runId === run.id);
       const pausedTeamIds = [...(run.pausedTeamIds ?? [])];
       const pausedSet = new Set(pausedTeamIds);
@@ -566,7 +570,7 @@ export class OrchestrationService {
       );
       return {
         id: run.id,
-        name: run.name,
+        name: promptTitles.has(run.name) ? 'Single task' : run.name,
         goal: run.goal.slice(0, MAX_RUN_GOAL_CHARS),
         status,
         mode: run.mode,
@@ -584,12 +588,11 @@ export class OrchestrationService {
           teamId: participant.teamId,
           teamName: participant.teamName,
         })),
-        tasks: derivedTasks
-          .filter((task) => task.runId === run.id)
+        tasks: runTasks
           .map((task) => ({
             id: task.id,
             participantId: task.participantId,
-            title: task.title,
+            title: promptTitles.has(task.title) ? 'Task' : task.title,
             phase: task.phase,
             status: task.status,
             attempt: task.attempt,

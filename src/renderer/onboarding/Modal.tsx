@@ -15,6 +15,8 @@ interface ModalProps {
   lead?: ReactNode;
   /** Extra class on the dialog for purpose-specific styling. */
   className?: string;
+  /** Stable fallback for flows whose opener can disappear while the dialog is open. */
+  fallbackFocus?: () => HTMLElement | null;
 }
 
 const FOCUSABLE =
@@ -27,6 +29,7 @@ export function Modal({
   children,
   lead,
   className,
+  fallbackFocus,
 }: ModalProps): React.ReactElement {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
@@ -37,7 +40,10 @@ export function Modal({
     const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? dialogRef.current)?.focus();
 
-    return () => opener?.focus?.();
+    return () => {
+      if (opener?.isConnected && !opener.matches(':disabled')) opener.focus();
+      else fallbackFocus?.()?.focus();
+    };
   }, []);
 
   const onKeyDown = (e: React.KeyboardEvent): void => {

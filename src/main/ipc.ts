@@ -4,7 +4,7 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, writeFileSync } from 'node:fs';
@@ -48,13 +48,17 @@ import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 import { PublicationService } from './publishing/PublicationService';
 import { HarnessCredentialService } from './settings/HarnessCredentialService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
+import { RepositorySyncService } from './repositories/RepositorySyncService';
 import { DashboardWindows } from './dashboard/DashboardWindows';
 import { resolveDashboardUrl } from './dashboard/dashboardUrl';
 import { AdeApplicationService, JournalChangeHub } from './application/AdeApplicationService';
 import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
+import { MobileAccessController } from './remote/MobileAccessController';
 import { RemoteAuthorizer } from './remote/authorization';
-import { consumeHostApiConfig } from './remote/hostApiConfig';
+import { consumeHostApiConfig, mobileListenerPort } from './remote/hostApiConfig';
+import { RemoteDeviceStore } from './remote/RemoteDeviceStore';
+import { isSafeStorageSecure } from './settings/HarnessCredentialService';
 import { TargetPathProbe } from './portability/TargetPathProbe';
 import { WorkspaceImportService } from './portability/WorkspaceImportService';
 import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendHomeProvisioner';
@@ -70,6 +74,7 @@ let ptyManager: PtyManager | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
+let mobileAccess: MobileAccessController | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
 
@@ -230,6 +235,21 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
   const hostApiConfig = consumeHostApiConfig(process.env);
+  const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), {
+    available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
+      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : ''),
+    encrypt: (value) => safeStorage.encryptString(value),
+    decrypt: (value) => safeStorage.decryptString(value),
+  });
+  const repositorySync = new RepositorySyncService(store, () => ptyManager?.list() ?? [], execution);
+  if (hostApiConfig.enabled && hostApiConfig.devices.length > 0) {
+    try { remoteDevices.importBootstrap(hostApiConfig.devices); }
+    catch (error) { console.warn('[ade] remote device migration failed:', redactedErrorDetail(error)); }
+    hostApiConfig.devices = [];
+  }
+  handle(IPC.RemoteDevicesList, () => remoteDevices.inventory());
+  handle(IPC.RemoteDevicesRename, ({ deviceId, name }) => remoteDevices.rename(deviceId, name));
+  handle(IPC.RemoteDevicesRevoke, ({ deviceId }) => remoteDevices.revoke(deviceId));
   const application = new AdeApplicationService(
     store,
     orchestration,
@@ -245,13 +265,25 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
         submitTask: (input) => runCoordinator!.submitSingleTask(input),
       },
       changes: journalChanges,
-      commandsEnabled: () => hostApiConfig.enabled && hostApiConfig.devices.length > 0,
+      commandsEnabled: () => (hostApiConfig.enabled || mobileAccess?.commandsEnabled() === true) && remoteDevices.activeDevices().length > 0,
+      audit: (entry) => remoteDevices.audit(entry),
     },
   );
-  if (hostApiConfig.enabled) {
+  mobileAccess = new MobileAccessController(application, remoteDevices, join(__dirname, '../mobile'), undefined,
+    mobileListenerPort(process.env['ADE_MOBILE_PORT']), hostApiConfig.enabled);
+  handle(IPC.MobileAccessStatus, () => mobileAccess!.status());
+  handle(IPC.MobileAccessSetEnabled, ({ enabled }) => mobileAccess!.setEnabled(enabled));
+  handle(IPC.MobileAccessPair, () => mobileAccess!.beginPairing());
+  handle(IPC.MobileAccessCancelPair, () => mobileAccess!.cancelPairing());
+  void mobileAccess.restore().catch((error) => console.warn('[ade] mobile restore failed:', redactedErrorDetail(error)));
+  if (hostApiConfig.enabled && remoteDevices.activeDevices().some((device) => device.secret === hostApiConfig.token)) {
+    console.warn('[ade] host API disabled: listener token must differ from every stored device secret');
+  } else if (hostApiConfig.enabled) {
     hostApiServer = new HostApiServer(application, {
-      authorizer: new RemoteAuthorizer(hostApiConfig.token, hostApiConfig.devices),
+      authorizer: new RemoteAuthorizer(hostApiConfig.token, [], undefined, remoteDevices),
       port: hostApiConfig.port,
+      requireDeviceReads: true,
+      audit: (entry) => remoteDevices.audit(entry),
     });
     void hostApiServer.start()
       .then((address) => {
@@ -571,6 +603,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RepositoryOverview, ({ repositoryId }) =>
     repositoryInspector.overview(repositoryId),
   );
+  handle(IPC.RepositorySyncOverview, (input) => repositorySync.overview(input));
+  handle(IPC.RepositoryFetch, ({ repositoryId }) => repositorySync.fetch(repositoryId));
+  handle(IPC.RepositorySyncPreview, (input) => repositorySync.preview(input));
+  handle(IPC.RepositorySyncApply, ({ previewId }) => repositorySync.apply(previewId));
   handle(IPC.RepositoryPullRequests, ({ repositoryId }) =>
     repositoryInspector.pullRequests(repositoryId),
   );
@@ -909,11 +945,15 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 }
 
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
+export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
+
 export function disposePtyManager(): void {
   if (retentionTimer) {
     clearInterval(retentionTimer);
     retentionTimer = null;
   }
+  void mobileAccess?.dispose().catch((error) => console.warn('[ade] mobile shutdown failed:', redactedErrorDetail(error)));
+  mobileAccess = null;
   void hostApiServer?.stop().catch((error) => {
     console.warn('[ade] host API failed to stop cleanly:', error);
   });

@@ -10,9 +10,9 @@
  *   device secret per request (HMAC over method, path, timestamp, idempotency
  *   key and body digest). Only device principals can hold `runs:write`.
  *
- * In this slice the single device comes from `ADE_HOST_API_COMMAND_DEVICE`
- * at startup; Goal 8 replaces that bootstrap with the paired, revocable
- * device store without changing the verification contract below.
+ * Production resolves identities from the durable revocable device store.
+ * The static device array is retained for isolated protocol tests. Startup
+ * imports the old environment device once, then uses the store exclusively.
  */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
@@ -46,6 +46,11 @@ export interface RemoteDevice {
   id: string;
   secret: string;
   scopes: readonly RemoteScope[];
+}
+
+export interface RemoteDeviceSource {
+  activeDevices(): RemoteDevice[];
+  onRevoked(listener: (id: string | null) => void): () => void;
 }
 
 export interface SignedRequest {
@@ -141,6 +146,7 @@ export class RemoteAuthorizer {
     private readonly bearerToken: string,
     devices: readonly RemoteDevice[] = [],
     private readonly now: () => number = () => Date.now(),
+    private readonly source?: RemoteDeviceSource,
   ) {
     const map = new Map<string, RemoteDevice>();
     for (const device of devices) {
@@ -152,7 +158,15 @@ export class RemoteAuthorizer {
 
   /** How many device identities may currently authorize commands. */
   deviceCount(): number {
-    return this.devices.size;
+    return this.source ? this.source.activeDevices().length : this.devices.size;
+  }
+
+  isActive(id: string): boolean {
+    return this.source ? this.source.activeDevices().some((device) => device.id === id) : this.devices.has(id);
+  }
+
+  onRevoked(listener: (id: string | null) => void): () => void {
+    return this.source?.onRevoked(listener) ?? (() => undefined);
   }
 
   /** Bearer header → bootstrap principal, or null when the token is wrong. */
@@ -172,7 +186,9 @@ export class RemoteAuthorizer {
     signature: string,
     request: SignedRequest,
   ): SignatureVerdict {
-    const device = this.devices.get(deviceId);
+    const device = this.source
+      ? this.source.activeDevices().find((candidate) => candidate.id === deviceId)
+      : this.devices.get(deviceId);
     // Unknown device: still run the HMAC against a fixed secret so timing
     // does not reveal whether an id exists.
     const secret = device?.secret ?? `${'0'.repeat(MIN_DEVICE_SECRET_CHARS)}`;

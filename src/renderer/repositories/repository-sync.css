@@ -1,0 +1,13 @@
+.repo-sync-modal { width: 680px; }
+.repo-sync { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.repo-sync-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.repo-sync-source { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.repo-sync-source select { min-width: 0; max-width: 100%; padding: 6px; background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+.repo-sync-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 10px; padding: 0; list-style: none; }
+.repo-sync-targets li, .repo-sync-preview { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; }
+.repo-sync-targets p { margin: 5px 0; }
+.repo-sync-meta, .repo-sync-targets span { color: var(--muted); }
+.repo-sync-blocked { color: var(--accent); }
+.repo-sync-error { color: var(--del); }
+.repo-sync-preview { border-color: var(--accent); margin: 12px 0; }
+.repo-sync :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

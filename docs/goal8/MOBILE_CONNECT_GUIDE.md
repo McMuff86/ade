@@ -1,0 +1,83 @@
+# Tablet oder Smartphone mit ADE verbinden
+
+1. `pnpm install` und `pnpm build`, danach ADE mit `pnpm start` öffnen.
+   Für Entwicklung die mobile Oberfläche mit `pnpm build:mobile` bauen;
+   `pnpm dev` aktualisiert die Desktop-Oberfläche.
+2. Tailscale auf PC und Mobilgerät installieren, anmelden und mit demselben
+   Tailnet verbinden. Auf dem PC müssen MagicDNS und HTTPS verfügbar sein.
+3. In ADE: **Settings → Mobiler Zugriff → Mit Tailscale aktivieren**.
+   ADE prüft den CLI-Status, startet seinen Listener auf `127.0.0.1:4317` und
+   richtet eine private HTTPS-Freigabe über Tailscale Serve ein.
+   **Private Freigabe eingerichtet** bestätigt die Konfiguration;
+   **HTTPS-Verbindung bestätigt** erscheint erst nach einer erfolgreichen
+   HTTPS-Anfrage mit normaler Zertifikatsprüfung vom PC.
+4. **Tablet oder Smartphone koppeln** wählen. Den QR-Code auf dem Mobilgerät
+   scannen, einen Gerätenamen eingeben und **Dieses Gerät verbinden** wählen.
+   Alternativ die angezeigte ADE-Adresse öffnen und den Pairing-Code einfügen.
+   Der Code gilt fünf Minuten und funktioniert einmal. Neuer Code oder
+   Schliessen des Pairings macht den bisherigen Code ungültig.
+5. Repository und Agent wählen, Aufgabe schreiben und starten. Für Managed
+   Runs mindestens zwei Agents wählen; der zuerst gewählte koordiniert.
+   Run vorbereiten, Namen/Budget prüfen und **Run starten** wählen.
+6. Für den Home-Bildschirm die Installationsfunktion des Browsers verwenden.
+   Jeder Browser bzw. jede separat gespeicherte PWA-Installation kann eine
+   eigene Kopplung benötigen. Keine native iOS-/Android-App erforderlich.
+
+Bei aktiviertem mobilen Zugriff bleibt ADE nach dem Schliessen des Fensters
+im Infobereich aktiv. Über das ADE-Symbol lässt sich das Fenster öffnen oder
+ADE vollständig beenden. Der PC muss eingeschaltet, angemeldet und online
+bleiben. Ein schlafender PC wird nicht automatisch geweckt. Automatischer
+Windows-Loginstart ist noch kein Teil dieser Umsetzung.
+
+**Geräte entfernen:** Settings → Verbundene Geräte → Gerät entfernen widerruft
+sofort den Zugriff und trennt offene Verbindungen. Bereits angenommene Aufgaben
+laufen weiter. „Dieses Gerät lokal trennen“ im Browser löscht dessen lokalen
+Schlüssel; den dauerhaften Widerruf führt man am PC aus.
+
+**Wenn die Verbindung fehlt:**
+
+- Beide Geräte in Tailscale online halten. Adresse aus ADE verwenden; keine
+  lokale IP und keinen Router-Port öffnen.
+- Bei fehlender HTTPS-Freigabe die Statusmeldung in ADE befolgen. Tailscale
+  kann die Bestätigung von HTTPS im Tailnet verlangen. Danach in ADE erneut
+  aktivieren. ADE protokolliert keine Anmelde-URLs oder CLI-Ausgaben.
+- Die erstmalige DNS-/Zertifikatsbereitstellung durch Tailscale kann mehrere
+  Minuten dauern. Bei ausstehender HTTPS-Prüfung Tailscale online lassen und
+  **Verbindung prüfen** verwenden. ADE wiederholt die echte Prüfung; es
+  deaktiviert dafür weder die Zertifikatsprüfung noch die Firewall.
+- Bestehende HTTPS-Freigaben werden bei Konflikten nicht überschrieben.
+  Funnel wird abgewiesen. Andere Tailscale-Ports bleiben erhalten.
+- Ist Port 4317 belegt, den Konflikt beheben oder vor ADE-Start den begrenzten
+  Loopback-Port über `ADE_MOBILE_PORT` (1024–65535) einstellen. Der alte
+  `ADE_HOST_API_ENABLED`-Modus muss für den mobilen Einstieg ausgeschaltet sein.
+- Gerätezeit automatisch synchronisieren. Signaturen tolerieren fünf Minuten
+  Abweichung. Bei Widerruf neu koppeln; bei Netzverlust erneut verbinden.
+- Bei unklarer Auftragsantwort **Diesen Auftrag erneut prüfen** verwenden.
+  Diese Wiederholung behält dieselbe Vorgangs-ID. Die Oberfläche sendet nach
+  einem Offline-Zustand keine vorgemerkten Aufgaben automatisch ab.
+  Die Wiederholungsdaten bleiben nur in der offenen Seite. Nach Neuladen zuerst
+  die Run-Liste prüfen; nach Widerruf/Neukopplung sind alte Wiederholungen gelöscht.
+- Sichere Schlüsselablage und Audit müssen verfügbar sein. Das Audit hat eine
+  8-MiB-Grenze; bei beschädigter/voller Ablage bleiben Geräte gesperrt. Daten vor
+  manueller Wartung sichern und untersuchen; keine automatische Löschung.
+
+Die mobile Oberfläche zeigt den Run-/Aufgabenstatus und den Freigabebedarf.
+Detaillierte Ergebnisberichte, Diffs, Genehmigungen, Git-Sync, Publishing und
+Terminals bleiben im Desktop. Benachrichtigungen und Loginstart sind Folgegoals.
+
+Entwicklungstests: `pnpm exec playwright install chromium`, danach
+`pnpm test:mobile-access`, `pnpm test:mobile-browser`, `pnpm test:mobile-electron`
+oder das vollständige `pnpm verify`. Browser-TLS-Fixtures sind ausschliesslich
+Testmaterial; der echte Tailscale-Test verwendet normale Zertifikatsprüfung.
+Zusätzlich: `pnpm exec playwright install webkit`, dann `pnpm test:mobile-webkit`.
+Die Windows-WebKit-Messung ersetzt keinen Test auf iOS; bekannte Messgrenzen
+stehen in `MOBILE_CONNECT_RESULTS.md`.
+
+Der separate Operatortest `pnpm test:mobile-tailscale --enable-private-serve`
+verwendet ein temporäres ADE-Profil und die echte private Freigabe dieses PCs.
+Vorher die reguläre ADE-Instanz beenden und Port 4317 freihalten. Er entfernt
+nur eine selbst eingerichtete Route und überschreibt keine fremde Konfiguration.
+Er gehört wegen dieser realen Tailscale-Änderung nicht zum automatischen Verify-Gate.
+
+Quellen: [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve),
+[Serve-CLI](https://tailscale.com/docs/reference/tailscale-cli/serve).

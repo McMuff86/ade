@@ -628,6 +628,10 @@ async function run(): Promise<void> {
       env: {
         ...process.env,
         ADE_USER_DATA_DIR: userData,
+        ADE_HOST_API_ENABLED: '0',
+        ADE_HOST_API_TOKEN: '',
+        ADE_HOST_API_COMMAND_DEVICE: '',
+        ADE_HOST_API_PORT: '',
         ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS: '900',
         ADE_E2E_FAKE_GH_STATE: fakeGithub.statePath,
         ADE_E2E_MANAGED_REMOTE: managed.remote,
@@ -1850,6 +1854,8 @@ async function run(): Promise<void> {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
     await settingsDialog.waitFor({ state: 'visible' });
+    await eventually('device settings explain the empty inventory and upcoming pairing', async () =>
+      ((await settingsDialog.getByTestId('remote-devices').textContent()) ?? '').includes('Noch keine Geräte verbunden.'));
     await eventually('settings list every first-class harness with sign-in guidance', async () => {
       const text = await settingsDialog.textContent();
       return text?.includes('Claude Code') === true
@@ -2096,10 +2102,12 @@ async function run(): Promise<void> {
             ?.includes(`GROK_KEY=${grokKey}`) === true,
         20_000,
       );
-      const grokTerminal = await page.locator('.terminal-pane-wrap:visible .xterm-rows').textContent();
-      check('a Grok session launches with always-approve and the pinned model profile',
-        grokTerminal?.includes('GROK_ARGS=--always-approve --model grok-4.6 --reasoning-effort high') === true,
-        grokTerminal);
+      // PTY output and xterm rendering may split the key and argv across frames.
+      await eventually('a Grok session launches with always-approve and the pinned model profile', async () =>
+        (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
+          ?.includes('GROK_ARGS=--always-approve --model grok-4.6 --reasoning-effort high') === true,
+        20_000,
+      );
       await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
       const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
       await revertAgentDialog.waitFor({ state: 'visible' });
@@ -2144,6 +2152,19 @@ async function run(): Promise<void> {
     await eventually('the quick toggle returns the app to the dark theme', async () =>
       (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
 
+    // Migrate a disposable device through the production startup path on the next launch.
+    if (keyStorageAvailable) {
+      const portProbe = createServer();
+      await new Promise<void>((done) => portProbe.listen(0, '127.0.0.1', done));
+      const portAddress = portProbe.address();
+      if (!portAddress || typeof portAddress === 'string') throw new Error('device fixture needs a loopback port');
+      launchOptions.env.ADE_HOST_API_PORT = String(portAddress.port);
+      await new Promise<void>((done, reject) => portProbe.close((error) => error ? reject(error) : done()));
+      launchOptions.env.ADE_HOST_API_ENABLED = '1';
+      launchOptions.env.ADE_HOST_API_TOKEN = 'e2e-listener-'.padEnd(40, 't');
+      launchOptions.env.ADE_HOST_API_COMMAND_DEVICE = `e2e-phone:${'e2e-device-'.padEnd(40, 'd')}`;
+    }
+
     await app.close();
     app = null;
     page = null;
@@ -2152,6 +2173,51 @@ async function run(): Promise<void> {
     evidencePage = page;
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
+    if (keyStorageAvailable) {
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      const deviceSettings = page.getByRole('dialog', { name: 'Settings' });
+      const deviceSection = deviceSettings.getByTestId('remote-devices');
+      const deviceName = deviceSection.getByLabel('Gerätename für e2e-phone');
+      await deviceName.waitFor({ state: 'visible' });
+      check('desktop device inventory shows the migrated startup identity', await deviceName.inputValue() === 'e2e-phone');
+      await deviceName.fill('Mein Testtelefon');
+      await deviceName.press('Enter');
+      await eventually('device rename is saved using the keyboard', async () =>
+        ((await deviceSection.textContent()) ?? '').includes('Gerätename gespeichert.'));
+      await eventually('rename returns focus to the name field', async () => deviceName.evaluate((node) => node === document.activeElement));
+      await deviceName.press('Escape');
+      await deviceSettings.waitFor({ state: 'hidden' });
+      check('closing settings returns focus to its opener', await page.getByRole('button', { name: 'Settings', exact: true })
+        .evaluate((node) => node === document.activeElement));
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await deviceName.waitFor({ state: 'visible' });
+      check('reopened settings retains the saved device name', await deviceName.inputValue() === 'Mein Testtelefon');
+      const vault = readFileSync(join(userData, 'ade', 'remote', 'devices.json'), 'utf8');
+      const inventory = await page.evaluate(async () => window.ade.invoke('remoteDevices:list'));
+      check('real OS encryption keeps device keys out of the vault plaintext and IPC',
+        vault.includes('encryptedSecret') && !vault.includes('e2e-device-')
+          && !JSON.stringify(inventory).includes('encryptedSecret') && !JSON.stringify(inventory).includes('e2e-device-'));
+      const windowBounds = await app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows()[0]!;
+        const bounds = window.getBounds();
+        window.setSize(800, 650);
+        return bounds;
+      });
+      await eventually('device controls fit the compact settings layout', async () => deviceSection.evaluate((node) =>
+        node.scrollWidth <= node.clientWidth + 1));
+      await deviceSection.getByRole('button', { name: 'Zugriff für Mein Testtelefon widerrufen' }).focus();
+      await page.keyboard.press('Enter');
+      await eventually('removing a device leaves an explicit revoked state', async () =>
+        ((await deviceSection.textContent()) ?? '').includes('Mein Testtelefon · Zugriff widerrufen'));
+      await eventually('removing the focused device control moves focus to refresh', async () =>
+        deviceSection.getByRole('button', { name: 'Geräte aktualisieren' }).evaluate((node) => node === document.activeElement));
+      const auditText = readFileSync(join(userData, 'ade', 'remote', 'audit.jsonl'), 'utf8');
+      check('desktop device changes have durable credential-free audit records', auditText.includes('device:rename')
+        && auditText.includes('device:revoke') && !auditText.includes('e2e-device-') && !auditText.includes('e2e-listener-'));
+      await page.keyboard.press('Escape');
+      await deviceSettings.waitFor({ state: 'hidden' });
+      await app.evaluate(({ BrowserWindow }, bounds) => BrowserWindow.getAllWindows()[0]!.setBounds(bounds), windowBounds);
+    }
     const restartedConfig = await page.evaluate(async () => {
       const api = (window as unknown as {
         ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> };
@@ -2319,6 +2385,12 @@ async function run(): Promise<void> {
     await page.waitForLoadState('domcontentloaded');
     const quarantineAlert = page.getByTestId('config-health-alert');
     await quarantineAlert.waitFor({ state: 'visible', timeout: 20_000 });
+    if (keyStorageAvailable) {
+      const restartedDevices = await page.evaluate(async () => window.ade.invoke('remoteDevices:list'));
+      check('full restart preserves device name and revocation despite the old startup credential',
+        restartedDevices.devices[0]?.name === 'Mein Testtelefon' && restartedDevices.devices[0]?.revokedAt !== null
+          && restartedDevices.available);
+    }
     const alertText = (await quarantineAlert.textContent()) ?? '';
     check('a truncated config file is reported instead of silently starting empty',
       alertText.includes('Configuration recovered')

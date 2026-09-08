@@ -1,0 +1,101 @@
+/** Real sandboxed desktop + secure storage + browser. Tailscale CLI is stubbed in the test process only. */
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { createServer } from 'node:net';
+import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
+import { mobileTlsProxy } from './helpers/mobileBrowser';
+
+let passed = 0; let failed = 0;
+const check = (label: string, condition: boolean): void => { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
+const root = mkdtempSync(join(tmpdir(), 'ade-mobile-electron-'));
+const evidence = resolve('test-results/mobile'); mkdirSync(evidence, { recursive: true });
+let app: ElectronApplication | undefined; let browser: Browser | undefined; let desktop: Page | undefined;
+let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
+
+void (async () => {
+  const reservation = createServer();
+  await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
+  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('no fixture port');
+  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
+  app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+    env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
+  // Patch the built-in dependency used by the bundled production controller. No production test hook.
+  await app.evaluate((_electron, fixturePort) => {
+    const cp = process.getBuiltinModule('node:child_process') as typeof import('node:child_process');
+    const original = cp.execFile;
+    let config: Record<string, unknown> = {};
+    cp.execFile = ((file: string, args: string[], options: unknown, callback: (error: Error | null, stdout: string) => void) => {
+      if (!/tailscale(?:\.exe)?$/i.test(file)) return (original as Function)(file, args, options, callback);
+      let output = '';
+      if (args[0] === 'status') output = JSON.stringify({ BackendState: 'Running', Self: { DNSName: 'ade-mobile.fixture.ts.net.', Online: true } });
+      else if (args[1] === 'status') output = JSON.stringify(config);
+      else if (args.includes('off')) config = {};
+      else config = { TCP: { '443': { HTTPS: true } }, Web: { 'ade-mobile.fixture.ts.net:443': { Handlers: { '/': { Proxy: `http://127.0.0.1:${fixturePort}` } } } } };
+      queueMicrotask(() => callback(null, output));
+      return {};
+    }) as typeof cp.execFile;
+  }, port);
+  desktop = await app.firstWindow(); desktop.setDefaultTimeout(25_000);
+  await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = desktop.getByRole('dialog', { name: 'Settings', exact: true });
+  const mobile = settings.getByTestId('mobile-access');
+  await mobile.getByText('Mobiler Zugriff ist ausgeschaltet.', { exact: true }).waitFor();
+  check('mobile access is disabled by default in real Electron Settings', await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).isDisabled());
+  check('Settings takes keyboard focus', await settings.evaluate((node) => node.contains(document.activeElement)));
+  await mobile.getByRole('button', { name: 'Mit Tailscale aktivieren' }).click();
+  await mobile.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
+  check('desktop enable starts the real loopback host', await mobile.getByLabel('Mobile ADE-Adresse').inputValue() === 'https://ade-mobile.fixture.ts.net');
+  check('enable restores focus to the stable status control', await mobile.getByRole('button', { name: 'Verbindung prüfen', exact: true }).evaluate((node) => node === document.activeElement));
+  await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).click();
+  const code = mobile.getByLabel('Einmaliger Pairing-Code'); await code.waitFor();
+  check('desktop pairing creates a QR code and focuses the manual alternative', await mobile.locator('canvas').isVisible() && await code.evaluate((node) => node === document.activeElement));
+  const pairingCode = await code.inputValue();
+  check('desktop pairing link uses one-use fragment material', (await mobile.getByLabel('Einmaliger Pairing-Link').inputValue()).endsWith(`#pair=${pairingCode}`));
+  await desktop.screenshot({ path: join(evidence, 'desktop-pairing.png'), fullPage: true });
+  proxy = await mobileTlsProxy(); proxy.target(port); proxy.rewriteOrigin('https://ade-mobile.fixture.ts.net');
+  browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, ignoreHTTPSErrors: true });
+  const phone = await context.newPage(); phone.setDefaultTimeout(25_000);
+  await phone.goto(`${proxy.origin}/#pair=${pairingCode}`);
+  await phone.getByLabel('Gerätename', { exact: true }).fill('Electron test phone');
+  await phone.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
+  await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  check('phone pairs against real Electron host and OS-protected store', await phone.getByText('Am PC zuerst ein Repository und einen Agent in ADE einrichten.', { exact: true }).isVisible());
+  await mobile.getByRole('button', { name: 'Pairing schliessen' }).click();
+  check('closing pairing returns focus to its opener', await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).evaluate((node) => node === document.activeElement));
+  const inventory = settings.getByTestId('remote-devices');
+  await inventory.getByRole('button', { name: 'Geräte aktualisieren' }).click();
+  await inventory.locator('input').first().waitFor();
+  check('paired phone appears in the existing desktop inventory', await inventory.locator('input').first().inputValue() === 'Electron test phone');
+  await inventory.getByRole('button', { name: 'Zugriff für Electron test phone widerrufen' }).click();
+  await phone.getByRole('heading', { name: 'Gerät koppeln', exact: true }).waitFor();
+  check('desktop revoke disconnects the real mobile browser', (await phone.getByRole('alert').textContent())!.includes('widerrufen'));
+  await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).click();
+  const nextCode = await code.inputValue();
+  await phone.getByLabel('Pairing-Code', { exact: true }).fill(nextCode);
+  await phone.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
+  await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  check('positive control pairs again after desktop revoke', (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.length === 2);
+  await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.close(); });
+  check('closing the desktop keeps the enabled host in the tray', await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]; return !!window && !window.isVisible();
+  }));
+  await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+  await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  check('phone stays connected with the desktop window closed', true);
+  await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.show(); });
+  await mobile.getByRole('button', { name: 'Mobilen Zugriff ausschalten' }).click();
+  await mobile.getByText('Mobiler Zugriff ist ausgeschaltet.', { exact: true }).waitFor();
+  await phone.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
+  check('desktop disable stops mobile connectivity and persists opt-out', !(await desktop.evaluate(() => window.ade.invoke('mobileAccess:status'))).enabled);
+  await desktop.keyboard.press('Escape'); await settings.waitFor({ state: 'hidden' });
+  check('closing Settings returns focus to its opener', await desktop.getByRole('button', { name: 'Settings', exact: true }).evaluate((node) => node === document.activeElement));
+  await context.close();
+})().catch(async (error) => { failed++; console.error(error); await desktop?.screenshot({ path: join(evidence, 'desktop-failure.png') }).catch(() => undefined); })
+  .finally(async () => {
+    await browser?.close(); await proxy?.close(); await app?.close();
+    if (dirname(resolve(root)) !== resolve(tmpdir())) throw new Error('unexpected fixture root');
+    rmSync(root, { recursive: true, force: true });
+    console.log(`\nMobile Electron: ${passed} passed, ${failed} failed`); if (failed) process.exitCode = 1;
+  });

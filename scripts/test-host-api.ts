@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { request, type IncomingMessage } from 'node:http';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -16,6 +16,7 @@ import { RunCoordinator } from '../src/main/orchestration/RunCoordinator';
 import { RuntimeAdapterRegistry } from '../src/main/orchestration/runtimeAdapters';
 import type { WorkspacePort } from '../src/main/orchestration/WorkspaceService';
 import { HostApiServer } from '../src/main/remote/HostApiServer';
+import { RemoteDeviceStore, type DeviceSecretProtection } from '../src/main/remote/RemoteDeviceStore';
 import {
   BOOTSTRAP_PRINCIPAL,
   RemoteAuthorizer,
@@ -740,7 +741,7 @@ interface Fixture {
   cancelled: string[];
 }
 
-function createFixture(devices: RemoteDevice[], options: { failLaunch?: boolean } = {}): Fixture {
+function createFixture(devices: RemoteDevice[], options: { failLaunch?: boolean; audit?: (entry: RemoteAuditEntry) => void } = {}): Fixture {
   const root = mkdtempSync(join(tmpdir(), 'ade-host-api-'));
   const agents = [fixtureAgent('orchestrator', root), fixtureAgent('lead', root), fixtureAgent('worker', root)];
   for (const item of agents) {
@@ -803,12 +804,12 @@ function createFixture(devices: RemoteDevice[], options: { failLaunch?: boolean 
     },
     changes,
     commandsEnabled: () => devices.length > 0,
-    audit: (entry) => audit.push(entry),
+    audit: (entry) => { options.audit?.(entry); audit.push(entry); },
   });
   return { root, store, orchestration, coordinator, application, audit, launched, cancelled };
 }
 
-/** Longer than the 80-character title so the tail proves the prompt itself never reaches the wire. */
+/** Both the generated title prefix and the remainder must stay off the wire. */
 const PROMPT_TAIL = 'SECRET-PROMPT-TAIL-7c1f';
 const submitBody = {
   agentId: 'worker',
@@ -1074,7 +1075,7 @@ async function testCommandsAndStream(): Promise<void> {
     check('no failed attempt created a run', fixture.orchestration.snapshot().runs.length === 0);
     check('every denial and rejection is audited without paths',
       fixture.audit.length >= 8
-        && fixture.audit.every((entry) => ['denied', 'rejected'].includes(entry.outcome))
+        && fixture.audit.every((entry) => ['requested', 'denied', 'rejected'].includes(entry.outcome))
         && !JSON.stringify(fixture.audit).includes(fixture.root));
 
     // --- create -----------------------------------------------------------
@@ -1338,9 +1339,10 @@ async function testSingleTaskSubmission(): Promise<void> {
         && submittedBody.run.tasks[0].managed === false
         && ['queued', 'running'].includes(submittedBody.run.tasks[0].status)
         && submittedBody.run.status === 'running', submittedBody);
-    check('the run name defaults to the bounded task title and the summary carries no prompt tail or path',
-      submittedBody.run.name === submitBody.prompt.slice(0, 80)
-        && submittedBody.run.tasks[0].title === submitBody.prompt.slice(0, 80)
+    check('automatic run and task labels reveal no prompt excerpt or path',
+      submittedBody.run.name === 'Single task'
+        && submittedBody.run.tasks[0].title === 'Task'
+        && !submitted.body.includes(submitBody.prompt.slice(0, 80))
         && !submitted.body.includes(PROMPT_TAIL)
         && !submitted.body.includes(fixture.root));
     check('the submission launched exactly one task session for the chosen agent',
@@ -1404,6 +1406,7 @@ async function testSingleTaskSubmission(): Promise<void> {
         && queued.seq < journalEvents().find((event) => event.type === 'task.started' && event.taskId === taskId)!.seq);
     check('the stream carries neither the prompt, the workspace path nor the PTY session id',
       !transcript.includes(PROMPT_TAIL)
+        && !transcript.includes(submitBody.prompt.slice(0, 80))
         && !transcript.includes(fixture.root)
         && !transcript.includes('pty-1'));
 
@@ -1422,6 +1425,7 @@ async function testSingleTaskSubmission(): Promise<void> {
     check('the runs listing includes the cancelled single-task run without its prompt',
       runs.status === 200
         && (JSON.parse(runs.body) as RunSummary[]).some((run) => run.id === runId && run.status === 'cancelled')
+        && !runs.body.includes(submitBody.prompt.slice(0, 80))
         && !runs.body.includes(PROMPT_TAIL));
   } finally {
     stream.close();
@@ -1561,7 +1565,109 @@ async function testStopWithOpenStream(): Promise<void> {
   rmSync(fixture.root, { recursive: true, force: true });
 }
 
+async function testDurableDeviceRevocation(): Promise<void> {
+  const protection: DeviceSecretProtection = { available: () => true,
+    encrypt: (value) => Buffer.from(value.split('').reverse().join('')),
+    decrypt: (value) => value.toString().split('').reverse().join('') };
+  let devices: RemoteDeviceStore;
+  const fixture = createFixture([device], { audit: (entry) => devices.audit(entry) });
+  const deviceDir = join(fixture.root, 'remote');
+  devices = new RemoteDeviceStore(deviceDir, protection);
+  devices.importBootstrap([device]);
+  const otherDevice: RemoteDevice = { id: 'other-phone', secret: 'o'.repeat(40), scopes: ['read', 'runs:write'] };
+  const otherStore = new RemoteDeviceStore(join(fixture.root, 'other-device'), protection);
+  otherStore.importBootstrap([otherDevice]);
+  const authorizer = new RemoteAuthorizer(token, [], undefined, {
+    activeDevices: () => [...devices.activeDevices(), ...otherStore.activeDevices()],
+    onRevoked: (listener) => {
+      const off = devices.onRevoked(listener);
+      const offOther = otherStore.onRevoked(listener);
+      return () => { off(); offOther(); };
+    },
+  });
+  let server = new HostApiServer(fixture.application, { authorizer, port: 0, requireDeviceReads: true,
+    audit: (entry) => devices.audit(entry) });
+  let address = await server.start();
+  const readHeaders = (path: string, identity = device): Record<string, string> => {
+    const timestamp = String(Date.now());
+    return { 'x-ade-device': identity.id, 'x-ade-timestamp': timestamp,
+      'x-ade-signature': signRequest(identity.secret, { method: 'GET', path, timestamp,
+        idempotencyKey: '', bodySha256: sha256Hex('') }) };
+  };
+  let client: SseClient | null = null;
+  let otherClient: SseClient | null = null;
+  try {
+    for (const path of ['/api/v1/health', '/api/v1/catalog', '/api/v1/runs', '/api/v1/events']) {
+      const denied = await httpRequest(address.port, path, { token });
+      check(`durable mode refuses bearer-only ${path}`, denied.status === 401 && !denied.body.includes('repo-1'));
+    }
+    const catalog = await httpRequest(address.port, '/api/v1/catalog', { token, headers: readHeaders('/api/v1/catalog') });
+    check('durable device can read sanitized catalog', catalog.status === 200 && catalog.body.includes('repo-1') && !catalog.body.includes(fixture.root));
+    const wrongPath = await httpRequest(address.port, '/api/v1/runs', { token, headers: readHeaders('/api/v1/catalog') });
+    check('device read proof binds the exact request target', wrongPath.status === 401);
+    client = new SseClient(address.port, '/api/v1/events?cursor=0', readHeaders('/api/v1/events?cursor=0'));
+    await client.ready();
+    await client.until(() => client!.frames.length > 0, 'durable device snapshot');
+    check('device-bound SSE opens with a snapshot', client.status === 200 && server.streamClientCount() === 1);
+    const created = await command(address.port, '/api/v1/runs', { key: 'durable-create-1', body: createBody });
+    check('durable device creates a run', created.status === 200);
+    const journal = readFileSync(devices.auditPath, 'utf8');
+    check('command admission and outcome reach the durable audit with attribution', journal.includes('requested') && journal.includes('executed')
+      && journal.includes('run:create') && journal.includes('phone-1') && !journal.includes(createBody.goal));
+    check('signature and bearer denials reach the durable audit with their reason', journal.includes('http:request') && journal.includes('unknown_device'));
+    devices.rename(device.id, 'Renamed phone');
+    check('renaming keeps an existing stream connected', !client.closed && server.streamClientCount() === 1);
+    otherClient = new SseClient(address.port, '/api/v1/events', readHeaders('/api/v1/events', otherDevice));
+    await otherClient.ready();
+    await otherClient.until(() => otherClient!.frames.length > 0, 'other device snapshot');
+    devices.revoke(device.id);
+    await client.until(() => client!.closed, 'revocation disconnect');
+    await waitFor(() => server.streamClientCount() === 1, 'stream cleanup after revocation');
+    check('revocation immediately disconnects the device SSE client', client.closed && server.streamClientCount() === 1);
+    check('revocation leaves another device connected and authorized', !otherClient.closed
+      && (await httpRequest(address.port, '/api/v1/catalog', { token, headers: readHeaders('/api/v1/catalog', otherDevice) })).status === 200);
+    for (const path of ['/api/v1/catalog', '/api/v1/runs', '/api/v1/events']) {
+      const denied = await httpRequest(address.port, path, { token, headers: readHeaders(path) });
+      check(`revoked device cannot reconnect to ${path}`, denied.status === 401);
+    }
+    const count = fixture.store.get().runs.length;
+    const deniedCommand = await command(address.port, '/api/v1/runs', { key: 'durable-create-2', body: createBody });
+    check('revoked commands cannot create work', deniedCommand.status === 401 && fixture.store.get().runs.length === count);
+    await server.stop();
+    devices = new RemoteDeviceStore(deviceDir, protection);
+    devices.importBootstrap([device]);
+    server = new HostApiServer(fixture.application, { authorizer, port: 0, requireDeviceReads: true, audit: (entry) => devices.audit(entry) });
+    address = await server.start();
+    check('host restart plus stale bootstrap preserves revocation',
+      (await command(address.port, '/api/v1/runs', { key: 'durable-create-3', body: createBody })).status === 401);
+
+    await server.stop();
+    devices = new RemoteDeviceStore(join(fixture.root, 'fresh-remote'), protection);
+    devices.importBootstrap([device]);
+    server = new HostApiServer(fixture.application, { authorizer, port: 0, requireDeviceReads: true, audit: (entry) => devices.audit(entry) });
+    address = await server.start();
+    appendFileSync(devices.auditPath, '{torn');
+    const blocked = await command(address.port, '/api/v1/runs', { key: 'durable-audit-fail', body: createBody })
+      .catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ECONNRESET') throw error; return { status: 0 }; });
+    check('failed durable admission disconnects the caller before executing work', blocked.status === 0 && fixture.store.get().runs.length === count);
+    check('audit failure disables device authorization', !authorizer.isActive(device.id));
+    await server.stop();
+    devices = new RemoteDeviceStore(join(fixture.root, 'positive-remote'), protection);
+    devices.importBootstrap([device]);
+    server = new HostApiServer(fixture.application, { authorizer, port: 0, requireDeviceReads: true, audit: (entry) => devices.audit(entry) });
+    address = await server.start();
+    check('final positive device control can create work after negative controls',
+      (await command(address.port, '/api/v1/runs', { key: 'durable-positive', body: createBody })).status === 200);
+  } finally {
+    client?.close();
+    otherClient?.close();
+    await server.stop();
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+}
+
 void (async () => {
+  await testDurableDeviceRevocation();
   await testReadAdapter();
   await testCommandsAndStream();
   await testSingleTaskSubmission();

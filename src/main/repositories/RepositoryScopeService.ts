@@ -18,6 +18,7 @@ import type { WorkspacePort } from '../orchestration/WorkspaceService';
 import { BackendGitService } from '../execution/BackendGitService';
 import { BackendWorkspaceService } from '../execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
+import { workspaceOperations } from './WorkspaceOperationGate';
 
 export interface RepositoryConfigPort {
   get(): AdeConfig;
@@ -142,6 +143,10 @@ export class RepositoryScopeService implements RepositoryScopePort {
   }
 
   async resolve(agentId: string, options: ResolveScopeOptions = {}): Promise<ResolvedExecutionScope> {
+    return workspaceOperations.use(() => this.resolveInWorkspace(agentId, options));
+  }
+
+  private async resolveInWorkspace(agentId: string, options: ResolveScopeOptions): Promise<ResolvedExecutionScope> {
     const agent = this.requireAgent(agentId);
     if (options.workspaceBindingId) {
       const binding = this.store.get().workspaceBindings.find(
@@ -203,6 +208,12 @@ export class RepositoryScopeService implements RepositoryScopePort {
    * unmerged work stays reachable on the kept branch.
    */
   async removeBinding(
+    bindingId: string, options: { busyWorkspaceDirs?: string[] } = {},
+  ): Promise<{ branch: string; branchDeleted: boolean }> {
+    return workspaceOperations.use(() => this.removeBindingInWorkspace(bindingId, options));
+  }
+
+  private async removeBindingInWorkspace(
     bindingId: string,
     options: { busyWorkspaceDirs?: string[] } = {},
   ): Promise<{ branch: string; branchDeleted: boolean }> {

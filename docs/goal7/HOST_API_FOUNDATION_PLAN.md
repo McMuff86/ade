@@ -10,7 +10,11 @@ create/start/cancel, per-channel remote authorization in the IPC policy) and
 the single-task slice (2026-09-06: `POST /api/v1/tasks` as the first-class
 `runTask:submit` command, manual-run cancellation) are documented in
 `../ARCHITECTURE.md` ("ADE host API") and `../HANDOFF.md`. Of the "next
-slices" below, 1 and 3 are done; 2, 4 and 5 are Goals 8-10.
+slices" below, 1–3 are implemented. Goal 8 now supplies device inventory,
+revocation, audit, QR pairing, browser sessions and private Tailscale/PWA access
+(2026-09-08); Goal 10 adds close-to-tray. Measured connection evidence and open
+physical-device gates are in `../goal8/MOBILE_CONNECT_RESULTS.md`. Privileged
+approvals and remaining availability work stay in Goals 9–10.
 
 ## Objective
 

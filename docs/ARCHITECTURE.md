@@ -118,7 +118,8 @@ accounts and hosted relays are deferred until after personal-alpha validation.
 - Remote transport foundation: a disabled-by-default Node HTTP server fixed to
   `127.0.0.1`, with exact Bearer authorization and read-only versioned JSON for
   health, catalog and runs. Mutating commands, server-sent events, device
-  pairing and the separate React/Vite PWA remain later Goal-7/8 slices.
+  pairing and the separate React/Vite PWA are implemented in Goal 8; measured
+  deployment coverage is recorded in `goal8/MOBILE_CONNECT_RESULTS.md`.
   WebSocket is deferred because Goals 7-10 have no bidirectional terminal stream.
 
 ## Repo layout (this repo, root = the app)
@@ -447,11 +448,35 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   the repository's persisted native/WSL backend. Provider failure is returned
   as a separate redacted state, so local history stays available.
 - Main and renderer independently constrain PR URLs to the same HTTPS GitHub
-  repository and numeric PR. The inspector exposes no fetch, checkout, push,
-  merge, PR edit or arbitrary external URL path.
+  repository and numeric PR. The inspector's read endpoints expose no Git or
+  PR mutations. Its **Git-Abgleich** action opens the separate explicit workflow
+  below; ordinary refresh still never fetches.
 - The three views are semantic roving tabs. One shared resizable detail pane
   stays mounted with the list, preserving scroll/data state; Escape closes a
   commit patch and restores focus to its trigger.
+
+## Explicit repository Git updates
+
+`RepositorySyncService` owns `repository:syncOverview`, `repository:fetch`,
+`repository:syncPreview` and `repository:syncApply`. All four are desktop-only;
+fetch/apply are audited mutations, overview/preview are reads. Strict DTOs in
+`shared/gitSync.ts` contain ids, refs, SHAs and counts, never host paths or commands.
+The complete contract is `REPOSITORY_SYNC_PLAN.md`.
+
+The service compares main and existing agent worktrees with an enumerated local
+or origin branch. Explicit fetch refreshes only remote-tracking branches and
+records session-local freshness. A bounded, expiring, single-use preview pins
+one target's from/to SHA; apply revalidates identity, branch, cleanliness, Git
+operation markers, live PTYs and active leases before an exact-SHA fast-forward.
+It never stashes, resets, creates merge commits, pushes or overwrites ignored files.
+Failed target reads are unknown/blocked, not zero/clean.
+
+`WorkspaceOperationGate` excludes these mutations from ADE's asynchronous scope
+resolution/removal, PTY/login creation and managed-run start. Launch refusal
+still reaches the task lifecycle sink. This is an in-process gate, not a lock
+against external Git commands. Git's own locking and fast-forward guards apply.
+New worktree creation and managed-run basis selection retain their existing
+main-HEAD/orchestrator-HEAD contracts. No host API allowlist is widened.
 
 ## Run and task control plane (main/orchestration/)
 
@@ -760,17 +785,23 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   and managed runs keep their phase-machine cancel. A single-task run cannot be
   started as a managed orchestration (direct tasks already exist).
 
-## ADE host API (Goal 7 write/SSE slice) and mobile PWA (Goals 8-10)
+## ADE host API (Goal 7 and Goal 8 device inventory) and mobile PWA (Goals 8-10)
 
-The host is disabled by default and listens on the configured IPv4 loopback
-port only (`ADE_HOST_API_ENABLED=1` plus a 32-128 character
-`ADE_HOST_API_TOKEN` enable it, `ADE_HOST_API_PORT` chooses the port,
-default `4317`). Personal-alpha setup will configure Tailscale Serve to terminate HTTPS
-and proxy to that port; ADE validates the `Host` header, rejects every
-browser `Origin` and does not fall back to a direct LAN bind. Funnel and
-public port forwarding are rejected by product policy, not offered as
-convenience toggles. Nothing in this slice exposes the listener beyond
-`127.0.0.1`.
+The host is disabled by default and binds IPv4 loopback only. Desktop Settings
+can enable the mobile controller, which discovers the native host's Tailscale
+DNS name and configures `tailscale serve --bg --https=443 http://127.0.0.1:4317`.
+`ADE_MOBILE_PORT` optionally selects another bounded loopback port. The opt-in
+and ownership of the Serve route persist in the host-local device state. Setup
+starts/validates the listener and public build before configuring ingress,
+refuses conflicting HTTPS routes and Funnel, and never resets other Serve
+configuration. A 15-second monitor stops the listener when the route becomes
+unsafe/unavailable and restores it when the expected private route returns.
+Serve's `Tailscale-Funnel-Request` marker is also rejected per request.
+
+The earlier developer API mode remains separate: `ADE_HOST_API_ENABLED=1`
+plus `ADE_HOST_API_TOKEN` and optional `ADE_HOST_API_PORT`. It refuses browser
+Origins and requires bearer plus device proof. It cannot run concurrently with
+the mobile controller. Browsers never receive that shared listener token.
 
 Endpoints are allowlisted operations, not generic RPC. Implemented today:
 
@@ -787,7 +818,8 @@ Endpoints are allowlisted operations, not generic RPC. Implemented today:
 - `POST /api/v1/tasks` - submit one bounded task for an explicit `agentId` and
   `repositoryId` with a `prompt` (≤ 8000 characters, control-character free)
   and optional `name`. The reply is the wrapping run summary plus `taskId`;
-  `run.tasks[].title` is the 80-character title, never the prompt. There is
+  automatic prompt-derived task titles and run names are replaced with neutral
+  labels in summaries; explicit independent names remain visible. There is
   no task listing and no per-task action path: progress arrives over
   `/events`, cancellation goes through the run. Plain-workspace (no
   repository) submission is deliberately not offered.
@@ -802,27 +834,138 @@ environment values or credentials.
 
 Two layers, deliberately separate (`main/remote/authorization.ts`):
 
-- The listener bearer token authenticates the client and yields the
-  `bootstrap-token` principal, which holds the `read` scope only. It can
-  never issue a command, regardless of headers.
-- A command additionally requires a **device signature**: `X-ADE-Device`,
+- The listener bearer token is an outer authentication gate. In the production
+  composition it grants no data by itself: reads, SSE and commands all require
+  an active identity from `RemoteDeviceStore`. The earlier bearer-only read
+  mode remains available solely to isolated protocol fixtures.
+- Every production request additionally requires a **device signature**: `X-ADE-Device`,
   `X-ADE-Timestamp` (Unix ms, ±5 minutes skew) and `X-ADE-Signature`
   (`v1=<hex HMAC-SHA256>` over `ADE-HTTP-V1\n<METHOD>\n<path>\n<timestamp>\n<Idempotency-Key>\n<sha256(body)>`)
   using the device secret. A valid signature yields a `device` principal with
   `read` and `runs:write`. Unknown device, wrong secret, altered path, body,
   key or timestamp all fail closed with distinct, path-free error codes.
-- In this slice the single command device is provisioned at startup from
-  `ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>` (secret 32-128 URL-safe chars,
-  must differ from the listener token; both variables are consumed from the
-  process environment before any child spawns). Without it the listener
-  serves reads only and `health.commands` reports `disabled`. Goal 8 replaces
-  the bootstrap with the paired, revocable device store without changing the
-  verification contract.
+- GET signs the exact request target including any `?cursor=...`, with an empty
+  idempotency-key field and SHA-256 of the empty body. The signature headers
+  must be supplied again on SSE reconnect. POST signing is unchanged.
+- `ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>` is now a **one-time migration**
+  into the host-local store (secret 32-128 URL-safe chars, distinct from the
+  listener token). Both credential variables are consumed before child launch.
+  A persisted `bootstrapImported` marker prevents later environment changes or
+  a stale credential from recreating a revoked identity. Startup without that
+  variable uses persisted devices. A new empty profile has no authorized devices.
+  The desktop single-use pairing flow below provisions new browser identities.
+
+#### Browser pairing, sessions and mobile host (Goal 8.2–8.4)
+
+Desktop-only `mobileAccess:status/setEnabled/pair/cancelPair` channels have exact
+IPC schemas and policy classification; none are remote command channels.
+Status distinguishes `listening` (loopback listener plus matching Serve route)
+from `https: pending/verified/unreachable`. An abortable, bounded 20-second
+native HTTPS GET verifies the certificate/hostname and public shell without
+credentials or redirects. Setup and the connection monitor retry it; initial
+Tailscale DNS/ACME provisioning can leave a configured route unconfirmed.
+Pairing generates 256 bits of random one-use material, held as a hash in main
+for five minutes. A new challenge, explicit cancellation, Settings close or
+host restart invalidates it. The QR/manual URL carries it only in the fragment;
+the PWA immediately removes that fragment from history. `/api/v1/pair` accepts
+only challenge, deviceId, printable name and signing secret, consumes the
+challenge before enrollment, and persists a separate encrypted device identity.
+The browser creates the key, imports it as non-exportable WebCrypto HMAC and
+persists only its `CryptoKey` plus id in IndexedDB before enrollment. A lost
+pairing reply can recover by proving that key; no shared bearer is distributed.
+
+For the exact configured `https://<host>.<tailnet>.ts.net` origin, reads, streams
+and commands require a device signature **and** a host-only 30-minute session
+cookie (`__Host-ade-session`, Secure, HttpOnly, SameSite=Strict, Path=/). Cookie
+tokens are random; main holds hashes only, bounded to one session per device
+and 100 total. Signed `GET /api/v1/session` retrieves CSRF/session metadata;
+signed `POST /api/v1/session` authenticates/rotates it. Rotation, logout, expiry,
+revocation and shutdown close its streams. No session survives host restart;
+remembered device proof can authenticate again. `POST /api/v1/logout` also
+requires session CSRF. Device keys remain revocable in desktop Settings.
+
+Every browser POST requires the exact Origin; a supplied Origin on GET must
+also match. Cross-site fetch metadata is refused. Commands additionally require
+the session's CSRF header and the existing signed Idempotency-Key. No CORS
+wildcards, IPC proxy, remote setup/configuration or additional command scope is
+introduced. Admission is bounded to 600 routed browser API requests/minute,
+including at most 30 pairing/session authentication attempts. Audit records
+pairing/device changes and authentication before effects; payloads, QR material,
+device names, signing keys, cookies and CSRF values are excluded.
+
+`src/mobile` builds independently into `out/mobile` through `vite.mobile.config.ts`.
+Main loads a bounded exact-path asset allowlist (8 MiB total, 2 MiB/file, at most
+100 files, no links). Only the public shell is unauthenticated. Its CSP permits
+only same-origin scripts/styles/images/requests/worker/manifest; API CSP remains
+deny-all. The worker caches an explicit versioned shell list, never API requests,
+prompts or results. Private state stays in page memory. Commands are never queued
+for automatic offline execution; an uncertain reply can be retried with its
+original key while the page remains open. Revocation/logout clears pending
+commands and private state; an identity generation fences late responses from
+the previous device. Run cancellation preserves unrelated composer drafts and
+returns keyboard focus to the updated run detail. Reload/background/network recovery
+reads authoritative snapshots and resumes signed fetch-based SSE. A 45-second
+heartbeat deadline detects silently stalled connections. Detailed reports,
+remote approval, push and configuration remain desktop-only.
+
+`OrchestrationService.summarize()` replaces automatically derived prompt-prefix
+run/task labels with `Single task`/`Task`, including existing persisted records.
+Explicit independent labels remain visible. Prompts cannot escape through the
+former 80-character title shortcut; source records are preserved unchanged.
+
+With mobile access enabled, closing the desktop window hides it only after a
+tray icon is available. The tray can reopen ADE or explicitly quit, which stops
+listeners and PTYs. If the tray is unavailable, closing retains normal app exit
+behavior. Login autostart, sleep prevention and pre-login execution are not
+implemented. The host is the native UI process even when tasks use WSL.
+
+#### Desktop device inventory and durable audit (Goal 8, step 1)
+
+`main/remote/RemoteDeviceStore.ts` stores `userData/ade/remote/devices.json`
+separately from `AdeConfig`, renderer snapshots, run archives and workspace
+bundles. Device names (1-80 printable characters), creation/revocation times and
+ids are desktop metadata; secrets are encrypted with Electron `safeStorage`.
+Linux accepts the same OS-backed Secret Service/KWallet providers as harness
+credentials, never `basic_text`. Device snapshots use same-directory exclusive
+temporary files, fsync and atomic rename; POSIX additionally syncs the directory.
+Reads are capped at 256 KiB and 100 records and reject links in path components.
+Malformed, unreadable or undecryptable state is preserved and disables device
+authorization rather than reseeding identities.
+
+Settings → **Verbundene Geräte** lists active and revoked identities, saves names
+and revokes access through three exact, desktop-only IPC channels. Revocation
+persists a tombstone and removes encrypted key material before returning success.
+It immediately destroys that device's active HTTP responses/SSE connections;
+new commands and reads re-resolve the store and fail authorization. Already
+accepted domain work is not rolled back or cancelled; its run remains locally
+controllable. Rename preserves connections. The UI has loading/error/empty states,
+keyboard form submission, wrapped narrow layouts and explicit focus recovery to
+the name field after saving or the refresh button after revocation.
+
+`userData/ade/remote/audit.jsonl` is a separate append-only, fsynced journal, not
+run history or a rotating diagnostic log. A projected entry contains timestamp,
+principal id/kind, request id, channel, target, outcome and optional redacted reason.
+It excludes device names, secrets, signatures and request bodies. Device changes
+record `requested` before the atomic state write and `executed` afterwards; remote
+commands record admission before domain effects and a final result or denial.
+A crash between these records leaves an unresolved request, never invented success.
+Transport denials (including invalid bearer/proof/body) are recorded too; unverified
+callers are marked anonymous, never attributed from an untrusted device header.
+Successful signed reads record authentication. All text uses `redactForWire`.
+
+The audit has an 8 MiB hard cap. A torn append, external size change, full journal
+or failed append disables authorization and closes active device connections.
+There is no automatic deletion, rotation, viewer or recovery UI yet; an operator
+must preserve and investigate the local files before offline maintenance.
+This journal is deliberately independent of `RunArchive` and run retention.
+General desktop IPC diagnostics still go to the rotating main log.
 
 #### Request discipline (fail closed)
 
-Every request: exact `Host` match against the bound loopback address, no
-browser `Origin`, `Authorization: Bearer` with a constant-time compare, one
+Legacy requests: exact `Host` match against the bound loopback address, no
+browser `Origin`, `Authorization: Bearer` with a constant-time compare. The
+browser path instead uses the exact Tailscale host/session contract above. Both
+receive one
 `X-ADE-Request-Id` per response, defensive headers (`no-store`, deny-all
 CSP, `nosniff`, `DENY`), JSON replies bounded to 512 KiB. Commands add:
 `Content-Length` required (`411` for chunked or missing), body ≤ 64 KiB
@@ -840,8 +983,8 @@ with another payload is `409 idempotency_key_reused`.
 
 `GET /api/v1/events` requires `Accept: text/event-stream` and at most one
 cursor, either `Last-Event-ID` (EventSource reconnect) or `?cursor=`; both
-present must agree. Without a usable cursor (absent, `0`, or beyond the
-journal top) the stream first sends one bundled `snapshot` event whose `id`
+present must agree. Without a usable cursor (absent, `0`, beyond the
+journal top or behind `journalRetention.prunedSeq`) the stream first sends one bundled `snapshot` event whose `id`
 is the current journal cursor; every following `journal` event carries
 `events` and `messages` strictly after the previous `id`, in ascending
 `seq`, at most 200 records per frame, with `id` = highest `seq` in the frame.
@@ -872,7 +1015,8 @@ The PWA service worker caches versioned static application assets only. API
 responses, run evidence, patches and credentials use `no-store`. Offline UI may
 report last contact time but cannot enqueue commands for later automatic
 execution. The host must be powered on, logged in and running; tray/start-at-
-login operation is a Goal 10 user-session feature, not a pre-login service.
+login operation is a Goal 10 user-session feature. Close-to-tray is implemented;
+login startup remains planned. There is no pre-login service.
 
 ## Electron IPC contract (shared/ipc.ts) — stable, build agents code against it
 
@@ -881,6 +1025,9 @@ network protocol and must never be forwarded by channel name over HTTP.
 
 Invoke (renderer → main, `ipcRenderer.invoke`):
 - `config:get` → full config; `config:save({settings:{theme}})` → saved config
+- `remoteDevices:list()` → bounded device inventory and availability/error state;
+  `remoteDevices:rename({deviceId,name})` / `remoteDevices:revoke({deviceId})` →
+  refreshed inventory. Desktop-only; no credential output or remote administration.
 - `photo:import(bytesBase64, mime)` → stored filename
 - `agent:create(input)` / `agent:delete(id)` / `category:create(input)` …
   (creates workspaceDir, memory scaffold, worktree if repo-backed)

@@ -1,0 +1,6 @@
+{
+  "id": "/", "name": "ADE Mobile", "short_name": "ADE", "lang": "de",
+  "start_url": "/", "scope": "/", "display": "standalone",
+  "background_color": "#101919", "theme_color": "#101919",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

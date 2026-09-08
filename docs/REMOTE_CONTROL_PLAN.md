@@ -1,9 +1,11 @@
 # ADE remote control and mobile companion plan
 
-Status: Goal-7 read-only foundation implemented 2026-07-26; the write/SSE
-slice (resumable event stream, device-signed idempotent managed-run
-create/start/cancel) implemented 2026-09-03. No mobile client, pairing UI,
-revocable device store or bounded task submission is implemented yet. The
+Status: Goal 7 includes read endpoints, signed commands, SSE and bounded single-task
+submission (2026-09-06). Goal 8 step 1 adds durable revocable device inventory,
+desktop rename/revoke controls and a fsynced remote audit. Goal 8.2–8.4 now add
+desktop QR pairing, browser sessions, private Tailscale setup and the mobile PWA
+(2026-09-08). Close-to-tray is the first Goal 10 slice. Physical device/network
+acceptance is tracked in `goal8/MOBILE_CONNECT_RESULTS.md`. The
 delivery order and exit criteria are tracked in `ROADMAP.md`; the wire
 contract lives in `ARCHITECTURE.md` ("ADE host API").
 
@@ -81,16 +83,21 @@ server never proxies arbitrary IPC channel names: the channel policy
 carries the remote scope, proof and idempotency requirement the service
 enforces before a command runs.
 
-The implemented listener is disabled unless `ADE_HOST_API_ENABLED=1`; enabled
+The legacy environment listener is disabled unless `ADE_HOST_API_ENABLED=1`; enabled
 startup also requires a non-logged `ADE_HOST_API_TOKEN` of 32-128 URL-safe
 ASCII characters and accepts an optional bounded `ADE_HOST_API_PORT` (default
 `4317`). Its bind address is not configurable and is always `127.0.0.1`. The
-token authenticates the client for reads only. Commands additionally require
-a device-signed request; the single device of this slice comes from
-`ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>`. ADE removes both variables from
-`process.env` after startup so agent subprocesses cannot inherit them. This
-bootstrap is not the future paired-device/session design and is not approval
-to expose the listener through Tailscale yet.
+token is an outer gate; every production read, SSE connection and command also
+requires a signature from an active stored device. The old
+`ADE_HOST_API_COMMAND_DEVICE=<id>:<secret>` is imported exactly once into the
+encrypted host-local device store. ADE removes both variables from `process.env`
+after startup so agent subprocesses cannot inherit them. Revocation survives
+restart and stale bootstrap values. GET proofs sign the full request target,
+an empty key field and the empty-body digest; POST proofs are unchanged.
+This legacy environment mode is separate from Settings → Mobiler Zugriff,
+which enables the signed session/cookie browser mode and private Serve route.
+Storage, audit bounds, pairing/session details and revocation semantics are
+specified in `ARCHITECTURE.md` under "Desktop device inventory and durable audit".
 
 The first remote contract is intentionally small:
 
@@ -105,7 +112,7 @@ The first remote contract is intentionally small:
 | `POST /api/v1/runs/{id}/cancel` | **Implemented:** cancel active/queued work for that run, including a single-task run |
 | `GET /api/v1/events` | **Implemented:** resumable server-sent event stream over the journal `seq` |
 
-Approval resolution is added only in Goal 9. Every mutating request carries an
+Approval resolution is added only in Goal 9. Every run/task mutation carries an
 `Idempotency-Key`; it is bound to the command and payload digest, so replaying
 the same key returns the original outcome, a concurrent duplicate coalesces,
 and the same key with another payload is rejected — a retry never launches
@@ -137,7 +144,9 @@ desktop-only fields accidentally.
   desktop process. Remote errors never echo command text, paths or credentials.
 - Every mutation records time, device, actor identity, request id, target,
   outcome and denial reason in an append-only audit record.
-- Device listing and immediate revocation are available from the desktop.
+- Device listing, renaming and immediate revocation are implemented in desktop
+  Settings. Revocation terminates device HTTP/SSE access; already accepted runs
+  continue under ADE and can be cancelled separately from the desktop.
 - The PWA service worker caches the versioned application shell only. API
   responses, run details, patches and credentials are not available offline.
 - Mobile CSP, dependency review, API security tests and an unauthorized-device

@@ -58,6 +58,7 @@ import {
   type TaskQueueKey,
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
+import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
 import {
   closeInteractiveBookend,
   interruptOrphanBookends,
@@ -178,6 +179,18 @@ export class PtyManager {
   }
 
   async create(
+    agentId: string, task?: string, dispatchId?: string, runTaskId?: string,
+    repositoryId?: string | null, workspaceBindingId?: string,
+  ): Promise<SessionMeta> {
+    try {
+      return await workspaceOperations.use(() => this.createInWorkspace(agentId, task, dispatchId, runTaskId, repositoryId, workspaceBindingId));
+    } catch (error) {
+      if (error instanceof WorkspaceOperationBusyError) this.notifyLaunchFailed(runTaskId, false, error);
+      throw error;
+    }
+  }
+
+  private async createInWorkspace(
     agentId: string,
     task?: string,
     dispatchId?: string,
@@ -800,6 +813,10 @@ export class PtyManager {
    * distros hold their own per-home sign-in state.
    */
   async createHarnessLogin(agentId: string, runtime: RuntimeId): Promise<SessionMeta> {
+    return workspaceOperations.use(() => this.createHarnessLoginInWorkspace(agentId, runtime));
+  }
+
+  private async createHarnessLoginInWorkspace(agentId: string, runtime: RuntimeId): Promise<SessionMeta> {
     const command = HARNESS_LOGIN_COMMANDS[runtime];
     if (!command) throw new Error(`ade: harness "${runtime}" has no documented sign-in command`);
     this.requireAgent(agentId);
