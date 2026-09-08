@@ -111,6 +111,10 @@ The first remote contract is intentionally small:
 | `POST /api/v1/runs/{id}/start` | **Implemented:** start a draft exactly once (managed runs only) |
 | `POST /api/v1/runs/{id}/cancel` | **Implemented:** cancel active/queued work for that run, including a single-task run |
 | `GET /api/v1/events` | **Implemented:** resumable server-sent event stream over the journal `seq` |
+| `GET /api/v1/host` | Goal 12: signed instance/version/readiness and granted administrative capabilities |
+| `POST /api/v1/host/restart` | Goal 12: explicitly granted, idle-only ADE relaunch with durable receipt |
+| `POST /api/v1/admin/commands` | Goals 13–14: bounded agent/project/workspace provisioning or Fetch/confirmed Git update, explicit scoped operation union |
+| `POST /api/v1/admin/git` | Goal 14: native repository comparison/preview; no arbitrary paths or Git argv |
 
 Approval resolution is added only in Goal 9. Every run/task mutation carries an
 `Idempotency-Key`; it is bound to the command and payload digest, so replaying

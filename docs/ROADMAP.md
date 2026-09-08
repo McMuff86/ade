@@ -1,5 +1,18 @@
 # ADE delivery roadmap
 
+## Remote workspace delivery — Goals 12–15 (2026-09-08)
+
+Implemented and locally verified sequence: **12** authenticated ADE restart and scoped
+device administration; **13** remote agents/projects/workspaces; **14** remote
+Git comparison and confirmed synchronization; **15** parallel project/agent
+workflows and final verification. Concrete acceptance checklists and current
+delivery state: [REMOTE_WORKSPACE_GOALS.md](REMOTE_WORKSPACE_GOALS.md).
+These goals preserve the closed desktop IPC boundary and add narrow application
+commands; existing device rights do not expand automatically. Final native
+Windows `pnpm verify` passed all 1,717 checks plus typechecks and build.
+The new delivery requires home-host activation; platform
+and launch-mode limits are recorded in `REMOTE_WORKSPACE_RESULTS.md`.
+
 Status date: 2026-09-08. Goals carry separate implementation and execution
 evidence; the Git-sync, device-inventory and mobile slices share one verified delivery.
 

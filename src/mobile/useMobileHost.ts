@@ -146,7 +146,15 @@ export function useMobileHost() {
     try { await client.disconnect(); } catch { /* Local identity is still cleared. */ }
     finally { busyRef.current = false; setBusy(false); }
   };
-  return { paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect,
+  const request = useCallback(async <T,>(path: string, method = 'GET', payload?: unknown, key = ''): Promise<T> => {
+    const ownEpoch = epoch.current;
+    try {
+      const result = await client.request<T>(path, method, payload, key);
+      if (ownEpoch !== epoch.current) throw new MobileClientError('unknown_device', 401);
+      return result;
+    } catch (reason) { if (ownEpoch === epoch.current) await lostAccess(reason); throw reason; }
+  }, [lostAccess]);
+  return { paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, refresh,
     canSubmit: status === 'online' && health?.commands === 'enabled' && !busy && !pending,
     reconnect: () => { setError(''); setGeneration((value) => value + 1); },
     dismissPending: () => { setPending(null); setNotice('Prüfe die Run-Liste, bevor du einen neuen Auftrag mit demselben Inhalt sendest.'); },

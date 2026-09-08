@@ -1366,3 +1366,71 @@ tracked in `ROADMAP.md`; factual capability status lives in `STATUS.md`.
 
 Phase agents must not touch files owned by a parallel phase; shared files
 (`shared/*`, `App.tsx`, `ipc.ts`) change only via the contract above.
+## Remote workspace administration (Goals 12–15, 2026-09-08)
+
+The new operator-requested administration surface goes through
+`AdeApplicationService`, separately from mirrored IPC channels.
+`REMOTE_COMMAND_CHANNELS` remains the four bounded run/task commands; no host,
+config, filesystem, PTY or shell IPC is promoted to `shared`. Administration
+uses explicit typed application methods and path-free DTOs in `shared/remote`.
+
+Device records optionally carry desktop-granted `host:restart`, `catalog:write`
+and `repositories:write` capabilities. Missing grants mean no administration;
+bootstrap and pairing never inherit them. The new desktop-only audited invoke
+`remoteDevices:setAdminScopes` validates exact keys, supported scopes and unique
+values. Grant changes close sessions/streams; subsequent requests must prove
+the device again and use current grants. Secrets never leave the local vault.
+
+Signed `GET /api/v1/host` returns an opaque process-instance ID, app version,
+restart availability and bounded blocker descriptions. `POST /api/v1/host/restart`
+requires `{instanceId}`, a current device grant, an idempotency key and the
+existing browser session/CSRF gate. `RemoteCommandLedger` binds the hashed
+device/key to operation/payload, fsyncs a reservation and records the outcome
+before scheduling relaunch. Same-key requests coalesce/replay across restart;
+interrupted reservations never rerun. Storage is link-checked, bounded to
+500 receipts/1 MiB and unavailable on corruption/write failure.
+
+`HostOperationGate` counts desktop mutations and remote run commands, refuses
+restart during in-flight operations and fences new mutations once accepted.
+Existing PTYs, task queue, running runs and workspace operations are blockers.
+Desktop revocation/grant withdrawal remains available through the fence; the
+controller rechecks the grant before relaunch. Electron retains its executable,
+app argv, cwd and profile environment and quits gracefully after allowing the
+receipt response to flush. No remote executable, argv or host path is accepted.
+The PWA confirms completion only after an authenticated different instance ID.
+The implementation is measured on native Windows source production launches;
+platform/package claims must follow `REMOTE_WORKSPACE_RESULTS.md`.
+
+`POST /api/v1/admin/commands` dispatches a closed discriminated application
+union: `agent-create`, `project-create`, `workspace-prepare` need `catalog:write`;
+`git-fetch` and `git-apply` need `repositories:write`. These are not invoke
+channel names and cannot call IPC handlers. Every effect uses the same signed
+device/CSRF/audit/receipt admission and host-operation fence. Agent creation
+accepts a bounded name and host catalog/profile identity, copies only configured
+runtime settings and creates fresh home/memory/instructions. Project creation
+accepts a name only, creates a UUID directory below `userData/ade/projects` and
+initializes native Git with an initial empty main commit and disabled hooks.
+There is no clone URL, path, executable, secret or free-form config field.
+
+Workspace preparation resolves the existing agent/repository binding through
+`RepositoryScopeService`. Native scope creation and reads now check link/junction
+components before inspecting/materializing worktrees, including configured
+worktree roots. Existing leases and live sessions (including legacy path-only
+records) refuse remote preparation. Interrupted provisioning may leave files
+for inspection but never automatically repeats under the same receipt key.
+
+`POST /api/v1/admin/git` is a bounded signed read/preview query. Overviews need
+read scope; previews additionally need the Git grant. It uses the existing
+`RepositorySyncService` with an explicit wire redaction projection. Preview IDs
+are device-owned, capped at 20 and expire with the underlying five-minute
+preview. Apply rechecks ownership and target/source/binding drift, then consumes
+the preview; retry replays the durable outcome. Queries/commands currently
+accept native catalog repositories only. Main/agent branches, counts and measured
+fetch freshness are visible, absolute host paths and Git argv are not.
+
+Run summary participants add optional `agentId` for compatibility with older
+hosts and stable remote filtering. Work/Graph filter by repository and agent
+identity; the global task-slot counter remains global. Project/mode drafts and
+uncertain command keys stay only in page memory, survive view changes and clear
+on identity revocation/disconnect. A late task reply clears only the matching
+submitted draft; it cannot erase another project's or subsequently edited text.

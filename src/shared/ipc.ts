@@ -53,7 +53,7 @@ import type {
   WorkspaceScopeDescriptor,
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
-import type { RemoteDeviceInventory } from './remoteDevices';
+import type { RemoteAdminScope, RemoteDeviceInventory } from './remoteDevices';
 import type { MobileAccessStatus, MobilePairingChallenge } from './mobileAccess';
 import type { GitSyncOverview, GitSyncPreview, GitSyncRequest } from './gitSync';
 import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspaceBundle';
@@ -71,6 +71,7 @@ export const IPC = {
   MobileAccessCancelPair: 'mobileAccess:cancelPair',
   RemoteDevicesRename: 'remoteDevices:rename',
   RemoteDevicesRevoke: 'remoteDevices:revoke',
+  RemoteDevicesSetAdminScopes: 'remoteDevices:setAdminScopes',
   ConfigSave: 'config:save',
   WorkspaceBundlePickImport: 'workspaceBundle:pickImport',
   WorkspaceBundleAuthorizeMappings: 'workspaceBundle:authorizeMappings',
@@ -611,6 +612,7 @@ export interface IpcInvokeMap {
   'mobileAccess:cancelPair': { req: void; res: void };
   'remoteDevices:rename': { req: { deviceId: string; name: string }; res: RemoteDeviceInventory };
   'remoteDevices:revoke': { req: { deviceId: string }; res: RemoteDeviceInventory };
+  'remoteDevices:setAdminScopes': { req: { deviceId: string; scopes: RemoteAdminScope[] }; res: RemoteDeviceInventory };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'workspaceBundle:pickImport': { req: void; res: { selectionId: string; displayName: string } | null };
   'workspaceBundle:authorizeMappings': {

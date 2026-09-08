@@ -609,6 +609,8 @@ export interface RunSummaryTeam {
 
 export interface RunSummaryParticipant {
   id: string;
+  /** Stable catalog identity for remote filters; older host versions may omit it. */
+  agentId?: string;
   agentName: string;
   role: RunParticipantRole;
   teamId?: string;

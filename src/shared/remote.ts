@@ -1,4 +1,6 @@
 import type { ExecutionBackendId } from './executionBackends';
+import type { RemoteAdminScope } from './remoteDevices';
+import type { GitSyncOverview, GitSyncPreview } from './gitSync';
 import type {
   RunBudget,
   RunEventType,
@@ -15,6 +17,22 @@ export interface MobileHealth {
   queue: TaskQueueStatus;
   /** Whether at least one device identity may sign commands on this host. */
   commands: 'enabled' | 'disabled';
+}
+
+export interface MobileHostState {
+  instanceId: string;
+  version: string;
+  restart: 'ready' | 'pending';
+  canRestart: boolean;
+  blockers: string[];
+  capabilities?: RemoteAdminScope[];
+}
+export interface MobileRestartInput { instanceId: string }
+export interface MobileRestartResult {
+  operationId: string;
+  instanceId: string;
+  accepted: true;
+  replayed: boolean;
 }
 
 export interface MobilePairInput {
@@ -50,7 +68,30 @@ export interface MobileAgentSummary {
 export interface MobileCatalog {
   repositories: MobileRepositorySummary[];
   agents: MobileAgentSummary[];
+  categories?: Array<{ id: string; name: string }>;
+  agentSources?: Array<{ id: string; kind: 'agent' | 'template' | 'runtime'; name: string; runtime: RuntimeId }>;
 }
+
+export interface MobileAgentCreateInput {
+  name: string;
+  source: { kind: 'agent' | 'template' | 'runtime'; id: string };
+  categoryId?: string;
+}
+export interface MobileProjectCreateInput { name: string }
+export interface MobileWorkspacePrepareInput { agentId: string; repositoryId: string }
+export type MobileAdminCommand =
+  | { operation: 'agent-create'; input: MobileAgentCreateInput }
+  | { operation: 'project-create'; input: MobileProjectCreateInput }
+  | { operation: 'workspace-prepare'; input: MobileWorkspacePrepareInput }
+  | { operation: 'git-fetch'; input: { repositoryId: string } }
+  | { operation: 'git-apply'; input: { previewId: string } };
+export type MobileGitQuery = { operation: 'git-overview' | 'git-preview'; repositoryId: string; sourceRef?: string; targetId?: string };
+export interface MobileAdministrationValue {
+  created?: { kind: 'agent' | 'repository' | 'workspace'; id: string; agentId?: string; repositoryId?: string; branch?: string };
+  git?: GitSyncOverview;
+}
+export interface MobileAdministrationResult extends MobileAdministrationValue { replayed: boolean }
+export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncPreview }
 
 export type MobileRunSummary = RunSummary;
 
@@ -176,6 +217,9 @@ export type MobileErrorCode =
   | 'idempotency_key_invalid'
   | 'idempotency_key_reused'
   | 'command_rejected'
+  | 'command_uncertain'
+  | 'host_busy'
+  | 'host_changed'
   | 'too_many_streams'
   | 'response_too_large'
   | 'internal_error';

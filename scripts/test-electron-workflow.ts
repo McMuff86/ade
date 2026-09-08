@@ -557,7 +557,9 @@ async function activeTabId(page: Page): Promise<string | null> {
 
 async function sendCommand(page: Page, command: string): Promise<void> {
   const input = page.locator('.terminal-pane-wrap:visible .xterm-helper-textarea');
-  await input.waitFor({ state: 'visible', timeout: 10_000 });
+  // Measured on the work PC: even a no-profile native PowerShell cold start
+  // can exceed ten seconds. Wait for real readiness, then verify real output.
+  await input.waitFor({ state: 'visible', timeout: 60_000 });
   await input.click();
   await page.keyboard.type(command);
   await page.keyboard.press('Enter');
@@ -1270,14 +1272,14 @@ async function run(): Promise<void> {
     await failedAlert.getByRole('button', { name: 'Bericht öffnen' }).click();
     const report = page.locator('.greport[role="dialog"]');
     await report.waitFor({ state: 'visible' });
-    const reportText = (await report.textContent()) ?? '';
-    check('the run report names the failed test, the risks and the integration range',
-      reportText.includes('pnpm test:integration')
+    await eventually('the run report names the failed test, the risks and the integration range', async () => {
+      const reportText = (await report.textContent()) ?? '';
+      return reportText.includes('pnpm test:integration')
         && reportText.includes('Integration guard rejected RESULT.json')
         && reportText.includes('RESULT.json path set drifted from the worktree')
         && reportText.includes('src/integration.ts')
-        && reportText.includes('aaaaaaa') && reportText.includes('bbbbbbb'),
-      reportText.slice(0, 600));
+        && reportText.includes('aaaaaaa') && reportText.includes('bbbbbbb');
+    });
     check('the report dialog takes focus so Escape reaches it',
       await report.evaluate((node) => node.contains(document.activeElement)));
     if (evidenceDir) {
@@ -2077,7 +2079,7 @@ async function run(): Promise<void> {
       await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeLogin + 1
         && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
           ?.includes('CLAUDE_LOGIN_FIXTURE_OK') === true,
-      20_000,
+      60_000,
     );
     if (keyStorageAvailable) {
       await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
@@ -2100,7 +2102,7 @@ async function run(): Promise<void> {
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeGrok + 1
           && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
             ?.includes(`GROK_KEY=${grokKey}`) === true,
-        20_000,
+        60_000,
       );
       // PTY output and xterm rendering may split the key and argv across frames.
       await eventually('a Grok session launches with always-approve and the pinned model profile', async () =>

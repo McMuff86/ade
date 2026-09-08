@@ -7,7 +7,8 @@
  *
  * Determinism: fixed Git author/committer dates, a frozen renderer clock,
  * --force-device-scale-factor=1, --lang=en-US, reduced motion, a fixed
- * window size and no running PTY session (so no 5s workspace poll).
+ * window size, canonical path labels in captures and no running PTY session
+ * (so no 5s workspace poll).
  *
  * Missing baselines on authoritative platforms fail the gate. Platforms with
  * no committed baseline set are captured to test-results/visual/ without
@@ -302,6 +303,20 @@ function comparePng(name: string, actual: Buffer): void {
 
 async function captureState(page: Page, name: string): Promise<void> {
   await waitForStableOverview(page);
+  // The real scope is exercised above and by the workflow suite. Screenshot
+  // labels must not encode the user's name or mkdtemp suffix: their length can
+  // wrap differently and shift the entire inspector on another Windows host.
+  // Normalize only these two display labels in the disposable renderer;
+  // production scope data, filesystem access and clipboard behavior stay real.
+  await page.evaluate((windows) => {
+    const path = document.querySelector('[data-testid="scope-workspace-path"]');
+    const shortPath = document.querySelector('.rp-scope-meta > span:nth-child(2)');
+    if (!path?.textContent || !shortPath?.textContent) throw new Error('Visual scope labels are missing');
+    path.textContent = windows
+      ? 'C:\\ADE\\visual-fixtures\\repositories\\visual-repository\\workspace'
+      : '/ade/visual-fixtures/repositories/visual-repository/workspace';
+    shortPath.textContent = 'repositories/visual-repository/workspace';
+  }, process.platform === 'win32');
   const overflow = await page.evaluate(() => {
     const panel = document.querySelector('.rp');
     const content = document.querySelector('.rp-content');

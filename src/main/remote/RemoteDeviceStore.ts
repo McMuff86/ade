@@ -2,7 +2,7 @@ import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, rea
 import { dirname, join, parse, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { RemoteDeviceInfo, RemoteDeviceInventory } from '../../shared/remoteDevices';
-import { isValidRemoteDeviceName as validName } from '../../shared/remoteDevices';
+import { isRemoteAdminScopes, isValidRemoteDeviceName as validName, type RemoteAdminScope } from '../../shared/remoteDevices';
 import { redactForWire } from '../errors';
 import { isValidDeviceId, isValidDeviceSecret, type RemoteDevice } from './authorization';
 
@@ -88,6 +88,7 @@ export class RemoteDeviceStore {
       for (const item of state.devices) {
         if (!item || typeof item.id !== 'string' || !isValidDeviceId(item.id) || ids.has(item.id)
           || !validName(item.name) || !Number.isSafeInteger(item.createdAt) || item.createdAt < 0
+          || (item.adminScopes !== undefined && !isRemoteAdminScopes(item.adminScopes))
           || (item.revokedAt !== null && (!Number.isSafeInteger(item.revokedAt) || item.revokedAt < 0))
           || (item.revokedAt === null ? typeof item.encryptedSecret !== 'string' : item.encryptedSecret !== null)) {
           throw new Error('invalid device');
@@ -107,7 +108,8 @@ export class RemoteDeviceStore {
 
   inventory(): RemoteDeviceInventory {
     return {
-      devices: this.state.devices.map(({ id, name, createdAt, revokedAt }) => ({ id, name, createdAt, revokedAt })),
+      devices: this.state.devices.map(({ id, name, createdAt, revokedAt, adminScopes }) => ({ id, name, createdAt, revokedAt,
+        adminScopes: [...adminScopes ?? []] })),
       available: this.failure === null && this.protection.available(),
       error: this.failure ?? (this.protection.available() ? null : UNAVAILABLE),
     };
@@ -116,7 +118,7 @@ export class RemoteDeviceStore {
   activeDevices(): RemoteDevice[] {
     if (!this.inventory().available) return [];
     return this.state.devices.filter((item) => item.revokedAt === null).map((item) => ({
-      id: item.id, secret: this.secrets.get(item.id)!, scopes: ['read', 'runs:write'],
+      id: item.id, secret: this.secrets.get(item.id)!, scopes: ['read', 'runs:write', ...item.adminScopes ?? []],
     }));
   }
 
@@ -185,6 +187,19 @@ export class RemoteDeviceStore {
     device.encryptedSecret = null;
     this.change(next, 'device:revoke', id);
     this.secrets.delete(id);
+    this.notify(id);
+    return this.inventory();
+  }
+
+  setAdminScopes(id: string, scopes: RemoteAdminScope[]): RemoteDeviceInventory {
+    this.assertAvailable();
+    if (!isRemoteAdminScopes(scopes)) throw new Error('ade: invalid device permissions');
+    const next = structuredClone(this.state);
+    const device = next.devices.find((item) => item.id === id && item.revokedAt === null);
+    if (!device) throw new Error('ade: active device not found');
+    device.adminScopes = [...scopes];
+    this.change(next, 'device:permissions', id);
+    // Close existing sessions/streams so every next request uses the new grant.
     this.notify(id);
     return this.inventory();
   }

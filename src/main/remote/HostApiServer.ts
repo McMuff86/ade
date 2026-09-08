@@ -57,10 +57,10 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
-  | { kind: 'health' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
+  | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
 
-type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask';
+type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit';
 
 interface ParsedTarget {
   path: string;
@@ -108,6 +108,10 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/session': return { route: { kind: 'session' }, allow: ['GET', 'POST'] };
     case '/api/v1/logout': return { route: { kind: 'logout' }, allow: ['POST'] };
     case '/api/v1/health': return { route: { kind: 'health' }, allow: ['GET'] };
+    case '/api/v1/host': return { route: { kind: 'host' }, allow: ['GET'] };
+    case '/api/v1/host/restart': return { route: { kind: 'restartHost' }, allow: ['POST'] };
+    case '/api/v1/admin/commands': return { route: { kind: 'administer' }, allow: ['POST'] };
+    case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
     case '/api/v1/runs': return { route: { kind: 'runs' }, allow: ['GET', 'POST'] };
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
@@ -347,7 +351,8 @@ export class HostApiServer {
           writeJson(response, 200, paired.info, { 'set-cookie': paired.cookie }); return;
         }
       }
-      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest)) {
+      let readPrincipal = bearer;
+      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host')) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -356,6 +361,7 @@ export class HostApiServer {
         if (!verdict.ok) { writeError(response, 401, verdict.reason); return; }
         if (!verdict.principal.scopes.has('read')) { writeError(response, 403, 'scope_not_granted'); return; }
         authenticatedDevice = verdict.principal.id;
+        readPrincipal = verdict.principal;
         if (browserRequest) {
           const session = browser!.sessions.get(singleHeader(request, 'cookie'), authenticatedDevice);
           if (!session) { writeError(response, 401, 'unauthorized'); return; }
@@ -380,6 +386,13 @@ export class HostApiServer {
         case 'health':
           writeJson(response, 200, this.application.health());
           return;
+        case 'host':
+          writeJson(response, 200, this.application.hostState(readPrincipal!)); return;
+        case 'restartHost':
+          await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
+        case 'administer':
+        case 'queryGit':
+          await this.handleCommand(request, response, requestId, bearer, target.path, matched.route.kind, undefined, browserRequest); return;
         case 'catalog':
           writeJson(response, 200, this.application.catalog());
           return;
@@ -424,7 +437,7 @@ export class HostApiServer {
     runId?: string,
     browserRequest = false,
   ): Promise<void> {
-    const expectsJson = kind === 'createRun' || kind === 'submitTask';
+    const expectsJson = kind !== 'startRun' && kind !== 'cancelRun';
     const body = await this.readBody(request, response, expectsJson);
     if (body === null) return;
 
@@ -472,7 +485,13 @@ export class HostApiServer {
     }
 
     try {
-      const result = kind === 'createRun'
+      const result = kind === 'administer'
+        ? await this.application.administer(context, payload)
+        : kind === 'queryGit'
+          ? await this.application.queryGit(context, payload)
+          : kind === 'restartHost'
+        ? await this.application.restartHost(context, payload)
+        : kind === 'createRun'
         ? await this.application.createRun(context, payload)
         : kind === 'submitTask'
           ? await this.application.submitTask(context, payload)

@@ -1,0 +1,151 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { chromium, type Browser, type Page } from 'playwright';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { BrowserSessions } from '../src/main/remote/BrowserSessions';
+import { HostApiServer } from '../src/main/remote/HostApiServer';
+import { RemoteAuthorizer } from '../src/main/remote/authorization';
+import { loadMobileAssets } from '../src/main/remote/mobileAssets';
+
+let passed = 0; let failed = 0;
+const check = (name: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
+const root = mkdtempSync(join(tmpdir(), 'ade-remote-browser-'));
+const evidence = resolve('test-results/remote'); mkdirSync(evidence, { recursive: true });
+const fixture = createRemoteWorkspaceFixture(root);
+let browser: Browser | undefined; let page: Page | undefined; let server: HostApiServer | undefined;
+let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined; let sessions: BrowserSessions | undefined;
+void (async () => {
+  proxy = await mobileTlsProxy(); sessions = new BrowserSessions(fixture.devices);
+  server = new HostApiServer(fixture.application, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
+    authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, fixture.devices),
+    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
+  proxy.target((await server.start()).port);
+  browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, ignoreHTTPSErrors: true });
+  page = await context.newPage(); page.setDefaultTimeout(25_000);
+  const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(sessions.beginPairing(proxy.origin).url);
+  await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
+  const connected = () => page!.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor(); await connected();
+  await page.getByRole('button', { name: 'Verwalten', exact: true }).click();
+  const manager = page.getByRole('dialog', { name: 'Projekte und Agents verwalten', exact: true });
+  check('remote manager takes focus and displays useful ungranted state', await manager.evaluate((node) => node.contains(document.activeElement))
+    && await manager.getByRole('button', { name: 'Projekt erstellen', exact: true }).isDisabled());
+  fixture.devices.setAdminScopes(fixture.devices.activeDevices()[0]!.id, ['catalog:write', 'repositories:write']); await connected();
+  await manager.getByLabel('Projektname', { exact: true }).fill('Browser One');
+  await page.waitForFunction(() => !(Array.from(document.querySelectorAll('button')).find((item) => item.textContent === 'Projekt erstellen') as HTMLButtonElement | undefined)?.disabled);
+  await manager.getByRole('button', { name: 'Projekt erstellen', exact: true }).click();
+  await manager.getByLabel('Projektname', { exact: true }).waitFor();
+  await page.waitForFunction(() => (document.querySelector('input') as HTMLInputElement | null)?.value === '');
+  const first = fixture.store.get().repositories.find((item) => item.name === 'Browser One')!;
+  check('browser creates a real host-owned Git project', !!first && first.verified);
+  const adminKeys: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/admin/commands') adminKeys.push(request.headers()['idempotency-key'] ?? '');
+  });
+  proxy.loseAdminReplies(true);
+  await manager.getByLabel('Projektname', { exact: true }).fill('Browser Two');
+  await manager.getByRole('button', { name: 'Projekt erstellen', exact: true }).click();
+  await manager.getByRole('alert').waitFor();
+  proxy.loseAdminReplies(false);
+  await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Verwaltung öffnen', exact: true }).click();
+  await manager.getByRole('button', { name: 'Aktion erneut prüfen', exact: true }).click();
+  await manager.getByText('Bereits bestätigte Aktion wiederhergestellt.', { exact: true }).waitFor();
+  const second = fixture.store.get().repositories.find((item) => item.name === 'Browser Two')!;
+  check('lost provisioning reply retains its key across dialog close and replays once', adminKeys.length === 2 && !!adminKeys[0] && adminKeys[0] === adminKeys[1]
+    && fixture.store.get().repositories.filter((item) => item.name === 'Browser Two').length === 1);
+  await manager.getByLabel('Verwaltetes Projekt').selectOption(second.id);
+  check('second project is independent and immediately selectable', !!second && first.id !== second.id && await manager.getByLabel('Verwaltetes Projekt').inputValue() === second.id);
+  await manager.getByRole('button', { name: 'Agents', exact: true }).click();
+  await manager.getByLabel('Agentname', { exact: true }).fill('Browser Agent');
+  await manager.getByLabel('Agent-Vorlage', { exact: true }).selectOption('agent:builder');
+  await manager.getByRole('button', { name: 'Agent erstellen', exact: true }).click();
+  await page.waitForFunction(() => (document.querySelector('input') as HTMLInputElement | null)?.value === '');
+  const agent = fixture.store.get().agents.find((item) => item.name === 'Browser Agent')!;
+  check('browser creates an independent agent from host settings', !!agent && agent.id !== 'builder');
+  await manager.getByRole('button', { name: 'Projekte & Workspaces', exact: true }).click();
+  await manager.getByLabel('Verwaltetes Projekt').selectOption(first.id);
+  await manager.getByLabel('Workspace-Agent').selectOption(agent.id);
+  await manager.getByRole('button', { name: 'Workspace vorbereiten', exact: true }).click();
+  await manager.getByText('ADE führt die Aktion aus…', { exact: true }).waitFor({ state: 'hidden' });
+  const binding = fixture.store.get().workspaceBindings.find((item) => item.agentId === agent.id && item.repositoryId === first.id)!;
+  check('browser prepares a real isolated agent worktree', !!binding && binding.workspaceDir !== first.rootPath);
+  execFileSync('git', ['-C', first.rootPath, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false',
+    'commit', '--allow-empty', '-m', 'Advance browser project'], { windowsHide: true, stdio: 'ignore' });
+  await manager.getByRole('button', { name: 'Git-Abgleich', exact: true }).click();
+  await manager.getByRole('button', { name: 'Git-Zustand prüfen', exact: true }).click();
+  const update = manager.getByRole('button', { name: 'Update für Browser Agent prüfen', exact: true }); await update.waitFor();
+  check('browser Git comparison offers update for the behind worktree', await update.isEnabled());
+  await update.click(); const confirm = page.getByRole('dialog', { name: 'Git-Update bestätigen', exact: true });
+  check('Git preview confirmation takes focus and identifies target', await confirm.evaluate((node) => node.contains(document.activeElement))
+    && await confirm.getByText('Browser Agent', { exact: true }).isVisible());
+  await confirm.getByRole('button', { name: 'Fast-forward bestätigen', exact: true }).click();
+  await manager.getByText('ADE führt die Aktion aus…', { exact: true }).waitFor({ state: 'hidden' });
+  await manager.getByText('ADE hat die Aktion abgeschlossen.', { exact: true }).waitFor();
+  await page.waitForFunction(() => (Array.from(document.querySelectorAll('button')).find((item) => item.getAttribute('aria-label') === 'Update für Browser Agent prüfen') as HTMLButtonElement | undefined)?.disabled);
+  check('confirmed browser update advances the real worktree HEAD', execFileSync('git', ['-C', binding.workspaceDir, 'rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim()
+    === execFileSync('git', ['-C', first.rootPath, 'rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim());
+  writeFileSync(join(binding.workspaceDir, 'draft.txt'), 'preserve');
+  await manager.getByRole('button', { name: 'Git-Zustand prüfen', exact: true }).click();
+  await manager.getByText('1 uncommittete Änderungen. Zuerst prüfen und sichern.', { exact: true }).waitFor();
+  check('dirty workspace displays recovery guidance and blocks update', await update.isDisabled());
+  await manager.screenshot({ path: join(evidence, 'phone-git-blocked.png') });
+  rmSync(join(binding.workspaceDir, 'draft.txt'));
+  await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
+  check('manager close uses the focus fallback after its retry opener unmounts', await page.locator('#mobile-title').evaluate((node) => node === document.activeElement));
+  await page.getByRole('button', { name: 'Aufgabe in Browser One', exact: true }).click();
+  await page.getByLabel('Agent', { exact: true }).selectOption(agent.id);
+  await page.getByLabel('Aufgabe', { exact: true }).fill('Private draft for project one');
+  await page.getByLabel('Repository', { exact: true }).selectOption(second.id);
+  check('switching project starts a separate empty task draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
+  await page.getByLabel('Aufgabe', { exact: true }).fill('Private draft for project two');
+  await page.getByLabel('Repository', { exact: true }).selectOption(first.id);
+  check('returning to project restores its own draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Private draft for project one');
+  await page.getByLabel('Name (optional)', { exact: true }).fill('Work One');
+  await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true }).waitFor({ state: 'hidden' });
+  const inspector = page.getByRole('dialog', { name: 'Run-Details', exact: true }); if (await inspector.count()) await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByLabel('Repository', { exact: true }).selectOption(second.id);
+  check('submitted project does not clear another project draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Private draft for project two');
+  await page.getByLabel('Agent', { exact: true }).selectOption('reviewer');
+  await page.getByLabel('Name (optional)', { exact: true }).fill('Work Two');
+  await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true }).waitFor({ state: 'hidden' });
+  if (await inspector.count()) await page.keyboard.press('Escape');
+  for (let attempt = 0; fixture.sessions.length < 2 && attempt < 100; attempt++) await new Promise((done) => setTimeout(done, 50));
+  check('two projects launch work for two distinct agents through real domain/HTTP', fixture.sessions.length === 2 && fixture.sessions[0]!.agentId !== fixture.sessions[1]!.agentId
+    && fixture.sessions[0]!.repositoryId !== fixture.sessions[1]!.repositoryId);
+  await page.getByRole('button', { name: 'Verwalten', exact: true }).click();
+  await manager.getByLabel('Verwaltetes Projekt').selectOption(first.id);
+  await manager.getByLabel('Workspace-Agent').selectOption(agent.id);
+  await manager.getByRole('button', { name: 'Workspace vorbereiten', exact: true }).click();
+  await manager.getByRole('alert').filter({ hasText: 'Dieser Workspace wird gerade verwendet.' }).waitFor();
+  check('active workspace refusal explains how to recover and keeps both sessions', fixture.sessions.length === 2
+    && await manager.getByText(/Laufende Arbeit zuerst abschliessen/).isVisible());
+  await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
+  check('manager close restores its connected opener', await page.getByRole('button', { name: 'Verwalten', exact: true }).evaluate((node) => node === document.activeElement));
+  await page.getByRole('tab', { name: 'Work', exact: true }).click();
+  await page.getByLabel('Projektfilter', { exact: true }).selectOption(first.id);
+  check('project filter selects the matching run', await page.getByRole('button', { name: /Work One/ }).count() === 1 && await page.getByRole('button', { name: /Work Two/ }).count() === 0);
+  await page.getByLabel('Projektfilter', { exact: true }).selectOption('');
+  await page.getByLabel('Agentfilter', { exact: true }).selectOption('reviewer');
+  check('agent filter uses catalog identity across projects', await page.getByRole('button', { name: /Work Two/ }).count() === 1 && await page.getByRole('button', { name: /Work One/ }).count() === 0);
+  await page.setViewportSize({ width: 820, height: 1180 });
+  check('tablet project view has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: join(evidence, 'tablet-project-work.png'), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 568 });
+  check('small phone project view has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  check('private drafts are not persisted in browser preferences', await page.evaluate(() => !JSON.stringify(localStorage).includes('Private draft')));
+  check('remote workflow has no uncaught renderer errors', errors.length === 0);
+})().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'workspace-browser-failure.png'), fullPage: true }).catch(() => undefined); })
+  .finally(async () => {
+    await browser?.close(); sessions?.dispose(); await server?.stop(); await proxy?.close();
+    if (dirname(resolve(root)) !== resolve(tmpdir())) throw new Error('unexpected fixture root');
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    console.log(`\nRemote workspace browser: ${passed} passed, ${failed} failed`); if (failed) process.exitCode = 1;
+  });

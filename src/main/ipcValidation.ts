@@ -2,7 +2,7 @@
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isValidDeviceId } from './remote/authorization';
-import { isValidRemoteDeviceName } from '../shared/remoteDevices';
+import { isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
@@ -622,12 +622,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     }
     case IPC.RemoteDevicesRename:
+    case IPC.RemoteDevicesSetAdminScopes:
     case IPC.RemoteDevicesRevoke: {
       const request = record(channel, payload);
-      exactKeys(channel, request, channel === IPC.RemoteDevicesRename ? ['deviceId', 'name'] : ['deviceId']);
+      exactKeys(channel, request, channel === IPC.RemoteDevicesRename ? ['deviceId', 'name']
+        : channel === IPC.RemoteDevicesSetAdminScopes ? ['deviceId', 'scopes'] : ['deviceId']);
       const id = stringValue(channel, request.deviceId, 'deviceId', { min: 1, max: 64 });
       if (!isValidDeviceId(id)) invalid(channel, 'deviceId is invalid');
       if (channel === IPC.RemoteDevicesRename && !isValidRemoteDeviceName(request.name)) invalid(channel, 'name is invalid');
+      if (channel === IPC.RemoteDevicesSetAdminScopes && !isRemoteAdminScopes(request.scopes)) invalid(channel, 'scopes are invalid');
       return;
     }
     case IPC.WorkspaceBundlePreview: {

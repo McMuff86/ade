@@ -11,6 +11,7 @@
  */
 
 import type { InvokeChannel } from '../shared/ipc';
+import type { RemoteAdminScope } from '../shared/remoteDevices';
 
 /**
  * Highest privilege a handler exercises, ordered from least to most:
@@ -42,7 +43,7 @@ export type ChannelSurface = 'desktop' | 'shared';
  * authenticated listener client; `runs:write` only to a device identity that
  * the operator configured (Goal 7 bootstrap) or paired (Goal 8).
  */
-export type RemoteScope = 'read' | 'runs:write';
+export type RemoteScope = 'read' | 'runs:write' | RemoteAdminScope;
 
 /**
  * How a remote caller proves it may run this channel:
@@ -104,6 +105,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'mobileAccess:cancelPair': { ...mutate, audit: true },
   'remoteDevices:rename': { ...mutate, audit: true },
   'remoteDevices:revoke': { ...mutate, audit: true },
+  'remoteDevices:setAdminScopes': { ...mutate, audit: true },
   'config:save': mutate,
   'workspaceBundle:pickImport': host,
   'workspaceBundle:authorizeMappings': mutate,

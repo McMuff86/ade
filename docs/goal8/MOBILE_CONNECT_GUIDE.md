@@ -81,8 +81,36 @@ Neustart abschliessen oder gezielt beenden; ein Host-Neustart stoppt deren PTYs.
   manueller Wartung sichern und untersuchen; keine automatische Löschung.
 
 Die mobile Oberfläche zeigt den Run-/Aufgabenstatus und den Freigabebedarf.
-Detaillierte Ergebnisberichte, Diffs, Genehmigungen, Git-Sync, Publishing und
-Terminals bleiben im Desktop. Benachrichtigungen und Loginstart sind Folgegoals.
+Detaillierte Ergebnisberichte, Diffs, Genehmigungen, Publishing und Terminals
+bleiben im Desktop. Benachrichtigungen und Loginstart sind Folgegoals.
+
+**Remote-Verwaltung (Goals 12–15):** Nach Update/Build und einmaligem normalem
+Neustart in **Settings → Verbundene Geräte** die gewünschten Verwaltungsrechte
+für das gekoppelte Gerät anhaken und **Verwaltungsrechte speichern** wählen.
+Bestehende Geräte erhalten diese Rechte nicht automatisch. Nach der erneuten
+Verbindung bietet **Settings → ADE auf dem PC** den Fernneustart, sofern keine
+Arbeit läuft. Erfolg wird erst nach Erreichen der neuen Host-Instanz bestätigt.
+Dies ist für `pnpm start` auf nativem Windows geprüft; installierte Pakete und
+andere Startmodelle erhalten noch keine Neustartfreigabe.
+
+**Verwalten** öffnet die Projekt-/Agent-Verwaltung. **Neues Projekt** erstellt
+ein natives Git-Projekt in ADEs eigenem Projektordner; die erste Version
+initialisiert lokal und klont noch keine externen Repository-URLs. **Agents**
+legt einen neuen Agent aus einem Codex-Standardprofil oder vorhandenen
+Agent-/Template-Einstellungen an. **Workspace vorbereiten** verbindet den
+gewählten Agent mit einem isolierten Arbeitsordner im gewählten Projekt.
+
+Unter **Git-Abgleich** zuerst das Projekt und **Git-Zustand prüfen** wählen.
+**Änderungen abrufen** aktualisiert die origin-Informationen. Danach eine lokale
+oder origin-Basis wählen, **Update prüfen** und das konkrete **Fast-forward**
+bestätigen. Ungesicherte Änderungen, eigene Commits und laufende Arbeit zeigen
+einen Sperrgrund. Kein automatisches Zurücksetzen oder Pushen.
+
+**Work** und **Graph** filtern nach Projekt und Agent. Der Task-Slot-Zähler gilt
+über alle Projekte. Einzelaufgaben und Managed Runs halten je Projekt einen
+eigenen Entwurf im offenen Browser; Seitenneuladen oder lokales Trennen verwirft
+diese ungesendeten Texte. Bei unklarer Verwaltungsantwort **Aktion erneut prüfen**
+wählen; Offline-Aktionen werden nicht automatisch nachgesendet.
 
 Entwicklungstests: `pnpm exec playwright install chromium`, danach
 `pnpm test:mobile-access`, `pnpm test:mobile-browser`, `pnpm test:mobile-electron`

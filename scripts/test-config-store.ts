@@ -227,27 +227,29 @@ function run(): void {
     const plantedDir = join(scratch, 'planted');
     mkdirSync(plantedDir, { recursive: true });
     const plantedPath = join(plantedDir, 'config.json');
-    const victim = join(scratch, 'victim-outside-profile.json');
+    const victimDir = join(scratch, 'outside-profile');
+    mkdirSync(victimDir);
+    const victim = join(victimDir, 'victim.json');
     writeFileSync(victim, 'UNTOUCHED', 'utf8');
-    let symlinksUsable = true;
     try {
       symlinkSync(victim, plantedPath);
-    } catch {
-      // Unprivileged Windows without Developer Mode cannot create symlinks.
-      symlinksUsable = false;
+    } catch (error) {
+      if (process.platform !== 'win32' || (error as NodeJS.ErrnoException).code !== 'EPERM') throw error;
+      // Exercise the same no-follow boundary with an unprivileged Windows
+      // junction. This does not claim file-symlink coverage on this host.
+      symlinkSync(victimDir, plantedPath, 'junction');
+      console.log('  --  config link fixture uses a Windows junction (file symlinks unavailable)');
     }
-    if (symlinksUsable) {
+    {
       const store = new ConfigStore(plantedPath);
       store.save({ settings: { ...store.get().settings, theme: 'light' } });
-      check('a config.json that is a symlink is quarantined, never followed',
+      check('a linked config.json is quarantined, never followed',
         readFileSync(victim, 'utf8') === 'UNTOUCHED'
           && store.getLoadFailure()?.reason === 'unreadable'
           && quarantinedFiles(plantedPath).length === 1);
       check('the republished config is a plain file, not a link',
         !lstatSync(plantedPath).isSymbolicLink()
           && readFileSync(plantedPath, 'utf8').includes('"theme":"light"'));
-    } else {
-      console.log('  --  planted config symlink (skipped: symlinks need Developer Mode)');
     }
 
     /* ------------------------------------------------- catalog reconciliation */

@@ -20,6 +20,13 @@ managed runs on a graph.
 
 ## A tour
 
+**Remote projects** — the private Tailscale companion can create agents from
+host profiles, initialize projects and prepare isolated workspaces. Filter
+Work/Graph by project and agent, keep separate in-memory drafts, and preview
+Git updates. Desktop-granted device permissions also enable an idle-only ADE
+restart on native Windows source launches. [Setup and limits](docs/goal8/MOBILE_CONNECT_GUIDE.md)
+and [validation evidence](docs/REMOTE_WORKSPACE_RESULTS.md).
+
 **Git-Abgleich** — compare main and agent worktrees in Graph, the repository
 inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
 confirm a clean worktree's fast-forward. Dirty or divergent worktrees show why

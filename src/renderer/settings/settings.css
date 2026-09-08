@@ -346,3 +346,5 @@
 .st-mobile-pair { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 18px; }
 .st-mobile-pair canvas { width: 224px; height: 224px; border-radius: 8px; }
 .st-mobile-pair > div { flex: 1; min-width: min(260px, 100%); }
+.st-device-grants { display: grid; gap: 8px; min-width: 0; margin: 8px 0; padding: 10px; border: 1px solid var(--line); }
+.st-device-grants label { display: flex; gap: 8px; align-items: center; }

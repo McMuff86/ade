@@ -223,7 +223,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
   check('browser storage contains only appearance preferences, not private drafts', await page.evaluate(() => Object.keys(localStorage).every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key))));
-  check('all new views use only the existing remote contract', endpoints.every((path) => /^\/api\/v1\/(pair|session|health|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)));
+  check('ordinary views use only the signed catalog/run/host contract', endpoints.every((path) => /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'browser-failure.png'), fullPage: true }).catch(() => undefined); })

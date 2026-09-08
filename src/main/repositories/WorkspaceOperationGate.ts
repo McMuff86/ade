@@ -7,6 +7,7 @@ export class WorkspaceOperationBusyError extends Error {}
 export class WorkspaceOperationGate {
   private readers = 0;
   private writing = false;
+  busy(): boolean { return this.writing || this.readers > 0; }
   async use<T>(operation: () => Promise<T>): Promise<T> {
     if (this.writing) throw new WorkspaceOperationBusyError('ade: Git-Aktualisierung läuft. Danach erneut starten.');
     this.readers++;

@@ -52,6 +52,11 @@ import { RepositorySyncService } from './repositories/RepositorySyncService';
 import { DashboardWindows } from './dashboard/DashboardWindows';
 import { resolveDashboardUrl } from './dashboard/dashboardUrl';
 import { AdeApplicationService, JournalChangeHub } from './application/AdeApplicationService';
+import { HostOperationGate } from './application/HostOperationGate';
+import { HostRestartController } from './application/HostRestartController';
+import { RemoteCommandLedger } from './application/RemoteCommandLedger';
+import { RemoteWorkspaceService } from './application/RemoteWorkspaceService';
+import { workspaceOperations } from './repositories/WorkspaceOperationGate';
 import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
 import { MobileAccessController } from './remote/MobileAccessController';
@@ -76,6 +81,7 @@ let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
 let mobileAccess: MobileAccessController | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
+const hostOperations = new HostOperationGate();
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
@@ -117,7 +123,8 @@ function handleWithEvent<K extends keyof IpcInvokeMap>(
     assertIpcPayload(channel, payload);
     if (policy.audit) console.log(`[ade] ipc ${channel} effect=${policy.effect}`);
     try {
-      return await handler(payload, event);
+      return policy.effect === 'read' ? await handler(payload, event)
+        : await hostOperations.use(() => handler(payload, event), channel === IPC.RemoteDevicesRevoke || channel === IPC.RemoteDevicesSetAdminScopes);
     } catch (error) {
       console.error(`[ade] ipc ${channel} failed:`, redactedErrorDetail(error));
       throw toIpcError(error);
@@ -250,11 +257,32 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RemoteDevicesList, () => remoteDevices.inventory());
   handle(IPC.RemoteDevicesRename, ({ deviceId, name }) => remoteDevices.rename(deviceId, name));
   handle(IPC.RemoteDevicesRevoke, ({ deviceId }) => remoteDevices.revoke(deviceId));
+  handle(IPC.RemoteDevicesSetAdminScopes, ({ deviceId, scopes: grants }) => remoteDevices.setAdminScopes(deviceId, grants));
+  const restart = new HostRestartController(hostOperations, () => {
+    const reasons: string[] = [];
+    if (ptyManager?.list().some((session) => session.status === 'running')) reasons.push('Ein Terminal oder Agent-Prozess läuft.');
+    const queue = ptyManager?.queueStatus();
+    if (queue && (queue.active > 0 || queue.queued > 0)) reasons.push('Aufgaben laufen oder warten auf einen Task-Slot.');
+    if (store.get().runs.some((run) => run.status === 'running')) reasons.push('Ein Run ist noch aktiv.');
+    if (workspaceOperations.busy()) reasons.push('Ein Workspace wird vorbereitet oder aktualisiert.');
+    return reasons;
+  }, () => {
+    // Keep the app's local arguments, without launcher-only instrumentation
+    // (Playwright's loader otherwise holds the new ready event indefinitely).
+    app.relaunch({ args: process.argv.slice(1) });
+    app.quit();
+  }, app.getVersion(), process.platform === 'win32' && !app.isPackaged && !process.env['ELECTRON_RENDERER_URL'] && !hostApiConfig.enabled);
+  const ledger = new RemoteCommandLedger(join(app.getPath('userData'), 'ade', 'remote', 'commands.json'),
+    (entry) => remoteDevices.audit(entry),
+    (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
   const application = new AdeApplicationService(
     store,
     orchestration,
     { status: () => ptyManager!.queueStatus() },
     {
+      activity: hostOperations,
+      administration: { ledger, restart, git: repositorySync,
+        workspaces: new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution) },
       // The same coordinator/service methods the desktop IPC handlers call
       // below; the remote path adds nothing the renderer could not do, it
       // only reaches fewer channels.

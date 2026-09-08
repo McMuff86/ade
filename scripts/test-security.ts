@@ -69,6 +69,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'mobileAccess:cancelPair': undefined,
   'remoteDevices:rename': { deviceId: 'phone-1', name: 'Mein Telefon' },
   'remoteDevices:revoke': { deviceId: 'phone-1' },
+  'remoteDevices:setAdminScopes': { deviceId: 'phone-1', scopes: ['host:restart'] },
   'config:save': { settings: { theme: 'dark' } },
   'workspaceBundle:pickImport': undefined,
   'workspaceBundle:authorizeMappings': {

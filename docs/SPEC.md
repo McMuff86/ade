@@ -355,3 +355,18 @@ agent". One-command install.
   human merge remain authoritative.
 - Windows beta distribution is an x64 installer; signing is required for a
   trusted release but local verification artifacts may be unsigned.
+
+## Remote workspace administration — operator goals 12–15
+
+Remote ADE administration is opt-in per paired device, granted from Settings
+on the host. A permitted device can request an explicit ADE restart; the host
+refuses while work or host operations are active and the client confirms the
+new authenticated instance after reconnect. Pairing survives. The operation
+restarts ADE only and does not install updates or restart Windows.
+
+Goals 13–15 add bounded creation of agents from host-configured settings,
+ADE-owned projects and isolated agent workspaces, previewed Git synchronization,
+and project/agent filtering with independent in-memory drafts. Acceptance and
+current delivery state: `REMOTE_WORKSPACE_GOALS.md`; executable evidence:
+`REMOTE_WORKSPACE_RESULTS.md`. These are not arbitrary filesystem/config/shell
+access, automatic Git reset/push or the separate Goal 9 approval contract.

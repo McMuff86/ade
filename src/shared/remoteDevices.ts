@@ -1,9 +1,19 @@
+export const REMOTE_ADMIN_SCOPES = ['host:restart', 'catalog:write', 'repositories:write'] as const;
+export type RemoteAdminScope = typeof REMOTE_ADMIN_SCOPES[number];
+export function isRemoteAdminScopes(value: unknown): value is RemoteAdminScope[] {
+  return Array.isArray(value) && value.length <= REMOTE_ADMIN_SCOPES.length
+    && new Set(value).size === value.length
+    && value.every((scope) => (REMOTE_ADMIN_SCOPES as readonly unknown[]).includes(scope));
+}
+
 /** Desktop-only inventory. Device credentials never cross IPC or profile export. */
 export interface RemoteDeviceInfo {
   id: string;
   name: string;
   createdAt: number;
   revokedAt: number | null;
+  /** Missing on old stores: no administrative permissions. Granted only at the desktop. */
+  adminScopes?: RemoteAdminScope[];
 }
 
 export interface RemoteDeviceInventory {

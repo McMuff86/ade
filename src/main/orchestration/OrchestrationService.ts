@@ -584,6 +584,7 @@ export class OrchestrationService {
         participants: participants.map((participant) => ({
           id: participant.id,
           agentName: participant.agentName,
+          agentId: participant.agentId,
           role: participant.role,
           teamId: participant.teamId,
           teamName: participant.teamName,

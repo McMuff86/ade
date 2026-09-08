@@ -5,6 +5,9 @@ import { Dialog, Empty, finalStates, Icon, Status, VIEWS, type View } from './ui
 import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
+import { HostRestartSection } from './HostRestartSection';
+import { RemoteManager, useRemoteAdministration } from './RemoteManager';
+import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
 import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkComposer';
 import { Avatar } from '../renderer/rail/Avatar';
 import '../renderer/theme/tokens.css';
@@ -19,11 +22,18 @@ function pairFragment(): string {
 
 function MobileApp(): JSX.Element {
   const host = useMobileHost();
+  const admin = useRemoteAdministration(host);
+  const [management, setManagement] = useState(false);
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
   const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' ? value : 'overview'; });
-  const [draft, setDraft] = useState<WorkDraft>(emptyDraft);
+  const [draftState, setDraftState] = useState(() => initialProjectDraft(emptyDraft()));
+  const draft = draftState.drafts[draftState.active]!;
+  const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
+    updateProjectDraft(current, typeof value === 'function' ? value(current.drafts[current.active]!) : value));
+  const [projectFilter, setProjectFilter] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
   const [composer, setComposer] = useState(false);
   const [settings, setSettings] = useState(false);
   const [selected, setSelected] = useState<{ runId: string; participantId: string | null } | null>(null);
@@ -49,7 +59,8 @@ function MobileApp(): JSX.Element {
   useEffect(() => {
     if (previousIdentity.current === host.identityVersion) return;
     previousIdentity.current = host.identityVersion;
-    setDraft(emptyDraft()); setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false);
+    setDraftState(initialProjectDraft(emptyDraft())); setProjectFilter(''); setAgentFilter('');
+    setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false); setManagement(false);
   }, [host.identityVersion]);
   useEffect(() => {
     if (!host.catalog) return;
@@ -61,9 +72,10 @@ function MobileApp(): JSX.Element {
   }, [host.catalog]);
 
   const runs = [...host.runs].sort((a, b) => b.updatedAt - a.updatedAt);
+  const visibleRuns = filterProjectRuns(runs, projectFilter, agentFilter);
   const selectedRun = runs.find((run) => run.id === selected?.runId);
-  const graphRun = runs.find((run) => run.id === graphRunId) ?? runs[0];
-  const filtered = runs.filter((run) => (filter === 'all' || (filter === 'open') === !finalStates.has(run.status))
+  const graphRun = visibleRuns.find((run) => run.id === graphRunId) ?? visibleRuns[0];
+  const filtered = visibleRuns.filter((run) => (filter === 'all' || (filter === 'open') === !finalStates.has(run.status))
     && `${run.name} ${run.repositoryName ?? ''} ${run.participants.map((participant) => participant.agentName).join(' ')}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const select = (runId: string, participantId: string | null = null) => {
     inspectorOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -77,21 +89,26 @@ function MobileApp(): JSX.Element {
   };
   const navigate = (next: View) => { setView(next); setSelected(null); };
   const newWork = (mode: WorkDraft['mode'], agentId?: string, repositoryId?: string) => {
-    setDraft((current) => ({ ...current, mode,
-      ...(agentId ? { agentIds: [agentId] } : mode === 'task' ? { agentIds: current.agentIds.slice(0, 1) } : {}),
-      ...(repositoryId ? { repositoryId } : {}) })); setComposer(true);
+    setDraftState((current) => {
+      const active = current.drafts[current.active]!;
+      return selectProjectDraft(current, { ...active, mode, repositoryId: repositoryId ?? (projectFilter || active.repositoryId),
+        agentIds: mode === 'task' ? active.agentIds.slice(0, 1) : active.agentIds }, agentId);
+    }); setComposer(true);
   };
   const send = async (command: PendingCommand) => {
     const result = await host.send(command); if (!result) return;
     if (command.path === '/api/v1/tasks' || command.path === '/api/v1/runs') {
-      setDraft((current) => ({ ...current, name: '', prompt: '' })); setComposer(false); setView('graph'); setGraphRunId(result.run.id);
+      const submitted = command.payload as { repositoryId: string; prompt?: string; goal?: string; name?: string };
+      setDraftState((current) => completeProjectDraft(current, submitted.repositoryId, command.path === '/api/v1/tasks' ? 'task' : 'run',
+        submitted.prompt ?? submitted.goal ?? '', submitted.name ?? ''));
+      setProjectFilter(''); setAgentFilter(''); setComposer(false); setView('graph'); setGraphRunId(result.run.id);
     }
     select(result.run.id);
   };
   const inspector = selectedRun && <RunInspector run={selectedRun} participantId={selected?.participantId ?? null} host={host} onSend={(command) => void send(command)} focusVersion={focusVersion} />;
 
   return <div className="m-app" onKeyDown={(event) => {
-    if (event.key === 'Escape' && selected && !composer && !settings && !compact) { event.preventDefault(); clearSelection(); }
+    if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Overview">ade<span>_</span></button>
       <span className="m-titlebar-sub">agentic development environment</span>
@@ -109,6 +126,7 @@ function MobileApp(): JSX.Element {
       {host.notice && <p className="m-notice" role="status">{host.notice}<button aria-label="Hinweis schliessen" onClick={host.dismissNotice}><Icon name="close" /></button></p>}
       {host.paired && host.status !== 'online' && <p className="m-notice">Verbindung zum PC wird wiederhergestellt. Angezeigte Daten können veraltet sein; dein Entwurf bleibt erhalten.</p>}
       {!composer && <PendingNotice host={host} onRetry={(command) => void send(command)} />}
+      {admin.pending && !management && <p className="m-notice">Eine Verwaltungsaktion ist noch nicht bestätigt. <button onClick={() => setManagement(true)}>Verwaltung öffnen</button></p>}
     </div>
     {host.paired === null ? <main className="m-pair"><p role="status">Geräteverbindung wird geladen…</p></main> : !host.paired ? <main className="m-pair">
       <div className="m-pair-mark">ade<span>_</span></div><h1>Mit deinem PC verbinden</h1><p>Tailscale auf diesem Gerät verbinden. In ADE am PC unter Einstellungen → Mobiler Zugriff einen Pairing-Code erstellen.</p>
@@ -122,12 +140,17 @@ function MobileApp(): JSX.Element {
         </form></section>
     </main> : <>
       <div className="m-toolbar"><div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
-        {!runs.length && <option value="">Kein Run</option>}{runs.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : 'Work'}</h1>}
+        {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : 'Work'}</h1>}
         {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
-        <div className="m-toolbar-actions">{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
+        <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
           <button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
           <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></div>
       </div>
+      {view !== 'overview' && <div className="m-project-filters"><label>Projektfilter<select aria-label="Projektfilter" value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value); setSelected(null); }}>
+        <option value="">Alle Projekte</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
+        <label>Agentfilter<select aria-label="Agentfilter" value={agentFilter} onChange={(event) => { setAgentFilter(event.target.value); setSelected(null); }}><option value="">Alle Agents</option>
+          {host.catalog?.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
+        <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} offene Runs in dieser Auswahl · Task-Slots gelten für alle Projekte.</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'overview' ? <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={(id) => newWork('task', id)} onProject={(id) => newWork('task', undefined, id)} />
@@ -144,12 +167,14 @@ function MobileApp(): JSX.Element {
       <footer className="m-statusbar"><span className="m-slot-status"><span className="m-live-dot" />Task-Slots {host.health ? `${host.health.queue.active}/${host.health.queue.maxActive}` : '—'}</span>
         <span className="m-last-seen">{host.lastSeen ? `Bestätigt ${new Date(host.lastSeen).toLocaleTimeString()}` : 'Warte auf den PC'}</span><button onClick={host.reconnect}><Icon name="refresh" /><span>Erneut verbinden</span></button></footer>
     </>}
-    {inspector && compact && !composer && !settings && <Dialog title="Run-Details" onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
+    {inspector && compact && !composer && !settings && !management && <Dialog title="Run-Details" onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}
+    {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title"><section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />Dark</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />Light</label></div></section>
       <section className="m-settings-section"><h3>Verbindung</h3><p>Privat über Tailscale. PC eingeschaltet und ADE geöffnet lassen.</p><p>Als App nutzen: Im Browser „Zum Home-Bildschirm“ oder „App installieren“ wählen.</p>
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>Dieses Gerät lokal trennen</button><p className="m-field-note">Zum vollständigen Widerruf: Gerät in ADE am PC entfernen.</p></>}</section>
+      {host.paired && <HostRestartSection host={host} />}
       <section className="m-settings-section"><h3>Auf deinem PC</h3><p>Terminals, Dateien, Git-Abgleich, detaillierte Ergebnisse und Freigaben in der Desktop-App öffnen.</p></section>
     </Dialog>}
   </div>;

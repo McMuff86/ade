@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   linkSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync,
-  symlinkSync, writeFileSync,
+  symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -780,16 +780,22 @@ function testProfileSourceBoundaries(): void {
     mkdirSync(outside, { recursive: true });
     const outsideConfig = join(outside, 'config.json');
     writeFileSync(outsideConfig, `${JSON.stringify(sampleConfig())}\n`, 'utf8');
-    symlinkSync(outsideConfig, join(adeDir, 'config.json'));
-    rejects('profile migration rejects a symlinked config.json',
+    try {
+      symlinkSync(outsideConfig, join(adeDir, 'config.json'));
+    } catch (error) {
+      if (process.platform !== 'win32' || (error as NodeJS.ErrnoException).code !== 'EPERM') throw error;
+      symlinkSync(outside, join(adeDir, 'config.json'), 'junction');
+      console.log('  --  profile link fixture uses a Windows junction (file symlinks unavailable)');
+    }
+    rejects('profile migration rejects a linked config.json',
       () => exportProfileWorkspaceBundle(selected, {
         sourcePlatform: 'linux', exportedAt: '2026-07-31T10:00:00.000Z',
       }), /symlink|profile|config/i);
 
-    rmSync(join(adeDir, 'config.json'));
+    unlinkSync(join(adeDir, 'config.json'));
     writeFileSync(join(adeDir, 'config.json'), `${JSON.stringify(sampleConfig())}\n`, 'utf8');
     writeFileSync(join(outside, 'builder.png'), PNG);
-    symlinkSync(outside, join(adeDir, 'photos'));
+    symlinkSync(outside, join(adeDir, 'photos'), process.platform === 'win32' ? 'junction' : 'dir');
     const escaped = exportProfileWorkspaceBundle(selected, {
       sourcePlatform: 'linux', exportedAt: '2026-07-31T10:00:00.000Z', includePhotos: true,
     });
@@ -801,16 +807,16 @@ function testProfileSourceBoundaries(): void {
     mkdirSync(outsideMemory, { recursive: true });
     writeFileSync(join(outsideMemory, 'MEMORY.md'), 'must not escape\n');
     writeFileSync(join(outsideMemory, 'USER.md'), 'must not escape\n');
-    symlinkSync(outside, join(adeDir, 'agents'));
+    symlinkSync(outside, join(adeDir, 'agents'), process.platform === 'win32' ? 'junction' : 'dir');
     const escapedMemory = exportProfileWorkspaceBundle(selected, {
       sourcePlatform: 'linux', exportedAt: '2026-07-31T10:00:00.000Z', includeMemory: true,
     });
     check('profile migration refuses a symlinked managed agents root',
       escapedMemory.bundle.agents[0]?.memory?.memory === ''
         && escapedMemory.bundle.agents[0]?.memory?.user === '');
-    rmSync(join(adeDir, 'agents'));
+    unlinkSync(join(adeDir, 'agents'));
 
-    rmSync(join(adeDir, 'photos'));
+    unlinkSync(join(adeDir, 'photos'));
     mkdirSync(join(adeDir, 'photos'));
     linkSync(join(outside, 'builder.png'), join(adeDir, 'photos', 'builder.png'));
     const hardLinked = exportProfileWorkspaceBundle(selected, {

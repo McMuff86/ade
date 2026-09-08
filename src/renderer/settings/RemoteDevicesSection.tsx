@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { RemoteDeviceInventory } from '../../shared/remoteDevices';
+import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from '../../shared/remoteDevices';
+
+const scopeLabels: Record<RemoteAdminScope, string> = {
+  'host:restart': 'ADE neu starten', 'catalog:write': 'Agents und Projekte erstellen', 'repositories:write': 'Git abrufen und Workspaces aktualisieren',
+};
 
 export function RemoteDevicesSection(): JSX.Element {
   const [inventory, setInventory] = useState<RemoteDeviceInventory | null>(null);
@@ -7,9 +12,10 @@ export function RemoteDevicesSection(): JSX.Element {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [grantDrafts, setGrantDrafts] = useState<Record<string, RemoteAdminScope[]>>({});
   const refreshButton = useRef<HTMLButtonElement>(null);
   const nameInputs = useRef(new Map<string, HTMLInputElement>());
-  const pendingFocus = useRef<{ id: string; action: 'rename' | 'revoke' } | null>(null);
+  const pendingFocus = useRef<{ id: string; action: 'rename' | 'revoke' | 'permissions' } | null>(null);
 
   useLayoutEffect(() => {
     if (busy || !pendingFocus.current) return;
@@ -26,12 +32,13 @@ export function RemoteDevicesSection(): JSX.Element {
       const next = await window.ade.invoke('remoteDevices:list');
       setInventory(next);
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
+      setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
     } catch { setError('Geräte konnten nicht geladen werden. Bitte erneut versuchen.'); }
     finally { setBusy(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const change = async (id: string, action: 'rename' | 'revoke'): Promise<void> => {
+  const change = async (id: string, action: 'rename' | 'revoke' | 'permissions'): Promise<void> => {
     if (busy) return;
     setBusy(true);
     setError('');
@@ -39,10 +46,14 @@ export function RemoteDevicesSection(): JSX.Element {
     try {
       const next = action === 'rename'
         ? await window.ade.invoke('remoteDevices:rename', { deviceId: id, name: drafts[id]!.trim() })
-        : await window.ade.invoke('remoteDevices:revoke', { deviceId: id });
+        : action === 'permissions'
+          ? await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: id, scopes: grantDrafts[id] ?? [] })
+          : await window.ade.invoke('remoteDevices:revoke', { deviceId: id });
       setInventory(next);
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
-      setMessage(action === 'rename' ? 'Gerätename gespeichert.' : 'Gerätezugriff widerrufen. Verbindungen wurden beendet.');
+      setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
+      setMessage(action === 'rename' ? 'Gerätename gespeichert.' : action === 'permissions'
+        ? 'Verwaltungsrechte gespeichert. Das Gerät verbindet sich erneut.' : 'Gerätezugriff widerrufen. Verbindungen wurden beendet.');
     } catch {
       setError('Änderung konnte nicht bestätigt werden. Geräte aktualisieren und erneut prüfen.');
     } finally {
@@ -82,6 +93,17 @@ export function RemoteDevicesSection(): JSX.Element {
                   aria-label={`Zugriff für ${device.name} widerrufen`} onClick={() => void change(device.id, 'revoke')}>Gerät entfernen</button>
               </form>
             ) : <strong>{device.name} · Zugriff widerrufen</strong>}
+            {device.revokedAt === null && <fieldset disabled={busy || !inventory.available} className="st-device-grants">
+              <legend>Verwaltungsrechte für {device.name}</legend>
+              {REMOTE_ADMIN_SCOPES.map((scope) => <label key={scope}><input type="checkbox"
+                checked={(grantDrafts[device.id] ?? []).includes(scope)} onChange={(event) => {
+                  const checked = event.target.checked;
+                  setGrantDrafts((current) => ({ ...current, [device.id]: checked
+                    ? [...current[device.id] ?? [], scope] : (current[device.id] ?? []).filter((item) => item !== scope) }));
+                }} />{scopeLabels[scope]}</label>)}
+              <button type="button" className="btn" onClick={() => void change(device.id, 'permissions')}
+                disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())}>Verwaltungsrechte speichern</button>
+            </fieldset>}
             <p className="st-device-hint">{device.id} · Hinzugefügt {new Date(device.createdAt).toLocaleDateString()}
               {device.revokedAt !== null && ` · Widerrufen ${new Date(device.revokedAt).toLocaleDateString()}`}</p>
           </li>

@@ -19,6 +19,7 @@ import { BackendGitService } from '../execution/BackendGitService';
 import { BackendWorkspaceService } from '../execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { workspaceOperations } from './WorkspaceOperationGate';
+import { assertNoLinks } from './pathDiscipline';
 
 export interface RepositoryConfigPort {
   get(): AdeConfig;
@@ -319,6 +320,9 @@ export class RepositoryScopeService implements RepositoryScopePort {
     const worktreePath = backend === NATIVE_EXECUTION_BACKEND
       ? join(this.worktreeRootFor(repository), repoSlug, agentSlug)
       : posix.join(this.worktreeRootFor(repository), repoSlug, agentSlug);
+    if (backend === NATIVE_EXECUTION_BACKEND) {
+      assertNoLinks(worktreePath); assertNoLinks(join(repository.rootPath, '.git')); assertNoLinks(repository.commonGitDir);
+    }
     const conflictingBinding = this.store.get().workspaceBindings.find(
       (candidate) => candidate.status !== 'invalid'
         && normalizeExecutionBackendId(candidate.executionBackend) === backend
@@ -333,6 +337,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
     let createdBranch = inspection.branch;
     let createdInThisAttempt = false;
     if (!inspection.isRepo) {
+      if (backend === NATIVE_EXECUTION_BACKEND) assertNoLinks(worktreePath);
       const result = await this.git.createWorktree(backend, {
         repoPath: repository.rootPath,
         agentSlug,
@@ -356,6 +361,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       throw new Error('ade: created worktree does not belong to the selected repository');
     }
     const now = Date.now();
+    if (backend === NATIVE_EXECUTION_BACKEND) assertNoLinks(inspection.workspaceDir);
     const binding: WorkspaceBinding = {
       id,
       agentId: agent.id,
@@ -434,7 +440,9 @@ export class RepositoryScopeService implements RepositoryScopePort {
       this.markBindingInvalid(binding.id);
       throw new Error('ade: workspace binding backend no longer matches its repository');
     }
+    if (backend === NATIVE_EXECUTION_BACKEND) assertNoLinks(join(binding.workspaceDir, '.git'));
     const inspection = await this.workspacesFor(backend).inspect(binding.workspaceDir);
+    if (backend === NATIVE_EXECUTION_BACKEND) assertNoLinks(join(binding.workspaceDir, '.git'));
     if (!inspection.isRepo
         || !samePath(this.execution, backend, inspection.commonGitDir, repository.commonGitDir)) {
       this.markBindingInvalid(binding.id);
@@ -482,6 +490,9 @@ export class RepositoryScopeService implements RepositoryScopePort {
   private async requireVerifiedRepository(repositoryId: string): Promise<Repository> {
     const repository = this.store.get().repositories.find((candidate) => candidate.id === repositoryId);
     if (!repository) throw new Error(`ade: repository not found "${repositoryId}"`);
+    if (repositoryBackend(repository) === NATIVE_EXECUTION_BACKEND) {
+      assertNoLinks(join(repository.rootPath, '.git')); assertNoLinks(repository.commonGitDir);
+    }
     const identity = await this.git.identity(repositoryBackend(repository), repository.rootPath);
     const verified = this.verifiedRepository(repository, identity);
     if (!sameRepository(repository, verified)) {

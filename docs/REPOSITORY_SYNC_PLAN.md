@@ -86,15 +86,18 @@ hostile fetch refspecs, ignored-file protection and disabled hooks.
 New Run, keyboard confirmation, late edits, offline recovery and restart.
 Both are included in `pnpm verify`. No personal repository is mutated by tests.
 
-## Mobile follow-up
+## Mobile administration — Goal 14 (2026-09-08)
 
-Git comparison DTOs contain repository/binding ids, refs, SHAs and counts, with
-no host paths. They remain desktop-only; no Git mutation is exposed through the
-host API and no mobile capability is implied by the DTO shape.
+The four desktop invokes retain their desktop-only classification. Goal 14
+adds a separately scoped application boundary over the same sync service:
+`POST /api/v1/admin/git` accepts bounded overview/preview queries;
+`POST /api/v1/admin/commands` accepts explicit `git-fetch` and `git-apply`
+operations. Signed device/session/CSRF checks apply, mutations additionally
+require `repositories:write`, a durable idempotency receipt and audit.
 
-Next, build on the existing durable device inventory: a short-lived one-use
-desktop pairing invitation, visible desktop approval of device identity/scopes,
-encrypted persistence and existing revoke/disconnect behavior. Then verify the
-private transport/session contract and PWA connect/reconnect flow described in
-`REMOTE_CONTROL_PLAN.md`. QR pairing, mobile approval, Tailscale exposure and a
-mobile Git UI remain planned, not executable features of this change.
+The mobile **Verwalten → Git-Abgleich** view exposes redacted names, refs, SHAs,
+counts, measured fetch freshness and blockers. Preview ownership is bound to
+the device as well as the existing target/source/drift checks. Dirty/divergent,
+detached, leased or busy targets cannot be updated. Native projects only;
+remote publishing/approval and other deployment-model acceptance are separate.
+Evidence and final-gate state: `REMOTE_WORKSPACE_RESULTS.md`.

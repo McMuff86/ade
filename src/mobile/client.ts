@@ -2,7 +2,7 @@ import type { MobileSessionInfo } from '../shared/remote';
 
 interface Credential { id: string; key: CryptoKey }
 export class MobileClientError extends Error {
-  constructor(readonly code: string, readonly status = 0) { super(code); }
+  constructor(readonly code: string, readonly status = 0, detail?: string) { super(detail ?? code); }
 }
 const encoder = new TextEncoder();
 const hex = (bytes: ArrayBuffer): string => Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -150,8 +150,9 @@ export class MobileClient {
 
   private async check(response: Response): Promise<void> {
     if (response.ok) return;
-    const body = await response.json().catch(() => ({})) as { error?: string };
+    const body = await response.json().catch(() => ({})) as { error?: string; message?: string };
     if (body.error === 'unauthorized') this.session = null;
-    throw new MobileClientError(body.error ?? 'host_unavailable', response.status);
+    throw new MobileClientError(body.error ?? 'host_unavailable', response.status,
+      typeof body.message === 'string' ? body.message.slice(0, 1000) : undefined);
   }
 }

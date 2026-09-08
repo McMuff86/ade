@@ -15,6 +15,11 @@ import type {
   MobileCommandResult,
   MobileErrorCode,
   MobileHealth,
+  MobileHostState,
+  MobileRestartResult,
+  MobileAdminCommand,
+  MobileAdministrationResult,
+  MobileGitResult,
   MobileJournalEvent,
   MobileJournalMessage,
   MobileJournalPage,
@@ -28,6 +33,13 @@ import { assertIpcPayload } from '../ipcValidation';
 import { CHANNEL_POLICY, REMOTE_COMMAND_CHANNELS, type RemoteAccess } from '../ipcPolicy';
 import { redactForWire, redactedWireMessage } from '../errors';
 import { isValidIdempotencyKey, type RemotePrincipal } from '../remote/authorization';
+import type { HostRestartController } from './HostRestartController';
+import type { RemoteCommandLedger } from './RemoteCommandLedger';
+import type { HostOperationGate } from './HostOperationGate';
+import type { RemoteWorkspaceService } from './RemoteWorkspaceService';
+import type { RepositorySyncService } from '../repositories/RepositorySyncService';
+import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
+import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
 
 export interface ApplicationConfigPort {
   get(): AdeConfig;
@@ -79,6 +91,8 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  activity?: HostOperationGate;
+  administration?: { ledger: RemoteCommandLedger; restart: HostRestartController; workspaces?: RemoteWorkspaceService; git?: RepositorySyncService };
   commands?: ApplicationCommandPort;
   changes?: ApplicationChangeSource;
   /** Whether any principal can currently hold `runs:write` (health projection). */
@@ -170,12 +184,13 @@ export class AdeApplicationService {
   private readonly auditRing: RemoteAuditEntry[] = [];
   /** Same-key requests that arrive while the first is still executing. */
   private readonly inFlight = new Map<string, { commandId: string; result: Promise<MobileCommandResult> }>();
+  private readonly gitPreviewOwners = new Map<string, { deviceId: string; expiresAt: number }>();
 
   constructor(
     private readonly store: ApplicationConfigPort,
     private readonly runsPort: ApplicationRunPort,
     private readonly queuePort: ApplicationQueuePort,
-    options: ApplicationOptions = {},
+    private readonly options: ApplicationOptions = {},
   ) {
     this.commands = options.commands ?? null;
     this.changes = options.changes ?? null;
@@ -201,9 +216,103 @@ export class AdeApplicationService {
     };
   }
 
+  hostState(principal: RemotePrincipal): MobileHostState {
+    const admin = this.options.administration;
+    if (!admin) throw new RemoteApiError(404, 'not_found');
+    let canRestart = false;
+    try { admin.ledger.permits({ principal, idempotencyKey: undefined, requestId: 'host-state' }, 'host:restart'); canRestart = true; }
+    catch { /* Existing devices can inspect availability without gaining privileges. */ }
+    return { ...admin.restart.state(canRestart), capabilities: REMOTE_ADMIN_SCOPES.filter((scope) => {
+      try { admin.ledger.permits({ principal, idempotencyKey: undefined, requestId: 'host-state' }, scope); return true; } catch { return false; }
+    }) };
+  }
+
+  async restartHost(context: RemoteCommandContext, payload: unknown): Promise<MobileRestartResult> {
+    const admin = this.options.administration;
+    if (!admin) throw new RemoteApiError(404, 'not_found');
+    admin.ledger.permits(context, 'host:restart');
+    const input = requireRecord(payload, 'request'); requireKeys(input, ['instanceId'], 'request');
+    const instanceId = requireId(input.instanceId, 'instanceId');
+    let operationId: string | undefined;
+    try {
+      const receipt = await admin.ledger.execute(context, 'host:restart', 'host:restart', { instanceId }, () => {
+        const result = admin.restart.reserve(instanceId); operationId = result.operationId; return result;
+      });
+      if (!receipt.replayed) admin.restart.commit(receipt.value.operationId, () => {
+        try { admin.ledger.permits(context, 'host:restart'); return true; } catch { return false; }
+      });
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (operationId) admin.restart.cancel(operationId); throw error; }
+  }
+
+  async administer(context: RemoteCommandContext, payload: unknown): Promise<MobileAdministrationResult> {
+    const admin = this.options.administration;
+    if (!admin) throw new RemoteApiError(404, 'not_found');
+    const command = validateAdministration(payload);
+    const scope = command.operation.startsWith('git-') ? 'repositories:write' : 'catalog:write';
+    const receipt = await admin.ledger.execute(context, `admin:${command.operation}`, scope, command, () => {
+      const execute = async () => {
+        if (command.operation === 'git-fetch') {
+          this.requireNativeRemoteRepository(command.input.repositoryId);
+          if (!admin.git) throw new RemoteApiError(404, 'not_found');
+          return { git: projectGit(await admin.git.fetch(command.input.repositoryId)) };
+        }
+        if (command.operation === 'git-apply') {
+          const owner = this.gitPreviewOwners.get(command.input.previewId);
+          if (!admin.git || !owner || owner.deviceId !== context.principal.id || owner.expiresAt < Date.now()) {
+            throw new RemoteApiError(409, 'command_rejected', 'Git-Vorschau abgelaufen oder für ein anderes Gerät erstellt. Erneut prüfen.');
+          }
+          this.gitPreviewOwners.delete(command.input.previewId);
+          return { git: projectGit(await admin.git.apply(command.input.previewId)) };
+        }
+        if (!admin.workspaces) throw new RemoteApiError(404, 'not_found');
+        return admin.workspaces.execute(command);
+      };
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    return { ...receipt.value, replayed: receipt.replayed };
+  }
+
+  async queryGit(context: RemoteCommandContext, payload: unknown): Promise<MobileGitResult> {
+    const admin = this.options.administration;
+    if (!admin?.git) throw new RemoteApiError(404, 'not_found');
+    if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature'
+      || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    const request = requireRecord(payload, 'request');
+    requireKeys(request, ['operation', 'repositoryId', 'sourceRef', 'targetId'], 'request');
+    const repositoryId = requireId(request.repositoryId, 'repositoryId'); this.requireNativeRemoteRepository(repositoryId);
+    const sourceRef = request.sourceRef === undefined ? undefined : requireText(request.sourceRef, 'sourceRef', 300);
+    if (sourceRef !== undefined && !validSyncRef(sourceRef)) invalidPayload('sourceRef is invalid');
+    if (request.operation === 'git-overview') {
+      if (request.targetId !== undefined) invalidPayload('targetId is not accepted for an overview');
+      return { overview: projectGit(await admin.git.overview({ repositoryId, sourceRef })) };
+    }
+    if (request.operation !== 'git-preview') invalidPayload('unknown query operation');
+    admin.ledger.permits(context, 'repositories:write');
+    const preview = await admin.git.preview({ repositoryId, sourceRef, targetId: requireId(request.targetId, 'targetId') });
+    for (const [id, owner] of this.gitPreviewOwners) if (owner.expiresAt < Date.now()) this.gitPreviewOwners.delete(id);
+    if (this.gitPreviewOwners.size >= 20) this.gitPreviewOwners.delete(this.gitPreviewOwners.keys().next().value!);
+    this.gitPreviewOwners.set(preview.id, { deviceId: context.principal.id, expiresAt: preview.expiresAt });
+    const overview = projectGit(preview.overview);
+    const projected: GitSyncPreview = { id: preview.id, expiresAt: preview.expiresAt, overview, target: overview.targets.find((target) => target.id === preview.target.id)! };
+    return { overview, preview: projected };
+  }
+
+  private requireNativeRemoteRepository(repositoryId: string): void {
+    if (!this.store.get().repositories.some((repo) => repo.id === repositoryId && repo.executionBackend === 'native')) {
+      throw new RemoteApiError(422, 'command_rejected', 'Dieser Remote-Workflow benötigt ein natives Projekt aus dem Katalog.');
+    }
+  }
+
   catalog(): MobileCatalog {
     const config = this.store.get();
     return {
+      categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160) })),
+      agentSources: [
+        { id: 'codex', kind: 'runtime' as const, name: 'Codex · neues Standardprofil', runtime: 'codex' as const },
+        ...config.agents.map((agent) => ({ id: agent.id, kind: 'agent' as const, name: redactForWire(agent.name, 160), runtime: agent.runtime })),
+        ...config.agentTemplates.map((template) => ({ id: template.id, kind: 'template' as const, name: redactForWire(template.name, 160), runtime: template.runtime })),
+      ],
       repositories: config.repositories.map((repository) => ({
         id: repository.id,
         name: redactForWire(repository.name, 160),
@@ -370,7 +479,9 @@ export class AdeApplicationService {
     const execution = (async (): Promise<MobileCommandResult> => {
       let outcome: { runId: string; taskId?: string };
       try {
-        outcome = await execute(commandId, commands!);
+        outcome = this.options.activity
+          ? await this.options.activity.use(() => execute(commandId, commands!))
+          : await execute(commandId, commands!);
       } catch (error) {
         if (error instanceof RemoteApiError) {
           this.audit(context, channel, target, 'rejected', error.message);
@@ -605,4 +716,41 @@ function toRunCreateInput(input: MobileRunCreateInput, commandId: string): RunCr
     ...(input.budget ? { budget: input.budget } : {}),
     commandId,
   };
+}
+
+export function validateAdministration(payload: unknown): MobileAdminCommand {
+  const request = requireRecord(payload, 'request'); requireKeys(request, ['operation', 'input'], 'request');
+  const input = requireRecord(request.input, 'input');
+  switch (request.operation) {
+    case 'agent-create': {
+      requireKeys(input, ['name', 'source', 'categoryId'], 'input');
+      const source = requireRecord(input.source, 'source'); requireKeys(source, ['kind', 'id'], 'source');
+      if (source.kind !== 'agent' && source.kind !== 'template' && source.kind !== 'runtime') invalidPayload('invalid agent source');
+      const id = requireId(source.id, 'source.id');
+      if (source.kind === 'runtime' && id !== 'codex') invalidPayload('unsupported runtime profile');
+      return { operation: 'agent-create', input: { name: requireText(input.name, 'name', 80), source: { kind: source.kind, id },
+        ...(input.categoryId === undefined ? {} : { categoryId: requireId(input.categoryId, 'categoryId') }) } };
+    }
+    case 'project-create':
+      requireKeys(input, ['name'], 'input');
+      return { operation: 'project-create', input: { name: requireText(input.name, 'name', 80) } };
+    case 'workspace-prepare':
+      requireKeys(input, ['agentId', 'repositoryId'], 'input');
+      return { operation: 'workspace-prepare', input: { agentId: requireId(input.agentId, 'agentId'), repositoryId: requireId(input.repositoryId, 'repositoryId') } };
+    case 'git-fetch':
+      requireKeys(input, ['repositoryId'], 'input');
+      return { operation: 'git-fetch', input: { repositoryId: requireId(input.repositoryId, 'repositoryId') } };
+    case 'git-apply':
+      requireKeys(input, ['previewId'], 'input');
+      return { operation: 'git-apply', input: { previewId: requireId(input.previewId, 'previewId') } };
+    default: return invalidPayload('unsupported administration operation');
+  }
+}
+
+function projectGit(overview: GitSyncOverview): GitSyncOverview {
+  return { ...overview, repositoryName: redactForWire(overview.repositoryName, 160),
+    sourceRef: redactForWire(overview.sourceRef, 300), refs: overview.refs.slice(0, 100).map((item) => ({
+      ref: redactForWire(item.ref, 300), label: redactForWire(item.label, 320),
+    })), targets: overview.targets.slice(0, 201).map((item) => ({ ...item, name: redactForWire(item.name, 160),
+      branch: redactForWire(item.branch, 300), blockedReason: item.blockedReason === null ? null : redactForWire(item.blockedReason, 500) })) };
 }

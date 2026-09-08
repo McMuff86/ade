@@ -1,5 +1,22 @@
 # Handoff — 2026-09-08
 
+## Implementation complete — remote workspace Goals 12–15
+
+Operator on the work PC requested goal definition and implementation of remote
+restart, agents/workspaces, Git sync and parallel projects. All four goal
+checklists are complete in `REMOTE_WORKSPACE_GOALS.md`. Final `pnpm verify`
+passed: 1,717 checks, all three TypeScript projects and production build.
+See `REMOTE_WORKSPACE_RESULTS.md` for exact counts, corrected test-fixture
+failures, positive controls and platform limits. Home-host activation remains
+pending. No personal home host was interrupted, updated or granted new
+permissions by these fixtures.
+
+The operator will ask his wife to restart the existing home ADE for the morning
+mobile UI. Forwardable instructions: `ADE_NEUSTART_ANLEITUNG.md`. That restart
+does not install the new goals; these will later need an update/build/restart
+and a desktop device grant. An existing Windows connection from home to work
+does not provide the reverse management connection.
+
 ## Goals 8.6–8.9 — mobile Oberfläche an Desktop angeglichen
 
 Auftrag: Mobile möglichst wie die lokale ADE gestalten und die bereits
