@@ -63,7 +63,10 @@ export interface MobileAgentSummary {
   runtime: RuntimeId;
   defaultRepositoryId?: string;
   homeExecutionBackend?: ExecutionBackendId;
+  photoVersion?: string;
 }
+export interface MobileAgentProfile { agent: MobileAgentSummary; revision: string; photo?: { mime: 'image/png'; bytesBase64: string }; photoError?: string }
+export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null }
 
 export interface MobileCatalog {
   repositories: MobileRepositorySummary[];
@@ -92,6 +95,58 @@ export interface MobileAdministrationValue {
 }
 export interface MobileAdministrationResult extends MobileAdministrationValue { replayed: boolean }
 export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncPreview }
+
+export interface MobileWorkspaceSelection { agentId: string; repositoryId: string }
+export interface MobileTerminalSummary {
+  id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
+}
+export interface MobileTerminalState {
+  terminals: MobileTerminalSummary[];
+  selected?: MobileTerminalSummary;
+  screen?: string;
+  cols?: number;
+  rows?: number;
+  leaseId?: string;
+  lastSequence?: number;
+  inputUncertain?: boolean;
+}
+export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string };
+export type MobileTerminalCommand = MobileWorkspaceSelection & (
+  | { operation: 'open'; mode: 'shell' | 'agent' }
+  | { operation: 'claim' | 'release' | 'close'; terminalId: string }
+);
+export type MobileTerminalInput = MobileWorkspaceSelection & {
+  terminalId: string; leaseId: string; sequence: number; data: string; cols: number; rows: number;
+};
+export type MobileWorkspaceOperation =
+  | { operation: 'overview' }
+  | { operation: 'tree'; path: string }
+  | { operation: 'search'; search: string }
+  | { operation: 'file'; path: string }
+  | { operation: 'diff'; path: string; staged: boolean }
+;
+export type MobileWorkspaceQuery = MobileWorkspaceSelection & MobileWorkspaceOperation;
+export interface MobileWorkspaceEntry { path: string; name: string; kind: 'file' | 'directory' }
+export interface MobileWorkspaceFile {
+  path: string; text: string; revision: string; editable: boolean; notice: string | null;
+}
+export interface MobileFileSaveInput extends MobileWorkspaceSelection {
+  path: string; workspaceVersion: string; revision: string; text: string;
+}
+export interface MobileFileSaveResult { saved: boolean; revision: string; replayed: boolean }
+export interface MobileWorkspaceOverview {
+  ready: boolean; branch: string; workspaceVersion: string; busy: boolean;
+  changes: Array<{ path: string; state: string; staged: boolean; unstaged: boolean }>;
+  commits: Array<{ sha: string; subject: string }>; notice: string | null;
+}
+export interface MobileWorkspaceResult {
+  workspaceVersion: string;
+  overview?: MobileWorkspaceOverview;
+  entries?: MobileWorkspaceEntry[];
+  limited?: boolean;
+  file?: MobileWorkspaceFile;
+  diff?: string;
+}
 
 export type MobileRunSummary = RunSummary;
 

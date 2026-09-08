@@ -1,7 +1,7 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.13 (desktop Git sync, mobile pairing/PWA, private Tailscale setup and
-close-to-tray implemented; physical-device acceptance tracked separately, 2026-09-08)
+Status: v0.14 (remote workspace tools and explicitly granted terminals implemented;
+native Windows automation and physical-device acceptance tracked separately, 2026-09-08)
 Owner: Adi. This document is the source of truth for coding agents.
 
 Desktop Git workflow: Graph and the repository inspector expose **Git-Abgleich**;
@@ -24,10 +24,10 @@ Overview is the read-only home over that same journal: who is live, which
 catalog projects exist, and which runs last moved. It does not invent
 telemetry or replace Terminals or Graph.
 
-The desktop remains the only execution host. After local product validation,
-an installable mobile companion may submit, observe and cancel a narrow set of
-bounded single- and multi-agent operations through that host. It is a remote
-control plane, not a mobile terminal, cloud copy of ADE or second agent runtime.
+The desktop remains the only execution host. The installable mobile companion
+submits and observes managed work and, with separate desktop device grants,
+opens workspace files, Git changes and interactive host terminals. All agents,
+Git operations and terminal processes run on that host.
 
 References:
 - Layout sketch: `mock/PENUP_20260707_214207.png`
@@ -206,6 +206,44 @@ the migration never deletes user data.
 Detailed model, UI behavior, migration and exit criteria are binding in
 `docs/REPOSITORY_SCOPES_PLAN.md` and `docs/ROADMAP.md`.
 
+## Remote workspace tools (Goals 16–19)
+
+An agent selection opens its workspace with an independent catalog-project
+selector and an explicit task action. Files and Git are available without
+starting a terminal. The first supported execution boundary is a verified
+native worktree; reads never create one implicitly.
+
+- **Files/Git:** `workspace:read` permits a bounded lazy tree, filename search,
+  UTF-8 previews, branch/recent commits and separate staged/unstaged patches.
+  Secrets, Git metadata, links and hardlinks are excluded; redacted/oversized
+  previews cannot be edited.
+- **Terminal:** `terminal:control` is an explicit per-device desktop grant to
+  execute commands with the host user's rights. A workspace is a starting
+  directory, not a sandbox. Start a shell/configured agent or select an existing
+  interactive session; managed-task and credential-login sessions are excluded.
+  One device controls input, desktop can reclaim immediately, and a 30-second
+  heartbeat lease expires after disconnection. Closing the view does not kill
+  the process. Output is bounded redacted text with explicit control keys;
+  full ANSI color/mouse fidelity is outside this delivery. Unconfirmed input
+  is never automatically replayed.
+- **Small edits:** `workspace:write` plus read permission allows existing UTF-8
+  text files up to 24 KiB. Show line numbers, search, undo and explicit save.
+  Check binding/content revisions and show a conflict comparison; never silently
+  replace changed content. Preserve BOM/newlines and refuse busy/leased workspaces.
+  Keep up to 20 drafts in page memory across workspace changes; clear them on
+  identity change. Reloading the page discards drafts.
+- **Profiles:** `profiles:write` permits name, role and normalized bounded PNG
+  photo changes with a profile revision check. Runtime commands and permission
+  configuration remain desktop-only. The same stored profile updates desktop
+  and tablet; name/role changes also update the durable role instructions.
+  Managed identities cannot be edited until their run releases them. Photo
+  upload is limited to 32 KiB/256×256 after normalization.
+
+Every grant is opt-in at the desktop, independently of Tailscale membership.
+Dedicated typed application APIs require signed devices and current grants;
+mutations require idempotency keys and audit. Activation instructions:
+`REMOTE_TERMINAL_GUIDE.md`. Acceptance: `REMOTE_WORKBENCH_RESULTS.md`.
+
 ## Mobile companion (personal alpha implementation)
 
 - The first client is a responsive installable PWA for iOS and Android. A
@@ -220,9 +258,10 @@ Detailed model, UI behavior, migration and exit criteria are binding in
   repository and agent independently, submit a bounded single-agent task,
   create/start/cancel a managed run, and observe task/run status and approval
   requirements. Detailed results and approval decisions remain on the desktop.
-- Interactive PTY access, arbitrary commands, permission/configuration changes,
-  deletion, absolute paths and unrestricted file reads are excluded from the
-  personal alpha.
+- Goals 12–15 add separately granted restart, agent/project/workspace creation
+  and preview-confirmed Git synchronization. Goals 16–19 add the bounded
+  workspace tools below. Raw PTY/IPC proxies, general configuration access,
+  absolute host paths and unrestricted filesystem APIs remain excluded.
 - Integration approval is a later privileged capability. It requires exact
   review evidence, recent passkey/device reauthentication, a single-use
   transition and a durable audit record.

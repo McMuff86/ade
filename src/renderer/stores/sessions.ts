@@ -276,6 +276,9 @@ export const useSessions = create<SessionsState>((set, get) => ({
 }));
 
 if (typeof window !== 'undefined' && window.ade) {
+  window.ade.on('terminal:controlChanged', ({ sessionId }) => {
+    if (!useSessions.getState().sessions[sessionId]) void useSessions.getState().hydrate(true);
+  });
   window.ade.on('pty:exit', ({ sessionId, exitCode, reason }) => {
     const state = useSessions.getState();
     if (!state.hydrated) {

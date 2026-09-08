@@ -66,6 +66,7 @@ local update/restart and device grant are required to activate it at home.
 Goals 12–15 are implemented and verified. Final native Windows `pnpm verify` passed
 all 1,717 checks, three TypeScript projects and the production build. Exact
 evidence, intermediate failures and limits: `REMOTE_WORKSPACE_RESULTS.md`.
-No new capability has been activated on either personal ADE profile.
-Home activation still needs the new code, a
-local build/restart and explicit desktop grants for the paired device.
+These fixtures did not activate capabilities on either personal ADE profile.
+The operator subsequently reported loading this build on the home PC.
+The follow-up Goals 16–19 require their own update/build/restart and additional
+desktop grants; see `REMOTE_WORKBENCH_GOALS.md` and `REMOTE_TERMINAL_GUIDE.md`.

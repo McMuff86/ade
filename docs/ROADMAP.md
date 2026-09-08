@@ -1,5 +1,18 @@
 # ADE delivery roadmap
 
+## Remote workspace tools — Goals 16–19 (2026-09-08)
+
+Implemented in order: **16** agent/project workspace, files and Git diffs;
+**17** explicitly granted interactive host terminal; **18** small text editor
+with conflict checks; **19** agent profile and photo maintenance. Acceptance
+checklists: [REMOTE_WORKBENCH_GOALS.md](REMOTE_WORKBENCH_GOALS.md). Final native
+Windows `pnpm verify` passed all 1,855 checks plus typechecks/build; evidence is in
+[REMOTE_WORKBENCH_RESULTS.md](REMOTE_WORKBENCH_RESULTS.md). This extends the
+earlier control-only mobile scope through dedicated application methods without
+exposing raw IPC. Native Windows is the measured execution boundary; physical
+tablet and home activation remain operator acceptance steps. New per-device
+grants and usage: [REMOTE_TERMINAL_GUIDE.md](REMOTE_TERMINAL_GUIDE.md).
+
 ## Remote workspace delivery — Goals 12–15 (2026-09-08)
 
 Implemented and locally verified sequence: **12** authenticated ADE restart and scoped
@@ -10,7 +23,7 @@ delivery state: [REMOTE_WORKSPACE_GOALS.md](REMOTE_WORKSPACE_GOALS.md).
 These goals preserve the closed desktop IPC boundary and add narrow application
 commands; existing device rights do not expand automatically. Final native
 Windows `pnpm verify` passed all 1,717 checks plus typechecks and build.
-The new delivery requires home-host activation; platform
+The operator subsequently reported loading this build at home; platform
 and launch-mode limits are recorded in `REMOTE_WORKSPACE_RESULTS.md`.
 
 Status date: 2026-09-08. Goals carry separate implementation and execution

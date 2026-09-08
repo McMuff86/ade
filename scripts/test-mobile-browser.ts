@@ -87,7 +87,8 @@ void (async () => {
     && await page.getByRole('dialog', { name: 'Neue Aufgabe' }).evaluate((node) => node.contains(document.activeElement)));
   await page.keyboard.press('Escape');
   check('closing task dialog restores its project opener', await page.getByRole('button', { name: 'Aufgabe in Mobile project', exact: true }).evaluate((node) => node === document.activeElement));
-  await page.getByRole('button', { name: 'Aufgabe für Builder', exact: true }).click();
+  await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
+  await page.getByRole('button', { name: 'Aufgabe vergeben', exact: true }).click();
   check('agent selection opens the composer with the chosen identity', await page.getByLabel('Agent', { exact: true }).inputValue() === 'builder');
   await page.getByLabel('Name (optional)', { exact: true }).fill('Phone task');
   await page.getByLabel('Aufgabe', { exact: true }).fill('Complete the deterministic mobile fixture task.');
@@ -223,7 +224,9 @@ void (async () => {
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
   check('browser storage contains only appearance preferences, not private drafts', await page.evaluate(() => Object.keys(localStorage).every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key))));
-  check('ordinary views use only the signed catalog/run/host contract', endpoints.every((path) => /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)));
+  check('ordinary views use only signed catalog/run/host and explicit workspace reads', endpoints.every((path) =>
+    /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
+    || path === '/api/v1/workspace/query'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'browser-failure.png'), fullPage: true }).catch(() => undefined); })

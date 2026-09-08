@@ -2,6 +2,9 @@ import { join } from 'node:path';
 import { createMobileFixture } from './mobileFixture';
 import { AdeApplicationService } from '../../src/main/application/AdeApplicationService';
 import { RemoteWorkspaceService } from '../../src/main/application/RemoteWorkspaceService';
+import { RemoteWorkbenchService } from '../../src/main/application/RemoteWorkbenchService';
+import { RemoteProfileService } from '../../src/main/application/RemoteProfileService';
+import { PNG } from 'pngjs';
 import { RemoteCommandLedger } from '../../src/main/application/RemoteCommandLedger';
 import { HostRestartController } from '../../src/main/application/HostRestartController';
 import { HostOperationGate } from '../../src/main/application/HostOperationGate';
@@ -34,13 +37,17 @@ export function createRemoteWorkspaceFixture(root: string) {
   const gate = new HostOperationGate();
   const ledger = new RemoteCommandLedger(join(root, 'remote', 'commands.json'), (entry) => devices.audit(entry),
     (id, scope) => devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope)));
+  const workbench = new RemoteWorkbenchService(store, () => sessions, execution);
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
+    workbench,
+    deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
+    profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, sessions, coordinator };
+  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate };
 }

@@ -1,4 +1,4 @@
-export const REMOTE_ADMIN_SCOPES = ['host:restart', 'catalog:write', 'repositories:write'] as const;
+export const REMOTE_ADMIN_SCOPES = ['host:restart', 'catalog:write', 'repositories:write', 'workspace:read', 'terminal:control', 'workspace:write', 'profiles:write'] as const;
 export type RemoteAdminScope = typeof REMOTE_ADMIN_SCOPES[number];
 export function isRemoteAdminScopes(value: unknown): value is RemoteAdminScope[] {
   return Array.isArray(value) && value.length <= REMOTE_ADMIN_SCOPES.length

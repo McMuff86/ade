@@ -16,7 +16,9 @@ TypeScript projects and the production desktop/mobile build passed.
 | Visual regression | 22 |
 
 Full output: `test-results/remote-workspace-verify.log` (ignored local artifact).
-This delivery has not been installed on the personal home host.
+At the time of this verification the delivery was not installed on the personal
+home host. The operator subsequently reported loading it there. The new follow-up
+delivery and pending home activation are tracked in `REMOTE_WORKBENCH_RESULTS.md`.
 
 ## Goal 12
 

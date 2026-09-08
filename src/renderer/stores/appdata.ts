@@ -63,6 +63,10 @@ async function readCatalog(): Promise<CatalogSlice> {
   return catalogState(await window.ade.invoke('config:get'));
 }
 
+if (typeof window !== 'undefined' && window.ade) {
+  window.ade.on('catalog:changed', () => { void useAppData.getState().refresh(); });
+}
+
 export const useAppData = create<AppDataState>((set, get) => ({
   categories: [],
   agents: {},

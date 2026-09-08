@@ -150,6 +150,8 @@ const valid: Record<InvokeChannel, unknown> = {
   'pty:resize': { sessionId: 'session', cols: 120, rows: 32 },
   'pty:kill': { sessionId: 'session' },
   'pty:attach': { sessionId: 'session' },
+  'terminal:control': { sessionId: 'session' },
+  'terminal:reclaim': { sessionId: 'session' },
   'pty:list': undefined,
   'overview:get': undefined,
   'pty:cancelTasks': {},

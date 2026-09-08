@@ -1,5 +1,77 @@
 # ADE — Architecture (binding decisions)
 
+## Remote workspace tools (Goals 16–19)
+
+`POST /api/v1/workspace/query` is a dedicated AdeApplicationService method,
+not mirrored desktop IPC. The desktop-granted `workspace:read` capability,
+device signature and browser session/CSRF are required. Existing devices do
+not gain access to source files automatically. Query operations select an
+agent/catalog repository and strictly relative path; read-only discovery never
+creates a binding. RemoteWorkbenchService rechecks native root/common-Git
+identity and link discipline around bounded reads. Metadata, common credential
+files and hardlinks are excluded. Wire text passes through redactForWire;
+redacted, binary, unsupported-encoding and oversized previews are not editable.
+The mobile workspace opens independently of a terminal and separates index
+diffs from working-file changes. Executable evidence for all four goals is in
+REMOTE_WORKBENCH_RESULTS.md.
+
+`POST /api/v1/workspace/save` additionally requires `workspace:write`, a durable
+idempotency receipt, the opaque binding version and the original content hash.
+RemoteWorkbenchService uses the shared WorkspaceOperationGate for atomic
+same-directory replacement, rechecks revision/authorization/link discipline
+before replacement and refuses active leases or live workspace sessions.
+Only existing UTF-8 text files up to 24 KiB are editable; BOM and uniform
+LF/CRLF are preserved. Conflicts return a revision without overwriting. This
+uses native verified paths, not descriptor-anchored ancestor race protection.
+Browser drafts and pending save keys survive dialog/project changes in bounded
+memory, are cleared on identity changes and are not restored after page reload.
+
+The dedicated `/api/v1/terminal/{query,command,input}` application methods
+require `terminal:control`, a current desktop-granted device identity, signed
+requests and browser session/CSRF. Commands use the durable ledger; input uses
+a required key plus monotonically ordered sequence within an ephemeral live
+lease. It reserves an input receipt synchronously before PTY write and marks
+it accepted only after that write returns; duplicate and concurrent requests
+cannot type twice. A failed write fences subsequent input until a new lease;
+the client checks acceptance without automatically replaying uncertain input.
+Old leases are invalid after host
+restart, desktop reclaim, scope withdrawal or 30 seconds without a heartbeat.
+No input text is logged or persisted in receipts. Only one device owns input;
+desktop `terminal:reclaim` is audited and `terminal:control` is read-only. Both
+remain desktop IPC. `pty:write` and resize respect ownership; control events use
+rendererWindows. Browser clients receive opaque terminal handles, never PTY ids.
+Managed task and credential-login sessions are excluded. The configured agent
+or shell runs under the host user's authority, not a workspace sandbox.
+
+Terminal bytes stay in main: `@xterm/headless` interprets the bounded replay,
+joins wrapped lines and sends only text through redactForWire. The mobile
+interface offers text submission and explicit control keys with a polling
+snapshot. It does not claim raw ANSI, mouse, colors or unrestricted transcript
+fidelity. See REMOTE_TERMINAL_GUIDE.md for activation and reconnect behavior.
+
+`POST /api/v1/profile/query` requires an active signed device with `read`;
+`POST /api/v1/profile/update` additionally requires `profiles:write`, a durable
+idempotency key and the original profile revision. Only agent name, role and
+photo are accepted. Browser image selection is normalized to PNG, at most
+256×256 and 32 KiB. Main validates PNG structure, CRCs, bounded inflation and
+dimensions before Electron decoding, then normalizes again to remove metadata.
+Photo filenames stay in main; queries return bounded PNG bytes. Local stored
+images use the same link discipline. Updates refuse identities with active
+managed leases and synchronize the durable ADE role block in AGENTS.md while
+preserving operator content; linked, hardlinked or oversized instruction files
+are refused. Profile updates notify registered desktop
+windows through `catalog:changed`; no runtime, permission or general config
+fields are exposed. The mobile CSP permits blob images for authenticated
+avatars, while script and navigation rules remain unchanged.
+
+All new scopes are granted only in desktop Settings per device; pairing and
+existing identities gain none automatically. New wire contracts live in
+`shared/remote.ts` and use AdeApplicationService, signatures, browser CSRF,
+current device authorization and audit. `REMOTE_COMMAND_CHANNELS` remains
+limited to the four existing run/task commands. New runtime evidence is native
+Windows only, with disposable Git/Electron fixtures and a configured test
+command; it does not certify a model, WSL backend or physical tablet.
+
 Status: v8, updated 2026-08-19 with the read-only Overview home
 (`src/main/overview`, `src/renderer/overview`), implemented repository
 scopes/reusable agents (`docs/REPOSITORY_SCOPES_PLAN.md`), the read-only
@@ -896,7 +968,8 @@ device names, signing keys, cookies and CSRF values are excluded.
 `src/mobile` builds independently into `out/mobile` through `vite.mobile.config.ts`.
 Main loads a bounded exact-path asset allowlist (8 MiB total, 2 MiB/file, at most
 100 files, no links). Only the public shell is unauthenticated. Its CSP permits
-only same-origin scripts/styles/images/requests/worker/manifest; API CSP remains
+only same-origin scripts/styles/requests/worker/manifest, plus blob images for
+authenticated profile previews (Goal 19); API CSP remains
 deny-all. The worker caches an explicit versioned shell list, never API requests,
 prompts or results. Private state stays in page memory. Commands are never queued
 for automatic offline execution; an uncertain reply can be retried with its
@@ -906,12 +979,14 @@ the previous device. Run cancellation preserves unrelated composer drafts and
 returns keyboard focus to the updated run detail. Reload/background/network recovery
 reads authoritative snapshots and resumes signed fetch-based SSE. A 45-second
 heartbeat deadline detects silently stalled connections. Detailed reports,
-remote approval, push and configuration remain desktop-only.
+remote approval, push and runtime configuration remain desktop-only. The narrow
+Goal 19 name/role/photo API is the documented profile exception.
 
 The mobile shell imports the same `renderer/theme/tokens.css`, pure Avatar and
 runtime visual helpers as the desktop. It does not import renderer stores,
 preload, the terminal UI or desktop application services. Its Overview, Work
-and Graph views consume only the existing health/catalog/run-summary contract.
+and Graph views consume the health/catalog/run-summary contract; workspace
+tools use the dedicated Goal 16–19 contracts described above.
 `useMobileHost` owns one connection across all three views; selecting a view,
 node or theme never remounts authentication/SSE. Only appearance and the active
 view are persisted in localStorage. Drafts, filters, selection and run data

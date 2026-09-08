@@ -34,7 +34,7 @@ void (async () => {
   const gate = new HostOperationGate(); let blockers: string[] = []; let restarted = 0;
   const controller = new HostRestartController(gate, () => blockers, () => { restarted++; }, 'fixture-version', true);
   const file = join(root, 'remote', 'commands.json');
-  const authorized = (id: string, scope: 'host:restart' | 'catalog:write' | 'repositories:write'): boolean =>
+  const authorized = (id: string, scope: import('../src/shared/remoteDevices').RemoteAdminScope): boolean =>
     devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope));
   const ledger = new RemoteCommandLedger(file, (entry) => devices.audit(entry), authorized);
   const app = new AdeApplicationService(fixture.store, fixture.orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) },

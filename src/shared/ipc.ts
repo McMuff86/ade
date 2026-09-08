@@ -117,6 +117,8 @@ export const IPC = {
   PtyResize: 'pty:resize',
   PtyKill: 'pty:kill',
   PtyAttach: 'pty:attach',
+  TerminalControl: 'terminal:control',
+  TerminalReclaim: 'terminal:reclaim',
   PtyActivitySnapshot: 'pty:activitySnapshot',
   RunTaskActivity: 'runTask:activity',
   PtyList: 'pty:list',
@@ -157,6 +159,8 @@ export const IPC = {
 
 /** Event channels (main -> renderer via webContents.send). */
 export const IPC_EVENTS = {
+  CatalogChanged: 'catalog:changed',
+  TerminalControlChanged: 'terminal:controlChanged',
   PtyData: 'pty:data',
   PtyActivity: 'pty:activity',
   PtyExit: 'pty:exit',
@@ -214,6 +218,7 @@ export interface PtyKillRequest {
 export interface PtyAttachRequest {
   sessionId: string;
 }
+export interface TerminalControlState { sessionId: string; remote: boolean }
 export interface PtyAttachResult {
   /** ring-buffer replay of raw output since spawn (base64) */
   replayBase64: string;
@@ -676,6 +681,8 @@ export interface IpcInvokeMap {
   'pty:resize': { req: PtyResizeRequest; res: void };
   'pty:kill': { req: PtyKillRequest; res: void };
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
+  'terminal:control': { req: PtyAttachRequest; res: TerminalControlState };
+  'terminal:reclaim': { req: PtyAttachRequest; res: TerminalControlState };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
   'runTask:activity': { req: { taskId: string }; res: PtyActivityResult };
   'pty:list': { req: void; res: PtyListResult };
@@ -729,6 +736,8 @@ export interface IpcInvokeMap {
 /** Payload map for every main -> renderer event channel. */
 export interface IpcEventMap {
   'pty:data': PtyDataEvent;
+  'terminal:controlChanged': TerminalControlState;
+  'catalog:changed': { revision: number };
   'pty:activity': PtyActivityEvent;
   'pty:exit': PtyExitEvent;
   'pty:removed': PtyRemovedEvent;

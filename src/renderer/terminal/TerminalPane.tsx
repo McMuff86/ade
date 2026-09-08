@@ -14,7 +14,7 @@
  * terminal is disposed only when the session's tab is closed (unmount).
  */
 
-import { useEffect, useRef, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal } from '@xterm/xterm';
@@ -56,6 +56,19 @@ export function TerminalPane({
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const [remoteInput, setRemoteInput] = useState(false);
+  const remoteInputRef = useRef(false);
+  useEffect(() => {
+    let live = true;
+    const update = (state: { sessionId: string; remote: boolean }) => {
+      if (!live || state.sessionId !== sessionId) return;
+      remoteInputRef.current = state.remote; setRemoteInput(state.remote);
+      if (termRef.current) termRef.current.options.disableStdin = state.remote;
+    };
+    const off = window.ade.on('terminal:controlChanged', update);
+    void window.ade.invoke('terminal:control', { sessionId }).then(update).catch(() => undefined);
+    return () => { live = false; off(); };
+  }, [sessionId]);
 
   // Create + wire the terminal once per session id.
   useEffect(() => {
@@ -99,6 +112,7 @@ export function TerminalPane({
     //    (e.g. a screenshot) the raw ^V is forwarded so CLIs like Claude Code
     //    can read the image from the OS clipboard themselves.
     const forwardRawPasteKey = (): void => {
+      if (remoteInputRef.current) return;
       void window.ade
         .invoke('pty:write', { sessionId, dataBase64: utf8ToBase64('\x16') })
         .catch(() => undefined);
@@ -133,6 +147,7 @@ export function TerminalPane({
     // keyboard -> pty
     let writeFailed = false;
     const keyDisp = term.onData((data) => {
+      if (remoteInputRef.current) return;
       void window.ade
         .invoke('pty:write', { sessionId, dataBase64: utf8ToBase64(data) })
         .catch((error) => {
@@ -244,5 +259,11 @@ export function TerminalPane({
     return () => cancelAnimationFrame(raf);
   }, [active, sessionId]);
 
-  return <div className="terminal-host" ref={hostRef} />;
+  return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    {remoteInput && <div role="status" className="terminal-control-banner" style={{ padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
+      <span>Dieses Terminal wird von einem verbundenen Gerät gesteuert.</span>
+      <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus()); }}>Eingabe am Desktop übernehmen</button>
+    </div>}
+    <div className="terminal-host" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
+  </div>;
 }

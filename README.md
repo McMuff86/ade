@@ -20,6 +20,14 @@ managed runs on a graph.
 
 ## A tour
 
+**Workspace on your tablet** — select an agent and project to browse files,
+read staged/unstaged Git diffs, make small conflict-checked text edits and change
+the agent's name, role or photo. A separate desktop device grant enables a real
+host shell or configured agent session, with exclusive input ownership and
+immediate desktop reclaim. New flows are tested on native Windows;
+[activation and grants](docs/REMOTE_TERMINAL_GUIDE.md),
+[scope and evidence](docs/REMOTE_WORKBENCH_RESULTS.md).
+
 **Remote projects** — the private Tailscale companion can create agents from
 host profiles, initialize projects and prepare isolated workspaces. Filter
 Work/Graph by project and agent, keep separate in-memory drafts, and preview

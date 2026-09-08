@@ -118,3 +118,25 @@ h1, h2, h3 { line-height: 1.35; }
 .m-project-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .m-project-filters label { flex: 1 1 150px; max-width: 300px; }
 .m-project-filters p { font-size: 12px; color: var(--muted); }
+.m-agent-workspace { width: min(1200px, calc(100vw - 24px)); }
+.m-workspace-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.m-workspace-controls label { flex: 1 1 220px; }
+.m-workbench-split { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(0, 2fr); gap: 18px; }
+.m-workbench-list, .m-workbench-detail { min-width: 0; overflow-wrap: anywhere; }
+.m-workbench-list ul { list-style: none; padding: 0; }
+.m-workbench-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.m-workbench-list button { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.m-workbench-list form { display: grid; gap: 8px; }
+.m-workspace-location, .m-workbench-detail h3 { overflow-wrap: anywhere; }
+.m-workbench-detail pre { max-height: 60dvh; overflow: auto; padding: 12px; background: var(--bg); border: 1px solid var(--line); font: 12px/1.6 monospace; tab-size: 2; }
+.m-diff-add { color: var(--add); }.m-diff-delete { color: var(--del); }
+.m-remote-terminal { min-width: 0; }.m-remote-terminal form { display: grid; gap: 10px; }
+.m-terminal-screen { background: #101114; color: #ddd; border: 1px solid var(--line); min-height: 200px; max-height: 50dvh; overflow: auto; padding: 12px; font: 12px/1.5 Consolas, monospace; }
+.m-remote-terminal textarea { width: 100%; font-family: monospace; }
+.m-code-editor { display: grid; grid-template-columns: 44px minmax(0, 1fr); height: 320px; border: 1px solid var(--line); }
+.m-code-editor pre, .m-code-editor textarea { font: 13px/20px Consolas, monospace; padding: 8px; margin: 0; border: 0; border-radius: 0; height: 100%; min-height: 0; tab-size: 2; }
+.m-code-editor pre { overflow: hidden; text-align: right; color: var(--muted); user-select: none; }
+.m-code-editor textarea { resize: none; white-space: pre; overflow: auto; }
+.m-file-editor { min-width: 0; }.m-file-editor input { max-width: 100%; }
+.m-agent-profile form { display: grid; gap: 12px; max-width: 560px; }.m-profile-photo { object-fit: contain; border-radius: 50%; }.m-profile-preview { padding: 12px 0; }
+@media (max-width: 699px) { .m-workbench-split { grid-template-columns: minmax(0, 1fr); }.m-workbench-split.has-detail .m-workbench-list { display: none; }.m-workbench-split:not(.has-detail) .m-workbench-detail { display: none; } }

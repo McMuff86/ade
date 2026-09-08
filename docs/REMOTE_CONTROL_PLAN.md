@@ -1,5 +1,15 @@
 # ADE remote control and mobile companion plan
 
+Scope update, 2026-09-08: the operator explicitly authorized Goals 12–19.
+Goals 12–15 add narrow restart, catalog/workspace creation and Git-sync APIs;
+Goals 16–19 add bounded files/diffs/edits, an explicitly granted interactive
+terminal and narrow profile/photo maintenance. Their current binding contracts
+and limits are in `SPEC.md`, `ARCHITECTURE.md`, `REMOTE_WORKSPACE_GOALS.md` and
+`REMOTE_WORKBENCH_GOALS.md`. Those additions extend the historical exclusions
+below through dedicated application APIs; raw IPC, runtime configuration and
+unrestricted filesystem endpoints remain excluded. All execution stays on the
+desktop. New device grants are never inherited from pairing or Tailscale.
+
 Status: Goal 7 includes read endpoints, signed commands, SSE and bounded single-task
 submission (2026-09-06). Goal 8 step 1 adds durable revocable device inventory,
 desktop rename/revoke controls and a fsynced remote audit. Goal 8.2–8.4 now add

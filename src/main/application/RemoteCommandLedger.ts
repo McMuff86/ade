@@ -46,7 +46,7 @@ export class RemoteCommandLedger {
           if (lstatSync(auditFile).size > 8 * 1024 * 1024) throw new Error('audit too large');
           for (const line of readFileSync(auditFile, 'utf8').trim().split('\n').filter(Boolean)) {
             const entry = JSON.parse(line) as DeviceAuditEntry;
-            if (entry.channel === 'host:restart' || entry.channel.startsWith('admin:')) throw new Error('administration history without its receipts');
+            if (entry.channel === 'host:restart' || entry.channel.startsWith('admin:') || entry.channel.startsWith('terminal:') || entry.channel === 'workspace:save' || entry.channel === 'profile:update') throw new Error('administration history without its receipts');
           }
         } catch (auditError) { if ((auditError as NodeJS.ErrnoException).code !== 'ENOENT') throw auditError; }
       }

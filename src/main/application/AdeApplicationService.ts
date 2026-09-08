@@ -37,6 +37,10 @@ import type { HostRestartController } from './HostRestartController';
 import type { RemoteCommandLedger } from './RemoteCommandLedger';
 import type { HostOperationGate } from './HostOperationGate';
 import type { RemoteWorkspaceService } from './RemoteWorkspaceService';
+import { validateFileSave, validateWorkbenchQuery, type RemoteWorkbenchService } from './RemoteWorkbenchService';
+import { validateTerminal, type RemoteTerminalService } from './RemoteTerminalService';
+import type { MobileTerminalQuery, MobileTerminalCommand, MobileTerminalInput } from '../../shared/remote';
+import { validateProfileQuery, validateProfileUpdate, type RemoteProfileService } from './RemoteProfileService';
 import type { RepositorySyncService } from '../repositories/RepositorySyncService';
 import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
@@ -91,6 +95,10 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  workbench?: RemoteWorkbenchService;
+  terminals?: RemoteTerminalService;
+  profiles?: RemoteProfileService;
+  deviceActive?: (deviceId: string) => boolean;
   activity?: HostOperationGate;
   administration?: { ledger: RemoteCommandLedger; restart: HostRestartController; workspaces?: RemoteWorkspaceService; git?: RepositorySyncService };
   commands?: ApplicationCommandPort;
@@ -206,6 +214,73 @@ export class AdeApplicationService {
   }
 
   /* ------------------------------------------------------------------ reads */
+
+  queryProfile(context: RemoteCommandContext, payload: unknown) {
+    if (!this.options.profiles) throw new RemoteApiError(404, 'not_found');
+    if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    try { return this.options.profiles.query(validateProfileQuery(payload)); }
+    catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async updateProfile(context: RemoteCommandContext, payload: unknown) {
+    const ledger = this.options.administration?.ledger; const profiles = this.options.profiles;
+    if (!ledger || !profiles) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'profiles:write');
+    const input = validateProfileUpdate(payload);
+    const receipt = await ledger.execute(context, 'profile:update', 'profiles:write', input, () => {
+      const execute = async () => profiles.update(input);
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    return { ...receipt.value, replayed: receipt.replayed };
+  }
+
+  async saveWorkspaceFile(context: RemoteCommandContext, payload: unknown) {
+    const ledger = this.options.administration?.ledger; const workbench = this.options.workbench;
+    if (!ledger || !workbench) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'workspace:read'); ledger.permits(context, 'workspace:write');
+    const input = validateFileSave(payload);
+    const receipt = await ledger.execute(context, 'workspace:save', 'workspace:write', input, () => {
+      const execute = () => workbench.save(input, () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'workspace:write'); });
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    return { ...receipt.value, replayed: receipt.replayed };
+  }
+
+  async remoteTerminal(context: RemoteCommandContext, payload: unknown, kind: 'query' | 'command' | 'input') {
+    const ledger = this.options.administration?.ledger; const terminals = this.options.terminals;
+    if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'terminal:control');
+    const input = validateTerminal(payload, kind);
+    try {
+      if (kind === 'query') return await terminals.query(context.principal.id, input as MobileTerminalQuery);
+      if (kind === 'input') return await terminals.input(context, input as MobileTerminalInput);
+      const command = input as MobileTerminalCommand;
+      const result = await ledger.execute(context, `terminal:${command.operation}`, 'terminal:control', command, () => {
+        const execute = () => terminals.command(context.principal.id, command);
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      return { ...result.value, replayed: result.replayed };
+    } catch (error) {
+      if (error instanceof RemoteApiError) throw error;
+      throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error));
+    }
+  }
+
+  async queryWorkspace(context: RemoteCommandContext, payload: unknown) {
+    const ledger = this.options.administration?.ledger;
+    if (!ledger || !this.options.workbench) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'workspace:read');
+    const input = validateWorkbenchQuery(payload);
+    try {
+      const result = await this.options.workbench.query(input);
+      ledger.permits(context, 'workspace:read');
+      return result;
+    } catch (error) {
+      if (error instanceof RemoteApiError) throw error;
+      throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error));
+    }
+  }
 
   health(): MobileHealth {
     return {
@@ -324,6 +399,7 @@ export class AdeApplicationService {
         name: redactForWire(agent.name, 160),
         ...(agent.role ? { role: redactForWire(agent.role, 160) } : {}),
         runtime: agent.runtime,
+        ...(agent.photo ? { photoVersion: createHash('sha256').update(agent.photo).digest('hex') } : {}),
         ...(agent.defaultRepositoryId ? { defaultRepositoryId: agent.defaultRepositoryId } : {}),
         ...(agent.homeExecutionBackend
           ? { homeExecutionBackend: agent.homeExecutionBackend }

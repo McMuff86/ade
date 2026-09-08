@@ -7,9 +7,11 @@ import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
 import { HostRestartSection } from './HostRestartSection';
 import { RemoteManager, useRemoteAdministration } from './RemoteManager';
+import { AgentWorkspace } from './AgentWorkspace';
+import { useFileDrafts } from './FileEditor';
+import { MobileAvatar, useProfileDrafts } from './AgentProfile';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
 import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkComposer';
-import { Avatar } from '../renderer/rail/Avatar';
 import '../renderer/theme/tokens.css';
 import './mobile.css';
 
@@ -23,7 +25,10 @@ function pairFragment(): string {
 function MobileApp(): JSX.Element {
   const host = useMobileHost();
   const admin = useRemoteAdministration(host);
+  const fileDrafts = useFileDrafts(host.identityVersion);
+  const profileDrafts = useProfileDrafts(host.identityVersion);
   const [management, setManagement] = useState(false);
+  const [workspaceAgent, setWorkspaceAgent] = useState<string | null>(null);
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
@@ -44,6 +49,7 @@ function MobileApp(): JSX.Element {
   const [compact, setCompact] = useState(() => matchMedia('(max-width: 699px)').matches);
   const inspectorOpener = useRef<HTMLElement | null>(null);
   const previousIdentity = useRef(host.identityVersion);
+  useEffect(() => { setWorkspaceAgent(null); }, [host.identityVersion]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme; savePreference('theme', theme);
@@ -153,9 +159,9 @@ function MobileApp(): JSX.Element {
         <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} offene Runs in dieser Auswahl · Task-Slots gelten für alle Projekte.</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
-          {view === 'overview' ? <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={(id) => newWork('task', id)} onProject={(id) => newWork('task', undefined, id)} />
+          {view === 'overview' ? <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={setWorkspaceAgent} onProject={(id) => newWork('task', undefined, id)} />
             : view === 'graph' ? <Graph run={graphRun} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
-              : <div className="m-work"><aside className="m-work-rail" aria-label="Agents für neue Arbeit"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); newWork('task', agent.id); }}><Avatar name={agent.name} size={26} /><span>{agent.name}</span></button>)}</aside>
+              : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); setWorkspaceAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
                   <label>Status<select aria-label="Status" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">Alle Runs</option><option value="open">Offene Runs</option><option value="finished">Beendete Runs</option></select></label></div>
                   {!host.catalog ? <p className="m-loading" role="status">Runs werden geladen…</p> : !filtered.length ? <Empty title={runs.length ? 'Keine passenden Runs' : 'Noch keine Runs'}><p>{runs.length ? 'Suche oder Statusfilter ändern.' : 'Starte eine Aufgabe oder bereite einen Managed Run vor.'}</p></Empty>
@@ -170,12 +176,16 @@ function MobileApp(): JSX.Element {
     {inspector && compact && !composer && !settings && !management && <Dialog title="Run-Details" onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}
     {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} />}
+    {workspaceAgent && host.paired && <AgentWorkspace key={`${host.identityVersion}:${workspaceAgent}`} host={host} agentId={workspaceAgent} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
+      initialRepositoryId={projectFilter || host.catalog?.agents.find((agent) => agent.id === workspaceAgent)?.defaultRepositoryId || host.catalog?.repositories[0]?.id || ''}
+      onClose={() => setWorkspaceAgent(null)} onTask={(repositoryId) => { newWork('task', workspaceAgent, repositoryId); setWorkspaceAgent(null); }}
+      onManage={() => { setWorkspaceAgent(null); setManagement(true); }} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title"><section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />Dark</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />Light</label></div></section>
       <section className="m-settings-section"><h3>Verbindung</h3><p>Privat über Tailscale. PC eingeschaltet und ADE geöffnet lassen.</p><p>Als App nutzen: Im Browser „Zum Home-Bildschirm“ oder „App installieren“ wählen.</p>
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>Dieses Gerät lokal trennen</button><p className="m-field-note">Zum vollständigen Widerruf: Gerät in ADE am PC entfernen.</p></>}</section>
       {host.paired && <HostRestartSection host={host} />}
-      <section className="m-settings-section"><h3>Auf deinem PC</h3><p>Terminals, Dateien, Git-Abgleich, detaillierte Ergebnisse und Freigaben in der Desktop-App öffnen.</p></section>
+      <section className="m-settings-section"><h3>Workspace öffnen</h3><p>Wähle einen Agenten, um seine Projektdateien und Git-Änderungen anzusehen. Gerätefreigaben werden in ADE am PC verwaltet.</p></section>
     </Dialog>}
   </div>;
 }

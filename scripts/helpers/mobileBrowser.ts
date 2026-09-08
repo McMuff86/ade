@@ -10,6 +10,7 @@ export async function mobileTlsProxy() {
   let targetPort = 0;
   let loseTaskReply = false;
   let loseAdminReply = false;
+  let loseWorkspaceReply = false;
   let rejectApi = false;
   let upstreamOrigin: string | null = null;
   const sockets = new Set<Duplex>();
@@ -20,7 +21,7 @@ export async function mobileTlsProxy() {
       ...(req.headers.origin ? { origin: upstreamOrigin } : {}) } : {}) };
     const upstream = request({ hostname: '127.0.0.1', port: targetPort, path: req.url, method: req.method, headers }, (reply) => {
       if (req.method === 'POST' && ((loseTaskReply && req.url === '/api/v1/tasks')
-        || (loseAdminReply && req.url === '/api/v1/admin/commands'))) {
+        || (loseAdminReply && req.url === '/api/v1/admin/commands') || (loseWorkspaceReply && req.url === '/api/v1/workspace/save'))) {
         reply.resume(); res.destroy(); return;
       }
       res.writeHead(reply.statusCode!, reply.headers); reply.pipe(res);
@@ -38,6 +39,7 @@ export async function mobileTlsProxy() {
     rewriteOrigin: (value: string) => { upstreamOrigin = value; },
     loseTaskReplies: (value: boolean) => { loseTaskReply = value; },
     loseAdminReplies: (value: boolean) => { loseAdminReply = value; },
+    loseWorkspaceReplies: (value: boolean) => { loseWorkspaceReply = value; },
     setApiOffline: (value: boolean) => { rejectApi = value; if (value) for (const socket of sockets) socket.destroy(); },
     close: async () => { for (const socket of sockets) socket.destroy(); await new Promise<void>((done) => server.close(() => done())); },
   };

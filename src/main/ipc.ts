@@ -4,7 +4,7 @@
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, writeFileSync } from 'node:fs';
@@ -56,6 +56,9 @@ import { HostOperationGate } from './application/HostOperationGate';
 import { HostRestartController } from './application/HostRestartController';
 import { RemoteCommandLedger } from './application/RemoteCommandLedger';
 import { RemoteWorkspaceService } from './application/RemoteWorkspaceService';
+import { RemoteWorkbenchService } from './application/RemoteWorkbenchService';
+import { RemoteTerminalService } from './application/RemoteTerminalService';
+import { RemoteProfileService } from './application/RemoteProfileService';
 import { workspaceOperations } from './repositories/WorkspaceOperationGate';
 import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
@@ -76,6 +79,8 @@ import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
+let remoteTerminals: RemoteTerminalService | null = null;
+let stopTerminalRevocation: (() => void) | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
@@ -275,12 +280,32 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const ledger = new RemoteCommandLedger(join(app.getPath('userData'), 'ade', 'remote', 'commands.json'),
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
+  const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution);
+  remoteTerminals = new RemoteTerminalService(workbench, {
+    list: () => ptyManager?.list() ?? [],
+    create: (agentId, repositoryId, bindingId, mode) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode),
+    attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
+    resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
+  }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
+  (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state));
+  stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
   const application = new AdeApplicationService(
     store,
     orchestration,
     { status: () => ptyManager!.queueStatus() },
     {
       activity: hostOperations,
+      workbench, terminals: remoteTerminals,
+      deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
+      profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
+        const source = nativeImage.createFromBuffer(bytes);
+        if (source.isEmpty()) throw new Error('ade: Profilbild konnte nicht gelesen werden.');
+        for (const size of [256, 128, 64]) {
+          const image = source.resize({ width: size, height: size, quality: 'good' }).toPNG();
+          if (image.length <= 32 * 1024) return image;
+        }
+        throw new Error('ade: Profilbild ist zu gross.');
+      }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() })),
       administration: { ledger, restart, git: repositorySync,
         workspaces: new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution) },
       // The same coordinator/service methods the desktop IPC handlers call
@@ -737,11 +762,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   // Forward keystrokes to the session's pty
   handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {
+    if (!remoteTerminals!.desktopMayWrite(sessionId)) throw new Error('ade: Terminal wird remote gesteuert. Eingabe zuerst am Desktop übernehmen.');
     ptyManager!.write(sessionId, Buffer.from(dataBase64, 'base64'));
   });
 
   // Phase B1: resize the session's pty to the fitted cols/rows
   handle(IPC.PtyResize, ({ sessionId, cols, rows }) => {
+    if (!remoteTerminals!.desktopMayWrite(sessionId)) return;
     ptyManager!.resize(sessionId, cols, rows);
   });
 
@@ -750,6 +777,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   // Phase B1: ring-buffer replay so scrollback survives (re)attach
   handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
+  handle(IPC.TerminalControl, ({ sessionId }) => remoteTerminals!.desktopState(sessionId));
+  handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
 
   // Reconcile renderer state after a reload without losing main-owned PTYs.
   handle(IPC.PtyList, async () => {
@@ -976,6 +1005,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export function disposePtyManager(): void {
+  stopTerminalRevocation?.(); stopTerminalRevocation = null;
+  remoteTerminals?.dispose(); remoteTerminals = null;
   if (retentionTimer) {
     clearInterval(retentionTimer);
     retentionTimer = null;

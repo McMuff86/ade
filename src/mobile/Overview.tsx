@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import type { MobileHost } from './useMobileHost';
-import { Avatar } from '../renderer/rail/Avatar';
+import { MobileAvatar } from './AgentProfile';
 import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
 import { formatRelativeTime, formatTokenCount, formatCostUsd } from '../shared/overviewFormat';
 import { finalStates, Icon, reportedTokens, runKindLabel, Status } from './ui';
@@ -31,8 +31,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject }: { host: 
       <section className="m-ledger" aria-labelledby="mobile-agents-title"><h2 id="mobile-agents-title">Agents <span>{catalog.agents.length}</span></h2>
         {!catalog.agents.length ? <p className="m-empty-copy">Noch keine Agents. Am PC in ADE einrichten.</p> : <ul className="m-agent-list">{catalog.agents.map((agent) => {
           const repo = catalog.repositories.find((repository) => repository.id === agent.defaultRepositoryId);
-          return <li key={agent.id}><button className="m-agent-row" onClick={(event) => { event.currentTarget.focus(); onAgent(agent.id); }} aria-label={`Aufgabe für ${agent.name}`}>
-            <Avatar name={agent.name} size={30} /><span className="m-agent-name"><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
+          return <li key={agent.id}><button className="m-agent-row" onClick={(event) => { event.currentTarget.focus(); onAgent(agent.id); }} aria-label={`Workspace für ${agent.name}`}>
+            <MobileAvatar host={host} agent={agent} size={30} /><span className="m-agent-name"><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
             <span className="m-agent-role">{agent.role || 'Agent'}</span><span className="m-agent-repo">{repo?.name ?? 'portable'}</span><span className="m-row-action" aria-hidden="true">↗</span>
           </button></li>;
         })}</ul>}

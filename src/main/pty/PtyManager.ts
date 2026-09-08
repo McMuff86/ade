@@ -147,6 +147,15 @@ export class PtyManager {
   private readonly cancelledDispatches = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly scopes: RepositoryScopePort;
 
+  /** Dedicated interactive launcher: configured agent or plain shell, never a task. */
+  async createRemoteInteractive(agentId: string, repositoryId: string, workspaceBindingId: string, mode: 'shell' | 'agent'): Promise<SessionMeta> {
+    return workspaceOperations.use(async () => {
+      const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
+      this.assertScopeAvailable(scope);
+      return this.spawn(agentId, scope, undefined, undefined, mode === 'shell');
+    });
+  }
+
   constructor(
     private readonly store: ConfigStore,
     private readonly taskLifecycle?: TaskLifecycleSink,
@@ -379,6 +388,7 @@ export class PtyManager {
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
     login?: { command: string; title: string },
+    shellOnly = false,
   ): Promise<SessionMeta> {
     const agent = this.effectiveTaskAgent(this.requireAgent(agentId), task?.runTaskId);
     const managedLaunch = task?.runTaskId
@@ -401,7 +411,7 @@ export class PtyManager {
       ? this.resolveTaskSpawn(agent, task.task, managedLaunch, backendPlatform)
       : login
         ? this.resolveLoginSpawn(login.command, backendPlatform)
-        : this.resolveInteractiveSpawn(agent, backendPlatform);
+        : this.resolveInteractiveSpawn(shellOnly ? { ...agent, runtime: 'shell', customCommand: undefined } : agent, backendPlatform);
     let spec = baseSpec;
     let promptScratchDir: string | undefined;
     let backendEnv: Record<string, string> | undefined;
@@ -457,9 +467,10 @@ export class PtyManager {
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
+      remoteAccessBlocked: login ? true : undefined,
       id,
       agentId,
-      title: login ? login.title : task ? `${label} task` : label,
+      title: shellOnly ? 'Shell' : login ? login.title : task ? `${label} task` : label,
       kind: task ? 'task' : 'interactive',
       status: 'running',
       createdAt: Date.now(),

@@ -4,6 +4,10 @@ import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from '../../shared/remoteD
 
 const scopeLabels: Record<RemoteAdminScope, string> = {
   'host:restart': 'ADE neu starten', 'catalog:write': 'Agents und Projekte erstellen', 'repositories:write': 'Git abrufen und Workspaces aktualisieren',
+  'workspace:read': 'Workspace-Dateien und Git-Diffs lesen',
+  'workspace:write': 'Kleine Workspace-Textdateien bearbeiten',
+  'profiles:write': 'Agent-Namen, Rollen und Profilbilder bearbeiten',
+  'terminal:control': 'Interaktive Terminals steuern (Befehle mit den Rechten meines Windows-Benutzers)',
 };
 
 export function RemoteDevicesSection(): JSX.Element {
@@ -95,6 +99,8 @@ export function RemoteDevicesSection(): JSX.Element {
             ) : <strong>{device.name} · Zugriff widerrufen</strong>}
             {device.revokedAt === null && <fieldset disabled={busy || !inventory.available} className="st-device-grants">
               <legend>Verwaltungsrechte für {device.name}</legend>
+              <p className="st-device-hint">Terminalzugriff erlaubt Shell-Befehle und Zugriff auf alles, was dein Windows-Benutzer erreichen kann.
+                Der Workspace ist das Startverzeichnis, keine Sandbox. Am Desktop kannst du die Eingabe jederzeit zurückholen.</p>
               {REMOTE_ADMIN_SCOPES.map((scope) => <label key={scope}><input type="checkbox"
                 checked={(grantDrafts[device.id] ?? []).includes(scope)} onChange={(event) => {
                   const checked = event.target.checked;

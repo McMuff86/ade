@@ -205,6 +205,8 @@ export interface SessionBookend {
 }
 
 export interface SessionMeta {
+  /** Credential-login sessions cannot be attached through the remote terminal API. */
+  remoteAccessBlocked?: boolean;
   id: string;
   agentId: string;
   title: string;

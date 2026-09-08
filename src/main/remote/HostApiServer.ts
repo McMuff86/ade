@@ -57,10 +57,11 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
-  | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
+  | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
+  | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
 
-type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit';
+type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile';
 
 interface ParsedTarget {
   path: string;
@@ -112,6 +113,13 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/host/restart': return { route: { kind: 'restartHost' }, allow: ['POST'] };
     case '/api/v1/admin/commands': return { route: { kind: 'administer' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
+    case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
+    case '/api/v1/workspace/save': return { route: { kind: 'saveWorkspaceFile' }, allow: ['POST'] };
+    case '/api/v1/profile/query': return { route: { kind: 'queryProfile' }, allow: ['POST'] };
+    case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
+    case '/api/v1/terminal/query': return { route: { kind: 'terminalQuery' }, allow: ['POST'] };
+    case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
+    case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
     case '/api/v1/runs': return { route: { kind: 'runs' }, allow: ['GET', 'POST'] };
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
@@ -309,7 +317,7 @@ export class HostApiServer {
       if (asset) {
         response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': asset.contentType,
           'content-length': asset.body.length,
-          'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+          'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
           'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'service-worker-allowed': '/',
         });
         response.end(asset.body); return;
@@ -392,6 +400,13 @@ export class HostApiServer {
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
         case 'administer':
         case 'queryGit':
+        case 'queryWorkspace':
+        case 'saveWorkspaceFile':
+        case 'queryProfile':
+        case 'updateProfile':
+        case 'terminalQuery':
+        case 'terminalCommand':
+        case 'terminalInput':
           await this.handleCommand(request, response, requestId, bearer, target.path, matched.route.kind, undefined, browserRequest); return;
         case 'catalog':
           writeJson(response, 200, this.application.catalog());
@@ -485,7 +500,15 @@ export class HostApiServer {
     }
 
     try {
-      const result = kind === 'administer'
+      const result = kind === 'queryProfile' ? this.application.queryProfile(context, payload)
+        : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
+        : kind === 'saveWorkspaceFile'
+        ? await this.application.saveWorkspaceFile(context, payload)
+        : kind === 'terminalQuery' || kind === 'terminalCommand' || kind === 'terminalInput'
+        ? await this.application.remoteTerminal(context, payload, kind === 'terminalQuery' ? 'query' : kind === 'terminalCommand' ? 'command' : 'input')
+        : kind === 'queryWorkspace'
+        ? await this.application.queryWorkspace(context, payload)
+        : kind === 'administer'
         ? await this.application.administer(context, payload)
         : kind === 'queryGit'
           ? await this.application.queryGit(context, payload)

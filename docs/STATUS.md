@@ -1,11 +1,20 @@
 # ADE implementation status
 
+Remote workspace Goals 16–19 are implemented: agent/project workspace dialogs,
+files and staged/unstaged Git diffs, explicitly granted interactive terminals,
+small conflict-checked text edits and agent name/role/photo maintenance.
+Final native Windows `pnpm verify` passed all 1,855 checks, three TypeScript
+projects and the build; evidence is in `REMOTE_WORKBENCH_RESULTS.md`. These capabilities
+require the new host build and per-device grants; operator instructions are in
+`REMOTE_TERMINAL_GUIDE.md`. The operator reported installing the previous
+Goals 12–15 build at home; activation of Goals 16–19 is still pending.
+
 Remote workspace Goals 12–15 are implemented and locally verified on native
 Windows: scoped ADE restart, agent/project/workspace creation, Git comparison
 and confirmed update, project/agent filters and independent drafts. Final
 `pnpm verify` passed all 1,717 checks, three TypeScript projects and the build.
-Home-host activation is pending; the home host needs update/build/restart and
-desktop device grants. Checklists: `REMOTE_WORKSPACE_GOALS.md`; evidence and
+The operator subsequently reported loading this build at home; this is not a
+new automated home-host measurement. Checklists: `REMOTE_WORKSPACE_GOALS.md`; evidence and
 platform/start-mode limits: `REMOTE_WORKSPACE_RESULTS.md`.
 
 Status date: 2026-09-08. This is the short, factual capability matrix. Product
@@ -19,6 +28,9 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Capability | State | Current behavior |
 |---|---|---|
 | Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
+| Mobile workspace tools | Implemented; native Windows fixtures verified | Separate workspace read/write grants, bounded file tree/search/text preview, staged/unstaged Git diffs and revision-checked atomic text saves; live sessions/managed leases block edits; drafts live only in page memory |
+| Mobile interactive terminals | Implemented; real native Windows PTY/Electron verified | Explicit terminal grant, shell/configured-agent start, existing session attach, exclusive 30-second input lease, immediate desktop reclaim/revocation and sequenced at-most-once input; bounded text output; no managed-task/login control or full color/mouse TUI |
+| Mobile agent profiles | Implemented; browser and native Electron codec verified | Active-device photo reads and separately granted name/role/photo updates with revision checks; normalized PNG at most 32 KiB/256×256; same stored profile and desktop refresh |
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
 | Named agents and categories | Real | Persisted JSON config, photos, runtime/permission settings and native Codex plus Grok Build model/reasoning profiles; the current pilot roster is Codex-only (`gpt-5.6-sol`, bypass, orchestrator `xhigh`) except deliberate shell utilities; its audit archives only fully ADE-owned legacy `CLAUDE.md` scaffolds and preserves all mixed/user content |
@@ -222,5 +234,7 @@ fixture repositories rather than depending on any personal checkout.
   Browser private state is in memory; a lost command response can be retried
   with the same key while the page remains open. Reloading does not restore
   an unfinished command form; inspect the run list before submitting new work.
-- Keep Electron IPC, terminals, configuration and Git publishing local. Direct
-  LAN binds, router forwarding, Tailscale Funnel and public tunnels are unsupported.
+- Electron IPC, runtime configuration and Git publishing remain local. Terminal,
+  file and profile access use the dedicated Goals 16–19 APIs and desktop device
+  grants. Direct LAN binds, router forwarding, Tailscale Funnel and public tunnels
+  are unsupported.

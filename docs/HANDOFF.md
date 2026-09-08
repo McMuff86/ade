@@ -1,5 +1,33 @@
 # Handoff — 2026-09-08
 
+## Goals 16–19 — Workspace-Werkzeuge und gezielte Terminalfreigabe
+
+Adi hat den vorherigen ADE-Stand nach eigener Aussage am Heim-PC geladen.
+Danach beauftragt: die fehlenden Tablet-Funktionen in der definierten Reihenfolge
+umsetzen, einschliesslich einer eigenen Terminalfreigabe. Alle vier Bereiche
+sind implementiert: Agent-/Projekt-Workspace mit Dateien und Git, interaktive
+Host-Terminals, kleiner Texteditor und gemeinsame Agent-Profile/Fotos.
+
+Am Heim-PC ist für diese Lieferung noch ein Update mit Installation der neuen
+Abhängigkeit, Build und Neustart nötig. Danach am Desktop je Gerät die neuen
+Lese-, Schreib-, Terminal- und Profilrechte vergeben. Weiterleitbare Schritte:
+`REMOTE_TERMINAL_GUIDE.md`. Tailscale und eine bestehende Kopplung gewähren diese
+Rechte nicht automatisch. Terminalbefehle laufen mit Windows-Benutzerrechten;
+die Arbeitsmappe ist keine Sandbox. Desktop-Übernahme und Gerätewiderruf sperren
+weitere Remote-Eingaben, beenden aber keinen gestarteten Prozess automatisch.
+
+Abnahmecheckliste: `REMOTE_WORKBENCH_GOALS.md`; gemessene Tests und Grenzen:
+`REMOTE_WORKBENCH_RESULTS.md`. Der vollständige `pnpm verify` ist grün:
+1.855 Checks, alle drei TypeScript-Projekte und der Production-Build. Die Fixtures verwenden
+Wegwerfprofile, echte native Git-Worktrees und PowerShell-PTYs, jedoch keinen
+persönlichen Host und keinen echten Modellaufruf. WSL/Linux/macOS sowie die
+physische Tablet-Abnahme sind dadurch nicht nachgewiesen.
+
+Die folgenden Abschnitte beschreiben den jeweiligen früheren Übergabestand;
+insbesondere die damalige Aussage „Terminals/Dateien/Git nur am Desktop“ wird
+durch Goals 16–19 erweitert. Der dort genannte persönliche Prozesszustand ist
+eine historische Messung und keine aktuelle Aussage über den Heim-PC.
+
 ## Implementation complete — remote workspace Goals 12–15
 
 Operator on the work PC requested goal definition and implementation of remote
