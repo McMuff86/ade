@@ -102,9 +102,12 @@ directory, with the right PATH.
   devices. Keys stay OS-encrypted; revocation closes device connections and
   survives restart. Device actions and remote requests have a durable local
   audit. Settings → **Mobiler Zugriff** adds private Tailscale HTTPS, one-use
-  QR pairing and a responsive mobile companion. The host stays opt-in and
-  loopback-only. See [mobile setup](docs/goal8/MOBILE_CONNECT_GUIDE.md) and
-  [measured evidence](docs/goal8/MOBILE_CONNECT_RESULTS.md).
+  QR pairing and a responsive mobile companion with the desktop's dark/light
+  appearance, Overview, Work, Graph and phone/tablet Inspector. Navigation keeps
+  the live connection and unsent drafts. The host stays opt-in and loopback-only.
+  See [mobile setup and updates](docs/goal8/MOBILE_CONNECT_GUIDE.md),
+  [connection evidence](docs/goal8/MOBILE_CONNECT_RESULTS.md) and
+  [interface evidence](docs/goal8/MOBILE_DESKTOP_PARITY_RESULTS.md).
 
 ## Quickstart
 

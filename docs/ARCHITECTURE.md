@@ -908,6 +908,31 @@ reads authoritative snapshots and resumes signed fetch-based SSE. A 45-second
 heartbeat deadline detects silently stalled connections. Detailed reports,
 remote approval, push and configuration remain desktop-only.
 
+The mobile shell imports the same `renderer/theme/tokens.css`, pure Avatar and
+runtime visual helpers as the desktop. It does not import renderer stores,
+preload, the terminal UI or desktop application services. Its Overview, Work
+and Graph views consume only the existing health/catalog/run-summary contract.
+`useMobileHost` owns one connection across all three views; selecting a view,
+node or theme never remounts authentication/SSE. Only appearance and the active
+view are persisted in localStorage. Drafts, filters, selection and run data
+remain in memory; revocation/disconnect clears private state.
+
+Overview reports queue activity as task slots, not terminal sessions. The
+current summary DTO cannot establish token-reporting completeness or distinguish
+unreported zero usage; zero is displayed as no report. Graph edges describe
+participant/team membership and roles; dependency edges are not invented.
+Tablet inspectors are complementary panels; phone inspectors and composers are
+native modal dialogs with explicit keyboard focus cycling and opener/fallback
+restoration. Starting a draft follows the domain contract: fresh task-free
+drafts become managed on start, even though their stored pre-start mode is manual.
+
+Mobile build assets are still loaded into main once. Building changed assets
+does not disrupt an existing host or its device sessions, and does not update
+that host's in-memory asset map. Activating a new build requires a normal host
+restart and browser reload. Existing IndexedDB identities and the wire/session
+protocol remain compatible; a paired browser can reauthenticate after restart.
+See `goal8/MOBILE_DESKTOP_PARITY_PLAN.md` for continuity and UI acceptance goals.
+
 `OrchestrationService.summarize()` replaces automatically derived prompt-prefix
 run/task labels with `Single task`/`Task`, including existing persisted records.
 Explicit independent labels remain visible. Prompts cannot escape through the

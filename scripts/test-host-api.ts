@@ -530,7 +530,10 @@ function command(port: number, path: string, options: CommandOptions = {}): Prom
       idempotencyKey: key ?? '',
       bodySha256: sha256Hex(rawBody ?? ''),
     });
-    headers['x-ade-signature'] = options.tamperSignature ? `${signature.slice(0, -1)}0` : signature;
+    // Replacing an existing trailing zero with zero leaves a valid signature.
+    // The negative control must change a nibble on every invocation.
+    headers['x-ade-signature'] = options.tamperSignature
+      ? `${signature.slice(0, -1)}${signature.endsWith('0') ? '1' : '0'}` : signature;
   }
   return httpRequest(port, path, { method: 'POST', token, headers, body: rawBody });
 }

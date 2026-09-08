@@ -245,6 +245,14 @@ Detailed model, UI behavior, migration and exit criteria are binding in
   quit ends the host. Login autostart and remote wake remain future work.
 - Implementation and platform evidence are in `goal8/MOBILE_CONNECT_RESULTS.md`;
   physical iOS/Android and mobile-network acceptance must be measured separately.
+- Goals 8.6–8.9 align the mobile shell with the desktop: shared dark/light tokens,
+  `ade_` title bar, Overview/Work/Graph navigation, agent/project inventory,
+  searchable runs, team nodes and a tablet side inspector or phone detail dialog.
+  New task/run dialogs preserve unsent drafts across view/theme changes. One
+  connection remains mounted across views; localStorage holds appearance/view
+  preferences only. No new remote endpoint or privilege is introduced.
+  The prior host keeps serving its loaded UI until the user's next normal restart.
+  Acceptance: `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`.
 - The service worker caches only the versioned application shell. Credentials,
   API responses, patches and run details are not intentionally available
   offline.

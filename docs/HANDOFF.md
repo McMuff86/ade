@@ -1,5 +1,55 @@
 # Handoff — 2026-09-08
 
+## Goals 8.6–8.9 — mobile Oberfläche an Desktop angeglichen
+
+Auftrag: Mobile möglichst wie die lokale ADE gestalten und die bereits
+verbundene persönliche Sitzung während der Arbeit erhalten. Basis: `9483353`.
+Goals und Abnahme: `goal8/MOBILE_DESKTOP_PARITY_PLAN.md` und
+`goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`.
+
+- **Oberfläche:** Tatsächliche Desktop-Tokens, Dark/Light, `ade_`-Leiste,
+  Overview/Work/Graph, Agents/Projects, Run-Suche und Statusfilter. Der Graph
+  zeigt Teilnehmer und Teams mit Zoom/Einpassen; der Inspector sitzt auf dem
+  Tablet daneben und öffnet auf dem Smartphone als modale Detailansicht.
+  Neue Aufgabe/Neuer Run verwenden Dialoge mit vorbefüllter Agent-/Projektauswahl.
+- **Verbindung und Daten:** Ein `useMobileHost` über alle Ansichten hält
+  Authentisierung/SSE unabhängig von Navigation, Theme und Auswahl. Unversandte
+  Entwürfe bleiben im Seitenspeicher; Widerruf/lokales Trennen leert private
+  Zustände. Nur Ansicht und Theme werden als Präferenz gespeichert. Unklare
+  Befehle verwenden weiterhin dieselbe Idempotenz-ID. Keine neuen Endpunkte,
+  Privilegien, Browser-Schlüsselschemata oder persönlichen Geräteidentitäten.
+- **Ehrliche Projektion:** Aktive Task-Slots statt erfundener Terminalaktivität,
+  unbekannte Token-/Kostenangaben bleiben unbekannt. Graph-Verbindungen zeigen
+  Teamrollen, keine nicht gelieferten Task-Abhängigkeiten. Detaillierte Reports,
+  Terminals, Dateien, Git und Freigaben bleiben in der Desktop-App.
+- **Bedienung:** Roving Tabs, Graph Enter/Space/Escape, Dialog-Fokusbindung und
+  Rückgabe an Opener oder existierenden Ersatz. WebKit-Pointeraktivierung setzt
+  den Opener explizit; die drei anfänglichen Fokusfehler sind im positiven Lauf
+  behoben. Layouts von 320×568 bis 1280×800 sind automatisiert geprüft.
+- **Validierung:** `pnpm verify` vollständig grün: drei TypeScript-Projekte,
+  **21 Suiten / 1337 Checks**, beide Production-UIs, **163** Electron-, **20**
+  Git-sync-, **54** Chromium-Mobile-, **15** Mobile-Electron- und **22** visuelle
+  Checks; zusätzlich **53 WebKit-Checks**. Logs:
+  `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`. Chromium/WebKit verwenden echte
+  Domain-/HTTP-Dienste mit deterministischen Runtime-Fixtures; Electron nutzt
+  Wegwerfprofile. Physisches iOS/Android und Mobilfunk bleiben separate Abnahme;
+  Windows-WebKit misst weder SameSite-Introspektion noch Offline-Kaltstart.
+  Der vorhandene Host-API-Negativtest verändert nun garantiert die Signatur:
+  Ein abschliessendes `0` wurde zuvor zufällig durch dasselbe `0` ersetzt.
+  Die produktive Authentisierung bleibt unverändert; der fokussierte Lauf
+  besteht alle 184 Checks inklusive negativem und folgendem positivem Kontrollfall.
+- **Operatorzustand:** Der persönliche Host bleibt derselbe Prozess (PID 19188,
+  Loopback-Port 4317). Keine Profiländerung, kein Logout/erneutes Pairing, keine
+  Änderung der privaten Serve-Route und kein erneuter Tailscale-Operatorfixture
+  gegen den belegten Host. **298 HTTPS-Proben über 49 Minuten, kein Ausfall**;
+  anschliessend nur den eigenen Messprozess beendet.
+  **Die laufende Sitzung zeigt weiterhin die zuvor geladenen Assets.** Die neue
+  Ansicht wird erst nach einem vom Nutzer gewählten normalen ADE-Neustart und
+  Neuladen am Mobilgerät sichtbar; die Gerätekopplung bleibt erhalten. Anleitung:
+  `goal8/MOBILE_CONNECT_GUIDE.md`, „Neue Version aktivieren“.
+
+---
+
 ## Goal 8.2–8.5 — Tablet/Smartphone über privates Tailscale
 
 Auftrag: Nach Git-Abgleich und Geräteverwaltung den mobilen Einstieg umsetzen,

@@ -61,7 +61,7 @@ void (async () => {
   await phone.getByLabel('Gerätename', { exact: true }).fill('Electron test phone');
   await phone.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-  check('phone pairs against real Electron host and OS-protected store', await phone.getByText('Am PC zuerst ein Repository und einen Agent in ADE einrichten.', { exact: true }).isVisible());
+  check('phone pairs against real Electron host and OS-protected store', await phone.getByText('Noch keine Agents. Am PC in ADE einrichten.', { exact: true }).isVisible());
   await mobile.getByRole('button', { name: 'Pairing schliessen' }).click();
   check('closing pairing returns focus to its opener', await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).evaluate((node) => node === document.activeElement));
   const inventory = settings.getByTestId('remote-devices');

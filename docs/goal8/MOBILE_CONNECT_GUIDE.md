@@ -16,9 +16,12 @@
    Alternativ die angezeigte ADE-Adresse öffnen und den Pairing-Code einfügen.
    Der Code gilt fünf Minuten und funktioniert einmal. Neuer Code oder
    Schliessen des Pairings macht den bisherigen Code ungültig.
-5. Repository und Agent wählen, Aufgabe schreiben und starten. Für Managed
-   Runs mindestens zwei Agents wählen; der zuerst gewählte koordiniert.
-   Run vorbereiten, Namen/Budget prüfen und **Run starten** wählen.
+5. **Overview** zeigt Agents, Projects und die letzten Runs wie auf dem Desktop.
+   **Neue Aufgabe** oder einen Agent/Projekt-Eintrag wählen, Aufgabe schreiben
+   und starten. Für **Neuer Run** mindestens zwei Agents wählen; der zuerst
+   gewählte koordiniert. Run vorbereiten, Namen/Budget prüfen und im Inspector
+   **Run starten** wählen. **Work** durchsucht und filtert alle verfügbaren Runs;
+   **Graph** zeigt die Teamstruktur. Nodes auswählen, um deren Tasks anzusehen.
 6. Für den Home-Bildschirm die Installationsfunktion des Browsers verwenden.
    Jeder Browser bzw. jede separat gespeicherte PWA-Installation kann eine
    eigene Kopplung benötigen. Keine native iOS-/Android-App erforderlich.
@@ -31,8 +34,24 @@ Windows-Loginstart ist noch kein Teil dieser Umsetzung.
 
 **Geräte entfernen:** Settings → Verbundene Geräte → Gerät entfernen widerruft
 sofort den Zugriff und trennt offene Verbindungen. Bereits angenommene Aufgaben
-laufen weiter. „Dieses Gerät lokal trennen“ im Browser löscht dessen lokalen
+laufen weiter. **Settings → Dieses Gerät lokal trennen** im Browser löscht dessen lokalen
 Schlüssel; den dauerhaften Widerruf führt man am PC aus.
+
+**Ansicht und Bedienung:** Die mobile Oberfläche verwendet die Desktop-Farben,
+Schrift und Agent-Symbole. Dark/Light ist pro Browser einstellbar. Auf dem Tablet
+stehen Graph und Inspector nebeneinander; auf dem Handy öffnet die Auswahl eine
+Detailansicht. Escape schliesst sie und setzt den Fokus zurück. Pfeiltasten sowie
+Home/End wechseln die Ansicht; Enter/Leertaste wählen Graph-Nodes. Der Graph
+lässt sich scrollen, zoomen und einpassen. Auftragsentwürfe bleiben beim Wechsel
+der Ansicht oder des Themes in der offenen Seite erhalten.
+
+**Neue Version aktivieren:** Eine bereits laufende ADE-Version hält die mobile
+Oberfläche im Speicher. Ein Build oder Neuladen am Handy allein ersetzt sie
+nicht. Zu einem passenden Zeitpunkt ADE über das Tray-Menü vollständig beenden
+und mit `pnpm start` neu öffnen; danach die Mobilseite neu laden. Die bestehende
+Gerätekopplung bleibt erhalten. Während dieser Umsetzung wird eine bestehende
+Sitzung nicht automatisch neu gestartet. Aktive Aufgaben vor einem eigenen
+Neustart abschliessen oder gezielt beenden; ein Host-Neustart stoppt deren PTYs.
 
 **Wenn die Verbindung fehlt:**
 

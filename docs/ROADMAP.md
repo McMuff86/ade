@@ -437,6 +437,14 @@ open until measured. Concrete Goals **8.2 pairing**, **8.3 Tailscale**, **8.4 PW
 and **8.5 connection evidence** are defined in `goal8/MOBILE_CONNECT_PLAN.md`;
 validation and limitations are in `goal8/MOBILE_CONNECT_RESULTS.md`.
 
+Goals **8.6 shared desktop appearance**, **8.7 Overview/Work**, **8.8 Graph and
+inspector**, and **8.9 continuity/validation** are implemented and locally
+validated; criteria are in `goal8/MOBILE_DESKTOP_PARITY_PLAN.md`.
+These use the existing remote DTOs and preserve the active host during
+development; activation waits for a normal
+restart unless the operator explicitly authorizes one. Evidence is recorded in
+`goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`.
+
 Step 1 adds Settings → Verbundene Geräte, encrypted persistent identities,
 rename/revoke, tombstones, immediate HTTP/SSE disconnection and a bounded fsynced
 audit. Production reads require a signed active device as well as the bearer.

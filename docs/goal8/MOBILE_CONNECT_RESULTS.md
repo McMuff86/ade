@@ -1,6 +1,9 @@
 # Mobile connection evidence — 2026-09-08
 
-Implementation: Goal 8.2–8.4 plus Goal 10's close-to-tray slice.
+Foundation evidence for `9483353`: Goal 8.2–8.4 plus Goal 10's close-to-tray slice.
+The subsequent desktop-aligned interface and continuous-host checks are recorded
+separately in `MOBILE_DESKTOP_PARITY_RESULTS.md`; the counts below describe the
+foundation, not the newer browser workflow.
 
 - Native Windows: **71** protocol/controller checks pass. Real HTTP, HMAC,
   session/CSRF, pairing expiry/replay, revocation/SSE teardown, restart,
