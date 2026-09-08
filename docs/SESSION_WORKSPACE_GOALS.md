@@ -33,4 +33,5 @@ rewrite the saved agent profile.
 
 - [x] Architecture/spec/status/roadmap/handoff and operator guide synchronized.
 - [x] Full `pnpm verify` passes on the final source; record evidence and limits.
-- [ ] Commit and push the verified delivery. Home-host update is an operator step.
+- [x] Commit and push the verified delivery (`1c301bb` on `origin/main`).
+  Home-host update is an operator step.

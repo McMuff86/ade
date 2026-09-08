@@ -69,5 +69,7 @@ acceptance. Existing remote device grants are preserved. Text terminal limitatio
 (no full color/mouse TUI fidelity), bounded editor limits and the native verified-
 path ancestor-race limitation still apply.
 
-The user authorized commit/push. Deployment at home remains an operator action;
+The user authorized commit/push. Verified implementation commit `1c301bb`
+(`feat: add projectless workspaces and session launcher`) was pushed successfully
+to `origin/main` on 2026-09-08. Deployment at home remains an operator action;
 these isolated tests neither pull/build on that host nor restart it.
