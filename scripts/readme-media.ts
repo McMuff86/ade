@@ -105,6 +105,7 @@ async function run(): Promise<void> {
     // Terminals view with a real session on the utility shell agent.
     await page.locator('.agent-row', { hasText: 'Scratch Shell' }).click();
     await page.keyboard.press('Control+Shift+T');
+    await page.getByRole('dialog', { name: 'Neue Terminalsitzung', exact: true }).getByRole('button', { name: 'Sitzung starten', exact: true }).click();
     const textarea = page.locator('.terminal-pane-wrap:visible .xterm-helper-textarea');
     await textarea.waitFor({ state: 'visible', timeout: 15_000 });
     await page.waitForTimeout(2_500);

@@ -1,5 +1,27 @@
 # Handoff — 2026-09-08
 
+## Goals 20–21 — Eigener Workspace und Sitzungsauswahl
+
+Adi hat das bisherige Remote-Update laut eigener Aussage am Heim-PC geladen.
+Neu beauftragt und implementiert: Dateien/Editor/Terminal auch ohne Git-Projekt
+im eigenen Agent-Ordner, mit nativer oder WSL-Ausführung, danach eine gemeinsame
+Startauswahl für Desktop und Tablet. Leeres Terminal, gespeichertes Agent-Profil,
+Codex, Hermes und Ollama-Modell sind pro Sitzung auswählbar. Das gespeicherte
+Profil und ein vorhandenes Standardprojekt bleiben erhalten; ein Neustart der
+Sitzung übernimmt deren Auswahl. Eigene Hermes-Wrapper weiter über das Profil
+starten. `SESSION_WORKSPACE_GOALS.md` enthält die Abnahme, die endgültigen
+Testzahlen und Grenzen stehen in `SESSION_WORKSPACE_RESULTS.md`.
+Abnahme grün: **1.919 Checks** im vollständigen `pnpm verify`, alle drei
+TypeScript-Projekte und Production-Build; zusätzlich 21 WSL-Domain-Checks und
+26 Checks im erweiterten Electron-/WSL-Durchlauf (inklusive nativer Kontrollen).
+
+Nach der Lieferung am Heim-PC pullen, bauen und ADE neu starten; danach die
+Tablet-Seite neu laden. Vorhandene passende Gerätefreigaben gelten weiter,
+neue Berechtigungen sind für diese Erweiterung nicht nötig. Die Tests verwenden
+isolierte Profile und kontrollierte CLIs, keinen persönlichen Agenten und keinen
+echten Modellaufruf. Sie aktualisieren den Heim-PC nicht. Weiterleitbare Bedienung:
+`REMOTE_TERMINAL_GUIDE.md`.
+
 ## Goals 16–19 — Workspace-Werkzeuge und gezielte Terminalfreigabe
 
 Adi hat den vorherigen ADE-Stand nach eigener Aussage am Heim-PC geladen.

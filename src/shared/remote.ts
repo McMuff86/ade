@@ -96,11 +96,20 @@ export interface MobileAdministrationValue {
 export interface MobileAdministrationResult extends MobileAdministrationValue { replayed: boolean }
 export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncPreview }
 
-export interface MobileWorkspaceSelection { agentId: string; repositoryId: string }
+/** null explicitly selects the agent home, regardless of its default project. */
+export interface MobileWorkspaceSelection { agentId: string; repositoryId: string | null }
+export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'hermes' } | { mode: 'ollama'; model: string };
+export type SessionLaunchRequest = MobileWorkspaceSelection & SessionLaunchChoice;
+export interface SessionLaunchOptions {
+  environment: string;
+  choices: Array<{ mode: SessionLaunchChoice['mode']; available: boolean; notice: string | null }>;
+  models: string[];
+}
 export interface MobileTerminalSummary {
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
 }
 export interface MobileTerminalState {
+  launchOptions?: SessionLaunchOptions;
   terminals: MobileTerminalSummary[];
   selected?: MobileTerminalSummary;
   screen?: string;
@@ -110,9 +119,9 @@ export interface MobileTerminalState {
   lastSequence?: number;
   inputUncertain?: boolean;
 }
-export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string };
+export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string; options?: true };
 export type MobileTerminalCommand = MobileWorkspaceSelection & (
-  | { operation: 'open'; mode: 'shell' | 'agent' }
+  | ({ operation: 'open' } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }
 );
 export type MobileTerminalInput = MobileWorkspaceSelection & {

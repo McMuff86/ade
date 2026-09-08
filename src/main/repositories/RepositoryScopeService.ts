@@ -268,14 +268,15 @@ export class RepositoryScopeService implements RepositoryScopePort {
   describe(agentId: string, reference?: ScopeReference): WorkspaceScopeDescriptor {
     const config = this.store.get();
     const agent = this.requireAgent(agentId);
-    const binding = reference?.workspaceBindingId
+    const plainHome = reference?.scopeSource === 'plain-home';
+    const binding = plainHome ? undefined : reference?.workspaceBindingId
       ? config.workspaceBindings.find((candidate) => (
           candidate.id === reference.workspaceBindingId && candidate.agentId === agent.id
         ))
       : config.workspaceBindings.find((candidate) => (
           candidate.agentId === agent.id && candidate.repositoryId === agent.defaultRepositoryId
         ));
-    const repositoryId = reference?.repositoryId ?? binding?.repositoryId ?? agent.defaultRepositoryId;
+    const repositoryId = plainHome ? undefined : reference?.repositoryId ?? binding?.repositoryId ?? agent.defaultRepositoryId;
     const repository = repositoryId
       ? config.repositories.find((candidate) => candidate.id === repositoryId)
       : undefined;

@@ -1,4 +1,4 @@
-import { chmodSync, closeSync, constants, fstatSync, fsyncSync, lstatSync, openSync, opendirSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, opendirSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join, relative } from 'node:path';
 import type { AdeConfig, SessionMeta, WorkspaceBinding } from '../../shared/types';
@@ -9,6 +9,15 @@ import { workspaceOperations } from '../repositories/WorkspaceOperationGate';
 import { redactForWire } from '../errors';
 import { RemoteApiError } from './AdeApplicationService';
 import type { MobileFileSaveInput } from '../../shared/remote';
+import { agentHomeBackend, homeWorkspace } from '../repositories/RepositoryScopeService';
+import type { ExecutionBackendId } from '../../shared/executionBackends';
+import { remoteWslWorkspace } from './RemoteWslWorkspace';
+
+export type WorkbenchScope = Pick<WorkspaceBinding, 'agentId' | 'workspaceDir' | 'executionBackend'>
+  & Partial<Pick<WorkspaceBinding, 'id' | 'repositoryId' | 'status'>> & { rootIdentity?: string };
+export const validWorkspaceSelection = (input: Record<string, unknown>): boolean =>
+  typeof input.agentId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(input.agentId)
+  && (input.repositoryId === null || typeof input.repositoryId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(input.repositoryId));
 
 const TEXT_BYTES = 24 * 1024;
 const DIFF_CHARS = 64 * 1024;
@@ -34,7 +43,7 @@ export function validateWorkbenchQuery(value: unknown): MobileWorkspaceQuery {
     : input.operation === 'diff' ? ['path', 'staged'] : input.operation === 'search' ? ['search'] : [];
   if (!['overview', 'tree', 'file', 'diff', 'search'].includes(String(input.operation))
     || Object.keys(input).some((key) => !['operation', 'agentId', 'repositoryId', ...extra].includes(key))
-    || ![input.agentId, input.repositoryId].every((id) => typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(id))) {
+    || !validWorkspaceSelection(input)) {
     throw new RemoteApiError(400, 'invalid_payload');
   }
   if (extra.includes('path')) workbenchPath(input.path, input.operation === 'tree');
@@ -48,14 +57,14 @@ export function validateFileSave(value: unknown): MobileFileSaveInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
   if (Object.keys(input).some((key) => !['agentId', 'repositoryId', 'path', 'workspaceVersion', 'revision', 'text'].includes(key))
-    || ![input.agentId, input.repositoryId].every((id) => typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(id))
+    || !validWorkspaceSelection(input)
     || ![input.workspaceVersion, input.revision].every((id) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id))
     || typeof input.text !== 'string' || Buffer.byteLength(input.text) > TEXT_BYTES || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(input.text)
     || Buffer.from(input.text, 'utf8').toString('utf8') !== input.text) throw new RemoteApiError(400, 'invalid_payload');
   workbenchPath(input.path); return input as unknown as MobileFileSaveInput;
 }
 
-/** Native catalog-bound reads; never provisions a binding or follows agent-memory fallbacks. */
+/** Explicit catalog binding or configured home; never follows agent-memory fallbacks. */
 export class RemoteWorkbenchService {
   constructor(readonly store: { get(): AdeConfig }, readonly sessions: () => SessionMeta[],
     readonly execution = new ExecutionBackendService()) {}
@@ -67,14 +76,22 @@ export class RemoteWorkbenchService {
       if (this.busy(binding)) reject('Workspace wird von einem Agenten oder Terminal verwendet. Sitzung zuerst beenden.');
       await this.revalidate(binding);
       authorize();
-      const current = this.read(binding, input.path);
+      const current = await this.readScoped(binding, input.path);
       if (!current.editable) reject('Diese Datei ist nur lesbar.');
       if (current.revision !== input.revision) return { saved: false, revision: current.revision };
-      const abs = this.path(binding, input.path); const stat = lstatSync(abs);
       const eol = current.text.includes('\r\n') ? '\r\n' : '\n';
       const bom = current.text.startsWith('\uFEFF') ? '\uFEFF' : '';
       const text = bom + input.text.replace(/^\uFEFF/, '').replace(/\r\n|\r|\n/g, eol);
       const bytes = Buffer.from(text, 'utf8'); if (bytes.length > TEXT_BYTES) reject('Datei darf nach dem Speichern höchstens 24 KiB gross sein.');
+      if (binding.executionBackend !== 'native') {
+        await this.revalidate(binding); authorize();
+        if (this.busy(binding)) reject('Workspace wurde inzwischen belegt.');
+        const result = await remoteWslWorkspace(this.execution, binding.executionBackend, binding.workspaceDir, 'save',
+          { identity: binding.rootIdentity, path: input.path, revision: input.revision, bytes: bytes.toString('base64') });
+        await this.revalidate(binding); authorize();
+        return { saved: result.saved === true, revision: result.revision! };
+      }
+      const abs = this.path(binding, input.path); const stat = lstatSync(abs);
       const temp = join(dirname(abs), `.ade-edit-${randomUUID()}.tmp`);
       try {
         assertNoLinks(temp); const fd = openSync(temp, 'wx', stat.mode & 0o777);
@@ -96,10 +113,13 @@ export class RemoteWorkbenchService {
     return workspaceOperations.use(async () => {
       const binding = await this.resolve(input, input.operation === 'overview');
       if (!binding) return { workspaceVersion: '', overview: { ready: false, workspaceVersion: '', branch: '', busy: false,
-        changes: [], commits: [], notice: 'Noch kein Workspace für diesen Agent und dieses Projekt. Unter Verwalten → Projekte & Workspaces vorbereiten.' } };
+        changes: [], commits: [], notice: input.repositoryId === null ? 'Der eigene Ordner ist noch nicht vorhanden. Unter Terminal eine Sitzung öffnen, um ihn anzulegen.' : 'Noch kein Workspace für diesen Agent und dieses Projekt. Unter Verwalten → Projekte & Workspaces vorbereiten.' } };
       const workspaceVersion = this.version(binding);
       let result: MobileWorkspaceResult = { workspaceVersion };
-      if (input.operation === 'overview') {
+      if (input.operation === 'overview' && !binding.repositoryId) {
+        result.overview = { ready: true, workspaceVersion, branch: '', busy: this.busy(binding), changes: [], commits: [],
+          notice: 'Eigener Workspace ohne Projekt · ' + (binding.executionBackend === 'native' ? 'Native Umgebung' : redactForWire(binding.executionBackend, 150)) };
+      } else if (input.operation === 'overview') {
         const [status, branch, history] = await Promise.all([
           this.git(binding, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
           this.git(binding, ['rev-parse', '--abbrev-ref', 'HEAD']),
@@ -121,8 +141,9 @@ export class RemoteWorkbenchService {
         }).filter((commit) => /^[a-f0-9]{40,64}$/.test(commit.sha));
         result.overview = { ready: true, workspaceVersion, branch: redactForWire(branch.trim(), 200),
           busy: this.busy(binding), changes, commits, notice: omitted ? 'Einträge sind begrenzt; geschützte Dateien werden ausgelassen.' : null };
-      } else if (input.operation === 'file') result.file = this.read(binding, input.path);
+      } else if (input.operation === 'file') result.file = await this.readScoped(binding, input.path);
       else if (input.operation === 'diff') {
+        if (!binding.repositoryId) reject('Git-Änderungen benötigen ein ausgewähltes Projekt.');
         this.path(binding, input.path, true);
         const raw = await this.git(binding, ['diff', '--no-ext-diff', '--no-textconv', '--no-color', ...(input.staged ? ['--cached'] : []), '--', input.path]);
         result.diff = redactForWire(raw, DIFF_CHARS);
@@ -134,6 +155,12 @@ export class RemoteWorkbenchService {
             result.diff = file.notice ?? file.text.split('\n').map((line) => `+${line}`).join('\n');
           }
         }
+      } else if (binding.executionBackend !== 'native') {
+        const listing = await remoteWslWorkspace(this.execution, binding.executionBackend, binding.workspaceDir, input.operation,
+          { identity: binding.rootIdentity, ...(input.operation === 'tree' ? { path: input.path } : { search: input.search }) });
+        result.entries = (listing.entries ?? []).filter((entry) => { try { workbenchPath(entry.path); return true; } catch { return false; } });
+        result.entries.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'directory' ? -1 : 1) || a.path.localeCompare(b.path));
+        result.limited = listing.limited;
       } else {
         const entries: MobileWorkspaceEntry[] = []; let visited = 0; let limited = false;
         const walk = (directory: string, depth: number): void => {
@@ -162,9 +189,17 @@ export class RemoteWorkbenchService {
     });
   }
 
-  async resolve(input: MobileWorkspaceSelection, optional = false): Promise<WorkspaceBinding | null> {
+  async resolve(input: MobileWorkspaceSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
     const config = this.store.get();
-    if (!config.agents.some((agent) => agent.id === input.agentId)) reject('Agent ist nicht mehr vorhanden.');
+    const agent = config.agents.find((agent) => agent.id === input.agentId);
+    if (!agent) return reject('Agent ist nicht mehr vorhanden.');
+    if (input.repositoryId === null) {
+      const scope: WorkbenchScope = { agentId: agent.id, workspaceDir: homeWorkspace(agent), executionBackend: agentHomeBackend(agent) };
+      if (prepareHome && this.managed(scope)) reject('Workspace ist durch einen verwalteten Auftrag belegt.');
+      const identity = await this.homeIdentity(scope, prepareHome);
+      if (!identity) { if (optional) return null; return reject('Eigener Ordner fehlt. Zuerst eine Terminalsitzung öffnen.'); }
+      scope.rootIdentity = identity; await this.revalidate(scope); return scope;
+    }
     const repo = config.repositories.find((item) => item.id === input.repositoryId);
     if (!repo || repo.executionBackend !== 'native' || !repo.verified) reject('Dieser Zugriff benötigt ein geprüftes natives Projekt.');
     assertNoLinks(repo!.rootPath); assertNoLinks(repo!.commonGitDir);
@@ -173,11 +208,18 @@ export class RemoteWorkbenchService {
     await this.revalidate(binding!); return { ...binding! };
   }
 
-  version(binding: WorkspaceBinding): string {
-    return workbenchDigest(JSON.stringify([binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend]));
+  version(binding: WorkbenchScope): string {
+    return workbenchDigest(JSON.stringify([binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend, binding.rootIdentity]));
   }
 
-  async revalidate(binding: WorkspaceBinding): Promise<void> {
+  async revalidate(binding: WorkbenchScope): Promise<void> {
+    if (!binding.repositoryId) {
+      const agent = this.store.get().agents.find((item) => item.id === binding.agentId);
+      if (!agent || agentHomeBackend(agent) !== binding.executionBackend
+        || !this.execution.samePath(binding.executionBackend, homeWorkspace(agent), binding.workspaceDir)
+        || !binding.rootIdentity || await this.homeIdentity(binding) !== binding.rootIdentity) reject('Eigener Workspace hat sich geändert. Neu öffnen.');
+      return;
+    }
     const config = this.store.get(); const current = config.workspaceBindings.find((item) => item.id === binding.id);
     const repo = config.repositories.find((item) => item.id === binding.repositoryId);
     if (!current || this.version(current) !== this.version(binding) || !repo || repo.executionBackend !== 'native'
@@ -195,19 +237,45 @@ export class RemoteWorkbenchService {
     assertNoLinks(binding.workspaceDir);
   }
 
-  busy(binding: WorkspaceBinding): boolean {
-    const same = (item: { workspaceBindingId?: string; workspaceDir?: string }) => item.workspaceBindingId === binding.id
-      || !!item.workspaceDir && this.execution.samePath('native', item.workspaceDir, binding.workspaceDir);
-    return this.store.get().runWorkspaceLeases.some((item) => item.status === 'active' && same(item))
+  busy(binding: WorkbenchScope): boolean {
+    const same = (item: { workspaceBindingId?: string; workspaceDir?: string; executionBackend?: ExecutionBackendId }) =>
+      !!binding.id && item.workspaceBindingId === binding.id
+      || (item.executionBackend ?? 'native') === binding.executionBackend && !!item.workspaceDir && this.execution.samePath(binding.executionBackend, item.workspaceDir, binding.workspaceDir);
+    return this.managed(binding)
       || this.sessions().some((item) => item.status === 'running' && same(item));
   }
 
-  managed(binding: WorkspaceBinding): boolean {
-    return this.store.get().runWorkspaceLeases.some((lease) => lease.status === 'active' && (lease.workspaceBindingId === binding.id
-      || this.execution.samePath('native', lease.workspaceDir, binding.workspaceDir)));
+  managed(binding: WorkbenchScope): boolean {
+    return this.store.get().runWorkspaceLeases.some((lease) => lease.status === 'active' && (!!binding.id && lease.workspaceBindingId === binding.id
+      || (this.store.get().repositories.find((repo) => repo.id === lease.repositoryId)?.executionBackend ?? 'native') === binding.executionBackend
+        && this.execution.samePath(binding.executionBackend, lease.workspaceDir, binding.workspaceDir)));
   }
 
-  path(binding: WorkspaceBinding, path: string, missing = false): string {
+  sessionMatches(binding: WorkbenchScope, session: SessionMeta): boolean {
+    return session.agentId === binding.agentId && session.repositoryId === binding.repositoryId
+      && session.workspaceBindingId === binding.id && (session.executionBackend ?? 'native') === binding.executionBackend
+      && !!session.workspaceDir && this.execution.samePath(binding.executionBackend, session.workspaceDir, binding.workspaceDir);
+  }
+
+  private async homeIdentity(scope: WorkbenchScope, create = false): Promise<string | null> {
+    if (scope.executionBackend !== 'native') {
+      const result = await remoteWslWorkspace(this.execution, scope.executionBackend, scope.workspaceDir, 'probe', { create });
+      return result.missing ? null : result.identity;
+    }
+    assertNoLinks(scope.workspaceDir);
+    if (create) mkdirSync(scope.workspaceDir, { recursive: true });
+    try { const stat = lstatSync(scope.workspaceDir, { bigint: true }); if (!stat.isDirectory()) reject('Eigener Workspace ist kein Ordner.'); return `${stat.dev}:${stat.ino}`; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
+  }
+
+  private async readScoped(binding: WorkbenchScope, path: string): Promise<MobileWorkspaceFile> {
+    if (binding.executionBackend === 'native') return this.read(binding, path);
+    const file = await remoteWslWorkspace(this.execution, binding.executionBackend, binding.workspaceDir, 'read', { path, identity: binding.rootIdentity });
+    return this.decodeFile(path, file.large ? Buffer.alloc(TEXT_BYTES + 1) : Buffer.from(file.bytes!, 'base64'));
+  }
+
+  path(binding: WorkbenchScope, path: string, missing = false): string {
+    if (binding.executionBackend !== 'native') reject('Dieser Zugriff benötigt die native Umgebung.');
     workbenchPath(path, true); const abs = join(binding.workspaceDir, path);
     if (relative(binding.workspaceDir, abs).startsWith('..')) reject('Ungültiger Workspace-Pfad.');
     assertNoLinks(abs);
@@ -216,7 +284,7 @@ export class RemoteWorkbenchService {
     return abs;
   }
 
-  read(binding: WorkspaceBinding, path: string): MobileWorkspaceFile {
+  read(binding: WorkbenchScope, path: string): MobileWorkspaceFile {
     const abs = this.path(binding, path);
     const fd = openSync(abs, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
@@ -230,16 +298,21 @@ export class RemoteWorkbenchService {
         if (!count) break; length += count;
       }
       if (length > TEXT_BYTES) return { path, text: '', revision: '', editable: false, notice: 'Datei ist grösser als 24 KiB. Am Desktop öffnen.' };
-      const raw = buffer.subarray(0, length); const text = raw.toString('utf8');
+      return this.decodeFile(path, buffer.subarray(0, length));
+    } finally { closeSync(fd); }
+  }
+
+  private decodeFile(path: string, raw: Buffer): MobileWorkspaceFile {
+      if (raw.length > TEXT_BYTES) return { path, text: '', revision: '', editable: false, notice: 'Datei ist grösser als 24 KiB. Am Desktop öffnen.' };
+      const text = raw.toString('utf8');
       if (raw.includes(0) || !Buffer.from(text, 'utf8').equals(raw)) return { path, text: '', revision: '', editable: false, notice: 'Binärdatei oder nicht unterstützte Textkodierung.' };
       const safe = redactForWire(text, TEXT_BYTES); const changed = safe !== text;
       const mixed = text.includes('\r') && (!text.includes('\r\n') || /(?<!\r)\n|\r(?!\n)/.test(text));
       return { path, text: safe, revision: workbenchDigest(raw), editable: !changed && !mixed,
         notice: changed ? 'Inhalt enthält ausgeblendete Zugangsdaten oder Host-Pfade und ist nur lesbar.' : mixed ? 'Gemischte oder nicht unterstützte Zeilenenden: nur lesbar.' : null };
-    } finally { closeSync(fd); }
   }
 
-  private async git(binding: WorkspaceBinding, args: string[]): Promise<string> {
+  private async git(binding: WorkbenchScope, args: string[]): Promise<string> {
     assertNoLinks(binding.workspaceDir); assertNoLinks(join(binding.workspaceDir, '.git'));
     const result = await this.execution.checked('native', 'git', ['--literal-pathspecs', '-c', 'core.fsmonitor=false',
       '-c', 'core.untrackedCache=false', ...args], { cwd: binding.workspaceDir, timeoutMs: 15_000,

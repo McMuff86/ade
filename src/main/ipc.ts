@@ -283,7 +283,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution);
   remoteTerminals = new RemoteTerminalService(workbench, {
     list: () => ptyManager?.list() ?? [],
-    create: (agentId, repositoryId, bindingId, mode) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode),
+    create: (agentId, repositoryId, bindingId, mode, model) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model),
+    options: (selection) => ptyManager!.sessionOptions(selection),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
@@ -740,6 +741,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
 
   /* --------------------------------------------------- pty (Phase B1) */
+  handle(IPC.SessionOptions, (selection) => ptyManager!.sessionOptions(selection));
+  handle(IPC.SessionLaunch, (input) => ptyManager!.createRemoteInteractive(input.agentId, input.repositoryId, input.workspaceBindingId, input.mode, input.mode === 'ollama' ? input.model : undefined));
 
   // Interactive sessions spawn immediately; task sessions wait for a queue slot.
   handle(IPC.PtyCreate, ({

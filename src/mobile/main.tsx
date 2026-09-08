@@ -177,7 +177,7 @@ function MobileApp(): JSX.Element {
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}
     {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} />}
     {workspaceAgent && host.paired && <AgentWorkspace key={`${host.identityVersion}:${workspaceAgent}`} host={host} agentId={workspaceAgent} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
-      initialRepositoryId={projectFilter || host.catalog?.agents.find((agent) => agent.id === workspaceAgent)?.defaultRepositoryId || host.catalog?.repositories[0]?.id || ''}
+      initialRepositoryId={projectFilter || host.catalog?.agents.find((agent) => agent.id === workspaceAgent)?.defaultRepositoryId || ''}
       onClose={() => setWorkspaceAgent(null)} onTask={(repositoryId) => { newWork('task', workspaceAgent, repositoryId); setWorkspaceAgent(null); }}
       onManage={() => { setWorkspaceAgent(null); setManagement(true); }} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title"><section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>

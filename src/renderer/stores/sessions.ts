@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { PtyExitReason, RuntimeId, SessionMeta, TaskQueueStatus } from '../../shared/types';
 import type { PtyCancelTasksRequest } from '../../shared/ipc';
+import type { SessionLaunchChoice } from '../../shared/remote';
 
 export interface SessionOperationError {
   message: string;
@@ -27,6 +28,7 @@ interface SessionsState {
     runTaskId?: string,
     repositoryId?: string | null,
     workspaceBindingId?: string,
+    launchChoice?: SessionLaunchChoice,
   ) => Promise<SessionMeta>;
   /** Terminal running the harness's documented sign-in command. */
   openHarnessLogin: (agentId: string, runtime: RuntimeId) => Promise<SessionMeta>;
@@ -155,9 +157,10 @@ export const useSessions = create<SessionsState>((set, get) => ({
     runTaskId,
     repositoryId,
     workspaceBindingId,
+    launchChoice,
   ) => {
     try {
-      const meta = await window.ade.invoke('pty:create', {
+      const meta = launchChoice ? await window.ade.invoke('session:launch', { agentId, repositoryId: repositoryId ?? null, workspaceBindingId, ...launchChoice }) : await window.ade.invoke('pty:create', {
         agentId,
         task,
         dispatchId,
@@ -227,6 +230,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
       undefined,
       repositoryId,
       previous.workspaceBindingId,
+      previous.launchChoice,
     );
     try {
       await get().closeSession(sessionId);

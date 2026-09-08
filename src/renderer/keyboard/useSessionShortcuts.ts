@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useMode } from '../stores/mode';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
+import { useSessionLaunch } from '../stores/sessionLaunch';
 
 export const SHORTCUTS = {
   newSession: 'Ctrl+Shift+T',
@@ -44,7 +45,7 @@ export function useSessionShortcuts(): void {
       if (primary && event.shiftKey && !event.altKey && event.key.toLowerCase() === 't') {
         if (event.repeat) return;
         event.preventDefault();
-        void sessions.createSession(agentId).catch(() => undefined);
+        useSessionLaunch.getState().open(agentId);
         return;
       }
       if (primary && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'w') {

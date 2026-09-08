@@ -1,5 +1,62 @@
 # ADE — Architecture (binding decisions)
 
+## Projectless workspaces and session launch (Goals 20–21)
+
+`MobileWorkspaceSelection.repositoryId` is a required string or explicit `null`.
+Null selects the configured agent home (`homeWorkspaceDir`, `homeExecutionBackend`),
+independently of the default repository; missing/empty ids do not select a scope.
+No synthetic Git binding is persisted. Home overview/tree/file/search reads never
+create a directory or invoke Git. Only an explicit terminal open may prepare the
+configured home. Git diff requires a catalog project; remote repository tools
+retain their native-only boundary. Desktop scope descriptions also preserve an
+explicit plain-home session when its agent has a default project.
+
+Home scope versions include directory device/inode identity plus agent, backend
+and path. Replaced roots and changed configuration invalidate old file drafts
+and remote terminal handles. Session and lease matching checks backend and actual
+directory; absent binding ids must never equate unrelated homes. Native reads
+retain verified-path discipline (not descriptor-anchored ancestor race protection).
+Windows→WSL homes use a fixed Python 3 helper via argv and JSON stdin: no-follow
+descriptor traversal from `/`, regular single-link files, bounded actual reads,
+bounded tree/search and revision-checked same-directory atomic replacement.
+Writes share the workspace operation gate, refuse running sessions/managed leases,
+and preserve the existing grant, conflict, redaction and UTF-8/BOM/newline contracts.
+The WSL helper has no memory-file fallback and accepts no user program text.
+
+`SessionLaunchChoice` and `SessionLaunchOptions` live in `shared/remote.ts` and are
+shared by desktop and tablet. The fixed choices are shell, saved agent profile,
+fresh Codex, fresh Hermes and Ollama with a validated model id. Main owns the
+launch command. Fresh choices use default permissions and clear foreign command,
+model and reasoning settings; the saved-profile choice retains all configured
+settings, including wrappers. Saved agent records are unchanged. Effective runtime
+controls credential injection and bookend telemetry. Shell starts do not inject
+agent memory files. `SessionMeta.launchChoice` preserves the choice across renderer
+reload and session restart; an app restart still ends its PTYs.
+
+Desktop-only `session:options` and `session:launch` are exact-validated, audited
+`launch` channels.
+The desktop launch request may retain an existing `workspaceBindingId` from a
+session being restarted, validated against its agent and repository. The remote
+request never accepts a caller-owned binding. Remote options use the existing
+signed terminal query with `options: true`; they require `terminal:control` and
+are reauthorized after probing.
+Remote open extends the existing durable command union with fixed modes and an
+Ollama-only `model`; current device grants, CSRF, idempotency and audit remain
+mandatory. `REMOTE_COMMAND_CHANNELS` is unchanged. Options use bounded fixed CLI
+probes (4 seconds; at most 200 models). Windows probes PATH; POSIX/WSL probes use
+constant commands in the login shell used for launch. Raw probe output/paths are
+not exposed. Availability is installation/model discovery, not an authentication
+or model-health promise. Main rechecks the chosen CLI/model before spawning;
+the launcher never requests an install or pull. Existing Ollama configuration may
+point at a different daemon. A model removed concurrently after that check is
+subject to the external CLI's behavior.
+
+The desktop `+` and Ctrl+Shift+T open a focus-trapped scope/launch dialog; shared
+fields appear in the tablet terminal. Missing CLI/model, loading, failure and
+retry states are explicit. Git and managed task submission require a project;
+home files and interactive sessions do not. Validation and platform boundaries:
+`SESSION_WORKSPACE_RESULTS.md`; usage: `REMOTE_TERMINAL_GUIDE.md`.
+
 ## Remote workspace tools (Goals 16–19)
 
 `POST /api/v1/workspace/query` is a dedicated AdeApplicationService method,
@@ -1413,8 +1470,9 @@ than they appear to.
 
 ## UI rules distilled from feedback (see SPEC)
 
-No emojis. No model picker. No Open/Run buttons. No status-bar path.
-Sessions are terminal windows: tab strip has only tabs + `+`. Inspector:
+No emojis or status-bar path. Sessions are terminal windows: the tab strip has
+tabs + `+`; `+` opens the per-session scope/runtime/model selection from Goal 21.
+Inspector:
 repository-scope header plus Overview / Changes / Files tabs, collapsible,
 resizable and progressively disclosed through one shared detail pane.
 Default order is rail | terminal | inspector; Settings may put the inspector

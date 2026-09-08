@@ -1,17 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import type { SessionMeta } from '../../shared/types';
-import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalQuery, MobileTerminalState, MobileTerminalSummary } from '../../shared/remote';
+import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalQuery, MobileTerminalState, MobileTerminalSummary, SessionLaunchChoice, SessionLaunchOptions, MobileWorkspaceSelection } from '../../shared/remote';
+import { validSessionChoice } from '../../shared/sessionLaunch';
 import type { TerminalControlState } from '../../shared/ipc';
 import { isValidIdempotencyKey } from '../remote/authorization';
 import type { DeviceAuditEntry } from '../remote/RemoteDeviceStore';
 import { redactForWire } from '../errors';
 import { RemoteApiError, type RemoteCommandContext } from './AdeApplicationService';
-import { workbenchDigest, type RemoteWorkbenchService } from './RemoteWorkbenchService';
+import { validWorkspaceSelection, workbenchDigest, type RemoteWorkbenchService, type WorkbenchScope } from './RemoteWorkbenchService';
 import { remoteTerminalScreen } from './RemoteTerminalScreen';
 
 export interface RemoteTerminalPort {
   list(): SessionMeta[];
-  create(agentId: string, repositoryId: string, bindingId: string, mode: 'shell' | 'agent'): Promise<SessionMeta>;
+  create(agentId: string, repositoryId: string | null, bindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string): Promise<SessionMeta>;
+  options?(selection: MobileWorkspaceSelection): Promise<SessionLaunchOptions>;
   attach(sessionId: string): { replayBase64: string; sequence: number };
   write(sessionId: string, data: Buffer): void;
   resize(sessionId: string, cols: number, rows: number): void;
@@ -21,19 +23,20 @@ interface Control {
   deviceId: string; leaseId: string; expiresAt: number; sequence: number;
   receipts: Map<number, { key: string; fingerprint: string; accepted: boolean }>;
 }
-interface TerminalEntry { id: string; sessionId: string; cols: number; rows: number; control?: Control }
+interface TerminalEntry { id: string; sessionId: string; cols: number; rows: number; workspaceVersion: string; control?: Control }
 const failure = (message: string): never => { throw new RemoteApiError(409, 'command_rejected', message); };
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['agentId', 'repositoryId', ...(kind === 'query' ? ['terminalId'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode'] : ['terminalId'])]
+  const allowed = ['agentId', 'repositoryId', ...(kind === 'query' ? ['terminalId', 'options'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model'] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
-  if (Object.keys(input).some((key) => !allowed.includes(key)) || ![input.agentId, input.repositoryId].every((id) => typeof id === 'string' && ID.test(id))
+  if (Object.keys(input).some((key) => !allowed.includes(key)) || !validWorkspaceSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'command' && (!['open', 'claim', 'release', 'close'].includes(String(input.operation))
-    || (input.operation === 'open' ? !['shell', 'agent'].includes(String(input.mode)) : typeof input.terminalId !== 'string'))) throw new RemoteApiError(400, 'invalid_payload');
+    || (input.operation === 'open' ? !validSessionChoice(input) : typeof input.terminalId !== 'string'))) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
     || !Number.isSafeInteger(input.sequence) || (input.sequence as number) < 1 || typeof input.data !== 'string' || Buffer.byteLength(input.data) > 2048 || input.data.includes('\0')
     || !Number.isInteger(input.cols) || (input.cols as number) < 20 || (input.cols as number) > 240
@@ -66,35 +69,40 @@ export class RemoteTerminalService {
 
   async query(deviceId: string, input: MobileTerminalQuery): Promise<MobileTerminalState> {
     this.requireGrant(deviceId); this.expire();
-    const binding = await this.workbench.resolve(input, true); if (!binding) return { terminals: [] };
+    const binding = await this.workbench.resolve(input, true);
+    const launchOptions = input.options ? await this.port.options?.(input) : undefined;
+    this.requireGrant(deviceId);
+    if (!binding) return { terminals: [], launchOptions };
     const sessions = this.port.list().filter((session) => session.kind === 'interactive' && !session.runTaskId && !session.remoteAccessBlocked
-      && session.agentId === input.agentId && session.repositoryId === input.repositoryId && session.workspaceBindingId === binding.id
-      && session.executionBackend === 'native');
-    const terminals = sessions.slice(-32).map((session) => this.summary(this.entry(session), session, deviceId));
-    if (!input.terminalId) return { terminals };
+      && this.workbench.sessionMatches(binding, session));
+    const terminals = sessions.slice(-32).filter((session) => this.entry(session, binding).workspaceVersion === this.workbench.version(binding))
+      .map((session) => this.summary(this.entry(session, binding), session, deviceId));
+    this.requireGrant(deviceId); await this.workbench.revalidate(binding);
+    if (!input.terminalId) return { terminals, launchOptions };
     const entry = this.entries.get(input.terminalId); const session = sessions.find((item) => item.id === entry?.sessionId);
-    if (!entry || !session) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
+    if (!entry || !session || entry.workspaceVersion !== this.workbench.version(binding)) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
     const replay = this.port.attach(entry!.sessionId);
     const screen = await remoteTerminalScreen(Buffer.from(replay.replayBase64, 'base64'), entry!.cols, entry!.rows);
     this.requireGrant(deviceId); await this.workbench.revalidate(binding); this.expire();
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
-    return { terminals, selected: this.summary(entry!, session!, deviceId), screen, cols: entry!.cols, rows: entry!.rows,
+    return { terminals, launchOptions, selected: this.summary(entry!, session!, deviceId), screen, cols: entry!.cols, rows: entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
 
   async command(deviceId: string, input: MobileTerminalCommand): Promise<{ terminalId: string }> {
     this.requireGrant(deviceId); this.expire();
-    const binding = await this.workbench.resolve(input); this.requireGrant(deviceId); let entry: TerminalEntry;
+    const binding = await this.workbench.resolve(input, false, input.operation === 'open'); this.requireGrant(deviceId); let entry: TerminalEntry;
     if (this.workbench.managed(binding!) && input.operation !== 'release' && input.operation !== 'close') failure('Workspace ist durch einen verwalteten Auftrag belegt.');
     if (input.operation === 'open') {
       if (this.port.list().filter((session) => session.status === 'running').length >= 32) failure('Maximal 32 laufende Sitzungen. Zuerst eine Sitzung beenden.');
       this.requireGrant(deviceId);
-      const session = await this.port.create(input.agentId, input.repositoryId, binding!.id, input.mode);
-      entry = this.entry(session);
+      const session = await this.port.create(input.agentId, input.repositoryId, binding!.id, input.mode, input.mode === 'ollama' ? input.model : undefined);
+      try { await this.workbench.revalidate(binding!); if (!this.workbench.sessionMatches(binding!, session)) failure('Workspace-Zuordnung hat sich geändert.'); }
+      catch (error) { this.port.kill(session.id); throw error; }
+      entry = this.entry(session, binding!);
       if (!this.allowed(deviceId)) { this.port.kill(session.id); failure('Terminalfreigabe wurde zurückgezogen.'); }
     } else {
-      entry = this.requireEntry(input.terminalId, input);
-      if (this.port.list().find((session) => session.id === entry.sessionId)?.workspaceBindingId !== binding!.id) failure('Workspace-Zuordnung hat sich geändert.');
+      entry = this.requireEntry(input.terminalId, binding!);
       if (input.operation === 'release') {
         if (entry.control?.deviceId === deviceId) this.release(entry); return { terminalId: entry.id };
       }
@@ -111,9 +119,8 @@ export class RemoteTerminalService {
 
   async input(context: RemoteCommandContext, input: MobileTerminalInput): Promise<{ sequence: number; replayed: boolean }> {
     const deviceId = context.principal.id; this.requireGrant(deviceId); this.expire();
-    const binding = await this.workbench.resolve(input); const entry = this.requireEntry(input.terminalId, input);
+    const binding = await this.workbench.resolve(input); const entry = this.requireEntry(input.terminalId, binding!);
     if (this.workbench.managed(binding!)) failure('Workspace ist durch einen verwalteten Auftrag belegt.');
-    if (this.port.list().find((session) => session.id === entry.sessionId)?.workspaceBindingId !== binding!.id) failure('Workspace-Zuordnung hat sich geändert.');
     const control = entry.control;
     if (!control || control.deviceId !== deviceId || control.leaseId !== input.leaseId) failure('Eingabe wurde freigegeben oder übernommen. Erneut übernehmen.');
     const key = context.idempotencyKey;
@@ -155,16 +162,16 @@ export class RemoteTerminalService {
     return { sequence: input.sequence, replayed: false };
   }
 
-  private requireEntry(id: string, selection: MobileTerminalQuery): TerminalEntry {
+  private requireEntry(id: string, binding: WorkbenchScope): TerminalEntry {
     const entry = this.entries.get(id); const session = this.port.list().find((item) => item.id === entry?.sessionId);
     if (!entry || !session || session.status !== 'running' || session.kind !== 'interactive' || session.runTaskId || session.remoteAccessBlocked
-      || session.agentId !== selection.agentId || session.repositoryId !== selection.repositoryId || session.executionBackend !== 'native') failure('Diese interaktive Sitzung ist nicht verfügbar.');
+      || !this.workbench.sessionMatches(binding, session) || entry.workspaceVersion !== this.workbench.version(binding)) failure('Diese interaktive Sitzung ist nicht verfügbar.');
     return entry!;
   }
-  private entry(session: SessionMeta): TerminalEntry {
+  private entry(session: SessionMeta, binding: WorkbenchScope): TerminalEntry {
     const found = [...this.entries.values()].find((item) => item.sessionId === session.id); if (found) return found;
     if (this.entries.size >= 128) failure('Zu viele Terminal-Verbindungen. Alte Sitzungen am PC schliessen.');
-    const entry: TerminalEntry = { id: randomUUID(), sessionId: session.id, cols: 120, rows: 32 }; this.entries.set(entry.id, entry); return entry;
+    const entry: TerminalEntry = { id: randomUUID(), sessionId: session.id, cols: 120, rows: 32, workspaceVersion: this.workbench.version(binding) }; this.entries.set(entry.id, entry); return entry;
   }
   private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,

@@ -37,7 +37,7 @@ const SUITES: Suite[] = [
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
-  { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 61 } },
+  { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
@@ -48,6 +48,8 @@ const SUITES: Suite[] = [
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 36 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
   { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 30 } },
+  { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
+  { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 28 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
   { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 71 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
@@ -56,7 +58,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 206 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 208 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

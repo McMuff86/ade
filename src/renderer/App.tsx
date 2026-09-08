@@ -23,6 +23,7 @@ import { useRuns } from './stores/runs';
 import { useDiagnostics } from './stores/diagnostics';
 import { DiagnosticsModal } from './diagnostics/DiagnosticsModal';
 import { SettingsModal } from './settings/SettingsModal';
+import { SessionLaunchDialog } from './sessions/SessionLaunchDialog';
 import { useSessionShortcuts } from './keyboard/useSessionShortcuts';
 import { ConfigHealthBanner } from './ConfigHealthBanner';
 import './graph/mode-switch.css';
@@ -147,6 +148,7 @@ export function App() {
         )}
       </div>
       <DiagnosticsModal />
+      <SessionLaunchDialog />
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
     </div>
   );

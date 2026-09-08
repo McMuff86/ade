@@ -25,6 +25,8 @@ void (async () => {
     scopes: new Set(devices.activeDevices().find((device) => device.id === 'setup')!.scopes) }, idempotencyKey: randomUUID(), requestId: 'browser-setup' });
   const first = (await app.administer(context(), { operation: 'project-create', input: { name: 'First project' } })).created!.id;
   const second = (await app.administer(context(), { operation: 'project-create', input: { name: 'Second project' } })).created!.id;
+  const home = join(root, 'builder-home'); mkdirSync(home); writeFileSync(join(home, 'home.txt'), 'Home without project\r\n');
+  store.save({ agents: store.get().agents.map((agent) => agent.id === 'builder' ? { ...agent, homeWorkspaceDir: home } : agent) });
   for (const repositoryId of [first, second]) await app.administer(context(), { operation: 'workspace-prepare', input: { agentId: 'builder', repositoryId } });
   const binding = store.get().workspaceBindings.find((item) => item.repositoryId === first)!;
   const other = store.get().workspaceBindings.find((item) => item.repositoryId === second)!;
@@ -52,6 +54,16 @@ void (async () => {
   devices.setAdminScopes(deviceId, ['workspace:read', 'workspace:write']);
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await workspace.getByRole('button', { name: 'Workspace aktualisieren', exact: true }).click();
+  await workspace.getByRole('button', { name: 'home.txt', exact: true }).waitFor();
+  check('agent without default opens home even when projects exist', await workspace.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === ''
+    && await workspace.getByRole('button', { name: 'Git-Änderungen', exact: true }).isDisabled());
+  await workspace.getByRole('button', { name: 'home.txt', exact: true }).click();
+  await workspace.getByRole('button', { name: 'Datei bearbeiten', exact: true }).click();
+  await workspace.getByRole('textbox', { name: 'Datei bearbeiten', exact: true }).fill('Home edited\n');
+  await workspace.getByRole('button', { name: 'Datei speichern', exact: true }).click();
+  await workspace.getByRole('button', { name: 'home.txt', exact: true }).waitFor();
+  check('tablet edits a projectless home file', readFileSync(join(home, 'home.txt'), 'utf8') === 'Home edited\r\n');
+  await workspace.getByLabel('Workspace-Projekt', { exact: true }).selectOption(first);
   await workspace.getByRole('button', { name: 'docs', exact: true }).waitFor();
   check('files load without starting any runtime', fixture.sessions.length === 0 && !await workspace.getByRole('button', { name: '.env', exact: true }).count());
   await workspace.getByRole('button', { name: 'docs', exact: true }).click();

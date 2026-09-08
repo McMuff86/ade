@@ -1,5 +1,18 @@
 # ADE delivery roadmap
 
+## Projectless workspace and session choice — Goals 20–21 (2026-09-08)
+
+Implemented in order: **20** explicit native/WSL agent home with bounded remote
+files/editor and separately granted terminals; **21** shared desktop/tablet
+session launcher for shell, saved profile, Codex, Hermes and available Ollama
+models. Desktop `+` and keyboard shortcut open the launch dialog. A session's
+choice survives its restart without changing the saved agent or project default.
+Acceptance: [SESSION_WORKSPACE_GOALS.md](SESSION_WORKSPACE_GOALS.md); measured
+checks and platform/operator limits: [SESSION_WORKSPACE_RESULTS.md](SESSION_WORKSPACE_RESULTS.md).
+Final `pnpm verify` passed **1,919 checks**, all typechecks and the production
+build; additional real Ubuntu-24.04 home/PTY checks passed. Home deployment remains an operator
+step after pulling/building this delivery.
+
 ## Remote workspace tools — Goals 16–19 (2026-09-08)
 
 Implemented in order: **16** agent/project workspace, files and Git diffs;

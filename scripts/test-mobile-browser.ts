@@ -88,6 +88,9 @@ void (async () => {
   await page.keyboard.press('Escape');
   check('closing task dialog restores its project opener', await page.getByRole('button', { name: 'Aufgabe in Mobile project', exact: true }).evaluate((node) => node === document.activeElement));
   await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
+  check('projectless workspace requires an explicit project for managed tasks', await page.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === ''
+    && await page.getByRole('button', { name: 'Aufgabe vergeben', exact: true }).isDisabled());
+  await page.getByLabel('Workspace-Projekt', { exact: true }).selectOption('repo');
   await page.getByRole('button', { name: 'Aufgabe vergeben', exact: true }).click();
   check('agent selection opens the composer with the chosen identity', await page.getByLabel('Agent', { exact: true }).inputValue() === 'builder');
   await page.getByLabel('Name (optional)', { exact: true }).fill('Phone task');

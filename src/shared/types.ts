@@ -205,6 +205,8 @@ export interface SessionBookend {
 }
 
 export interface SessionMeta {
+  /** Immutable per-session choice; restarts keep it without editing the agent. */
+  launchChoice?: import('./remote').SessionLaunchChoice;
   /** Credential-login sessions cannot be attached through the remote terminal API. */
   remoteAccessBlocked?: boolean;
   id: string;

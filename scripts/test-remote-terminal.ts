@@ -29,7 +29,7 @@ void (async () => {
   const writes: string[] = []; let starts = 0; let now = Date.now(); let failWrite = false; const changes: TerminalControlState[] = [];
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
     create: async (agentId, repositoryId, bindingId, mode) => {
-      const session = { id: `native-${++starts}`, agentId, repositoryId, workspaceBindingId: bindingId, workspaceDir: binding.workspaceDir,
+      const session = { id: `native-${++starts}`, agentId, repositoryId: repositoryId ?? undefined, workspaceBindingId: bindingId, workspaceDir: binding.workspaceDir,
         executionBackend: 'native' as const, kind: 'interactive' as const, title: mode, status: 'running' as const, createdAt: now };
       sessions.push(session); return session;
     }, attach: () => ({ replayBase64: Buffer.from('PS C:\\private\\workspace>\r\nready\r\n').toString('base64'), sequence: 1 }),

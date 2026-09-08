@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
@@ -6,14 +6,23 @@ import { execFileSync } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { PNG } from 'pngjs';
+import { randomUUID } from 'node:crypto';
+import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-terminal-electron-'))); const evidence = resolve('test-results/remote'); mkdirSync(evidence, { recursive: true });
 let app: ElectronApplication | undefined; let browser: Browser | undefined; let page: Page | undefined;
 let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
+let wslHome: string | undefined;
 void (async () => {
   if (process.platform !== 'win32') throw new Error('Remote terminal runtime evidence currently requires native Windows');
+  // Real PTYs execute deterministic local CLI fixtures, never a paid model or the operator's agent.
+  const bin = join(root, 'bin'); mkdirSync(bin);
+  const compile = join(root, 'compile.ps1');
+  writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (args.Length == 0 || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n} }\n'@\n`);
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
+  for (const cli of ['hermes', 'codex', 'ollama']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
   const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
   const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('missing port');
   const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
@@ -33,16 +42,17 @@ cp.execFile[require('node:util').promisify.custom] = (file, args, options) => ne
 require(${JSON.stringify(resolve('out/main/index.js'))});
 `);
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), timeout: 30_000,
-    env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
+    env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   const desktop = await app.firstWindow(); desktop.setDefaultTimeout(30_000);
-  const setup = await desktop.evaluate(async (path) => {
+  const setup = await desktop.evaluate(async ({ path, home }) => {
     const repo = await window.ade.invoke('repository:import', { path, name: 'Terminal project', executionBackend: 'native' });
     const category = await window.ade.invoke('category:create', { name: 'Remote tests' });
     const agent = await window.ade.invoke('agent:create', { categoryId: category.id, name: 'Terminal Agent', runtime: 'custom', permissionMode: 'default', defaultRepositoryId: repo.id,
       customCommand: "Write-Output 'ADE_CONFIGURED_AGENT_READY'" });
+    await window.ade.invoke('agent:update', { id: agent.id, name: agent.name, runtime: agent.runtime, permissionMode: agent.permissionMode, customCommand: agent.customCommand, homeWorkspaceDir: home });
     const session = await window.ade.invoke('pty:create', { agentId: agent.id, repositoryId: repo.id });
     return { agent, repo, session };
-  }, repoPath);
+  }, { path: repoPath, home: join(root, 'home') });
   await desktop.reload(); await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
   const mobile = desktop.getByTestId('mobile-access');
   await mobile.getByRole('button', { name: 'Mit Tailscale aktivieren' }).click();
@@ -117,6 +127,47 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('confirmed tablet close stops only the selected process', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((session) => session.status === 'running').length === 2);
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).selectOption(shellId);
   await workspace.getByLabel('Terminalanzeige', { exact: true }).waitFor();
+  await desktop.getByRole('button', { name: 'New session', exact: true }).click();
+  const launchDialog = desktop.getByRole('dialog', { name: 'Neue Terminalsitzung', exact: true });
+  await launchDialog.waitFor();
+  check('desktop plus opens focused shared launch dialog', await launchDialog.evaluate((node) => node.contains(document.activeElement)));
+  await desktop.keyboard.press('Escape');
+  check('cancel launch restores focus to plus', await desktop.getByRole('button', { name: 'New session', exact: true }).evaluate((node) => node === document.activeElement));
+  await desktop.keyboard.press('Control+Shift+T');
+  await launchDialog.getByLabel('Sitzungsprojekt', { exact: true }).selectOption('');
+  await launchDialog.getByLabel('Sitzung starten mit', { exact: true }).selectOption('hermes');
+  await launchDialog.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
+  await launchDialog.waitFor({ state: 'hidden' });
+  const hermes = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.find((s) => s.launchChoice?.mode === 'hermes')!;
+  await desktop.waitForFunction(async (id) => {
+    const replay = await window.ade.invoke('pty:attach', { sessionId: id }); return atob(replay.replayBase64).includes('ADE_SESSION_HERMES_READY');
+  }, hermes.id, { timeout: 60_000 });
+  check('desktop Hermes choice runs in explicit home despite default project', hermes.scopeSource === 'plain-home' && !hermes.repositoryId && hermes.workspaceDir === join(root, 'home'));
+  await desktop.evaluate(async (id) => window.ade.invoke('pty:write', { sessionId: id, dataBase64: btoa('exit 7\r') }), hermes.id);
+  await desktop.getByRole('button', { name: 'Restart', exact: true }).click();
+  const restartDeadline = Date.now() + 60_000; let restarted = false;
+  while (!restarted && Date.now() < restartDeadline) {
+    restarted = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) => s.id !== hermes.id && s.launchChoice?.mode === 'hermes' && !s.repositoryId);
+    if (!restarted) await new Promise((done) => setTimeout(done, 200));
+  }
+  check('restart retains per-session Hermes choice and explicit home', restarted);
+  await workspace.getByLabel('Workspace-Projekt', { exact: true }).selectOption('');
+  await workspace.getByRole('button', { name: 'Terminal', exact: true }).click();
+  await workspace.getByLabel('Sitzung starten mit', { exact: true }).selectOption('ollama');
+  await workspace.getByLabel('Ollama-Modell', { exact: true }).selectOption('fixture:large');
+  await workspace.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_OLLAMA_READY run fixture:large', { exact: false }).waitFor();
+  const ollamaSessions = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
+  check('tablet starts selected Ollama model in real home PTY', ollamaSessions.some((s) => s.launchChoice?.mode === 'ollama' && s.launchChoice.model === 'fixture:large' && !s.repositoryId));
+  await workspace.getByLabel('Sitzung starten mit', { exact: true }).selectOption('codex');
+  await workspace.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_CODEX_READY', { exact: false }).waitFor();
+  check('tablet starts fresh Codex without changing configured profile', (await desktop.evaluate(async (id) => (await window.ade.invoke('config:get')).agents.find((a) => a.id === id), setup.agent.id))?.customCommand === setup.agent.customCommand);
+  await page.setViewportSize({ width: 390, height: 844 });
+  check('phone launch controls fit and Git is disabled without project', await workspace.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)
+    && await workspace.getByRole('button', { name: 'Git-Änderungen', exact: true }).isDisabled());
+  await page.screenshot({ path: join(evidence, 'session-launch-phone.png') });
+  await page.setViewportSize({ width: 1024, height: 768 });
   await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).uncheck(); await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
@@ -140,12 +191,69 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('real Electron decoder stores the uploaded profile photo for desktop', !!photo && existsSync(join(root, 'profile/ade/photos', photo)));
   const profileStored = await desktop.evaluate(async (id) => (await window.ade.invoke('config:get')).agents.find((agent) => agent.id === id), setup.agent.id);
   check('shared profile keeps configured runtime while updating role', profileStored?.role === 'Tablet operator' && profileStored.customCommand === setup.agent.customCommand);
+  if (process.argv.includes('--wsl')) {
+    wslHome = `/tmp/ade-session-${randomUUID()}`;
+    await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).check();
+    await grants.getByRole('checkbox', { name: 'Kleine Workspace-Textdateien bearbeiten', exact: true }).check();
+    await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
+    const wslAgent = await desktop.evaluate(async ({ categoryId, home }) => {
+      const a = await window.ade.invoke('agent:create', { categoryId, name: 'WSL Home Agent', runtime: 'custom', permissionMode: 'default', customCommand: "printf 'ADE_WSL_CONFIGURED_READY\\n'" });
+      return window.ade.invoke('agent:update', { id: a.id, name: a.name, runtime: a.runtime, permissionMode: a.permissionMode, customCommand: a.customCommand, homeExecutionBackend: 'wsl:Ubuntu-24.04', homeWorkspaceDir: home });
+    }, { categoryId: setup.agent.categoryId, home: wslHome });
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Workspace für WSL Home Agent', exact: true }).click();
+    const ws = page.getByRole('dialog', { name: 'Workspace · WSL Home Agent', exact: true });
+    await ws.getByText('Der eigene Ordner ist noch nicht vorhanden.', { exact: false }).waitFor();
+    check('WSL home opens without choosing or creating a project', await ws.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === '');
+    await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
+    await ws.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
+    await ws.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+    await page.waitForFunction(() => /[$#]/.test(document.querySelector('.m-terminal-screen')?.textContent ?? ''), { timeout: 60_000 });
+    await ws.getByLabel('Terminal-Eingabe', { exact: true }).fill("printf 'ADE_WSL_HOME_READY\\n' > tablet-wsl.txt");
+    await ws.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
+    await ws.getByRole('button', { name: 'Dateien', exact: true }).click();
+    await ws.getByRole('button', { name: 'Workspace aktualisieren', exact: true }).click();
+    await ws.getByRole('button', { name: 'tablet-wsl.txt', exact: true }).click();
+    await ws.getByLabel('Dateivorschau', { exact: true }).getByText('ADE_WSL_HOME_READY', { exact: false }).waitFor();
+    check('real WSL PTY and tablet files share the configured home', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) => s.agentId === wslAgent.id && s.executionBackend === 'wsl:Ubuntu-24.04' && s.workspaceDir === wslHome));
+    await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
+    await ws.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
+    await ws.getByText('Sitzung beendet.', { exact: true }).waitFor();
+    await ws.getByRole('button', { name: 'Dateien', exact: true }).click();
+    await ws.getByRole('button', { name: 'Workspace aktualisieren', exact: true }).click();
+    await ws.getByRole('button', { name: 'tablet-wsl.txt', exact: true }).click();
+    await ws.getByRole('button', { name: 'Datei bearbeiten', exact: true }).click();
+    await ws.getByRole('textbox', { name: 'Datei bearbeiten', exact: true }).fill('ADE_WSL_TABLET_EDIT\n');
+    await ws.getByRole('button', { name: 'Datei speichern', exact: true }).click();
+    await ws.getByRole('textbox', { name: 'Datei bearbeiten', exact: true }).waitFor({ state: 'hidden' });
+    await ws.getByRole('button', { name: 'tablet-wsl.txt', exact: true }).click();
+    await ws.getByLabel('Dateivorschau', { exact: true }).getByText('ADE_WSL_TABLET_EDIT', { exact: false }).waitFor();
+    check('tablet saves and reopens a real WSL home file', true);
+    await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
+    await ws.getByRole('button', { name: 'Agent starten', exact: true }).click();
+    await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_CONFIGURED_READY', { exact: false }).waitFor();
+    check('saved profile starts inside WSL home from tablet', true);
+    await page.screenshot({ path: join(evidence, 'session-wsl-tablet.png') });
+  }
   await page.screenshot({ path: join(evidence, 'terminal-grant-revoked.png') });
 })().catch(async (error) => {
   failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'terminal-failure.png') }).catch(() => undefined);
   try { console.error(readFileSync(join(root, 'profile/ade/logs/main.log'), 'utf8').slice(-2500)); } catch { /* no log */ }
 }).finally(async () => {
   await browser?.close(); await proxy?.close(); await app?.close().catch(() => undefined);
+  if (wslHome && /^\/tmp\/ade-session-[a-f0-9-]+$/.test(wslHome)) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await new ExecutionBackendService().checked('wsl:Ubuntu-24.04', 'python3', ['-I', '-c',
+          'import sys,json,shutil; shutil.rmtree(json.load(sys.stdin),ignore_errors=True)'], { input: JSON.stringify(wslHome) });
+        break;
+      } catch (error) {
+        if (attempt === 2) { failed++; console.error('WSL fixture cleanup failed', error); }
+        else await new Promise((done) => setTimeout(done, 1000));
+      }
+    }
+  }
   rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   console.log(`Remote terminal Electron: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 });

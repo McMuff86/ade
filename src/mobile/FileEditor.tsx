@@ -28,7 +28,7 @@ export function useFileDrafts(identity: number) {
 export type FileDrafts = ReturnType<typeof useFileDrafts>;
 
 export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId, busyWorkspace, drafts, onSaved }: {
-  host: MobileHost; file: MobileWorkspaceFile; workspaceVersion: string; agentId: string; repositoryId: string;
+  host: MobileHost; file: MobileWorkspaceFile; workspaceVersion: string; agentId: string; repositoryId: string | null;
   busyWorkspace: boolean; drafts: FileDrafts; onSaved: () => void;
 }): JSX.Element {
   const key = `${agentId}:${repositoryId}:${file.path}`; const draft = drafts.drafts[key];

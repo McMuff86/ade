@@ -832,6 +832,10 @@ async function run(): Promise<void> {
 
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
     await page.keyboard.press('Control+Shift+T');
+    const sessionLaunch = page.getByRole('dialog', { name: 'Neue Terminalsitzung', exact: true });
+    await sessionLaunch.waitFor();
+    check('session shortcut opens focused launch selection', await sessionLaunch.evaluate((node) => node.contains(document.activeElement)));
+    await sessionLaunch.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
     const tabs = page.locator('[role="tab"][id^="session-tab-"]');
     await eventually('keyboard shortcut creates a terminal session', async () => await tabs.count() === 1);
     const firstTab = await activeTabId(page);

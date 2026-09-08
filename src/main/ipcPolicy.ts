@@ -97,6 +97,8 @@ const sharedLaunch: ChannelPolicy = { effect: 'launch', surface: 'shared', audit
 
 export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'config:get': shared,
+  'session:options': launch,
+  'session:launch': launch,
   'config:health': read,
   'remoteDevices:list': read,
   'mobileAccess:status': read,

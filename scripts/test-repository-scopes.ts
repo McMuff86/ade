@@ -637,6 +637,11 @@ async function run(): Promise<void> {
       defaulted.defaultRepositoryId === repoA.id
         && described.repositoryId === repoA.id
         && described.workspaceBindingId === scopeA.workspaceBindingId);
+    const explicitHome = await scopes.resolve(sourceAgent.id, { repositoryId: null });
+    const homeDescription = scopes.describe(sourceAgent.id, { workspaceDir: explicitHome.workspaceDir,
+      scopeSource: explicitHome.source, executionBackend: explicitHome.executionBackend });
+    check('explicit home inspector never inherits the default repository binding', !homeDescription.isRepo && !homeDescription.repositoryId
+      && !homeDescription.workspaceBindingId && homeDescription.workspaceDir === sourceHome && homeDescription.source === 'plain-home');
     const cleared = await scopes.setAgentDefault(sourceAgent.id, null);
     const plain = await scopes.resolve(sourceAgent.id, { repositoryId: null });
     check('clearing the default restores the portable home without deleting bindings',

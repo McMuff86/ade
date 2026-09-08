@@ -60,6 +60,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'session:options': { agentId: 'agent', repositoryId: null },
+  'session:launch': { agentId: 'agent', repositoryId: null, mode: 'shell' },
   'config:get': undefined,
   'config:health': undefined,
   'remoteDevices:list': undefined,

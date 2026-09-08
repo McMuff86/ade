@@ -1,0 +1,6 @@
+.session-launch-fields { display: grid; gap: 10px; min-width: 0; margin: 12px 0; }
+.session-launch-fields label { display: grid; gap: 6px; min-width: 0; }
+.session-launch-fields select { width: 100%; max-width: 100%; min-width: 0; padding: 8px; }
+.session-launch-fields p { margin: 0; font-size: 0.9em; overflow-wrap: anywhere; }
+.session-launch-fields details { font-size: 0.9em; }
+.session-launch-fields summary { cursor: pointer; }

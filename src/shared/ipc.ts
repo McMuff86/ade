@@ -113,6 +113,8 @@ export const IPC = {
   ClipboardReadText: 'clipboard:readText',
   ClipboardWriteText: 'clipboard:writeText',
   PtyCreate: 'pty:create',
+  SessionOptions: 'session:options',
+  SessionLaunch: 'session:launch',
   PtyWrite: 'pty:write',
   PtyResize: 'pty:resize',
   PtyKill: 'pty:kill',
@@ -677,6 +679,8 @@ export interface IpcInvokeMap {
   'clipboard:readText': { req: void; res: ClipboardReadTextResult };
   'clipboard:writeText': { req: ClipboardWriteTextRequest; res: void };
   'pty:create': { req: PtyCreateRequest; res: SessionMeta };
+  'session:options': { req: import('./remote').MobileWorkspaceSelection; res: import('./remote').SessionLaunchOptions };
+  'session:launch': { req: import('./remote').SessionLaunchRequest & { workspaceBindingId?: string }; res: SessionMeta };
   'pty:write': { req: PtyWriteRequest; res: void };
   'pty:resize': { req: PtyResizeRequest; res: void };
   'pty:kill': { req: PtyKillRequest; res: void };

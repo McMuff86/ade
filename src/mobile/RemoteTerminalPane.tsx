@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState } from '../shared/remote';
+import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState, SessionLaunchChoice, SessionLaunchOptions } from '../shared/remote';
+import { canLaunchChoice, SessionLaunchFields } from '../renderer/sessions/SessionLaunchFields';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 import { workspaceError } from './AgentWorkspace';
 import { Dialog } from './ui';
 
 export function RemoteTerminalPane({ host, agentId, repositoryId, active }: {
-  host: MobileHost; agentId: string; repositoryId: string; active: boolean;
+  host: MobileHost; agentId: string; repositoryId: string | null; active: boolean;
 }): JSX.Element {
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
   const [selected, setSelected] = useState(''); const [text, setText] = useState('');
@@ -14,6 +15,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active }: {
   const [pending, setPending] = useState<{ command: MobileTerminalCommand; key: string } | null>(null);
   const [uncertain, setUncertain] = useState<MobileTerminalInput | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [choice, setChoice] = useState<SessionLaunchChoice>({ mode: 'shell' });
+  const [options, setOptions] = useState<SessionLaunchOptions>();
+  const [loadingOptions, setLoadingOptions] = useState(false); const [optionsRefresh, setOptionsRefresh] = useState(0);
   const lock = useRef(false); const live = useRef(true); const queryVersion = useRef(0);
   const stateRef = useRef(state); stateRef.current = state;
   const input = useRef<HTMLTextAreaElement>(null);
@@ -25,7 +29,16 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active }: {
   }, [host.request, agentId, repositoryId, selected]);
   useEffect(() => { live.current = true; return () => { live.current = false; queryVersion.current++; }; }, []);
   useEffect(() => {
-    if (!active || !repositoryId || host.status !== 'online') return;
+    if (!active || host.status !== 'online') return;
+    let stopped = false; setLoadingOptions(true); setOptions(undefined);
+    void host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { agentId, repositoryId, options: true })
+      .then((result) => { if (!stopped) setOptions(result.launchOptions); })
+      .catch((reason) => { if (!stopped) setError(terminalError(reason)); })
+      .finally(() => { if (!stopped) setLoadingOptions(false); });
+    return () => { stopped = true; };
+  }, [active, host.status, host.request, agentId, repositoryId, optionsRefresh]);
+  useEffect(() => {
+    if (!active || host.status !== 'online') return;
     let stopped = false; let timer: ReturnType<typeof setTimeout>;
     const refresh = async () => {
       try { await query(); setError((current) => current.startsWith('Terminalzugriff fehlt.') ? '' : current); }
@@ -77,8 +90,12 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active }: {
   const action = (operation: 'claim' | 'release' | 'close') => command({ operation, agentId, repositoryId, terminalId: selected });
   return <section className="m-remote-terminal" aria-label="Interaktives Terminal">
     <p>Die Sitzung läuft auf deinem PC weiter. Wähle eine bestehende Sitzung oder starte eine neue im ausgewählten Workspace.</p>
-    <div className="m-management-actions"><button disabled={blocked || !repositoryId} onClick={() => void command({ operation: 'open', mode: 'shell', agentId, repositoryId })}>Shell öffnen</button>
-      <button disabled={blocked || !repositoryId} onClick={() => void command({ operation: 'open', mode: 'agent', agentId, repositoryId })}>Agent starten</button></div>
+    <div className="m-management-actions"><button disabled={blocked} onClick={() => void command({ operation: 'open', mode: 'shell', agentId, repositoryId })}>Shell öffnen</button>
+      <button disabled={blocked} onClick={() => void command({ operation: 'open', mode: 'agent', agentId, repositoryId })}>Agent starten</button></div>
+    <SessionLaunchFields choice={choice} onChange={setChoice} options={options} disabled={blocked} loading={loadingOptions} />
+    <div className="m-management-actions"><button disabled={blocked || !canLaunchChoice(choice, options)}
+      onClick={() => void command({ operation: 'open', agentId, repositoryId, ...choice })}>Sitzung starten</button>
+      <button disabled={blocked || loadingOptions} onClick={() => setOptionsRefresh((n) => n + 1)}>Startmöglichkeiten aktualisieren</button></div>
     <label>Sitzung<select aria-label="Terminal-Sitzung" disabled={blocked} value={selected} onChange={(event) => { setSelected(event.target.value); setError(''); setState({ terminals: state.terminals }); }}>
       <option value="">Sitzung wählen</option>{state.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.title} · {terminal.status === 'running' ? 'läuft' : 'beendet'}</option>)}</select></label>
     {!state.terminals.length && !error && <p>Keine verfügbaren interaktiven Sitzungen. Verwaltete Aufgaben erscheinen in Work.</p>}

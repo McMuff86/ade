@@ -1,13 +1,25 @@
 # ADE implementation status
 
+Goals 20–21 add explicit projectless native/WSL agent homes for mobile files,
+small edits and interactive terminals, plus a shared desktop/tablet session
+launcher (empty shell, saved profile, Codex, Hermes, available Ollama model).
+Per-session choices preserve saved agent settings and survive session restart.
+Current evidence and limits: `SESSION_WORKSPACE_RESULTS.md`; operator usage:
+`REMOTE_TERMINAL_GUIDE.md`. The sections below retain their original delivery
+measurements; the user has since reported updating the home app for Goals 16–19.
+Goals 20–21 require another host build/restart.
+Final `pnpm verify`: **1,919 checks passed**, all three TypeScript projects and
+the production build. Additional Ubuntu-24.04 home/terminal evidence is recorded
+in `SESSION_WORKSPACE_RESULTS.md`.
+
 Remote workspace Goals 16–19 are implemented: agent/project workspace dialogs,
 files and staged/unstaged Git diffs, explicitly granted interactive terminals,
 small conflict-checked text edits and agent name/role/photo maintenance.
 Final native Windows `pnpm verify` passed all 1,855 checks, three TypeScript
 projects and the build; evidence is in `REMOTE_WORKBENCH_RESULTS.md`. These capabilities
 require the new host build and per-device grants; operator instructions are in
-`REMOTE_TERMINAL_GUIDE.md`. The operator reported installing the previous
-Goals 12–15 build at home; activation of Goals 16–19 is still pending.
+`REMOTE_TERMINAL_GUIDE.md`. The operator has since reported installing this
+Goals 16–19 delivery at home; the current Goals 20–21 update remains pending there.
 
 Remote workspace Goals 12–15 are implemented and locally verified on native
 Windows: scoped ADE restart, agent/project/workspace creation, Git comparison
@@ -28,8 +40,9 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Capability | State | Current behavior |
 |---|---|---|
 | Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
-| Mobile workspace tools | Implemented; native Windows fixtures verified | Separate workspace read/write grants, bounded file tree/search/text preview, staged/unstaged Git diffs and revision-checked atomic text saves; live sessions/managed leases block edits; drafts live only in page memory |
-| Mobile interactive terminals | Implemented; real native Windows PTY/Electron verified | Explicit terminal grant, shell/configured-agent start, existing session attach, exclusive 30-second input lease, immediate desktop reclaim/revocation and sequenced at-most-once input; bounded text output; no managed-task/login control or full color/mouse TUI |
+| Mobile workspace tools | Native Windows and Windows→WSL homes verified | Explicit project or own home; separate read/write grants, bounded tree/search/text preview and revision-checked atomic saves. Git diffs remain native-project-only; live sessions/managed leases block edits; drafts live only in page memory |
+| Mobile interactive terminals | Real Windows and Windows→WSL home PTYs verified | Explicit terminal grant, per-session launcher, existing session attach, exclusive 30-second input lease, immediate desktop reclaim/revocation and sequenced at-most-once input; bounded text output; no managed-task/login control or full color/mouse TUI |
+| Per-session launch choice | Desktop/tablet flows verified with controlled CLIs | Empty shell, saved profile, fresh Codex/Hermes and available Ollama model; fixed discovery/revalidation and preserved restart choice. Saved profiles are unchanged; vendor authentication and real inference are separate acceptance |
 | Mobile agent profiles | Implemented; browser and native Electron codec verified | Active-device photo reads and separately granted name/role/photo updates with revision checks; normalized PNG at most 32 KiB/256×256; same stored profile and desktop refresh |
 | Session reload reconciliation | Real | Renderer rebuilds tabs from `pty:list`; sequence-aware output plus pending exit/removal reconciliation close both reload races |
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |

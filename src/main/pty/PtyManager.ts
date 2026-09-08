@@ -58,6 +58,8 @@ import {
   type TaskQueueKey,
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
+import { SessionLaunchService } from './SessionLaunchService';
+import type { MobileWorkspaceSelection, SessionLaunchChoice } from '../../shared/remote';
 import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
 import {
   closeInteractiveBookend,
@@ -148,11 +150,15 @@ export class PtyManager {
   private readonly scopes: RepositoryScopePort;
 
   /** Dedicated interactive launcher: configured agent or plain shell, never a task. */
-  async createRemoteInteractive(agentId: string, repositoryId: string, workspaceBindingId: string, mode: 'shell' | 'agent'): Promise<SessionMeta> {
+  sessionOptions(selection: MobileWorkspaceSelection) {
+    return new SessionLaunchService(this.store, this.execution).options(selection);
+  }
+
+  async createRemoteInteractive(agentId: string, repositoryId: string | null, workspaceBindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
       const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
       this.assertScopeAvailable(scope);
-      return this.spawn(agentId, scope, undefined, undefined, mode === 'shell');
+      return this.spawn(agentId, scope, undefined, undefined, mode === 'ollama' ? { mode, model: model! } : { mode });
     });
   }
 
@@ -388,16 +394,20 @@ export class PtyManager {
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
     login?: { command: string; title: string },
-    shellOnly = false,
+    launchChoice?: SessionLaunchChoice,
   ): Promise<SessionMeta> {
-    const agent = this.effectiveTaskAgent(this.requireAgent(agentId), task?.runTaskId);
+    const savedAgent = this.requireAgent(agentId); const before = JSON.stringify(savedAgent);
+    const agent = launchChoice ? await new SessionLaunchService(this.store, this.execution).effectiveAgent(savedAgent, scope.executionBackend, launchChoice)
+      : this.effectiveTaskAgent(savedAgent, task?.runTaskId);
+    if (before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
+    this.assertScopeAvailable(scope, task?.runTaskId);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (!managedLaunch && !login && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
+    if (!managedLaunch && !login && launchChoice?.mode !== 'shell' && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
         injectMemoryBlock(agent, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
@@ -411,7 +421,7 @@ export class PtyManager {
       ? this.resolveTaskSpawn(agent, task.task, managedLaunch, backendPlatform)
       : login
         ? this.resolveLoginSpawn(login.command, backendPlatform)
-        : this.resolveInteractiveSpawn(shellOnly ? { ...agent, runtime: 'shell', customCommand: undefined } : agent, backendPlatform);
+        : this.resolveInteractiveSpawn(agent, backendPlatform);
     let spec = baseSpec;
     let promptScratchDir: string | undefined;
     let backendEnv: Record<string, string> | undefined;
@@ -467,10 +477,11 @@ export class PtyManager {
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
+      launchChoice,
       remoteAccessBlocked: login ? true : undefined,
       id,
       agentId,
-      title: shellOnly ? 'Shell' : login ? login.title : task ? `${label} task` : label,
+      title: launchChoice?.mode === 'hermes' ? 'Hermes' : launchChoice?.mode === 'ollama' ? `Ollama · ${launchChoice.model}` : login ? login.title : task ? `${label} task` : label,
       kind: task ? 'task' : 'interactive',
       status: 'running',
       createdAt: Date.now(),

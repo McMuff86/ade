@@ -2,13 +2,14 @@
  * TabStrip — session tabs of the selected agent (Phase B1), per the mockup:
  * rounded top tabs, a copper inset top line on the active tab, a running (●) /
  * exited (○) status glyph as TEXT (no emojis), an × close, and a trailing +
- * that opens a new session. No Open/Run/model-picker buttons (SPEC).
+ * that opens the per-session scope/runtime selection.
  */
 
 import { useState, type JSX } from 'react';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
+import { useSessionLaunch } from '../stores/sessionLaunch';
 import { SHORTCUTS } from '../keyboard/useSessionShortcuts';
 import '../terminal/terminal.css';
 
@@ -18,7 +19,7 @@ export function TabStrip(): JSX.Element | null {
   const sessions = useSessions((s) => s.sessions);
   const order = useSessions((s) => (agentId ? s.orderByAgent[agentId] : undefined));
   const active = useSessions((s) => (agentId ? s.activeByAgent[agentId] : null));
-  const createSession = useSessions((s) => s.createSession);
+  const openLaunch = useSessionLaunch((s) => s.open);
   const closeSession = useSessions((s) => s.closeSession);
   const setActive = useSessions((s) => s.setActive);
   const [dashboardBusy, setDashboardBusy] = useState(false);
@@ -109,7 +110,8 @@ export function TabStrip(): JSX.Element | null {
         className="tab-add"
         title={`New session (${SHORTCUTS.newSession})`}
         aria-label="New session"
-        onClick={() => void createSession(agentId).catch(() => undefined)}
+        id="new-session"
+        onClick={() => openLaunch(agentId)}
       >
         +
       </button>

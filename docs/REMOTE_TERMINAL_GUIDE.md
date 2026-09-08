@@ -18,11 +18,17 @@ Rechte aktivieren und **Verwaltungsrechte speichern** wählen:
 | Interaktive Terminals steuern | Shell oder konfigurierten Agenten starten und interaktive Eingaben senden |
 | Agent-Namen, Rollen und Profilbilder bearbeiten | Profil ändern, Foto hochladen oder entfernen |
 
-Im Agent-Workspace lassen sich Projekt und die Reiter **Dateien**,
+Im Agent-Workspace lassen sich ein Projekt oder **Ohne Projekt · Eigener Workspace**
+und die Reiter **Dateien**,
 **Git-Änderungen**, **Terminal** und **Agent-Profil** wählen. **Aufgabe vergeben**
 bleibt für verwaltete Aufgaben verfügbar. Ein fehlender Workspace kann unter
 **Verwalten → Projekte & Workspaces** vorbereitet werden; dafür ist weiterhin
-die bisherige Agent-/Projekt-Verwaltungsfreigabe nötig.
+die bisherige Agent-/Projekt-Verwaltungsfreigabe nötig. Ohne Projekt verwenden
+Dateien und Terminal den eigenen Agent-Ordner. Fehlt dieser noch, wird er erst
+beim ausdrücklichen Öffnen einer Terminalsitzung angelegt. Danach **Workspace
+aktualisieren** wählen. **Git-Änderungen** und **Aufgabe vergeben** benötigen
+weiterhin ein Projekt. Ein vorhandenes Standardprojekt lässt sich im Dialog
+für diese Sitzung abwählen, ohne die Agent-Einstellung zu ändern.
 
 Im Dateireiter eine Datei öffnen und **Bearbeiten** wählen. Speichern ist
 explizit; bei zwischenzeitlichen Änderungen werden Entwurf und aktueller Stand
@@ -44,7 +50,7 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
 2. Beim eigenen Tablet **Interaktive Terminals steuern** aktivieren und
    **Verwaltungsrechte speichern** wählen. Für Dateien/Diffs zusätzlich
    **Workspace-Dateien und Git-Diffs lesen** freigeben.
-3. Am Tablet ADE öffnen, den Agenten auswählen und das richtige Projekt wählen.
+3. Am Tablet ADE öffnen, den Agenten auswählen und ein Projekt oder **Ohne Projekt** wählen.
    Falls noch kein Workspace besteht: unter **Verwalten → Projekte & Workspaces**
    vorbereiten. Im Workspace **Terminal** öffnen.
 4. Eine vorhandene Sitzung auswählen und **Eingabe übernehmen** drücken oder
@@ -56,7 +62,8 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
    beendet die Sitzung nicht. Ohne Lebenszeichen läuft die Freigabe nach
    30 Sekunden aus. Am Desktop ist eine sofortige Übernahme möglich.
 
-Die Shell läuft mit den Rechten des angemeldeten Windows-Benutzers. Der
+Die native Shell läuft mit den Rechten des angemeldeten Windows-Benutzers;
+in WSL läuft sie als Benutzer der konfigurierten Linux-Distribution. Der
 Workspace ist ihr Startverzeichnis, keine Sandbox. Die Freigabe daher nur
 dem eigenen gekoppelten Gerät geben. Tailscale allein erteilt keine ADE-Rechte.
 Zum Widerruf den Haken entfernen und speichern oder das Gerät entfernen.
@@ -72,4 +79,35 @@ Die erste Ausgabeansicht ist eine aus dem Terminalzustand erzeugte Textansicht
 mit begrenztem Verlauf. Bekannte Zugangsdaten und Host-Pfade werden redigiert;
 Farben, Mausbedienung und Dateiübertragung im Terminal sind nicht enthalten.
 Verwaltete Task-Sitzungen und Login-Sitzungen werden nicht interaktiv freigegeben.
-Ausführung wird zunächst nur auf nativem Windows geprüft.
+Dateien/Editor und Terminal im eigenen Ordner sind für Windows und Windows mit
+WSL-Backend vorgesehen; WSL benötigt Python 3. Remote-Git-Projektwerkzeuge bleiben
+auf native Repository-Bindings begrenzt. Gemessene Plattformen und Grenzen stehen
+in `SESSION_WORKSPACE_RESULTS.md`.
+
+## Eine leere Sitzung oder einen anderen Agenten starten
+
+Am Desktop den Agenten wählen und oben **+** drücken (oder **Ctrl+Shift+T**).
+Im Dialog ein Projekt oder **Ohne Projekt · Eigener Workspace** wählen. Unter
+**Sitzung starten mit** die gewünschte Auswahl treffen und **Sitzung starten**
+drücken. Am Tablet gibt es dieselbe Auswahl im Reiter **Terminal**.
+
+| Auswahl | Verhalten |
+|---|---|
+| Leeres Terminal | Öffnet die Shell im gewählten Workspace; dort eigene Befehle eingeben |
+| Gespeichertes Agent-Profil | Startet das bestehende Profil, etwa Hermes General mit `general --tui` |
+| Codex | Startet `codex` mit dessen normalen CLI-Einstellungen |
+| Hermes | Startet `hermes`; eigene ADE-Wrapper bleiben über das gespeicherte Profil erreichbar |
+| Ollama | Ein vom Host gemeldetes Modell auswählen und mit `ollama run` öffnen |
+
+**Startmöglichkeiten aktualisieren** liest die Installation/Modellliste erneut.
+Die angezeigte Umgebung muss passen: Windows-Programme und WSL-Programme werden
+getrennt erkannt. Fehlt ein Programm, Installation und PATH in dieser Umgebung
+am PC prüfen. Die Auswahl installiert keine Modelle und ändert das Agent-Profil
+nicht. Ein frischer CLI-Start übernimmt keine ADE-Bypass- oder Modellvorgaben eines
+anderen Profils. Für diese gespeicherten Einstellungen das Profil auswählen.
+Anmeldung und Modellfehler zeigt das Terminal. Beim **Restart** einer Sitzung
+bleibt ihre Auswahl erhalten; nach einem vollständigen ADE-Neustart müssen
+Terminals neu gestartet werden.
+
+CLI-Referenzen: [Hermes CLI](https://hermes-agent.nousresearch.com/docs/reference/cli-commands/),
+[Ollama CLI](https://docs.ollama.com/cli).

@@ -4,6 +4,7 @@ import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isValidDeviceId } from './remote/authorization';
 import { isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
+import { validSessionChoice } from '../shared/sessionLaunch';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
@@ -840,6 +841,18 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyCreate:
       validatePtyCreate(channel, payload);
       return;
+    case IPC.SessionOptions:
+    case IPC.SessionLaunch: {
+      const input = record(channel, payload);
+      exactKeys(channel, input, channel === IPC.SessionOptions ? ['agentId', 'repositoryId'] : ['agentId', 'repositoryId', 'mode', 'model', 'workspaceBindingId']);
+      for (const field of ['agentId', 'repositoryId']) {
+        if (field === 'repositoryId' && input[field] === null) continue;
+        if (typeof input[field] !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(input[field] as string)) invalid(channel, 'invalid scope identity');
+      }
+      if (channel === IPC.SessionLaunch && !validSessionChoice(input)) invalid(channel, 'invalid launch choice');
+      if (input.workspaceBindingId !== undefined) id(channel, input.workspaceBindingId, 'workspaceBindingId');
+      return;
+    }
     case IPC.PtyWrite: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['sessionId', 'dataBase64']);

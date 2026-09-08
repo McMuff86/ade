@@ -208,6 +208,22 @@ Detailed model, UI behavior, migration and exit criteria are binding in
 
 ## Remote workspace tools (Goals 16–19)
 
+Goals 20–21 extend this surface with **Ohne Projekt · Eigener Workspace**.
+It opens the agent's configured native or WSL home, even if catalog projects
+exist. Files, small edits and interactive terminals work there; Git and managed
+tasks require a selected project. Reads never create a missing folder; explicitly
+opening a terminal can prepare it. Root changes invalidate old edits/sessions.
+
+The desktop `+` / Ctrl+Shift+T and tablet Terminal offer the same new-session
+choice: **Leeres Terminal**, **Gespeichertes Agent-Profil**, **Codex**, **Hermes**,
+or **Ollama** with an available model. This choice never rewrites the saved agent.
+Fresh CLIs use default permissions/settings; saved profiles retain wrappers,
+models and permissions. A session restart retains its own choice. Unavailable
+CLIs/models are explained; discovery does not promise authentication or model
+health. There is no model installation/download action. Existing separate remote
+grants still apply. Acceptance: `SESSION_WORKSPACE_GOALS.md` and
+`SESSION_WORKSPACE_RESULTS.md`.
+
 An agent selection opens its workspace with an independent catalog-project
 selector and an explicit task action. Files and Git are available without
 starting a terminal. The first supported execution boundary is a verified
