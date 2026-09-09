@@ -21,6 +21,12 @@ ist unter „Agent-Arbeitskopie“ weiterhin erreichbar. Einzelne Task-Nachweise
 im Goal-Dokument; die abschliessende Gesamtverifikation und der Push folgen T6.
 Es wurde keine persönliche ADE-Instanz neu gestartet.
 
+Aktuelle Steuerung: Der Nutzer verlangt nun ausdrücklich Zwischencommit und
+Neustart zum Testen von T2b auf dem Tablet. T3a ist begonnen (Branch-Datentypen und
+interne Worktree-Übernahme), aber noch keine Branch-Operation freigegeben. Der
+Neustart wird nach Prüfung laufender Prozesse und einem Build durchgeführt; der
+abschliessende Push bleibt ausstehend. Der tatsächliche Neustartnachweis folgt.
+
 - Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
 - Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 - Dokumentationsentscheidungen: [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).

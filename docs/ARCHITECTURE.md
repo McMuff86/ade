@@ -48,6 +48,13 @@ registered metadata intact. Dialog and page focus have explicit fallback targets
 T2b supplies discovery/open/detail only. Branch controls and independent CLI launch
 follow T3; the previous agent-worktree entry remains explicitly accessible.
 
+T3a checkpoint: `shared/projectBranches.ts` defines bounded, exact branch-action
+shapes (local/remote refs, new branch, opaque worktree selection).
+`ProjectWorkspaceService.registerCheckout` is a main-only helper for a caller
+holding the workspace operation gate. It validates the exact Git identity against
+the expected repository and rechecks authorization before adoption. No new branch
+action is wired to IPC or HTTP yet; these types are not a supported Git workflow.
+
 ## Interactive foreground lifecycle
 
 `SessionMeta.status` continues to describe the PTY process. Optional `program`

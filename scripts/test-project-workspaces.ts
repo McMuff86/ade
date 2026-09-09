@@ -8,6 +8,7 @@ import { ProjectWorkspaceService } from '../src/main/repositories/ProjectWorkspa
 import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
 import { workspaceOperations } from '../src/main/repositories/WorkspaceOperationGate';
 import { DEFAULT_CONFIG } from '../src/shared/types';
+import { validProjectBranchAction, validProjectBranchName, validProjectBranchRef } from '../src/shared/projectBranches';
 
 let passed = 0;
 const check = (name: string, ok: boolean): void => { if (!ok) throw new Error(name); passed++; console.log(`  ok  ${name}`); };
@@ -19,6 +20,14 @@ const hooks = join(root, 'no-hooks'); mkdirSync(hooks);
 const git = (path: string, args: string[]): string => execFileSync('git', ['-C', path, '-c', `core.hooksPath=${hooks}`, '-c', 'core.fsmonitor=false',
   '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', ...args], { encoding: 'utf8', windowsHide: true, timeout: 10000 }).trim();
 void (async () => {
+  check('branch contract accepts ordinary nested and Unicode branch names', ['main', 'feature/tablet', 'Änderung'].every(validProjectBranchName));
+  check('branch contract refuses option, reflog, wildcard and traversal syntax', ['-f', '@{-1}', 'a..b', 'a b', 'a.lock', '.hidden', 'a//b', 'HEAD', 'a*'].every((name) => !validProjectBranchName(name)));
+  check('branch references are confined to local and remote branch namespaces', validProjectBranchRef('refs/heads/main') && validProjectBranchRef('refs/remotes/origin/topic')
+    && !validProjectBranchRef('HEAD~1') && !validProjectBranchRef('refs/tags/release'));
+  check('branch action contract accepts explicit switch, create and opaque worktree selections', validProjectBranchAction({ kind: 'switch', ref: 'refs/heads/main' })
+    && validProjectBranchAction({ kind: 'create', name: 'topic', baseRef: null, separate: true }) && validProjectBranchAction({ kind: 'open-worktree', worktreeId: 'w' + 'a'.repeat(32) }));
+  check('branch action contract rejects hidden execution parameters and host paths', !validProjectBranchAction({ kind: 'switch', ref: 'refs/heads/main', command: 'whoami' })
+    && !validProjectBranchAction({ kind: 'open-worktree', worktreeId: root }));
   const parent = join(root, 'projects'); mkdirSync(parent);
   const configFile = join(root, 'profile', 'config.json');
   const store = new ConfigStore(configFile); const defaults = new ProjectDefaultsService(store); const service = new ProjectWorkspaceService(store);
@@ -80,6 +89,11 @@ void (async () => {
   const linkedView = await service.open(linkedEntry.id);
   check('existing linked worktree gets its own exact workspace and shares repository identity', linkedView.id !== opened.id && linkedView.repositoryId === opened.repositoryId
     && linkedView.kind === 'worktree' && linkedView.branch === 'topic' && store.get().projectWorkspaces.at(-1)!.workspaceDir === linked);
+  check('main-owned worktree adoption keeps the exact identity without another profile or binding', (await workspaceOperations.mutate(() => service.registerCheckout(linked, opened.repositoryId, () => undefined))).id === linkedView.id
+    && !store.get().agents.length && !store.get().workspaceBindings.length);
+  await refuses('worktree adoption rechecks authorization', () => workspaceOperations.mutate(() => service.registerCheckout(linked, opened.repositoryId, () => { throw new Error('revoked'); })), /revoked/);
+  git(outside, ['init', '--initial-branch=main']);
+  await refuses('worktree adoption refuses another repository despite a caller-provided expected identity', () => workspaceOperations.mutate(() => service.registerCheckout(outside, opened.repositoryId, () => undefined)), /gehört nicht/);
   const otherStore = new ConfigStore(join(root, 'other-profile', 'config.json')); new ProjectDefaultsService(otherStore).save({ rootPath: parent, agentId: null });
   await new ProjectWorkspaceService(otherStore).open(linkedEntry.id);
   check('discovering a linked worktree first still registers the canonical main checkout', otherStore.get().repositories[0]!.rootPath === main);

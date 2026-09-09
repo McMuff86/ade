@@ -22,7 +22,8 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows; zusätzliche WSL-Abnahme offen |
 | T2a | Datenmodell und begrenzte Ordnererkennung; eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | abgeschlossen für native Windows |
 | T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | abgeschlossen für native Windows |
-| T3 | Projekt → Workspace/Branch → CLI auf Desktop und Tablet. Bestehenden Checkout ausdrücklich verwenden; zusätzliche Arbeitskopie für parallele Arbeit anbieten. Lokale/Remote-Branches, neuen Branch und profilfreien Start mit echten Git-/PTY-Fixtures prüfen | offen |
+| T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | in Arbeit |
+| T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | offen |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
 | T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
@@ -140,3 +141,14 @@ Ausgangsevidenz und keine Verifikation dieses Goals.
   Logs und Aufnahmen: `test-results/project-directory-*.log` und
   `test-results/remote/project-directory-*.png`. Persönliche ADE-Instanz nicht
   neu gestartet; noch kein Push.
+
+### Angeforderter Zwischenstand vor dem Tablet-Test
+
+Der Nutzer hat während T3a ausdrücklich einen Zwischencommit und einen Neustart
+für den Tablet-Test angefordert. Die begonnenen Branch-Datentypen und die interne
+Übernahme eines bereits geprüften Worktrees werden mitgesichert. Sie sind noch
+kein freigegebener Branch-Wechsel oder CLI-Start: T3a/T3b bleiben in Arbeit/offen.
+Die neue Oberfläche zum Testen entspricht T2b. Der gemeinsame Push bleibt am Ende.
+
+Zwischenprüfung: drei TypeScript-Projekte grün, 40 Workspace-/Branch-Vertragschecks
+und 26 Projekt-API-Checks grün. Logs: `test-results/project-checkpoint-*.log`.

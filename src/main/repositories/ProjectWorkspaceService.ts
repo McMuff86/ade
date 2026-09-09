@@ -39,6 +39,22 @@ export class ProjectWorkspaceService {
       assertAuthorized();
       const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
       if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
+      return this.registerTarget(target, assertAuthorized);
+    });
+  }
+
+  /** Main-only adoption after a branch service resolved or created a worktree.
+   * Caller holds the workspace operation gate; no wire payload supplies this path.
+   */
+  async registerCheckout(path: string, repositoryId: string, assertAuthorized: () => void): Promise<ProjectWorkspaceView> {
+    assertAuthorized();
+    const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
+    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt ist nicht verfügbar.');
+    const identity = projectRootIdentity(path);
+    return this.registerTarget({ path, identity, entry: { id: '', name: repository.name, repositoryId, kind: 'repository', backend: 'native', source: 'catalog', notice: null } }, assertAuthorized, repositoryId);
+  }
+
+  private async registerTarget(target: DirectoryTarget, assertAuthorized: () => void, expectedRepositoryId?: string): Promise<ProjectWorkspaceView> {
       if (target.entry.backend !== 'native') throw new Error('ade: WSL-Projekte im bestehenden Agent-Workspace öffnen.');
       if (target.entry.kind !== 'repository') throw new Error('ade: Dieser Ordner ist noch kein erreichbares Git-Repository.');
       this.assertTarget(target);
@@ -53,6 +69,7 @@ export class ProjectWorkspaceService {
       }
       if (!repository) repository = { id: randomUUID(), name: basename(identity.main), rootPath: identity.main, commonGitDir: identity.common,
         executionBackend: 'native', verified: true, createdAt: Date.now() };
+      if (expectedRepositoryId && repository.id !== expectedRepositoryId) throw new Error('ade: Arbeitskopie gehört nicht zum gewählten Projekt.');
       const existing = current.projectWorkspaces.find((item) => sameHostPath(item.workspaceDir, target.path));
       if (existing) {
         this.assertRecord(existing, repository, identity);
@@ -72,7 +89,6 @@ export class ProjectWorkspaceService {
         projectWorkspaces: [...current.projectWorkspaces, workspace] });
       this.changed();
       return this.view(workspace, repository, identity.branch);
-    });
   }
 
   async resolve(workspaceId: string): Promise<{ workspace: ProjectWorkspace; repository: Repository; branch: string }> {
