@@ -18,6 +18,7 @@ export interface LaunchProfile {
 }
 
 export interface TaskLaunchCommand {
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
   command: string;
   transport: 'argument' | 'stdin';
 }
@@ -219,7 +220,7 @@ export function resolveTaskLaunchCommand(
       const pipe = platform === 'win32'
         ? `$env:ADE_TASK_PROMPT | ${base} -p`
         : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} -p`;
-      return { command: pipe, transport: 'stdin' };
+      return { command: `${pipe} --output-format stream-json --verbose`, transport: 'stdin', activityFormat: 'claude-stream-json' };
     }
     case 'codex': {
       // PowerShell 5.1 corrupts an expanded native argument when the prompt
@@ -229,8 +230,9 @@ export function resolveTaskLaunchCommand(
         ? `$env:ADE_TASK_PROMPT | ${resolveCodexExecCommand(agent.permissionMode, agent)}`
         : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${resolveCodexExecCommand(agent.permissionMode, agent)}`;
       return {
-        command: `${pipe} --skip-git-repo-check -`,
+        command: `${pipe} --json --skip-git-repo-check -`,
         transport: 'stdin',
+        activityFormat: 'codex-jsonl',
       };
     }
     case 'opencode':
@@ -247,6 +249,7 @@ export function resolveTaskLaunchCommand(
       return {
         command: `${base} --prompt-file ${file} --output-format streaming-json --no-auto-update`,
         transport: 'stdin',
+        activityFormat: 'grok-streaming-json',
       };
     }
     case 'custom':

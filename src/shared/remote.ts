@@ -143,6 +143,18 @@ export interface MobileTerminalSummary {
 }
 export interface MobileRecentSession extends MobileTerminalSummary, MobileWorkspaceSelection { createdAt: number }
 export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
+
+/** Read-only observations, with output separate from the run summary. No PTY ids. */
+export interface MobileRunActivity {
+  run: MobileRunSummary; checkedAt: number; tasks: Array<{
+    id: string; participantId: string; status: import('./types').RunTaskStatus;
+    startedAt?: number; endedAt?: number; exitCode?: number;
+    process: 'running' | 'exited' | 'unavailable'; lastOutputAt?: number; outputBytes?: number;
+    activity: Array<{ kind: string; text: string }>; notice: string | null;
+    output?: import('./types').RunTaskOutput; result?: import('./types').RunReportResult | null;
+  }>;
+}
+export interface MobileRunFiles { files: Array<{ id: string; path: string; name: string; bytes: number; image: boolean }>; limited: boolean; notice: string | null }
 export interface MobileTerminalState {
   launchOptions?: SessionLaunchOptions;
   terminals: MobileTerminalSummary[];

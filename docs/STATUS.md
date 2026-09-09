@@ -1,5 +1,20 @@
 # ADE implementation status
 
+## 2026-09-10 — Mobile run inspection
+
+The urgent Graph/result task adds activity, full saved assistant answers and
+protected image previews/downloads. Focused native Windows evidence: 31 boundary
+checks; 12 real Electron/Chromium checks with a deterministic CLI in a real PTY;
+config 34, orchestration 81, runtime 47, host API 184, security 218 and the 57-check
+mobile browser regression pass.
+Three TypeScript projects and the production build pass. Logs are
+`test-results/run-inspection*.log` and `run-progress-*.log`; screenshots are under
+`test-results/remote/run-*.png`. Browser automation covers tablet, phone width,
+keyboard selection/Escape, final output, exact PNG download and reload. It does not
+measure provider inference, physical Samsung behavior or another OS. Complete
+project-goal `pnpm verify` and final push remain outstanding; the prior 2,148-check
+baseline below predates this patch.
+
 Status date: 2026-09-09. Current capability matrix; dated deliveries are retained in [the status archive](archived/STATUS_2026-09-09.md). Product
 intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
 Implemented repository bindings and planned mobile boundaries are detailed in

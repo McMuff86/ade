@@ -174,7 +174,7 @@ export class OrchestrationService {
       })),
       participants: config.runParticipants.map((participant) => ({ ...participant })),
       tasks: tasks.map((task): RunTaskView => {
-        const { prompt, ...rest } = task;
+        const { prompt, output: _output, ...rest } = task;
         const digest = this.promptDigestFor(task.id, prompt);
         return {
           ...rest,
@@ -268,6 +268,7 @@ export class OrchestrationService {
         startedAt: task.startedAt,
         endedAt: task.endedAt,
         exitCode: task.exitCode,
+        output: task.output ? { ...task.output } : undefined,
         error: task.error,
         result: result
           ? {
@@ -1788,8 +1789,9 @@ export class OrchestrationService {
     status: 'completed' | 'failed' | 'cancelled',
     exitCode: number,
     error?: string,
+    output?: import('../../shared/types').RunTaskOutput,
   ): void {
-    this.transitionTask(taskId, status, { exitCode, error });
+    this.transitionTask(taskId, status, { exitCode, error, ...(output ? { output: { ...output } } : {}) });
   }
 
   private createTaskRecord(input: RunTaskCreateInput & {
@@ -1903,6 +1905,7 @@ export class OrchestrationService {
       workspaceDir?: string;
       exitCode?: number;
       error?: string;
+      output?: import('../../shared/types').RunTaskOutput;
     } = {},
   ): void {
     const config = this.store.get();
@@ -1939,6 +1942,7 @@ export class OrchestrationService {
           endedAt: isTerminal(status) ? now : candidate.endedAt,
           exitCode: detail.exitCode ?? candidate.exitCode,
           error: detail.error ?? candidate.error,
+          output: detail.output ? { ...detail.output } : candidate.output,
         }
       : candidate);
     const events = [...config.runEvents, event];

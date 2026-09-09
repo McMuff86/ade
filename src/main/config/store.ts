@@ -361,7 +361,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   const taskIds = schema(config.runTasks, 'config.runTasks', [
     'id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status',
     'sessionId', 'repositoryId', 'workspaceBindingId', 'workspaceDir', 'expectedHeadSha', 'preparedBaseSha',
-    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error',
+    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output',
   ], ['id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status', 'createdAt', 'updatedAt']);
   schema(config.runEvents, 'config.runEvents',
     ['id', 'runId', 'type', 'createdAt', 'taskId', 'participantId', 'data', 'seq'],
@@ -461,6 +461,12 @@ export function validateCompleteConfig(config: AdeConfig): void {
     number(participant.createdAt, 'runParticipant.createdAt');
   }
   for (const task of config.runTasks) {
+    if (task.output !== undefined) {
+      const output = object(task.output, 'runTask.output');
+      exactKeys(output, ['text', 'limited', 'source'], 'runTask.output');
+      if (typeof output.text !== 'string' || output.text.length > 64 * 1024 || /\0/.test(output.text)
+        || typeof output.limited !== 'boolean' || !['structured-cli', 'recovered-cli'].includes(String(output.source))) throw new Error('runTask.output is invalid.');
+    }
     text(task.prompt, 'runTask.prompt'); text(task.title, 'runTask.title');
     enumValue(task.phase, TASK_PHASES, 'runTask.phase'); enumValue(task.status, TASK_STATUSES, 'runTask.status');
     if (typeof task.managed !== 'boolean' || !Number.isSafeInteger(task.attempt) || task.attempt < 0) throw new Error('runTask fields are invalid.');

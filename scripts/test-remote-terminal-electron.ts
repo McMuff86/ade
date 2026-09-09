@@ -12,6 +12,7 @@ import { projectDirectoryFlow } from './helpers/projectDirectoryFlow';
 import { assistantAccessFlow } from './helpers/assistantAccessFlow';
 import { terminalEchoLatency } from './helpers/terminalLatency';
 import { PNG } from 'pngjs';
+import { inspectionFixtureCode, runInspectionFlow } from './helpers/runInspectionFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
@@ -27,7 +28,7 @@ void (async () => {
   // Real PTYs execute deterministic local CLI fixtures, never a paid model or the operator's agent.
   const bin = join(root, 'bin'); mkdirSync(bin);
   const compile = join(root, 'compile.ps1');
-  writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (args.Length == 0 || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n} }\n'@\n`);
+  writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  ${inspectionFixtureCode}\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (args.Length == 0 || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n} }\n'@\n`);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
   const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
@@ -84,6 +85,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--run-inspection-only')) {
+    await runInspectionFlow(desktop, page, setup.agent.categoryId, setup.repo.id, evidence, check); return;
+  }
   if (process.argv.includes('--directory-only')) {
     await projectDirectoryFlow(desktop, page, proxy, root, evidence, check); return;
   }

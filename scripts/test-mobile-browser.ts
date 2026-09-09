@@ -79,8 +79,10 @@ void (async () => {
   await page.getByRole('tab', { name: 'Overview', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   check('mode tabs use roving keyboard focus and select Projects', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-projects'));
-  await page.getByLabel('Projekte durchsuchen', { exact: true }).fill('missing');
-  check('Projects has a useful search empty state', await page.getByRole('heading', { name: 'Keine passenden Projekte', exact: true }).isVisible());
+  // This minimal fixture deliberately has no project/workspace administration;
+  // real directory search/open is covered by projectDirectoryFlow.
+  await page.getByRole('alert').filter({ hasText: 'Diese Funktion benötigt die neue ADE-Version auf dem PC.' }).waitFor();
+  check('Projects explains an unavailable older host API and permits retry', await page.getByRole('button', { name: 'Projektordner aktualisieren', exact: true }).isEnabled());
   await page.getByRole('tab', { name: 'Projekte', exact: true }).focus();
   await page.keyboard.press('End');
   check('Graph has a useful empty canvas and keyboard End support', await page.getByRole('heading', { name: 'Dein Graph ist bereit' }).isVisible());
@@ -235,6 +237,7 @@ void (async () => {
     && !JSON.stringify(localStorage).includes('An uncertain request must never cross a revoked device identity.'), fixture.devices.activeDevices()[0]!.id));
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
+    || /^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}(\/tasks\/[A-Za-z0-9_.:-]{1,128})?\/activity$/.test(path)
     || path === '/api/v1/workspace/query' || path === '/api/v1/terminal/sessions'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();

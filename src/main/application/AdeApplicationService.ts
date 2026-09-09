@@ -46,6 +46,8 @@ import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
 import { mobileDashboard } from '../dashboard/mobileDashboard';
 import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
+import type { RunInspectionService } from './RunInspectionService';
+import type { MobileRunActivity } from '../../shared/remote';
 import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
 
@@ -100,6 +102,7 @@ export interface RemoteAuditEntry {
 
 export interface ApplicationOptions {
   projects?: ProjectWorkspaceService;
+  runInspection?: RunInspectionService;
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
@@ -303,6 +306,30 @@ export class AdeApplicationService {
     ledger.permits({ principal, idempotencyKey: undefined, requestId: 'terminal-inventory' }, 'terminal:control');
     try { return await terminals.inventory(principal.id); }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async inspectRun(principal: RemotePrincipal, runId: string, taskId?: string): Promise<MobileRunActivity> {
+    const authorize = this.inspectionAuthorization(principal);
+    const run = this.runs().find((item) => item.id === runId); if (!run) throw new RemoteApiError(404, 'not_found');
+    const tasks = this.options.runInspection!.activity(runId, taskId); authorize();
+    return { run, tasks, checkedAt: Date.now() };
+  }
+
+  async runFiles(principal: RemotePrincipal, runId: string, taskId: string) {
+    const authorize = this.inspectionAuthorization(principal);
+    return this.options.runInspection!.files(runId, taskId, authorize);
+  }
+
+  async runFile(principal: RemotePrincipal, runId: string, taskId: string, fileId: string) {
+    const authorize = this.inspectionAuthorization(principal);
+    return this.options.runInspection!.file(runId, taskId, fileId, authorize);
+  }
+
+  private inspectionAuthorization(principal: RemotePrincipal): () => void {
+    const ledger = this.options.administration?.ledger;
+    if (!ledger || !this.options.runInspection) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => ledger.permits({ principal, requestId: 'run-inspection', idempotencyKey: undefined }, 'workspace:read');
+    authorize(); return authorize;
   }
 
   async queryWorkspace(context: RemoteCommandContext, payload: unknown) {

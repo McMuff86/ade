@@ -1,5 +1,19 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Mobile run results
+
+Open a Work run or select a Graph agent, then use **Aktivität**, **Ergebnis** or
+**Dateien**. Activity distinguishes recorded task status from the observed process
+and reports last output, received bytes and bounded CLI steps. It does not simulate
+progress. Standard structured CLI answers survive reload/restart; older runs may
+lack an answer and explain that explicitly. Exit 0 alone is not proof of fulfillment.
+
+Signed devices with workspace read access can preview PNG/JPEG/WebP and download
+supported image, spreadsheet or text files from the original task workspace.
+The list can contain earlier work and says so. File availability depends on that
+workspace remaining present and unchanged in ADE. Approval, integration and
+publishing remain distinct desktop flows.
+
 Project workflow goal: discovery and independently registered project workspaces
 are available through **Projekte** on desktop and tablet in
 [T2a/T2b](PROJECT_WORKFLOW_GOALS.md). The native directory list includes unregistered

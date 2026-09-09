@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   });
 
   const claude = resolveTaskLaunchCommand(agent('claude'), 'win32');
-  check('Claude task uses print mode', claude?.command.endsWith('claude -p') === true, claude);
+  check('Claude task streams structured output in print mode', claude?.command.endsWith('claude -p --output-format stream-json --verbose') === true && claude.activityFormat === 'claude-stream-json', claude);
   check(
     'Claude prompt is piped over stdin, not argument-expanded',
     claude?.command.startsWith('$env:ADE_TASK_PROMPT |') === true && claude?.transport === 'stdin',
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
   const claudePosix = resolveTaskLaunchCommand(agent('claude'), 'posix');
   check(
     'Claude posix task pipes the environment prompt',
-    claudePosix?.command === 'printf \'%s\\n\' "$ADE_TASK_PROMPT" | claude -p'
+    claudePosix?.command === 'printf \'%s\\n\' "$ADE_TASK_PROMPT" | claude -p --output-format stream-json --verbose'
       && claudePosix?.transport === 'stdin',
     claudePosix,
   );
@@ -127,8 +127,8 @@ async function main(): Promise<void> {
   const codex = resolveTaskLaunchCommand(agent('codex'), 'win32');
   check(
     'Codex task pins its model and reasoning in exec mode',
-    codex?.command.includes('$env:ADE_TASK_PROMPT | codex exec --model gpt-5.6-sol -c model_reasoning_effort="high" --skip-git-repo-check -') === true
-      && codex.transport === 'stdin',
+    codex?.command.includes('$env:ADE_TASK_PROMPT | codex exec --model gpt-5.6-sol -c model_reasoning_effort="high" --json --skip-git-repo-check -') === true
+      && codex.transport === 'stdin' && codex.activityFormat === 'codex-jsonl',
     codex,
   );
   const codexAuto = resolveTaskLaunchCommand({
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
   }, 'win32');
   check(
     'Codex accept-edits uses the current workspace-write exec sandbox',
-    codexAuto?.command.includes('codex exec --sandbox workspace-write --skip-git-repo-check') === true,
+    codexAuto?.command.includes('codex exec --sandbox workspace-write --json --skip-git-repo-check') === true,
     codexAuto,
   );
   const codexBypass = resolveLaunchCommand({

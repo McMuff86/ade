@@ -425,6 +425,8 @@ export interface RunParticipant {
 }
 
 export interface RunTask {
+  /** Captured assistant response; exposed only in the result/report detail. */
+  output?: RunTaskOutput;
   id: string;
   runId: string;
   participantId: string;
@@ -464,6 +466,8 @@ export interface WorkerAssignment {
   /** Participant ids whose assignments must complete first. */
   dependsOn: string[];
 }
+
+export interface RunTaskOutput { text: string; limited: boolean; source: 'structured-cli' | 'recovered-cli' }
 
 export interface RunTaskTestResult {
   command: string;
@@ -812,7 +816,7 @@ export interface OrchestrationSnapshot {
  * text; `provenance` is the parsed context-packet metadata that used to
  * require shipping every artifact body.
  */
-export type RunTaskView = Omit<RunTask, 'prompt'> & {
+export type RunTaskView = Omit<RunTask, 'prompt' | 'output'> & {
   promptDigest: string;
   promptChars: number;
   provenance: TaskProvenance | null;
@@ -869,6 +873,7 @@ export interface RunReportResult {
 }
 
 export interface RunReportTask {
+  output?: RunTaskOutput;
   id: string;
   participantId: string;
   participantName: string;

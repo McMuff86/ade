@@ -323,8 +323,35 @@ Die Task-Slots gelten über alle Projekte hinweg.
 Beginne mit einer kleinen Einzelaufgabe, bevor du ein Team zusammenstellst.
 CLI-Verfügbarkeit allein ist kein Nachweis, dass deren verwalteter Adapter jeden
 Run-Typ unterstützt. Den gemessenen Stand nennt [STATUS.md](STATUS.md).
-Ausführliche Ergebnisprüfung, Integrationsfreigabe und verifiziertes Publishing
-bleiben Desktop-Abläufe. Ein gestarteter Run veröffentlicht nicht automatisch.
+Integrationsfreigabe und verifiziertes Publishing bleiben Desktop-Abläufe. Ein gestarteter Run veröffentlicht nicht automatisch.
+
+### Ergebnis und Bild auf dem Tablet abrufen
+
+1. Unter **Work** den betreffenden Run öffnen, oder in **Graph** den Run auswählen
+   und auf seinen Agent-Knoten tippen.
+2. In den Run-Details zu **Aktivität & Ergebnis** gehen. **Aktivität** zeigt den
+   bestätigten Prozesszustand und die zuletzt empfangenen CLI-Schritte.
+3. **Ergebnis** zeigt die gespeicherte Abschlussantwort. Bei älteren Runs kann sie
+   fehlen; das wird ausdrücklich angezeigt. „Completed“/Exit 0 bedeutet zunächst,
+   dass der Prozess erfolgreich beendet wurde — die Antwort und Dateien prüfen.
+4. **Dateien → Bild ansehen: …** öffnet eine Vorschau. **Herunterladen: …** speichert
+   das Bild über Chrome auf dem Tablet. Für Tabellen oder Markdown zuerst
+   **Download vorbereiten: …**, dann **Herunterladen: …** wählen.
+
+![Run mit abgeschlossener Antwort im Tablet-Browser](media/user-guide/15-run-result.png)
+
+![Geschützte Bildvorschau und Download in den Run-Details](media/user-guide/16-run-image.png)
+
+Diese Screenshots stammen aus einem isolierten Test mit deterministischer CLI und
+einer echten Terminal-Sitzung; das farbige Testbild ist kein Modell-Qualitätsbeleg.
+Die Liste enthält Dateien des Auftrags-Workspaces, möglicherweise auch frühere
+Arbeiten. Unterstützt: PNG/JPEG/WebP, XLSX, Markdown, TXT und CSV bis 16 MiB je
+Datei. Während ein Bild noch geschrieben wird, später **Jetzt aktualisieren**
+wählen. Wurde der ursprüngliche Workspace entfernt, Dateien am PC wiederfinden.
+
+Falls die Lesefreigabe fehlt: am PC unter **Settings → Geräte** für das gekoppelte
+Tablet **Workspace-Dateien und Git-Diffs lesen** aktivieren. Die Vorschau benötigt
+eine Verbindung zum PC. Bei einem alten Browserstand ADE in Chrome neu laden.
 
 ## 10. Pausieren, weiterarbeiten und aktualisieren
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MobileCatalog, MobileCommandResult, MobileHealth, MobileRunSummary, MobileSnapshot } from '../shared/remote';
 import { MobileClient, MobileClientError } from './client';
 import { clearDeviceDrafts, useDeviceDraft } from './deviceDrafts';
+import { mergeRunSummaries } from '../shared/runSummaryMerge';
 
 const client = new MobileClient();
 export interface PendingCommand { path: string; payload?: unknown; key: string }
@@ -68,7 +69,7 @@ export function useMobileHost() {
       client.request<MobileRunSummary[]>('/api/v1/runs'),
     ]);
     if (!mounted.current || ownEpoch !== epoch.current) return;
-    setHealth(nextHealth); setCatalog(nextCatalog); setRuns(nextRuns); setLastSeen(Date.now());
+    setHealth(nextHealth); setCatalog(nextCatalog); setRuns((current) => mergeRunSummaries(current, nextRuns)); setLastSeen(Date.now());
   }, []);
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export function useMobileHost() {
         await client.stream(cursor.current, ownController.signal, (event, id, data) => {
           if (disposed || ownController.signal.aborted) return;
           cursor.current = id; setStatus('online'); setLastSeen(Date.now());
-          if (event === 'snapshot') setRuns((data as MobileSnapshot).runs); else update();
+          if (event === 'snapshot') setRuns((current) => mergeRunSummaries(current, (data as MobileSnapshot).runs)); else update();
         });
       } catch (reason) {
         if (disposed || ownController.signal.aborted) return;
@@ -162,7 +163,16 @@ export function useMobileHost() {
       return result;
     } catch (reason) { if (ownEpoch === epoch.current) await lostAccess(reason); throw reason; }
   }, [lostAccess]);
-  return { deviceId, paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, refresh,
+  const acceptRun = useCallback((run: MobileRunSummary) => setRuns((current) => {
+    const previous = current.find((item) => item.id === run.id);
+    return previous && previous.updatedAt > run.updatedAt ? current : [run, ...current.filter((item) => item.id !== run.id)];
+  }), []);
+  const download = useCallback(async (path: string) => {
+    const ownEpoch = epoch.current;
+    try { const value = await client.download(path); if (ownEpoch !== epoch.current) throw new MobileClientError('unknown_device', 401); return value; }
+    catch (reason) { if (ownEpoch === epoch.current) await lostAccess(reason); throw reason; }
+  }, [lostAccess]);
+  return { deviceId, paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, download, acceptRun, refresh,
     refreshNow: () => { void refresh().then(() => setError('')).catch((reason) => { setError(errorText(reason)); void lostAccess(reason); }); },
     canSubmit: status === 'online' && health?.commands === 'enabled' && !busy && !pending,
     reconnect: () => { setError(''); setGeneration((value) => value + 1); },

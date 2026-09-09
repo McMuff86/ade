@@ -4,11 +4,15 @@ import type { RunSummaryParticipant } from '../shared/types';
 import { Avatar } from '../renderer/rail/Avatar';
 import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
 import { Chrome, Empty, Icon, Status } from './ui';
+import { outputAge, useRunActivity } from './RunActivityPanel';
+import type { MobileHost } from './useMobileHost';
 
-export function Graph({ run, catalog, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; catalog: MobileCatalog | null;
+export function Graph({ run: suppliedRun, host, catalog, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; host: MobileHost; catalog: MobileCatalog | null;
   selectedParticipant: string | null; onSelect: (id: string) => void;
 }): JSX.Element {
   const [zoom, setZoom] = useState(1);
+  const { data, error, refresh } = useRunActivity(host, suppliedRun?.id);
+  const run = data?.run.id === suppliedRun?.id && data && data.run.updatedAt >= suppliedRun!.updatedAt ? data.run : suppliedRun;
   const space = useRef<HTMLDivElement>(null);
   const fit = () => {
     const content = space.current; const viewport = content?.parentElement;
@@ -27,6 +31,7 @@ export function Graph({ run, catalog, selectedParticipant, onSelect }: { run: Mo
     const tasks = run.tasks.filter((task) => task.participantId === participant.id);
     const latest = [...tasks].sort((a, b) => b.createdAt - a.createdAt)[0];
     const active = tasks.some((task) => task.status === 'running');
+    const observation = data?.tasks.find((item) => item.id === (tasks.find((task) => task.status === 'running') ?? latest)?.id);
     const matches = catalog?.agents.filter((agent) => agent.name === participant.agentName) ?? [];
     const visual = matches.length === 1 ? runtimeVisual(matches[0]!.runtime) : null;
     const Glyph = visual?.Glyph;
@@ -37,10 +42,15 @@ export function Graph({ run, catalog, selectedParticipant, onSelect }: { run: Mo
       <span className="m-node-body"><span className="m-node-glyph" style={{ color: visual?.color }}>{Glyph ? <Glyph /> : <Avatar name={participant.agentName} size={38} />}</span>
         <strong>{participant.agentName}</strong><Status status={active ? 'running' : latest?.status ?? 'bereit'} />
         <small>{tasks.length} Tasks · {visual?.label ?? 'Agent'}</small>
+        {active && <small>{outputAge(observation?.lastOutputAt, data?.checkedAt ?? Date.now())}</small>}
+        {observation?.activity.at(-1) && <small>{observation.activity.at(-1)!.text}</small>}
+        <small>Aktivität, Ergebnis & Dateien ansehen</small>
       </span>
     </button>;
   };
   return <div className="m-graph" data-testid="mobile-graph">
+    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button>
+      {error && <span role="alert">{error}</span>}</div>
     <div className="m-graph-scroll" tabIndex={0} aria-label="Graph-Canvas, zum Verschieben scrollen" onKeyDown={(event) => {
       if (event.target !== event.currentTarget) return;
       if (event.key === '+' || event.key === '=') { event.preventDefault(); setZoom((value) => Math.min(1.5, value + .1)); }

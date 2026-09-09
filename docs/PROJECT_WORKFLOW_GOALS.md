@@ -178,3 +178,14 @@ Details und unveränderte offene Tasks: [HANDOFF.md](HANDOFF.md).
   registriert; Logs: `test-results/project-branches*.log`.
 - Noch keine neue API-/UI-Freigabe: T3b verbindet diese Grenze mit Projekten und
   profilfreien Terminals. Die persönliche Testinstanz bleibt auf `03175c4`.
+
+
+### TG — eingeschobener Graph-/Ergebniszugriff
+
+Auf ausdrücklichen Wunsch vor T3b: Graph zeigt empfangene Aktivität und bestätigten
+Prozesszustand; Run-Details bieten vollständige gespeicherte Antwort sowie sichere
+Bildvorschau und Downloads aus dem ursprünglichen Task-Workspace. Fokus, Escape,
+responsive Ansicht und Wiederöffnung sind in echtem Electron/Chromium geprüft.
+31 fokussierte Grenzchecks und 12 native PTY-/Browserchecks grün; ergänzende
+Regressionen und Typprüfung siehe STATUS. Guide und Verträge synchronisiert.
+Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalten.

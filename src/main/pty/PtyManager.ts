@@ -110,6 +110,8 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  lastOutputAt?: number;
+  outputBytes?: number;
   programReader?: ProgramSignalReader;
   programCleanup?: () => void;
   programStartTimer?: ReturnType<typeof setTimeout>;
@@ -138,6 +140,7 @@ interface Session {
 }
 
 interface SpawnSpec {
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
   file: string;
   args: string[];
   lineEnding: string;
@@ -372,8 +375,10 @@ export class PtyManager {
   }
 
   /** Replay of a task's rendered activity; empty for sessions without a stream. */
-  activitySnapshot(sessionId: string): { lines: ActivityLine[] } {
-    return { lines: [...(this.sessions.get(sessionId)?.activity?.lines ?? [])] };
+  activitySnapshot(sessionId: string): { lines: ActivityLine[]; lastOutputAt?: number; outputBytes: number; structured: boolean } {
+    const session = this.sessions.get(sessionId);
+    return { lines: (session?.activity?.lines ?? []).map((line) => ({ ...line })), lastOutputAt: session?.lastOutputAt,
+      outputBytes: session?.outputBytes ?? 0, structured: !!session?.activity };
   }
 
   disposeAll(): void {
@@ -527,11 +532,11 @@ export class PtyManager {
       stopping: false,
       removeOnExit: false,
       promptScratchDir,
-      activity: managedLaunch?.activityFormat
+      activity: (managedLaunch?.activityFormat ?? baseSpec.activityFormat)
         ? {
-            parser: activityParserFor(managedLaunch.activityFormat),
+            parser: activityParserFor((managedLaunch?.activityFormat ?? baseSpec.activityFormat)!),
             lines: [],
-            filePath: managedLaunch.env['ADE_TASK_DIR']
+            filePath: managedLaunch?.env['ADE_TASK_DIR']
               ? join(managedLaunch.env['ADE_TASK_DIR'], 'ACTIVITY.jsonl')
               : undefined,
             persisted: 0,
@@ -567,6 +572,7 @@ export class PtyManager {
       data = session.programReader?.push(data) ?? data;
       if (!data) return;
       const chunk = Buffer.from(data, 'utf8');
+      session.lastOutputAt = Date.now(); session.outputBytes = (session.outputBytes ?? 0) + chunk.length;
       session.sequence += 1;
       this.appendToRing(session, chunk);
       session.display?.write(chunk);
@@ -959,6 +965,7 @@ export class PtyManager {
       lineEnding: isWin ? '\r' : '\n',
       taskPrompt: managed?.prompt ?? prompt,
       taskTransport: task.transport,
+      activityFormat: 'activityFormat' in task ? task.activityFormat : undefined,
       env: managed?.env,
     };
   }

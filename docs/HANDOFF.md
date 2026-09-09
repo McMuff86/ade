@@ -1,5 +1,31 @@
 # ADE — aktuelle Übergabe
 
+## Aktuelle Priorität: Run-Ergebnis auf dem Tablet (2026-09-10)
+
+Der Nutzer hat während T3b zuerst Graph-Aktivität, Ergebnis-/Bildzugriff und einen
+Neustart verlangt. Diese Änderung ist separat geprüft: 31 native Grenztests,
+12 echte Electron/Chromium-Checks mit deterministischer CLI in einer echten PTY,
+drei TypeScript-Projekte und Produktionsbuild. Aktuelle Logs/Screenshots stehen
+in STATUS und im Guide. Keine allgemeine Provider-/WSL-Freigabe daraus ableiten.
+
+T3a ist mit `201ab29` abgeschlossen. Unfertiges T3b wurde vorher mit
+`T3b in progress before requested graph activity patch` gestasht. Nach dem separaten
+Ergebnis-Commit den genauen Stash anwenden, Konflikte mit den neuen Run-Verträgen
+auflösen und erst nach geprüfter Wiederherstellung entfernen. T3b–T6 sowie der
+abschliessende Push bleiben offen. Die folgenden älteren Betriebsnotizen beschreiben
+frühere Checkpoints; der neue Neustart wird unten separat protokolliert.
+
+Der angefragte Main-Chef/Codex-Native-Run `0531376b-559a-49f7-8d98-02d14573b109`
+endete am 10.09.2026 um 00:06:17 mit Exit 0. Seine Dateien liegen im ursprünglichen
+Agent-Worktree unter `workspace-demo/`: imagegen-test.png, test.xlsx, test.md.
+Die alte unstrukturierte CLI hat keine Abschlussantwort in ADE gespeichert. Die
+passende lokale Codex-Sitzung wurde anhand Task/Session/Workspace identifiziert;
+beim genehmigten Neustart darf ausschließlich deren Abschlussantwort für genau
+Task `9c816cef-783d-403c-ba1b-a9354e0506b1` als `recovered-cli` übernommen werden.
+Die Antwort weist ehrlich darauf hin, dass der explizite gpt-image-2-API-Aufruf
+an insufficient_quota scheiterte und das integrierte Bildwerkzeug seine genaue
+Modellversion nicht nannte. Keine nachträgliche Bestätigung des verlangten Modells.
+
 Stand: 2026-09-09. Diese Datei beschreibt den aktuellen Auftrag und Betriebsstand.
 Die vollständige bisherige Übergabe ist im [Archiv](archived/HANDOFF_2026-09-09.md)
 erhalten. Deren wiederholte „Nächster Schritt“-Abschnitte sind historische Notizen.

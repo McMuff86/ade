@@ -1,5 +1,38 @@
 # ADE — Architecture (binding decisions)
 
+## Task activity, final answers and protected result files
+
+Run inspection is a separate read-only application boundary. Signed paired devices
+need the existing `workspace:read` grant. `GET /api/v1/runs/:run/activity` returns
+bounded process observations; `/tasks/:task/activity` additionally returns full
+`RunReport` result detail. No raw PTY, tool arguments, user prompt, host path or
+terminal id is exposed. It cannot control a process. The generic remote command
+allowlist is unchanged. Graph polls independently every two seconds while active;
+older snapshots cannot replace a more recently confirmed run state.
+
+Native standard task launches use Codex JSONL, Claude stream-json or Grok
+streaming-json. Only structured assistant completion text is persisted as optional
+`RunTask.output` (65,536 characters maximum, explicit truncation/source). It is
+excluded from `RunTaskView` and summary/event projections, included in `RunReport`,
+and travels with tasks through existing archive/retention. `recovered-cli` denotes
+an explicitly recovered older response, never fabricated live output. Custom CLIs
+have no raw-text fallback. Managed structured result contracts remain unchanged.
+
+`GET /api/v1/runs/:run/tasks/:task/files[/:opaqueFileId]` goes through
+`AdeApplicationService` and `RunInspectionService`. Resolve the original task's
+agent/repository binding, exact workspace id/path, native backend and link-safe
+workbench scope under the shared workspace gate. Recheck authorization and identity
+before returning bytes. List at most 100 files, 1,500 entries, depth eight;
+read at most 16 MiB/file with descriptor identity/size/mtime and raster signatures.
+Secret/metadata paths, links and hardlinks are excluded. Allowed files: PNG,
+JPEG, WebP, XLSX, Markdown, TXT, CSV. IDs bind task, workspace version, relative path
+and file identity; changed/deleted files require relisting. Text is wire-redacted;
+binary files remain byte-for-byte original. Responses are no-store attachments
+with fixed MIME and nosniff. Authenticated browser fetch creates temporary blob
+previews/downloads, revoked on close or identity change. The listing explicitly
+identifies workspace contents, not proven task-created artifacts. Missing or
+rebound historical workspaces fail closed. No public file URLs or SVG/HTML preview.
+
 ## Independent project workspaces and discovery
 
 `projectWorkspaces` is a main-owned config collection separate from agent/repo

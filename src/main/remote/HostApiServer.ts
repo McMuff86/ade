@@ -57,6 +57,8 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'runActivity'; runId: string; taskId?: string }
+  | { kind: 'runFiles' | 'runFile'; runId: string; taskId: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
@@ -130,6 +132,13 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
     case '/api/v1/events': return { route: { kind: 'events' }, allow: ['GET'] };
     default: {
+      const inspection = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})(?:\/tasks\/([A-Za-z0-9_.:-]{1,128}))?\/(activity|files)(?:\/([a-f0-9]{64}))?$/.exec(path);
+      if (inspection) {
+        const [, runId, taskId, action, fileId] = inspection;
+        if (action === 'activity' && !fileId) return { route: { kind: 'runActivity', runId: runId!, taskId }, allow: ['GET'] };
+        if (action === 'files' && taskId) return { route: { kind: fileId ? 'runFile' : 'runFiles', runId: runId!, taskId, fileId }, allow: ['GET'] };
+        return null;
+      }
       const match = /^\/api\/v1\/runs\/([^/]+)\/(start|cancel)$/.exec(path);
       if (!match || !RUN_ID_PATTERN.test(match[1]!)) return null;
       return {
@@ -368,7 +377,8 @@ export class HostApiServer {
         }
       }
       let readPrincipal = bearer;
-      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions')) {
+      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions'
+        || ['runActivity', 'runFiles', 'runFile'].includes(matched.route.kind))) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -406,6 +416,16 @@ export class HostApiServer {
           writeJson(response, 200, this.application.hostState(readPrincipal!)); return;
         case 'terminalSessions':
           writeJson(response, 200, await this.application.remoteSessionInventory(readPrincipal!)); return;
+        case 'runActivity':
+          writeJson(response, 200, await this.application.inspectRun(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
+        case 'runFiles':
+          writeJson(response, 200, await this.application.runFiles(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
+        case 'runFile': {
+          const file = await this.application.runFile(readPrincipal!, matched.route.runId, matched.route.taskId, matched.route.fileId!);
+          response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': file.type, 'content-length': file.bytes.length,
+            'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, '%27')}` });
+          response.end(file.bytes); return;
+        }
         case 'restartHost':
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
         case 'administer':

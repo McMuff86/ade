@@ -1,5 +1,12 @@
 # ADE delivery roadmap
 
+## Urgent run inspection before T3b
+
+The user's intervening request prioritizes visible Graph activity and tablet access
+to final answers, images and downloads. The dedicated native boundary/real-PTY
+browser checks pass; operator deployment is recorded in HANDOFF. T3b work was
+preserved separately and remains pending. No push until the overall goal is done.
+
 Status: 2026-09-09. [Current capabilities](STATUS.md) are separate from planned work.
 Completed delivery notes and their original state are retained in the [roadmap archive](archived/ROADMAP_2026-09-09.md).
 

@@ -42,6 +42,7 @@ import { broadcastToRenderers, isRendererWindow, rendererWindows } from './rende
 import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
+import { RunInspectionService } from './application/RunInspectionService';
 import { ExecutionBackendService } from './execution/ExecutionBackendService';
 import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
@@ -317,6 +318,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     {
       activity: hostOperations,
       projects,
+      runInspection: new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId)),
       workbench, terminals: remoteTerminals,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {

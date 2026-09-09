@@ -4,6 +4,7 @@ import type { MobileHost, PendingCommand } from './useMobileHost';
 import { formatCostUsd, formatTokenCount } from '../shared/overviewFormat';
 import { Avatar } from '../renderer/rail/Avatar';
 import { finalStates, runKindLabel, Status } from './ui';
+import { RunActivityPanel } from './RunActivityPanel';
 
 export function RunInspector({ run, participantId, host, onSend, focusVersion }: { run: MobileRunSummary; participantId: string | null;
   host: MobileHost; onSend: (command: PendingCommand) => void; focusVersion: number;
@@ -27,6 +28,7 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
         <strong>{task.title}</strong><div><Status status={task.status} /><span>{task.phase} · Versuch {task.attempt}</span></div>
       </li>)}</ul>}
     </section>
+    <RunActivityPanel key={`${run.id}:${participantId ?? 'run'}`} host={host} run={run} participantId={participantId} />
     <section><h3>Budget & Nutzung</h3><dl><dt>Parallel</dt><dd>{run.budget.maxConcurrentTasks} Tasks</dd><dt>Pro Aufgabe</dt><dd>{run.budget.maxTaskMinutes} min</dd>
       <dt>Kostenlimit</dt><dd>{run.budget.maxCostUsd === null ? 'Kein Limit' : formatCostUsd(run.budget.maxCostUsd)}</dd>
       <dt>Gemeldete Tokens</dt><dd>{tokens > 0 ? formatTokenCount(tokens) : 'Keine Angabe'}</dd>
@@ -38,6 +40,6 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
       {run.status !== 'draft' && !finalStates.has(run.status) && <button className="m-danger" disabled={!host.canSubmit} onClick={() => {
         if (window.confirm('Diesen Run abbrechen? Bereits erstellte Arbeit bleibt in ADE erhalten.')) onSend({ path: `/api/v1/runs/${run.id}/cancel`, key: crypto.randomUUID() });
       }}>Run abbrechen</button>}</div>
-    <p className="m-field-note">Detaillierte Ergebnisse, Terminals und Freigaben im ADE-Desktop öffnen.</p>
+    <p className="m-field-note">Freigaben und Integration werden weiterhin im ADE-Desktop bearbeitet.</p>
   </div>;
 }

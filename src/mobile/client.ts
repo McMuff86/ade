@@ -56,6 +56,17 @@ export class MobileClient {
   }
 
   async request<T>(path: string, method = 'GET', payload?: unknown, idempotencyKey = ''): Promise<T> {
+    return (await this.response(path, method, payload, idempotencyKey)).json() as Promise<T>;
+  }
+
+  async download(path: string): Promise<Blob> {
+    if (!/^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}\/tasks\/[A-Za-z0-9_.:-]{1,128}\/files\/[a-f0-9]{64}$/.test(path)) throw new MobileClientError('invalid_payload', 400);
+    const response = await this.response(path);
+    if (Number(response.headers.get('content-length')) > 16 * 1024 * 1024) throw new MobileClientError('response_too_large', 413);
+    return response.blob();
+  }
+
+  private async response(path: string, method = 'GET', payload?: unknown, idempotencyKey = ''): Promise<Response> {
     await this.authenticate();
     const body = payload === undefined ? '' : JSON.stringify(payload);
     // Read-only workspace/terminal queries may start a cold WSL backend once.
@@ -72,7 +83,7 @@ export class MobileClient {
       }
     }
     await this.check(response);
-    return response.json() as Promise<T>;
+    return response;
   }
 
   async stream(cursor: number | null, signal: AbortSignal, onFrame: (event: string, id: number, data: unknown) => void): Promise<void> {

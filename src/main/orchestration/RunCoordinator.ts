@@ -19,6 +19,7 @@ import {
   normalizeExecutionBackendId,
 } from '../../shared/executionBackends';
 import { effectiveParticipantAgent, resolveTaskLaunchCommand } from '../../shared/runtimes';
+import { taskOutputFromStream } from './taskOutput';
 import { MemoryStore } from '../memory/MemoryStore';
 import { snapshotAgentInstructions } from '../memory/agentInstructions';
 import { MailboxService } from './MailboxService';
@@ -632,7 +633,7 @@ export class RunCoordinator {
       return;
     }
     if (!task.managed) {
-      this.orchestration.onTaskFinished(taskId, status, exitCode);
+      this.orchestration.onTaskFinished(taskId, status, exitCode, undefined, taskOutputFromStream(terminalOutput, task.prompt));
       return;
     }
     void this.serialized(task.runId, async () => {

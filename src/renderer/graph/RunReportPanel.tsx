@@ -270,6 +270,8 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
                         </>
                       )
                     : <p className="greport-note">Kein validiertes Ergebnis gespeichert.</p>}
+                  {task.output && <section aria-label="Antwort des Agenten"><h4>Antwort des Agenten</h4><pre className="greport-task-error">{task.output.text}</pre>
+                    {task.output.limited && <p>Antwort auf 64 KiB begrenzt.</p>}{task.output.source === 'recovered-cli' && <p>Aus der früheren CLI-Sitzung wiederhergestellt.</p>}</section>}
                 </article>
               ))}
             </section>
