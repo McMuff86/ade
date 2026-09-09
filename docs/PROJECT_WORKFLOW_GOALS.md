@@ -22,7 +22,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows; zusätzliche WSL-Abnahme offen |
 | T2a | Datenmodell und begrenzte Ordnererkennung; eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | abgeschlossen für native Windows |
 | T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | abgeschlossen für native Windows |
-| T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | in Arbeit |
+| T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen als interne native Windows-Grenze; Bedienoberfläche folgt T3b |
 | T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | offen |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
@@ -158,3 +158,23 @@ separate feste Build-Kopie gestartet (PID 26028). Private Tablet-Adresse HTTP 20
 korrektes neues JS-Asset, Tailscale-Routen unverändert. Die bestehende Kopplung
 bleibt erhalten; neue Projekt-Schreibfreigabe am PC noch explizit aktivieren.
 Details und unveränderte offene Tasks: [HANDOFF.md](HANDOFF.md).
+
+### T3a — Branches und Arbeitskopien
+
+- Interner Main-Service liest lokale und zuletzt gefetchte Remote-Branches sowie
+  vorhandene Worktrees. Aktueller Branch, Dirty-Zustand und Sperrgrund bleiben
+  getrennt sichtbar. Grenzen: 200 Branches, 100 Worktrees, begrenzte Git-Ausgabe.
+- Konkrete Vorschau ist fünf Minuten gültig, an den aufrufenden Principal gebunden
+  und einmalig anwendbar. Branch-, HEAD-, Datei-, Worktree- oder Identitätsänderungen
+  verhindern die Mutation. Aktive Terminals, Agent-Bindungen, verwaltete Leases
+  und unvollständige Git-Operationen werden erneut geprüft.
+- Explizite zusätzliche Arbeitskopien erhalten einen eigenen Branch aus der
+  gewählten Commit-Basis. Laufende Sitzungen und ungesicherte Quelldateien bleiben
+  erhalten. Ein nach Rechteentzug schon angelegter Worktree bleibt sichtbar und
+  kann ausdrücklich übernommen werden; ADE löscht oder resettet ihn nicht.
+- Native Windows: drei TypeScript-Projekte und **40 echte Git-Fixture-Checks grün**,
+  einschliesslich Remote-Tracking, ignorierter lokaler Dateien, Hooks, Git-Umgebung,
+  Drift, Rechteentzug, Recovery und abschliessender Positivkontrolle. Floor 40
+  registriert; Logs: `test-results/project-branches*.log`.
+- Noch keine neue API-/UI-Freigabe: T3b verbindet diese Grenze mit Projekten und
+  profilfreien Terminals. Die persönliche Testinstanz bleibt auf `03175c4`.

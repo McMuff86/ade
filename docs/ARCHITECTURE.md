@@ -48,12 +48,25 @@ registered metadata intact. Dialog and page focus have explicit fallback targets
 T2b supplies discovery/open/detail only. Branch controls and independent CLI launch
 follow T3; the previous agent-worktree entry remains explicitly accessible.
 
-T3a checkpoint: `shared/projectBranches.ts` defines bounded, exact branch-action
-shapes (local/remote refs, new branch, opaque worktree selection).
+T3a: `shared/projectBranches.ts` defines bounded, exact branch-action shapes
+(local/remote refs, new branch, opaque worktree selection). `ProjectBranchService`
+binds single-use five-minute previews to an owner and a revision of refs, HEAD,
+status, worktrees and pinned identities. Apply takes the exclusive workspace gate
+and checks drift, running PTYs, agent-owned checkouts, managed common-repository
+leases and incomplete Git operations again. Local switching refuses dirty or
+ignored-file overwrites; it never stashes, resets or steals another worktree's
+branch. An explicitly separate worktree starts at the selected committed SHA in
+a generated directory under `.ade-worktrees/projects` beside the canonical repo.
+It may coexist with an interactive source session, but not a managed lease or
+unfinished Git operation. A partially created worktree survives failures and is
+available for explicit adoption. Git uses fixed argv, disables hooks and external
+protocol helpers, ignores inherited Git environment overrides and bounds output.
+Inventory caps are 200 refs and 100 worktrees; remote refs are locally cached.
 `ProjectWorkspaceService.registerCheckout` is a main-only helper for a caller
 holding the workspace operation gate. It validates the exact Git identity against
 the expected repository and rechecks authorization before adoption. No new branch
-action is wired to IPC or HTTP yet; these types are not a supported Git workflow.
+action is wired to IPC or HTTP yet; native Windows Git fixtures validate the
+internal boundary, while product acceptance remains T3b.
 
 ## Interactive foreground lifecycle
 

@@ -44,6 +44,12 @@ Der Nutzer wurde auf den Haken „Projekt-Workspaces ohne Agent-Profil öffnen�
 Settings → Verbundene Geräte hingewiesen. Neustart-/Build-/Routennachweise:
 `test-results/project-checkpoint-*`. T3a/T3b und die Gesamtverifikation bleiben offen.
 
+Entwicklungsstand danach: T3a ist intern mit 40 echten Git-Prüfungen und drei
+TypeScript-Projekten grün abgeschlossen. Die API-/UI-Verbindung und profilfreien
+Terminals folgen T3b. Auf erneuten Wunsch wurde die weiterhin laufende Instanz
+26028 sichtbar wiederhergestellt; ihr privater HTTPS-Einstieg antwortet HTTP 200.
+Es wurde keine zweite Betreiberinstanz gestartet und der Build bleibt `03175c4`.
+
 - Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
 - Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 - Dokumentationsentscheidungen: [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).

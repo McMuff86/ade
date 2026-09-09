@@ -8,6 +8,8 @@ entries. Explicit open keeps the chosen existing checkout and displays its actua
 branch without creating a hidden profile or modifying instructions. The tablet
 needs separate read/open grants. Branch controls and profile-free CLI launch
 remain T3; the explicit Agent-Arbeitskopie action preserves the previous CLI flow.
+The T3a internal branch boundary is verified with native Windows Git fixtures;
+its preview and worktree operations are not yet exposed by the product UI.
 
 Interactive lifecycle (2026-09-09): the selected session displays its launched
 CLI separately from the terminal shell, for example **Claude Code beendet ·

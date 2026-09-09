@@ -11,7 +11,8 @@ and a refreshed guide. Commit each completed task; push only after final
 verification. The proposals below remain background unless included there.
 T0/T1/T2a/T2b are delivered for native Windows: directory discovery and independent
 workspace opening now have desktop/tablet entry, explicit grants and recovery.
-T3 adds branch selection and CLI launch without a profile; the additional WSL lifecycle
+T3a supplies the internal branch/worktree boundary with 40 native Git checks.
+T3b connects branch selection and CLI launch without a profile; the additional WSL lifecycle
 test is still open after a backend-readiness timeout (see goal evidence).
 
 ## Proposed next product slices — for discussion
