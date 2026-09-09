@@ -1,3 +1,7 @@
+> Archiviert am 2026-09-09. Historischer Stand; damalige nächste Schritte sind keine aktuellen Aufträge.
+> Aktueller Einstieg: [User-Guide](../USER_GUIDE.md), [Status](../STATUS.md), [Handoff](../HANDOFF.md).
+> Der Inhalt bleibt als Nachweis erhalten; relative Links wurden an den Archivort angepasst.
+
 # Handoff — real worker distribution & agent-to-agent communication
 
 > **Superseded for current behavior (2026-07-11):** this is a historical design

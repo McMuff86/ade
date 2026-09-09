@@ -6,7 +6,7 @@
   <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux-1a1c22?labelColor=0e0f12&color=c97b2e">
   <img alt="WSL" src="https://img.shields.io/badge/WSL2-first--class%20backend-1a1c22?labelColor=0e0f12&color=7bc9a0">
   <img alt="Electron" src="https://img.shields.io/badge/Electron-ConPTY%20terminals-1a1c22?labelColor=0e0f12&color=7ba9c9">
-  <img alt="License" src="https://img.shields.io/badge/checks-500%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
+  <img alt="Automated checks" src="https://img.shields.io/badge/checks-2100%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
 </p>
 
 **ADE** (agentic development environment) is a desktop workspace where your CLI
@@ -16,11 +16,18 @@ a face, a runtime, a permission mode and a home (native Windows or inside a
 WSL distribution), then work with them interactively or orchestrate them as
 managed runs on a graph.
 
+**New to ADE? [User-Guide mit aktuellen Screenshots](docs/USER_GUIDE.md)** —
+PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
+[Documentation index](docs/README.md) · [Current status](docs/STATUS.md) ·
+[Product review and next improvements](docs/research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+
 ---
 
 ## A tour
 
-**Workspace on your tablet** — select an agent and project to browse files,
+**Workspace on your tablet** — open **Projekte → project → Workspace öffnen**,
+then choose Codex, Claude CLI, Grok CLI or a shell. Open a saved assistant profile
+without a project from **Overview → Terminal öffnen**. Browse files,
 read staged/unstaged Git diffs, make small conflict-checked text edits and change
 the agent's name, role or photo. A separate desktop device grant enables a real
 host shell or configured agent session, with exclusive input ownership and
@@ -30,7 +37,7 @@ immediate desktop reclaim. New flows are tested on native Windows;
 
 **Remote projects** — the private Tailscale companion can create agents from
 host profiles, initialize projects and prepare isolated workspaces. Filter
-Work/Graph by project and agent, keep separate in-memory drafts, and preview
+Work/Graph by project and agent, retain task/terminal drafts across reloads, and preview
 Git updates. Desktop-granted device permissions also enable an idle-only ADE
 restart on native Windows source launches. [Setup and limits](docs/goal8/MOBILE_CONNECT_GUIDE.md)
 and [validation evidence](docs/REMOTE_WORKSPACE_RESULTS.md).
@@ -40,7 +47,7 @@ inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
 confirm a clean worktree's fast-forward. Dirty or divergent worktrees show why
 they need attention. [Workflow and boundaries](docs/REPOSITORY_SYNC_PLAN.md).
 
-**Overview** — a read-only home over ADE's own journal: live sessions, open
+**Overview** — a home over ADE's own journal with direct terminal/dashboard actions: live sessions, open
 runs, reported tokens, every agent, every catalog project and the last twenty
 runs. Clicks jump to Terminals or Graph. Missing token or cost data stays
 unknown instead of becoming zero.
@@ -118,7 +125,7 @@ directory, with the right PATH.
   survives restart. Device actions and remote requests have a durable local
   audit. Settings → **Mobiler Zugriff** adds private Tailscale HTTPS, one-use
   QR pairing and a responsive mobile companion with the desktop's dark/light
-  appearance, Overview, Work, Graph and phone/tablet Inspector. Navigation keeps
+  appearance, Overview, Projekte, Work, Graph and phone/tablet Inspector. Navigation keeps
   the live connection and unsent drafts. The host stays opt-in and loopback-only.
   See [mobile setup and updates](docs/goal8/MOBILE_CONNECT_GUIDE.md),
   [connection evidence](docs/goal8/MOBILE_CONNECT_RESULTS.md) and
@@ -207,6 +214,9 @@ installation remain untouched unless an operator separately authorizes them.
 
 | Topic | Where |
 |---|---|
+| New-user guide with screenshots | [User-Guide](docs/USER_GUIDE.md) |
+| Documentation map and archive decisions | [Index](docs/README.md), [Audit](docs/DOCUMENTATION_AUDIT.md) |
+| Current capability matrix | [Status](docs/STATUS.md) |
 | Product spec | `docs/SPEC.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Repository scopes | `docs/REPOSITORY_SCOPES_PLAN.md` |

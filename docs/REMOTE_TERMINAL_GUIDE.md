@@ -1,5 +1,9 @@
 # Workspace und Terminal am Tablet freigeben
 
+Stand: 2026-09-09. Für den vollständigen Einstieg mit Bildern den
+[User-Guide](USER_GUIDE.md) verwenden. Diese Seite ergänzt Freigaben,
+Dateigrenzen und erweiterte Sitzungsauswahl.
+
 Der neue Einstieg **Neues Projekt → Mit Codex starten** und **Weiterarbeiten**
 verwendet einen einmal am PC konfigurierten Projekt-Stammordner. Einrichtung und
 Recovery: [TABLET_PROJECT_START.md](TABLET_PROJECT_START.md). Terminal- und
@@ -56,12 +60,13 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
 2. Beim eigenen Tablet **Interaktive Terminals steuern** aktivieren und
    **Verwaltungsrechte speichern** wählen. Für Dateien/Diffs zusätzlich
    **Workspace-Dateien und Git-Diffs lesen** freigeben.
-3. Am Tablet ADE öffnen, den Agenten auswählen und ein Projekt oder **Ohne Projekt** wählen.
-   Falls noch kein Workspace besteht: unter **Verwalten → Projekte & Workspaces**
-   vorbereiten. Im Workspace **Terminal** öffnen.
+3. Für Projektarbeit **Projekte → Projekt → Workspace öffnen** wählen und danach
+   unter **Arbeiten mit** die CLI auswählen. Für den persönlichen Assistenten ohne
+   Projekt in **Overview** dessen **Terminal öffnen** verwenden.
 4. Eine vorhandene Sitzung auswählen und **Eingabe übernehmen** drücken oder
-   **Shell öffnen** / **Agent starten** wählen. Der Agent verwendet sein am PC
-   konfiguriertes Startprofil. Text über **Text und Enter senden** abschicken;
+   **Shell öffnen** / **[Agentname] öffnen** wählen. Der Agent verwendet sein am PC
+   konfiguriertes Startprofil. Direkt ins Terminal tippen oder **Tastatur** drücken;
+   längeren Text bei Bedarf über **Text verfassen → Text und Enter senden** abschicken;
    die Tastenleiste stellt Enter, Tab, Escape, Ctrl+C und Pfeiltasten bereit.
 5. **Eingabe freigeben** übergibt die Steuerung an den Desktop. **Sitzung beenden**
    beendet nach Bestätigung den Prozess. Das Schliessen der Tablet-Ansicht
@@ -104,6 +109,8 @@ drücken. Am Tablet gibt es dieselbe Auswahl im Reiter **Terminal**.
 | Leeres Terminal | Öffnet die Shell im gewählten Workspace; dort eigene Befehle eingeben |
 | Gespeichertes Agent-Profil | Startet das bestehende Profil, etwa Hermes General mit `general --tui` |
 | Codex | Startet `codex` mit dessen normalen CLI-Einstellungen |
+| Claude CLI | Startet `claude` unabhängig vom gespeicherten Workspace-Profil |
+| Grok CLI | Startet `grok` unabhängig vom gespeicherten Workspace-Profil |
 | Hermes | Startet `hermes`; eigene ADE-Wrapper bleiben über das gespeicherte Profil erreichbar |
 | Ollama | Ein vom Host gemeldetes Modell auswählen und mit `ollama run` öffnen |
 

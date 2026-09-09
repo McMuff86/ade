@@ -1,3 +1,7 @@
+> Archiviert am 2026-09-09. Historischer Stand; damalige nächste Schritte sind keine aktuellen Aufträge.
+> Aktueller Einstieg: [User-Guide](../USER_GUIDE.md), [Status](../STATUS.md), [Handoff](../HANDOFF.md).
+> Der Inhalt bleibt als Nachweis erhalten; relative Links wurden an den Archivort angepasst.
+
 # Handoff — MVP worker distribution (shipped) → next steps
 
 > **Historical record:** the fixed-delay `initialInput` implementation described

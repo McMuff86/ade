@@ -1,5 +1,12 @@
 # ADE Professionalisierungs-Review — 2026-07-26
 
+> Einordnung 2026-09-09: datierter Review mit späteren Erledigungsnotizen und
+> weiterhin offenen Nachprüfungen. Die ursprünglichen Befunde unter erledigten
+> Themen beschreiben den damaligen Stand. Aktuelle Capability-Aussagen stehen in
+> [STATUS](STATUS.md); neue Prioritäten und die verbliebene Nachprüfliste im
+> [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md). Deshalb bleibt diese
+> Datei als offene Audit-Referenz aktiv, nicht als aktuelle Aufgabenreihenfolge.
+
 Grundlage: eine Multi-Agent-Analyse des gesamten Quellstands auf `6ccc7b5`
 (sechs parallele Subsystem-Reader über Orchestrierung, PTY/Execution-Backends,
 Renderer, Persistenz, Security/Publishing und Tests/CI), anschließende

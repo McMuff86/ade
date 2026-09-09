@@ -407,15 +407,18 @@ First run: create a category (name + photo) → optionally register/select a
 repository → add an agent (name + photo + runtime + permission mode + optional
 default repository) → rails and tabs build themselves. Portable agents and
 template spawning remain reachable later alongside "+ New category" / "+ Add
-agent". One-command install.
+agent". A guided one-command installation is still an objective; the current
+source-install and tablet setup steps are in [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Non-goals (v1)
 
 - No cloud sync, accounts, hosted relay or public ADE endpoint in the personal
   remote alpha.
 - No native iOS/Android package in the first mobile milestone.
-- No raw remote terminal, remote desktop replacement or general ADE
-  administration surface on mobile.
+- No unrestricted remote IPC/PTY or general host-administration surface.
+  Dedicated device-granted terminal, file and catalog APIs are implemented
+  as specified above; they do not expose Electron IPC or arbitrary host paths.
+- No remote desktop replacement.
 - No model picker inside a session.
 - No built-in chat UI separate from the terminal.
 - Custom background images/gradients: architecture only, no UI.

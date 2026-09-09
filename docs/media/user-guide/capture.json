@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-09-09T18:42:47.379Z",
+  "commit": "8433e7daeedbacfd5a8cf20c5cebc6dda56289d2",
+  "platform": "win32",
+  "browser": "149.0.7827.55",
+  "demo": true,
+  "physicalTablet": false,
+  "keyboard": "visualViewport geometry simulated; OS keyboard is not pictured",
+  "isolation": "Temporary Electron profile, local Git repo, deterministic CLI executable, local TLS proxy; Tailscale CLI stubbed only in fixture process",
+  "captures": [
+    "01-desktop-overview.png",
+    "02-project-defaults.png",
+    "03-mobile-access.png",
+    "03-pairing.png",
+    "04-device-rights.png",
+    "05-tablet-overview.png",
+    "06-projects.png",
+    "07-new-project.png",
+    "08-workspace-cli.png",
+    "09-terminal.png",
+    "10-keyboard-compact.png",
+    "11-workspace-files.png",
+    "12-assistant.png",
+    "13-task.png"
+  ],
+  "mobileAssets": [
+    "assets/index-CGSv-1PK.js",
+    "assets/index-avd9gm5U.css"
+  ]
+}

@@ -1,5 +1,8 @@
 # Tablet oder Smartphone mit ADE verbinden
 
+Stand: 2026-09-09. Der [User-Guide mit Screenshots](../USER_GUIDE.md)
+führt durch Einrichtung, Projekte, Assistenten und den täglichen Ablauf.
+
 1. `pnpm install` und `pnpm build`, danach ADE mit `pnpm start` öffnen.
    Für Entwicklung die mobile Oberfläche mit `pnpm build:mobile` bauen;
    `pnpm dev` aktualisiert die Desktop-Oberfläche.
@@ -16,12 +19,12 @@
    Alternativ die angezeigte ADE-Adresse öffnen und den Pairing-Code einfügen.
    Der Code gilt fünf Minuten und funktioniert einmal. Neuer Code oder
    Schliessen des Pairings macht den bisherigen Code ungültig.
-5. **Overview** zeigt Agents, Projects und die letzten Runs wie auf dem Desktop.
-   **Neue Aufgabe** oder einen Agent/Projekt-Eintrag wählen, Aufgabe schreiben
-   und starten. Für **Neuer Run** mindestens zwei Agents wählen; der zuerst
-   gewählte koordiniert. Run vorbereiten, Namen/Budget prüfen und im Inspector
-   **Run starten** wählen. **Work** durchsucht und filtert alle verfügbaren Runs;
-   **Graph** zeigt die Teamstruktur. Nodes auswählen, um deren Tasks anzusehen.
+5. Für Projektarbeit **Projekte → Projekt → Workspace öffnen → Arbeiten mit**
+   verwenden. **Neues Projekt** legt ein Projekt unter dem am PC eingestellten
+   Stammordner an und startet Codex. **Overview → Terminal öffnen** beim Agenten
+   startet dessen eigenes Profil ohne Pflichtprojekt. Hierfür die unten genannten
+   Gerätefreigaben setzen. Verwaltete Aufgaben und Teams starten unter **Work**;
+   **Graph** zeigt deren Teamstruktur.
 6. Für den Home-Bildschirm die Installationsfunktion des Browsers verwenden.
    Jeder Browser bzw. jede separat gespeicherte PWA-Installation kann eine
    eigene Kopplung benötigen. Keine native iOS-/Android-App erforderlich.
@@ -82,8 +85,10 @@ Neustart abschliessen oder gezielt beenden; ein Host-Neustart stoppt deren PTYs.
   manueller Wartung sichern und untersuchen; keine automatische Löschung.
 
 Die mobile Oberfläche zeigt den Run-/Aufgabenstatus und den Freigabebedarf.
-Detaillierte Ergebnisberichte, Diffs, Genehmigungen, Publishing und Terminals
-bleiben im Desktop. Benachrichtigungen und Loginstart sind Folgegoals.
+Ausführliche Run-Ergebnisberichte, Integrationsgenehmigungen und Publishing
+bleiben im Desktop. Workspace-Dateien, Git-Diffs und interaktive Terminals sind
+mit ihren eigenen Gerätefreigaben mobil verfügbar. Mobile Benachrichtigungen
+und Loginstart sind Folgegoals.
 
 **Remote-Verwaltung (Goals 12–15):** Nach Update/Build und einmaligem normalem
 Neustart in **Settings → Verbundene Geräte** die gewünschten Verwaltungsrechte
@@ -95,7 +100,7 @@ Dies ist für `pnpm start` auf nativem Windows geprüft; installierte Pakete und
 andere Startmodelle erhalten noch keine Neustartfreigabe.
 
 **Verwalten** öffnet die Projekt-/Agent-Verwaltung. **Neues Projekt** erstellt
-ein natives Git-Projekt in ADEs eigenem Projektordner; die erste Version
+ein natives Git-Projekt unter dem konfigurierten Projekt-Stammordner; der Ablauf
 initialisiert lokal und klont noch keine externen Repository-URLs. **Agents**
 legt einen neuen Agent aus einem Codex-Standardprofil oder vorhandenen
 Agent-/Template-Einstellungen an. **Workspace vorbereiten** verbindet den
