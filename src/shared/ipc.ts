@@ -169,6 +169,7 @@ export const IPC_EVENTS = {
   PtyData: 'pty:data',
   PtyActivity: 'pty:activity',
   PtyExit: 'pty:exit',
+  PtyProgram: 'pty:program',
   PtyRemoved: 'pty:removed',
   PtyTaskQueue: 'pty:taskQueue',
   OrchestrationChanged: 'orchestration:changed',
@@ -750,6 +751,7 @@ export interface IpcEventMap {
   'catalog:changed': { revision: number };
   'pty:activity': PtyActivityEvent;
   'pty:exit': PtyExitEvent;
+  'pty:program': { sessionId: string; program: NonNullable<SessionMeta['program']> };
   'pty:removed': PtyRemovedEvent;
   'pty:taskQueue': TaskQueueStatus;
   /** Slim view (no prompts, artifact bodies or mailbox texts), coalesced per tick. */

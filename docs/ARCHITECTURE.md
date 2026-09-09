@@ -1,5 +1,32 @@
 # ADE — Architecture (binding decisions)
 
+## Interactive foreground lifecycle
+
+`SessionMeta.status` continues to describe the PTY process. Optional `program`
+metadata describes only the original ADE-started interactive invocation:
+`starting`, `running`, `exited` (with its own exit code), or `unknown`.
+Main prepares a private temporary PowerShell/bash wrapper. Its per-launch random
+OSC framing reports entry/return; `ProgramSignalReader` removes matching framing
+before ring-buffer replay, screen interpretation, or renderer output. The parser
+handles split frames, bounded incomplete candidates and duplicate signals. These
+markers are observational and never grant permission or relax workspace locks.
+
+PowerShell reads the local wrapper into a scriptblock with `-NoExit`; bash sources
+the wrapper around a foreground subshell. CLI commands/credentials are not moved
+into process argv. WSL receives a translated local script path; credential
+environment still uses WSLENV. Cleanup removes the known script and empty
+temporary directory without recursive deletion. Login and managed task transport
+are unchanged. Missing entry after 15 seconds is unknown; PTY cancellation never
+invents a child exit code. Later commands typed manually into the surviving shell
+are outside this invocation's telemetry.
+
+The registered-window event `pty:program` carries only session id and program
+state. The renderer reconciles it with create/list races. Existing scoped remote
+terminal queries/inventory include the same path-free program state; no new
+invoke channel or remote command authorization is added. Launch actions reuse
+only a matching starting/running program (or an explicitly requested shell).
+Exit/reload/reopen evidence is recorded in [the active goal](PROJECT_WORKFLOW_GOALS.md).
+
 ## Mobile project entry
 
 `Projects`/`ProjectWorkspace` reuse the existing application-service catalog,

@@ -69,6 +69,8 @@ public class Tui { public static void Main(string[] args) {
     await tablet.getByRole('button', { name: `Terminal öffnen: ${profile.name}`, exact: true }).click();
     const workspace = tablet.getByRole('dialog', { name: `Workspace · ${profile.name}`, exact: true });
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
+    await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
+    check(`${profile.name}: real foreground invocation is running independently of its shell`, true);
     check(`${profile.name}: direct entry opens saved TUI without project`, await workspace.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === '');
     check(`${profile.name}: focused tablet terminal uses most of the screen`, await workspace.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height > 300));
     const echoMs = await terminalEchoLatency(tablet, workspace, 'xyz', 'KEY_z_ACK');
@@ -97,6 +99,18 @@ public class Tui { public static void Main(string[] args) {
     check(`${profile.name}: separate dashboard preserves private URL and has no opener`, popup.url() === profile.url && await popup.evaluate(() => window.opener === null));
     await popup.close();
     await tablet.screenshot({ path: join(evidence, `${profile.executable}-tablet.png`) });
+    const previous = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.findLast((s) => s.agentId === agent.id && s.program?.status === 'running')!;
+    await workspace.locator('.xterm-helper-textarea').focus(); await tablet.keyboard.press('q');
+    await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+    const stopped = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.find((s) => s.id === previous.id)!;
+    check(`${profile.name}: quitting the CLI records exit zero while the PTY shell survives`, stopped.status === 'running' && stopped.program?.status === 'exited' && stopped.program.exitCode === 0);
+    await desktop.reload(); await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+    await desktop.locator('.agent-row', { hasText: profile.name }).click();
+    await desktop.getByRole('tab', { name: /beendet · Terminal offen/ }).last().waitFor();
+    check(`${profile.name}: desktop reload reconciles the ended CLI instead of showing it as running`, true);
+    await workspace.getByRole('button', { name: `${profile.name} öffnen`, exact: true }).click();
+    await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
+    check(`${profile.name}: opening after CLI exit starts a new invocation and retains the old shell`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id).length === before.length + 1);
     await workspace.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
     await tablet.getByRole('dialog', { name: 'Terminalsitzung beenden' }).getByRole('button', { name: 'Beenden bestätigen' }).click();
     await workspace.getByText('Sitzung beendet.', { exact: true }).waitFor();

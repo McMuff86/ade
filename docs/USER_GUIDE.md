@@ -186,6 +186,8 @@ die Arbeitskopie zu; die CLI wählst du danach unabhängig davon. Fehlt die CLI,
 am PC Installation und Anmeldung in der angezeigten Umgebung prüfen.
 
 Existiert bereits eine passende laufende Sitzung, öffnet **… öffnen** diese wieder.
+Ist deren CLI bereits beendet und nur das Terminal noch offen, startet **… öffnen**
+eine neue CLI. Das alte Terminal bleibt zum Nachlesen oder für Shell-Befehle erhalten.
 Eine weitere Sitzung wird über **Neue Sitzung starten** ausdrücklich angelegt.
 Mehrere CLIs können dieselben Dateien sehen; vermeide unkoordinierte gleichzeitige
 Änderungen an denselben Dateien.
@@ -201,6 +203,15 @@ weiterhin ihren eigenen Desktop-/Backend-Ablauf.
 Zum Schreiben ins Terminal tippen oder **Tastatur** drücken. Falls der PC die
 Sitzung steuert, zuerst **Eingabe übernehmen** wählen. **Du steuerst die Eingabe**
 bestätigt, dass Tasteneingaben vom Tablet angenommen werden.
+
+Der Sitzungsstatus unterscheidet beispielsweise **Claude Code läuft · Terminal
+offen** und **Claude Code beendet · Terminal offen**. Im zweiten Fall ist Claude
+beendet; Eingaben gehen an die Shell. Die Auswahl **Sitzung öffnen mit** bestimmt
+den nächsten Start und ändert die laufende Sitzung nicht. **CLI-Status unbekannt**
+bedeutet, dass ADE den Start/Abschluss nicht zuverlässig bestätigen kann.
+Manuell in der Shell gestartete Programme werden dabei nicht neu erkannt.
+Die vorhandenen Bilder zeigen noch den vorherigen Textstand; der abschliessende
+Guide-Task aktualisiert die Aufnahmen zusammen mit dem neuen Projektablauf.
 
 Wenn die Bildschirmtastatur Platz beansprucht, klappt ADE die zusätzlichen
 Bedienelemente ein. Über **Bedienung** lassen sie sich wieder öffnen. Enter, Tab,

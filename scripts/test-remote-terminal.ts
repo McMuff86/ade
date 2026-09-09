@@ -55,6 +55,12 @@ void (async () => {
   check('duplicate open starts exactly one interactive process', starts === 1);
   const state = await query(opened.terminalId);
   check('new terminal belongs to device and raw PTY identity stays in main', state.selected?.owner === 'self' && !JSON.stringify(state).includes('native-1'));
+  sessions[0]!.program = { status: 'running', startedAt: now };
+  check('wire reports the foreground invocation separately from shell liveness', (await query(opened.terminalId)).selected?.program?.status === 'running');
+  sessions[0]!.program = { status: 'exited', startedAt: now, endedAt: now + 10, exitCode: 7 };
+  const endedProgram = await query(opened.terminalId);
+  check('ended CLI retains its own exit code while remote shell input remains available', endedProgram.selected?.status === 'running'
+    && endedProgram.selected.program?.status === 'exited' && endedProgram.selected.program.exitCode === 7 && !!endedProgram.leaseId);
   check('screen output is interpreted and paths redacted', state.screen!.includes('ready') && !state.screen!.includes('private'));
   check('remote owner blocks desktop input and emits desktop event', !terminal.desktopMayWrite('native-1') && changes.at(-1)?.remote === true);
   await refuses('second device cannot steal active remote control', () => command({ operation: 'claim', terminalId: opened.terminalId }, context('other')), 'command_rejected');

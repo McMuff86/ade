@@ -1124,7 +1124,7 @@ async function run(): Promise<void> {
     await page.getByRole('button', { name: 'Restart' }).click();
     await eventually('restart replaces the failed interactive session', async () => {
       const selected = page!.locator('[role="tab"][id^="session-tab-"][aria-selected="true"]');
-      return await selected.count() === 1 && (await selected.getAttribute('aria-label'))?.includes('running') === true;
+      return await selected.count() === 1 && (await selected.getAttribute('aria-label'))?.includes('Terminal offen') === true;
     });
     await eventually('session restart preserves the exact repository binding', async () =>
       (await page!.locator('[data-testid="repository-scope"]').textContent())?.includes('Managed E2E repository') === true,

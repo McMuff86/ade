@@ -19,7 +19,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | Task | Lieferumfang und Abnahme | Stand |
 |---|---|---|
 | T0 | Ablauf, Grenzen, Reihenfolge und Prüfkriterien dokumentieren; lokale Dokumentverweise prüfen | abgeschlossen |
-| T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | offen |
+| T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows; zusätzliche WSL-Abnahme offen |
 | T2 | Direkte Unterordner des konfigurierten Projekt-Stamms begrenzt und ohne Link-Verfolgung entdecken; registrierte und noch nicht erfasste Projekte zusammen anzeigen. Eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | offen |
 | T3 | Projekt → Workspace/Branch → CLI auf Desktop und Tablet. Bestehenden Checkout ausdrücklich verwenden; zusätzliche Arbeitskopie für parallele Arbeit anbieten. Lokale/Remote-Branches, neuen Branch und profilfreien Start mit echten Git-/PTY-Fixtures prüfen | offen |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
@@ -62,3 +62,28 @@ Prüflauf sowie einen sauberen, gepushten Repository-Stand.
 
 Vorherige Produktbasis: `f606a1d`; `pnpm verify` mit 2.148 Checks. Das ist die
 Ausgangsevidenz und keine Verifikation dieses Goals.
+
+### T1 — CLI und Shell getrennt
+
+- `SessionMeta.program`, `pty:program` und die autorisierte Mobile-Projektion
+  tragen den Zustand des ursprünglich gestarteten Aufrufs. Die Shell bleibt
+  unabhängig davon bedienbar. Angezeigte Profilnamen stammen aus der Sitzung.
+- Native Windows: drei TypeScript-Projekte und Build grün; 17 Parser-/Wrapper-
+  Checks, 36 Remote-Terminal-Checks, 216 Security-Checks, 104 echte Terminal-/
+  Tablet-Checks und 185 Desktop-Checks. Nach der zusätzlichen Behandlung
+  unterbrochener Shell-Kontrollflüsse wurde der 58-Check-Assistant-/Lifecycle-
+  Ablauf erneut grün ausgeführt. Diese Zahlen sind einzelne Läufe, keine neue
+  repositoryweite `pnpm verify`-Gesamtsumme.
+- Der reale Windows→WSL-Zusatzlauf scheiterte schon vor dem ersten CLI-Start am
+  Root-Probe-Timeout. Auch `wsl.exe -d Ubuntu --exec /bin/true` antwortete nicht
+  innerhalb von 15 Sekunden. Das ist keine erfolgreiche Negativkontrolle und
+  keine WSL-Freigabe. T6 soll die Zusatzabnahme bei erreichbarem Backend erneut
+  versuchen. Es wurde kein WSL-Neustart durchgeführt.
+- Der danach im WSL-Cleanup hängende Testprozess wurde gezielt beendet. Sein
+  natives temporäres Profil `ade-terminal-electron-2xyWJu` bleibt als Diagnose-
+  artefakt liegen: automatische Freigabeprüfung lehnte die Löschung mit
+  „blocked by policy“ ab. Die Fixture versucht nach einem Fehler in der reinen
+  WSL-Lesephase künftig keinen unnötigen Cleanup-Aufruf. Persönliche ADE-Instanz
+  und Workspaces blieben unberührt.
+- Lokale Logs: `test-results/project-goal-*.log`; 193 Dokumentverweise geprüft.
+  Der Guide erklärt die neuen Zustände; aktualisierte Gesamtaufnahmen folgen T6.

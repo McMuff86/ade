@@ -20,6 +20,7 @@ const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-terminal-electr
 let app: ElectronApplication | undefined; let browser: Browser | undefined; let page: Page | undefined;
 let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 let wslHome: string | undefined;
+let wslHomeCreationAttempted = false;
 void (async () => {
   if (process.platform !== 'win32') throw new Error('Remote terminal runtime evidence currently requires native Windows');
   // Real PTYs execute deterministic local CLI fixtures, never a paid model or the operator's agent.
@@ -89,7 +90,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   if (process.argv.includes('--assistant-only')) {
     await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check); return;
   }
-  await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').filter({ hasText: 'läuft' }).waitFor({ state: 'attached' });
+  await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').filter({ hasText: 'Terminal offen' }).waitFor({ state: 'attached' });
   const terminalId = await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').nth(1).getAttribute('value');
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).selectOption(terminalId!);
   await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).last().waitFor();
@@ -235,6 +236,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     check('WSL home opens without choosing or creating a project', await ws.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === '');
     await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
     await terminalLauncher(ws);
+    wslHomeCreationAttempted = true;
     await ws.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
     await ws.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
     await page.waitForFunction(() => /[$#]/.test(document.querySelector('.m-terminal-screen')?.textContent ?? ''), { timeout: 60_000 });
@@ -264,10 +266,16 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await ws.getByRole('button', { name: 'WSL Home Agent öffnen', exact: true }).click();
     await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_CONFIGURED_READY', { exact: false }).last().waitFor();
     check('saved profile starts inside WSL home from tablet', true);
+    await ws.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
+    check('Windows to WSL wrapper confirms the running foreground CLI', true);
     for (const key of ['x', 'y', 'z']) {
       const echoMs = await terminalEchoLatency(page, ws, key, `KEY_${key}_ACK`);
       check(`WSL keydown to visible PTY acknowledgement stays below 500 ms (${echoMs} ms)`, echoMs < 500);
     }
+    await ws.locator('.xterm-helper-textarea').focus(); await page.keyboard.type('1234567');
+    await ws.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+    check('Windows to WSL CLI return leaves a live shell with its own zero exit code', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) =>
+      s.agentId === wslAgent.id && s.status === 'running' && s.program?.status === 'exited' && s.program.exitCode === 0));
     await page.screenshot({ path: join(evidence, 'session-wsl-tablet.png') });
   }
   await page.screenshot({ path: join(evidence, 'terminal-grant-revoked.png') });
@@ -276,7 +284,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   try { console.error(readFileSync(join(root, 'profile/ade/logs/main.log'), 'utf8').slice(-2500)); } catch { /* no log */ }
 }).finally(async () => {
   await browser?.close(); await proxy?.close(); await app?.close().catch(() => undefined);
-  if (wslHome && /^\/tmp\/ade-session-[a-f0-9-]+$/.test(wslHome)) {
+  if (wslHomeCreationAttempted && wslHome && /^\/tmp\/ade-session-[a-f0-9-]+$/.test(wslHome)) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         await new ExecutionBackendService().checked('wsl:Ubuntu', 'python3', ['-I', '-c',

@@ -1,5 +1,14 @@
 # ADE — Agentic Development Environment · Product Spec
 
+Interactive lifecycle (2026-09-09): the selected session displays its launched
+CLI separately from the terminal shell, for example **Claude Code beendet ·
+Terminal offen**. Launcher choice describes what to open and cannot relabel the
+current session. Opening after CLI return starts a new invocation while keeping
+the previous shell/output available; opening a matching live invocation reattaches
+it. Browser connectivity and input ownership remain separate indicators. Later
+manually typed shell commands are not represented as tracked ADE CLI launches.
+Implementation and acceptance: [project workflow goal T1](PROJECT_WORKFLOW_GOALS.md).
+
 Mobile project entry (2026-09-09): Projekte opens an ADE project working copy,
 then offers independent Codex/Claude/Grok/shell choices. Overview project cards
 use the same entry. Agent workspaces have a direct saved-profile Open action;

@@ -199,6 +199,7 @@ export class RemoteTerminalService {
   }
   private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
+      program: session.program ? { ...session.program } : undefined,
       launchMode: session.launchChoice?.mode ?? 'agent',
       owner: !entry.control ? 'desktop' : entry.control.deviceId === deviceId ? 'self' : 'other' };
   }

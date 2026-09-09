@@ -208,7 +208,16 @@ export interface SessionBookend {
   exitReason?: SessionBookendExitReason;
 }
 
+/** The ADE-started foreground invocation, separate from its surviving PTY shell. */
+export interface SessionProgramState {
+  status: 'starting' | 'running' | 'exited' | 'unknown';
+  startedAt?: number;
+  endedAt?: number;
+  exitCode?: number;
+}
+
 export interface SessionMeta {
+  program?: SessionProgramState;
   /** Immutable per-session choice; restarts keep it without editing the agent. */
   launchChoice?: import('./remote').SessionLaunchChoice;
   /** Credential-login sessions cannot be attached through the remote terminal API. */

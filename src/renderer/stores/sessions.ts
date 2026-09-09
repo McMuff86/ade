@@ -47,6 +47,7 @@ interface SessionsState {
 
 let hydrateInFlight: Promise<void> | null = null;
 const pendingExits = new Map<string, { exitCode: number; reason: PtyExitReason }>();
+const pendingPrograms = new Map<string, NonNullable<SessionMeta['program']>>();
 const pendingRemovals = new Set<string>();
 const createdDuringHydrate = new Set<string>();
 
@@ -94,7 +95,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
         const exitsDuringHydrate = new Map(pendingExits);
         const recovered = result.sessions
           .filter((meta) => !removedDuringHydrate.has(meta.id))
-          .map((meta) => {
+          .map((snapshot) => {
+            const meta = pendingPrograms.has(snapshot.id) ? { ...snapshot, program: pendingPrograms.get(snapshot.id)! } : snapshot;
             const exit = exitsDuringHydrate.get(meta.id);
             return exit
               ? {
@@ -135,6 +137,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
           };
         });
         pendingExits.clear();
+        pendingPrograms.clear();
         pendingRemovals.clear();
         createdDuringHydrate.clear();
       } catch (error) {
@@ -170,7 +173,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
       });
       if (!get().hydrated) createdDuringHydrate.add(meta.id);
       set((state) => ({
-        sessions: { ...state.sessions, [meta.id]: meta },
+        sessions: { ...state.sessions, [meta.id]: { ...meta, program: pendingPrograms.get(meta.id) ?? meta.program } },
         orderByAgent: {
           ...state.orderByAgent,
           [agentId]: [...(state.orderByAgent[agentId] ?? []), meta.id],
@@ -280,6 +283,15 @@ export const useSessions = create<SessionsState>((set, get) => ({
 }));
 
 if (typeof window !== 'undefined' && window.ade) {
+  window.ade.on('pty:program', ({ sessionId, program }) => {
+    const state = useSessions.getState();
+    if (!state.hydrated || !state.sessions[sessionId]) {
+      pendingPrograms.set(sessionId, program);
+      if (pendingPrograms.size > 256) pendingPrograms.delete(pendingPrograms.keys().next().value!);
+    }
+    const meta = state.sessions[sessionId];
+    if (meta) useSessions.setState({ sessions: { ...state.sessions, [sessionId]: { ...meta, program } } });
+  });
   window.ade.on('terminal:controlChanged', ({ sessionId }) => {
     if (!useSessions.getState().sessions[sessionId]) void useSessions.getState().hydrate(true);
   });
@@ -293,6 +305,7 @@ if (typeof window !== 'undefined' && window.ade) {
     state.markExited(sessionId, exitCode, reason);
   });
   window.ade.on('pty:removed', ({ sessionId }) => {
+    pendingPrograms.delete(sessionId);
     const state = useSessions.getState();
     if (!state.hydrated) {
       pendingRemovals.add(sessionId);

@@ -2,6 +2,7 @@ import { useEffect, useState, type JSX } from 'react';
 import type { MobileRecentSession, MobileSessionInventory } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
+import { sessionStateLabel } from '../shared/sessionState';
 
 export function ContinueWork({ host, onSession, onProject }: { host: MobileHost;
   onSession: (session: MobileRecentSession) => void; onProject: (repositoryId: string) => void;
@@ -27,7 +28,7 @@ export function ContinueWork({ host, onSession, onProject }: { host: MobileHost;
         onClick={(event) => { event.currentTarget.focus(); onSession(session); }} aria-label={`Weiterarbeiten in ${host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'} mit ${host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name ?? 'Agent'} · ${session.title}`}>
         <strong>{host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'}</strong>
         <span>{host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name} · {session.title}</span>
-        <small>{session.status === 'running' ? 'Läuft auf dem PC' : 'Prozess beendet · Ausgabe ansehen'}</small>
+        <small>{sessionStateLabel(session)}</small>
       </button></li>)}</ul>}
     {!!inventory?.omitted && <p>Weitere oder nicht mehr erreichbare Sitzungen sind ausgeblendet.</p>}
     {!!host.catalog?.repositories.length && <div className="m-project-shortcuts" aria-label="Projekte öffnen">{host.catalog.repositories.slice(-12).reverse().map((repo) =>

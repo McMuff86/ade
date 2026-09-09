@@ -108,6 +108,7 @@ export interface SessionLaunchOptions {
   models: string[];
 }
 export interface MobileTerminalSummary {
+  program?: import('./types').SessionProgramState;
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
   launchMode?: SessionLaunchChoice['mode'];
 }

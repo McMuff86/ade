@@ -95,7 +95,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
       <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>}
       <button id="workspace-refresh" disabled={disabled} onClick={() => void refresh()}>Workspace aktualisieren</button>
       <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button>{agent && <DashboardLink agent={agent} />}</div>
-    {overview?.ready && <p className="m-field-note">{projectEntry ? 'ADE-Arbeitskopie · ' : ''}{repositoryId ? `Branch ${overview.branch} · ` : ''}{overview.busy ? 'Workspace wird verwendet' : 'Keine laufende Sitzung'}</p>}
+    {overview?.ready && <p className="m-field-note">{projectEntry ? 'ADE-Arbeitskopie · ' : ''}{repositoryId ? `Branch ${overview.branch} · ` : ''}Stand beim Aktualisieren: {overview.busy ? 'Workspace verwendet' : 'Workspace frei'}</p>}
     <nav className="m-management-tabs" aria-label="Workspace-Bereich"><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>Dateien</button>
       <button disabled={!repositoryId} title={!repositoryId ? 'Für Git ein Projekt auswählen' : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>Git-Änderungen</button>
       <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>Terminal</button>

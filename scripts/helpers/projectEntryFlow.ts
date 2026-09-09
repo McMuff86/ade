@@ -31,9 +31,10 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     const binding = config.workspaceBindings.find((item) => item.repositoryId === repo.id)!;
     check(`Projects launches ${label} in the same bound project workspace`, sessions.some((session) => session.launchChoice?.mode === mode
       && session.repositoryId === repo.id && session.workspaceDir === binding.workspaceDir));
+    await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
     await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).click();
     await workspace.getByText('wird geöffnet…', { exact: false }).waitFor({ state: 'hidden' });
-    check(`${label} opens an existing running session without duplication`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === sessions.length);
+    check(`${label} starts again after the short-lived fixture exits instead of reusing its empty shell`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === sessions.length + 1);
   }
   await page.screenshot({ path: join(evidence, 'project-cli-tablet.png') });
   await workspace.getByRole('button', { name: 'Projekt · Tablet Garden schliessen', exact: true }).click();

@@ -8,7 +8,7 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
 is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 
-User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0 documented, T1–T6 pending. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0/T1 delivered for native Windows, T2–T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 Latest product verification: native Windows `pnpm verify`, **2,148 checks**, plus the 50-check focused keyboard driver.
 The operator reports improved Samsung/Chrome usability; a systematic physical-device matrix remains open.
 The current screenshot capture uses isolated demo data and simulated keyboard geometry, not provider inference.
@@ -16,6 +16,7 @@ The current screenshot capture uses isolated demo data and simulated keyboard ge
 | Capability | State | Current behavior |
 |---|---|---|
 | Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
+| Interactive CLI lifecycle | Native Windows focused PTY evidence | Original foreground call tracked separately from the surviving shell; explicit unknown state, real exit code, desktop reload reconciliation and mobile reopening. Managed tasks/login transport unchanged; manually launched shell commands are not tracked. Full goal verification pending |
 | Mobile workspace tools | Native Windows and Windows→WSL homes verified | Explicit project or own home; separate read/write grants, bounded tree/search/text preview and revision-checked atomic saves. Git diffs remain native-project-only; live sessions/managed leases block edits; drafts live only in page memory |
 | Mobile interactive terminals | Real Windows and Windows→WSL home PTYs verified | Explicit terminal grant, per-session launcher, existing session attach, exclusive 30-second input lease, immediate desktop reclaim/revocation and sequenced at-most-once input; xterm color/cursor display and direct input, compact keyboard layout and explicit keyboard activation; no managed-task/login control, full mouse reporting or terminal file transfer |
 | Per-session launch choice | Desktop/tablet flows verified with controlled CLIs | Empty shell, saved profile, fresh Codex/Claude/Grok/Hermes and available Ollama model; fixed discovery/revalidation and preserved restart choice. Saved profiles are unchanged; vendor authentication and real inference are separate acceptance |

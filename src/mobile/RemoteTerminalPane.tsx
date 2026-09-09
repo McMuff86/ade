@@ -10,6 +10,7 @@ import { TerminalScreen } from './TerminalScreen';
 import { TerminalInputQueue } from './TerminalInputQueue';
 import { DashboardLink } from './DashboardLink';
 import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
+import { canReuseLaunch, sessionStateLabel } from '../shared/sessionState';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
 
@@ -163,7 +164,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     try {
       const result = await query('');
       if (!live.current) return;
-      const existing = result.terminals.filter((item) => item.status === 'running' && item.launchMode === mode).at(-1);
+      const existing = result.terminals.filter((item) => canReuseLaunch(item, mode)).at(-1);
       if (existing) { setSelected(existing.id); await query(existing.id); }
       else await command({ operation: 'open', mode, agentId, repositoryId });
       if (live.current) setLaunchOpen(false);
@@ -207,14 +208,14 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     }
   }, [active, owning, busy, profileOpening, state.frame]);
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
-    <div className="m-terminal-focus-bar" id="workspace-terminal-controls">{projectEntry && <label>Arbeiten mit<select aria-label="Projekt-CLI" disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
+    <div className="m-terminal-focus-bar" id="workspace-terminal-controls">{projectEntry && <label>Sitzung öffnen mit<select aria-label="Projekt-CLI" disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
       {(['codex', 'claude', 'grok', 'shell'] as const).map((mode) => <option key={mode} value={mode} disabled={!canLaunchChoice({ mode }, options)}>
         {SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? ' · nicht verfügbar' : ''}</option>)}
     </select></label>}
       <button className="m-primary" disabled={blocked || !!projectEntry && !canLaunchChoice({ mode: projectMode }, options)} onClick={() => void openProfile(projectEntry ? projectMode : 'agent')}>
         {projectEntry ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} öffnen</button>
       <button aria-pressed={focused} onClick={() => { setFocused(!focused); if (!focused) setComposeOpen(false); }}>{focused ? 'Workspace einblenden' : 'Terminal vergrössern'}</button>
-      {state.selected && <span>{state.selected.launchMode === 'agent' ? 'Agent-Profil' : SESSION_LAUNCH_LABELS[state.selected.launchMode ?? 'shell']} · {state.selected.status === 'running' ? 'läuft' : 'beendet'}</span>}
+      {state.selected && <span role="status" aria-label="CLI- und Terminalstatus">{sessionStateLabel(state.selected)}</span>}
       {focused && <><span role="status">{host.status !== 'online' ? 'Offline · letzter Anzeigestand' : owning ? 'Eingabe: Tablet' : 'Eingabe: PC / anderes Gerät'}</span>
         {state.selected && <>{!owning && <button disabled={blocked || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>}
           {owning && <button disabled={busy || !!pending || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>}
@@ -225,7 +226,10 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     {profileOpening && <p role="status">{projectEntry ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} wird geöffnet…</p>}
     {projectEntry && loadingOptions && <p role="status">Installierte CLIs werden geprüft…</p>}
     {projectEntry && !loadingOptions && options?.choices.find((item) => item.mode === projectMode)?.notice && <p role="status">{options.choices.find((item) => item.mode === projectMode)?.notice}</p>}
-    <p>Die Sitzung läuft auf deinem PC weiter. Wähle eine bestehende Sitzung oder starte eine neue im ausgewählten Workspace.</p>
+    <p>{state.selected ? state.selected.status === 'running'
+      ? 'Das Terminal bleibt auf dem PC offen. Der CLI-Status bezieht sich auf den von ADE gestarteten Aufruf.'
+      : 'Dieses Terminal ist beendet. Du kannst die Ausgabe ansehen oder eine neue Sitzung starten.'
+      : 'Wähle eine bestehende Sitzung oder starte eine neue im ausgewählten Workspace.'}</p>
     <details open={launchOpen} onToggle={(event) => setLaunchOpen(event.currentTarget.open)}><summary>Neue Sitzung starten</summary>
     <div className="m-management-actions"><button disabled={blocked} onClick={() => void command({ operation: 'open', mode: 'shell', agentId, repositoryId })}>Shell öffnen</button>
       </div>
@@ -235,7 +239,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
       <button disabled={blocked || loadingOptions} onClick={() => setOptionsRefresh((n) => n + 1)}>Startmöglichkeiten aktualisieren</button></div>
     </details>
     <label>Sitzung<select aria-label="Terminal-Sitzung" disabled={blocked} value={selected} onChange={(event) => { setSelected(event.target.value); setError(''); setState({ terminals: state.terminals }); }}>
-      <option value="">Sitzung wählen</option>{state.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.title} · {terminal.status === 'running' ? 'läuft' : 'beendet'}</option>)}</select></label>
+      <option value="">Sitzung wählen</option>{state.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{sessionStateLabel(terminal)}</option>)}</select></label>
     {!state.terminals.length && !error && <p>Keine verfügbaren interaktiven Sitzungen. Verwaltete Aufgaben erscheinen in Work.</p>}
     {(error || readError) && <p role="alert" className="m-alert">{error || readError}</p>}{notice && <p role="status" className="m-terminal-notice">{notice}</p>}
     {pending && <button disabled={busy || host.status !== 'online'} onClick={() => void command(pending.command, true)}>Terminalaktion erneut prüfen</button>}

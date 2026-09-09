@@ -9,6 +9,8 @@ The user authorized [T0–T6](PROJECT_WORKFLOW_GOALS.md): truthful CLI state,
 project discovery, profile-free branch workspaces, interactive Git completion,
 and a refreshed guide. Commit each completed task; push only after final
 verification. The proposals below remain background unless included there.
+T0/T1 are delivered for native Windows. T2 is next; the additional WSL lifecycle
+test is still open after a backend-readiness timeout (see goal evidence).
 
 ## Proposed next product slices — for discussion
 

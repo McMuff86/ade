@@ -146,6 +146,7 @@ export function OverviewView(): JSX.Element {
       await useSessions.getState().hydrate(true);
       const current = Object.values(useSessions.getState().sessions).filter((session) => session.agentId === agentId
         && session.kind === 'interactive' && !session.repositoryId && session.status === 'running'
+        && (session.program?.status === 'running' || session.program?.status === 'starting')
         && (!session.launchChoice || session.launchChoice.mode === 'agent')).sort((a, b) => b.createdAt - a.createdAt)[0];
       const session = current ?? await useSessions.getState().createSession(agentId, undefined, undefined, undefined, null, undefined, { mode: 'agent' });
       setSelectedRepository(null); setSelectedAgent(agentId); setActiveSession(agentId, session.id); setMode('terminals');

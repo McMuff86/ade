@@ -11,6 +11,7 @@ import { useSelection } from '../stores/selection';
 import { useSessions } from '../stores/sessions';
 import { useSessionLaunch } from '../stores/sessionLaunch';
 import { SHORTCUTS } from '../keyboard/useSessionShortcuts';
+import { sessionStateLabel } from '../../shared/sessionState';
 import '../terminal/terminal.css';
 
 export function TabStrip(): JSX.Element | null {
@@ -54,7 +55,8 @@ export function TabStrip(): JSX.Element | null {
         const meta = sessions[id];
         if (!meta) return null;
         const isActive = id === active;
-        const running = meta.status === 'running';
+        const running = meta.status === 'running' && (!meta.program || meta.program.status === 'running' || meta.program.status === 'starting');
+        const stateLabel = sessionStateLabel(meta);
         return (
           <div key={id} className={isActive ? 'tab active' : 'tab'}>
             <button
@@ -63,7 +65,7 @@ export function TabStrip(): JSX.Element | null {
               role="tab"
               aria-selected={isActive}
               aria-controls={`session-panel-${id}`}
-              aria-label={`${meta.title}, ${running ? 'running' : `exited with code ${meta.exitCode ?? 'unknown'}`}`}
+              aria-label={stateLabel}
               className="tab-select"
               tabIndex={isActive ? 0 : -1}
               onClick={() => setActive(agentId, id)}
@@ -83,12 +85,12 @@ export function TabStrip(): JSX.Element | null {
                 const next = sessionIds[index];
                 if (next) activateAndFocus(next);
               }}
-              title={meta.title}
+              title={stateLabel}
             >
               <span className={running ? 'status running' : 'status exited'} aria-hidden="true">
                 {running ? '●' : '○'}
               </span>
-              <span className="tab-title">{meta.title}</span>
+              <span className="tab-title">{meta.title}{meta.program?.status === 'exited' && meta.status === 'running' ? ' · CLI beendet · Terminal offen' : ''}</span>
             </button>
             <button
               type="button"

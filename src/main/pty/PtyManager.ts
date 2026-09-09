@@ -59,6 +59,7 @@ import {
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { SessionLaunchService } from './SessionLaunchService';
+import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import type { MobileWorkspaceSelection, SessionLaunchChoice } from '../../shared/remote';
 import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
@@ -109,6 +110,9 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  programReader?: ProgramSignalReader;
+  programCleanup?: () => void;
+  programStartTimer?: ReturnType<typeof setTimeout>;
   display?: RemoteTerminalDisplay;
   meta: SessionMeta;
   proc: pty.IPty;
@@ -441,12 +445,17 @@ export class PtyManager {
       backendEnv = prepared.env;
       promptScratchDir = prepared.promptScratchDir;
     }
+    const program = !task && !login && spec.initialCommand
+      ? await prepareProgram(spec.initialCommand, backendPlatform, (path) => scope.executionBackend === NATIVE_EXECUTION_BACKEND
+        ? Promise.resolve(path) : this.execution.toBackendPath(scope.executionBackend, path)) : undefined;
+    if (program) spec = { ...spec, args: program.args ?? spec.args, initialCommand: program.initialCommand };
     // Stored service keys and the matching harness API key reach only
     // sessions of the effective runtime; explicit task/launch env always
     // wins. Login terminals stay credential-free so the CLI's own sign-in
     // state is what gets created and checked.
     const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
-    const command = this.execution.ptyCommand(
+    let command: ReturnType<ExecutionBackendService['ptyCommand']>;
+    try { command = this.execution.ptyCommand(
       scope.executionBackend,
       spec.file,
       spec.args,
@@ -456,7 +465,7 @@ export class PtyManager {
         ...credentialEnv,
         ...(backendEnv ?? spec.env ?? {}),
       },
-    );
+    ); } catch (error) { program?.dispose(); throw error; }
     // WSL launches receive their backend fields through WSLENV in the host
     // environment of wsl.exe (see ExecutionBackendService.wslLaunch), never
     // through argv, so the credential is not on the relay's command line.
@@ -480,6 +489,7 @@ export class PtyManager {
       useConpty: true,
       });
     } catch (error) {
+      program?.dispose();
       if (promptScratchDir) rmSync(promptScratchDir, { recursive: true, force: true });
       throw error;
     }
@@ -487,11 +497,13 @@ export class PtyManager {
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
+      program: program ? { status: 'starting' } : undefined,
       launchChoice,
       remoteAccessBlocked: login ? true : undefined,
       id,
       agentId,
-      title: launchChoice?.mode === 'hermes' ? 'Hermes' : launchChoice?.mode === 'ollama' ? `Ollama · ${launchChoice.model}` : login ? login.title : task ? `${label} task` : label,
+      title: launchChoice?.mode === 'hermes' ? 'Hermes' : launchChoice?.mode === 'ollama' ? `Ollama · ${launchChoice.model}` : login ? login.title : task ? `${label} task`
+        : program && (agent.runtime === 'custom' || agent.runtime === 'shell') ? agent.name : label,
       kind: task ? 'task' : 'interactive',
       status: 'running',
       createdAt: Date.now(),
@@ -527,6 +539,21 @@ export class PtyManager {
         : undefined,
     };
     this.sessions.set(id, session);
+    if (program) {
+      session.programCleanup = program.dispose;
+      session.programReader = new ProgramSignalReader(program.nonce, (signal) => {
+        if (session.meta.status !== 'running') return;
+        if (session.programStartTimer) clearTimeout(session.programStartTimer);
+        session.programStartTimer = undefined;
+        this.setProgram(session, signal.status === 'running' ? { status: 'running', startedAt: Date.now() }
+          : signal.status === 'unknown' ? { ...session.meta.program, status: 'unknown', endedAt: Date.now() }
+          : { ...session.meta.program, status: 'exited', exitCode: signal.exitCode, endedAt: Date.now() });
+      });
+      session.programStartTimer = setTimeout(() => {
+        if (session.meta.program?.status === 'starting') this.setProgram(session, { status: 'unknown' });
+      }, 15_000);
+      session.programStartTimer.unref?.();
+    }
     if (meta.kind === 'interactive') this.recordInteractiveStart(meta, agent);
     if (task?.runTaskId) {
       try {
@@ -537,6 +564,8 @@ export class PtyManager {
     }
 
     proc.onData((data) => {
+      data = session.programReader?.push(data) ?? data;
+      if (!data) return;
       const chunk = Buffer.from(data, 'utf8');
       session.sequence += 1;
       this.appendToRing(session, chunk);
@@ -595,6 +624,18 @@ export class PtyManager {
     return { ...meta };
   }
 
+  private setProgram(session: Session, program: NonNullable<SessionMeta['program']>): void {
+    session.meta.program = program;
+    this.broadcast(IPC_EVENTS.PtyProgram, { sessionId: session.meta.id, program: { ...program } });
+  }
+
+  private finishProgram(session: Session): void {
+    // A PTY exit/cancellation cannot prove the child program's exit code.
+    if (session.meta.program && session.meta.program.status !== 'exited') {
+      this.setProgram(session, { ...session.meta.program, status: 'unknown', endedAt: Date.now() });
+    }
+  }
+
   private handleExit(session: Session, exitCode: number): void {
     const tracked = this.sessions.get(session.meta.id) === session;
     this.releaseTaskLease(session);
@@ -609,6 +650,7 @@ export class PtyManager {
     session.meta.exitCode = exitCode;
     session.meta.endedAt = Date.now();
     session.meta.exitReason = session.cancelled ? 'cancelled' : 'exit';
+    this.finishProgram(session);
     this.recordInteractiveEnd(session, session.cancelled ? 'cancelled' : 'exit');
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
@@ -656,6 +698,7 @@ export class PtyManager {
     session.meta.exitCode = -1;
     session.meta.endedAt = Date.now();
     session.meta.exitReason = 'cancelled';
+    this.finishProgram(session);
     this.recordInteractiveEnd(session, 'cancelled');
     this.broadcast(IPC_EVENTS.PtyExit, {
       sessionId: session.meta.id,
@@ -688,6 +731,10 @@ export class PtyManager {
   }
 
   private releaseTaskLease(session: Session): void {
+    if (session.programStartTimer) clearTimeout(session.programStartTimer);
+    session.programStartTimer = undefined;
+    session.programCleanup?.();
+    session.programCleanup = undefined;
     session.taskLease?.release();
     session.taskLease = undefined;
     if (session.promptScratchDir) {

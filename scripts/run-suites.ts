@@ -49,11 +49,12 @@ const SUITES: Suite[] = [
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 54 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 34 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 36 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 30 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 28 } },
+  { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
   { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 71 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
