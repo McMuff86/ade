@@ -17,6 +17,14 @@ preserving its mounted xterm, draft and session. ResizeObserver fits the existin
 terminal through the unchanged signed resize/input path. No new wire contract
 or permission is involved. Geometry and focus evidence: `TERMINAL_KEYBOARD_RESULTS.md`.
 
+Mobile keyboard activation uses a completed click/tap on `TerminalScreen` or
+the explicit keyboard button. `terminalKeyboard.ts` checks editable textarea
+state, requests the optional browser VirtualKeyboard API and falls back to
+refocusing when needed. It does not change viewport overlay policy, input leases
+or host channels. Touch pointerdown no longer supplies the keyboard activation;
+frame/resize effects only update the existing terminal. Follow-up evidence:
+`TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+
 ## Interactive assistant access and Overview
 
 `RemoteTerminalDisplay` maintains a headless screen for each interactive PTY.

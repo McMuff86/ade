@@ -62,6 +62,17 @@ An actively edited composer, unsent text, errors and uncertain-input recovery
 remain available. Pointer taps on the toggle/terminal keys retain input focus;
 keyboard activation and dialog focus fallback also work.
 
+A completed touch tap in the terminal requests the software keyboard on its
+editable xterm textarea. The terminal-key row also includes **Tastatur**
+(accessible name **Tastatur öffnen**). Requests occur synchronously during the
+user's click, including when Android retained focus after keyboard dismissal.
+Where the browser keyboard API is absent or rejects the request, a closed
+keyboard uses a fresh blur/focus cycle. No timer or frame refresh opens it.
+The browser continues to resize its visual viewport; keyboard overlay mode is
+not enabled. Read-only, exited, offline and uncertain-input states retain their
+existing input gate; opening the keyboard never claims desktop ownership.
+When the PC owns input, use **Eingabe übernehmen**, then tap the terminal.
+
 Detection compares the visual and layout viewport heights: more than 160 px
 and 20% reduction, at scale 1 (within 0.05). Small browser toolbar changes,
 ordinary desktop window resizing and pinch zoom do not trigger compact mode.

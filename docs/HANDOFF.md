@@ -1,5 +1,15 @@
 # Handoff — 2026-09-08
 
+## Keyboard activation follow-up — 2026-09-09
+
+The operator reported that tapping the CLI no longer opened the Samsung keyboard.
+The previous geometry tests set focus directly and could not establish physical
+keyboard activation. A completed-tap keyboard request and explicit Tastatur
+button are implemented; the focused driver passes **50 checks**. Full verification
+and deployment are pending. Desktop ownership remains
+explicitly recoverable through Eingabe übernehmen. See
+`TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md` for validation and deployment.
+
 ## Mobile keyboard layout — 2026-09-09
 
 The operator requested more terminal space with the Samsung keyboard open.

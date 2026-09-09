@@ -1,7 +1,9 @@
-import { useEffect, useRef, type JSX } from 'react';
+import { useContext, useEffect, useRef, type JSX } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { MobileTerminalFrame } from '../shared/remote';
+import { TabletKeyboardContext } from './useTabletViewport';
+import { openTerminalKeyboard } from './terminalKeyboard';
 import '@xterm/xterm/css/xterm.css';
 
 /** Only styles created by xterm receive the per-document CSP nonce. */
@@ -21,6 +23,7 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
+  const keyboardOpen = useContext(TabletKeyboardContext);
   const container = useRef<HTMLDivElement>(null); const terminal = useRef<Terminal | undefined>(undefined);
   const callbacks = useRef({ onData, onSize }); callbacks.current = { onData, onSize };
   const lastFrame = useRef('');
@@ -30,6 +33,7 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize }: {
     const fit = new FitAddon(); term.loadAddon(fit); term.open(container.current!); terminal.current = term;
     term.textarea?.setAttribute('aria-label', 'Direkte Terminal-Eingabe');
     term.textarea?.setAttribute('autocapitalize', 'off');
+    term.textarea?.setAttribute('inputmode', 'text');
     const data = term.onData((value) => callbacks.current.onData(value));
     const measure = () => {
       const size = fit.proposeDimensions();
@@ -44,5 +48,11 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize }: {
     term.resize(frame.cols, frame.rows); term.write(frame.ansi); lastFrame.current = frame.revision;
   }, [frame]);
   return <div className="m-terminal-screen m-terminal-xterm" aria-label="Terminalanzeige" ref={container}
-    onPointerDown={() => { if (enabled) terminal.current?.focus(); }} />;
+    onPointerDown={(event) => { if (enabled && active && event.pointerType === 'mouse') terminal.current?.focus(); }}
+    onClick={() => {
+      if (!enabled || !active) return;
+      // A completed tap carries touch user activation; pointerdown may not.
+      if (navigator.maxTouchPoints > 0) openTerminalKeyboard(terminal.current?.textarea, keyboardOpen);
+      else terminal.current?.focus();
+    }} />;
 }

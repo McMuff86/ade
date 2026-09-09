@@ -1,5 +1,12 @@
 # ADE implementation status
 
+Mobile keyboard activation follow-up (2026-09-09): after the operator reported
+that CLI taps no longer opened the keyboard, completed touch activation and an
+explicit Tastatur button are implemented. The pre-fix browser control fails the
+new activation assertion as intended; the positive focused driver passes **50
+checks**, including seven activation controls. Full verification is pending. See
+`TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+
 Mobile keyboard layout (2026-09-09): automatic visual-viewport compaction is
 implemented, retaining the title, Bedienung toggle, terminal keys, active text
 composition and errors. Native Windows `pnpm verify` passed **2,141 checks**;

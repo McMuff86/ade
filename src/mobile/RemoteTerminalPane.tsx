@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState, SessionLaunchChoice, SessionLaunchOptions } from '../shared/remote';
 import { canLaunchChoice, SessionLaunchFields } from '../renderer/sessions/SessionLaunchFields';
 import type { MobileHost } from './useMobileHost';
@@ -10,6 +10,8 @@ import { TerminalScreen } from './TerminalScreen';
 import { TerminalInputQueue } from './TerminalInputQueue';
 import { DashboardLink } from './DashboardLink';
 import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
+import { TabletKeyboardContext } from './useTabletViewport';
+import { openTerminalKeyboard } from './terminalKeyboard';
 
 interface TerminalDraft { text: string; review: boolean }
 
@@ -20,6 +22,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   compactControls?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
 }): JSX.Element {
+  const keyboardOpen = useContext(TabletKeyboardContext);
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
   const [remembered, remember] = useDeviceDraft(host.deviceId, `terminal-selection:${agentId}:${repositoryId ?? 'home'}`, '');
   const [selected, select] = useState(initialTerminalId ?? remembered);
@@ -191,6 +194,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   }, [active]);
   const blocked = busy || profileOpening || !!pending || !!uncertain || !!state.inputUncertain || host.status !== 'online';
   const owning = state.selected?.owner === 'self';
+  const inputEnabled = owning && !profileOpening && host.status === 'online' && !pending && !uncertain && !state.inputUncertain
+    && (!draft.review || directSending.current) && state.selected?.status === 'running';
   const action = (operation: 'claim' | 'release' | 'close') => command({ operation, agentId, repositoryId, terminalId: selected });
   const agent = host.catalog?.agents.find((item) => item.id === agentId);
   useLayoutEffect(() => {
@@ -248,7 +253,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      enabled={owning && !profileOpening && host.status === 'online' && !pending && !uncertain && !state.inputUncertain && (!draft.review || directSending.current) && state.selected.status === 'running'}
+      enabled={inputEnabled}
       onData={(data) => keyboard.enqueue(data)} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
@@ -258,7 +263,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
         <label>Terminal-Eingabe<textarea ref={input} aria-label="Terminal-Eingabe" value={text} maxLength={2000} disabled={!owning || host.status !== 'online'}
           onChange={(event) => setText(event.target.value)} rows={3} spellCheck={false} autoCapitalize="off" autoCorrect="off" /></label>
         <button disabled={blocked || draft.review || !owning || !text || state.selected.status !== 'running'}>Text und Enter senden</button></form></details>
-      <div className="m-management-actions">{[['Enter', '\r'], ['Tab', '\t'], ['Esc', '\x1b'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
+      <div className="m-management-actions"><button aria-label="Tastatur öffnen" disabled={!inputEnabled} onClick={() => openTerminalKeyboard(screenRoot.current?.querySelector<HTMLTextAreaElement>('.xterm-helper-textarea'), keyboardOpen)}>Tastatur</button>
+      {[['Enter', '\r'], ['Tab', '\t'], ['Esc', '\x1b'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
         <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => void transmit(data!)}>{label}</button>)}</div>
       <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></div>
     </>}

@@ -11,6 +11,11 @@ folds terminal chrome to a compact title/Bedienung header and terminal-key row.
 An active composer and errors remain accessible; keyboard close restores the
 previous layout. Behavior: `PROJECT_ENTRY.md`; evidence: `TERMINAL_KEYBOARD_RESULTS.md`.
 
+Keyboard activation follow-up: tap the CLI or press **Tastatur** to request the
+software keyboard, including after dismissal while input stays focused. An
+existing PC input lease still requires **Eingabe übernehmen**. No automatic
+takeover is added. Evidence: `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+
 Assistant access (2026-09-09): explicit home-terminal open/resume on desktop and
 Mobile; Mobile xterm display/direct keyboard input and separate private dashboard
 tabs; automatically refreshed Overview with current/history filters. Contracts and

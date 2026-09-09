@@ -1,5 +1,12 @@
 # ADE delivery roadmap
 
+## Keyboard activation follow-up — 2026-09-09
+
+Address the physical-device report after layout compaction: request the keyboard
+from a completed terminal tap, support reopening after dismissal and provide an
+explicit Tastatur button. Preserve editable-input and ownership gates. Validation
+and rollout are tracked in `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+
 ## Mobile keyboard space — 2026-09-09
 
 Implemented: automatically fold terminal chrome while Chrome's visual viewport
