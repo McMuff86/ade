@@ -74,8 +74,9 @@ Neustart abschliessen oder gezielt beenden; ein Host-Neustart stoppt deren PTYs.
 - Bei unklarer Auftragsantwort **Diesen Auftrag erneut prüfen** verwenden.
   Diese Wiederholung behält dieselbe Vorgangs-ID. Die Oberfläche sendet nach
   einem Offline-Zustand keine vorgemerkten Aufgaben automatisch ab.
-  Die Wiederholungsdaten bleiben nur in der offenen Seite. Nach Neuladen zuerst
-  die Run-Liste prüfen; nach Widerruf/Neukopplung sind alte Wiederholungen gelöscht.
+  Mit dem Tablet-Projektstart-Update bleiben Auftragsentwurf und Vorgangs-ID
+  auch nach Neuladen auf diesem Gerät erhalten. Widerruf oder lokales Trennen
+  löscht diese Daten; eine Wiederholung erfolgt ausschliesslich auf deinen Klick.
 - Sichere Schlüsselablage und Audit müssen verfügbar sein. Das Audit hat eine
   8-MiB-Grenze; bei beschädigter/voller Ablage bleiben Geräte gesperrt. Daten vor
   manueller Wartung sichern und untersuchen; keine automatische Löschung.
@@ -108,9 +109,13 @@ einen Sperrgrund. Kein automatisches Zurücksetzen oder Pushen.
 
 **Work** und **Graph** filtern nach Projekt und Agent. Der Task-Slot-Zähler gilt
 über alle Projekte. Einzelaufgaben und Managed Runs halten je Projekt einen
-eigenen Entwurf im offenen Browser; Seitenneuladen oder lokales Trennen verwirft
-diese ungesendeten Texte. Bei unklarer Verwaltungsantwort **Aktion erneut prüfen**
+eigenen Entwurf auf dem gekoppelten Gerät; Seitenneuladen erhält ihn, lokales
+Trennen löscht ihn. Bei unklarer Verwaltungsantwort **Aktion erneut prüfen**
 wählen; Offline-Aktionen werden nicht automatisch nachgesendet.
+
+**Neues Projekt und Weiterarbeiten:** Der aktuelle Einstieg mit einem eigenen
+Projekt-Stammordner, Codex-Start, erhaltenen Entwürfen und Tablet-Arbeitsansicht
+steht in [TABLET_PROJECT_START.md](../TABLET_PROJECT_START.md).
 
 Entwicklungstests: `pnpm exec playwright install chromium`, danach
 `pnpm test:mobile-access`, `pnpm test:mobile-browser`, `pnpm test:mobile-electron`

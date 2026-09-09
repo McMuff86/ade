@@ -32,7 +32,7 @@ export class SessionLaunchService {
     if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error('ade: Ollama-Modell ist nicht mehr verfügbar. Modellliste aktualisieren.');
     return { ...agent, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
-      codexModel: undefined, codexReasoningEffort: undefined, grokModel: undefined, grokReasoningEffort: undefined,
+      claudeModel: undefined, codexModel: undefined, codexReasoningEffort: undefined, grokModel: undefined, grokReasoningEffort: undefined,
       ollamaModel: choice.mode === 'ollama' ? choice.model : undefined };
   }
 

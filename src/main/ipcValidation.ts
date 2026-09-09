@@ -8,7 +8,7 @@ import { validSessionChoice } from '../shared/sessionLaunch';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
-  CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS,
+  CLAUDE_MODEL_PATTERN, CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, HARNESS_API_KEY_ENV, HARNESS_LOGIN_COMMANDS,
   OLLAMA_MODEL_PATTERN,
 } from '../shared/runtimes';
 
@@ -70,6 +70,11 @@ function optionalCodexModel(channel: string, value: unknown): string | undefined
     invalid(channel, 'codexModel must be a shell-safe model id');
   }
   return model;
+}
+
+function optionalClaudeModel(channel: string, value: unknown): void {
+  const model = optionalString(channel, value, 'claudeModel', { max: 100, allowEmpty: true });
+  if (model?.trim() && !CLAUDE_MODEL_PATTERN.test(model.trim())) invalid(channel, 'claudeModel must be a shell-safe model id');
 }
 
 function optionalGrokModel(channel: string, value: unknown): string | undefined {
@@ -224,6 +229,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'permissionMode',
     'customCommand',
     'ollamaModel',
+    'claudeModel',
     'codexModel',
     'codexReasoningEffort',
     'grokModel',
@@ -243,6 +249,8 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
   optionalOllamaModel(channel, request.ollamaModel);
+  optionalClaudeModel(channel, request.claudeModel);
+  if (request.runtime !== 'claude' && request.claudeModel !== undefined) invalid(channel, 'Claude model settings require runtime "claude"');
   optionalCodexModel(channel, request.codexModel);
   if (request.codexReasoningEffort !== undefined) {
     enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);
@@ -601,6 +609,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
 ): asserts payload is IpcInvokeMap[K]['req'] {
   switch (channel) {
     case IPC.ConfigGet:
+    case IPC.ProjectDefaultsGet:
     case IPC.ConfigHealth:
     case IPC.RemoteDevicesList:
     case IPC.MobileAccessStatus:
@@ -616,6 +625,13 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.HarnessDiagnose:
       voidRequest(channel, payload);
       return;
+    case IPC.HarnessModels: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runtime', 'backend']);
+      enumValue(channel, request.runtime, 'runtime', ['codex', 'grok', 'claude', 'ollama']);
+      if (request.backend !== undefined && !isExecutionBackendId(request.backend)) invalid(channel, 'backend is not supported');
+      return;
+    }
     case IPC.MobileAccessSetEnabled: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['enabled']);
@@ -704,6 +720,13 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ConfigSave:
       validateConfigSave(channel, payload);
       return;
+    case IPC.ProjectDefaultsSave: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['rootPath', 'agentId']);
+      stringValue(channel, request.rootPath, 'rootPath', { max: 4096 });
+      if (request.agentId !== null) stringValue(channel, request.agentId, 'agentId', { max: 128 });
+      return;
+    }
     case IPC.PhotoImport: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['bytesBase64', 'mime']);
@@ -767,6 +790,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         'permissionMode',
         'customCommand',
         'ollamaModel',
+        'claudeModel',
         'codexModel',
         'codexReasoningEffort',
         'grokModel',
@@ -784,6 +808,8 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       }
       optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
       optionalOllamaModel(channel, request.ollamaModel);
+      optionalClaudeModel(channel, request.claudeModel);
+      if (request.runtime !== undefined && request.runtime !== 'claude' && request.claudeModel !== undefined) invalid(channel, 'Claude model settings require runtime "claude"');
       optionalCodexModel(channel, request.codexModel);
       if (request.codexReasoningEffort !== undefined) {
         enumValue(channel, request.codexReasoningEffort, 'codexReasoningEffort', CODEX_REASONING_EFFORTS);

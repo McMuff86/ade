@@ -27,7 +27,9 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'config', script: 'test-config-store.ts', floors: { win32: 30 } },
+  { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
+  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 13 } },
+  { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
@@ -45,9 +47,9 @@ const SUITES: Suite[] = [
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },
   { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 38 } },
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
-  { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 36 } },
+  { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 54 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 30 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 34 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 28 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
@@ -58,7 +60,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 208 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 216 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

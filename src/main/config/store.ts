@@ -27,7 +27,7 @@ import {
   type ConfigLoadFailure,
 } from '../../shared/types';
 import { isExecutionBackendId } from '../../shared/executionBackends';
-import { CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
+import { CLAUDE_MODEL_PATTERN, CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
 
 /** Model ids reach a shell command line through resolveLaunchCommand, so a
@@ -136,7 +136,14 @@ export function validateCompleteConfig(config: AdeConfig): void {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
-  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir'], 'config.settings');
+  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults'], 'config.settings');
+  if (settings.projectDefaults !== undefined) {
+    const defaults = object(settings.projectDefaults, 'config.settings.projectDefaults');
+    exactKeys(defaults, ['rootPath', 'rootIdentity', 'agentId'], 'config.settings.projectDefaults');
+    boundedString(defaults.rootPath, 'projectDefaults.rootPath');
+    boundedString(defaults.rootIdentity, 'projectDefaults.rootIdentity');
+    boundedString(defaults.agentId, 'projectDefaults.agentId', true);
+  }
   if (settings.theme !== 'dark' && settings.theme !== 'light') throw new Error('config.settings.theme is invalid.');
   if (settings.inspectorSide !== undefined
       && settings.inspectorSide !== 'left' && settings.inspectorSide !== 'right') {
@@ -195,7 +202,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const agent of config.agents) {
     exactKeys(agent as unknown as Record<string, unknown>, [
       'id', 'categoryId', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand',
-      'ollamaModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+      'ollamaModel', 'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'workspaceDir', 'homeWorkspaceDir',
       'homeExecutionBackend', 'defaultRepositoryId', 'memoryDir', 'teamRole', 'dashboardUrl',
       'dashboardCommand', 'dashboardTarget',
@@ -211,6 +218,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['dashboardCommand', agent.dashboardCommand],
     ] as const) boundedString(value, `agent.${field}`, true);
     modelId(agent.ollamaModel, OLLAMA_MODEL_PATTERN, 'agent.ollamaModel');
+    modelId(agent.claudeModel, CLAUDE_MODEL_PATTERN, 'agent.claudeModel');
     modelId(agent.codexModel, CODEX_MODEL_PATTERN, 'agent.codexModel');
     modelId(agent.grokModel, GROK_MODEL_PATTERN, 'agent.grokModel');
     if (!categoryIds.has(agent.categoryId) || !RUNTIMES.has(agent.runtime) || !PERMISSIONS.has(agent.permissionMode)
@@ -254,7 +262,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const template of config.agentTemplates) {
     exactKeys(template as unknown as Record<string, unknown>, [
       'id', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand', 'ollamaModel',
-      'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+      'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'memorySeed', 'createdAt', 'updatedAt',
     ], 'agent template');
     boundedString(template.name, 'agentTemplate.name');
@@ -264,6 +272,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['grokModel', template.grokModel],
     ] as const) boundedString(value, `agentTemplate.${field}`, true);
     modelId(template.ollamaModel, OLLAMA_MODEL_PATTERN, 'agentTemplate.ollamaModel');
+    modelId(template.claudeModel, CLAUDE_MODEL_PATTERN, 'agentTemplate.claudeModel');
     modelId(template.codexModel, CODEX_MODEL_PATTERN, 'agentTemplate.codexModel');
     modelId(template.grokModel, GROK_MODEL_PATTERN, 'agentTemplate.grokModel');
     if (!RUNTIMES.has(template.runtime) || !PERMISSIONS.has(template.permissionMode)

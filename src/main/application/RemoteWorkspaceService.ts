@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { projectRootIdentity } from '../settings/ProjectDefaultsService';
 import { randomUUID } from 'node:crypto';
 import type { AdeConfig, SessionMeta } from '../../shared/types';
 import type { MobileAdminCommand, MobileAdministrationValue } from '../../shared/remote';
@@ -31,22 +32,38 @@ export class RemoteWorkspaceService {
         ? await spawnAgentTemplate(this.store, { templateId: input.source.id, categoryId, name: input.name, defaultRepositoryId: null }, this.scopes, { baseDir: this.baseDir })
         : await createAgent(this.store, { categoryId, name: input.name, defaultRepositoryId: null,
           runtime: source?.runtime ?? 'codex', permissionMode: source?.permissionMode ?? 'default', role: source?.role,
-          customCommand: source?.customCommand, ollamaModel: source?.ollamaModel, codexModel: source?.codexModel,
+          customCommand: source?.customCommand, ollamaModel: source?.ollamaModel, claudeModel: source?.claudeModel, codexModel: source?.codexModel,
           codexReasoningEffort: source?.codexReasoningEffort, grokModel: source?.grokModel, grokReasoningEffort: source?.grokReasoningEffort,
         }, this.scopes, { baseDir: this.baseDir });
       return { created: { kind: 'agent', id: agent.id } };
     }
     if (command.operation === 'project-create') {
       if (this.store.get().repositories.length >= 100) throw new Error('ade: Maximal 100 Projekte. Projekte am PC verwalten.');
-      const directory = join(this.baseDir, 'projects', randomUUID());
-      assertNoLinks(directory); mkdirSync(directory, { recursive: true, mode: 0o700 }); assertNoLinks(directory);
+      const defaults = this.store.get().settings.projectDefaults;
+      const checkRoot = () => {
+        if (defaults && projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity) {
+          throw new Error('ade: Der Projekt-Stammordner hat sich geändert. In Settings am PC erneut auswählen.');
+        }
+      };
+      checkRoot();
+      const root = defaults?.rootPath ?? join(this.baseDir, 'projects');
+      if (!defaults) { assertNoLinks(root); mkdirSync(root, { recursive: true, mode: 0o700 }); }
+      const directory = join(root, defaults ? projectDirectoryName(command.input.name) : randomUUID());
+      assertNoLinks(directory);
+      try { mkdirSync(directory, { mode: 0o700 }); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('ade: Dieser Projektordner existiert bereits. Einen anderen Projektnamen wählen.');
+        throw error;
+      }
+      checkRoot(); assertNoLinks(directory);
       const git = async (args: string[]) => {
-        assertNoLinks(directory); assertNoLinks(join(directory, '.git'));
+        checkRoot(); assertNoLinks(directory); assertNoLinks(join(directory, '.git'));
         return this.execution.checked('native', 'git', ['-c', `core.hooksPath=${hostNullDevice()}`, '-c', 'init.templateDir=', ...args],
           { cwd: directory, timeoutMs: 20_000, maxBuffer: 64 * 1024, env: { GIT_TERMINAL_PROMPT: '0' } });
       };
       await git(['init', '--initial-branch=main']);
       await git(['-c', 'user.name=ADE', '-c', 'user.email=ade@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Initialize ADE project']);
+      checkRoot();
       const repository = await this.scopes.importRepository(directory, command.input.name);
       return { created: { kind: 'repository', id: repository.id } };
     }
@@ -69,4 +86,12 @@ export class RemoteWorkspaceService {
     assertNoLinks(scope.workspaceDir);
     return { created: { kind: 'workspace', id: scope.workspaceBindingId, repositoryId, agentId, branch: redactForWire(scope.branch, 300) } };
   }
+}
+
+export function projectDirectoryName(name: string): string {
+  if (/[\\/:\x00-\x1f]/.test(name)) throw new Error('ade: Der Projektname darf keinen Pfad enthalten.');
+  const slug = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+  if (!slug || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(slug)) throw new Error('ade: Einen anderen Projektnamen wählen.');
+  return slug;
 }

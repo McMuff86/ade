@@ -332,7 +332,7 @@ export class RunCoordinator {
                     ...(agent.grokModel ? { modelId: agent.grokModel } : {}),
                     ...(agent.grokReasoningEffort ? { reasoningEffort: agent.grokReasoningEffort } : {}),
                   }
-                : {
+                : agent.runtime === 'claude' ? { ...(agent.claudeModel ? { modelId: agent.claudeModel } : {}) } : {
                     ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
                     ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
                   }),
@@ -1346,7 +1346,7 @@ export class RunCoordinator {
                 ...(agent.grokModel ? { modelId: agent.grokModel } : {}),
                 ...(agent.grokReasoningEffort ? { reasoningEffort: agent.grokReasoningEffort } : {}),
               }
-            : {
+            : agent.runtime === 'claude' ? { ...(agent.claudeModel ? { modelId: agent.claudeModel } : {}) } : {
                 ...(agent.codexModel ? { modelId: agent.codexModel } : {}),
                 ...(agent.codexReasoningEffort ? { reasoningEffort: agent.codexReasoningEffort } : {}),
               }),

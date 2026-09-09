@@ -1,5 +1,19 @@
 # ADE implementation status
 
+Dynamic runtime model selection (2026-09-09) is implemented for desktop agent
+creation/settings, including Claude model persistence and CLI discovery for
+Codex/Grok/Claude/Ollama. Final native Windows `pnpm verify`: **2,026 checks passed**,
+all three TypeScript projects and the production build. See
+`RUNTIME_MODEL_SELECTION.md`. The operator's running ADE still needs a full restart.
+
+Tablet project start (2026-09-09): implementation adds a desktop-configured native
+project parent/Codex default, the Mobile New Project launcher, validated live
+session inventory, persistent device drafts and a full-screen tablet workspace.
+Final native Windows `pnpm verify`: **1,972 checks passed**, all three TypeScript
+projects and the production build. Scope and operator steps: `TABLET_PROJECT_START.md`;
+measurements and remaining physical-device/home-host acceptance:
+`TABLET_PROJECT_START_RESULTS.md`.
+
 Goals 20–21 add explicit projectless native/WSL agent homes for mobile files,
 small edits and interactive terminals, plus a shared desktop/tablet session
 launcher (empty shell, saved profile, Codex, Hermes, available Ollama model).
@@ -97,7 +111,7 @@ The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 | Remote device inventory and audit | Real, desktop-only; locally verified on native Windows | Settings lists, renames and revokes durable device identities and grants separate restart, catalog and Git administration rights per device. Secrets use OS safeStorage outside config/bundles; revoked tombstones prevent stale startup credentials from reviving a device. The environment device is migrated once. Revocation closes active device HTTP/SSE responses and denies subsequent access; accepted runs continue. A separate fsynced append-only audit records admission/outcomes and transport denials without payloads/keys/host paths. Corrupt or unavailable storage and the 8 MiB audit cap disable device authorization; QR pairing is implemented; audit viewer and maintenance UI remain pending |
 | Single-task submission | Real, main-owned | `runTask:submit` / `POST /api/v1/tasks` takes an explicit agent id, repository id, prompt (≤ 8000 chars) and optional name. One atomic save creates a manual run, one worker participant (one-member team named after the agent), the queued task and the idempotency record; the one-shot task session then launches through the managed task launcher (same agent/repository/binding checks and global FIFO of four) without blocking the reply. Progress and completion are journal events; a refused launch is journaled as a failed task; the wrapping run is cancellable via `run:cancel` and cannot be started as a managed orchestration. The wire carries neither prompts nor automatic prompt-derived title excerpts; independent names remain visible |
 | Remote channel policy | Real, allowlisted | `ipcPolicy.ts` gives every `shared` channel a `remote` requirement; `shared ⇒ read` holds for all channels except `REMOTE_COMMAND_CHANNELS` (`run:create/start/cancel`, `runTask:submit`), which must demand `runs:write` scope, a required idempotency key, a device signature and audit. Host/shell effects can never be shared; `channelPolicyViolations()` and the security suite pin every rule |
-| Mobile companion | Personal-alpha implementation, native Windows automation | Private Tailscale Serve and five-minute QR/manual pairing open a responsive PWA using the desktop's actual dark/light tokens, Overview, searchable Work, participant/team Graph and tablet-side/phone-modal Inspector. Task/run dialogs retain separate in-memory drafts per project and mode across navigation, theme and connection changes; Work/Graph filter by project and agent identity. Bounded task submission, managed-run prepare/start, state/cancel, remembered device proof, host/network reconnection and Chromium shell-only offline startup use the signed idempotent run API. The separate administration surface adds agent/project/workspace creation, Git comparison/confirmed update and idle native Windows source relaunch after an explicit per-device desktop grant. Browser/Electron automation covers keyboard/focus and phone/tablet layouts. Detailed reports/approvals/notifications remain desktop or future scope. Physical-device/carrier, WebKit offline cold start and other native platform evidence remains open; see `goal8/MOBILE_CONNECT_RESULTS.md` and `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`. An already-running host activates updated assets only after a normal ADE restart and browser reload |
+| Mobile companion | Personal-alpha implementation, native Windows automation | Private Tailscale Serve and five-minute QR/manual pairing open a responsive PWA using the desktop's actual dark/light tokens, Overview, searchable Work, participant/team Graph and tablet-side/phone-modal Inspector. Task/run dialogs retain separate device-local drafts per project and mode across navigation, reload, theme and connection changes; Work/Graph filter by project and agent identity. Bounded task submission, managed-run prepare/start, state/cancel, remembered device proof, host/network reconnection and Chromium shell-only offline startup use the signed idempotent run API. New Project starts Codex using desktop-configured project defaults; Continue Working attaches real interactive sessions in a full-screen tablet workspace. The separate administration surface adds agent/project/workspace creation, Git comparison/confirmed update and idle native Windows source relaunch after an explicit per-device desktop grant. Browser/Electron automation covers keyboard/focus and phone/tablet layouts. Detailed reports/approvals/notifications remain desktop or future scope. Physical-device/carrier, WebKit offline cold start and other native platform evidence remains open; see `TABLET_PROJECT_START_RESULTS.md`, `goal8/MOBILE_CONNECT_RESULTS.md` and `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`. An already-running host activates updated assets only after a normal ADE restart and browser reload |
 | Remote administration | Implemented; native Windows source-launch evidence | Separate signed application endpoints expose scoped agent/project/workspace provisioning, native Git comparison/Fetch/confirmed fast-forward and idle ADE relaunch. Desktop grants are per device; existing grants do not expand. Administrative receipts coalesce/replay across restart and fail closed on interrupted/corrupt storage (500 receipts / 1 MiB). Restart confirms a new host instance and retains pairing. New projects initialize locally; no arbitrary clone URL, shell, host path, auto-update or OS reboot. See `REMOTE_WORKSPACE_RESULTS.md` |
 | Background host mode | Close-to-tray implemented and tested on native Windows | Closing the window while mobile access is enabled keeps the host available via tray; explicit quit stops it. Login autostart, headless startup, sleep prevention, pre-login service and remote wake are not implemented |
 | Updates | Not built | No updater or release feed yet |
@@ -244,9 +258,10 @@ fixture repositories rather than depending on any personal checkout.
   100 records including revoked tombstones. Maintenance/recovery UI is pending.
 - SSE resumes from the journal cursor, resets to an authoritative snapshot
   behind retained history and closes on session expiry, rotation or revocation.
-  Browser private state is in memory; a lost command response can be retried
-  with the same key while the page remains open. Reloading does not restore
-  an unfinished command form; inspect the run list before submitting new work.
+  Fetched content and file/profile drafts stay in memory. The tablet project-start
+  delivery adds bounded device storage for task/terminal drafts and pending work
+  keys; reload restores them without submitting anything automatically. General
+  management-dialog retry state still requires the same open page.
 - Electron IPC, runtime configuration and Git publishing remain local. Terminal,
   file and profile access use the dedicated Goals 16–19 APIs and desktop device
   grants. Direct LAN binds, router forwarding, Tailscale Funnel and public tunnels

@@ -267,6 +267,14 @@ export class AdeApplicationService {
     }
   }
 
+  async remoteSessionInventory(principal: RemotePrincipal) {
+    const ledger = this.options.administration?.ledger; const terminals = this.options.terminals;
+    if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
+    ledger.permits({ principal, idempotencyKey: undefined, requestId: 'terminal-inventory' }, 'terminal:control');
+    try { return await terminals.inventory(principal.id); }
+    catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
   async queryWorkspace(context: RemoteCommandContext, payload: unknown) {
     const ledger = this.options.administration?.ledger;
     if (!ledger || !this.options.workbench) throw new RemoteApiError(404, 'not_found');
@@ -382,6 +390,8 @@ export class AdeApplicationService {
   catalog(): MobileCatalog {
     const config = this.store.get();
     return {
+      projectStart: { configured: !!config.settings.projectDefaults,
+        ...(config.settings.projectDefaults?.agentId ? { agentId: config.settings.projectDefaults.agentId } : {}) },
       categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160) })),
       agentSources: [
         { id: 'codex', kind: 'runtime' as const, name: 'Codex · neues Standardprofil', runtime: 'codex' as const },

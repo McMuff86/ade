@@ -255,7 +255,7 @@ export class ClaudeStreamJsonAdapter implements RuntimeTaskAdapter {
     platform: 'win32' | 'posix',
   ): ManagedTaskLaunch {
     prepareFiles(files);
-    const base = resolveClaudeCommand(agent.permissionMode);
+    const base = resolveClaudeCommand(agent.permissionMode, agent);
     const flags = '-p --output-format stream-json --verbose';
     // stdin transport: PowerShell 5.1 does not escape quotes inside native
     // command arguments, which truncates any prompt containing one.

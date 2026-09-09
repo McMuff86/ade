@@ -23,6 +23,7 @@ async function credentialStore<T>(operation: (store: IDBObjectStore) => IDBReque
 }
 
 export class MobileClient {
+  get deviceId(): string | null { return this.credential?.id ?? null; }
   private credential: Credential | null = null;
   private session: MobileSessionInfo | null = null;
   private authenticating: Promise<void> | null = null;

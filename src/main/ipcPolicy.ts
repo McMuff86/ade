@@ -97,6 +97,8 @@ const sharedLaunch: ChannelPolicy = { effect: 'launch', surface: 'shared', audit
 
 export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'config:get': shared,
+  'projectDefaults:get': read,
+  'projectDefaults:save': { ...mutate, audit: true },
   'session:options': launch,
   'session:launch': launch,
   'config:health': read,
@@ -138,6 +140,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'repository:pullRequestChecks': read,
   'repository:commitDiff': read,
   'harness:status': read,
+  'harness:models': launch,
   'harness:setKey': mutate,
   'harness:clearKey': mutate,
   'harness:setServiceKey': mutate,

@@ -153,7 +153,7 @@ export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Ag
 export function resolveLaunchCommand(
   agent: Pick<Agent,
     'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
-    'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
+    'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
 ): string {
   if (agent.customCommand && agent.customCommand.trim().length > 0) {
     return agent.customCommand.trim();
@@ -163,6 +163,11 @@ export function resolveLaunchCommand(
   const resolved = command.includes('${model}')
     ? command.replace('${model}', safeOllamaModel(agent.ollamaModel))
     : command;
+  if (agent.runtime === 'claude' && agent.claudeModel?.trim()) {
+    const model = agent.claudeModel.trim();
+    if (!CLAUDE_MODEL_PATTERN.test(model)) throw new Error('ade: unsafe Claude model id');
+    return `${resolved} --model '${model}'`;
+  }
   if (agent.runtime === 'codex') return `${resolved}${codexConfigArgs(agent)}`;
   if (agent.runtime === 'grok') return `${resolved}${grokConfigArgs(agent)}`;
   return resolved;
@@ -192,7 +197,7 @@ function safeOllamaModel(model: string | undefined): string {
 export function resolveTaskLaunchCommand(
   agent: Pick<Agent,
     'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
-    'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
+    'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
   platform: 'win32' | 'posix',
 ): TaskLaunchCommand | null {
   const base = resolveLaunchCommand(agent).trim();
@@ -251,8 +256,8 @@ export function resolveTaskLaunchCommand(
 }
 
 /** Base `claude` invocation for ADE's permission mode, without task flags. */
-export function resolveClaudeCommand(permissionMode: PermissionMode): string {
-  return LAUNCH_PROFILES.claude.commands[permissionMode] ?? 'claude';
+export function resolveClaudeCommand(permissionMode: PermissionMode, config: Pick<Agent, 'claudeModel'> = {}): string {
+  return resolveLaunchCommand({ runtime: 'claude', permissionMode, claudeModel: config.claudeModel });
 }
 
 /** Build the current non-interactive Codex command for ADE's permission mode. */
@@ -277,6 +282,8 @@ export function resolveCodexExecCommand(
 export const CODEX_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
 /** Same shell-safe grammar as Codex; Grok model ids are `grok-4.6`, `grok-4.5`. */
 export const GROK_MODEL_PATTERN = CODEX_MODEL_PATTERN;
+/** Claude's documented context suffix is shell-quoted when launching. */
+export const CLAUDE_MODEL_PATTERN = /^(?=.{1,100}$)[A-Za-z0-9][A-Za-z0-9._:/-]*(?:\[1m\])?$/;
 /**
  * Ollama model ids: `llama3`, `llama3:8b`, `hf.co/org/repo:Q4_K_M`. Same
  * grammar as the Codex ids, with room for registry-qualified names. Exported

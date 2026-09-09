@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MobileCatalog, MobileCommandResult, MobileHealth, MobileRunSummary, MobileSnapshot } from '../shared/remote';
 import { MobileClient, MobileClientError } from './client';
+import { clearDeviceDrafts, useDeviceDraft } from './deviceDrafts';
 
 const client = new MobileClient();
 export interface PendingCommand { path: string; payload?: unknown; key: string }
@@ -20,6 +21,7 @@ function errorText(error: unknown): string {
 
 /** One connection for all views. Changing navigation, theme or selection never restarts it. */
 export function useMobileHost() {
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [paired, setPaired] = useState<boolean | null>(null);
   const [status, setStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
   const [catalog, setCatalog] = useState<MobileCatalog | null>(null);
@@ -31,13 +33,15 @@ export function useMobileHost() {
   const [generation, setGeneration] = useState(0);
   const [identityVersion, setIdentityVersion] = useState(0);
   const [lastSeen, setLastSeen] = useState<number | null>(null);
-  const [pending, setPending] = useState<PendingCommand | null>(null);
+  const [pending, setPending] = useDeviceDraft<PendingCommand | null>(deviceId, 'pending-task', null);
   const busyRef = useRef(false);
   const cursor = useRef<number | null>(null);
   const mounted = useRef(true);
   const epoch = useRef(0);
 
   const clearIdentity = useCallback(() => {
+    if (client.deviceId) clearDeviceDrafts(client.deviceId);
+    setDeviceId(null);
     epoch.current++; setIdentityVersion(epoch.current); cursor.current = null;
     setPending(null); setPaired(false); setRuns([]); setCatalog(null); setHealth(null); setLastSeen(null); setNotice('');
   }, []);
@@ -49,7 +53,7 @@ export function useMobileHost() {
 
   useEffect(() => {
     mounted.current = true;
-    void client.restore().then((value) => { if (mounted.current) setPaired(value); })
+    void client.restore().then((value) => { if (mounted.current) { setDeviceId(client.deviceId); setPaired(value); } })
       .catch((reason) => { setPaired(false); setError(errorText(reason)); });
     if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => {
       setNotice('Offline-Appstart ist in diesem Browser nicht verfügbar. Online-Zugriff bleibt möglich.');
@@ -119,7 +123,8 @@ export function useMobileHost() {
 
   const send = async (command: PendingCommand): Promise<MobileCommandResult | null> => {
     if (busyRef.current || status !== 'online') return null;
-    busyRef.current = true; setBusy(true); setError(''); setNotice(''); setPending(command);
+    if (!setPending(command)) { setError('Browser-Speicher nicht verfügbar. Auftrag wurde nicht gesendet.'); return null; }
+    busyRef.current = true; setBusy(true); setError(''); setNotice('');
     const ownEpoch = epoch.current;
     try {
       const result = await client.request<MobileCommandResult>(command.path, 'POST', command.payload, command.key);
@@ -136,7 +141,7 @@ export function useMobileHost() {
   const pair = async (code: string, name: string): Promise<boolean> => {
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setError('');
-    try { await client.pair(code, name); setPaired(true); return true; }
+    try { await client.pair(code, name); setDeviceId(client.deviceId); setPaired(true); return true; }
     catch (reason) { setError(errorText(reason)); return false; }
     finally { busyRef.current = false; setBusy(false); }
   };
@@ -154,7 +159,7 @@ export function useMobileHost() {
       return result;
     } catch (reason) { if (ownEpoch === epoch.current) await lostAccess(reason); throw reason; }
   }, [lostAccess]);
-  return { paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, refresh,
+  return { deviceId, paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, refresh,
     canSubmit: status === 'online' && health?.commands === 'enabled' && !busy && !pending,
     reconnect: () => { setError(''); setGeneration((value) => value + 1); },
     dismissPending: () => { setPending(null); setNotice('Prüfe die Run-Liste, bevor du einen neuen Auftrag mit demselben Inhalt sendest.'); },

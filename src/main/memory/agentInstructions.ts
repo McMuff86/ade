@@ -66,6 +66,7 @@ export function buildAgentRoleBlock(
     ? `codex | model ${agent.codexModel ?? 'inherited'} | reasoning ${agent.codexReasoningEffort ?? 'inherited'} | permissions ${agent.permissionMode}`
     : agent.runtime === 'grok'
       ? `grok | model ${agent.grokModel ?? 'inherited'} | reasoning ${agent.grokReasoningEffort ?? 'inherited'} | permissions ${agent.permissionMode}`
+      : agent.runtime === 'claude' ? `claude | model ${agent.claudeModel ?? 'inherited'} | permissions ${agent.permissionMode}`
       : `${agent.runtime} | permissions ${agent.permissionMode}`;
   const responsibilities = roleResponsibilities(role);
 

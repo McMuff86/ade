@@ -60,9 +60,12 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'harness:models': { runtime: 'codex', backend: 'native' },
   'session:options': { agentId: 'agent', repositoryId: null },
   'session:launch': { agentId: 'agent', repositoryId: null, mode: 'shell' },
   'config:get': undefined,
+  'projectDefaults:get': undefined,
+  'projectDefaults:save': { rootPath: 'C:\\repos', agentId: null },
   'config:health': undefined,
   'remoteDevices:list': undefined,
   'mobileAccess:status': undefined,
@@ -341,6 +344,14 @@ check('Codex model ids reject shell metacharacters', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'codex', permissionMode: 'bypass',
   codexModel: 'gpt-5.6-sol; Remove-Item C:\\', codexReasoningEffort: 'xhigh',
 }));
+check('model discovery refuses renderer commands and paths', rejects('harness:models', { runtime: 'codex', command: 'anything' })
+  && rejects('harness:models', { runtime: 'claude', cwd: 'C:\\' }));
+check('model discovery validates its runtime and environment', rejects('harness:models', { runtime: 'shell' })
+  && rejects('harness:models', { runtime: 'codex', backend: 'wsl:bad;name' }));
+check('model discovery stays desktop-only and audited', CHANNEL_POLICY['harness:models'].surface === 'desktop'
+  && CHANNEL_POLICY['harness:models'].effect === 'launch');
+check('Claude model ids reject shell metacharacters', rejects('agent:create', { categoryId: 'c', name: 'a', runtime: 'claude', permissionMode: 'default', claudeModel: 'opus;whoami' }));
+check('Claude model pins cannot leak onto another runtime', rejects('agent:create', { categoryId: 'c', name: 'a', runtime: 'grok', permissionMode: 'default', claudeModel: 'opus' }));
 check('unknown Codex reasoning levels are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'codex', permissionMode: 'bypass',
   codexModel: 'gpt-5.6-sol', codexReasoningEffort: 'extreme',

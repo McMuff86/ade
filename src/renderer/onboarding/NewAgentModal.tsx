@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
+import { RuntimeModelPicker } from './RuntimeModelPicker';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
 import {
@@ -20,7 +21,7 @@ import {
   type RuntimeId,
 } from '../../shared/types';
 import {
-  AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS, GROK_REASONING_EFFORTS,
+  AGENT_PERMISSION_MODES, AGENT_RUNTIMES,
 } from './agentOptions';
 
 interface NewAgentModalProps {
@@ -47,10 +48,11 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
   );
   const [runtime, setRuntime] = useState<RuntimeId>('codex');
   const [ollamaModel, setOllamaModel] = useState('');
-  const [codexModel, setCodexModel] = useState(DEFAULT_CODEX_MODEL);
+  const [claudeModel, setClaudeModel] = useState('');
+  const [codexModel, setCodexModel] = useState('');
   const [codexReasoningEffort, setCodexReasoningEffort] =
     useState<CodexReasoningEffort>(DEFAULT_CODEX_REASONING_EFFORT);
-  const [grokModel, setGrokModel] = useState(DEFAULT_GROK_MODEL);
+  const [grokModel, setGrokModel] = useState('');
   const [grokReasoningEffort, setGrokReasoningEffort] =
     useState<GrokReasoningEffort>(DEFAULT_GROK_REASONING_EFFORT);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('bypass');
@@ -59,7 +61,9 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
   const [customCommand, setCustomCommand] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const canCreate = name.trim().length > 0 && catId !== '' && !busy;
+  const modelBackend = repositories.find((repository) => repository.id === defaultRepositoryId)?.executionBackend ?? 'native';
+  const canCreate = name.trim().length > 0 && catId !== '' && !busy
+    && (customCommand.trim() !== '' || (runtime === 'codex' ? !!codexModel : runtime === 'grok' ? !!grokModel : runtime === 'claude' ? !!claudeModel || !!templateId : runtime === 'ollama' ? !!ollamaModel : true));
 
   const submit = async (): Promise<void> => {
     if (!canCreate) return;
@@ -74,6 +78,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+        claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
         codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
         grokModel: runtime === 'grok' && grokModel.trim() ? grokModel.trim() : undefined,
@@ -102,6 +107,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     setPermissionMode(template.permissionMode);
     setCustomCommand(template.customCommand ?? '');
     setOllamaModel(template.ollamaModel ?? '');
+    setClaudeModel(template.claudeModel ?? '');
     setCodexModel(template.codexModel ?? DEFAULT_CODEX_MODEL);
     setCodexReasoningEffort(template.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT);
     setGrokModel(template.grokModel ?? DEFAULT_GROK_MODEL);
@@ -189,83 +195,16 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         </select>
       </div>
 
-      {runtime === 'ollama' ? (
-        <div className="field">
-          <label htmlFor="agent-model">MODEL</label>
-          <input
-            id="agent-model"
-            type="text"
-            value={ollamaModel}
-            autoComplete="off"
-            placeholder="e.g. llama3.3"
-            onChange={(e) => setOllamaModel(e.target.value)}
-          />
-        </div>
-      ) : null}
-
-      {runtime === 'codex' ? (
-        <div className="codex-profile-grid">
-          <div className="field">
-            <label htmlFor="agent-codex-model">CODEX MODEL</label>
-            <input
-              id="agent-codex-model"
-              type="text"
-              value={codexModel}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={DEFAULT_CODEX_MODEL}
-              onChange={(event) => setCodexModel(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="agent-codex-reasoning">REASONING EFFORT</label>
-            <select
-              id="agent-codex-reasoning"
-              value={codexReasoningEffort}
-              onChange={(event) => setCodexReasoningEffort(event.target.value as CodexReasoningEffort)}
-            >
-              {CODEX_REASONING_EFFORTS.map((effort) => (
-                <option key={effort.id} value={effort.id}>{effort.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="repo-hint codex-profile-hint">
-            Persisted for interactive and managed Codex sessions. Orchestrators should use Extra high.
-          </div>
-        </div>
-      ) : null}
-
-      {runtime === 'grok' ? (
-        <div className="codex-profile-grid">
-          <div className="field">
-            <label htmlFor="agent-grok-model">GROK MODEL</label>
-            <input
-              id="agent-grok-model"
-              type="text"
-              value={grokModel}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={DEFAULT_GROK_MODEL}
-              onChange={(event) => setGrokModel(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="agent-grok-reasoning">REASONING EFFORT</label>
-            <select
-              id="agent-grok-reasoning"
-              value={grokReasoningEffort}
-              onChange={(event) => setGrokReasoningEffort(event.target.value as GrokReasoningEffort)}
-            >
-              {GROK_REASONING_EFFORTS.map((effort) => (
-                <option key={effort.id} value={effort.id}>{effort.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="repo-hint codex-profile-hint">
-            Persisted for interactive Grok Build sessions. Orchestrators should use Extra high.
-          </div>
-        </div>
-      ) : null}
+      {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
+        key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
+        id={`agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}
+        value={runtime === 'codex' ? codexModel : runtime === 'grok' ? grokModel : runtime === 'claude' ? claudeModel : ollamaModel}
+        onChange={runtime === 'codex' ? setCodexModel : runtime === 'grok' ? setGrokModel : runtime === 'claude' ? setClaudeModel : setOllamaModel}
+        effort={runtime === 'codex' ? codexReasoningEffort : runtime === 'grok' ? grokReasoningEffort : undefined}
+        onEffortChange={runtime === 'codex' ? setCodexReasoningEffort : runtime === 'grok' ? (value) => setGrokReasoningEffort(value as GrokReasoningEffort) : undefined}
+        newProfile={!templateId}
+      />}
+      {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
 
       <div className="field">
         <label htmlFor="agent-perm">PERMISSION MODE</label>

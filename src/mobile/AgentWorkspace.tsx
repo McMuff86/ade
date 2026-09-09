@@ -16,15 +16,19 @@ export function workspaceError(error: unknown): string {
   return 'Workspace konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.';
 }
 
-export function AgentWorkspace({ host, agentId, initialRepositoryId, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
+export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
   host: MobileHost; agentId: string; initialRepositoryId: string;
+  initialTab?: 'files' | 'terminal'; initialTerminalId?: string;
+  onNavigate?: (repositoryId: string, tab: 'files' | 'terminal') => void;
   onClose: () => void; onTask: (repositoryId: string) => void; onManage: () => void;
   fileDrafts: FileDrafts;
   profileDrafts: ProfileDrafts;
 }): JSX.Element {
-  const [repositoryId, setRepositoryId] = useState(() => host.catalog?.repositories.some((repo) => repo.id === initialRepositoryId)
+  const [repositoryId, selectRepository] = useState(() => host.catalog?.repositories.some((repo) => repo.id === initialRepositoryId)
     ? initialRepositoryId : '');
-  const [tab, setTab] = useState<'files' | 'git' | 'terminal' | 'profile'>('files');
+  const [tab, selectTab] = useState<'files' | 'git' | 'terminal' | 'profile'>(initialTab ?? 'files');
+  const setTab = (value: typeof tab) => { selectTab(value); onNavigate?.(repositoryId, value === 'terminal' ? 'terminal' : 'files'); };
+  const setRepositoryId = (value: string) => { selectRepository(value); onNavigate?.(value, tab === 'terminal' ? 'terminal' : 'files'); };
   const [overview, setOverview] = useState<MobileWorkspaceResult['overview']>();
   const [listing, setListing] = useState<MobileWorkspaceResult | null>(null);
   const [detail, setDetail] = useState<MobileWorkspaceResult | null>(null);
@@ -45,7 +49,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, onClose, on
     finally { if (own === version.current) setBusy(false); }
   }, [query, repositoryId]);
   useEffect(() => { void refresh(); return () => { version.current++; }; }, [refresh, host.identityVersion]);
-  useEffect(() => { if (!repositoryId) setTab((current) => current === 'git' ? 'files' : current); }, [repositoryId]);
+  useEffect(() => { if (!repositoryId) selectTab((current) => current === 'git' ? 'files' : current); }, [repositoryId]);
   useLayoutEffect(() => { if (detail) heading.current?.focus(); }, [detail]);
   const load = async (input: MobileWorkspaceOperation, detailTitle?: string) => {
     const own = ++version.current; setBusy(true); setError('');
@@ -61,7 +65,11 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, onClose, on
   }); };
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
   const disabled = busy || host.status !== 'online';
-  return <Dialog title={`Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className="m-agent-workspace">
+  return <Dialog title={`Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}>
+    <div className="m-tablet-workbench"><aside className="m-project-rail" aria-label="Workspace-Projekte"><h3>Projekte</h3>
+      <button aria-pressed={!repositoryId} onClick={() => setRepositoryId('')}>Eigener Workspace</button>
+      {host.catalog?.repositories.map((repo) => <button key={repo.id} aria-pressed={repositoryId === repo.id} onClick={() => setRepositoryId(repo.id)}>{repo.name}</button>)}
+    </aside><div className="m-tablet-workbench-main">
     <div className="m-workspace-controls"><label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
       <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <button id="workspace-refresh" disabled={disabled} onClick={() => void refresh()}>Workspace aktualisieren</button>
@@ -72,11 +80,12 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, onClose, on
       <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>Terminal</button>
       <button aria-pressed={tab === 'profile'} onClick={() => { setTab('profile'); setDetail(null); }}>Agent-Profil</button></nav>
     {host.status !== 'online' && <p role="status">Verbindung unterbrochen. Angezeigte Daten können veraltet sein.</p>}
-    {busy && <p role="status">Workspace wird geladen…</p>}{error && <p role="alert" className="m-alert">{error}</p>}
+    {busy && tab !== 'terminal' && <p role="status">Workspace wird geladen…</p>}{error && tab !== 'terminal' && <p role="alert" className="m-alert">{error}</p>}
     {!repositoryId && <p>Dateien und Terminal verwenden den eigenen Agent-Ordner. Für verwaltete Aufgaben und Git ein Projekt auswählen.</p>}
     {overview?.notice && <p>{overview.notice}</p>}
     {overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
-    <div hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'} /></div>
+    <div className="m-terminal-slot" hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'}
+      initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined} /></div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}
     {overview?.ready && (tab === 'files' || tab === 'git') && <div className={`m-workbench-split ${detail ? 'has-detail' : ''}`}>
       <section className="m-workbench-list" aria-label={tab === 'files' ? 'Workspace-Dateien' : 'Geänderte Dateien'}>
@@ -106,5 +115,6 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, onClose, on
           <span key={index} className={line.startsWith('+') ? 'm-diff-add' : line.startsWith('-') ? 'm-diff-delete' : undefined}>{line}{'\n'}</span>)}</pre>}</>
         : <p>Eine Datei oder Änderung auswählen.</p>}</section>
     </div>}
+    </div></div>
   </Dialog>;
 }

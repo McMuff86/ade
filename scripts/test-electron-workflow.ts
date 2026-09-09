@@ -30,6 +30,8 @@ import { exportWorkspaceBundle } from '../src/main/portability/WorkspaceBundleEx
 import { serializeWorkspaceBundle } from '../src/shared/workspaceBundle';
 import { publicationBranch } from '../src/main/publishing/PublicationService';
 import { writeFakeGithubCli } from './fixtures/fake-gh';
+import { MODEL_FIXTURE_CATALOG, writeModelCliFixtures } from './fixtures/model-clis';
+import { exerciseModelPicker } from './helpers/modelPickerFlow';
 
 let passed = 0;
 let failed = 0;
@@ -576,6 +578,7 @@ async function run(): Promise<void> {
   writeManagedFixture(fixturePath);
   const managed = createManagedWorktrees(scratch);
   const fakeGithub = writeFakeGithubCli(scratch);
+  const modelFixtures = writeModelCliFixtures(scratch);
   writeFakeGrokCli(fakeGithub.bin);
   writeFakeClaudeCli(fakeGithub.bin);
   seedConfig(userData, workspace, fixturePath, managed.repo, managed.workspaces);
@@ -637,7 +640,7 @@ async function run(): Promise<void> {
         ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS: '900',
         ADE_E2E_FAKE_GH_STATE: fakeGithub.statePath,
         ADE_E2E_MANAGED_REMOTE: managed.remote,
-        PATH: `${fakeGithub.bin}${delimiter}${process.env['PATH'] ?? ''}`,
+        PATH: `${modelFixtures.bin}${delimiter}${fakeGithub.bin}${delimiter}${process.env['PATH'] ?? ''}`,
         NODE_ENV: 'test',
       },
       timeout: 20_000,
@@ -715,6 +718,11 @@ async function run(): Promise<void> {
       }
     });
     check('preload rejects unknown channels', unknownChannel.includes('unknown invoke channel'), unknownChannel);
+
+    await exerciseModelPicker(page, modelFixtures.state, join(userData, 'ade', 'config.json'), check);
+    // Preserve the later stored-key-only Grok authentication control: the CLI
+    // itself is signed out, while ADE's injected key must still launch correctly.
+    writeFileSync(modelFixtures.state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, grokUnavailable: true }));
 
     // Real UI coverage for first-class Codex model/reasoning persistence. The
     // shell agent is restored before PTY checks so the rest of this workflow

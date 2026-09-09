@@ -81,6 +81,8 @@ export interface AgentTemplate {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Claude CLI model id or alias, including its optional [1m] suffix. */
+  claudeModel?: string;
   /** Exact Codex CLI model id, e.g. "gpt-5.6-sol". */
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
@@ -149,6 +151,8 @@ export interface Agent {
   customCommand?: string;
   /** model name for the ollama runtime, e.g. "llama3.3" */
   ollamaModel?: string;
+  /** Claude CLI model id or alias, including its optional [1m] suffix. */
+  claudeModel?: string;
   /** Exact model pin for the Codex runtime, e.g. "gpt-5.6-sol". */
   codexModel?: string;
   /** Persisted Codex reasoning level passed to every interactive and managed launch. */
@@ -1008,6 +1012,7 @@ export type InspectorSide = 'left' | 'right';
 export const DEFAULT_INSPECTOR_SIDE: InspectorSide = 'right';
 
 export interface Settings {
+  projectDefaults?: import('./projectDefaults').ProjectDefaults;
   theme: ThemeName;
   /**
    * Which side of Terminals holds the repository inspector. Default `right`
@@ -1320,6 +1325,7 @@ export interface AgentCreateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
   grokModel?: string;
@@ -1337,6 +1343,7 @@ export interface AgentUpdateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
   grokModel?: string;
@@ -1373,6 +1380,7 @@ export interface AgentTemplateSpawnInput {
   permissionMode?: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
   grokModel?: string;

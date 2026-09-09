@@ -36,6 +36,7 @@ import '../onboarding/onboarding.css';
 import './settings.css';
 import { RemoteDevicesSection } from './RemoteDevicesSection';
 import { MobileAccessSection } from './MobileAccessSection';
+import { ProjectDefaultsSection } from './ProjectDefaultsSection';
 
 const SCOPE_RUNTIMES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
@@ -541,6 +542,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           </div>
         </div>
         <MobileAccessSection />
+        <ProjectDefaultsSection />
         <RemoteDevicesSection />
         <section className="st-bundle-section" data-testid="workspace-bundle-settings">
           <div className="st-section-head">

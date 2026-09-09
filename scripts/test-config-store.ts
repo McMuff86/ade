@@ -24,6 +24,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConfigStore, validateCompleteConfig } from '../src/main/config/store';
 import { DEFAULT_CONFIG } from '../src/shared/types';
+import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
 
 let passed = 0;
 let failed = 0;
@@ -65,7 +66,25 @@ function run(): void {
     /* -------------------------------------------------- first run and reload */
 
     const seedPath = caseDir(scratch, 'seed');
+    const projectPath = caseDir(scratch, 'project-defaults');
+    const projectStore = new ConfigStore(projectPath);
+    const projectRoot = join(scratch, 'projects'); mkdirSync(projectRoot);
+    new ProjectDefaultsService(projectStore).save({ rootPath: projectRoot, agentId: null });
+    const projectReloaded = new ConfigStore(projectPath);
+    check('project root authorization survives config reload', projectReloaded.getLoadFailure() === null
+      && projectReloaded.get().settings.projectDefaults?.rootIdentity === projectStore.get().settings.projectDefaults?.rootIdentity
+      && new ProjectDefaultsService(projectReloaded).get().configured);
     const seeded = new ConfigStore(seedPath);
+    const modelPath = caseDir(scratch, 'claude-model'); const modelStore = new ConfigStore(modelPath);
+    modelStore.save({ categories: [{ id: 'models', name: 'Models', agents: ['claude-agent'] }], agents: [{ id: 'claude-agent', categoryId: 'models',
+      name: 'Claude', runtime: 'claude', permissionMode: 'default', claudeModel: 'opus[1m]', workspaceDir: scratch, memoryDir: scratch }],
+      agentTemplates: [{ id: 'claude-template', name: 'Claude template', runtime: 'claude', permissionMode: 'default', claudeModel: 'sonnet',
+        memorySeed: { memory: '', user: '' }, createdAt: 1, updatedAt: 1 }] });
+    const modelReload = new ConfigStore(modelPath);
+    check('Claude agent and template model pins survive a real config reload', modelReload.getLoadFailure() === null
+      && modelReload.get().agents[0]?.claudeModel === 'opus[1m]' && modelReload.get().agentTemplates[0]?.claudeModel === 'sonnet');
+    check('unsafe Claude model ids are rejected before config replacement', rejects(() => modelStore.replace({ ...modelReload.get(), agents: [{ ...modelReload.get().agents[0]!, claudeModel: 'opus;whoami' }] })));
+    check('refused model replacement keeps the prior profile intact', modelStore.replace(modelReload.get()).agents[0]?.claudeModel === 'opus[1m]');
     check('a missing config file seeds defaults and writes them',
       seeded.getLoadFailure() === null
         && !seeded.readOnly

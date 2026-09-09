@@ -1,5 +1,41 @@
 # ADE — Architecture (binding decisions)
 
+## Runtime model catalogs
+
+`harness:models` is a desktop-only audited launch channel with strict runtime/
+backend inputs. `RuntimeModelService` runs bounded CLI metadata probes in that
+backend's user home and returns validated model IDs and redacted display fields.
+Codex uses its app-server model catalog, Grok its models command, Claude its
+authenticated initialization catalog and Ollama its installed-model list. No
+prompt or model inference is submitted. Stored credentials remain in the main
+process/child environment; WSL uses `WSLENV`. The remote allowlist is unchanged.
+`claudeModel` now accompanies profile/template/bundle model pins and every Claude
+launch path. Full bounds and version-sensitive contracts: `RUNTIME_MODEL_SELECTION.md`.
+
+## Tablet project start and continuation
+
+`TABLET_PROJECT_START.md` defines the new project-start contract. Desktop-only
+`projectDefaults:get` / `projectDefaults:save` store a canonical native parent,
+its filesystem identity and an optional native Codex profile. Mobile sees only
+setup availability and the agent id. Existing project administration creates
+named child repositories under a configured parent, refusing links, replaced
+roots and collisions. The wizard composes existing independently signed/audited,
+idempotent provisioning and terminal commands with durable per-stage retry keys.
+
+The read-only `GET /api/v1/terminal/sessions` adapter calls only
+`AdeApplicationService.remoteSessionInventory`. It requires device-signature
+proof plus `terminal:control`; the service validates each immutable session scope
+and emits at most 32 opaque summaries without raw PTY ids, host paths, output or
+lease secrets. This does not add any desktop IPC channel to the remote command
+allowlist. Managed tasks and credential-login sessions remain excluded.
+
+The tablet workspace uses a focus-managed full-screen dialog and Chrome visual
+viewport measurements. Device-scoped browser records retain drafts, navigation
+and pending command keys across reload. Output, files and profile drafts are not
+persisted by this store. Disconnect or observed device revocation clears records;
+storage failure blocks new command submission. A durable uncertain-input marker
+blocks resending after reload until output has been explicitly checked.
+
 ## Projectless workspaces and session launch (Goals 20–21)
 
 `MobileWorkspaceSelection.repositoryId` is a required string or explicit `null`.
@@ -1028,9 +1064,10 @@ Main loads a bounded exact-path asset allowlist (8 MiB total, 2 MiB/file, at mos
 only same-origin scripts/styles/requests/worker/manifest, plus blob images for
 authenticated profile previews (Goal 19); API CSP remains
 deny-all. The worker caches an explicit versioned shell list, never API requests,
-prompts or results. Private state stays in page memory. Commands are never queued
-for automatic offline execution; an uncertain reply can be retried with its
-original key while the page remains open. Revocation/logout clears pending
+prompts or results. File/profile drafts and fetched content stay in page memory;
+task/terminal drafts and pending work keys use the bounded device store described
+above. Commands are never queued for automatic offline execution; an uncertain
+reply can be explicitly retried with its original key after reload. Revocation/logout clears pending
 commands and private state; an identity generation fences late responses from
 the previous device. Run cancellation preserves unrelated composer drafts and
 returns keyboard focus to the updated run detail. Reload/background/network recovery
@@ -1541,8 +1578,11 @@ channel names and cannot call IPC handlers. Every effect uses the same signed
 device/CSRF/audit/receipt admission and host-operation fence. Agent creation
 accepts a bounded name and host catalog/profile identity, copies only configured
 runtime settings and creates fresh home/memory/instructions. Project creation
-accepts a name only, creates a UUID directory below `userData/ade/projects` and
-initializes native Git with an initial empty main commit and disabled hooks.
+accepts a name only and creates a named child of the desktop-configured project
+parent. Without that setting, legacy administration creates a UUID directory
+below `userData/ade/projects`. Both initialize native Git with an initial empty
+main commit and disabled hooks; configured roots also have their saved directory
+identity rechecked. See `TABLET_PROJECT_START.md`.
 There is no clone URL, path, executable, secret or free-form config field.
 
 Workspace preparation resolves the existing agent/repository binding through
@@ -1564,6 +1604,7 @@ fetch freshness are visible, absolute host paths and Git argv are not.
 Run summary participants add optional `agentId` for compatibility with older
 hosts and stable remote filtering. Work/Graph filter by repository and agent
 identity; the global task-slot counter remains global. Project/mode drafts and
-uncertain command keys stay only in page memory, survive view changes and clear
-on identity revocation/disconnect. A late task reply clears only the matching
+pending task keys survive reload in device-scoped storage; general management
+dialog keys remain in page memory. Both clear on identity revocation/disconnect.
+A late task reply clears only the matching
 submitted draft; it cannot erase another project's or subsequently edited text.

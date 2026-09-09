@@ -2,6 +2,13 @@
    from theme tokens only; the modal shell is shared onboarding CSS. */
 
 .st-devices { border-top: 1px solid var(--line); padding-top: 10px; }
+[data-testid='project-defaults'] { border-top: 1px solid var(--line); padding: 14px 0; }
+[data-testid='project-defaults'] form { display: grid; gap: 10px; }
+[data-testid='project-defaults'] label { display: grid; gap: 5px; font-size: 12px; }
+[data-testid='project-defaults'] input, [data-testid='project-defaults'] select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; }
+[data-testid='project-defaults'] p { color: var(--muted); font-size: 12px; line-height: 1.5; }
+[data-testid='project-defaults'] [role='alert'] { color: var(--del); }
+[data-testid='project-defaults'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .st-device-heading, .st-device-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .st-device-heading h3 { flex: 1; }
 .st-device-list { list-style: none; padding: 0; margin: 0; }

@@ -9,6 +9,7 @@ import { redactForWire } from '../errors';
 import { RemoteApiError, type RemoteCommandContext } from './AdeApplicationService';
 import { validWorkspaceSelection, workbenchDigest, type RemoteWorkbenchService, type WorkbenchScope } from './RemoteWorkbenchService';
 import { remoteTerminalScreen } from './RemoteTerminalScreen';
+import type { MobileSessionInventory } from '../../shared/remote';
 
 export interface RemoteTerminalPort {
   list(): SessionMeta[];
@@ -87,6 +88,28 @@ export class RemoteTerminalService {
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
     return { terminals, launchOptions, selected: this.summary(entry!, session!, deviceId), screen, cols: entry!.cols, rows: entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
+  }
+
+  async inventory(deviceId: string): Promise<MobileSessionInventory> {
+    this.requireGrant(deviceId); this.expire();
+    const candidates = this.port.list().filter((session) => session.kind === 'interactive' && !session.runTaskId && !session.remoteAccessBlocked)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    const result: MobileSessionInventory = { sessions: [], omitted: Math.max(0, candidates.length - 32) };
+    for (const session of candidates.slice(0, 32)) {
+      this.requireGrant(deviceId);
+      try {
+        const selection = { agentId: session.agentId, repositoryId: session.repositoryId ?? null };
+        const binding = await this.workbench.resolve(selection, true);
+        if (!binding || !this.workbench.sessionMatches(binding, session)) { result.omitted++; continue; }
+        await this.workbench.revalidate(binding);
+        const entry = this.entry(session, binding);
+        if (entry.workspaceVersion !== this.workbench.version(binding)) { result.omitted++; continue; }
+        if (!this.port.list().some((item) => item.id === session.id)) { result.omitted++; continue; }
+        result.sessions.push({ ...this.summary(entry, session, deviceId), ...selection, createdAt: session.createdAt });
+      } catch { result.omitted++; }
+    }
+    this.requireGrant(deviceId);
+    return result;
   }
 
   async command(deviceId: string, input: MobileTerminalCommand): Promise<{ terminalId: string }> {

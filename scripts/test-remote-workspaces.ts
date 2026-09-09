@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { AdeApplicationService, RemoteApiError, validateAdministration, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
@@ -123,6 +124,36 @@ void (async () => {
     && Object.values(drafts.drafts).find((item) => item.repositoryId === 'one' && item.mode === 'task')!.prompt === seed.prompt);
   const final = await command({ operation: 'project-create', input: { name: 'Final positive project' } });
   check('positive creation still succeeds after negative controls', !!final.created?.id && store.get().repositories.length === originalCount + 1);
+  const defaults = new ProjectDefaultsService(store);
+  check('project settings start unconfigured without writing the operator filesystem', !defaults.get().configured);
+  const projectsRoot = join(root, 'personal-repos'); mkdirSync(projectsRoot);
+  await refuses('relative project root is refused', () => defaults.save({ rootPath: '../elsewhere', agentId: null }));
+  await refuses('non-Codex default profile is refused', () => defaults.save({ rootPath: projectsRoot, agentId: 'builder' }));
+  const codex = await command({ operation: 'agent-create', input: { name: 'Project Codex', source: { kind: 'runtime', id: 'codex' } } });
+  defaults.save({ rootPath: projectsRoot, agentId: codex.created!.id });
+  check('native project root and Codex identity are persisted together', defaults.get().configured && defaults.get().agentId === codex.created!.id
+    && new ProjectDefaultsService(store).get().rootPath === realpathSync.native(projectsRoot));
+  const namedContext = context(); const namedCommand: MobileAdminCommand = { operation: 'project-create', input: { name: 'Garten Planer' } };
+  const named = await command(namedCommand, namedContext);
+  const namedRepository = store.get().repositories.find((item) => item.id === named.created!.id)!;
+  check('configured root creates the named permanent repository', namedRepository.rootPath === realpathSync.native(join(projectsRoot, 'garten-planer'))
+    && git(namedRepository.rootPath, ['branch', '--show-current']) === 'main');
+  check('lost named-project reply recovers the same repository', (await command(namedCommand, namedContext)).created?.id === named.created!.id);
+  writeFileSync(join(namedRepository.rootPath, 'keep.txt'), 'keep my work');
+  await refuses('existing project folder is never overwritten', () => command(namedCommand), 'command_rejected');
+  check('collision preserves existing untracked files', readFileSync(join(namedRepository.rootPath, 'keep.txt'), 'utf8') === 'keep my work');
+  for (const name of ['../escape', 'a/b', 'a\\b', 'CON', 'nul', '..']) {
+    await refuses('unsafe or reserved project directory name is refused', () => command({ operation: 'project-create', input: { name } }), 'command_rejected');
+  }
+  const wire = JSON.stringify(app.catalog());
+  check('mobile project defaults disclose no root path or filesystem identity', wire.includes('projectStart') && !wire.includes('personal-repos')
+    && !wire.includes('rootIdentity') && app.catalog().projectStart?.agentId === codex.created!.id);
+  const moved = join(root, 'preserved-repos'); renameSync(projectsRoot, moved); mkdirSync(projectsRoot);
+  await refuses('replaced root directory fails closed even at the same path', () => command({ operation: 'project-create', input: { name: 'Refused root' } }), 'command_rejected');
+  const link = join(root, 'project-root-link'); symlinkSync(projectsRoot, link, process.platform === 'win32' ? 'junction' : 'dir');
+  await refuses('linked project root cannot be saved', () => defaults.save({ rootPath: link, agentId: null }));
+  defaults.save({ rootPath: projectsRoot, agentId: codex.created!.id });
+  check('explicit root reselection restores successful project creation', !!(await command({ operation: 'project-create', input: { name: 'Final Named Project' } })).created?.id);
 })().catch((error) => { failed++; console.error(error); }).finally(() => {
   if (dirname(resolve(root)) !== resolve(tmpdir())) throw new Error('unexpected fixture root');
   rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

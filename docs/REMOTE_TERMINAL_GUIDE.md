@@ -1,5 +1,11 @@
 # Workspace und Terminal am Tablet freigeben
 
+Der neue Einstieg **Neues Projekt → Mit Codex starten** und **Weiterarbeiten**
+verwendet einen einmal am PC konfigurierten Projekt-Stammordner. Einrichtung und
+Recovery: [TABLET_PROJECT_START.md](TABLET_PROJECT_START.md). Terminal- und
+Auftragsentwürfe bleiben damit über Seitenneuladen erhalten; Datei-/Profilentwürfe
+unterliegen weiterhin den unten beschriebenen Grenzen.
+
 Am Heim-PC zuerst laufende Aufgaben abschliessen und ADE vollständig beenden
 (bei Tray-Betrieb dort **Beenden** wählen). Im ADE-Repository den neuen Stand
 mit `git pull --ff-only` laden, dann `pnpm install --frozen-lockfile` und

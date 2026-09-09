@@ -1,0 +1,12 @@
+.runtime-model-picker { margin: 12px 0 20px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.runtime-model-picker .field { margin-bottom: 8px; }
+.runtime-model-picker select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.runtime-model-status { color: var(--muted); font-size: 11px; line-height: 1.6; margin-bottom: 8px; overflow-wrap: anywhere; }
+.runtime-model-status span { display: block; }
+.runtime-model-picker .runtime-model-effort { margin-top: 14px; }
+.runtime-model-manual { margin-top: 12px; font-size: 12px; }
+.runtime-model-manual summary { cursor: pointer; padding: 6px 0; }
+.runtime-model-manual label { display: block; margin: 8px 0; }
+.runtime-model-manual > div { display: flex; gap: 8px; }
+.runtime-model-manual input { width: 100%; min-width: 0; }
+@media (max-width: 500px) { .runtime-model-manual > div { flex-direction: column; } }

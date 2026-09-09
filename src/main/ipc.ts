@@ -47,6 +47,7 @@ import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
 import { BackendWorkspaceFs } from './execution/BackendWorkspaceFs';
 import { PublicationService } from './publishing/PublicationService';
 import { HarnessCredentialService } from './settings/HarnessCredentialService';
+import { RuntimeModelService } from './settings/RuntimeModelService';
 import { RepositoryInspectorService } from './repositories/RepositoryInspectorService';
 import { RepositorySyncService } from './repositories/RepositorySyncService';
 import { DashboardWindows } from './dashboard/DashboardWindows';
@@ -56,6 +57,7 @@ import { HostOperationGate } from './application/HostOperationGate';
 import { HostRestartController } from './application/HostRestartController';
 import { RemoteCommandLedger } from './application/RemoteCommandLedger';
 import { RemoteWorkspaceService } from './application/RemoteWorkspaceService';
+import { ProjectDefaultsService } from './settings/ProjectDefaultsService';
 import { RemoteWorkbenchService } from './application/RemoteWorkbenchService';
 import { RemoteTerminalService } from './application/RemoteTerminalService';
 import { RemoteProfileService } from './application/RemoteProfileService';
@@ -245,6 +247,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
+  const runtimeModels = new RuntimeModelService(harnessCredentials);
+  handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
   const hostApiConfig = consumeHostApiConfig(process.env);
   const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), {
@@ -409,6 +413,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   // tell an empty catalog apart from a quarantined one.
   handle(IPC.ConfigHealth, () => ({ loadFailure: store.getLoadFailure(), importRecoveryFailure }));
   handle(IPC.ConfigSave, (partial) => store.save(partial));
+  const projectDefaults = new ProjectDefaultsService(store);
+  handle(IPC.ProjectDefaultsGet, () => projectDefaults.get());
+  handle(IPC.ProjectDefaultsSave, (input) => projectDefaults.save(input));
 
   handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {
     const e2eFixture = join(app.getPath('userData'), 'portable-e2e-workspace.json');

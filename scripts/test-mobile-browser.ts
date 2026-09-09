@@ -99,7 +99,7 @@ void (async () => {
   await page.getByRole('tab', { name: 'Work', exact: true }).click();
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
-  check('view and theme changes preserve a private in-memory draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Complete the deterministic mobile fixture task.');
+  check('view and theme changes preserve the device draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Complete the deterministic mobile fixture task.');
   check('navigation and appearance changes retain the same event stream and identity', streams === navigationStreams && fixture.devices.inventory().devices.length === 1);
   proxy.loseTaskReplies(true);
   await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
@@ -143,6 +143,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click(); await connected();
   check('host restart renews session using persisted device proof', fixture.devices.inventory().devices.length === 1);
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  check('task draft survives offline reload and host reconnection', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Preserve this offline draft.');
   await page.getByLabel('Aufgabe', { exact: true }).fill('Preserve this unsent draft while cancelling a different run.');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Run Phone task', exact: true }).click();
@@ -226,10 +227,12 @@ void (async () => {
   check('final positive control re-pairs and reconnects after revocation', fixture.devices.activeDevices().length === 1);
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
-  check('browser storage contains only appearance preferences, not private drafts', await page.evaluate(() => Object.keys(localStorage).every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key))));
-  check('ordinary views use only signed catalog/run/host and explicit workspace reads', endpoints.every((path) =>
+  check('browser storage is scoped to the new device and contains no revoked draft', await page.evaluate((id) => Object.keys(localStorage)
+    .every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key) || key.startsWith(`ade-work:${id}:`))
+    && !JSON.stringify(localStorage).includes('An uncertain request must never cross a revoked device identity.'), fixture.devices.activeDevices()[0]!.id));
+  check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
-    || path === '/api/v1/workspace/query'));
+    || path === '/api/v1/workspace/query' || path === '/api/v1/terminal/sessions'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'browser-failure.png'), fullPage: true }).catch(() => undefined); })

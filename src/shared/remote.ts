@@ -69,6 +69,7 @@ export interface MobileAgentProfile { agent: MobileAgentSummary; revision: strin
 export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null }
 
 export interface MobileCatalog {
+  projectStart?: { configured: boolean; agentId?: string };
   repositories: MobileRepositorySummary[];
   agents: MobileAgentSummary[];
   categories?: Array<{ id: string; name: string }>;
@@ -108,6 +109,8 @@ export interface SessionLaunchOptions {
 export interface MobileTerminalSummary {
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
 }
+export interface MobileRecentSession extends MobileTerminalSummary, MobileWorkspaceSelection { createdAt: number }
+export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
 export interface MobileTerminalState {
   launchOptions?: SessionLaunchOptions;
   terminals: MobileTerminalSummary[];

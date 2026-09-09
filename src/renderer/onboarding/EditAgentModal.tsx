@@ -26,8 +26,9 @@ import { useAppData } from '../stores/appdata';
 import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
+import { RuntimeModelPicker } from './RuntimeModelPicker';
 import {
-  AGENT_PERMISSION_MODES, AGENT_RUNTIMES, CODEX_REASONING_EFFORTS, GROK_REASONING_EFFORTS,
+  AGENT_PERMISSION_MODES, AGENT_RUNTIMES,
 } from './agentOptions';
 
 interface EditAgentModalProps {
@@ -47,6 +48,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [runtime, setRuntime] = useState<RuntimeId>(agent.runtime);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(agent.permissionMode);
   const [ollamaModel, setOllamaModel] = useState(agent.ollamaModel ?? '');
+  const [claudeModel, setClaudeModel] = useState(agent.claudeModel ?? '');
   const [codexModel, setCodexModel] = useState(agent.codexModel ?? DEFAULT_CODEX_MODEL);
   const [codexReasoningEffort, setCodexReasoningEffort] = useState<CodexReasoningEffort>(
     agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT,
@@ -78,6 +80,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     permissionMode,
     customCommand: undefined,
     ollamaModel: runtime === 'ollama' ? ollamaModel.trim() || undefined : undefined,
+    claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
     codexModel: runtime === 'codex' ? codexModel.trim() || DEFAULT_CODEX_MODEL : undefined,
     codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
     grokModel: runtime === 'grok' ? grokModel.trim() || DEFAULT_GROK_MODEL : undefined,
@@ -100,6 +103,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const commandPlaceholder = defaultCommand.trim().length > 0 ? defaultCommand : 'default shell';
   const homeIsWsl = homeBackend !== NATIVE_EXECUTION_BACKEND;
   const homeDirValid = !homeIsWsl || homeDir.trim().replace(/\\/g, '/').startsWith('/');
+  const modelBackend = repositories.find((repository) => repository.id === defaultRepositoryId)?.executionBackend ?? homeBackend;
   const canSave = name.trim().length > 0 && homeDirValid && !busy;
   // A stored distro stays selectable even when `wsl --list` no longer knows it.
   const homeBackendOptions: Array<{ backend: ExecutionBackendId; label: string }> = [
@@ -126,6 +130,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
+        claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
         codexReasoningEffort: runtime === 'codex' ? codexReasoningEffort : undefined,
         grokModel: runtime === 'grok' && grokModel.trim() ? grokModel.trim() : undefined,
@@ -205,83 +210,16 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         </select>
       </div>
 
-      {runtime === 'ollama' ? (
-        <div className="field">
-          <label htmlFor="edit-agent-model">MODEL</label>
-          <input
-            id="edit-agent-model"
-            type="text"
-            value={ollamaModel}
-            autoComplete="off"
-            placeholder="e.g. llama3.3"
-            onChange={(e) => setOllamaModel(e.target.value)}
-          />
-        </div>
-      ) : null}
-
-      {runtime === 'codex' ? (
-        <div className="codex-profile-grid">
-          <div className="field">
-            <label htmlFor="edit-agent-codex-model">CODEX MODEL</label>
-            <input
-              id="edit-agent-codex-model"
-              type="text"
-              value={codexModel}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={DEFAULT_CODEX_MODEL}
-              onChange={(event) => setCodexModel(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="edit-agent-codex-reasoning">REASONING EFFORT</label>
-            <select
-              id="edit-agent-codex-reasoning"
-              value={codexReasoningEffort}
-              onChange={(event) => setCodexReasoningEffort(event.target.value as CodexReasoningEffort)}
-            >
-              {CODEX_REASONING_EFFORTS.map((effort) => (
-                <option key={effort.id} value={effort.id}>{effort.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="repo-hint codex-profile-hint">
-            Applied to interactive terminals and managed tasks. Extra high is recommended for the main orchestrator.
-          </div>
-        </div>
-      ) : null}
-
-      {runtime === 'grok' ? (
-        <div className="codex-profile-grid">
-          <div className="field">
-            <label htmlFor="edit-agent-grok-model">GROK MODEL</label>
-            <input
-              id="edit-agent-grok-model"
-              type="text"
-              value={grokModel}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={DEFAULT_GROK_MODEL}
-              onChange={(event) => setGrokModel(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="edit-agent-grok-reasoning">REASONING EFFORT</label>
-            <select
-              id="edit-agent-grok-reasoning"
-              value={grokReasoningEffort}
-              onChange={(event) => setGrokReasoningEffort(event.target.value as GrokReasoningEffort)}
-            >
-              {GROK_REASONING_EFFORTS.map((effort) => (
-                <option key={effort.id} value={effort.id}>{effort.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="repo-hint codex-profile-hint">
-            Applied to interactive Grok Build terminals. Extra high is recommended for the main orchestrator.
-          </div>
-        </div>
-      ) : null}
+      {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
+        key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
+        id={`edit-agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}
+        value={runtime === 'codex' ? codexModel : runtime === 'grok' ? grokModel : runtime === 'claude' ? claudeModel : ollamaModel}
+        onChange={runtime === 'codex' ? setCodexModel : runtime === 'grok' ? setGrokModel : runtime === 'claude' ? setClaudeModel : setOllamaModel}
+        effort={runtime === 'codex' ? codexReasoningEffort : runtime === 'grok' ? grokReasoningEffort : undefined}
+        onEffortChange={runtime === 'codex' ? setCodexReasoningEffort : runtime === 'grok' ? (value) => setGrokReasoningEffort(value as GrokReasoningEffort) : undefined}
+        newProfile={false}
+      />}
+      {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
 
       <div className="field">
         <label htmlFor="edit-agent-perm">PERMISSION MODE</label>

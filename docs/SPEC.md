@@ -4,6 +4,24 @@ Status: v0.14 (remote workspace tools and explicitly granted terminals implement
 native Windows automation and physical-device acceptance tracked separately, 2026-09-08)
 Owner: Adi. This document is the source of truth for coding agents.
 
+Dynamic model selection (2026-09-09): New Agent and Agent Settings load dropdowns
+from installed Codex, Grok, Claude and Ollama CLIs in the selected environment.
+Refresh, useful loading/error states and preserved unconfirmed saved choices
+replace the default text-only model fields. Claude selection is persisted and
+passed to session launch; Codex effort choices follow model capabilities.
+Contract and executable evidence: `RUNTIME_MODEL_SELECTION.md`.
+
+Tablet project entry (2026-09-09): Overview offers **Neues Projekt** and
+**Weiterarbeiten**. The PC owns the native project parent and optional Codex
+profile; the tablet supplies a name, starts a fresh local Git project/worktree
+and opens Codex through the existing terminal grant. Creation progresses through
+confirmed, recoverable steps. Existing work remains intact on launch failure.
+The tablet workspace fills the visual viewport with a project rail on wide
+screens, a terminal composer and existing files/changes views. Drafts and pending
+commands survive reload on the paired device; connection recovery never submits
+work automatically. See `TABLET_PROJECT_START.md` for bounds and operator setup,
+and `TABLET_PROJECT_START_RESULTS.md` for executable evidence.
+
 Desktop Git workflow: Graph and the repository inspector expose **Git-Abgleich**;
 New Run exposes the same preflight panel. The user chooses a local/origin basis,
 compares each worktree, explicitly fetches remote state and confirms one exact
@@ -304,8 +322,10 @@ mutations require idempotency keys and audit. Activation instructions:
   `ade_` title bar, Overview/Work/Graph navigation, agent/project inventory,
   searchable runs, team nodes and a tablet side inspector or phone detail dialog.
   New task/run dialogs preserve unsent drafts across view/theme changes. One
-  connection remains mounted across views; localStorage holds appearance/view
-  preferences only. No new remote endpoint or privilege is introduced.
+  connection remains mounted across views. This original slice stored only
+  appearance/view preferences; the later tablet project-start slice additionally
+  persists bounded device drafts and pending work keys. Goals 8.6–8.9 themselves
+  introduced no new remote endpoint or privilege.
   The prior host keeps serving its loaded UI until the user's next normal restart.
   Acceptance: `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`.
 - The service worker caches only the versioned application shell. Credentials,
@@ -421,7 +441,9 @@ restarts ADE only and does not install updates or restart Windows.
 
 Goals 13–15 add bounded creation of agents from host-configured settings,
 ADE-owned projects and isolated agent workspaces, previewed Git synchronization,
-and project/agent filtering with independent in-memory drafts. Acceptance and
+and project/agent filtering with independent drafts. The tablet project-start
+delivery later adds device-scoped draft persistence across reloads; see
+`TABLET_PROJECT_START.md`. Original acceptance and
 current delivery state: `REMOTE_WORKSPACE_GOALS.md`; executable evidence:
 `REMOTE_WORKSPACE_RESULTS.md`. These are not arbitrary filesystem/config/shell
 access, automatic Git reset/push or the separate Goal 9 approval contract.

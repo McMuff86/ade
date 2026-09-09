@@ -1,5 +1,40 @@
 # Handoff — 2026-09-08
 
+## Dynamische Modellauswahl — 2026-09-09
+
+Adi hat am PC das statische Modell-Textfeld im New-Agent-Dialog gemeldet und eine
+Auswahl der tatsächlich gemeldeten Modelle für Codex, Grok und Claude beauftragt.
+Implementiert: CLI-Kataloge, Auswahl/Aktualisieren, Status und Recovery sowie ein
+durchgehend gespeichertes Claude-Modell. Vollständiges natives Windows
+`pnpm verify` erfolgreich: **2.026 Checks**, drei TypeScript-Projekte und
+Production-Build. Details und Prüflog in `RUNTIME_MODEL_SELECTION.md`.
+Live-Metadatenabfragen ohne Prompt lieferten bei den installierten CLIs sechs
+Codex-, zwei Grok- und fünf Claude-Einträge. Die laufende persönliche ADE-Instanz
+wurde dafür nicht neu gestartet; zum Aktivieren ADE vollständig schliessen und
+neu starten, dann New agent oder Agent settings öffnen.
+
+Die daneben gemeldete Tablet-Verbindung wurde geprüft: Tailscale-PC und Galaxy
+online, direkter Tablet-Ping erfolgreich, private HTTPS-Seite und JS/CSS jeweils
+HTTP 200, nicht authentifizierter API-Aufruf erwartungsgemäss 401. Der umbenannte
+Geräteeintrag ist aktiv; Rename ändert weder ID noch Schlüssel. Der konkrete
+Chrome-Fehler auf dem Tablet ist noch nicht bekannt. Keine erneute Kopplung oder
+Änderung der Tailscale-Freigabe wurde vorgenommen.
+
+## Tablet-Projektstart — 2026-09-09
+
+Beauftragt: Projekt-Stammordner am PC, „Neues Projekt → Mit Codex starten“,
+„Weiterarbeiten“ und eine für das Galaxy-Tablet/Chrome angepasste Arbeitsansicht.
+Implementiert und unter nativem Windows vollständig geprüft: `pnpm verify` mit
+**1.972 erfolgreichen Checks**, drei TypeScript-Projekten und Production-Build.
+`TABLET_PROJECT_START.md` beschreibt Einrichtung, Grenzen und Recovery,
+`TABLET_PROJECT_START_RESULTS.md` die Messungen. Persönliche Host-Konfiguration
+und laufende Sitzungen wurden durch die isolierten Tests nicht geändert.
+Am Heim-PC den neuen Build aktivieren, ADE neu starten, den Projekt-Stammordner
+und optional das Codex-Profil unter Settings → Neue Projekte vom Tablet speichern,
+Gerätefreigaben prüfen und Mobile neu laden. Die reale Galaxy-/Chrome-Abnahme mit
+Bildschirmtastatur und Displaysperre bleibt offen; die Tests nutzen eine
+kontrollierte Codex-CLI ohne echten Modellaufruf.
+
 ## Goals 20–21 — Eigener Workspace und Sitzungsauswahl
 
 Adi hat das bisherige Remote-Update laut eigener Aussage am Heim-PC geladen.

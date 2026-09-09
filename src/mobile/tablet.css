@@ -1,0 +1,48 @@
+/* Project work uses Chrome's visible screen, including with the keyboard open. */
+.m-continue { padding: 24px 28px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.m-continue-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.m-continue-heading h2 { font-size: 20px; margin: 0; }.m-continue p { color: var(--muted); font-size: 12px; }
+.m-session-cards { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
+.m-session-cards button { display: grid; text-align: left; gap: 8px; width: 100%; min-height: 110px; padding: 16px; overflow-wrap: anywhere; }
+.m-session-cards span, .m-session-cards small { color: var(--muted); font-size: 12px; }
+.m-project-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.m-project-start form { display: grid; gap: 16px; }.m-project-start p { line-height: 1.6; }
+.m-project-rail { display: none; }
+.m-agent-workspace { position: fixed; inset: var(--tablet-top, 0px) 0 auto; margin: 0; width: 100%; max-width: none;
+  height: var(--tablet-height, 100dvh); max-height: var(--tablet-height, 100dvh); border-radius: 0; display: flex; flex-direction: column; padding: 0 20px 12px; }
+.m-agent-workspace > .m-dialog-head { flex: none; margin-bottom: 10px; }
+.m-tablet-workbench { flex: 1; min-height: 0; display: flex; gap: 20px; }
+.m-tablet-workbench-main { flex: 1; min-width: 0; overflow: auto; }
+.m-terminal-workspace .m-tablet-workbench-main { display: flex; flex-direction: column; overflow: hidden; }
+.m-terminal-workspace .m-workspace-controls { flex: none; }
+.m-terminal-workspace .m-tablet-workbench-main > p { margin: 4px 0; font-size: 11px; }
+.m-terminal-slot:not([hidden]) { flex: 1; min-height: 0; display: flex; }
+.m-terminal-slot[hidden] { display: none; }
+.m-remote-terminal { width: 100%; display: flex; flex-direction: column; min-height: 0; }
+.m-terminal-tools { overflow: auto; flex: 0 1 auto; max-height: 42%; min-height: 55px; }
+.m-terminal-tools p { font-size: 11px; margin: 4px 0; }.m-terminal-tools summary { cursor: pointer; padding: 12px 4px; }
+.m-terminal-tools .m-management-actions { margin: 5px 0; }
+.m-terminal-screen { flex: 1 1 120px; min-height: 50px; max-height: none; margin: 8px 0; white-space: pre; }
+.m-terminal-composer { flex: none; background: var(--raised); padding-bottom: env(safe-area-inset-bottom); }
+.m-terminal-composer form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.m-terminal-composer textarea { min-height: 54px; max-height: 120px; resize: vertical; font-size: 16px; }
+.m-terminal-composer .m-management-actions { margin: 4px 0; gap: 4px; }.m-terminal-composer .m-management-actions button { min-width: 44px; min-height: 40px; }
+.m-terminal-composer .m-field-note { font-size: 10px; margin: 2px 0; }
+.m-remote-terminal > .m-field-note { font-size: 10px; margin: 3px 0; flex: none; }
+@media (min-width: 1000px) {
+  .m-project-rail { display: block; width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 16px; overflow: auto; }
+  .m-project-rail button { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
+  .m-project-rail button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); }
+}
+@media (max-width: 699px) {
+  .m-continue { padding: 18px; }.m-continue-heading { align-items: flex-start; }
+  .m-agent-workspace { padding: 0 10px 6px; }.m-tablet-workbench { gap: 0; }
+  .m-terminal-composer form { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (max-height: 550px) {
+  .m-terminal-workspace > .m-dialog-head { padding: 4px 0; margin: 0; }
+  .m-terminal-workspace .m-workspace-controls { display: none; }
+  .m-terminal-workspace .m-tablet-workbench-main > p, .m-terminal-tools > p, .m-remote-terminal > .m-field-note { display: none; }
+  .m-terminal-tools { max-height: 25%; }.m-terminal-composer textarea { height: 50px; min-height: 44px; }
+  .m-terminal-composer .m-field-note { display: none; }
+}

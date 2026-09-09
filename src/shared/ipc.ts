@@ -63,6 +63,8 @@ import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspa
 /** Invoke channels (renderer -> main via ipcRenderer.invoke). */
 export const IPC = {
   ConfigGet: 'config:get',
+  ProjectDefaultsGet: 'projectDefaults:get',
+  ProjectDefaultsSave: 'projectDefaults:save',
   ConfigHealth: 'config:health',
   RemoteDevicesList: 'remoteDevices:list',
   MobileAccessStatus: 'mobileAccess:status',
@@ -101,6 +103,7 @@ export const IPC = {
   RepositoryPullRequests: 'repository:pullRequests',
   RepositoryPullRequestChecks: 'repository:pullRequestChecks',
   RepositoryCommitDiff: 'repository:commitDiff',
+  HarnessModels: 'harness:models',
   HarnessStatus: 'harness:status',
   HarnessSetKey: 'harness:setKey',
   HarnessClearKey: 'harness:clearKey',
@@ -611,6 +614,8 @@ export interface WorkspaceBundleExportResult {
  */
 export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
+  'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
+  'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };
   'config:health': { req: void; res: ConfigHealth };
   'remoteDevices:list': { req: void; res: RemoteDeviceInventory };
   'mobileAccess:status': { req: void; res: MobileAccessStatus };
@@ -667,6 +672,7 @@ export interface IpcInvokeMap {
     res: RepositoryPullRequestChecksResult;
   };
   'repository:commitDiff': { req: RepositoryCommitDiffRequest; res: RepositoryCommitDiff };
+  'harness:models': { req: import('./runtimeModels').RuntimeModelRequest; res: import('./runtimeModels').RuntimeModelCatalog };
   'harness:status': { req: void; res: HarnessStatusResult };
   'harness:setKey': { req: HarnessSetKeyRequest; res: void };
   'harness:clearKey': { req: HarnessClearKeyRequest; res: void };

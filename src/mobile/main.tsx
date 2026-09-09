@@ -8,12 +8,17 @@ import { RunInspector } from './RunInspector';
 import { HostRestartSection } from './HostRestartSection';
 import { RemoteManager, useRemoteAdministration } from './RemoteManager';
 import { AgentWorkspace } from './AgentWorkspace';
+import { ContinueWork } from './ContinueWork';
+import { ProjectStart } from './ProjectStart';
+import { useDeviceDraft } from './deviceDrafts';
+import { useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
 import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkComposer';
 import '../renderer/theme/tokens.css';
 import './mobile.css';
+import './tablet.css';
 
 function preference(key: string, fallback: string): string { try { return localStorage.getItem(`ade-mobile-${key}`) ?? fallback; } catch { return fallback; } }
 function savePreference(key: string, value: string): void { try { localStorage.setItem(`ade-mobile-${key}`, value); } catch { /* Appearance remains available without storage. */ } }
@@ -28,12 +33,20 @@ function MobileApp(): JSX.Element {
   const fileDrafts = useFileDrafts(host.identityVersion);
   const profileDrafts = useProfileDrafts(host.identityVersion);
   const [management, setManagement] = useState(false);
-  const [workspaceAgent, setWorkspaceAgent] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
+  const [projectStart, setProjectStart] = useState(false);
+  useTabletViewport();
+  const openAgent = (agentId: string) => setWorkspace({ agentId, repositoryId: projectFilter || host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null });
+  const openProject = (repositoryId: string) => {
+    const agentId = host.catalog?.agents.find((agent) => agent.id === host.catalog?.projectStart?.agentId)?.id
+      ?? host.catalog?.agents.find((agent) => agent.defaultRepositoryId === repositoryId)?.id ?? host.catalog?.agents[0]?.id;
+    if (agentId) setWorkspace({ agentId, repositoryId, tab: 'terminal' }); else setManagement(true);
+  };
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
   const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' ? value : 'overview'; });
-  const [draftState, setDraftState] = useState(() => initialProjectDraft(emptyDraft()));
+  const [draftState, setDraftState, draftsDurable] = useDeviceDraft(host.deviceId, 'task-drafts', initialProjectDraft(emptyDraft()));
   const draft = draftState.drafts[draftState.active]!;
   const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
     updateProjectDraft(current, typeof value === 'function' ? value(current.drafts[current.active]!) : value));
@@ -49,7 +62,6 @@ function MobileApp(): JSX.Element {
   const [compact, setCompact] = useState(() => matchMedia('(max-width: 699px)').matches);
   const inspectorOpener = useRef<HTMLElement | null>(null);
   const previousIdentity = useRef(host.identityVersion);
-  useEffect(() => { setWorkspaceAgent(null); }, [host.identityVersion]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme; savePreference('theme', theme);
@@ -159,9 +171,11 @@ function MobileApp(): JSX.Element {
         <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} offene Runs in dieser Auswahl · Task-Slots gelten für alle Projekte.</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
-          {view === 'overview' ? <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={setWorkspaceAgent} onProject={(id) => newWork('task', undefined, id)} />
+          {view === 'overview' ? <><ContinueWork host={host} onNew={() => setProjectStart(true)} onProject={openProject}
+            onSession={(session) => setWorkspace({ agentId: session.agentId, repositoryId: session.repositoryId, terminalId: session.id, tab: 'terminal' })} />
+            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onProject={(id) => newWork('task', undefined, id)} /></>
             : view === 'graph' ? <Graph run={graphRun} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
-              : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); setWorkspaceAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
+              : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
                   <label>Status<select aria-label="Status" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">Alle Runs</option><option value="open">Offene Runs</option><option value="finished">Beendete Runs</option></select></label></div>
                   {!host.catalog ? <p className="m-loading" role="status">Runs werden geladen…</p> : !filtered.length ? <Empty title={runs.length ? 'Keine passenden Runs' : 'Noch keine Runs'}><p>{runs.length ? 'Suche oder Statusfilter ändern.' : 'Starte eine Aufgabe oder bereite einen Managed Run vor.'}</p></Empty>
@@ -176,10 +190,14 @@ function MobileApp(): JSX.Element {
     {inspector && compact && !composer && !settings && !management && <Dialog title="Run-Details" onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}
     {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} />}
-    {workspaceAgent && host.paired && <AgentWorkspace key={`${host.identityVersion}:${workspaceAgent}`} host={host} agentId={workspaceAgent} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
-      initialRepositoryId={projectFilter || host.catalog?.agents.find((agent) => agent.id === workspaceAgent)?.defaultRepositoryId || ''}
-      onClose={() => setWorkspaceAgent(null)} onTask={(repositoryId) => { newWork('task', workspaceAgent, repositoryId); setWorkspaceAgent(null); }}
-      onManage={() => { setWorkspaceAgent(null); setManagement(true); }} />}
+    {host.paired && <ProjectStart key={host.deviceId} host={host} open={projectStart} onClose={() => setProjectStart(false)} onOpen={() => setProjectStart(true)}
+      onStarted={(session) => { setProjectStart(false); setWorkspace({ ...session, tab: 'terminal' }); }} />}
+    {!draftsDurable && <p role="status">Auftragsentwürfe bleiben nur in dieser geöffneten Seite; der Browser-Speicher ist nicht verfügbar.</p>}
+    {workspace && host.paired && host.catalog && <AgentWorkspace key={`${host.identityVersion}:${workspace.agentId}`} host={host} agentId={workspace.agentId} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
+      initialRepositoryId={workspace.repositoryId ?? ''} initialTab={workspace.tab} initialTerminalId={workspace.terminalId}
+      onNavigate={(repositoryId, tab) => setWorkspace((current) => current ? { agentId: current.agentId, repositoryId: repositoryId || null, tab } : null)}
+      onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
+      onManage={() => { setWorkspace(null); setManagement(true); }} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title"><section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />Dark</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />Light</label></div></section>
       <section className="m-settings-section"><h3>Verbindung</h3><p>Privat über Tailscale. PC eingeschaltet und ADE geöffnet lassen.</p><p>Als App nutzen: Im Browser „Zum Home-Bildschirm“ oder „App installieren“ wählen.</p>

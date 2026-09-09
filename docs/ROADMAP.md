@@ -1,5 +1,23 @@
 # ADE delivery roadmap
 
+## Dynamic runtime model selection — 2026-09-09
+
+Desktop creation/settings now query installed CLI catalogs, support explicit
+refresh/recovery and preserve saved choices. Claude models are carried through
+profiles, templates, bundles and launch. Final native Windows `pnpm verify`
+passed **2,026 checks**, all typechecks and the production build. Activation needs
+a full ADE restart; scope and evidence: `RUNTIME_MODEL_SELECTION.md`. Remote model-picker UX and
+additional platform/provider measurements remain separate follow-up work.
+
+## Tablet project start — 2026-09-09
+
+Current delivery: native project parent and Codex defaults, New Project → Codex,
+Continue Working, retained drafts and keyboard-aware tablet workspace. Contracts
+and acceptance: `TABLET_PROJECT_START.md`; final native Windows `pnpm verify`
+passed **1,972 checks**, all typechecks and the production build. Evidence:
+`TABLET_PROJECT_START_RESULTS.md`. Physical Galaxy/Chrome acceptance and host
+activation remain separate. Experiment promotion and app preview follow this slice.
+
 ## Projectless workspace and session choice — Goals 20–21 (2026-09-08)
 
 Implemented in order: **20** explicit native/WSL agent home with bounded remote

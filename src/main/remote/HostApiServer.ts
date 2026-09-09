@@ -57,6 +57,7 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
@@ -118,6 +119,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/profile/query': return { route: { kind: 'queryProfile' }, allow: ['POST'] };
     case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
     case '/api/v1/terminal/query': return { route: { kind: 'terminalQuery' }, allow: ['POST'] };
+    case '/api/v1/terminal/sessions': return { route: { kind: 'terminalSessions' }, allow: ['GET'] };
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
@@ -360,7 +362,7 @@ export class HostApiServer {
         }
       }
       let readPrincipal = bearer;
-      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host')) {
+      if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions')) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -396,6 +398,8 @@ export class HostApiServer {
           return;
         case 'host':
           writeJson(response, 200, this.application.hostState(readPrincipal!)); return;
+        case 'terminalSessions':
+          writeJson(response, 200, await this.application.remoteSessionInventory(readPrincipal!)); return;
         case 'restartHost':
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
         case 'administer':

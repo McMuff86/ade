@@ -140,7 +140,13 @@ void (async () => {
   await page.screenshot({ path: join(evidence, 'tablet-project-work.png'), fullPage: true });
   await page.setViewportSize({ width: 320, height: 568 });
   check('small phone project view has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  check('private drafts are not persisted in browser preferences', await page.evaluate(() => !JSON.stringify(localStorage).includes('Private draft')));
+  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByLabel('Aufgabe', { exact: true }).fill('Persistent project draft');
+  await page.reload(); await connected();
+  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  check('unsent project draft survives a real browser reload', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Persistent project draft');
+  check('draft content stays separate from appearance preferences', await page.evaluate(() => Object.keys(localStorage)
+    .filter((key) => key.startsWith('ade-mobile-')).every((key) => !localStorage.getItem(key)?.includes('Persistent project draft'))));
   check('remote workflow has no uncaught renderer errors', errors.length === 0);
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'workspace-browser-failure.png'), fullPage: true }).catch(() => undefined); })
   .finally(async () => {

@@ -44,6 +44,7 @@ void (async () => {
   const command = (payload: object, ctx = context()) => app.remoteTerminal(ctx, { ...selection, ...payload }, 'command');
   const query = async (terminalId?: string, ctx = context()) => app.remoteTerminal(ctx, { ...selection, ...(terminalId ? { terminalId } : {}) }, 'query') as Promise<MobileTerminalState>;
   await refuses('source-read permission cannot open terminal', () => command({ operation: 'open', mode: 'shell' }), 'scope_not_granted');
+  await refuses('session inventory requires the terminal grant', () => app.remoteSessionInventory(context().principal), 'scope_not_granted');
   devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control']);
   for (const payload of [{ operation: 'open', mode: 'shell', command: 'injected' }, { operation: 'open', mode: 'custom' },
     { operation: 'claim', terminalId: '../native-1' }, { operation: 'open', mode: 'shell', workspaceDir: root }]) {
@@ -83,6 +84,11 @@ void (async () => {
   devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control']);
   sessions.push({ ...sessions[0]!, id: 'managed', kind: 'task', runTaskId: 'task-1' }, { ...sessions[0]!, id: 'login', remoteAccessBlocked: true });
   check('managed tasks and credential-login sessions are absent from terminal inventory', (await query()).terminals.length === 1);
+  const inventory = await app.remoteSessionInventory(context().principal);
+  check('global session inventory includes only validated interactive workspaces', inventory.sessions.length === 1
+    && inventory.sessions[0]!.agentId === selection.agentId && inventory.sessions[0]!.repositoryId === repo && inventory.sessions[0]!.id === opened.terminalId);
+  check('session inventory never includes PTY ids, output, paths or control leases', !/native-1|workspaceDir|leaseId|screen|private/.test(JSON.stringify(inventory)) && starts === 1);
+  await refuses('bearer principal cannot inspect session inventory', () => app.remoteSessionInventory({ ...context().principal, kind: 'token', proof: 'bearer' } as unknown as ReturnType<typeof context>['principal']), 'device_proof_required');
   await refuses('raw managed PTY id cannot be attached', () => query('managed'), 'command_rejected');
   const screen = await remoteTerminalScreen(Buffer.from('abc\x1b[2K\rPS C:\\private\\workspace>\r\napi_key=sensitive\r\n'), 20, 10);
   check('control sequences and soft wraps cannot bypass screen redaction', !screen.includes('private') && !screen.includes('sensitive') && !screen.includes('\x1b'));
