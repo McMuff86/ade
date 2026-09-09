@@ -5,9 +5,11 @@
 The operator reported that tapping the CLI no longer opened the Samsung keyboard.
 The previous geometry tests set focus directly and could not establish physical
 keyboard activation. A completed-tap keyboard request and explicit Tastatur
-button are implemented; the focused driver passes **50 checks**. Full verification
-and deployment are pending. Desktop ownership remains
-explicitly recoverable through Eingabe übernehmen. See
+button are implemented; the focused driver passes **50 checks**. Full native
+Windows `pnpm verify` passed **2,148 checks**. Commit `02330e1` is pushed, rebuilt and deployed through the mobile
+listener at 18:45 without restarting ADE or Codex. Reload Chrome, then tap the
+CLI or Tastatur; if disabled, use Eingabe übernehmen first. Physical keyboard
+acceptance is still awaiting the operator. See
 `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md` for validation and deployment.
 
 ## Mobile keyboard layout — 2026-09-09

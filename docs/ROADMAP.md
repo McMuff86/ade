@@ -4,8 +4,10 @@
 
 Address the physical-device report after layout compaction: request the keyboard
 from a completed terminal tap, support reopening after dismissal and provide an
-explicit Tastatur button. Preserve editable-input and ownership gates. Validation
-and rollout are tracked in `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+explicit Tastatur button. Preserve editable-input and ownership gates. Native
+Windows `pnpm verify` passes **2,148 checks**, focused driver **50**. Commit
+`02330e1` is deployed; physical tablet acceptance remains open. Details are
+tracked in `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
 
 ## Mobile keyboard space — 2026-09-09
 

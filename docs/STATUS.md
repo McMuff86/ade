@@ -4,7 +4,10 @@ Mobile keyboard activation follow-up (2026-09-09): after the operator reported
 that CLI taps no longer opened the keyboard, completed touch activation and an
 explicit Tastatur button are implemented. The pre-fix browser control fails the
 new activation assertion as intended; the positive focused driver passes **50
-checks**, including seven activation controls. Full verification is pending. See
+checks**, including seven activation controls. Commit `02330e1` is pushed and
+rebuilt; the private mobile listener serves the matching bundle since 18:45.
+ADE and Codex remain running. Full native Windows `pnpm verify` passed **2,148
+checks**, zero failures. Physical Samsung acceptance remains open. See
 `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
 
 Mobile keyboard layout (2026-09-09): automatic visual-viewport compaction is

@@ -28,6 +28,24 @@ An earlier probe setup error was corrected and is not counted as negative
 evidence. The final positive `--assistant-only` driver passed **50 checks**, zero
 failures, including all **seven** new activation controls. All three TypeScript
 projects pass. Logs: `test-results/keyboard-activation-focused.log` and
-`test-results/keyboard-activation-typecheck.log`. Full verification and deployment
-are pending.
+`test-results/keyboard-activation-typecheck.log`.
+
+Final native Windows `pnpm verify` passed **2,148 checks**, all three TypeScript
+projects and the production build: 32 unit suites / 1,694 checks; Electron 185;
+Git sync 20; Mobile browser 57; Mobile Electron 15; restart 10; workspace browser
+24; workbench browser 25; terminal Electron 96; visual regression 22. No failures.
+Full log: `test-results/keyboard-activation-verify.log`.
+
+Commit `02330e1` was pushed to `origin/main`; `pnpm build` passed. At **18:45:44
+Europe/Zurich**, private HTTPS returned HTTP 200 with
+`/assets/index-CGSv-1PK.js`, matching the production build. Only the mobile
+listener was reloaded through the existing connection monitor. Other Tailscale
+Serve routes were compared and unchanged. ADE PID **64500** and Codex PID
+**69956** retained their original start times (17:04:21 / 17:08:52).
+Evidence: `test-results/keyboard-activation-deploy-build.log`,
+`test-results/keyboard-activation-reload.log` and
+`test-results/keyboard-activation-deployment.json`.
+
+Operator check: reload Chrome, tap the CLI or the Tastatur button; if input is
+disabled and owned by the PC, press Eingabe übernehmen before tapping again.
 The physical Samsung keyboard still needs acceptance after loading the fix.
