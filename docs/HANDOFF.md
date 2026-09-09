@@ -6,8 +6,10 @@ The operator's ended Hermes TUI conversation was found in its local profile
 history. Investigation reproduced a PC-side bottleneck: each input/query started
 three/four WSL validation helpers. A reused read-only worker now retains every
 fresh root check; input/display scheduling is shorter. Final native Windows verify
-passed **2,097 checks**, plus 9 WSL terminal and 19 root-probe controls. Deployment
-is pending. The real tablet also shows elevated LAN RTT; its active-screen test
+passed **2,097 checks**, plus 9 WSL terminal and 19 root-probe controls. Commit
+`72db520` is pushed, rebuilt and running since 15:30 Europe/Zurich (PID 52824,
+loopback 4317). Private HTTPS serves the matching Mobile bundle; reload Chrome.
+The real tablet also shows elevated LAN RTT; its active-screen test
 is outstanding. See `TERMINAL_LATENCY_RESULTS.md`. Personal session contents,
 configuration and provider history were only read, not altered.
 

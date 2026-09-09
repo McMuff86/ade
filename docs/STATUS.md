@@ -5,8 +5,10 @@ replaced by a bounded read-only worker with fresh identity/link checks; faster
 keyboard and display scheduling plus a PC response-time indicator are implemented.
 Final native Windows `pnpm verify`: **2,097 passed**, all three TypeScript projects
 and production build; additional WSL terminal driver: **9 passed**, root probe:
-**19 passed**. Local WSL keydown-to-echo: **70–72 ms**. Deployment is pending;
-physical tablet WLAN RTT remains elevated. See `TERMINAL_LATENCY_RESULTS.md`.
+**19 passed**. Local WSL keydown-to-echo: **70–72 ms**. Commit `72db520` is pushed;
+the personal host was rebuilt and restarted at 15:30 (PID 52824), with matching
+Mobile assets over private HTTPS. Physical tablet WLAN RTT remains elevated;
+active-screen acceptance is open. See `TERMINAL_LATENCY_RESULTS.md`.
 
 Assistant terminal/dashboard access and Overview refresh (2026-09-09): final
 native Windows `pnpm verify` passed **2,078 checks**, all three TypeScript projects

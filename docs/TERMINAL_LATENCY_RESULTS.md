@@ -48,7 +48,16 @@ The first full run exposed a revocation-display race. All query/command/input
 paths now clear terminal state on a revoked grant, and the final browser control
 waits for the actual scope error before checking the removed screen. It passes.
 
-Deployment is pending. Browser automation measures actual
+Commit `72db520` was pushed to `origin/main`, followed by a successful
+`pnpm build` and personal-host restart at 15:30 Europe/Zurich on 2026-09-09.
+The visible ADE window is PID **52824**, listening on **127.0.0.1:4317**. Private
+HTTPS returns **200** and serves the matching Mobile bundle
+`/assets/index-BnmQoibr.js`. The previous host had only Electron child processes;
+no active agent terminal was interrupted. Deployment logs:
+`test-results/terminal-latency-deployment-build.log` and
+`test-results/terminal-latency-start.log`. Reload the tablet page to activate it.
+
+Browser automation measures actual
 keydown to DOM-rendered real PTY acknowledgement, and requires less than 500 ms
 on the local test connection. This is distinct from the physical tablet's
 Tailscale route; the operator must repeat typing there after the updated build.
