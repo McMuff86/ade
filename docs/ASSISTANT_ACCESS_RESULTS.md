@@ -56,5 +56,15 @@ command and OpenClaw executable are present in the configured Ubuntu environment
 The new Overview distinguishes current inventory from historical work; it does
 not remove that catalog entry or delete any project directory.
 
-Operator deployment: source verification is complete; publication, final build
-and personal-host restart are the remaining release steps.
+Operator deployment: commit `38a1b65` was pushed to `origin/main`, then the final
+`pnpm build` passed and the personal host restarted at 13:00 Europe/Zurich on
+2026-09-09 (PID 61912, window `ade`). The previous process had only Electron
+children; no agent terminal was interrupted. The new listener owns
+`127.0.0.1:4317`. Private Tailscale HTTPS returns HTTP 200 and serves the expected
+`index-AwnVaBWP.js` Mobile bundle, with a terminal style nonce and no inline-script
+permission. Pairing, profiles, Tailscale configuration and project directories
+were preserved. Reload ADE in tablet Chrome to activate the new UI.
+
+Deployment logs: `test-results/assistant-access-published-build.log`,
+`test-results/assistant-access-published-start.stdout.log` and
+`test-results/assistant-access-published-start.stderr.log`.

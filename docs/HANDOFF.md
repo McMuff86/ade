@@ -4,8 +4,15 @@
 
 Direct assistant home terminals, separate Mobile dashboard tabs and Overview
 refresh/history controls pass native Windows `pnpm verify` (2,078 checks), plus
-6 Ubuntu/WSL home controls. Publication and personal-host restart follow this
-validated change. Scope and logs: `ASSISTANT_ACCESS_RESULTS.md`.
+6 Ubuntu/WSL home controls. Commit `38a1b65` was pushed to `origin/main`, then
+`pnpm build` passed and the personal ADE instance restarted at 13:00 Europe/Zurich
+(PID 61912). Its listener remains `127.0.0.1:4317`; private HTTPS returns HTTP 200
+with the matching Mobile bundle and the terminal style nonce. The previous
+instance had only Electron children, so no agent terminal was interrupted.
+Pairing, profiles, Tailscale settings and project folders were preserved.
+Reload ADE on the tablet to load the updated UI. `2D_rpg_jumpnrun` still has a
+catalog entry and one workspace binding; its card therefore remains until that
+current registration is removed. Scope and logs: `ASSISTANT_ACCESS_RESULTS.md`.
 
 ## Lokale Auslieferung und Start — 2026-09-09, 10:28 Europe/Zurich
 
