@@ -143,3 +143,24 @@ reale Produktmessungen bevorzugen isolierte ADE-Worktrees von RhinoClaw; der
 gewöhnliche Checkout, `main`, die installierte Skill und die laufende Rhino-
 Installation bleiben ohne gesonderten Auftrag unberührt. Automatisierte Tests
 verwenden synthetische lokale Repositories.
+
+
+## Ergebnis-Build gestartet — 2026-09-10, 00:41:57 Europe/Zurich
+
+- Produktänderung committed als `e07e00b`; feste Build-Kopie unter
+  `test-results/operator-release-e07e00b`, ADE PID 67208. Das Hauptfenster ist
+  sichtbar, Listener ausschliesslich `127.0.0.1:4317`. Tablet-Adresse HTTP 200,
+  neues Asset `index-DI8OuzYK.js`. Tailscale-Serve-Konfiguration bytegleich.
+- Vor dem Stopp von PID 26028 waren keine laufenden/queued Tasks oder aktiven
+  Runs vorhanden. Nur die geprüfte alte ADE-Instanz wurde beendet.
+- Operator-Config gesichert als
+  `%APPDATA%/ade/ade/config.json.before-run-inspection-e07e00b`. Ausschliesslich
+  die passende Abschlussantwort (2.092 Zeichen, Quelle `recovered-cli`) wurde
+  dem oben genannten beendeten Task hinzugefügt; alle anderen Config-Felder
+  wurden vor dem Schreiben auf Unverändertheit geprüft.
+- Neuer RunInspection-Service gegen den tatsächlichen Original-Workspace geprüft:
+  PNG 2.261.193 Bytes, XLSX 5.626 Bytes, Markdown 1.611 Bytes lesbar. Ergebnis:
+  `test-results/run-inspection-operator-probe.log`. Kein Modell erneut gestartet.
+- Auf dem Tablet Chrome neu laden, Work-Run/Graph-Agent öffnen und **Ergebnis**
+  oder **Dateien** wählen. Physischer Samsung-Test bleibt beim Nutzer.
+- T3b-Stash bleibt vollständig erhalten; T3b–T6 und der gemeinsame Push offen.
