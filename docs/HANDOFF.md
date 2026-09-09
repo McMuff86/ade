@@ -19,13 +19,30 @@ Das Tablet benötigt `workspace:read` und die neue explizite Freigabe
 Branches und profilfreie CLI-Sitzungen in diesem Workspace. Der frühere Einstieg
 ist unter „Agent-Arbeitskopie“ weiterhin erreichbar. Einzelne Task-Nachweise stehen
 im Goal-Dokument; die abschliessende Gesamtverifikation und der Push folgen T6.
-Es wurde keine persönliche ADE-Instanz neu gestartet.
+Bis zum unten genannten ausdrücklichen Zwischen-Neustart blieb die persönliche
+ADE-Instanz während aller Tests erhalten.
 
 Aktuelle Steuerung: Der Nutzer verlangt nun ausdrücklich Zwischencommit und
 Neustart zum Testen von T2b auf dem Tablet. T3a ist begonnen (Branch-Datentypen und
 interne Worktree-Übernahme), aber noch keine Branch-Operation freigegeben. Der
-Neustart wird nach Prüfung laufender Prozesse und einem Build durchgeführt; der
-abschliessende Push bleibt ausstehend. Der tatsächliche Neustartnachweis folgt.
+Neustart wurde nach Prüfung laufender Prozesse und einem Build durchgeführt; der
+abschliessende Push bleibt ausstehend.
+
+Zwischenstand `03175c4` läuft seit **9. September, 23:35:47 Europe/Zurich** in
+ADE PID **26028**, aus der festen Build-Kopie
+`test-results/operator-release-03175c4`. Diese Instanz liest ihre Assets aus dieser
+Kopie; weitere Entwicklungs-Builds ändern den Tablet-Teststand nicht. Der frühere
+ADE-Prozess 64500 hatte keine aktive CLI und keine aktiven Runs/Leases mehr, nur
+eine Shell der beendeten Claude-Sitzung; diese wurde beim angeforderten Neustart
+beendet. Die Konfiguration wurde vorher neben der Originaldatei gesichert.
+
+Private HTTPS liefert HTTP 200 mit `/assets/index-ByRvwC5J.js`, passend zum
+Build; der Listener auf 127.0.0.1:4317 gehört PID 26028. Tailscale-Serve-Routen
+sind unverändert. Das bestehende Gerät „Samsung Galaxy S10 Ultra“ ist weiterhin
+gekoppelt; die neue Freigabe `projects:write` wurde nicht automatisch hinzugefügt.
+Der Nutzer wurde auf den Haken „Projekt-Workspaces ohne Agent-Profil öffnen“ in
+Settings → Verbundene Geräte hingewiesen. Neustart-/Build-/Routennachweise:
+`test-results/project-checkpoint-*`. T3a/T3b und die Gesamtverifikation bleiben offen.
 
 - Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
 - Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).

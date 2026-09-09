@@ -152,3 +152,9 @@ Die neue Oberfläche zum Testen entspricht T2b. Der gemeinsame Push bleibt am En
 
 Zwischenprüfung: drei TypeScript-Projekte grün, 40 Workspace-/Branch-Vertragschecks
 und 26 Projekt-API-Checks grün. Logs: `test-results/project-checkpoint-*.log`.
+
+Build `03175c4` wurde auf ausdrücklichen Wunsch um 23:35:47 Europe/Zurich als
+separate feste Build-Kopie gestartet (PID 26028). Private Tablet-Adresse HTTP 200,
+korrektes neues JS-Asset, Tailscale-Routen unverändert. Die bestehende Kopplung
+bleibt erhalten; neue Projekt-Schreibfreigabe am PC noch explizit aktivieren.
+Details und unveränderte offene Tasks: [HANDOFF.md](HANDOFF.md).
