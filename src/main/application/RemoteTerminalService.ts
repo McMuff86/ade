@@ -12,6 +12,7 @@ import { remoteTerminalScreen } from './RemoteTerminalScreen';
 import type { MobileSessionInventory } from '../../shared/remote';
 
 export interface RemoteTerminalPort {
+  display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
   list(): SessionMeta[];
   create(agentId: string, repositoryId: string | null, bindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string): Promise<SessionMeta>;
   options?(selection: MobileWorkspaceSelection): Promise<SessionLaunchOptions>;
@@ -82,11 +83,11 @@ export class RemoteTerminalService {
     if (!input.terminalId) return { terminals, launchOptions };
     const entry = this.entries.get(input.terminalId); const session = sessions.find((item) => item.id === entry?.sessionId);
     if (!entry || !session || entry.workspaceVersion !== this.workbench.version(binding)) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
-    const replay = this.port.attach(entry!.sessionId);
-    const screen = await remoteTerminalScreen(Buffer.from(replay.replayBase64, 'base64'), entry!.cols, entry!.rows);
+    const display = this.port.display ? await this.port.display(entry!.sessionId)
+      : { screen: await remoteTerminalScreen(Buffer.from(this.port.attach(entry!.sessionId).replayBase64, 'base64'), entry!.cols, entry!.rows) };
     this.requireGrant(deviceId); await this.workbench.revalidate(binding); this.expire();
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
-    return { terminals, launchOptions, selected: this.summary(entry!, session!, deviceId), screen, cols: entry!.cols, rows: entry!.rows,
+    return { terminals, launchOptions, selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
 
@@ -198,6 +199,7 @@ export class RemoteTerminalService {
   }
   private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
+      launchMode: session.launchChoice?.mode ?? 'agent',
       owner: !entry.control ? 'desktop' : entry.control.deviceId === deviceId ? 'self' : 'other' };
   }
   private requireGrant(id: string): void { if (!this.allowed(id)) throw new RemoteApiError(403, 'scope_not_granted'); }

@@ -64,6 +64,7 @@ export interface MobileAgentSummary {
   defaultRepositoryId?: string;
   homeExecutionBackend?: ExecutionBackendId;
   photoVersion?: string;
+  dashboard?: { url?: string; notice?: string };
 }
 export interface MobileAgentProfile { agent: MobileAgentSummary; revision: string; photo?: { mime: 'image/png'; bytesBase64: string }; photoError?: string }
 export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null }
@@ -108,6 +109,7 @@ export interface SessionLaunchOptions {
 }
 export interface MobileTerminalSummary {
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
+  launchMode?: SessionLaunchChoice['mode'];
 }
 export interface MobileRecentSession extends MobileTerminalSummary, MobileWorkspaceSelection { createdAt: number }
 export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
@@ -116,12 +118,15 @@ export interface MobileTerminalState {
   terminals: MobileTerminalSummary[];
   selected?: MobileTerminalSummary;
   screen?: string;
+  frame?: MobileTerminalFrame;
   cols?: number;
   rows?: number;
   leaseId?: string;
   lastSequence?: number;
   inputUncertain?: boolean;
 }
+/** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
+export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
 export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string; options?: true };
 export type MobileTerminalCommand = MobileWorkspaceSelection & (
   | ({ operation: 'open' } & SessionLaunchChoice)

@@ -5,6 +5,7 @@ import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
 import { formatRelativeTime, formatTokenCount, formatCostUsd } from '../shared/overviewFormat';
 import { finalStates, Icon, reportedTokens, runKindLabel, Status } from './ui';
 import type { MobileRunSummary } from '../shared/remote';
+import { DashboardLink } from './DashboardLink';
 
 export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; selected: boolean; onSelect: () => void }): JSX.Element {
   return <button className="m-run-row" aria-pressed={selected} aria-label={`Run ${run.name}`} onClick={(event) => { event.currentTarget.focus(); onSelect(); }}>
@@ -14,7 +15,8 @@ export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; sel
   </button>;
 }
 
-export function Overview({ host, selected, onRun, onAgent, onProject }: { host: MobileHost; selected: string | null;
+export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal }: { host: MobileHost; selected: string | null;
+  onTerminal: (id: string) => void;
   onRun: (id: string) => void; onAgent: (id: string) => void; onProject: (id: string) => void;
 }): JSX.Element {
   const { catalog, runs, health } = host;
@@ -34,7 +36,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject }: { host: 
           return <li key={agent.id}><button className="m-agent-row" onClick={(event) => { event.currentTarget.focus(); onAgent(agent.id); }} aria-label={`Workspace für ${agent.name}`}>
             <MobileAvatar host={host} agent={agent} size={30} /><span className="m-agent-name"><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
             <span className="m-agent-role">{agent.role || 'Agent'}</span><span className="m-agent-repo">{repo?.name ?? 'portable'}</span><span className="m-row-action" aria-hidden="true">↗</span>
-          </button></li>;
+          </button><div className="m-agent-actions"><button disabled={host.status !== 'online'} aria-label={`Terminal öffnen: ${agent.name}`}
+            onClick={(event) => { event.currentTarget.focus(); onTerminal(agent.id); }}>Terminal öffnen / fortsetzen</button><DashboardLink agent={agent} /></div></li>;
         })}</ul>}
       </section>
       <section className="m-ledger" aria-labelledby="mobile-projects-title"><h2 id="mobile-projects-title">Projects <span>{catalog.repositories.length}</span></h2>

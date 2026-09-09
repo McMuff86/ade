@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { projectStartFlow } from './helpers/projectStartFlow';
+import { assistantAccessFlow } from './helpers/assistantAccessFlow';
 import { PNG } from 'pngjs';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
@@ -77,10 +78,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).check();
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
+  if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--assistant-only')) {
+    await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check); return;
+  }
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').filter({ hasText: 'läuft' }).waitFor({ state: 'attached' });
   const terminalId = await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').nth(1).getAttribute('value');
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).selectOption(terminalId!);
-  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).waitFor();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).last().waitFor();
   check('tablet attaches a real desktop-started configured session', true);
   await workspace.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
   await workspace.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
@@ -121,7 +126,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await page.screenshot({ path: join(evidence, 'terminal-phone.png') });
   await page.setViewportSize({ width: 1024, height: 768 });
   await workspace.getByRole('button', { name: 'Agent starten', exact: true }).click();
-  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).waitFor();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).last().waitFor();
   const agentTerminal = await workspace.getByLabel('Terminal-Sitzung', { exact: true }).inputValue();
   check('tablet starts the configured agent command in a new real PTY', agentTerminal !== shellId
     && (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === 3);
@@ -160,12 +165,12 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await workspace.getByLabel('Sitzung starten mit', { exact: true }).selectOption('ollama');
   await workspace.getByLabel('Ollama-Modell', { exact: true }).selectOption('fixture:large');
   await workspace.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
-  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_OLLAMA_READY run fixture:large', { exact: false }).waitFor();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_OLLAMA_READY run fixture:large', { exact: false }).last().waitFor();
   const ollamaSessions = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
   check('tablet starts selected Ollama model in real home PTY', ollamaSessions.some((s) => s.launchChoice?.mode === 'ollama' && s.launchChoice.model === 'fixture:large' && !s.repositoryId));
   await workspace.getByLabel('Sitzung starten mit', { exact: true }).selectOption('codex');
   await workspace.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
-  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_CODEX_READY', { exact: false }).waitFor();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_CODEX_READY', { exact: false }).last().waitFor();
   check('tablet starts fresh Codex without changing configured profile', (await desktop.evaluate(async (id) => (await window.ade.invoke('config:get')).agents.find((a) => a.id === id), setup.agent.id))?.customCommand === setup.agent.customCommand);
   await page.setViewportSize({ width: 390, height: 844 });
   check('phone launch controls fit and Git is disabled without project', await workspace.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)
@@ -196,14 +201,18 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   const profileStored = await desktop.evaluate(async (id) => (await window.ade.invoke('config:get')).agents.find((agent) => agent.id === id), setup.agent.id);
   check('shared profile keeps configured runtime while updating role', profileStored?.role === 'Tablet operator' && profileStored.customCommand === setup.agent.customCommand);
   await projectStartFlow(desktop, page, proxy, root, setup.agent.categoryId, evidence, check);
-  if (process.argv.includes('--wsl')) {
+  await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check);
+  }
+  if (process.argv.includes('--wsl') || process.argv.includes('--wsl-only')) {
     wslHome = `/tmp/ade-session-${randomUUID()}`;
+    if (!await grants.isVisible()) await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+    await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
     await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).check();
     await grants.getByRole('checkbox', { name: 'Kleine Workspace-Textdateien bearbeiten', exact: true }).check();
     await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
     const wslAgent = await desktop.evaluate(async ({ categoryId, home }) => {
       const a = await window.ade.invoke('agent:create', { categoryId, name: 'WSL Home Agent', runtime: 'custom', permissionMode: 'default', customCommand: "printf 'ADE_WSL_CONFIGURED_READY\\n'" });
-      return window.ade.invoke('agent:update', { id: a.id, name: a.name, runtime: a.runtime, permissionMode: a.permissionMode, customCommand: a.customCommand, homeExecutionBackend: 'wsl:Ubuntu-24.04', homeWorkspaceDir: home });
+      return window.ade.invoke('agent:update', { id: a.id, name: a.name, runtime: a.runtime, permissionMode: a.permissionMode, customCommand: a.customCommand, homeExecutionBackend: 'wsl:Ubuntu', homeWorkspaceDir: home });
     }, { categoryId: setup.agent.categoryId, home: wslHome });
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Workspace für WSL Home Agent', exact: true }).click();
@@ -214,13 +223,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await ws.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
     await ws.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
     await page.waitForFunction(() => /[$#]/.test(document.querySelector('.m-terminal-screen')?.textContent ?? ''), { timeout: 60_000 });
-    await ws.getByLabel('Terminal-Eingabe', { exact: true }).fill("printf 'ADE_WSL_HOME_READY\\n' > tablet-wsl.txt");
+    await ws.getByLabel('Terminal-Eingabe', { exact: true }).fill("printf 'ADE_WSL_HOME_READY\\n' > tablet-wsl.txt; printf '\\101DE_WSL_WRITE_DONE\\n'");
     await ws.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
+    await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_WRITE_DONE', { exact: false }).last().waitFor();
     await ws.getByRole('button', { name: 'Dateien', exact: true }).click();
     await ws.getByRole('button', { name: 'Workspace aktualisieren', exact: true }).click();
     await ws.getByRole('button', { name: 'tablet-wsl.txt', exact: true }).click();
     await ws.getByLabel('Dateivorschau', { exact: true }).getByText('ADE_WSL_HOME_READY', { exact: false }).waitFor();
-    check('real WSL PTY and tablet files share the configured home', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) => s.agentId === wslAgent.id && s.executionBackend === 'wsl:Ubuntu-24.04' && s.workspaceDir === wslHome));
+    check('real WSL PTY and tablet files share the configured home', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) => s.agentId === wslAgent.id && s.executionBackend === 'wsl:Ubuntu' && s.workspaceDir === wslHome));
     await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
     await ws.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
     await page.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
@@ -237,7 +247,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     check('tablet saves and reopens a real WSL home file', true);
     await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
     await ws.getByRole('button', { name: 'Agent starten', exact: true }).click();
-    await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_CONFIGURED_READY', { exact: false }).waitFor();
+    await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_CONFIGURED_READY', { exact: false }).last().waitFor();
     check('saved profile starts inside WSL home from tablet', true);
     await page.screenshot({ path: join(evidence, 'session-wsl-tablet.png') });
   }
@@ -250,7 +260,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   if (wslHome && /^\/tmp\/ade-session-[a-f0-9-]+$/.test(wslHome)) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await new ExecutionBackendService().checked('wsl:Ubuntu-24.04', 'python3', ['-I', '-c',
+        await new ExecutionBackendService().checked('wsl:Ubuntu', 'python3', ['-I', '-c',
           'import sys,json,shutil; shutil.rmtree(json.load(sys.stdin),ignore_errors=True)'], { input: JSON.stringify(wslHome) });
         break;
       } catch (error) {

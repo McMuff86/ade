@@ -81,9 +81,11 @@ Eingabe wird nicht automatisch wiederholt. **Eingabestatus prüfen** liest die
 Bestätigung vom PC. Bleibt sie unklar, Ausgabe prüfen und die Steuerung
 freigeben, bevor neue Eingaben erfolgen.
 
-Die erste Ausgabeansicht ist eine aus dem Terminalzustand erzeugte Textansicht
-mit begrenztem Verlauf. Bekannte Zugangsdaten und Host-Pfade werden redigiert;
-Farben, Mausbedienung und Dateiübertragung im Terminal sind nicht enthalten.
+Die Terminalanzeige zeigt Farben und Cursor; durch Antippen lässt sich direkt
+schreiben. Die zusätzliche Textansicht enthält einen begrenzten Verlauf.
+Bekannte Zugangsdaten und Host-Pfade werden redigiert. Mausreporting und
+Dateiübertragung im Terminal sind nicht enthalten. Direkter Agent-Einstieg und
+separater Dashboard-Tab: [ASSISTANT_ACCESS.md](ASSISTANT_ACCESS.md).
 Verwaltete Task-Sitzungen und Login-Sitzungen werden nicht interaktiv freigegeben.
 Dateien/Editor und Terminal im eigenen Ordner sind für Windows und Windows mit
 WSL-Backend vorgesehen; WSL benötigt Python 3. Remote-Git-Projektwerkzeuge bleiben

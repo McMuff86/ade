@@ -113,9 +113,12 @@ export function useMobileHost() {
       if (!document.hidden && navigator.onLine) void connect(); else setStatus('offline');
     };
     window.addEventListener('online', resume); window.addEventListener('offline', resume);
+    // Catalog changes need not append a run-journal event. Keep agent/project inventory fresh too.
+    const catalogTimer = setInterval(() => { if (!document.hidden) update(); }, 15_000);
     document.addEventListener('visibilitychange', resume); void connect();
     return () => {
       disposed = true; controller?.abort(); clearTimeout(timer); clearTimeout(refreshTimer);
+      clearInterval(catalogTimer);
       window.removeEventListener('online', resume); window.removeEventListener('offline', resume);
       document.removeEventListener('visibilitychange', resume);
     };
@@ -160,6 +163,7 @@ export function useMobileHost() {
     } catch (reason) { if (ownEpoch === epoch.current) await lostAccess(reason); throw reason; }
   }, [lostAccess]);
   return { deviceId, paired, status, catalog, health, runs, error, notice, busy, lastSeen, pending, identityVersion, send, pair, disconnect, request, refresh,
+    refreshNow: () => { void refresh().then(() => setError('')).catch((reason) => { setError(errorText(reason)); void lostAccess(reason); }); },
     canSubmit: status === 'online' && health?.commands === 'enabled' && !busy && !pending,
     reconnect: () => { setError(''); setGeneration((value) => value + 1); },
     dismissPending: () => { setPending(null); setNotice('Prüfe die Run-Liste, bevor du einen neuen Auftrag mit demselben Inhalt sendest.'); },

@@ -117,6 +117,12 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
  * effects) and — on failure — the redaction funnel, so a handler error never
  * carries backend stderr or a credential verbatim into the renderer.
  */
+const CATALOG_MUTATIONS = new Set<keyof IpcInvokeMap>([
+  'config:save', 'category:create', 'category:update', 'category:delete', 'category:reorder',
+  'agent:create', 'agent:update', 'agent:delete', 'agent:move', 'agent:setDefaultRepository',
+  'agentTemplate:create', 'agentTemplate:delete', 'agentTemplate:spawn', 'repository:import',
+  'workspace:removeBinding', 'workspaceBundle:apply',
+]);
 function handleWithEvent<K extends keyof IpcInvokeMap>(
   channel: K,
   handler: (
@@ -130,8 +136,10 @@ function handleWithEvent<K extends keyof IpcInvokeMap>(
     assertIpcPayload(channel, payload);
     if (policy.audit) console.log(`[ade] ipc ${channel} effect=${policy.effect}`);
     try {
-      return policy.effect === 'read' ? await handler(payload, event)
+      const result = policy.effect === 'read' ? await handler(payload, event)
         : await hostOperations.use(() => handler(payload, event), channel === IPC.RemoteDevicesRevoke || channel === IPC.RemoteDevicesSetAdminScopes);
+      if (CATALOG_MUTATIONS.has(channel)) broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() });
+      return result;
     } catch (error) {
       console.error(`[ade] ipc ${channel} failed:`, redactedErrorDetail(error));
       throw toIpcError(error);
@@ -289,6 +297,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     list: () => ptyManager?.list() ?? [],
     create: (agentId, repositoryId, bindingId, mode, model) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model),
     options: (selection) => ptyManager!.sessionOptions(selection),
+    display: (id) => ptyManager!.remoteDisplay(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),

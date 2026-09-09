@@ -1,7 +1,12 @@
 # ADE — Agentic Development Environment · Product Spec
 
-Status: v0.14 (remote workspace tools and explicitly granted terminals implemented;
-native Windows automation and physical-device acceptance tracked separately, 2026-09-08)
+Assistant access (2026-09-09): explicit home-terminal open/resume on desktop and
+Mobile; Mobile xterm display/direct keyboard input and separate private dashboard
+tabs; automatically refreshed Overview with current/history filters. Contracts and
+limits: `ASSISTANT_ACCESS.md`. Release evidence: `ASSISTANT_ACCESS_RESULTS.md`.
+
+Status: v0.15 (assistant terminals, separate dashboards and live Overview implemented;
+native Windows/WSL automation and physical-device acceptance tracked separately, 2026-09-09)
 Owner: Adi. This document is the source of truth for coding agents.
 
 Dynamic model selection (2026-09-09): New Agent and Agent Settings load dropdowns

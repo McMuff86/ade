@@ -1,5 +1,15 @@
 # ADE delivery roadmap
 
+## Assistant access and current Overview — 2026-09-09
+
+Validated: direct projectless profile terminals on desktop and
+Mobile, xterm display/direct keyboard, separate private Hermes/OpenClaw dashboard
+links, shared New Project toolbar entry and automatically refreshed Overview with
+historical context markers. Native Windows verify: 2,078 passed; additional
+Ubuntu/WSL home controls: 6 passed. See `ASSISTANT_ACCESS.md` and its results companion.
+Physical Galaxy tablet acceptance remains distinct from Playwright and Windows UI
+with Ubuntu/WSL backend evidence.
+
 ## Dynamic runtime model selection — 2026-09-09
 
 Desktop creation/settings now query installed CLI catalogs, support explicit

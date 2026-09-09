@@ -6,6 +6,7 @@ import { Dialog } from './ui';
 import { RemoteTerminalPane } from './RemoteTerminalPane';
 import { FileEditor, type FileDrafts } from './FileEditor';
 import { AgentProfile, type ProfileDrafts } from './AgentProfile';
+import { DashboardLink } from './DashboardLink';
 
 export function workspaceError(error: unknown): string {
   if (error instanceof MobileClientError) {
@@ -16,9 +17,10 @@ export function workspaceError(error: unknown): string {
   return 'Workspace konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.';
 }
 
-export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
+export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, profileIntent, onProfileIntentConsumed, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
   host: MobileHost; agentId: string; initialRepositoryId: string;
   initialTab?: 'files' | 'terminal'; initialTerminalId?: string;
+  profileIntent?: string; onProfileIntentConsumed?: () => void;
   onNavigate?: (repositoryId: string, tab: 'files' | 'terminal') => void;
   onClose: () => void; onTask: (repositoryId: string) => void; onManage: () => void;
   fileDrafts: FileDrafts;
@@ -73,7 +75,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     <div className="m-workspace-controls"><label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
       <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <button id="workspace-refresh" disabled={disabled} onClick={() => void refresh()}>Workspace aktualisieren</button>
-      <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button></div>
+      <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button>{agent && <DashboardLink agent={agent} />}</div>
     {overview?.ready && <p className="m-field-note">{repositoryId ? `Branch ${overview.branch} · ` : ''}{overview.busy ? 'Workspace wird verwendet' : 'Keine laufende Sitzung'}</p>}
     <nav className="m-management-tabs" aria-label="Workspace-Bereich"><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>Dateien</button>
       <button disabled={!repositoryId} title={!repositoryId ? 'Für Git ein Projekt auswählen' : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>Git-Änderungen</button>
@@ -82,10 +84,11 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     {host.status !== 'online' && <p role="status">Verbindung unterbrochen. Angezeigte Daten können veraltet sein.</p>}
     {busy && tab !== 'terminal' && <p role="status">Workspace wird geladen…</p>}{error && tab !== 'terminal' && <p role="alert" className="m-alert">{error}</p>}
     {!repositoryId && <p>Dateien und Terminal verwenden den eigenen Agent-Ordner. Für verwaltete Aufgaben und Git ein Projekt auswählen.</p>}
-    {overview?.notice && <p>{overview.notice}</p>}
-    {overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
+    {tab !== 'terminal' && overview?.notice && <p>{overview.notice}</p>}
+    {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
     <div className="m-terminal-slot" hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'}
-      initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined} /></div>
+      initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined}
+      profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} /></div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}
     {overview?.ready && (tab === 'files' || tab === 'git') && <div className={`m-workbench-split ${detail ? 'has-detail' : ''}`}>
       <section className="m-workbench-list" aria-label={tab === 'files' ? 'Workspace-Dateien' : 'Geänderte Dateien'}>

@@ -1,5 +1,11 @@
 # ADE implementation status
 
+Assistant terminal/dashboard access and Overview refresh (2026-09-09): final
+native Windows `pnpm verify` passed **2,078 checks**, all three TypeScript projects
+and production build. Additional Ubuntu/WSL home driver: **6 passed**. Publication
+and personal-host restart are pending. Scope/evidence: `ASSISTANT_ACCESS.md` and
+`ASSISTANT_ACCESS_RESULTS.md`.
+
 Dynamic runtime model selection (2026-09-09) is implemented for desktop agent
 creation/settings, including Claude model persistence and CLI discovery for
 Codex/Grok/Claude/Ollama. Final native Windows `pnpm verify`: **2,026 checks passed**,

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
@@ -317,12 +317,15 @@ export class HostApiServer {
     if (browserRequest && target.query === null && request.method === 'GET') {
       const asset = browser!.assets.get(target.path);
       if (asset) {
+        const nonce = randomBytes(24).toString('base64');
+        const body = asset.contentType.startsWith('text/html') ? Buffer.from(asset.body.toString('utf8')
+          .replace('<head>', `<head><meta name="ade-style-nonce" content="${nonce}">`)) : asset.body;
         response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': asset.contentType,
-          'content-length': asset.body.length,
-          'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+          'content-length': body.length,
+          'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'service-worker-allowed': '/',
         });
-        response.end(asset.body); return;
+        response.end(body); return;
       }
     }
     const matched = matchRoute(target.path);

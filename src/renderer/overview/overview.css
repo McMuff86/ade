@@ -1,4 +1,12 @@
 /* Overview — inventory ledger over ADE's own journal. */
+.ov-toolbar, .ov-work-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.ov-toolbar p { color: var(--muted); font-size: 11px; }
+.ov-toolbar button, .ov-work-heading select { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 5px; padding: 8px 12px; }
+.ov-work-heading label { color: var(--muted); font-size: 12px; }
+.ov-run:disabled { opacity: .65; cursor: default; }
+.ov-agent-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px 42px; }
+.ov-agent-actions button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--text); cursor: pointer; }
+.ov-agent-actions button:focus-visible, .ov-toolbar button:focus-visible, .ov-work-heading select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .ov {
   position: absolute;

@@ -1,5 +1,22 @@
 # ADE — Architecture (binding decisions)
 
+## Interactive assistant access and Overview
+
+`RemoteTerminalDisplay` maintains a headless screen for each interactive PTY.
+`RemoteTerminalService` returns a redacted `MobileTerminalFrame` through the
+existing device-authorized application service. Raw terminal control sequences
+are never forwarded. `mobileDashboard` projects fixed credential-free private
+HTTPS links only; dashboard commands remain desktop-only. Catalog changes refresh
+Overview; historical records retain identities and detached-context markers.
+Successful catalog-mutating IPC handlers emit the existing `catalog:changed`
+event through `rendererWindows`. The event contains only a revision; consumers
+re-read their authorized projection. Failed mutations emit no success event.
+Mobile shell responses inject a fresh style-only CSP nonce. xterm's scoped
+document override nonces its generated style elements; script policy stays
+`script-src 'self'`, with no unsafe-inline/eval exception.
+Transport bounds, keyboard acknowledgement and launch semantics are specified in
+`ASSISTANT_ACCESS.md`; measurements are in `ASSISTANT_ACCESS_RESULTS.md`.
+
 ## Runtime model catalogs
 
 `harness:models` is a desktop-only audited launch channel with strict runtime/

@@ -44,6 +44,7 @@ import { validateProfileQuery, validateProfileUpdate, type RemoteProfileService 
 import type { RepositorySyncService } from '../repositories/RepositorySyncService';
 import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
+import { mobileDashboard } from '../dashboard/mobileDashboard';
 
 export interface ApplicationConfigPort {
   get(): AdeConfig;
@@ -409,6 +410,7 @@ export class AdeApplicationService {
         name: redactForWire(agent.name, 160),
         ...(agent.role ? { role: redactForWire(agent.role, 160) } : {}),
         runtime: agent.runtime,
+        dashboard: mobileDashboard(agent),
         ...(agent.photo ? { photoVersion: createHash('sha256').update(agent.photo).digest('hex') } : {}),
         ...(agent.defaultRepositoryId ? { defaultRepositoryId: agent.defaultRepositoryId } : {}),
         ...(agent.homeExecutionBackend

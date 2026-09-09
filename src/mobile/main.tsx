@@ -35,6 +35,10 @@ function MobileApp(): JSX.Element {
   const [management, setManagement] = useState(false);
   const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
   const [projectStart, setProjectStart] = useState(false);
+  const [profileIntent, setProfileIntent] = useState<{ agentId: string; key: string } | null>(null);
+  const openTerminal = (agentId: string) => {
+    setProfileIntent({ agentId, key: crypto.randomUUID() }); setWorkspace({ agentId, repositoryId: null, tab: 'terminal' });
+  };
   useTabletViewport();
   const openAgent = (agentId: string) => setWorkspace({ agentId, repositoryId: projectFilter || host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null });
   const openProject = (repositoryId: string) => {
@@ -161,6 +165,8 @@ function MobileApp(): JSX.Element {
         {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : 'Work'}</h1>}
         {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
         <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
+          <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
+          <button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
           <button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
           <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></div>
       </div>
@@ -171,9 +177,9 @@ function MobileApp(): JSX.Element {
         <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} offene Runs in dieser Auswahl · Task-Slots gelten für alle Projekte.</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
-          {view === 'overview' ? <><ContinueWork host={host} onNew={() => setProjectStart(true)} onProject={openProject}
+          {view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
             onSession={(session) => setWorkspace({ agentId: session.agentId, repositoryId: session.repositoryId, terminalId: session.id, tab: 'terminal' })} />
-            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onProject={(id) => newWork('task', undefined, id)} /></>
+            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProject={(id) => newWork('task', undefined, id)} /></>
             : view === 'graph' ? <Graph run={graphRun} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
               : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
@@ -195,6 +201,7 @@ function MobileApp(): JSX.Element {
     {!draftsDurable && <p role="status">Auftragsentwürfe bleiben nur in dieser geöffneten Seite; der Browser-Speicher ist nicht verfügbar.</p>}
     {workspace && host.paired && host.catalog && <AgentWorkspace key={`${host.identityVersion}:${workspace.agentId}`} host={host} agentId={workspace.agentId} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
       initialRepositoryId={workspace.repositoryId ?? ''} initialTab={workspace.tab} initialTerminalId={workspace.terminalId}
+      profileIntent={profileIntent?.agentId === workspace.agentId ? profileIntent.key : undefined} onProfileIntentConsumed={() => setProfileIntent(null)}
       onNavigate={(repositoryId, tab) => setWorkspace((current) => current ? { agentId: current.agentId, repositoryId: repositoryId || null, tab } : null)}
       onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
       onManage={() => { setWorkspace(null); setManagement(true); }} />}

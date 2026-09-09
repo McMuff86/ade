@@ -687,6 +687,7 @@ export interface OverviewHero {
 }
 
 export interface OverviewAgentRow {
+  hasDashboard?: boolean;
   id: string;
   name: string;
   photo?: string;
@@ -719,6 +720,7 @@ export type OverviewWorkKind = 'run' | 'session';
 export type OverviewWorkRow = OverviewRunWorkRow | OverviewSessionWorkRow;
 
 export interface OverviewRunWorkRow {
+  detached?: boolean;
   kind: 'run';
   id: string;
   name: string;
@@ -731,6 +733,8 @@ export interface OverviewRunWorkRow {
 }
 
 export interface OverviewSessionWorkRow {
+  detached?: boolean;
+  agentAvailable?: boolean;
   kind: 'session';
   id: string;
   name: string;

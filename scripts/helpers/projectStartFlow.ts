@@ -49,7 +49,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   await page.getByRole('button', { name: 'Projektstart fortsetzen', exact: true }).click();
   await starter.getByRole('button', { name: 'Start fortsetzen', exact: true }).click();
   const workspace = page.getByRole('dialog', { name: 'Workspace · Tablet Codex', exact: true });
-  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_CODEX_READY', { exact: false }).waitFor();
+  await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_CODEX_READY', { exact: false }).last().waitFor();
   page.off('request', record);
   const config = await desktop.evaluate(() => window.ade.invoke('config:get'));
   const repo = config.repositories.find((item) => item.name === 'Tablet Garden')!;
@@ -90,7 +90,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   proxy.loseInputReplies(true);
   await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   await workspace.getByRole('button', { name: 'Eingabestatus prüfen', exact: true }).waitFor(); proxy.loseInputReplies(false);
-  await page.reload(); await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('INPUT_ACK_CONTROL', { exact: false }).waitFor();
+  await page.reload(); await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('INPUT_ACK_CONTROL', { exact: false }).last().waitFor();
   check('reload after a lost input acknowledgement blocks implicit resending', await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).isDisabled()
     && await workspace.getByRole('button', { name: 'Ausgabe geprüft · Entwurf freigeben', exact: true }).isVisible());
   await workspace.getByRole('button', { name: 'Ausgabe geprüft · Entwurf freigeben', exact: true }).click();

@@ -1,5 +1,12 @@
 # Handoff — 2026-09-08
 
+## Assistant access and Overview — 2026-09-09
+
+Direct assistant home terminals, separate Mobile dashboard tabs and Overview
+refresh/history controls pass native Windows `pnpm verify` (2,078 checks), plus
+6 Ubuntu/WSL home controls. Publication and personal-host restart follow this
+validated change. Scope and logs: `ASSISTANT_ACCESS_RESULTS.md`.
+
 ## Lokale Auslieferung und Start — 2026-09-09, 10:28 Europe/Zurich
 
 Auf Adis Auftrag alle Änderungen als `6237f23` auf `origin/main` gepusht, danach

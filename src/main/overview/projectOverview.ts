@@ -187,12 +187,13 @@ export function projectOverview(
       const participants = participantsByRun.get(run.id) ?? [];
       return {
         kind: 'run',
+        detached: !!run.repositoryId && !repoName.has(run.repositoryId) || participants.some((participant) => !agentName.has(participant.agentId)),
         id: run.id,
         name: run.name,
         updatedAt: run.updatedAt,
         status: run.status,
         phase: run.phase,
-        repositoryName: run.repositoryId ? (repoName.get(run.repositoryId) ?? null) : null,
+        repositoryName: run.repositoryId ? (repoName.get(run.repositoryId) ?? 'Entferntes Projekt') : null,
         participantNames: participants.map((participant) => participant.agentName),
         usage: usageByRun.get(run.id) ?? emptyUsageRollup(),
       };
@@ -201,6 +202,8 @@ export function projectOverview(
       .filter((bookend): bookend is SessionBookend & { endedAt: number } => bookend.endedAt !== null)
       .map((bookend): OverviewWorkRow => ({
         kind: 'session',
+        detached: !agentName.has(bookend.agentId) || !!bookend.repositoryId && !repoName.has(bookend.repositoryId),
+        agentAvailable: agentName.has(bookend.agentId),
         id: bookend.id,
         name: bookend.agentName,
         updatedAt: bookend.endedAt,
@@ -211,7 +214,8 @@ export function projectOverview(
         usage: emptyUsageRollup(),
       })),
   ]
-    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .sort((left, right) => Number(right.kind === 'run' && (right.status === 'running' || right.phase === 'approval'))
+      - Number(left.kind === 'run' && (left.status === 'running' || left.phase === 'approval')) || right.updatedAt - left.updatedAt)
     .slice(0, OVERVIEW_WORK_LIMIT);
 
   return {
@@ -252,6 +256,7 @@ function toAgentRow(
     ...(agent.photo ? { photo: agent.photo } : {}),
     runtime: agent.runtime,
     runtimeLabel: LAUNCH_PROFILES[agent.runtime].label,
+    hasDashboard: !!(agent.dashboardUrl || agent.dashboardCommand),
     liveSessions: liveByAgent.get(agent.id) ?? 0,
     defaultRepositoryName: agent.defaultRepositoryId
       ? (repoName.get(agent.defaultRepositoryId) ?? null)

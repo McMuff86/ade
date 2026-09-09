@@ -326,5 +326,12 @@ check('project last activity includes closed session bookends',
 check('session work snapshots stay path-free',
   !JSON.stringify(mixed).includes('/hidden'));
 
+const removedConfig = config({ agents: [], repositories: [], runs: [run({ id: 'old', name: 'Old run', repositoryId: 'removed' })],
+  sessionBookends: [bookend({ id: 'gone', agentName: 'Removed agent', agentId: 'gone', repositoryId: 'removed', startedAt: 1, endedAt: 2, exitReason: 'exit' })] });
+const removed = projectOverview(removedConfig, [], now);
+check('removed entities do not reappear as current agents or projects', removed.agents.length === 0 && removed.projects.length === 0);
+check('retained run identifies a removed project', removed.work.some((row) => row.kind === 'run' && row.detached && row.repositoryName === 'Entferntes Projekt'));
+check('retained session cannot open a deleted agent', removed.work.some((row) => row.kind === 'session' && row.detached && row.agentAvailable === false));
+check('overview refresh does not delete history', removedConfig.runs.length === 1 && removedConfig.sessionBookends.length === 1);
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

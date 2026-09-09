@@ -59,6 +59,7 @@ import {
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { SessionLaunchService } from './SessionLaunchService';
+import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import type { MobileWorkspaceSelection, SessionLaunchChoice } from '../../shared/remote';
 import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
 import {
@@ -108,6 +109,7 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  display?: RemoteTerminalDisplay;
   meta: SessionMeta;
   proc: pty.IPty;
   buffer: Buffer[];
@@ -287,6 +289,7 @@ export class PtyManager {
     if (!session || session.meta.status === 'exited' || cols < 1 || rows < 1) return;
     try {
       session.proc.resize(cols, rows);
+      session.display?.resize(cols, rows);
     } catch (error) {
       console.warn(`[ade] pty:resize ${sessionId} failed:`, error);
     }
@@ -358,6 +361,12 @@ export class PtyManager {
     };
   }
 
+  async remoteDisplay(sessionId: string): Promise<Awaited<ReturnType<RemoteTerminalDisplay['snapshot']>>> {
+    const display = this.sessions.get(sessionId)?.display;
+    if (!display) throw new Error('Interaktives Terminal ist nicht mehr verfügbar.');
+    return display.snapshot();
+  }
+
   /** Replay of a task's rendered activity; empty for sessions without a stream. */
   activitySnapshot(sessionId: string): { lines: ActivityLine[] } {
     return { lines: [...(this.sessions.get(sessionId)?.activity?.lines ?? [])] };
@@ -374,6 +383,7 @@ export class PtyManager {
 
     for (const session of this.sessions.values()) {
       if (session.reapTimer) clearTimeout(session.reapTimer);
+      session.display?.dispose();
       if (session.forceStopTimer) clearTimeout(session.forceStopTimer);
       if (session.meta.kind === 'task' && session.meta.status === 'running') {
         session.cancelled = true;
@@ -494,6 +504,7 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      display: meta.kind === 'interactive' ? new RemoteTerminalDisplay(DEFAULT_COLS, DEFAULT_ROWS) : undefined,
       meta,
       proc,
       buffer: [],
@@ -529,6 +540,7 @@ export class PtyManager {
       const chunk = Buffer.from(data, 'utf8');
       session.sequence += 1;
       this.appendToRing(session, chunk);
+      session.display?.write(chunk);
       this.broadcast(IPC_EVENTS.PtyData, {
         sessionId: id,
         dataBase64: chunk.toString('base64'),
@@ -671,6 +683,7 @@ export class PtyManager {
     if (session.forceStopTimer) clearTimeout(session.forceStopTimer);
     this.releaseTaskLease(session);
     this.sessions.delete(sessionId);
+    session.display?.dispose();
     this.broadcast(IPC_EVENTS.PtyRemoved, { sessionId });
   }
 

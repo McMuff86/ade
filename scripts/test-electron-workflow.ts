@@ -1159,11 +1159,23 @@ async function run(): Promise<void> {
         && open !== null && open.length > 0
         && tokens !== null && tokens.length > 0;
     });
+    await page.getByLabel('Overview-Arbeit filtern', { exact: true }).selectOption('all');
     await eventually('Overview lists agents, catalog projects and recent work', async () =>
       await page!.getByTestId('overview-agent').count() >= 1
         && await page!.getByTestId('overview-project').filter({ hasText: 'Managed E2E repository' }).count() === 1
         && await page!.getByTestId('overview-run').filter({ hasText: 'Managed E2E Run' }).count() === 1,
     );
+    await page.getByLabel('Overview-Arbeit filtern', { exact: true }).selectOption('current');
+    check('Overview current work hides closed session history', await page.getByTestId('overview-session').count() === 0);
+    await page.getByRole('button', { name: 'Overview aktualisieren', exact: true }).click();
+    await page.getByLabel('Overview-Arbeit filtern', { exact: true }).selectOption('all');
+    const overviewFixture = await page.evaluate(async () => {
+      const category = await window.ade.invoke('category:create', { name: 'Overview refresh fixture' });
+      return window.ade.invoke('agent:create', { categoryId: category.id, name: 'Overview transient agent', runtime: 'shell', permissionMode: 'default' });
+    });
+    await eventually('Overview updates automatically on catalog creation', async () => await page!.getByTestId('overview-agent').filter({ hasText: 'Overview transient agent' }).count() === 1);
+    await page.evaluate(async (id) => window.ade.invoke('agent:delete', { id }), overviewFixture.id);
+    await eventually('Overview removes deleted agents without reloading the app', async () => await page!.getByTestId('overview-agent').filter({ hasText: 'Overview transient agent' }).count() === 0);
     await eventually('Overview lists a closed interactive session as work', async () =>
       await page!.getByTestId('overview-session').filter({ hasText: 'E2E Shell' }).count() >= 1,
     );
@@ -1176,6 +1188,7 @@ async function run(): Promise<void> {
     await eventually('Overview tab returns after a session work click', async () =>
       await page!.getByTestId('overview').count() === 1,
     );
+    await page.getByLabel('Overview-Arbeit filtern', { exact: true }).selectOption('all');
     await page.getByTestId('overview-run').filter({ hasText: 'Managed E2E Run' }).click();
     await eventually('clicking a work row opens Graph on that run', async () =>
       await page!.getByRole('tab', { name: 'Graph' }).getAttribute('aria-selected') === 'true'

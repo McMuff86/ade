@@ -3,8 +3,8 @@ import type { MobileRecentSession, MobileSessionInventory } from '../shared/remo
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 
-export function ContinueWork({ host, onSession, onProject, onNew }: { host: MobileHost;
-  onSession: (session: MobileRecentSession) => void; onProject: (repositoryId: string) => void; onNew: () => void;
+export function ContinueWork({ host, onSession, onProject }: { host: MobileHost;
+  onSession: (session: MobileRecentSession) => void; onProject: (repositoryId: string) => void;
 }): JSX.Element {
   const [inventory, setInventory] = useState<MobileSessionInventory>(); const [error, setError] = useState('');
   useEffect(() => {
@@ -19,8 +19,7 @@ export function ContinueWork({ host, onSession, onProject, onNew }: { host: Mobi
     void refresh(); return () => { disposed = true; clearTimeout(timer); };
   }, [host.request, host.status, host.identityVersion]);
   return <section className="m-continue" aria-labelledby="continue-title">
-    <div className="m-continue-heading"><div><h2 id="continue-title">Weiterarbeiten</h2><p>Deine Projekte und Sitzungen auf dem PC.</p></div>
-      <button className="m-primary" onClick={(event) => { event.currentTarget.focus(); onNew(); }}>Neues Projekt</button></div>
+    <div className="m-continue-heading"><div><h2 id="continue-title">Weiterarbeiten</h2><p>Deine Projekte und Sitzungen auf dem PC.</p></div></div>
     {host.status !== 'online' && <p role="status">PC nicht verbunden · Sitzungsstand zuletzt bestätigt, möglicherweise veraltet.</p>}
     {error ? <p role="status">{error}</p> : !inventory ? <p role="status">Sitzungen werden geladen…</p> : !inventory.sessions.length
       ? <p>Keine offenen Terminals. Ein Projekt öffnen oder mit einer neuen Idee starten.</p>

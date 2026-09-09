@@ -39,7 +39,7 @@ h1, h2, h3 { line-height: 1.35; }
 .m-toolbar-context { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .m-toolbar h1 { font-size: 14px; font-weight: 600; }
 .m-toolbar-note { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.m-toolbar-actions { display: flex; flex: none; align-items: center; gap: 8px; }
+.m-toolbar-actions { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; }
 .m-toolbar button { font-size: 11.5px; }
 .m-sr-only-label { font-size: 0; min-width: 0; }
 .m-sr-only-label select { width: 230px; max-width: 30vw; font-size: 12px; background: var(--raised); }
