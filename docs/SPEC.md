@@ -6,6 +6,11 @@ use the same entry. Agent workspaces have a direct saved-profile Open action;
 the terminal retains usable height and the empty composer starts folded.
 Contracts: `PROJECT_ENTRY.md`; validation/deployment: `PROJECT_ENTRY_RESULTS.md`.
 
+Mobile keyboard layout (2026-09-09): visual-only keyboard resizing automatically
+folds terminal chrome to a compact title/Bedienung header and terminal-key row.
+An active composer and errors remain accessible; keyboard close restores the
+previous layout. Behavior: `PROJECT_ENTRY.md`; evidence: `TERMINAL_KEYBOARD_RESULTS.md`.
+
 Assistant access (2026-09-09): explicit home-terminal open/resume on desktop and
 Mobile; Mobile xterm display/direct keyboard input and separate private dashboard
 tabs; automatically refreshed Overview with current/history filters. Contracts and

@@ -13,10 +13,11 @@ import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
 
 interface TerminalDraft { text: string; review: boolean }
 
-export function RemoteTerminalPane({ host, agentId, repositoryId, active, initialTerminalId, projectEntry, profileIntent, onProfileIntentConsumed }: {
+export function RemoteTerminalPane({ host, agentId, repositoryId, active, initialTerminalId, projectEntry, compactControls, profileIntent, onProfileIntentConsumed }: {
   host: MobileHost; agentId: string; repositoryId: string | null; active: boolean;
   initialTerminalId?: string;
   projectEntry?: boolean;
+  compactControls?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
 }): JSX.Element {
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
@@ -200,8 +201,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
       focusTerminal.current = null;
     }
   }, [active, owning, busy, profileOpening, state.frame]);
-  return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''}`} aria-label="Interaktives Terminal">
-    <div className="m-terminal-focus-bar">{projectEntry && <label>Arbeiten mit<select aria-label="Projekt-CLI" disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
+  return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
+    <div className="m-terminal-focus-bar" id="workspace-terminal-controls">{projectEntry && <label>Arbeiten mit<select aria-label="Projekt-CLI" disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
       {(['codex', 'claude', 'grok', 'shell'] as const).map((mode) => <option key={mode} value={mode} disabled={!canLaunchChoice({ mode }, options)}>
         {SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? ' · nicht verfügbar' : ''}</option>)}
     </select></label>}
@@ -258,7 +259,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
           onChange={(event) => setText(event.target.value)} rows={3} spellCheck={false} autoCapitalize="off" autoCorrect="off" /></label>
         <button disabled={blocked || draft.review || !owning || !text || state.selected.status !== 'running'}>Text und Enter senden</button></form></details>
       <div className="m-management-actions">{[['Enter', '\r'], ['Tab', '\t'], ['Esc', '\x1b'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
-        <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onClick={() => void transmit(data!)}>{label}</button>)}</div>
+        <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => void transmit(data!)}>{label}</button>)}</div>
       <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></div>
     </>}
     <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label="Terminal-Antwortzeit">PC-Antwort: {responseMs} ms (Netzwerk und Verarbeitung). </span>}Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>

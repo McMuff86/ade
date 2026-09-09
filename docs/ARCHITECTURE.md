@@ -10,6 +10,13 @@ ready binding before considering a mutation. Project Open does not launch a CLI.
 launch revalidation remain main-owned. No IPC or remote command allowlist was
 widened. Scope, profile selection and UI behavior: `PROJECT_ENTRY.md`.
 
+Mobile's root viewport hook publishes keyboard geometry through a React context
+alongside the existing visible-height/top CSS properties. `AgentWorkspace`
+owns the temporary controls override; `RemoteTerminalPane` only changes layout,
+preserving its mounted xterm, draft and session. ResizeObserver fits the existing
+terminal through the unchanged signed resize/input path. No new wire contract
+or permission is involved. Geometry and focus evidence: `TERMINAL_KEYBOARD_RESULTS.md`.
+
 ## Interactive assistant access and Overview
 
 `RemoteTerminalDisplay` maintains a headless screen for each interactive PTY.

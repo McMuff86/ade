@@ -36,8 +36,8 @@ export function reportedTokens(runs: RunSummary[]): string | null {
   return total > 0 ? String(total) : null;
 }
 
-export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo }: {
-  title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null;
+export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions }: {
+  title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null; headerActions?: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose); close.current = onClose;
@@ -67,7 +67,7 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
     }}
     onClick={(event) => { if (event.target === ref.current) { const box = ref.current.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close.current(); } }}>
-    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2><button className="m-icon-button" aria-label={`${title} schliessen`} onClick={onClose}><Icon name="close" /></button></div>
+    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2>{headerActions}<button className="m-icon-button" aria-label={`${title} schliessen`} onClick={onClose}><Icon name="close" /></button></div>
     {children}
   </dialog>;
 }

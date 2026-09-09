@@ -1,5 +1,11 @@
 # ADE implementation status
 
+Mobile keyboard layout (2026-09-09): automatic visual-viewport compaction is
+implemented, retaining the title, Bedienung toggle, terminal keys, active text
+composition and errors. Native Windows `pnpm verify` passed **2,141 checks**;
+the focused terminal driver passed **43**. Deployment is pending; physical
+Samsung acceptance remains separate. See `TERMINAL_KEYBOARD_RESULTS.md`.
+
 Mobile Projects entry and terminal layout (2026-09-09): implemented and verified
 with **2,123 checks** in native Windows `pnpm verify`, plus **9** additional WSL
 terminal checks. Commit `1f5dd2c` is pushed; the personal host was rebuilt and

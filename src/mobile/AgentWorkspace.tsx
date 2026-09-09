@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { MobileWorkspaceOperation, MobileWorkspaceResult } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
@@ -7,6 +7,7 @@ import { RemoteTerminalPane } from './RemoteTerminalPane';
 import { FileEditor, type FileDrafts } from './FileEditor';
 import { AgentProfile, type ProfileDrafts } from './AgentProfile';
 import { DashboardLink } from './DashboardLink';
+import { TabletKeyboardContext } from './useTabletViewport';
 
 export function workspaceError(error: unknown): string {
   if (error instanceof MobileClientError) {
@@ -30,6 +31,20 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   const [repositoryId, selectRepository] = useState(() => host.catalog?.repositories.some((repo) => repo.id === initialRepositoryId)
     ? initialRepositoryId : '');
   const [tab, selectTab] = useState<'files' | 'git' | 'terminal' | 'profile'>(initialTab ?? 'files');
+  const keyboardOpen = useContext(TabletKeyboardContext);
+  const [keyboardControls, setKeyboardControls] = useState(false);
+  const keyboardToggle = useRef<HTMLButtonElement>(null);
+  const wasKeyboardOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!keyboardOpen) {
+      setKeyboardControls(false);
+      // Chromium can move focus to body as soon as the focused toggle is hidden.
+      if (wasKeyboardOpen.current && (document.activeElement === keyboardToggle.current || document.activeElement === document.body)) {
+        keyboardToggle.current?.closest('dialog')?.querySelector<HTMLElement>('[data-dialog-heading]')?.focus();
+      }
+    }
+    wasKeyboardOpen.current = keyboardOpen;
+  }, [keyboardOpen]);
   const setTab = (value: typeof tab) => { selectTab(value); onNavigate?.(repositoryId, value === 'terminal' ? 'terminal' : 'files'); };
   const setRepositoryId = (value: string) => { selectRepository(value); onNavigate?.(value, tab === 'terminal' ? 'terminal' : 'files'); };
   const [overview, setOverview] = useState<MobileWorkspaceResult['overview']>();
@@ -68,7 +83,10 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   }); };
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
   const disabled = busy || host.status !== 'online';
-  return <Dialog title={projectEntry ? `Projekt · ${host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace'}` : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}>
+  return <Dialog title={projectEntry ? `Projekt · ${host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace'}` : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}
+    headerActions={tab === 'terminal' && <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle"
+      aria-label="Terminal-Bedienung" aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls"
+      onPointerDown={(event) => event.preventDefault()} onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? 'Bedienung einklappen' : 'Bedienung'}</button>}>
     <div className="m-tablet-workbench">{!projectEntry && <aside className="m-project-rail" aria-label="Workspace-Projekte"><h3>Projekte</h3>
       <button aria-pressed={!repositoryId} onClick={() => setRepositoryId('')}>Eigener Workspace</button>
       {host.catalog?.repositories.map((repo) => <button key={repo.id} aria-pressed={repositoryId === repo.id} onClick={() => setRepositoryId(repo.id)}>{repo.name}</button>)}
@@ -89,6 +107,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
     <div className="m-terminal-slot" hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'}
       projectEntry={projectEntry}
+      compactControls={keyboardOpen && !keyboardControls}
       initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined}
       profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} /></div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}

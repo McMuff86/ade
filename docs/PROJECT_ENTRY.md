@@ -48,7 +48,25 @@ folded. Uncertain composed input stays reviewable, and an unsent draft survives
 reload. Opening/claiming a terminal can focus its direct input; resizing and
 routine frame refreshes never steal focus. The ordinary terminal has a 220 px
 minimum display height; the expanded view gives it the remaining viewport,
-with a 120 px floor and scrolling when the keyboard reduces available space.
+with a 120 px floor and scrolling when controls need more space.
 Dashboard links still open a separate private tab.
+
+When the software keyboard reduces Chrome's visual viewport, the terminal
+automatically hides its launcher, transcript, idle composer and routine notes.
+The header retains the project/agent title, **Bedienung** and Close; a single
+scrollable row retains all eight terminal keys with 44 px touch targets. The
+terminal fills the remainder, with an 80 px minimum in this compact view.
+**Bedienung** restores controls while the keyboard stays open. Closing the
+keyboard restores the previous layout and resets this temporary override.
+An actively edited composer, unsent text, errors and uncertain-input recovery
+remain available. Pointer taps on the toggle/terminal keys retain input focus;
+keyboard activation and dialog focus fallback also work.
+
+Detection compares the visual and layout viewport heights: more than 160 px
+and 20% reduction, at scale 1 (within 0.05). Small browser toolbar changes,
+ordinary desktop window resizing and pinch zoom do not trigger compact mode.
+This targets visual-only keyboard resizing; floating keyboards that do not
+reduce that viewport cannot be detected this way. Executable geometry coverage
+and physical-device limits: `TERMINAL_KEYBOARD_RESULTS.md`.
 
 Evidence and operator deployment: `PROJECT_ENTRY_RESULTS.md`.

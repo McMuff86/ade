@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import type { Page } from 'playwright';
 import { terminalEchoLatency } from './terminalLatency';
 import { terminalLauncher } from './terminalControls';
+import { terminalKeyboardFlow } from './terminalKeyboardFlow';
 
 export async function assistantAccessFlow(desktop: Page, tablet: Page, root: string, categoryId: string, evidence: string,
   check: (label: string, ok: boolean) => void): Promise<void> {
@@ -85,6 +86,7 @@ public class Tui { public static void Main(string[] args) {
     await tablet.getByRole('button', { name: `Terminal öffnen: ${profile.name}`, exact: true }).click();
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('KEY_z_ACK', { exact: false }).last().waitFor();
     check(`${profile.name}: reopening resumes the same process`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id).length === before.length);
+    if (profile.name === 'Hermes General Fixture') await terminalKeyboardFlow(tablet, workspace, evidence, check);
     const popupPromise = tablet.context().waitForEvent('page');
     await workspace.getByRole('link', { name: `Web-Dashboard für ${profile.name}`, exact: true }).click();
     const popup = await popupPromise; await popup.waitForLoadState();

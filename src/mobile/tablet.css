@@ -56,6 +56,30 @@
 .m-terminal-composer .m-management-actions { margin: 4px 0; gap: 4px; }.m-terminal-composer .m-management-actions button { min-width: 44px; min-height: 40px; }
 .m-terminal-composer .m-field-note { font-size: 10px; margin: 2px 0; }
 .m-remote-terminal > .m-field-note { font-size: 10px; margin: 3px 0; flex: none; }
+/* Android Chrome resizes visualViewport, not the layout viewport used by media
+   queries. Compact only while the keyboard reduces that visible area. */
+.m-keyboard-controls-toggle { flex: none; margin-left: auto; }
+.m-keyboard-controls-toggle[hidden] { display: none; }
+.m-terminal-workspace:has(.m-keyboard-compact) { padding: 0 8px 4px; }
+.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { padding: 2px 0; margin-bottom: 0; gap: 8px; }
+.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.m-terminal-workspace:has(.m-keyboard-compact) .m-project-rail,
+.m-terminal-workspace:has(.m-keyboard-compact) .m-workspace-controls,
+.m-terminal-workspace:has(.m-keyboard-compact) .m-tablet-workbench-main > nav,
+.m-terminal-workspace:has(.m-keyboard-compact) .m-tablet-workbench-main > p { display: none; }
+.m-terminal-workspace:has(.m-keyboard-compact) .m-terminal-slot { min-height: 0; }
+.m-keyboard-compact .m-terminal-focus-bar,
+.m-keyboard-compact .m-terminal-tools > details,
+.m-keyboard-compact .m-terminal-tools > label,
+.m-keyboard-compact .m-terminal-tools > .m-management-actions,
+.m-keyboard-compact .m-terminal-tools > p:not([role='alert']),
+.m-keyboard-compact .m-terminal-transcript,
+.m-keyboard-compact .m-terminal-composer > details:not(:focus-within),
+.m-keyboard-compact .m-field-note { display: none; }
+.m-keyboard-compact .m-terminal-screen { flex: 1 1 0; min-height: 80px; margin: 4px 0; }
+.m-keyboard-compact .m-terminal-composer { padding-bottom: 0; }
+.m-keyboard-compact .m-terminal-composer > .m-management-actions { flex-wrap: nowrap; overflow-x: auto; margin: 0; gap: 4px; }
+.m-keyboard-compact .m-terminal-composer > .m-management-actions button { flex: none; min-height: 44px; }
 @media (min-width: 1000px) {
   .m-project-rail { display: block; width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 16px; overflow: auto; }
   .m-project-rail button { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
@@ -69,7 +93,7 @@
 @media (max-height: 550px) {
   .m-terminal-workspace > .m-dialog-head { padding: 4px 0; margin: 0; }
   .m-terminal-workspace .m-workspace-controls { display: none; }
-  .m-terminal-workspace .m-tablet-workbench-main > p, .m-terminal-tools > p, .m-remote-terminal > .m-field-note { display: none; }
+  .m-terminal-workspace .m-tablet-workbench-main > p, .m-terminal-tools > p:not([role='alert']), .m-remote-terminal > .m-field-note { display: none; }
   .m-terminal-composer textarea { height: 50px; min-height: 44px; }
   .m-terminal-composer .m-field-note { display: none; }
 }

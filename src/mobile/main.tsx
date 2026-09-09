@@ -12,7 +12,7 @@ import { ContinueWork } from './ContinueWork';
 import { ProjectStart } from './ProjectStart';
 import { Projects, ProjectWorkspace } from './Projects';
 import { useDeviceDraft } from './deviceDrafts';
-import { useTabletViewport } from './useTabletViewport';
+import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
@@ -41,7 +41,7 @@ function MobileApp(): JSX.Element {
   const openTerminal = (agentId: string) => {
     setProfileIntent({ agentId, key: crypto.randomUUID() }); setWorkspace({ agentId, repositoryId: null, tab: 'terminal' });
   };
-  useTabletViewport();
+  const keyboardOpen = useTabletViewport();
   const openAgent = (agentId: string) => setWorkspace({ agentId, repositoryId: projectFilter || host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null });
   const openProject = (repositoryId: string) => {
     setWorkspace(null); setProjectWorkspace(repositoryId);
@@ -129,7 +129,7 @@ function MobileApp(): JSX.Element {
   };
   const inspector = selectedRun && <RunInspector run={selectedRun} participantId={selected?.participantId ?? null} host={host} onSend={(command) => void send(command)} focusVersion={focusVersion} />;
 
-  return <div className="m-app" onKeyDown={(event) => {
+  return <TabletKeyboardContext.Provider value={keyboardOpen}><div className="m-app" onKeyDown={(event) => {
     if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Overview">ade<span>_</span></button>
@@ -217,7 +217,7 @@ function MobileApp(): JSX.Element {
       {host.paired && <HostRestartSection host={host} />}
       <section className="m-settings-section"><h3>Workspace öffnen</h3><p>Wähle einen Agenten, um seine Projektdateien und Git-Änderungen anzusehen. Gerätefreigaben werden in ADE am PC verwaltet.</p></section>
     </Dialog>}
-  </div>;
+  </div></TabletKeyboardContext.Provider>;
 }
 
 createRoot(document.getElementById('root')!).render(<MobileApp />);

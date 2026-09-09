@@ -1,5 +1,14 @@
 # Handoff — 2026-09-08
 
+## Mobile keyboard layout — 2026-09-09
+
+The operator requested more terminal space with the Samsung keyboard open.
+Automatic visual-viewport compaction is implemented; focused Chromium geometry
+checks use the real native Windows PTY (**43 passed**). Full native Windows
+`pnpm verify` passed **2,141 checks**. Deployment is pending. Only the mobile
+listener needs reloading; the personal host and its Codex PTY can keep running.
+See `TERMINAL_KEYBOARD_RESULTS.md` for final evidence and tablet acceptance.
+
 ## Project entry and readable TUI — 2026-09-09
 
 The operator requested a project-first entry and a readable Hermes TUI. Native

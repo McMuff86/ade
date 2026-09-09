@@ -1,5 +1,14 @@
 # ADE delivery roadmap
 
+## Mobile keyboard space — 2026-09-09
+
+Implemented: automatically fold terminal chrome while Chrome's visual viewport
+shrinks for the software keyboard; retain an explicit controls toggle and a
+compact terminal-key row. Focus/draft/error and phone/tablet geometry coverage
+is in the real terminal driver. Native Windows `pnpm verify`: **2,141 passed**;
+focused terminal driver: **43 passed**. Deployment and physical Samsung acceptance
+are tracked in `TERMINAL_KEYBOARD_RESULTS.md`.
+
 ## Project entry and readable TUI — 2026-09-09
 
 Implemented: Mobile Projekte navigation, workspace-first CLI selection including
