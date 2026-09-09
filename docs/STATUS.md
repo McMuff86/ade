@@ -4,7 +4,9 @@ Dynamic runtime model selection (2026-09-09) is implemented for desktop agent
 creation/settings, including Claude model persistence and CLI discovery for
 Codex/Grok/Claude/Ollama. Final native Windows `pnpm verify`: **2,026 checks passed**,
 all three TypeScript projects and the production build. See
-`RUNTIME_MODEL_SELECTION.md`. The operator's running ADE still needs a full restart.
+`RUNTIME_MODEL_SELECTION.md`. Commit `6237f23` is pushed to `origin/main`; the
+local operator host was rebuilt and restarted at 10:28 Europe/Zurich. The window
+opened and the private HTTPS endpoint serves the updated Mobile bundle.
 
 Tablet project start (2026-09-09): implementation adds a desktop-configured native
 project parent/Codex default, the Mobile New Project launcher, validated live

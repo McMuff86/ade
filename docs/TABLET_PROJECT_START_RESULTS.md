@@ -3,7 +3,8 @@
 Final native Windows `pnpm verify` exited **0**: **1,972 checks passed**, all
 three TypeScript projects passed and the desktop/mobile production build passed.
 The final log is `test-results/tablet-project-start-verify.log` (local generated
-artifact). No home-host deployment or physical tablet measurement was performed.
+artifact). This isolated run did not deploy the operator host or measure the
+physical tablet. Subsequent local activation is recorded below.
 
 | Suite | Passed |
 | --- | ---: |
@@ -71,8 +72,11 @@ the unchanged committed visual baselines.
 The PTYs execute a controlled Codex CLI fixture; no real model inference or
 personal Codex authentication was tested. Test profiles, device grants and
 project-root configuration are isolated from the operator's ADE instance.
-Activate the updated host and configure its defaults using
-`TABLET_PROJECT_START.md`, then test the physical Galaxy tablet in Chrome with
+The local operator host was subsequently rebuilt and restarted from pushed
+commit `6237f23` at 10:28 Europe/Zurich. Its private HTTPS endpoint serves the
+current Mobile bundle (HTTP 200); details and logs are in `HANDOFF.md`.
+Check the project defaults using `TABLET_PROJECT_START.md`, reload Mobile,
+then test the physical Galaxy tablet in Chrome with
 its real keyboard, screen lock/unlock and network changes. The new project flow
 does not claim native Linux/macOS or WSL evidence. Experiment promotion and
 application preview remain follow-up work.

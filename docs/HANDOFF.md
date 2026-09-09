@@ -1,5 +1,18 @@
 # Handoff — 2026-09-08
 
+## Lokale Auslieferung und Start — 2026-09-09, 10:28 Europe/Zurich
+
+Auf Adis Auftrag alle Änderungen als `6237f23` auf `origin/main` gepusht, danach
+`pnpm build` erfolgreich ausgeführt und ADE mit `pnpm start` neu gestartet.
+Die persönliche Instanz läuft mit dem aktualisierten Build (PID 34040), das
+Fenster `ade` wurde angezeigt. Der Listener gehört dieser Instanz und bleibt
+auf `127.0.0.1:4317`; die private Tailscale-HTTPS-Adresse liefert HTTP 200 und
+das aktuelle Mobile-Bundle. Logs: `test-results/ade-published-build.log` sowie
+`test-results/ade-published-start.stdout.log` und `.stderr.log`.
+Der abschliessende Code-Prüflauf bleibt der erfolgreiche `pnpm verify` mit
+2.026 Checks. Die reale Galaxy-/Chrome-Bedienung ist weiterhin vom Nutzer zu
+prüfen; auf dem Tablet die ADE-Seite neu laden.
+
 ## Dynamische Modellauswahl — 2026-09-09
 
 Adi hat am PC das statische Modell-Textfeld im New-Agent-Dialog gemeldet und eine
@@ -9,9 +22,8 @@ durchgehend gespeichertes Claude-Modell. Vollständiges natives Windows
 `pnpm verify` erfolgreich: **2.026 Checks**, drei TypeScript-Projekte und
 Production-Build. Details und Prüflog in `RUNTIME_MODEL_SELECTION.md`.
 Live-Metadatenabfragen ohne Prompt lieferten bei den installierten CLIs sechs
-Codex-, zwei Grok- und fünf Claude-Einträge. Die laufende persönliche ADE-Instanz
-wurde dafür nicht neu gestartet; zum Aktivieren ADE vollständig schliessen und
-neu starten, dann New agent oder Agent settings öffnen.
+Codex-, zwei Grok- und fünf Claude-Einträge. Der anschliessende lokale Neustart
+ist oben protokolliert. New agent oder Agent settings zeigt die neue Auswahl.
 
 Die daneben gemeldete Tablet-Verbindung wurde geprüft: Tailscale-PC und Galaxy
 online, direkter Tablet-Ping erfolgreich, private HTTPS-Seite und JS/CSS jeweils

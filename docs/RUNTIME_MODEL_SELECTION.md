@@ -96,6 +96,10 @@ Automated CLI fixtures are isolated from personal authentication and projects.
 Native Linux/macOS, real WSL model discovery, third-party Claude providers and
 physical Galaxy/Chrome model selection are not claimed by these measurements.
 
-The operator's personal ADE instance was not restarted during this change.
-Completely close and start ADE to load the updated main process and renderer;
-reloading a renderer alone does not activate the new discovery service.
+After verification, the operator requested commit, push, build and start.
+Implementation commit `6237f23` was pushed to `origin/main`; `pnpm build` passed
+again and `pnpm start` launched the updated personal ADE at 10:28 Europe/Zurich.
+The window opened and the private HTTPS endpoint serves the current Mobile
+bundle. Launch evidence is in `docs/HANDOFF.md` and the local
+`test-results/ade-published-build.log` / `ade-published-start.stdout.log` files.
+Other installations require a full ADE restart to load the new main service.
