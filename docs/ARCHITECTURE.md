@@ -1,5 +1,33 @@
 # ADE — Architecture (binding decisions)
 
+## Project workspace identities (foundation)
+
+`projectWorkspaces` is a main-owned config collection separate from agent/repo
+bindings. Each record pins a native checkout directory, actual Git directory,
+Git pointer identity and common metadata identity, plus its repository id. It
+contains no agent, memory, role, default CLI, or branch override. The actual branch
+is queried from Git and can also be unborn or detached. Old configs gain an empty
+collection; malformed present values fail validation. Workspace-bundle replacement
+must preserve the unrelated collection, which is not a new portable bundle item.
+
+`ProjectWorkspaceService` discovers direct children of the locally configured
+project root and merges matching catalog entries. It checks root/directory/link
+identities before and after reads, refuses junction targets and excludes `.git`,
+`.ade-worktrees`, and `node_modules`. The scan is bounded to 2,000 examined entries
+and 500 returned projects; truncation and an unavailable root are explicit. No
+discovery read initializes Git or changes config. DTOs in `shared/remote.ts`
+contain opaque identities/names rather than absolute host paths.
+
+An explicit open validates the exact checkout, actual/main worktree and common
+Git metadata, then persists repository registration and the independent workspace
+in one config save. It never creates an agent, worktree, branch, instruction file,
+or CLI process. Existing worktrees keep their actual folder while their repository
+retains the canonical main checkout. Repeated opens reuse the identity; replaced
+directories or Git pointer drift fail closed. Fixed native Git queries are bounded
+and ignore inherited Git location overrides. The workspace operation gate excludes
+concurrent Git mutations. T2a supplies this foundation; UI/API connection follows
+in T2b/T3 and is not yet claimed as a supported launch flow.
+
 ## Interactive foreground lifecycle
 
 `SessionMeta.status` continues to describe the PTY process. Optional `program`

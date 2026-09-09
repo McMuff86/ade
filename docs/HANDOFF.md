@@ -59,8 +59,9 @@ aus diesen Bildern ableiten.
 ## Aktuelle Fortsetzung
 
 T0 dokumentiert den Auftrag; T1 liefert wahrheitsgetreue CLI-/Shell-Zustände für
-native Windows. T2 setzt mit Projektordner-Erkennung und unabhängigen Workspace-
-Identitäten fort. Zusätzliche WSL-Abnahme ist wegen eines Backend-Timeouts offen;
+native Windows. T2a liefert Projektordner-Erkennung und unabhängige Workspace-
+Identitäten als Main-Service; T2b bindet nun UI/API daran an. Zusätzliche
+WSL-Abnahme ist wegen eines Backend-Timeouts offen;
 Details, grüne Windows-Läufe und Betreibergrenzen stehen im aktiven Goal.
 Reihenfolge und Abnahme stehen im [aktiven Goal](PROJECT_WORKFLOW_GOALS.md).
 Die bisherige Verifikation unten/oben betrifft die Ausgangsbasis, nicht bereits

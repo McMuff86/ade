@@ -89,6 +89,7 @@ export function normalizeConfig(
     agents: scopeMigration.agents,
     repositories: scopeMigration.repositories,
     workspaceBindings: scopeMigration.workspaceBindings,
+    projectWorkspaces: raw.projectWorkspaces === undefined ? [] : raw.projectWorkspaces,
     agentTemplates: arrayOrEmpty(raw.agentTemplates),
     runs: arrayOrEmpty(raw.runs).map((run) => {
       const {
@@ -168,6 +169,7 @@ export function normalizeConfig(
     !isCanonicalJournalRetention(raw.journalRetention) ||
     !Array.isArray(raw.repositories) ||
     !Array.isArray(raw.workspaceBindings) ||
+    !Array.isArray(raw.projectWorkspaces) ||
     !Array.isArray(raw.agentTemplates) ||
     (raw.settings?.inspectorSide !== 'left' && raw.settings?.inspectorSide !== 'right') ||
     scopeMigration.migrated ||

@@ -20,7 +20,8 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 |---|---|---|
 | T0 | Ablauf, Grenzen, Reihenfolge und Prüfkriterien dokumentieren; lokale Dokumentverweise prüfen | abgeschlossen |
 | T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows; zusätzliche WSL-Abnahme offen |
-| T2 | Direkte Unterordner des konfigurierten Projekt-Stamms begrenzt und ohne Link-Verfolgung entdecken; registrierte und noch nicht erfasste Projekte zusammen anzeigen. Eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | offen |
+| T2a | Datenmodell und begrenzte Ordnererkennung; eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | abgeschlossen für native Windows |
+| T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | offen |
 | T3 | Projekt → Workspace/Branch → CLI auf Desktop und Tablet. Bestehenden Checkout ausdrücklich verwenden; zusätzliche Arbeitskopie für parallele Arbeit anbieten. Lokale/Remote-Branches, neuen Branch und profilfreien Start mit echten Git-/PTY-Fixtures prüfen | offen |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
@@ -87,3 +88,25 @@ Ausgangsevidenz und keine Verifikation dieses Goals.
   und Workspaces blieben unberührt.
 - Lokale Logs: `test-results/project-goal-*.log`; 193 Dokumentverweise geprüft.
   Der Guide erklärt die neuen Zustände; aktualisierte Gesamtaufnahmen folgen T6.
+
+### T2a — Unabhängige Workspace-Identität und Ordnererkennung
+
+- Main-Service erkennt konfigurierte direkte Projektordner und bestehende
+  Katalogeinträge; normale Ordner werden gezeigt, aber nicht automatisch mit Git
+  initialisiert. Links bleiben unzugänglich; grosse Listen melden ihre Begrenzung.
+- Explizites Öffnen registriert den genauen Checkout und bei Bedarf das Repo in
+  einem Speicherschritt. Vorhandene Worktrees behalten ihren Ordner und ihr
+  gemeinsames Repository. Es entsteht weder ein Agent noch eine Agent-Bindung,
+  und vorhandene Repository-Anweisungen bleiben unverändert.
+- Neue `projectWorkspaces`-Collection mit rückwärtskompatibler Leer-Migration,
+  strikter Validierung und Schutz bei Workspace-Bundle-Import. UI/API folgen T2b;
+  keine profilfreie CLI-Startfunktion aus diesem Service-Test ableiten.
+- Native Windows: 32 neue Prüfungen mit echten Git-Repositories, darunter
+  Unicode/Pfadnamen mit Apostroph, paralleles Öffnen, Neustart, Worktrees,
+  unbekannte Auswahl, Junctions, Root-/Git-Pointer-Wechsel, Git-Umgebungsvariablen,
+  detached HEAD, unborn master und Listenlimit. Drei TypeScript-Projekte grün.
+- Der vorhandene Bestand läuft grün: 33 Suiten / 1.713 Checks, darunter 34
+  Config- und 200 Workspace-Bundle-Checks. Die neue 32-Check-Suite wurde zusätzlich
+  ausgeführt und mit gemessenem Floor registriert; sie ist in diesen 1.713 noch
+  nicht enthalten. Die abschliessende Gesamtverifikation bleibt T6.
+- Evidenz: `test-results/project-discovery-*.log`. Nächster Schritt: T2b UI/API.

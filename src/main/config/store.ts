@@ -19,7 +19,7 @@ import {
   closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync,
   realpathSync, readdirSync, renameSync, unlinkSync, writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import {
   DEFAULT_CONFIG,
   WORKSPACE_PREPARE_MODES,
@@ -98,7 +98,7 @@ function assertCatalogIntegrity(config: AdeConfig): void {
 }
 
 const ROOT_KEYS = [
-  'categories', 'agents', 'repositories', 'workspaceBindings', 'agentTemplates', 'runs',
+  'categories', 'agents', 'repositories', 'workspaceBindings', 'projectWorkspaces', 'agentTemplates', 'runs',
   'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults', 'runApprovals',
   'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'sessionBookends',
   'journalRetention', 'settings',
@@ -108,6 +108,7 @@ const PERMISSIONS = new Set(['default', 'accept-edits', 'bypass']);
 const REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
 const GROK_REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const REPLACE_IMMUTABLE_KEYS = [
+  'projectWorkspaces',
   'runs', 'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults',
   'runApprovals', 'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog',
   'sessionBookends', 'journalRetention',
@@ -174,6 +175,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   const agentIds = ids(config.agents, 'config.agents');
   const repositoryIds = ids(config.repositories, 'config.repositories');
   const bindingIds = ids(config.workspaceBindings, 'config.workspaceBindings');
+  ids(config.projectWorkspaces, 'config.projectWorkspaces');
   ids(config.agentTemplates, 'config.agentTemplates');
 
   for (const category of config.categories) {
@@ -258,6 +260,22 @@ export function validateCompleteConfig(config: AdeConfig): void {
     }
     const repository = config.repositories.find((item) => item.id === binding.repositoryId)!;
     if (binding.executionBackend !== repository.executionBackend) throw new Error('Workspace binding backend is invalid.');
+  }
+  if (config.projectWorkspaces.length > 500) throw new Error('Too many project workspaces.');
+  for (const workspace of config.projectWorkspaces) {
+    exactKeys(workspace as unknown as Record<string, unknown>, [
+      'id', 'repositoryId', 'workspaceDir', 'directoryIdentity', 'gitDirectory',
+      'gitDirectoryIdentity', 'gitPointerIdentity', 'commonGitIdentity', 'kind', 'createdAt',
+    ], 'project workspace');
+    for (const field of ['id', 'repositoryId', 'workspaceDir', 'directoryIdentity', 'gitDirectory', 'gitDirectoryIdentity', 'gitPointerIdentity', 'commonGitIdentity'] as const) {
+      boundedString(workspace[field], `projectWorkspace.${field}`);
+    }
+    const repository = config.repositories.find((item) => item.id === workspace.repositoryId);
+    if (!repository?.verified || repository.executionBackend !== 'native'
+      || !isAbsolute(workspace.workspaceDir) || !isAbsolute(workspace.gitDirectory)
+      || !['checkout', 'worktree'].includes(workspace.kind) || !Number.isFinite(workspace.createdAt)) {
+      throw new Error('Project workspace relationship is invalid.');
+    }
   }
   for (const template of config.agentTemplates) {
     exactKeys(template as unknown as Record<string, unknown>, [

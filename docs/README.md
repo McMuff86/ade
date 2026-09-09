@@ -8,6 +8,7 @@ Stand: 2026-09-09. Beginne je nach Anliegen hier:
 | Tablet verbinden / Verbindung untersuchen | [Mobile Connect Guide](goal8/MOBILE_CONNECT_GUIDE.md) |
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |
 | Aktueller Funktionsumfang und Grenzen | [STATUS](STATUS.md) |
+| Aktiver Goal: Projekt → Branch → CLI → Git | [Projekt-Workflow-Tasks](PROJECT_WORKFLOW_GOALS.md) |
 | Was als Nächstes verbessern? | [Produktreview vom 9. September](research/ADE_PRODUCT_REVIEW_2026-09-09.md) |
 | Aktuelle Übergabe / Betrieb | [HANDOFF](HANDOFF.md) |
 | Geplante Tracks und Abnahmekriterien | [ROADMAP](ROADMAP.md) |

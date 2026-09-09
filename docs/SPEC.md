@@ -1,5 +1,11 @@
 # ADE — Agentic Development Environment · Product Spec
 
+Project workflow goal: discovery and independently registered project workspaces
+are being introduced in [T2a/T2b](PROJECT_WORKFLOW_GOALS.md). The foundation keeps
+the chosen existing checkout without creating a hidden profile or modifying its
+instructions. Desktop/tablet entry, branch controls and profile-free CLI launch
+remain subsequent goal tasks until their UI acceptance passes.
+
 Interactive lifecycle (2026-09-09): the selected session displays its launched
 CLI separately from the terminal shell, for example **Claude Code beendet ·
 Terminal offen**. Launcher choice describes what to open and cannot relabel the

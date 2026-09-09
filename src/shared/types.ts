@@ -1051,6 +1051,7 @@ export interface AdeConfig {
   agents: Agent[];
   repositories: Repository[];
   workspaceBindings: WorkspaceBinding[];
+  projectWorkspaces: import('./projectWorkspaces').ProjectWorkspace[];
   agentTemplates: AgentTemplate[];
   runs: Run[];
   runParticipants: RunParticipant[];
@@ -1076,6 +1077,7 @@ export const DEFAULT_CONFIG: AdeConfig = {
   agents: [],
   repositories: [],
   workspaceBindings: [],
+  projectWorkspaces: [],
   agentTemplates: [],
   runs: [],
   runParticipants: [],

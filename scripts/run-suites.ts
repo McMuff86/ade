@@ -28,7 +28,7 @@ interface Suite {
 
 const SUITES: Suite[] = [
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
-  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 13 } },
+  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 16 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
@@ -40,6 +40,7 @@ const SUITES: Suite[] = [
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
+  { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 32 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
@@ -53,7 +54,7 @@ const SUITES: Suite[] = [
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 30 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
-  { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 28 } },
+  { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 32 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
   { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 71 } },

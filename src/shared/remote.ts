@@ -98,6 +98,31 @@ export interface MobileAdministrationValue {
 export interface MobileAdministrationResult extends MobileAdministrationValue { replayed: boolean }
 export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncPreview }
 
+/** Directory/workspace projections never contain absolute host paths. */
+export interface ProjectDirectoryEntry {
+  id: string;
+  name: string;
+  repositoryId?: string;
+  kind: 'repository' | 'folder' | 'unavailable';
+  backend: string;
+  source: 'root' | 'catalog';
+  notice: string | null;
+}
+export interface ProjectDirectoryView {
+  configured: boolean;
+  entries: ProjectDirectoryEntry[];
+  limited: boolean;
+  notice: string | null;
+}
+export interface ProjectWorkspaceView {
+  id: string;
+  repositoryId: string;
+  name: string;
+  branch: string;
+  kind: 'checkout' | 'worktree';
+  backend: 'native';
+}
+
 /** null explicitly selects the agent home, regardless of its default project. */
 export interface MobileWorkspaceSelection { agentId: string; repositoryId: string | null }
 export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'claude' | 'grok' | 'hermes' } | { mode: 'ollama'; model: string };
