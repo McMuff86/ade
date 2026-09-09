@@ -26,16 +26,17 @@ interface GitIdentity { top: string; main: string; git: string; common: string; 
  * writes repository instructions, checks out a branch, or launches a CLI.
  */
 export class ProjectWorkspaceService {
-  constructor(private readonly store: ConfigPort) {}
+  constructor(private readonly store: ConfigPort, private readonly changed: () => void = () => undefined) {}
 
   async directory(): Promise<ProjectDirectoryView> {
     const result = await this.discover();
     return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice };
   }
 
-  async open(entryId: string): Promise<ProjectWorkspaceView> {
+  async open(entryId: string, assertAuthorized: () => void = () => undefined): Promise<ProjectWorkspaceView> {
     if (typeof entryId !== 'string' || !/^p[a-f0-9]{32}$/.test(entryId)) throw new Error('ade: Projekt-Auswahl ist ungültig.');
     return workspaceOperations.use(async () => {
+      assertAuthorized();
       const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
       if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
       if (target.entry.backend !== 'native') throw new Error('ade: WSL-Projekte im bestehenden Agent-Workspace öffnen.');
@@ -55,6 +56,7 @@ export class ProjectWorkspaceService {
       const existing = current.projectWorkspaces.find((item) => sameHostPath(item.workspaceDir, target.path));
       if (existing) {
         this.assertRecord(existing, repository, identity);
+        assertAuthorized();
         return this.view(existing, repository, identity.branch);
       }
       if (current.projectWorkspaces.length >= MAX_ENTRIES) throw new Error('ade: Maximal 500 Projekt-Workspaces.');
@@ -65,8 +67,10 @@ export class ProjectWorkspaceService {
       // No await between final identity check and the one atomic config save.
       this.assertTarget(target);
       this.assertRecord(workspace, repository, identity);
+      assertAuthorized();
       this.store.save({ repositories: current.repositories.some((item) => item.id === repository!.id) ? current.repositories : [...current.repositories, repository],
         projectWorkspaces: [...current.projectWorkspaces, workspace] });
+      this.changed();
       return this.view(workspace, repository, identity.branch);
     });
   }

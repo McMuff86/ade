@@ -1,10 +1,13 @@
 # ADE — Agentic Development Environment · Product Spec
 
 Project workflow goal: discovery and independently registered project workspaces
-are being introduced in [T2a/T2b](PROJECT_WORKFLOW_GOALS.md). The foundation keeps
-the chosen existing checkout without creating a hidden profile or modifying its
-instructions. Desktop/tablet entry, branch controls and profile-free CLI launch
-remain subsequent goal tasks until their UI acceptance passes.
+are available through **Projekte** on desktop and tablet in
+[T2a/T2b](PROJECT_WORKFLOW_GOALS.md). The native directory list includes unregistered
+Git folders, ordinary folders (without implicit Git initialization), and unavailable
+entries. Explicit open keeps the chosen existing checkout and displays its actual
+branch without creating a hidden profile or modifying instructions. The tablet
+needs separate read/open grants. Branch controls and profile-free CLI launch
+remain T3; the explicit Agent-Arbeitskopie action preserves the previous CLI flow.
 
 Interactive lifecycle (2026-09-09): the selected session displays its launched
 CLI separately from the terminal shell, for example **Claude Code beendet ·
@@ -15,7 +18,7 @@ it. Browser connectivity and input ownership remain separate indicators. Later
 manually typed shell commands are not represented as tracked ADE CLI launches.
 Implementation and acceptance: [project workflow goal T1](PROJECT_WORKFLOW_GOALS.md).
 
-Mobile project entry (2026-09-09): Projekte opens an ADE project working copy,
+Earlier agent project entry (2026-09-09): Agent-Arbeitskopie opens an ADE project working copy,
 then offers independent Codex/Claude/Grok/shell choices. Overview project cards
 use the same entry. Agent workspaces have a direct saved-profile Open action;
 the terminal retains usable height and the empty composer starts folded.

@@ -9,6 +9,7 @@ import { RemoteCommandLedger } from '../../src/main/application/RemoteCommandLed
 import { HostRestartController } from '../../src/main/application/HostRestartController';
 import { HostOperationGate } from '../../src/main/application/HostOperationGate';
 import { RepositoryScopeService } from '../../src/main/repositories/RepositoryScopeService';
+import { ProjectWorkspaceService } from '../../src/main/repositories/ProjectWorkspaceService';
 import { RepositorySyncService } from '../../src/main/repositories/RepositorySyncService';
 import { BackendWorkspaceService } from '../../src/main/execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../../src/main/execution/ExecutionBackendService';
@@ -42,7 +43,7 @@ export function createRemoteWorkspaceFixture(root: string) {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
-    workbench,
+    workbench, projects: new ProjectWorkspaceService(store),
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
     profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),

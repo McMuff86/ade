@@ -57,12 +57,13 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'projectQuery' | 'projectCommand' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
 
-type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile';
+type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -113,6 +114,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/host': return { route: { kind: 'host' }, allow: ['GET'] };
     case '/api/v1/host/restart': return { route: { kind: 'restartHost' }, allow: ['POST'] };
     case '/api/v1/admin/commands': return { route: { kind: 'administer' }, allow: ['POST'] };
+    case '/api/v1/projects/query': return { route: { kind: 'projectQuery' }, allow: ['POST'] };
+    case '/api/v1/projects/command': return { route: { kind: 'projectCommand' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
     case '/api/v1/workspace/save': return { route: { kind: 'saveWorkspaceFile' }, allow: ['POST'] };
@@ -406,6 +409,8 @@ export class HostApiServer {
         case 'restartHost':
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
         case 'administer':
+        case 'projectQuery':
+        case 'projectCommand':
         case 'queryGit':
         case 'queryWorkspace':
         case 'saveWorkspaceFile':
@@ -508,6 +513,8 @@ export class HostApiServer {
 
     try {
       const result = kind === 'queryProfile' ? this.application.queryProfile(context, payload)
+        : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
+        : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
         : kind === 'saveWorkspaceFile'
         ? await this.application.saveWorkspaceFile(context, payload)

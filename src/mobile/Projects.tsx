@@ -3,21 +3,12 @@ import type { MobileAdministrationResult, MobileHostState, MobileWorkspaceResult
 import type { MobileHost } from './useMobileHost';
 import { AgentWorkspace, workspaceError } from './AgentWorkspace';
 import { useDeviceDraft } from './deviceDrafts';
-import { Dialog, Empty, Icon } from './ui';
+import { Dialog } from './ui';
+import { ProjectDirectoryPage } from './ProjectDirectoryPage';
 
-export function Projects({ host, onProject, onNew }: { host: MobileHost; onProject: (id: string) => void; onNew: () => void }): JSX.Element {
-  const [search, setSearch] = useState('');
-  const projects = host.catalog?.repositories.filter((repo) => repo.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+export function Projects({ host, onProject }: { host: MobileHost; onProject: (id: string) => void }): JSX.Element {
   return <section className="m-project-entry" aria-label="Projekte">
-    <p>Projekt-Workspace öffnen, danach Codex CLI, Claude CLI, Grok CLI oder ein leeres Terminal wählen.</p>
-    <label>Projekte durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-    {!projects ? <p role="status">Projekte werden geladen…</p> : !projects.length ? <Empty title={search ? 'Keine passenden Projekte' : 'Noch keine Projekte'}>
-      <p>{search ? 'Suche ändern.' : 'Ein neues Projekt auf deinem PC anlegen oder ein vorhandenes unter Verwalten hinzufügen.'}</p>
-      {!search && <button onClick={onNew}>Neues Projekt</button>}</Empty> : <div className="m-project-entry-grid">
-      {projects.map((repo) => <button key={repo.id} aria-label={`Projekt öffnen: ${repo.name}`} onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }}>
-        <Icon name="project" /><strong>{repo.name}</strong><span>{repo.verified ? 'Workspace öffnen' : 'Am PC prüfen'} · {repo.executionBackend}</span>
-      </button>)}
-    </div>}
+    <ProjectDirectoryPage key={host.identityVersion} host={host} onAgentWorkspace={onProject} />
   </section>;
 }
 

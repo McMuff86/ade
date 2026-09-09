@@ -41,6 +41,7 @@ import { redactedErrorDetail, toIpcError } from './errors';
 import { broadcastToRenderers, isRendererWindow, rendererWindows } from './rendererWindows';
 import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
+import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
 import { ExecutionBackendService } from './execution/ExecutionBackendService';
 import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
@@ -305,12 +306,17 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
+  const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
+  handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
+    ? { directory: await projects.directory() } : { workspace: await projects.overview(input.workspaceId) });
+  handle(IPC.ProjectWorkspaceCommand, async (input) => ({ workspace: await projects.open(input.entryId), replayed: false }));
   const application = new AdeApplicationService(
     store,
     orchestration,
     { status: () => ptyManager!.queueStatus() },
     {
       activity: hostOperations,
+      projects,
       workbench, terminals: remoteTerminals,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {

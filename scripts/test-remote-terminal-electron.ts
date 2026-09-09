@@ -8,6 +8,7 @@ import { _electron as electron, chromium, type ElectronApplication, type Browser
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { projectStartFlow } from './helpers/projectStartFlow';
 import { projectEntryFlow } from './helpers/projectEntryFlow';
+import { projectDirectoryFlow } from './helpers/projectDirectoryFlow';
 import { assistantAccessFlow } from './helpers/assistantAccessFlow';
 import { terminalEchoLatency } from './helpers/terminalLatency';
 import { PNG } from 'pngjs';
@@ -83,6 +84,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--directory-only')) {
+    await projectDirectoryFlow(desktop, page, proxy, root, evidence, check); return;
+  }
   if (process.argv.includes('--project-only')) {
     await projectStartFlow(desktop, page, proxy, root, setup.agent.categoryId, evidence, check);
     await projectEntryFlow(desktop, page, evidence, check, proxy); return;
@@ -216,6 +220,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await projectStartFlow(desktop, page, proxy, root, setup.agent.categoryId, evidence, check);
   await projectEntryFlow(desktop, page, evidence, check, proxy);
   await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check);
+  await projectDirectoryFlow(desktop, page, proxy, root, evidence, check);
   }
   if (process.argv.includes('--wsl') || process.argv.includes('--wsl-only')) {
     wslHome = `/tmp/ade-session-${randomUUID()}`;

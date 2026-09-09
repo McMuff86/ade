@@ -180,7 +180,7 @@ function MobileApp(): JSX.Element {
           {view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
             onSession={(session) => setWorkspace({ agentId: session.agentId, repositoryId: session.repositoryId, terminalId: session.id, tab: 'terminal' })} />
             <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProject={openProject} /></>
-            : view === 'projects' ? <Projects host={host} onProject={openProject} onNew={() => setProjectStart(true)} />
+            : view === 'projects' ? <Projects host={host} onProject={openProject} />
             : view === 'graph' ? <Graph run={graphRun} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
               : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>

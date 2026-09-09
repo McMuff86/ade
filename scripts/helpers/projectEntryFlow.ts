@@ -6,10 +6,20 @@ import type { mobileTlsProxy } from './mobileBrowser';
 export async function projectEntryFlow(desktop: Page, page: Page, evidence: string, check: (label: string, ok: boolean) => void,
   proxy?: Awaited<ReturnType<typeof mobileTlsProxy>>): Promise<void> {
   await page.keyboard.press('Escape');
+  const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find((item) => item.name === 'Terminal tablet')!;
+  await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
+    { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])] });
   await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   check('Projects entry keeps run controls in Work', !await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).count());
   await page.getByLabel('Projekte durchsuchen', { exact: true }).fill('Tablet Garden');
-  await page.getByRole('button', { name: 'Projekt öffnen: Tablet Garden', exact: true }).click();
+  const openLegacy = async () => {
+    await page.getByRole('button', { name: 'Workspace öffnen: Tablet Garden', exact: true }).click();
+    const selection = page.getByRole('dialog', { name: 'Projekt · Tablet Garden', exact: true });
+    await selection.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+    await selection.getByText('Agent-Arbeitskopie', { exact: true }).click();
+    await selection.getByRole('button', { name: 'Agent-Arbeitskopie öffnen', exact: true }).click();
+  };
+  await openLegacy();
   const workspace = page.getByRole('dialog', { name: 'Projekt · Tablet Garden', exact: true });
   const before = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
   await workspace.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
@@ -38,10 +48,10 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
   }
   await page.screenshot({ path: join(evidence, 'project-cli-tablet.png') });
   await workspace.getByRole('button', { name: 'Projekt · Tablet Garden schliessen', exact: true }).click();
-  check('closing project workspace returns keyboard focus to Projects', await page.getByRole('button', { name: 'Projekt öffnen: Tablet Garden', exact: true }).evaluate((node) => node === document.activeElement)
-    || await page.getByRole('button', { name: 'ADE Overview', exact: true }).evaluate((node) => node === document.activeElement));
+  check('closing project workspace returns keyboard focus to Projects', await page.getByRole('button', { name: 'Workspace öffnen: Tablet Garden', exact: true }).evaluate((node) => node === document.activeElement)
+    || await page.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
   if (proxy) {
-    await page.getByRole('button', { name: 'Projekt öffnen: Tablet Garden', exact: true }).click();
+    await openLegacy();
     await workspace.locator('summary').click();
     await workspace.getByLabel('Profil für die Arbeitskopie', { exact: true }).selectOption('');
     const agentsBefore = (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.length;

@@ -25,7 +25,13 @@ PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 
 ## A tour
 
-**Workspace on your tablet** — open **Projekte → project → Workspace öffnen**,
+**Project folders** — **Projekte** on desktop and tablet discovers existing folders
+under the configured project root, including unregistered repositories. Open the
+exact checkout without creating an agent; see its actual branch. Branch selection
+and profile-free CLI launch are the next [goal task](docs/PROJECT_WORKFLOW_GOALS.md).
+The explicit **Agent-Arbeitskopie** action retains the existing terminal workflow.
+
+**Agent workspace on your tablet** — open an agent working copy,
 then choose Codex, Claude CLI, Grok CLI or a shell. Open a saved assistant profile
 without a project from **Overview → Terminal öffnen**. Browse files,
 read staged/unstaged Git diffs, make small conflict-checked text edits and change

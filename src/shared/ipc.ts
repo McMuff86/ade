@@ -95,6 +95,8 @@ export const IPC = {
   AgentTemplateDelete: 'agentTemplate:delete',
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
+  ProjectWorkspaceQuery: 'project:query',
+  ProjectWorkspaceCommand: 'project:command',
   RepositoryOverview: 'repository:overview',
   RepositorySyncOverview: 'repository:syncOverview',
   RepositoryFetch: 'repository:fetch',
@@ -614,6 +616,8 @@ export interface WorkspaceBundleExportResult {
  * `req: void` means the channel takes no payload.
  */
 export interface IpcInvokeMap {
+  'project:query': { req: import('./remote').ProjectWorkspaceQuery; res: import('./remote').ProjectWorkspaceQueryResult };
+  'project:command': { req: import('./remote').ProjectWorkspaceCommand; res: import('./remote').ProjectWorkspaceCommandResult };
   'config:get': { req: void; res: AdeConfig };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };

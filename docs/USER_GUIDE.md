@@ -6,7 +6,12 @@ ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
 die Entwicklungswerkzeuge nicht selbst installieren.
 
-**Der empfohlene Einstieg: Projekte → Projekt öffnen → Workspace öffnen → CLI wählen.**
+**Der neue Projekteinstieg: Projekte → Workspace öffnen.** Die Liste zeigt auch
+Ordner unter deinem Projekt-Stamm, die noch nicht in ADE erfasst sind. Der geöffnete
+Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
+Branch-Auswahl und CLI-Start in diesem unabhängigen Workspace folgen im aktiven
+[Goal T3](PROJECT_WORKFLOW_GOALS.md). Bis dahin führt **Agent-Arbeitskopie →
+Agent-Arbeitskopie öffnen** zum bisherigen CLI-Ablauf in den folgenden Bildern.
 Für eine neue Idee verwendest du **Neues Projekt**. Für Hermes General oder
 Sentinel ohne Projekt verwendest du **Overview → Terminal öffnen** beim Agenten.
 
@@ -15,6 +20,16 @@ Windows-/Chromium-Instanz. Terminalprogramme sind lokale Demos, keine echten
 Modellantworten. Bild 10 simuliert den verfügbaren Platz über einer Bildschirmtastatur;
 es ist keine Aufnahme einer Samsung-Tastatur. Pairing-Daten und der temporäre
 Projektpfad sind maskiert. [Aufnahmeprotokoll](media/user-guide/capture.json).
+
+Für die neue Ordnerübersicht am Tablet am PC unter **Settings → Verbundene Geräte**
+die Rechte **Workspace-Dateien und Git-Diffs lesen** und **Projekt-Workspaces ohne
+Agent-Profil öffnen** freigeben. Danach **Projektordner aktualisieren** verwenden.
+Normale Ordner ohne Git werden angezeigt; Git wird darin nicht automatisch angelegt.
+Bei einer verlorenen Antwort **Workspace-Öffnung prüfen** wählen. ADE verwendet
+dieselbe Aktion erneut, auch nach einem Neuladen der Seite.
+
+Die bisherigen Bilder zeigen überwiegend den Agent-Ablauf. Die Gesamtaufnahme
+wird mit Abschluss der Branch-/Git-Oberfläche im Goal T6 erneuert.
 
 ## Inhalt
 

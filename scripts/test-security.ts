@@ -60,6 +60,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'project:query': { operation: 'directory' },
+  'project:command': { operation: 'open', entryId: 'p' + 'a'.repeat(32) },
   'harness:models': { runtime: 'codex', backend: 'native' },
   'session:options': { agentId: 'agent', repositoryId: null },
   'session:launch': { agentId: 'agent', repositoryId: null, mode: 'shell' },

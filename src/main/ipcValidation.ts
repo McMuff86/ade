@@ -5,6 +5,7 @@ import { isValidDeviceId } from './remote/authorization';
 import { isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
 import { validSessionChoice } from '../shared/sessionLaunch';
+import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../shared/projectWorkspaceRequests';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
@@ -608,6 +609,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   payload: unknown,
 ): asserts payload is IpcInvokeMap[K]['req'] {
   switch (channel) {
+    case IPC.ProjectWorkspaceQuery:
+      if (!validProjectWorkspaceQuery(payload)) invalid(channel, 'invalid project query');
+      return;
+    case IPC.ProjectWorkspaceCommand:
+      if (!validProjectWorkspaceCommand(payload)) invalid(channel, 'invalid project command');
+      return;
     case IPC.ConfigGet:
     case IPC.ProjectDefaultsGet:
     case IPC.ConfigHealth:

@@ -1,8 +1,24 @@
-# Mobile project entry and readable terminals
+# Project entry and readable terminals
 
-Mobile has four navigation tabs: Overview, Projekte, Work and Graph. Projekte
-lists searchable project cards. Both these cards and Overview project cards open
-the project workspace entry; Work remains the entry for managed tasks and runs.
+## Independent checkout entry (goal T2b)
+
+**Projekte** on desktop and tablet now lists configured-root folders together with
+registered repositories. **Workspace öffnen** registers the exact existing native
+checkout and shows its branch without creating an agent or worktree. Ordinary
+folders without Git and unavailable directories remain visible with an explanation.
+The tablet requires `workspace:read` plus the explicit `projects:write` grant to
+open. Its durable `project-opening` receipt supports explicit replay after a lost
+reply or reload; `project-selected` restores the opened workspace by read.
+Branch selection and launching a CLI in this independent checkout follow goal T3.
+
+The previous workflow below remains under **Agent-Arbeitskopie →
+Agent-Arbeitskopie öffnen** and through Overview's existing project cards.
+It deliberately refers to a different, agent-owned working copy.
+
+## Existing agent working-copy workflow
+
+Mobile has four navigation tabs: Overview, Projekte, Work and Graph.
+Work remains the entry for managed tasks and runs.
 New Project remains available in the toolbar, using the configured PC project
 root and the existing recoverable Codex scaffold flow.
 

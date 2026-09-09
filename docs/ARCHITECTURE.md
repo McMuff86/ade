@@ -1,6 +1,6 @@
 # ADE — Architecture (binding decisions)
 
-## Project workspace identities (foundation)
+## Independent project workspaces and discovery
 
 `projectWorkspaces` is a main-owned config collection separate from agent/repo
 bindings. Each record pins a native checkout directory, actual Git directory,
@@ -25,8 +25,28 @@ or CLI process. Existing worktrees keep their actual folder while their reposito
 retains the canonical main checkout. Repeated opens reuse the identity; replaced
 directories or Git pointer drift fail closed. Fixed native Git queries are bounded
 and ignore inherited Git location overrides. The workspace operation gate excludes
-concurrent Git mutations. T2a supplies this foundation; UI/API connection follows
-in T2b/T3 and is not yet claimed as a supported launch flow.
+concurrent Git mutations.
+
+Desktop `project:query` (read) and `project:command` (mutate) are desktop-only
+IPC, with exact payload validation. The host exposes separate signed
+`POST /api/v1/projects/query` and `/api/v1/projects/command` routes through
+`AdeApplicationService`. Queries require `workspace:read`; open additionally
+requires the new explicit `projects:write` desktop grant. Existing catalog/Git
+grants do not confer it. Open uses the durable command ledger (`project:open`),
+idempotency bound to device/channel/payload, audit and the restart admission gate.
+Read authorization is checked after asynchronous work, and mutation authorization
+immediately before persistence as well as before returning its receipt. Missing
+ledger data with prior project audit history fails closed. The generic remote
+IPC allowlist remains unchanged.
+
+Desktop and mobile share the bounded/searchable directory presentation. Mobile
+persists `project-opening` before sending and protects this recovery record from
+TTL/ordinary eviction; reload never automatically resends a mutation. Explicit
+retry uses the original key. `project-selected` restores the workspace by read.
+Storage failure blocks a new command; discarding an opening leaves host files and
+registered metadata intact. Dialog and page focus have explicit fallback targets.
+T2b supplies discovery/open/detail only. Branch controls and independent CLI launch
+follow T3; the previous agent-worktree entry remains explicitly accessible.
 
 ## Interactive foreground lifecycle
 

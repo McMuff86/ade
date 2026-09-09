@@ -1,0 +1,18 @@
+.project-directory, .project-desktop { min-width: 0; }
+.project-directory > p, .project-workspace-summary > p { margin: 12px 0; line-height: 1.6; font-weight: 400; color: var(--muted); }
+.project-desktop { flex: 1; overflow: auto; padding: 24px; }
+.project-desktop h1 { font-size: 18px; margin: 0 0 20px; }
+.project-directory-tools { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.project-directory-tools label { display: grid; gap: 8px; flex: 1 1 260px; }
+.project-directory input, .project-directory button, .project-desktop button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-height: 44px; }
+.project-directory button:disabled, .project-desktop button:disabled { opacity: .6; cursor: default; }
+.project-directory button:focus-visible, .project-directory input:focus-visible, .project-desktop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.project-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; padding: 0; list-style: none; }
+.project-directory-grid li { min-width: 0; border: 1px solid var(--line); border-radius: 6px; }
+.project-directory-grid li > button { width: 100%; display: flex; flex-direction: column; align-items: start; gap: 8px; text-align: left; border: 0; overflow-wrap: anywhere; }
+.project-directory-grid li > p { margin: 10px 12px; font-size: 12px; }
+.project-directory-grid span { color: var(--muted); font-size: 12px; }
+.project-workspace-summary dl { display: flex; gap: 24px; flex-wrap: wrap; }
+.project-workspace-summary dt { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.project-workspace-summary dd { margin: 0; overflow-wrap: anywhere; }
+.project-workspace-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }

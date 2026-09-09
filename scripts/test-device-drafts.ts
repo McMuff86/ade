@@ -44,6 +44,16 @@ for (let i = 0; i < 35; i++) writeDeviceDraft('project-tablet', `terminal-select
 check('uncertain project preparation survives expiry and ordinary eviction', readDeviceDraft('project-tablet', 'project-workspace:project', null) !== null);
 storage.setItem('ade-work:project-tablet:project-workspace:bad', JSON.stringify({ at: Date.now(), value: { ...preparation, phase: 'shell' } }));
 check('malformed project preparation is refused', readDeviceDraft('project-tablet', 'project-workspace:bad', null) === null);
+const opening = { key: 'project-open-1', entryId: 'p' + 'a'.repeat(32), name: 'Unregistered project' };
+writeDeviceDraft('new-project-tablet', 'project-opening', opening);
+check('independent project open preserves opaque target and receipt across reload', readDeviceDraft<typeof opening | null>('new-project-tablet', 'project-opening', null)?.key === opening.key);
+storage.setItem('ade-work:new-project-tablet:project-opening', JSON.stringify({ at: 1, value: opening }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('new-project-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('independent open receipt survives TTL and ordinary eviction', readDeviceDraft('new-project-tablet', 'project-opening', null) !== null);
+storage.setItem('ade-work:new-project-tablet:project-opening', JSON.stringify({ at: Date.now(), value: { ...opening, entryId: 'C:\\private' } }));
+check('host paths cannot be restored as project-open targets', readDeviceDraft('new-project-tablet', 'project-opening', null) === null);
+writeDeviceDraft('new-project-tablet', 'project-selected', '12345678-1234-1234-1234-123456789abc');
+check('independent workspace selection survives reload separately from agent selection', readDeviceDraft<string>('new-project-tablet', 'project-selected', '') === '12345678-1234-1234-1234-123456789abc');
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

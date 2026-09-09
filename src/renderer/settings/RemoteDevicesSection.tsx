@@ -7,6 +7,7 @@ const scopeLabels: Record<RemoteAdminScope, string> = {
   'workspace:read': 'Workspace-Dateien und Git-Diffs lesen',
   'workspace:write': 'Kleine Workspace-Textdateien bearbeiten',
   'profiles:write': 'Agent-Namen, Rollen und Profilbilder bearbeiten',
+  'projects:write': 'Projekt-Workspaces ohne Agent-Profil öffnen',
   'terminal:control': 'Interaktive Terminals steuern (Befehle mit den Rechten meines Windows-Benutzers)',
 };
 

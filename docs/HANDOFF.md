@@ -12,6 +12,15 @@ CLI wählen, anschliessend Git-Aktionen ausführen. CLI- und Shell-Zustand müss
 getrennt angezeigt werden. Nach jedem abgeschlossenen Task folgt ein Commit;
 gepusht wird erst am Schluss. Der frühere Research-/Guide-Auftrag ist abgeschlossen.
 
+T0/T1/T2a/T2b sind umgesetzt. Die neue Projektübersicht öffnet vorhandene native
+Checkouts unabhängig vom Agent-Katalog und zeigt den tatsächlichen Branch.
+Das Tablet benötigt `workspace:read` und die neue explizite Freigabe
+`projects:write`; alte Geräte erhalten sie nicht automatisch. Nächster Task T3:
+Branches und profilfreie CLI-Sitzungen in diesem Workspace. Der frühere Einstieg
+ist unter „Agent-Arbeitskopie“ weiterhin erreichbar. Einzelne Task-Nachweise stehen
+im Goal-Dokument; die abschliessende Gesamtverifikation und der Push folgen T6.
+Es wurde keine persönliche ADE-Instanz neu gestartet.
+
 - Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
 - Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 - Dokumentationsentscheidungen: [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).

@@ -3,7 +3,7 @@
  *   rail | center (tab strip + main area) | inspector (collapsible).
  * Inspector side is a Settings choice; default remains rail left / inspector right.
  * Panel sizes persist to localStorage via PanelGroup autoSaveId.
- * Overview, Terminals and Graph are three views over the same persisted catalog/run state.
+ * Overview, Projects, Terminals and Graph share the persisted workspace/catalog/run state.
  */
 
 import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from 'react';
@@ -18,6 +18,7 @@ import { RightPanel } from './rightpanel/RightPanel';
 import { adjacentMode, useMode, type AppMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
 import { OverviewView } from './overview/OverviewView';
+import { ProjectsView } from './projects/ProjectsView';
 import { useSessions } from './stores/sessions';
 import { useRuns } from './stores/runs';
 import { useDiagnostics } from './stores/diagnostics';
@@ -80,6 +81,9 @@ export function App() {
               <path d="M4 7h16M4 12h10M4 17h7" />
             </svg>
           </ModeTab>
+          <ModeTab id="projects" label="Projekte" selected={mode === 'projects'} onSelect={setMode}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5h7l2 3h9v11H3z" /></svg>
+          </ModeTab>
           <ModeTab
             id="terminals"
             label="Terminals"
@@ -135,6 +139,8 @@ export function App() {
           <GraphView />
         ) : mode === 'overview' ? (
           <OverviewView />
+        ) : mode === 'projects' ? (
+          <ProjectsView />
         ) : (
         <TerminalsLayout
           inspectorLeft={inspectorSide === 'left'}
@@ -250,7 +256,7 @@ function ModeTab(props: {
             ? 'graph'
             : adjacentMode(props.id, event.key === 'ArrowLeft' ? -1 : 1);
         props.onSelect(next);
-        requestAnimationFrame(() => document.getElementById(`mode-tab-${next}`)?.focus());
+        document.getElementById(`mode-tab-${next}`)?.focus();
       }}
     >
       {props.children}

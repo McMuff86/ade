@@ -45,6 +45,9 @@ import type { RepositorySyncService } from '../repositories/RepositorySyncServic
 import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
 import { mobileDashboard } from '../dashboard/mobileDashboard';
+import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
+import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
+import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
 
 export interface ApplicationConfigPort {
   get(): AdeConfig;
@@ -96,6 +99,7 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  projects?: ProjectWorkspaceService;
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
@@ -246,6 +250,31 @@ export class AdeApplicationService {
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
     return { ...receipt.value, replayed: receipt.replayed };
+  }
+
+  async queryProjects(context: RemoteCommandContext, payload: unknown): Promise<ProjectWorkspaceQueryResult> {
+    const ledger = this.options.administration?.ledger; const projects = this.options.projects;
+    if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'workspace:read');
+    if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    try {
+      const result = payload.operation === 'directory' ? { directory: await projects.directory() } : { workspace: await projects.overview(payload.workspaceId) };
+      ledger.permits(context, 'workspace:read'); return result;
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async commandProject(context: RemoteCommandContext, payload: unknown): Promise<ProjectWorkspaceCommandResult> {
+    const ledger = this.options.administration?.ledger; const projects = this.options.projects;
+    if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write'); };
+    authorize();
+    if (!validProjectWorkspaceCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const result = await ledger.execute(context, 'project:open', 'projects:write', payload, () => {
+      const execute = async () => ({ workspace: await projects.open(payload.entryId, authorize) });
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    authorize();
+    return { ...result.value, replayed: result.replayed };
   }
 
   async remoteTerminal(context: RemoteCommandContext, payload: unknown, kind: 'query' | 'command' | 'input') {

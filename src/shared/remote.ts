@@ -122,6 +122,10 @@ export interface ProjectWorkspaceView {
   kind: 'checkout' | 'worktree';
   backend: 'native';
 }
+export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace'; workspaceId: string };
+export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string };
+export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView }
+export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean }
 
 /** null explicitly selects the agent home, regardless of its default project. */
 export interface MobileWorkspaceSelection { agentId: string; repositoryId: string | null }

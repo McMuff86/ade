@@ -6,13 +6,16 @@ const MAX_ITEMS = 24;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, max = 128): value is string => typeof value === 'string' && value.length <= max;
 function recovery(key: string, value: unknown): boolean {
-  return value !== null && (key === 'project-start' || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
+  return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
 }
 function valid(key: string, value: unknown): boolean {
-  if (value === null) return key === 'open-project' || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
+  if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
+  if (key === 'project-selected') return text(value, 36) && /^[a-f0-9-]{36}$/.test(value);
   if (key === 'open-project') return text(value);
   if (key.startsWith('terminal-selection:')) return text(value);
   if (!object(value)) return false;
+  if (key === 'project-opening') return text(value.key, 64) && /^[\w-]+$/.test(value.key) && text(value.entryId, 33)
+    && /^p[a-f0-9]{32}$/.test(value.entryId) && text(value.name, 200);
   if (key.startsWith('terminal-draft:')) return text(value.text, 2000) && typeof value.review === 'boolean';
   if (key.startsWith('project-workspace:')) return text(value.key, 64) && /^[\w-]+$/.test(value.key) && text(value.agentId)
     && ['agent', 'workspace'].includes(String(value.phase));
@@ -55,7 +58,7 @@ export function writeDeviceDraft(deviceId: string | null, key: string, value: un
     const keys = Object.keys(localStorage).filter((item) => item.startsWith(`${PREFIX}${deviceId}:`) && item !== storageKey);
     if (keys.length >= MAX_ITEMS) {
       const oldest = keys.filter((item) => {
-        if (item.endsWith(':project-start') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
+        if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
         try { return JSON.parse(localStorage.getItem(item)!).value?.review !== true; } catch { return true; }
       }).sort((a, b) => {
         try { return JSON.parse(localStorage.getItem(a)!).at - JSON.parse(localStorage.getItem(b)!).at; } catch { return 0; }

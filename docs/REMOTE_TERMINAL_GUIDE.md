@@ -24,6 +24,7 @@ Rechte aktivieren und **Verwaltungsrechte speichern** wählen:
 | Freigabe | Ermöglicht |
 |---|---|
 | Workspace-Dateien und Git-Diffs lesen | Dateien, Suche, Vorschau, Branch, letzte Commits und Änderungen |
+| Projekt-Workspaces ohne Agent-Profil öffnen | Vorhandenen nativen Checkout aus der neuen Projektordnerliste in ADE registrieren und öffnen; benötigt zusätzlich das Leserecht |
 | Kleine Workspace-Textdateien bearbeiten | Zusätzlich zum Leserecht vorhandene Textdateien speichern |
 | Interaktive Terminals steuern | Shell oder konfigurierten Agenten starten und interaktive Eingaben senden |
 | Agent-Namen, Rollen und Profilbilder bearbeiten | Profil ändern, Foto hochladen oder entfernen |
