@@ -5,7 +5,7 @@ export class TerminalInputQueue {
   private sending = false;
   private generation = 0;
   constructor(private readonly send: (data: string) => Promise<'accepted' | 'busy' | 'failed'>,
-    private readonly overflow: () => void, private readonly delay = 200) {}
+    private readonly overflow: () => void, private readonly delay = 16) {}
   enqueue(data: string): void {
     if (new TextEncoder().encode(this.text + data).length > 8192) { this.clear(); this.overflow(); return; }
     this.text += data; this.schedule();

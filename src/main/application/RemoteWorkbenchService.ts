@@ -12,6 +12,7 @@ import type { MobileFileSaveInput } from '../../shared/remote';
 import { agentHomeBackend, homeWorkspace } from '../repositories/RepositoryScopeService';
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 import { remoteWslWorkspace } from './RemoteWslWorkspace';
+import { WslRootProbe } from './WslRootProbe';
 
 export type WorkbenchScope = Pick<WorkspaceBinding, 'agentId' | 'workspaceDir' | 'executionBackend'>
   & Partial<Pick<WorkspaceBinding, 'id' | 'repositoryId' | 'status'>> & { rootIdentity?: string };
@@ -66,8 +67,10 @@ export function validateFileSave(value: unknown): MobileFileSaveInput {
 
 /** Explicit catalog binding or configured home; never follows agent-memory fallbacks. */
 export class RemoteWorkbenchService {
+  private readonly rootProbe: WslRootProbe;
   constructor(readonly store: { get(): AdeConfig }, readonly sessions: () => SessionMeta[],
-    readonly execution = new ExecutionBackendService()) {}
+    readonly execution = new ExecutionBackendService()) { this.rootProbe = new WslRootProbe(execution); }
+  dispose(): void { this.rootProbe.dispose(); }
 
   async save(input: MobileFileSaveInput, authorize: () => void): Promise<{ saved: boolean; revision: string }> {
     return workspaceOperations.mutate(async () => {
@@ -259,6 +262,7 @@ export class RemoteWorkbenchService {
 
   private async homeIdentity(scope: WorkbenchScope, create = false): Promise<string | null> {
     if (scope.executionBackend !== 'native') {
+      if (!create) return this.rootProbe.probe(scope.executionBackend, scope.workspaceDir);
       const result = await remoteWslWorkspace(this.execution, scope.executionBackend, scope.workspaceDir, 'probe', { create });
       return result.missing ? null : result.identity;
     }

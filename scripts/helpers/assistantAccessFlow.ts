@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Page } from 'playwright';
+import { terminalEchoLatency } from './terminalLatency';
 
 export async function assistantAccessFlow(desktop: Page, tablet: Page, root: string, categoryId: string, evidence: string,
   check: (label: string, ok: boolean) => void): Promise<void> {
@@ -52,8 +53,8 @@ public class Tui { public static void Main(string[] args) {
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
     check(`${profile.name}: direct entry opens saved TUI without project`, await workspace.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === '');
     check(`${profile.name}: focused tablet terminal uses most of the screen`, await workspace.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height > 300));
-    const direct = workspace.getByLabel('Direkte Terminal-Eingabe', { exact: true });
-    await direct.focus(); await tablet.keyboard.type('xyz', { delay: 15 });
+    const echoMs = await terminalEchoLatency(tablet, workspace, 'xyz', 'KEY_z_ACK');
+    check(`${profile.name}: keydown to visible PTY acknowledgement stays below 500 ms (${echoMs} ms)`, echoMs < 500);
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('KEY_z_ACK', { exact: false }).last().waitFor();
     check(`${profile.name}: rapid direct keys reach the real PTY once, in order`, existsSync(join(home, 'direct-input.txt')) && readFileSync(join(home, 'direct-input.txt'), 'utf8') === 'xyz');
     const color = await workspace.getByLabel('Terminalanzeige', { exact: true }).locator('span').filter({ hasText: 'ADE_TUI_READY' }).last().evaluate((node) => getComputedStyle(node).color);

@@ -1,5 +1,16 @@
 # Handoff — 2026-09-08
 
+## Tablet terminal latency — 2026-09-09
+
+The operator's ended Hermes TUI conversation was found in its local profile
+history. Investigation reproduced a PC-side bottleneck: each input/query started
+three/four WSL validation helpers. A reused read-only worker now retains every
+fresh root check; input/display scheduling is shorter. Final native Windows verify
+passed **2,097 checks**, plus 9 WSL terminal and 19 root-probe controls. Deployment
+is pending. The real tablet also shows elevated LAN RTT; its active-screen test
+is outstanding. See `TERMINAL_LATENCY_RESULTS.md`. Personal session contents,
+configuration and provider history were only read, not altered.
+
 ## Assistant access and Overview — 2026-09-09
 
 Direct assistant home terminals, separate Mobile dashboard tabs and Overview

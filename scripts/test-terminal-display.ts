@@ -57,4 +57,8 @@ void (async () => {
   bounded.enqueue('x'.repeat(8193)); await wait(); check('oversized paste is discarded before sending', overflows === 1 && attempts === 1);
   bounded.enqueue('old lease'); bounded.clear(); await wait(); check('ownership change discards unsent keys', attempts === 1);
   bounded.enqueue('new lease'); await wait(); check('final positive control accepts fresh input', attempts === 2); bounded.clear();
+  let sentAt = 0; const started = performance.now();
+  const responsive = new TerminalInputQueue(async () => { sentAt = performance.now(); return 'accepted'; }, () => undefined);
+  responsive.enqueue('x'); await wait(80);
+  check('direct keys leave the default buffer within 80 ms', sentAt > started && sentAt - started < 80); responsive.clear();
 })().catch((error) => { failed++; console.error(error); }).finally(() => { console.log(`Terminal display: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0; });

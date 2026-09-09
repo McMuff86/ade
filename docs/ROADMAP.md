@@ -1,5 +1,14 @@
 # ADE delivery roadmap
 
+## Tablet terminal response — 2026-09-09
+
+Validated with 2,097 native Windows checks, 9 WSL terminal and 19 root-probe
+controls: remove repeated WSL startup from terminal
+validation, shorten input/display scheduling and expose PC response time.
+Retain fresh filesystem checks, signed ordered input and unknown-acknowledgement
+recovery. Executable latency evidence and operator deployment are recorded in
+`TERMINAL_LATENCY_RESULTS.md`; physical Galaxy/Tailscale retest follows deployment.
+
 ## Assistant access and current Overview — 2026-09-09
 
 Validated: direct projectless profile terminals on desktop and

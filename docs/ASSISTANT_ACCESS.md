@@ -64,7 +64,10 @@ neither `unsafe-inline` nor `unsafe-eval` is enabled. See the upstream
 [xterm security guidance](https://xtermjs.org/docs/guides/security/) and
 [CSP nonce model](https://www.w3.org/TR/CSP/latest).
 
-Frames are polled every 400 ms while visible and online. There is no raw PTY
+Frames are polled 100 ms after the preceding response while visible and online;
+accepted direct input also wakes the single-flight refresh immediately. Hidden
+tabs pause display requests. **PC-Antwort** measures browser-to-host response time,
+including network and processing; it is not pure network latency. There is no raw PTY
 WebSocket stream. At most 240 columns × 100 rows are sent; the main display caps
 its buffer at 500 × 200 with 200 history rows. Excessively styled frames fall
 back to plain cells. Oversized frames or output backlog fail closed without
@@ -73,8 +76,26 @@ headless output at 2 MiB. Mouse reporting and terminal file transfers are not
 offered. Only the device with the input lease changes the PTY size.
 
 Keyboard buffering is at most 8 KiB; individual signed packets are at most
-2 KiB UTF-8, with a 200 ms coalescing interval and the existing sequence,
+2 KiB UTF-8, with a 16 ms coalescing interval and the existing sequence,
 idempotency, audit and 30-second lease rules. UTF-8 characters are never split
 between packets. Unknown acceptance remains visible across a page reload.
 
-Validation results and operator deployment: `ASSISTANT_ACCESS_RESULTS.md`.
+WSL home validation uses a fixed, read-only Python worker per active distribution.
+Each request reopens every root component with `O_NOFOLLOW` and compares the fresh
+device/inode identity; no filesystem validation result is cached. This removes
+repeated WSL/Python startup from every key packet and frame query. Workspace
+creation and file operations retain their separate existing helpers. Workers
+accept paths only via JSON stdin, allow at most 64 outstanding probes, bound
+requests/responses, fail closed on malformed output or a five-second timeout
+(45 seconds for a cold worker),
+and stop after ten seconds idle or ADE shutdown. At most eight workers exist.
+Read-only workspace/terminal queries allow 60 seconds for that initial startup;
+commands retain their 20-second browser deadline.
+
+Ending the PTY closes that process. ADE persists session timing and end status,
+not a provider chat archive or every terminal keystroke. Hermes persists its own
+TUI conversation in the selected profile's database; restoring that conversation
+uses Hermes' history/resume features rather than the former ADE process identity.
+
+Validation results and operator deployment: `ASSISTANT_ACCESS_RESULTS.md` and
+`TERMINAL_LATENCY_RESULTS.md`.

@@ -87,6 +87,7 @@ let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
 let mobileAccess: MobileAccessController | null = null;
+let remoteWorkbench: RemoteWorkbenchService | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
 const hostOperations = new HostOperationGate();
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
@@ -293,6 +294,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution);
+  remoteWorkbench = workbench;
   remoteTerminals = new RemoteTerminalService(workbench, {
     list: () => ptyManager?.list() ?? [],
     create: (agentId, repositoryId, bindingId, mode, model) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model),
@@ -1026,6 +1028,7 @@ export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() ==
 export function disposePtyManager(): void {
   stopTerminalRevocation?.(); stopTerminalRevocation = null;
   remoteTerminals?.dispose(); remoteTerminals = null;
+  remoteWorkbench?.dispose(); remoteWorkbench = null;
   if (retentionTimer) {
     clearInterval(retentionTimer);
     retentionTimer = null;

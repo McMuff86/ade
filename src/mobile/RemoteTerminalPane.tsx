@@ -28,6 +28,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   const [focused, setFocused] = useState(!!profileIntent);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [readError, setReadError] = useState('');
+  const [responseMs, setResponseMs] = useState<number>();
   const [pending, setPending] = useDeviceDraft<{ command: MobileTerminalCommand; key: string } | null>(host.deviceId, `terminal-command:${agentId}:${repositoryId ?? 'home'}`, null);
   const [uncertain, setUncertain] = useState<MobileTerminalInput | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -39,10 +40,18 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   const input = useRef<HTMLTextAreaElement>(null);
   const dimensions = useRef({ cols: 100, rows: 30 }); const resizePending = useRef(false);
   const directSending = useRef(false);
+  const refreshNow = useRef<() => void>(() => undefined);
+  const clearRevokedState = (reason: unknown) => {
+    if (reason instanceof MobileClientError && [401, 403].includes(reason.status)) {
+      queryVersion.current++; stateRef.current = { terminals: [] }; setState(stateRef.current);
+    }
+  };
   const query = useCallback(async (id = selected) => {
     const own = ++queryVersion.current;
+    const started = performance.now();
     const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { agentId, repositoryId, ...(id ? { terminalId: id } : {}) });
     if (live.current && own === queryVersion.current) {
+      setResponseMs(Math.round(performance.now() - started));
       if (result.leaseId && result.leaseId === stateRef.current.leaseId && (stateRef.current.lastSequence ?? 0) > (result.lastSequence ?? 0)) {
         result.lastSequence = stateRef.current.lastSequence; result.inputUncertain = stateRef.current.inputUncertain;
       }
@@ -56,14 +65,18 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     let stopped = false; setLoadingOptions(true); setOptions(undefined);
     void host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { agentId, repositoryId, options: true })
       .then((result) => { if (!stopped) setOptions(result.launchOptions); })
-      .catch((reason) => { if (!stopped) setError(terminalError(reason)); })
+      .catch((reason) => { if (!stopped) { clearRevokedState(reason); setError(terminalError(reason)); } })
       .finally(() => { if (!stopped) setLoadingOptions(false); });
     return () => { stopped = true; };
   }, [active, host.status, host.request, agentId, repositoryId, optionsRefresh]);
   useEffect(() => {
     if (!active || host.status !== 'online') return;
-    let stopped = false; let timer: ReturnType<typeof setTimeout>;
+    let stopped = false; let timer: ReturnType<typeof setTimeout>; let refreshing = false; let requested = false;
     const refresh = async () => {
+      if (stopped) return;
+      if (refreshing) { requested = true; return; }
+      if (document.hidden) { timer = setTimeout(() => void refresh(), 1000); return; }
+      refreshing = true; requested = false;
       try { await query(); if (!stopped) setReadError(''); }
       catch (reason) { if (!stopped && live.current) {
         if (reason instanceof MobileClientError && [401, 403, 409].includes(reason.status)) {
@@ -74,9 +87,12 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
           setSelected(''); setLaunchOpen(true); setNotice('Die vorherige Sitzung ist nicht mehr verfügbar. ADE wurde möglicherweise neu gestartet.');
         }
       } }
-      if (!stopped) timer = setTimeout(() => { if (!document.hidden) void refresh(); else timer = setTimeout(() => void refresh(), 1000); }, 400);
+      refreshing = false;
+      if (!stopped) timer = setTimeout(() => void refresh(), requested ? 0 : 100);
     };
-    void refresh(); return () => { stopped = true; clearTimeout(timer); queryVersion.current++; };
+    const wake = () => { clearTimeout(timer); void refresh(); };
+    refreshNow.current = wake; document.addEventListener('visibilitychange', wake);
+    void refresh(); return () => { stopped = true; clearTimeout(timer); queryVersion.current++; refreshNow.current = () => undefined; document.removeEventListener('visibilitychange', wake); };
   }, [active, host.status, query, repositoryId]);
   const command = async (operation: MobileTerminalCommand, retry = false) => {
     if (lock.current || host.status !== 'online') return;
@@ -92,6 +108,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
       if (request.command.operation === 'claim' || request.command.operation === 'open') input.current?.focus();
     } catch (reason) {
       if (!live.current) return;
+      clearRevokedState(reason);
       if (reason instanceof MobileClientError && [400, 403, 404, 409, 422].includes(reason.status)) setPending(null);
       setError(terminalError(reason));
     } finally { lock.current = false; if (live.current) setBusy(false); }
@@ -112,10 +129,11 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
         stateRef.current = { ...stateRef.current, lastSequence: result.sequence, inputUncertain: false }; setState(stateRef.current);
       }
       if (data) saveDraft((value) => ({ text: clearText ? '' : value.text, review: false }));
-      if (!directSending.current) await query(current.selected.id);
+      if (!directSending.current) await query(current.selected.id); else refreshNow.current();
       return 'accepted';
     } catch (reason) {
       if (live.current) {
+        clearRevokedState(reason);
         // A raced resize/heartbeat contains no keystrokes to review. Re-read ownership.
         if (data) setUncertain(request); else void query(current.selected.id).catch(() => undefined);
         setError(terminalError(reason));
@@ -209,7 +227,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
         <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onClick={() => void transmit(data!)}>{label}</button>)}</div>
       <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></div>
     </>}
-    <p className="m-field-note">Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>
+    <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label="Terminal-Antwortzeit">PC-Antwort: {responseMs} ms (Netzwerk und Verarbeitung). </span>}Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>
     {confirmClose && <Dialog title="Terminalsitzung beenden" onClose={() => setConfirmClose(false)} fallbackId="workspace-refresh">
       <p>Der laufende Prozess dieser Sitzung wird beendet.</p><button onClick={() => setConfirmClose(false)}>Abbrechen</button>
       <button className="m-danger" onClick={() => { setConfirmClose(false); void action('close'); }}>Beenden bestätigen</button></Dialog>}

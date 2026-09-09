@@ -58,9 +58,11 @@ export class MobileClient {
   async request<T>(path: string, method = 'GET', payload?: unknown, idempotencyKey = ''): Promise<T> {
     await this.authenticate();
     const body = payload === undefined ? '' : JSON.stringify(payload);
+    // Read-only workspace/terminal queries may start a cold WSL backend once.
+    const timeout = ['/api/v1/workspace/query', '/api/v1/terminal/query'].includes(path) ? 60_000 : 20_000;
     const send = async (): Promise<Response> => fetch(path, { method, cache: 'no-store', credentials: 'same-origin',
       headers: await this.headers(path, method, body, idempotencyKey),
-      ...(method === 'POST' ? { body } : {}), signal: AbortSignal.timeout(20_000) });
+      ...(method === 'POST' ? { body } : {}), signal: AbortSignal.timeout(timeout) });
     let response = await send();
     // Another tab or a host restart can invalidate cookies. Reauthenticate, keeping the command key.
     if (response.status === 401 || response.status === 403) {

@@ -5,6 +5,11 @@ Mobile; Mobile xterm display/direct keyboard input and separate private dashboar
 tabs; automatically refreshed Overview with current/history filters. Contracts and
 limits: `ASSISTANT_ACCESS.md`. Release evidence: `ASSISTANT_ACCESS_RESULTS.md`.
 
+Terminal response improvement: 16 ms keyboard coalescing, immediate refresh after
+accepted direct input, 100 ms visible display polling and a PC response-time
+indicator. WSL home validation keeps fresh no-link/identity checks through a
+reused read-only helper. Measurements: `TERMINAL_LATENCY_RESULTS.md`.
+
 Status: v0.15 (assistant terminals, separate dashboards and live Overview implemented;
 native Windows/WSL automation and physical-device acceptance tracked separately, 2026-09-09)
 Owner: Adi. This document is the source of truth for coding agents.

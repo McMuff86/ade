@@ -134,6 +134,16 @@ export class ExecutionBackendService {
     return this.pathKey(backend, left) === this.pathKey(backend, right);
   }
 
+  /** Internal streaming helper. Its owner must bound I/O, enforce timeouts and dispose it. */
+  start(backendValue: ExecutionBackendId, executable: string, args: string[]): ChildProcessWithoutNullStreams {
+    const backend = normalizeExecutionBackendId(backendValue);
+    if (backend === NATIVE_EXECUTION_BACKEND) throw new Error('ade: streaming workspace helper requires WSL');
+    this.assertWslHost();
+    const launch = this.wslLaunch(wslDistribution(backend)!, executable, args, '/');
+    return this.spawnProcess('wsl.exe', launch.args, { env: launch.hostEnv, shell: false, windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'] });
+  }
+
   async run(
     backendValue: ExecutionBackendId | undefined,
     executable: string,

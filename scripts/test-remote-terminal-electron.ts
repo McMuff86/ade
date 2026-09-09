@@ -7,6 +7,7 @@ import { _electron as electron, chromium, type ElectronApplication, type Browser
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { projectStartFlow } from './helpers/projectStartFlow';
 import { assistantAccessFlow } from './helpers/assistantAccessFlow';
+import { terminalEchoLatency } from './helpers/terminalLatency';
 import { PNG } from 'pngjs';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
@@ -70,7 +71,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await page.getByRole('button', { name: 'Workspace für Terminal Agent', exact: true }).click();
   const workspace = page.getByRole('dialog', { name: 'Workspace · Terminal Agent', exact: true });
   await workspace.getByRole('button', { name: 'Terminal', exact: true }).click();
-  await workspace.getByRole('region', { name: 'Interaktives Terminal', exact: true }).getByRole('alert').waitFor();
+  await workspace.getByRole('region', { name: 'Interaktives Terminal', exact: true }).getByRole('alert').filter({ hasText: 'Terminalzugriff fehlt.' }).waitFor();
   check('paired tablet cannot inspect terminals without dedicated grant', true);
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   const grants = desktop.getByRole('group', { name: 'Verwaltungsrechte für Terminal tablet', exact: true });
@@ -180,7 +181,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).uncheck(); await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
-  await workspace.getByRole('region', { name: 'Interaktives Terminal', exact: true }).getByRole('alert').waitFor();
+  await workspace.getByRole('region', { name: 'Interaktives Terminal', exact: true }).getByRole('alert').filter({ hasText: 'Terminalzugriff fehlt.' }).waitFor();
   check('revocation removes screen and further tablet control', !await workspace.getByLabel('Terminal-Eingabe', { exact: true }).count());
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   await grants.getByRole('checkbox', { name: 'Agent-Namen, Rollen und Profilbilder bearbeiten', exact: true }).check();
@@ -211,7 +212,8 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await grants.getByRole('checkbox', { name: 'Kleine Workspace-Textdateien bearbeiten', exact: true }).check();
     await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
     const wslAgent = await desktop.evaluate(async ({ categoryId, home }) => {
-      const a = await window.ade.invoke('agent:create', { categoryId, name: 'WSL Home Agent', runtime: 'custom', permissionMode: 'default', customCommand: "printf 'ADE_WSL_CONFIGURED_READY\\n'" });
+      const a = await window.ade.invoke('agent:create', { categoryId, name: 'WSL Home Agent', runtime: 'custom', permissionMode: 'default',
+        customCommand: `python3 -u -c 'import os,tty; tty.setraw(0); print("ADE_WSL_"+"CONFIGURED_READY"); [os.write(1,b"\\r\\nKEY_"+os.read(0,1)+b"_ACK\\r\\n") for _ in range(10)]'` });
       return window.ade.invoke('agent:update', { id: a.id, name: a.name, runtime: a.runtime, permissionMode: a.permissionMode, customCommand: a.customCommand, homeExecutionBackend: 'wsl:Ubuntu', homeWorkspaceDir: home });
     }, { categoryId: setup.agent.categoryId, home: wslHome });
     await page.keyboard.press('Escape');
@@ -247,8 +249,13 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     check('tablet saves and reopens a real WSL home file', true);
     await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
     await ws.getByRole('button', { name: 'Agent starten', exact: true }).click();
+    await ws.getByRole('button', { name: 'Terminal vergrössern', exact: true }).click();
     await ws.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_WSL_CONFIGURED_READY', { exact: false }).last().waitFor();
     check('saved profile starts inside WSL home from tablet', true);
+    for (const key of ['x', 'y', 'z']) {
+      const echoMs = await terminalEchoLatency(page, ws, key, `KEY_${key}_ACK`);
+      check(`WSL keydown to visible PTY acknowledgement stays below 500 ms (${echoMs} ms)`, echoMs < 500);
+    }
     await page.screenshot({ path: join(evidence, 'session-wsl-tablet.png') });
   }
   await page.screenshot({ path: join(evidence, 'terminal-grant-revoked.png') });

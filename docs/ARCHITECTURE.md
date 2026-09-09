@@ -14,8 +14,16 @@ re-read their authorized projection. Failed mutations emit no success event.
 Mobile shell responses inject a fresh style-only CSP nonce. xterm's scoped
 document override nonces its generated style elements; script policy stays
 `script-src 'self'`, with no unsafe-inline/eval exception.
+WSL home checks use `WslRootProbe`: a bounded, read-only worker per active distro
+reopens root components for every validation. Identity results are never cached;
+all existing pre/post-operation checks and grants remain in place. Its fixed
+Python program receives paths via stdin, never shell argv, and terminates on
+idle, failure or application shutdown. Keyboard packets coalesce for 16 ms;
+visible display queries run singly with a 100 ms idle interval and input-triggered
+refresh. `PC-Antwort` includes network plus host processing, not just network RTT.
 Transport bounds, keyboard acknowledgement and launch semantics are specified in
-`ASSISTANT_ACCESS.md`; measurements are in `ASSISTANT_ACCESS_RESULTS.md`.
+`ASSISTANT_ACCESS.md`; measurements are in `ASSISTANT_ACCESS_RESULTS.md` and
+`TERMINAL_LATENCY_RESULTS.md`.
 
 ## Runtime model catalogs
 
