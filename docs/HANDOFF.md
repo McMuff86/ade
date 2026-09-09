@@ -6,10 +6,11 @@ erhalten. Deren wiederholte „Nächster Schritt“-Abschnitte sind historische 
 
 ## Aktueller Auftrag
 
-Nach den Tablet-/Terminalverbesserungen möchte der Nutzer zunächst Research,
-einen User-Guide mit Screenshots und die Prüfung veralteter Markdown-Dateien.
-Die daraus abgeleiteten Produktänderungen sollen anschliessend besprochen werden.
-In diesem Dokumentationsslice wird keine weitere ADE-Produktfunktion umgesetzt.
+Der Nutzer hat den [projektzentrierten Ablauf als Goal](PROJECT_WORKFLOW_GOALS.md)
+beauftragt: Projekte entdecken, ohne verpflichtendes Profil einen Branch und eine
+CLI wählen, anschliessend Git-Aktionen ausführen. CLI- und Shell-Zustand müssen
+getrennt angezeigt werden. Nach jedem abgeschlossenen Task folgt ein Commit;
+gepusht wird erst am Schluss. Der frühere Research-/Guide-Auftrag ist abgeschlossen.
 
 - Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
 - Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
@@ -55,13 +56,12 @@ sind in der Fixture ersetzt. Die Softwaretastatur wird durch VisualViewport-
 Geometrie simuliert. Keine echten Anbieterantworten oder physische Gerätemessung
 aus diesen Bildern ableiten.
 
-## Nächste Besprechung
+## Aktuelle Fortsetzung
 
-Empfehlung: zuerst geführte Ersteinrichtung, verständliche Terminalzustände und
-die systematische Samsung-Abnahme; danach Arbeitskopie/Sicherung/Wiederaufnahme.
-Die konkrete Aufteilung und Exit-Kriterien stehen im Produktreview R1–R12.
-Nicht aus alten Goal- oder Handoff-Abschnitten weitere Implementierungsaufträge
-ableiten. Offene Engineering-Tracks bleiben in [ROADMAP.md](ROADMAP.md).
+T0 dokumentiert den Auftrag; T1 beginnt mit wahrheitsgetreuen CLI-/Shell-Zuständen.
+Reihenfolge und Abnahme stehen im [aktiven Goal](PROJECT_WORKFLOW_GOALS.md).
+Die bisherige Verifikation unten/oben betrifft die Ausgangsbasis, nicht bereits
+den neuen Umbau. Offene Engineering-Tracks bleiben in [ROADMAP.md](ROADMAP.md).
 
 ## Weiterhin geltende Grenzen
 

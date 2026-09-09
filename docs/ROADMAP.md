@@ -3,6 +3,13 @@
 Status: 2026-09-09. [Current capabilities](STATUS.md) are separate from planned work.
 Completed delivery notes and their original state are retained in the [roadmap archive](archived/ROADMAP_2026-09-09.md).
 
+## Active project workflow goal
+
+The user authorized [T0–T6](PROJECT_WORKFLOW_GOALS.md): truthful CLI state,
+project discovery, profile-free branch workspaces, interactive Git completion,
+and a refreshed guide. Commit each completed task; push only after final
+verification. The proposals below remain background unless included there.
+
 ## Proposed next product slices — for discussion
 
 1. Guided first setup, truthful terminal empty/running states and physical Samsung keyboard acceptance (review R1–R3).

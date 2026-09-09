@@ -8,7 +8,7 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
 is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 
-User entry: [illustrated guide](USER_GUIDE.md). Next proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0 documented, T1–T6 pending. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 Latest product verification: native Windows `pnpm verify`, **2,148 checks**, plus the 50-check focused keyboard driver.
 The operator reports improved Samsung/Chrome usability; a systematic physical-device matrix remains open.
 The current screenshot capture uses isolated demo data and simulated keyboard geometry, not provider inference.
