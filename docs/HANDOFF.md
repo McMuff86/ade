@@ -5,8 +5,11 @@
 The operator requested more terminal space with the Samsung keyboard open.
 Automatic visual-viewport compaction is implemented; focused Chromium geometry
 checks use the real native Windows PTY (**43 passed**). Full native Windows
-`pnpm verify` passed **2,141 checks**. Deployment is pending. Only the mobile
-listener needs reloading; the personal host and its Codex PTY can keep running.
+`pnpm verify` passed **2,141 checks**. Commit `c468800` is pushed and rebuilt.
+The mobile listener reloaded through its existing Tailscale monitor at 17:35;
+private HTTPS serves the matching bundle. ADE PID 64500 and Codex PID 69956 kept
+their original start times. No process was restarted; other dashboard routes
+remain unchanged. Reload Chrome on the tablet to load the compact keyboard UI.
 See `TERMINAL_KEYBOARD_RESULTS.md` for final evidence and tablet acceptance.
 
 ## Project entry and readable TUI — 2026-09-09

@@ -33,7 +33,21 @@ The separate focused driver passed 43 checks. Full log:
 
 Local evidence: `test-results/keyboard-layout-focused.log`,
 `test-results/remote/terminal-keyboard-tablet.png` and
-`test-results/remote/terminal-keyboard-phone.png`. Operator deployment is pending:
-reload the mobile listener through the existing Tailscale connection monitor
-without restarting the host or Codex process. Actual Galaxy Chrome/Tailscale
-acceptance remains a separate check after the tablet reloads the deployed build.
+`test-results/remote/terminal-keyboard-phone.png`.
+
+Commit `c468800` was pushed to `origin/main`, then `pnpm build` passed. At
+**17:35:39 Europe/Zurich**, the private HTTPS route returned HTTP 200 with
+`/assets/index-Bti26qUw.js`, matching the production build. The existing Tailscale
+connection monitor reloaded only the mobile listener: temporarily disable the
+verified ADE-only HTTPS 443 route, wait for its old listener to stop, restore
+that exact route in a finally block, then check the replacement listener and
+served bundle. Other Serve routes were compared before/after and unchanged.
+No global Tailscale reset or service restart was used.
+
+ADE **PID 64500** (started 17:04:21) and the existing Codex **PID 69956** (started
+17:08:52) retained their process IDs and start times. The listener remains on
+`127.0.0.1:4317`, owned by that same ADE process. Deployment evidence:
+`test-results/keyboard-layout-reload.log` and
+`test-results/keyboard-layout-deployment.json`. Reload Chrome to load the updated
+assets. Actual Galaxy Chrome/Tailscale keyboard acceptance remains a separate
+check after that reload.
