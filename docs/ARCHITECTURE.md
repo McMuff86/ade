@@ -1,5 +1,15 @@
 # ADE — Architecture (binding decisions)
 
+## Mobile project entry
+
+`Projects`/`ProjectWorkspace` reuse the existing application-service catalog,
+workbench, administrative and terminal endpoints. Preparation is explicitly
+triggered, checkpoints idempotency keys in protected device drafts, and reuses a
+ready binding before considering a mutation. Project Open does not launch a CLI.
+`SessionLaunchChoice` now includes fixed `claude` and `grok` modes; discovery and
+launch revalidation remain main-owned. No IPC or remote command allowlist was
+widened. Scope, profile selection and UI behavior: `PROJECT_ENTRY.md`.
+
 ## Interactive assistant access and Overview
 
 `RemoteTerminalDisplay` maintains a headless screen for each interactive PTY.

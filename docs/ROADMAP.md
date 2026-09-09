@@ -1,5 +1,13 @@
 # ADE delivery roadmap
 
+## Project entry and readable TUI — 2026-09-09
+
+Implemented: Mobile Projekte navigation, workspace-first CLI selection including
+Claude/Grok, recoverable workspace preparation, explicit saved-profile entry and
+terminal sizing/composer simplification. Native Windows verification: **2,123**
+passed; additional WSL terminal checks: **9** passed. Deployment and physical
+tablet acceptance are tracked in `PROJECT_ENTRY_RESULTS.md`.
+
 ## Tablet terminal response — 2026-09-09
 
 Validated with 2,097 native Windows checks, 9 WSL terminal and 19 root-probe

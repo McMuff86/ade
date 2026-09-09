@@ -34,6 +34,16 @@ check('revocation removes only the matching device records', Object.keys(storage
   && readDeviceDraft('other', key, fallback).text === 'other draft');
 writeDeviceDraft('other', key, null);
 check('completed recovery records release storage capacity', !values.has(`ade-work:other:${key}`));
+const preparation = { key: 'receipt-1', agentId: 'builder', phase: 'workspace' };
+writeDeviceDraft('project-tablet', 'open-project', 'project');
+writeDeviceDraft('project-tablet', 'project-workspace:project', preparation);
+check('project selection and preparation restore after reload', readDeviceDraft<string>('project-tablet', 'open-project', '') === 'project'
+  && readDeviceDraft('project-tablet', 'project-workspace:project', preparation).key === preparation.key);
+storage.setItem('ade-work:project-tablet:project-workspace:project', JSON.stringify({ at: 1, value: preparation }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('project-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('uncertain project preparation survives expiry and ordinary eviction', readDeviceDraft('project-tablet', 'project-workspace:project', null) !== null);
+storage.setItem('ade-work:project-tablet:project-workspace:bad', JSON.stringify({ at: Date.now(), value: { ...preparation, phase: 'shell' } }));
+check('malformed project preparation is refused', readDeviceDraft('project-tablet', 'project-workspace:bad', null) === null);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

@@ -1,3 +1,4 @@
+import { terminalComposer } from './terminalControls';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
@@ -60,13 +61,13 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
     && keys.length === 2 && !!keys[0] && keys[0] === keys[1]);
   check('Codex works in the bound project workspace with its saved profile unchanged', started[0]!.workspaceDir === binding.workspaceDir
     && config.agents.find((agent) => agent.id === codex.id)!.permissionMode === 'default');
-  await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill("Set-Content -LiteralPath scaffold.txt -Value 'TABLET_SCAFFOLD'");
+  await (await terminalComposer(workspace)).fill("Set-Content -LiteralPath scaffold.txt -Value 'TABLET_SCAFFOLD'");
   await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   await page.waitForFunction(() => (document.querySelector('[aria-label="Terminal-Eingabe"]') as HTMLTextAreaElement)?.value === '');
   const fileDeadline = Date.now() + 15_000;
   while (!existsSync(join(binding.workspaceDir, 'scaffold.txt')) && Date.now() < fileDeadline) await new Promise((done) => setTimeout(done, 100));
   check('tablet input writes the project scaffold in the real host workspace', readFileSync(join(binding.workspaceDir, 'scaffold.txt'), 'utf8').includes('TABLET_SCAFFOLD'));
-  await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill('A prompt to finish later');
+  await (await terminalComposer(workspace)).fill('A prompt to finish later');
   proxy.setApiOffline(true);
   await page.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
   check('offline tablet preserves input and disables sending', await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue() === 'A prompt to finish later'
@@ -86,7 +87,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   await workspace.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   check('Continue working attaches the existing project session', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((session) => session.repositoryId === repo.id).length === 1);
   await page.screenshot({ path: join(evidence, 'tablet-project-workspace.png') });
-  await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill("Write-Output 'INPUT_ACK_CONTROL'");
+  await (await terminalComposer(workspace)).fill("Write-Output 'INPUT_ACK_CONTROL'");
   proxy.loseInputReplies(true);
   await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   await workspace.getByRole('button', { name: 'Eingabestatus prüfen', exact: true }).waitFor(); proxy.loseInputReplies(false);
@@ -94,5 +95,5 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   check('reload after a lost input acknowledgement blocks implicit resending', await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).isDisabled()
     && await workspace.getByRole('button', { name: 'Ausgabe geprüft · Entwurf freigeben', exact: true }).isVisible());
   await workspace.getByRole('button', { name: 'Ausgabe geprüft · Entwurf freigeben', exact: true }).click();
-  await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill('');
+  await (await terminalComposer(workspace)).fill('');
 }

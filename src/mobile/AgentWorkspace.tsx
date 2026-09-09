@@ -17,9 +17,10 @@ export function workspaceError(error: unknown): string {
   return 'Workspace konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.';
 }
 
-export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, profileIntent, onProfileIntentConsumed, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
+export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, projectEntry, profileIntent, onProfileIntentConsumed, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
   host: MobileHost; agentId: string; initialRepositoryId: string;
   initialTab?: 'files' | 'terminal'; initialTerminalId?: string;
+  projectEntry?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
   onNavigate?: (repositoryId: string, tab: 'files' | 'terminal') => void;
   onClose: () => void; onTask: (repositoryId: string) => void; onManage: () => void;
@@ -67,16 +68,16 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   }); };
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
   const disabled = busy || host.status !== 'online';
-  return <Dialog title={`Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}>
-    <div className="m-tablet-workbench"><aside className="m-project-rail" aria-label="Workspace-Projekte"><h3>Projekte</h3>
+  return <Dialog title={projectEntry ? `Projekt · ${host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace'}` : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}>
+    <div className="m-tablet-workbench">{!projectEntry && <aside className="m-project-rail" aria-label="Workspace-Projekte"><h3>Projekte</h3>
       <button aria-pressed={!repositoryId} onClick={() => setRepositoryId('')}>Eigener Workspace</button>
       {host.catalog?.repositories.map((repo) => <button key={repo.id} aria-pressed={repositoryId === repo.id} onClick={() => setRepositoryId(repo.id)}>{repo.name}</button>)}
-    </aside><div className="m-tablet-workbench-main">
-    <div className="m-workspace-controls"><label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
-      <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
+    </aside>}<div className="m-tablet-workbench-main">
+    <div className="m-workspace-controls">{!projectEntry && <label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
+      <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>}
       <button id="workspace-refresh" disabled={disabled} onClick={() => void refresh()}>Workspace aktualisieren</button>
       <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button>{agent && <DashboardLink agent={agent} />}</div>
-    {overview?.ready && <p className="m-field-note">{repositoryId ? `Branch ${overview.branch} · ` : ''}{overview.busy ? 'Workspace wird verwendet' : 'Keine laufende Sitzung'}</p>}
+    {overview?.ready && <p className="m-field-note">{projectEntry ? 'ADE-Arbeitskopie · ' : ''}{repositoryId ? `Branch ${overview.branch} · ` : ''}{overview.busy ? 'Workspace wird verwendet' : 'Keine laufende Sitzung'}</p>}
     <nav className="m-management-tabs" aria-label="Workspace-Bereich"><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>Dateien</button>
       <button disabled={!repositoryId} title={!repositoryId ? 'Für Git ein Projekt auswählen' : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>Git-Änderungen</button>
       <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>Terminal</button>
@@ -87,6 +88,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     {tab !== 'terminal' && overview?.notice && <p>{overview.notice}</p>}
     {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
     <div className="m-terminal-slot" hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'}
+      projectEntry={projectEntry}
       initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined}
       profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} /></div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}

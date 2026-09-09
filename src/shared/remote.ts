@@ -100,7 +100,7 @@ export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncP
 
 /** null explicitly selects the agent home, regardless of its default project. */
 export interface MobileWorkspaceSelection { agentId: string; repositoryId: string | null }
-export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'hermes' } | { mode: 'ollama'; model: string };
+export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'claude' | 'grok' | 'hermes' } | { mode: 'ollama'; model: string };
 export type SessionLaunchRequest = MobileWorkspaceSelection & SessionLaunchChoice;
 export interface SessionLaunchOptions {
   environment: string;

@@ -97,7 +97,8 @@ void (async () => {
   rmSync(join(binding.workspaceDir, 'draft.txt'));
   await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
   check('manager close uses the focus fallback after its retry opener unmounts', await page.locator('#mobile-title').evaluate((node) => node === document.activeElement));
-  await page.getByRole('button', { name: 'Aufgabe in Browser One', exact: true }).click();
+  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByLabel('Repository', { exact: true }).selectOption(first.id);
   await page.getByLabel('Agent', { exact: true }).selectOption(agent.id);
   await page.getByLabel('Aufgabe', { exact: true }).fill('Private draft for project one');
   await page.getByLabel('Repository', { exact: true }).selectOption(second.id);

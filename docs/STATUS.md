@@ -1,11 +1,16 @@
 # ADE implementation status
 
+Mobile Projects entry and terminal layout (2026-09-09): implemented and verified
+with **2,123 checks** in native Windows `pnpm verify`, plus **9** additional WSL
+terminal checks. Commit/push and operator deployment follow. See
+`PROJECT_ENTRY.md` and `PROJECT_ENTRY_RESULTS.md` for evidence and limits.
+
 Tablet terminal latency (2026-09-09): repeated WSL validation process launches
 replaced by a bounded read-only worker with fresh identity/link checks; faster
 keyboard and display scheduling plus a PC response-time indicator are implemented.
 Final native Windows `pnpm verify`: **2,097 passed**, all three TypeScript projects
 and production build; additional WSL terminal driver: **9 passed**, root probe:
-**19 passed**. Local WSL keydown-to-echo: **70–72 ms**. Commit `72db520` is pushed;
+**19 passed**. Local WSL keydown-to-echo: **70â€“72 ms**. Commit `72db520` is pushed;
 the personal host was rebuilt and restarted at 15:30 (PID 52824), with matching
 Mobile assets over private HTTPS. Physical tablet WLAN RTT remains elevated;
 active-screen acceptance is open. See `TERMINAL_LATENCY_RESULTS.md`.

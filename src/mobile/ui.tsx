@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
 import type { RunSummary } from '../shared/types';
 
-export type View = 'overview' | 'work' | 'graph';
-export const VIEWS: { id: View; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'work', label: 'Work' }, { id: 'graph', label: 'Graph' }];
+export type View = 'overview' | 'projects' | 'work' | 'graph';
+export const VIEWS: { id: View; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projekte' }, { id: 'work', label: 'Work' }, { id: 'graph', label: 'Graph' }];
 export const finalStates = new Set(['completed', 'failed', 'cancelled']);
 export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'project' | 'refresh' | 'sun' | 'moon' }): JSX.Element {
   const paths: Record<string, ReactNode> = {
@@ -16,7 +16,7 @@ export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'p
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2" /></>,
     moon: <path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z" />,
   };
-  return <svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+  return <svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name === 'projects' ? 'project' : name]}</svg>;
 }
 export function Status({ status }: { status: string }): JSX.Element {
   return <span className="m-status" data-status={status}>{status}</span>;

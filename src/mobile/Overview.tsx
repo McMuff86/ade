@@ -44,7 +44,7 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
         {!catalog.repositories.length ? <p className="m-empty-copy">Noch keine Repositories. Am PC in ADE einrichten.</p> : <ul className="m-projects">{catalog.repositories.map((repo) => {
           const projectRuns = runs.filter((run) => run.repositoryId === repo.id);
           const last = [...projectRuns].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-          return <li key={repo.id}><button className="m-project-card" onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }} aria-label={`Aufgabe in ${repo.name}`}>
+          return <li key={repo.id}><button className="m-project-card" onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }} aria-label={`Projekt öffnen: ${repo.name}`}>
             <span className="m-project-title"><Icon name="project" /><strong>{repo.name}</strong><span>{repo.executionBackend}</span></span>
             <span>{repo.verified ? 'Verifiziert' : 'Noch ungeprüft'} · {projectRuns.length} Runs</span>
             <small>{last ? `${last.name} · ${formatRelativeTime(Date.now(), last.updatedAt)}` : 'Noch keine Run-Aktivität'}</small>

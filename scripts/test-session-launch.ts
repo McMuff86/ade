@@ -28,14 +28,20 @@ void (async () => {
   const selection = { agentId: original.id, repositoryId: null };
   const options = await service.options(selection);
   check('all fixed choices discovered without launching models', options.choices.every((c) => c.available) && options.models.join(',') === 'fixture:small,fixture:large');
-  check('discovery uses only fixed read-only commands', calls.every((c) => c.args.length === 1 && ['list', 'hermes', 'codex'].includes(c.args[0]!)
-    || c.file === '/bin/bash' && c.args[0] === '-lc' && ['command -v codex', 'command -v hermes', 'ollama list'].includes(c.args[1]!)));
+  check('discovery uses only fixed read-only commands', calls.every((c) => c.args.length === 1 && ['list', 'hermes', 'codex', 'claude', 'grok'].includes(c.args[0]!)
+    || c.file === '/bin/bash' && c.args[0] === '-lc' && ['command -v codex', 'command -v claude', 'command -v grok', 'command -v hermes', 'ollama list'].includes(c.args[1]!)));
   const shell = await service.effectiveAgent(original, 'native', { mode: 'shell' });
   check('empty terminal drops configured command and bypass', shell.runtime === 'shell' && shell.permissionMode === 'default' && resolveLaunchCommand(shell) === '');
   const profile = await service.effectiveAgent(original, 'native', { mode: 'agent' });
   check('configured profile preserves Hermes wrapper and permissions', resolveLaunchCommand(profile) === 'general --tui' && profile.permissionMode === 'bypass');
   const codex = await service.effectiveAgent(original, 'native', { mode: 'codex' });
   check('fresh Codex uses its defaults without foreign model pins', resolveLaunchCommand(codex) === 'codex' && codex.runtime === 'codex');
+  for (const mode of ['claude', 'grok'] as const) {
+    const fresh = await service.effectiveAgent({ ...original, claudeModel: 'foreign', grokModel: 'foreign' }, 'native', { mode });
+    check(`${mode} starts with its defaults and no foreign profile settings`, resolveLaunchCommand(fresh) === mode && fresh.permissionMode === 'default'
+      && !fresh.customCommand && !fresh.codexModel && !fresh.claudeModel && !fresh.grokModel);
+    validateInvoke('session:launch', { ...selection, mode }); validateTerminal({ ...selection, operation: 'open', mode }, 'command');
+  }
   const hermes = await service.effectiveAgent(original, 'native', { mode: 'hermes' });
   check('fresh Hermes uses the fixed interactive entrypoint', resolveLaunchCommand(hermes) === 'hermes' && hermes.permissionMode === 'default');
   const ollama = await service.effectiveAgent(original, 'native', { mode: 'ollama', model: 'fixture:large' });
@@ -46,6 +52,7 @@ void (async () => {
   available = false;
   check('missing CLI and models are honest unavailable choices', (await service.options(selection)).choices.filter((c) => c.available).map((c) => c.mode).join(',') === 'shell,agent');
   await reject('missing Codex fails closed', () => service.effectiveAgent(original, 'native', { mode: 'codex' }));
+  for (const mode of ['claude', 'grok'] as const) await reject(`missing ${mode} fails closed`, () => service.effectiveAgent(original, 'native', { mode }));
   check('configured wrapper can still launch when discovery unavailable', (await service.effectiveAgent(original, 'native', { mode: 'agent' })).customCommand === original.customCommand);
   available = true; models = 'NAME ID SIZE MODIFIED\nfixture:small abc 1GB today\nbad;command def 1GB today\n';
   check('unsafe model names are omitted from discovery', (await service.options(selection)).models.join(',') === 'fixture:small');

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Page } from 'playwright';
 import { terminalEchoLatency } from './terminalLatency';
+import { terminalLauncher } from './terminalControls';
 
 export async function assistantAccessFlow(desktop: Page, tablet: Page, root: string, categoryId: string, evidence: string,
   check: (label: string, ok: boolean) => void): Promise<void> {
@@ -48,6 +49,21 @@ public class Tui { public static void Main(string[] args) {
         customCommand: a.customCommand, dashboardUrl: profile.url, homeWorkspaceDir: home });
     }, { categoryId, profile, executable, home });
     await tablet.keyboard.press('Escape'); await tablet.getByRole('tab', { name: 'Overview', exact: true }).click();
+    if (profile.name === 'Hermes General Fixture') {
+      await tablet.getByRole('button', { name: `Workspace für ${profile.name}`, exact: true }).click();
+      const normal = tablet.getByRole('dialog', { name: `Workspace · ${profile.name}`, exact: true });
+      await normal.getByRole('button', { name: 'Terminal', exact: true }).click();
+      await terminalLauncher(normal);
+      check('agent workspace defaults to the saved profile rather than a blank shell', await normal.getByLabel('Sitzung starten mit', { exact: true }).inputValue() === 'agent');
+      await normal.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
+      await normal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
+      check('ordinary workspace keeps a usable terminal and folds the empty composer', await normal.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height >= 220)
+        && !await normal.getByLabel('Terminal-Eingabe', { exact: true }).isVisible());
+      await normal.getByRole('button', { name: `${profile.name} öffnen`, exact: true }).focus(); await tablet.keyboard.press('Enter');
+      await normal.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
+      check('visible agent action starts the TUI from a shell and enlarges it', await normal.getByRole('button', { name: 'Workspace einblenden', exact: true }).isVisible());
+      await normal.getByRole('button', { name: `Workspace · ${profile.name} schliessen`, exact: true }).click();
+    }
     await tablet.getByRole('button', { name: `Terminal öffnen: ${profile.name}`, exact: true }).click();
     const workspace = tablet.getByRole('dialog', { name: `Workspace · ${profile.name}`, exact: true });
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
@@ -57,6 +73,7 @@ public class Tui { public static void Main(string[] args) {
     check(`${profile.name}: keydown to visible PTY acknowledgement stays below 500 ms (${echoMs} ms)`, echoMs < 500);
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('KEY_z_ACK', { exact: false }).last().waitFor();
     check(`${profile.name}: rapid direct keys reach the real PTY once, in order`, existsSync(join(home, 'direct-input.txt')) && readFileSync(join(home, 'direct-input.txt'), 'utf8') === 'xyz');
+    check(`${profile.name}: direct typing keeps the composer folded`, !await workspace.getByLabel('Terminal-Eingabe', { exact: true }).isVisible());
     const color = await workspace.getByLabel('Terminalanzeige', { exact: true }).locator('span').filter({ hasText: 'ADE_TUI_READY' }).last().evaluate((node) => getComputedStyle(node).color);
     const rgb = color.match(/\d+/g)?.map(Number) ?? [];
     check(`${profile.name}: ANSI red is visible in browser (${color})`, rgb[0]! > rgb[1]! + 40 && rgb[0]! > rgb[2]! + 40);

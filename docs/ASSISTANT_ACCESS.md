@@ -1,5 +1,9 @@
 # Assistant terminals, dashboards and Overview
 
+Project-first entry and the simplified terminal controls are specified in
+`PROJECT_ENTRY.md`. The Mobile toolbar also includes the Projekte navigation tab;
+Overview project cards now open project workspaces rather than task composition.
+
 The Overview now offers **Terminal öffnen / fortsetzen** for each agent on
 desktop and Mobile. This opens the saved profile in its own workspace, with no
 project required. It reuses the newest running interactive home session launched

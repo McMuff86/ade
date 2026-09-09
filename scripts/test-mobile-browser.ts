@@ -57,7 +57,7 @@ void (async () => {
   const firstStream = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/v1/events');
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await connected(); await firstStream;
-  check('browser pairs and loads real host catalog in desktop-style Overview', await page.getByRole('button', { name: 'Aufgabe in Mobile project', exact: true }).isVisible());
+  check('browser pairs and loads real host catalog in desktop-style Overview', await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).isVisible());
   check('phone layout has no horizontal overflow', await noOverflow());
   check('mobile shares desktop dark tokens and monospace typography', await page.evaluate(() => {
     const style = getComputedStyle(document.body);
@@ -78,15 +78,18 @@ void (async () => {
   await page.screenshot({ path: join(evidence, 'phone-overview-light.png'), fullPage: true });
   await page.getByRole('tab', { name: 'Overview', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
-  check('mode tabs use roving keyboard focus and select Work', await page.getByRole('tab', { name: 'Work', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-work'));
+  check('mode tabs use roving keyboard focus and select Projects', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-projects'));
+  await page.getByLabel('Projekte durchsuchen', { exact: true }).fill('missing');
+  check('Projects has a useful search empty state', await page.getByRole('heading', { name: 'Keine passenden Projekte', exact: true }).isVisible());
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).focus();
   await page.keyboard.press('End');
   check('Graph has a useful empty canvas and keyboard End support', await page.getByRole('heading', { name: 'Dein Graph ist bereit' }).isVisible());
   await page.keyboard.press('Home');
-  await page.getByRole('button', { name: 'Aufgabe in Mobile project', exact: true }).tap();
-  check('project selection opens a prefilled task dialog and moves focus', await page.getByLabel('Repository', { exact: true }).inputValue() === 'repo'
-    && await page.getByRole('dialog', { name: 'Neue Aufgabe' }).evaluate((node) => node.contains(document.activeElement)));
+  await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).tap();
+  check('project selection opens the project workspace entry and moves focus', await page.getByRole('dialog', { name: 'Projekt · Mobile project', exact: true }).evaluate((node) => node.contains(document.activeElement))
+    && !await page.getByRole('dialog', { name: 'Neue Aufgabe' }).count());
   await page.keyboard.press('Escape');
-  check('closing task dialog restores its project opener', await page.getByRole('button', { name: 'Aufgabe in Mobile project', exact: true }).evaluate((node) => node === document.activeElement));
+  check('closing project dialog restores its project opener', await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).evaluate((node) => node === document.activeElement));
   await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
   check('projectless workspace requires an explicit project for managed tasks', await page.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === ''
     && await page.getByRole('button', { name: 'Aufgabe vergeben', exact: true }).isDisabled());

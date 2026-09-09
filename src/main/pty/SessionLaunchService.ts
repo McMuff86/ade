@@ -17,10 +17,13 @@ export class SessionLaunchService {
     const repo = selection.repositoryId === null ? undefined : config.repositories.find((r) => r.id === selection.repositoryId);
     if (selection.repositoryId !== null && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
     const backend = repo?.executionBackend ?? agentHomeBackend(agent);
-    const [codex, hermes, models] = await Promise.all([this.present(backend, 'codex'), this.present(backend, 'hermes'), this.models(backend)]);
+    const [codex, claude, grok, hermes, models] = await Promise.all([
+      this.present(backend, 'codex'), this.present(backend, 'claude'), this.present(backend, 'grok'), this.present(backend, 'hermes'), this.models(backend)]);
     return { environment: backend === 'native' ? (process.platform === 'win32' ? 'Windows' : process.platform) : redactForWire(backend, 150),
       choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: true, notice: 'Verwendet die Einstellungen dieses Agenten, einschliesslich eigener Startbefehle.' },
         { mode: 'codex', available: codex, notice: codex ? null : 'Codex wurde in dieser Umgebung nicht gefunden.' },
+        { mode: 'claude', available: claude, notice: claude ? null : 'Claude CLI wurde in dieser Umgebung nicht gefunden.' },
+        { mode: 'grok', available: grok, notice: grok ? null : 'Grok CLI wurde in dieser Umgebung nicht gefunden.' },
         { mode: 'hermes', available: hermes, notice: hermes ? null : 'Hermes wurde nicht gefunden. Für eigene Wrapper das gespeicherte Profil verwenden.' },
         { mode: 'ollama', available: models.length > 0, notice: models.length ? null : 'Keine Modelle erreichbar. Ollama und vorhandene Modelle in dieser Umgebung am PC prüfen.' }], models };
   }
@@ -28,7 +31,7 @@ export class SessionLaunchService {
   async effectiveAgent(agent: Agent, backend: ExecutionBackendId, choice: SessionLaunchChoice): Promise<Agent> {
     if (!validSessionChoice(choice)) throw new Error('ade: Ungültige Startauswahl.');
     if (choice.mode === 'agent') return { ...agent };
-    if ((choice.mode === 'codex' || choice.mode === 'hermes') && !await this.present(backend, choice.mode)) throw new Error('ade: Gewähltes CLI ist in dieser Umgebung nicht verfügbar.');
+    if ((choice.mode === 'codex' || choice.mode === 'claude' || choice.mode === 'grok' || choice.mode === 'hermes') && !await this.present(backend, choice.mode)) throw new Error('ade: Gewähltes CLI ist in dieser Umgebung nicht verfügbar.');
     if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error('ade: Ollama-Modell ist nicht mehr verfügbar. Modellliste aktualisieren.');
     return { ...agent, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
@@ -36,11 +39,11 @@ export class SessionLaunchService {
       ollamaModel: choice.mode === 'ollama' ? choice.model : undefined };
   }
 
-  private async present(backend: ExecutionBackendId, executable: 'codex' | 'hermes'): Promise<boolean> {
+  private async present(backend: ExecutionBackendId, executable: 'codex' | 'claude' | 'grok' | 'hermes'): Promise<boolean> {
     try {
       const windows = backend === 'native' && process.platform === 'win32';
       const result = await this.execution.run(backend, windows ? 'where.exe' : '/bin/bash', windows ? [executable]
-        : ['-lc', executable === 'codex' ? 'command -v codex' : 'command -v hermes'], { timeoutMs: 4000, maxBuffer: 16 * 1024 });
+        : ['-lc', `command -v ${executable}`], { timeoutMs: 4000, maxBuffer: 16 * 1024 });
       return result.code === 0 && !result.timedOut && result.stdout.length > 0;
     } catch { return false; }
   }

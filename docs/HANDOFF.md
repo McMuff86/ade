@@ -1,5 +1,13 @@
 # Handoff — 2026-09-08
 
+## Project entry and readable TUI — 2026-09-09
+
+The operator requested a project-first entry and a readable Hermes TUI. Native
+Windows `pnpm verify` passed **2,123 checks**, plus **9** additional WSL terminal
+checks. See `PROJECT_ENTRY.md` / `PROJECT_ENTRY_RESULTS.md`. Deployment follows
+this commit. The personal host is still the 16:04 instance (PID 19508); it has no
+active managed workspace leases, but retains two interactive WSL terminal clients.
+
 ## Tablet terminal latency — 2026-09-09
 
 The operator's ended Hermes TUI conversation was found in its local profile

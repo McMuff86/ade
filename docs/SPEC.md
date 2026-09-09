@@ -1,5 +1,11 @@
 # ADE — Agentic Development Environment · Product Spec
 
+Mobile project entry (2026-09-09): Projekte opens an ADE project working copy,
+then offers independent Codex/Claude/Grok/shell choices. Overview project cards
+use the same entry. Agent workspaces have a direct saved-profile Open action;
+the terminal retains usable height and the empty composer starts folded.
+Contracts: `PROJECT_ENTRY.md`; validation/deployment: `PROJECT_ENTRY_RESULTS.md`.
+
 Assistant access (2026-09-09): explicit home-terminal open/resume on desktop and
 Mobile; Mobile xterm display/direct keyboard input and separate private dashboard
 tabs; automatically refreshed Overview with current/history filters. Contracts and
