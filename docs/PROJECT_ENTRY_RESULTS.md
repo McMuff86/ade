@@ -4,7 +4,17 @@ Final native Windows `pnpm verify` passed **2,123 checks**, all three TypeScript
 projects and the production build. Breakdown: 32 suites / 1,694 checks, desktop
 185, Git sync 20, Mobile browser 57, Mobile Electron 15, restart 10, remote
 workspace 24, workbench 25, terminal 71, visual 22. Evidence log:
-`test-results/project-entry-verify.log`. Operator deployment follows this commit.
+`test-results/project-entry-verify.log`.
+
+Implementation commit `1f5dd2c` was pushed to `origin/main`, then `pnpm build`
+passed again. The personal ADE host was restarted at **17:04 Europe/Zurich**
+(PID **64500**); its desktop window is visible and its listener is loopback-only
+at `127.0.0.1:4317`. Private Tailscale HTTPS returns 200 and serves the matching
+new Mobile bundle `/assets/index-C8MdmIxN.js`. The previous process tree was
+closed after checking that no managed workspace leases were active. Existing
+interactive terminals ended with that restart; provider histories and project
+files were not edited. No paid CLI session was launched on the personal host.
+Reload Chrome, close a restored workspace dialog if necessary, then use Projekte.
 
 Focused checks passed: session-launch contract suite **32**, device-draft suite
 **16**, Mobile Chromium navigation **57**, real Electron project flow **27**,

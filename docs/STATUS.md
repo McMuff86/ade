@@ -2,7 +2,8 @@
 
 Mobile Projects entry and terminal layout (2026-09-09): implemented and verified
 with **2,123 checks** in native Windows `pnpm verify`, plus **9** additional WSL
-terminal checks. Commit/push and operator deployment follow. See
+terminal checks. Commit `1f5dd2c` is pushed; the personal host was rebuilt and
+restarted at 17:04 (PID 64500). Private HTTPS serves the matching Mobile assets. See
 `PROJECT_ENTRY.md` and `PROJECT_ENTRY_RESULTS.md` for evidence and limits.
 
 Tablet terminal latency (2026-09-09): repeated WSL validation process launches

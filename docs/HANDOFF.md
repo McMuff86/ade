@@ -4,9 +4,11 @@
 
 The operator requested a project-first entry and a readable Hermes TUI. Native
 Windows `pnpm verify` passed **2,123 checks**, plus **9** additional WSL terminal
-checks. See `PROJECT_ENTRY.md` / `PROJECT_ENTRY_RESULTS.md`. Deployment follows
-this commit. The personal host is still the 16:04 instance (PID 19508); it has no
-active managed workspace leases, but retains two interactive WSL terminal clients.
+checks. See `PROJECT_ENTRY.md` / `PROJECT_ENTRY_RESULTS.md`. Commit `1f5dd2c` is
+pushed. After rebuilding, the personal host was restarted at 17:04 (PID 64500);
+private HTTPS returns the matching Mobile bundle. Old interactive terminals were
+closed; no managed workspace leases were active. Reload Chrome and close any
+restored workspace to reach Projekte. Physical Samsung acceptance remains open.
 
 ## Tablet terminal latency — 2026-09-09
 
