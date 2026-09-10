@@ -122,26 +122,34 @@ export interface ProjectWorkspaceView {
   kind: 'checkout' | 'worktree';
   backend: 'native';
 }
-export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace'; workspaceId: string };
-export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string };
-export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView }
+export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches'; workspaceId: string }
+  | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction };
+export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply'; previewId: string };
+export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView;
+  branches?: import('./projectBranches').ProjectBranchOverview; preview?: import('./projectBranches').ProjectBranchPreview }
 export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean }
 
 /** null explicitly selects the agent home, regardless of its default project. */
-export interface MobileWorkspaceSelection { agentId: string; repositoryId: string | null }
+export type MobileWorkspaceSelection =
+  | { agentId: string; repositoryId: string | null; projectWorkspaceId?: never }
+  | { projectWorkspaceId: string; agentId?: never; repositoryId?: never };
 export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'claude' | 'grok' | 'hermes' } | { mode: 'ollama'; model: string };
-export type SessionLaunchRequest = MobileWorkspaceSelection & SessionLaunchChoice;
+export type SessionLaunchRequest = MobileWorkspaceSelection & SessionLaunchChoice & { expectedBranch?: string; profileId?: string };
 export interface SessionLaunchOptions {
   environment: string;
   choices: Array<{ mode: SessionLaunchChoice['mode']; available: boolean; notice: string | null }>;
   models: string[];
+  profiles?: Array<{ id: string; name: string; runtime: import('./types').RuntimeId }>;
 }
 export interface MobileTerminalSummary {
   program?: import('./types').SessionProgramState;
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
   launchMode?: SessionLaunchChoice['mode'];
+  launchProfileId?: string;
+  launchProfileName?: string;
+  branch?: string;
 }
-export interface MobileRecentSession extends MobileTerminalSummary, MobileWorkspaceSelection { createdAt: number }
+export type MobileRecentSession = MobileTerminalSummary & MobileWorkspaceSelection & { createdAt: number; projectName?: string };
 export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
 
 /** Read-only observations, with output separate from the run summary. No PTY ids. */
@@ -171,7 +179,7 @@ export interface MobileTerminalState {
 export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
 export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string; options?: true };
 export type MobileTerminalCommand = MobileWorkspaceSelection & (
-  | ({ operation: 'open' } & SessionLaunchChoice)
+  | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }
 );
 export type MobileTerminalInput = MobileWorkspaceSelection & {
@@ -189,7 +197,7 @@ export interface MobileWorkspaceEntry { path: string; name: string; kind: 'file'
 export interface MobileWorkspaceFile {
   path: string; text: string; revision: string; editable: boolean; notice: string | null;
 }
-export interface MobileFileSaveInput extends MobileWorkspaceSelection {
+export type MobileFileSaveInput = MobileWorkspaceSelection & {
   path: string; workspaceVersion: string; revision: string; text: string;
 }
 export interface MobileFileSaveResult { saved: boolean; revision: string; replayed: boolean }

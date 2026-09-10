@@ -28,7 +28,7 @@ interface Suite {
 
 const SUITES: Suite[] = [
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
-  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 20 } },
+  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 25 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
@@ -42,6 +42,7 @@ const SUITES: Suite[] = [
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
   { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 40 } },
   { id: 'project-branches', script: 'test-project-branches.ts', floors: { win32: 40 } },
+  { id: 'project-launch', script: 'test-project-launch.ts', floors: { win32: 41 } },
   { id: 'project-directory-api', script: 'test-project-directory-api.ts', floors: { win32: 26 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
@@ -67,7 +68,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 218 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 219 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

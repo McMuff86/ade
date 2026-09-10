@@ -76,7 +76,7 @@ export function projectOverview(
   for (const session of sessions) {
     if (session.status !== 'running') continue;
     liveSessions += 1;
-    liveByAgent.set(session.agentId, (liveByAgent.get(session.agentId) ?? 0) + 1);
+    if (session.agentId) liveByAgent.set(session.agentId, (liveByAgent.get(session.agentId) ?? 0) + 1);
   }
 
   const repoName = new Map(config.repositories.map((repository) => [repository.id, repository.name]));
@@ -124,8 +124,10 @@ export function projectOverview(
   const lastBookendByRepo = new Map<string, number>();
   for (const bookend of config.sessionBookends) {
     const at = bookendActivityAt(bookend);
-    const current = lastBookendByAgent.get(bookend.agentId);
-    if (current === undefined || at > current) lastBookendByAgent.set(bookend.agentId, at);
+    if (bookend.agentId) {
+      const current = lastBookendByAgent.get(bookend.agentId);
+      if (current === undefined || at > current) lastBookendByAgent.set(bookend.agentId, at);
+    }
     if (bookend.repositoryId) {
       const repoAt = lastBookendByRepo.get(bookend.repositoryId);
       if (repoAt === undefined || at > repoAt) lastBookendByRepo.set(bookend.repositoryId, at);
@@ -202,12 +204,13 @@ export function projectOverview(
       .filter((bookend): bookend is SessionBookend & { endedAt: number } => bookend.endedAt !== null)
       .map((bookend): OverviewWorkRow => ({
         kind: 'session',
-        detached: !agentName.has(bookend.agentId) || !!bookend.repositoryId && !repoName.has(bookend.repositoryId),
-        agentAvailable: agentName.has(bookend.agentId),
+        detached: !!bookend.agentId && !agentName.has(bookend.agentId) || !!bookend.repositoryId && !repoName.has(bookend.repositoryId),
+        agentAvailable: !!bookend.agentId && agentName.has(bookend.agentId),
         id: bookend.id,
         name: bookend.agentName,
         updatedAt: bookend.endedAt,
         agentId: bookend.agentId,
+        projectWorkspaceId: bookend.projectWorkspaceId,
         exitReason: bookend.exitReason ?? 'exit',
         repositoryName: bookend.repositoryName,
         participantNames: [bookend.agentName],

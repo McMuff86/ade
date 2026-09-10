@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-10",
+  "platform": "native Windows Electron host, paired Chromium touch browser",
+  "driver": "scripts/test-remote-terminal-electron.ts --workspace-cli-only",
+  "fixture": "Real temporary Git repositories and PTYs, deterministic local CLI executables; no provider inference",
+  "images": {
+    "17-project-branches.png": "1280x800, preview before creating a parallel worktree",
+    "18-project-terminal.png": "1024x768, original selected checkout with explicitly selected profile"
+  },
+  "privacy": "Isolated fixture data; terminal host paths use the existing wire redaction",
+  "physicalSamsungKeyboardMeasured": false
+}

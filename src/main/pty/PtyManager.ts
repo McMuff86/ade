@@ -43,7 +43,7 @@ import { GrokActivityParser } from '../orchestration/grokStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { showSessionExitNotification } from '../notifications';
 import { redactArgs } from '../errors';
-import { resolveHostShell } from '../platform';
+import { resolveHostShell, sameHostPath } from '../platform';
 import { broadcastToRenderers } from '../rendererWindows';
 import {
   agentHomeBackend,
@@ -58,7 +58,8 @@ import {
   type TaskQueueKey,
 } from './TaskQueue';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
-import { SessionLaunchService } from './SessionLaunchService';
+import { SessionLaunchService, type InteractiveLaunchSettings } from './SessionLaunchService';
+import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import type { MobileWorkspaceSelection, SessionLaunchChoice } from '../../shared/remote';
@@ -320,9 +321,9 @@ export class PtyManager {
     const selectedAgents = request.agentIds ? new Set(request.agentIds) : null;
     const selectedTasks = request.runTaskIds ? new Set(request.runTaskIds) : null;
     const hasScope = selectedAgents !== null || selectedTasks !== null;
-    const directlyMatches = (agentId: string, runTaskId?: string): boolean =>
+    const directlyMatches = (agentId: string | undefined, runTaskId?: string): boolean =>
       !hasScope
-      || Boolean(selectedAgents?.has(agentId))
+      || Boolean(agentId && selectedAgents?.has(agentId))
       || Boolean(runTaskId && selectedTasks?.has(runTaskId));
 
     const dispatchIds = new Set<string>();
@@ -368,6 +369,31 @@ export class PtyManager {
     };
   }
 
+  async createProjectInteractive(workspaceId: string, expectedBranch: string, choice: SessionLaunchChoice,
+    profileId?: string, assertAuthorized: () => void = () => undefined): Promise<SessionMeta> {
+    return workspaceOperations.use(async () => {
+      assertAuthorized();
+      if (choice.mode === 'agent' ? !profileId : profileId !== undefined) throw new Error('ade: Startprofil ausdrücklich auswählen oder ohne Profil starten.');
+      const projects = new ProjectWorkspaceService(this.store);
+      const resolved = await projects.resolve(workspaceId);
+      const profile = profileId ? this.requireAgent(profileId) : undefined;
+      if (profile?.homeExecutionBackend && profile.homeExecutionBackend !== 'native') throw new Error('ade: Dieses Profil gehört zu einer anderen Umgebung. Ein natives Profil wählen oder dessen eigenen Workspace öffnen.');
+      const fingerprint = JSON.stringify(profile);
+      const revalidate = async () => {
+        const current = await projects.resolve(workspaceId);
+        if (current.branch !== expectedBranch || !sameHostPath(current.workspace.workspaceDir, resolved.workspace.workspaceDir)) throw new Error('ade: Projekt-Branch wurde geändert. Workspace aktualisieren und erneut starten.');
+        if (profileId && JSON.stringify(this.requireAgent(profileId)) !== fingerprint) throw new Error('ade: Startprofil wurde inzwischen geändert. Erneut auswählen.');
+        if (this.store.get().runWorkspaceLeases.some((lease) => lease.status === 'active' && sameHostPath(lease.commonGitDir, current.repository.commonGitDir))) throw new Error('ade: Repository ist durch einen verwalteten Auftrag belegt.');
+        assertAuthorized();
+      };
+      await revalidate();
+      const scope: ResolvedExecutionScope = { source: 'project-workspace', repositoryId: resolved.repository.id,
+        workspaceDir: resolved.workspace.workspaceDir, branch: resolved.branch, executionBackend: 'native' };
+      return this.spawn(undefined, scope, undefined, undefined, choice, { workspaceId, profileId, revalidate,
+        settings: profile ?? { name: 'Ohne Agent-Profil', runtime: 'shell', permissionMode: 'default' } });
+    });
+  }
+
   async remoteDisplay(sessionId: string): Promise<Awaited<ReturnType<RemoteTerminalDisplay['snapshot']>>> {
     const display = this.sessions.get(sessionId)?.display;
     if (!display) throw new Error('Interaktives Terminal ist nicht mehr verfügbar.');
@@ -409,16 +435,19 @@ export class PtyManager {
   }
 
   private async spawn(
-    agentId: string,
+    agentId: string | undefined,
     scope: ResolvedExecutionScope,
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
     login?: { command: string; title: string },
     launchChoice?: SessionLaunchChoice,
+    project?: { workspaceId: string; profileId?: string; settings: InteractiveLaunchSettings; revalidate(): Promise<void> },
   ): Promise<SessionMeta> {
-    const savedAgent = this.requireAgent(agentId); const before = JSON.stringify(savedAgent);
-    const agent = launchChoice ? await new SessionLaunchService(this.store, this.execution).effectiveAgent(savedAgent, scope.executionBackend, launchChoice)
-      : this.effectiveTaskAgent(savedAgent, task?.runTaskId);
-    if (before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
+    const savedAgent = agentId ? this.requireAgent(agentId) : undefined; const before = JSON.stringify(savedAgent);
+    const settings = project?.settings ?? savedAgent;
+    if (!settings || ((task || login) && !savedAgent)) throw new Error('ade: Sitzung hat keinen gültigen Startkontext.');
+    const agent = launchChoice ? await new SessionLaunchService(this.store, this.execution).effectiveSettings(settings, scope.executionBackend, launchChoice)
+      : this.effectiveTaskAgent(savedAgent!, task?.runTaskId);
+    if (agentId && before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
     this.assertScopeAvailable(scope, task?.runTaskId);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
@@ -426,18 +455,18 @@ export class PtyManager {
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (!managedLaunch && !login && launchChoice?.mode !== 'shell' && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
+    if (savedAgent && !project && !managedLaunch && !login && launchChoice?.mode !== 'shell' && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
-        injectMemoryBlock(agent, this.store.get().settings.memory, scope.workspaceDir);
+        injectMemoryBlock({ ...savedAgent, ...agent }, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
         console.warn(`[ade] memory inject failed for agent=${agentId}:`, error);
       }
     }
 
-    const cwd = await this.resolveCwd(scope);
+    const cwd = project ? scope.workspaceDir : await this.resolveCwd(scope);
     const backendPlatform = executionBackendPlatform(scope.executionBackend);
     const baseSpec = task
-      ? this.resolveTaskSpawn(agent, task.task, managedLaunch, backendPlatform)
+      ? this.resolveTaskSpawn({ ...savedAgent!, ...agent }, task.task, managedLaunch, backendPlatform)
       : login
         ? this.resolveLoginSpawn(login.command, backendPlatform)
         : this.resolveInteractiveSpawn(agent, backendPlatform);
@@ -485,6 +514,8 @@ export class PtyManager {
       : command.hostEnv ?? (process.env as Record<string, string>);
     let proc: pty.IPty;
     try {
+      if (project) await project.revalidate();
+      this.assertScopeAvailable(scope, task?.runTaskId);
       proc = pty.spawn(command.file, command.args, {
       name: 'xterm-256color',
       cols: DEFAULT_COLS,
@@ -507,6 +538,10 @@ export class PtyManager {
       remoteAccessBlocked: login ? true : undefined,
       id,
       agentId,
+      projectWorkspaceId: project?.workspaceId,
+      launchProfileId: project?.profileId,
+      launchProfileName: project?.profileId ? project.settings.name : undefined,
+      branch: scope.branch,
       title: launchChoice?.mode === 'hermes' ? 'Hermes' : launchChoice?.mode === 'ollama' ? `Ollama · ${launchChoice.model}` : login ? login.title : task ? `${label} task`
         : program && (agent.runtime === 'custom' || agent.runtime === 'shell') ? agent.name : label,
       kind: task ? 'task' : 'interactive',
@@ -783,15 +818,17 @@ export class PtyManager {
     this.persistBookends((bookends) => interruptOrphanBookends(bookends, new Set(), Date.now()));
   }
 
-  private recordInteractiveStart(meta: SessionMeta, agent: Agent): void {
+  private recordInteractiveStart(meta: SessionMeta, agent: InteractiveLaunchSettings): void {
     const config = this.store.get();
     const repositoryName = meta.repositoryId
       ? (config.repositories.find((repository) => repository.id === meta.repositoryId)?.name ?? null)
       : null;
     const record: SessionBookend = {
       id: meta.id,
-      agentId: agent.id,
-      agentName: agent.name,
+      agentId: meta.agentId,
+      projectWorkspaceId: meta.projectWorkspaceId,
+      branch: meta.branch,
+      agentName: meta.projectWorkspaceId ? `${meta.title} · ${meta.launchProfileName ?? 'Ohne Agent-Profil'}` : agent.name,
       runtime: agent.runtime,
       repositoryId: meta.repositoryId ?? null,
       repositoryName,
@@ -929,7 +966,7 @@ export class PtyManager {
     };
   }
 
-  private resolveInteractiveSpawn(agent: Agent, platform: 'win32' | 'posix'): SpawnSpec {
+  private resolveInteractiveSpawn(agent: InteractiveLaunchSettings, platform: 'win32' | 'posix'): SpawnSpec {
     const command = resolveLaunchCommand(agent);
     const isWin = platform === 'win32';
     const shell = isWin ? resolveHostShell() : '/bin/bash';

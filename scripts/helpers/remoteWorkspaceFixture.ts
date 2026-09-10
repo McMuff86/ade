@@ -10,6 +10,7 @@ import { HostRestartController } from '../../src/main/application/HostRestartCon
 import { HostOperationGate } from '../../src/main/application/HostOperationGate';
 import { RepositoryScopeService } from '../../src/main/repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from '../../src/main/repositories/ProjectWorkspaceService';
+import { ProjectBranchService } from '../../src/main/repositories/ProjectBranchService';
 import { RepositorySyncService } from '../../src/main/repositories/RepositorySyncService';
 import { BackendWorkspaceService } from '../../src/main/execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../../src/main/execution/ExecutionBackendService';
@@ -40,7 +41,9 @@ export function createRemoteWorkspaceFixture(root: string) {
   const gate = new HostOperationGate();
   const ledger = new RemoteCommandLedger(join(root, 'remote', 'commands.json'), (entry) => devices.audit(entry),
     (id, scope) => devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope)));
-  const workbench = new RemoteWorkbenchService(store, () => sessions, execution);
+  const projects = new ProjectWorkspaceService(store);
+  const projectBranches = new ProjectBranchService(store, projects, () => sessions);
+  const workbench = new RemoteWorkbenchService(store, () => sessions, execution, projects);
   const observations = new Map<string, { lines: ActivityLine[]; lastOutputAt?: number; outputBytes: number; structured: boolean }>();
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id));
@@ -48,12 +51,12 @@ export function createRemoteWorkspaceFixture(root: string) {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
-    workbench, runInspection: inspection, projects: new ProjectWorkspaceService(store),
+    workbench, runInspection: inspection, projects, projectBranches,
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
     profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection };
+  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches };
 }

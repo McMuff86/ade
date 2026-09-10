@@ -48,6 +48,7 @@ import { mobileDashboard } from '../dashboard/mobileDashboard';
 import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import type { RunInspectionService } from './RunInspectionService';
 import type { MobileRunActivity } from '../../shared/remote';
+import type { ProjectBranchService } from '../repositories/ProjectBranchService';
 import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
 
@@ -103,6 +104,7 @@ export interface RemoteAuditEntry {
 export interface ApplicationOptions {
   projects?: ProjectWorkspaceService;
   runInspection?: RunInspectionService;
+  projectBranches?: ProjectBranchService;
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
@@ -261,7 +263,14 @@ export class AdeApplicationService {
     ledger.permits(context, 'workspace:read');
     if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
     try {
-      const result = payload.operation === 'directory' ? { directory: await projects.directory() } : { workspace: await projects.overview(payload.workspaceId) };
+      const branches = this.options.projectBranches;
+      if ((payload.operation === 'branches' || payload.operation === 'branch-preview') && !branches) throw new RemoteApiError(404, 'not_found');
+      if (payload.operation === 'branch-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
+      const result = payload.operation === 'directory' ? { directory: await projects.directory() }
+        : payload.operation === 'branches' ? { branches: await branches!.overview(payload.workspaceId) }
+          : payload.operation === 'branch-preview' ? { preview: await branches!.preview(payload.workspaceId, payload.action, context.principal.id) }
+            : { workspace: await projects.overview(payload.workspaceId) };
+      if (payload.operation === 'branch-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
       ledger.permits(context, 'workspace:read'); return result;
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
@@ -269,11 +278,14 @@ export class AdeApplicationService {
   async commandProject(context: RemoteCommandContext, payload: unknown): Promise<ProjectWorkspaceCommandResult> {
     const ledger = this.options.administration?.ledger; const projects = this.options.projects;
     if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
-    const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write'); };
-    authorize();
     if (!validProjectWorkspaceCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
-    const result = await ledger.execute(context, 'project:open', 'projects:write', payload, () => {
-      const execute = async () => ({ workspace: await projects.open(payload.entryId, authorize) });
+    const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write');
+      if (payload.operation === 'branch-apply') ledger.permits(context, 'projectGit:write'); };
+    authorize();
+    if (payload.operation === 'branch-apply' && !this.options.projectBranches) throw new RemoteApiError(404, 'not_found');
+    const result = await ledger.execute(context, `project:${payload.operation}`, payload.operation === 'branch-apply' ? 'projectGit:write' : 'projects:write', payload, () => {
+      const execute = async () => ({ workspace: payload.operation === 'open' ? await projects.open(payload.entryId, authorize)
+        : await this.options.projectBranches!.apply(payload.previewId, context.principal.id, authorize) });
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
     authorize();
@@ -406,10 +418,11 @@ export class AdeApplicationService {
           return { git: projectGit(await admin.git.apply(command.input.previewId)) };
         }
         if (!admin.workspaces) throw new RemoteApiError(404, 'not_found');
-        return admin.workspaces.execute(command);
+        return admin.workspaces.execute(command, () => admin.ledger.permits(context, scope));
       };
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
+    admin.ledger.permits(context, scope);
     return { ...receipt.value, replayed: receipt.replayed };
   }
 

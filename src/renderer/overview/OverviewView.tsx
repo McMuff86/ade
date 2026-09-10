@@ -137,8 +137,8 @@ export function OverviewView(): JSX.Element {
     setMode('terminals');
   };
   const openProject = (repositoryId: string): void => {
-    setSelectedRepository(repositoryId);
-    setMode('terminals');
+    useSelection.getState().openProjectRepository(repositoryId);
+    setMode('projects');
   };
   const openHomeTerminal = async (agentId: string): Promise<void> => {
     if (openingRef.current) return; openingRef.current = true; setOpening(true); setError(null);
@@ -162,6 +162,8 @@ export function OverviewView(): JSX.Element {
       openRun(row.id);
       return;
     }
+    if (row.projectWorkspaceId) { useSelection.getState().openProjectSession(row.projectWorkspaceId, row.id); setMode('projects'); return; }
+    if (!row.agentId) return;
     setSelectedAgent(row.agentId);
     const live = useSessions.getState().sessions[row.id];
     if (live?.status === 'running') setActiveSession(row.agentId, row.id);

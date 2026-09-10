@@ -43,6 +43,7 @@ import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
 import { RunInspectionService } from './application/RunInspectionService';
+import { ProjectBranchService } from './repositories/ProjectBranchService';
 import { ExecutionBackendService } from './execution/ExecutionBackendService';
 import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
@@ -295,11 +296,21 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const ledger = new RemoteCommandLedger(join(app.getPath('userData'), 'ade', 'remote', 'commands.json'),
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
-  const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution);
+  const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
+  const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
+  handle(IPC.ProjectCreate, async (input) => {
+    if (!store.get().settings.projectDefaults) throw new Error('ade: Unter Settings zuerst den Projekt-Stammordner speichern.');
+    const result = await workspaceProvision.execute({ operation: 'project-create', input });
+    broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() });
+    return { repositoryId: result.created!.id };
+  });
+  const projectBranches = new ProjectBranchService(store, projects, () => ptyManager?.list() ?? []);
+  const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
   remoteWorkbench = workbench;
   remoteTerminals = new RemoteTerminalService(workbench, {
     list: () => ptyManager?.list() ?? [],
     create: (agentId, repositoryId, bindingId, mode, model) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model),
+    createProject: (workspaceId, branch, choice, profileId, authorize) => ptyManager!.createProjectInteractive(workspaceId, branch, choice, profileId, authorize),
     options: (selection) => ptyManager!.sessionOptions(selection),
     display: (id) => ptyManager!.remoteDisplay(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
@@ -307,10 +318,11 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
-  const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
-    ? { directory: await projects.directory() } : { workspace: await projects.overview(input.workspaceId) });
-  handle(IPC.ProjectWorkspaceCommand, async (input) => ({ workspace: await projects.open(input.entryId), replayed: false }));
+    ? { directory: await projects.directory() } : input.operation === 'branches' ? { branches: await projectBranches.overview(input.workspaceId) }
+      : input.operation === 'branch-preview' ? { preview: await projectBranches.preview(input.workspaceId, input.action, 'desktop') } : { workspace: await projects.overview(input.workspaceId) });
+  handle(IPC.ProjectWorkspaceCommand, async (input) => ({ workspace: input.operation === 'open' ? await projects.open(input.entryId)
+    : await projectBranches.apply(input.previewId, 'desktop'), replayed: false }));
   const application = new AdeApplicationService(
     store,
     orchestration,
@@ -319,6 +331,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       activity: hostOperations,
       projects,
       runInspection: new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId)),
+      projectBranches,
       workbench, terminals: remoteTerminals,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -331,7 +344,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
         throw new Error('ade: Profilbild ist zu gross.');
       }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() })),
       administration: { ledger, restart, git: repositorySync,
-        workspaces: new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution) },
+        workspaces: workspaceProvision },
       // The same coordinator/service methods the desktop IPC handlers call
       // below; the remote path adds nothing the renderer could not do, it
       // only reaches fewer channels.
@@ -768,7 +781,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   /* --------------------------------------------------- pty (Phase B1) */
   handle(IPC.SessionOptions, (selection) => ptyManager!.sessionOptions(selection));
-  handle(IPC.SessionLaunch, (input) => ptyManager!.createRemoteInteractive(input.agentId, input.repositoryId, input.workspaceBindingId, input.mode, input.mode === 'ollama' ? input.model : undefined));
+  handle(IPC.SessionLaunch, (input) => input.projectWorkspaceId
+    ? ptyManager!.createProjectInteractive(input.projectWorkspaceId, input.expectedBranch!, input.mode === 'ollama' ? { mode: input.mode, model: input.model } : { mode: input.mode }, input.profileId)
+    : ptyManager!.createRemoteInteractive(input.agentId!, input.repositoryId!, input.workspaceBindingId, input.mode, input.mode === 'ollama' ? input.model : undefined));
 
   // Interactive sessions spawn immediately; task sessions wait for a queue slot.
   handle(IPC.PtyCreate, ({

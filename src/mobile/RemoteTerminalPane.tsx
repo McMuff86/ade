@@ -1,5 +1,5 @@
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
-import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState, SessionLaunchChoice, SessionLaunchOptions } from '../shared/remote';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState, MobileWorkspaceSelection, SessionLaunchChoice, SessionLaunchOptions } from '../shared/remote';
 import { canLaunchChoice, SessionLaunchFields } from '../renderer/sessions/SessionLaunchFields';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
@@ -16,27 +16,32 @@ import { openTerminalKeyboard } from './terminalKeyboard';
 
 interface TerminalDraft { text: string; review: boolean }
 
-export function RemoteTerminalPane({ host, agentId, repositoryId, active, initialTerminalId, projectEntry, compactControls, profileIntent, onProfileIntentConsumed }: {
-  host: MobileHost; agentId: string; repositoryId: string | null; active: boolean;
+export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspaceId, expectedBranch, active, initialTerminalId, projectEntry, compactControls, profileIntent, onProfileIntentConsumed }: MobileWorkspaceSelection & {
+  host: MobileHost; active: boolean; expectedBranch?: string;
   initialTerminalId?: string;
   projectEntry?: boolean;
   compactControls?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
+  const selection = useMemo<MobileWorkspaceSelection>(() => projectWorkspaceId ? { projectWorkspaceId } : { agentId: agentId!, repositoryId: repositoryId! }, [projectWorkspaceId, agentId, repositoryId]);
+  const scopeKey = projectWorkspaceId ? `project/${projectWorkspaceId}` : `${agentId}:${repositoryId ?? 'home'}`;
+  const [profileId, setProfileId] = useState('');
+  const launch = (selectedChoice: SessionLaunchChoice): MobileTerminalCommand => ({ ...selection, operation: 'open', ...selectedChoice,
+    ...(projectWorkspaceId ? { expectedBranch, ...(selectedChoice.mode === 'agent' ? { profileId } : {}) } : {}) });
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
-  const [remembered, remember] = useDeviceDraft(host.deviceId, `terminal-selection:${agentId}:${repositoryId ?? 'home'}`, '');
+  const [remembered, remember] = useDeviceDraft(host.deviceId, `terminal-selection:${scopeKey}`, '');
   const [selected, select] = useState(initialTerminalId ?? remembered);
   const setSelected = (id: string) => { select(id); remember(id); };
-  const [draft, saveDraft, durable] = useDeviceDraft<TerminalDraft>(host.deviceId, `terminal-draft:${agentId}:${repositoryId ?? 'home'}:${selected}`, { text: '', review: false });
+  const [draft, saveDraft, durable] = useDeviceDraft<TerminalDraft>(host.deviceId, `terminal-draft:${scopeKey}:${selected}`, { text: '', review: false });
   const text = draft.text; const setText = (value: string) => saveDraft((current) => ({ ...current, text: value }));
   const [launchOpen, setLaunchOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
-  const [focused, setFocused] = useState(!!profileIntent);
+  const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [readError, setReadError] = useState('');
   const [responseMs, setResponseMs] = useState<number>();
-  const [pending, setPending] = useDeviceDraft<{ command: MobileTerminalCommand; key: string } | null>(host.deviceId, `terminal-command:${agentId}:${repositoryId ?? 'home'}`, null);
+  const [pending, setPending] = useDeviceDraft<{ command: MobileTerminalCommand; key: string } | null>(host.deviceId, `terminal-command:${scopeKey}`, null);
   const [uncertain, setUncertain] = useState<MobileTerminalInput | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [choice, setChoice] = useState<SessionLaunchChoice>({ mode: projectEntry ? 'codex' : 'agent' });
@@ -60,7 +65,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   const query = useCallback(async (id = selected) => {
     const own = ++queryVersion.current;
     const started = performance.now();
-    const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { agentId, repositoryId, ...(id ? { terminalId: id } : {}) });
+    const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, ...(id ? { terminalId: id } : {}) });
     if (live.current && own === queryVersion.current) {
       setResponseMs(Math.round(performance.now() - started));
       if (result.leaseId && result.leaseId === stateRef.current.leaseId && (stateRef.current.lastSequence ?? 0) > (result.lastSequence ?? 0)) {
@@ -69,17 +74,17 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
       setState(result); stateRef.current = result;
     }
     return result;
-  }, [host.request, agentId, repositoryId, selected]);
+  }, [host.request, selection, selected]);
   useEffect(() => { live.current = true; return () => { live.current = false; queryVersion.current++; }; }, []);
   useEffect(() => {
     if (!active || host.status !== 'online') return;
     let stopped = false; setLoadingOptions(true); setOptions(undefined);
-    void host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { agentId, repositoryId, options: true })
+    void host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, options: true })
       .then((result) => { if (!stopped) setOptions(result.launchOptions); })
       .catch((reason) => { if (!stopped) { clearRevokedState(reason); setError(terminalError(reason)); } })
       .finally(() => { if (!stopped) setLoadingOptions(false); });
     return () => { stopped = true; };
-  }, [active, host.status, host.request, agentId, repositoryId, optionsRefresh]);
+  }, [active, host.status, host.request, selection, optionsRefresh]);
   useEffect(() => {
     if (!active || host.status !== 'online') return;
     let stopped = false; let timer: ReturnType<typeof setTimeout>; let refreshing = false; let requested = false;
@@ -131,7 +136,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     if (lock.current || profileLock.current) return 'busy';
     if (pending || uncertain || draft.review || current.inputUncertain || !current.leaseId || !current.selected || current.selected.owner !== 'self' || host.status !== 'online') return 'failed';
     if (new TextEncoder().encode(data).length > 2048) { setError('Eingabe auf höchstens 2048 Bytes kürzen.'); return 'failed'; }
-    const request: MobileTerminalInput = { agentId, repositoryId, terminalId: current.selected.id, leaseId: current.leaseId,
+    const request: MobileTerminalInput = { ...selection, terminalId: current.selected.id, leaseId: current.leaseId,
       sequence: (current.lastSequence ?? 0) + 1, data, ...dimensions.current };
     lock.current = true; setBusy(true); setError('');
     try {
@@ -164,9 +169,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
     try {
       const result = await query('');
       if (!live.current) return;
-      const existing = result.terminals.filter((item) => canReuseLaunch(item, mode)).at(-1);
+      const existing = result.terminals.filter((item) => canReuseLaunch(item, mode) && (!projectWorkspaceId || item.launchProfileId === (mode === 'agent' ? profileId : undefined))).at(-1);
       if (existing) { setSelected(existing.id); await query(existing.id); }
-      else await command({ operation: 'open', mode, agentId, repositoryId });
+      else await command(launch({ mode }));
       if (live.current) setLaunchOpen(false);
     } catch (reason) { if (live.current) setError(terminalError(reason)); }
     finally { profileLock.current = false; if (live.current) setProfileOpening(false); }
@@ -197,7 +202,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
   const owning = state.selected?.owner === 'self';
   const inputEnabled = owning && !profileOpening && host.status === 'online' && !pending && !uncertain && !state.inputUncertain
     && (!draft.review || directSending.current) && state.selected?.status === 'running';
-  const action = (operation: 'claim' | 'release' | 'close') => command({ operation, agentId, repositoryId, terminalId: selected });
+  const action = (operation: 'claim' | 'release' | 'close') => command({ operation, ...selection, terminalId: selected });
   const agent = host.catalog?.agents.find((item) => item.id === agentId);
   useLayoutEffect(() => {
     if (!focusTerminal.current || !active || !owning || busy || profileOpening) return;
@@ -216,6 +221,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
         {projectEntry ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} öffnen</button>
       <button aria-pressed={focused} onClick={() => { setFocused(!focused); if (!focused) setComposeOpen(false); }}>{focused ? 'Workspace einblenden' : 'Terminal vergrössern'}</button>
       {state.selected && <span role="status" aria-label="CLI- und Terminalstatus">{sessionStateLabel(state.selected)}</span>}
+      {projectWorkspaceId && <span>{expectedBranch} · {state.selected?.launchProfileName ?? 'Ohne Agent-Profil'}</span>}
       {focused && <><span role="status">{host.status !== 'online' ? 'Offline · letzter Anzeigestand' : owning ? 'Eingabe: Tablet' : 'Eingabe: PC / anderes Gerät'}</span>
         {state.selected && <>{!owning && <button disabled={blocked || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>}
           {owning && <button disabled={busy || !!pending || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>}
@@ -231,11 +237,13 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, active, initia
       : 'Dieses Terminal ist beendet. Du kannst die Ausgabe ansehen oder eine neue Sitzung starten.'
       : 'Wähle eine bestehende Sitzung oder starte eine neue im ausgewählten Workspace.'}</p>
     <details open={launchOpen} onToggle={(event) => setLaunchOpen(event.currentTarget.open)}><summary>Neue Sitzung starten</summary>
-    <div className="m-management-actions"><button disabled={blocked} onClick={() => void command({ operation: 'open', mode: 'shell', agentId, repositoryId })}>Shell öffnen</button>
+    <div className="m-management-actions"><button disabled={blocked} onClick={() => void command(launch({ mode: 'shell' }))}>Shell öffnen</button>
       </div>
     <SessionLaunchFields choice={choice} onChange={setChoice} options={options} disabled={blocked} loading={loadingOptions} />
-    <div className="m-management-actions"><button disabled={blocked || !canLaunchChoice(choice, options)}
-      onClick={() => void command({ operation: 'open', agentId, repositoryId, ...choice })}>Sitzung starten</button>
+    {projectWorkspaceId && choice.mode === 'agent' && <label>Startprofil<select aria-label="Startprofil" disabled={blocked} value={profileId} onChange={(event) => setProfileId(event.target.value)}>
+      <option value="">Profil auswählen</option>{options?.profiles?.map((profile) => <option value={profile.id} key={profile.id}>{profile.name} · {profile.runtime}</option>)}</select></label>}
+    <div className="m-management-actions"><button disabled={blocked || !canLaunchChoice(choice, options) || !!projectWorkspaceId && choice.mode === 'agent' && !profileId}
+      onClick={() => void command(launch(choice))}>Sitzung starten</button>
       <button disabled={blocked || loadingOptions} onClick={() => setOptionsRefresh((n) => n + 1)}>Startmöglichkeiten aktualisieren</button></div>
     </details>
     <label>Sitzung<select aria-label="Terminal-Sitzung" disabled={blocked} value={selected} onChange={(event) => { setSelected(event.target.value); setError(''); setState({ terminals: state.terminals }); }}>

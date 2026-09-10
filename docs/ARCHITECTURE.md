@@ -78,8 +78,8 @@ TTL/ordinary eviction; reload never automatically resends a mutation. Explicit
 retry uses the original key. `project-selected` restores the workspace by read.
 Storage failure blocks a new command; discarding an opening leaves host files and
 registered metadata intact. Dialog and page focus have explicit fallback targets.
-T2b supplies discovery/open/detail only. Branch controls and independent CLI launch
-follow T3; the previous agent-worktree entry remains explicitly accessible.
+The previous agent-worktree entry remains explicitly accessible. Independent
+workspaces host their own branch controls and interactive sessions.
 
 T3a: `shared/projectBranches.ts` defines bounded, exact branch-action shapes
 (local/remote refs, new branch, opaque worktree selection). `ProjectBranchService`
@@ -97,9 +97,34 @@ protocol helpers, ignores inherited Git environment overrides and bounds output.
 Inventory caps are 200 refs and 100 worktrees; remote refs are locally cached.
 `ProjectWorkspaceService.registerCheckout` is a main-only helper for a caller
 holding the workspace operation gate. It validates the exact Git identity against
-the expected repository and rechecks authorization before adoption. No new branch
-action is wired to IPC or HTTP yet; native Windows Git fixtures validate the
-internal boundary, while product acceptance remains T3b.
+the expected repository and rechecks authorization before adoption.
+
+T3b exposes branch reads/previews through `project:query` and signed project query;
+`branch-apply` uses `project:command` and the dedicated host command route. Mobile
+requires `workspace:read`, `projects:write` and the new explicit `projectGit:write`
+grant, rechecked after preview and before/after apply. A protected per-workspace
+branch receipt survives reload; a lost response replays the same ledger entry.
+
+Interactive selection is an exact XOR: agent/repository selection or the opaque
+`projectWorkspaceId`. Project launches require `expectedBranch`; only explicit
+`mode: agent` accepts and requires `profileId`. Main revalidates checkout, branch,
+profile fingerprint, managed leases and current device grant around CLI discovery
+and immediately before PTY creation. `SessionMeta` and bookends carry the project
+owner, branch and optional launch-profile identity instead of inventing an agent
+or binding. Project sessions skip agent-memory injection, preserve repository
+instructions, and remain discoverable on desktop and in mobile Continue Work.
+
+Desktop-only `project:create` is classified mutate with exact name-only payload.
+It shares `RemoteWorkspaceService` project creation with existing signed admin
+commands: configured parent, fixed Git initialization on main, no profile or CLI.
+Git initialization uses the same stripped Git environment, disabled hooks and
+bounded execution as branch actions. Creation refuses inherited Git location or
+config overrides before creating a directory because the legacy identity importer
+inherits its environment; import rechecks the parent and authorization before save.
+Mobile records creation/open checkpoints
+before each command and keeps older pending project starts recoverable without
+repeating their old automatic CLI launch. The project parent setting no longer
+selects an implicit Codex profile. Actual CLI choice happens in the opened project.
 
 ## Interactive foreground lifecycle
 

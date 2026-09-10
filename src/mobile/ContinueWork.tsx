@@ -25,9 +25,9 @@ export function ContinueWork({ host, onSession, onProject }: { host: MobileHost;
     {error ? <p role="status">{error}</p> : !inventory ? <p role="status">Sitzungen werden geladen…</p> : !inventory.sessions.length
       ? <p>Keine offenen Terminals. Ein Projekt öffnen oder mit einer neuen Idee starten.</p>
       : <ul className="m-session-cards">{inventory.sessions.map((session) => <li key={session.id}><button disabled={host.status !== 'online'}
-        onClick={(event) => { event.currentTarget.focus(); onSession(session); }} aria-label={`Weiterarbeiten in ${host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'} mit ${host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name ?? 'Agent'} · ${session.title}`}>
-        <strong>{host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'}</strong>
-        <span>{host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name} · {session.title}</span>
+        onClick={(event) => { event.currentTarget.focus(); onSession(session); }} aria-label={`Weiterarbeiten in ${session.projectName ?? host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'} mit ${session.projectWorkspaceId ? session.launchProfileName ?? 'Ohne Agent-Profil' : host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name ?? 'Agent'} · ${session.title}`}>
+        <strong>{session.projectName ?? host.catalog?.repositories.find((repo) => repo.id === session.repositoryId)?.name ?? 'Eigener Workspace'}</strong>
+        <span>{session.projectWorkspaceId ? session.launchProfileName ?? 'Ohne Agent-Profil' : host.catalog?.agents.find((agent) => agent.id === session.agentId)?.name} · {session.title}{session.branch ? ` · ${session.branch}` : ''}</span>
         <small>{sessionStateLabel(session)}</small>
       </button></li>)}</ul>}
     {!!inventory?.omitted && <p>Weitere oder nicht mehr erreichbare Sitzungen sind ausgeblendet.</p>}

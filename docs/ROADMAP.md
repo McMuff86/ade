@@ -5,7 +5,7 @@
 The user's intervening request prioritizes visible Graph activity and tablet access
 to final answers, images and downloads. The dedicated native boundary/real-PTY
 browser checks pass; operator deployment is recorded in HANDOFF. T3b work was
-preserved separately and remains pending. No push until the overall goal is done.
+restored with both result and project boundaries intact. No push until the overall goal is done.
 
 Status: 2026-09-09. [Current capabilities](STATUS.md) are separate from planned work.
 Completed delivery notes and their original state are retained in the [roadmap archive](archived/ROADMAP_2026-09-09.md).
@@ -19,7 +19,9 @@ verification. The proposals below remain background unless included there.
 T0/T1/T2a/T2b are delivered for native Windows: directory discovery and independent
 workspace opening now have desktop/tablet entry, explicit grants and recovery.
 T3a supplies the internal branch/worktree boundary with 40 native Git checks.
-T3b connects branch selection and CLI launch without a profile; the additional WSL lifecycle
+T3b connects branch selection and CLI launch without a profile, including named
+new projects, optional native profiles and receipt recovery. T4/T5 add selective
+commits, conflict recovery, merge, fetch/pull and explicit push/PR. The additional WSL lifecycle
 test is still open after a backend-readiness timeout (see goal evidence).
 
 ## Proposed next product slices — for discussion

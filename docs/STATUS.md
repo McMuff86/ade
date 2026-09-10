@@ -1,5 +1,17 @@
 # ADE implementation status
 
+## 2026-09-10 — Independent project CLI and branch entry
+
+Desktop/tablet Projects now connect the selected checkout and branch directly to
+Codex, Claude, Grok or an empty shell without creating an agent or binding. Saved
+profiles are optional and must belong to the same environment. New Project opens
+a named repository on main and waits for CLI choice. Branch preview/apply needs
+the explicit mobile `projectGit:write` grant and retains uncertain receipts.
+Focused native checks: project launch/API/history 41, device drafts 25, project
+provisioning 54 and repository scopes 62; three TypeScript projects and build pass.
+Browser evidence and operator state are recorded in the active goal and HANDOFF.
+Git commit/merge/push/PR controls and complete goal verification remain T4–T6.
+
 ## 2026-09-10 — Mobile run inspection
 
 The urgent Graph/result task adds activity, full saved assistant answers and
@@ -23,7 +35,7 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
 is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 
-User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0/T1/T2a/T2b delivered for native Windows, T3–T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0/T1/T2a/T2b/T3a/T3b delivered for native Windows, T4–T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 Latest product verification: native Windows `pnpm verify`, **2,148 checks**, plus the 50-check focused keyboard driver.
 The operator reports improved Samsung/Chrome usability; a systematic physical-device matrix remains open.
 The current screenshot capture uses isolated demo data and simulated keyboard geometry, not provider inference.
@@ -47,7 +59,7 @@ The current screenshot capture uses isolated demo data and simulated keyboard ge
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
 | Overview home | Real inventory and launch actions | Catalog projects/agents, live PTYs and historical work refresh from current state. Direct saved-profile terminal and configured dashboard actions; removed identities remain historical context rather than active launch targets. Unknown interactive tokens/cost stay unknown. See `ASSISTANT_ACCESS.md` |
-| Mobile agent project entry | Native Windows flow verified | Agent-Arbeitskopie → workspace preparation → independent Codex/Claude/Grok/Shell choice; no CLI starts before the explicit launch action. New Project uses the configured native parent and a Codex profile. WSL home access remains a separate agent flow. See `PROJECT_ENTRY.md` |
+| Independent project entry | Native Windows focused Git/PTY evidence | Project → branch/worktree → Codex/Claude/Grok/Shell, optional same-environment profile. Named new project on main without automatic CLI. Explicit branch grant, preview and lost-response recovery. WSL home access and Agent-Arbeitskopie stay separate flows. See `PROJECT_ENTRY.md` |
 | Repository inspector | Real, read-only and backend-aware | The selected catalog repo has an Overview tab with bounded local health, 12 recent commits, lazy capped patches and up to 20 optional GitHub PRs; local state survives provider/offline errors, while Changes/Files stay on the active session binding |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |

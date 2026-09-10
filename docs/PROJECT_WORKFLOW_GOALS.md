@@ -1,6 +1,6 @@
 # Projektarbeit ohne verpflichtendes Agent-Profil
 
-Stand: 2026-09-09. Aktiver, vom Nutzer beauftragter Goal. Jeder abgeschlossene
+Stand: 2026-09-10. Aktiver, vom Nutzer beauftragter Goal. Jeder abgeschlossene
 Task erhält einen eigenen Commit; erst nach Abschluss aller Tasks wird gepusht.
 Die Tabelle dokumentiert Umsetzung, keine vorweggenommene Produktfreigabe.
 
@@ -23,7 +23,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T2a | Datenmodell und begrenzte Ordnererkennung; eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | abgeschlossen für native Windows |
 | T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | abgeschlossen für native Windows |
 | T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen als interne native Windows-Grenze; Bedienoberfläche folgt T3b |
-| T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | offen |
+| T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
 | T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
@@ -189,3 +189,33 @@ responsive Ansicht und Wiederöffnung sind in echtem Electron/Chromium geprüft.
 31 fokussierte Grenzchecks und 12 native PTY-/Browserchecks grün; ergänzende
 Regressionen und Typprüfung siehe STATUS. Guide und Verträge synchronisiert.
 Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalten.
+
+### T3b — Projekt, Branch und profilfreie CLI
+
+- Desktop und Tablet verwenden den genauen unabhängigen Checkout. Codex, Claude,
+  Grok und Shell benötigen kein Profil. Ein ausdrücklich gewähltes natives Profil
+  liefert Start-Einstellungen; es erzeugt keine Agent-Bindung und überschreibt
+  keine Repository-Anweisungen. Projekt-/Branch-/Profilzustand bleibt auch in
+  Sitzungshistorie und Weiterarbeiten getrennt und auswählbar.
+- Branch-Übersicht, konkrete Vorschau und Worktree-Auswahl verwenden T3a. Eigene
+  Live-Terminals sperren den Wechsel im selben Checkout. Eine zusätzliche
+  Arbeitskopie ermöglicht parallele Arbeit; verwaltete Leases bleiben gesperrt.
+  Mobile braucht ausdrücklich `projectGit:write` zusätzlich zu Lesen/Öffnen.
+- Neues Projekt legt auf beiden Oberflächen den benannten dauerhaften Ordner
+  mit main an und wartet auf die CLI-Auswahl. Verlorene Erstellungs-, Öffnungs-,
+  Branch- und Terminalantworten bleiben über Reload mit ihrem eigenen Beleg
+  wiederholbar. Offline bleibt das Terminal mit gesperrter Eingabe sichtbar.
+- Native Windows: **41 Projekt-/API-/History-Grenzchecks**, **25 Entwurfschecks**,
+  **54 Provisionierungs-** und **62 Repository-Checks** grün; drei TypeScript-
+  Projekte und Build grün. Die vorherige Regression des gesamten fokussierten
+  Bestands hatte 37 Suiten/1.859 Checks; neue gemessene Floors sind registriert,
+  die abschliessende Gesamtverifikation gehört weiterhin T6.
+- Echtes Electron/Chromium: **22 Projekt-/Branch-/PTY-Checks** sowie **28 neue
+  Projekt-/Recovery-/Legacy-Checks** grün. Negative Kontrollen: verlorene Antworten,
+  verbotener Branch-Wechsel bei Live-Terminal, unzulässige Startkontexte und
+  Git-Umgebung. Abschliessende Positivkontrollen passieren. Lokale Test-CLIs
+  belegen Startkontext und Prozesszustand, keine Provider-Inferenz oder physische
+  Samsung-Tastatur. Die zusätzliche WSL-Abnahme bleibt getrennt offen.
+- Logs: `test-results/project-launch-*.log`, `project-start-electron.log`.
+  Guide ergänzt um aktuelle Branch-Vorschau und Terminalaufnahme. Persönliche
+  ADE-Instanz bleibt auf `e07e00b`; T4/T5/T6 und gemeinsamer Push bleiben offen.

@@ -4,11 +4,11 @@ import type { MobileHost } from './useMobileHost';
 import { AgentWorkspace, workspaceError } from './AgentWorkspace';
 import { useDeviceDraft } from './deviceDrafts';
 import { Dialog } from './ui';
-import { ProjectDirectoryPage } from './ProjectDirectoryPage';
+import { ProjectDirectoryPage, type ProjectOpenIntent } from './ProjectDirectoryPage';
 
-export function Projects({ host, onProject }: { host: MobileHost; onProject: (id: string) => void }): JSX.Element {
+export function Projects({ host, onProject, intent, onIntentConsumed }: { host: MobileHost; onProject: (id: string) => void; intent?: ProjectOpenIntent; onIntentConsumed?: () => void }): JSX.Element {
   return <section className="m-project-entry" aria-label="Projekte">
-    <ProjectDirectoryPage key={host.identityVersion} host={host} onAgentWorkspace={onProject} />
+    <ProjectDirectoryPage key={host.identityVersion} host={host} onAgentWorkspace={onProject} intent={intent} onIntentConsumed={onIntentConsumed} />
   </section>;
 }
 

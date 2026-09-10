@@ -54,6 +54,19 @@ storage.setItem('ade-work:new-project-tablet:project-opening', JSON.stringify({ 
 check('host paths cannot be restored as project-open targets', readDeviceDraft('new-project-tablet', 'project-opening', null) === null);
 writeDeviceDraft('new-project-tablet', 'project-selected', '12345678-1234-1234-1234-123456789abc');
 check('independent workspace selection survives reload separately from agent selection', readDeviceDraft<string>('new-project-tablet', 'project-selected', '') === '12345678-1234-1234-1234-123456789abc');
+const branchWorkspace = '12345678-1234-1234-1234-123456789abc'; const branchKey = `project-branch:${branchWorkspace}`;
+const branchPending = { key: 'branch-receipt-1', preview: { id: '12345678-1234-1234-1234-123456789abd', workspaceId: branchWorkspace,
+  projectName: 'Project', fromBranch: 'main', toBranch: 'feature/tablet', expiresAt: 1, separate: false, action: { kind: 'switch', ref: 'refs/heads/feature/tablet' } } };
+storage.setItem(`ade-work:branch-tablet:${branchKey}`, JSON.stringify({ at: 1, value: branchPending }));
+check('uncertain branch receipt survives reload and ordinary draft expiry', readDeviceDraft<typeof branchPending | null>('branch-tablet', branchKey, null)?.key === branchPending.key);
+storage.setItem(`ade-work:branch-tablet:${branchKey}`, JSON.stringify({ at: Date.now(), value: { ...branchPending, preview: { ...branchPending.preview, workspaceId: 'other' } } }));
+check('branch receipt cannot cross workspace identities', readDeviceDraft('branch-tablet', branchKey, null) === null);
+const projectStart = { key: 'create-project-1', name: 'Garden', repositoryId: '', phase: 'project' };
+check('profile-free project creation can persist its receipt before sending', writeDeviceDraft('start-tablet', 'project-start', projectStart)
+  && readDeviceDraft<typeof projectStart | null>('start-tablet', 'project-start', null)?.key === projectStart.key);
+check('legacy pending project starts remain recoverable', writeDeviceDraft('start-tablet', 'project-start', { ...projectStart, agentId: 'legacy-agent', phase: 'terminal' }));
+writeDeviceDraft('start-tablet', 'project-start', { ...projectStart, projectWorkspaceId: 'C:\\private' });
+check('project start cannot restore a host path as its workspace identity', readDeviceDraft('start-tablet', 'project-start', null) === null);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

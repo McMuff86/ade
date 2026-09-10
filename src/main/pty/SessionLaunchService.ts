@@ -7,20 +7,26 @@ import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { agentHomeBackend } from '../repositories/RepositoryScopeService';
 import { redactForWire } from '../errors';
 
+export type InteractiveLaunchSettings = Parameters<typeof import('../../shared/runtimes').resolveLaunchCommand>[0] & { name: string };
+
 /** Fixed, bounded CLI discovery. Never launches a model or changes an agent profile. */
 export class SessionLaunchService {
   constructor(private readonly store: { get(): AdeConfig }, private readonly execution = new ExecutionBackendService()) {}
 
   async options(selection: MobileWorkspaceSelection): Promise<SessionLaunchOptions> {
     const config = this.store.get(); const agent = config.agents.find((a) => a.id === selection.agentId);
-    if (!agent) throw new Error('ade: Agent ist nicht mehr vorhanden.');
-    const repo = selection.repositoryId === null ? undefined : config.repositories.find((r) => r.id === selection.repositoryId);
-    if (selection.repositoryId !== null && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
-    const backend = repo?.executionBackend ?? agentHomeBackend(agent);
+    const workspace = selection.projectWorkspaceId ? config.projectWorkspaces.find((item) => item.id === selection.projectWorkspaceId) : undefined;
+    if (!selection.projectWorkspaceId && !agent) throw new Error('ade: Agent ist nicht mehr vorhanden.');
+    if (selection.projectWorkspaceId && !workspace) throw new Error('ade: Projekt-Workspace ist nicht mehr vorhanden.');
+    const repo = config.repositories.find((r) => r.id === (workspace?.repositoryId ?? selection.repositoryId));
+    if ((workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
+    const backend = repo?.executionBackend ?? agentHomeBackend(agent!);
+    const profiles = config.agents.filter((item) => agentHomeBackend(item) === backend).slice(0, 200);
     const [codex, claude, grok, hermes, models] = await Promise.all([
       this.present(backend, 'codex'), this.present(backend, 'claude'), this.present(backend, 'grok'), this.present(backend, 'hermes'), this.models(backend)]);
     return { environment: backend === 'native' ? (process.platform === 'win32' ? 'Windows' : process.platform) : redactForWire(backend, 150),
-      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: true, notice: 'Verwendet die Einstellungen dieses Agenten, einschliesslich eigener Startbefehle.' },
+      ...(workspace ? { profiles: profiles.map((item) => ({ id: item.id, name: redactForWire(item.name, 200), runtime: item.runtime })) } : {}),
+      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: workspace ? profiles.length > 0 : true, notice: 'Verwendet die Einstellungen des ausdrücklich gewählten Profils in dieser Umgebung, einschliesslich eigener Startbefehle.' },
         { mode: 'codex', available: codex, notice: codex ? null : 'Codex wurde in dieser Umgebung nicht gefunden.' },
         { mode: 'claude', available: claude, notice: claude ? null : 'Claude CLI wurde in dieser Umgebung nicht gefunden.' },
         { mode: 'grok', available: grok, notice: grok ? null : 'Grok CLI wurde in dieser Umgebung nicht gefunden.' },
@@ -29,11 +35,15 @@ export class SessionLaunchService {
   }
 
   async effectiveAgent(agent: Agent, backend: ExecutionBackendId, choice: SessionLaunchChoice): Promise<Agent> {
+    return { ...agent, ...await this.effectiveSettings(agent, backend, choice) };
+  }
+
+  async effectiveSettings(settings: InteractiveLaunchSettings, backend: ExecutionBackendId, choice: SessionLaunchChoice): Promise<InteractiveLaunchSettings> {
     if (!validSessionChoice(choice)) throw new Error('ade: Ungültige Startauswahl.');
-    if (choice.mode === 'agent') return { ...agent };
+    if (choice.mode === 'agent') return { ...settings };
     if ((choice.mode === 'codex' || choice.mode === 'claude' || choice.mode === 'grok' || choice.mode === 'hermes') && !await this.present(backend, choice.mode)) throw new Error('ade: Gewähltes CLI ist in dieser Umgebung nicht verfügbar.');
     if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error('ade: Ollama-Modell ist nicht mehr verfügbar. Modellliste aktualisieren.');
-    return { ...agent, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
+    return { ...settings, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
       claudeModel: undefined, codexModel: undefined, codexReasoningEffort: undefined, grokModel: undefined, grokReasoningEffort: undefined,
       ollamaModel: choice.mode === 'ollama' ? choice.model : undefined };

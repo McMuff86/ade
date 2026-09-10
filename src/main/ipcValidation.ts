@@ -4,7 +4,8 @@ import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isValidDeviceId } from './remote/authorization';
 import { isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
-import { validSessionChoice } from '../shared/sessionLaunch';
+import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
+import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../shared/projectWorkspaceRequests';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
@@ -609,6 +610,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   payload: unknown,
 ): asserts payload is IpcInvokeMap[K]['req'] {
   switch (channel) {
+    case IPC.ProjectCreate: {
+      const request = record(channel, payload); exactKeys(channel, request, ['name']);
+      stringValue(channel, request.name, 'name', { max: 80 });
+      if (/[\\/:\x00-\x1f]/.test(request.name as string)) invalid(channel, 'project name must not be a path');
+      return;
+    }
     case IPC.ProjectWorkspaceQuery:
       if (!validProjectWorkspaceQuery(payload)) invalid(channel, 'invalid project query');
       return;
@@ -877,12 +884,11 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.SessionOptions:
     case IPC.SessionLaunch: {
       const input = record(channel, payload);
-      exactKeys(channel, input, channel === IPC.SessionOptions ? ['agentId', 'repositoryId'] : ['agentId', 'repositoryId', 'mode', 'model', 'workspaceBindingId']);
-      for (const field of ['agentId', 'repositoryId']) {
-        if (field === 'repositoryId' && input[field] === null) continue;
-        if (typeof input[field] !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(input[field] as string)) invalid(channel, 'invalid scope identity');
-      }
+      const selectionKeys = input.projectWorkspaceId ? ['projectWorkspaceId'] : ['agentId', 'repositoryId'];
+      exactKeys(channel, input, channel === IPC.SessionOptions ? selectionKeys : [...selectionKeys, 'mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : ['workspaceBindingId'])]);
+      if (!validWorkspaceSelection(input)) invalid(channel, 'invalid scope identity');
       if (channel === IPC.SessionLaunch && !validSessionChoice(input)) invalid(channel, 'invalid launch choice');
+      if (channel === IPC.SessionLaunch && input.projectWorkspaceId && !validProjectLaunch(input)) invalid(channel, 'invalid project launch');
       if (input.workspaceBindingId !== undefined) id(channel, input.workspaceBindingId, 'workspaceBindingId');
       return;
     }

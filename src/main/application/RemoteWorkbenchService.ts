@@ -13,12 +13,12 @@ import { agentHomeBackend, homeWorkspace } from '../repositories/RepositoryScope
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 import { remoteWslWorkspace } from './RemoteWslWorkspace';
 import { WslRootProbe } from './WslRootProbe';
+import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
+import { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
+export { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
 
-export type WorkbenchScope = Pick<WorkspaceBinding, 'agentId' | 'workspaceDir' | 'executionBackend'>
-  & Partial<Pick<WorkspaceBinding, 'id' | 'repositoryId' | 'status'>> & { rootIdentity?: string };
-export const validWorkspaceSelection = (input: Record<string, unknown>): boolean =>
-  typeof input.agentId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(input.agentId)
-  && (input.repositoryId === null || typeof input.repositoryId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(input.repositoryId));
+export type WorkbenchScope = Pick<WorkspaceBinding, 'workspaceDir' | 'executionBackend'>
+  & Partial<Pick<WorkspaceBinding, 'agentId' | 'id' | 'repositoryId' | 'status'>> & { rootIdentity?: string; projectWorkspaceId?: string; projectName?: string; branch?: string };
 
 const TEXT_BYTES = 24 * 1024;
 const DIFF_CHARS = 64 * 1024;
@@ -43,7 +43,7 @@ export function validateWorkbenchQuery(value: unknown): MobileWorkspaceQuery {
   const extra = input.operation === 'tree' || input.operation === 'file' ? ['path']
     : input.operation === 'diff' ? ['path', 'staged'] : input.operation === 'search' ? ['search'] : [];
   if (!['overview', 'tree', 'file', 'diff', 'search'].includes(String(input.operation))
-    || Object.keys(input).some((key) => !['operation', 'agentId', 'repositoryId', ...extra].includes(key))
+    || Object.keys(input).some((key) => !['operation', 'agentId', 'repositoryId', 'projectWorkspaceId', ...extra].includes(key))
     || !validWorkspaceSelection(input)) {
     throw new RemoteApiError(400, 'invalid_payload');
   }
@@ -57,7 +57,7 @@ export function validateWorkbenchQuery(value: unknown): MobileWorkspaceQuery {
 export function validateFileSave(value: unknown): MobileFileSaveInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  if (Object.keys(input).some((key) => !['agentId', 'repositoryId', 'path', 'workspaceVersion', 'revision', 'text'].includes(key))
+  if (Object.keys(input).some((key) => !['agentId', 'repositoryId', 'projectWorkspaceId', 'path', 'workspaceVersion', 'revision', 'text'].includes(key))
     || !validWorkspaceSelection(input)
     || ![input.workspaceVersion, input.revision].every((id) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id))
     || typeof input.text !== 'string' || Buffer.byteLength(input.text) > TEXT_BYTES || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(input.text)
@@ -69,7 +69,7 @@ export function validateFileSave(value: unknown): MobileFileSaveInput {
 export class RemoteWorkbenchService {
   private readonly rootProbe: WslRootProbe;
   constructor(readonly store: { get(): AdeConfig }, readonly sessions: () => SessionMeta[],
-    readonly execution = new ExecutionBackendService()) { this.rootProbe = new WslRootProbe(execution); }
+    readonly execution = new ExecutionBackendService(), private readonly projects?: Pick<ProjectWorkspaceService, 'resolve'>) { this.rootProbe = new WslRootProbe(execution); }
   dispose(): void { this.rootProbe.dispose(); }
 
   async save(input: MobileFileSaveInput, authorize: () => void): Promise<{ saved: boolean; revision: string }> {
@@ -194,6 +194,12 @@ export class RemoteWorkbenchService {
 
   async resolve(input: MobileWorkspaceSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
     const config = this.store.get();
+    if (input.projectWorkspaceId) {
+      if (!this.projects) return reject('Projekt-Workspaces sind nicht verfügbar.');
+      const resolved = await this.projects.resolve(input.projectWorkspaceId);
+      return { projectWorkspaceId: resolved.workspace.id, projectName: resolved.repository.name, repositoryId: resolved.repository.id, workspaceDir: resolved.workspace.workspaceDir,
+        executionBackend: 'native', rootIdentity: resolved.workspace.directoryIdentity, branch: resolved.branch };
+    }
     const agent = config.agents.find((agent) => agent.id === input.agentId);
     if (!agent) return reject('Agent ist nicht mehr vorhanden.');
     if (input.repositoryId === null) {
@@ -212,10 +218,15 @@ export class RemoteWorkbenchService {
   }
 
   version(binding: WorkbenchScope): string {
-    return workbenchDigest(JSON.stringify([binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend, binding.rootIdentity]));
+    return workbenchDigest(JSON.stringify([binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend, binding.rootIdentity, binding.projectWorkspaceId, binding.branch]));
   }
 
   async revalidate(binding: WorkbenchScope): Promise<void> {
+    if (binding.projectWorkspaceId) {
+      const current = await this.resolve({ projectWorkspaceId: binding.projectWorkspaceId });
+      if (!current || this.version(current) !== this.version(binding)) reject('Projekt-Workspace oder Branch wurde geändert. Neu öffnen.');
+      return;
+    }
     if (!binding.repositoryId) {
       const agent = this.store.get().agents.find((item) => item.id === binding.agentId);
       if (!agent || agentHomeBackend(agent) !== binding.executionBackend
@@ -256,6 +267,7 @@ export class RemoteWorkbenchService {
 
   sessionMatches(binding: WorkbenchScope, session: SessionMeta): boolean {
     return session.agentId === binding.agentId && session.repositoryId === binding.repositoryId
+      && session.projectWorkspaceId === binding.projectWorkspaceId && (!binding.projectWorkspaceId || session.branch === binding.branch)
       && session.workspaceBindingId === binding.id && (session.executionBackend ?? 'native') === binding.executionBackend
       && !!session.workspaceDir && this.execution.samePath(binding.executionBackend, session.workspaceDir, binding.workspaceDir);
   }

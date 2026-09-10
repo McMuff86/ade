@@ -1,6 +1,6 @@
 # ADE User-Guide
 
-Stand: 9. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Stand: 10. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
 
 ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
@@ -9,9 +9,9 @@ die Entwicklungswerkzeuge nicht selbst installieren.
 **Der neue Projekteinstieg: Projekte → Workspace öffnen.** Die Liste zeigt auch
 Ordner unter deinem Projekt-Stamm, die noch nicht in ADE erfasst sind. Der geöffnete
 Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
-Branch-Auswahl und CLI-Start in diesem unabhängigen Workspace folgen im aktiven
-[Goal T3](PROJECT_WORKFLOW_GOALS.md). Bis dahin führt **Agent-Arbeitskopie →
-Agent-Arbeitskopie öffnen** zum bisherigen CLI-Ablauf in den folgenden Bildern.
+Unter **Branches** den Branch wählen und die Aktion prüfen. Danach unter
+**Arbeiten mit** Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
+Profil kannst du ausdrücklich unter den weiteren Startoptionen wählen.
 Für eine neue Idee verwendest du **Neues Projekt**. Für Hermes General oder
 Sentinel ohne Projekt verwendest du **Overview → Terminal öffnen** beim Agenten.
 
@@ -23,7 +23,8 @@ Projektpfad sind maskiert. [Aufnahmeprotokoll](media/user-guide/capture.json).
 
 Für die neue Ordnerübersicht am Tablet am PC unter **Settings → Verbundene Geräte**
 die Rechte **Workspace-Dateien und Git-Diffs lesen** und **Projekt-Workspaces ohne
-Agent-Profil öffnen** freigeben. Danach **Projektordner aktualisieren** verwenden.
+Agent-Profil öffnen** freigeben. Für Branch-Aktionen zusätzlich **Projekt-Branches und lokale Git-Aktionen ausführen**, für die CLI **Interaktive Terminals steuern** freigeben.
+Danach **Projektordner aktualisieren** verwenden.
 Normale Ordner ohne Git werden angezeigt; Git wird darin nicht automatisch angelegt.
 Bei einer verlorenen Antwort **Workspace-Öffnung prüfen** wählen. ADE verwendet
 dieselbe Aktion erneut, auch nach einem Neuladen der Seite.
@@ -50,7 +51,7 @@ wird mit Abschluss der Branch-/Git-Oberfläche im Goal T6 erneuert.
 | Dein Vorhaben | Dein Weg in ADE Mobile |
 |---|---|
 | Bestehenden Code bearbeiten | **Projekte → Projekt → Workspace öffnen → Arbeiten mit** |
-| Eine neue Idee ausprobieren | **Neues Projekt → Name → Mit Codex starten** |
+| Eine neue Idee ausprobieren | **Neues Projekt → Name → Projekt anlegen und öffnen**, danach CLI wählen |
 | Mit einem persönlichen Assistenten sprechen | **Overview → Terminal öffnen** beim Agenten |
 | Hermes-/OpenClaw-Weboberfläche verwenden | **Web-Dashboard** beim entsprechend eingerichteten Agenten |
 | Eine abgegrenzte Arbeit delegieren | **Work → Neue Aufgabe** |
@@ -111,13 +112,14 @@ Im Repository-Bereich **⋯ → Add repo** öffnen und den bestehenden Git-Ordne
 auswählen. **Pfad…** erlaubt die direkte Pfadeingabe und eine ausdrückliche
 Backend-Wahl. Importieren registriert das Repository; es verschiebt den Ordner nicht.
 
-**Speicherort für neue Projekte:** In **Settings → Neue Projekte vom Tablet**
+**Speicherort für neue Projekte:** In **Settings → Projekt-Stammordner**
 den **Projekt-Stammordner** wählen. Für Adis PC ist
 `C:\Users\Adi.Muff\repos` sinnvoll, allgemein `C:\Users\<Name>\repos`.
-Optional ein **Codex-Startprofil** wählen und **Projektstart speichern** drücken.
+**Projektstart speichern** drücken. Ein Profil ist dafür nicht erforderlich.
 Bestehende Projekte behalten ihren bisherigen Speicherort.
 
-![Einstellungen für Projekt-Stammordner und Codex-Startprofil; Beispielpfad maskiert](media/user-guide/02-project-defaults.png)
+Das bisherige Einstellungsbild zeigt noch die ältere Profilauswahl; die aktuelle
+Einrichtung benötigt nur den Stammordner.
 
 *Ein neues Projekt bekommt direkt einen eigenen Ordner unter diesem Stammordner.
 Die zusätzliche ADE-Arbeitskopie erklären wir in Abschnitt 8.*
@@ -165,15 +167,13 @@ benötigen. Der PC muss eingeschaltet, angemeldet und erreichbar bleiben.
 
 1. In ADE Mobile **Neues Projekt** drücken, beispielsweise auf **Projekte**.
 2. Einen Namen eingeben, etwa „Mein Notizbuch“. Ohne Namen erzeugt ADE einen.
-3. Das vorbereitete Codex-Profil oder ein neues Standardprofil wählen.
-4. **Mit Codex starten** drücken. ADE legt ein lokales Git-Projekt an,
-   bereitet dessen Arbeitskopie vor und öffnet Codex.
+3. **Projekt anlegen und öffnen** drücken. ADE legt den dauerhaften Projektordner
+   mit einem Git-Repository und Branch **main** an.
+4. Im Projekt bei Bedarf einen Branch anlegen und unter **Arbeiten mit** Codex,
+   Claude CLI, Grok CLI oder die Shell wählen. **… öffnen** startet die Sitzung.
 
-![Neues Projekt mit Name und Codex-Profil](media/user-guide/07-new-project.png)
-
-Der neue Projektablauf startet derzeit mit **Codex**. In einem geöffneten
-Projektworkspace kannst du später **Claude CLI**, **Grok CLI** oder eine Shell
-wählen. Es wird noch kein GitHub-Repository automatisch angelegt oder veröffentlicht.
+Dabei entsteht kein Agent-Profil. Auf dem Desktop findest du **Neues Projekt**
+im Reiter **Projekte**. Es wird kein GitHub-Repository automatisch veröffentlicht.
 
 Ein guter erster Auftrag wäre:
 
@@ -189,15 +189,19 @@ ohne bereits angelegte Projektdateien zu löschen.
 
 1. **Projekte** öffnen und das gewünschte Projekt suchen.
 2. Die Projektkarte und danach **Workspace öffnen** wählen.
-3. Unter **Arbeiten mit** Codex, Claude CLI, Grok CLI oder die Shell auswählen.
-4. Den zugehörigen **… öffnen**-Knopf drücken.
+3. **Branches** aufklappen, den gewünschten Branch auswählen und die Vorschau
+   prüfen. Für parallele Arbeit einen neuen Branch mit **Zusätzliche Arbeitskopie
+   anlegen** verwenden. Ungesicherte Dateien bleiben im bisherigen Workspace.
+4. Unter **Arbeiten mit** Codex, Claude CLI, Grok CLI oder die Shell auswählen
+   und den zugehörigen **… öffnen**-Knopf drücken.
 
 ![Projekteinstieg mit Suchfeld und Projektkarte](media/user-guide/06-projects.png)
 
 ![Vorbereiteter Projektworkspace mit CLI-Auswahl](media/user-guide/08-workspace-cli.png)
 
-**Workspace öffnen** startet noch keine CLI. Das optionale Workspace-Profil ordnet
-die Arbeitskopie zu; die CLI wählst du danach unabhängig davon. Fehlt die CLI,
+**Workspace öffnen** startet noch keine CLI. Es öffnet den vorhandenen Checkout
+ohne Agent-Bindung. Ein gespeichertes **Startprofil** verwendet seine Einstellungen
+im gewählten Checkout; es wechselt nicht in dessen Agent-Ordner. Fehlt die CLI,
 am PC Installation und Anmeldung in der angezeigten Umgebung prüfen.
 
 Existiert bereits eine passende laufende Sitzung, öffnet **… öffnen** diese wieder.
@@ -207,7 +211,18 @@ Eine weitere Sitzung wird über **Neue Sitzung starten** ausdrücklich angelegt.
 Mehrere CLIs können dieselben Dateien sehen; vermeide unkoordinierte gleichzeitige
 Änderungen an denselben Dateien.
 
-Dieser Projekteinstieg ist für native Repository-Bindings belegt. Für einen
+Während ein Terminal den Checkout verwendet, ist dessen Branch-Wechsel gesperrt.
+Die Sitzung erst beenden oder eine zusätzliche Arbeitskopie anlegen. Bei einer
+verlorenen Bestätigung **Branch-Aktion erneut prüfen** verwenden.
+
+![Branch-Vorschau für eine zusätzliche Arbeitskopie](media/user-guide/17-project-branches.png)
+
+![Projekt-Terminal mit ausgewähltem Profil und getrenntem CLI-/Shell-Zustand](media/user-guide/18-project-terminal.png)
+
+Diese beiden Aufnahmen stammen aus dem aktuellen isolierten Projekt-Test;
+[Aufnahmedaten](media/user-guide/capture-projects.json).
+
+Dieser Projekteinstieg ist für native Windows-Checkouts belegt. Für einen
 Assistenten in einem WSL-Home den Agenten-Einstieg verwenden; WSL-Projekte haben
 weiterhin ihren eigenen Desktop-/Backend-Ablauf.
 

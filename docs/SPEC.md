@@ -20,10 +20,13 @@ are available through **Projekte** on desktop and tablet in
 Git folders, ordinary folders (without implicit Git initialization), and unavailable
 entries. Explicit open keeps the chosen existing checkout and displays its actual
 branch without creating a hidden profile or modifying instructions. The tablet
-needs separate read/open grants. Branch controls and profile-free CLI launch
-remain T3; the explicit Agent-Arbeitskopie action preserves the previous CLI flow.
-The T3a internal branch boundary is verified with native Windows Git fixtures;
-its preview and worktree operations are not yet exposed by the product UI.
+needs separate read/open grants. Branch controls show local and cached remote
+refs, preview switching/creation, and can open or create a separate worktree.
+Mobile branch mutations additionally need explicit `projectGit:write`.
+The opened checkout launches Codex/Claude/Grok/Shell without a required profile;
+an explicitly selected saved profile contributes launch settings only. Live
+sessions prevent changing their checkout's branch. Agent-Arbeitskopie preserves
+the previous agent-owned CLI flow.
 
 Interactive lifecycle (2026-09-09): the selected session displays its launched
 CLI separately from the terminal shell, for example **Claude Code beendet ·
@@ -72,9 +75,10 @@ passed to session launch; Codex effort choices follow model capabilities.
 Contract and executable evidence: `RUNTIME_MODEL_SELECTION.md`.
 
 Tablet project entry (2026-09-09): Overview offers **Neues Projekt** and
-**Weiterarbeiten**. The PC owns the native project parent and optional Codex
-profile; the tablet supplies a name, starts a fresh local Git project/worktree
-and opens Codex through the existing terminal grant. Creation progresses through
+**Weiterarbeiten**. The PC owns the native project parent; the tablet supplies a
+name and opens a fresh local Git project on main without a profile or automatic
+CLI launch. Desktop Projects offers the same creation flow. Users then choose
+the branch and CLI. Mobile CLI launch uses the existing terminal grant. Creation progresses through
 confirmed, recoverable steps. Existing work remains intact on launch failure.
 The tablet workspace fills the visual viewport with a project rail on wide
 screens, a terminal composer and existing files/changes views. Drafts and pending

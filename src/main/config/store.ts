@@ -393,8 +393,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
     ['commandId', 'channel', 'createdAt', 'resultJson'], 'commandId');
   schema(config.sessionBookends, 'config.sessionBookends', [
     'id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName',
-    'startedAt', 'endedAt', 'exitReason',
-  ], ['id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName', 'startedAt', 'endedAt']);
+    'startedAt', 'endedAt', 'exitReason', 'projectWorkspaceId', 'branch',
+  ], ['id', 'agentName', 'runtime', 'repositoryId', 'repositoryName', 'startedAt', 'endedAt']);
 
   const text = (value: unknown, label: string, optional = false): void => {
     if (value === undefined && optional) return;
@@ -556,7 +556,10 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   if (retention.lastPrunedAt !== null) number(retention.lastPrunedAt, 'journalRetention.lastPrunedAt');
   for (const bookend of config.sessionBookends) {
-    text(bookend.agentId, 'sessionBookend.agentId');
+    text(bookend.agentId, 'sessionBookend.agentId', true);
+    text(bookend.projectWorkspaceId, 'sessionBookend.projectWorkspaceId', true);
+    text(bookend.branch, 'sessionBookend.branch', true);
+    if (!!bookend.agentId === !!bookend.projectWorkspaceId || bookend.projectWorkspaceId && !bookend.repositoryId) throw new Error('sessionBookend owner is invalid.');
     text(bookend.agentName, 'sessionBookend.agentName');
     if (!RUNTIMES.has(bookend.runtime)) throw new Error('sessionBookend.runtime is invalid.');
     if (bookend.repositoryId !== null) text(bookend.repositoryId, 'sessionBookend.repositoryId');

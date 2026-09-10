@@ -9,7 +9,7 @@ import type { RepositoryScopeService } from '../repositories/RepositoryScopeServ
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 import { redactForWire } from '../errors';
-import { hostNullDevice } from '../platform';
+import { projectGit } from '../repositories/ProjectGitBoundary';
 
 export type WorkspaceProvisionCommand = Extract<MobileAdminCommand, { operation: 'agent-create' | 'project-create' | 'workspace-prepare' }>;
 /** Host-selected settings and generated paths only; no remote filesystem or shell dispatch. */
@@ -18,7 +18,8 @@ export class RemoteWorkspaceService {
     private readonly scopes: RepositoryScopeService, private readonly baseDir: string,
     private readonly sessions: () => SessionMeta[], private readonly execution = new ExecutionBackendService()) {}
 
-  async execute(command: WorkspaceProvisionCommand): Promise<MobileAdministrationValue> {
+  async execute(command: WorkspaceProvisionCommand, authorize: () => void = () => undefined): Promise<MobileAdministrationValue> {
+    authorize();
     if (command.operation === 'agent-create') {
       const input = command.input; const config = this.store.get();
       if (config.agents.length >= 200) throw new Error('ade: Maximal 200 Agents. Nicht mehr benötigte Agents am PC verwalten.');
@@ -38,9 +39,19 @@ export class RemoteWorkspaceService {
       return { created: { kind: 'agent', id: agent.id } };
     }
     if (command.operation === 'project-create') {
+      // The legacy catalog identity importer inherits its environment. Reject
+      // Git overrides before making a directory rather than importing another repo.
+      const checkGitEnvironment = () => {
+        if (Object.keys(process.env).some((key) => /^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|CONFIG(?:_.*)?)$/i.test(key))) {
+          throw new Error('ade: Projektstart durch Git-Umgebungsvariablen blockiert. ADE am PC ohne Git-Overrides starten.');
+        }
+      };
+      checkGitEnvironment();
       if (this.store.get().repositories.length >= 100) throw new Error('ade: Maximal 100 Projekte. Projekte am PC verwalten.');
       const defaults = this.store.get().settings.projectDefaults;
       const checkRoot = () => {
+        authorize();
+        checkGitEnvironment();
         if (defaults && projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity) {
           throw new Error('ade: Der Projekt-Stammordner hat sich geändert. In Settings am PC erneut auswählen.');
         }
@@ -58,13 +69,12 @@ export class RemoteWorkspaceService {
       checkRoot(); assertNoLinks(directory);
       const git = async (args: string[]) => {
         checkRoot(); assertNoLinks(directory); assertNoLinks(join(directory, '.git'));
-        return this.execution.checked('native', 'git', ['-c', `core.hooksPath=${hostNullDevice()}`, '-c', 'init.templateDir=', ...args],
-          { cwd: directory, timeoutMs: 20_000, maxBuffer: 64 * 1024, env: { GIT_TERMINAL_PROMPT: '0' } });
+        return projectGit(directory, ['-c', 'init.templateDir=', ...args], 20_000);
       };
       await git(['init', '--initial-branch=main']);
       await git(['-c', 'user.name=ADE', '-c', 'user.email=ade@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Initialize ADE project']);
       checkRoot();
-      const repository = await this.scopes.importRepository(directory, command.input.name);
+      const repository = await this.scopes.importRepository(directory, command.input.name, 'native', () => { checkRoot(); assertNoLinks(directory); });
       return { created: { kind: 'repository', id: repository.id } };
     }
     const { agentId, repositoryId } = command.input;

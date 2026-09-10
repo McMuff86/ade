@@ -1,6 +1,6 @@
 # Project entry and readable terminals
 
-## Independent checkout entry (goal T2b)
+## Independent checkout entry (goal T3b)
 
 **Projekte** on desktop and tablet now lists configured-root folders together with
 registered repositories. **Workspace öffnen** registers the exact existing native
@@ -9,10 +9,26 @@ folders without Git and unavailable directories remain visible with an explanati
 The tablet requires `workspace:read` plus the explicit `projects:write` grant to
 open. Its durable `project-opening` receipt supports explicit replay after a lost
 reply or reload; `project-selected` restores the opened workspace by read.
-Branch selection and launching a CLI in this independent checkout follow goal T3.
+Expand **Branches** to choose a local or cached remote branch, create a branch or
+open another worktree. Review before applying; a live terminal blocks switching
+its own checkout but a separate worktree permits parallel work. Mobile requires
+the additional `projectGit:write` grant for branch actions. Uncertain responses
+retain the receipt across reload and are resolved by explicit replay.
+
+Choose **Arbeiten mit → Codex / Claude CLI / Grok CLI / Leeres Terminal**, then
+**… öffnen**. No profile, agent binding or instruction injection is created.
+**Neue Sitzung starten → Gespeichertes Agent-Profil → Startprofil** explicitly
+reuses saved launch settings in this checkout. Session labels show the selected
+session's real branch, optional profile and separate CLI/terminal state.
+
+**Neues Projekt → Name → Projekt anlegen und öffnen** uses the configured native
+parent, creates a Git repository on main, and waits for branch/CLI choice. The
+desktop Projects page supports the same flow. Mobile creation requires catalog,
+workspace-read and project-open grants; launching the CLI separately needs the
+terminal grant. Interrupted creation/open/launch steps retain distinct receipts.
 
 The previous workflow below remains under **Agent-Arbeitskopie →
-Agent-Arbeitskopie öffnen** and through Overview's existing project cards.
+Agent-Arbeitskopie öffnen**. Overview project cards lead to the independent flow.
 It deliberately refers to a different, agent-owned working copy.
 
 ## Existing agent working-copy workflow
@@ -20,7 +36,7 @@ It deliberately refers to a different, agent-owned working copy.
 Mobile has four navigation tabs: Overview, Projekte, Work and Graph.
 Work remains the entry for managed tasks and runs.
 New Project remains available in the toolbar, using the configured PC project
-root and the existing recoverable Codex scaffold flow.
+root and the independent, recoverable creation flow above.
 
 For an existing project, choose **Workspace öffnen**, then **Arbeiten mit**:
 Codex, Claude CLI, Grok CLI or Leeres Terminal. The first click prepares or reuses

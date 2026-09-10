@@ -21,6 +21,11 @@
 .m-terminal-workspace:has(.m-terminal-focused) .m-tablet-workbench-main > nav,
 .m-terminal-workspace:has(.m-terminal-focused) .m-tablet-workbench-main > p { display: none; }
 .m-terminal-focused .m-terminal-tools { flex: none; max-height: none; min-height: 0; }
+.m-independent-project .m-project-context { flex: none; max-height: 45%; overflow: auto; }
+.m-independent-project:has(.m-terminal-focused) .m-project-context,
+.m-independent-project:has(.m-keyboard-compact) .m-project-context,
+.m-independent-project:has(.m-terminal-focused) > details,
+.m-independent-project:has(.m-keyboard-compact) > details { display: none; }
 .m-terminal-focused .m-terminal-tools > p:not([role='alert']):not([role='status']):not(.m-terminal-notice),
 .m-terminal-focused .m-terminal-tools > details, .m-terminal-focused .m-terminal-tools > label,
 .m-terminal-focused .m-terminal-tools > .m-management-actions { display: none; }

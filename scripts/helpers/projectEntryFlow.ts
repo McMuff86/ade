@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import type { Page } from 'playwright';
 import type { mobileTlsProxy } from './mobileBrowser';
 
@@ -28,7 +29,9 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     && !await workspace.getByLabel('Workspace-Projekt', { exact: true }).count());
   await workspace.getByRole('button', { name: 'Dateien', exact: true }).click();
   await workspace.getByRole('region', { name: 'Workspace-Dateien', exact: true }).waitFor();
-  check('project entry exposes the existing workspace files', await workspace.getByRole('button', { name: 'scaffold.txt', exact: true }).isVisible());
+  const original = (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find((item) => item.name === 'Tablet Garden')!;
+  check('legacy agent copy stays separate from uncommitted files in original project', !await workspace.getByRole('button', { name: 'scaffold.txt', exact: true }).count()
+    && readFileSync(join(original.rootPath, 'scaffold.txt'), 'utf8').includes('TABLET_SCAFFOLD'));
   await workspace.getByRole('button', { name: 'Terminal', exact: true }).click();
   for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude CLI'], ['grok', 'Grok CLI']] as const) {
     await workspace.getByLabel('Projekt-CLI', { exact: true }).selectOption(mode);

@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { ProjectDefaultsView } from '../../shared/projectDefaults';
-import { useAppData } from '../stores/appdata';
 
 export function ProjectDefaultsSection(): JSX.Element {
-  const agents = useAppData((state) => state.agents);
   const [value, setValue] = useState<ProjectDefaultsView>();
   const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false); const lock = useRef(false);
@@ -15,7 +13,7 @@ export function ProjectDefaultsSection(): JSX.Element {
     finally { lock.current = false; setBusy(false); }
   };
   return <section className="st-card" data-testid="project-defaults" aria-labelledby="project-defaults-title">
-    <h3 id="project-defaults-title">Neue Projekte vom Tablet</h3>
+    <h3 id="project-defaults-title">Projekt-Stammordner</h3>
     <p>Wähle einmal den Stammordner auf diesem PC. Jedes neue Projekt erhält dort einen eigenen Ordner und ein lokales Git-Repository.</p>
     {!value && !error && <p role="status">Projekt-Einstellungen werden geladen…</p>}
     {value && <form onSubmit={(event) => { event.preventDefault(); void action(async () => {
@@ -27,13 +25,7 @@ export function ProjectDefaultsSection(): JSX.Element {
       <button type="button" className="btn" disabled={busy} onClick={() => void action(async () => {
         const result = await window.ade.invoke('dialog:pickFolder'); if (result.path) setValue({ ...value, rootPath: result.path });
       })}>Projektordner auswählen</button>
-      <label>Codex-Startprofil<select aria-label="Codex-Startprofil" value={value.agentId ?? ''} disabled={busy}
-        onChange={(event) => { setValue({ ...value, agentId: event.target.value || null }); setNotice(''); }}>
-        <option value="">Am Tablet wählen / neues Codex-Profil</option>
-        {Object.values(agents).filter((agent) => agent.runtime === 'codex' && (!agent.homeExecutionBackend || agent.homeExecutionBackend === 'native'))
-          .map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-      </select></label>
-      <p>Native Umgebung dieses PCs. Vorhandene Projekte behalten ihren Speicherort. Das gewählte Profil behält Modell und Berechtigungen; Anmeldung unter Harnesses prüfen.</p>
+      <p>Native Umgebung dieses PCs. Im geöffneten Projekt Branch und CLI wählen; ein Agent-Profil ist optional. Anmeldung unter Harnesses prüfen.</p>
       <button className="btn primary" disabled={busy || !value.rootPath.trim()}>Projektstart speichern</button>
     </form>}
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}

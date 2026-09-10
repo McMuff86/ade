@@ -104,9 +104,11 @@ export class RepositoryScopeService implements RepositoryScopePort {
     path: string,
     requestedName?: string,
     backendValue: ExecutionBackendId = NATIVE_EXECUTION_BACKEND,
+    beforeSave: () => void = () => undefined,
   ): Promise<Repository> {
     const executionBackend = normalizeExecutionBackendId(backendValue);
     const identity = await this.git.identity(executionBackend, path);
+    beforeSave();
     const config = this.store.get();
     const existing = config.repositories.find(
       (repository) => repositoryBackend(repository) === executionBackend && (
@@ -117,6 +119,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
     if (existing) {
       const updated = this.verifiedRepository(existing, identity, requestedName);
       if (!sameRepository(existing, updated)) {
+        beforeSave();
         this.store.save({
           repositories: config.repositories.map((repository) =>
             repository.id === updated.id ? updated : repository),
@@ -139,7 +142,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       verified: true,
       createdAt: Date.now(),
     };
-    this.store.save({ repositories: [...config.repositories, repository] });
+    beforeSave(); this.store.save({ repositories: [...config.repositories, repository] });
     return { ...repository };
   }
 

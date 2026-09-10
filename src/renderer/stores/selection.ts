@@ -6,6 +6,12 @@ import { create } from 'zustand';
  * state lives in stores/sessions.ts, app data in stores/appdata.ts.
  */
 interface SelectionState {
+  projectWorkspaceId: string | null;
+  projectRepositoryId: string | null;
+  projectSessionId: string | null;
+  openProjectRepository: (id: string) => void;
+  openProjectSession: (workspaceId: string, sessionId: string) => void;
+  setProjectWorkspace: (id: string | null) => void;
   selectedAgentId: string | null;
   selectedRepositoryId: string | null;
   setSelectedAgent: (id: string | null) => void;
@@ -13,6 +19,12 @@ interface SelectionState {
 }
 
 export const useSelection = create<SelectionState>((set) => ({
+  projectWorkspaceId: null,
+  projectRepositoryId: null,
+  projectSessionId: null,
+  openProjectRepository: (id) => set({ projectRepositoryId: id, projectWorkspaceId: null, projectSessionId: null }),
+  openProjectSession: (workspaceId, sessionId) => set({ projectWorkspaceId: workspaceId, projectRepositoryId: null, projectSessionId: sessionId }),
+  setProjectWorkspace: (id) => set({ projectWorkspaceId: id, projectRepositoryId: null, projectSessionId: null }),
   selectedAgentId: null,
   selectedRepositoryId: null,
   setSelectedAgent: (id) => set({ selectedAgentId: id }),

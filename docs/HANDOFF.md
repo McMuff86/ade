@@ -1,5 +1,19 @@
 # ADE — aktuelle Übergabe
 
+## T3b wiederhergestellt und verbunden (2026-09-10)
+
+Der Stash wurde wiederhergestellt; Konflikte in IPC/ApplicationService behalten
+sowohl RunInspection als auch die Projekt-Branch-Verträge. Projekt → Branch →
+profilfreie CLI funktioniert in nativen Git-/PTY-Fixtures auf Desktop und Tablet.
+Neues Projekt öffnet den dauerhaften Checkout auf main ohne Agent oder CLI.
+Weitere Startoptionen wählen ein passendes natives Profil ausdrücklich. Details
+und Messungen: PROJECT_WORKFLOW_GOALS und STATUS. T4–T6 bleiben offen.
+
+Die persönliche ADE-Instanz bleibt unverändert auf dem festen Build `e07e00b`
+(PID 67208, Start 00:41:57). Ihre laufende Testversion bietet den bereits reparierten
+Graph-/Ergebniszugriff; der neue Projekteinstieg wird erst beim nächsten bewussten
+Build-Wechsel bereitgestellt. Kein Tailscale-Umbau und noch kein Push.
+
 ## Aktuelle Priorität: Run-Ergebnis auf dem Tablet (2026-09-10)
 
 Der Nutzer hat während T3b zuerst Graph-Aktivität, Ergebnis-/Bildzugriff und einen
@@ -8,10 +22,9 @@ Neustart verlangt. Diese Änderung ist separat geprüft: 31 native Grenztests,
 drei TypeScript-Projekte und Produktionsbuild. Aktuelle Logs/Screenshots stehen
 in STATUS und im Guide. Keine allgemeine Provider-/WSL-Freigabe daraus ableiten.
 
-T3a ist mit `201ab29` abgeschlossen. Unfertiges T3b wurde vorher mit
-`T3b in progress before requested graph activity patch` gestasht. Nach dem separaten
-Ergebnis-Commit den genauen Stash anwenden, Konflikte mit den neuen Run-Verträgen
-auflösen und erst nach geprüfter Wiederherstellung entfernen. T3b–T6 sowie der
+T3a ist mit `201ab29` abgeschlossen. T3b war vorübergehend mit
+`T3b in progress before requested graph activity patch` gestasht und ist inzwischen
+wiederhergestellt. Den Stash erst nach dem geprüften T3b-Commit entfernen. T4–T6 sowie der
 abschliessende Push bleiben offen. Die folgenden älteren Betriebsnotizen beschreiben
 frühere Checkpoints; der neue Neustart wird unten separat protokolliert.
 

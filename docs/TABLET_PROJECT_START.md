@@ -1,4 +1,4 @@
-# Tablet project start — 2026-09-09
+# Tablet project start — 2026-09-10
 
 Scope: the native Windows host and paired Android/Chrome tablet workflow.
 The requested device is a Samsung Galaxy tablet. Real-device acceptance remains
@@ -8,18 +8,20 @@ separate from Chromium touch/viewport automation.
 
 1. Build and restart the updated native Windows ADE host, then reload Mobile.
    Finish active tasks before restarting; restarting ADE stops its PTYs.
-2. On the PC open **Settings → Neue Projekte vom Tablet**. Select an existing
-   project parent directory, for example `C:\Users\Adi.Muff\repos`, and optionally
-   a native Codex profile. Save **Projektstart speichern**. The suggested path is
+2. On the PC open **Settings → Projekt-Stammordner**. Select an existing
+   project parent directory, for example `C:\Users\Adi.Muff\repos`.
+   Save **Projektstart speichern**. The suggested path is
    derived from the current user's home; setup does not move existing projects.
 3. Under **Verbundene Geräte**, grant the tablet **Agents und Projekte erstellen**
-   and **Interaktive Terminals steuern**. Grant workspace reads separately for files.
-   Check Codex installation/authentication in the native host environment.
+   plus **Workspace-Dateien und Git-Diffs lesen** and **Projekt-Workspaces ohne
+   Agent-Profil öffnen**. CLI launch separately needs **Interaktive Terminals steuern**;
+   branch actions need **Projekt-Branches und lokale Git-Aktionen ausführen**.
+   Check CLI installation/authentication in the native host environment.
 4. In Mobile Overview choose **Neues Projekt**, enter an optional working title,
-   then **Mit Codex starten**. An omitted title gets a generated name. The selected
-   saved Codex profile supplies its model and permission settings. With no profile,
-   the explicitly selected new standard profile is created through existing agent
-   administration.
+   then **Projekt anlegen und öffnen**. An omitted title gets a generated name.
+   Choose the branch and CLI inside the opened project. A profile is optional;
+   no agent, binding or CLI is automatically created. Desktop Projects offers
+   the same named project creation.
 5. **Weiterarbeiten** lists actual interactive sessions. Opening one attaches the
    same process. If its input lease expired, explicitly take input again. Exited
    processes are labelled; an ADE restart does not resurrect a terminal process.
@@ -34,8 +36,8 @@ separate from Chromium touch/viewport automation.
   and an empty initial commit. Legacy administration retains its ADE-owned UUID
   root until a parent is configured. No remote payload supplies a host path.
 - Mobile catalog exposes only whether setup exists and the optional agent id.
-  The wizard uses existing signed/idempotent agent-create, project-create,
-  workspace-prepare and terminal-open commands. Each stage keeps its own stable
+  The wizard uses signed/idempotent project-create and independent project-open
+  commands. Explicit terminal-open has its own recovery receipt. Each stage keeps its own stable
   key. Browser reload or a lost reply requires explicit **Start fortsetzen**;
   no command is submitted just because the device reconnects.
 - Stage confirmations are stored before moving on. A failed launch preserves the
@@ -44,10 +46,9 @@ separate from Chromium touch/viewport automation.
   inspect the retained project or close the flow before a new attempt.
 - Project repositories and agent worktrees remain distinct. With the suggested
   parent, the canonical repository is `C:\Users\Adi.Muff\repos\<project>`;
-  Codex's working files initially live in its bound worktree, normally below
-  `C:\Users\Adi.Muff\repos\.ade-worktrees` unless a custom worktree root is set.
-  Integration into the canonical checkout remains a separate action. Agents
-  retain the existing isolated branch/workspace contract; this delivery does not
+  profile-free working files live in that exact checkout. An explicitly created
+  separate worktree lives under `.ade-worktrees/projects`. Agent-Arbeitskopie
+  retains the existing isolated agent branch/workspace contract; this delivery does not
   integrate, publish, push or relocate repositories.
 - `GET /api/v1/terminal/sessions` goes through `AdeApplicationService`, requires a
   signed device and the terminal grant, and returns at most 32 recent validated

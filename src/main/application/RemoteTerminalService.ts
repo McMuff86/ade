@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { SessionMeta } from '../../shared/types';
 import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalQuery, MobileTerminalState, MobileTerminalSummary, SessionLaunchChoice, SessionLaunchOptions, MobileWorkspaceSelection } from '../../shared/remote';
-import { validSessionChoice } from '../../shared/sessionLaunch';
+import { validProjectLaunch, validSessionChoice } from '../../shared/sessionLaunch';
 import type { TerminalControlState } from '../../shared/ipc';
 import { isValidIdempotencyKey } from '../remote/authorization';
 import type { DeviceAuditEntry } from '../remote/RemoteDeviceStore';
@@ -15,6 +15,7 @@ export interface RemoteTerminalPort {
   display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
   list(): SessionMeta[];
   create(agentId: string, repositoryId: string | null, bindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string): Promise<SessionMeta>;
+  createProject?(workspaceId: string, branch: string, choice: SessionLaunchChoice, profileId: string | undefined, authorize: () => void): Promise<SessionMeta>;
   options?(selection: MobileWorkspaceSelection): Promise<SessionLaunchOptions>;
   attach(sessionId: string): { replayBase64: string; sequence: number };
   write(sessionId: string, data: Buffer): void;
@@ -32,12 +33,13 @@ const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['agentId', 'repositoryId', ...(kind === 'query' ? ['terminalId', 'options'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model'] : ['terminalId'])]
+  const allowed = ['agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
   if (Object.keys(input).some((key) => !allowed.includes(key)) || !validWorkspaceSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'command' && (!['open', 'claim', 'release', 'close'].includes(String(input.operation))
     || (input.operation === 'open' ? !validSessionChoice(input) : typeof input.terminalId !== 'string'))) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'command' && input.operation === 'open' && input.projectWorkspaceId && !validProjectLaunch(input)) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
     || !Number.isSafeInteger(input.sequence) || (input.sequence as number) < 1 || typeof input.data !== 'string' || Buffer.byteLength(input.data) > 2048 || input.data.includes('\0')
@@ -99,14 +101,17 @@ export class RemoteTerminalService {
     for (const session of candidates.slice(0, 32)) {
       this.requireGrant(deviceId);
       try {
-        const selection = { agentId: session.agentId, repositoryId: session.repositoryId ?? null };
+        if (!session.projectWorkspaceId && !session.agentId) { result.omitted++; continue; }
+        const selection: MobileWorkspaceSelection = session.projectWorkspaceId ? { projectWorkspaceId: session.projectWorkspaceId }
+          : { agentId: session.agentId!, repositoryId: session.repositoryId ?? null };
         const binding = await this.workbench.resolve(selection, true);
         if (!binding || !this.workbench.sessionMatches(binding, session)) { result.omitted++; continue; }
         await this.workbench.revalidate(binding);
         const entry = this.entry(session, binding);
         if (entry.workspaceVersion !== this.workbench.version(binding)) { result.omitted++; continue; }
         if (!this.port.list().some((item) => item.id === session.id)) { result.omitted++; continue; }
-        result.sessions.push({ ...this.summary(entry, session, deviceId), ...selection, createdAt: session.createdAt });
+        result.sessions.push({ ...this.summary(entry, session, deviceId), ...selection, createdAt: session.createdAt,
+          ...(session.projectWorkspaceId ? { projectName: redactForWire(binding.projectName ?? 'Projekt', 200) } : {}) });
       } catch { result.omitted++; }
     }
     this.requireGrant(deviceId);
@@ -120,7 +125,10 @@ export class RemoteTerminalService {
     if (input.operation === 'open') {
       if (this.port.list().filter((session) => session.status === 'running').length >= 32) failure('Maximal 32 laufende Sitzungen. Zuerst eine Sitzung beenden.');
       this.requireGrant(deviceId);
-      const session = await this.port.create(input.agentId, input.repositoryId, binding!.id, input.mode, input.mode === 'ollama' ? input.model : undefined);
+      if (input.projectWorkspaceId && !this.port.createProject) failure('Projekt-Terminals sind nicht verfügbar.');
+      const session = input.projectWorkspaceId
+        ? await this.port.createProject!(input.projectWorkspaceId, input.expectedBranch!, input.mode === 'ollama' ? { mode: input.mode, model: input.model } : { mode: input.mode }, input.profileId, () => this.requireGrant(deviceId))
+        : await this.port.create(input.agentId!, input.repositoryId!, binding!.id, input.mode, input.mode === 'ollama' ? input.model : undefined);
       try { await this.workbench.revalidate(binding!); if (!this.workbench.sessionMatches(binding!, session)) failure('Workspace-Zuordnung hat sich geändert.'); }
       catch (error) { this.port.kill(session.id); throw error; }
       entry = this.entry(session, binding!);
@@ -201,6 +209,9 @@ export class RemoteTerminalService {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
       program: session.program ? { ...session.program } : undefined,
       launchMode: session.launchChoice?.mode ?? 'agent',
+      launchProfileId: session.launchProfileId,
+      launchProfileName: session.launchProfileName ? redactForWire(session.launchProfileName, 200) : undefined,
+      branch: session.branch ? redactForWire(session.branch, 200) : undefined,
       owner: !entry.control ? 'desktop' : entry.control.deviceId === deviceId ? 'self' : 'other' };
   }
   private requireGrant(id: string): void { if (!this.allowed(id)) throw new RemoteApiError(403, 'scope_not_granted'); }

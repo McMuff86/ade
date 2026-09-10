@@ -16,3 +16,18 @@
 .project-workspace-summary dt { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 .project-workspace-summary dd { margin: 0; overflow-wrap: anywhere; }
 .project-workspace-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+.project-workspace-actions { align-items: end; }
+.project-workspace-actions label, .project-branches label { display: grid; gap: 8px; min-width: 0; }
+.project-terminal select, .project-branches select, .project-branches input { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 10px; min-height: 44px; max-width: 100%; }
+.project-terminal select:focus-visible, .project-branches :is(select,input,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.project-branches { margin: 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.project-branches summary { min-height: 32px; cursor: pointer; }
+.project-branches > label { margin: 12px 0; }
+.project-branches fieldset { margin: 16px 0; border: 1px solid var(--line); padding: 12px; }
+.project-branches .project-checkbox { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.project-branches ul { padding: 0; list-style: none; }
+.project-branches li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px 0; overflow-wrap: anywhere; }
+.project-branch-review { border: 1px solid var(--accent); margin-top: 12px; padding: 12px; overflow-wrap: anywhere; }
+.project-terminal { min-width: 0; }
+.project-terminal-screen { height: max(320px, 52vh); min-width: 0; margin: 16px 0; }
+.project-terminal p, .project-branches p { line-height: 1.6; }

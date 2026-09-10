@@ -97,6 +97,7 @@ export const IPC = {
   RepositoryImport: 'repository:import',
   ProjectWorkspaceQuery: 'project:query',
   ProjectWorkspaceCommand: 'project:command',
+  ProjectCreate: 'project:create',
   RepositoryOverview: 'repository:overview',
   RepositorySyncOverview: 'repository:syncOverview',
   RepositoryFetch: 'repository:fetch',
@@ -618,6 +619,7 @@ export interface WorkspaceBundleExportResult {
 export interface IpcInvokeMap {
   'project:query': { req: import('./remote').ProjectWorkspaceQuery; res: import('./remote').ProjectWorkspaceQueryResult };
   'project:command': { req: import('./remote').ProjectWorkspaceCommand; res: import('./remote').ProjectWorkspaceCommandResult };
+  'project:create': { req: { name: string }; res: { repositoryId: string } };
   'config:get': { req: void; res: AdeConfig };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };

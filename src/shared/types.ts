@@ -40,7 +40,7 @@ export type RuntimeId =
   | 'shell'
   | 'custom';
 
-export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home';
+export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home' | 'project-workspace';
 
 /** First-class local Git repository catalog entry (Goal 5). */
 export interface Repository {
@@ -198,7 +198,9 @@ export type SessionBookendExitReason = PtyExitReason | 'interrupted';
 /** Path-free interactive session bookend. Task PTYs are not recorded here. */
 export interface SessionBookend {
   id: string;
-  agentId: string;
+  agentId?: string;
+  projectWorkspaceId?: string;
+  branch?: string;
   agentName: string;
   runtime: RuntimeId;
   repositoryId: string | null;
@@ -217,13 +219,18 @@ export interface SessionProgramState {
 }
 
 export interface SessionMeta {
+  /** Project ownership is independent of an optional launch-settings profile. */
+  projectWorkspaceId?: string;
+  launchProfileId?: string;
+  launchProfileName?: string;
+  branch?: string;
   program?: SessionProgramState;
   /** Immutable per-session choice; restarts keep it without editing the agent. */
   launchChoice?: import('./remote').SessionLaunchChoice;
   /** Credential-login sessions cannot be attached through the remote terminal API. */
   remoteAccessBlocked?: boolean;
   id: string;
-  agentId: string;
+  agentId?: string;
   title: string;
   kind: SessionKind;
   status: 'running' | 'exited';
@@ -752,7 +759,8 @@ export interface OverviewSessionWorkRow {
   id: string;
   name: string;
   updatedAt: number;
-  agentId: string;
+  agentId?: string;
+  projectWorkspaceId?: string;
   exitReason: SessionBookendExitReason;
   repositoryName: string | null;
   participantNames: string[];

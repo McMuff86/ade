@@ -30,6 +30,7 @@ interface SessionsState {
     workspaceBindingId?: string,
     launchChoice?: SessionLaunchChoice,
   ) => Promise<SessionMeta>;
+  createProjectSession: (workspaceId: string, branch: string, choice: SessionLaunchChoice, profileId?: string) => Promise<SessionMeta>;
   /** Terminal running the harness's documented sign-in command. */
   openHarnessLogin: (agentId: string, runtime: RuntimeId) => Promise<SessionMeta>;
   closeSession: (sessionId: string) => Promise<void>;
@@ -62,6 +63,7 @@ function withoutSession(state: SessionsState, sessionId: string): Partial<Sessio
   const { agentId } = meta;
   const sessions = { ...state.sessions };
   delete sessions[sessionId];
+  if (!agentId) return { sessions };
 
   const previous = state.orderByAgent[agentId] ?? [];
   const index = previous.indexOf(sessionId);
@@ -119,7 +121,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
           const merged = [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
           const sessions = Object.fromEntries(merged.map((meta) => [meta.id, meta]));
           const orderByAgent: Record<string, string[]> = {};
-          for (const meta of merged) (orderByAgent[meta.agentId] ??= []).push(meta.id);
+          for (const meta of merged) if (meta.agentId) (orderByAgent[meta.agentId] ??= []).push(meta.id);
           const activeByAgent: Record<string, string | null> = {};
           for (const [agentId, order] of Object.entries(orderByAgent)) {
             const previous = state.activeByAgent[agentId];
@@ -188,6 +190,13 @@ export const useSessions = create<SessionsState>((set, get) => ({
     }
   },
 
+  createProjectSession: async (workspaceId, branch, choice, profileId) => {
+    const meta = await window.ade.invoke('session:launch', { projectWorkspaceId: workspaceId, expectedBranch: branch, ...choice, ...(profileId ? { profileId } : {}) });
+    if (!get().hydrated) createdDuringHydrate.add(meta.id);
+    set((state) => ({ sessions: { ...state.sessions, [meta.id]: { ...meta, program: pendingPrograms.get(meta.id) ?? meta.program } } }));
+    return meta;
+  },
+
   openHarnessLogin: async (agentId, runtime) => {
     try {
       const meta = await window.ade.invoke('harness:login', { agentId, runtime });
@@ -226,8 +235,10 @@ export const useSessions = create<SessionsState>((set, get) => ({
     const repositoryId = previous.scopeSource === 'plain-home'
       ? null
       : previous.repositoryId;
-    const replacement = await get().createSession(
-      previous.agentId,
+    const replacement = previous.projectWorkspaceId
+      ? await get().createProjectSession(previous.projectWorkspaceId, previous.branch!, previous.launchChoice ?? { mode: 'shell' }, previous.launchProfileId)
+      : await get().createSession(
+      previous.agentId!,
       undefined,
       undefined,
       undefined,

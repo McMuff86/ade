@@ -187,6 +187,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'git:status': read,
   'project:query': read,
   'project:command': mutate,
+  'project:create': mutate,
   'git:diff': read,
   'fs:tree': read,
   'fs:read': read,

@@ -11,6 +11,7 @@ import { AgentWorkspace } from './AgentWorkspace';
 import { ContinueWork } from './ContinueWork';
 import { ProjectStart } from './ProjectStart';
 import { Projects, ProjectWorkspace } from './Projects';
+import type { ProjectOpenIntent } from './ProjectDirectoryPage';
 import { useDeviceDraft } from './deviceDrafts';
 import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
@@ -36,6 +37,7 @@ function MobileApp(): JSX.Element {
   const [management, setManagement] = useState(false);
   const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
   const [projectStart, setProjectStart] = useState(false);
+  const [projectIntent, setProjectIntent] = useState<ProjectOpenIntent>();
   const [projectWorkspace, setProjectWorkspace] = useDeviceDraft<string | null>(host.deviceId, 'open-project', null);
   const [profileIntent, setProfileIntent] = useState<{ agentId: string; key: string } | null>(null);
   const openTerminal = (agentId: string) => {
@@ -44,7 +46,7 @@ function MobileApp(): JSX.Element {
   const keyboardOpen = useTabletViewport();
   const openAgent = (agentId: string) => setWorkspace({ agentId, repositoryId: projectFilter || host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null });
   const openProject = (repositoryId: string) => {
-    setWorkspace(null); setProjectWorkspace(repositoryId);
+    setWorkspace(null); setProjectWorkspace(null); setView('projects'); setProjectIntent({ key: crypto.randomUUID(), repositoryId });
   };
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
@@ -178,9 +180,10 @@ function MobileApp(): JSX.Element {
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
-            onSession={(session) => setWorkspace({ agentId: session.agentId, repositoryId: session.repositoryId, terminalId: session.id, tab: 'terminal' })} />
+            onSession={(session) => { if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
+              else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />
             <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProject={openProject} /></>
-            : view === 'projects' ? <Projects host={host} onProject={openProject} />
+            : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
             : view === 'graph' ? <Graph run={graphRun} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
               : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
@@ -202,7 +205,7 @@ function MobileApp(): JSX.Element {
       onTask={(agentId) => { newWork('task', agentId, projectWorkspace); setProjectWorkspace(null); }}
       onManage={() => { setProjectWorkspace(null); setManagement(true); }} />}
     {host.paired && <ProjectStart key={host.deviceId} host={host} open={projectStart} onClose={() => setProjectStart(false)} onOpen={() => setProjectStart(true)}
-      onStarted={(session) => { setProjectStart(false); setWorkspace({ ...session, tab: 'terminal' }); }} />}
+      onStarted={(session) => { setProjectStart(false); setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId }); }} />}
     {!draftsDurable && <p role="status">Auftragsentwürfe bleiben nur in dieser geöffneten Seite; der Browser-Speicher ist nicht verfügbar.</p>}
     {workspace && host.paired && host.catalog && <AgentWorkspace key={`${host.identityVersion}:${workspace.agentId}`} host={host} agentId={workspace.agentId} fileDrafts={fileDrafts} profileDrafts={profileDrafts}
       initialRepositoryId={workspace.repositoryId ?? ''} initialTab={workspace.tab} initialTerminalId={workspace.terminalId}

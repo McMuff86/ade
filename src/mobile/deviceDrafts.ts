@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
+import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
+import { validProjectBranchAction } from '../shared/projectBranches';
 
 const PREFIX = 'ade-work:';
 const MAX_BYTES = 128 * 1024;
@@ -6,14 +9,19 @@ const MAX_ITEMS = 24;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, max = 128): value is string => typeof value === 'string' && value.length <= max;
 function recovery(key: string, value: unknown): boolean {
-  return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
+  return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
 }
 function valid(key: string, value: unknown): boolean {
-  if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
+  if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
   if (key === 'project-selected') return text(value, 36) && /^[a-f0-9-]{36}$/.test(value);
   if (key === 'open-project') return text(value);
   if (key.startsWith('terminal-selection:')) return text(value);
   if (!object(value)) return false;
+  if (key.startsWith('project-branch:')) return text(value.key, 64) && /^[\w-]+$/.test(value.key) && object(value.preview)
+    && text(value.preview.id, 36) && /^[a-f0-9-]{36}$/.test(value.preview.id)
+    && value.preview.workspaceId === key.slice('project-branch:'.length) && validProjectBranchAction(value.preview.action)
+    && typeof value.preview.expiresAt === 'number' && Number.isFinite(value.preview.expiresAt)
+    && text(value.preview.projectName, 200) && text(value.preview.fromBranch, 200) && text(value.preview.toBranch, 200) && typeof value.preview.separate === 'boolean';
   if (key === 'project-opening') return text(value.key, 64) && /^[\w-]+$/.test(value.key) && text(value.entryId, 33)
     && /^p[a-f0-9]{32}$/.test(value.entryId) && text(value.name, 200);
   if (key.startsWith('terminal-draft:')) return text(value.text, 2000) && typeof value.review === 'boolean';
@@ -22,10 +30,12 @@ function valid(key: string, value: unknown): boolean {
   if (key === 'last-workspace') return text(value.agentId) && (value.repositoryId === null || text(value.repositoryId))
     && (value.tab === undefined || value.tab === 'files' || value.tab === 'terminal') && (value.terminalId === undefined || text(value.terminalId));
   if (key === 'project-start') return text(value.key, 64) && /^[\w-]+$/.test(value.key) && text(value.name, 80)
-    && text(value.agentId) && text(value.repositoryId) && ['agent', 'project', 'workspace', 'terminal', 'done'].includes(String(value.phase))
+    && (value.agentId === undefined || text(value.agentId)) && text(value.repositoryId) && ['agent', 'project', 'workspace', 'terminal', 'done'].includes(String(value.phase))
+    && (value.projectWorkspaceId === undefined || text(value.projectWorkspaceId, 36) && /^[a-f0-9-]{36}$/.test(value.projectWorkspaceId))
     && (value.terminalId === undefined || text(value.terminalId));
   if (key.startsWith('terminal-command:')) return text(value.key, 64) && object(value.command)
-    && text(value.command.agentId) && (value.command.repositoryId === null || text(value.command.repositoryId))
+    && validWorkspaceSelection(value.command)
+    && (!value.command.projectWorkspaceId || value.command.operation !== 'open' || validSessionChoice(value.command) && validProjectLaunch(value.command))
     && ['open', 'claim', 'release', 'close'].includes(String(value.command.operation));
   if (key === 'pending-task') return text(value.key, 64) && text(value.path, 200)
     && /^\/api\/v1\/(tasks|runs(?:\/[A-Za-z0-9_.:-]+\/(start|cancel))?)$/.test(value.path);
@@ -58,7 +68,7 @@ export function writeDeviceDraft(deviceId: string | null, key: string, value: un
     const keys = Object.keys(localStorage).filter((item) => item.startsWith(`${PREFIX}${deviceId}:`) && item !== storageKey);
     if (keys.length >= MAX_ITEMS) {
       const oldest = keys.filter((item) => {
-        if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
+        if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-branch:') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
         try { return JSON.parse(localStorage.getItem(item)!).value?.review !== true; } catch { return true; }
       }).sort((a, b) => {
         try { return JSON.parse(localStorage.getItem(a)!).at - JSON.parse(localStorage.getItem(b)!).at; } catch { return 0; }
