@@ -13,9 +13,9 @@ Push am Ende. Ergänzt wurde direkter Ergebnisdatei-Zugriff aus Graph und Projek
 
 T0–T7 sind für native Windows umgesetzt und abgenommen. T7 ist `b2ca131`, T5 `4e79efd`,
 T4 `d3a4d9f`, T3b `731998d`. Der frühere T3b-Stash wurde vollständig übernommen
-und entfernt. T6 schliesst Gesamtverifikation, Fehlerkorrekturen und Dokumentpflege
-ab. Gemeinsamer Push und geprüfter Operator-Neustart folgen als Auslieferungsschritt.
-Noch keine neue WSL-Freigabe.
+und entfernt. T6 `cb42dbb` schliesst Gesamtverifikation, Fehlerkorrekturen und
+Dokumentpflege ab. Die Task-Commits bilden die gemeinsame Auslieferung auf main;
+der geprüfte Operator-Neustart ist unten dokumentiert. Noch keine neue WSL-Freigabe.
 
 Dateien: Graph → Dateien dieses Runs oder Projekte → Workspace öffnen → Ergebnisse.
 Neue Aufgaben erhalten einen begrenzten Vorher-/Nachher-Vergleich. Frühere Runs
@@ -44,12 +44,25 @@ priorisiert die nächste Besprechung. Gültige PLAN-/RESULTS-Verträge bleiben a
 
 ## Persönliche Testinstanz
 
-Zuletzt geprüft: PID 67208, gestartet am 10. September 00:41:57 Europe/Zurich,
-feste Kopie `test-results/operator-release-e07e00b`, Listener `127.0.0.1:4317`.
-Aktive Runs, queued/running Tasks und aktive Leases: jeweils 0 bei der T6-Prüfung.
-Entwicklungsbuilds verändern diese feste Kopie nicht. Vor einem finalen Neustart
-erneut prüfen; keine aktiven Aufgaben abbrechen. Kopplung und Tailscale-Routen
-behalten; neue Gerätefreigaben setzt der Benutzer ausdrücklich am Desktop.
+ADE läuft seit **10. September 2026, 23:22:09 Europe/Zurich**, PID **65456**, aus
+der festen geprüften Kopie `test-results/operator-release-cb42dbb`. Das Desktop-
+Fenster ist sichtbar; Listener ausschliesslich `127.0.0.1:4317`. Der private
+HTTPS-Zugang liefert HTTP 200 und die erwarteten Mobile-Assets
+`index-DA4ypnQM.js` / `index-BRgqlnJr.css`. Main-Build-Hash stimmt mit dem verifizierten
+Build überein. Nachweis: `test-results/project-final-restart.json`.
+
+Vor dem Ersetzen der alten PID 67208: keine laufenden Runs, queued/running Tasks,
+aktiven Leases oder Terminal-Kindprozesse. Kopplungs-/Freigabendatei und Tailscale-
+Serve-Konfiguration sind unverändert. Konfigurationssicherung:
+`%APPDATA%/ade/ade/config.json.before-project-final-cb42dbb`.
+Entwicklungsbuilds verändern diese feste Kopie nicht. Bei weiteren Neustarts
+laufende Arbeit erneut prüfen. Chrome am Tablet für den neuen Stand neu laden.
+
+Das Samsung besitzt bereits `workspace:read` für den Dateiabruf. Die zusätzlichen
+`projects:write`, `projectGit:write` und `projectGit:publish` sind noch nicht erteilt;
+für profilfreies Öffnen, Branch/Git bzw. Push/PR setzt der Benutzer die passenden
+Schalter ausdrücklich unter Settings → Verbundene Geräte. Der Guide nennt die
+sichtbaren Bezeichnungen. Es wurden keine Gerätefreigaben still erweitert.
 
 Der ursprüngliche Bild-/Excel-Run ist `0531376b-559a-49f7-8d98-02d14573b109`,
 Task `9c816cef-783d-403c-ba1b-a9354e0506b1`, abgeschlossen. Seine wiederhergestellte
@@ -58,6 +71,9 @@ integrierten Werkzeug nicht gemeldet; der separate angefragte API-Aufruf scheite
 am Kontingent. Keine nachträgliche Modellbestätigung und kein erneuter Modelllauf.
 Vorherige Konfigurationssicherung:
 `%APPDATA%/ade/ade/config.json.before-run-inspection-e07e00b`.
+Nach dem finalen Neustart sind PNG (2.261.193 Bytes), XLSX (5.626 Bytes) und
+Markdown (1.611 Bytes) erneut erfolgreich gelesen worden. Nachweis:
+`test-results/t6-operator-files-after-restart.log`.
 
 ## Offene, getrennte Abnahmen
 

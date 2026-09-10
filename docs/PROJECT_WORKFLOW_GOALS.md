@@ -26,7 +26,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | abgeschlossen für native Windows |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | abgeschlossen für native Windows mit lokalem Git-/GitHub-Provider-Fixture |
-| T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | native Abnahme abgeschlossen, 2.588 Checks grün; Auslieferung siehe HANDOFF |
+| T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | abgeschlossen für native Windows, 2.588 Checks grün; Betriebsnachweis siehe HANDOFF |
 | T7 | Nach Nutzerergänzung: im Graph pro Run neu erzeugte und geänderte Dateien nachvollziehbar zeigen, Dateien vorsehen und herunterladen; dieselben Ergebnisse im Projekt-Workspace erreichbar machen. Echte Run-/Dateizuordnung, ältere Runs ohne Ausgangssnapshot, Vorschau/Download und Zugriffsgrenzen prüfen | abgeschlossen für native Windows, Gesamtabnahme T6 grün |
 
 ## Verbindliche Umsetzungsgrenzen
@@ -290,5 +290,7 @@ Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalte
   Nur der eigene Probeprozess beendet. Keine neue WSL-/Linux-/macOS-Freigabe und
   keine erfundene physische Samsung- oder Live-GitHub-Abnahme.
 - Originaler Bild-/Excel-Run bleibt lesbar: PNG 2.261.193 Bytes, XLSX 5.626 Bytes,
-  Markdown 1.611 Bytes. Kein erneuter Modelllauf. Operator-Neustart und gemeinsame
-  Veröffentlichung bilden den letzten Auslieferungsschritt; Nachweis in HANDOFF.
+  Markdown 1.611 Bytes. Kein erneuter Modelllauf. Geprüfter Operator-Build `cb42dbb`
+  läuft seit 23:22:09; Kopplung und private Routen unverändert, Dateien nach dem
+  Neustart erneut lesbar. Betriebsnachweis in HANDOFF; alle Task-Commits werden
+  zum Abschluss gemeinsam auf main veröffentlicht.
