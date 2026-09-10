@@ -54,7 +54,7 @@ const SUITES: Suite[] = [
   { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 38 } },
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 54 } },
-  { id: 'run-inspection', script: 'test-run-inspection.ts', floors: { win32: 31 } },
+  { id: 'run-inspection', script: 'test-run-inspection.ts', floors: { win32: 56 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
   { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 36 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 30 } },

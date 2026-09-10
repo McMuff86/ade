@@ -3,13 +3,17 @@ import type { MobileCatalog, MobileRunSummary } from '../shared/remote';
 import type { RunSummaryParticipant } from '../shared/types';
 import { Avatar } from '../renderer/rail/Avatar';
 import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
-import { Chrome, Empty, Icon, Status } from './ui';
+import { Chrome, Dialog, Empty, Icon, Status } from './ui';
 import { outputAge, useRunActivity } from './RunActivityPanel';
 import type { MobileHost } from './useMobileHost';
+import { RunFilesPanel } from '../renderer/graph/RunFilesPanel';
+import { useRunFilesPort } from './useRunFilesPort';
+import { workspaceError } from './AgentWorkspace';
 
 export function Graph({ run: suppliedRun, host, catalog, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; host: MobileHost; catalog: MobileCatalog | null;
   selectedParticipant: string | null; onSelect: (id: string) => void;
 }): JSX.Element {
+  const [filesOpen, setFilesOpen] = useState(false); const filePort = useRunFilesPort(host);
   const [zoom, setZoom] = useState(1);
   const { data, error, refresh } = useRunActivity(host, suppliedRun?.id);
   const run = data?.run.id === suppliedRun?.id && data && data.run.updatedAt >= suppliedRun!.updatedAt ? data.run : suppliedRun;
@@ -44,12 +48,14 @@ export function Graph({ run: suppliedRun, host, catalog, selectedParticipant, on
         <small>{tasks.length} Tasks · {visual?.label ?? 'Agent'}</small>
         {active && <small>{outputAge(observation?.lastOutputAt, data?.checkedAt ?? Date.now())}</small>}
         {observation?.activity.at(-1) && <small>{observation.activity.at(-1)!.text}</small>}
+        {observation?.fileChanges && observation.fileChanges.source === 'observed' && <small>{observation.fileChanges.created} neu · {observation.fileChanges.modified} verändert · {observation.fileChanges.deleted} gelöscht</small>}
         <small>Aktivität, Ergebnis & Dateien ansehen</small>
       </span>
     </button>;
   };
   return <div className="m-graph" data-testid="mobile-graph">
-    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button>
+    {filesOpen && <Dialog title="Dateien dieses Runs" onClose={() => setFilesOpen(false)} fallbackId="view-tab-graph"><RunFilesPanel runId={run.id} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} /></Dialog>}
+    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button><button onClick={() => setFilesOpen(true)}>Dateien dieses Runs</button>
       {error && <span role="alert">{error}</span>}</div>
     <div className="m-graph-scroll" tabIndex={0} aria-label="Graph-Canvas, zum Verschieben scrollen" onKeyDown={(event) => {
       if (event.target !== event.currentTarget) return;

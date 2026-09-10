@@ -122,7 +122,8 @@ export interface ProjectWorkspaceView {
   kind: 'checkout' | 'worktree';
   backend: 'native';
 }
-export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches'; workspaceId: string }
+export interface ProjectRunResults { runs: Array<{ id: string; name: string; status: string; createdAt: number; taskIds: string[] }>; limited: boolean }
+export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches' | 'run-results'; workspaceId: string }
   | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction }
   | { operation: 'git'; workspaceId: string } | { operation: 'git-diff'; workspaceId: string; path: string }
   | { operation: 'git-preview'; workspaceId: string; action: import('./projectGit').ProjectGitAction }
@@ -130,6 +131,7 @@ export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'w
   | { operation: 'publish-preview'; workspaceId: string; action: import('./projectPublish').ProjectPublishAction };
 export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply' | 'git-apply' | 'publish-apply'; previewId: string };
 export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView;
+  runResults?: ProjectRunResults;
   branches?: import('./projectBranches').ProjectBranchOverview; preview?: import('./projectBranches').ProjectBranchPreview;
   git?: import('./projectGit').ProjectGitOverview; gitPreview?: import('./projectGit').ProjectGitPreview; gitDiff?: import('./projectGit').ProjectGitDiff;
   publish?: import('./projectPublish').ProjectPublishStatus; publishPreview?: import('./projectPublish').ProjectPublishPreview }
@@ -168,9 +170,13 @@ export interface MobileRunActivity {
     process: 'running' | 'exited' | 'unavailable'; lastOutputAt?: number; outputBytes?: number;
     activity: Array<{ kind: string; text: string }>; notice: string | null;
     output?: import('./types').RunTaskOutput; result?: import('./types').RunReportResult | null;
+    fileChanges?: { created: number; modified: number; deleted: number; reported: number; unknown: number; source: 'observed' | 'reported' | 'unknown' };
   }>;
 }
-export interface MobileRunFiles { files: Array<{ id: string; path: string; name: string; bytes: number; image: boolean }>; limited: boolean; notice: string | null }
+export interface MobileRunFile { id: string; path: string; name: string; bytes: number; image: boolean;
+  taskId?: string; taskTitle?: string; change?: import('./runFiles').RunFileChangeKind; available?: boolean; changedSinceRun?: boolean; sha256?: string }
+export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
+  unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
   launchOptions?: SessionLaunchOptions;
   terminals: MobileTerminalSummary[];

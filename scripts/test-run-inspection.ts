@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, symlinkSync, linkSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, symlinkSync, linkSync, rmSync, unlinkSync, statSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,9 @@ import { RemoteApiError, type RemoteCommandContext } from '../src/main/applicati
 import { HostApiServer } from '../src/main/remote/HostApiServer';
 import { RemoteAuthorizer, signRequest, sha256Hex } from '../src/main/remote/authorization';
 import { mergeRunSummaries } from '../src/shared/runSummaryMerge';
+import { RunFileTracker } from '../src/main/application/RunFileTracker';
+import { taskFileChanges, validRunFileTracking } from '../src/shared/runFiles';
+import { validateCompleteConfig } from '../src/main/config/store';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -64,8 +67,9 @@ void (async () => {
   linkSync(join(root, 'outside', 'secret.md'), join(cwd, 'hardlink.md'));
   const files = await app.runFiles(context().principal, runId, taskId); const image = files.files.find((file) => file.path === 'outputs/image.png')!;
   check('listing returns relative image and opaque content identity', !!image?.image && /^[a-f0-9]{64}$/.test(image.id) && !JSON.stringify(files).includes(root));
+  check('file labels do not expose prompt-derived task titles', !JSON.stringify(files).includes(prompt));
   check('listing excludes metadata, secrets, hardlinks and junctions', !files.files.some((file) => /secret|hardlink|linked|\.env|\.git/.test(file.path)));
-  check('listing makes workspace provenance explicit', !!files.notice?.includes('früheren'));
+  check('legacy listing does not invent run attribution', !!files.notice?.includes('Vorher-/Nachher') && image.change === 'unknown');
   check('image download preserves exact original bytes', (await app.runFile(context().principal, runId, taskId, image.id)).bytes.equals(png));
   const notes = files.files.find((file) => file.path === 'outputs/notes.md')!;
   const text = (await app.runFile(context().principal, runId, taskId, notes.id)).bytes.toString();
@@ -90,6 +94,62 @@ void (async () => {
   check('path traversal cannot be a file identifier', (await signed(`/api/v1/runs/${runId}/tasks/${taskId}/files/..%2fnotes.md`)).status >= 400);
   check('signed final answer HTTP endpoint remains available', (await signed(`/api/v1/runs/${runId}/tasks/${taskId}/activity`)).status === 200);
   check('read-only inspection leaves original image unchanged', readFileSync(join(cwd, 'outputs', 'image.png')).equals(png));
+
+  const tracker = new RunFileTracker(store, f.workbench);
+  const scope = await f.workbench.resolve({ agentId: 'builder', repositoryId: created.created!.id });
+  if (!scope) throw new Error('missing scope');
+  // Remove the intentionally excluded hardlink before measuring a complete baseline.
+  unlinkSync(join(cwd, 'hardlink.md'));
+  writeFileSync(join(cwd, 'remove.txt'), 'old'); writeFileSync(join(cwd, 'edit.txt'), 'before');
+  await tracker.before(taskId, { source: 'explicit', repositoryId: created.created!.id, workspaceBindingId: scope.id,
+    workspaceDir: cwd, executionBackend: 'native', branch: scope.branch ?? '' });
+  const before = store.get().runTasks.find((task) => task.id === taskId)!.fileTracking!.before!;
+  check('baseline persists hashes without file bodies', validRunFileTracking({ before, notice: null }) && before.files.some((file) => file.path === 'edit.txt') && !JSON.stringify(before).includes('private-value'));
+  writeFileSync(join(cwd, 'edit.txt'), 'after'); unlinkSync(join(cwd, 'remove.txt'));
+  writeFileSync(join(cwd, 'new.xlsx'), Buffer.from([80,75,3,4,5,6])); writeFileSync(join(cwd, 'new.pdf'), '%PDF fixture'); writeFileSync(join(cwd, 'DATA'), Buffer.from([0,1,2,3]));
+  await tracker.after(taskId);
+  const tracking = store.get().runTasks.find((task) => task.id === taskId)!.fileTracking!;
+  const delta = taskFileChanges(tracking); const byPath = new Map(delta.files.map((file) => [file.path, file.change]));
+  check('actual snapshots distinguish new modified deleted and unchanged files', delta.source === 'observed' && byPath.get('edit.txt') === 'modified' && byPath.get('remove.txt') === 'deleted' && byPath.get('new.xlsx') === 'created' && !byPath.has('book.xlsx'));
+  check('report includes durable observed file changes and totals', f.orchestration.report(runId).tasks[0]?.files?.files.some((file) => file.path === 'new.xlsx') === true && f.orchestration.report(runId).totals.filesChanged >= 5);
+  check('renderer orchestration view does not expose private baselines', !JSON.stringify(f.orchestration.view()).includes('fileTracking') && !JSON.stringify(f.orchestration.view()).includes(before.workspaceVersion));
+  check('incomplete baseline never invents a created file', taskFileChanges({ ...tracking, before: { ...before, limited: true } }).files.find((file) => file.path === 'new.xlsx')?.change === 'unknown');
+  check('incomplete final snapshot never invents a deleted file', !taskFileChanges({ ...tracking, after: { ...tracking.after!, limited: true } }).files.some((file) => file.change === 'deleted'));
+  check('agent-reported legacy files remain explicitly unverified', taskFileChanges(undefined, ['claimed.png']).files[0]?.change === 'reported');
+  check('workspace identity drift invalidates the comparison', taskFileChanges({ ...tracking, after: { ...tracking.after!, workspaceVersion: 'f'.repeat(64) } }).source === 'unknown');
+  check('snapshot contract rejects traversal duplicate paths bodies and oversized lists', !validRunFileTracking({ ...tracking, before: { ...before, files: [{ path: '../escape', bytes: 1, sha256: 'a'.repeat(64) }] } })
+    && !validRunFileTracking({ ...tracking, after: { ...tracking.after!, files: [before.files[0], before.files[0]] } })
+    && !validRunFileTracking({ ...tracking, content: 'secret' }) && !validRunFileTracking({ ...tracking, before: { ...before, files: Array(1001).fill(before.files[0]) } }));
+  let invalidConfigRejected = false; const invalidConfig = structuredClone(store.get()); invalidConfig.runTasks.find((task) => task.id === taskId)!.fileTracking = { ...tracking, notice: 'x'.repeat(501) };
+  try { validateCompleteConfig(invalidConfig); } catch { invalidConfigRejected = true; }
+  check('config validation rejects malformed tracking', invalidConfigRejected);
+  const observed = await app.runFiles(context().principal, runId, taskId);
+  check('deleted file retains provenance without download capability', observed.files.some((file) => file.path === 'remove.txt' && file.change === 'deleted' && file.available === false));
+  check('unchanged workspace file is not attributed to run', observed.files.some((file) => file.path === 'book.xlsx' && file.change === 'unchanged'));
+  for (const name of ['new.xlsx', 'new.pdf', 'DATA']) {
+    const file = observed.files.find((item) => item.name === name)!;
+    check(`download preserves ${name} bytes`, (await app.runFile(context().principal, runId, taskId, file.id)).bytes.equals(readFileSync(join(cwd, name))));
+  }
+  const oldFile = observed.files.find((file) => file.path === 'DATA')!; const oldStat = statSync(join(cwd, 'DATA'));
+  writeFileSync(join(cwd, 'DATA'), Buffer.from([9,8,7,6])); utimesSync(join(cwd, 'DATA'), oldStat.atime, oldStat.mtime);
+  await refuses('content drift is rejected even with identical length and restored modification time', () => app.runFile(context().principal, runId, taskId, oldFile.id), 'not_found');
+  const aggregate = await app.runFiles(context().principal, runId);
+  check('run-wide listing identifies the owning task and later modifications', aggregate.files.some((file) => file.path === 'DATA' && file.changedSinceRun && file.taskId === taskId));
+  check('signed aggregate route is reachable', (await signed(`/api/v1/runs/${runId}/files`)).status === 200);
+  const activity = await app.inspectRun(context().principal, runId);
+  check('graph activity exposes observed counts without digests or host paths', activity.tasks[0]?.fileChanges?.created === 3 && activity.tasks[0]?.fileChanges?.modified === 1 && !JSON.stringify(activity).includes(before.workspaceVersion) && !JSON.stringify(activity).includes(cwd));
+  const directory = await f.projects.directory(); const entry = directory.entries.find((item) => item.repositoryId === created.created!.id)!;
+  const workspace = await f.projects.open(entry.id);
+  const projectResult = await app.queryProjects(context(), { operation: 'run-results', workspaceId: workspace.id });
+  check('project results locate exact repository runs and task sources', projectResult.runResults?.runs[0]?.id === runId && projectResult.runResults.runs[0].taskIds[0] === taskId);
+  check('unrelated project has no result leakage', f.inspection.projectRuns('unrelated').runs.length === 0);
+  const named = store.get().runs.find((run) => run.id === runId)!; store.save({ runs: store.get().runs.map((run) => run.id === runId ? { ...run, name: prompt } : run) });
+  check('legacy project run titles do not leak their prompt', !JSON.stringify(f.inspection.projectRuns(created.created!.id)).includes(prompt));
+  store.save({ runs: store.get().runs.map((run) => run.id === runId ? named : run) });
+  devices.setAdminScopes('tablet', ['catalog:write']);
+  await refuses('project results require current workspace read permission', () => app.queryProjects(context(), { operation: 'run-results', workspaceId: workspace.id }), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read']);
+  check('final positive control still downloads generated spreadsheet', (await app.runFile(context().principal, runId, taskId, observed.files.find((file) => file.name === 'new.xlsx')!.id)).bytes.length === 6);
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {
   await server?.stop(); if (dirname(resolve(root)) !== resolve(tmpdir())) throw new Error('unexpected fixture root');
   rmSync(root, { recursive: true, force: true }); console.log(`Run inspection: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

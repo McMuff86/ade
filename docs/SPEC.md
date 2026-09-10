@@ -1,5 +1,22 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Run files on Graph and projects
+
+Graph offers **Dateien dieses Runs** directly; project workspaces offer
+**Ergebnisse** for their latest runs, on desktop and tablet. File rows identify
+the originating task and distinguish observed new/modified/deleted files,
+agent-reported files and unknown legacy provenance. Unchanged files are optional.
+Images preview; spreadsheets, PDF and other regular files can be downloaded
+individually (16 MiB/file). Chrome can then open a download with a compatible app.
+ADE does not render spreadsheets or arbitrary document content inside the Graph.
+
+Downloads use the current original task workspace. Later changes are marked;
+deleted/unavailable files keep their evidence without offering a working download.
+Missing baselines never become an invented run delta. The selected project branch
+does not silently receive changes from a task worktree. Capture/list limits and
+unavailable workspaces are visible. This slice is native Windows evidence; WSL
+binary result browsing and immutable artifact storage require separate work.
+
 ## Project Git completion
 
 Inside an independent project workspace, **Terminal** and **Git** are distinct
@@ -27,10 +44,10 @@ progress. Standard structured CLI answers survive reload/restart; older runs may
 lack an answer and explain that explicitly. Exit 0 alone is not proof of fulfillment.
 
 Signed devices with workspace read access can preview PNG/JPEG/WebP and download
-supported image, spreadsheet or text files from the original task workspace.
-The list can contain earlier work and says so. File availability depends on that
+bounded regular files from the original task workspace.
+The list distinguishes observed changes and unknown/reported older provenance. File availability depends on that
 workspace remaining present and unchanged in ADE. Approval, integration and
-publishing remain distinct desktop flows.
+publishing of managed runs remain distinct flows; independent project Git is available on desktop/tablet.
 
 Project workflow goal: discovery and independently registered project workspaces
 are available through **Projekte** on desktop and tablet in

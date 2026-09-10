@@ -8,6 +8,8 @@
  */
 
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import type { RunFileTracker } from '../application/RunFileTracker';
+import { redactedErrorDetail } from '../errors';
 import * as os from 'node:os';
 import { join } from 'node:path';
 import * as pty from 'node-pty';
@@ -154,6 +156,8 @@ interface SpawnSpec {
 let sessionSeq = 0;
 
 export class PtyManager {
+  private taskFileTracker?: RunFileTracker;
+  setTaskFileTracker(tracker: RunFileTracker): void { this.taskFileTracker = tracker; }
   private readonly sessions = new Map<string, Session>();
   private readonly taskQueue: TaskSlotQueue;
   private readonly cancelledDispatches = new Map<string, ReturnType<typeof setTimeout>>();
@@ -515,6 +519,11 @@ export class PtyManager {
     let proc: pty.IPty;
     try {
       if (project) await project.revalidate();
+      if (task?.runTaskId && this.taskFileTracker) {
+        await this.taskFileTracker.before(task.runTaskId, scope);
+        const currentTask = this.store.get().runTasks.find((item) => item.id === task.runTaskId);
+        if (!currentTask || currentTask.status !== 'queued') throw new Error('ade: Auftrag wurde vor Prozessstart beendet.');
+      }
       this.assertScopeAvailable(scope, task?.runTaskId);
       proc = pty.spawn(command.file, command.args, {
       name: 'xterm-256color',
@@ -701,7 +710,7 @@ export class PtyManager {
     const managedNotification = session.meta.runTaskId
       ? this.taskLifecycle?.handlesTaskNotification?.(session.meta.runTaskId) === true
       : false;
-    this.notifyFinished(session, exitCode);
+    void this.notifyFinished(session, exitCode);
     const agentName = this.store.get().agents.find((agent) => agent.id === session.meta.agentId)?.name
       ?? 'Agent';
     if (!managedNotification) showSessionExitNotification({ ...session.meta }, agentName);
@@ -802,12 +811,14 @@ export class PtyManager {
     }
   }
 
-  private notifyFinished(session: Session, exitCode: number): void {
+  private async notifyFinished(session: Session, exitCode: number): Promise<void> {
     const runTaskId = session.meta.runTaskId;
     if (!runTaskId) return;
     const status = session.cancelled ? 'cancelled' : (exitCode === 0 ? 'completed' : 'failed');
     try {
       const terminalOutput = Buffer.concat(session.buffer, session.bufferBytes).toString('utf8');
+      try { await this.taskFileTracker?.after(runTaskId); }
+      catch (error) { console.warn('[ade] task file comparison unavailable:', redactedErrorDetail(error)); }
       this.taskLifecycle?.onTaskFinished(runTaskId, status, exitCode, terminalOutput);
     } catch (error) {
       console.error(`[ade] run task completion persistence failed for ${runTaskId}:`, error);

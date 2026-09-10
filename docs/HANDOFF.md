@@ -1,5 +1,15 @@
 # ADE — aktuelle Übergabe
 
+## T7 Ergebnisdateien geprüft (2026-09-10)
+
+Graph → Dateien dieses Runs und Projekt → Ergebnisse sind verbunden. Native
+PTY-Aufgaben speichern Vorher-/Nachher-Hashes; Neu/Verändert/Gelöscht, unbekannte
+Alt-Runs und spätere Änderungen bleiben unterscheidbar. Download aus der echten
+Aufgaben-Arbeitskopie, keine automatische Übernahme in den Projektbranch.
+56 Inspection-, 22 echte Electron/Chromium-, 225 Security- und 82 Orchestration-
+Checks grün; TypeScript und Build grün. T6-Gesamtabnahme/Archivpflege und Push
+folgen. Persönliche Operator-Instanz weiterhin unverändert auf e07e00b.
+
 ## T5 Veröffentlichung geprüft (2026-09-10)
 
 T4 ist `d3a4d9f`. T5 ergänzt expliziten Push/PR mit separater Gerätefreigabe,

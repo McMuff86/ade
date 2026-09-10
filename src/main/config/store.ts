@@ -29,6 +29,7 @@ import {
 import { isExecutionBackendId } from '../../shared/executionBackends';
 import { CLAUDE_MODEL_PATTERN, CODEX_MODEL_PATTERN, GROK_MODEL_PATTERN, OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { normalizeConfig } from '../orchestration/migrate';
+import { validRunFileTracking } from '../../shared/runFiles';
 
 /** Model ids reach a shell command line through resolveLaunchCommand, so a
  *  config that carries an unsafe one must never be persisted — not from the
@@ -361,7 +362,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   const taskIds = schema(config.runTasks, 'config.runTasks', [
     'id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status',
     'sessionId', 'repositoryId', 'workspaceBindingId', 'workspaceDir', 'expectedHeadSha', 'preparedBaseSha',
-    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output',
+    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output', 'fileTracking',
   ], ['id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status', 'createdAt', 'updatedAt']);
   schema(config.runEvents, 'config.runEvents',
     ['id', 'runId', 'type', 'createdAt', 'taskId', 'participantId', 'data', 'seq'],
@@ -461,6 +462,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
     number(participant.createdAt, 'runParticipant.createdAt');
   }
   for (const task of config.runTasks) {
+    if (task.fileTracking !== undefined && !validRunFileTracking(task.fileTracking)) throw new Error('runTask.fileTracking is invalid.');
     if (task.output !== undefined) {
       const output = object(task.output, 'runTask.output');
       exactKeys(output, ['text', 'limited', 'source'], 'runTask.output');

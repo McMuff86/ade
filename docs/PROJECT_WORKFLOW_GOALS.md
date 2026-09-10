@@ -27,6 +27,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | abgeschlossen für native Windows |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | abgeschlossen für native Windows mit lokalem Git-/GitHub-Provider-Fixture |
 | T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
+| T7 | Nach Nutzerergänzung: im Graph pro Run neu erzeugte und geänderte Dateien nachvollziehbar zeigen, Dateien vorsehen und herunterladen; dieselben Ergebnisse im Projekt-Workspace erreichbar machen. Echte Run-/Dateizuordnung, ältere Runs ohne Ausgangssnapshot, Vorschau/Download und Zugriffsgrenzen prüfen | abgeschlossen für native Windows; Gesamtabnahme T6 folgt |
 
 ## Verbindliche Umsetzungsgrenzen
 
@@ -250,3 +251,19 @@ Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalte
   `test-results/project-publish-*.log`; Guide-Aufnahmen 21/22. Native Windows ist
   gemessen; Live-GitHub-End-to-End sowie weitere Betriebssysteme sind keine Zusage.
 - Vollständige T6-Abnahme, abschliessender Commit und gemeinsamer Push folgen.
+
+### T7 — Dateien aus Graph und Projekt abrufen
+
+- Native PTY-Aufgaben erfassen begrenzte Vorher-/Nachher-Hashes; Abschluss,
+  Archivierung und Retention tragen diese mit dem Task. Neue, geänderte und
+  gelöschte Dateien bleiben sichtbar. Ältere Dateien sind unbekannt oder gemeldet,
+  später geänderte Downloads ausdrücklich aktuell. Kein unveränderliches Archiv.
+- Graph besitzt einen direkten Dateieinstieg; Projekt → Ergebnisse zeigt die
+  letzten Runs mit Zugriff auf ihre jeweiligen Arbeitskopien. Desktop und Tablet
+  zeigen Bilder und bieten Downloads regulärer Dateien bis 16 MiB an.
+- 56 fokussierte Datei/API-Prüfungen, 22 echte Electron/Chromium-Prüfungen,
+  225 Security- und 82 Orchestration-Prüfungen grün; Typprüfung und Build grün.
+  Tests decken tatsächliche Dateiveränderung, Löschung, spätere Drift, Rechteentzug,
+  Hashes, private Prompt-Titel, Archivierung, Offline und abschliessende positive
+  Downloads ab. Guide-Aufnahmen 23/24 und aktualisierte Einstiegsbilder liegen vor.
+- T6-Gesamtprüfung, Dokumentationsaudit und gemeinsamer Push bleiben offen.

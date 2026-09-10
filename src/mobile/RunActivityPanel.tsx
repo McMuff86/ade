@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MobileRunActivity, MobileRunFiles, MobileRunSummary } from '../shared/remote';
+import { useEffect, useState } from 'react';
+import type { MobileRunActivity, MobileRunSummary } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
 import { ResultDetails } from '../renderer/graph/ResultDetails';
 import { workspaceError } from './AgentWorkspace';
 import { finalStates } from './ui';
+import { RunFilesPanel } from '../renderer/graph/RunFilesPanel';
+import { useRunFilesPort } from './useRunFilesPort';
 
 export function useRunActivity(host: MobileHost, runId?: string, taskId?: string) {
   const [data, setData] = useState<MobileRunActivity>(); const [error, setError] = useState(''); const [retry, setRetry] = useState(0);
@@ -38,37 +40,13 @@ export function RunActivityPanel({ host, run, participantId }: { host: MobileHos
   const { data, error, refresh } = useRunActivity(host, run.id, taskId);
   const task = data?.tasks.find((item) => item.id === taskId);
   const [tab, setTab] = useState<'activity' | 'result' | 'files'>(finalStates.has(run.status) ? 'result' : 'activity');
-  const [files, setFiles] = useState<MobileRunFiles>(); const [fileError, setFileError] = useState(''); const [fileBusy, setFileBusy] = useState(false);
-  const [download, setDownload] = useState<{ url: string; name: string; image: boolean }>();
-  const live = useRef(true); const fileVersion = useRef(0); const downloadLock = useRef(false); const objectUrl = useRef<string | undefined>(undefined);
-  const clearDownload = useCallback(() => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); objectUrl.current = undefined; setDownload(undefined); }, []);
-  useEffect(() => { live.current = true; return () => { live.current = false; fileVersion.current++; if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); }; }, []);
-  useEffect(() => { fileVersion.current++; setFileBusy(false); setFiles(undefined); setFileError(''); clearDownload(); }, [run.id, taskId, host.identityVersion, clearDownload]);
-  useEffect(() => { if (host.status !== 'online') { fileVersion.current++; clearDownload(); setFiles(undefined); } }, [host.status, clearDownload]);
-  const list = useCallback(async () => {
-    if (!taskId || host.status !== 'online') return;
-    const version = ++fileVersion.current; setFileBusy(true); setFileError('');
-    try { const result = await host.request<MobileRunFiles>(`/api/v1/runs/${run.id}/tasks/${taskId}/files`); if (live.current && version === fileVersion.current) setFiles(result); }
-    catch (reason) { if (live.current && version === fileVersion.current) setFileError(workspaceError(reason)); }
-    finally { if (live.current && version === fileVersion.current) setFileBusy(false); }
-  }, [host.request, host.status, run.id, taskId]);
-  useEffect(() => { if (tab === 'files') void list(); }, [tab, list]);
-  const open = async (file: NonNullable<typeof files>['files'][number]) => {
-    if (!taskId || downloadLock.current) return;
-    downloadLock.current = true; const version = fileVersion.current; setFileBusy(true); setFileError(''); clearDownload();
-    try {
-      const blob = await host.download(`/api/v1/runs/${run.id}/tasks/${taskId}/files/${file.id}`);
-      if (!live.current || version !== fileVersion.current) return;
-      const url = URL.createObjectURL(blob); objectUrl.current = url; setDownload({ url, name: file.name, image: file.image });
-    } catch (reason) { if (live.current && version === fileVersion.current) setFileError(workspaceError(reason)); }
-    finally { downloadLock.current = false; if (live.current && version === fileVersion.current) setFileBusy(false); }
-  };
+  const filePort = useRunFilesPort(host);
   return <section className="m-run-activity" aria-label="Run-Aktivität und Ergebnis">
     <h3>Aktivität & Ergebnis</h3>
     {tasks.length > 1 && <label>Aufgabe<select aria-label="Aufgabe für Aktivität" value={taskId ?? ''} onChange={(event) => setChoice(event.target.value)}>
       {tasks.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
     <div className="m-actions">{(['activity', 'result', 'files'] as const).map((value) => <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)}>{value === 'activity' ? 'Aktivität' : value === 'result' ? 'Ergebnis' : 'Dateien'}</button>)}
-      <button disabled={host.status !== 'online'} onClick={() => { refresh(); if (tab === 'files') void list(); }}>Jetzt aktualisieren</button></div>
+      <button disabled={host.status !== 'online'} onClick={refresh}>Jetzt aktualisieren</button></div>
     {host.status !== 'online' && <p role="status">PC nicht verbunden. Letzter bestätigter Stand.</p>}
     {error && <p role="alert">{error}</p>}
     {!taskId && <p>Noch keine Aufgabe vorhanden.</p>}
@@ -89,14 +67,6 @@ export function RunActivityPanel({ host, run, participantId }: { host: MobileHos
       {!task.result && !task.output && <p>{task.status === 'running' ? 'Noch keine Abschlussantwort. Unter Aktivität den aktuellen Stand verfolgen.' : 'Für diese frühere Sitzung wurde keine strukturierte Antwort gespeichert. Vorhandene Dateien findest du unter Dateien.'}</p>}
       {task.status === 'completed' && !task.result && <p>Exit 0 bestätigt das Prozessende. Ob die Aufgabe erfüllt ist, steht in der Antwort und den Dateien.</p>}
     </>}
-    {tab === 'files' && <>
-      {fileBusy && <p role="status">Dateien werden geladen…</p>}{fileError && <p role="alert">{fileError}</p>}
-      {files?.notice && <p>{files.notice}</p>}{files?.limited && <p>Die Dateiliste ist begrenzt. Weitere Dateien am PC ansehen.</p>}
-      {files && !files.files.length && <p>Keine unterstützten Bild-, Tabellen- oder Textdateien gefunden.</p>}
-      <ul className="m-run-files">{files?.files.map((file) => <li key={file.id}><span>{file.path} · {Math.ceil(file.bytes / 1024)} KiB</span>
-        <button disabled={fileBusy || host.status !== 'online'} onClick={() => void open(file)}>{file.image ? 'Bild ansehen' : 'Download vorbereiten'}: {file.name}</button></li>)}</ul>
-      {download && <div className="m-run-file-preview">{download.image && <img src={download.url} alt={`Ergebnisdatei ${download.name}`} />}
-        <a href={download.url} download={download.name}>Herunterladen: {download.name}</a><button onClick={clearDownload}>Vorschau schliessen</button></div>}
-    </>}
+    {tab === 'files' && <RunFilesPanel runId={run.id} taskId={taskId} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} />}
   </section>;
 }

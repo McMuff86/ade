@@ -1,6 +1,7 @@
 {
-  "capturedAt": "2026-09-09T18:42:47.379Z",
-  "commit": "8433e7daeedbacfd5a8cf20c5cebc6dda56289d2",
+  "capturedAt": "2026-09-10T20:31:23.292Z",
+  "commit": "4e79efda5f97248b47aac06e94e240d564c448fd",
+  "workingTreeDirty": true,
   "platform": "win32",
   "browser": "149.0.7827.55",
   "demo": true,
@@ -24,7 +25,7 @@
     "13-task.png"
   ],
   "mobileAssets": [
-    "assets/index-CGSv-1PK.js",
-    "assets/index-avd9gm5U.css"
+    "assets/index-DA4ypnQM.js",
+    "assets/index-BRgqlnJr.css"
   ]
 }

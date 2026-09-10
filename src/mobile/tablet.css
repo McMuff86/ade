@@ -102,5 +102,6 @@
   .m-terminal-composer textarea { height: 50px; min-height: 44px; }
   .m-terminal-composer .m-field-note { display: none; }
 }
-.m-project-git-body { flex: 1; min-height: 0; overflow: auto; }
-.m-independent-project.m-project-git-workspace .m-project-context { max-height: 30%; }
+.m-independent-project.m-project-git-workspace { overflow-y: auto; }
+.m-project-git-body { flex: none; min-height: 0; overflow: visible; }
+.m-independent-project.m-project-git-workspace .m-project-context { max-height: none; overflow: visible; }

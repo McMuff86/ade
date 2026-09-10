@@ -24,7 +24,7 @@ export function validProjectWorkspaceQuery(value: unknown): value is ProjectWork
     : input.operation === 'git-preview' ? keys(input, ['operation', 'workspaceId', 'action']) && workspaceId(input.workspaceId) && validProjectGitAction(input.action)
       : input.operation === 'git-diff' ? keys(input, ['operation', 'workspaceId', 'path']) && workspaceId(input.workspaceId) && validProjectGitPath(input.path)
     : input.operation === 'branch-preview' ? keys(input, ['operation', 'workspaceId', 'action']) && workspaceId(input.workspaceId) && validProjectBranchAction(input.action)
-      : ['workspace', 'branches', 'git'].includes(String(input.operation)) && keys(input, ['operation', 'workspaceId']) && workspaceId(input.workspaceId);
+      : ['workspace', 'branches', 'git', 'run-results'].includes(String(input.operation)) && keys(input, ['operation', 'workspaceId']) && workspaceId(input.workspaceId);
 }
 export function validProjectWorkspaceCommand(value: unknown): value is ProjectWorkspaceCommand {
   const input = object(value); if (!input) return false;

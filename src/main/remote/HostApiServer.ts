@@ -58,7 +58,7 @@ const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
   | { kind: 'runActivity'; runId: string; taskId?: string }
-  | { kind: 'runFiles' | 'runFile'; runId: string; taskId: string; fileId?: string }
+  | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
@@ -136,7 +136,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
       if (inspection) {
         const [, runId, taskId, action, fileId] = inspection;
         if (action === 'activity' && !fileId) return { route: { kind: 'runActivity', runId: runId!, taskId }, allow: ['GET'] };
-        if (action === 'files' && taskId) return { route: { kind: fileId ? 'runFile' : 'runFiles', runId: runId!, taskId, fileId }, allow: ['GET'] };
+        if (action === 'files' && (!fileId || taskId)) return { route: { kind: fileId ? 'runFile' : 'runFiles', runId: runId!, taskId, fileId }, allow: ['GET'] };
         return null;
       }
       const match = /^\/api\/v1\/runs\/([^/]+)\/(start|cancel)$/.exec(path);
@@ -421,7 +421,7 @@ export class HostApiServer {
         case 'runFiles':
           writeJson(response, 200, await this.application.runFiles(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
         case 'runFile': {
-          const file = await this.application.runFile(readPrincipal!, matched.route.runId, matched.route.taskId, matched.route.fileId!);
+          const file = await this.application.runFile(readPrincipal!, matched.route.runId, matched.route.taskId!, matched.route.fileId!);
           response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': file.type, 'content-length': file.bytes.length,
             'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, '%27')}` });
           response.end(file.bytes); return;

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import type { Page } from 'playwright';
 import { PNG } from 'pngjs';
 
@@ -21,6 +21,9 @@ if (cli == "CODEX" && args.Length > 0 && args[0] == "exec") {
   Directory.CreateDirectory("outputs");
   File.WriteAllBytes("outputs/image.png", Convert.FromBase64String("${PNG.sync.write(fixtureImage).toString('base64')}"));
   File.WriteAllText("outputs/result.md", "# Result\\nFixture image generated");
+  File.WriteAllBytes("outputs/book.xlsx", new byte[] {80,75,3,4,5,6});
+  File.WriteAllText("tracked-edit.txt", "after");
+  File.Delete("tracked-delete.txt");
   ${jsonLine({ type: 'item.completed', item: { type: 'agent_message', text: message } })}
   ${jsonLine({ type: 'turn.completed', usage: { input_tokens: 20, output_tokens: 30 } })}
   return;
@@ -30,6 +33,8 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   check: (name: string, ok: boolean) => void): Promise<void> {
   await page.keyboard.press('Escape');
   const agent = await desktop.evaluate(async (input) => window.ade.invoke('agent:create', { categoryId: input.categoryId, name: 'Image Agent', runtime: 'codex', permissionMode: 'default', defaultRepositoryId: input.repositoryId }), { categoryId, repositoryId });
+  const initial = await desktop.evaluate((input) => window.ade.invoke('workspace:describe', input), { agentId: agent.id });
+  writeFileSync(join(initial.workspaceDir, 'tracked-edit.txt'), 'before'); writeFileSync(join(initial.workspaceDir, 'tracked-delete.txt'), 'before');
   await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
@@ -60,9 +65,14 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   const session = sessions.find((item) => item.agentId === agent.id && item.kind === 'task')!;
   const report = await desktop.evaluate((runId) => window.ade.invoke('run:report', { runId }), task.runId);
   check('native PTY result is durable in report and absent from summary', session.status === 'exited' && session.exitCode === 0 && report.tasks[0]?.output?.text === message && !JSON.stringify(task).includes(message));
+  const changes = report.tasks[0]?.files;
+  check('real PTY captured before and after changes with deleted-file provenance', changes?.source === 'observed' && changes.files.some((file) => file.path === 'outputs/image.png' && file.change === 'created')
+    && changes.files.some((file) => file.path === 'tracked-edit.txt' && file.change === 'modified') && changes.files.some((file) => file.path === 'tracked-delete.txt' && file.change === 'deleted'));
   await panel.locator('.m-run-answer').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(evidence, 'run-result.png') });
   await panel.getByRole('button', { name: 'Dateien', exact: true }).click();
+  await panel.locator('li').filter({ hasText: 'tracked-delete.txt' }).getByText('Gelöscht', { exact: true }).waitFor();
+  check('deleted files remain visible without a download action', await panel.getByRole('button', { name: 'Download vorbereiten: tracked-delete.txt', exact: true }).isDisabled());
   await panel.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).click();
   const image = panel.getByRole('img', { name: 'Ergebnisdatei image.png', exact: true });
   await image.waitFor(); await image.evaluate((node) => (node as HTMLImageElement).decode());
@@ -86,4 +96,45 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   await panel.getByRole('button', { name: 'Ergebnis', exact: true }).click();
   await panel.locator('.m-run-answer').waitFor();
   check('completed result remains accessible after browser reload', await panel.locator('.m-run-answer').innerText() === message);
+  await page.keyboard.press('Escape'); await page.setViewportSize({ width: 1365, height: 900 });
+  await page.getByRole('button', { name: 'Dateien dieses Runs', exact: true }).click();
+  const filesDialog = page.getByRole('dialog', { name: 'Dateien dieses Runs', exact: true });
+  await filesDialog.getByRole('button', { name: 'Download vorbereiten: book.xlsx', exact: true }).click();
+  check('file lists do not echo auto-derived private task titles', !(await filesDialog.innerText()).includes('PRIVATE_TASK_SENTINEL'));
+  const bookEvent = page.waitForEvent('download'); await filesDialog.getByRole('link', { name: 'Herunterladen: book.xlsx', exact: true }).click();
+  const book = await bookEvent; const bookPath = await book.path();
+  check('direct Graph files download spreadsheet from owning task workspace', !!bookPath && readFileSync(bookPath).equals(readFileSync(join(session.workspaceDir!, 'outputs/book.xlsx'))));
+  await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
+  await page.screenshot({ path: join(evidence, 'run-files-changes.png') });
+  await page.keyboard.press('Escape');
+  check('direct Graph file dialog restores opener focus', await page.getByRole('button', { name: 'Dateien dieses Runs', exact: true }).evaluate((element) => element === document.activeElement));
+  const nativeList = await desktop.evaluate((runId) => window.ade.invoke('run:files', { runId }), task.runId);
+  check('desktop file IPC exposes same observed result', nativeList.files.some((file) => file.path === 'outputs/image.png' && file.change === 'created'));
+  const devices = await desktop.evaluate(() => window.ade.invoke('remoteDevices:list')); const device = devices.devices.find((item) => item.name === 'Terminal tablet')!;
+  await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
+    { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])] });
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Workspace öffnen: Terminal project', exact: true }).click();
+  const project = page.getByRole('dialog', { name: 'Projekt · Terminal project', exact: true });
+  await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+  await project.getByRole('button', { name: 'Ergebnisse', exact: true }).click();
+  await project.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).click();
+  const projectImage = project.getByRole('img', { name: 'Ergebnisdatei image.png', exact: true });
+  await projectImage.waitFor(); await projectImage.evaluate((element) => (element as HTMLImageElement).decode());
+  check('project workspace finds run files in original agent worktree', await projectImage.evaluate((element) => (element as HTMLImageElement).naturalWidth === 320) && (await project.innerText()).includes('nicht automatisch'));
+  await projectImage.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(evidence, 'project-run-results.png') });
+  await desktop.keyboard.press('Escape');
+  await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Workspace öffnen: Terminal project', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Ergebnisse', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).click();
+  const desktopImage = desktop.getByRole('img', { name: 'Ergebnisdatei image.png', exact: true });
+  await desktopImage.waitFor(); await desktopImage.evaluate((element) => (element as HTMLImageElement).decode());
+  check('desktop project results render the same original image', await desktopImage.evaluate((element) => (element as HTMLImageElement).naturalWidth === 320));
+  await page.context().setOffline(true);
+  await project.getByText('PC nicht verbunden.', { exact: true }).waitFor();
+  check('offline project result view releases downloadable image URL', await projectImage.count() === 0);
+  await page.context().setOffline(false); await project.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).waitFor();
+  check('final positive control restores project download after reconnect', await project.getByRole('button', { name: 'Download vorbereiten: book.xlsx', exact: true }).isEnabled());
 }

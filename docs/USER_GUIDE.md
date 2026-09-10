@@ -29,8 +29,8 @@ Normale Ordner ohne Git werden angezeigt; Git wird darin nicht automatisch angel
 Bei einer verlorenen Antwort **Workspace-Öffnung prüfen** wählen. ADE verwendet
 dieselbe Aktion erneut, auch nach einem Neuladen der Seite.
 
-Die bisherigen Bilder zeigen überwiegend den Agent-Ablauf. Die Gesamtaufnahme
-wird mit Abschluss der Branch-/Git-Oberfläche im Goal T6 erneuert.
+Die Einstiegsbilder wurden für den unabhängigen Projektablauf aktualisiert.
+Zusätzliche Branch-, Git- und Ergebnisbilder stammen aus den jeweiligen Prüfläufen.
 
 ## Inhalt
 
@@ -97,7 +97,8 @@ und beim jeweiligen Harness den Installations-/Anmeldestatus prüfen. Ein vorhan
 Programm bedeutet noch nicht, dass dein Konto jedes Modell verwenden darf.
 Windows und WSL haben getrennte Installationen, PATHs und Anmeldungen.
 
-**Ein erstes Profil:** In **Terminals** eine **New category** anlegen, etwa
+**Optional ein Profil:** Für Projektarbeit brauchst du kein Profil. Für einen
+wiederverwendbaren Assistenten in **Terminals** eine **New category** anlegen, etwa
 „Entwicklung“, und darin über **Add agent** einen Agenten erstellen. Name und
 Runtime wählen, etwa „Codex Entwicklung“ und Codex. Für den Einstieg die normale
 Berechtigungsstufe verwenden. Modell und Reasoning nach der tatsächlich geladenen
@@ -107,7 +108,10 @@ beim Start des gespeicherten Profils.
 
 ![Desktop Overview mit Beispielprofilen](media/user-guide/01-desktop-overview.png)
 
-**Bestehendes Repository aufnehmen:** In **Terminals** einen Agenten wählen.
+**Bestehende Projekte:** Unter **Projekte** erscheinen die direkten Unterordner
+des eingestellten Projekt-Stamms. Ein Git-Projekt über **Workspace öffnen**
+auswählen; ADE registriert den bestehenden Checkout. Für einen Ordner ausserhalb
+des Stamms oder einen WSL-Eintrag: In **Terminals** einen Agenten wählen.
 Im Repository-Bereich **⋯ → Add repo** öffnen und den bestehenden Git-Ordner
 auswählen. **Pfad…** erlaubt die direkte Pfadeingabe und eine ausdrückliche
 Backend-Wahl. Importieren registriert das Repository; es verschiebt den Ordner nicht.
@@ -118,8 +122,7 @@ den **Projekt-Stammordner** wählen. Für Adis PC ist
 **Projektstart speichern** drücken. Ein Profil ist dafür nicht erforderlich.
 Bestehende Projekte behalten ihren bisherigen Speicherort.
 
-Das bisherige Einstellungsbild zeigt noch die ältere Profilauswahl; die aktuelle
-Einrichtung benötigt nur den Stammordner.
+![Projekt-Stammordner ohne verpflichtendes Profil](media/user-guide/02-project-defaults.png)
 
 *Ein neues Projekt bekommt direkt einen eigenen Ordner unter diesem Stammordner.
 Die zusätzliche ADE-Arbeitskopie erklären wir in Abschnitt 8.*
@@ -150,6 +153,9 @@ vollständigen Projekteinstieg die folgenden Rechte setzen und
 |---|---|
 | Agents und Projekte erstellen | Neue Projekte oder eine neue Projekt-Arbeitskopie vorbereiten |
 | Workspace-Dateien und Git-Diffs lesen | Projektworkspace, Dateien und Änderungen öffnen |
+| Projekt-Workspaces ohne Agent-Profil öffnen | Vorhandenen Checkout unabhängig öffnen |
+| Projekt-Branches und lokale Git-Aktionen ausführen | Branch wählen, Commit, Merge und Fetch |
+| Projekt-Branches pushen und GitHub-PRs erstellen | Branch nach einer konkreten Vorschau veröffentlichen |
 | Interaktive Terminals steuern | CLIs starten und darin schreiben |
 | Kleine Workspace-Textdateien bearbeiten | Optional: vorhandene Textdateien direkt im ADE-Dateieditor ändern |
 
@@ -174,6 +180,8 @@ benötigen. Der PC muss eingeschaltet, angemeldet und erreichbar bleiben.
 
 Dabei entsteht kein Agent-Profil. Auf dem Desktop findest du **Neues Projekt**
 im Reiter **Projekte**. Es wird kein GitHub-Repository automatisch veröffentlicht.
+
+![Neues Projekt im eingestellten Stammordner anlegen](media/user-guide/07-new-project.png)
 
 Ein guter erster Auftrag wäre:
 
@@ -355,7 +363,7 @@ Allerdings verwendet ADE für Agent/Projekt-Paare eigene Git-Arbeitskopien
 (*Worktrees*) mit eigenem Branch. Neue Änderungen können dort liegen, während der
 ursprüngliche Projektordner noch den älteren Stand zeigt.
 
-![Dateiansicht der ADE-Arbeitskopie mit README](media/user-guide/11-workspace-files.png)
+![Textdatei im Git-Bereich des Projekt-Checkouts bearbeiten](media/user-guide/11-workspace-files.png)
 
 *Nach einem Sitzungswechsel bei Bedarf **Workspace aktualisieren** drücken:
 der kurze Arbeitsstatus in der Dateiansicht kann noch den vorherigen Stand zeigen.*
@@ -422,10 +430,35 @@ Integrationsfreigabe und verifiziertes Publishing bleiben Desktop-Abläufe. Ein 
 
 Diese Screenshots stammen aus einem isolierten Test mit deterministischer CLI und
 einer echten Terminal-Sitzung; das farbige Testbild ist kein Modell-Qualitätsbeleg.
-Die Liste enthält Dateien des Auftrags-Workspaces, möglicherweise auch frühere
-Arbeiten. Unterstützt: PNG/JPEG/WebP, XLSX, Markdown, TXT und CSV bis 16 MiB je
-Datei. Während ein Bild noch geschrieben wird, später **Jetzt aktualisieren**
-wählen. Wurde der ursprüngliche Workspace entfernt, Dateien am PC wiederfinden.
+**Direkter Weg:** In **Graph → Dateien dieses Runs** findest du die Dateien aller
+Aufgaben dieses Runs. Alternativ **Projekte → Workspace öffnen → Ergebnisse**:
+Der jüngste Run ist vorausgewählt; mit der Run-Auswahl kannst du frühere öffnen.
+
+| Anzeige | Bedeutung |
+|---|---|
+| Neu / Verändert / Gelöscht | Vergleich zwischen Aufgabenstart und Prozessende |
+| Vom Agenten gemeldet | Dateiangabe aus der Antwort ohne unabhängigen Vergleich |
+| Zuordnung unbekannt | Für diese frühere Aufgabe fehlt der Ausgangsstand |
+| Seit Run-Ende erneut verändert | Der Download enthält den neueren, aktuellen Stand |
+
+![Dateien direkt aus dem Graph mit Änderungsnachweis](media/user-guide/23-run-files.png)
+
+![Run-Ergebnisse aus dem Projekt-Workspace öffnen](media/user-guide/24-project-results.png)
+
+Bei Bildern **Bild ansehen**, danach **Herunterladen** wählen. Bei Excel, PDF oder
+anderen Dateien **Download vorbereiten**, danach **Herunterladen**. Anschliessend
+in Chrome unter **Downloads** öffnen und eine passende Tablet-App wählen.
+ADE zeigt PNG/JPEG/WebP als Vorschau; Tabellen und andere Dokumente öffnest du
+nach dem Download. Die Grenze beträgt 16 MiB pro Datei; begrenzte Listen werden
+gekennzeichnet. Textdownloads blenden bekannte Zugangsdaten und PC-Pfade aus.
+
+Die Dateien bleiben in der ursprünglichen Aufgaben-Arbeitskopie. **Ergebnisse**
+kopiert sie nicht automatisch in den aktuell gewählten Branch. Gelöschte Dateien
+bleiben als Nachweis sichtbar und lassen sich nicht herunterladen. Bei später
+entferntem Workspace zeigt ADE den fehlenden Zugriff; es gibt noch kein separates
+dauerhaftes Dateiarchiv. Während eine Datei geschrieben wird, später **Dateien
+aktualisieren** wählen. Bei älteren Runs bedeutet „Zuordnung unbekannt“ nicht,
+dass die vorhandenen Dateien verloren sind: Vorschau und Download bleiben möglich.
 
 Falls die Lesefreigabe fehlt: am PC unter **Settings → Geräte** für das gekoppelte
 Tablet **Workspace-Dateien und Git-Diffs lesen** aktivieren. Die Vorschau benötigt

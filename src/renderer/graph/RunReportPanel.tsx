@@ -13,6 +13,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import type { RunReport, RunReportTask } from '../../shared/types';
 import { ResultDetails, outcomeText } from './ResultDetails';
+import { RunFilesPanel, desktopRunFiles } from './RunFilesPanel';
+const fileErrorText = (reason: unknown) => String(reason);
 
 interface RunReportPanelProps {
   runId: string;
@@ -86,6 +88,7 @@ function roleText(role: RunReportTask['role']): string {
 export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
   const { runId, seqCursor, fallbackFocusRef, onClose } = props;
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [showFiles, setShowFiles] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<Element | null>(null);
 
@@ -177,6 +180,8 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
               </section>
             )}
 
+            <button onClick={() => setShowFiles((value) => !value)} aria-expanded={showFiles}>Dateien dieses Runs</button>
+            {showFiles && <RunFilesPanel runId={runId} port={desktopRunFiles} online errorText={fileErrorText} />}
             <dl className="greport-totals">
               <div><dt>Tasks</dt><dd>{report.totals.tasks}</dd></div>
               <div><dt>Abgeschlossen</dt><dd>{report.totals.completed}</dd></div>

@@ -794,6 +794,8 @@ function testHistoryRetention(): void {
     return run.id;
   };
   const oldRun = finished('old', 45);
+  store.read().runTasks.find((task) => task.runId === oldRun)!.fileTracking = { notice: null, before: { capturedAt: 1, workspaceVersion: 'a'.repeat(64), limited: false,
+    files: [{ path: 'result.png', bytes: 10, sha256: 'b'.repeat(64) }] } };
   const oldPublished = finished('old published', 50);
   const recentRun = finished('recent', 2);
   const openRun = service.createRun({ name: 'open', participants: [{ agentId: 'ret-a', role: 'lead', teamId: 't', teamName: 'T' }] });
@@ -817,6 +819,7 @@ function testHistoryRetention(): void {
     outcome.archivedRunIds.join(',') === oldRun && archives.length === 1 && archives[0]?.run.id === oldRun);
   check('archive carries the complete record set including the prompt',
     archives[0]?.tasks[0]?.prompt === 'prompt for old' && archives[0]?.events.length > 0 && archives[0]?.format === 'ade-run-archive');
+  check('file tracking is archived with its original task before pruning', archives[0]?.tasks[0]?.fileTracking?.before?.files[0]?.path === 'result.png');
   const after = store.read();
   check('pruned run leaves no record behind',
     !after.runs.some((run) => run.id === oldRun) && !after.runTasks.some((task) => task.runId === oldRun)

@@ -43,6 +43,7 @@ import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
 import { RunInspectionService } from './application/RunInspectionService';
+import { RunFileTracker } from './application/RunFileTracker';
 import { ProjectBranchService } from './repositories/ProjectBranchService';
 import { ProjectGitService } from './repositories/ProjectGitService';
 import { ProjectPublishService } from './repositories/ProjectPublishService';
@@ -310,6 +311,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projectGitActions = new ProjectGitService(store, projects, () => ptyManager?.list() ?? []);
   const projectPublish = new ProjectPublishService(projectGitActions);
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
+  ptyManager!.setTaskFileTracker(new RunFileTracker(store, workbench));
+  const runInspection = new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId));
   handle(IPC.ProjectFileRead, (input) => workbench.query({ ...input, operation: 'file' }));
   handle(IPC.ProjectFileSave, async (input) => ({ ...await workbench.save(validateFileSave(input), () => undefined), replayed: false }));
   remoteWorkbench = workbench;
@@ -326,6 +329,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
     ? { directory: await projects.directory() }
+      : input.operation === 'run-results' ? { runResults: runInspection.projectRuns((await projects.overview(input.workspaceId)).repositoryId) }
       : input.operation === 'publish-status' ? { publish: await projectPublish.status(input.workspaceId, input.remote) }
       : input.operation === 'publish-preview' ? { publishPreview: await projectPublish.preview(input.workspaceId, input.action, 'desktop') }
       : input.operation === 'git' ? { git: await projectGitActions.overview(input.workspaceId) }
@@ -345,7 +349,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     {
       activity: hostOperations,
       projects,
-      runInspection: new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId)),
+      runInspection,
       projectBranches,
       projectGit: projectGitActions,
       projectPublish,
@@ -902,6 +906,11 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
   handle(IPC.RunGet, () => orchestration!.view());
   handle(IPC.RunReport, ({ runId }) => orchestration!.report(runId));
+  handle(IPC.RunFiles, ({ runId, taskId }) => runInspection.files(runId, taskId, () => undefined));
+  handle(IPC.RunFileRead, async ({ runId, taskId, fileId }) => {
+    const file = await runInspection.file(runId, taskId, fileId, () => undefined);
+    return { base64: file.bytes.toString('base64'), type: file.type, name: file.name };
+  });
   handle(IPC.RunGetSummary, ({ runId }) => application.runs(runId));
   handle(IPC.RunEvents, ({ sinceSeq, limit }) => orchestration!.eventsSince(sinceSeq, limit));
   handle(IPC.RunApprovalDiff, async ({ runId }) => {

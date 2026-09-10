@@ -972,6 +972,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       optionalId(channel, request.runId, 'runId');
       return;
     }
+    case IPC.RunFiles:
+    case IPC.RunFileRead: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, channel === IPC.RunFiles ? ['runId', 'taskId'] : ['runId', 'taskId', 'fileId']);
+      id(channel, request.runId, 'runId');
+      if (channel === IPC.RunFiles) optionalId(channel, request.taskId, 'taskId');
+      else { id(channel, request.taskId, 'taskId'); if (typeof request.fileId !== 'string' || !/^[a-f0-9]{64}$/.test(request.fileId)) invalid(channel, 'invalid file identity'); }
+      return;
+    }
     case IPC.RunReport: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['runId']);

@@ -432,6 +432,8 @@ export interface RunParticipant {
 }
 
 export interface RunTask {
+  /** Main-only before/after file digests, archived and pruned with this task. */
+  fileTracking?: import('./runFiles').RunFileTracking;
   /** Captured assistant response; exposed only in the result/report detail. */
   output?: RunTaskOutput;
   id: string;
@@ -824,7 +826,7 @@ export interface OrchestrationSnapshot {
  * text; `provenance` is the parsed context-packet metadata that used to
  * require shipping every artifact body.
  */
-export type RunTaskView = Omit<RunTask, 'prompt' | 'output'> & {
+export type RunTaskView = Omit<RunTask, 'prompt' | 'output' | 'fileTracking'> & {
   promptDigest: string;
   promptChars: number;
   provenance: TaskProvenance | null;
@@ -881,6 +883,7 @@ export interface RunReportResult {
 }
 
 export interface RunReportTask {
+  files?: import('./runFiles').RunFileChanges;
   output?: RunTaskOutput;
   id: string;
   participantId: string;

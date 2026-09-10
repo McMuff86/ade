@@ -1,5 +1,17 @@
 # ADE implementation status
 
+## 2026-09-10 — Observed run files and project results
+
+T7 adds direct Graph file access and project Results on desktop/tablet. Native
+before/after snapshots distinguish created, modified and deleted files; legacy
+provenance stays unknown/reported. Downloads use the original task worktree's
+current file, with later changes marked. Raster previews and bounded regular-file
+downloads include XLSX/PDF. No immutable archive or automatic branch integration.
+Focused evidence: 56 inspection/API checks, 22 real Electron/Chromium checks,
+225 security checks and 82 orchestration checks (including archive retention),
+three TypeScript projects and production build pass. Final full verify remains T6.
+Logs: `test-results/run-files-*.log`; guide images 23/24 show actual fixture output.
+
 ## 2026-09-10 — Explicit project push and GitHub PR
 
 T5 adds reviewed push and GitHub PR creation to independent desktop/tablet

@@ -267,6 +267,12 @@ export class AdeApplicationService {
     ledger.permits(context, 'workspace:read');
     if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
     try {
+      if (payload.operation === 'run-results') {
+        const workspace = await projects.overview(payload.workspaceId);
+        if (!this.options.runInspection) throw new RemoteApiError(404, 'not_found');
+        const runResults = this.options.runInspection.projectRuns(workspace.repositoryId);
+        ledger.permits(context, 'workspace:read'); return { runResults };
+      }
       if (payload.operation === 'publish-status' || payload.operation === 'publish-preview') {
         const publisher = this.options.projectPublish; if (!publisher) throw new RemoteApiError(404, 'not_found');
         const authorize = () => { ledger.permits(context, 'workspace:read');
@@ -356,7 +362,7 @@ export class AdeApplicationService {
     return { run, tasks, checkedAt: Date.now() };
   }
 
-  async runFiles(principal: RemotePrincipal, runId: string, taskId: string) {
+  async runFiles(principal: RemotePrincipal, runId: string, taskId?: string) {
     const authorize = this.inspectionAuthorization(principal);
     return this.options.runInspection!.files(runId, taskId, authorize);
   }

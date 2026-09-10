@@ -1,5 +1,38 @@
 # ADE — Architecture (binding decisions)
 
+## Run file evidence and downloads
+
+Native task PTYs capture file digests before spawn and after exit, before reporting
+completion. `RunTask.fileTracking` holds both snapshots; `RunReportTask.files`
+projects their delta. OrchestrationView omits snapshots. RunArchive and retention
+carry/prune them with the task. Capture failure must not suppress task completion.
+Missing/incomplete snapshots do not prove new/deleted files; legacy agent claims
+remain explicitly reported, not observed. The interval may include parallel writes.
+
+Bounds per snapshot: 1,000 files, 5,000 entries, depth 8, 64 MiB total and a
+three-second work budget; 16 MiB per file. Existing workspace metadata/secret/link
+guards and descriptor checks apply. Lists prioritize changes, at most 100 files;
+aggregation visits at most 32 tasks with an eight-second between-task budget
+(one bounded scan may finish after it). Omitted/unavailable results are explicit.
+Original task/binding/repository identity remains mandatory. Deleted files retain
+evidence without download. Downloads are current files, not an immutable archive;
+`changedSinceRun` marks later modifications. File IDs bind scope, metadata and the
+current digest when captured. Reads validate identity/digest again. Files outside
+the digest budget keep metadata validation and an explicit limited listing.
+
+Dedicated signed GET `/api/v1/runs/:runId/files` aggregates existing task file
+routes; live `workspace:read` authorization goes through AdeApplicationService.
+Project query `run-results` validates the independent workspace and returns the
+last 20 repository runs with matching task IDs. This does not imply integration
+into the selected branch. Desktop-only read IPC `run:files` and `run:fileRead`
+share the service; the generic remote command allowlist is unchanged.
+
+PNG/JPEG/WebP use authenticated blob previews and magic checks; other regular
+formats download as attachments. Text/source/HTML/SVG is redacted text, never
+active content; binary downloads preserve bytes. Blob URLs are released on scope,
+identity, offline, close and unmount. Graph and project result views show change
+labels, missing files, bounds, loading/errors and restore keyboard focus.
+
 ## Independent branch publication
 
 `ProjectPublishService` shares the native Git gate and exact clean-checkout /
@@ -81,13 +114,13 @@ agent/repository binding, exact workspace id/path, native backend and link-safe
 workbench scope under the shared workspace gate. Recheck authorization and identity
 before returning bytes. List at most 100 files, 1,500 entries, depth eight;
 read at most 16 MiB/file with descriptor identity/size/mtime and raster signatures.
-Secret/metadata paths, links and hardlinks are excluded. Allowed files: PNG,
-JPEG, WebP, XLSX, Markdown, TXT, CSV. IDs bind task, workspace version, relative path
+Secret/metadata paths, links and hardlinks are excluded. Raster preview supports PNG,
+JPEG and WebP; regular bounded files can download. IDs bind task, workspace version, relative path
 and file identity; changed/deleted files require relisting. Text is wire-redacted;
 binary files remain byte-for-byte original. Responses are no-store attachments
 with fixed MIME and nosniff. Authenticated browser fetch creates temporary blob
 previews/downloads, revoked on close or identity change. The listing explicitly
-identifies workspace contents, not proven task-created artifacts. Missing or
+distinguishes observed, reported and unknown provenance (see Run file evidence above). Missing or
 rebound historical workspaces fail closed. No public file URLs or SVG/HTML preview.
 
 ## Independent project workspaces and discovery

@@ -144,7 +144,7 @@ h1, h2, h3 { line-height: 1.35; }
 .m-graph-activity-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
 .m-graph-activity-bar > span { overflow-wrap: anywhere; flex: 1 1 240px; }
 .m-graph:has(> .m-graph-activity-bar) { display: flex; flex-direction: column; }
-.m-graph:has(> .m-graph-activity-bar) > .m-graph-scroll { flex: 1; min-height: 0; height: auto; }
+.m-graph:has(> .m-graph-activity-bar) > .m-graph-scroll { position: relative; inset: auto; flex: 1; min-height: 0; height: auto; }
 .m-run-activity { min-width: 0; }
 .m-run-activity .m-actions { flex-wrap: wrap; }
 .m-run-activity button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }

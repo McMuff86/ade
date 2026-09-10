@@ -139,6 +139,8 @@ export const IPC = {
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
   RunReport: 'run:report',
+  RunFiles: 'run:files',
+  RunFileRead: 'run:fileRead',
   RunApprovalDiff: 'run:approvalDiff',
   RunPublicationPreview: 'run:publicationPreview',
   RunPublish: 'run:publish',
@@ -715,6 +717,8 @@ export interface IpcInvokeMap {
   'run:events': { req: RunEventsRequest; res: RunEventsResult };
   /** Full outcome of one run — files, tests with output, risks, SHAs (Thema 3). */
   'run:report': { req: { runId: string }; res: RunReport };
+  'run:files': { req: { runId: string; taskId?: string }; res: import('./remote').MobileRunFiles };
+  'run:fileRead': { req: { runId: string; taskId: string; fileId: string }; res: { base64: string; type: string; name: string } };
   'run:approvalDiff': { req: { runId: string }; res: ApprovalDiffResult };
   'run:publicationPreview': { req: { runId: string }; res: RunPublicationPreview };
   'run:publish': {

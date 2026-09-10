@@ -181,6 +181,8 @@ const valid: Record<InvokeChannel, unknown> = {
   'run:getSummary': { runId: 'run' },
   'run:events': { sinceSeq: 0, limit: 200 },
   'run:report': { runId: 'run' },
+  'run:files': { runId: 'run' },
+  'run:fileRead': { runId: 'run', taskId: 'task', fileId: 'a'.repeat(64) },
   'run:approvalDiff': { runId: 'run' },
   'run:publicationPreview': { runId: 'run' },
   'run:publish': {
@@ -314,6 +316,8 @@ check('run reports require exactly one run id',
   rejects('run:report', {}) && rejects('run:report', { runId: 'run', extra: true }) && rejects('run:report', { runId: 7 }));
 check('run reports are a desktop-only read channel',
   CHANNEL_POLICY['run:report'].effect === 'read' && CHANNEL_POLICY['run:report'].surface === 'desktop');
+check('run file IPC is read-only and desktop confined', ['run:files', 'run:fileRead'].every((channel) => CHANNEL_POLICY[channel as InvokeChannel].effect === 'read' && CHANNEL_POLICY[channel as InvokeChannel].surface === 'desktop'));
+check('run file IPC rejects paths missing tasks and unexpected inputs', rejects('run:files', { runId: 'r', path: 'secret' }) && rejects('run:fileRead', { runId: 'r', fileId: 'a'.repeat(64) }) && rejects('run:fileRead', { runId: 'r', taskId: 't', fileId: '../secret' }));
 check('team pause requires a team id', rejects('run:pauseTeam', { runId: 'run' }));
 check('unknown runtimes are rejected', rejects('agent:create', {
   categoryId: 'c', name: 'a', runtime: 'unknown', permissionMode: 'default',

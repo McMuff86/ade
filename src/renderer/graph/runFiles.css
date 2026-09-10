@@ -1,0 +1,13 @@
+.run-files { min-width: 0; padding: 12px 0; }
+.run-files h3 { margin: 0; }
+.run-files p, .run-files strong, .run-files small { overflow-wrap: anywhere; }
+.run-files-list { padding: 0; list-style: none; display: grid; gap: 10px; }
+.run-files-list li { border: 1px solid var(--border, #3a3e46); border-radius: 6px; padding: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.run-files-list li > div { flex: 1 1 220px; min-width: 0; }
+.run-files-list small { display: block; margin-top: 6px; }
+.run-file-change { display: inline-block; font-size: .85em; padding: 3px 7px; border: 1px solid currentColor; border-radius: 4px; }
+.run-file-change[data-change=created] { color: #63d5a4; }
+.run-file-change[data-change=modified] { color: #e6ad5c; }
+.run-file-preview { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.run-file-preview img { display: block; object-fit: contain; max-width: 100%; max-height: 55vh; width: 100%; }
+.run-files button, .run-files a { min-height: 40px; overflow-wrap: anywhere; max-width: 100%; }

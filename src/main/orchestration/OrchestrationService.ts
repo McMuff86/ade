@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { taskFileChanges } from '../../shared/runFiles';
 import {
   DEFAULT_RUN_BUDGET,
   HISTORY_RETENTION,
@@ -174,7 +175,7 @@ export class OrchestrationService {
       })),
       participants: config.runParticipants.map((participant) => ({ ...participant })),
       tasks: tasks.map((task): RunTaskView => {
-        const { prompt, output: _output, ...rest } = task;
+        const { prompt, output: _output, fileTracking: _fileTracking, ...rest } = task;
         const digest = this.promptDigestFor(task.id, prompt);
         return {
           ...rest,
@@ -269,6 +270,7 @@ export class OrchestrationService {
         endedAt: task.endedAt,
         exitCode: task.exitCode,
         output: task.output ? { ...task.output } : undefined,
+        files: taskFileChanges(task.fileTracking, result?.filesChanged),
         error: task.error,
         result: result
           ? {
@@ -306,6 +308,7 @@ export class OrchestrationService {
       else if (task.status === 'failed') totals.failed += 1;
       else if (task.status === 'cancelled') totals.cancelled += 1;
       for (const file of task.result?.filesChanged ?? []) filesChanged.add(file);
+      for (const file of task.files?.files ?? []) if (['created', 'modified', 'deleted'].includes(file.change)) filesChanged.add(file.path);
       for (const test of task.result?.tests ?? []) {
         if (test.status === 'passed') totals.testsPassed += 1;
         else if (test.status === 'failed') totals.testsFailed += 1;

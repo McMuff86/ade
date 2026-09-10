@@ -72,7 +72,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   const desktop = await app.firstWindow(); desktop.setDefaultTimeout(25_000);
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1360, 1000));
-  const setup = await desktop.evaluate(async ({ repository, root, executable }) => {
+  await desktop.evaluate(async ({ repository, root, executable }) => {
     const repo = await window.ade.invoke('repository:import', { path: repository, name: 'Gartenplaner', executionBackend: 'native' });
     const category = await window.ade.invoke('category:create', { name: 'Meine Agents' });
     const agent = await window.ade.invoke('agent:create', { categoryId: category.id, name: 'Codex Entwicklung', runtime: 'codex', permissionMode: 'default', defaultRepositoryId: repo.id });
@@ -89,7 +89,6 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
   const defaults = desktop.getByTestId('project-defaults');
   await defaults.getByLabel('Projekt-Stammordner', { exact: true }).fill(repos);
-  await defaults.getByLabel('Codex-Startprofil', { exact: true }).selectOption(setup.agentId);
   await defaults.getByRole('button', { name: 'Projektstart speichern', exact: true }).click();
   await defaults.getByRole('status').waitFor();
   // Mask the fixture's transient absolute path, never edit the production DOM to stage screenshots.
@@ -113,21 +112,22 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await mobile.getByRole('button', { name: 'Pairing schliessen' }).click();
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   const grants = desktop.getByRole('group', { name: 'Verwaltungsrechte für Mein Samsung Tablet', exact: true });
-  for (const name of ['Agents und Projekte erstellen', 'Workspace-Dateien und Git-Diffs lesen', 'Kleine Workspace-Textdateien bearbeiten']) await grants.getByRole('checkbox', { name, exact: true }).check();
+  for (const name of ['Agents und Projekte erstellen', 'Workspace-Dateien und Git-Diffs lesen', 'Kleine Workspace-Textdateien bearbeiten',
+    'Projekt-Workspaces ohne Agent-Profil öffnen', 'Projekt-Branches und lokale Git-Aktionen ausführen', 'Projekt-Branches pushen und GitHub-PRs erstellen']) await grants.getByRole('checkbox', { name, exact: true }).check();
   await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).check();
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   await capture('04-device-rights.png', grants);
   await capture('05-tablet-overview.png', tablet);
   await tablet.getByRole('tab', { name: 'Projekte', exact: true }).click();
-  await tablet.getByRole('button', { name: 'Projekt öffnen: Gartenplaner', exact: true }).waitFor();
+  await tablet.getByRole('button', { name: 'Workspace öffnen: Gartenplaner', exact: true }).waitFor();
   await capture('06-projects.png', tablet);
   await tablet.getByRole('button', { name: 'Neues Projekt', exact: true }).click();
   const start = tablet.getByRole('dialog', { name: 'Neues Projekt', exact: true });
   await start.getByLabel('Projektname (optional)', { exact: true }).fill('Mein Notizbuch');
-  await start.getByRole('button', { name: 'Mit Codex starten', exact: true }).click({ trial: true });
+  await start.getByRole('button', { name: 'Projekt anlegen und öffnen', exact: true }).click({ trial: true });
   await capture('07-new-project.png', tablet);
   await tablet.keyboard.press('Escape');
-  await tablet.getByRole('button', { name: 'Projekt öffnen: Gartenplaner', exact: true }).click();
+  await tablet.getByRole('button', { name: 'Workspace öffnen: Gartenplaner', exact: true }).click();
   const workspace = tablet.getByRole('dialog', { name: 'Projekt · Gartenplaner', exact: true });
   await workspace.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await workspace.getByLabel('Projekt-CLI', { exact: true }).waitFor();
@@ -141,9 +141,13 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await tablet.screenshot({ path: join(output, '10-keyboard-compact.png'), clip: { x: 0, y: 0, width: 1280, height: 420 } }); captures.push('10-keyboard-compact.png');
   await tablet.evaluate(() => { Reflect.deleteProperty(window.visualViewport!, 'height'); window.visualViewport!.dispatchEvent(new Event('resize')); });
   await workspace.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
-  await workspace.getByRole('button', { name: 'Dateien', exact: true }).click();
-  await workspace.getByRole('button', { name: 'README.md', exact: true }).click();
-  await workspace.getByText('Eine kleine App zum Planen von Beeten und Pflanzterminen.', { exact: false }).waitFor();
+  await workspace.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
+  await tablet.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
+  await tablet.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).waitFor({ state: 'hidden' });
+  writeFileSync(join(repository, 'README.md'), '# Gartenplaner\n\nEine kleine App zum Planen von Beeten und Pflanzterminen.\n\nErster Plan: Beete und Pflanztermine erfassen.\n');
+  await workspace.getByRole('button', { name: 'Git', exact: true }).click();
+  await workspace.getByRole('button', { name: 'Datei bearbeiten: README.md', exact: true }).click();
+  await workspace.getByLabel('Git-Dateiinhalt', { exact: true }).waitFor();
   await capture('11-workspace-files.png', tablet);
   await workspace.getByRole('button', { name: 'Projekt · Gartenplaner schliessen', exact: true }).click();
   await tablet.getByRole('tab', { name: 'Overview', exact: true }).click();
@@ -156,7 +160,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await tablet.getByRole('tab', { name: 'Work', exact: true }).click();
   await tablet.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   await capture('13-task.png', tablet);
-  writeFileSync(join(output, 'capture.json'), JSON.stringify({ capturedAt: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  writeFileSync(join(output, 'capture.json'), JSON.stringify({ capturedAt: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), workingTreeDirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
     platform: process.platform, browser: browser.version(), demo: true, physicalTablet: false, keyboard: 'visualViewport geometry simulated; OS keyboard is not pictured',
     isolation: 'Temporary Electron profile, local Git repo, deterministic CLI executable, local TLS proxy; Tailscale CLI stubbed only in fixture process',
     captures, mobileAssets: readFileSync(resolve('out/mobile/index.html'), 'utf8').match(/assets\/[^" ]+/g) }, null, 2) + '\n');
