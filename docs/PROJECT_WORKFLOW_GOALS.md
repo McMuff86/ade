@@ -25,7 +25,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen als interne native Windows-Grenze; Bedienoberfläche folgt T3b |
 | T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | abgeschlossen für native Windows |
-| T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
+| T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | abgeschlossen für native Windows mit lokalem Git-/GitHub-Provider-Fixture |
 | T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
 
 ## Verbindliche Umsetzungsgrenzen
@@ -233,3 +233,20 @@ Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalte
   Logs: `test-results/project-git-*.log`. Der neue Git-Driver gehört zu verify.
 - Guide-Aufnahmen 19/20 stammen aus isolierten echten Git-Fixtures. Kein externes
   Repository wurde veröffentlicht. T5/T6 und der gemeinsame Push sind noch offen.
+
+### T5 — Push und Pull Request ausdrücklich veröffentlichen
+
+- Native Grenze: 41 Prüfungen mit realen lokalen Git-Repositories/Bare-Remotes,
+  GitHub-Kommandofixture und tatsächlich ausgeführter gh.exe-Fixture. Vorgaben:
+  konkrete Remote-/HEAD-/Basis-Vorschau, kein Force/Tag/Submodule-Push, keine Hooks,
+  PR ohne impliziten Push/Fork, literal mehrzeiliger Text über stdin, sichere URLs.
+- Rechteentzug, Ablauf, lokale/Remote-Drift, Divergenz, geändertes Push-Ziel,
+  Providerausfall, verlorene PR-Antwort und vorhandener PR werden geprüft.
+- 12 signierte Browser-Checks: Rechte, Fokus, Vorschauen, verlorene Push-/PR-Antwort
+  mit Reload, gleicher Beleg statt Doppelmutation, Offline und Telefonbreite.
+  Der native Electron-Git-Driver hat jetzt 20 Checks inklusive echter Desktop-
+  Veröffentlichung an ein lokales Bare-Remote. Kein externes Test-Repository.
+- Drafts 33, Security 221, drei TypeScript-Projekte und Build grün. Logs:
+  `test-results/project-publish-*.log`; Guide-Aufnahmen 21/22. Native Windows ist
+  gemessen; Live-GitHub-End-to-End sowie weitere Betriebssysteme sind keine Zusage.
+- Vollständige T6-Abnahme, abschliessender Commit und gemeinsamer Push folgen.

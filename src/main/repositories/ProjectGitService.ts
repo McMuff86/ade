@@ -29,6 +29,14 @@ export class ProjectGitService {
 
   async overview(id: string): Promise<ProjectGitOverview> { return workspaceOperations.use(async () => (await this.inspect(id)).view); }
 
+  /** Main-only publication port. Caller owns the shared read/mutation gate. */
+  async publicationState(id: string) {
+    const state = await this.inspect(id); this.assertAvailable(state.scope);
+    if (state.view.blockedReason) fail(state.view.blockedReason);
+    if (state.view.merge || state.view.files.length || !state.view.head) fail('Vor Veröffentlichung einen sauberen Branch mit Commit herstellen.');
+    return { scope: state.scope, view: state.view };
+  }
+
   async diff(id: string, path: string): Promise<ProjectGitDiff> {
     return workspaceOperations.use(async () => {
     workbenchPath(path); const before = await this.inspect(id); const file = before.view.files.find((item) => item.path === path);

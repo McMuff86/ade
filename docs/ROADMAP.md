@@ -21,7 +21,7 @@ workspace opening now have desktop/tablet entry, explicit grants and recovery.
 T3a supplies the internal branch/worktree boundary with 40 native Git checks.
 T3b connects branch selection and CLI launch without a profile, including named
 new projects, optional native profiles and receipt recovery. T4 delivers selective
-commits, conflict recovery, merge and fetch/fast-forward. T5 adds explicit push/PR;
+commits, conflict recovery, merge and fetch/fast-forward. T5 delivers explicit push/PR;
 T6 completes the guide, menu review and repository-wide verification. The additional WSL lifecycle
 test is still open after a backend-readiness timeout (see goal evidence).
 

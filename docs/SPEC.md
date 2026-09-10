@@ -11,7 +11,12 @@ resolve files, mark them resolved and explicitly finish, or review an abort.
 Fetch and reviewed fast-forward are separate operations. Missing permissions,
 unsupported files, stale previews and uncertain replies explain the next action.
 Mobile recovery reuses the original receipt; no blind duplicate commit/save.
-Independent project push/PR remains T5 until its own executable evidence exists.
+**Push und Pull Request** adds an explicit publication stage. Choose a configured
+remote, inspect its actual destination, then review and push the exact branch
+commit. GitHub PR preparation selects target branch, title, complete description
+and draft status; the branch must already be pushed. Existing matching PRs are
+reused. Publication needs its own device grant. Completion displays the confirmed
+commit/time; **Remote-Stand prüfen** reads current state and links existing PRs.
 
 ## Mobile run results
 

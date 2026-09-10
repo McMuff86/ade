@@ -311,7 +311,36 @@ Grosse, geschützte oder verknüpfte Dateien müssen über die lokale CLI geprü
 **Fetch prüfen** aktualisiert den gespeicherten Remote-Stand. Anschliessend den
 Pull-Branch wählen und **Fast-forward prüfen**: das übernimmt nur einen direkt
 fortsetzbaren Stand. Bei auseinanderlaufenden Branches ist ein bewusster Merge
-nötig. Push und PR folgen im nächsten Projektschritt; Fetch veröffentlicht nichts.
+nötig. Fetch veröffentlicht nichts.
+
+Zum Veröffentlichen **Push und Pull Request** aufklappen:
+
+1. Den Veröffentlichungs-Remote wählen und **Remote-Stand prüfen**. Ziel und
+   lokaler/entfernter Commit werden angezeigt.
+2. **Push prüfen** zeigt Branch, Commit und betroffene Dateien. **Push ausführen**
+   überträgt diesen Stand. Bei auseinanderlaufenden Branches zuerst Fetch/Merge.
+3. Für GitHub **GitHub Pull Request vorbereiten** öffnen. Zielbranch, Titel und
+   Beschreibung ausfüllen; **Als Entwurf erstellen** ist vorausgewählt.
+4. **PR prüfen**, Inhalt prüfen und **PR erstellen**. **PR öffnen** führt zum
+   bestätigten Pull Request. Ein bereits vorhandener passender PR wird verwendet.
+
+![Push-Vorschau vor der Veröffentlichung](media/user-guide/21-project-push.png)
+
+![PR-Vorschau mit Zielbranch, Beschreibung und Entwurfsstatus](media/user-guide/22-project-pr.png)
+
+Für PRs muss GitHub CLI (`gh`) am PC installiert und bei GitHub angemeldet sein;
+Installation/Anmeldung erfolgt ausserhalb dieses Dialogs. Der ausgewählte Remote
+muss zu diesem GitHub-Repository führen. Der Branch muss vorher ausdrücklich
+gepusht sein. Das entspricht der dokumentierten Wirkung des expliziten
+[GitHub-CLI-Parameters `--head`](https://cli.github.com/manual/gh_pr_create).
+Ein abgelehnter Push wird nicht mit Force wiederholt; siehe die
+[Git-Dokumentation zum Push-Verhalten](https://git-scm.com/docs/git-push).
+
+Am PC zusätzlich **Projekt-Branches pushen und GitHub-PRs erstellen** freigeben.
+Nach einer verlorenen Antwort **Veröffentlichung erneut prüfen** verwenden.
+**Remote-Stand prüfen** zeigt unabhängig davon den aktuellen Commit und offene
+PRs. Eine Bestätigung nennt den damals übertragenen Commit; spätere Änderungen
+werden erst durch erneutes Prüfen sichtbar.
 
 Auf dem Tablet müssen **Projekt-Branches und lokale Git-Aktionen ausführen** und
 zum Bearbeiten **Kleine Workspace-Textdateien bearbeiten** am PC freigegeben sein.

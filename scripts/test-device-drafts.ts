@@ -79,6 +79,18 @@ storage.setItem(`ade-work:git-tablet:${fileKey}`, JSON.stringify({ at: 1, value:
 check('unconfirmed conflict save keeps exact submitted content over reload', readDeviceDraft<typeof filePending | null>('git-tablet', fileKey, null)?.input.text === 'resolution');
 writeDeviceDraft('git-tablet', fileKey, { ...filePending, input: { ...filePending.input, projectWorkspaceId: 'other' } });
 check('file receipt cannot cross workspace identities', readDeviceDraft('git-tablet', fileKey, null) === null);
+const publishKey = `project-publish:${branchWorkspace}`; const publishPending = { key: 'publish-key', preview: { id: '12345678-1234-1234-1234-123456789abd', workspaceId: branchWorkspace,
+  action: { kind: 'push', remote: 'origin' }, baseHead: null, changedFiles: ['a.txt'], commitCount: 2, expiresAt: 1,
+  status: { workspaceId: branchWorkspace, projectName: 'Project', branch: 'feature', head: 'a'.repeat(40), remote: 'origin', target: 'github.com/fixture/repo', remoteHead: null, provider: 'fixture/repo', pullRequests: [], providerNotice: null, checkedAt: 1 } } };
+storage.setItem(`ade-work:pub-tablet:${publishKey}`, JSON.stringify({ at: 1, value: publishPending }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('pub-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('unconfirmed publication survives expiry and ordinary draft eviction', readDeviceDraft<typeof publishPending | null>('pub-tablet', publishKey, null)?.key === publishPending.key);
+writeDeviceDraft('pub-tablet', publishKey, { ...publishPending, preview: { ...publishPending.preview, workspaceId: 'other' } });
+check('publication receipt cannot cross project identity', readDeviceDraft('pub-tablet', publishKey, null) === null);
+writeDeviceDraft('pub-tablet', publishKey, { ...publishPending, preview: { ...publishPending.preview, status: { ...publishPending.preview.status, head: {} } } });
+check('malformed publication cannot crash renderer preview', readDeviceDraft('pub-tablet', publishKey, null) === null);
+writeDeviceDraft('pub-tablet', publishKey, { ...publishPending, preview: { ...publishPending.preview, status: { ...publishPending.preview.status, pullRequests: [{ number: 1, url: 'javascript:alert(1)', head: 'a'.repeat(40), base: 'main', draft: true }] } } });
+check('persisted publication rejects unsafe PR links', readDeviceDraft('pub-tablet', publishKey, null) === null);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

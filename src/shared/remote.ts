@@ -125,13 +125,17 @@ export interface ProjectWorkspaceView {
 export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches'; workspaceId: string }
   | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction }
   | { operation: 'git'; workspaceId: string } | { operation: 'git-diff'; workspaceId: string; path: string }
-  | { operation: 'git-preview'; workspaceId: string; action: import('./projectGit').ProjectGitAction };
-export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply' | 'git-apply'; previewId: string };
+  | { operation: 'git-preview'; workspaceId: string; action: import('./projectGit').ProjectGitAction }
+  | { operation: 'publish-status'; workspaceId: string; remote: string }
+  | { operation: 'publish-preview'; workspaceId: string; action: import('./projectPublish').ProjectPublishAction };
+export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply' | 'git-apply' | 'publish-apply'; previewId: string };
 export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView;
   branches?: import('./projectBranches').ProjectBranchOverview; preview?: import('./projectBranches').ProjectBranchPreview;
-  git?: import('./projectGit').ProjectGitOverview; gitPreview?: import('./projectGit').ProjectGitPreview; gitDiff?: import('./projectGit').ProjectGitDiff }
-export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean; git?: import('./projectGit').ProjectGitOverview }
+  git?: import('./projectGit').ProjectGitOverview; gitPreview?: import('./projectGit').ProjectGitPreview; gitDiff?: import('./projectGit').ProjectGitDiff;
+  publish?: import('./projectPublish').ProjectPublishStatus; publishPreview?: import('./projectPublish').ProjectPublishPreview }
+export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean; git?: import('./projectGit').ProjectGitOverview; publication?: import('./projectPublish').ProjectPublication }
 export type { ProjectGitAction, ProjectGitOverview, ProjectGitPreview, ProjectGitDiff } from './projectGit';
+export type { ProjectPublishAction, ProjectPublishStatus, ProjectPublishPreview, ProjectPublication } from './projectPublish';
 
 /** null explicitly selects the agent home, regardless of its default project. */
 export type MobileWorkspaceSelection =

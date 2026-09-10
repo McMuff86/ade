@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-10",
+  "platform": "native Windows host API and signed Chromium touch browser",
+  "driver": "scripts/test-project-publish-browser.ts",
+  "fixture": "Real local Git and bare remote; GitHub command/network port is deterministic, no external publication",
+  "images": {
+    "21-project-push.png": "Explicit push preview before sending a branch",
+    "22-project-pr.png": "PR title, description, source/base and draft review"
+  },
+  "physicalSamsungKeyboardMeasured": false
+}

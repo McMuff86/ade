@@ -12,6 +12,8 @@ import { RepositoryScopeService } from '../../src/main/repositories/RepositorySc
 import { ProjectWorkspaceService } from '../../src/main/repositories/ProjectWorkspaceService';
 import { ProjectBranchService } from '../../src/main/repositories/ProjectBranchService';
 import { ProjectGitService } from '../../src/main/repositories/ProjectGitService';
+import { ProjectPublishService, type ProjectGhCommand } from '../../src/main/repositories/ProjectPublishService';
+import type { projectGit } from '../../src/main/repositories/ProjectGitBoundary';
 import { RepositorySyncService } from '../../src/main/repositories/RepositorySyncService';
 import { BackendWorkspaceService } from '../../src/main/execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../../src/main/execution/ExecutionBackendService';
@@ -22,7 +24,7 @@ import type { ActivityLine } from '../../src/shared/ipc';
 import { RunInspectionService } from '../../src/main/application/RunInspectionService';
 
 /** Real native Git scopes/domain/HTTP; runtime processes alone are deterministic fixtures. */
-export function createRemoteWorkspaceFixture(root: string) {
+export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}) {
   const fixture = createMobileFixture(root); const { store, devices, orchestration, changes } = fixture;
   store.save({ repositories: [] });
   const sessions: SessionMeta[] = [];
@@ -45,6 +47,7 @@ export function createRemoteWorkspaceFixture(root: string) {
   const projects = new ProjectWorkspaceService(store);
   const projectBranches = new ProjectBranchService(store, projects, () => sessions);
   const projectGit = new ProjectGitService(store, projects, () => sessions);
+  const projectPublish = new ProjectPublishService(projectGit, publishOptions.gh, Date.now, publishOptions.git);
   const workbench = new RemoteWorkbenchService(store, () => sessions, execution, projects);
   const observations = new Map<string, { lines: ActivityLine[]; lastOutputAt?: number; outputBytes: number; structured: boolean }>();
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
@@ -53,12 +56,12 @@ export function createRemoteWorkspaceFixture(root: string) {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
-    workbench, runInspection: inspection, projects, projectBranches, projectGit,
+    workbench, runInspection: inspection, projects, projectBranches, projectGit, projectPublish,
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
     profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit };
+  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish };
 }

@@ -1,5 +1,15 @@
 # ADE — aktuelle Übergabe
 
+## T5 Veröffentlichung geprüft (2026-09-10)
+
+T4 ist `d3a4d9f`. T5 ergänzt expliziten Push/PR mit separater Gerätefreigabe,
+vollständiger Vorschau und Wiederaufnahme unbestätigter Antworten. Gemessen:
+41 Veröffentlichungs-, 12 signierte Browser-, 20 Electron-Git/Push-, 33 Draft-
+und 221 Security-Prüfungen; drei TypeScript-Projekte und Build. GitHub wird in
+den Tests nachgebildet; echte Git-Remotes bleiben lokale Fixtures. Kein externer
+Test-PR. T6 bleibt offen, der gemeinsame Push erfolgt erst nach Gesamtabnahme.
+Persönliche ADE-Instanz und Tailscale-Routen weiterhin unverändert.
+
 ## T4 Projekt-Git geprüft (2026-09-10)
 
 Desktop und Tablet besitzen im unabhängigen Projekt einen Git-Bereich: Dateien

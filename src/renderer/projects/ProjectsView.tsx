@@ -4,11 +4,13 @@ import { ProjectDirectory, ProjectWorkspaceSummary } from './ProjectDirectory';
 import { ProjectBranches, type PendingBranch } from './ProjectBranches';
 import { ProjectTerminal } from './ProjectTerminal';
 import { ProjectGitPanel, type PendingProjectFile, type PendingProjectGit } from './ProjectGitPanel';
+import { ProjectPublishPanel, type PendingProjectPublish } from './ProjectPublishPanel';
 import { useSelection } from '../stores/selection';
 
 const query = (input: ProjectWorkspaceQuery) => window.ade.invoke('project:query', input);
 const applyBranch = async (previewId: string) => (await window.ade.invoke('project:command', { operation: 'branch-apply', previewId })).workspace;
 const applyGit = async (previewId: string) => (await window.ade.invoke('project:command', { operation: 'git-apply', previewId })).git!;
+const applyPublish = (previewId: string) => window.ade.invoke('project:command', { operation: 'publish-apply', previewId });
 const errorText = (error: unknown) => String(error);
 
 export function ProjectsView(): JSX.Element {
@@ -23,6 +25,7 @@ export function ProjectsView(): JSX.Element {
   const [section, setSection] = useState<'terminal' | 'git'>('terminal');
   const [gitReceipts, setGitReceipts] = useState<Record<string, PendingProjectGit | null>>({});
   const [fileReceipts, setFileReceipts] = useState<Record<string, PendingProjectFile | null>>({});
+  const [publishReceipts, setPublishReceipts] = useState<Record<string, PendingProjectPublish | null>>({});
   const live = useRef(true); const lock = useRef(false); const opener = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => { if (workspace) heading.current?.focus(); }, [workspace]);
@@ -71,12 +74,14 @@ export function ProjectsView(): JSX.Element {
         pending={pending} savePending={(value) => { setPending(value); return true; }} onWorkspace={(value) => { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); }} />
       <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button></div>
       {section === 'terminal' ? <ProjectTerminal key={`${workspace.id}:${workspace.branch}:${sessionId ?? ''}`} workspace={workspace} initialSessionId={sessionId ?? undefined} />
-        : <ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online canChange canEdit query={query} apply={applyGit} errorText={errorText}
+        : <><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online canChange canEdit query={query} apply={applyGit} errorText={errorText}
           readFile={(path) => window.ade.invoke('project:fileRead', { projectWorkspaceId: workspace.id, path })}
           saveFile={(input) => window.ade.invoke('project:fileSave', { projectWorkspaceId: workspace.id, path: input.path, text: input.text, revision: input.revision, workspaceVersion: input.workspaceVersion })}
           pending={gitReceipts[workspace.id] ?? null} savePending={(value) => { setGitReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }}
           filePending={fileReceipts[workspace.id] ?? null} saveFilePending={(value) => { setFileReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }}
-          onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); } }} />}
+          onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); } }} />
+          <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online canPublish query={query} apply={applyPublish} errorText={errorText}
+            pending={publishReceipts[workspace.id] ?? null} savePending={(value) => { setPublishReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }} /></>}
     </> : <><details><summary>Neues Projekt</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
       <label>Projektname<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
       <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? 'Angelegtes Projekt öffnen' : 'Projekt anlegen und öffnen'}</button>

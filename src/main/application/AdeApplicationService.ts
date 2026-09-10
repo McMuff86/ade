@@ -50,6 +50,7 @@ import type { RunInspectionService } from './RunInspectionService';
 import type { MobileRunActivity } from '../../shared/remote';
 import type { ProjectBranchService } from '../repositories/ProjectBranchService';
 import type { ProjectGitService } from '../repositories/ProjectGitService';
+import type { ProjectPublishService } from '../repositories/ProjectPublishService';
 import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
 
@@ -107,6 +108,7 @@ export interface ApplicationOptions {
   runInspection?: RunInspectionService;
   projectBranches?: ProjectBranchService;
   projectGit?: ProjectGitService;
+  projectPublish?: ProjectPublishService;
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
@@ -265,6 +267,14 @@ export class AdeApplicationService {
     ledger.permits(context, 'workspace:read');
     if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
     try {
+      if (payload.operation === 'publish-status' || payload.operation === 'publish-preview') {
+        const publisher = this.options.projectPublish; if (!publisher) throw new RemoteApiError(404, 'not_found');
+        const authorize = () => { ledger.permits(context, 'workspace:read');
+          if (payload.operation === 'publish-preview') { ledger.permits(context, 'projects:write'); ledger.permits(context, 'projectGit:publish'); } };
+        authorize(); const result = payload.operation === 'publish-status' ? { publish: await publisher.status(payload.workspaceId, payload.remote) }
+          : { publishPreview: await publisher.preview(payload.workspaceId, payload.action, context.principal.id) };
+        authorize(); return result;
+      }
       const branches = this.options.projectBranches;
       const git = this.options.projectGit;
       if (payload.operation.startsWith('git') && !git) throw new RemoteApiError(404, 'not_found');
@@ -286,6 +296,15 @@ export class AdeApplicationService {
     const ledger = this.options.administration?.ledger; const projects = this.options.projects;
     if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
     if (!validProjectWorkspaceCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    if (payload.operation === 'publish-apply') {
+      const publisher = this.options.projectPublish; if (!publisher) throw new RemoteApiError(404, 'not_found');
+      const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write'); ledger.permits(context, 'projectGit:publish'); };
+      authorize(); const result = await ledger.execute(context, 'project:publish-apply', 'projectGit:publish', payload, () => {
+        const execute = () => publisher.apply(payload.previewId, context.principal.id, authorize);
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      authorize(); return { ...result.value, replayed: result.replayed };
+    }
     const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write');
       if (payload.operation !== 'open') ledger.permits(context, 'projectGit:write'); };
     authorize();

@@ -1,5 +1,34 @@
 # ADE — Architecture (binding decisions)
 
+## Independent branch publication
+
+`ProjectPublishService` shares the native Git gate and exact clean-checkout /
+active-PTY / common-lease checks. Dedicated typed `publish-status`,
+`publish-preview` and `publish-apply` project operations pass through
+`AdeApplicationService`. Status is read-only (`workspace:read`); preview/apply
+also require `projects:write` and the new explicit `projectGit:publish` grant.
+The existing local Git grant cannot publish. Authorization is rechecked before
+mutation and response; device results are durable idempotency receipts with the
+observed branch/SHA/target/confirmation time, not a permanently current sync claim.
+The generic remote IPC allowlist and shell IPC classification stay unchanged.
+
+Previews bind owner, workspace revision, current HEAD, actual single push URL,
+remote branch SHA and PR base SHA for five minutes. Push uses the exact reviewed
+SHA and branch, explicit non-force refspec, no tags/submodules/hooks, and checks
+the remote SHA afterwards. Divergence requires fetch/merge first. Actual target
+display follows the resolved push destination; mismatching GitHub fetch/push or
+URL-rewrite identities cannot create a PR under the wrong provider identity.
+
+GitHub PRs require an already-pushed exact HEAD and a readable existing base.
+`gh pr create` pins `--repo github.com/owner/repository`, `--head`, `--base`, title
+and draft choice; the full body uses `--body-file -` and stdin. No automatic push,
+fork, reviewers or PR merge. Provider reads validate same-repository head/base/SHA
+and safe GitHub URLs. An existing matching PR is returned without another create.
+Missing CLI/auth/provider, changed targets or uncertain results fail visibly;
+explicit status reads find an existing PR after a lost response. Pending mobile
+publication receipts survive reload and ordinary draft eviction. No auto retry
+with a new key. Native gh commands have bounded output/time and redacted errors.
+
 ## Independent project Git workbench
 
 `ProjectGitService` provides bounded status/diff and single-use, owner-bound,

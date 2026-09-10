@@ -1,5 +1,18 @@
 # ADE implementation status
 
+## 2026-09-10 — Explicit project push and GitHub PR
+
+T5 adds reviewed push and GitHub PR creation to independent desktop/tablet
+workspaces. Publication needs the separate `projectGit:publish` grant. Existing
+matching PRs are reused; lost replies retain durable device receipts. Actual
+remote heads, destination drift and divergence are checked; no force-push or
+implicit PR push. Focused native evidence: 41 publication checks (real local Git,
+bare remotes and native gh executable fixture), 12 signed Chromium checks,
+20 real Electron Git/push checks, 33 draft checks and 221 security checks.
+Three TypeScript projects and build pass. GitHub network behavior is represented
+by a deterministic provider port; no external PR or live-provider end-to-end
+claim. Logs: `test-results/project-publish-*.log`. Final `pnpm verify` is T6.
+
 ## 2026-09-10 — Project Git status, commit and merge
 
 T4 connects native desktop/tablet Git status/diff, selective commits, text conflict
@@ -8,7 +21,7 @@ Native evidence: 47 real Git/API checks, 18 Electron/Chromium checks, 29 device
 draft checks, 221 security checks; three TypeScript projects and build pass.
 Screenshots and recovery instructions are in USER_GUIDE. Logs:
 `test-results/project-git-*.log`. Independent project push/PR and final complete
-verification remain T5/T6. The personal operator is still the frozen `e07e00b`.
+verification were pending at this T4 checkpoint. The personal operator is still the frozen `e07e00b`.
 
 ## 2026-09-10 — Independent project CLI and branch entry
 
@@ -45,7 +58,7 @@ sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
 is specified in `VERIFIED_PUBLISHING_PLAN.md`.
 The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
 
-User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0–T4 delivered for native Windows, T5/T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+User entry: [illustrated guide](USER_GUIDE.md). Active implementation: [project workflow goal](PROJECT_WORKFLOW_GOALS.md); T0–T5 delivered for native Windows, T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
 Latest product verification: native Windows `pnpm verify`, **2,148 checks**, plus the 50-check focused keyboard driver.
 The operator reports improved Samsung/Chrome usability; a systematic physical-device matrix remains open.
 The current screenshot capture uses isolated demo data and simulated keyboard geometry, not provider inference.

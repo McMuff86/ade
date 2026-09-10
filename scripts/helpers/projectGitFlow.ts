@@ -82,6 +82,16 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await panel.getByRole('button', { name: 'Fetch prüfen', exact: true }).click(); await confirm(panel);
   await panel.getByText('Branches zusammenführen und Remote-Stand', { exact: true }).click(); await panel.getByRole('button', { name: 'Fast-forward prüfen', exact: true }).click(); await confirm(panel);
   check('tablet fetch and reviewed fast-forward bring exact remote commit', git('rev-parse', 'HEAD') === gitAt(peer, 'rev-parse', 'HEAD') && existsSync(join(cwd, 'remote.txt')));
+  write('published.txt', 'desktop publication\n'); git('add', 'published.txt'); git('commit', '-m', 'desktop publication');
+  await desktop.getByText('Push und Pull Request', { exact: true }).click();
+  const publication = desktop.getByRole('region', { name: 'Projekt veröffentlichen', exact: true });
+  await publication.getByRole('button', { name: 'Remote-Stand prüfen', exact: true }).click();
+  await publication.getByText('Lokaler und Remote-Stand unterscheiden sich.', { exact: true }).waitFor();
+  await publication.getByRole('button', { name: 'Push prüfen', exact: true }).click();
+  const pushPreview = publication.getByRole('region', { name: 'Veröffentlichungsvorschau', exact: true }); await pushPreview.waitFor();
+  check('native Electron push preview leaves remote unchanged before explicit confirmation', gitAt(remote, 'rev-parse', 'main') !== git('rev-parse', 'HEAD') && await pushPreview.getByText('published.txt', { exact: true }).isVisible());
+  await pushPreview.getByRole('button', { name: 'Push ausführen', exact: true }).click(); await publication.getByText('Push bestätigt', { exact: false }).waitFor();
+  check('native Electron command publishes reviewed commit to real configured bare remote', gitAt(remote, 'rev-parse', 'main') === git('rev-parse', 'HEAD'));
   await page.setViewportSize({ width: 390, height: 844 }); check('Git controls fit phone width', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: join(evidence, 'project-git-phone.png') });
   check('final browser positive control leaves clean main and preserved resolution', !git('status', '--porcelain').trim() && git('branch', '--show-current').trim() === 'main' && git('show', 'HEAD:a.txt') === 'combined from tablet\n');

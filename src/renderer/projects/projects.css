@@ -42,3 +42,8 @@
 .project-git details { margin-top: 16px; }
 .project-git details label { display: block; margin: 8px 0; }
 .project-git select { max-width: 100%; min-width: 0; }
+.project-publish { margin: 20px 0; padding: 12px; border: 1px solid var(--border); overflow-wrap: anywhere; }
+.project-publish label { display: block; margin: 12px 0; }
+.project-publish input:not([type=checkbox]), .project-publish textarea, .project-publish select { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; background: var(--bg); color: inherit; border: 1px solid var(--border); padding: 10px; }
+.project-publish button { margin: 4px; }
+.project-publish pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow: auto; }

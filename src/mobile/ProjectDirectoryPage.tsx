@@ -10,6 +10,7 @@ import { ProjectBranches, type PendingBranch } from '../renderer/projects/Projec
 import { RemoteTerminalPane } from './RemoteTerminalPane';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { ProjectGitPanel, type PendingProjectFile, type PendingProjectGit } from '../renderer/projects/ProjectGitPanel';
+import { ProjectPublishPanel, type PendingProjectPublish } from '../renderer/projects/ProjectPublishPanel';
 
 interface Opening { key: string; entryId: string; name: string }
 export interface ProjectOpenIntent { key: string; workspaceId?: string; repositoryId?: string; terminalId?: string }
@@ -24,12 +25,14 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [pendingBranch, savePendingBranch] = useDeviceDraft<PendingBranch | null>(host.deviceId, `project-branch:${workspaceId ?? 'none'}`, null);
   const [pendingGit, savePendingGit] = useDeviceDraft<PendingProjectGit | null>(host.deviceId, `project-git:${workspaceId ?? 'none'}`, null);
   const [pendingFile, savePendingFile] = useDeviceDraft<PendingProjectFile | null>(host.deviceId, `project-file:${workspaceId ?? 'none'}`, null);
+  const [pendingPublish, savePendingPublish] = useDeviceDraft<PendingProjectPublish | null>(host.deviceId, `project-publish:${workspaceId ?? 'none'}`, null);
   const [section, setSection] = useState<'terminal' | 'git'>('terminal');
-  useEffect(() => { if (pendingGit || pendingFile) setSection('git'); }, [pendingGit, pendingFile]);
+  useEffect(() => { if (pendingGit || pendingFile || pendingPublish) setSection('git'); }, [pendingGit, pendingFile, pendingPublish]);
   const keyboardOpen = useContext(TabletKeyboardContext);
   const branchQuery = useCallback((input: ProjectWorkspaceQuery) => host.request<ProjectWorkspaceQueryResult>('/api/v1/projects/query', 'POST', input), [host.request]);
   const branchApply = useCallback(async (previewId: string, key: string) => (await host.request<ProjectWorkspaceCommandResult>('/api/v1/projects/command', 'POST', { operation: 'branch-apply', previewId }, key)).workspace, [host.request]);
   const gitApply = useCallback(async (previewId: string, key: string) => (await host.request<ProjectWorkspaceCommandResult>('/api/v1/projects/command', 'POST', { operation: 'git-apply', previewId }, key)).git!, [host.request]);
+  const publishApply = useCallback((previewId: string, key: string) => host.request<ProjectWorkspaceCommandResult>('/api/v1/projects/command', 'POST', { operation: 'publish-apply', previewId }, key), [host.request]);
   const readFile = useCallback((path: string) => host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { projectWorkspaceId: workspaceId, operation: 'file', path }), [host.request, workspaceId]);
   const saveFile = useCallback((input: MobileFileSaveInput, key: string) => host.request<MobileFileSaveResult>('/api/v1/workspace/save', 'POST', input, key), [host.request]);
   const live = useRef(true); const lock = useRef(false); const epoch = useRef(0); const opener = useRef<HTMLButtonElement | null>(null);
@@ -111,7 +114,9 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
         expectedBranch={workspace.branch} active projectEntry initialTerminalId={terminalId} compactControls={keyboardOpen} /></div>
         : <div className="m-project-git-body"><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online={online} canChange={canOpen && !!rights?.capabilities?.includes('projectGit:write')} canEdit={!!rights?.capabilities?.includes('workspace:write')}
           query={branchQuery} apply={gitApply} readFile={readFile} saveFile={saveFile} errorText={workspaceError} pending={pendingGit} savePending={savePendingGit}
-          filePending={pendingFile} saveFilePending={savePendingFile} onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { saveWorkspaceId(value.id); setWorkspace(value); } }} /></div>)}
+          filePending={pendingFile} saveFilePending={savePendingFile} onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { saveWorkspaceId(value.id); setWorkspace(value); } }} />
+          <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online={online} canPublish={canOpen && !!rights?.capabilities?.includes('projectGit:publish')}
+            query={branchQuery} apply={publishApply} errorText={workspaceError} pending={pendingPublish} savePending={savePendingPublish} /></div>)}
       {workspace && <details><summary>Agent-Arbeitskopie</summary><p>Eine bereits eingerichtete Agent-Arbeitskopie über den bisherigen Einstieg verwenden.</p>
         <button onClick={() => { const id = workspace.repositoryId; close(); onAgentWorkspace(id); }}>Agent-Arbeitskopie öffnen</button></details>}
     </Dialog>}
