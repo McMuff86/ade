@@ -44,6 +44,7 @@ import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
 import { RunInspectionService } from './application/RunInspectionService';
 import { ProjectBranchService } from './repositories/ProjectBranchService';
+import { ProjectGitService } from './repositories/ProjectGitService';
 import { ExecutionBackendService } from './execution/ExecutionBackendService';
 import { BackendGitService } from './execution/BackendGitService';
 import { BackendWorkspaceService } from './execution/BackendWorkspaceService';
@@ -61,7 +62,7 @@ import { HostRestartController } from './application/HostRestartController';
 import { RemoteCommandLedger } from './application/RemoteCommandLedger';
 import { RemoteWorkspaceService } from './application/RemoteWorkspaceService';
 import { ProjectDefaultsService } from './settings/ProjectDefaultsService';
-import { RemoteWorkbenchService } from './application/RemoteWorkbenchService';
+import { RemoteWorkbenchService, validateFileSave } from './application/RemoteWorkbenchService';
 import { RemoteTerminalService } from './application/RemoteTerminalService';
 import { RemoteProfileService } from './application/RemoteProfileService';
 import { workspaceOperations } from './repositories/WorkspaceOperationGate';
@@ -305,7 +306,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return { repositoryId: result.created!.id };
   });
   const projectBranches = new ProjectBranchService(store, projects, () => ptyManager?.list() ?? []);
+  const projectGitActions = new ProjectGitService(store, projects, () => ptyManager?.list() ?? []);
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
+  handle(IPC.ProjectFileRead, (input) => workbench.query({ ...input, operation: 'file' }));
+  handle(IPC.ProjectFileSave, async (input) => ({ ...await workbench.save(validateFileSave(input), () => undefined), replayed: false }));
   remoteWorkbench = workbench;
   remoteTerminals = new RemoteTerminalService(workbench, {
     list: () => ptyManager?.list() ?? [],
@@ -319,10 +323,15 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
-    ? { directory: await projects.directory() } : input.operation === 'branches' ? { branches: await projectBranches.overview(input.workspaceId) }
+    ? { directory: await projects.directory() } : input.operation === 'git' ? { git: await projectGitActions.overview(input.workspaceId) }
+      : input.operation === 'git-diff' ? { gitDiff: await projectGitActions.diff(input.workspaceId, input.path) }
+        : input.operation === 'git-preview' ? { gitPreview: await projectGitActions.preview(input.workspaceId, input.action, 'desktop') }
+    : input.operation === 'branches' ? { branches: await projectBranches.overview(input.workspaceId) }
       : input.operation === 'branch-preview' ? { preview: await projectBranches.preview(input.workspaceId, input.action, 'desktop') } : { workspace: await projects.overview(input.workspaceId) });
-  handle(IPC.ProjectWorkspaceCommand, async (input) => ({ workspace: input.operation === 'open' ? await projects.open(input.entryId)
-    : await projectBranches.apply(input.previewId, 'desktop'), replayed: false }));
+  handle(IPC.ProjectWorkspaceCommand, async (input) => {
+    if (input.operation === 'git-apply') { const git = await projectGitActions.apply(input.previewId, 'desktop'); return { workspace: git.workspace, git, replayed: false }; }
+    return { workspace: input.operation === 'open' ? await projects.open(input.entryId) : await projectBranches.apply(input.previewId, 'desktop'), replayed: false };
+  });
   const application = new AdeApplicationService(
     store,
     orchestration,
@@ -332,6 +341,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       projects,
       runInspection: new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId)),
       projectBranches,
+      projectGit: projectGitActions,
       workbench, terminals: remoteTerminals,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {

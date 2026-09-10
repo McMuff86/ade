@@ -67,6 +67,18 @@ check('profile-free project creation can persist its receipt before sending', wr
 check('legacy pending project starts remain recoverable', writeDeviceDraft('start-tablet', 'project-start', { ...projectStart, agentId: 'legacy-agent', phase: 'terminal' }));
 writeDeviceDraft('start-tablet', 'project-start', { ...projectStart, projectWorkspaceId: 'C:\\private' });
 check('project start cannot restore a host path as its workspace identity', readDeviceDraft('start-tablet', 'project-start', null) === null);
+const gitKey = `project-git:${branchWorkspace}`; const gitPending = { key: 'git-receipt', preview: { id: '12345678-1234-1234-1234-123456789abd', workspaceId: branchWorkspace,
+  projectName: 'Project', branch: 'main', head: 'a'.repeat(40), targetHead: null, expiresAt: 1, affected: ['a.txt'], action: { kind: 'commit', paths: ['a.txt'], message: 'Save selected file' } } };
+storage.setItem(`ade-work:git-tablet:${gitKey}`, JSON.stringify({ at: 1, value: gitPending }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('git-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('unconfirmed Git preview survives expiry and ordinary eviction', readDeviceDraft<typeof gitPending | null>('git-tablet', gitKey, null)?.key === gitPending.key);
+writeDeviceDraft('git-tablet', gitKey, { ...gitPending, preview: { ...gitPending.preview, head: {} } });
+check('malformed Git history cannot crash the preview', readDeviceDraft('git-tablet', gitKey, null) === null);
+const fileKey = `project-file:${branchWorkspace}`; const filePending = { key: 'file-receipt', input: { projectWorkspaceId: branchWorkspace, path: 'a.txt', text: 'resolution', revision: 'a'.repeat(64), workspaceVersion: 'b'.repeat(64) } };
+storage.setItem(`ade-work:git-tablet:${fileKey}`, JSON.stringify({ at: 1, value: filePending }));
+check('unconfirmed conflict save keeps exact submitted content over reload', readDeviceDraft<typeof filePending | null>('git-tablet', fileKey, null)?.input.text === 'resolution');
+writeDeviceDraft('git-tablet', fileKey, { ...filePending, input: { ...filePending.input, projectWorkspaceId: 'other' } });
+check('file receipt cannot cross workspace identities', readDeviceDraft('git-tablet', fileKey, null) === null);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

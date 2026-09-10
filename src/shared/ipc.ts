@@ -98,6 +98,8 @@ export const IPC = {
   ProjectWorkspaceQuery: 'project:query',
   ProjectWorkspaceCommand: 'project:command',
   ProjectCreate: 'project:create',
+  ProjectFileRead: 'project:fileRead',
+  ProjectFileSave: 'project:fileSave',
   RepositoryOverview: 'repository:overview',
   RepositorySyncOverview: 'repository:syncOverview',
   RepositoryFetch: 'repository:fetch',
@@ -620,6 +622,8 @@ export interface IpcInvokeMap {
   'project:query': { req: import('./remote').ProjectWorkspaceQuery; res: import('./remote').ProjectWorkspaceQueryResult };
   'project:command': { req: import('./remote').ProjectWorkspaceCommand; res: import('./remote').ProjectWorkspaceCommandResult };
   'project:create': { req: { name: string }; res: { repositoryId: string } };
+  'project:fileRead': { req: { projectWorkspaceId: string; path: string }; res: import('./remote').MobileWorkspaceResult };
+  'project:fileSave': { req: Extract<import('./remote').MobileFileSaveInput, { projectWorkspaceId: string }>; res: import('./remote').MobileFileSaveResult };
   'config:get': { req: void; res: AdeConfig };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };

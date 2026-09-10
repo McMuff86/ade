@@ -1,5 +1,18 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Project Git completion
+
+Inside an independent project workspace, **Terminal** and **Git** are distinct
+sections. Git shows the actual branch, HEAD, changed/staged/conflicting files and
+diffs. Select files, enter a message, review and explicitly commit that selection.
+An active terminal must be ended before Git mutations. Small supported files can
+be edited with optimistic conflict protection. Merge remains open for review;
+resolve files, mark them resolved and explicitly finish, or review an abort.
+Fetch and reviewed fast-forward are separate operations. Missing permissions,
+unsupported files, stale previews and uncertain replies explain the next action.
+Mobile recovery reuses the original receipt; no blind duplicate commit/save.
+Independent project push/PR remains T5 until its own executable evidence exists.
+
 ## Mobile run results
 
 Open a Work run or select a Graph agent, then use **Aktivität**, **Ergebnis** or

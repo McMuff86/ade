@@ -61,6 +61,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 
 const valid: Record<InvokeChannel, unknown> = {
   'project:create': { name: 'Garden' },
+  'project:fileRead': { projectWorkspaceId: '12345678-1234-1234-1234-123456789abc', path: 'a.txt' },
+  'project:fileSave': { projectWorkspaceId: '12345678-1234-1234-1234-123456789abc', path: 'a.txt', workspaceVersion: 'a'.repeat(64), revision: 'b'.repeat(64), text: 'resolved' },
   'project:query': { operation: 'directory' },
   'project:command': { operation: 'open', entryId: 'p' + 'a'.repeat(32) },
   'harness:models': { runtime: 'codex', backend: 'native' },

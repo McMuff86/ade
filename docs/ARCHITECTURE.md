@@ -1,5 +1,33 @@
 # ADE — Architecture (binding decisions)
 
+## Independent project Git workbench
+
+`ProjectGitService` provides bounded status/diff and single-use, owner-bound,
+five-minute previews for selective commit, fetch, fast-forward, merge, resolution,
+continue and abort. The shared workspace gate fences launches/reads from mutation.
+Resolve the exact native checkout and link-safe metadata; refuse active PTYs,
+managed common-repository leases, agent bindings, detached HEAD and other ongoing
+Git operations. Preview/apply compares HEAD, index, changed file contents, refs and
+local configuration. Fixed argv disables hooks, external diff/text conversion,
+submodule recursion and inherited Git environment overrides. No reset/stash or
+implicit merge commit. Selective commit preserves other staged files. Fetch writes
+only remote-tracking refs; pull uses a reviewed cached SHA and fast-forward only.
+
+Typed `project:query` / `project:command` desktop dispatch and dedicated signed
+project routes call this service through `AdeApplicationService`. Queries require
+`workspace:read`; mutations require `projects:write` and `projectGit:write` again
+at execution and response. Durable device receipts retain only workspace identity;
+replay reads fresh Git state without repeating mutation. Generic remote IPC stays
+unchanged. Git wire data and diffs are bounded/redacted and contain no host paths.
+Desktop-only `project:fileRead` / `project:fileSave` use the same workbench path,
+descriptor, size, secret and optimistic-version rules as signed mobile file I/O.
+Mobile pending Git/file receipts survive reload; ordinary unsaved editor text is
+page-local. Desktop pending requests are separated by workspace, held in memory.
+
+Limits: 500 changed files, 200 refs, 8 MiB per changed file / 64 MiB inspection,
+64 KiB diff and existing 24 KiB text editor limit. Unsupported files are visible
+but unselectable. Native Windows fixtures establish support; no new WSL promise.
+
 ## Task activity, final answers and protected result files
 
 Run inspection is a separate read-only application boundary. Signed paired devices

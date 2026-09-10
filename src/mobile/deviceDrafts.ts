@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
 import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
 import { validProjectBranchAction } from '../shared/projectBranches';
+import { validProjectGitAction, validProjectGitPath } from '../shared/projectGit';
 
 const PREFIX = 'ade-work:';
 const MAX_BYTES = 128 * 1024;
@@ -9,14 +10,22 @@ const MAX_ITEMS = 24;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, max = 128): value is string => typeof value === 'string' && value.length <= max;
 function recovery(key: string, value: unknown): boolean {
-  return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
+  return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-git:') || key.startsWith('project-file:') || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
 }
 function valid(key: string, value: unknown): boolean {
-  if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
+  if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-git:') || key.startsWith('project-file:') || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
   if (key === 'project-selected') return text(value, 36) && /^[a-f0-9-]{36}$/.test(value);
   if (key === 'open-project') return text(value);
   if (key.startsWith('terminal-selection:')) return text(value);
   if (!object(value)) return false;
+  if (key.startsWith('project-git:')) return text(value.key, 64) && /^[\w-]+$/.test(value.key) && object(value.preview)
+    && text(value.preview.id, 36) && /^[a-f0-9-]{36}$/.test(value.preview.id) && value.preview.workspaceId === key.slice('project-git:'.length)
+    && validProjectGitAction(value.preview.action) && Array.isArray(value.preview.affected) && value.preview.affected.length <= 500 && value.preview.affected.every((path) => text(path, 400))
+    && [value.preview.head, value.preview.targetHead].every((sha) => sha === null || text(sha, 64) && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(sha))
+    && text(value.preview.projectName, 200) && text(value.preview.branch, 200) && typeof value.preview.expiresAt === 'number' && Number.isFinite(value.preview.expiresAt);
+  if (key.startsWith('project-file:')) return text(value.key, 64) && /^[\w-]+$/.test(value.key) && object(value.input)
+    && validWorkspaceSelection(value.input) && value.input.projectWorkspaceId === key.slice('project-file:'.length) && validProjectGitPath(value.input.path)
+    && text(value.input.text, 24 * 1024) && [value.input.workspaceVersion, value.input.revision].every((part) => text(part, 64) && /^[a-f0-9]{64}$/.test(part));
   if (key.startsWith('project-branch:')) return text(value.key, 64) && /^[\w-]+$/.test(value.key) && object(value.preview)
     && text(value.preview.id, 36) && /^[a-f0-9-]{36}$/.test(value.preview.id)
     && value.preview.workspaceId === key.slice('project-branch:'.length) && validProjectBranchAction(value.preview.action)
@@ -68,7 +77,7 @@ export function writeDeviceDraft(deviceId: string | null, key: string, value: un
     const keys = Object.keys(localStorage).filter((item) => item.startsWith(`${PREFIX}${deviceId}:`) && item !== storageKey);
     if (keys.length >= MAX_ITEMS) {
       const oldest = keys.filter((item) => {
-        if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-branch:') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
+        if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-git:') || item.includes(':project-file:') || item.includes(':project-branch:') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
         try { return JSON.parse(localStorage.getItem(item)!).value?.review !== true; } catch { return true; }
       }).sort((a, b) => {
         try { return JSON.parse(localStorage.getItem(a)!).at - JSON.parse(localStorage.getItem(b)!).at; } catch { return 0; }

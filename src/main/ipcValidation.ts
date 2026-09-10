@@ -7,6 +7,7 @@ import { validSyncRef } from '../shared/gitSync';
 import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
 import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../shared/projectWorkspaceRequests';
+import { validProjectGitPath } from '../shared/projectGit';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
 import {
@@ -610,6 +611,16 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
   payload: unknown,
 ): asserts payload is IpcInvokeMap[K]['req'] {
   switch (channel) {
+    case IPC.ProjectFileRead:
+    case IPC.ProjectFileSave: {
+      const input = record(channel, payload); exactKeys(channel, input, channel === IPC.ProjectFileRead ? ['projectWorkspaceId', 'path'] : ['projectWorkspaceId', 'path', 'workspaceVersion', 'revision', 'text']);
+      if (!validWorkspaceSelection({ projectWorkspaceId: input.projectWorkspaceId }) || !validProjectGitPath(input.path)) invalid(channel, 'invalid project file selection');
+      if (channel === IPC.ProjectFileSave) {
+        if (![input.workspaceVersion, input.revision].every((value) => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value))) invalid(channel, 'invalid file revision');
+        stringValue(channel, input.text, 'text', { max: 24 * 1024, allowEmpty: true });
+      }
+      return;
+    }
     case IPC.ProjectCreate: {
       const request = record(channel, payload); exactKeys(channel, request, ['name']);
       stringValue(channel, request.name, 'name', { max: 80 });

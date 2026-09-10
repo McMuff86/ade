@@ -1,5 +1,15 @@
 # ADE — aktuelle Übergabe
 
+## T4 Projekt-Git geprüft (2026-09-10)
+
+Desktop und Tablet besitzen im unabhängigen Projekt einen Git-Bereich: Dateien
+auswählen/committen, Diff, kleine Konfliktdateien bearbeiten, Merge fortsetzen oder
+abbrechen, Fetch und Fast-forward. 47 Git/API-, 18 echte Browser-, 29 Draft- und
+221 Security-Checks sind grün. Logs: `test-results/project-git-*.log`.
+T3b ist `731998d`; sein vollständig übernommener Stash wurde danach entfernt.
+T5 (Push/PR) und T6 (Gesamtabnahme) sind als Nächstes offen. Noch kein Push.
+Die persönliche Instanz läuft weiterhin unverändert aus `operator-release-e07e00b`.
+
 ## T3b wiederhergestellt und verbunden (2026-09-10)
 
 Der Stash wurde wiederhergestellt; Konflikte in IPC/ApplicationService behalten

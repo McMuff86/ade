@@ -123,11 +123,15 @@ export interface ProjectWorkspaceView {
   backend: 'native';
 }
 export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches'; workspaceId: string }
-  | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction };
-export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply'; previewId: string };
+  | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction }
+  | { operation: 'git'; workspaceId: string } | { operation: 'git-diff'; workspaceId: string; path: string }
+  | { operation: 'git-preview'; workspaceId: string; action: import('./projectGit').ProjectGitAction };
+export type ProjectWorkspaceCommand = { operation: 'open'; entryId: string } | { operation: 'branch-apply' | 'git-apply'; previewId: string };
 export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView; workspace?: ProjectWorkspaceView;
-  branches?: import('./projectBranches').ProjectBranchOverview; preview?: import('./projectBranches').ProjectBranchPreview }
-export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean }
+  branches?: import('./projectBranches').ProjectBranchOverview; preview?: import('./projectBranches').ProjectBranchPreview;
+  git?: import('./projectGit').ProjectGitOverview; gitPreview?: import('./projectGit').ProjectGitPreview; gitDiff?: import('./projectGit').ProjectGitDiff }
+export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean; git?: import('./projectGit').ProjectGitOverview }
+export type { ProjectGitAction, ProjectGitOverview, ProjectGitPreview, ProjectGitDiff } from './projectGit';
 
 /** null explicitly selects the agent home, regardless of its default project. */
 export type MobileWorkspaceSelection =

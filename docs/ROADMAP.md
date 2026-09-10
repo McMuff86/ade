@@ -20,8 +20,9 @@ T0/T1/T2a/T2b are delivered for native Windows: directory discovery and independ
 workspace opening now have desktop/tablet entry, explicit grants and recovery.
 T3a supplies the internal branch/worktree boundary with 40 native Git checks.
 T3b connects branch selection and CLI launch without a profile, including named
-new projects, optional native profiles and receipt recovery. T4/T5 add selective
-commits, conflict recovery, merge, fetch/pull and explicit push/PR. The additional WSL lifecycle
+new projects, optional native profiles and receipt recovery. T4 delivers selective
+commits, conflict recovery, merge and fetch/fast-forward. T5 adds explicit push/PR;
+T6 completes the guide, menu review and repository-wide verification. The additional WSL lifecycle
 test is still open after a backend-readiness timeout (see goal evidence).
 
 ## Proposed next product slices — for discussion

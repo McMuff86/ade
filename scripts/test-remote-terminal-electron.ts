@@ -14,6 +14,7 @@ import { terminalEchoLatency } from './helpers/terminalLatency';
 import { PNG } from 'pngjs';
 import { inspectionFixtureCode, runInspectionFlow } from './helpers/runInspectionFlow';
 import { projectWorkspaceLaunchFlow } from './helpers/projectWorkspaceLaunchFlow';
+import { projectGitFlow } from './helpers/projectGitFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
@@ -86,6 +87,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--project-git-only')) {
+    await projectGitFlow(desktop, page, root, evidence, proxy, check); return;
+  }
   if (process.argv.includes('--workspace-cli-only')) {
     await projectWorkspaceLaunchFlow(desktop, page, root, evidence, proxy, check); return;
   }

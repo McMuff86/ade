@@ -286,6 +286,40 @@ keine gemeinsame Gesprächssitzung zwischen TUI und Dashboard.
 
 ## 8. Dateien behalten und Änderungen sichern
 
+Für den neuen Projekteinstieg: **Projekte → Workspace öffnen → Git**. Zuerst die
+laufende Terminal-Sitzung beenden, damit kein Assistent gleichzeitig Dateien ändert.
+Der Git-Bereich zeigt den tatsächlichen Branch und HEAD sowie geänderte Dateien.
+
+1. Bei einer Datei **Diff** öffnen und die Änderung prüfen.
+2. Gewünschte Dateien ankreuzen, eine Commit-Nachricht schreiben und **Commit
+   prüfen** wählen. Die Vorschau zeigt genau diese Auswahl.
+3. **Git-Aktion ausführen** erstellt den Commit. Andere schon gestagte Dateien
+   werden nicht mitcommittet. Bei einer alten Vorschau zuerst aktualisieren.
+
+![Commit-Vorschau mit gezielter Dateiauswahl](media/user-guide/19-project-git-commit.png)
+
+Zum Zusammenführen **Branches zusammenführen und Remote-Stand** öffnen, den
+Quellbranch wählen und **Merge prüfen** verwenden. Der Merge bleibt zur Prüfung
+offen. Bei Konflikten **Datei öffnen**, den Inhalt zusammenführen, die Markierungen
+entfernen und **Datei speichern**. Danach die Konfliktdatei auswählen, **Als
+aufgelöst prüfen** und abschliessend **Merge abschliessen prüfen**. **Merge
+abbrechen prüfen** zeigt vorher an, dass die aktuelle Auflösung verworfen wird.
+Grosse, geschützte oder verknüpfte Dateien müssen über die lokale CLI geprüft werden.
+
+![Merge-Konflikt auf dem Tablet](media/user-guide/20-project-git-conflict.png)
+
+**Fetch prüfen** aktualisiert den gespeicherten Remote-Stand. Anschliessend den
+Pull-Branch wählen und **Fast-forward prüfen**: das übernimmt nur einen direkt
+fortsetzbaren Stand. Bei auseinanderlaufenden Branches ist ein bewusster Merge
+nötig. Push und PR folgen im nächsten Projektschritt; Fetch veröffentlicht nichts.
+
+Auf dem Tablet müssen **Projekt-Branches und lokale Git-Aktionen ausführen** und
+zum Bearbeiten **Kleine Workspace-Textdateien bearbeiten** am PC freigegeben sein.
+Nach einer verlorenen Antwort **Git-Aktion erneut prüfen** beziehungsweise
+**Dateispeicherung erneut prüfen** wählen. ADE prüft denselben Vorgang auch nach
+einem Neuladen. Ungespeicherter Editor-Text ist seitenlokal: vor einem Wechsel
+speichern oder kopieren. Das Schliessen eines Editors verwirft diesen Entwurf.
+
 **Dateien sind bereits auf dem PC gespeichert.** Ein Projekt, das du unter deinem
 gewünschten Stammordner begonnen hast, muss zum Behalten nicht erst verschoben werden.
 Allerdings verwendet ADE für Agent/Projekt-Paare eigene Git-Arbeitskopien

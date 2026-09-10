@@ -31,3 +31,14 @@
 .project-terminal { min-width: 0; }
 .project-terminal-screen { height: max(320px, 52vh); min-width: 0; margin: 16px 0; }
 .project-terminal p, .project-branches p { line-height: 1.6; }
+.project-git { min-width: 0; padding: 12px 0; }
+.project-git textarea { box-sizing: border-box; width: 100%; background: var(--bg); color: inherit; border: 1px solid var(--border); padding: 10px; }
+.project-git pre { max-height: 48vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.project-git-files { list-style: none; margin: 12px 0; padding: 0; }
+.project-git-files li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.project-git-files label { display: flex; flex: 1 1 200px; flex-direction: row; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.project-git-files input[type=checkbox] { width: 20px; height: 20px; flex: none; }
+.project-git-editor { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.project-git details { margin-top: 16px; }
+.project-git details label { display: block; margin: 8px 0; }
+.project-git select { max-width: 100%; min-width: 0; }

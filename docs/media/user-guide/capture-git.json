@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-10",
+  "platform": "native Windows Electron and signed Chromium touch browser",
+  "driver": "scripts/test-remote-terminal-electron.ts --project-git-only",
+  "fixture": "Real temporary Git repositories, local bare remote, no external publication",
+  "images": {
+    "19-project-git-commit.png": "Desktop selective commit preview before mutation",
+    "20-project-git-conflict.png": "Tablet real conflicting merge awaiting resolution"
+  },
+  "physicalSamsungKeyboardMeasured": false
+}

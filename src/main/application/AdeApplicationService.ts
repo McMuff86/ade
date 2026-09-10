@@ -49,6 +49,7 @@ import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceSe
 import type { RunInspectionService } from './RunInspectionService';
 import type { MobileRunActivity } from '../../shared/remote';
 import type { ProjectBranchService } from '../repositories/ProjectBranchService';
+import type { ProjectGitService } from '../repositories/ProjectGitService';
 import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
 
@@ -105,6 +106,7 @@ export interface ApplicationOptions {
   projects?: ProjectWorkspaceService;
   runInspection?: RunInspectionService;
   projectBranches?: ProjectBranchService;
+  projectGit?: ProjectGitService;
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
@@ -264,13 +266,18 @@ export class AdeApplicationService {
     if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
     try {
       const branches = this.options.projectBranches;
+      const git = this.options.projectGit;
+      if (payload.operation.startsWith('git') && !git) throw new RemoteApiError(404, 'not_found');
       if ((payload.operation === 'branches' || payload.operation === 'branch-preview') && !branches) throw new RemoteApiError(404, 'not_found');
-      if (payload.operation === 'branch-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
+      if (payload.operation === 'branch-preview' || payload.operation === 'git-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
       const result = payload.operation === 'directory' ? { directory: await projects.directory() }
+        : payload.operation === 'git' ? { git: await git!.overview(payload.workspaceId) }
+          : payload.operation === 'git-diff' ? { gitDiff: await git!.diff(payload.workspaceId, payload.path) }
+            : payload.operation === 'git-preview' ? { gitPreview: await git!.preview(payload.workspaceId, payload.action, context.principal.id) }
         : payload.operation === 'branches' ? { branches: await branches!.overview(payload.workspaceId) }
           : payload.operation === 'branch-preview' ? { preview: await branches!.preview(payload.workspaceId, payload.action, context.principal.id) }
             : { workspace: await projects.overview(payload.workspaceId) };
-      if (payload.operation === 'branch-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
+      if (payload.operation === 'branch-preview' || payload.operation === 'git-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
       ledger.permits(context, 'workspace:read'); return result;
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
@@ -280,16 +287,19 @@ export class AdeApplicationService {
     if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
     if (!validProjectWorkspaceCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
     const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write');
-      if (payload.operation === 'branch-apply') ledger.permits(context, 'projectGit:write'); };
+      if (payload.operation !== 'open') ledger.permits(context, 'projectGit:write'); };
     authorize();
     if (payload.operation === 'branch-apply' && !this.options.projectBranches) throw new RemoteApiError(404, 'not_found');
-    const result = await ledger.execute(context, `project:${payload.operation}`, payload.operation === 'branch-apply' ? 'projectGit:write' : 'projects:write', payload, () => {
+    if (payload.operation === 'git-apply' && !this.options.projectGit) throw new RemoteApiError(404, 'not_found');
+    const result = await ledger.execute(context, `project:${payload.operation}`, payload.operation !== 'open' ? 'projectGit:write' : 'projects:write', payload, () => {
       const execute = async () => ({ workspace: payload.operation === 'open' ? await projects.open(payload.entryId, authorize)
+        : payload.operation === 'git-apply' ? (await this.options.projectGit!.apply(payload.previewId, context.principal.id, authorize)).workspace
         : await this.options.projectBranches!.apply(payload.previewId, context.principal.id, authorize) });
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
     authorize();
-    return { ...result.value, replayed: result.replayed };
+    const git = payload.operation === 'git-apply' ? await this.options.projectGit!.overview(result.value.workspace.id) : undefined;
+    authorize(); return { ...result.value, ...(git ? { workspace: git.workspace, git } : {}), replayed: result.replayed };
   }
 
   async remoteTerminal(context: RemoteCommandContext, payload: unknown, kind: 'query' | 'command' | 'input') {

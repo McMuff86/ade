@@ -24,7 +24,7 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | abgeschlossen für native Windows |
 | T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen als interne native Windows-Grenze; Bedienoberfläche folgt T3b |
 | T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows |
-| T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | offen |
+| T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | abgeschlossen für native Windows |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | offen |
 | T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
 
@@ -219,3 +219,17 @@ Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalte
 - Logs: `test-results/project-launch-*.log`, `project-start-electron.log`.
   Guide ergänzt um aktuelle Branch-Vorschau und Terminalaufnahme. Persönliche
   ADE-Instanz bleibt auf `e07e00b`; T4/T5/T6 und gemeinsamer Push bleiben offen.
+
+### T4 — Selektive Commits und bewusste Integration
+
+- Native Git-Grenze: 47 positive/negative Prüfungen mit echten Repositories,
+  lokalen Bare-Remotes und signierter API. Auswahl erhält fremde Staging-Einträge;
+  Datei-/HEAD-/Index-Drift, fremde Vorschau, Rechteentzug, aktive PTY, gemeinsame
+  verwaltete Lease, Hooks und geschützte/verknüpfte Dateien sind abgedeckt.
+- Echte Electron/Chromium-Prüfung: 18 Checks zu Desktop-Vorschau/Fokus, Tablet-
+  Rechten, verlorenen Commit-/Speicherantworten mit Reload, Konfliktauflösung,
+  zwei Eltern im Merge-Commit, explizitem Abort, Fetch/Fast-forward und Telefonbreite.
+- Drei TypeScript-Projekte und Build grün; Device-Drafts 29, Security 221.
+  Logs: `test-results/project-git-*.log`. Der neue Git-Driver gehört zu verify.
+- Guide-Aufnahmen 19/20 stammen aus isolierten echten Git-Fixtures. Kein externes
+  Repository wurde veröffentlicht. T5/T6 und der gemeinsame Push sind noch offen.
