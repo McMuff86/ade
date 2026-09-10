@@ -10,7 +10,7 @@ die Entwicklungswerkzeuge nicht selbst installieren.
 Ordner unter deinem Projekt-Stamm, die noch nicht in ADE erfasst sind. Der geöffnete
 Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
 Unter **Branches** den Branch wählen und die Aktion prüfen. Danach unter
-**Arbeiten mit** Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
+**Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
 Profil kannst du ausdrücklich unter den weiteren Startoptionen wählen.
 Für eine neue Idee verwendest du **Neues Projekt**. Für Hermes General oder
 Sentinel ohne Projekt verwendest du **Overview → Terminal öffnen** beim Agenten.
@@ -50,7 +50,7 @@ Zusätzliche Branch-, Git- und Ergebnisbilder stammen aus den jeweiligen Prüfl�
 
 | Dein Vorhaben | Dein Weg in ADE Mobile |
 |---|---|
-| Bestehenden Code bearbeiten | **Projekte → Projekt → Workspace öffnen → Arbeiten mit** |
+| Bestehenden Code bearbeiten | **Projekte → Projekt → Workspace öffnen → Sitzung öffnen mit** |
 | Eine neue Idee ausprobieren | **Neues Projekt → Name → Projekt anlegen und öffnen**, danach CLI wählen |
 | Mit einem persönlichen Assistenten sprechen | **Overview → Terminal öffnen** beim Agenten |
 | Hermes-/OpenClaw-Weboberfläche verwenden | **Web-Dashboard** beim entsprechend eingerichteten Agenten |
@@ -125,7 +125,7 @@ Bestehende Projekte behalten ihren bisherigen Speicherort.
 ![Projekt-Stammordner ohne verpflichtendes Profil](media/user-guide/02-project-defaults.png)
 
 *Ein neues Projekt bekommt direkt einen eigenen Ordner unter diesem Stammordner.
-Die zusätzliche ADE-Arbeitskopie erklären wir in Abschnitt 8.*
+Den Unterschied zum unabhängigen Checkout erklären wir in Abschnitt 8.*
 
 ## 3. Das Tablet verbinden
 
@@ -175,7 +175,7 @@ benötigen. Der PC muss eingeschaltet, angemeldet und erreichbar bleiben.
 2. Einen Namen eingeben, etwa „Mein Notizbuch“. Ohne Namen erzeugt ADE einen.
 3. **Projekt anlegen und öffnen** drücken. ADE legt den dauerhaften Projektordner
    mit einem Git-Repository und Branch **main** an.
-4. Im Projekt bei Bedarf einen Branch anlegen und unter **Arbeiten mit** Codex,
+4. Im Projekt bei Bedarf einen Branch anlegen und unter **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex,
    Claude CLI, Grok CLI oder die Shell wählen. **… öffnen** startet die Sitzung.
 
 Dabei entsteht kein Agent-Profil. Auf dem Desktop findest du **Neues Projekt**
@@ -200,7 +200,7 @@ ohne bereits angelegte Projektdateien zu löschen.
 3. **Branches** aufklappen, den gewünschten Branch auswählen und die Vorschau
    prüfen. Für parallele Arbeit einen neuen Branch mit **Zusätzliche Arbeitskopie
    anlegen** verwenden. Ungesicherte Dateien bleiben im bisherigen Workspace.
-4. Unter **Arbeiten mit** Codex, Claude CLI, Grok CLI oder die Shell auswählen
+4. Unter **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell auswählen
    und den zugehörigen **… öffnen**-Knopf drücken.
 
 ![Projekteinstieg mit Suchfeld und Projektkarte](media/user-guide/06-projects.png)
@@ -359,7 +359,8 @@ speichern oder kopieren. Das Schliessen eines Editors verwirft diesen Entwurf.
 
 **Dateien sind bereits auf dem PC gespeichert.** Ein Projekt, das du unter deinem
 gewünschten Stammordner begonnen hast, muss zum Behalten nicht erst verschoben werden.
-Allerdings verwendet ADE für Agent/Projekt-Paare eigene Git-Arbeitskopien
+Der unabhängige Projekteinstieg verwendet den ausdrücklich gewählten Checkout.
+Für Agent/Projekt-Paare und verwaltete Aufgaben verwendet ADE dagegen eigene Git-Arbeitskopien
 (*Worktrees*) mit eigenem Branch. Neue Änderungen können dort liegen, während der
 ursprüngliche Projektordner noch den älteren Stand zeigt.
 

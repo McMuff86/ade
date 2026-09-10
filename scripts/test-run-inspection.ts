@@ -76,7 +76,7 @@ void (async () => {
   check('text download removes host paths and known secrets', text.includes('# Result') && !text.includes('private'));
   await refuses('raster extension alone cannot authorize active content', () => app.runFile(context().principal, runId, taskId, files.files.find((file) => file.name === 'fake.png')!.id), 'command_rejected');
   writeFileSync(join(cwd, 'outputs', 'image.png'), Buffer.concat([png, Buffer.from('changed')]));
-  await refuses('stale file identity cannot read changed content', () => app.runFile(context().principal, runId, taskId, image.id), 'not_found');
+  await refuses('stale file identity cannot read changed content', () => app.runFile(context().principal, runId, taskId, image.id), 'command_rejected');
   writeFileSync(join(cwd, 'outputs', 'image.png'), png);
   const freshImage = (await app.runFiles(context().principal, runId, taskId)).files.find((file) => file.name === 'image.png')!;
   const stalePrincipal = context().principal; devices.setAdminScopes('tablet', ['catalog:write']);
@@ -132,7 +132,9 @@ void (async () => {
   }
   const oldFile = observed.files.find((file) => file.path === 'DATA')!; const oldStat = statSync(join(cwd, 'DATA'));
   writeFileSync(join(cwd, 'DATA'), Buffer.from([9,8,7,6])); utimesSync(join(cwd, 'DATA'), oldStat.atime, oldStat.mtime);
-  await refuses('content drift is rejected even with identical length and restored modification time', () => app.runFile(context().principal, runId, taskId, oldFile.id), 'not_found');
+  await refuses('content drift is rejected even with identical length and restored modification time', () => app.runFile(context().principal, runId, taskId, oldFile.id), 'command_rejected');
+  const driftReply = await signed(`/api/v1/runs/${runId}/tasks/${taskId}/files/${oldFile.id}`); const driftBody = await driftReply.json() as { message?: string };
+  check('signed download conflict returns useful redacted refresh detail', driftReply.status === 409 && !!driftBody.message?.includes('Dateien aktualisieren') && !JSON.stringify(driftBody).includes(cwd));
   const aggregate = await app.runFiles(context().principal, runId);
   check('run-wide listing identifies the owning task and later modifications', aggregate.files.some((file) => file.path === 'DATA' && file.changedSinceRun && file.taskId === taskId));
   check('signed aggregate route is reachable', (await signed(`/api/v1/runs/${runId}/files`)).status === 200);

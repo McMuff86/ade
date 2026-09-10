@@ -1,28 +1,45 @@
+> Historischer Zwischenstand vor der T6-Abnahme vom 10. September 2026.
+> Wiederholte offene Tasks und Betreiber-PIDs sind damaliger Zustand.
+> Aktuell: [Status](../STATUS.md), [Handoff](../HANDOFF.md), [Goal](../PROJECT_WORKFLOW_GOALS.md).
+
 # ADE delivery roadmap
 
-Status: 2026-09-10. [Capabilities](STATUS.md), [project workflow tasks](PROJECT_WORKFLOW_GOALS.md)
-and [current product review](research/ADE_PRODUCT_REVIEW_2026-09-10.md) have distinct roles.
-Intermediate delivery notes are preserved in the [checkpoint archive](archived/ROADMAP_2026-09-10_CHECKPOINT.md).
+## Urgent run inspection before T3b
 
-## Current delivery
+The user's intervening request prioritizes visible Graph activity and tablet access
+to final answers, images and downloads. The dedicated native boundary/real-PTY
+browser checks pass; operator deployment is recorded in HANDOFF. T3b work was
+restored with both result and project boundaries intact. No push until the overall goal is done.
 
-Project root → checkout/branch → optional-profile CLI → Git commit/merge/push/PR
-is implemented for native Windows. T7 adds observed run-file changes and downloads
-from Graph and project Results. T6 completed the guide, documentation audit and
-full `pnpm verify` with 2,588 passing checks. Task commits form one final delivery;
-the operator build and publication are recorded in HANDOFF. The extra WSL
-lifecycle recheck remains blocked at a read-only readiness probe.
+Status: 2026-09-09. [Current capabilities](../STATUS.md) are separate from planned work.
+Completed delivery notes and their original state are retained in the [roadmap archive](../archived/ROADMAP_2026-09-09.md).
+
+## Active project workflow goal
+
+The user authorized [T0–T6](../PROJECT_WORKFLOW_GOALS.md): truthful CLI state,
+project discovery, profile-free branch workspaces, interactive Git completion,
+and a refreshed guide. Commit each completed task; push only after final
+verification. The proposals below remain background unless included there.
+T0/T1/T2a/T2b are delivered for native Windows: directory discovery and independent
+workspace opening now have desktop/tablet entry, explicit grants and recovery.
+T3a supplies the internal branch/worktree boundary with 40 native Git checks.
+T3b connects branch selection and CLI launch without a profile, including named
+new projects, optional native profiles and receipt recovery. T4 delivers selective
+commits, conflict recovery, merge and fetch/fast-forward. T5 delivers explicit push/PR;
+T7 delivers observed run-file changes and direct Graph/project previews/downloads.
+T6 completes the guide, menu review and repository-wide verification. The additional WSL lifecycle
+test is still open after a backend-readiness timeout (see goal evidence).
 
 ## Proposed next product slices — for discussion
 
-1. A guided first setup joining root, CLI readiness, pairing and explicit grants.
-2. Physical Samsung Chrome keyboard/DeX/rotation and network-transition acceptance.
-3. Durable result-file storage, pagination and older archived-run browsing.
-4. WSL readiness/lifecycle investigation and separate backend result-file support.
-5. Host/build identity in Mobile, consistent German labels and measured accessibility.
+1. Guided first setup, truthful terminal empty/running states and physical Samsung keyboard acceptance (review R1–R3).
+2. Explain the actual worktree, save/integrate changes deliberately and resume sessions/drafts clearly (R4/R6/R8).
+3. Unify new-project CLI choice, assistant setup, host/update identity and wording (R5/R7/R9/R10).
+4. Measure accessibility and archive/history navigation before broader expansion (R11/R12).
 
-These proposals require prioritization; no new delivery is implied. Acceptance
-criteria and sources are in the September 10 review.
+These are proposals, not newly delivered features or an approved implementation schedule.
+Acceptance criteria: [2026-09-09 product review](../research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+The operator reports improved usability after the keyboard fix; systematic physical acceptance remains open.
 
 ## Existing engineering tracks and exit criteria
 

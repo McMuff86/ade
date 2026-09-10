@@ -2,9 +2,9 @@
   "date": "2026-09-10",
   "platform": "native Windows Electron host, paired Chromium touch browser",
   "driver": "scripts/test-remote-terminal-electron.ts --run-inspection-only",
-  "source": "T7 working tree based on 4e79efd; captured source changes committed with these images",
+  "source": "T6 working tree based on b2ca131; captured source changes committed with these images",
   "fixture": "Real task PTY, local deterministic CLI, genuine PNG bytes; spreadsheet fixture measures byte-preserving download, not Excel rendering",
-  "checks": 22,
+  "checks": 24,
   "images": ["15-run-result.png", "16-run-image.png", "23-run-files.png", "24-project-results.png"],
   "privacy": "Isolated temporary data; task prompt omitted from file labels; host paths redacted",
   "physicalSamsungKeyboardMeasured": false

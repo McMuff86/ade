@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
-import { redactedErrorDetail } from '../errors';
+import { redactedErrorDetail, redactedWireMessage } from '../errors';
 import type { MobileErrorBody, MobileErrorCode } from '../../shared/remote';
 import { HOST_API_LOOPBACK, parseMobileOrigin } from './hostApiConfig';
 import { RemoteAuthorizer, sha256Hex, type RemotePrincipal } from './authorization';
@@ -421,10 +421,16 @@ export class HostApiServer {
         case 'runFiles':
           writeJson(response, 200, await this.application.runFiles(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
         case 'runFile': {
-          const file = await this.application.runFile(readPrincipal!, matched.route.runId, matched.route.taskId!, matched.route.fileId!);
-          response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': file.type, 'content-length': file.bytes.length,
-            'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, '%27')}` });
-          response.end(file.bytes); return;
+          try {
+            const file = await this.application.runFile(readPrincipal!, matched.route.runId, matched.route.taskId!, matched.route.fileId!);
+            response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': file.type, 'content-length': file.bytes.length,
+              'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, '%27')}` });
+            response.end(file.bytes);
+          } catch (error) {
+            if (error instanceof RemoteApiError && [409, 422].includes(error.status)) writeError(response, error.status, error.code, redactedWireMessage(error));
+            else throw error;
+          }
+          return;
         }
         case 'restartHost':
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;

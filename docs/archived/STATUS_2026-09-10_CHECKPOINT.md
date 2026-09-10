@@ -1,43 +1,88 @@
+> Historischer Zwischenstand vor der T6-Abnahme vom 10. September 2026.
+> Wiederholte offene Tasks und Betreiber-PIDs sind damaliger Zustand.
+> Aktuell: [Status](../STATUS.md), [Handoff](../HANDOFF.md), [Goal](../PROJECT_WORKFLOW_GOALS.md).
+
 # ADE implementation status
 
-Status date: 2026-09-10. Current behavior is below; chronological intermediate
-notes are in the [checkpoint archive](archived/STATUS_2026-09-10_CHECKPOINT.md).
-Contracts: [Architecture](ARCHITECTURE.md), [Spec](SPEC.md).
-User entry: [illustrated guide](USER_GUIDE.md).
+## 2026-09-10 — Observed run files and project results
 
-## Project workflow delivery and evidence
+T7 adds direct Graph file access and project Results on desktop/tablet. Native
+before/after snapshots distinguish created, modified and deleted files; legacy
+provenance stays unknown/reported. Downloads use the original task worktree's
+current file, with later changes marked. Raster previews and bounded regular-file
+downloads include XLSX/PDF. No immutable archive or automatic branch integration.
+Focused evidence: 56 inspection/API checks, 22 real Electron/Chromium checks,
+225 security checks and 82 orchestration checks (including archive retention),
+three TypeScript projects and production build pass. Final full verify remains T6.
+Logs: `test-results/run-files-*.log`; guide images 23/24 show actual fixture output.
 
-T0–T7 are delivered for native Windows. The final `pnpm verify` passed with
-**2,588 checks**: three TypeScript projects, 40 focused suites/2,032 checks,
-production build and 556 real Electron/Chromium/visual checks. The historical
-2,148-check September 9 run is baseline evidence, not verification of these changes.
+## 2026-09-10 — Explicit project push and GitHub PR
 
-Final UI checks: desktop 185, repository sync 20, Mobile browser 57, Mobile
-Electron 15, restart 10, workspace browser 24, workbench browser 25, terminals
-120, run files 24, project CLI 22, project Git 20, publication 12, visual 22.
-Focused file/API checks: 57; security: 225; orchestration: 82. The measured suite
-floors were raised to protect these counts; no application changes followed
-the passing complete run. Earlier measurements are recorded per task in
-[PROJECT_WORKFLOW_GOALS](PROJECT_WORKFLOW_GOALS.md).
-Final log: `test-results/project-goal-verify.log` (exit 0). Earlier failed attempts
-remain separate `project-goal-verify-first.log` / `project-goal-verify-second.log`;
-their failures were corrected and the final positive controls passed.
+T5 adds reviewed push and GitHub PR creation to independent desktop/tablet
+workspaces. Publication needs the separate `projectGit:publish` grant. Existing
+matching PRs are reused; lost replies retain durable device receipts. Actual
+remote heads, destination drift and divergence are checked; no force-push or
+implicit PR push. Focused native evidence: 41 publication checks (real local Git,
+bare remotes and native gh executable fixture), 12 signed Chromium checks,
+20 real Electron Git/push checks, 33 draft checks and 221 security checks.
+Three TypeScript projects and build pass. GitHub network behavior is represented
+by a deterministic provider port; no external PR or live-provider end-to-end
+claim. Logs: `test-results/project-publish-*.log`. Final `pnpm verify` is T6.
 
-The extra Windows→WSL lifecycle recheck still times out before launching any CLI:
-wsl.exe -d Ubuntu --exec /bin/true did not finish in 15 seconds on September 10.
-Only that probe process was stopped. No WSL restart or new WSL release claim.
-Prior Linux/WSLg package evidence and prior WSL feature evidence remain historical;
-they do not validate this new independent-project/native-file slice.
+## 2026-09-10 — Project Git status, commit and merge
 
-The user reports improved Samsung/Chrome behavior. Full physical keyboard, DeX,
-rotation and network-transition acceptance remains separate from Chromium tests.
-GitHub integration uses real local Git and deterministic gh/provider fixtures;
-a live GitHub PR roundtrip is not claimed.
+T4 connects native desktop/tablet Git status/diff, selective commits, text conflict
+resolution, explicit merge completion/abort, fetch and reviewed fast-forward.
+Native evidence: 47 real Git/API checks, 18 Electron/Chromium checks, 29 device
+draft checks, 221 security checks; three TypeScript projects and build pass.
+Screenshots and recovery instructions are in USER_GUIDE. Logs:
+`test-results/project-git-*.log`. Independent project push/PR and final complete
+verification were pending at this T4 checkpoint. The personal operator is still the frozen `e07e00b`.
+
+## 2026-09-10 — Independent project CLI and branch entry
+
+Desktop/tablet Projects now connect the selected checkout and branch directly to
+Codex, Claude, Grok or an empty shell without creating an agent or binding. Saved
+profiles are optional and must belong to the same environment. New Project opens
+a named repository on main and waits for CLI choice. Branch preview/apply needs
+the explicit mobile `projectGit:write` grant and retains uncertain receipts.
+Focused native checks: project launch/API/history 41, device drafts 25, project
+provisioning 54 and repository scopes 62; three TypeScript projects and build pass.
+Browser evidence and operator state are recorded in the active goal and HANDOFF.
+This T3b checkpoint predates the T4 evidence above.
+
+## 2026-09-10 — Mobile run inspection
+
+The urgent Graph/result task adds activity, full saved assistant answers and
+protected image previews/downloads. Focused native Windows evidence: 31 boundary
+checks; 12 real Electron/Chromium checks with a deterministic CLI in a real PTY;
+config 34, orchestration 81, runtime 47, host API 184, security 218 and the 57-check
+mobile browser regression pass.
+Three TypeScript projects and the production build pass. Logs are
+`test-results/run-inspection*.log` and `run-progress-*.log`; screenshots are under
+`test-results/remote/run-*.png`. Browser automation covers tablet, phone width,
+keyboard selection/Escape, final output, exact PNG download and reload. It does not
+measure provider inference, physical Samsung behavior or another OS. Complete
+project-goal `pnpm verify` and final push remain outstanding; the prior 2,148-check
+baseline below predates this patch.
+
+Status date: 2026-09-09. Current capability matrix; dated deliveries are retained in [the status archive](../archived/STATUS_2026-09-09.md). Product
+intent lives in `SPEC.md`; sequencing and exit criteria live in `ROADMAP.md`.
+Implemented repository bindings and planned mobile boundaries are detailed in
+`REPOSITORY_SCOPES_PLAN.md` and `REMOTE_CONTROL_PLAN.md`; Linux, WSL and macOS
+sequencing lives in `MULTIPLATFORM_PLAN.md`; the local external-write boundary
+is specified in `VERIFIED_PUBLISHING_PLAN.md`.
+The right-sidebar read boundary is specified in `REPOSITORY_INSPECTOR_PLAN.md`.
+
+User entry: [illustrated guide](../USER_GUIDE.md). Active implementation: [project workflow goal](../PROJECT_WORKFLOW_GOALS.md); T0–T5 delivered for native Windows, T6 pending; extra WSL lifecycle acceptance awaits a reachable backend. Other proposals: [product review](../research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+Latest product verification: native Windows `pnpm verify`, **2,148 checks**, plus the 50-check focused keyboard driver.
+The operator reports improved Samsung/Chrome usability; a systematic physical-device matrix remains open.
+The current screenshot capture uses isolated demo data and simulated keyboard geometry, not provider inference.
 
 | Capability | State | Current behavior |
 |---|---|---|
 | Interactive terminals | Real, backend-aware | Main-owned node-pty sessions, ConPTY/native POSIX or explicit Windows→WSL launch, xterm UI, resize, replay, theme, exit state and restart action |
-| Interactive CLI lifecycle | Native Windows focused PTY evidence | Original foreground call tracked separately from the surviving shell; explicit unknown state, real exit code, desktop reload reconciliation and mobile reopening. Managed tasks/login transport unchanged; manually launched shell commands are not tracked. Final T6 evidence is recorded above |
+| Interactive CLI lifecycle | Native Windows focused PTY evidence | Original foreground call tracked separately from the surviving shell; explicit unknown state, real exit code, desktop reload reconciliation and mobile reopening. Managed tasks/login transport unchanged; manually launched shell commands are not tracked. Full goal verification pending |
 | Mobile workspace tools | Native Windows and Windows→WSL homes verified | Explicit project or own home; separate read/write grants, bounded tree/search/text preview and revision-checked atomic saves. Git diffs remain native-project-only; live sessions/managed leases block edits; drafts live only in page memory |
 | Mobile interactive terminals | Real Windows and Windows→WSL home PTYs verified | Explicit terminal grant, per-session launcher, existing session attach, exclusive 30-second input lease, immediate desktop reclaim/revocation and sequenced at-most-once input; xterm color/cursor display and direct input, compact keyboard layout and explicit keyboard activation; no managed-task/login control, full mouse reporting or terminal file transfer |
 | Per-session launch choice | Desktop/tablet flows verified with controlled CLIs | Empty shell, saved profile, fresh Codex/Claude/Grok/Hermes and available Ollama model; fixed discovery/revalidation and preserved restart choice. Saved profiles are unchanged; vendor authentication and real inference are separate acceptance |
@@ -46,16 +91,14 @@ a live GitHub PR roundtrip is not claimed.
 | Session cleanup | Real | Tab close and agent/category deletion stop and remove owned PTYs; naturally exited sessions reap after 30 minutes |
 | Named agents and categories | Real | Persisted identities, photos, runtime/permission settings and backend-aware model choices. Dynamic desktop model discovery preserves saved choices and exposes loading/retry/unavailable states; exact provider/account availability remains an external prerequisite. See `RUNTIME_MODEL_SELECTION.md` |
 | Git workspaces | Real, agent/repository/backend-bound | Every agent/repository pair resolves one isolated ADE worktree/branch and uses only the persisted `native` or `wsl:<distribution>` Git boundary; category paths remain compatibility storage |
-| Independent project workspaces | Native Windows API and desktop/tablet discovery verified | Projekte shows bounded configured-root discovery and catalog entries; exact original/linked checkout opening without an agent or injected instructions; actual branch, explicit read/open grants, durable recovery after lost replies. Branch, CLI, Git and result controls are available |
-| Independent project branches | Native Windows desktop/tablet verified | Local and fetched remote branches, original checkout or separate worktree, concrete previews, drift/session/lease guards and receipt recovery |
+| Independent project workspaces | Native Windows API and desktop/tablet discovery verified | Projekte shows bounded configured-root discovery and catalog entries; exact original/linked checkout opening without an agent or injected instructions; actual branch, explicit read/open grants, durable recovery after lost replies. CLI/branch controls follow T3 |
+| Independent project branches | Internal native Windows boundary verified; UI pending T3b | 40 real Git checks cover local/remote selection, new branches and separate worktrees, preview drift, sessions, leases, ignored files and recovery. No new product API or branch control is exposed yet |
 | Repository scopes | Real | First-class repository catalog, explicit execution backend, optional agent defaults, portable homes and immutable session/task/run/lease/artifact scope snapshots; legacy records migrate to native |
 | Git comparison and explicit update | Implemented; new flow tested on native Windows | Graph, inspector and New Run compare main and agent worktrees with a selected local/origin basis; explicit Fetch, truthful session-local freshness and per-target preview/confirmed fast-forward. Dirty/divergent/detached/busy targets block updates; source/binding/HEAD drift invalidates previews. The mobile manager uses the same native Git service with a device grant and a separate preview/receipt contract. No automatic stash/reset/push or persisted Run basis. See `REPOSITORY_SYNC_PLAN.md` |
 | Reusable agents/templates | Real | Agent settings save bounded immutable template seeds; spawning creates an independent id, memory directory, home and optional repository binding |
 | Files and changes | Real, execution-scoped | Lazy tree, capped reads, Git status/diff and a visible backend/repo/source/branch/path/dirty/lease header resolve the active session snapshot; WSL mutations enforce containment, no-follow reads and atomic no-replace rename |
 | Overview home | Real inventory and launch actions | Catalog projects/agents, live PTYs and historical work refresh from current state. Direct saved-profile terminal and configured dashboard actions; removed identities remain historical context rather than active launch targets. Unknown interactive tokens/cost stay unknown. See `ASSISTANT_ACCESS.md` |
-| Independent project entry | Native Windows Git/PTY evidence | Project → branch/worktree → Codex/Claude/Grok/Shell, optional profile. New project on main without automatic CLI. Terminal, Git and Results sections. Explicit read/open/Git/publish grants |
-| Independent project Git | Native Windows real Git and browser fixtures | Selective commit, diff, conflict edit/resolve/continue/abort, fetch and reviewed fast-forward. Explicit push and GitHub PR, no force/implicit publishing; GitHub behavior uses a controlled provider fixture |
-| Run results and downloads | Native Windows real PTY/browser evidence | Graph file entry and project Results. Before/after changes, truthful legacy labels, current-file downloads and raster preview. Original task worktree required; no immutable binary archive |
+| Independent project entry | Native Windows focused Git/PTY evidence | Project → branch/worktree → Codex/Claude/Grok/Shell, optional same-environment profile. Named new project on main without automatic CLI. Explicit branch grant, preview and lost-response recovery. WSL home access and Agent-Arbeitskopie stay separate flows. See `PROJECT_ENTRY.md` |
 | Repository inspector | Real, read-only and backend-aware | The selected catalog repo has an Overview tab with bounded local health, 12 recent commits, lazy capped patches and up to 20 optional GitHub PRs; local state survives provider/offline errors, while Changes/Files stay on the active session binding |
 | Memory and role read path | Real | `MEMORY.md` / `USER.md` are injected at launch; each identity also owns a durable role-aware `AGENTS.md`, and managed tasks receive read-only role instructions plus a capped memory snapshot/digests without touching the leased worktree |
 | Memory write enforcement | Partial | Agents edit files directly; `MemoryStore` caps and drift checks are not an MCP write gate yet |
@@ -100,7 +143,7 @@ a live GitHub PR roundtrip is not claimed.
 | Remote device inventory and audit | Real, desktop-only; locally verified on native Windows | Settings lists, renames and revokes durable device identities and grants separate restart, catalog and Git administration rights per device. Secrets use OS safeStorage outside config/bundles; revoked tombstones prevent stale startup credentials from reviving a device. The environment device is migrated once. Revocation closes active device HTTP/SSE responses and denies subsequent access; accepted runs continue. A separate fsynced append-only audit records admission/outcomes and transport denials without payloads/keys/host paths. Corrupt or unavailable storage and the 8 MiB audit cap disable device authorization; QR pairing is implemented; audit viewer and maintenance UI remain pending |
 | Single-task submission | Real, main-owned | `runTask:submit` / `POST /api/v1/tasks` takes an explicit agent id, repository id, prompt (≤ 8000 chars) and optional name. One atomic save creates a manual run, one worker participant (one-member team named after the agent), the queued task and the idempotency record; the one-shot task session then launches through the managed task launcher (same agent/repository/binding checks and global FIFO of four) without blocking the reply. Progress and completion are journal events; a refused launch is journaled as a failed task; the wrapping run is cancellable via `run:cancel` and cannot be started as a managed orchestration. The wire carries neither prompts nor automatic prompt-derived title excerpts; independent names remain visible |
 | Remote channel policy | Real, allowlisted | `ipcPolicy.ts` gives every `shared` channel a `remote` requirement; `shared ⇒ read` holds for all channels except `REMOTE_COMMAND_CHANNELS` (`run:create/start/cancel`, `runTask:submit`), which must demand `runs:write` scope, a required idempotency key, a device signature and audit. Host/shell effects can never be shared; `channelPolicyViolations()` and the security suite pin every rule |
-| Mobile companion | Personal-alpha implementation, native Windows automation | Private Tailscale Serve and five-minute QR/manual pairing open a responsive PWA using the desktop's actual dark/light tokens, Overview, Projekte, searchable Work, participant/team Graph and tablet-side/phone-modal Inspector. Task/run dialogs retain separate device-local drafts per project and mode across navigation, reload, theme and connection changes; Work/Graph filter by project and agent identity. Bounded task submission, managed-run prepare/start, state/cancel, remembered device proof, host/network reconnection and Chromium shell-only offline startup use the signed idempotent run API. New Project creates a permanent named main checkout using the configured root and then waits for CLI selection; Continue Working attaches real interactive sessions in a full-screen tablet workspace. The separate administration surface adds agent/project/workspace creation, Git comparison/confirmed update and idle native Windows source relaunch after an explicit per-device desktop grant. Browser/Electron automation covers keyboard/focus and phone/tablet layouts. Managed approvals/notifications remain desktop or future scope; complete answers, activity and file downloads are available remotely. Systematic physical-device/carrier, WebKit offline cold start and other native platform evidence remains open; see `TABLET_PROJECT_START_RESULTS.md`, `goal8/MOBILE_CONNECT_RESULTS.md` and `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`. An already-running host activates updated assets only after a normal ADE restart and browser reload |
+| Mobile companion | Personal-alpha implementation, native Windows automation | Private Tailscale Serve and five-minute QR/manual pairing open a responsive PWA using the desktop's actual dark/light tokens, Overview, Projekte, searchable Work, participant/team Graph and tablet-side/phone-modal Inspector. Task/run dialogs retain separate device-local drafts per project and mode across navigation, reload, theme and connection changes; Work/Graph filter by project and agent identity. Bounded task submission, managed-run prepare/start, state/cancel, remembered device proof, host/network reconnection and Chromium shell-only offline startup use the signed idempotent run API. New Project starts Codex using desktop-configured project defaults; Continue Working attaches real interactive sessions in a full-screen tablet workspace. The separate administration surface adds agent/project/workspace creation, Git comparison/confirmed update and idle native Windows source relaunch after an explicit per-device desktop grant. Browser/Electron automation covers keyboard/focus and phone/tablet layouts. Detailed reports/approvals/notifications remain desktop or future scope. Systematic physical-device/carrier, WebKit offline cold start and other native platform evidence remains open; see `TABLET_PROJECT_START_RESULTS.md`, `goal8/MOBILE_CONNECT_RESULTS.md` and `goal8/MOBILE_DESKTOP_PARITY_RESULTS.md`. An already-running host activates updated assets only after a normal ADE restart and browser reload |
 | Remote administration | Implemented; native Windows source-launch evidence | Separate signed application endpoints expose scoped agent/project/workspace provisioning, native Git comparison/Fetch/confirmed fast-forward and idle ADE relaunch. Desktop grants are per device; existing grants do not expand. Administrative receipts coalesce/replay across restart and fail closed on interrupted/corrupt storage (500 receipts / 1 MiB). Restart confirms a new host instance and retains pairing. New projects initialize locally; no arbitrary clone URL, shell, host path, auto-update or OS reboot. See `REMOTE_WORKSPACE_RESULTS.md` |
 | Background host mode | Close-to-tray implemented and tested on native Windows | Closing the window while mobile access is enabled keeps the host available via tray; explicit quit stops it. Login autostart, headless startup, sleep prevention, pre-login service and remote wake are not implemented |
 | Updates | Not built | No updater or release feed yet |
@@ -222,7 +265,7 @@ fixture repositories rather than depending on any personal checkout.
   range at 50 and one run integration at 200 commits.
 - Plain-workspace runs keep the same plan/result/approval/verification control
   plane but can only reconcile reports; they do not claim git integration.
-- Managed-run verified publishing currently supports only a GitHub `origin` plus an
+- Verified publishing currently supports only a GitHub `origin` plus an
   installed/authenticated `gh` in the repository's own execution backend. The
   remote default branch must still equal the leased base exactly; ADE does not
   rebase, update an existing conflicting ref, merge, auto-merge or delete a
@@ -239,7 +282,7 @@ fixture repositories rather than depending on any personal checkout.
   not fetch remote refs or show provider CI logs yet; unsupported/offline/auth
   states remain separate from the always-local status and commit history.
 - Mobile access is opt-in in desktop Settings and remains loopback-only behind
-  private Tailscale Serve. Systematic physical phone/tablet and carrier-network acceptance
+  private Tailscale Serve. Physical phone/tablet and carrier-network acceptance
   must be measured separately from Chromium/Electron automation. The legacy
   environment API cannot run concurrently with the mobile controller.
 - The fsynced remote audit has an 8 MiB hard cap; full/broken storage disables
@@ -251,8 +294,7 @@ fixture repositories rather than depending on any personal checkout.
   delivery adds bounded device storage for task/terminal drafts and pending work
   keys; reload restores them without submitting anything automatically. General
   management-dialog retry state still requires the same open page.
-- Electron IPC, runtime configuration and managed-run verified publishing remain
-  local. Independent-project commit/merge/push/PR use the dedicated T3–T5 project
-  API with explicit device grants. Terminal, file and profile access also use
-  dedicated APIs and desktop grants. Direct LAN binds, router forwarding,
-  Tailscale Funnel and public tunnels are unsupported.
+- Electron IPC, runtime configuration and Git publishing remain local. Terminal,
+  file and profile access use the dedicated Goals 16–19 APIs and desktop device
+  grants. Direct LAN binds, router forwarding, Tailscale Funnel and public tunnels
+  are unsupported.

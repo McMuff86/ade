@@ -105,6 +105,15 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   const book = await bookEvent; const bookPath = await book.path();
   check('direct Graph files download spreadsheet from owning task workspace', !!bookPath && readFileSync(bookPath).equals(readFileSync(join(session.workspaceDir!, 'outputs/book.xlsx'))));
   await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
+  writeFileSync(join(session.workspaceDir!, 'outputs/result.md'), '# Updated after run');
+  await filesDialog.getByRole('button', { name: 'Download vorbereiten: result.md', exact: true }).click();
+  check('stale file download explains refresh instead of requesting an ADE update', (await filesDialog.getByRole('alert').innerText()).includes('Dateien aktualisieren'));
+  await filesDialog.getByRole('button', { name: 'Dateien aktualisieren', exact: true }).click();
+  await filesDialog.getByText('Seit Run-Ende erneut verändert · Download enthält den aktuellen Stand.', { exact: true }).waitFor();
+  await filesDialog.getByRole('button', { name: 'Download vorbereiten: result.md', exact: true }).click();
+  await filesDialog.getByRole('link', { name: 'Herunterladen: result.md', exact: true }).waitFor();
+  check('fresh file listing restores download after content drift', await filesDialog.getByRole('alert').count() === 0);
+  await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
   await page.screenshot({ path: join(evidence, 'run-files-changes.png') });
   await page.keyboard.press('Escape');
   check('direct Graph file dialog restores opener focus', await page.getByRole('button', { name: 'Dateien dieses Runs', exact: true }).evaluate((element) => element === document.activeElement));

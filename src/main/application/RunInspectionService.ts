@@ -119,7 +119,8 @@ export class RunInspectionService {
   async file(runId: string, taskId: string, fileId: string, authorize: () => void): Promise<{ bytes: Buffer; type: string; name: string }> {
     return workspaceOperations.use(async () => {
       authorize(); const { scope } = await this.scope(runId, taskId);
-      const file = (await this.taskFiles(runId, taskId, authorize)).files.find((item) => item.id === fileId && item.available); if (!file) return absent();
+      const file = (await this.taskFiles(runId, taskId, authorize)).files.find((item) => item.id === fileId && item.available);
+      if (!file) throw new RemoteApiError(409, 'command_rejected', 'Datei ist in diesem Stand nicht mehr verfügbar. Dateien aktualisieren und erneut öffnen.');
       await this.workbench.revalidate(scope); authorize();
       const path = this.workbench.path(scope, file.path); const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
       try {

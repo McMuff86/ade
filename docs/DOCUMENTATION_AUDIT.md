@@ -1,5 +1,36 @@
 # ADE-Dokumentationsaudit
 
+## Abgleich vom 10. September 2026
+
+Inventar vor diesem Abgleich: **60 Markdown-Dateien unter docs**. Die aktuellen
+Einstiege und Capability-Aussagen wurden mit dem Projekt-/Git-/Ergebnisablauf aus
+T0–T7 abgeglichen. Zusätzlich entstehen drei historische Checkpoint-Kopien und
+ein [aktualisiertes Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-10.md).
+Damit umfasst der geprüfte Bestand jetzt **64 Markdown-Dateien unter docs**.
+
+| Dokument | Entscheidung und konkrete Korrektur |
+|---|---|
+| HANDOFF | [Zwischenstand archiviert](archived/HANDOFF_2026-09-10_CHECKPOINT.md); aktuelle Übergabe neu geschrieben. Alte T3-Stash-/Neustart-Pendenzen entfernt, tatsächlicher Operator und ursprünglicher Bild-Run getrennt dokumentiert. |
+| STATUS | [Zwischenstand archiviert](archived/STATUS_2026-09-10_CHECKPOINT.md); Capability-Matrix behalten, unabhängige Branches/Git/Ergebnisse aktualisiert. Frühere 2.148 Checks ausdrücklich von neuer Gesamtprüfung getrennt. |
+| ROADMAP | [Zwischenstand archiviert](archived/ROADMAP_2026-09-10_CHECKPOINT.md); aktuelle Aufgaben und Vorschläge konsolidiert. Historische Goal-Verträge und Exit-Kriterien aktiv belassen. |
+| USER_GUIDE und Bilder | Profilfreie Einrichtung, aktuelle Rechte und Menübezeichnungen, Git-Veröffentlichung und Dateiabruf aus Graph/Projekt erklären. 14 Einstiegsbilder erneut aufgenommen; zusätzliche aktuelle Run-Bilder 15/16/23/24. |
+| Recherche vom 9. September | Als datierte Quelle aktiv behalten; sichtbarer Verweis auf den Abgleich vom 10. September. Nicht mehr als vollständig offene heutige Aufgabenliste lesen. |
+| PLAN-/GOALS-/RESULTS-Dokumente | Gültige API-, Plattform-, Sicherheits- und Messverträge behalten. Ein alter Dateiname alleine ist kein Archivierungsgrund. |
+
+ARCHITECTURE und SPEC sind mit dem T7-Vertrag synchron. Neue Guidebilder stammen
+aus isolierten Produktionsbuilds; `capture*.json` nennt Quelle und Grenzen.
+Die Ergebnisdateien sind echte lokale Fixture-Ausgaben, keine Modellbewertung.
+Ein vollständiger physischer Samsung-Test und die blockierte WSL-Zusatzabnahme
+werden ausdrücklich nicht durch Screenshots oder native Windows-Tests ersetzt.
+
+Die abschliessende repositoryweite Prüfung ist in [STATUS](STATUS.md) dokumentiert.
+Der Linkcheck prüft aktuell 213 relative Dokumentziele inklusive Archivverweisen.
+Die folgenden Abschnitte bewahren das ursprüngliche Audit vom 9. September;
+seine Checkzahlen und Aussagen „keine Produktdateien verändert“ gelten für diesen
+historischen Dokumentationsslice.
+
+## Ursprünglicher Abgleich vom 9. September
+
 Stand: 2026-09-09 · Ausgangsstand: `8433e7d`.
 
 **Ergebnis:** vier überholte Markdown-Dateien nach `docs/archived` verschoben,

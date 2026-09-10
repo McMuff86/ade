@@ -15,7 +15,8 @@ its own checkout but a separate worktree permits parallel work. Mobile requires
 the additional `projectGit:write` grant for branch actions. Uncertain responses
 retain the receipt across reload and are resolved by explicit replay.
 
-Choose **Arbeiten mit → Codex / Claude CLI / Grok CLI / Leeres Terminal**, then
+Choose **Sitzung öffnen mit** on Mobile (**Arbeiten mit** on desktop) →
+**Codex / Claude CLI / Grok CLI / Leeres Terminal**, then
 **… öffnen**. No profile, agent binding or instruction injection is created.
 **Neue Sitzung starten → Gespeichertes Agent-Profil → Startprofil** explicitly
 reuses saved launch settings in this checkout. Session labels show the selected

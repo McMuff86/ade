@@ -1,5 +1,8 @@
 # ADE: Produktreview und nächste Verbesserungen
 
+> Historische Recherche vom 9. September. Der [Abgleich vom 10. September](ADE_PRODUCT_REVIEW_2026-09-10.md)
+> dokumentiert inzwischen gelieferte Projekt-/Git-/Ergebnisabläufe und die heutigen Vorschläge.
+
 Stand: 9. September 2026. Untersucht: Repository bei `8433e7d`, aktuelle
 Desktop-/Mobile-Oberfläche, vorhandene ausführbare Nachweise und die Rückmeldungen
 aus der heutigen Samsung-/Chrome-Nutzung. Dazu gezielte Recherche in offiziellen

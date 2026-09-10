@@ -1,6 +1,6 @@
 # Projektarbeit ohne verpflichtendes Agent-Profil
 
-Stand: 2026-09-10. Aktiver, vom Nutzer beauftragter Goal. Jeder abgeschlossene
+Stand: 2026-09-10. Vom Nutzer beauftragter Goal, native Abnahme abgeschlossen. Jeder abgeschlossene
 Task erhält einen eigenen Commit; erst nach Abschluss aller Tasks wird gepusht.
 Die Tabelle dokumentiert Umsetzung, keine vorweggenommene Produktfreigabe.
 
@@ -22,12 +22,12 @@ Agent-Identität. Bestehende Agent-Homes und verwaltete Runs bleiben erreichbar.
 | T1 | Gestartete CLI und Terminalprozess getrennt beobachten. Nach CLI-Ende beispielsweise „Claude beendet · Terminal offen“; Startauswahl bezeichnet keine andere laufende Sitzung. Reconnect, Exit und erneutes Öffnen mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows; zusätzliche WSL-Abnahme offen |
 | T2a | Datenmodell und begrenzte Ordnererkennung; eigene Projekt-Workspace-Identität ohne versteckt angelegtes Profil; bestehende Daten bleiben kompatibel | abgeschlossen für native Windows |
 | T2b | Erkannte und registrierte Projekte auf Desktop/Tablet zusammen anzeigen; typisierte Zugriffe und Freigaben; eigenständigen Workspace ausdrücklich öffnen | abgeschlossen für native Windows |
-| T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen als interne native Windows-Grenze; Bedienoberfläche folgt T3b |
+| T3a | Branch-/Worktree-Grenze mit vorhandenen lokalen/Remote-Branches, neuer Arbeitskopie, konkreter Vorschau und Drift-/Sitzungs-/Lease-Schutz; echte Git-Fixtures | abgeschlossen für native Windows; Bedienoberfläche in T3b enthalten |
 | T3b | Projekt → Workspace/Branch → CLI auf Desktop und Tablet: T3a über typisierte API/Bedienoberfläche verbinden, profilfreie Codex/Claude/Grok/Shell-Sitzungen und ausdrücklich gewählte Profile; vorhandene und neue Projekte mit echten PTY-Fixtures prüfen | abgeschlossen für native Windows |
 | T4 | Git-Arbeitsfläche: Status, Diff, selektive Datei-Auswahl und Commit; Fetch und Fast-forward-Pull; Branch-Merge mit sichtbaren Konflikten, Fortsetzen und Abbrechen. Vorschau, HEAD-/Index-/Datei-Drift, aktive Sitzungen und verwaltete Leases prüfen | abgeschlossen für native Windows |
 | T5 | Explizites Pushen und GitHub-PR-Erstellen aus dem gewählten Branch; Ziel und Änderungen vor Ausführung anzeigen. Gerätefreigabe, Idempotenz, Fehler und unklaren Ausgang prüfen; kein Force-Push | abgeschlossen für native Windows mit lokalem Git-/GitHub-Provider-Fixture |
-| T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | offen |
-| T7 | Nach Nutzerergänzung: im Graph pro Run neu erzeugte und geänderte Dateien nachvollziehbar zeigen, Dateien vorsehen und herunterladen; dieselben Ergebnisse im Projekt-Workspace erreichbar machen. Echte Run-/Dateizuordnung, ältere Runs ohne Ausgangssnapshot, Vorschau/Download und Zugriffsgrenzen prüfen | abgeschlossen für native Windows; Gesamtabnahme T6 folgt |
+| T6 | Menü, Tastatur/Fokus und responsives Layout durchgehend prüfen; Guide mit aktuellen Screenshots, Architektur/Status/Handoff synchronisieren. Vollständiges `pnpm verify`; letzter Commit, danach gemeinsamer Push | native Abnahme abgeschlossen, 2.588 Checks grün; Auslieferung siehe HANDOFF |
+| T7 | Nach Nutzerergänzung: im Graph pro Run neu erzeugte und geänderte Dateien nachvollziehbar zeigen, Dateien vorsehen und herunterladen; dieselben Ergebnisse im Projekt-Workspace erreichbar machen. Echte Run-/Dateizuordnung, ältere Runs ohne Ausgangssnapshot, Vorschau/Download und Zugriffsgrenzen prüfen | abgeschlossen für native Windows, Gesamtabnahme T6 grün |
 
 ## Verbindliche Umsetzungsgrenzen
 
@@ -65,6 +65,10 @@ Prüflauf sowie einen sauberen, gepushten Repository-Stand.
 
 Vorherige Produktbasis: `f606a1d`; `pnpm verify` mit 2.148 Checks. Das ist die
 Ausgangsevidenz und keine Verifikation dieses Goals.
+
+Die folgenden Task-Notizen sind datierte Zwischenabnahmen. Damalige Aussagen zu
+noch offenen Folgetasks, Stash oder Operator-Build sind keine aktuelle Pendenz;
+massgeblich sind die Tabelle, die abschliessende T6-Abnahme und HANDOFF.
 
 ### T1 — CLI und Shell getrennt
 
@@ -267,3 +271,24 @@ Eigener Commit und genehmigter ADE-Neustart; kein Push. T3b-Stash bleibt erhalte
   Hashes, private Prompt-Titel, Archivierung, Offline und abschliessende positive
   Downloads ab. Guide-Aufnahmen 23/24 und aktualisierte Einstiegsbilder liegen vor.
 - T6-Gesamtprüfung, Dokumentationsaudit und gemeinsamer Push bleiben offen.
+
+### T6 — Gesamtabnahme, Guide und Auslieferung
+
+- Vollständiges `pnpm verify` auf nativem Windows: **2.588 Checks grün**, Exit 0;
+  drei TypeScript-Projekte, 40 Suiten/2.032 Checks, Produktionsbuild und 556 echte
+  Electron-/Chromium-/Visual-Checks. Aufteilung in STATUS; finaler Log
+  `test-results/project-goal-verify.log`. Frühere fehlgeschlagene Läufe sind
+  getrennt erhalten, Fehler korrigiert und abschliessende Positivkontrollen grün.
+- Datei/API jetzt 57 und Run-Datei-Browserflow 24 Checks. Eine veraltete Datei-ID
+  liefert einen redigierten 409-Hinweis zur Aktualisierung statt einer falschen
+  Host-Update-Meldung. Anschliessender Download ist erneut erfolgreich.
+- Guide mit 24 echten ADE-Aufnahmen, darunter 14 erneuerte Einstiegsbilder.
+  64 Markdown-Dateien abgeglichen und 213 lokale Dokumentziele geprüft; drei
+  vollständige Zwischenstände archiviert. Aktuelle Vertragsdokumente bleiben aktiv.
+  Produktreview priorisiert Folgearbeit für die nächste Besprechung.
+- WSL-Zusatzprobe erneut versucht: `/bin/true` nach 15 Sekunden ohne Abschluss.
+  Nur der eigene Probeprozess beendet. Keine neue WSL-/Linux-/macOS-Freigabe und
+  keine erfundene physische Samsung- oder Live-GitHub-Abnahme.
+- Originaler Bild-/Excel-Run bleibt lesbar: PNG 2.261.193 Bytes, XLSX 5.626 Bytes,
+  Markdown 1.611 Bytes. Kein erneuter Modelllauf. Operator-Neustart und gemeinsame
+  Veröffentlichung bilden den letzten Auslieferungsschritt; Nachweis in HANDOFF.

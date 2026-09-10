@@ -88,10 +88,11 @@ void (async () => {
   check('Graph has a useful empty canvas and keyboard End support', await page.getByRole('heading', { name: 'Dein Graph ist bereit' }).isVisible());
   await page.keyboard.press('Home');
   await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).tap();
-  check('project selection opens the project workspace entry and moves focus', await page.getByRole('dialog', { name: 'Projekt · Mobile project', exact: true }).evaluate((node) => node.contains(document.activeElement))
+  await page.getByRole('alert').filter({ hasText: 'Diese Funktion benötigt die neue ADE-Version auf dem PC.' }).waitFor();
+  check('Overview project selection routes to Projects and explains missing legacy API', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true'
     && !await page.getByRole('dialog', { name: 'Neue Aufgabe' }).count());
-  await page.keyboard.press('Escape');
-  check('closing project dialog restores its project opener', await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).evaluate((node) => node === document.activeElement));
+  await page.getByRole('tab', { name: 'Overview', exact: true }).focus(); await page.keyboard.press('Enter');
+  check('Overview remains keyboard reachable after unavailable project entry', await page.getByTestId('mobile-overview').isVisible() && await focused('#view-tab-overview'));
   await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
   check('projectless workspace requires an explicit project for managed tasks', await page.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === ''
     && await page.getByRole('button', { name: 'Aufgabe vergeben', exact: true }).isDisabled());

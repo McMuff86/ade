@@ -1,209 +1,74 @@
 # ADE — aktuelle Übergabe
 
-## T7 Ergebnisdateien geprüft (2026-09-10)
+Stand: 10. September 2026. Frühere widersprüchliche Zwischenstände bleiben im
+[Checkpoint-Archiv](archived/HANDOFF_2026-09-10_CHECKPOINT.md).
 
-Graph → Dateien dieses Runs und Projekt → Ergebnisse sind verbunden. Native
-PTY-Aufgaben speichern Vorher-/Nachher-Hashes; Neu/Verändert/Gelöscht, unbekannte
-Alt-Runs und spätere Änderungen bleiben unterscheidbar. Download aus der echten
-Aufgaben-Arbeitskopie, keine automatische Übernahme in den Projektbranch.
-56 Inspection-, 22 echte Electron/Chromium-, 225 Security- und 82 Orchestration-
-Checks grün; TypeScript und Build grün. T6-Gesamtabnahme/Archivpflege und Push
-folgen. Persönliche Operator-Instanz weiterhin unverändert auf e07e00b.
+## Auftrag und Umsetzung
 
-## T5 Veröffentlichung geprüft (2026-09-10)
+Der Nutzer beauftragte Projekt-Stamm → Branch/Checkout → CLI mit optionalem
+Profil → Git, mit einem Commit je abgeschlossenem Task und einem gemeinsamen
+Push am Ende. Ergänzt wurde direkter Ergebnisdatei-Zugriff aus Graph und Projekt.
+[Goal und Abnahmen](PROJECT_WORKFLOW_GOALS.md), [Verträge](ARCHITECTURE.md),
+[aktueller Umfang](STATUS.md), [User-Guide](USER_GUIDE.md).
 
-T4 ist `d3a4d9f`. T5 ergänzt expliziten Push/PR mit separater Gerätefreigabe,
-vollständiger Vorschau und Wiederaufnahme unbestätigter Antworten. Gemessen:
-41 Veröffentlichungs-, 12 signierte Browser-, 20 Electron-Git/Push-, 33 Draft-
-und 221 Security-Prüfungen; drei TypeScript-Projekte und Build. GitHub wird in
-den Tests nachgebildet; echte Git-Remotes bleiben lokale Fixtures. Kein externer
-Test-PR. T6 bleibt offen, der gemeinsame Push erfolgt erst nach Gesamtabnahme.
-Persönliche ADE-Instanz und Tailscale-Routen weiterhin unverändert.
+T0–T7 sind für native Windows umgesetzt und abgenommen. T7 ist `b2ca131`, T5 `4e79efd`,
+T4 `d3a4d9f`, T3b `731998d`. Der frühere T3b-Stash wurde vollständig übernommen
+und entfernt. T6 schliesst Gesamtverifikation, Fehlerkorrekturen und Dokumentpflege
+ab. Gemeinsamer Push und geprüfter Operator-Neustart folgen als Auslieferungsschritt.
+Noch keine neue WSL-Freigabe.
 
-## T4 Projekt-Git geprüft (2026-09-10)
+Dateien: Graph → Dateien dieses Runs oder Projekte → Workspace öffnen → Ergebnisse.
+Neue Aufgaben erhalten einen begrenzten Vorher-/Nachher-Vergleich. Frühere Runs
+zeigen unbekannte/gemeldete Zuordnung; Dateien können dennoch heruntergeladen
+werden. Es sind aktuelle Dateien der ursprünglichen Aufgaben-Arbeitskopie, kein
+separates historisches Dateiarchiv und keine automatische Integration in main.
 
-Desktop und Tablet besitzen im unabhängigen Projekt einen Git-Bereich: Dateien
-auswählen/committen, Diff, kleine Konfliktdateien bearbeiten, Merge fortsetzen oder
-abbrechen, Fetch und Fast-forward. 47 Git/API-, 18 echte Browser-, 29 Draft- und
-221 Security-Checks sind grün. Logs: `test-results/project-git-*.log`.
-T3b ist `731998d`; sein vollständig übernommener Stash wurde danach entfernt.
-T5 (Push/PR) und T6 (Gesamtabnahme) sind als Nächstes offen. Noch kein Push.
-Die persönliche Instanz läuft weiterhin unverändert aus `operator-release-e07e00b`.
+## Verifikation und Dokumentation
 
-## T3b wiederhergestellt und verbunden (2026-09-10)
+Vollständiges `pnpm verify`: **2.588 Checks grün**, Exit 0. Drei TypeScript-Projekte,
+40 fokussierte Suiten mit 2.032 Checks, Produktionsbuild und 556 echte Electron-/
+Chromium-/Visual-Checks. Log: `test-results/project-goal-verify.log`; Aufteilung in
+STATUS. Die frühere 2.148-Check-Basis vom 9. September ist historisch.
+Datei/API jetzt 57, Run-Datei-Browserflow 24; fehlerhafter Download nach Dateiänderung
+fordert korrekt zur Aktualisierung auf, anschliessender Download erfolgreich.
 
-Der Stash wurde wiederhergestellt; Konflikte in IPC/ApplicationService behalten
-sowohl RunInspection als auch die Projekt-Branch-Verträge. Projekt → Branch →
-profilfreie CLI funktioniert in nativen Git-/PTY-Fixtures auf Desktop und Tablet.
-Neues Projekt öffnet den dauerhaften Checkout auf main ohne Agent oder CLI.
-Weitere Startoptionen wählen ein passendes natives Profil ausdrücklich. Details
-und Messungen: PROJECT_WORKFLOW_GOALS und STATUS. T4–T6 bleiben offen.
+14 Einstiegsbilder wurden mit dem Produktionsbuild neu aufgenommen; zusätzliche
+Branch-/Git-/Run-Bilder dokumentieren die jeweiligen echten Prüfflows. Quellen:
+`docs/media/user-guide/capture*.json`. Modelle/Tailscale sind kontrollierte
+Fixtures, Tastatur-Geometrie simuliert. Physische Samsung-Messung bleibt separat.
 
-Die persönliche ADE-Instanz bleibt unverändert auf dem festen Build `e07e00b`
-(PID 67208, Start 00:41:57). Ihre laufende Testversion bietet den bereits reparierten
-Graph-/Ergebniszugriff; der neue Projekteinstieg wird erst beim nächsten bewussten
-Build-Wechsel bereitgestellt. Kein Tailscale-Umbau und noch kein Push.
+Der [Dokumentationsaudit](DOCUMENTATION_AUDIT.md) hält Rollen und Archivierung
+fest; das [Produktreview vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md)
+priorisiert die nächste Besprechung. Gültige PLAN-/RESULTS-Verträge bleiben aktiv.
+64 Markdown-Dateien und 213 lokale Dokumentziele geprüft; 24 Guide-Bilder vorhanden.
 
-## Aktuelle Priorität: Run-Ergebnis auf dem Tablet (2026-09-10)
+## Persönliche Testinstanz
 
-Der Nutzer hat während T3b zuerst Graph-Aktivität, Ergebnis-/Bildzugriff und einen
-Neustart verlangt. Diese Änderung ist separat geprüft: 31 native Grenztests,
-12 echte Electron/Chromium-Checks mit deterministischer CLI in einer echten PTY,
-drei TypeScript-Projekte und Produktionsbuild. Aktuelle Logs/Screenshots stehen
-in STATUS und im Guide. Keine allgemeine Provider-/WSL-Freigabe daraus ableiten.
+Zuletzt geprüft: PID 67208, gestartet am 10. September 00:41:57 Europe/Zurich,
+feste Kopie `test-results/operator-release-e07e00b`, Listener `127.0.0.1:4317`.
+Aktive Runs, queued/running Tasks und aktive Leases: jeweils 0 bei der T6-Prüfung.
+Entwicklungsbuilds verändern diese feste Kopie nicht. Vor einem finalen Neustart
+erneut prüfen; keine aktiven Aufgaben abbrechen. Kopplung und Tailscale-Routen
+behalten; neue Gerätefreigaben setzt der Benutzer ausdrücklich am Desktop.
 
-T3a ist mit `201ab29` abgeschlossen. T3b war vorübergehend mit
-`T3b in progress before requested graph activity patch` gestasht und ist inzwischen
-wiederhergestellt. Den Stash erst nach dem geprüften T3b-Commit entfernen. T4–T6 sowie der
-abschliessende Push bleiben offen. Die folgenden älteren Betriebsnotizen beschreiben
-frühere Checkpoints; der neue Neustart wird unten separat protokolliert.
+Der ursprüngliche Bild-/Excel-Run ist `0531376b-559a-49f7-8d98-02d14573b109`,
+Task `9c816cef-783d-403c-ba1b-a9354e0506b1`, abgeschlossen. Seine wiederhergestellte
+Antwort ist als `recovered-cli` gekennzeichnet. Der genaue Bildmodellname war vom
+integrierten Werkzeug nicht gemeldet; der separate angefragte API-Aufruf scheiterte
+am Kontingent. Keine nachträgliche Modellbestätigung und kein erneuter Modelllauf.
+Vorherige Konfigurationssicherung:
+`%APPDATA%/ade/ade/config.json.before-run-inspection-e07e00b`.
 
-Der angefragte Main-Chef/Codex-Native-Run `0531376b-559a-49f7-8d98-02d14573b109`
-endete am 10.09.2026 um 00:06:17 mit Exit 0. Seine Dateien liegen im ursprünglichen
-Agent-Worktree unter `workspace-demo/`: imagegen-test.png, test.xlsx, test.md.
-Die alte unstrukturierte CLI hat keine Abschlussantwort in ADE gespeichert. Die
-passende lokale Codex-Sitzung wurde anhand Task/Session/Workspace identifiziert;
-beim genehmigten Neustart darf ausschließlich deren Abschlussantwort für genau
-Task `9c816cef-783d-403c-ba1b-a9354e0506b1` als `recovered-cli` übernommen werden.
-Die Antwort weist ehrlich darauf hin, dass der explizite gpt-image-2-API-Aufruf
-an insufficient_quota scheiterte und das integrierte Bildwerkzeug seine genaue
-Modellversion nicht nannte. Keine nachträgliche Bestätigung des verlangten Modells.
+## Offene, getrennte Abnahmen
 
-Stand: 2026-09-09. Diese Datei beschreibt den aktuellen Auftrag und Betriebsstand.
-Die vollständige bisherige Übergabe ist im [Archiv](archived/HANDOFF_2026-09-09.md)
-erhalten. Deren wiederholte „Nächster Schritt“-Abschnitte sind historische Notizen.
+- WSL-Bereitschaft: `/bin/true` nach 15 Sekunden weiter ohne Antwort; erneut am
+  10. September geprüft. Nur der eigene Probeprozess wurde beendet, kein WSL-Neustart.
+  Logs `test-results/t6-wsl-probe.*`. Kein Rückschluss auf native Linux-/WSLg-Pakete.
+- Physisch Samsung/Chrome: Tastatur, DeX, Drehung und Netzwechsel vollständig messen.
+- Live-GitHub-PR und weitere Betriebssysteme brauchen eigene Ausführungsevidenz.
+- Die früher automatisch abgelehnte Löschung des temporären Profils
+  `ade-terminal-electron-2xyWJu` wird nicht erneut versucht. Es bleibt liegen.
 
-## Aktueller Auftrag
-
-Der Nutzer hat den [projektzentrierten Ablauf als Goal](PROJECT_WORKFLOW_GOALS.md)
-beauftragt: Projekte entdecken, ohne verpflichtendes Profil einen Branch und eine
-CLI wählen, anschliessend Git-Aktionen ausführen. CLI- und Shell-Zustand müssen
-getrennt angezeigt werden. Nach jedem abgeschlossenen Task folgt ein Commit;
-gepusht wird erst am Schluss. Der frühere Research-/Guide-Auftrag ist abgeschlossen.
-
-T0/T1/T2a/T2b sind umgesetzt. Die neue Projektübersicht öffnet vorhandene native
-Checkouts unabhängig vom Agent-Katalog und zeigt den tatsächlichen Branch.
-Das Tablet benötigt `workspace:read` und die neue explizite Freigabe
-`projects:write`; alte Geräte erhalten sie nicht automatisch. Nächster Task T3:
-Branches und profilfreie CLI-Sitzungen in diesem Workspace. Der frühere Einstieg
-ist unter „Agent-Arbeitskopie“ weiterhin erreichbar. Einzelne Task-Nachweise stehen
-im Goal-Dokument; die abschliessende Gesamtverifikation und der Push folgen T6.
-Bis zum unten genannten ausdrücklichen Zwischen-Neustart blieb die persönliche
-ADE-Instanz während aller Tests erhalten.
-
-Aktuelle Steuerung: Der Nutzer verlangt nun ausdrücklich Zwischencommit und
-Neustart zum Testen von T2b auf dem Tablet. T3a ist begonnen (Branch-Datentypen und
-interne Worktree-Übernahme), aber noch keine Branch-Operation freigegeben. Der
-Neustart wurde nach Prüfung laufender Prozesse und einem Build durchgeführt; der
-abschliessende Push bleibt ausstehend.
-
-Zwischenstand `03175c4` läuft seit **9. September, 23:35:47 Europe/Zurich** in
-ADE PID **26028**, aus der festen Build-Kopie
-`test-results/operator-release-03175c4`. Diese Instanz liest ihre Assets aus dieser
-Kopie; weitere Entwicklungs-Builds ändern den Tablet-Teststand nicht. Der frühere
-ADE-Prozess 64500 hatte keine aktive CLI und keine aktiven Runs/Leases mehr, nur
-eine Shell der beendeten Claude-Sitzung; diese wurde beim angeforderten Neustart
-beendet. Die Konfiguration wurde vorher neben der Originaldatei gesichert.
-
-Private HTTPS liefert HTTP 200 mit `/assets/index-ByRvwC5J.js`, passend zum
-Build; der Listener auf 127.0.0.1:4317 gehört PID 26028. Tailscale-Serve-Routen
-sind unverändert. Das bestehende Gerät „Samsung Galaxy S10 Ultra“ ist weiterhin
-gekoppelt; die neue Freigabe `projects:write` wurde nicht automatisch hinzugefügt.
-Der Nutzer wurde auf den Haken „Projekt-Workspaces ohne Agent-Profil öffnen“ in
-Settings → Verbundene Geräte hingewiesen. Neustart-/Build-/Routennachweise:
-`test-results/project-checkpoint-*`. T3a/T3b und die Gesamtverifikation bleiben offen.
-
-Entwicklungsstand danach: T3a ist intern mit 40 echten Git-Prüfungen und drei
-TypeScript-Projekten grün abgeschlossen. Die API-/UI-Verbindung und profilfreien
-Terminals folgen T3b. Auf erneuten Wunsch wurde die weiterhin laufende Instanz
-26028 sichtbar wiederhergestellt; ihr privater HTTPS-Einstieg antwortet HTTP 200.
-Es wurde keine zweite Betreiberinstanz gestartet und der Build bleibt `03175c4`.
-
-- Nutzeranleitung: [USER_GUIDE.md](USER_GUIDE.md).
-- Priorisierte Befunde mit Abnahmekriterien: [Produktreview](research/ADE_PRODUCT_REVIEW_2026-09-09.md).
-- Dokumentationsentscheidungen: [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md).
-- Einstieg in alle Dokumente: [README.md](README.md).
-
-## Produkt- und Betreiberstand
-
-Die Tastaturaktivierung aus `02330e1` wurde gebaut und am 9. September um 18:45
-auf dem privaten Mobile-Listener aktiviert. Dabei blieben die vorhandene
-ADE-Instanz und ihre Codex-Sitzung erhalten. Der nachfolgende Dokumentationscommit
-war `8433e7d`. Details: [Keyboard activation results](TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md).
-
-Der Nutzer meldet danach eine verbesserte Darstellung/Bedienung. Eine vollständige
-physische Matrix für Samsung-Tastatur, DeX, Hochformat, externe Tastatur und
-Verbindungswechsel ist weiterhin offen. Das frühere reine „noch nicht am Gerät
-bestätigt“ ist damit als pauschale Aussage überholt; eine vollständige Freigabe
-aller Gerätefälle wäre ebenfalls nicht belegt.
-
-Für diese Guide-Aufnahmen wird eine getrennte temporäre ADE-Instanz gestartet:
-eigener Profilordner, lokales Demo-Git-Repo, separate Loopback-Ports und lokale
-CLI-Fixtures. Die echte Tailscale-Konfiguration wird nicht verändert. Der reale
-Betreiber-Host benötigt für reine Dokumentationsänderungen keinen Neustart.
-
-## Validierung und Aufnahme
-
-Der abschliessende `pnpm verify` dieses Dokumentationsslice ist auf nativem
-Windows grün: **2.148 Checks**, alle drei TypeScript-Projekte und Produktionsbuild.
-Zusätzlich wurden Capture-Driver, 14 Bilder und 187 lokale Dokumentverweise geprüft.
-Der frühere fokussierte Keyboard-/Assistant-Lauf umfasst **50** Checks; seine
-Negativ-/Positivkontrollen bleiben im zugehörigen Ergebnisdokument erhalten.
-
-Neue Aufnahmen reproduzieren:
-
-```powershell
-pnpm build
-pnpm exec tsx scripts/capture-user-guide.ts
-```
-
-Die 14 PNGs und [capture.json](media/user-guide/capture.json) liegen unter
-`docs/media/user-guide`. Browser-/Git-/PTY-Abläufe sind echt; Modelle und Tailscale
-sind in der Fixture ersetzt. Die Softwaretastatur wird durch VisualViewport-
-Geometrie simuliert. Keine echten Anbieterantworten oder physische Gerätemessung
-aus diesen Bildern ableiten.
-
-## Aktuelle Fortsetzung
-
-T0 dokumentiert den Auftrag; T1 liefert wahrheitsgetreue CLI-/Shell-Zustände für
-native Windows. T2a liefert Projektordner-Erkennung und unabhängige Workspace-
-Identitäten als Main-Service; T2b bindet nun UI/API daran an. Zusätzliche
-WSL-Abnahme ist wegen eines Backend-Timeouts offen;
-Details, grüne Windows-Läufe und Betreibergrenzen stehen im aktiven Goal.
-Reihenfolge und Abnahme stehen im [aktiven Goal](PROJECT_WORKFLOW_GOALS.md).
-Die bisherige Verifikation unten/oben betrifft die Ausgangsbasis, nicht bereits
-den neuen Umbau. Offene Engineering-Tracks bleiben in [ROADMAP.md](ROADMAP.md).
-
-## Weiterhin geltende Grenzen
-
-Architektur-, IPC-, Wire- und Workspace-Verträge bleiben in
-[ARCHITECTURE.md](ARCHITECTURE.md) und [STATUS.md](STATUS.md) verbindlich.
-Windows UI mit WSL-Backend ist nicht native Linux-/WSLg-Ausführung.
-Automatisierte Fixtures ersetzen keine echte Provider-/Tablet-Abnahme.
-
-Die Goal-6-Messungen auf `2D_rpg_jumpnrun` bleiben historische Evidenz. Weitere
-reale Produktmessungen bevorzugen isolierte ADE-Worktrees von RhinoClaw; der
-gewöhnliche Checkout, `main`, die installierte Skill und die laufende Rhino-
-Installation bleiben ohne gesonderten Auftrag unberührt. Automatisierte Tests
-verwenden synthetische lokale Repositories.
-
-
-## Ergebnis-Build gestartet — 2026-09-10, 00:41:57 Europe/Zurich
-
-- Produktänderung committed als `e07e00b`; feste Build-Kopie unter
-  `test-results/operator-release-e07e00b`, ADE PID 67208. Das Hauptfenster ist
-  sichtbar, Listener ausschliesslich `127.0.0.1:4317`. Tablet-Adresse HTTP 200,
-  neues Asset `index-DI8OuzYK.js`. Tailscale-Serve-Konfiguration bytegleich.
-- Vor dem Stopp von PID 26028 waren keine laufenden/queued Tasks oder aktiven
-  Runs vorhanden. Nur die geprüfte alte ADE-Instanz wurde beendet.
-- Operator-Config gesichert als
-  `%APPDATA%/ade/ade/config.json.before-run-inspection-e07e00b`. Ausschliesslich
-  die passende Abschlussantwort (2.092 Zeichen, Quelle `recovered-cli`) wurde
-  dem oben genannten beendeten Task hinzugefügt; alle anderen Config-Felder
-  wurden vor dem Schreiben auf Unverändertheit geprüft.
-- Neuer RunInspection-Service gegen den tatsächlichen Original-Workspace geprüft:
-  PNG 2.261.193 Bytes, XLSX 5.626 Bytes, Markdown 1.611 Bytes lesbar. Ergebnis:
-  `test-results/run-inspection-operator-probe.log`. Kein Modell erneut gestartet.
-- Auf dem Tablet Chrome neu laden, Work-Run/Graph-Agent öffnen und **Ergebnis**
-  oder **Dateien** wählen. Physischer Samsung-Test bleibt beim Nutzer.
-- T3b-Stash bleibt vollständig erhalten; T3b–T6 und der gemeinsame Push offen.
+Historische Goal-6-Messungen bleiben unverändert. Automatisierte Tests verwenden
+synthetische Repositories; reale Folgemessungen bevorzugen isolierte RhinoClaw-
+Worktrees und verändern weder dessen Hauptcheckout noch die laufende Installation.

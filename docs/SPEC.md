@@ -12,6 +12,8 @@ ADE does not render spreadsheets or arbitrary document content inside the Graph.
 
 Downloads use the current original task workspace. Later changes are marked;
 deleted/unavailable files keep their evidence without offering a working download.
+If a file changes after listing, the download asks users to refresh the file list
+and open it again; it does not misreport this conflict as an outdated ADE host.
 Missing baselines never become an invented run delta. The selected project branch
 does not silently receive changes from a task worktree. Capture/list limits and
 unavailable workspaces are visible. This slice is native Windows evidence; WSL

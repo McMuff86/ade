@@ -19,6 +19,9 @@ evidence without download. Downloads are current files, not an immutable archive
 `changedSinceRun` marks later modifications. File IDs bind scope, metadata and the
 current digest when captured. Reads validate identity/digest again. Files outside
 the digest budget keep metadata validation and an explicit limited listing.
+Stale download IDs return `409 command_rejected` with a refresh instruction.
+The dedicated download route includes useful 409/422 error details only after
+`redactedWireMessage`; authorization/not-found failures retain the normal boundary.
 
 Dedicated signed GET `/api/v1/runs/:runId/files` aggregates existing task file
 routes; live `workspace:read` authorization goes through AdeApplicationService.
