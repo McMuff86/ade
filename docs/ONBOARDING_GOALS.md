@@ -12,7 +12,7 @@ es verwendet. Profile bleiben optional; vorhandene Arbeitsabläufe bleiben erhal
 | Task | Abnahme | Stand |
 |---|---|---|
 | S0 | Umfang, Grenzen und Prüfkriterien festhalten | abgeschlossen |
-| S1 | Desktop-Einrichtung verbindet Projektordner, native CLI-/Anmeldeprüfung, optionale Kopplung und Gerätefreigaben. Kein erzwungener Agent. Laden/Fehler/erneute Prüfung, Tastatur/Fokus, echte Electron-Prüfung | offen |
+| S1 | Desktop-Einrichtung verbindet Projektordner, native CLI-/Anmeldeprüfung, optionale Kopplung und Gerätefreigaben. Kein erzwungener Agent. Laden/Fehler/erneute Prüfung, Tastatur/Fokus, echte Electron-Prüfung | abgeschlossen für native Windows |
 | S2 | Mobile-Einrichtungsstatus zeigt konkrete fehlende Rechte und nächste Schritte; Host-/Browser-Builds unterscheidbar, unbekannte/veraltete/offline Zustände ehrlich. Keine automatischen Mutationen oder Seitenneuladungen; signierter Zugriff und Browserprüfung | offen |
 | S3 | Guide mit echten neuen Aufnahmen, Verträge/Status/Handoff synchron; vollständiges pnpm verify. Commit je Task, gemeinsamer Push und geprüfter ADE-Neustart unter Erhalt von Kopplung/Routen | offen |
 
@@ -31,3 +31,12 @@ prüfen. Die bestehende persönliche ADE-Instanz ist keine Test-Fixture.
 
 Basis: `7218991`, vollständige vorherige Abnahme mit 2.588 Checks. Neue Nachweise
 werden hier pro Task eingetragen; die Basis ersetzt deren Prüfung nicht.
+
+## S1: Desktop-Einrichtung
+
+16 echte Electron-Prüfungen bestanden: leeres Profil, ungültiger/gültiger Stamm,
+CLI-Anmeldung/Abmeldung, fehlgeschlagene Prüfung mit erfolgreichem Retry, Fokus,
+schmale Ansicht und echte Shell im vorhandenen Checkout ohne Agent/Kategorie.
+TypeScript und Produktionsbuild grün. Log: `test-results/setup-electron.log`;
+Driver ist in pnpm verify aufgenommen. Guide-Bild 25 stammt aus diesem Lauf.
+Keine Provider-Inferenz und keine Änderung an der persönlichen ADE-Instanz.

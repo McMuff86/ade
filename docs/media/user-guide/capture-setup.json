@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-11",
+  "source": "S1 working tree based on 58abdfe; changes committed with this capture",
+  "driver": "scripts/test-setup-electron.ts",
+  "platform": "native Windows Electron production build",
+  "checks": 16,
+  "images": ["25-desktop-setup.png"],
+  "fixture": "Empty isolated ADE profile, real Git checkout and PTY shell; native CLI diagnostics use deterministic local executables, no model inference",
+  "physicalTablet": false
+}

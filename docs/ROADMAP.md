@@ -6,6 +6,11 @@ Intermediate delivery notes are preserved in the [checkpoint archive](archived/R
 
 ## Current delivery
 
+September 11 follow-up: guided desktop setup S1 is implemented and measured with
+16 native Electron checks. Mobile orientation/build identity and final acceptance
+continue in [ONBOARDING_GOALS](ONBOARDING_GOALS.md). The September 10 project
+workflow remains the verified baseline below.
+
 Project root → checkout/branch → optional-profile CLI → Git commit/merge/push/PR
 is implemented for native Windows. T7 adds observed run-file changes and downloads
 from Graph and project Results. T6 completed the guide, documentation audit and

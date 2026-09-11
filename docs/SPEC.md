@@ -1,5 +1,15 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## First setup without an agent profile
+
+Desktop **Einrichtung** joins project root, native CLI/sign-in checks, optional
+tablet pairing and device permissions. Users can move among these steps or open
+Projects directly. An empty ADE profile offers project setup without requiring
+a category. Existing agents and Settings remain available. Saving a folder does
+not install or launch a CLI; sign-in occurs through the chosen CLI in a project.
+Pairing and each grant retain their explicit confirmation. Failed checks replace
+stale success with an actionable retry state.
+
 ## Run files on Graph and projects
 
 Graph offers **Dateien dieses Runs** directly; project workspaces offer

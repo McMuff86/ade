@@ -14,6 +14,7 @@ import { TerminalArea } from './terminal/TerminalArea';
 import { useAppData } from './stores/appdata';
 import { Rail } from './rail/Rail';
 import { FirstRun } from './onboarding/FirstRun';
+import { SetupModal } from './onboarding/SetupModal';
 import { RightPanel } from './rightpanel/RightPanel';
 import { adjacentMode, useMode, type AppMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
@@ -44,6 +45,7 @@ export function App() {
   const loadRuns = useRuns((s) => s.load);
   const appLoaded = useAppData((s) => s.loaded);
   const categoryCount = useAppData((s) => s.categories.length);
+  const repositoryCount = useAppData((s) => s.repositories.length);
   useEffect(() => {
     void loadAppData();
     void hydrateSessions();
@@ -54,6 +56,9 @@ export function App() {
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const [rightOpen, setRightOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const openProjects = () => { setSetupOpen(false); setMode('projects');
+    requestAnimationFrame(() => document.getElementById('mode-tab-projects')?.focus()); };
 
   const toggleRightPanel = (): void => {
     const panel = rightPanelRef.current;
@@ -111,6 +116,7 @@ export function App() {
         </div>
 
         <span className="spacer" />
+        <button id="ade-setup" className="btn" onClick={() => setSetupOpen(true)}>Einrichtung</button>
         <button
           className="btn"
           onClick={() => setSettingsOpen(true)}
@@ -138,13 +144,15 @@ export function App() {
         {mode === 'graph' ? (
           <GraphView />
         ) : mode === 'overview' ? (
-          <OverviewView />
+          firstRun && repositoryCount === 0 ? <FirstRun onSetup={() => setSetupOpen(true)} onProjects={openProjects} allowCategory={false} /> : <OverviewView />
         ) : mode === 'projects' ? (
           <ProjectsView />
         ) : (
         <TerminalsLayout
           inspectorLeft={inspectorSide === 'left'}
           firstRun={firstRun}
+          onSetup={() => setSetupOpen(true)}
+          onProjects={openProjects}
           inspectorOpen={rightOpen}
           inspectorRef={rightPanelRef}
           onInspectorCollapse={() => setRightOpen(false)}
@@ -156,6 +164,7 @@ export function App() {
       <DiagnosticsModal />
       <SessionLaunchDialog />
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
+      {setupOpen && <SetupModal onClose={() => setSetupOpen(false)} onProjects={openProjects} />}
     </div>
   );
 }
@@ -163,6 +172,8 @@ export function App() {
 function TerminalsLayout(props: {
   inspectorLeft: boolean;
   firstRun: boolean;
+  onSetup: () => void;
+  onProjects: () => void;
   inspectorOpen: boolean;
   inspectorRef: RefObject<ImperativePanelHandle | null>;
   onInspectorCollapse: () => void;
@@ -196,7 +207,7 @@ function TerminalsLayout(props: {
         </div>
       </div>
       <div className="workarea">
-        {props.firstRun ? <FirstRun /> : <TerminalArea />}
+        {props.firstRun ? <FirstRun onSetup={props.onSetup} onProjects={props.onProjects} /> : <TerminalArea />}
       </div>
     </Panel>
   );

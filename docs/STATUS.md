@@ -1,9 +1,17 @@
 # ADE implementation status
 
-Status date: 2026-09-10. Current behavior is below; chronological intermediate
+Status date: 2026-09-11. Current behavior is below; chronological intermediate
 notes are in the [checkpoint archive](archived/STATUS_2026-09-10_CHECKPOINT.md).
 Contracts: [Architecture](ARCHITECTURE.md), [Spec](SPEC.md).
 User entry: [illustrated guide](USER_GUIDE.md).
+
+## Guided setup follow-up
+
+S1 adds the desktop Einrichtung flow and profile-free first entry. Native Windows:
+16 real Electron checks, three TypeScript projects and build passed. S2 Mobile
+orientation and S3 full verification/publication are in progress; the 2,588-check
+project baseline below is not this follow-up's complete acceptance.
+Task record: [ONBOARDING_GOALS](ONBOARDING_GOALS.md).
 
 ## Project workflow delivery and evidence
 

@@ -1,5 +1,18 @@
 # ADE — Architecture (binding decisions)
 
+## Guided desktop setup
+
+The always-reachable Einrichtung dialog and the empty first-run card route to
+projects without creating an agent/category. Four freely navigable steps compose
+the existing project-defaults, native harness diagnostics, mobile pairing and
+device-grant UI. All mutations keep their existing explicit controls and IPC
+validation. There is no persisted cosmetic completion flag, automatic install,
+CLI launch, pairing or grant. Diagnostics clear stale data during retry and
+preserve unknown/failed authentication states. Authentication remains CLI-owned
+in the selected project. Step changes focus the heading; close restores the
+opener with the stable Einrichtung button as fallback, project navigation focuses
+its tab. Native Windows acceptance: scripts/test-setup-electron.ts.
+
 ## Run file evidence and downloads
 
 Native task PTYs capture file digests before spawn and after exit, before reporting

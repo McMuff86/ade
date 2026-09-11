@@ -1,25 +1,30 @@
 /**
- * First-run empty state — shown in the center area when there are no
- * categories yet. A calm card that launches the same New-category flow.
+ * First-run entry: projects and setup work without creating an agent category.
  */
 
 import { useOnboarding } from './useOnboarding';
 import './onboarding.css';
 
-export function FirstRun(): React.ReactElement {
+export function FirstRun({ onSetup, onProjects, allowCategory = true }: {
+  onSetup: () => void; onProjects: () => void; allowCategory?: boolean;
+}): React.ReactElement {
   const openNewCategory = useOnboarding((s) => s.openNewCategory);
 
   return (
     <div className="firstrun">
       <div className="firstrun-card">
-        <div className="firstrun-title">Create your first category</div>
+        <h1 className="firstrun-title">Willkommen in ADE</h1>
         <div className="firstrun-sub">
-          A category groups agents around one thing you work on — a channel, a repo, a book.
-          Add agents to it and each gets its own workspace, skills and memory.
+          Öffne ein Projekt und wähle Codex, Claude, Grok oder die Shell.
+          Ein Agent-Profil ist optional. Die Einrichtung führt dich durch Projektordner,
+          CLI-Anmeldung und den optionalen Tablet-Zugang.
         </div>
-        <button type="button" className="btn primary firstrun-cta" onClick={openNewCategory}>
+        <div className="firstrun-actions"><button type="button" className="btn primary firstrun-cta" onClick={onSetup}>ADE jetzt einrichten</button>
+          <button type="button" className="btn" onClick={onProjects}>Projekte ansehen</button></div>
+        {allowCategory && <><p className="firstrun-sub">Für persönliche Agents kannst du zusätzlich eine Kategorie anlegen.</p>
+        <button type="button" className="btn firstrun-cta" onClick={openNewCategory}>
           + New category
-        </button>
+        </button></>}
       </div>
     </div>
   );

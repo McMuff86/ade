@@ -1,0 +1,13 @@
+.modal.setup-modal { width: 800px; }
+.setup-modal p { font-size: 12px; line-height: 1.6; }
+.setup-steps, .setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.setup-steps .btn, .setup-actions .btn { min-height: 38px; white-space: normal; }
+.setup-steps [aria-current='step'] { border-color: var(--accent); color: var(--accent); }
+.setup-step-title { margin: 16px 0 8px; }
+.setup-modal :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.setup-modal [role='alert'] { color: var(--del); }
+.setup-cli-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.setup-cli-list li { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.setup-note, .setup-cli-list span { color: var(--muted); font-size: 12px; }
+.setup-cli-list p { margin: 0; }
+.firstrun-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

@@ -1,6 +1,6 @@
 # ADE User-Guide
 
-Stand: 10. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Stand: 11. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
 
 ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
@@ -70,6 +70,22 @@ Du brauchst keinen Run, um interaktiv mit Codex, Claude oder Grok zu arbeiten.
 Reiter Projekte direkt zum gewünschten Arbeitsbereich.*
 
 ## 2. ADE einmal am PC einrichten
+
+Öffne oben **Einrichtung**. In einem leeren ADE kannst du auch **ADE jetzt
+einrichten** wählen. Die vier Schritte führen durch Projektordner, **CLI prüfen**,
+**Tablet verbinden** und **Freigaben prüfen**. Speichere zuerst den gewünschten
+Projekt-Stammordner. Die CLI-Prüfung zeigt Installation und Anmeldung; eine
+fehlgeschlagene Prüfung lässt sich wiederholen. Sie startet keinen Auftrag.
+
+![Geführte ADE-Einrichtung mit gemessenem CLI-Status](media/user-guide/25-desktop-setup.png)
+
+*Native CLI-Prüfung mit lokalen Testprogrammen. Ein gespeichertes Agent-Profil ist
+für diesen Weg nicht erforderlich; die Anzeige bestätigt keine Modellantwort.*
+
+Über **Zu den Projekten** wechselst du jederzeit in die Projektübersicht. Wähle
+dort den Workspace und öffne deine CLI. Falls die Anmeldung fehlt, folge deren
+Anmeldung im Terminal. Die beiden Tablet-Schritte sind optional für reine
+Desktop-Arbeit. Bestehende Einstellungen findest du weiterhin unter **Settings**.
 
 Für diesen Guide wird ADE auf nativem Windows gestartet. Windows mit einem
 WSL-Backend, eine native Linux-/WSLg-App und macOS sind unterschiedliche
