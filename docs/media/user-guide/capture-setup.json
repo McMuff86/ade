@@ -1,10 +1,10 @@
 {
   "date": "2026-09-11",
-  "source": "S1 working tree based on 58abdfe; changes committed with this capture",
+  "source": "S2 working tree based on cb442e5; changes committed with this capture",
   "driver": "scripts/test-setup-electron.ts",
-  "platform": "native Windows Electron production build",
-  "checks": 16,
-  "images": ["25-desktop-setup.png"],
-  "fixture": "Empty isolated ADE profile, real Git checkout and PTY shell; native CLI diagnostics use deterministic local executables, no model inference",
+  "platform": "native Windows Electron and Chromium production build",
+  "checks": 37,
+  "images": ["25-desktop-setup.png", "26-device-permission-presets.png", "27-mobile-setup-status.png"],
+  "fixture": "Empty isolated ADE profile, real Git checkout, PTY shell, signed HTTPS browser and saved device grants. Local CLI/Tailscale fixtures; no model inference or real tailnet mutation. Build-negative controls change only test responses; captured positive state is real. Fixture version may identify Electron's standalone launcher.",
   "physicalTablet": false
 }

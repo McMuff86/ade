@@ -1,14 +1,14 @@
 # ADE delivery roadmap
 
-Status: 2026-09-10. [Capabilities](STATUS.md), [project workflow tasks](PROJECT_WORKFLOW_GOALS.md)
+Status: 2026-09-11. [Capabilities](STATUS.md), [project workflow tasks](PROJECT_WORKFLOW_GOALS.md)
 and [current product review](research/ADE_PRODUCT_REVIEW_2026-09-10.md) have distinct roles.
 Intermediate delivery notes are preserved in the [checkpoint archive](archived/ROADMAP_2026-09-10_CHECKPOINT.md).
 
 ## Current delivery
 
-September 11 follow-up: guided desktop setup S1 is implemented and measured with
-16 native Electron checks. Mobile orientation/build identity and final acceptance
-continue in [ONBOARDING_GOALS](ONBOARDING_GOALS.md). The September 10 project
+September 11 follow-up: guided desktop setup and Mobile orientation/build identity
+S1/S2 are measured with 26 focused and 37 real Electron/Chromium checks. Final
+acceptance continues in [ONBOARDING_GOALS](ONBOARDING_GOALS.md). The September 10 project
 workflow remains the verified baseline below.
 
 Project root → checkout/branch → optional-profile CLI → Git commit/merge/push/PR
@@ -20,11 +20,10 @@ lifecycle recheck remains blocked at a read-only readiness probe.
 
 ## Proposed next product slices — for discussion
 
-1. A guided first setup joining root, CLI readiness, pairing and explicit grants.
-2. Physical Samsung Chrome keyboard/DeX/rotation and network-transition acceptance.
-3. Durable result-file storage, pagination and older archived-run browsing.
-4. WSL readiness/lifecycle investigation and separate backend result-file support.
-5. Host/build identity in Mobile, consistent German labels and measured accessibility.
+1. Physical Samsung Chrome keyboard/DeX/rotation and network-transition acceptance.
+2. Durable result-file storage, pagination and older archived-run browsing.
+3. WSL readiness/lifecycle investigation and separate backend result-file support.
+4. Consistent German labels and a wider measured accessibility audit.
 
 These proposals require prioritization; no new delivery is implied. Acceptance
 criteria and sources are in the September 10 review.

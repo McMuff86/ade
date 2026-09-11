@@ -3,8 +3,9 @@
 ## Aktueller Folgeauftrag vom 11. September
 
 Der Nutzer beauftragt weitere Verbesserungen mit Goals, Commit/Push und Neustart.
-S1 Desktop-Einrichtung ist mit 16 echten Electron-Checks, Typprüfung und Build
-abgenommen. S2 Mobile-Status/Build/Freigaben und S3 Gesamtprüfung folgen laut
+S1/S2 Desktop-Einrichtung und Mobile-Status/Build/Freigaben sind mit 26 fokussierten
+und 37 echten Electron-/Browser-Checks, Typprüfung und Build abgenommen.
+S3 Gesamtprüfung und Auslieferung folgen laut
 [Onboarding-Goal](ONBOARDING_GOALS.md). Noch kein neuer Operator-Neustart oder Push;
 der unten dokumentierte Build cb42dbb bleibt die persönliche Instanz.
 

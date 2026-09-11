@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { RemoteDeviceInventory } from '../../shared/remoteDevices';
 import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from '../../shared/remoteDevices';
-
-const scopeLabels: Record<RemoteAdminScope, string> = {
-  'host:restart': 'ADE neu starten', 'catalog:write': 'Agents und Projekte erstellen', 'repositories:write': 'Git abrufen und Workspaces aktualisieren',
-  'workspace:read': 'Workspace-Dateien und Git-Diffs lesen',
-  'workspace:write': 'Kleine Workspace-Textdateien bearbeiten',
-  'profiles:write': 'Agent-Namen, Rollen und Profilbilder bearbeiten',
-  'projects:write': 'Projekt-Workspaces ohne Agent-Profil öffnen',
-  'projectGit:write': 'Projekt-Branches und lokale Git-Aktionen ausführen',
-  'projectGit:publish': 'Projekt-Branches pushen und GitHub-PRs erstellen',
-  'terminal:control': 'Interaktive Terminals steuern (Befehle mit den Rechten meines Windows-Benutzers)',
-};
+import { REMOTE_SCOPE_LABELS, SETUP_INTENTS, addSetupScopes, type SetupIntent } from '../../shared/setup';
 
 export function RemoteDevicesSection(): JSX.Element {
   const [inventory, setInventory] = useState<RemoteDeviceInventory | null>(null);
@@ -104,12 +94,17 @@ export function RemoteDevicesSection(): JSX.Element {
               <legend>Verwaltungsrechte für {device.name}</legend>
               <p className="st-device-hint">Terminalzugriff erlaubt Shell-Befehle und Zugriff auf alles, was dein Windows-Benutzer erreichen kann.
                 Der Workspace ist das Startverzeichnis, keine Sandbox. Am Desktop kannst du die Eingabe jederzeit zurückholen.</p>
+              <div className="st-grant-presets" role="group" aria-label={`Freigaben vorauswählen für ${device.name}`}>
+                {(Object.keys(SETUP_INTENTS) as SetupIntent[]).map((intent) => <button key={intent} type="button" className="btn" onClick={() => {
+                  setGrantDrafts((current) => ({ ...current, [device.id]: addSetupScopes(current[device.id] ?? [], intent) }));
+                }}>{SETUP_INTENTS[intent].preset}</button>)}
+              </div><p className="st-device-hint">Die Vorauswahl ergänzt nur die Schalter unten. Prüfen und mit „Verwaltungsrechte speichern“ freigeben. Projektarbeit enthält keinen Push/PR.</p>
               {REMOTE_ADMIN_SCOPES.map((scope) => <label key={scope}><input type="checkbox"
                 checked={(grantDrafts[device.id] ?? []).includes(scope)} onChange={(event) => {
                   const checked = event.target.checked;
                   setGrantDrafts((current) => ({ ...current, [device.id]: checked
                     ? [...current[device.id] ?? [], scope] : (current[device.id] ?? []).filter((item) => item !== scope) }));
-                }} />{scopeLabels[scope]}</label>)}
+                }} />{REMOTE_SCOPE_LABELS[scope]}</label>)}
               <button type="button" className="btn" onClick={() => void change(device.id, 'permissions')}
                 disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())}>Verwaltungsrechte speichern</button>
             </fieldset>}

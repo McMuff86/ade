@@ -7,10 +7,11 @@ User entry: [illustrated guide](USER_GUIDE.md).
 
 ## Guided setup follow-up
 
-S1 adds the desktop Einrichtung flow and profile-free first entry. Native Windows:
-16 real Electron checks, three TypeScript projects and build passed. S2 Mobile
-orientation and S3 full verification/publication are in progress; the 2,588-check
-project baseline below is not this follow-up's complete acceptance.
+S1/S2 add desktop Einrichtung, profile-free first entry, explicit device permission
+presets and Mobile build/setup status. Native Windows: 26 focused setup checks,
+37 real Electron/Chromium checks, three TypeScript projects and build passed.
+S3 full verification/publication is in progress; the 2,588-check project baseline
+below is not this follow-up's complete acceptance.
 Task record: [ONBOARDING_GOALS](ONBOARDING_GOALS.md).
 
 ## Project workflow delivery and evidence

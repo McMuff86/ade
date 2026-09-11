@@ -3,8 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { createServer } from 'node:net';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { writeModelCliFixtures, MODEL_FIXTURE_CATALOG } from './fixtures/model-clis';
+import { checkMobileSetup } from './helpers/setupMobileChecks';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -13,6 +15,9 @@ const evidence = resolve('test-results/setup'); mkdirSync(evidence, { recursive:
 let app: ElectronApplication | undefined; let page: Page | undefined;
 void (async () => {
   if (process.platform !== 'win32') throw new Error('Setup flow is currently measured on native Windows');
+  const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
+  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('Missing fixture port');
+  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
   const cli = writeModelCliFixtures(root); const projects = join(root, 'projects'); const repo = join(projects, 'Erstes Projekt'); mkdirSync(repo, { recursive: true });
   execFileSync('git', ['init', '--initial-branch=main', repo], { windowsHide: true });
   writeFileSync(join(repo, 'AGENTS.md'), '# Existing project instructions\n');
@@ -21,8 +26,17 @@ void (async () => {
   const failureMarker = join(root, 'fail-diagnostics'); const launcher = join(root, 'launch.cjs');
   writeFileSync(launcher, `const {ipcMain}=require('electron'); const fs=require('node:fs'); const handle=ipcMain.handle.bind(ipcMain);
 ipcMain.handle=(channel, listener)=>handle(channel,(...args)=>{if(channel==='harness:diagnose'&&fs.existsSync(${JSON.stringify(failureMarker)}))throw new Error('Isolated diagnostic failure');return listener(...args);});
+const cp=require('node:child_process'); const original=cp.execFile;
+cp.execFile=function(file,args,options,callback){
+  if(!/tailscale(?:\\.exe)?$/i.test(file))return original.call(this,file,args,options,callback);
+  const config={TCP:{'443':{HTTPS:true}},Web:{'ade-mobile.fixture.ts.net:443':{Handlers:{'/':{Proxy:'http://127.0.0.1:${port}'}}}}};
+  const output=args[0]==='status'?{BackendState:'Running',Self:{DNSName:'ade-mobile.fixture.ts.net.',Online:true}}:config;
+  queueMicrotask(()=>callback(null,JSON.stringify(output)));return {};
+};
+cp.execFile[require('node:util').promisify.custom]=(file,args,options)=>new Promise((done,fail)=>
+  cp.execFile(file,args,options,(error,stdout,stderr)=>error?fail(error):done({stdout,stderr})));
 require(${JSON.stringify(resolve('out/main/index.js'))});`);
-  const env = { ...process.env, Path: `${cli.bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' };
+  const env = { ...process.env, Path: `${cli.bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' };
   for (const key of ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'XAI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY']) delete (env as Record<string, string | undefined>)[key];
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), env });
   page = await app.firstWindow(); page.setDefaultTimeout(30_000); const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
@@ -71,6 +85,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   const config = await page.evaluate(() => window.ade.invoke('config:get')); const { sessions } = await page.evaluate(() => window.ade.invoke('pty:list'));
   check('first real project shell uses the selected checkout without creating a profile', config.agents.length === 0 && config.categories.length === 0 && sessions.some((session) => session.workspaceDir === repo && !session.agentId));
   check('setup preserves original repository instructions and has no renderer errors', readFileSync(join(repo, 'AGENTS.md'), 'utf8') === '# Existing project instructions\n' && errors.length === 0);
+  await checkMobileSetup(app, page, port, evidence, check);
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined); }).finally(async () => {
   await app?.close().catch(() => undefined);
   if (dirname(resolve(root)) !== realpathSync.native(tmpdir()) || !basename(root).startsWith('ade-setup-electron-')) throw new Error('Unexpected setup fixture cleanup root');

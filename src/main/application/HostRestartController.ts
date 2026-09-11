@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { MobileHostState, MobileRestartResult } from '../../shared/remote';
 import { HostOperationGate } from './HostOperationGate';
 import { RemoteApiError } from './AdeApplicationService';
+import { BUILD_INFO } from '../../shared/buildInfo';
 
 /** Process-local lifecycle; executable, arguments and profile never come from remote input. */
 export class HostRestartController {
@@ -12,7 +13,7 @@ export class HostRestartController {
     private readonly relaunch: () => void, private readonly version: string, private readonly supported: boolean) {}
 
   state(canRestart: boolean): MobileHostState {
-    return { instanceId: this.instanceId, version: this.version, restart: this.pending ? 'pending' : 'ready',
+    return { instanceId: this.instanceId, version: this.version, ...(BUILD_INFO ? { build: { ...BUILD_INFO } } : {}), restart: this.pending ? 'pending' : 'ready',
       canRestart: canRestart && this.supported,
       blockers: [...(!this.supported ? ['Neustart ist für diesen Startmodus noch nicht verfügbar.'] : []),
         ...this.blockers(), ...(this.gate.busy() ? ['Eine Host-Aktion läuft.'] : [])] };

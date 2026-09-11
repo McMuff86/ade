@@ -1,8 +1,10 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { createHash } from 'node:crypto';
+import { buildIdentity } from './build/identity';
 
 export default defineConfig({
+  define: { __ADE_BUILD_INFO__: JSON.stringify(buildIdentity()) },
   root: 'src/mobile',
   base: '/',
   plugins: [react(), {

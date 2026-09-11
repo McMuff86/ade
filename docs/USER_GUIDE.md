@@ -165,6 +165,15 @@ Am PC **Settings → Verbundene Geräte → Geräte aktualisieren** wählen. Fü
 vollständigen Projekteinstieg die folgenden Rechte setzen und
 **Verwaltungsrechte speichern** drücken:
 
+Einfacher geht es unter **Einrichtung → Freigaben prüfen**: Beim gewünschten
+Gerät **Projektarbeit auswählen** drücken, die gesetzten Schalter prüfen und
+**Verwaltungsrechte speichern** wählen. Die Vorauswahl ergänzt bestehende Rechte.
+**Dateilesen auswählen** setzt nur das Leserecht für Workspace- und Ergebnisdateien.
+**Push/PR auswählen** ergänzt die Rechte zum Veröffentlichen ausdrücklich.
+Projektarbeit allein schaltet weder Push/PR noch den ADE-Neustart frei.
+
+![Vorauswahl und weiterhin einzeln prüfbare Gerätefreigaben](media/user-guide/26-device-permission-presets.png)
+
 | Recht | Wann du es brauchst |
 |---|---|
 | Agents und Projekte erstellen | Neue Projekte oder eine neue Projekt-Arbeitskopie vorbereiten |
@@ -180,6 +189,20 @@ vollständigen Projekteinstieg die folgenden Rechte setzen und
 Terminalzugriff erlaubt Befehle mit den Rechten des PC-Benutzers. Der gewählte
 Workspace ist das Startverzeichnis. Vergib diese Freigabe bewusst an dein eigenes
 Gerät. Tailscale allein ersetzt diese ADE-Freigabe nicht.
+
+Am Tablet unter **Settings → Einrichtung auf diesem Gerät** dein Vorhaben wählen.
+ADE nennt die fehlenden Schalter genauso wie am PC. Nach dem Speichern verbindet
+sich dasselbe Tablet erneut; **Einrichtungsstatus aktualisieren** prüft zusätzlich
+den aktuellen Stand. Installation und Anmeldung der CLI werden separat am PC
+unter **Einrichtung → CLI prüfen** geprüft.
+
+![Mobile zeigt Build-Stand, Gerätefreigaben und den nächsten Einstieg](media/user-guide/27-mobile-setup-status.png)
+
+Unter **Build-Stand** vergleichst du PC und Browser. Unterschiedliche Kennungen:
+Entwürfe sichern und Chrome neu laden; bleibt der Unterschied, ADE am PC mit dem
+aktuellen Build vollständig neu starten. „Build nicht gemeldet“ bei älteren Hosts
+bedeutet unbekannt. Offline zeigt ADE den letzten PC-Stand ausdrücklich ohne
+aktuelle Bestätigung. ADE lädt die Seite nicht selbstständig neu.
 
 Optional ADE über Chromes Installations-/Startbildschirmfunktion ablegen.
 Eine separat gespeicherte Browser-/PWA-Installation kann eine eigene Kopplung

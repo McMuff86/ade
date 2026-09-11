@@ -2,6 +2,8 @@
    from theme tokens only; the modal shell is shared onboarding CSS. */
 
 .st-devices { border-top: 1px solid var(--line); padding-top: 10px; }
+.st-grant-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-grant-presets .btn { min-height: 38px; white-space: normal; }
 [data-testid='project-defaults'] { border-top: 1px solid var(--line); padding: 14px 0; }
 [data-testid='project-defaults'] form { display: grid; gap: 10px; }
 [data-testid='project-defaults'] label { display: grid; gap: 5px; font-size: 12px; }

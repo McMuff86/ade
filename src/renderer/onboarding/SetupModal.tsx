@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { RuntimeDiagnosticsResult } from '../../shared/types';
+import { BUILD_INFO } from '../../shared/buildInfo';
 import { Modal } from './Modal';
 import { ProjectDefaultsSection } from '../settings/ProjectDefaultsSection';
 import { MobileAccessSection } from '../settings/MobileAccessSection';
@@ -17,6 +18,7 @@ export function SetupModal({ onClose, onProjects }: { onClose: () => void; onPro
   useLayoutEffect(() => { if (previousStep.current !== step) { previousStep.current = step; heading.current?.focus(); } }, [step]);
   return <Modal title="ADE einrichten" subtitle="Projekt öffnen, CLI wählen und bei Bedarf am Tablet weiterarbeiten. Ein Agent-Profil ist optional."
     onClose={onClose} className="setup-modal" fallbackFocus={() => document.getElementById('ade-setup')}>
+    <p className="setup-note" aria-label="ADE-Build auf dem PC">{BUILD_INFO ? `PC-Build ${BUILD_INFO.sourceId} · Erstellt ${new Date(BUILD_INFO.builtAt).toLocaleString()}` : 'PC-Build nicht bekannt (Entwicklungsstart).'}</p>
     <nav className="setup-steps" aria-label="Einrichtungsschritte">{STEPS.map((label, index) => <button type="button" className="btn" key={label}
       aria-current={step === index ? 'step' : undefined} onClick={() => setStep(index)}>{index + 1}. {label}</button>)}</nav>
     <h3 tabIndex={-1} ref={heading} className="setup-step-title">{STEPS[step]}</h3>

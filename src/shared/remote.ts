@@ -19,9 +19,12 @@ export interface MobileHealth {
   commands: 'enabled' | 'disabled';
 }
 
+export interface MobileBuildInfo { sourceId: string; builtAt: string }
 export interface MobileHostState {
   instanceId: string;
   version: string;
+  /** Optional for older hosts; source fingerprint, not a binary checksum or API version. */
+  build?: MobileBuildInfo;
   restart: 'ready' | 'pending';
   canRestart: boolean;
   blockers: string[];

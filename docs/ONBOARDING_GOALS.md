@@ -13,7 +13,7 @@ es verwendet. Profile bleiben optional; vorhandene Arbeitsabläufe bleiben erhal
 |---|---|---|
 | S0 | Umfang, Grenzen und Prüfkriterien festhalten | abgeschlossen |
 | S1 | Desktop-Einrichtung verbindet Projektordner, native CLI-/Anmeldeprüfung, optionale Kopplung und Gerätefreigaben. Kein erzwungener Agent. Laden/Fehler/erneute Prüfung, Tastatur/Fokus, echte Electron-Prüfung | abgeschlossen für native Windows |
-| S2 | Mobile-Einrichtungsstatus zeigt konkrete fehlende Rechte und nächste Schritte; Host-/Browser-Builds unterscheidbar, unbekannte/veraltete/offline Zustände ehrlich. Keine automatischen Mutationen oder Seitenneuladungen; signierter Zugriff und Browserprüfung | offen |
+| S2 | Mobile-Einrichtungsstatus zeigt konkrete fehlende Rechte und nächste Schritte; Host-/Browser-Builds unterscheidbar, unbekannte/veraltete/offline Zustände ehrlich. Keine automatischen Mutationen oder Seitenneuladungen; signierter Zugriff und Browserprüfung | abgeschlossen für native Windows/Chromium |
 | S3 | Guide mit echten neuen Aufnahmen, Verträge/Status/Handoff synchron; vollständiges pnpm verify. Commit je Task, gemeinsamer Push und geprüfter ADE-Neustart unter Erhalt von Kopplung/Routen | offen |
 
 Grenzen: Die Einrichtung nutzt vorhandene typisierte Dienste. Sie installiert
@@ -40,3 +40,15 @@ schmale Ansicht und echte Shell im vorhandenen Checkout ohne Agent/Kategorie.
 TypeScript und Produktionsbuild grün. Log: `test-results/setup-electron.log`;
 Driver ist in pnpm verify aufgenommen. Guide-Bild 25 stammt aus diesem Lauf.
 Keine Provider-Inferenz und keine Änderung an der persönlichen ADE-Instanz.
+
+## S2: Freigaben und Build-Stand
+
+26 fokussierte Checks für Rechte, unbekannte/offline Zustände und Build-Herkunft.
+Der erweiterte echte Electron-/HTTPS-Browserflow besteht mit 37 Checks insgesamt
+(16 Desktop + 21 Mobile/Freigaben). Negative Kontrollen: fehlende Rechte,
+abweichender/fehlender Build, fehlgeschlagene Statusantwort, Verbindungsverlust;
+abschliessende positive Wiederherstellung erfolgreich. Die Tailscale-CLI und
+Provider sind isolierte Fixtures; signierte Host-Aufrufe und Gerätefreigaben echt.
+TypeScript und Produktionsbuild grün. Logs: `test-results/setup-s2-typecheck.log`,
+`setup-s2-build.log`, `setup-s2-electron.log`. Neue Aufnahmen 25–27 im Guide.
+Die Vollprüfung und Auslieferung folgen in S3; persönliche Rechte unverändert.

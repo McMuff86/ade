@@ -13,6 +13,28 @@ in the selected project. Step changes focus the heading; close restores the
 opener with the stable Einrichtung button as fallback, project navigation focuses
 its tab. Native Windows acceptance: scripts/test-setup-electron.ts.
 
+Device permission presets are draft-only additive sets from `src/shared/setup.ts`.
+They preserve existing explicit grants; project work does not imply publishing or
+host restart. Only the existing desktop save command changes the device vault.
+Mobile Settings reads the paired device's signed `/api/v1/host` capabilities and
+catalog project-default status. Missing rights use the same labels as desktop.
+Offline, failed and legacy/unknown responses cannot prove current readiness;
+CLI authentication is explicitly a separate native diagnostic.
+
+`MobileHostState.build` is optional `MobileBuildInfo` (sourceId and builtAt only).
+The existing AdeApplicationService host-state path supplies this read-only data;
+no IPC channel or generic remote-command permission is added. Build injection
+uses SHA-256 truncated to 20 lowercase hex characters over sorted source paths,
+source bytes, package/lockfile and relevant build configuration. Main, desktop
+and Mobile share this source/dependency identity; build timestamps may differ.
+It is not a binary checksum, Git commit ID, API version or authentication proof.
+Direct source execution and legacy hosts can omit it. Comparison requires valid
+bounded descriptors on both sides; absence is unknown, not outdated. Mobile
+shows mismatches without automatic reload and keeps cached data explicitly
+unconfirmed when offline or when the host-state request fails. App builds must
+finish from stable inputs before a host restart serves their frozen Mobile assets.
+Tests: test-setup-state.ts and test-setup-electron.ts (real signed browser flow).
+
 ## Run file evidence and downloads
 
 Native task PTYs capture file digests before spawn and after exit, before reporting

@@ -10,6 +10,18 @@ not install or launch a CLI; sign-in occurs through the chosen CLI in a project.
 Pairing and each grant retain their explicit confirmation. Failed checks replace
 stale success with an actionable retry state.
 
+Device grants offer **Projektarbeit auswählen**, **Dateilesen auswählen** and
+**Push/PR auswählen**. These only add checkboxes to the local draft; users review
+and save explicitly. Project work excludes publishing and host restart.
+Mobile **Settings → Einrichtung auf diesem Gerät** lists exact missing switches
+for a chosen intention and links to Projects or Graph. It distinguishes missing
+root configuration, unavailable metadata, failed refresh and offline cached data.
+Existing grants do not prove CLI authentication. **Build-Stand** displays the
+host and browser source/dependency identifiers. Known differences give manual
+update guidance; missing legacy identifiers are unknown. No automatic reload
+or permission change occurs. Closing Settings and opening the next view preserve
+keyboard focus; narrow displays remain usable.
+
 ## Run files on Graph and projects
 
 Graph offers **Dateien dieses Runs** directly; project workspaces offer

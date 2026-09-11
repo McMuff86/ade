@@ -6,6 +6,7 @@ import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
 import { HostRestartSection } from './HostRestartSection';
+import { compareBuilds } from '../shared/buildInfo';
 import { RemoteManager, useRemoteAdministration } from './RemoteManager';
 import { AgentWorkspace } from './AgentWorkspace';
 import { ContinueWork } from './ContinueWork';
@@ -146,6 +147,8 @@ function MobileApp(): JSX.Element {
       <button className="m-icon-button" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
     </header>
     <div className="m-messages">
+      {host.status === 'online' && compareBuilds(admin.state?.build) === 'different' && <p className="m-notice">Browser und PC verwenden unterschiedliche Builds.
+        <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Build-Stand ansehen</button></p>}
       {host.error && !composer && <p className="m-alert" role="alert">{host.error}</p>}
       {host.notice && <p className="m-notice" role="status">{host.notice}<button aria-label="Hinweis schliessen" onClick={host.dismissNotice}><Icon name="close" /></button></p>}
       {host.paired && host.status !== 'online' && <p className="m-notice">Verbindung zum PC wird wiederhergestellt. Angezeigte Daten können veraltet sein; dein Entwurf bleibt erhalten.</p>}
@@ -213,12 +216,13 @@ function MobileApp(): JSX.Element {
       onNavigate={(repositoryId, tab) => setWorkspace((current) => current ? { agentId: current.agentId, repositoryId: repositoryId || null, tab } : null)}
       onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
       onManage={() => { setWorkspace(null); setManagement(true); }} />}
-    {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title"><section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
+    {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title">
+      {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
+        requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
+      <section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />Dark</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />Light</label></div></section>
       <section className="m-settings-section"><h3>Verbindung</h3><p>Privat über Tailscale. PC eingeschaltet und ADE geöffnet lassen.</p><p>Als App nutzen: Im Browser „Zum Home-Bildschirm“ oder „App installieren“ wählen.</p>
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>Dieses Gerät lokal trennen</button><p className="m-field-note">Zum vollständigen Widerruf: Gerät in ADE am PC entfernen.</p></>}</section>
-      {host.paired && <HostRestartSection host={host} />}
-      <section className="m-settings-section"><h3>Workspace öffnen</h3><p>Wähle einen Agenten, um seine Projektdateien und Git-Änderungen anzusehen. Gerätefreigaben werden in ADE am PC verwaltet.</p></section>
     </Dialog>}
   </div></TabletKeyboardContext.Provider>;
 }
