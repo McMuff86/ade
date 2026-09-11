@@ -1,5 +1,21 @@
 # ADE-Dokumentationsaudit
 
+## Folgeabgleich vom 11. September 2026
+
+Der Onboarding-Goal ergänzt den aktiven Bestand auf **65 Markdown-Dateien unter
+docs**. Guide, SPEC und ARCHITECTURE beschreiben jetzt die Einrichtung ohne Profil,
+bewusst gespeicherte Freigabe-Vorauswahlen und ehrliche Mobile-/Build-Zustände.
+Neue echte Aufnahmen 25–27 sind mit Quelle und Fixture-Grenzen in
+`media/user-guide/capture-setup.json` dokumentiert. 222 relative Dokumentziele
+wurden nach dieser Ergänzung geprüft. STATUS, ROADMAP und HANDOFF unterscheiden
+die vorherige Projekt-Abnahme von dieser Folgeabnahme.
+
+Keine weitere Archivierung: Die bereits konsolidierten aktuellen Dokumente und
+gültigen Plattform-/API-/Messverträge bleiben aktiv. Der Produktreview vom
+10. September bleibt als datierte Priorisierungsquelle erhalten; seine Punkte
+Einrichtung und Build-Orientierung werden im neuen Goal konkret abgearbeitet.
+Der folgende Abgleich bleibt die historische Grundlage der früheren Archivierung.
+
 ## Abgleich vom 10. September 2026
 
 Inventar vor diesem Abgleich: **60 Markdown-Dateien unter docs**. Die aktuellen

@@ -1,99 +1,94 @@
 # ADE — aktuelle Übergabe
 
-## Aktueller Folgeauftrag vom 11. September
-
-Der Nutzer beauftragt weitere Verbesserungen mit Goals, Commit/Push und Neustart.
-S1/S2 Desktop-Einrichtung und Mobile-Status/Build/Freigaben sind mit 26 fokussierten
-und 37 echten Electron-/Browser-Checks, Typprüfung und Build abgenommen.
-S3 Gesamtprüfung und Auslieferung folgen laut
-[Onboarding-Goal](ONBOARDING_GOALS.md). Noch kein neuer Operator-Neustart oder Push;
-der unten dokumentierte Build cb42dbb bleibt die persönliche Instanz.
-
-Stand: 10. September 2026. Frühere widersprüchliche Zwischenstände bleiben im
+Stand: 11. September 2026. Frühere Zwischenstände bleiben im
 [Checkpoint-Archiv](archived/HANDOFF_2026-09-10_CHECKPOINT.md).
 
-## Auftrag und Umsetzung
+## Aktueller Auftrag und Ergebnis
 
-Der Nutzer beauftragte Projekt-Stamm → Branch/Checkout → CLI mit optionalem
-Profil → Git, mit einem Commit je abgeschlossenem Task und einem gemeinsamen
-Push am Ende. Ergänzt wurde direkter Ergebnisdatei-Zugriff aus Graph und Projekt.
-[Goal und Abnahmen](PROJECT_WORKFLOW_GOALS.md), [Verträge](ARCHITECTURE.md),
-[aktueller Umfang](STATUS.md), [User-Guide](USER_GUIDE.md).
+Der Folgeauftrag „weiter verbessern mit Goals, Commit/Push und Neustart“ ist als
+S0–S3 umgesetzt: [Onboarding-Goal](ONBOARDING_GOALS.md). Am PC führt **Einrichtung**
+durch Projektordner, native CLI-/Anmeldeprüfung, optionale Tablet-Kopplung und
+Freigaben. Ein Agent-Profil ist für den Projekteinstieg nicht erforderlich.
+**Projektarbeit auswählen**, **Dateilesen auswählen** und **Push/PR auswählen**
+ergänzen nur den Freigabeentwurf; erst explizites Speichern ändert das Gerät.
 
-T0–T7 sind für native Windows umgesetzt und abgenommen. T7 ist `b2ca131`, T5 `4e79efd`,
-T4 `d3a4d9f`, T3b `731998d`. Der frühere T3b-Stash wurde vollständig übernommen
-und entfernt. T6 `cb42dbb` schliesst Gesamtverifikation, Fehlerkorrekturen und
-Dokumentpflege ab. Die Task-Commits bilden die gemeinsame Auslieferung auf main;
-der geprüfte Operator-Neustart ist unten dokumentiert. Noch keine neue WSL-Freigabe.
+Mobile **Settings** zeigt zuerst PC-/Browser-Build und **Einrichtung auf diesem
+Gerät** mit den genau fehlenden Schaltern. Offline, fehlgeschlagene Antworten und
+alte Hosts mit unbekannter Kennung werden nicht als aktueller Erfolg angezeigt.
+Eine Build-Abweichung lädt die Seite nicht automatisch neu. CLI-Anmeldung ist
+separat zu prüfen. Verträge: [Architektur](ARCHITECTURE.md), [SPEC](SPEC.md).
 
-Dateien: Graph → Dateien dieses Runs oder Projekte → Workspace öffnen → Ergebnisse.
-Neue Aufgaben erhalten einen begrenzten Vorher-/Nachher-Vergleich. Frühere Runs
-zeigen unbekannte/gemeldete Zuordnung; Dateien können dennoch heruntergeladen
-werden. Es sind aktuelle Dateien der ursprünglichen Aufgaben-Arbeitskopie, kein
-separates historisches Dateiarchiv und keine automatische Integration in main.
+Der vorherige Projektablauf T0–T7 bleibt erhalten: Stamm → Branch/Checkout → CLI
+mit optionalem Profil → Git. Ergebnisdateien liegen unter Graph → Dateien dieses
+Runs oder Projekte → Workspace öffnen → Ergebnisse. Dateien kommen aus der
+ursprünglichen Aufgaben-Arbeitskopie, kein historisches unveränderliches Archiv.
+[Projekt-Goal](PROJECT_WORKFLOW_GOALS.md), [aktueller Umfang](STATUS.md).
 
-## Verifikation und Dokumentation
+## Abnahme und Dokumentation
 
-Vollständiges `pnpm verify`: **2.588 Checks grün**, Exit 0. Drei TypeScript-Projekte,
-40 fokussierte Suiten mit 2.032 Checks, Produktionsbuild und 556 echte Electron-/
-Chromium-/Visual-Checks. Log: `test-results/project-goal-verify.log`; Aufteilung in
-STATUS. Die frühere 2.148-Check-Basis vom 9. September ist historisch.
-Datei/API jetzt 57, Run-Datei-Browserflow 24; fehlerhafter Download nach Dateiänderung
-fordert korrekt zur Aktualisierung auf, anschliessender Download erfolgreich.
+Vollständiges **pnpm verify: 2.651 Checks grün**, Exit 0. Drei TypeScript-Projekte,
+41 fokussierte Suiten mit 2.058 Checks, Produktionsbuild und 593 echte Electron-/
+Chromium-/Visual-Checks. Log: `test-results/onboarding-verify.log`. Darin 26 neue
+fokussierte Setup-Checks und 37 echte Desktop-/Browser-Setup-Checks. Negative
+Kontrollen für fehlende Rechte, Build-Abweichung, alten Host, Statusfehler und
+Verbindungsverlust enden mit erfolgreicher Wiederherstellung. Danach wurden
+keine Anwendungssourcen geändert. Vorherige 2.588 Checks vom 10. September sind
+historische Projekt-Abnahme, keine neue Plattformbehauptung.
 
-14 Einstiegsbilder wurden mit dem Produktionsbuild neu aufgenommen; zusätzliche
-Branch-/Git-/Run-Bilder dokumentieren die jeweiligen echten Prüfflows. Quellen:
-`docs/media/user-guide/capture*.json`. Modelle/Tailscale sind kontrollierte
-Fixtures, Tastatur-Geometrie simuliert. Physische Samsung-Messung bleibt separat.
+Der [User-Guide](USER_GUIDE.md) enthält neue echte Bilder 25–27. Quellen und
+Fixture-Grenzen: `docs/media/user-guide/capture*.json`. CLI/Tailscale sind
+kontrollierte lokale Fixtures; die Browserkopplung und Host-Anfragen sind echt.
+Keine Provider-Inferenz und keine physische Samsung-/DeX-Messung durch diese Tests.
+[Dokumentationsaudit](DOCUMENTATION_AUDIT.md): 65 Markdown-Dateien unter docs,
+222 relative Ziele gültig; keine weitere Archivierung gültiger Verträge nötig.
 
-Der [Dokumentationsaudit](DOCUMENTATION_AUDIT.md) hält Rollen und Archivierung
-fest; das [Produktreview vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md)
-priorisiert die nächste Besprechung. Gültige PLAN-/RESULTS-Verträge bleiben aktiv.
-64 Markdown-Dateien und 213 lokale Dokumentziele geprüft; 24 Guide-Bilder vorhanden.
+Task-Commits S0 `58abdfe`, S1 `cb442e5`, S2 `4288a32`; S3 dokumentiert hier Abnahme
+und Neustart. Die Task-Commits werden gemeinsam auf `main` ausgeliefert.
 
 ## Persönliche Testinstanz
 
-ADE läuft seit **10. September 2026, 23:22:09 Europe/Zurich**, PID **65456**, aus
-der festen geprüften Kopie `test-results/operator-release-cb42dbb`. Das Desktop-
-Fenster ist sichtbar; Listener ausschliesslich `127.0.0.1:4317`. Der private
-HTTPS-Zugang liefert HTTP 200 und die erwarteten Mobile-Assets
-`index-DA4ypnQM.js` / `index-BRgqlnJr.css`. Main-Build-Hash stimmt mit dem verifizierten
-Build überein. Nachweis: `test-results/project-final-restart.json`.
+ADE läuft seit **11. September 2026, 06:49:59 Europe/Zurich**, PID **51956**, aus
+`test-results/operator-release-4288a32`. Sichtbares Desktop-Fenster `ade`, Listener
+nur `127.0.0.1:4317`. Private Adresse `https://number-cruncher.tailfc0b86.ts.net/`
+liefert HTTP 200. Mobile-Assets `index-DD_tWgKd.js` / `index-mfBmhnOz.css` wurden
+über HTTPS heruntergeladen und stimmen bytegenau mit dem verifizierten Build
+überein. Main und Mobile tragen Quellkennung **3147fc1fa3170895ceab** (kein Git-SHA).
+Nachweis: `test-results/onboarding-final-restart.json`.
 
-Vor dem Ersetzen der alten PID 67208: keine laufenden Runs, queued/running Tasks,
-aktiven Leases oder Terminal-Kindprozesse. Kopplungs-/Freigabendatei und Tailscale-
-Serve-Konfiguration sind unverändert. Konfigurationssicherung:
-`%APPDATA%/ade/ade/config.json.before-project-final-cb42dbb`.
-Entwicklungsbuilds verändern diese feste Kopie nicht. Bei weiteren Neustarts
-laufende Arbeit erneut prüfen. Chrome am Tablet für den neuen Stand neu laden.
+Vor dem Ersetzen der bisherigen PID 65456 aus `operator-release-cb42dbb`: keine
+laufenden Runs, queued/running Tasks, aktiven Leases oder Terminal-Kindprozesse.
+Kopplungs-/Freigabendatei und Tailscale Serve unverändert. Konfigurationssicherung:
+`%APPDATA%/ade/ade/config.json.before-onboarding-final-4288a32`.
+Entwicklungsbuilds verändern die feste laufende Kopie nicht. Bei einem weiteren
+Neustart aktive Arbeit erneut prüfen. Für die neuen Ansichten Chrome am Tablet
+nach dem Sichern etwaiger Entwürfe neu laden; keine neue Kopplung nötig.
 
-Das Samsung besitzt bereits `workspace:read` für den Dateiabruf. Die zusätzlichen
-`projects:write`, `projectGit:write` und `projectGit:publish` sind noch nicht erteilt;
-für profilfreies Öffnen, Branch/Git bzw. Push/PR setzt der Benutzer die passenden
-Schalter ausdrücklich unter Settings → Verbundene Geräte. Der Guide nennt die
-sichtbaren Bezeichnungen. Es wurden keine Gerätefreigaben still erweitert.
+Das Samsung besitzt bereits `workspace:read` für Dateiabruf sowie seine bisherigen
+Terminal-/Verwaltungsrechte. `projects:write`, `projectGit:write` und
+`projectGit:publish` sind weiterhin nicht erteilt. Für den vollen Projektablauf am
+PC **Einrichtung → Freigaben prüfen → Samsung → Projektarbeit auswählen**, Auswahl
+prüfen und **Verwaltungsrechte speichern**. Push/PR separat auswählen, wenn gewünscht.
+Es wurden keine persönlichen Rechte automatisch erweitert.
 
 Der ursprüngliche Bild-/Excel-Run ist `0531376b-559a-49f7-8d98-02d14573b109`,
-Task `9c816cef-783d-403c-ba1b-a9354e0506b1`, abgeschlossen. Seine wiederhergestellte
-Antwort ist als `recovered-cli` gekennzeichnet. Der genaue Bildmodellname war vom
-integrierten Werkzeug nicht gemeldet; der separate angefragte API-Aufruf scheiterte
-am Kontingent. Keine nachträgliche Modellbestätigung und kein erneuter Modelllauf.
-Vorherige Konfigurationssicherung:
-`%APPDATA%/ade/ade/config.json.before-run-inspection-e07e00b`.
-Nach dem finalen Neustart sind PNG (2.261.193 Bytes), XLSX (5.626 Bytes) und
-Markdown (1.611 Bytes) erneut erfolgreich gelesen worden. Nachweis:
-`test-results/t6-operator-files-after-restart.log`.
+Task `9c816cef-783d-403c-ba1b-a9354e0506b1`, abgeschlossen. Antwortquelle weiterhin
+`recovered-cli`. Der genaue Bildmodellname wurde nicht gemeldet; der separat
+angefragte API-Aufruf scheiterte am Kontingent. Kein neuer Modelllauf.
+Nach diesem Neustart wurden PNG (2.261.193 Bytes), XLSX (5.626 Bytes) und Markdown
+(1.611 Bytes) erneut erfolgreich gelesen. Nachweis:
+`test-results/onboarding-operator-files-after-restart.log`.
 
-## Offene, getrennte Abnahmen
+## Getrennte Folgearbeiten
 
-- WSL-Bereitschaft: `/bin/true` nach 15 Sekunden weiter ohne Antwort; erneut am
-  10. September geprüft. Nur der eigene Probeprozess wurde beendet, kein WSL-Neustart.
-  Logs `test-results/t6-wsl-probe.*`. Kein Rückschluss auf native Linux-/WSLg-Pakete.
 - Physisch Samsung/Chrome: Tastatur, DeX, Drehung und Netzwechsel vollständig messen.
-- Live-GitHub-PR und weitere Betriebssysteme brauchen eigene Ausführungsevidenz.
+- WSL-Bereitschaft: `/bin/true` am 10. September nach 15 Sekunden weiter ohne Antwort;
+  nur der eigene Probeprozess beendet, kein WSL-Neustart. Logs `test-results/t6-wsl-probe.*`.
+  Dieser Auftrag hat den WSL-Zustand nicht verändert und keine neue WSL-Abnahme erbracht.
+- Dauerhafte Ergebnisdatei-Aufbewahrung, ältere Archive und Pagination ausbauen.
+- Live-GitHub-PR, andere Plattformen und ein breiterer Accessibility-/Sprachaudit
+  benötigen eigene Ausführungsevidenz. [Priorisierung](ROADMAP.md).
 - Die früher automatisch abgelehnte Löschung des temporären Profils
-  `ade-terminal-electron-2xyWJu` wird nicht erneut versucht. Es bleibt liegen.
+  `ade-terminal-electron-2xyWJu` wurde nicht erneut versucht; es bleibt liegen.
 
-Historische Goal-6-Messungen bleiben unverändert. Automatisierte Tests verwenden
-synthetische Repositories; reale Folgemessungen bevorzugen isolierte RhinoClaw-
-Worktrees und verändern weder dessen Hauptcheckout noch die laufende Installation.
+Historische Goal-6-Messungen bleiben unverändert. Tests verwenden isolierte
+Repositories und verändern weder die persönlichen Hauptcheckouts noch fremde Dienste.

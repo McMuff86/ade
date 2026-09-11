@@ -7,14 +7,20 @@ User entry: [illustrated guide](USER_GUIDE.md).
 
 ## Guided setup follow-up
 
-S1/S2 add desktop Einrichtung, profile-free first entry, explicit device permission
-presets and Mobile build/setup status. Native Windows: 26 focused setup checks,
-37 real Electron/Chromium checks, three TypeScript projects and build passed.
-S3 full verification/publication is in progress; the 2,588-check project baseline
-below is not this follow-up's complete acceptance.
+S0–S3 are delivered for native Windows/Chromium: desktop Einrichtung, profile-free
+first entry, explicit device permission presets and Mobile build/setup status.
+The complete **pnpm verify passed with 2,651 checks**: three TypeScript projects,
+41 focused suites/2,058 checks, production build and 593 real Electron/Chromium/
+visual checks (including the new setup flow's 37). No application changes followed
+this passing run. Log: `test-results/onboarding-verify.log`, exit 0.
+Build/permission negative controls recover with a final positive control; the
+26-check focused setup suite enforces its measured native Windows floor.
+The verified release `4288a32` is running since September 11, 06:49:59 local;
+HTTPS 200 and exact served asset hashes checked. Pairing and Serve unchanged.
+Operator details and remaining physical/WSL acceptance are in HANDOFF.
 Task record: [ONBOARDING_GOALS](ONBOARDING_GOALS.md).
 
-## Project workflow delivery and evidence
+## Previous project workflow delivery and evidence (September 10)
 
 T0–T7 are delivered for native Windows. The final `pnpm verify` passed with
 **2,588 checks**: three TypeScript projects, 40 focused suites/2,032 checks,
@@ -26,7 +32,7 @@ Electron 15, restart 10, workspace browser 24, workbench browser 25, terminals
 120, run files 24, project CLI 22, project Git 20, publication 12, visual 22.
 Focused file/API checks: 57; security: 225; orchestration: 82. The measured suite
 floors were raised to protect these counts; no application changes followed
-the passing complete run. Earlier measurements are recorded per task in
+that passing run before its delivery. Earlier measurements are recorded per task in
 [PROJECT_WORKFLOW_GOALS](PROJECT_WORKFLOW_GOALS.md).
 Final log: `test-results/project-goal-verify.log` (exit 0). Earlier failed attempts
 remain separate `project-goal-verify-first.log` / `project-goal-verify-second.log`;

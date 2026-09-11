@@ -14,7 +14,7 @@ es verwendet. Profile bleiben optional; vorhandene Arbeitsabläufe bleiben erhal
 | S0 | Umfang, Grenzen und Prüfkriterien festhalten | abgeschlossen |
 | S1 | Desktop-Einrichtung verbindet Projektordner, native CLI-/Anmeldeprüfung, optionale Kopplung und Gerätefreigaben. Kein erzwungener Agent. Laden/Fehler/erneute Prüfung, Tastatur/Fokus, echte Electron-Prüfung | abgeschlossen für native Windows |
 | S2 | Mobile-Einrichtungsstatus zeigt konkrete fehlende Rechte und nächste Schritte; Host-/Browser-Builds unterscheidbar, unbekannte/veraltete/offline Zustände ehrlich. Keine automatischen Mutationen oder Seitenneuladungen; signierter Zugriff und Browserprüfung | abgeschlossen für native Windows/Chromium |
-| S3 | Guide mit echten neuen Aufnahmen, Verträge/Status/Handoff synchron; vollständiges pnpm verify. Commit je Task, gemeinsamer Push und geprüfter ADE-Neustart unter Erhalt von Kopplung/Routen | offen |
+| S3 | Guide mit echten neuen Aufnahmen, Verträge/Status/Handoff synchron; vollständiges pnpm verify. Commit je Task, gemeinsamer Push und geprüfter ADE-Neustart unter Erhalt von Kopplung/Routen | abgeschlossen |
 
 Grenzen: Die Einrichtung nutzt vorhandene typisierte Dienste. Sie installiert
 keine CLI und speichert keine erfundene erfolgreiche Anmeldung. Terminalstarts
@@ -51,4 +51,25 @@ abschliessende positive Wiederherstellung erfolgreich. Die Tailscale-CLI und
 Provider sind isolierte Fixtures; signierte Host-Aufrufe und Gerätefreigaben echt.
 TypeScript und Produktionsbuild grün. Logs: `test-results/setup-s2-typecheck.log`,
 `setup-s2-build.log`, `setup-s2-electron.log`. Neue Aufnahmen 25–27 im Guide.
-Die Vollprüfung und Auslieferung folgen in S3; persönliche Rechte unverändert.
+Die Vollprüfung und Auslieferung sind in S3 dokumentiert; persönliche Rechte unverändert.
+
+## S3: Gesamtprüfung und Auslieferung
+
+Vollständiges `pnpm verify` am 11. September bestanden, Exit 0: **2.651 Checks**,
+drei TypeScript-Projekte, 41 fokussierte Suiten/2.058 Checks, Produktionsbuild und
+593 echte Electron-/Chromium-/Visual-Checks. Log: `test-results/onboarding-verify.log`.
+Danach nur Dokumentation geändert. Guide und 65 Markdown-Dokumente abgeglichen;
+222 relative Ziele gültig. Keine weitere Archivierung gültiger Verträge erforderlich.
+
+Task-Commits: S0 `58abdfe`, S1 `cb442e5`, S2 `4288a32`; S3 hält diese Abnahme und
+den Operator-Neustart fest. Die Task-Commits bilden eine gemeinsame Auslieferung
+auf `main` mit normalem abschliessendem Push.
+ADE läuft aus der festen geprüften Kopie `test-results/operator-release-4288a32`,
+PID 51956, seit **11. September 2026, 06:49:59 Europe/Zurich**. Kein aktiver Run,
+Task, Lease oder Terminal vor dem Ersetzen der alten PID 65456. Desktop sichtbar,
+Listener ausschliesslich `127.0.0.1:4317`, privates HTTPS 200. Die ausgelieferten
+Mobile-Dateien stimmen bytegenau mit dem verifizierten Build überein; PC und
+Browser haben Quellkennung `3147fc1fa3170895ceab`. Geräte-/Freigabendatei und
+Tailscale Serve unverändert. Nachweis: `test-results/onboarding-final-restart.json`.
+Die ursprünglichen PNG-/Excel-/Markdown-Ergebnisdateien sind weiterhin lesbar;
+kein erneuter Modelllauf. Details und getrennte Folgeabnahmen in HANDOFF.

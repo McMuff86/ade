@@ -6,10 +6,12 @@ Intermediate delivery notes are preserved in the [checkpoint archive](archived/R
 
 ## Current delivery
 
-September 11 follow-up: guided desktop setup and Mobile orientation/build identity
-S1/S2 are measured with 26 focused and 37 real Electron/Chromium checks. Final
-acceptance continues in [ONBOARDING_GOALS](ONBOARDING_GOALS.md). The September 10 project
-workflow remains the verified baseline below.
+September 11 follow-up S0–S3 is delivered: guided desktop setup, explicit grant
+presets and Mobile orientation/build identity. Full pnpm verify passed with
+2,651 checks, including 26 focused and 37 real setup-flow checks. The verified
+ADE release has restarted with pairing/Serve preserved. Evidence and task commits:
+[ONBOARDING_GOALS](ONBOARDING_GOALS.md). The September 10 project workflow remains
+the earlier baseline below.
 
 Project root → checkout/branch → optional-profile CLI → Git commit/merge/push/PR
 is implemented for native Windows. T7 adds observed run-file changes and downloads
