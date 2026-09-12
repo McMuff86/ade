@@ -1,5 +1,16 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
+
+Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie
+haltbare Ergebnisdateien und Ergebnisseiten sind implementiert. Vollständiges
+`pnpm verify`: 2.770 Prüfungen bestanden, zusätzlich 5 reale Codex-Prüfungen.
+Die geprüfte ADE-Kopie läuft mit dem persönlichen Profil; private HTTPS-Adresse,
+bestehende Samsung-Kopplung, fünf Projekte und sechs Agentenprofile sind geprüft.
+Physisches Samsung/DeX und das nicht antwortende Ubuntu bleiben offen.
+[Teilziele](TABLET_WORKSPACE_GOALS.md), [Abnahme und Operatorzustand](TABLET_WORKSPACE_RESULTS.md).
+Die darunter genannten älteren Gesamtprüfungen gelten für ihre damaligen Stände.
+
 ## First setup without an agent profile
 
 Desktop **Einrichtung** joins project root, native CLI/sign-in checks, optional
@@ -32,14 +43,21 @@ Images preview; spreadsheets, PDF and other regular files can be downloaded
 individually (16 MiB/file). Chrome can then open a download with a compatible app.
 ADE does not render spreadsheets or arbitrary document content inside the Graph.
 
-Downloads use the current original task workspace. Later changes are marked;
-deleted/unavailable files keep their evidence without offering a working download.
-If a file changes after listing, the download asks users to refresh the file list
+Saved downloads use the captured completion bytes. Other downloads use the
+current original task workspace; later changes are marked. Deleted files without
+a saved copy retain evidence without a working download. If a current workspace
+file changes after listing, the download asks users to refresh the file list
 and open it again; it does not misreport this conflict as an outdated ADE host.
 Missing baselines never become an invented run delta. The selected project branch
 does not silently receive changes from a task worktree. Capture/list limits and
 unavailable workspaces are visible. This slice is native Windows evidence; WSL
-binary result browsing and immutable artifact storage require separate work.
+binary result browsing beyond the supported types remains separate work.
+New native tasks save changed completion files by SHA-256 outside the config:
+16 MiB/file, 100 files/task, 2 GiB total storage. Saved downloads retain the
+completion bytes after later workspace edits/deletion and require current device
+and resource grants. Missing/tampered blobs fail closed; incomplete captures are
+explicit. Retained project history has 20-run cursor pages. Cold JSON run archives
+remain operator files; this change does not introduce archive import.
 
 ## Project Git completion
 
@@ -68,9 +86,10 @@ progress. Standard structured CLI answers survive reload/restart; older runs may
 lack an answer and explain that explicitly. Exit 0 alone is not proof of fulfillment.
 
 Signed devices with workspace read access can preview PNG/JPEG/WebP and download
-bounded regular files from the original task workspace.
-The list distinguishes observed changes and unknown/reported older provenance. File availability depends on that
-workspace remaining present and unchanged in ADE. Approval, integration and
+bounded regular files from saved completion captures or the original task workspace.
+The list distinguishes observed changes and unknown/reported older provenance.
+Unsaved file availability depends on the original workspace; saved copies remain
+available independently while their run stays in the journal. Approval, integration and
 publishing of managed runs remain distinct flows; independent project Git is available on desktop/tablet.
 
 Project workflow goal: discovery and independently registered project workspaces

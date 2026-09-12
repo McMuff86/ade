@@ -38,6 +38,7 @@ const SUITES: Suite[] = [
   { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 27 } },
   { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 82 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
+  { id: 'run-questions', script: 'test-run-questions.ts', floors: { win32: 26 } },
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
@@ -53,25 +54,27 @@ const SUITES: Suite[] = [
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 34 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },
   { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 38 } },
+  { id: 'device-resources', script: 'test-device-resources.ts', floors: { win32: 43 } },
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 54 } },
   { id: 'run-inspection', script: 'test-run-inspection.ts', floors: { win32: 57 } },
+  { id: 'run-file-storage', script: 'test-run-file-storage.ts', floors: { win32: 20 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 36 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 42 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 30 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 32 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
-  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 71 } },
+  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 74 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 225 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 227 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

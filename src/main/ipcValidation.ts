@@ -1,8 +1,9 @@
+import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
 import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isValidDeviceId } from './remote/authorization';
-import { isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
+import { isDeviceResourceAccess, isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
 import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
 import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
@@ -360,7 +361,7 @@ function validateTeamPause(channel: string, payload: unknown): void {
 function validateRunCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, [
-    'name', 'goal', 'repositoryId', 'participants', 'budget', 'workspacePrepare', 'commandId',
+    'name', 'goal', 'repositoryId', 'participants', 'budget', 'workspacePrepare', 'commandId', 'allowQuestions',
   ]);
   stringValue(channel, request.name, 'name', { max: 200 });
   optionalString(channel, request.goal, 'goal', { max: 8_000, allowEmpty: true });
@@ -668,11 +669,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.RemoteDevicesRevoke: {
       const request = record(channel, payload);
       exactKeys(channel, request, channel === IPC.RemoteDevicesRename ? ['deviceId', 'name']
-        : channel === IPC.RemoteDevicesSetAdminScopes ? ['deviceId', 'scopes'] : ['deviceId']);
+        : channel === IPC.RemoteDevicesSetAdminScopes ? ['deviceId', 'scopes', 'resourceAccess'] : ['deviceId']);
       const id = stringValue(channel, request.deviceId, 'deviceId', { min: 1, max: 64 });
       if (!isValidDeviceId(id)) invalid(channel, 'deviceId is invalid');
       if (channel === IPC.RemoteDevicesRename && !isValidRemoteDeviceName(request.name)) invalid(channel, 'name is invalid');
       if (channel === IPC.RemoteDevicesSetAdminScopes && !isRemoteAdminScopes(request.scopes)) invalid(channel, 'scopes are invalid');
+      if (channel === IPC.RemoteDevicesSetAdminScopes && request.resourceAccess !== undefined && !isDeviceResourceAccess(request.resourceAccess)) invalid(channel, 'resource selection is invalid');
       return;
     }
     case IPC.WorkspaceBundlePreview: {
@@ -943,7 +945,17 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.RunCreate:
       validateRunCreate(channel, payload);
+      if ((payload as Record<string, unknown>).allowQuestions !== undefined && typeof (payload as Record<string, unknown>).allowQuestions !== 'boolean') invalid(channel, 'allowQuestions must be boolean');
       return;
+    case IPC.RunQuestions:
+      validateIdRequest(channel, payload, 'runId'); return;
+    case IPC.RunAnswer: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runId', 'taskId', 'questionId', 'answers', 'commandId']);
+      id(channel, request.runId, 'runId'); id(channel, request.taskId, 'taskId'); id(channel, request.questionId, 'questionId');
+      if (!validQuestionAnswers(request.answers)) invalid(channel, 'invalid question answers');
+      commandId(channel, request.commandId); return;
+    }
     case IPC.RunDelete:
     case IPC.RunApprovalDiff:
     case IPC.RunPublicationPreview:
@@ -1014,7 +1026,8 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.RunTaskSubmit: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['agentId', 'repositoryId', 'prompt', 'name', 'commandId']);
+      exactKeys(channel, request, ['agentId', 'repositoryId', 'prompt', 'name', 'commandId', 'allowQuestions']);
+      if (request.allowQuestions !== undefined && typeof request.allowQuestions !== 'boolean') invalid(channel, 'allowQuestions must be boolean');
       id(channel, request.agentId, 'agentId');
       id(channel, request.repositoryId, 'repositoryId');
       stringValue(channel, request.prompt, 'prompt', { max: 8_000 });

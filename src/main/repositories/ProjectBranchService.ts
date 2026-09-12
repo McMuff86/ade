@@ -9,7 +9,7 @@ import { redactForWire } from '../errors';
 import { sameHostPath } from '../platform';
 import { projectRootIdentity } from '../settings/ProjectDefaultsService';
 import { assertNoLinks } from './pathDiscipline';
-import { ProjectWorkspaceService } from './ProjectWorkspaceService';
+import { ProjectWorkspaceService, type ProjectAuthorization } from './ProjectWorkspaceService';
 import { workspaceOperations } from './WorkspaceOperationGate';
 import { projectGit } from './ProjectGitBoundary';
 
@@ -47,11 +47,12 @@ export class ProjectBranchService {
     return structuredClone(view);
   }
 
-  async apply(previewId: string, owner: string, assertAuthorized: () => void = () => undefined): Promise<ProjectWorkspaceView> {
+  async apply(previewId: string, owner: string, assertAuthorized: ProjectAuthorization = () => undefined): Promise<ProjectWorkspaceView> {
     return workspaceOperations.mutate(async () => {
       assertAuthorized();
       const stored = this.previews.get(previewId);
       if (!stored || stored.owner !== owner || stored.view.expiresAt < this.now()) throw new Error('ade: Branch-Vorschau ist abgelaufen oder gehört zu einer anderen Sitzung. Erneut prüfen.');
+      assertAuthorized({ workspaceId: stored.view.workspaceId });
       this.previews.delete(previewId);
       const state = await this.inspect(stored.view.workspaceId); const action = stored.view.action;
       if (state.value.revision !== stored.revision) throw new Error('ade: Branches oder Workspace wurden seit der Vorschau geändert. Erneut prüfen.');

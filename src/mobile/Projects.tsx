@@ -70,7 +70,7 @@ export function ProjectWorkspace({ host, repositoryId, onClose, onTask, ...works
   return <Dialog title={`Projekt · ${repo?.name ?? 'Nicht verfügbar'}`} onClose={onClose} fallbackId="view-tab-projects">
     <p>Öffne die ADE-Arbeitskopie dieses Projekts. Anschliessend wählst du das CLI. Beim Öffnen startet noch kein Agent.</p>
     <details><summary>Workspace-Profil</summary><label>Profil für die Arbeitskopie<select aria-label="Profil für die Arbeitskopie" value={progress?.agentId ?? selected} disabled={busy || !!progress} onChange={(event) => setSelected(event.target.value)}>
-      <option value="">Neues Standardprofil</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+      <option value="" disabled={rights?.resourceSelection === 'selected'}>Neues Standardprofil</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
     </select></label><p>Dieses Profil bestimmt die Arbeitskopie. Das CLI wählst du danach unabhängig davon.</p></details>
     {repo && (!repo.verified || repo.executionBackend !== 'native') && <p role="alert">Dieser Projekteinstieg benötigt ein am PC verifiziertes natives Repository. WSL-Agenten weiterhin über Overview öffnen.</p>}
     {!repo && <p role="alert">Das Projekt ist nicht mehr in ADE vorhanden. Projektliste aktualisieren.</p>}

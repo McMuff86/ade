@@ -824,21 +824,22 @@ function adapterChecks(root: string): void {
   ].join('\n');
   const codexFeed = new CodexActivityParser();
   const codexRendered = codexFeed.push(codexStream);
-  check('Codex activity renders init, thought, one deduplicated tool, text and result',
-    codexRendered.length === 6
+  check('Codex activity renders init, summary, tool start and completion, text and result',
+    codexRendered.length === 7
       && codexRendered[0]?.kind === 'init'
       && codexRendered[1]?.kind === 'thinking'
       && codexRendered[2]?.text === 'Ich prüfe den Bestand.'
-      && codexRendered[3]?.text === 'Shell: pnpm test'
-      && codexRendered[4]?.text === 'Prüfung abgeschlossen.'
-      && codexRendered[5]?.text.includes('31 in / 9 out'));
+      && codexRendered[3]?.text === 'Gestartet · Shell: pnpm test'
+      && codexRendered[4]?.text === 'Abgeschlossen · Exit 0 · Shell: pnpm test'
+      && codexRendered[5]?.text === 'Prüfung abgeschlossen.'
+      && codexRendered[6]?.text.includes('31 in / 9 out'));
   const splitCodexFeed = new CodexActivityParser();
   const splitCodexLines = [];
   for (let index = 0; index < codexStream.length; index += 11) {
     splitCodexLines.push(...splitCodexFeed.push(codexStream.slice(index, index + 11)));
   }
-  check('Codex activity survives arbitrary chunk splits without duplicate tools',
-    splitCodexLines.length === 6);
+  check('Codex activity survives arbitrary chunk splits with one start and one completion',
+    splitCodexLines.length === 7);
   const codexWrapped = `\u001b[?25l${(codexStream.match(/.{1,37}/gs) ?? []).join('\r\n')}\u001b[0m`;
   check('Codex telemetry parser survives ConPTY wrapping',
     JSON.stringify(parseCodexUsage(codexWrapped))

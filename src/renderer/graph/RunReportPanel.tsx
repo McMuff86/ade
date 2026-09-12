@@ -1,3 +1,4 @@
+import { RunQuestionsPanel, desktopRunQuestions } from './RunQuestionsPanel';
 /**
  * Run report: the complete outcome of one run, projected by main through
  * `run:report` (Thema 3). Readable for finished, failed and cancelled runs
@@ -157,6 +158,7 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
       </header>
 
       <div className="greport-body">
+        {report?.allowQuestions && <RunQuestionsPanel key={runId} runId={runId} port={desktopRunQuestions} online canAnswer active={report.status === 'running'} />}
         {state.kind === 'loading' && <p className="greport-note" role="status">Bericht wird geladen…</p>}
         {state.kind === 'error' && (
           <p className="greport-note greport-error" role="alert">Bericht konnte nicht geladen werden: {state.message}</p>
@@ -261,6 +263,10 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
                     </span>
                   </header>
                   {task.error && <pre className="greport-task-error">{task.error}</pre>}
+                  {!!task.questions?.length && <details><summary>Rückfragen-Verlauf ({task.questions.length})</summary>
+                    {task.questions.map((question) => <section key={question.id}><p>{question.status === 'answered' ? 'Beantwortet' : question.status === 'expired' ? 'Abgelaufen' : question.status === 'answering' ? 'Antwort wird bestätigt' : 'Offen'}</p>
+                      {question.questions.map((item) => <p key={item.id} className="run-question-text">{item.question}</p>)}</section>)}
+                  </details>}
                   {task.result
                     ? (
                         <>

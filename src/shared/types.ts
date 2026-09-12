@@ -321,6 +321,8 @@ export type RunEventType =
   | 'task.failed'
   | 'task.cancelled'
   | 'task.result_recorded'
+  | 'question.requested'
+  | 'question.updated'
   | 'approval.requested'
   | 'approval.resolved'
   | 'workspace.acquired'
@@ -384,6 +386,8 @@ export interface RunUsage {
 }
 
 export interface Run {
+  /** Native Codex app-server transport, explicitly enabled for this run. */
+  allowQuestions?: boolean;
   id: string;
   name: string;
   goal: string;
@@ -432,6 +436,9 @@ export interface RunParticipant {
 }
 
 export interface RunTask {
+  allowQuestions?: boolean;
+  /** Main-only record, archived with its task; detail goes through RunReport. */
+  questions?: import('./runQuestions').RunQuestion[];
   /** Main-only before/after file digests, archived and pruned with this task. */
   fileTracking?: import('./runFiles').RunFileTracking;
   /** Captured assistant response; exposed only in the result/report detail. */
@@ -648,6 +655,7 @@ export interface RunSummaryParticipant {
 }
 
 export interface RunSummaryTask {
+  pendingQuestions?: number;
   id: string;
   participantId: string;
   title: string;
@@ -826,7 +834,8 @@ export interface OrchestrationSnapshot {
  * text; `provenance` is the parsed context-packet metadata that used to
  * require shipping every artifact body.
  */
-export type RunTaskView = Omit<RunTask, 'prompt' | 'output' | 'fileTracking'> & {
+export type RunTaskView = Omit<RunTask, 'prompt' | 'output' | 'fileTracking' | 'questions'> & {
+  pendingQuestions?: number;
   promptDigest: string;
   promptChars: number;
   provenance: TaskProvenance | null;
@@ -883,6 +892,7 @@ export interface RunReportResult {
 }
 
 export interface RunReportTask {
+  questions?: import('./runQuestions').RunQuestion[];
   files?: import('./runFiles').RunFileChanges;
   output?: RunTaskOutput;
   id: string;
@@ -957,6 +967,7 @@ export interface RunReportTotals {
  * through `run:report`.
  */
 export interface RunReport {
+  allowQuestions?: boolean;
   runId: string;
   name: string;
   goal: string;
@@ -1420,6 +1431,7 @@ export interface AgentTemplateSpawnInput {
 }
 
 export interface RunCreateInput {
+  allowQuestions?: boolean;
   name: string;
   goal?: string;
   /** null forces plain workspaces; undefined preserves legacy/default behavior. */
@@ -1459,6 +1471,7 @@ export interface RunTaskCreateInput {
  * or workspace. Used by the host API and available to the desktop.
  */
 export interface RunTaskSubmitInput {
+  allowQuestions?: boolean;
   agentId: string;
   /** Explicit repository scope; plain-workspace submission is not offered. */
   repositoryId: string;

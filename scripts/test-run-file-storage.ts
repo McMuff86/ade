@@ -1,0 +1,75 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdtempSync, realpathSync, writeFileSync, unlinkSync, linkSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import { RunFileTracker } from '../src/main/application/RunFileTracker';
+import { RunFileStore } from '../src/main/application/RunFileStore';
+import { RunInspectionService } from '../src/main/application/RunInspectionService';
+import { validateCompleteConfig } from '../src/main/config/store';
+import { validProjectWorkspaceQuery } from '../src/shared/projectWorkspaceRequests';
+import type { RemoteCommandContext } from '../src/main/application/AdeApplicationService';
+
+let passed = 0; let failed = 0;
+const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok  ${name}`); };
+async function refuses(name: string, action: () => unknown) { try { await action(); } catch { check(name, true); return; } throw new Error(name); }
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-result-files-')));
+void (async () => {
+  const f = createRemoteWorkspaceFixture(root); const { store, devices, application: app, orchestration } = f;
+  devices.enroll('tablet', 'Tablet', 'd'.repeat(40)); devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read']);
+  const context = (): RemoteCommandContext => ({ principal: { id: 'tablet', kind: 'device', proof: 'device-signature', scopes: new Set(devices.activeDevices()[0]!.scopes) }, idempotencyKey: randomUUID(), requestId: 'storage' });
+  const repositoryId = (await app.administer(context(), { operation: 'project-create', input: { name: 'Saved results' } })).created!.id;
+  const submission = await app.submitTask(context(), { agentId: 'builder', repositoryId, name: 'Durable files', prompt: 'PRIVATE_TASK_SENTINEL' });
+  const taskId = submission.taskId!; const runId = submission.run.id;
+  const deadline = Date.now() + 15000; while (!f.sessions.length && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
+  const scope = (await f.workbench.resolve({ agentId: 'builder', repositoryId }))!;
+  const execution = { source: 'explicit' as const, repositoryId, workspaceBindingId: scope.id, workspaceDir: scope.workspaceDir, executionBackend: 'native' as const, branch: scope.branch ?? '' };
+  writeFileSync(join(scope.workspaceDir, 'unchanged.txt'), 'prior file');
+  const tracker = new RunFileTracker(store, f.workbench, f.resultFiles); await tracker.before(taskId, execution);
+  const original = Buffer.from([80, 75, 3, 4, 6, 7]); writeFileSync(join(scope.workspaceDir, 'result.xlsx'), original);
+  writeFileSync(join(scope.workspaceDir, 'report.md'), '# Completed result');
+  await tracker.after(taskId); orchestration.onTaskFinished(taskId, 'completed', 0); f.sessions[0]!.status = 'exited';
+  const task = store.get().runTasks.find((item) => item.id === taskId)!;
+  validateCompleteConfig(store.get());
+  check('completion saves only changed file references and valid bounded metadata', task.fileTracking!.saved!.files.length === 2 && !task.fileTracking!.saved!.limited);
+  check('general renderer view contains no saved file metadata or bodies', !JSON.stringify(orchestration.view()).includes('fileTracking') && !JSON.stringify(store.get()).includes('# Completed result'));
+  const list = await app.runFiles(context().principal, runId, taskId); const saved = list.files.find((file) => file.path === 'result.xlsx')!;
+  check('list distinguishes saved result from unchanged current file', saved.saved === true && !list.files.find((file) => file.path === 'unchanged.txt')!.saved);
+  writeFileSync(join(scope.workspaceDir, 'result.xlsx'), 'later modification');
+  check('saved binary survives later workspace edits byte for byte', (await app.runFile(context().principal, runId, taskId, saved.id)).bytes.equals(original));
+  unlinkSync(join(scope.workspaceDir, 'result.xlsx'));
+  check('saved result survives deletion from workspace', (await app.runFile(context().principal, runId, taskId, saved.id)).bytes.equals(original));
+  const restarted = new RunFileStore(join(root, 'result-files'));
+  const inspection = new RunInspectionService(store, { resolve: async () => { throw new Error('workspace gone'); } } as never,
+    { getSessionMeta: () => undefined, activitySnapshot: () => ({ lines: [], outputBytes: 0, structured: false }) }, (id) => orchestration.report(id), restarted);
+  check('new service after restart reads saved result without original workspace', (await inspection.file(runId, taskId, saved.id, () => undefined)).bytes.equals(original));
+  check('missing workspace listing still exposes saved results truthfully', (await inspection.files(runId, taskId, () => undefined)).files.some((file) => file.id === saved.id && file.saved));
+  await refuses('foreign task cannot read a known content identifier', () => app.runFile(context().principal, runId, randomUUID(), saved.id));
+  const stale = context().principal; devices.setAdminScopes('tablet', []);
+  await refuses('revoked read permission rejects saved result download', () => app.runFile(stale, runId, taskId, saved.id));
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read']);
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read'], { mode: 'selected', repositoryIds: [], agentIds: ['builder'] });
+  await refuses('resource deselection rejects saved result download', () => app.runFile(context().principal, runId, taskId, saved.id));
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read'], { mode: 'all' });
+  const path = join(root, 'result-files', `${saved.sha256}.bin`); writeFileSync(path, Buffer.alloc(original.length));
+  await refuses('tampered stored bytes fail digest verification', () => app.runFile(context().principal, runId, taskId, saved.id));
+  writeFileSync(path, original); linkSync(path, join(root, 'linked.bin'));
+  await refuses('hardlinked saved result is rejected', () => app.runFile(context().principal, runId, taskId, saved.id)); unlinkSync(join(root, 'linked.bin'));
+  await refuses('storage identifier cannot traverse directories', () => restarted.read('../escape', 1));
+  const tiny = new RunFileStore(join(root, 'limited-files'), 2); const sha = createHash('sha256').update(original).digest('hex');
+  await refuses('disk quota stops new storage without deleting prior results', () => tiny.put(sha, original));
+  check('positive control downloads original after negative controls', (await app.runFile(context().principal, runId, taskId, saved.id)).bytes.equals(original));
+  const config = store.get(); const source = config.runs.find((run) => run.id === runId)!;
+  const oldRuns = Array.from({ length: 44 }, (_, index) => ({ ...source, id: randomUUID(), name: `Old run ${index}`, createdAt: source.createdAt - 1000 - Math.floor(index / 3) }));
+  store.save({ runs: [...config.runs, ...oldRuns], runTasks: [...config.runTasks, ...oldRuns.map((run) => ({ ...task, id: randomUUID(), runId: run.id }))] });
+  const first = f.inspection.projectRuns(repositoryId); const second = f.inspection.projectRuns(repositoryId, first.nextCursor); const third = f.inspection.projectRuns(repositoryId, second.nextCursor);
+  check('history pages include all 45 retained runs with no duplicate at tied timestamps', first.runs.length === 20 && second.runs.length === 20 && third.runs.length === 5 && !third.nextCursor && new Set([...first.runs, ...second.runs, ...third.runs].map((run) => run.id)).size === 45);
+  check('resource filtering happens before page limit and cursor', f.inspection.projectRuns(repositoryId, undefined, (id) => id === oldRuns[43]!.id).runs.length === 1);
+  check('query contract accepts bounded cursor and rejects paths or extra keys', validProjectWorkspaceQuery({ operation: 'run-results', workspaceId: randomUUID(), cursor: first.nextCursor })
+    && !validProjectWorkspaceQuery({ operation: 'run-results', workspaceId: randomUUID(), cursor: '../escape' }) && !validProjectWorkspaceQuery({ operation: 'run-results', workspaceId: randomUUID(), limit: 5000 }));
+  await refuses('malformed history cursor is rejected by service', () => f.inspection.projectRuns(repositoryId, '../escape'));
+  check('final positive control can return to first history page', f.inspection.projectRuns(repositoryId).runs[0]!.id === runId);
+})().catch((error) => { failed++; console.error(error); }).finally(() => {
+  if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected fixture root'); rmSync(root, { recursive: true, force: true });
+  console.log(`Run file storage: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
+});

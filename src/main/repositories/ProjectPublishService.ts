@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import type { ProjectAuthorization } from './ProjectWorkspaceService';
 import { randomUUID } from 'node:crypto';
 import type { ProjectPublication, ProjectPublishAction, ProjectPublishPreview, ProjectPublishStatus, ProjectPullRequest } from '../../shared/projectPublish';
 import { validProjectPublishAction } from '../../shared/projectPublish';
@@ -45,10 +46,11 @@ export class ProjectPublishService {
       this.previews.set(preview.id, { preview, revision: state.local.view.revision, pushUrl: state.pushUrl, owner }); return structuredClone(preview);
     });
   }
-  async apply(id: string, owner: string, authorize: () => void = () => undefined) {
+  async apply(id: string, owner: string, authorize: ProjectAuthorization = () => undefined) {
     return workspaceOperations.mutate(async () => {
       authorize(); const saved = this.previews.get(id);
       if (!saved || saved.owner !== owner || saved.preview.expiresAt < this.now()) fail('Veröffentlichungsvorschau abgelaufen. Neu prüfen.');
+      authorize({ workspaceId: saved.preview.workspaceId });
       this.previews.delete(id); const { action, status: expected } = saved.preview;
       const current = await this.inspect(saved.preview.workspaceId, action.remote); authorize();
       if (current.local.view.revision !== saved.revision || current.pushUrl !== saved.pushUrl || current.status.remoteHead !== expected.remoteHead

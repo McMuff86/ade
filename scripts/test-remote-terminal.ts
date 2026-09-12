@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { RemoteTerminalService } from '../src/main/application/RemoteTerminalService';
+import { DeviceResourceService } from '../src/main/application/DeviceResourceService';
 import { remoteTerminalScreen } from '../src/main/application/RemoteTerminalScreen';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { HostRestartController } from '../src/main/application/HostRestartController';
@@ -27,6 +28,7 @@ void (async () => {
   await fixture.application.administer(context(), { operation: 'workspace-prepare', input: selection });
   const binding = store.get().workspaceBindings.find((item) => item.repositoryId === repo)!;
   const writes: string[] = []; let starts = 0; let now = Date.now(); let failWrite = false; const changes: TerminalControlState[] = [];
+  const resources = new DeviceResourceService(store, (id) => devices.resourceAccess(id));
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
     create: async (agentId, repositoryId, bindingId, mode) => {
       const session = { id: `native-${++starts}`, agentId, repositoryId: repositoryId ?? undefined, workspaceBindingId: bindingId, workspaceDir: binding.workspaceDir,
@@ -36,9 +38,10 @@ void (async () => {
     write: (_id, data) => { if (failWrite) throw new Error('fixture write failed'); writes.push(data.toString()); }, resize: () => undefined,
     kill: (id) => { const session = sessions.find((item) => item.id === id); if (session) session.status = 'exited'; },
   }, (id) => devices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
-  (entry) => devices.audit(entry), (state) => changes.push(state), () => now);
+  (entry) => devices.audit(entry), (state) => changes.push(state), () => now, (id, input) => resources.assertSelection(id, input));
   devices.onRevoked((id) => terminal!.revoke(id));
   const app = new AdeApplicationService(store, fixture.orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
+    resourceAccess: (id) => devices.resourceAccess(id),
     workbench, terminals: terminal, administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true) },
   });
   const command = (payload: object, ctx = context()) => app.remoteTerminal(ctx, { ...selection, ...payload }, 'command');
@@ -94,6 +97,14 @@ void (async () => {
   check('global session inventory includes only validated interactive workspaces', inventory.sessions.length === 1
     && inventory.sessions[0]!.agentId === selection.agentId && inventory.sessions[0]!.repositoryId === repo && inventory.sessions[0]!.id === opened.terminalId);
   check('session inventory never includes PTY ids, output, paths or control leases', !/native-1|workspaceDir|leaseId|screen|private/.test(JSON.stringify(inventory)) && starts === 1);
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control'], { mode: 'selected', repositoryIds: [], agentIds: [] });
+  check('removing resource grants empties global session inventory', !(await app.remoteSessionInventory(context().principal)).sessions.length);
+  await refuses('remembered terminal cannot be read after resource removal', () => query(opened.terminalId), 'scope_not_granted');
+  await refuses('cached terminal open cannot replay after resource removal', () => command({ operation: 'open', mode: 'shell' }, openedContext), 'scope_not_granted');
+  await refuses('terminal service independently enforces current resource grants', () => terminal!.query('tablet', { ...selection, terminalId: opened.terminalId }), 'scope_not_granted');
+  await refuses('old terminal input cannot bypass resource removal', () => terminal!.input(inputContext, input), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control'], { mode: 'selected', repositoryIds: [repo], agentIds: ['builder'] });
+  check('positive selection restores same live session without restarting it', (await query(opened.terminalId)).selected!.id === opened.terminalId && starts === 1);
   await refuses('bearer principal cannot inspect session inventory', () => app.remoteSessionInventory({ ...context().principal, kind: 'token', proof: 'bearer' } as unknown as ReturnType<typeof context>['principal']), 'device_proof_required');
   await refuses('raw managed PTY id cannot be attached', () => query('managed'), 'command_rejected');
   const screen = await remoteTerminalScreen(Buffer.from('abc\x1b[2K\rPS C:\\private\\workspace>\r\napi_key=sensitive\r\n'), 20, 10);

@@ -29,6 +29,7 @@ export interface MobileHostState {
   canRestart: boolean;
   blockers: string[];
   capabilities?: RemoteAdminScope[];
+  resourceSelection?: 'all' | 'selected';
 }
 export interface MobileRestartInput { instanceId: string }
 export interface MobileRestartResult {
@@ -125,8 +126,9 @@ export interface ProjectWorkspaceView {
   kind: 'checkout' | 'worktree';
   backend: 'native';
 }
-export interface ProjectRunResults { runs: Array<{ id: string; name: string; status: string; createdAt: number; taskIds: string[] }>; limited: boolean }
-export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches' | 'run-results'; workspaceId: string }
+export interface ProjectRunResults { runs: Array<{ id: string; name: string; status: string; createdAt: number; taskIds: string[] }>; limited: boolean; nextCursor?: string }
+export type ProjectWorkspaceQuery = { operation: 'directory' } | { operation: 'workspace' | 'branches'; workspaceId: string }
+  | { operation: 'run-results'; workspaceId: string; cursor?: string }
   | { operation: 'branch-preview'; workspaceId: string; action: import('./projectBranches').ProjectBranchAction }
   | { operation: 'git'; workspaceId: string } | { operation: 'git-diff'; workspaceId: string; path: string }
   | { operation: 'git-preview'; workspaceId: string; action: import('./projectGit').ProjectGitAction }
@@ -177,7 +179,7 @@ export interface MobileRunActivity {
   }>;
 }
 export interface MobileRunFile { id: string; path: string; name: string; bytes: number; image: boolean;
-  taskId?: string; taskTitle?: string; change?: import('./runFiles').RunFileChangeKind; available?: boolean; changedSinceRun?: boolean; sha256?: string }
+    taskId?: string; taskTitle?: string; change?: import('./runFiles').RunFileChangeKind; available?: boolean; changedSinceRun?: boolean; sha256?: string; saved?: boolean }
 export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
   unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
@@ -293,6 +295,7 @@ export interface MobileSnapshot {
  * caller-chosen commandId: the idempotency key header owns that.
  */
 export interface MobileRunCreateInput {
+  allowQuestions?: boolean;
   name: string;
   goal: string;
   repositoryId: string;
@@ -314,6 +317,7 @@ export interface MobileRunCreateInput {
  * replay, and plain-workspace (no repository) submission is not offered.
  */
 export interface MobileTaskSubmitInput {
+  allowQuestions?: boolean;
   agentId: string;
   repositoryId: string;
   prompt: string;
@@ -328,6 +332,9 @@ export interface MobileCommandResult {
   /** True when the idempotency key replayed an already-recorded outcome. */
   replayed: boolean;
 }
+
+export type MobileRunQuestions = import('./runQuestions').RunQuestionsView;
+export type MobileRunAnswerInput = Omit<import('./runQuestions').RunQuestionAnswerInput, 'runId' | 'commandId'>;
 
 /** Stable, path-free error codes of the host API. */
 export type MobileErrorCode =

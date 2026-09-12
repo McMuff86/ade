@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { validRunQuestions, type RunQuestion } from '../../shared/runQuestions';
 import { taskFileChanges } from '../../shared/runFiles';
 import {
   DEFAULT_RUN_BUDGET,
@@ -175,10 +176,11 @@ export class OrchestrationService {
       })),
       participants: config.runParticipants.map((participant) => ({ ...participant })),
       tasks: tasks.map((task): RunTaskView => {
-        const { prompt, output: _output, fileTracking: _fileTracking, ...rest } = task;
+        const { prompt, output: _output, fileTracking: _fileTracking, questions: _questions, ...rest } = task;
         const digest = this.promptDigestFor(task.id, prompt);
         return {
           ...rest,
+          pendingQuestions: task.questions?.filter((question) => question.status === 'pending' || question.status === 'answering').length,
           dependsOn: [...task.dependsOn],
           promptDigest: digest.digest,
           promptChars: digest.chars,
@@ -270,6 +272,7 @@ export class OrchestrationService {
         endedAt: task.endedAt,
         exitCode: task.exitCode,
         output: task.output ? { ...task.output } : undefined,
+        questions: task.questions?.map(({ answerDigest: _digest, ...question }) => structuredClone(question)),
         files: taskFileChanges(task.fileTracking, result?.filesChanged),
         error: task.error,
         result: result
@@ -323,6 +326,7 @@ export class OrchestrationService {
 
     return {
       runId: run.id,
+      allowQuestions: run.allowQuestions,
       name: run.name,
       goal: run.goal,
       status,
@@ -602,6 +606,7 @@ export class OrchestrationService {
             status: task.status,
             attempt: task.attempt,
             managed: task.managed,
+            pendingQuestions: task.questions?.filter((question) => question.status === 'pending' || question.status === 'answering').length,
             createdAt: task.createdAt,
             startedAt: task.startedAt,
             endedAt: task.endedAt,
@@ -656,6 +661,7 @@ export class OrchestrationService {
     }
     const run: Run = {
       id: randomUUID(),
+      allowQuestions: input.allowQuestions,
       name,
       goal,
       status: 'draft',
@@ -674,6 +680,7 @@ export class OrchestrationService {
       }
       const agent = agents.get(item.agentId);
       if (!agent) throw new Error(`ade: run participant agent not found "${item.agentId}"`);
+      if (input.allowQuestions) this.assertQuestionAgent(agent.id, item.runtime ?? agent.runtime, input.repositoryId);
       if (seen.has(agent.id)) throw new Error(`ade: agent "${agent.name}" appears twice in the run`);
       seen.add(agent.id);
       const teamId = item.teamId?.trim();
@@ -905,6 +912,30 @@ export class OrchestrationService {
     this.emit();
   }
 
+  recordQuestion(taskId: string, question: RunQuestion): void {
+    const config = this.store.get(); const task = config.runTasks.find((item) => item.id === taskId);
+    if (!task?.allowQuestions || task.status !== 'running') throw new Error('ade: Rückfrage gehört zu keinem laufenden interaktiven Auftrag.');
+    const previous = task.questions?.find((item) => item.id === question.id);
+    const questions = previous ? task.questions!.map((item) => item.id === question.id ? structuredClone(question) : item)
+      : [...task.questions ?? [], structuredClone(question)];
+    if (!validRunQuestions(questions)) throw new Error('ade: Rückfrage ist ungültig oder das Limit wurde erreicht.');
+    const now = Date.now();
+    const event = this.event(task.runId, previous ? 'question.updated' : 'question.requested', { taskId,
+      participantId: task.participantId, at: now, data: { questionId: question.id, blocking: question.blocking, status: question.status } });
+    this.store.save({ runTasks: config.runTasks.map((item) => item.id === taskId ? { ...item, questions, updatedAt: now } : item),
+      runEvents: [...config.runEvents, event] });
+    this.emit();
+  }
+
+  private assertQuestionAgent(agentId: string, runtime: string, repositoryId?: string | null): void {
+    const config = this.store.get(); const agent = config.agents.find((item) => item.id === agentId)!;
+    const repository = config.repositories.find((item) => item.id === (repositoryId === undefined ? agent.defaultRepositoryId : repositoryId));
+    if (runtime !== 'codex' || runtime === agent.runtime && !!agent.customCommand?.trim()
+      || (repository?.executionBackend ?? agent.homeExecutionBackend ?? 'native') !== 'native') {
+      throw new Error('ade: Rückfragen benötigen native Codex-Agenten ohne eigenes Startkommando.');
+    }
+  }
+
   createTask(input: RunTaskCreateInput): RunTask {
     return this.createTaskRecord({
       ...input,
@@ -933,6 +964,7 @@ export class OrchestrationService {
     const config = this.store.get();
     const agent = config.agents.find((candidate) => candidate.id === input.agentId);
     if (!agent) throw new Error(`ade: run participant agent not found "${input.agentId}"`);
+    if (input.allowQuestions) this.assertQuestionAgent(agent.id, agent.runtime, input.repositoryId);
     if (!config.repositories.some((repository) => repository.id === input.repositoryId)) {
       throw new Error(`ade: run repository not found "${input.repositoryId}"`);
     }
@@ -944,6 +976,7 @@ export class OrchestrationService {
     const now = Date.now();
     const run: Run = {
       id: randomUUID(),
+      allowQuestions: input.allowQuestions,
       name,
       goal: '',
       status: 'draft',
@@ -1868,6 +1901,7 @@ export class OrchestrationService {
     );
     const task: RunTask = {
       id: randomUUID(),
+      allowQuestions: run.allowQuestions,
       runId: run.id,
       participantId: participant.id,
       prompt,
@@ -1934,6 +1968,8 @@ export class OrchestrationService {
       ? {
           ...candidate,
           status,
+          questions: isTerminal(status) ? candidate.questions?.map((question) => question.status === 'pending' || question.status === 'answering'
+            ? { ...question, status: 'expired' as const, resolvedAt: now } : question) : candidate.questions,
           sessionId: detail.sessionId ?? candidate.sessionId,
           repositoryId: detail.repositoryId !== undefined
             ? detail.repositoryId

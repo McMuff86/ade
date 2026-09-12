@@ -30,7 +30,7 @@ void (async () => {
   const context = (key = 'project-open-0001'): RemoteCommandContext => ({ principal: { id: device.id, kind: 'device', proof: 'device-signature',
     scopes: new Set(devices.activeDevices()[0]?.scopes ?? []) }, idempotencyKey: key, requestId: 'project-fixture' });
   check('new project channels remain desktop IPC and generic remote commands stay unchanged', CHANNEL_POLICY['project:query'].surface === 'desktop'
-    && CHANNEL_POLICY['project:command'].surface === 'desktop' && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit');
+    && CHANNEL_POLICY['project:command'].surface === 'desktop' && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
   await refuses('project query rejects arbitrary paths', () => assertIpcPayload('project:query', { operation: 'directory', path: repo }));
   await refuses('project open rejects arbitrary command data', () => assertIpcPayload('project:command', { operation: 'open', entryId: 'p' + 'a'.repeat(32), command: 'whoami' }));
   await refuses('project query rejects malformed workspace UUID', () => assertIpcPayload('project:query', { operation: 'workspace', workspaceId: '-'.repeat(36) }));

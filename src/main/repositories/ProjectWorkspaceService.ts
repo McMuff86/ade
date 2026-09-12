@@ -21,6 +21,7 @@ const GIT_LOCATION_ENV = new Set(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 
 interface ConfigPort { get(): AdeConfig; save(value: Partial<AdeConfig>): AdeConfig }
 interface DirectoryTarget { entry: ProjectDirectoryEntry; path: string; identity: string; rootIdentity?: string }
 interface GitIdentity { top: string; main: string; git: string; common: string; pointer: string; branch: string }
+export type ProjectAuthorization = (target?: { repositoryId?: string; workspaceId?: string }) => void;
 
 /** Native checkout discovery and identity only. Opening never creates an agent,
  * writes repository instructions, checks out a branch, or launches a CLI.
@@ -33,7 +34,7 @@ export class ProjectWorkspaceService {
     return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice };
   }
 
-  async open(entryId: string, assertAuthorized: () => void = () => undefined): Promise<ProjectWorkspaceView> {
+  async open(entryId: string, assertAuthorized: ProjectAuthorization = () => undefined): Promise<ProjectWorkspaceView> {
     if (typeof entryId !== 'string' || !/^p[a-f0-9]{32}$/.test(entryId)) throw new Error('ade: Projekt-Auswahl ist ungültig.');
     return workspaceOperations.use(async () => {
       assertAuthorized();
@@ -46,15 +47,15 @@ export class ProjectWorkspaceService {
   /** Main-only adoption after a branch service resolved or created a worktree.
    * Caller holds the workspace operation gate; no wire payload supplies this path.
    */
-  async registerCheckout(path: string, repositoryId: string, assertAuthorized: () => void): Promise<ProjectWorkspaceView> {
-    assertAuthorized();
+  async registerCheckout(path: string, repositoryId: string, assertAuthorized: ProjectAuthorization): Promise<ProjectWorkspaceView> {
+    assertAuthorized({ repositoryId });
     const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
     if (!repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt ist nicht verfügbar.');
     const identity = projectRootIdentity(path);
     return this.registerTarget({ path, identity, entry: { id: '', name: repository.name, repositoryId, kind: 'repository', backend: 'native', source: 'catalog', notice: null } }, assertAuthorized, repositoryId);
   }
 
-  private async registerTarget(target: DirectoryTarget, assertAuthorized: () => void, expectedRepositoryId?: string): Promise<ProjectWorkspaceView> {
+  private async registerTarget(target: DirectoryTarget, assertAuthorized: ProjectAuthorization, expectedRepositoryId?: string): Promise<ProjectWorkspaceView> {
       if (target.entry.backend !== 'native') throw new Error('ade: WSL-Projekte im bestehenden Agent-Workspace öffnen.');
       if (target.entry.kind !== 'repository') throw new Error('ade: Dieser Ordner ist noch kein erreichbares Git-Repository.');
       this.assertTarget(target);
@@ -70,6 +71,7 @@ export class ProjectWorkspaceService {
       if (!repository) repository = { id: randomUUID(), name: basename(identity.main), rootPath: identity.main, commonGitDir: identity.common,
         executionBackend: 'native', verified: true, createdAt: Date.now() };
       if (expectedRepositoryId && repository.id !== expectedRepositoryId) throw new Error('ade: Arbeitskopie gehört nicht zum gewählten Projekt.');
+      assertAuthorized({ repositoryId: repository.id });
       const existing = current.projectWorkspaces.find((item) => sameHostPath(item.workspaceDir, target.path));
       if (existing) {
         this.assertRecord(existing, repository, identity);

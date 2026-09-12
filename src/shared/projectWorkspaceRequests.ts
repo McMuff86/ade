@@ -19,12 +19,14 @@ function keys(value: Record<string, unknown>, expected: string[]): boolean {
 export function validProjectWorkspaceQuery(value: unknown): value is ProjectWorkspaceQuery {
   const input = object(value); if (!input) return false;
   return input.operation === 'directory' ? keys(input, ['operation'])
+    : input.operation === 'run-results' ? keys(input, ['operation', 'workspaceId', ...(input.cursor === undefined ? [] : ['cursor'])]) && workspaceId(input.workspaceId)
+      && (input.cursor === undefined || typeof input.cursor === 'string' && /^\d{1,16}_[a-f0-9-]{36}$/.test(input.cursor))
     : input.operation === 'publish-status' ? keys(input, ['operation', 'workspaceId', 'remote']) && workspaceId(input.workspaceId) && validProjectRemote(input.remote)
     : input.operation === 'publish-preview' ? keys(input, ['operation', 'workspaceId', 'action']) && workspaceId(input.workspaceId) && validProjectPublishAction(input.action)
     : input.operation === 'git-preview' ? keys(input, ['operation', 'workspaceId', 'action']) && workspaceId(input.workspaceId) && validProjectGitAction(input.action)
       : input.operation === 'git-diff' ? keys(input, ['operation', 'workspaceId', 'path']) && workspaceId(input.workspaceId) && validProjectGitPath(input.path)
     : input.operation === 'branch-preview' ? keys(input, ['operation', 'workspaceId', 'action']) && workspaceId(input.workspaceId) && validProjectBranchAction(input.action)
-      : ['workspace', 'branches', 'git', 'run-results'].includes(String(input.operation)) && keys(input, ['operation', 'workspaceId']) && workspaceId(input.workspaceId);
+      : ['workspace', 'branches', 'git'].includes(String(input.operation)) && keys(input, ['operation', 'workspaceId']) && workspaceId(input.workspaceId);
 }
 export function validProjectWorkspaceCommand(value: unknown): value is ProjectWorkspaceCommand {
   const input = object(value); if (!input) return false;

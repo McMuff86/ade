@@ -24,7 +24,7 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
     void Promise.all([host.request<MobileHostState>('/api/v1/host'), host.refresh()]).then(([value]) => { if (live) setRights(value); })
       .catch((reason) => { if (live) setError(workspaceError(reason)); }); return () => { live = false; };
   }, [open, host.status, host.request, host.refresh]);
-  const permitted = (['catalog:write', 'workspace:read', 'projects:write'] as const).every((scope) => rights?.capabilities?.includes(scope));
+  const permitted = rights?.resourceSelection !== 'selected' && (['catalog:write', 'workspace:read', 'projects:write'] as const).every((scope) => rights?.capabilities?.includes(scope));
   const checkpoint = (next: StartProgress) => { if (!save(next)) throw new Error('Der Browser kann den Startfortschritt nicht speichern. Gerätespeicher freigeben und erneut prüfen.'); };
   const start = async () => {
     if (lock.current || host.status !== 'online' || !permitted || !host.catalog?.projectStart?.configured) return;
@@ -62,7 +62,8 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
         {progress && <p role="status">{progress.repositoryId ? 'Projekt ist angelegt; Workspace öffnen.' : 'Projekt anlegen.'} · {progress.name}</p>}
         {error && <p role="alert">{error}</p>}{host.status !== 'online' && <p role="status">PC nicht verbunden. Den gespeicherten Vorgang nach der Verbindung fortsetzen.</p>}
         {!rights && host.status === 'online' && <p role="status">Gerätefreigaben werden geprüft…</p>}
-        {rights && !permitted && <p role="alert">Am PC für dieses Tablet „Agents und Projekte erstellen“, „Workspace-Dateien und Git-Diffs lesen“ und „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben.</p>}
+        {rights?.resourceSelection === 'selected' && <p>Dieses Gerät nutzt ausgewählte Projekte. Neue Projekte am PC erstellen und für das Tablet freigeben.</p>}
+    {rights && !permitted && rights.resourceSelection !== 'selected' && <p role="alert">Am PC für dieses Tablet „Agents und Projekte erstellen“, „Workspace-Dateien und Git-Diffs lesen“ und „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben.</p>}
         <button className="m-primary" disabled={busy || host.status !== 'online' || !permitted || !host.catalog?.projectStart?.configured}>{busy ? 'Projekt wird geöffnet…' : progress ? 'Start fortsetzen' : 'Projekt anlegen und öffnen'}</button>
       </form>
       {progress && !busy && <button onClick={() => { save(null); setError(''); }}>Startablauf schliessen · erstellte Arbeit behalten</button>}

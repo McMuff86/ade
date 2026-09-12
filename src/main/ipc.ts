@@ -1,3 +1,5 @@
+import { RunQuestionService } from './orchestration/RunQuestionService';
+import { DeviceResourceService } from './application/DeviceResourceService';
 /**
  * IPC channel registration (main side).
  * Config, identity/photos (B2), pty (B1) and git/fs (Phase C) handlers are all
@@ -44,6 +46,7 @@ import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
 import { RunInspectionService } from './application/RunInspectionService';
 import { RunFileTracker } from './application/RunFileTracker';
+import { RunFileStore } from './application/RunFileStore';
 import { ProjectBranchService } from './repositories/ProjectBranchService';
 import { ProjectGitService } from './repositories/ProjectGitService';
 import { ProjectPublishService } from './repositories/ProjectPublishService';
@@ -260,11 +263,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   retentionTimer = setInterval(runRetention, RETENTION_INTERVAL_MS);
   retentionTimer.unref();
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
+  const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   const runtimeModels = new RuntimeModelService(harnessCredentials);
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
-  ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials);
+  ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
   const hostApiConfig = consumeHostApiConfig(process.env);
   const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), {
     available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
@@ -281,7 +285,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RemoteDevicesList, () => remoteDevices.inventory());
   handle(IPC.RemoteDevicesRename, ({ deviceId, name }) => remoteDevices.rename(deviceId, name));
   handle(IPC.RemoteDevicesRevoke, ({ deviceId }) => remoteDevices.revoke(deviceId));
-  handle(IPC.RemoteDevicesSetAdminScopes, ({ deviceId, scopes: grants }) => remoteDevices.setAdminScopes(deviceId, grants));
+  handle(IPC.RemoteDevicesSetAdminScopes, ({ deviceId, scopes: grants, resourceAccess }) => remoteDevices.setAdminScopes(deviceId, grants, resourceAccess));
   const restart = new HostRestartController(hostOperations, () => {
     const reasons: string[] = [];
     if (ptyManager?.list().some((session) => session.status === 'running')) reasons.push('Ein Terminal oder Agent-Prozess läuft.');
@@ -311,25 +315,28 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projectGitActions = new ProjectGitService(store, projects, () => ptyManager?.list() ?? []);
   const projectPublish = new ProjectPublishService(projectGitActions);
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
-  ptyManager!.setTaskFileTracker(new RunFileTracker(store, workbench));
-  const runInspection = new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId));
+  const resultFiles = new RunFileStore(join(app.getPath('userData'), 'ade', 'archive', 'files'));
+  ptyManager!.setTaskFileTracker(new RunFileTracker(store, workbench, resultFiles));
+  const runInspection = new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId), resultFiles);
   handle(IPC.ProjectFileRead, (input) => workbench.query({ ...input, operation: 'file' }));
   handle(IPC.ProjectFileSave, async (input) => ({ ...await workbench.save(validateFileSave(input), () => undefined), replayed: false }));
   remoteWorkbench = workbench;
+  const deviceResources = new DeviceResourceService(store, (id) => remoteDevices.resourceAccess(id));
   remoteTerminals = new RemoteTerminalService(workbench, {
     list: () => ptyManager?.list() ?? [],
-    create: (agentId, repositoryId, bindingId, mode, model) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model),
+    create: (agentId, repositoryId, bindingId, mode, model, authorize) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model, authorize),
     createProject: (workspaceId, branch, choice, profileId, authorize) => ptyManager!.createProjectInteractive(workspaceId, branch, choice, profileId, authorize),
     options: (selection) => ptyManager!.sessionOptions(selection),
     display: (id) => ptyManager!.remoteDisplay(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
-  (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state));
+  (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state), undefined,
+  (id, selection) => deviceResources.assertSelection(id, selection));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
     ? { directory: await projects.directory() }
-      : input.operation === 'run-results' ? { runResults: runInspection.projectRuns((await projects.overview(input.workspaceId)).repositoryId) }
+      : input.operation === 'run-results' ? { runResults: runInspection.projectRuns((await projects.overview(input.workspaceId)).repositoryId, input.cursor) }
       : input.operation === 'publish-status' ? { publish: await projectPublish.status(input.workspaceId, input.remote) }
       : input.operation === 'publish-preview' ? { publishPreview: await projectPublish.preview(input.workspaceId, input.action, 'desktop') }
       : input.operation === 'git' ? { git: await projectGitActions.overview(input.workspaceId) }
@@ -348,6 +355,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     { status: () => ptyManager!.queueStatus() },
     {
       activity: hostOperations,
+      questions: runQuestions,
+      resourceAccess: (id) => remoteDevices.resourceAccess(id),
       projects,
       runInspection,
       projectBranches,
@@ -906,6 +915,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
   handle(IPC.RunGet, () => orchestration!.view());
   handle(IPC.RunReport, ({ runId }) => orchestration!.report(runId));
+  handle(IPC.RunQuestions, ({ runId }) => runQuestions.view(runId));
+  handle(IPC.RunAnswer, (input) => runQuestions.answer(input));
   handle(IPC.RunFiles, ({ runId, taskId }) => runInspection.files(runId, taskId, () => undefined));
   handle(IPC.RunFileRead, async ({ runId, taskId, fileId }) => {
     const file = await runInspection.file(runId, taskId, fileId, () => undefined);

@@ -1,9 +1,32 @@
 # ADE implementation status
 
+## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
+
+Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie
+haltbare Ergebnisdateien und Ergebnisseiten sind implementiert. Vollständiges
+`pnpm verify`: 2.770 Prüfungen bestanden, zusätzlich 5 reale Codex-Prüfungen.
+Die geprüfte ADE-Kopie läuft mit dem persönlichen Profil; private HTTPS-Adresse,
+bestehende Samsung-Kopplung, fünf Projekte und sechs Agentenprofile sind geprüft.
+Physisches Samsung/DeX und das nicht antwortende Ubuntu bleiben offen.
+[Teilziele](TABLET_WORKSPACE_GOALS.md), [Abnahme und Operatorzustand](TABLET_WORKSPACE_RESULTS.md).
+Die darunter genannten älteren Gesamtprüfungen gelten für ihre damaligen Stände.
+
 Status date: 2026-09-11. Current behavior is below; chronological intermediate
 notes are in the [checkpoint archive](archived/STATUS_2026-09-10_CHECKPOINT.md).
 Contracts: [Architecture](ARCHITECTURE.md), [Spec](SPEC.md).
 User entry: [illustrated guide](USER_GUIDE.md).
+
+## Requested live-run follow-up
+
+Desktop **Live zuschauen** and Mobile **Aktivität** now show sequenced activity.
+New native Codex tasks/runs can opt into questions, answered through the shared
+desktop/mobile detail UI and acknowledged by the app-server transport. Existing
+one-shot adapters and integration approvals keep their separate behavior.
+Real Windows Codex 0.154.0 inference and deterministic UI/protocol evidence are in
+[LIVE_RUN_INTERACTION_PLAN](LIVE_RUN_INTERACTION_PLAN.md). Full native Windows
+acceptance and a new personal restart passed; see [current operator evidence](TABLET_WORKSPACE_RESULTS.md).
+The earlier port-4317 startup collision was recovered. Physical Samsung/DeX and
+the unresponsive Ubuntu backend remain outstanding.
 
 ## Guided setup follow-up
 

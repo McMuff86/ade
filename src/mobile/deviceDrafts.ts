@@ -54,7 +54,7 @@ function valid(key: string, value: unknown): boolean {
   if (key === 'task-drafts') return text(value.active, 300) && object(value.drafts) && Object.hasOwn(value.drafts, value.active)
     && Object.keys(value.drafts).length <= 200 && Object.values(value.drafts).every((draft) => object(draft)
       && ['task', 'run'].includes(String(draft.mode)) && text(draft.repositoryId) && Array.isArray(draft.agentIds) && draft.agentIds.every((id) => text(id))
-      && text(draft.name, 200) && text(draft.prompt, 8000) && typeof draft.minutes === 'number' && Number.isFinite(draft.minutes) && text(draft.cost, 100));
+      && (draft.allowQuestions === undefined || typeof draft.allowQuestions === 'boolean') && text(draft.name, 200) && text(draft.prompt, 8000) && typeof draft.minutes === 'number' && Number.isFinite(draft.minutes) && text(draft.cost, 100));
   return false;
 }
 export function clearDeviceDrafts(deviceId: string): void {

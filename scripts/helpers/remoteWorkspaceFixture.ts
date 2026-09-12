@@ -18,10 +18,12 @@ import { RepositorySyncService } from '../../src/main/repositories/RepositorySyn
 import { BackendWorkspaceService } from '../../src/main/execution/BackendWorkspaceService';
 import { ExecutionBackendService } from '../../src/main/execution/ExecutionBackendService';
 import { RunCoordinator } from '../../src/main/orchestration/RunCoordinator';
+import { RunQuestionService } from '../../src/main/orchestration/RunQuestionService';
 import { RuntimeAdapterRegistry } from '../../src/main/orchestration/runtimeAdapters';
 import type { SessionMeta } from '../../src/shared/types';
 import type { ActivityLine } from '../../src/shared/ipc';
 import { RunInspectionService } from '../../src/main/application/RunInspectionService';
+import { RunFileStore } from '../../src/main/application/RunFileStore';
 
 /** Real native Git scopes/domain/HTTP; runtime processes alone are deterministic fixtures. */
 export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}) {
@@ -31,6 +33,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const execution = new ExecutionBackendService(); const workspaces = new BackendWorkspaceService(store, execution);
   const scopes = new RepositoryScopeService(store, { baseDir: join(root, 'managed'), backendWorkspaces: workspaces, execution });
   const coordinator = new RunCoordinator(store, orchestration, new RuntimeAdapterRegistry(), workspaces, scopes);
+  const questions = new RunQuestionService(orchestration, (id, waiting) => coordinator.onTaskQuestionWait(id, waiting));
   coordinator.connect(async (agentId, _prompt, _dispatch, taskId, repositoryId, workspaceBindingId) => {
     const scope = await scopes.resolve(agentId, { repositoryId, workspaceBindingId });
     const session: SessionMeta = { id: `session-${sessions.length + 1}`, agentId, title: 'Fixture', kind: 'task', status: 'running', createdAt: Date.now(),
@@ -50,18 +53,21 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const projectPublish = new ProjectPublishService(projectGit, publishOptions.gh, Date.now, publishOptions.git);
   const workbench = new RemoteWorkbenchService(store, () => sessions, execution, projects);
   const observations = new Map<string, { lines: ActivityLine[]; lastOutputAt?: number; outputBytes: number; structured: boolean }>();
+  const resultFiles = new RunFileStore(join(root, 'result-files'));
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
-    activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id));
+    activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
     workbench, runInspection: inspection, projects, projectBranches, projectGit, projectPublish,
+    resourceAccess: (id) => devices.resourceAccess(id),
+    questions,
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
     profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish };
+  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

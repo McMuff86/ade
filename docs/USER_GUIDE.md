@@ -561,3 +561,46 @@ Für eine Fehlermeldung helfen: ADE-Ansicht, gewähltes Projekt/Profil, Zeitpunk
 Verbindungsstatus, ob der Desktop dieselbe Störung zeigt und ein Screenshot ohne
 Zugangsdaten. Weitere Details: [Verbindung einrichten](goal8/MOBILE_CONNECT_GUIDE.md),
 [Terminalfreigaben](REMOTE_TERMINAL_GUIDE.md), [Dokumentationsübersicht](README.md).
+
+## Projekte und Agenten für ein Tablet auswählen
+
+Am PC unter **Settings → Verbundene Geräte** beim Tablet
+**Nur ausgewählte Projekte und Agenten** wählen. Die gewünschten Projekte und
+Agenten ankreuzen oder **Alle derzeitigen auswählen** verwenden. Erst
+**Verwaltungsrechte speichern** übernimmt die Auswahl; das Tablet verbindet
+sich danach erneut. Eine leere Auswahl zeigt keine Projekte oder Agenten.
+Neue Projekte und Agenten sind in diesem Modus erst nach einer weiteren Freigabe
+erreichbar. **Alle, einschliesslich künftig hinzugefügter Projekte und Agenten**
+gibt auch spätere Einträge frei. Die Auswahl und die Aktionsrechte gelten
+gemeinsam: für Commit/Merge die Projekt-Git-Rechte, für Push/PR zusätzlich die
+Veröffentlichungsrechte aktivieren. Ein freigegebenes Terminal arbeitet mit den
+Rechten deines PC-Benutzers.
+
+## Während eines Runs mitreden
+
+Bei **Neue Aufgabe** oder **Neuer Run** kannst du **Rückfragen erlauben** aktivieren,
+wenn die ausgewählten Agenten native Codex-Agenten sind. Im Desktop-Graph öffnet
+**Rückfragen beantworten** die offenen Fragen im Bericht. Auf dem Tablet wählst
+du den Run und beantwortest die Frage im Rückfragenbereich. Erst **Antwort senden**
+übermittelt deine Auswahl. ADE wartet auf Codex' Empfangsbestätigung.
+
+**Live zuschauen** am PC beziehungsweise **Aktivität** am Tablet zeigt, welche
+Werkzeuge und Dateien der Agent gemeldet hat. Im interaktiven Terminal kannst
+du zusätzlich direkt mit der gewählten CLI arbeiten. Bei einer blockierenden
+Rückfrage pausiert das Aufgaben-Zeitlimit. Eine Eingabe bleibt bei Drehung und
+kurzem Offline-Zustand im geöffneten Fenster; ein Browser-Neuladen verwirft den
+Formularentwurf. Nach einem ADE-/Agent-Neustart sind alte Fragen abgelaufen.
+
+## Ergebnisse später wiederfinden
+
+Unter **Projekte → Workspace öffnen → Ergebnisse** kannst du mit **Ältere Runs**
+und **Neuere Runs** durch die gespeicherte Run-Historie blättern. **Gesichert am
+Aufgabenende** bezeichnet eine Ergebnisdatei, deren damalige Bytes ADE aufbewahrt.
+Sie bleibt auch nach späteren Änderungen oder Löschen in der Arbeitskopie
+abrufbar. Weitere Dateien zeigen den aktuellen Workspace-Stand. Alte Runs vor
+dieser Erweiterung haben noch keine nachträglich erfundenen Sicherungen.
+
+Pro Datei gilt 16 MiB, pro Aufgabe werden bis zu 100 geänderte Dateien gesichert;
+der Ergebnisspeicher ist auf 2 GiB begrenzt. Eine unvollständige Sicherung wird
+angezeigt. Die Seitennavigation zeigt die im ADE-Journal behaltenen Runs;
+bereits in JSON ausgelagerte Langzeitarchive bleiben Operator-Dateien.

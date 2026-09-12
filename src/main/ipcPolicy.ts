@@ -170,6 +170,8 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   // Desktop-only until the host adapter funnels task errors/summaries through
   // redactForWire; the projection itself is what Goal 9's approval view needs.
   'run:report': read,
+  'run:questions': shared,
+  'run:answer': sharedMutate,
   'run:files': read,
   'run:fileRead': read,
   'run:approvalDiff': read,
@@ -218,6 +220,7 @@ export const SHELL_CHANNELS: readonly InvokeChannel[] = ['agent:openDashboard'];
  */
 export const REMOTE_COMMAND_CHANNELS: readonly InvokeChannel[] = [
   'run:create', 'run:start', 'run:cancel', 'runTask:submit',
+  'run:answer',
 ];
 
 /** Channels the host API may serve at all (read projections plus the commands above). */

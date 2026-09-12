@@ -357,3 +357,6 @@
 .st-mobile-pair > div { flex: 1; min-width: min(260px, 100%); }
 .st-device-grants { display: grid; gap: 8px; min-width: 0; margin: 8px 0; padding: 10px; border: 1px solid var(--line); }
 .st-device-grants label { display: flex; gap: 8px; align-items: center; }
+.st-device-resources, .st-device-resources fieldset { display: grid; gap: 8px; min-width: 0; border: 1px solid var(--line); padding: 10px; }
+.st-device-resources label { overflow-wrap: anywhere; }
+.st-device-resources input { flex-shrink: 0; }

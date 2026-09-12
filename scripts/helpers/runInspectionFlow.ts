@@ -105,14 +105,20 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   const book = await bookEvent; const bookPath = await book.path();
   check('direct Graph files download spreadsheet from owning task workspace', !!bookPath && readFileSync(bookPath).equals(readFileSync(join(session.workspaceDir!, 'outputs/book.xlsx'))));
   await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
+  const savedMarkdown = readFileSync(join(session.workspaceDir!, 'outputs/result.md'));
   writeFileSync(join(session.workspaceDir!, 'outputs/result.md'), '# Updated after run');
   await filesDialog.getByRole('button', { name: 'Download vorbereiten: result.md', exact: true }).click();
-  check('stale file download explains refresh instead of requesting an ADE update', (await filesDialog.getByRole('alert').innerText()).includes('Dateien aktualisieren'));
+  await filesDialog.getByRole('link', { name: 'Herunterladen: result.md', exact: true }).waitFor();
+  check('saved result remains downloadable after workspace content changes', await filesDialog.getByRole('alert').count() === 0);
+  const savedDownloadEvent = page.waitForEvent('download'); await filesDialog.getByRole('link', { name: 'Herunterladen: result.md', exact: true }).click();
+  const savedDownload = await savedDownloadEvent; const savedPath = await savedDownload.path();
+  check('tablet downloads original result bytes after workspace edit', !!savedPath && readFileSync(savedPath).equals(savedMarkdown));
+  await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
   await filesDialog.getByRole('button', { name: 'Dateien aktualisieren', exact: true }).click();
-  await filesDialog.getByText('Seit Run-Ende erneut verändert · Download enthält den aktuellen Stand.', { exact: true }).waitFor();
+  await filesDialog.getByText('Gesichert am Aufgabenende · unveränderter Run-Stand.', { exact: true }).first().waitFor();
   await filesDialog.getByRole('button', { name: 'Download vorbereiten: result.md', exact: true }).click();
   await filesDialog.getByRole('link', { name: 'Herunterladen: result.md', exact: true }).waitFor();
-  check('fresh file listing restores download after content drift', await filesDialog.getByRole('alert').count() === 0);
+  check('refreshed file list keeps durable result identity after content drift', await filesDialog.getByRole('alert').count() === 0);
   await filesDialog.getByRole('button', { name: 'Vorschau schliessen', exact: true }).click();
   await page.screenshot({ path: join(evidence, 'run-files-changes.png') });
   await page.keyboard.press('Escape');
@@ -146,4 +152,29 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   check('offline project result view releases downloadable image URL', await projectImage.count() === 0);
   await page.context().setOffline(false); await project.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).waitFor();
   check('final positive control restores project download after reconnect', await project.getByRole('button', { name: 'Download vorbereiten: book.xlsx', exact: true }).isEnabled());
+  // The service's 45-record cursor boundaries are covered by test-run-file-storage.
+  // This bounded response fixture exercises browser page navigation and its focus.
+  const historyRoute = '**/api/v1/projects/query';
+  const actualPage = page.waitForResponse((response) => response.url().endsWith('/api/v1/projects/query') && response.request().postDataJSON()?.operation === 'run-results');
+  await project.getByRole('button', { name: 'Projekt-Ergebnisse aktualisieren', exact: true }).click();
+  const actualBody = await (await actualPage).json();
+  await page.route(historyRoute, async (route) => {
+    const input = route.request().postDataJSON() as { operation?: string; cursor?: string };
+    if (input.operation !== 'run-results') { await route.continue(); return; }
+    const body = structuredClone(actualBody);
+    if (!input.cursor && body.runResults?.runs?.length) body.runResults = { ...body.runResults, limited: true, nextCursor: `1_${task.runId}` };
+    else body.runResults = { runs: [], limited: false };
+    await route.fulfill({ status: 200, contentType: 'application/json', json: body });
+  });
+  try {
+    await project.getByRole('button', { name: 'Projekt-Ergebnisse aktualisieren', exact: true }).click();
+    const older = project.getByRole('button', { name: 'Ältere Runs', exact: true });
+    await older.and(project.locator('button:not(:disabled)')).waitFor();
+    await older.focus(); await page.keyboard.press('Enter');
+    await project.getByText('Seite 2 · bis zu 20 Runs', { exact: true }).waitFor();
+    check('history keyboard action loads older page and focuses its heading', await project.getByRole('heading', { name: 'Ergebnisse', exact: true }).evaluate((element) => element === document.activeElement));
+    await project.getByRole('button', { name: 'Neuere Runs', exact: true }).click();
+    await project.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).waitFor();
+    check('returning to newer page restores real result downloads', await project.getByText('Seite 1 · bis zu 20 Runs', { exact: true }).isVisible());
+  } finally { await page.unroute(historyRoute); }
 }

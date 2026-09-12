@@ -57,6 +57,7 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'runQuestions' | 'runAnswer'; runId: string }
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' }
@@ -65,7 +66,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun'; runId: string };
 
-type CommandKind = 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -132,6 +133,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
     case '/api/v1/events': return { route: { kind: 'events' }, allow: ['GET'] };
     default: {
+      const question = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})\/(questions|answers)$/.exec(path);
+      if (question) return { route: { kind: question[2] === 'questions' ? 'runQuestions' : 'runAnswer', runId: question[1]! }, allow: [question[2] === 'questions' ? 'GET' : 'POST'] };
       const inspection = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})(?:\/tasks\/([A-Za-z0-9_.:-]{1,128}))?\/(activity|files)(?:\/([a-f0-9]{64}))?$/.exec(path);
       if (inspection) {
         const [, runId, taskId, action, fileId] = inspection;
@@ -378,7 +381,7 @@ export class HostApiServer {
       }
       let readPrincipal = bearer;
       if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions'
-        || ['runActivity', 'runFiles', 'runFile'].includes(matched.route.kind))) {
+        || ['runActivity', 'runFiles', 'runFile', 'runQuestions'].includes(matched.route.kind))) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -418,6 +421,8 @@ export class HostApiServer {
           writeJson(response, 200, await this.application.remoteSessionInventory(readPrincipal!)); return;
         case 'runActivity':
           writeJson(response, 200, await this.application.inspectRun(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
+        case 'runQuestions':
+          writeJson(response, 200, this.application.runQuestions(readPrincipal!, matched.route.runId)); return;
         case 'runFiles':
           writeJson(response, 200, await this.application.runFiles(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
         case 'runFile': {
@@ -447,11 +452,11 @@ export class HostApiServer {
         case 'terminalInput':
           await this.handleCommand(request, response, requestId, bearer, target.path, matched.route.kind, undefined, browserRequest); return;
         case 'catalog':
-          writeJson(response, 200, this.application.catalog());
+          writeJson(response, 200, this.application.catalog(readPrincipal!));
           return;
         case 'runs':
           if (method === 'GET') {
-            writeJson(response, 200, this.application.runs());
+            writeJson(response, 200, this.application.runs(undefined, readPrincipal!));
             return;
           }
           await this.handleCommand(request, response, requestId, bearer, target.path, 'createRun', undefined, browserRequest);
@@ -460,10 +465,11 @@ export class HostApiServer {
           await this.handleCommand(request, response, requestId, bearer, target.path, 'submitTask', undefined, browserRequest);
           return;
         case 'events':
-          this.handleStream(request, response, target.query);
+          this.handleStream(request, response, target.query, readPrincipal!);
           return;
         case 'startRun':
         case 'cancelRun':
+        case 'runAnswer':
           await this.handleCommand(
             request, response, requestId, bearer, target.path, matched.route.kind, matched.route.runId, browserRequest,
           );
@@ -538,7 +544,8 @@ export class HostApiServer {
     }
 
     try {
-      const result = kind === 'queryProfile' ? this.application.queryProfile(context, payload)
+      const result = kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
+        : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
@@ -641,7 +648,7 @@ export class HostApiServer {
    * stalled client whose unsent bytes exceed the bound is disconnected and
    * resumes from its last id — the journal is durable, so nothing is lost.
    */
-  private handleStream(request: IncomingMessage, response: ServerResponse, query: string | null): void {
+  private handleStream(request: IncomingMessage, response: ServerResponse, query: string | null, principal: RemotePrincipal): void {
     const accept = singleHeader(request, 'accept') ?? '';
     if (!accept.split(',').some((part) => part.trim().toLowerCase().startsWith('text/event-stream'))) {
       writeError(response, 406, 'not_acceptable');
@@ -705,13 +712,13 @@ export class HostApiServer {
     const flush = (): void => {
       scheduled = false;
       if (!closed && lastSent < this.application.journalFloor()) {
-        const snapshot = this.application.snapshot();
+        const snapshot = this.application.snapshot(principal);
         if (!send('snapshot', snapshot.cursor, snapshot)) return;
         lastSent = snapshot.cursor;
       }
       while (!closed && !waitingForDrain) {
-        const page = this.application.events(lastSent, STREAM_PAGE_LIMIT);
-        if (page.events.length === 0 && page.messages.length === 0) return;
+        const page = this.application.events(lastSent, STREAM_PAGE_LIMIT, principal);
+        if (page.cursor <= lastSent) return;
         if (!send('journal', page.cursor, page)) return;
         lastSent = page.cursor;
       }
@@ -744,7 +751,7 @@ export class HostApiServer {
       const top = this.application.journalCursor();
       if (cursor === undefined || cursor === 0 || cursor > top || cursor < this.application.journalFloor()) {
         // Unknown or unusable cursor: bundle the current picture first.
-        const snapshot = this.application.snapshot();
+        const snapshot = this.application.snapshot(principal);
         lastSent = snapshot.cursor;
         if (!send('snapshot', snapshot.cursor, snapshot)) return;
       } else {

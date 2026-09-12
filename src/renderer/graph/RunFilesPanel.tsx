@@ -56,6 +56,7 @@ export function RunFilesPanel({ runId, taskId, port, online, identity, errorText
       <div><strong>{file.path}</strong> <span className="run-file-change" data-change={file.change}>{changeLabels[file.change ?? 'unknown']}</span>
         <small>{file.taskTitle}{file.available !== false && ` · ${Math.ceil(file.bytes / 1024)} KiB`}</small>
         {file.changedSinceRun && <p>Seit Run-Ende erneut verändert · Download enthält den aktuellen Stand.</p>}
+        {file.saved && <p>Gesichert am Aufgabenende · unveränderter Run-Stand.</p>}
         {file.available === false && <p>Datei nicht mehr abrufbar. Der Run-Nachweis bleibt erhalten.</p>}</div>
       <button disabled={busy || !online || file.available === false} onClick={(event) => void open(file, event.currentTarget)}>{file.image ? 'Bild ansehen' : 'Download vorbereiten'}: {file.name}</button>
     </li>)}</ul>

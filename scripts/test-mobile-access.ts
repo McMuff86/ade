@@ -203,6 +203,20 @@ void (async () => {
     controller = new MobileAccessController(fixture.application, positive, assets, controllerTail, controllerPort, false, async () => httpsVerified);
     await controller.restore();
     check('restart restores the enabled listener and pairing service', (await controller.status()).listening && (await controller.beginPairing()).url.startsWith(origin));
+    await controller.dispose();
+    const collision = createServer();
+    await new Promise<void>((done) => collision.listen(controllerPort, '127.0.0.1', done));
+    controller = new MobileAccessController(fixture.application, positive, assets, controllerTail, controllerPort, false, async () => httpsVerified, 25);
+    try {
+      await controller.restore();
+      const blocked = await controller.status();
+      check('startup collision preserves opt-in but does not claim a listener', blocked.enabled && !blocked.listening && blocked.message.includes('EADDRINUSE'));
+    } finally { await new Promise<void>((done) => collision.close(() => done())); }
+    const recoveryDeadline = Date.now() + 3_000;
+    while (!(await controller.status()).listening && Date.now() < recoveryDeadline) await new Promise((done) => setTimeout(done, 30));
+    const recovered = await controller.status();
+    check('persisted opt-in automatically recovers after a startup port collision', recovered.listening && recovered.https === 'verified');
+    check('startup recovery retains the same paired identity', positive.activeDevices()[0]?.id === 'positive');
     check('disable stops listener and removes only its owned route', !(await controller.setEnabled(false)).enabled && !serving);
     check('opt-out survives vault reload', !new RemoteDeviceStore(join(root, 'positive'), fixtureProtection).mobilePreferences().enabled);
   } finally { await controller.dispose(); }

@@ -22,6 +22,7 @@ interface ActivityParser {
 export class CodexActivityParser implements ActivityParser {
   private pending = '';
   private readonly announcedItems = new Set<string>();
+  private readonly textDeltas = new Map<string, string>();
 
   push(chunk: string): ActivityLine[] {
     this.pending += normalizePtyJsonStream(chunk);
@@ -40,6 +41,15 @@ export class CodexActivityParser implements ActivityParser {
 
   private render(event: Record<string, unknown>): ActivityLine[] {
     const type = event['type'];
+    if (type === 'ade.tool_output') return typeof event.text === 'string' && event.text.trim() ? [{ kind: 'tool', text: event.text.slice(0, 8000) }] : [];
+    if (type === 'ade.text_delta') {
+      const id = String(event.itemId); const value = (this.textDeltas.get(id) ?? '') + String(event.text ?? '');
+      if (!this.textDeltas.has(id) && this.textDeltas.size >= 100) this.textDeltas.delete(this.textDeltas.keys().next().value!);
+      if (value.includes('\n') || value.length >= 300) { this.textDeltas.set(id, ''); return value.trim() ? [{ kind: 'text', text: value.slice(0, 8000) }] : []; }
+      this.textDeltas.set(id, value); return [];
+    }
+    if (type === 'ade.plan') return [{ kind: 'tool', text: 'Plan: ' + (typeof event.text === 'string' ? event.text.slice(0, 4000) : '')
+      + (Array.isArray(event.steps) ? event.steps.slice(0, 20).map((step) => { const item = record(step); return `\n${String(item?.status ?? '')}: ${String(item?.step ?? '').slice(0, 500)}`; }).join('') : ''), mobileText: 'Arbeitsplan aktualisiert' }];
     if (type === 'thread.started') {
       return [{ kind: 'init', text: 'Codex-Session gestartet' }];
     }
@@ -76,16 +86,19 @@ export class CodexActivityParser implements ActivityParser {
       return textLine('thinking', item['text']);
     }
     if (itemType === 'agent_message' && !started) {
+      if (itemId && this.textDeltas.has(itemId)) { const tail = this.textDeltas.get(itemId)!; this.textDeltas.delete(itemId); return textLine('text', tail); }
       return textLine('text', item['text']);
     }
 
     const tool = describeCodexTool(item);
     if (!tool) return [];
-    if (itemId && this.announcedItems.has(itemId)) return [];
-    // Tool events usually arrive as started + completed. Announce the first;
-    // completed-only transcripts still remain useful after a ring-buffer cut.
-    if (itemId) this.announcedItems.add(itemId);
-    return [{ kind: 'tool', text: tool }];
+    const key = itemId ? `${itemId}:${started ? 'started' : 'completed'}` : undefined;
+    if (key && this.announcedItems.has(key)) return [];
+    if (key) { this.announcedItems.add(key); if (this.announcedItems.size > 4000) this.announcedItems.delete(this.announcedItems.values().next().value!); }
+    const status = started ? 'Gestartet' : typeof item.exit_code === 'number' ? `Abgeschlossen · Exit ${item.exit_code}` : item.status === 'failed' ? 'Fehlgeschlagen' : 'Abgeschlossen';
+    const output = !started && typeof item.aggregated_output === 'string' ? item.aggregated_output.trim().slice(0, 8000) : '';
+    return [{ kind: 'tool', text: `${status} · ${tool}${output ? `\n${output}` : ''}`,
+      ...(typeof item.accessText === 'string' ? { mobileText: `${status} · ${item.accessText.slice(0, 2000)}` } : {}) }];
   }
 }
 
@@ -106,7 +119,7 @@ function describeCodexTool(item: Record<string, unknown>): string | null {
   const type = item['type'];
   if (type === 'command_execution') {
     const command = typeof item['command'] === 'string'
-      ? condenseActivityText(item['command'], 120)
+      ? condenseActivityText(item['command'], 2000)
       : '';
     return command ? `Shell: ${command}` : 'Shell';
   }
@@ -137,7 +150,7 @@ function describeCodexTool(item: Record<string, unknown>): string | null {
 
 function textLine(kind: 'thinking' | 'text', value: unknown): ActivityLine[] {
   if (typeof value !== 'string') return [];
-  const text = condenseActivityText(value);
+  const text = value.trim().slice(0, 8000);
   return text ? [{ kind, text }] : [];
 }
 

@@ -139,6 +139,8 @@ export const IPC = {
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
   RunReport: 'run:report',
+  RunQuestions: 'run:questions',
+  RunAnswer: 'run:answer',
   RunFiles: 'run:files',
   RunFileRead: 'run:fileRead',
   RunApprovalDiff: 'run:approvalDiff',
@@ -249,6 +251,10 @@ export type ActivityKind = 'init' | 'thinking' | 'text' | 'tool' | 'result' | 'e
 export interface ActivityLine {
   kind: ActivityKind;
   text: string;
+  sequence?: number;
+  at?: number;
+  /** Bounded access metadata; no prompt, arbitrary argv or tool output. */
+  mobileText?: string;
 }
 export interface PtyActivityResult {
   lines: ActivityLine[];
@@ -637,7 +643,7 @@ export interface IpcInvokeMap {
   'mobileAccess:cancelPair': { req: void; res: void };
   'remoteDevices:rename': { req: { deviceId: string; name: string }; res: RemoteDeviceInventory };
   'remoteDevices:revoke': { req: { deviceId: string }; res: RemoteDeviceInventory };
-  'remoteDevices:setAdminScopes': { req: { deviceId: string; scopes: RemoteAdminScope[] }; res: RemoteDeviceInventory };
+  'remoteDevices:setAdminScopes': { req: { deviceId: string; scopes: RemoteAdminScope[]; resourceAccess?: import('./remoteDevices').DeviceResourceAccess }; res: RemoteDeviceInventory };
   'config:save': { req: ConfigSaveRequest; res: AdeConfig };
   'workspaceBundle:pickImport': { req: void; res: { selectionId: string; displayName: string } | null };
   'workspaceBundle:authorizeMappings': {
@@ -717,6 +723,8 @@ export interface IpcInvokeMap {
   'run:events': { req: RunEventsRequest; res: RunEventsResult };
   /** Full outcome of one run — files, tests with output, risks, SHAs (Thema 3). */
   'run:report': { req: { runId: string }; res: RunReport };
+  'run:questions': { req: { runId: string }; res: import('./runQuestions').RunQuestionsView };
+  'run:answer': { req: import('./runQuestions').RunQuestionAnswerInput; res: void };
   'run:files': { req: { runId: string; taskId?: string }; res: import('./remote').MobileRunFiles };
   'run:fileRead': { req: { runId: string; taskId: string; fileId: string }; res: { base64: string; type: string; name: string } };
   'run:approvalDiff': { req: { runId: string }; res: ApprovalDiffResult };

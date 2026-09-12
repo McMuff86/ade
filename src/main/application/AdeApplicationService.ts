@@ -1,4 +1,8 @@
+import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
+import type { RunQuestionService } from '../orchestration/RunQuestionService';
 import { createHash } from 'node:crypto';
+import { DeviceResourceService } from './DeviceResourceService';
+import type { DeviceResourceAccess } from '../../shared/remoteDevices';
 import type {
   AdeConfig,
   Run,
@@ -45,7 +49,7 @@ import type { RepositorySyncService } from '../repositories/RepositorySyncServic
 import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
 import { mobileDashboard } from '../dashboard/mobileDashboard';
-import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
+import type { ProjectWorkspaceService, ProjectAuthorization } from '../repositories/ProjectWorkspaceService';
 import type { RunInspectionService } from './RunInspectionService';
 import type { MobileRunActivity } from '../../shared/remote';
 import type { ProjectBranchService } from '../repositories/ProjectBranchService';
@@ -104,6 +108,8 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  resourceAccess?: (deviceId: string) => DeviceResourceAccess;
+  questions?: RunQuestionService;
   projects?: ProjectWorkspaceService;
   runInspection?: RunInspectionService;
   projectBranches?: ProjectBranchService;
@@ -188,7 +194,7 @@ const WIRE_EVENT_DATA_KEYS: ReadonlySet<string> = new Set([
   'phase', 'detail', 'error', 'reason', 'exitCode', 'repositoryId', 'workspaceBindingId', 'managed',
   'teamId', 'approvalId', 'type', 'decision', 'automatic', 'kind', 'used', 'limit', 'commitCount',
   'outcome', 'adapterId', 'resultId', 'messageId', 'leaseId', 'branch', 'source', 'artifactId',
-  'fromSha', 'toSha', 'preparedBaseSha',
+  'fromSha', 'toSha', 'preparedBaseSha', 'questionId', 'blocking', 'status',
 ]);
 
 /**
@@ -198,6 +204,7 @@ const WIRE_EVENT_DATA_KEYS: ReadonlySet<string> = new Set([
  * payload and audit every attempt. It never returns AdeConfig directly.
  */
 export class AdeApplicationService {
+  private get resources(): DeviceResourceService { return new DeviceResourceService(this.store, this.options.resourceAccess); }
   private readonly commands: ApplicationCommandPort | null;
   private readonly changes: ApplicationChangeSource | null;
   private readonly commandsEnabled: () => boolean;
@@ -233,7 +240,7 @@ export class AdeApplicationService {
     if (!this.options.profiles) throw new RemoteApiError(404, 'not_found');
     if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
     if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
-    try { return this.options.profiles.query(validateProfileQuery(payload)); }
+    try { const id = validateProfileQuery(payload); this.resources.assertAgent(context.principal, id); return this.options.profiles.query(id); }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
@@ -242,10 +249,12 @@ export class AdeApplicationService {
     if (!ledger || !profiles) throw new RemoteApiError(404, 'not_found');
     ledger.permits(context, 'profiles:write');
     const input = validateProfileUpdate(payload);
+    this.resources.assertAgent(context.principal, input.agentId);
     const receipt = await ledger.execute(context, 'profile:update', 'profiles:write', input, () => {
-      const execute = async () => profiles.update(input);
+      const execute = async () => { this.resources.assertAgent(context.principal, input.agentId); return profiles.update(input); };
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
+    this.resources.assertAgent(context.principal, input.agentId);
     return { ...receipt.value, replayed: receipt.replayed };
   }
 
@@ -254,10 +263,12 @@ export class AdeApplicationService {
     if (!ledger || !workbench) throw new RemoteApiError(404, 'not_found');
     ledger.permits(context, 'workspace:read'); ledger.permits(context, 'workspace:write');
     const input = validateFileSave(payload);
+    this.resources.assertSelection(context.principal, input);
     const receipt = await ledger.execute(context, 'workspace:save', 'workspace:write', input, () => {
-      const execute = () => workbench.save(input, () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'workspace:write'); });
+      const execute = () => workbench.save(input, () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'workspace:write'); this.resources.assertSelection(context.principal, input); });
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
+    this.resources.assertSelection(context.principal, input);
     return { ...receipt.value, replayed: receipt.replayed };
   }
 
@@ -266,12 +277,15 @@ export class AdeApplicationService {
     if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
     ledger.permits(context, 'workspace:read');
     if (!validProjectWorkspaceQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const checkResources = () => { if (payload.operation !== 'directory') this.resources.assertWorkspace(context.principal, payload.workspaceId); };
+    checkResources();
     try {
       if (payload.operation === 'run-results') {
         const workspace = await projects.overview(payload.workspaceId);
         if (!this.options.runInspection) throw new RemoteApiError(404, 'not_found');
-        const runResults = this.options.runInspection.projectRuns(workspace.repositoryId);
-        ledger.permits(context, 'workspace:read'); return { runResults };
+        const runResults = this.options.runInspection.projectRuns(workspace.repositoryId, payload.cursor, (id) => this.resources.run(context.principal, id));
+        ledger.permits(context, 'workspace:read'); checkResources();
+        return { runResults: { ...runResults, runs: runResults.runs.filter((run) => this.resources.run(context.principal, run.id)) } };
       }
       if (payload.operation === 'publish-status' || payload.operation === 'publish-preview') {
         const publisher = this.options.projectPublish; if (!publisher) throw new RemoteApiError(404, 'not_found');
@@ -279,7 +293,7 @@ export class AdeApplicationService {
           if (payload.operation === 'publish-preview') { ledger.permits(context, 'projects:write'); ledger.permits(context, 'projectGit:publish'); } };
         authorize(); const result = payload.operation === 'publish-status' ? { publish: await publisher.status(payload.workspaceId, payload.remote) }
           : { publishPreview: await publisher.preview(payload.workspaceId, payload.action, context.principal.id) };
-        authorize(); return result;
+        authorize(); checkResources(); return result;
       }
       const branches = this.options.projectBranches;
       const git = this.options.projectGit;
@@ -294,7 +308,12 @@ export class AdeApplicationService {
           : payload.operation === 'branch-preview' ? { preview: await branches!.preview(payload.workspaceId, payload.action, context.principal.id) }
             : { workspace: await projects.overview(payload.workspaceId) };
       if (payload.operation === 'branch-preview' || payload.operation === 'git-preview') { ledger.permits(context, 'projectGit:write'); ledger.permits(context, 'projects:write'); }
-      ledger.permits(context, 'workspace:read'); return result;
+      ledger.permits(context, 'workspace:read'); checkResources();
+      if (result.directory && this.resources.access(context.principal).mode === 'selected') {
+        result.directory.entries = result.directory.entries.filter((entry) => !!entry.repositoryId && this.resources.repository(context.principal, entry.repositoryId));
+        result.directory.notice = 'Es werden nur die am PC für dieses Gerät ausgewählten Projekte angezeigt.';
+      }
+      return result;
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
@@ -302,17 +321,25 @@ export class AdeApplicationService {
     const ledger = this.options.administration?.ledger; const projects = this.options.projects;
     if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
     if (!validProjectWorkspaceCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const targets: Array<{ repositoryId?: string; workspaceId?: string }> = [];
+    const resources: ProjectAuthorization = (target) => {
+      if (target) targets.push(target);
+      for (const item of targets) {
+        if (item.repositoryId) this.resources.assertRepository(context.principal, item.repositoryId);
+        if (item.workspaceId) this.resources.assertWorkspace(context.principal, item.workspaceId);
+      }
+    };
     if (payload.operation === 'publish-apply') {
       const publisher = this.options.projectPublish; if (!publisher) throw new RemoteApiError(404, 'not_found');
-      const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write'); ledger.permits(context, 'projectGit:publish'); };
+      const authorize: ProjectAuthorization = (target) => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write'); ledger.permits(context, 'projectGit:publish'); resources(target); };
       authorize(); const result = await ledger.execute(context, 'project:publish-apply', 'projectGit:publish', payload, () => {
         const execute = () => publisher.apply(payload.previewId, context.principal.id, authorize);
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
-      authorize(); return { ...result.value, replayed: result.replayed };
+      authorize({ workspaceId: result.value.workspace.id }); return { ...result.value, replayed: result.replayed };
     }
-    const authorize = () => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write');
-      if (payload.operation !== 'open') ledger.permits(context, 'projectGit:write'); };
+    const authorize: ProjectAuthorization = (target) => { ledger.permits(context, 'workspace:read'); ledger.permits(context, 'projects:write');
+      if (payload.operation !== 'open') ledger.permits(context, 'projectGit:write'); resources(target); };
     authorize();
     if (payload.operation === 'branch-apply' && !this.options.projectBranches) throw new RemoteApiError(404, 'not_found');
     if (payload.operation === 'git-apply' && !this.options.projectGit) throw new RemoteApiError(404, 'not_found');
@@ -322,7 +349,7 @@ export class AdeApplicationService {
         : await this.options.projectBranches!.apply(payload.previewId, context.principal.id, authorize) });
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
-    authorize();
+    authorize({ workspaceId: result.value.workspace.id });
     const git = payload.operation === 'git-apply' ? await this.options.projectGit!.overview(result.value.workspace.id) : undefined;
     authorize(); return { ...result.value, ...(git ? { workspace: git.workspace, git } : {}), replayed: result.replayed };
   }
@@ -332,6 +359,7 @@ export class AdeApplicationService {
     if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
     ledger.permits(context, 'terminal:control');
     const input = validateTerminal(payload, kind);
+    this.resources.assertSelection(context.principal, input);
     try {
       if (kind === 'query') return await terminals.query(context.principal.id, input as MobileTerminalQuery);
       if (kind === 'input') return await terminals.input(context, input as MobileTerminalInput);
@@ -356,26 +384,26 @@ export class AdeApplicationService {
   }
 
   async inspectRun(principal: RemotePrincipal, runId: string, taskId?: string): Promise<MobileRunActivity> {
-    const authorize = this.inspectionAuthorization(principal);
+    const authorize = this.inspectionAuthorization(principal, runId);
     const run = this.runs().find((item) => item.id === runId); if (!run) throw new RemoteApiError(404, 'not_found');
     const tasks = this.options.runInspection!.activity(runId, taskId); authorize();
     return { run, tasks, checkedAt: Date.now() };
   }
 
   async runFiles(principal: RemotePrincipal, runId: string, taskId?: string) {
-    const authorize = this.inspectionAuthorization(principal);
+    const authorize = this.inspectionAuthorization(principal, runId);
     return this.options.runInspection!.files(runId, taskId, authorize);
   }
 
   async runFile(principal: RemotePrincipal, runId: string, taskId: string, fileId: string) {
-    const authorize = this.inspectionAuthorization(principal);
+    const authorize = this.inspectionAuthorization(principal, runId);
     return this.options.runInspection!.file(runId, taskId, fileId, authorize);
   }
 
-  private inspectionAuthorization(principal: RemotePrincipal): () => void {
+  private inspectionAuthorization(principal: RemotePrincipal, runId: string): () => void {
     const ledger = this.options.administration?.ledger;
     if (!ledger || !this.options.runInspection) throw new RemoteApiError(404, 'not_found');
-    const authorize = () => ledger.permits({ principal, requestId: 'run-inspection', idempotencyKey: undefined }, 'workspace:read');
+    const authorize = () => { ledger.permits({ principal, requestId: 'run-inspection', idempotencyKey: undefined }, 'workspace:read'); this.resources.assertRun(principal, runId); };
     authorize(); return authorize;
   }
 
@@ -384,9 +412,11 @@ export class AdeApplicationService {
     if (!ledger || !this.options.workbench) throw new RemoteApiError(404, 'not_found');
     ledger.permits(context, 'workspace:read');
     const input = validateWorkbenchQuery(payload);
+    this.resources.assertSelection(context.principal, input);
     try {
       const result = await this.options.workbench.query(input);
       ledger.permits(context, 'workspace:read');
+      this.resources.assertSelection(context.principal, input);
       return result;
     } catch (error) {
       if (error instanceof RemoteApiError) throw error;
@@ -409,7 +439,7 @@ export class AdeApplicationService {
     let canRestart = false;
     try { admin.ledger.permits({ principal, idempotencyKey: undefined, requestId: 'host-state' }, 'host:restart'); canRestart = true; }
     catch { /* Existing devices can inspect availability without gaining privileges. */ }
-    return { ...admin.restart.state(canRestart), capabilities: REMOTE_ADMIN_SCOPES.filter((scope) => {
+    return { ...admin.restart.state(canRestart), resourceSelection: this.resources.access(principal).mode, capabilities: REMOTE_ADMIN_SCOPES.filter((scope) => {
       try { admin.ledger.permits({ principal, idempotencyKey: undefined, requestId: 'host-state' }, scope); return true; } catch { return false; }
     }) };
   }
@@ -436,9 +466,16 @@ export class AdeApplicationService {
     const admin = this.options.administration;
     if (!admin) throw new RemoteApiError(404, 'not_found');
     const command = validateAdministration(payload);
+    // Catalog creation and cross-agent repository synchronization require the full catalog.
+    const authorizeResources = () => {
+      if (command.operation === 'workspace-prepare') this.resources.assertSelection(context.principal, command.input);
+      else this.resources.assertAll(context.principal);
+    };
+    authorizeResources();
     const scope = command.operation.startsWith('git-') ? 'repositories:write' : 'catalog:write';
     const receipt = await admin.ledger.execute(context, `admin:${command.operation}`, scope, command, () => {
       const execute = async () => {
+        authorizeResources();
         if (command.operation === 'git-fetch') {
           this.requireNativeRemoteRepository(command.input.repositoryId);
           if (!admin.git) throw new RemoteApiError(404, 'not_found');
@@ -453,11 +490,12 @@ export class AdeApplicationService {
           return { git: projectGit(await admin.git.apply(command.input.previewId)) };
         }
         if (!admin.workspaces) throw new RemoteApiError(404, 'not_found');
-        return admin.workspaces.execute(command, () => admin.ledger.permits(context, scope));
+        return admin.workspaces.execute(command, () => { admin.ledger.permits(context, scope); authorizeResources(); });
       };
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
     admin.ledger.permits(context, scope);
+    authorizeResources();
     return { ...receipt.value, replayed: receipt.replayed };
   }
 
@@ -466,6 +504,7 @@ export class AdeApplicationService {
     if (!admin?.git) throw new RemoteApiError(404, 'not_found');
     if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature'
       || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    this.resources.assertAll(context.principal);
     const request = requireRecord(payload, 'request');
     requireKeys(request, ['operation', 'repositoryId', 'sourceRef', 'targetId'], 'request');
     const repositoryId = requireId(request.repositoryId, 'repositoryId'); this.requireNativeRemoteRepository(repositoryId);
@@ -473,7 +512,8 @@ export class AdeApplicationService {
     if (sourceRef !== undefined && !validSyncRef(sourceRef)) invalidPayload('sourceRef is invalid');
     if (request.operation === 'git-overview') {
       if (request.targetId !== undefined) invalidPayload('targetId is not accepted for an overview');
-      return { overview: projectGit(await admin.git.overview({ repositoryId, sourceRef })) };
+      const overview = projectGit(await admin.git.overview({ repositoryId, sourceRef }));
+      this.resources.assertAll(context.principal); return { overview };
     }
     if (request.operation !== 'git-preview') invalidPayload('unknown query operation');
     admin.ledger.permits(context, 'repositories:write');
@@ -483,7 +523,7 @@ export class AdeApplicationService {
     this.gitPreviewOwners.set(preview.id, { deviceId: context.principal.id, expiresAt: preview.expiresAt });
     const overview = projectGit(preview.overview);
     const projected: GitSyncPreview = { id: preview.id, expiresAt: preview.expiresAt, overview, target: overview.targets.find((target) => target.id === preview.target.id)! };
-    return { overview, preview: projected };
+    this.resources.assertAll(context.principal); return { overview, preview: projected };
   }
 
   private requireNativeRemoteRepository(repositoryId: string): void {
@@ -492,9 +532,9 @@ export class AdeApplicationService {
     }
   }
 
-  catalog(): MobileCatalog {
+  catalog(principal?: RemotePrincipal): MobileCatalog {
     const config = this.store.get();
-    return {
+    return this.resources.catalog(principal, {
       projectStart: { configured: !!config.settings.projectDefaults,
         ...(config.settings.projectDefaults?.agentId ? { agentId: config.settings.projectDefaults.agentId } : {}) },
       categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160) })),
@@ -521,16 +561,16 @@ export class AdeApplicationService {
           ? { homeExecutionBackend: agent.homeExecutionBackend }
           : {}),
       })),
-    };
+    });
   }
 
-  runs(runId?: string): RunSummary[] {
-    return this.runsPort.summarize(runId);
+  runs(runId?: string, principal?: RemotePrincipal): RunSummary[] {
+    return this.runsPort.summarize(runId).filter((run) => this.resources.run(principal, run.id));
   }
 
   /** Current journal cursor plus every run summary, for stream (re)connects. */
-  snapshot(): MobileSnapshot {
-    return { cursor: this.runsPort.journalCursor(), runs: this.runsPort.summarize() };
+  snapshot(principal?: RemotePrincipal): MobileSnapshot {
+    return { cursor: this.runsPort.journalCursor(), runs: this.runs(undefined, principal) };
   }
 
   journalCursor(): number {
@@ -545,14 +585,14 @@ export class AdeApplicationService {
    * stream stays strictly monotonic across reconnects; the page cursor is the
    * highest seq included, or `sinceSeq` when nothing is newer.
    */
-  events(sinceSeq: number, limit = MAX_EVENT_PAGE): MobileJournalPage {
+  events(sinceSeq: number, limit = MAX_EVENT_PAGE, principal?: RemotePrincipal): MobileJournalPage {
     if (!Number.isSafeInteger(sinceSeq) || sinceSeq < 0) {
       throw new RemoteApiError(400, 'invalid_payload', 'cursor must be a non-negative integer');
     }
     const page = this.runsPort.eventsSince(sinceSeq, Math.max(1, Math.min(MAX_EVENT_PAGE, limit)));
     return {
-      events: page.events.map(projectEvent),
-      messages: page.messages.map(projectMessage),
+      events: page.events.filter((item) => this.resources.run(principal, item.runId)).map(projectEvent),
+      messages: page.messages.filter((item) => this.resources.run(principal, item.runId)).map(projectMessage),
       cursor: page.nextCursor,
     };
   }
@@ -568,6 +608,26 @@ export class AdeApplicationService {
   }
 
   /* --------------------------------------------------------------- commands */
+
+  runQuestions(principal: RemotePrincipal, runId: string) {
+    const ledger = this.options.administration?.ledger; const questions = this.options.questions;
+    if (!ledger || !questions) throw new RemoteApiError(404, 'not_found');
+    ledger.permits({ principal, requestId: 'run-questions', idempotencyKey: undefined }, 'workspace:read');
+    this.resources.assertRun(principal, runId);
+    return questions.view(runId);
+  }
+
+  answerRunQuestion(context: RemoteCommandContext, runId: string, payload: unknown): Promise<MobileCommandResult> {
+    return this.command(IPC.RunAnswer, context, { runId, answer: payload }, runId, async (commandId) => {
+      if (!this.options.questions) throw new RemoteApiError(404, 'not_found');
+      const request = requireRecord(payload, 'request'); requireKeys(request, ['taskId', 'questionId', 'answers'], 'request');
+      if (!validQuestionAnswers(request.answers)) invalidPayload('invalid question answers');
+      const input: RunQuestionAnswerInput = { runId, taskId: requireId(request.taskId, 'taskId'),
+        questionId: requireId(request.questionId, 'questionId'), answers: request.answers, commandId };
+      assertIpcPayload(IPC.RunAnswer, input);
+      await this.options.questions.answer(input); return { runId };
+    });
+  }
 
   createRun(context: RemoteCommandContext, payload: unknown): Promise<MobileCommandResult> {
     return this.command(IPC.RunCreate, context, payload, null, async (commandId, commands) => {
@@ -646,6 +706,17 @@ export class AdeApplicationService {
       }
     }
 
+    const authorizeResources = () => {
+      if (target) this.resources.assertRun(context.principal, target);
+      else if (channel === IPC.RunCreate) {
+        const input = validateRemoteRunCreate(payload);
+        this.resources.assertRepository(context.principal, input.repositoryId);
+        for (const participant of input.participants) this.resources.assertAgent(context.principal, participant.agentId);
+      } else if (channel === IPC.RunTaskSubmit) this.resources.assertSelection(context.principal, validateRemoteTaskSubmit(payload));
+    };
+    try { authorizeResources(); }
+    catch (error) { this.audit(context, channel, target, error instanceof RemoteApiError && error.status === 403 ? 'denied' : 'rejected', redactedWireMessage(error)); throw error; }
+
     const keyPrefix = `${REMOTE_COMMAND_PREFIX}${key}:`;
     const commandId = `${keyPrefix}${fingerprint(channel, payload)}`;
 
@@ -661,6 +732,7 @@ export class AdeApplicationService {
         deny(409, 'idempotency_key_reused', 'Idempotency-Key is in flight with a different payload');
       }
       const result = await running.result;
+      authorizeResources(); this.resources.assertRun(context.principal, result.run.id);
       this.audit(context, channel, target ?? result.run.id, 'replayed');
       return { ...result, replayed: true };
     }
@@ -671,6 +743,7 @@ export class AdeApplicationService {
     const execution = (async (): Promise<MobileCommandResult> => {
       let outcome: { runId: string; taskId?: string };
       try {
+        authorizeResources();
         outcome = this.options.activity
           ? await this.options.activity.use(() => execute(commandId, commands!))
           : await execute(commandId, commands!);
@@ -692,6 +765,7 @@ export class AdeApplicationService {
         throw error;
       }
       const summary = this.runsPort.summarize(outcome.runId)[0];
+      authorizeResources(); this.resources.assertRun(context.principal, outcome.runId);
       if (!summary) throw new Error('ade: command produced no run summary');
       this.audit(context, channel, outcome.taskId ?? outcome.runId, replayed ? 'replayed' : 'executed');
       return {
@@ -834,7 +908,7 @@ function requireId(value: unknown, label: string): string {
 /** Narrow remote validation before the shared IPC validator and the domain run. */
 export function validateRemoteRunCreate(payload: unknown): MobileRunCreateInput {
   const request = requireRecord(payload, 'request');
-  requireKeys(request, ['name', 'goal', 'repositoryId', 'participants', 'budget'], 'request');
+  requireKeys(request, ['name', 'goal', 'repositoryId', 'participants', 'budget', 'allowQuestions'], 'request');
   const name = requireText(request.name, 'name', MAX_REMOTE_NAME_CHARS);
   const goal = requireText(request.goal, 'goal', MAX_REMOTE_GOAL_CHARS);
   const repositoryId = requireId(request.repositoryId, 'repositoryId');
@@ -874,7 +948,8 @@ export function validateRemoteRunCreate(payload: unknown): MobileRunCreateInput 
       (budget as Record<string, number | null>)[key] = value as number | null;
     }
   }
-  return { name, goal, repositoryId, participants, ...(budget ? { budget } : {}) };
+  if (request.allowQuestions !== undefined && typeof request.allowQuestions !== 'boolean') invalidPayload('allowQuestions must be boolean');
+  return { name, goal, repositoryId, participants, ...(budget ? { budget } : {}), ...(request.allowQuestions !== undefined ? { allowQuestions: request.allowQuestions as boolean } : {}) };
 }
 
 /**
@@ -884,20 +959,22 @@ export function validateRemoteRunCreate(payload: unknown): MobileRunCreateInput 
  */
 export function validateRemoteTaskSubmit(payload: unknown): MobileTaskSubmitInput {
   const request = requireRecord(payload, 'request');
-  requireKeys(request, ['agentId', 'repositoryId', 'prompt', 'name'], 'request');
+  requireKeys(request, ['agentId', 'repositoryId', 'prompt', 'name', 'allowQuestions'], 'request');
   const agentId = requireId(request.agentId, 'agentId');
   const repositoryId = requireId(request.repositoryId, 'repositoryId');
   const prompt = requireText(request.prompt, 'prompt', MAX_REMOTE_PROMPT_CHARS);
   const name = request.name !== undefined
     ? requireText(request.name, 'name', MAX_REMOTE_NAME_CHARS)
     : undefined;
-  return { agentId, repositoryId, prompt, ...(name !== undefined ? { name } : {}) };
+  if (request.allowQuestions !== undefined && typeof request.allowQuestions !== 'boolean') invalidPayload('allowQuestions must be boolean');
+  return { agentId, repositoryId, prompt, ...(name !== undefined ? { name } : {}), ...(request.allowQuestions !== undefined ? { allowQuestions: request.allowQuestions as boolean } : {}) };
 }
 
 function toRunCreateInput(input: MobileRunCreateInput, commandId: string): RunCreateInput {
   return {
     name: input.name,
     goal: input.goal,
+    allowQuestions: input.allowQuestions,
     repositoryId: input.repositoryId,
     participants: input.participants.map((participant) => ({
       agentId: participant.agentId,

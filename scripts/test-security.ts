@@ -60,6 +60,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'run:questions': { runId: 'run' },
+  'run:answer': { runId: 'run', taskId: 'task', questionId: 'question', answers: { choice: { answers: ['Yes'] } } },
   'project:create': { name: 'Garden' },
   'project:fileRead': { projectWorkspaceId: '12345678-1234-1234-1234-123456789abc', path: 'a.txt' },
   'project:fileSave': { projectWorkspaceId: '12345678-1234-1234-1234-123456789abc', path: 'a.txt', workspaceVersion: 'a'.repeat(64), revision: 'b'.repeat(64), text: 'resolved' },
@@ -513,8 +515,8 @@ check('host-API shared channels are read-only unless allowlisted as remote comma
     .every((channel) => CHANNEL_POLICY[channel].effect === 'read'
       && CHANNEL_POLICY[channel].remote?.scope === 'read'
       && CHANNEL_POLICY[channel].remote?.proof === 'bearer'));
-check('the remote command allowlist is exactly run create/start/cancel plus single-task submission',
-  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:cancel,run:create,run:start,runTask:submit'
+check('the remote command allowlist is exactly run create/start/cancel/answer plus single-task submission',
+  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:answer,run:cancel,run:create,run:start,runTask:submit'
     && REMOTE_COMMAND_CHANNELS.every((channel) => sharedChannels.includes(channel)));
 check('single-task submission is a shared launch that never exposes the desktop task-create or PTY channels',
   CHANNEL_POLICY['runTask:submit'].effect === 'launch'

@@ -26,7 +26,8 @@ export class MobileAccessController {
   constructor(private readonly application: AdeApplicationService, private readonly devices: RemoteDeviceStore,
     private readonly assetRoot: string, private readonly tailscale = new TailscaleService(),
     private readonly port = 4317, private readonly legacyEnabled = false,
-    private readonly probe: HttpsReadinessProbe = probePrivateHttps) {}
+    private readonly probe: HttpsReadinessProbe = probePrivateHttps,
+    private readonly monitorEveryMs = 15_000) {}
 
   async restore(): Promise<void> {
     if (this.devices.mobilePreferences().enabled) await this.setEnabled(true);
@@ -77,10 +78,6 @@ export class MobileAccessController {
         await this.tailscale.enable(this.port);
         this.scheduleProbe(tail.origin);
         this.message = '';
-        if (!this.monitor) {
-          this.monitor = setInterval(() => { void this.checkConnection(); }, 15_000);
-          this.monitor.unref();
-        }
       }
     } catch (error) {
       await this.stopListener();
@@ -88,7 +85,19 @@ export class MobileAccessController {
       this.message = error instanceof Error && error.message.startsWith('tailscale_')
         ? `Tailscale HTTPS ist noch nicht verfügbar. In einer PC-Konsole „tailscale serve --bg --https=443 http://127.0.0.1:${this.port}“ ausführen und gegebenenfalls HTTPS bestätigen; danach erneut verbinden.`
         : redactedErrorDetail(error);
-    } finally { this.busy = false; }
+    } finally {
+      this.busy = false;
+      // A previously enabled host must also recover when its first listen
+      // fails (for example, the old ADE instance is still shutting down).
+      // Only a persisted opt-in allows unattended retries.
+      if (!this.disposed && this.devices.mobilePreferences().enabled && !this.monitor) {
+        this.monitor = setInterval(() => { void this.checkConnection(); }, this.monitorEveryMs);
+        this.monitor.unref();
+      }
+      if (!this.devices.mobilePreferences().enabled && this.monitor) {
+        clearInterval(this.monitor); this.monitor = null;
+      }
+    }
     return this.status();
   }
 

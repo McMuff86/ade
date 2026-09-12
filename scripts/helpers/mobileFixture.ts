@@ -49,6 +49,7 @@ export function createMobileFixture(root: string) {
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     changes, commandsEnabled: () => devices.activeDevices().length > 0, audit: (entry) => devices.audit(entry),
+    resourceAccess: (id) => devices.resourceAccess(id),
   });
   return { store, devices, application, orchestration, coordinator, launched, changes };
 }

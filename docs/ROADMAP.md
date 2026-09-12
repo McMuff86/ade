@@ -1,5 +1,16 @@
 # ADE delivery roadmap
 
+## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
+
+Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie
+haltbare Ergebnisdateien und Ergebnisseiten sind implementiert. Vollständiges
+`pnpm verify`: 2.770 Prüfungen bestanden, zusätzlich 5 reale Codex-Prüfungen.
+Die geprüfte ADE-Kopie läuft mit dem persönlichen Profil; private HTTPS-Adresse,
+bestehende Samsung-Kopplung, fünf Projekte und sechs Agentenprofile sind geprüft.
+Physisches Samsung/DeX und das nicht antwortende Ubuntu bleiben offen.
+[Teilziele](TABLET_WORKSPACE_GOALS.md), [Abnahme und Operatorzustand](TABLET_WORKSPACE_RESULTS.md).
+Die darunter genannten älteren Gesamtprüfungen gelten für ihre damaligen Stände.
+
 Status: 2026-09-11. [Capabilities](STATUS.md), [project workflow tasks](PROJECT_WORKFLOW_GOALS.md)
 and [current product review](research/ADE_PRODUCT_REVIEW_2026-09-10.md) have distinct roles.
 Intermediate delivery notes are preserved in the [checkpoint archive](archived/ROADMAP_2026-09-10_CHECKPOINT.md).
@@ -20,7 +31,19 @@ full `pnpm verify` with 2,588 passing checks. Task commits form one final delive
 the operator build and publication are recorded in HANDOFF. The extra WSL
 lifecycle recheck remains blocked at a read-only readiness probe.
 
-## Proposed next product slices — for discussion
+## Requested next slice: live run activity and questions
+
+The September 11 follow-up is implemented in the current working tree: sequenced
+activity, native Codex questions on desktop/mobile, result-file storage and
+retained-history pagination. Focused checks and real Windows Codex inference
+pass. Full verification and the personal-host restart are the remaining delivery
+steps; WSL readiness remains an independently observed host problem. Evidence:
+[LIVE_RUN_INTERACTION_PLAN](LIVE_RUN_INTERACTION_PLAN.md),
+[Tablet goals](TABLET_WORKSPACE_GOALS.md).
+The current operator connection also needs retry/revalidation after a listener
+startup collision on port 4317; the morning restart evidence is historical.
+
+## Other proposed product slices — for discussion
 
 1. Physical Samsung Chrome keyboard/DeX/rotation and network-transition acceptance.
 2. Durable result-file storage, pagination and older archived-run browsing.

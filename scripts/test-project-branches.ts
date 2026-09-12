@@ -91,8 +91,10 @@ void (async () => {
   sessions.push({ id: 'raced', agentId: 'fixture', title: 'CLI', kind: 'interactive', status: 'running', createdAt: 2, workspaceDir: path });
   await refuses('session that starts after preview blocks the actual switch', () => branches.apply(sessionRace.id, 'desktop'), /Terminalsitzung/); sessions.length = 0;
   const adoptionPreview = await branches.preview(workspace.id, { kind: 'create', name: 'parallel/recover', baseRef: null, separate: true }, 'desktop');
-  const registeredBefore = store.get().projectWorkspaces.length; let authCount = 0;
-  await refuses('revocation after worktree creation reports failure without erasing created files', () => branches.apply(adoptionPreview.id, 'desktop', () => { if (++authCount === 4) throw new Error('revoked'); }), /revoked/);
+  const registeredBefore = store.get().projectWorkspaces.length;
+  await refuses('revocation after worktree creation reports failure without erasing created files', () => branches.apply(adoptionPreview.id, 'desktop', () => {
+    if (git(path, ['worktree', 'list', '--porcelain']).includes('branch refs/heads/parallel/recover')) throw new Error('revoked');
+  }), /revoked/);
   const recoverable = (await branches.overview(workspace.id)).worktrees.find((item) => item.branch === 'parallel/recover')!;
   check('partially completed worktree remains discoverable for explicit recovery', !!recoverable && recoverable.available && store.get().projectWorkspaces.length === registeredBefore);
   const recovered = await apply({ kind: 'open-worktree', worktreeId: recoverable.id });

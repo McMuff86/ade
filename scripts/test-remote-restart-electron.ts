@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 
@@ -39,6 +39,17 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   originalPid = await app.evaluate(() => process.pid);
   const desktop = await app.firstWindow(); desktop.setDefaultTimeout(25_000);
+  const duplicateLauncher = join(root, 'duplicate.cjs');
+  writeFileSync(duplicateLauncher, `require(${JSON.stringify(resolve('out/main/index.js'))});`);
+  const duplicate = spawn(app.process().spawnfile, [duplicateLauncher], { cwd: resolve('.'), windowsHide: true, stdio: 'ignore',
+    env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
+  const duplicateExit = await new Promise<number | null>((done, reject) => {
+    const timeout = setTimeout(() => { duplicate.kill(); reject(new Error('duplicate ADE did not relinquish the profile')); }, 15_000);
+    duplicate.once('error', (error) => { clearTimeout(timeout); reject(error); });
+    duplicate.once('exit', (code) => { clearTimeout(timeout); done(code); });
+  });
+  check('second Electron launch relinquishes an already-owned profile', duplicateExit === 0);
+  check('original owner retains one desktop and its process', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && process.pid) === originalPid);
   await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
   const mobile = desktop.getByTestId('mobile-access');
   await mobile.getByRole('button', { name: 'Mit Tailscale aktivieren' }).click();

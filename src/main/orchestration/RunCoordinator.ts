@@ -69,6 +69,7 @@ interface ConfigPort {
 
 /** Injectable timer seam so the task time budget is testable without waiting. */
 export interface TaskTimerPort {
+  now?(): number;
   set(callback: () => void, delayMs: number): unknown;
   clear(handle: unknown): void;
 }
@@ -111,6 +112,7 @@ export class RunCoordinator {
   private readonly attemptedContextRestores = new Set<string>();
   /** Armed per running managed task when the run carries a task time budget. */
   private readonly taskTimers = new Map<string, unknown>();
+  private readonly taskTimes = new Map<string, { remaining: number; startedAt: number | null }>();
   private taskLauncher: TaskLauncher | null = null;
   private taskCanceller: TaskCanceller | null = null;
   private readonly scopes: RepositoryScopePort;
@@ -573,7 +575,15 @@ export class RunCoordinator {
    * the exact reason and cancels its tasks; the journal records the exhausted
    * budget like every other limit. No limit means no timer.
    */
-  private armTaskTimer(taskId: string): void {
+  onTaskQuestionWait(taskId: string, waiting: boolean): void {
+    const time = this.taskTimes.get(taskId); if (!time) return;
+    if (waiting && time.startedAt !== null) {
+      time.remaining = Math.max(0, time.remaining - ((this.timers.now?.() ?? Date.now()) - time.startedAt));
+      time.startedAt = null; this.disarmTaskTimer(taskId, false);
+    } else if (!waiting && time.startedAt === null) this.armTaskTimer(taskId, time.remaining);
+  }
+
+  private armTaskTimer(taskId: string, remaining?: number): void {
     const snapshot = this.orchestration.snapshot();
     const task = snapshot.tasks.find((candidate) => candidate.id === taskId);
     if (!task?.managed || task.status !== 'running') return;
@@ -581,6 +591,8 @@ export class RunCoordinator {
     const limit = run?.budget.maxTaskMinutes ?? null;
     if (run === undefined || limit === null) return;
     this.disarmTaskTimer(taskId);
+    const delay = remaining ?? limit * 60_000;
+    this.taskTimes.set(taskId, { remaining: delay, startedAt: this.timers.now?.() ?? Date.now() });
     const handle = this.timers.set(() => {
       this.taskTimers.delete(taskId);
       void this.serialized(task.runId, async () => {
@@ -590,11 +602,12 @@ export class RunCoordinator {
         this.orchestration.recordBudgetExhausted(task.runId, 'task minutes', limit, limit);
         await this.failRunCore(task.runId, reason);
       });
-    }, limit * 60_000);
+    }, delay);
     this.taskTimers.set(taskId, handle);
   }
 
-  private disarmTaskTimer(taskId: string): void {
+  private disarmTaskTimer(taskId: string, forget = true): void {
+    if (forget) this.taskTimes.delete(taskId);
     const handle = this.taskTimers.get(taskId);
     if (handle === undefined) return;
     this.taskTimers.delete(taskId);

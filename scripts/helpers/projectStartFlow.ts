@@ -94,7 +94,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   check('Continue working attaches the existing project session', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((session) => session.repositoryId === repo.id).length === 1);
   await page.screenshot({ path: join(evidence, 'tablet-project-workspace.png') });
   await (await terminalComposer(workspace)).fill("Write-Output 'INPUT_ACK_CONTROL'");
-  proxy.loseInputReplies(true);
+  proxy.loseInputReplies(true, 'INPUT_ACK_CONTROL');
   await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   await workspace.getByRole('button', { name: 'Eingabestatus prüfen', exact: true }).waitFor(); proxy.loseInputReplies(false);
   await page.reload(); await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('INPUT_ACK_CONTROL', { exact: false }).last().waitFor();

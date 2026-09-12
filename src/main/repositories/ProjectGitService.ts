@@ -5,7 +5,7 @@ import type { AdeConfig, SessionMeta } from '../../shared/types';
 import type { ProjectGitAction, ProjectGitDiff, ProjectGitFile, ProjectGitOverview, ProjectGitPreview } from '../../shared/projectGit';
 import { validProjectGitAction, validProjectRemote } from '../../shared/projectGit';
 import { validProjectBranchRef } from '../../shared/projectBranches';
-import { ProjectWorkspaceService } from './ProjectWorkspaceService';
+import { ProjectWorkspaceService, type ProjectAuthorization } from './ProjectWorkspaceService';
 import { projectGit } from './ProjectGitBoundary';
 import { workspaceOperations } from './WorkspaceOperationGate';
 import { assertNoLinks } from './pathDiscipline';
@@ -65,10 +65,11 @@ export class ProjectGitService {
     });
   }
 
-  async apply(id: string, owner: string, authorize: () => void = () => undefined): Promise<ProjectGitOverview> {
+  async apply(id: string, owner: string, authorize: ProjectAuthorization = () => undefined): Promise<ProjectGitOverview> {
     return workspaceOperations.mutate(async () => {
       authorize(); const saved = this.previews.get(id);
       if (!saved || saved.owner !== owner || saved.view.expiresAt < this.now()) fail('Git-Vorschau abgelaufen oder nicht für diese Sitzung. Erneut prüfen.');
+      authorize({ workspaceId: saved.view.workspaceId });
       this.previews.delete(id);
       const state = await this.inspect(saved.view.workspaceId); const action = saved.view.action;
       if (state.view.revision !== saved.revision) fail('HEAD, Index, Dateien oder Git-Einstellungen wurden geändert. Erneut prüfen.');

@@ -231,6 +231,7 @@ export function GraphView(): JSX.Element {
 
   const activeCluster = clusters.find((cluster) => cluster.run.id === activeRunId) ?? null;
   const activeRun = activeCluster?.run ?? null;
+  const pendingQuestions = tasks.filter((task) => task.runId === activeRunId).reduce((sum, task) => sum + (task.pendingQuestions ?? 0), 0);
   const activeRepository = activeRun?.repositoryId
     ? repositories.find((repository) => repository.id === activeRun.repositoryId)
     : null;
@@ -1221,6 +1222,7 @@ export function GraphView(): JSX.Element {
             <Ico>{I.report}</Ico>Bericht
           </button>
         )}
+        {pendingQuestions > 0 && <button className="grun-report" onClick={() => setReportOpen(true)} aria-label={`${pendingQuestions} Rückfragen beantworten`}>Rückfragen ({pendingQuestions})</button>}
         {activeRun?.mode === 'managed' && activeRun.status === 'completed' && activeRun.repositoryId && (
           <button
             className="grun-publish"
@@ -2348,6 +2350,7 @@ function NewRunModal(props: {
   const [maxTaskMinutes, setMaxTaskMinutes] = useState('60');
   /** Explicit opt-in: archive and reset divergent worktrees onto the orchestrator base. */
   const [resetWorktrees, setResetWorktrees] = useState(false);
+  const [allowQuestions, setAllowQuestions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const allAgents = Object.values(props.agents);
@@ -2463,6 +2466,7 @@ function NewRunModal(props: {
       await props.onCreate({
         name: name.trim(),
         goal: goal.trim(),
+        ...(allowQuestions ? { allowQuestions: true } : {}),
         repositoryId: repositoryId || null,
         participants,
         budget: {
@@ -2645,6 +2649,8 @@ function NewRunModal(props: {
               )}
             </div>
 
+          <label><input type="checkbox" checked={allowQuestions} onChange={(event) => setAllowQuestions(event.target.checked)} />Rückfragen während des Runs erlauben (native Codex-Agenten)</label>
+          {allowQuestions && <p>Codex kann im Graph und am Tablet Fragen stellen. Blockierende Rückfragen pausieren das Zeitlimit der jeweiligen Aufgabe. Alle ausgewählten Laufzeiten müssen native Codex-Agenten sein.</p>}
           <div className="grun-budget-title">
             <span>Run-Budgets</span>
             <small>Leere Token-/Kosten-/Zeitfelder = kein Limit; Token-/Kostenlimits benötigen Adapter-Telemetrie.</small>

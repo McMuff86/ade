@@ -30,7 +30,7 @@ void (async () => {
   await refuses('duplicate device permissions are rejected', () => assertIpcPayload('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: ['host:restart', 'host:restart'] }));
   await refuses('extra permission fields are rejected', () => assertIpcPayload('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: [], command: 'whoami' }));
   check('permission grants remain desktop-only and existing remote IPC allowlist is unchanged', CHANNEL_POLICY['remoteDevices:setAdminScopes'].surface === 'desktop'
-    && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit' && channelPolicyViolations().length === 0);
+    && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer' && channelPolicyViolations().length === 0);
   const gate = new HostOperationGate(); let blockers: string[] = []; let restarted = 0;
   const controller = new HostRestartController(gate, () => blockers, () => { restarted++; }, 'fixture-version', true);
   const file = join(root, 'remote', 'commands.json');

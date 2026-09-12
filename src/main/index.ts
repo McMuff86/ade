@@ -21,6 +21,7 @@ app.enableSandbox();
 let mainWindow: BrowserWindow | null = null;
 let hostTray: Tray | null = null;
 let quitting = false;
+let initialized = false;
 
 function showDesktop(): void {
   if (!mainWindow) createWindow();
@@ -57,11 +58,21 @@ if (userDataOverride) {
   app.setPath('userData', userDataOverride);
 }
 
+// One owner per user-data directory: two windows must not race the same
+// journal, encrypted device store or mobile listener. Isolated test profiles
+// have their own lock. A second launch only raises the existing desktop.
+const ownsProfile = app.requestSingleInstanceLock();
+if (!ownsProfile) app.quit();
+else app.on('second-instance', () => {
+  // Startup already opens a window. Never create one before IPC/recovery is ready.
+  if (initialized) showDesktop();
+});
+
 // Packaged builds have no console: tee main-process output into a rotating
 // userData/ade/logs/main.log. Installed after the userData override so tests
 // and throwaway profiles log into their own directory.
 const mainLog = new MainLogSink({ dir: join(app.getPath('userData'), 'ade', 'logs') });
-mainLog.install();
+if (ownsProfile) mainLog.install();
 
 function createWindow(): void {
   const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
@@ -129,6 +140,7 @@ function createWindow(): void {
 Menu.setApplicationMenu(null);
 
 void app.whenReady().then(async () => {
+  if (!ownsProfile) return;
   app.setAppUserModelId('com.adimuff.ade');
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
@@ -143,6 +155,7 @@ void app.whenReady().then(async () => {
     return;
   }
   registerPhotoProtocolHandler();
+  initialized = true;
   createWindow();
 
   console.log('[ade] app ready — window created');

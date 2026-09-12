@@ -1,3 +1,5 @@
+import { CodexAppServerProcess, type TaskProcess } from './CodexAppServerProcess';
+import type { RunQuestionService } from '../orchestration/RunQuestionService';
 /**
  * Main-process PTY supervisor.
  *
@@ -120,7 +122,7 @@ interface Session {
   programStartTimer?: ReturnType<typeof setTimeout>;
   display?: RemoteTerminalDisplay;
   meta: SessionMeta;
-  proc: pty.IPty;
+  proc: TaskProcess;
   buffer: Buffer[];
   bufferBytes: number;
   sequence: number;
@@ -134,6 +136,7 @@ interface Session {
   promptScratchDir?: string;
   /** Live activity rendered from a machine-readable runtime stream. */
   activity?: {
+    sequence: number;
     parser: ClaudeActivityParser | CodexActivityParser | GrokActivityParser;
     lines: ActivityLine[];
     /** Task-dir JSONL so the feed survives session end; best effort. */
@@ -168,11 +171,12 @@ export class PtyManager {
     return new SessionLaunchService(this.store, this.execution).options(selection);
   }
 
-  async createRemoteInteractive(agentId: string, repositoryId: string | null, workspaceBindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string): Promise<SessionMeta> {
+  async createRemoteInteractive(agentId: string, repositoryId: string | null, workspaceBindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string, authorize: () => void = () => undefined): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
       const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
       this.assertScopeAvailable(scope);
-      return this.spawn(agentId, scope, undefined, undefined, mode === 'ollama' ? { mode, model: model! } : { mode });
+      authorize();
+      return this.spawn(agentId, scope, undefined, undefined, mode === 'ollama' ? { mode, model: model! } : { mode }, undefined, authorize);
     });
   }
 
@@ -183,6 +187,7 @@ export class PtyManager {
     private readonly execution = new ExecutionBackendService(),
     /** Main-only source of harness API-key env for the launching runtime. */
     private readonly harnessCredentials?: { envFor(runtime: RuntimeId): Record<string, string> },
+    private readonly questions?: RunQuestionService,
   ) {
     this.scopes = scopes ?? {
       resolve: async (agentId) => {
@@ -445,6 +450,7 @@ export class PtyManager {
     login?: { command: string; title: string },
     launchChoice?: SessionLaunchChoice,
     project?: { workspaceId: string; profileId?: string; settings: InteractiveLaunchSettings; revalidate(): Promise<void> },
+    authorize: () => void = () => undefined,
   ): Promise<SessionMeta> {
     const savedAgent = agentId ? this.requireAgent(agentId) : undefined; const before = JSON.stringify(savedAgent);
     const settings = project?.settings ?? savedAgent;
@@ -456,6 +462,10 @@ export class PtyManager {
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
+    const allowQuestions = !!task?.runTaskId && this.store.get().runTasks.find((item) => item.id === task.runTaskId)?.allowQuestions === true;
+    if (allowQuestions && (agent.runtime !== 'codex' || agent.customCommand?.trim() || scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !this.questions)) {
+      throw new Error('ade: Interaktive Runs benötigen eine native Codex-Laufzeit und den ADE-Rückfragendienst.');
+    }
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
@@ -516,7 +526,7 @@ export class PtyManager {
           ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
         } as Record<string, string>
       : command.hostEnv ?? (process.env as Record<string, string>);
-    let proc: pty.IPty;
+    let proc: TaskProcess;
     try {
       if (project) await project.revalidate();
       if (task?.runTaskId && this.taskFileTracker) {
@@ -525,7 +535,11 @@ export class PtyManager {
         if (!currentTask || currentTask.status !== 'queued') throw new Error('ade: Auftrag wurde vor Prozessstart beendet.');
       }
       this.assertScopeAvailable(scope, task?.runTaskId);
-      proc = pty.spawn(command.file, command.args, {
+      authorize();
+      proc = allowQuestions ? new CodexAppServerProcess({ cwd, env, agent, prompt: managedLaunch?.prompt ?? task!.task,
+        resultPath: managedLaunch?.env.ADE_TASK_RESULT_PATH, schemaPath: managedLaunch?.env.ADE_TASK_SCHEMA_PATH,
+        question: (items, blocking, deliver) => this.questions!.register(task!.runTaskId!, items, blocking, deliver),
+      }) : pty.spawn(command.file, command.args, {
       name: 'xterm-256color',
       cols: DEFAULT_COLS,
       rows: DEFAULT_ROWS,
@@ -576,9 +590,10 @@ export class PtyManager {
       stopping: false,
       removeOnExit: false,
       promptScratchDir,
-      activity: (managedLaunch?.activityFormat ?? baseSpec.activityFormat)
+      activity: (allowQuestions || managedLaunch?.activityFormat || baseSpec.activityFormat)
         ? {
-            parser: activityParserFor((managedLaunch?.activityFormat ?? baseSpec.activityFormat)!),
+            sequence: 0,
+            parser: activityParserFor(allowQuestions ? 'codex-jsonl' : (managedLaunch?.activityFormat ?? baseSpec.activityFormat)!),
             lines: [],
             filePath: managedLaunch?.env['ADE_TASK_DIR']
               ? join(managedLaunch.env['ADE_TASK_DIR'], 'ACTIVITY.jsonl')
@@ -628,7 +643,7 @@ export class PtyManager {
       if (session.activity) {
         // The raw stream stays byte-exact in the ring buffer (telemetry parses
         // it at completion); activity is a derived, human-readable view.
-        const rendered = session.activity.parser.push(data);
+        const rendered = session.activity.parser.push(data).map((line) => ({ ...line, sequence: ++session.activity!.sequence, at: Date.now() }));
         if (rendered.length === 0) return;
         session.activity.lines.push(...rendered);
         if (session.activity.lines.length > ACTIVITY_LINE_CAP) {
@@ -662,14 +677,14 @@ export class PtyManager {
 
     proc.onExit(({ exitCode }) => this.handleExit(session, exitCode));
 
-    if (spec.initialCommand) proc.write(`${spec.initialCommand}${spec.lineEnding}`);
+    if (!allowQuestions && spec.initialCommand) proc.write(`${spec.initialCommand}${spec.lineEnding}`);
 
     // argv is logged through the redaction funnel: interactive launch profiles
     // are operator-authored and may carry `--api-key`-style flags.
     console.log(
       `[ade] pty:create ${id} agent=${agentId} kind=${meta.kind} runtime=${agent.runtime} ` +
         `backend=${scope.executionBackend} file=${command.file} args=${JSON.stringify(redactArgs(command.args))} ` +
-        `transport=${spec.taskTransport ?? 'interactive'} cwd=${cwd}`,
+        `transport=${allowQuestions ? 'codex-app-server' : spec.taskTransport ?? 'interactive'} cwd=${cwd}`,
     );
     return { ...meta };
   }

@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type JSX } from 'react';
+import { RunQuestionsPanel, type RunQuestionsPort } from '../renderer/graph/RunQuestionsPanel';
+import { useLayoutEffect, useMemo, useRef, type JSX } from 'react';
 import type { MobileRunSummary } from '../shared/remote';
 import type { MobileHost, PendingCommand } from './useMobileHost';
 import { formatCostUsd, formatTokenCount } from '../shared/overviewFormat';
@@ -10,6 +11,9 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
   host: MobileHost; onSend: (command: PendingCommand) => void; focusVersion: number;
 }): JSX.Element {
   const title = useRef<HTMLHeadingElement>(null);
+  const questionPort = useMemo<RunQuestionsPort>(() => ({ read: (id) => host.request(`/api/v1/runs/${id}/questions`),
+    answer: (input, key) => host.request(`/api/v1/runs/${input.runId}/answers`, 'POST', { taskId: input.taskId, questionId: input.questionId, answers: input.answers }, key),
+  }), [host.request]);
   useLayoutEffect(() => { title.current?.focus(); }, [run.id, participantId, focusVersion]);
   const participant = run.participants.find((item) => item.id === participantId);
   const tasks = participant ? run.tasks.filter((task) => task.participantId === participant.id) : run.tasks;
@@ -28,6 +32,7 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
         <strong>{task.title}</strong><div><Status status={task.status} /><span>{task.phase} · Versuch {task.attempt}</span></div>
       </li>)}</ul>}
     </section>
+    {run.tasks.some((task) => task.pendingQuestions !== undefined) && <RunQuestionsPanel key={`${host.identityVersion}:${run.id}`} runId={run.id} port={questionPort} online={host.status === 'online'} canAnswer={host.canSubmit} active={run.status === 'running'} />}
     <RunActivityPanel key={`${run.id}:${participantId ?? 'run'}`} host={host} run={run} participantId={participantId} />
     <section><h3>Budget & Nutzung</h3><dl><dt>Parallel</dt><dd>{run.budget.maxConcurrentTasks} Tasks</dd><dt>Pro Aufgabe</dt><dd>{run.budget.maxTaskMinutes} min</dd>
       <dt>Kostenlimit</dt><dd>{run.budget.maxCostUsd === null ? 'Kein Limit' : formatCostUsd(run.budget.maxCostUsd)}</dd>

@@ -58,10 +58,12 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
   const [confirmGit, setConfirmGit] = useState(false); const queryVersion = useRef(0);
   useEffect(() => () => { queryVersion.current++; }, []);
   const canCatalog = admin.state?.capabilities?.includes('catalog:write') === true;
-  const canGit = admin.state?.capabilities?.includes('repositories:write') === true;
+  const selectionLimited = admin.state?.resourceSelection === 'selected';
+  const canCreate = canCatalog && !selectionLimited;
+  const canGit = admin.state?.capabilities?.includes('repositories:write') === true && !selectionLimited;
   const disabled = admin.busy || !!admin.pending || host.busy || !!host.pending || host.status !== 'online';
   const query = useCallback(async (repo: string, ref: string, targetId?: string) => {
-    if (!repo) return;
+    if (!repo || selectionLimited) return;
     const version = ++queryVersion.current; setQueryBusy(true); setQueryError('');
     try {
       const result = await host.request<MobileGitResult>('/api/v1/admin/git', 'POST', {
@@ -72,7 +74,7 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
       setGit(result); setSourceRef(result.overview.sourceRef); if (result.preview) setConfirmGit(true);
     } catch (reason) { if (version === queryVersion.current) { setGit(null); setQueryError(detail(reason)); } }
     finally { if (version === queryVersion.current) setQueryBusy(false); }
-  }, [host.request]);
+  }, [host.request, selectionLimited]);
   const selectRepository = (id: string) => { queryVersion.current++; setRepositoryId(id); setGit(null); setSourceRef(''); setQueryError(''); setQueryBusy(false); };
   const projectSelect = <label>Projekt<select aria-label="Verwaltetes Projekt" value={repositoryId} onChange={(event) => selectRepository(event.target.value)}>
     <option value="">Projekt wählen</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>;
@@ -90,11 +92,12 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
     {admin.pending && <div className="m-notice"><p>Diese Aktion ist noch nicht bestätigt. Vor einer neuen Aktion dieselbe Anfrage prüfen.</p>
       <button disabled={admin.busy || host.status !== 'online'} onClick={() => { if (admin.pending) void admin.send(admin.pending.command, true); }}>Aktion erneut prüfen</button></div>}
     {!admin.state && <p>Verwaltungsrechte werden beim Verbinden vom Host geladen. Für ältere Hosts ADE zuerst am PC aktualisieren.</p>}
+    {selectionLimited && <p>Dieses Gerät nutzt ausgewählte Projekte und Agenten. Neue Einträge am PC erstellen und freigeben. Commit, Merge und PR findest du beim geöffneten Projekt.</p>}
     {tab !== 'git' && !canCatalog && <p>Zum Erstellen von Agents und Projekten die Verwaltungsrechte dieses Geräts in ADE am PC freigeben.</p>}
     {tab === 'projects' && <div className="m-management-grid"><section><h3>Neues Projekt</h3><p>Erstellt ein neues Git-Projekt auf deinem PC. ADE verwaltet den Projektordner.</p>
       <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'project-create', input: { name: projectName.trim() } }); }}>
         <label>Projektname<input value={projectName} maxLength={80} required onChange={(event) => setProjectName(event.target.value)} /></label>
-        <button className="m-primary" disabled={disabled || !canCatalog || !projectName.trim()}>Projekt erstellen</button></form></section>
+        <button className="m-primary" disabled={disabled || !canCreate || !projectName.trim()}>Projekt erstellen</button></form></section>
       <section><h3>Agent-Workspace vorbereiten</h3><p>Jeder Agent erhält je Projekt einen eigenen Branch und Arbeitsordner.</p>
         <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'workspace-prepare', input: { agentId, repositoryId } }); }}>
           {projectSelect}<label>Agent<select aria-label="Workspace-Agent" value={agentId} onChange={(event) => setAgentId(event.target.value)}><option value="">Agent wählen</option>
@@ -109,7 +112,7 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
           <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>{item.name} · {item.runtime}</option>)}</select></label>
         <label>Gruppe<select aria-label="Gruppe" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Standardgruppe</option>
           {host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <button className="m-primary" disabled={disabled || !canCatalog || !agentName.trim()}>Agent erstellen</button></form></section>}
+        <button className="m-primary" disabled={disabled || !canCreate || !agentName.trim()}>Agent erstellen</button></form></section>}
     {tab === 'git' && <section><h3>Git-Abgleich</h3><p>Vergleiche den Projekt-Checkout und die Agent-Workspaces mit einer gemeinsamen Basis.</p>
       <div className="m-management-grid">{projectSelect}{git && <label>Vergleichsbasis<select aria-label="Vergleichsbasis" value={sourceRef} disabled={queryBusy || disabled}
         onChange={(event) => { setSourceRef(event.target.value); void query(repositoryId, event.target.value); }}>{git.overview.refs.map((item) => <option key={item.ref} value={item.ref}>{item.label}</option>)}</select></label>}</div>

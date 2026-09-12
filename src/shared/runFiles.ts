@@ -5,7 +5,7 @@ export interface RunFileSnapshot {
   capturedAt: number; workspaceVersion: string; limited: boolean;
   files: Array<{ path: string; bytes: number; sha256: string }>;
 }
-export interface RunFileTracking { before?: RunFileSnapshot; after?: RunFileSnapshot; notice: string | null }
+export interface RunFileTracking { before?: RunFileSnapshot; after?: RunFileSnapshot; saved?: RunFileSnapshot; notice: string | null }
 export type RunFileChangeKind = 'created' | 'modified' | 'deleted' | 'reported' | 'unknown' | 'unchanged';
 export interface RunFileChange { path: string; change: RunFileChangeKind; sha256?: string }
 export interface RunFileChanges { files: RunFileChange[]; source: 'observed' | 'reported' | 'unknown'; limited: boolean; notice: string | null }
@@ -22,14 +22,16 @@ export function taskFileChanges(tracking: RunFileTracking | undefined, reported:
   }
   if (!after.limited) for (const file of before.files) if (!current.has(file.path)) files.push({ path: file.path, change: 'deleted' });
   return { files, source: 'observed', limited: before.limited || after.limited,
-    notice: tracking?.notice ?? 'Änderungen zwischen Aufgabenstart und Prozessende. Parallele Änderungen können enthalten sein; Downloads verwenden die aktuell vorhandene Datei.' };
+    notice: tracking?.notice ?? (tracking.saved
+      ? 'Änderungen zwischen Aufgabenstart und Prozessende. Parallele Änderungen können enthalten sein; gesicherte Dateien behalten den Abschlussstand.'
+      : 'Änderungen zwischen Aufgabenstart und Prozessende. Parallele Änderungen können enthalten sein; Downloads verwenden die aktuell vorhandene Datei.') };
 }
 
 export function validRunFileTracking(value: unknown): value is RunFileTracking {
   const obj = (input: unknown): input is Record<string, unknown> => !!input && typeof input === 'object' && !Array.isArray(input);
   const sha = (input: unknown) => typeof input === 'string' && /^[a-f0-9]{64}$/.test(input);
-  if (!obj(value) || Object.keys(value).some((key) => !['before', 'after', 'notice'].includes(key)) || !(value.notice === null || typeof value.notice === 'string' && value.notice.length <= 500)) return false;
-  return [value.before, value.after].every((snapshot) => snapshot === undefined || obj(snapshot)
+  if (!obj(value) || Object.keys(value).some((key) => !['before', 'after', 'saved', 'notice'].includes(key)) || !(value.notice === null || typeof value.notice === 'string' && value.notice.length <= 500)) return false;
+  return [value.before, value.after, value.saved].every((snapshot) => snapshot === undefined || obj(snapshot)
     && Object.keys(snapshot).length === 4 && ['capturedAt', 'workspaceVersion', 'limited', 'files'].every((key) => Object.hasOwn(snapshot, key))
     && typeof snapshot.capturedAt === 'number' && Number.isFinite(snapshot.capturedAt) && sha(snapshot.workspaceVersion) && typeof snapshot.limited === 'boolean'
     && Array.isArray(snapshot.files) && snapshot.files.length <= 1000 && new Set(snapshot.files.map((file) => obj(file) ? file.path : undefined)).size === snapshot.files.length

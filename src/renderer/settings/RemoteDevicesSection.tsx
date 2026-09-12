@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
-import type { RemoteDeviceInventory } from '../../shared/remoteDevices';
+import type { RemoteDeviceInventory, DeviceResourceAccess } from '../../shared/remoteDevices';
+import { DeviceResourcePicker, resourceKey } from './DeviceResourcePicker';
 import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from '../../shared/remoteDevices';
 import { REMOTE_SCOPE_LABELS, SETUP_INTENTS, addSetupScopes, type SetupIntent } from '../../shared/setup';
 
@@ -10,6 +11,7 @@ export function RemoteDevicesSection(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [grantDrafts, setGrantDrafts] = useState<Record<string, RemoteAdminScope[]>>({});
+  const [resourceDrafts, setResourceDrafts] = useState<Record<string, DeviceResourceAccess>>({});
   const refreshButton = useRef<HTMLButtonElement>(null);
   const nameInputs = useRef(new Map<string, HTMLInputElement>());
   const pendingFocus = useRef<{ id: string; action: 'rename' | 'revoke' | 'permissions' } | null>(null);
@@ -30,6 +32,7 @@ export function RemoteDevicesSection(): JSX.Element {
       setInventory(next);
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
       setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
+      setResourceDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.resourceAccess ?? { mode: 'all' }])));
     } catch { setError('Geräte konnten nicht geladen werden. Bitte erneut versuchen.'); }
     finally { setBusy(false); }
   }, []);
@@ -44,11 +47,12 @@ export function RemoteDevicesSection(): JSX.Element {
       const next = action === 'rename'
         ? await window.ade.invoke('remoteDevices:rename', { deviceId: id, name: drafts[id]!.trim() })
         : action === 'permissions'
-          ? await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: id, scopes: grantDrafts[id] ?? [] })
+          ? await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: id, scopes: grantDrafts[id] ?? [], resourceAccess: resourceDrafts[id] ?? { mode: 'all' } })
           : await window.ade.invoke('remoteDevices:revoke', { deviceId: id });
       setInventory(next);
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
       setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
+      setResourceDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.resourceAccess ?? { mode: 'all' }])));
       setMessage(action === 'rename' ? 'Gerätename gespeichert.' : action === 'permissions'
         ? 'Verwaltungsrechte gespeichert. Das Gerät verbindet sich erneut.' : 'Gerätezugriff widerrufen. Verbindungen wurden beendet.');
     } catch {
@@ -105,8 +109,11 @@ export function RemoteDevicesSection(): JSX.Element {
                   setGrantDrafts((current) => ({ ...current, [device.id]: checked
                     ? [...current[device.id] ?? [], scope] : (current[device.id] ?? []).filter((item) => item !== scope) }));
                 }} />{REMOTE_SCOPE_LABELS[scope]}</label>)}
+              <DeviceResourcePicker deviceId={device.id} value={resourceDrafts[device.id] ?? { mode: 'all' }}
+                onChange={(next) => setResourceDrafts((current) => ({ ...current, [device.id]: next }))} />
               <button type="button" className="btn" onClick={() => void change(device.id, 'permissions')}
-                disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())}>Verwaltungsrechte speichern</button>
+                disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())
+                  && resourceKey(resourceDrafts[device.id]) === resourceKey(device.resourceAccess)}>Verwaltungsrechte speichern</button>
             </fieldset>}
             <p className="st-device-hint">{device.id} · Hinzugefügt {new Date(device.createdAt).toLocaleDateString()}
               {device.revokedAt !== null && ` · Widerrufen ${new Date(device.revokedAt).toLocaleDateString()}`}</p>

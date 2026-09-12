@@ -1,3 +1,4 @@
+import { validRunQuestions } from '../../shared/runQuestions';
 /**
  * Typed atomic JSON config store.
  * Location: app.getPath('userData')/ade/config.json
@@ -354,7 +355,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   const runIds = schema(config.runs, 'config.runs', [
     'id', 'name', 'goal', 'status', 'mode', 'phase', 'budget', 'createdAt', 'updatedAt', 'source',
     'repositoryId', 'workspacePrepare', 'contextManifestHash', 'verifiedHeadSha', 'verificationTaskId',
-    'verifiedAt', 'pausedTeamIds',
+    'verifiedAt', 'pausedTeamIds', 'allowQuestions',
   ], ['id', 'name', 'goal', 'status', 'mode', 'phase', 'budget', 'createdAt', 'updatedAt']);
   const participantIds = schema(config.runParticipants, 'config.runParticipants', [
     'id', 'runId', 'agentId', 'agentName', 'runtime', 'role', 'teamId', 'teamName', 'repositoryId', 'createdAt',
@@ -362,7 +363,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   const taskIds = schema(config.runTasks, 'config.runTasks', [
     'id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status',
     'sessionId', 'repositoryId', 'workspaceBindingId', 'workspaceDir', 'expectedHeadSha', 'preparedBaseSha',
-    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output', 'fileTracking',
+    'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output', 'fileTracking', 'allowQuestions', 'questions',
   ], ['id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status', 'createdAt', 'updatedAt']);
   schema(config.runEvents, 'config.runEvents',
     ['id', 'runId', 'type', 'createdAt', 'taskId', 'participantId', 'data', 'seq'],
@@ -424,9 +425,10 @@ export function validateCompleteConfig(config: AdeConfig): void {
     'task.result_recorded', 'approval.requested', 'approval.resolved', 'workspace.acquired',
     'workspace.prepared', 'workspace.rebased', 'workspace.released', 'message.sent', 'integration.applied',
     'publication.requested', 'publication.completed', 'publication.failed', 'budget.exhausted',
-    'artifact.created', 'team.paused', 'team.resumed',
+    'artifact.created', 'team.paused', 'team.resumed', 'question.requested', 'question.updated',
   ];
   for (const run of config.runs) {
+    if (run.allowQuestions !== undefined && typeof run.allowQuestions !== 'boolean') throw new Error('run.allowQuestions is invalid.');
     text(run.name, 'run.name'); text(run.goal, 'run.goal');
     enumValue(run.status, RUN_STATUSES, 'run.status'); enumValue(run.mode, ['manual', 'managed'], 'run.mode');
     enumValue(run.phase, RUN_PHASES, 'run.phase'); number(run.createdAt, 'run.createdAt'); number(run.updatedAt, 'run.updatedAt');
@@ -462,6 +464,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
     number(participant.createdAt, 'runParticipant.createdAt');
   }
   for (const task of config.runTasks) {
+    if (task.allowQuestions !== undefined && typeof task.allowQuestions !== 'boolean') throw new Error('runTask.allowQuestions is invalid.');
+    if (task.questions !== undefined && !validRunQuestions(task.questions)) throw new Error('runTask.questions is invalid.');
     if (task.fileTracking !== undefined && !validRunFileTracking(task.fileTracking)) throw new Error('runTask.fileTracking is invalid.');
     if (task.output !== undefined) {
       const output = object(task.output, 'runTask.output');

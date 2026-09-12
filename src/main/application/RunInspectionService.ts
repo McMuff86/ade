@@ -11,6 +11,7 @@ import { RemoteApiError } from './AdeApplicationService';
 import type { RemoteWorkbenchService, WorkbenchScope } from './RemoteWorkbenchService';
 import { taskFileChanges } from '../../shared/runFiles';
 import { snapshotRunFiles } from './RunFileTracker';
+import type { RunFileStore } from './RunFileStore';
 
 interface PtyObservationPort {
   getSessionMeta(id: string): SessionMeta | undefined;
@@ -28,18 +29,24 @@ const absent = (): never => { throw new RemoteApiError(404, 'not_found'); };
 /** No terminal input, shell commands or client-supplied host paths. */
 export class RunInspectionService {
   constructor(private readonly store: { get(): AdeConfig }, private readonly workbench: RemoteWorkbenchService,
-    private readonly pty: PtyObservationPort, private readonly report: (runId: string) => RunReport) {}
+    private readonly pty: PtyObservationPort, private readonly report: (runId: string) => RunReport, private readonly savedFiles?: RunFileStore) {}
 
   private label(text: string, runId: string, fallback: string): string {
     const prompts = this.store.get().runTasks.filter((task) => task.runId === runId).map((task) => task.prompt.trim()).filter(Boolean);
     return prompts.some((prompt) => text === prompt.slice(0, 80) || text.includes(prompt)) ? fallback : redactForWire(text, 200);
   }
 
-  projectRuns(repositoryId: string): import('../../shared/remote').ProjectRunResults {
+  projectRuns(repositoryId: string, cursor?: string, visible: (runId: string) => boolean = () => true): import('../../shared/remote').ProjectRunResults {
     const config = this.store.get();
-    const runs = config.runs.filter((run) => config.runTasks.some((task) => task.runId === run.id && task.repositoryId === repositoryId)).sort((a, b) => b.createdAt - a.createdAt);
+    if (cursor && !/^\d{1,16}_[a-f0-9-]{36}$/.test(cursor)) throw new RemoteApiError(400, 'invalid_payload');
+    const [time, id] = cursor?.split('_') ?? [];
+    const runs = config.runs.filter((run) => config.runTasks.some((task) => task.runId === run.id && task.repositoryId === repositoryId)
+      && visible(run.id) && (!cursor || run.createdAt < Number(time) || run.createdAt === Number(time) && run.id.localeCompare(id!) > 0))
+      .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
+    const last = runs[19];
     return { runs: runs.slice(0, 20).map((run) => ({ id: run.id, name: this.label(run.name, run.id, 'Einzelaufgabe'), status: this.report(run.id).status, createdAt: run.createdAt,
-      taskIds: config.runTasks.filter((task) => task.runId === run.id && task.repositoryId === repositoryId).slice(-32).map((task) => task.id) })), limited: runs.length > 20 };
+      taskIds: config.runTasks.filter((task) => task.runId === run.id && task.repositoryId === repositoryId).slice(-32).map((task) => task.id) })), limited: runs.length > 20,
+      ...(runs.length > 20 && last ? { nextCursor: `${last.createdAt}_${last.id}` } : {}) };
   }
 
   activity(runId: string, taskId?: string): MobileRunActivity['tasks'] {
@@ -56,8 +63,8 @@ export class RunInspectionService {
       const clean = (value: string, max: number) => redactForWire(stored.prompt.trim() ? value.split(stored.prompt.trim()).join('[Auftragstext ausgeblendet]') : value, max);
       // Live tool arguments may contain prompts. Show the operation name only;
       // assistant answers belong in full result detail, not in a truncated teaser.
-      const activity = (observation?.lines ?? []).slice(-40).map((line) => ({ kind: line.kind,
-        text: line.kind === 'tool' ? clean(line.text.split(':')[0]!.slice(0, 80), 80)
+      const activity = (observation?.lines ?? []).slice(-100).map((line) => ({ kind: line.kind, sequence: line.sequence, at: line.at,
+        text: line.mobileText ? clean(line.mobileText, 2000) : line.kind === 'tool' ? clean(line.text.split(':')[0]!.slice(0, 80), 80)
           : line.kind === 'thinking' ? 'Agent bearbeitet die Aufgabe…' : line.kind === 'text' ? 'Agent-Antwort empfangen'
             : line.kind === 'error' ? 'CLI meldet einen Fehler; Ergebnis prüfen.' : clean(line.text, 200) }));
       return { id: task.id, participantId: task.participantId, status: task.status, startedAt: task.startedAt, endedAt: task.endedAt, exitCode: task.exitCode,
@@ -77,7 +84,7 @@ export class RunInspectionService {
       authorize(); if (taskId) return this.taskFiles(runId, taskId, authorize);
       const config = this.store.get(); if (!config.runs.some((run) => run.id === runId)) return absent();
       const tasks = config.runTasks.filter((task) => task.runId === runId).sort((a, b) => b.createdAt - a.createdAt);
-      const result: MobileRunFiles = { files: [], limited: tasks.length > 32, notice: 'Dateien der Aufgaben dieses Runs, aus ihren jeweiligen Arbeitskopien. Downloads verwenden den aktuellen Dateistand.', unavailableTasks: [] };
+      const result: MobileRunFiles = { files: [], limited: tasks.length > 32, notice: 'Dateien der Aufgaben dieses Runs. Gesicherte Dateien zeigen den Stand am Aufgabenende; weitere Dateien stammen aus der aktuellen Arbeitskopie.', unavailableTasks: [] };
       const deadline = Date.now() + 8000;
       for (const task of tasks.slice(0, 32)) {
         if (result.files.length >= 100 || Date.now() > deadline) { result.limited = true; break; }
@@ -90,6 +97,22 @@ export class RunInspectionService {
   }
 
   private async taskFiles(runId: string, taskId: string, authorize: () => void): Promise<MobileRunFiles> {
+    authorize(); const task = this.store.get().runTasks.find((item) => item.id === taskId && item.runId === runId); if (!task) return absent();
+    const saved = task.fileTracking?.saved;
+    if (!saved || !this.savedFiles) return this.workspaceFiles(runId, taskId, authorize);
+    const changes = new Map(taskFileChanges(task.fileTracking).files.map((file) => [file.path, file.change]));
+    const files: MobileRunFiles['files'] = saved.files.map((file) => ({ ...file, id: hash([taskId, file.path, file.sha256, 'saved']),
+      taskId, taskTitle: this.label(task.title, runId, 'Aufgabe'), name: basename(file.path), image: fileType(file.path).startsWith('image/'),
+      change: changes.get(file.path), saved: true, available: true }));
+    let current: MobileRunFiles | undefined;
+    try { current = await this.workspaceFiles(runId, taskId, authorize); } catch { authorize(); }
+    authorize();
+    const extra = current?.files.filter((file) => !files.some((saved) => saved.path === file.path)) ?? [];
+    return { files: [...files, ...extra].slice(0, 100), limited: saved.limited || !!current?.limited || files.length + extra.length > 100,
+      notice: `Gesicherte Dateien enthalten den Stand am Aufgabenende. Weitere Dateien stammen aus der Arbeitskopie.${saved.limited ? ' Die Ergebnissicherung ist unvollständig (Grössen-, Zeit- oder Speicherlimit).' : ''}${!current ? ' Die ursprüngliche Arbeitskopie ist nicht mehr erreichbar.' : ''}` };
+  }
+
+  private async workspaceFiles(runId: string, taskId: string, authorize: () => void): Promise<MobileRunFiles> {
     authorize(); const { scope, task } = await this.scope(runId, taskId);
     const snapshot = await snapshotRunFiles(this.workbench, scope);
     const reported = this.store.get().runTaskResults.find((item) => item.taskId === taskId)?.filesChanged;
@@ -118,6 +141,15 @@ export class RunInspectionService {
 
   async file(runId: string, taskId: string, fileId: string, authorize: () => void): Promise<{ bytes: Buffer; type: string; name: string }> {
     return workspaceOperations.use(async () => {
+      authorize();
+      const task = this.store.get().runTasks.find((item) => item.id === taskId && item.runId === runId);
+      const saved = task?.fileTracking?.saved?.files.find((file) => hash([taskId, file.path, file.sha256, 'saved']) === fileId);
+      if (saved && this.savedFiles) {
+        let bytes: Buffer;
+        try { bytes = this.savedFiles.read(saved.sha256, saved.bytes); }
+        catch { throw new RemoteApiError(409, 'command_rejected', 'Gesicherte Ergebnisdatei fehlt oder wurde verändert.'); }
+        authorize(); return this.download(basename(saved.path), bytes);
+      }
       authorize(); const { scope } = await this.scope(runId, taskId);
       const file = (await this.taskFiles(runId, taskId, authorize)).files.find((item) => item.id === fileId && item.available);
       if (!file) throw new RemoteApiError(409, 'command_rejected', 'Datei ist in diesem Stand nicht mehr verfügbar. Dateien aktualisieren und erneut öffnen.');
@@ -132,18 +164,21 @@ export class RunInspectionService {
         const after = fstatSync(fd);
         const named = lstatSync(this.workbench.path(scope, file.path)); authorize();
         if (read !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || named.ino !== stat.ino || named.dev !== stat.dev || named.size !== stat.size || named.mtimeMs !== stat.mtimeMs) throw new RemoteApiError(409, 'command_rejected', 'Datei wird noch geschrieben. Später erneut öffnen.');
-        const ext = extname(file.name).toLowerCase();
-        const magic = ext === '.png' ? bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
-          : ext === '.jpg' || ext === '.jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
-            : ext === '.webp' ? bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
-              : ext === '.xlsx' ? bytes[0] === 80 && bytes[1] === 75 && bytes[2] === 3 && bytes[3] === 4 : true;
-        if (!magic) throw new RemoteApiError(422, 'command_rejected', 'Dateiinhalt passt nicht zum Dateityp.');
         if (file.sha256 && createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new RemoteApiError(409, 'command_rejected', 'Datei wurde während des Downloads geändert. Liste aktualisieren.');
-        const type = fileType(file.name);
-        return { bytes: type.startsWith('text/') ? Buffer.from(redactForWire(bytes.toString('utf8'), MAX_FILE)) : bytes,
-          type, name: file.name };
+        return this.download(file.name, bytes);
       } finally { closeSync(fd); }
     });
+  }
+
+  private download(name: string, bytes: Buffer): { bytes: Buffer; type: string; name: string } {
+    const ext = extname(name).toLowerCase();
+    const magic = ext === '.png' ? bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+      : ext === '.jpg' || ext === '.jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+        : ext === '.webp' ? bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
+          : ext === '.xlsx' ? bytes[0] === 80 && bytes[1] === 75 && bytes[2] === 3 && bytes[3] === 4 : true;
+    if (!magic) throw new RemoteApiError(422, 'command_rejected', 'Dateiinhalt passt nicht zum Dateityp.');
+    const type = fileType(name);
+    return { bytes: type.startsWith('text/') ? Buffer.from(redactForWire(bytes.toString('utf8'), MAX_FILE)) : bytes, type, name };
   }
 
   private async scope(runId: string, taskId: string): Promise<{ scope: WorkbenchScope; task: RunTask }> {

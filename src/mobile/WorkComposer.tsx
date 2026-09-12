@@ -5,7 +5,7 @@ import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
 import { Dialog } from './ui';
 import type { MobileHost, PendingCommand } from './useMobileHost';
 
-export interface WorkDraft { mode: 'task' | 'run'; repositoryId: string; agentIds: string[]; name: string; prompt: string; minutes: number; cost: string }
+export interface WorkDraft { mode: 'task' | 'run'; repositoryId: string; agentIds: string[]; name: string; prompt: string; minutes: number; cost: string; allowQuestions?: boolean }
 export const emptyDraft = (): WorkDraft => ({ mode: 'task', repositoryId: '', agentIds: [], name: '', prompt: '', minutes: 30, cost: '' });
 
 export function PendingNotice({ host, onRetry }: { host: MobileHost; onRetry: (command: PendingCommand) => void }): JSX.Element | null {
@@ -41,7 +41,7 @@ export function WorkComposer({ draft, setDraft, catalog, host, onSend, onClose }
             participants: draft.agentIds.map((agentId, index) => ({ agentId, role: index === 0 ? 'orchestrator' : index === 1 ? 'lead' : 'worker',
               ...(index > 0 ? { teamId: 'mobile-team', teamName: 'Mobile Team' } : {}) })),
             budget: { maxConcurrentTasks: Math.min(2, draft.agentIds.length), maxTaskMinutes: draft.minutes, maxCostUsd: draft.cost ? Number(draft.cost) : null } };
-        onSend({ path: run ? '/api/v1/runs' : '/api/v1/tasks', payload, key: crypto.randomUUID() });
+        onSend({ path: run ? '/api/v1/runs' : '/api/v1/tasks', payload: { ...payload, ...(draft.allowQuestions ? { allowQuestions: true } : {}) }, key: crypto.randomUUID() });
       }}>
         <fieldset disabled={host.busy || !!host.pending}><legend>Auftragsart</legend>
           <div className="m-mode-choice"><label><input type="radio" name="mode" checked={!run} onChange={() => patch({ mode: 'task', agentIds: draft.agentIds.slice(0, 1) })} />Einzelaufgabe</label>
@@ -57,6 +57,7 @@ export function WorkComposer({ draft, setDraft, catalog, host, onSend, onClose }
                 <Avatar name={agent.name} size={28} /><span><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
                 <span className="m-role">{index === 0 ? '1 · Koordination' : index === 1 ? '2 · Lead' : index > 1 ? `${index + 1} · Worker` : ''}</span></label>;
             })}</fieldset>}
+          <label><input type="checkbox" checked={draft.allowQuestions === true} onChange={(event) => patch({ allowQuestions: event.target.checked })} />Rückfragen erlauben (native Codex-Agenten)</label>
           <label>{run ? 'Run-Name' : 'Name (optional)'}<input value={draft.name} onChange={(event) => patch({ name: event.target.value })} maxLength={80} required={run} /></label>
           <label>{run ? 'Ziel' : 'Aufgabe'}<textarea aria-label={run ? 'Ziel' : 'Aufgabe'} value={draft.prompt} onChange={(event) => patch({ prompt: event.target.value })}
             rows={5} maxLength={limit} required placeholder="Was soll ADE für dich erledigen?" /></label>

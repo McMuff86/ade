@@ -1939,3 +1939,76 @@ pending task keys survive reload in device-scoped storage; general management
 dialog keys remain in page memory. Both clear on identity revocation/disconnect.
 A late task reply clears only the matching
 submitted draft; it cannot erase another project's or subsequently edited text.
+
+### Device resource selection
+
+`RemoteDeviceStore` stores optional `DeviceResourceAccess` alongside device
+administrative grants. Absence preserves the legacy `all` policy; `selected`
+contains at most 500 unique opaque repository IDs and 500 agent IDs. Empty
+selection grants no resources. Desktop-only `remoteDevices:setAdminScopes`
+atomically saves scopes and optional resource selection, invalidating current
+device connections and terminal control. Pairing keys remain unchanged.
+
+`DeviceResourceService` reads current grants, never cached principal selection.
+`AdeApplicationService` filters catalog, summaries, snapshots and journal pages,
+and guards direct profile/workspace/run requests. A run is visible only when its
+repository, task repositories and every participant agent are shared. SSE advances
+over filtered journal pages without revealing their contents. Async reads check
+again before returning. `ProjectAuthorization` callbacks receive the resolved
+repository/workspace before registration or Git mutation; stored previews cannot
+authorize their own execution. Replayed results are checked against current
+sharing. Terminal services independently guard selection, launch profiles,
+inventories, spawn and input; the narrow remote IPC command allowlist is unchanged.
+
+Selection governs ADE resource access, not the filesystem privileges of an
+interactive shell. Global catalog creation and legacy cross-agent Git sync require
+the `all` policy; selected projects retain their per-workspace Git/publish APIs.
+`MobileHostState.resourceSelection` explains this in the mobile management flow.
+
+Electron owns one process per user-data profile via `requestSingleInstanceLock`;
+a subsequent launch activates the initialized owner. A persisted mobile opt-in
+starts connection monitoring even after an initial listener failure. Retry never
+enables a device/profile that the operator has disabled.
+
+### Interactive native Codex tasks and saved result files (September 12)
+
+`allowQuestions` selects `CodexAppServerProcess` for native Codex only, preserving
+the existing exec transport otherwise. The process negotiates experimental
+request-user-input support; model/reasoning/sandbox come from the effective
+profile. JSONL frames, queued bytes, item deltas, question counts and question
+text are bounded. Only explicit public notifications enter the activity parser;
+raw reasoning content and protocol envelopes do not. Managed output schemas and
+final-result files use the existing coordinator validation boundary.
+
+`RunQuestionService` journals questions on their owning task using
+`question.requested` / `question.updated` records with explicit status, so
+an answer awaiting confirmation is never labelled resolved by the journal.
+The `run:questions` IPC endpoint
+is a read channel; `run:answer` is the only added remote command channel and
+requires device-signature/runs:write/idempotency/audit. GET
+`/api/v1/runs/:id/questions` and POST `/api/v1/runs/:id/answers` call only
+AdeApplicationService and recheck resource selection. Task IDs are resolved
+inside the specified run. Status progresses pending → answering → answered only
+after the native server acknowledges it; interrupted callbacks expire. Answer
+forms are not persisted as text, while model results may quote answers. General
+views contain pending counts, never question bodies or answer digests. RunReport
+contains question detail without digests. Archives carry question records and
+pruning removes them with their task. Blocking questions pause the remaining
+task budget; answering resumes that remainder.
+
+`RunFileTracker` stores changed completion bytes in `RunFileStore`, addressed by
+SHA-256 under `ade/archive/files`. Limits: 16 MiB/file, 64 MiB scanned/task,
+100 saved files/task, 2 GiB content store. Existing blobs are retained; reaching
+the quota produces an explicitly incomplete capture. Reads validate link count,
+descriptor identity, size and hash. Task `fileTracking.saved` contains only
+references and is archived/pruned with the task; file bytes stay outside config.
+Archived runs retain blob references. No automatic blob deletion or archive
+import is introduced. Result APIs read retained journal runs; cold JSON run
+archives remain operator files. Saved downloads require the same current device
+and resource authorization, safe types and text redaction as workspace downloads,
+and can work without the original workspace.
+
+Project results page retained runs in batches of 20, ordered by creation time and
+ID. The validated timestamp/ID cursor contains no host paths; resource filtering
+precedes pagination. Shared desktop/mobile controls provide previous/next pages,
+loading/error/offline states and a separate saved-file label.
