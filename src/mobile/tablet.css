@@ -135,3 +135,7 @@
 .m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { flex-wrap: nowrap; }
 .m-terminal-workspace:has(.m-keyboard-compact) .m-dialog-terminal-header,
 .m-keyboard-compact > .m-terminal-status-bar { display: none; }
+.m-profile-photo-button { padding: 0; border-radius: 50%; display: inline-flex; }
+.m-profile-photo-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.m-profile-photo-dialog { width: min(90vw, 760px); max-height: 90dvh; }
+.m-profile-photo-large { display: block; width: 100%; max-height: 65dvh; object-fit: contain; margin-bottom: 16px; }

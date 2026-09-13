@@ -11,7 +11,32 @@ provider error bodies and keys never do. Test text/model are fixed in main.
 One generation may run at a time. `settings.speechVoiceId` stores only the voice
 identifier; older profiles suggest an available female voice. Renderer CSP
 allows `media-src data:` for this playback, with sandbox/context isolation
-unchanged. No microphone or remote speech API is introduced in this slice.
+unchanged. No microphone capture is introduced.
+
+`SpeechPreferences` resolves optional agent → project → global voice IDs, then
+the available female default. Missing saved voices remain visible rather than
+silently changing. Desktop target preferences use desktop-only
+`speech:preferences` (host/read) and `speech:configure` (mutate).
+Dedicated signed POST `/api/v1/speech/query` and `/api/v1/speech/command` routes
+delegate only to `AdeApplicationService`. They require the explicit
+`speech:control` grant; resource selection is rechecked after asynchronous work.
+Selected-resource devices cannot change global preferences. The generic remote
+IPC allowlist is unchanged. Commands use payload-bound idempotency and audit.
+Test receipts retain only a random ID; audio is owner-bound, limited to eight
+in-memory entries and expires after ten minutes. Retry cannot generate again
+after expiry or restart. Mobile stores pending command keys per device/target
+and offers explicit recovery after connection loss; no audio or provider key
+is stored in browser drafts or durable command receipts. Mobile CSP permits
+only data media for the returned bounded MP3.
+
+Terminal queries have a separate bounded 1,800/minute request budget, so normal
+PTY polling does not consume the general 600/minute command/read budget.
+Pairing/session POST limits remain 30/minute; proof checks remain mandatory.
+This prevents budget interference, not a demonstrated input-latency improvement.
+
+Project resolution still revalidates its workspace, filesystem and Git identity
+after asynchronous probes. Concurrent voice/membership preference changes alone
+do not invalidate that identity; all other repository record changes do.
 
 `Repository.inMyProjects` is optional for migration: absent means included.
 False is a presentation membership flag, not deletion or revocation. Main and

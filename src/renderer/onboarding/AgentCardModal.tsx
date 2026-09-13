@@ -8,6 +8,7 @@ import { NATIVE_EXECUTION_BACKEND } from '../../shared/executionBackends';
 import { LAUNCH_PROFILES, resolveLaunchCommand } from '../../shared/runtimes';
 import type { Agent } from '../../shared/types';
 import { Avatar } from '../rail/Avatar';
+import { TargetSpeechSettings } from '../settings/TargetSpeechSettings';
 import { useAppData } from '../stores/appdata';
 import { useSessions } from '../stores/sessions';
 import { useOnboarding } from './useOnboarding';
@@ -113,6 +114,7 @@ export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.R
           </div>
         ))}
       </dl>
+      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title="Agent-Stimme" />
 
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => openAgentSettings(agent.id)}>

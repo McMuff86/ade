@@ -1,6 +1,6 @@
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validProjectMembership } from '../shared/remote';
-import { validVoiceId } from '../shared/speech';
+import { validVoiceId, validSpeechSelection, validSpeechTarget } from '../shared/speech';
 import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
@@ -681,6 +681,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       if (!validVoiceId(request.voiceId)) invalid(channel, 'invalid voice');
       return;
     }
+    case IPC.SpeechPreferences:
+      if (!validSpeechTarget(payload)) invalid(channel, 'invalid speech target');
+      return;
+    case IPC.SpeechConfigure:
+      if (!validSpeechSelection(payload)) invalid(channel, 'invalid speech selection');
+      return;
     case IPC.MobileAccessSetEnabled: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['enabled']);

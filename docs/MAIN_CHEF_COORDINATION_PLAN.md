@@ -196,3 +196,57 @@ vorgeschriebenen Modell-/Reasoning-/Bypass- und dauerhaften Rollenvertrags-Pins.
 Anweisungsverwaltung und einen überprüfbaren Plan. 26.3 folgt mit zwei Projekten
 auf einem PC. Hostübergreifende Autonomie folgt erst nach nachgewiesener
 Hostauswahl, getrennten Berechtigungen und zuverlässigem Abbruch.
+## Implementierungsbefund vom 14. September 2026
+
+Die erneute lokale Sub-Agent-Analyse zeigt eine konkrete Voraussetzung für
+Goal 26.1: Interaktive Sitzungen und Managed Tasks bekommen heute nicht denselben
+Profilkontext. `snapshotAgentInstructions()` enthält benutzereigenen Text aus
+der Identitätsdatei, `injectMemoryBlock()` interaktiv nur den erzeugten
+Rollenblock. Projektstarts überspringen diese Injection auch mit ausgewähltem
+Profil. Die interaktive Injection schreibt zudem in Repository-Anweisungen.
+
+Vor einer ausführlichen Profil-UI muss daher ein gemeinsamer, vom optionalen
+Memory unabhängiger Snapshot entstehen: Rollenblock, eigene mehrzeilige
+Anweisungen und explizit zugewiesene Markdown-Revisionen mit Quellenindex,
+Digest und festen Größenlimits. Pflichtkontext darf nicht still abgeschnitten
+werden. Dokumentrevisionen liegen in der ADE-Identitätsablage außerhalb
+geleaster Repositories; Import prüft reguläre Dateien und Linkdisziplin.
+
+Interaktive Launcher benötigen je CLI einen nachgewiesenen Transport des
+externen Snapshots zusätzlich zu Repository-Anweisungen. Ein Zugriffspfad allein
+beweist kein Lesen. Expliziter Agentmodus und ausgewähltes Projektprofil
+erhalten Kontext; normale CLI, Shell und Login nicht. Unbekannte Custom-Commands
+müssen fehlende Unterstützung sichtbar machen. Legacy-Injection darf nicht
+parallel weiterlaufen; bestehende alte Repository-Blöcke sind ein gesonderter
+Migrationsfall und werden nicht pauschal gelöscht.
+
+Die Sitzung speichert Profil-ID, Revision, Digest, Erfassungszeit und
+Dokumentrevisionen. Die UI meldet „übergeben“, nicht unbelegt „gelesen“.
+Änderungen am Profil zeigen bei laufenden Sitzungen eine neuere Revision und
+gelten erst beim nächsten Start. Profiltexte gehen nur über die explizite
+Profilabfrage, nicht über allgemeine Agent-/Run-Zusammenfassungen. Mobile nutzt
+den bestehenden `profiles:write`-Ledger mit erweiterter Konflikterkennung.
+
+Abnahme: gemeinsamer Snapshot mit Memory aus, Profil-/Normal-CLI-Trennung,
+unveränderte Projektdateien, Ressourcen-/Revisionskonflikte, echte native
+Codex-/Claude-Probeläufe; WSL getrennt nachweisen. Dieser Abschnitt beschreibt
+noch offene Arbeit und behauptet keine bereits wirksame Profilübergabe.
+
+### Verifizierte Transportkandidaten
+
+Die installierte Codex-CLI unterstützt `-c key=value`; die offizielle
+[Konfigurationsreferenz](https://learn.chatgpt.com/docs/config-file/config-reference)
+führt `developer_instructions` als zusätzliche Sitzungsanweisungen. Das ist
+der bevorzugte Kandidat für einen begrenzten Profiltext. `model_instructions_file`
+ersetzt dagegen eingebaute Anweisungen und passt nicht zu einer bloßen
+Spezialisierung. Vor Implementierung müssen Windows-Argumentlänge, bestehende
+benutzereigene Developer-Anweisungen und der tatsächliche native Starttransport
+nachgewiesen werden; umfangreiche Dokumente brauchen eine explizite Grenze.
+
+Claude dokumentiert `--append-system-prompt-file` für interaktive und
+nichtinteraktive Starts. Damit kann ein eingefrorener Snapshot außerhalb des
+Repositorys zusätzlich übergeben werden. Bei fortgesetzten Gesprächen kann der
+bisherige Prompt gespeichert bleiben; eine Profiländerung darf deshalb keinen
+unbelegten Live-Wechsel behaupten.
+[CLI-Referenz](https://code.claude.com/docs/en/cli-reference).
+Die Dokumentationsprüfung ersetzt noch keinen echten ADE-Startnachweis.

@@ -11,12 +11,22 @@ import { RemoteDeviceStore } from '../src/main/remote/RemoteDeviceStore';
 import { CHANNEL_POLICY } from '../src/main/ipcPolicy';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { RemoteApiError } from '../src/main/application/AdeApplicationService';
+import { BrowserRequestBudget } from '../src/main/remote/BrowserRequestBudget';
 import { createMobileFixture, fixtureProtection } from './helpers/mobileFixture';
 import { MobileAccessController } from '../src/main/remote/MobileAccessController';
 import { createServer } from 'node:net';
 
 let passed = 0; let failed = 0;
 function check(label: string, condition: boolean): void { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } }
+{
+  let clock = 0; const budget = new BrowserRequestBudget(() => clock);
+  check('terminal reads support bounded active polling independently of user commands', Array.from({length: 1800}, () => budget.permits('terminalQuery', 'POST')).every(Boolean));
+  check('terminal read budget rejects excessive polling', !budget.permits('terminalQuery', 'POST'));
+  check('exhausted terminal reads leave the original command budget available', Array.from({length: 600}, () => budget.permits('terminalInput', 'POST')).every(Boolean));
+  check('ordinary command budget remains bounded at 600 per minute', !budget.permits('terminalInput', 'POST'));
+  clock = 60_000; check('new minute restores both independent budgets', budget.permits('terminalQuery', 'POST') && budget.permits('terminalInput', 'POST'));
+  check('pairing budget still admits only thirty attempts', Array.from({length: 30}, () => budget.permits('pair', 'POST')).every(Boolean) && !budget.permits('pair', 'POST'));
+}
 function rejects(label: string, action: () => unknown, code?: string): void {
   try { action(); check(label, false); } catch (error) { check(label, !code || (error instanceof RemoteApiError && error.code === code)); }
 }

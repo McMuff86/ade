@@ -2,6 +2,35 @@
 
 ## Sprache, Projektauswahl und Terminal-Bedienung
 
+### Nächster Meilenstein: mobile Stimme und wirksame Agent-Profile
+
+Benutzerauftrag vom 13. September, 23:57 Uhr: nach der aktuellen Abnahme
+weiterarbeiten und Aktivierungen zu spürbaren Verbesserungen bündeln.
+Keine Neustarts im 5–10-Minuten-Takt; Commit/Push, Build und persönlicher
+Neustart erfolgen pro sinnvollem Meilenstein.
+
+- **Goal 23.0a:** globale Stimmenwahl und fester Stimmtest auf dem Tablet;
+  Provider-Key bleibt am PC, eigene begrenzte Remote-Berechtigung. Implementiert,
+  fokussiert geprüft, Gesamtabnahme und persönliche Aktivierung offen.
+- **Goal 23.0b:** optionale Stimmen pro Agent und Projekt. Auflösung:
+  explizite Agent-Stimme → Projekt-Stimme → ADE-Standard; bei einer normalen
+  CLI ohne Agent-Profil gilt Projekt → Standard. „Erben“ ist ausdrücklich
+  auswählbar; die Oberfläche zeigt die wirksame Stimme und ihre Herkunft.
+  Implementiert; mobile Standard- und Agentwahl sowie Vererbungslogik in Abnahme.
+- **Goal 26.1a:** Agent-Profil mit Spezialisierung, konkreten Arbeitsanweisungen
+  und zuweisbaren Markdown-Dateien. Bestehende Repository-Anweisungen bleiben
+  wirksam; Identitätsanweisungen liegen außerhalb geleaster Repositories.
+- **Goal 26.1b:** Kontextansicht zeigt Herkunft, Reihenfolge, Version/Digest
+  und tatsächlich beim Start verwendete Anweisungen. Profiländerungen gelten
+  für neue Sitzungen; laufende Sitzungen erhalten einen Versionshinweis.
+- **Goal 26.1c:** Profil vom Agenten und Projekt aus bearbeiten/auswählen;
+  spezialisierter Agent oder normale Codex-/Claude-CLI bleibt eine bewusste
+  Auswahl. Eine Rollenbeschreibung ist keine zusätzliche Systemberechtigung.
+
+Abnahme: Desktop und Tablet, Vererbung/Zurücksetzen/Neuladen, fehlende Stimmen,
+widerrufene und eingeschränkte Geräte, bestehende Sitzungen, tatsächlicher
+CLI-Kontext sowie unveränderte Projekt-AGENTS.md und Agentbindungen.
+
 Desktop-Stimmenwahl/Stimmtest, Meine ADE Projekte und einklappbare mobile
 Terminal-Bedienung werden im aktuellen Arbeitsstand umgesetzt und geprüft.
 Erweiterungen: **Goal 23 Diktat**, **Goal 24 belastbare CLI-Nutzungsdaten**,

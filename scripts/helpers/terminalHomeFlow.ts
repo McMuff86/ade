@@ -90,7 +90,10 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await history.waitFor(); check('downward touch gesture opens readable history', await history.isVisible());
   await page.screenshot({ path: join(evidence, 'terminal-scroll-history.png') });
   await terminal.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).click();
-  await desktop.getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Freie Terminals', exact: true }).click();
+  await desktop.locator(`#session-tab-${shell.id}`).click();
+  await desktop.locator(`#session-panel-${shell.id}`).getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
   await terminal.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).waitFor();
   check('desktop can reclaim the mobile home terminal', !(await desktop.evaluate((id) => window.ade.invoke('terminal:control', { sessionId: id }), shell.id)).remote);
   await terminal.getByLabel('Terminal-Schriftgrösse', { exact: true }).selectOption('18');
@@ -157,7 +160,8 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await navigation.getByRole('button', { name: 'Freie Terminals', exact: true }).click();
   await page.getByRole('button', { name: 'Terminal öffnen', exact: true }).click();
   await terminalLauncher(terminal);
-  const count = (await homeSessions()).length;
+  const sessionsBefore = await homeSessions(); const count = sessionsBefore.length;
+  const runningBefore = sessionsBefore.filter(item => item.status === 'running').map(item => item.id).sort();
   await terminal.getByLabel('Sitzung starten mit', { exact: true }).selectOption('shell');
   await terminal.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
@@ -168,5 +172,5 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await confirmation.getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
   await confirmation.waitFor({ state: 'hidden' });
   await terminal.getByText('Sitzung beendet.', { exact: true }).waitFor();
-  check('closing one home terminal retains the other sessions', (await homeSessions()).filter((item) => item.status === 'running').length === count);
+  check('closing one home terminal retains the other sessions', JSON.stringify((await homeSessions()).filter((item) => item.status === 'running').map(item => item.id).sort()) === JSON.stringify(runningBefore));
 }

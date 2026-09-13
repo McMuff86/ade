@@ -99,6 +99,8 @@ export const IPC = {
   SpeechVoices: 'speech:voices',
   SpeechSelect: 'speech:select',
   SpeechTest: 'speech:test',
+  SpeechPreferences: 'speech:preferences',
+  SpeechConfigure: 'speech:configure',
   ProjectWorkspaceQuery: 'project:query',
   IntegrationQuery: 'integration:query',
   IntegrationCommand: 'integration:command',
@@ -690,6 +692,8 @@ export interface IpcInvokeMap {
   'speech:voices': { req: void; res: import('./speech').SpeechCatalog };
   'speech:select': { req: { voiceId: string }; res: void };
   'speech:test': { req: { voiceId: string }; res: import('./speech').SpeechAudio };
+  'speech:preferences': { req: import('./speech').SpeechTarget; res: import('./speech').SpeechPreference };
+  'speech:configure': { req: import('./speech').SpeechSelection; res: void };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
   'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
   'repository:fetch': { req: { repositoryId: string }; res: GitSyncOverview };

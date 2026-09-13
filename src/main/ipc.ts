@@ -1,5 +1,7 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { SpeechService } from './settings/SpeechService';
+import { SpeechPreferences } from './settings/SpeechPreferences';
+import { RemoteSpeechService } from './application/RemoteSpeechService';
 import { DeviceResourceService } from './application/DeviceResourceService';
 /**
  * IPC channel registration (main side).
@@ -270,6 +272,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
+  const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
+  const speechPreferences = new SpeechPreferences(store, speech);
   const runtimeModels = new RuntimeModelService(harnessCredentials);
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
@@ -378,6 +382,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       projectGit: projectGitActions,
       projectPublish,
       workbench, terminals: remoteTerminals,
+      speech: new RemoteSpeechService(speechPreferences, speech),
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
@@ -757,10 +762,11 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     items: harnessCredentials.status(),
     serviceKeys: harnessCredentials.serviceKeyStatus(),
   }));
-  const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   handle(IPC.SpeechVoices, () => speech.catalog(true));
   handle(IPC.SpeechSelect, ({ voiceId }) => speech.select(voiceId));
   handle(IPC.SpeechTest, ({ voiceId }) => speech.test(voiceId));
+  handle(IPC.SpeechPreferences, (target) => speechPreferences.query(target, true));
+  handle(IPC.SpeechConfigure, (input) => speechPreferences.select(input));
   handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {
     harnessCredentials.set(runtime, apiKey);
   });

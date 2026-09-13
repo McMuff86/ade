@@ -153,6 +153,17 @@ void (async () => {
   check('browser normalizes and stores a tablet profile image', !!store.get().agents.find((agent) => agent.id === 'builder')!.photo
     && store.get().agents.find((agent) => agent.id === 'builder')!.role === 'Tablet reviewer');
   check('authenticated image is displayed under mobile CSP', await workspace.getByRole('img', { name: 'Profilbild-Vorschau', exact: true }).evaluate((node) => (node as HTMLImageElement).naturalWidth > 0));
+  const photoOpener = workspace.getByRole('button', { name: 'Profilbild vergrössern', exact: true });
+  await photoOpener.focus(); await photoOpener.press('Enter');
+  const photoDialog = page.getByRole('dialog', { name: 'Profilbild · Builder', exact: true }); await photoDialog.waitFor();
+  check('profile photo opens enlarged with focus inside the viewer', await photoDialog.evaluate(node => node.contains(document.activeElement))
+    && (await photoDialog.getByRole('img').boundingBox())!.width > 96);
+  check('enlarged profile photo fits a phone viewport', await photoDialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await page.keyboard.press('Escape'); await photoDialog.waitFor({ state: 'hidden' });
+  check('closing photo retains the profile and restores photo button focus', await workspace.isVisible() && await photoOpener.evaluate(node => node === document.activeElement));
+  await photoOpener.click(); await photoDialog.getByRole('button', { name: 'Zurück zum Profil', exact: true }).click();
+  await photoDialog.waitFor({ state: 'hidden' });
+  check('touch photo viewer returns without discarding profile edits', await workspace.getByLabel('Profil-Rolle', { exact: true }).inputValue() === 'Tablet reviewer');
   await workspace.getByRole('button', { name: 'Profilbild entfernen', exact: true }).click();
   await workspace.getByRole('button', { name: 'Profil speichern', exact: true }).click();
   await workspace.getByRole('img', { name: 'Profilbild-Vorschau', exact: true }).waitFor({ state: 'hidden' });

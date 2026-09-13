@@ -1,0 +1,7 @@
+.speech-preference { display: grid; gap: 12px; min-width: 0; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.speech-preference h3, .speech-preference p { margin: 0; }
+.speech-preference label { display: grid; gap: 6px; min-width: 0; }
+.speech-preference select { width: 100%; min-width: 0; }
+.speech-preference button, .speech-preference select { min-height: 44px; }
+.speech-preference audio { width: 100%; min-width: 0; }
+.speech-preference [role=alert] { overflow-wrap: anywhere; color: var(--danger, #e0645c); }

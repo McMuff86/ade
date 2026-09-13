@@ -18,6 +18,7 @@ import { useDeviceDraft } from './deviceDrafts';
 import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
+import { MobileSpeechSettings } from './SpeechSettings';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
 import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkComposer';
 import '../renderer/theme/tokens.css';
@@ -176,6 +177,7 @@ function MobileApp(): JSX.Element {
         {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : view === 'projects' ? 'Projekte' : view === 'terminals' ? 'Terminals' : 'Work'}</h1>}
         {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
         <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
+          <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Einstellungen</button>
           <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
           <button disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}>Terminal öffnen</button>
           <button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
@@ -227,6 +229,7 @@ function MobileApp(): JSX.Element {
       onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
       onManage={() => { setWorkspace(null); setManagement(true); }} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title">
+      {host.paired && <MobileSpeechSettings host={host} target={{ kind: 'default' }} />}
       {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
         requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
       <section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>

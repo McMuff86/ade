@@ -64,6 +64,15 @@ void (async () => {
   const reopened = await Promise.all([service.open(selected.id), service.open(selected.id)]);
   check('repeated and concurrent opens keep one workspace identity', reopened.every((item) => item.id === opened.id) && store.get().projectWorkspaces.length === 1);
   const registered = await service.directory();
+  const readingVoice = service.resolve(opened.id);
+  store.save({ repositories: store.get().repositories.map(repo => repo.id === opened.repositoryId ? { ...repo, speechVoiceId: 'femaleVoice0000000001' } : repo) });
+  check('voice preference changed during a Git probe preserves workspace identity', (await readingVoice).repository.speechVoiceId === 'femaleVoice0000000001');
+  const originalRepository = store.get().repositories.find(repo => repo.id === opened.repositoryId)!;
+  const readingIdentity = service.resolve(opened.id);
+  store.save({ repositories: store.get().repositories.map(repo => repo.id === opened.repositoryId ? { ...repo, verified: false } : repo) });
+  await refuses('repository verification change during Git probe still fails closed', () => readingIdentity, /geändert/);
+  store.save({ repositories: store.get().repositories.map(repo => repo.id === opened.repositoryId ? originalRepository : repo) });
+  check('positive identity probe succeeds after restoring verified repository', (await service.resolve(opened.id)).workspace.id === opened.id);
   const membershipEntry = registered.entries.find(item => item.repositoryId === opened.repositoryId)!;
   check('merely opening a discovered checkout does not opt it into My Projects', membershipEntry.inMyProjects === false);
   await service.membership(membershipEntry.id, false);

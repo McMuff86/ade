@@ -1,11 +1,21 @@
 # ADE implementation status
 
+## Mobile-Stimmen und Profilbilder (14. September 2026, in Abnahme)
+
+Mobile-Einstellungen, globale/Agent-/Projekt-Stimmen mit Vererbung und
+vergrößerbare Profilbilder sind implementiert. 23 Domain-Prüfungen und
+28 Mobile-Sprach-Browserprüfungen bestehen, einschließlich tatsächlicher
+MP3-Wiedergabe und Wiederaufnahme ohne zweite Erzeugung. Profilbild-Browserlauf:
+43 Prüfungen bestanden. `pnpm verify` läuft erneut; noch nicht persönlich
+aktiviert. Ausführliche wirksame Profilanweisungen bleiben Goal 26.1.
+
 ## Sprache und Projektauswahl (13. September 2026, laufende Abnahme)
 
-Im Arbeitsstand: ElevenLabs-Stimmenwahl mit weiblicher Vorauswahl und deutschem
+Persönlich aktiviert: ElevenLabs-Stimmenwahl mit weiblicher Vorauswahl und deutschem
 Test, persistente Meine-ADE-Projekte-Auswahl auf Desktop/Mobile sowie kompakte
-mobile Terminal-/Nutzungsbedienung. Fokus-, API- und Wiedergabeprüfungen laufen;
-der endgültige Nachweis und persönliche Start werden in HANDOFF dokumentiert.
+mobile Terminal-/Nutzungsbedienung. Fokus-, API- und Wiedergabeprüfungen bestehen;
+die vollständige Gesamtabnahme blieb am Remote-Terminal-Fixture offen. Start mit Sarah und neuen
+Profilbildern sowie Projektauswahl sind in HANDOFF dokumentiert.
 Die reale native Codex-Kontoabfrage lieferte 84 % Rest im 7-Tage-Fenster;
 dies ist eine zeitgebundene Kontoaufnahme, kein Nachweis der Terminal-Anmeldung.
 Claude/Grok-Nutzungscollector, Diktat und Multi-Host bleiben geplante Schritte.

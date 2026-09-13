@@ -9,6 +9,16 @@ kurzer deutscher Testsatz wird nur nach Betätigung erzeugt. Fehlender Key,
 fehlende Provider-Rechte, leere Listen und Wiedergabefehler sind sichtbar.
 Spracherkennung/Diktat ist als nächster Schritt geplant, noch nicht enthalten.
 
+Mobile bietet einen sichtbaren Zugang „Einstellungen“ mit Stimmenwahl und
+Stimmtest. Die Gerätefreigabe „Stimmen wählen und ElevenLabs-Stimmtests
+ausführen“ wird am PC vergeben. Die Auswahl gilt auf diesem ADE-Host.
+Agentenprofile und Projekt-Einstellungen bieten eine eigene Stimme oder
+„Erben“: Agent → Projekt → ADE-Standard. Die wirksame Stimme und ihre Herkunft
+sind sichtbar. Nach einer verlorenen Antwort lässt sich derselbe Stimmtest
+erneut prüfen; ein neuer kostenpflichtiger Test erfordert eine neue Aktion.
+Ein Antippen des Profilbilds öffnet eine größere Ansicht mit Schließen,
+Escape und Fokusrückgabe. Diese vergrößert das ausgelieferte Vorschaubild.
+
 Desktop und Mobile zeigen unter Projekte „Alle“ / „Meine ADE Projekte“.
 Hinzufügen und Entfernen ändern die persönliche ADE-Auswahl auf diesem Host;
 Dateien, Git, Terminals und Verlauf bleiben erhalten. Die Overview-Projektkarten

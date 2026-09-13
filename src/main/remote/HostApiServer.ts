@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { BrowserRequestBudget } from './BrowserRequestBudget';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
@@ -63,12 +64,13 @@ type Route =
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
+  | { kind: 'speechQuery' | 'speechCommand' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -124,6 +126,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/integration/command': return { route: { kind: 'integrationCommand' }, allow: ['POST'] };
     case '/api/v1/projects/command': return { route: { kind: 'projectCommand' }, allow: ['POST'] };
     case '/api/v1/projects/membership': return { route: { kind: 'projectMembership' }, allow: ['POST'] };
+    case '/api/v1/speech/query': return { route: { kind: 'speechQuery' }, allow: ['POST'] };
+    case '/api/v1/speech/command': return { route: { kind: 'speechCommand' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
     case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
@@ -185,7 +189,7 @@ export class HostApiServer {
   private readonly streams = new Set<() => void>();
   private readonly connections = new Map<ServerResponse, string>();
   private unsubscribeRevocation: (() => void) | null = null;
-  private rateWindow = { at: Date.now(), requests: 0, auth: 0 };
+  private readonly requestBudget = new BrowserRequestBudget();
 
   constructor(
     private readonly application: AdeApplicationService,
@@ -351,7 +355,7 @@ export class HostApiServer {
           .replace('<head>', `<head><meta name="ade-style-nonce" content="${nonce}">`)) : asset.body;
         response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': asset.contentType,
           'content-length': body.length,
-          'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+          'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' blob:; media-src data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'service-worker-allowed': '/',
         });
         response.end(body); return;
@@ -378,9 +382,7 @@ export class HostApiServer {
 
     try {
       if (browserRequest) {
-        if (Date.now() - this.rateWindow.at >= 60_000) this.rateWindow = { at: Date.now(), requests: 0, auth: 0 };
-        const authRoute = matched.route.kind === 'pair' || (matched.route.kind === 'session' && method === 'POST');
-        if (++this.rateWindow.requests > 600 || (authRoute && ++this.rateWindow.auth > 30)) {
+        if (!this.requestBudget.permits(matched.route.kind, method)) {
           writeError(response, 429, 'rate_limited', undefined, { 'retry-after': '60' }); return;
         }
         if (matched.route.kind === 'pair') {
@@ -457,6 +459,8 @@ export class HostApiServer {
         case 'projectQuery':
         case 'projectCommand':
         case 'projectMembership':
+        case 'speechQuery':
+        case 'speechCommand':
         case 'queryGit':
         case 'queryWorkspace':
         case 'assignmentQuery':
@@ -573,6 +577,7 @@ export class HostApiServer {
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'projectMembership' ? await this.application.projectMembership(context, payload)
+        : kind === 'speechQuery' || kind === 'speechCommand' ? await this.application.remoteSpeech(context, payload, kind === 'speechCommand')
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
         : kind === 'saveWorkspaceFile'
         ? await this.application.saveWorkspaceFile(context, payload)

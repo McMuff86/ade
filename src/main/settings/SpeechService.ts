@@ -60,11 +60,12 @@ export class SpeechService {
     this.store.save({ settings: { ...this.store.get().settings, speechVoiceId: voiceId } });
   }
 
-  async test(voiceId: string): Promise<SpeechAudio> {
+  async test(voiceId: string, authorize: () => void = () => undefined): Promise<SpeechAudio> {
     if (this.busy) throw new Error('Ein Stimmtest läuft bereits. Bitte warten.');
     this.busy = true;
     try {
       if (!validVoiceId(voiceId) || !(await this.catalog()).voices.some(v => v.id === voiceId)) throw new Error('Eine verfügbare Stimme auswählen.');
+      authorize();
       const response = await this.request(`/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, 'POST',
         JSON.stringify({ text: SPEECH_TEST_TEXT, model_id: 'eleven_multilingual_v2', language_code: 'de' }));
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('audio/mpeg')) { await response.body?.cancel(); throw new Error('ElevenLabs hat keine MP3-Audiodatei geliefert.'); }

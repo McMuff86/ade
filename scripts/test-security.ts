@@ -100,6 +100,8 @@ const valid: Record<InvokeChannel, unknown> = {
   'workspaceBundle:export': { includeMemory: false, includePhotos: false },
   'project:membership': { entryId: 'p' + 'a'.repeat(32), included: true },
   'speech:voices': undefined,
+  'speech:preferences': { kind: 'default' },
+  'speech:configure': { target: { kind: 'default' }, voiceId: null },
   'speech:select': { voiceId: 'EXAVITQu4vr4xnSDxMaL' },
   'speech:test': { voiceId: 'EXAVITQu4vr4xnSDxMaL' },
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },

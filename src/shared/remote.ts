@@ -1,5 +1,10 @@
 import type { ExecutionBackendId } from './executionBackends';
 import type { RemoteAdminScope } from './remoteDevices';
+import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
+
+export type MobileSpeechQuery = { operation: 'voices'; target: SpeechTarget } | { operation: 'audio'; testId: string };
+export type MobileSpeechCommand = { operation: 'select'; target: SpeechTarget; voiceId: string | null } | { operation: 'test'; target: SpeechTarget; voiceId: string };
+export type MobileSpeechResult = { preferences?: SpeechPreference; audio?: SpeechAudio; testId?: string; replayed?: boolean };
 import type { GitSyncOverview, GitSyncPreview } from './gitSync';
 import type {
   RunBudget,

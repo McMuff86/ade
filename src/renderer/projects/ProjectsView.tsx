@@ -9,6 +9,7 @@ import { ProjectRunResults } from './ProjectRunResults';
 import { desktopRunFiles } from '../graph/RunFilesPanel';
 import { useSelection } from '../stores/selection';
 import { useAppData } from '../stores/appdata';
+import { TargetSpeechSettings } from '../settings/TargetSpeechSettings';
 
 const query = (input: ProjectWorkspaceQuery) => window.ade.invoke('project:query', input);
 const applyBranch = async (previewId: string) => (await window.ade.invoke('project:command', { operation: 'branch-apply', previewId })).workspace;
@@ -27,7 +28,7 @@ export function ProjectsView(): JSX.Element {
   const repositoryId = useSelection((state) => state.projectRepositoryId);
   const sessionId = useSelection((state) => state.projectSessionId);
   const [pending, setPending] = useState<PendingBranch | null>(null);
-  const [section, setSection] = useState<'terminal' | 'git' | 'results'>('terminal');
+  const [section, setSection] = useState<'terminal' | 'git' | 'results' | 'settings'>('terminal');
   const [gitReceipts, setGitReceipts] = useState<Record<string, PendingProjectGit | null>>({});
   const [fileReceipts, setFileReceipts] = useState<Record<string, PendingProjectFile | null>>({});
   const [publishReceipts, setPublishReceipts] = useState<Record<string, PendingProjectPublish | null>>({});
@@ -99,9 +100,10 @@ export function ProjectsView(): JSX.Element {
     }}>Zur Projektübersicht</button>
       <ProjectBranches key={workspace.id} workspace={workspace} online canChange query={query} apply={applyBranch} errorText={errorText}
         pending={pending} savePending={(value) => { setPending(value); return true; }} onWorkspace={(value) => { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); }} />
-      <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button></div>
+      <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>
       {section === 'terminal' ? <ProjectTerminal key={`${workspace.id}:${workspace.branch}:${sessionId ?? ''}`} workspace={workspace} initialSessionId={sessionId ?? undefined} />
         : section === 'results' ? <ProjectRunResults key={workspace.id} workspaceId={workspace.id} query={query} port={desktopRunFiles} online errorText={errorText} />
+        : section === 'settings' ? <TargetSpeechSettings target={{ kind: 'project', repositoryId: workspace.repositoryId }} title="Projekt-Stimme" />
         : <><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online canChange canEdit query={query} apply={applyGit} errorText={errorText}
           readFile={(path) => window.ade.invoke('project:fileRead', { projectWorkspaceId: workspace.id, path })}
           saveFile={(input) => window.ade.invoke('project:fileSave', { projectWorkspaceId: workspace.id, path: input.path, text: input.text, revision: input.revision, workspaceVersion: input.workspaceVersion })}

@@ -8,6 +8,7 @@ import { Dialog } from './ui';
 import { MobileClientError } from './client';
 import { ProjectBranches, type PendingBranch } from '../renderer/projects/ProjectBranches';
 import { RemoteTerminalPane } from './RemoteTerminalPane';
+import { MobileSpeechSettings } from './SpeechSettings';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { ProjectGitPanel, type PendingProjectFile, type PendingProjectGit } from '../renderer/projects/ProjectGitPanel';
 import { ProjectPublishPanel, type PendingProjectPublish } from '../renderer/projects/ProjectPublishPanel';
@@ -32,7 +33,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [pendingGit, savePendingGit] = useDeviceDraft<PendingProjectGit | null>(host.deviceId, `project-git:${workspaceId ?? 'none'}`, null);
   const [pendingFile, savePendingFile] = useDeviceDraft<PendingProjectFile | null>(host.deviceId, `project-file:${workspaceId ?? 'none'}`, null);
   const [pendingPublish, savePendingPublish] = useDeviceDraft<PendingProjectPublish | null>(host.deviceId, `project-publish:${workspaceId ?? 'none'}`, null);
-  const [section, setSection] = useState<'terminal' | 'git' | 'results'>('terminal');
+  const [section, setSection] = useState<'terminal' | 'git' | 'results' | 'settings'>('terminal');
   useEffect(() => { if (pendingGit || pendingFile || pendingPublish) setSection('git'); }, [pendingGit, pendingFile, pendingPublish]);
   const filePort = useRunFilesPort(host);
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -126,7 +127,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     {show && <Dialog title={`Projekt · ${name}`} onClose={close} fallbackId="view-tab-projects" restoreFocusTo={opener.current} className={`m-independent-project ${workspace ? `m-agent-workspace ${section === 'terminal' ? 'm-terminal-workspace' : 'm-project-git-workspace'}` : ''}`}>
       <div className="m-project-context">
       {workspace && canRead ? <ProjectWorkspaceSummary workspace={workspace} /> : <p>Den vorhandenen Projektordner öffnen. Sein Branch und seine Dateien bleiben erhalten.</p>}
-      {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button></div>}
+      {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>}
       {error && <p role="alert">{error}</p>}{!online && <p role="status">PC nicht verbunden. Erneut versuchen, sobald die Verbindung steht.</p>}
       {busy && <p role="status">Workspace wird geprüft…</p>}
       {!workspace && online && rights && !canOpen && <p role="alert">Am PC unter Settings → Verbundene Geräte zusätzlich „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben. Danach Freigaben aktualisieren.</p>}
@@ -142,6 +143,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
       {workspace && canRead && (section === 'terminal' ? <div className="m-terminal-slot"><RemoteTerminalPane key={`${workspace.id}:${workspace.branch}`} host={host} projectWorkspaceId={workspace.id}
         expectedBranch={workspace.branch} active projectEntry initialTerminalId={terminalId} compactControls={keyboardOpen} /></div>
         : section === 'results' ? <div className="m-project-git-body"><ProjectRunResults key={workspace.id} workspaceId={workspace.id} query={branchQuery} port={filePort} online={online} identity={host.identityVersion} errorText={workspaceError} /></div>
+        : section === 'settings' ? <div className="m-project-git-body"><MobileSpeechSettings host={host} target={{ kind: 'project', repositoryId: workspace.repositoryId }} title="Projekt-Stimme" /></div>
         : <div className="m-project-git-body"><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online={online} canChange={canOpen && !!rights?.capabilities?.includes('projectGit:write')} canEdit={!!rights?.capabilities?.includes('workspace:write')}
           query={branchQuery} apply={gitApply} readFile={readFile} saveFile={saveFile} errorText={workspaceError} pending={pendingGit} savePending={savePendingGit}
           filePending={pendingFile} saveFilePending={savePendingFile} onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { saveWorkspaceId(value.id); setWorkspace(value); } }} />

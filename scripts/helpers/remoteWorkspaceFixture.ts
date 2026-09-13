@@ -26,9 +26,10 @@ import type { SessionMeta } from '../../src/shared/types';
 import type { ActivityLine } from '../../src/shared/ipc';
 import { RunInspectionService } from '../../src/main/application/RunInspectionService';
 import { RunFileStore } from '../../src/main/application/RunFileStore';
+import type { RemoteSpeechService } from '../../src/main/application/RemoteSpeechService';
 
 /** Real native Git scopes/domain/HTTP; runtime processes alone are deterministic fixtures. */
-export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}) {
+export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}, speechFactory?: (store: ReturnType<typeof createMobileFixture>['store']) => RemoteSpeechService) {
   const fixture = createMobileFixture(root); const { store, devices, orchestration, changes } = fixture;
   store.save({ repositories: [] });
   const sessions: SessionMeta[] = [];
@@ -65,6 +66,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
     workbench, runInspection: inspection, projects, projectBranches, projectGit, projectPublish,
+    speech: speechFactory?.(store),
     integration,
     assignments: new WorkspaceAssignmentService(store, projects, () => sessions),
     resourceAccess: (id) => devices.resourceAccess(id),

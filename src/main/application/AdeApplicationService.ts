@@ -1,4 +1,7 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { validSpeechQuery, validSpeechCommand, type RemoteSpeechService } from './RemoteSpeechService';
+import type { SpeechTarget } from '../../shared/speech';
+import type { MobileSpeechResult } from '../../shared/remote';
 import { validProjectMembership, type ProjectMembershipResult } from '../../shared/remote';
 import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
 import type { RunQuestionService } from '../orchestration/RunQuestionService';
@@ -116,6 +119,7 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  speech?: RemoteSpeechService;
   deleteCompletedRun?: (runId: string) => Promise<void>;
   integration?: IntegrationService;
   catalogChanged?: () => void;
@@ -247,6 +251,38 @@ export class AdeApplicationService {
   }
 
   /* ------------------------------------------------------------------ reads */
+
+  async remoteSpeech(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<MobileSpeechResult> {
+    const speech = this.options.speech; const ledger = this.options.administration?.ledger;
+    if (!speech || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = (target: SpeechTarget) => {
+      ledger.permits(context, 'speech:control');
+      if (target.kind === 'default' && this.resources.access(context.principal).mode === 'selected') throw new RemoteApiError(403, 'scope_not_granted');
+      if (target.kind === 'agent') this.resources.assertAgent(context.principal, target.agentId);
+      if (target.kind !== 'default' && target.repositoryId) this.resources.assertRepository(context.principal, target.repositoryId);
+    };
+    ledger.permits(context, 'speech:control');
+    try {
+      if (!command) {
+        if (!validSpeechQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+        if (payload.operation === 'audio') return { audio: speech.read(context.principal.id, payload.testId, authorize) };
+        authorize(payload.target); const preferences = await speech.preferences.query(payload.target, true); authorize(payload.target);
+        return { preferences: { ...preferences, voices: preferences.voices.map(voice => ({ ...voice, name: redactForWire(voice.name, 100), gender: redactForWire(voice.gender, 100), language: redactForWire(voice.language, 100) })) } };
+      }
+      if (!validSpeechCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+      authorize(payload.target);
+      const receipt = await ledger.execute<MobileSpeechResult>(context, `speech:${payload.operation}`, 'speech:control', payload, async () => {
+        const execute = async (): Promise<MobileSpeechResult> => {
+          authorize(payload.target);
+          if (payload.operation === 'select') { await speech.preferences.select({ target: payload.target, voiceId: payload.voiceId }, () => authorize(payload.target)); return {}; }
+          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target));
+        };
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      authorize(payload.target); this.options.catalogChanged?.();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
 
   queryProfile(context: RemoteCommandContext, payload: unknown) {
     if (!this.options.profiles) throw new RemoteApiError(404, 'not_found');

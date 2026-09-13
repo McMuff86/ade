@@ -1,4 +1,5 @@
 import { clearDeviceDrafts, readDeviceDraft, writeDeviceDraft } from '../src/mobile/deviceDrafts';
+import { speechTargetKey } from '../src/shared/speech';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -10,6 +11,17 @@ Object.defineProperties(storage, {
   removeItem: { value: (key: string) => { values.delete(key); delete (storage as unknown as Record<string, unknown>)[key]; } },
 });
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+check('collapsed session controls survive browser reload', writeDeviceDraft('tablet','terminal-controls-expanded',false) && readDeviceDraft<boolean>('tablet','terminal-controls-expanded',true) === false);
+const membership = {key:'membership-key',entryId:`p${'a'.repeat(32)}`,included:false,name:'Project'};
+storage.setItem('ade-work:tablet:project-membership',JSON.stringify({at:1,value:membership}));
+check('uncertain project membership retains its receipt beyond draft expiry', readDeviceDraft<typeof membership | null>('tablet','project-membership',null)?.key === membership.key);
+const speechTarget = {kind:'agent' as const,agentId:'builder',repositoryId:'repo'}; const speechKey = speechTargetKey(speechTarget);
+const speechJob = {key:'speech-key-001',command:{operation:'test',target:speechTarget,voiceId:'femaleVoice0000000001'}};
+storage.setItem(`ade-work:tablet:${speechKey}`,JSON.stringify({at:1,value:speechJob}));
+check('paid speech recovery survives expiry with the original request key', readDeviceDraft<typeof speechJob | null>('tablet',speechKey,null)?.key === speechJob.key);
+check('speech receipt never crosses device identity', readDeviceDraft('other',speechKey,null) === null);
+writeDeviceDraft('tablet',speechKey,{...speechJob,command:{...speechJob.command,target:{kind:'agent',agentId:'other'}}});
+check('speech receipt is bound to the exact target context', readDeviceDraft('tablet',speechKey,null) === null);
 check('free-terminal selection survives reload', writeDeviceDraft('home-tablet', 'terminal-target', { terminalHome: true, terminalId: 'opaque' })
   && readDeviceDraft<{ terminalHome: boolean } | null>('home-tablet', 'terminal-target', null)?.terminalHome === true);
 check('terminal font preference survives reload', writeDeviceDraft('home-tablet', 'terminal-font-size', 18)

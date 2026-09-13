@@ -152,10 +152,14 @@ export class ProjectWorkspaceService {
     if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt-Workspace ist nicht verfügbar.');
     this.assertRecordPaths(workspace, repository);
     const identity = await this.gitIdentity(workspace.workspaceDir);
+    const currentRepository = this.store.get().repositories.find((item) => item.id === repository.id);
+    // Voice and overview membership are presentation preferences, not workspace
+    // identity. They may change while the read-only Git identity probe runs.
+    const identityConfig = ({ speechVoiceId: _voice, inMyProjects: _membership, ...record }: Repository) => JSON.stringify(record);
     if (this.store.get().projectWorkspaces.find((item) => item.id === workspaceId) !== workspace
-      || this.store.get().repositories.find((item) => item.id === repository.id) !== repository) throw new Error('ade: Projekt wurde inzwischen geändert.');
-    this.assertRecord(workspace, repository, identity);
-    return { workspace: { ...workspace }, repository: { ...repository }, branch: identity.branch };
+      || !currentRepository || identityConfig(currentRepository) !== identityConfig(repository)) throw new Error('ade: Projekt wurde inzwischen geändert.');
+    this.assertRecord(workspace, currentRepository, identity);
+    return { workspace: { ...workspace }, repository: { ...currentRepository }, branch: identity.branch };
   }
 
   async overview(workspaceId: string): Promise<ProjectWorkspaceView> {

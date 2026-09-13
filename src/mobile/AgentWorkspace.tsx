@@ -128,7 +128,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
       compactControls={keyboardOpen && !keyboardControls}
       initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined}
       profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} />}</div>
-    {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}
+    {tab === 'profile' && <AgentProfile host={host} agentId={agentId} repositoryId={repositoryId || undefined} drafts={profileDrafts} />}
     {overview?.ready && (tab === 'files' || tab === 'git') && <div className={`m-workbench-split ${detail ? 'has-detail' : ''}`}>
       <section className="m-workbench-list" aria-label={tab === 'files' ? 'Workspace-Dateien' : 'Geänderte Dateien'}>
         {tab === 'files' ? <><form onSubmit={(event) => { event.preventDefault(); void load({ operation: 'search', search: search.trim() }); }}>

@@ -28,11 +28,12 @@ interface Suite {
 
 const SUITES: Suite[] = [
   { id: 'speech', script: 'test-speech.ts', floors: { win32: 38 } },
+  { id: 'speech-preferences', script: 'test-speech-preferences.ts', floors: { win32: 23 } },
   { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
   { id: 'run-deletion', script: 'test-run-deletion.ts', floors: { win32: 23 } },
   { id: 'category-navigation', script: 'test-category-navigation.ts', floors: { win32: 29 } },
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
-  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 46 } },
+  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 51 } },
   { id: 'workspace-assignment', script: 'test-workspace-assignment.ts', floors: { win32: 33 } },
   { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 26 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
@@ -47,7 +48,7 @@ const SUITES: Suite[] = [
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
-  { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 45 } },
+  { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 48 } },
   { id: 'project-branches', script: 'test-project-branches.ts', floors: { win32: 40 } },
   { id: 'project-launch', script: 'test-project-launch.ts', floors: { win32: 41 } },
   { id: 'project-git', script: 'test-project-git.ts', floors: { win32: 47 } },
@@ -74,14 +75,14 @@ const SUITES: Suite[] = [
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 39 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
-  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 79 } },
+  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 85 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 229 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 236 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

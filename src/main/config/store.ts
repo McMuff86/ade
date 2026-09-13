@@ -209,12 +209,13 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const agent of config.agents) {
     exactKeys(agent as unknown as Record<string, unknown>, [
-      'id', 'categoryId', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand',
+      'id', 'categoryId', 'name', 'role', 'photo', 'speechVoiceId', 'runtime', 'permissionMode', 'customCommand',
       'ollamaModel', 'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'workspaceDir', 'homeWorkspaceDir',
       'homeExecutionBackend', 'defaultRepositoryId', 'memoryDir', 'teamRole', 'dashboardUrl',
       'dashboardCommand', 'dashboardTarget',
     ], 'agent');
+    if (agent.speechVoiceId !== undefined && (typeof agent.speechVoiceId !== 'string' || !/^[a-zA-Z0-9]{10,80}$/.test(agent.speechVoiceId))) throw new Error('Invalid agent voice.');
     boundedString(agent.name, 'agent.name');
     boundedString(agent.workspaceDir, 'agent.workspaceDir');
     boundedString(agent.memoryDir, 'agent.memoryDir');
@@ -243,7 +244,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const repository of config.repositories) {
     exactKeys(repository as unknown as Record<string, unknown>,
-      ['id', 'name', 'rootPath', 'commonGitDir', 'executionBackend', 'verified', 'createdAt', 'inMyProjects'], 'repository');
+      ['id', 'name', 'rootPath', 'commonGitDir', 'executionBackend', 'verified', 'createdAt', 'inMyProjects', 'speechVoiceId'], 'repository');
+    if (repository.speechVoiceId !== undefined && (typeof repository.speechVoiceId !== 'string' || !/^[a-zA-Z0-9]{10,80}$/.test(repository.speechVoiceId))) throw new Error('Invalid project voice.');
     if (repository.inMyProjects !== undefined && typeof repository.inMyProjects !== 'boolean') throw new Error('Invalid project membership.');
     boundedString(repository.name, 'repository.name');
     boundedString(repository.rootPath, 'repository.rootPath');

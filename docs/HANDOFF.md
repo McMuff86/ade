@@ -1,5 +1,50 @@
 # ADE — aktuelle Übergabe
 
+## Mobile-Stimmen-Arbeitsstand (14. September 2026)
+
+Einstellungen auf Mobile, globale/Agent-/Projekt-Stimmen und Profilbilddialog
+implementiert; noch nicht persönlich aktiviert. Aktueller Gesamtlauf:
+`test-results/mobile-voice-verify-final.log`. Der erste Mobile-Stimmen-Lauf
+bestand 52 Suiten/2.480 Checks und stoppte am neuen Projekt-Stimmentest; die
+Konkurrenz zwischen Metadatenänderung und Git-Probe ist gezielt korrigiert und
+mit 48 Projekt-Workspace- sowie 28 Sprach-Browserprüfungen erneut geprüft.
+Der vorherige Sprach-/Projekt-Lauf bestand 51 fokussierte
+Suiten/2.444 Checks, blieb aber im Remote-Terminal-Browserlauf stehen. Der
+Fortsetzungslauf zeigte Offline beim Grok-Start. Terminal-Polling konnte das
+allgemeine Requestbudget erschöpfen; es erhält jetzt einen eigenen begrenzten
+Topf. Eine gemessene Verbesserung der Eingabelatenz ist noch nicht belegt.
+Persönliche Instanz bleibt bis zum nächsten sinnvollen Meilenstein PID 50460.
+
+## Sprach-/Projekt-Build persönlich aktiviert (13. September 2026, 23:48 Uhr)
+
+Commit `b40c758` auf `origin/main` gepusht. Build erfolgreich; auf ausdrücklichen
+Wunsch des Benutzers bereits während der getrennten Gesamtabnahme aktiviert.
+Unveränderliche Kopie: `test-results/operator-speech-projects-20260913-234546`;
+persönliches Profil/verschlüsselte Zugangsdaten/Gerätekopplung vorher unter
+`test-results/operator-speech-projects-backup-20260913-234546` gesichert.
+Aktuelle persönliche ADE-PID 50460, sechs Agenten und sechs Repository-Identitäten
+erhalten; fünf davon in Meine ADE Projekte. `2D_rpg_jumpnrun` ausdrücklich aus
+dieser Auswahl entfernt, kein Projektordner gelöscht. RhinoSheetMetal bleibt
+enthalten. Main-SHA256:
+`A1046630B7754CD0CC66FF1D22E90D4C2936ED2273679A60F8C16C2367E69495`.
+
+Sarah (weiblich) über produktive Stimmenwahl gespeichert. Der echte ElevenLabs-
+Stimmtest in Settings endet nach 7,523 Sekunden ohne Playerfehler. Main Chef
+erhielt das angehängte Originalbild, LayoutTool_FrontendDesigner das neu mit
+`image_gen` erzeugte Porträt. Beide Bilder über `ade-photo` geladen; Vergleich
+mit Profilbackup bestätigt bei den Agenten ausschließlich Änderungen am Foto.
+Die Tablet-HTTPS-Seite liefert HTTP 200 und den passenden Assetnamen
+`/assets/index-oE1eKIpN.js`. Browser/Tablet zum Übernehmen neu laden.
+
+Die letzte Auswahlkorrektur erfolgte mit einer zweiten kurzen Aktivierung;
+vorher waren nachweislich keine Terminal-Kindprozesse aktiv. Beide Launcher
+führen ihre persönlichen Mutationen nur einmal aus. Keine Debugging-Listener.
+Lokale Nachweise: `speech-projects-restart.json`, `speech-projects-activation.json`,
+`speech-projects-membership-activation.json`, `speech-projects-active.png`.
+Gezielte Projekt-CLI-Abnahme: 28 Checks grün. Vollständiger erneuter Lauf unter
+`test-results/speech-projects-verify-final.log` am Terminal-Fixture beendet; kein Gesamterfolg
+behauptet. Umfang und abschließende Ergebnisse: [VOICE_PROJECTS_RESULTS.md](VOICE_PROJECTS_RESULTS.md).
+
 ## ElevenLabs-Hörtest ausgeführt (13. September 2026, 22:43 Uhr)
 
 Persönliche ADE-Instanz aus dem zuletzt dokumentierten Tablet-Build geöffnet

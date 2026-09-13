@@ -46,6 +46,8 @@ export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home' |
 export interface Repository {
   /** Missing on older catalogs means included. False hides it from My ADE Projects only. */
   inMyProjects?: boolean;
+  /** Optional project voice; absent inherits the ADE default. */
+  speechVoiceId?: string;
   id: string;
   name: string;
   /** Canonical main-worktree root chosen for new ADE worktrees. */
@@ -147,6 +149,8 @@ export interface Agent {
   categoryId: string;
   name: string;
   role?: string;
+  /** Optional voice override; absent inherits the project and ADE default. */
+  speechVoiceId?: string;
   /** photos/<file> under userData */
   photo?: string;
   runtime: RuntimeId;

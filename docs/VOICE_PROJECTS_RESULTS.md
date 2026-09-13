@@ -1,7 +1,7 @@
 # Stimmen, Projektauswahl und kompakte Terminalbedienung
 
-13. September 2026, native Windows-Entwicklung. Vollständige Abnahme und
-persönliche Aktivierung werden nach Abschluss unten ergänzt.
+13. September 2026, native Windows-Entwicklung. Persönliche Aktivierung
+ab 23:45 Uhr auf Benutzerwunsch; vollständige erneute Abnahme noch laufend.
 
 ## Umsetzung
 
@@ -31,7 +31,10 @@ persönliche Aktivierung werden nach Abschluss unten ergänzt.
 | Echte Electron-Speech-UI | 10 bestanden; Netzwerk deterministisch ersetzt, gültige stille MP3 wird durch echte CSP abgespielt |
 | ProjectWorkspaceService | 45 bestanden; Auswahl persistiert und erhält Dateien/Workspace |
 | Signed Project Directory/Membership API | 36 bestanden; Scope, ausgewählte Ressourcen, Bearer, Idempotenz und Widerruf negativ geprüft |
+| Projekt-CLI in echtem Electron/Browser | 28 bestanden; einklappen schafft Terminalfläche, Tastatur/Fokus/Phone, Branches und Rückkehr zur Sitzung |
 | Reale native Codex-Kontoabfrage | 16 % verbraucht, 84 % übrig, ein 7-Tage-Fenster mit Reset-Zeitpunkt; zeitgebundene Beobachtung |
+| Persönlicher ElevenLabs-Test | Sarah (weiblich) gespeichert; deutsche Ausgabe in Produkt-UI nach 7,523 Sekunden vollständig abgespielt |
+| Persönliche Profilbilder und Projektauswahl | Beide Bilder geladen; Agent-Differenz ausschließlich Foto; Jumpnrun-Auswahl entfernt, sechs Repository-Identitäten erhalten |
 
 Die stille MP3-Fixture wurde lokal mit FFmpeg aus `anullsrc` erzeugt (0,3 s,
 22050 Hz, mono, MP3 32 kbit/s); kein aufgezeichneter Benutzerinhalt.
@@ -65,6 +68,23 @@ Lokale Logs: `test-results/speech-focused.log`, `speech-electron.log`,
 `codex-account-probe.json`.
 
 ## Nächste Schritte
+
+Mobile-Ausbau vom 14. September: Stimmenvererbung 23 Checks, Browser-Sprachfluss
+28 Checks, Profilbild-/Workbench-Browserfluss 43 Checks bestanden. Der Sprach-
+Browserlauf spielt eine echte MP3 mit simuliertem Provider ab und verliert
+gezielt eine bereits ausgeführte Testantwort: Reload und Wiederaufnahme
+erzeugen kein zweites Audio. Gerätebeweis, Ressourcenbegrenzung, persistente
+Auswahl, Schlüsseltrennung, Smartphone-Breite und Fokus werden geprüft.
+Die Testproxy-DNS-Auflösung wurde für Playwrights serverseitiges `route.fetch`
+explizit auf Loopback geführt; Browser-DNS-Regeln gelten dort nicht.
+Zusätzlich 48 Projekt-Workspace-Prüfungen bestanden. Der neue Browser-Projekttest
+deckte eine Konkurrenz zwischen Stimmenänderung und laufender Git-Identitäts-
+abfrage auf: reine Stimmen-/Auswahlmetadaten dürfen den Workspace nicht
+invalidieren. Ein gezielter negativer Test weist nach, dass eine währenddessen
+geänderte Repository-Verifikation weiterhin abgewiesen wird; anschließender
+positiver Kontrolllauf besteht. Der erste Gesamtlauf bestand 52 Suiten/2.480
+Checks, stoppte an diesem neuen Browsertest. Erneute Gesamtabnahme:
+`test-results/mobile-voice-verify-final.log`, noch offen.
 
 [Goals 23–25 und Multi-Host-Abfolge](VOICE_USAGE_TERMINAL_PLAN.md),
 [Main Chef / Goal 26](MAIN_CHEF_COORDINATION_PLAN.md).
