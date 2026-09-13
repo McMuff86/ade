@@ -66,7 +66,8 @@ import { SessionLaunchService, type InteractiveLaunchSettings } from './SessionL
 import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
-import type { MobileWorkspaceSelection, SessionLaunchChoice } from '../../shared/remote';
+import type { MobileTerminalSelection, SessionLaunchChoice } from '../../shared/remote';
+import { terminalHome } from './terminalHome';
 import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
 import {
   closeInteractiveBookend,
@@ -167,7 +168,7 @@ export class PtyManager {
   private readonly scopes: RepositoryScopePort;
 
   /** Dedicated interactive launcher: configured agent or plain shell, never a task. */
-  sessionOptions(selection: MobileWorkspaceSelection) {
+  sessionOptions(selection: MobileTerminalSelection) {
     return new SessionLaunchService(this.store, this.execution).options(selection);
   }
 
@@ -378,6 +379,20 @@ export class PtyManager {
     };
   }
 
+  async createHomeInteractive(choice: SessionLaunchChoice, authorize: () => void = () => undefined): Promise<SessionMeta> {
+    return workspaceOperations.use(async () => {
+      authorize();
+      if (choice.mode === 'agent') throw new Error('ade: Für ein Agent-Profil dessen Workspace auswählen.');
+      const home = terminalHome();
+      const revalidate = async () => {
+        if (JSON.stringify(terminalHome()) !== JSON.stringify(home)) throw new Error('ade: Benutzerverzeichnis wurde geändert.');
+        authorize();
+      };
+      return this.spawn(undefined, { ...home, source: 'terminal-home', branch: '' }, undefined, undefined, choice,
+        { settings: { name: 'Freies Terminal', runtime: 'shell', permissionMode: 'default' }, revalidate }, authorize);
+    });
+  }
+
   async createProjectInteractive(workspaceId: string, expectedBranch: string, choice: SessionLaunchChoice,
     profileId?: string, assertAuthorized: () => void = () => undefined): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
@@ -449,7 +464,7 @@ export class PtyManager {
     task?: { task: string; dispatchId?: string; runTaskId?: string; lease: TaskLease },
     login?: { command: string; title: string },
     launchChoice?: SessionLaunchChoice,
-    project?: { workspaceId: string; profileId?: string; settings: InteractiveLaunchSettings; revalidate(): Promise<void> },
+    project?: { workspaceId?: string; profileId?: string; settings: InteractiveLaunchSettings; revalidate(): Promise<void> },
     authorize: () => void = () => undefined,
   ): Promise<SessionMeta> {
     const savedAgent = agentId ? this.requireAgent(agentId) : undefined; const before = JSON.stringify(savedAgent);

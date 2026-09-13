@@ -8,7 +8,7 @@
 import { useState, type JSX } from 'react';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
-import { useSessions } from '../stores/sessions';
+import { useSessions, TERMINAL_HOME_GROUP } from '../stores/sessions';
 import { useSessionLaunch } from '../stores/sessionLaunch';
 import { SHORTCUTS } from '../keyboard/useSessionShortcuts';
 import { sessionStateLabel } from '../../shared/sessionState';
@@ -18,15 +18,14 @@ export function TabStrip(): JSX.Element | null {
   const agentId = useSelection((s) => s.selectedAgentId);
   const agent = useAppData((s) => (agentId ? s.agents[agentId] : undefined));
   const sessions = useSessions((s) => s.sessions);
-  const order = useSessions((s) => (agentId ? s.orderByAgent[agentId] : undefined));
-  const active = useSessions((s) => (agentId ? s.activeByAgent[agentId] : null));
+  const group = agentId ?? TERMINAL_HOME_GROUP;
+  const order = useSessions((s) => s.orderByAgent[group]);
+  const active = useSessions((s) => s.activeByAgent[group]);
   const openLaunch = useSessionLaunch((s) => s.open);
   const closeSession = useSessions((s) => s.closeSession);
   const setActive = useSessions((s) => s.setActive);
   const [dashboardBusy, setDashboardBusy] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
-
-  if (!agentId) return null;
 
   const hasDashboard = Boolean(agent?.dashboardCommand?.trim() || agent?.dashboardUrl?.trim());
   const openDashboard = async (): Promise<void> => {
@@ -34,7 +33,7 @@ export function TabStrip(): JSX.Element | null {
     setDashboardBusy(true);
     setDashboardError(null);
     try {
-      await window.ade.invoke('agent:openDashboard', { agentId });
+      await window.ade.invoke('agent:openDashboard', { agentId: agentId! });
     } catch (error) {
       console.error('[ade] open dashboard failed:', error);
       setDashboardError(error instanceof Error ? error.message : String(error));
@@ -45,7 +44,7 @@ export function TabStrip(): JSX.Element | null {
 
   const sessionIds = order ?? [];
   const activateAndFocus = (id: string): void => {
-    setActive(agentId, id);
+    setActive(group, id);
     requestAnimationFrame(() => document.getElementById(`session-tab-${id}`)?.focus());
   };
 
@@ -68,7 +67,7 @@ export function TabStrip(): JSX.Element | null {
               aria-label={stateLabel}
               className="tab-select"
               tabIndex={isActive ? 0 : -1}
-              onClick={() => setActive(agentId, id)}
+              onClick={() => setActive(group, id)}
               onKeyDown={(event) => {
                 let index: number | null = null;
                 if (event.key === 'ArrowLeft') index = (sessionIds.indexOf(id) - 1 + sessionIds.length) % sessionIds.length;

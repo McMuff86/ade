@@ -1,0 +1,19 @@
+.integration-review { min-width: 0; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.integration-review h3, .integration-review h4 { margin: 16px 0 8px; }
+.integration-review label { display: grid; gap: 6px; margin: 10px 0; }
+.integration-review input:not([type="checkbox"]), .integration-review select { width: 100%; min-width: 0; max-width: 100%; padding: 9px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.integration-review button { min-height: 36px; white-space: normal; overflow-wrap: anywhere; }
+.integration-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.integration-review fieldset { min-width: 0; border: 1px solid var(--line); padding: 10px; }
+.integration-files, .integration-reviews { list-style: none; padding: 0; margin: 8px 0; }
+.integration-files li { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.integration-files label, .integration-review .integration-confirm { display: flex; align-items: flex-start; gap: 9px; }
+.integration-files label input, .integration-confirm input { flex: 0 0 auto; margin-top: 4px; width: 18px; height: 18px; }
+.integration-files p { margin: 4px 0; }
+.integration-files > li > span { color: var(--muted); }
+.integration-review pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 12px; }
+.integration-diff { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.integration-notice { border-left: 3px solid var(--accent); padding: 8px 8px 8px 22px; }
+.integration-error { color: var(--del, #f28b82); }
+.integration-review :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 700px) { .integration-diff { grid-template-columns: 1fr; } .integration-review button { min-height: 44px; } }

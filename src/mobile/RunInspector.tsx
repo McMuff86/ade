@@ -44,7 +44,10 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
       onClick={() => onSend({ path: `/api/v1/runs/${run.id}/start`, key: crypto.randomUUID() })}>Run starten</button>}
       {run.status !== 'draft' && !finalStates.has(run.status) && <button className="m-danger" disabled={!host.canSubmit} onClick={() => {
         if (window.confirm('Diesen Run abbrechen? Bereits erstellte Arbeit bleibt in ADE erhalten.')) onSend({ path: `/api/v1/runs/${run.id}/cancel`, key: crypto.randomUUID() });
-      }}>Run abbrechen</button>}</div>
-    <p className="m-field-note">Freigaben und Integration werden weiterhin im ADE-Desktop bearbeitet.</p>
+      }}>Run abbrechen</button>}
+      {finalStates.has(run.status) && <button type="button" className="m-danger" disabled={!host.canSubmit} onClick={() => {
+        if (window.confirm('Diesen Run und seinen Verlauf endgültig löschen? Projektdateien und Workspaces bleiben erhalten.')) onSend({ path: `/api/v1/runs/${run.id}/delete`, key: crypto.randomUUID() });
+      }}>Run löschen</button>}</div>
+    <p className="m-field-note">Runs mit einem Veröffentlichungsnachweis bleiben erhalten. Änderungen aus Workspaces kannst du unter Verwalten → Repository synchronisieren übernehmen.</p>
   </div>;
 }

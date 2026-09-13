@@ -7,6 +7,7 @@
  */
 
 import { app } from 'electron';
+import { navigationGroup } from '../shared/categoryNavigation';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, posix } from 'node:path';
@@ -81,6 +82,7 @@ export async function createCategory(
     defaultRepositoryId,
     agents: [],
     kind: input.kind,
+    navigationGroup: navigationGroup(input.navigationGroup),
   };
   store.save({ categories: [...config.categories, category] });
   return category;
@@ -97,6 +99,7 @@ export function updateCategory(store: IdentityConfigPort, input: CategoryUpdateI
     ...existing,
     name,
     photo: input.photo === undefined ? existing.photo : (input.photo || undefined),
+    navigationGroup: input.navigationGroup === undefined ? existing.navigationGroup : navigationGroup(input.navigationGroup),
   };
   store.save({
     categories: config.categories.map((candidate) =>
@@ -162,6 +165,7 @@ export function deleteCategory(store: IdentityConfigPort, id: string): void {
     categories: config.categories.filter((c) => c.id !== id),
     agents: config.agents.filter((a) => a.categoryId !== id),
     workspaceBindings: config.workspaceBindings.filter((binding) => !removedAgentIds.has(binding.agentId)),
+    workspaceAssignments: config.workspaceAssignments.filter((item) => !removedAgentIds.has(item.agentId)),
   });
 }
 
@@ -249,6 +253,7 @@ export async function createAgent(
       )),
       agents: latest.agents.filter((candidate) => candidate.id !== agent.id),
       workspaceBindings: latest.workspaceBindings.filter((binding) => binding.agentId !== agent.id),
+      workspaceAssignments: latest.workspaceAssignments.filter((item) => item.agentId !== agent.id),
     });
     throw error;
   }
@@ -385,6 +390,7 @@ export function deleteAgent(store: IdentityConfigPort, id: string): void {
     })),
     agents: config.agents.filter((a) => a.id !== id),
     workspaceBindings: config.workspaceBindings.filter((binding) => binding.agentId !== id),
+    workspaceAssignments: config.workspaceAssignments.filter((item) => item.agentId !== id),
   });
 }
 

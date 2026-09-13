@@ -62,6 +62,7 @@ export interface MobileRepositorySummary {
 
 export interface MobileAgentSummary {
   id: string;
+  categoryId?: string;
   name: string;
   role?: string;
   runtime: RuntimeId;
@@ -77,7 +78,7 @@ export interface MobileCatalog {
   projectStart?: { configured: boolean; agentId?: string };
   repositories: MobileRepositorySummary[];
   agents: MobileAgentSummary[];
-  categories?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string; navigationGroup?: string }>;
   agentSources?: Array<{ id: string; kind: 'agent' | 'template' | 'runtime'; name: string; runtime: RuntimeId }>;
 }
 
@@ -88,7 +89,57 @@ export interface MobileAgentCreateInput {
 }
 export interface MobileProjectCreateInput { name: string }
 export interface MobileWorkspacePrepareInput { agentId: string; repositoryId: string }
+/** Persistent selection for the mobile agent's interactive files/terminal view. */
+export interface WorkspaceAssignment extends MobileWorkspacePrepareInput { projectWorkspaceId: string }
+export interface WorkspaceAssignmentCandidate {
+  id: string; name: string; branch: string; kind: 'checkout' | 'worktree' | 'ade';
+  current: boolean; available: boolean; notice: string | null;
+}
+export interface WorkspaceAssignmentView {
+  repositoryId: string;
+  selection: MobileWorkspaceSelection; branch: string; label: string;
+  candidates: WorkspaceAssignmentCandidate[]; notice: string | null;
+}
+export type WorkspaceAssignmentQuery = (MobileWorkspacePrepareInput & ({ operation: 'overview' } | { operation: 'preview'; candidateId: string }))
+  | { operation: 'project-preview'; agentId: string; entryId: string };
+export interface WorkspaceAssignmentPreview { id: string; candidate: WorkspaceAssignmentCandidate; checks: string[]; blockers: string[]; expiresAt: number }
+export interface WorkspaceAssignmentResult { view: WorkspaceAssignmentView; preview?: WorkspaceAssignmentPreview; replayed?: boolean }
+export interface WorkspaceAssignmentCommand { agentId: string; previewId: string }
+
+/** Reviewed transfer of old workspace work into a separate native integration copy. */
+export interface IntegrationSource { id: string; name: string; branch: string }
+export interface IntegrationFile {
+  path: string; kind: 'new' | 'modified' | 'deleted'; local: boolean;
+  assessment: 'present' | 'direct' | 'review'; selectable: boolean; suggested: boolean; notice: string | null;
+}
+export interface IntegrationPreview {
+  id: string; repositoryId: string; projectName: string; sourceId: string; sourceName: string;
+  sourceBranch: string; sourceHead: string; targetBranch: string; targetHead: string;
+  ownCommits: number; behind: number; files: IntegrationFile[]; blockers: string[]; expiresAt: number;
+}
+export interface IntegrationCheck { label: string; status: 'pending' | 'running' | 'passed' | 'failed'; output: string; exitCode: number | null }
+export interface IntegrationDiff { path: string; base: string; source: string; target: string; limited: boolean }
+export interface IntegrationReport {
+  id: string; repositoryId: string; projectName: string; sourceName: string; sourceHead: string;
+  targetBranch: string; targetHead: string; branch: string; workspaceId: string | null;
+  phase: 'preparing' | 'review' | 'testing' | 'ready' | 'integrated' | 'interrupted';
+  files: Array<{ path: string; conflict: boolean }>; blockers: string[];
+  checks: IntegrationCheck[]; checkNotice: string; tested: boolean; revision: string;
+  createdAt: number; integratedCommit: string | null;
+}
+export type IntegrationQuery = { operation: 'sources'; repositoryId: string }
+  | { operation: 'diff'; previewId: string; path: string }
+  | { operation: 'preview'; repositoryId: string; sourceId: string }
+  | { operation: 'report'; integrationId: string };
+export type IntegrationCommand = { operation: 'prepare'; previewId: string; paths: string[] }
+  | { operation: 'test'; integrationId: string }
+  | { operation: 'integrate'; integrationId: string; revision: string; message: string };
+export interface IntegrationResult {
+  sources?: IntegrationSource[]; reviews?: Array<{ id: string; sourceName: string; phase: IntegrationReport['phase'] }>;
+  preview?: IntegrationPreview; report?: IntegrationReport; diff?: IntegrationDiff; replayed?: boolean;
+}
 export type MobileAdminCommand =
+  | { operation: 'category-group'; input: { categoryId: string; navigationGroup: string | null } }
   | { operation: 'agent-create'; input: MobileAgentCreateInput }
   | { operation: 'project-create'; input: MobileProjectCreateInput }
   | { operation: 'workspace-prepare'; input: MobileWorkspacePrepareInput }
@@ -148,8 +199,11 @@ export type { ProjectPublishAction, ProjectPublishStatus, ProjectPublishPreview,
 export type MobileWorkspaceSelection =
   | { agentId: string; repositoryId: string | null; projectWorkspaceId?: never }
   | { projectWorkspaceId: string; agentId?: never; repositoryId?: never };
+/** Native host home is a terminal-only scope; file/workspace APIs do not accept it. */
+export type MobileTerminalSelection = (MobileWorkspaceSelection & { terminalHome?: never })
+  | { terminalHome: true; agentId?: never; repositoryId?: never; projectWorkspaceId?: never };
 export type SessionLaunchChoice = { mode: 'shell' | 'agent' | 'codex' | 'claude' | 'grok' | 'hermes' } | { mode: 'ollama'; model: string };
-export type SessionLaunchRequest = MobileWorkspaceSelection & SessionLaunchChoice & { expectedBranch?: string; profileId?: string };
+export type SessionLaunchRequest = MobileTerminalSelection & SessionLaunchChoice & { expectedBranch?: string; profileId?: string };
 export interface SessionLaunchOptions {
   environment: string;
   choices: Array<{ mode: SessionLaunchChoice['mode']; available: boolean; notice: string | null }>;
@@ -164,7 +218,7 @@ export interface MobileTerminalSummary {
   launchProfileName?: string;
   branch?: string;
 }
-export type MobileRecentSession = MobileTerminalSummary & MobileWorkspaceSelection & { createdAt: number; projectName?: string };
+export type MobileRecentSession = MobileTerminalSummary & MobileTerminalSelection & { createdAt: number; projectName?: string };
 export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
 
 /** Read-only observations, with output separate from the run summary. No PTY ids. */
@@ -196,12 +250,12 @@ export interface MobileTerminalState {
 }
 /** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
 export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
-export type MobileTerminalQuery = MobileWorkspaceSelection & { terminalId?: string; options?: true };
-export type MobileTerminalCommand = MobileWorkspaceSelection & (
+export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true };
+export type MobileTerminalCommand = MobileTerminalSelection & (
   | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }
 );
-export type MobileTerminalInput = MobileWorkspaceSelection & {
+export type MobileTerminalInput = MobileTerminalSelection & {
   terminalId: string; leaseId: string; sequence: number; data: string; cols: number; rows: number;
 };
 export type MobileWorkspaceOperation =
@@ -332,6 +386,9 @@ export interface MobileCommandResult {
   /** True when the idempotency key replayed an already-recorded outcome. */
   replayed: boolean;
 }
+
+/** Deletion receipts outlive the run and contain no run contents. */
+export interface MobileRunDeleteResult { runId: string; deleted: true; replayed: boolean }
 
 export type MobileRunQuestions = import('./runQuestions').RunQuestionsView;
 export type MobileRunAnswerInput = Omit<import('./runQuestions').RunQuestionAnswerInput, 'runId' | 'commandId'>;

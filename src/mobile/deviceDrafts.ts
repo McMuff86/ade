@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
-import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
+import { validProjectLaunch, validSessionChoice, validTerminalSelection } from '../shared/sessionLaunch';
 import { validProjectBranchAction } from '../shared/projectBranches';
 import { validProjectGitAction, validProjectGitPath } from '../shared/projectGit';
 import { validProjectPublishPreview } from '../shared/projectPublish';
+import { validAssignmentRequest } from '../shared/workspaceAssignments';
+import { validIntegrationCommand } from '../shared/integrationRequests';
 
 const PREFIX = 'ade-work:';
 const MAX_BYTES = 128 * 1024;
@@ -11,9 +13,18 @@ const MAX_ITEMS = 24;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, max = 128): value is string => typeof value === 'string' && value.length <= max;
 function recovery(key: string, value: unknown): boolean {
+  if (key.startsWith('integration:')) return value !== null;
+  if (key.startsWith('workspace-assignment:')) return value !== null;
   return value !== null && (key === 'project-opening' || key === 'project-start' || key.startsWith('project-publish:') || key.startsWith('project-git:') || key.startsWith('project-file:') || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'pending-task' || key.startsWith('terminal-command:') || object(value) && value.review === true);
 }
 function valid(key: string, value: unknown): boolean {
+  if (key.startsWith('integration:')) return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key) && validIntegrationCommand(value.command);
+  if (key.startsWith('workspace-assignment:')) return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key)
+    && validAssignmentRequest(value.command, true) && value.command.agentId === key.slice('workspace-assignment:'.length);
+  if (key === 'terminal-font-size') return typeof value === 'number' && [12, 14, 16, 18, 20].includes(value);
+  if (key === 'terminal-target') return object(value) && validTerminalSelection(value)
+    && (value.terminalId === undefined || text(value.terminalId))
+    && (value.expectedBranch === undefined || text(value.expectedBranch, 200));
   if (value === null) return key === 'project-opening' || key === 'project-selected' || key === 'open-project' || key.startsWith('project-publish:') || key.startsWith('project-git:') || key.startsWith('project-file:') || key.startsWith('project-branch:') || key.startsWith('project-workspace:') || key === 'project-start' || key === 'pending-task' || key === 'last-workspace' || key.startsWith('terminal-command:');
   if (key === 'project-selected') return text(value, 36) && /^[a-f0-9-]{36}$/.test(value);
   if (key === 'open-project') return text(value);
@@ -46,11 +57,11 @@ function valid(key: string, value: unknown): boolean {
     && (value.projectWorkspaceId === undefined || text(value.projectWorkspaceId, 36) && /^[a-f0-9-]{36}$/.test(value.projectWorkspaceId))
     && (value.terminalId === undefined || text(value.terminalId));
   if (key.startsWith('terminal-command:')) return text(value.key, 64) && object(value.command)
-    && validWorkspaceSelection(value.command)
+    && validTerminalSelection(value.command)
     && (!value.command.projectWorkspaceId || value.command.operation !== 'open' || validSessionChoice(value.command) && validProjectLaunch(value.command))
     && ['open', 'claim', 'release', 'close'].includes(String(value.command.operation));
   if (key === 'pending-task') return text(value.key, 64) && text(value.path, 200)
-    && /^\/api\/v1\/(tasks|runs(?:\/[A-Za-z0-9_.:-]+\/(start|cancel))?)$/.test(value.path);
+    && /^\/api\/v1\/(tasks|runs(?:\/[A-Za-z0-9_.:-]+\/(start|cancel|delete))?)$/.test(value.path);
   if (key === 'task-drafts') return text(value.active, 300) && object(value.drafts) && Object.hasOwn(value.drafts, value.active)
     && Object.keys(value.drafts).length <= 200 && Object.values(value.drafts).every((draft) => object(draft)
       && ['task', 'run'].includes(String(draft.mode)) && text(draft.repositoryId) && Array.isArray(draft.agentIds) && draft.agentIds.every((id) => text(id))
@@ -80,6 +91,8 @@ export function writeDeviceDraft(deviceId: string | null, key: string, value: un
     const keys = Object.keys(localStorage).filter((item) => item.startsWith(`${PREFIX}${deviceId}:`) && item !== storageKey);
     if (keys.length >= MAX_ITEMS) {
       const oldest = keys.filter((item) => {
+        if (item.includes(':integration:')) return false;
+        if (item.includes(':workspace-assignment:')) return false;
         if (item.endsWith(':project-opening') || item.endsWith(':project-start') || item.includes(':project-publish:') || item.includes(':project-git:') || item.includes(':project-file:') || item.includes(':project-branch:') || item.includes(':project-workspace:') || item.endsWith(':pending-task') || item.includes(':terminal-command:')) return false;
         try { return JSON.parse(localStorage.getItem(item)!).value?.review !== true; } catch { return true; }
       }).sort((a, b) => {

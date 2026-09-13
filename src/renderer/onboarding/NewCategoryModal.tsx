@@ -1,3 +1,4 @@
+import { NavigationGroupField } from './NavigationGroupField';
 /**
  * New-category modal — name + optional profile photo. A category groups agents
  * around one thing you work on (a channel, a repo, a book).
@@ -17,6 +18,7 @@ interface NewCategoryModalProps {
 export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps): React.ReactElement {
   const createCategory = useAppData((s) => s.createCategory);
   const [name, setName] = useState('');
+  const [group, setGroup] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
   const [repoPath, setRepoPath] = useState<string | undefined>(undefined);
   const [repoError, setRepoError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
     if (!canCreate) return;
     setBusy(true);
     try {
-      const category = await createCategory({ name: name.trim(), photo, repoPath });
+      const category = await createCategory({ name: name.trim(), photo, repoPath, navigationGroup: group.trim() || undefined });
       onCreated?.(category.id);
       onClose();
     } catch (err) {
@@ -108,6 +110,7 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
         ) : null}
       </div>
 
+      <NavigationGroupField value={group} onChange={setGroup} disabled={busy} />
       <div className="modal-actions">
         <button type="button" className="btn" onClick={onClose}>
           Cancel

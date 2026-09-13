@@ -1,5 +1,44 @@
 # ADE — aktuelle Übergabe
 
+
+## Abnahme: Terminals, Übernahme und Obergruppen (13. September 2026)
+
+Freie Terminals, CLI-Auswahl, Projektbrowser und geprüfte Workspace-Zuweisung
+sind auf Desktop/Mobile umgesetzt. Dazu kommen die geprüfte Übernahme älterer
+Änderungen, optionale Agent-Obergruppen und das Löschen abgeschlossener Runs auf
+Mobile. Vollständiges `pnpm verify`: **3.018 Checks bestanden** — 48 fokussierte
+Suiten mit 2.329 Checks und 689 reale Electron-/Browser-Prüfungen, einschliesslich
+22 visueller Vergleiche. Alle drei TypeScript-Projekte und Produktionsbuild bestehen.
+RhinoLayoutTools enthält die in Rhino 8/9 geprüfte FastenerPlace-Palette auf
+`main`, nach `origin/main` gepusht als `5c4b820`.
+ADE-Commit/Push, persönliche Gruppenzuweisung und Neustart folgen auf diese Abnahme.
+[Übernahme-Vertrag](WORKSPACE_INTEGRATION.md) · [Teilziele und Evidenz](INTEGRATION_NAVIGATION_GOALS.md).
+
+## Projekte durchsuchen und Workspace-Zuweisung (12. September 2026)
+
+Projektbrowser und geprüfte Workspace-Zuweisung sind umgesetzt; `pnpm verify`
+besteht mit **2.880 Checks**. Seit 14:21 Uhr Europe/Zurich läuft genau eine
+persönliche ADE-Instanz, PID **50028**, aus
+`test-results/operator-assignment-20260912-142106-cbc4d4d1-verified`.
+Der vorherige Prozess 59616 wurde geschlossen. Sechs Agenten, fünf Projekte und
+die Gerätekopplung sind erhalten; HTTPS liefert die geprüften Mobile-Dateien.
+Mobile neu laden, dann **Terminals → Projekt → Projekte durchsuchen…**.
+Es wurde kein persönliches Projekt automatisch neu zugewiesen.
+Dieser Start ersetzt die darunter dokumentierten früheren Operatorzustände.
+[Umsetzung und Nachweise](WORKSPACE_ASSIGNMENT.md).
+
+## Freie Terminals und Mobile-Terminalansicht (12. September 2026)
+
+Freie native Home-Terminals und der mobile Reiter **Terminals** sind umgesetzt;
+`pnpm verify` besteht mit **2.828 Checks**. Genau eine persönliche ADE-Instanz
+läuft seit 11:27 Uhr Europe/Zurich, PID **59616**, aus
+`test-results/operator-terminal-20260912-112753-efe52dfc-verified`.
+Sechs Agenten, fünf Projekte und die gespeicherte Gerätekopplung sind erhalten;
+private HTTPS-Auslieferung stimmt bytegenau mit dem geprüften Build überein.
+Mobile neu laden und **Terminals → Terminal öffnen** wählen.
+[Verträge und abschliessende Evidenz](TERMINAL_WORKSPACE.md).
+Dieser Start ersetzt den unten dokumentierten früheren Operatorzustand.
+
 ## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
 
 Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie

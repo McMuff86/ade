@@ -1,5 +1,33 @@
 # ADE delivery roadmap
 
+
+## Abnahme: Terminals, Übernahme und Obergruppen (13. September 2026)
+
+Freie Terminals, CLI-Auswahl, Projektbrowser und geprüfte Workspace-Zuweisung
+sind auf Desktop/Mobile umgesetzt. Dazu kommen die geprüfte Übernahme älterer
+Änderungen, optionale Agent-Obergruppen und das Löschen abgeschlossener Runs auf
+Mobile. Vollständiges `pnpm verify`: **3.018 Checks bestanden** — 48 fokussierte
+Suiten mit 2.329 Checks und 689 reale Electron-/Browser-Prüfungen, einschliesslich
+22 visueller Vergleiche. Alle drei TypeScript-Projekte und Produktionsbuild bestehen.
+RhinoLayoutTools enthält die in Rhino 8/9 geprüfte FastenerPlace-Palette auf
+`main`, nach `origin/main` gepusht als `5c4b820`.
+ADE-Commit/Push, persönliche Gruppenzuweisung und Neustart folgen auf diese Abnahme.
+[Übernahme-Vertrag](WORKSPACE_INTEGRATION.md) · [Teilziele und Evidenz](INTEGRATION_NAVIGATION_GOALS.md).
+
+## Projekte durchsuchen und Workspace-Zuweisung (12. September 2026)
+
+Mobiler Projektbrowser mit Vorschau und bestätigter Workspace-Zuweisung ist
+implementiert und unter Windows mit **2.880 Checks** vollständig abgenommen.
+Genau eine persönliche ADE-Instanz wurde mit dem geprüften Stand neu gestartet.
+[Workspace assignment](WORKSPACE_ASSIGNMENT.md).
+
+## Freie Terminals und Mobile-Terminalansicht (12. September 2026)
+
+Aktuelle Ergänzung: direkte native Home-Terminals ohne Agent/Projekt und ein
+eigener Mobile-Reiter mit Agent-/Sitzungsnavigation, CLI-Auswahl und Darstellung.
+Native Windows-Abnahme mit **2.828 Checks** und Start genau einer geprüften
+ADE-Instanz abgeschlossen. Siehe [Terminal workspace](TERMINAL_WORKSPACE.md).
+
 ## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
 
 Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie

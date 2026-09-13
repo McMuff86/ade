@@ -1,3 +1,4 @@
+import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
 import type { RunQuestionService } from '../orchestration/RunQuestionService';
 import { createHash } from 'node:crypto';
@@ -57,6 +58,12 @@ import type { ProjectGitService } from '../repositories/ProjectGitService';
 import type { ProjectPublishService } from '../repositories/ProjectPublishService';
 import type { ProjectWorkspaceCommandResult, ProjectWorkspaceQueryResult } from '../../shared/remote';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../../shared/projectWorkspaceRequests';
+import type { WorkspaceAssignmentService } from './WorkspaceAssignmentService';
+import { validAssignmentRequest } from '../../shared/workspaceAssignments';
+import type { WorkspaceAssignmentResult } from '../../shared/remote';
+import type { IntegrationResult } from '../../shared/remote';
+import type { IntegrationService } from '../repositories/IntegrationService';
+import { validIntegrationCommand, validIntegrationQuery } from '../../shared/integrationRequests';
 
 export interface ApplicationConfigPort {
   get(): AdeConfig;
@@ -108,6 +115,10 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  deleteCompletedRun?: (runId: string) => Promise<void>;
+  integration?: IntegrationService;
+  catalogChanged?: () => void;
+  assignments?: WorkspaceAssignmentService;
   resourceAccess?: (deviceId: string) => DeviceResourceAccess;
   questions?: RunQuestionService;
   projects?: ProjectWorkspaceService;
@@ -270,6 +281,62 @@ export class AdeApplicationService {
     });
     this.resources.assertSelection(context.principal, input);
     return { ...receipt.value, replayed: receipt.replayed };
+  }
+
+  async workspaceAssignment(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<WorkspaceAssignmentResult> {
+    const ledger = this.options.administration?.ledger; const assignments = this.options.assignments;
+    if (!ledger || !assignments) throw new RemoteApiError(404, 'not_found');
+    if (!validAssignmentRequest(payload, command)) throw new RemoteApiError(400, 'invalid_payload');
+    const readAccess = () => {
+      if (!command && 'operation' in payload && payload.operation === 'overview') {
+        try { ledger.permits(context, 'workspace:read'); } catch { ledger.permits(context, 'terminal:control'); }
+      } else ledger.permits(context, 'workspace:read');
+    };
+    const authorize = (repositoryId?: string) => {
+      readAccess(); if (command || 'operation' in payload && payload.operation !== 'overview') ledger.permits(context, 'catalog:write');
+      this.resources.assertAgent(context.principal, payload.agentId);
+      if (repositoryId) this.resources.assertRepository(context.principal, repositoryId); else this.resources.assertAll(context.principal);
+    };
+    readAccess(); this.resources.assertAgent(context.principal, payload.agentId);
+    try {
+      if ('previewId' in payload) {
+        ledger.permits(context, 'catalog:write');
+        const result = await ledger.execute(context, 'workspace:assign', 'catalog:write', payload, () => {
+          const execute = () => assignments.confirm(payload.agentId, payload.previewId, context.principal.id, authorize);
+          return this.options.activity ? this.options.activity.use(execute) : execute();
+        });
+        authorize(result.value.view.repositoryId); return { ...result.value, replayed: result.replayed };
+      }
+      if (payload.operation === 'project-preview') return await assignments.previewProject(payload.agentId, payload.entryId, context.principal.id, authorize);
+      const selection = { agentId: payload.agentId, repositoryId: payload.repositoryId };
+      const check = () => authorize(payload.repositoryId);
+      return payload.operation === 'overview' ? await assignments.overview(selection, check)
+        : await assignments.preview(selection, payload.candidateId, context.principal.id, check);
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async integration(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<IntegrationResult> {
+    const ledger = this.options.administration?.ledger; const integration = this.options.integration;
+    if (!ledger || !integration) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      ledger.permits(context, 'workspace:read'); this.resources.assertAll(context.principal);
+      if (command) ledger.permits(context, 'repositories:write');
+    };
+    try {
+      authorize();
+      if (command) {
+        if (!validIntegrationCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+        const check = () => { authorize(); if (payload.operation === 'test') ledger.permits(context, 'terminal:control'); };
+        check();
+        const receipt = await ledger.execute(context, `integration:${payload.operation}`, 'repositories:write', payload, () => {
+          const execute = () => integration.command(payload, context.principal.id, check);
+          return this.options.activity ? this.options.activity.use(execute) : execute();
+        });
+        check(); return { ...receipt.value, replayed: receipt.replayed };
+      }
+      if (!validIntegrationQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+      const result = await integration.query(payload, context.principal.id, authorize); authorize(); return result;
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
   async queryProjects(context: RemoteCommandContext, payload: unknown): Promise<ProjectWorkspaceQueryResult> {
@@ -490,7 +557,9 @@ export class AdeApplicationService {
           return { git: projectGit(await admin.git.apply(command.input.previewId)) };
         }
         if (!admin.workspaces) throw new RemoteApiError(404, 'not_found');
-        return admin.workspaces.execute(command, () => { admin.ledger.permits(context, scope); authorizeResources(); });
+        const value = await admin.workspaces.execute(command, () => { admin.ledger.permits(context, scope); authorizeResources(); });
+        this.options.catalogChanged?.();
+        return value;
       };
       return this.options.activity ? this.options.activity.use(execute) : execute();
     });
@@ -537,7 +606,8 @@ export class AdeApplicationService {
     return this.resources.catalog(principal, {
       projectStart: { configured: !!config.settings.projectDefaults,
         ...(config.settings.projectDefaults?.agentId ? { agentId: config.settings.projectDefaults.agentId } : {}) },
-      categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160) })),
+      categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160),
+        ...(category.navigationGroup ? { navigationGroup: redactForWire(category.navigationGroup, 80) } : {}) })),
       agentSources: [
         { id: 'codex', kind: 'runtime' as const, name: 'Codex · neues Standardprofil', runtime: 'codex' as const },
         ...config.agents.map((agent) => ({ id: agent.id, kind: 'agent' as const, name: redactForWire(agent.name, 160), runtime: agent.runtime })),
@@ -550,7 +620,7 @@ export class AdeApplicationService {
         verified: repository.verified,
       })),
       agents: config.agents.map((agent) => ({
-        id: agent.id,
+        id: agent.id, categoryId: agent.categoryId,
         name: redactForWire(agent.name, 160),
         ...(agent.role ? { role: redactForWire(agent.role, 160) } : {}),
         runtime: agent.runtime,
@@ -652,6 +722,21 @@ export class AdeApplicationService {
       await commands.cancelRun(runId, commandId);
       return { runId };
     });
+  }
+
+  async deleteRun(context: RemoteCommandContext, runId: string): Promise<import('../../shared/remote').MobileRunDeleteResult> {
+    const ledger = this.options.administration?.ledger;
+    const remove = this.options.deleteCompletedRun;
+    if (!ledger || !remove) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => { ledger.permits(context, 'runs:write'); this.resources.assertAll(context.principal); };
+    authorize();
+    assertIpcPayload(IPC.RunDelete, { runId });
+    const receipt = await ledger.execute(context, IPC.RunDelete, 'runs:write', { runId }, async () => {
+      const execute = async () => { authorize(); await remove(runId); return { runId, deleted: true as const }; };
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    authorize();
+    return { ...receipt.value, replayed: receipt.replayed };
   }
 
   /**
@@ -991,6 +1076,10 @@ export function validateAdministration(payload: unknown): MobileAdminCommand {
   const request = requireRecord(payload, 'request'); requireKeys(request, ['operation', 'input'], 'request');
   const input = requireRecord(request.input, 'input');
   switch (request.operation) {
+    case 'category-group':
+      requireKeys(input, ['categoryId', 'navigationGroup'], 'input');
+      if (input.navigationGroup !== null && !validNavigationGroup(input.navigationGroup)) invalidPayload('invalid navigation group');
+      return { operation: 'category-group', input: { categoryId: requireId(input.categoryId, 'categoryId'), navigationGroup: input.navigationGroup as string | null } };
     case 'agent-create': {
       requireKeys(input, ['name', 'source', 'categoryId'], 'input');
       const source = requireRecord(input.source, 'source'); requireKeys(source, ['kind', 'id'], 'source');

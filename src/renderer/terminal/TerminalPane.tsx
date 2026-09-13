@@ -254,7 +254,7 @@ export function TerminalPane({
       if (term.cols > 0 && term.rows > 0) {
         window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows });
       }
-      term.focus();
+      if (!document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) term.focus();
     });
     return () => cancelAnimationFrame(raf);
   }, [active, sessionId]);

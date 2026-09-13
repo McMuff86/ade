@@ -10,6 +10,7 @@ import { compareBuilds } from '../shared/buildInfo';
 import { RemoteManager, useRemoteAdministration } from './RemoteManager';
 import { AgentWorkspace } from './AgentWorkspace';
 import { ContinueWork } from './ContinueWork';
+import { Terminals, terminalTarget, type TerminalTarget } from './Terminals';
 import { ProjectStart } from './ProjectStart';
 import { Projects, ProjectWorkspace } from './Projects';
 import type { ProjectOpenIntent } from './ProjectDirectoryPage';
@@ -22,6 +23,7 @@ import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkC
 import '../renderer/theme/tokens.css';
 import './mobile.css';
 import './tablet.css';
+import './terminals.css';
 
 function preference(key: string, fallback: string): string { try { return localStorage.getItem(`ade-mobile-${key}`) ?? fallback; } catch { return fallback; } }
 function savePreference(key: string, value: string): void { try { localStorage.setItem(`ade-mobile-${key}`, value); } catch { /* Appearance remains available without storage. */ } }
@@ -36,6 +38,8 @@ function MobileApp(): JSX.Element {
   const fileDrafts = useFileDrafts(host.identityVersion);
   const profileDrafts = useProfileDrafts(host.identityVersion);
   const [management, setManagement] = useState(false);
+  const [terminalSelection, setTerminalSelection] = useDeviceDraft<TerminalTarget>(host.deviceId, 'terminal-target', { terminalHome: true });
+  const [terminalLaunchVersion, setTerminalLaunchVersion] = useState(0);
   const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
   const [projectStart, setProjectStart] = useState(false);
   const [projectIntent, setProjectIntent] = useState<ProjectOpenIntent>();
@@ -52,7 +56,7 @@ function MobileApp(): JSX.Element {
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
-  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' || value === 'projects' ? value : 'overview'; });
+  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' ? value : 'overview'; });
   const [draftState, setDraftState, draftsDurable] = useDeviceDraft(host.deviceId, 'task-drafts', initialProjectDraft(emptyDraft()));
   const draft = draftState.drafts[draftState.active]!;
   const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
@@ -122,6 +126,7 @@ function MobileApp(): JSX.Element {
   };
   const send = async (command: PendingCommand) => {
     const result = await host.send(command); if (!result) return;
+    if ('deleted' in result) { setSelected(null); setGraphRunId(''); requestAnimationFrame(() => document.getElementById(`view-tab-${view}`)?.focus()); return; }
     if (command.path === '/api/v1/tasks' || command.path === '/api/v1/runs') {
       const submitted = command.payload as { repositoryId: string; prompt?: string; goal?: string; name?: string };
       setDraftState((current) => completeProjectDraft(current, submitted.repositoryId, command.path === '/api/v1/tasks' ? 'task' : 'run',
@@ -167,12 +172,13 @@ function MobileApp(): JSX.Element {
         </form></section>
     </main> : <>
       <div className="m-toolbar"><div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
-        {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : view === 'projects' ? 'Projekte' : 'Work'}</h1>}
-        {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
+        {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : view === 'projects' ? 'Projekte' : view === 'terminals' ? 'Terminals' : 'Work'}</h1>}
+        {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
         <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
           <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
+          <button disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}>Terminal öffnen</button>
           <button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
-          {view !== 'projects' && <><button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
+          {view !== 'projects' && view !== 'terminals' && <><button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
           <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></>}</div>
       </div>
       {(view === 'work' || view === 'graph') && <div className="m-project-filters"><label>Projektfilter<select aria-label="Projektfilter" value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value); setSelected(null); }}>
@@ -183,10 +189,13 @@ function MobileApp(): JSX.Element {
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
-            onSession={(session) => { if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
+            onSession={(session) => { if (session.terminalHome) { navigate('terminals'); setTerminalSelection(terminalTarget(session)); }
+              else if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
               else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />
             <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProject={openProject} /></>
             : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
+            : view === 'terminals' ? <Terminals host={host} target={terminalSelection} onTarget={setTerminalSelection} launchVersion={terminalLaunchVersion}
+              onWorkspace={(agentId, repositoryId) => setWorkspace({ agentId, repositoryId })} />
             : view === 'graph' ? <Graph run={graphRun} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
               : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
@@ -202,7 +211,7 @@ function MobileApp(): JSX.Element {
     </>}
     {inspector && compact && !composer && !settings && !management && <Dialog title="Run-Details" onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}
-    {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} />}
+    {management && host.paired && <RemoteManager host={host} admin={admin} onClose={() => setManagement(false)} onWorkspace={(workspaceId) => { setWorkspace(null); setProjectWorkspace(null); setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId }); }} />}
     {projectWorkspace && host.paired && host.catalog && <ProjectWorkspace key={`${host.identityVersion}:${projectWorkspace}`} host={host} repositoryId={projectWorkspace}
       fileDrafts={fileDrafts} profileDrafts={profileDrafts} onClose={() => setProjectWorkspace(null)}
       onTask={(agentId) => { newWork('task', agentId, projectWorkspace); setProjectWorkspace(null); }}

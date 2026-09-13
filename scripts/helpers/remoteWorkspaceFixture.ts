@@ -10,8 +10,10 @@ import { HostRestartController } from '../../src/main/application/HostRestartCon
 import { HostOperationGate } from '../../src/main/application/HostOperationGate';
 import { RepositoryScopeService } from '../../src/main/repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from '../../src/main/repositories/ProjectWorkspaceService';
+import { WorkspaceAssignmentService } from '../../src/main/application/WorkspaceAssignmentService';
 import { ProjectBranchService } from '../../src/main/repositories/ProjectBranchService';
 import { ProjectGitService } from '../../src/main/repositories/ProjectGitService';
+import { IntegrationService } from '../../src/main/repositories/IntegrationService';
 import { ProjectPublishService, type ProjectGhCommand } from '../../src/main/repositories/ProjectPublishService';
 import type { projectGit } from '../../src/main/repositories/ProjectGitBoundary';
 import { RepositorySyncService } from '../../src/main/repositories/RepositorySyncService';
@@ -50,6 +52,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const projects = new ProjectWorkspaceService(store);
   const projectBranches = new ProjectBranchService(store, projects, () => sessions);
   const projectGit = new ProjectGitService(store, projects, () => sessions);
+  const integration = new IntegrationService(store, projects, () => sessions, join(root, 'integrations'));
   const projectPublish = new ProjectPublishService(projectGit, publishOptions.gh, Date.now, publishOptions.git);
   const workbench = new RemoteWorkbenchService(store, () => sessions, execution, projects);
   const observations = new Map<string, { lines: ActivityLine[]; lastOutputAt?: number; outputBytes: number; structured: boolean }>();
@@ -57,10 +60,13 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
+    deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
     workbench, runInspection: inspection, projects, projectBranches, projectGit, projectPublish,
+    integration,
+    assignments: new WorkspaceAssignmentService(store, projects, () => sessions),
     resourceAccess: (id) => devices.resourceAccess(id),
     questions,
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),

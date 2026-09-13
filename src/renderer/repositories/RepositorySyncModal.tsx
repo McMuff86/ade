@@ -2,6 +2,8 @@ import { useState, type JSX } from 'react';
 import { Modal } from '../onboarding/Modal';
 import { useAppData } from '../stores/appdata';
 import { RepositorySyncPanel } from './RepositorySyncPanel';
+import { useMode } from '../stores/mode';
+import { useSelection } from '../stores/selection';
 
 export function RepositorySyncModal({ repositoryId, onClose }: { repositoryId?: string; onClose: () => void }): JSX.Element {
   const repositories = useAppData((state) => state.repositories);
@@ -14,7 +16,7 @@ export function RepositorySyncModal({ repositoryId, onClose }: { repositoryId?: 
         {repositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}
       </select>
     </label>
-    {selected ? <RepositorySyncPanel key={selected} repositoryId={selected} /> : <p>Importiere zuerst ein Repository.</p>}
+    {selected ? <RepositorySyncPanel key={selected} repositoryId={selected} onOpenWorkspace={(id) => { onClose(); useSelection.getState().setProjectWorkspace(id); useMode.getState().setMode('projects'); }} /> : <p>Importiere zuerst ein Repository.</p>}
     <button type="button" className="btn" onClick={onClose}>Schliessen</button>
   </Modal>;
 }

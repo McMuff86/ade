@@ -1,3 +1,4 @@
+import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { validRunQuestions } from '../../shared/runQuestions';
 /**
  * Typed atomic JSON config store.
@@ -100,7 +101,7 @@ function assertCatalogIntegrity(config: AdeConfig): void {
 }
 
 const ROOT_KEYS = [
-  'categories', 'agents', 'repositories', 'workspaceBindings', 'projectWorkspaces', 'agentTemplates', 'runs',
+  'categories', 'agents', 'repositories', 'workspaceBindings', 'projectWorkspaces', 'workspaceAssignments', 'agentTemplates', 'runs',
   'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults', 'runApprovals',
   'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog', 'sessionBookends',
   'journalRetention', 'settings',
@@ -111,6 +112,7 @@ const REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 
 const GROK_REASONING = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const REPLACE_IMMUTABLE_KEYS = [
   'projectWorkspaces',
+  'workspaceAssignments',
   'runs', 'runParticipants', 'runTasks', 'runEvents', 'runArtifacts', 'runTaskResults',
   'runApprovals', 'runWorkspaceLeases', 'runPublications', 'runMessages', 'commandLog',
   'sessionBookends', 'journalRetention',
@@ -182,8 +184,9 @@ export function validateCompleteConfig(config: AdeConfig): void {
 
   for (const category of config.categories) {
     exactKeys(category as unknown as Record<string, unknown>,
-      ['id', 'name', 'photo', 'repoPath', 'defaultRepositoryId', 'agents', 'kind'], 'category');
+      ['id', 'name', 'photo', 'repoPath', 'defaultRepositoryId', 'agents', 'kind', 'navigationGroup'], 'category');
     boundedString(category.name, 'category.name');
+    if (category.navigationGroup !== undefined && !validNavigationGroup(category.navigationGroup)) throw new Error('Category navigation group is invalid.');
     for (const [field, value] of [['photo', category.photo], ['repoPath', category.repoPath]] as const) {
       boundedString(value, `category.${field}`, true);
     }
@@ -278,6 +281,15 @@ export function validateCompleteConfig(config: AdeConfig): void {
       || !['checkout', 'worktree'].includes(workspace.kind) || !Number.isFinite(workspace.createdAt)) {
       throw new Error('Project workspace relationship is invalid.');
     }
+  }
+  const assignmentPairs = new Set<string>();
+  if (config.workspaceAssignments.length > 1000) throw new Error('Too many workspace assignments.');
+  for (const assignment of config.workspaceAssignments) {
+    exactKeys(object(assignment, 'workspace assignment'), ['agentId', 'repositoryId', 'projectWorkspaceId'], 'workspace assignment');
+    const pair = `${assignment.agentId}:${assignment.repositoryId}`;
+    if (assignmentPairs.has(pair) || !agentIds.has(assignment.agentId) || !repositoryIds.has(assignment.repositoryId)
+      || !config.projectWorkspaces.some((item) => item.id === assignment.projectWorkspaceId && item.repositoryId === assignment.repositoryId)) throw new Error('Workspace assignment relationship is invalid.');
+    assignmentPairs.add(pair);
   }
   for (const template of config.agentTemplates) {
     exactKeys(template as unknown as Record<string, unknown>, [

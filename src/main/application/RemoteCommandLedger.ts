@@ -15,6 +15,7 @@ interface Receipt {
 }
 const MAX_BYTES = 1024 * 1024;
 const MAX_RECEIPTS = 500;
+export type RemoteLedgerScope = RemoteAdminScope | 'runs:write';
 
 /** Durable at-most-once administration. Interrupted reservations never execute again. */
 export class RemoteCommandLedger {
@@ -22,7 +23,7 @@ export class RemoteCommandLedger {
   private available = true;
   private readonly inFlight = new Map<string, { fingerprint: string; result: Promise<unknown> }>();
   constructor(private readonly file: string, private readonly audit: (entry: DeviceAuditEntry) => void,
-    private readonly authorized: (id: string, scope: RemoteAdminScope) => boolean) {
+    private readonly authorized: (id: string, scope: RemoteLedgerScope) => boolean) {
     try {
       assertNoLinks(file); mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       try {
@@ -46,14 +47,14 @@ export class RemoteCommandLedger {
           if (lstatSync(auditFile).size > 8 * 1024 * 1024) throw new Error('audit too large');
           for (const line of readFileSync(auditFile, 'utf8').trim().split('\n').filter(Boolean)) {
             const entry = JSON.parse(line) as DeviceAuditEntry;
-            if (entry.channel === 'host:restart' || entry.channel.startsWith('admin:') || entry.channel.startsWith('terminal:') || entry.channel.startsWith('project:') || entry.channel === 'workspace:save' || entry.channel === 'profile:update') throw new Error('administration history without its receipts');
+            if (entry.channel === 'run:delete' || entry.channel === 'host:restart' || entry.channel.startsWith('admin:') || entry.channel.startsWith('terminal:') || entry.channel.startsWith('project:') || entry.channel.startsWith('integration:') || entry.channel === 'workspace:save' || entry.channel === 'profile:update') throw new Error('administration history without its receipts');
           }
         } catch (auditError) { if ((auditError as NodeJS.ErrnoException).code !== 'ENOENT') throw auditError; }
       }
     } catch { this.available = false; console.warn('[ade] remote command ledger unavailable; administration disabled'); }
   }
 
-  permits(context: RemoteCommandContext, scope: RemoteAdminScope): void {
+  permits(context: RemoteCommandContext, scope: RemoteLedgerScope): void {
     if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature') {
       throw new RemoteApiError(401, 'device_proof_required');
     }
@@ -63,7 +64,7 @@ export class RemoteCommandLedger {
     if (!this.available) throw new RemoteApiError(503, 'unavailable');
   }
 
-  async execute<T>(context: RemoteCommandContext, channel: string, scope: RemoteAdminScope, payload: unknown,
+  async execute<T>(context: RemoteCommandContext, channel: string, scope: RemoteLedgerScope, payload: unknown,
     operation: () => T | Promise<T>): Promise<{ value: T; replayed: boolean }> {
     this.permits(context, scope);
     const key = context.idempotencyKey;

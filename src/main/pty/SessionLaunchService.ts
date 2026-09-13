@@ -1,5 +1,5 @@
 import type { AdeConfig, Agent } from '../../shared/types';
-import type { MobileWorkspaceSelection, SessionLaunchChoice, SessionLaunchOptions } from '../../shared/remote';
+import type { MobileTerminalSelection, SessionLaunchChoice, SessionLaunchOptions } from '../../shared/remote';
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 import { OLLAMA_MODEL_PATTERN } from '../../shared/runtimes';
 import { validSessionChoice } from '../../shared/sessionLaunch';
@@ -13,20 +13,20 @@ export type InteractiveLaunchSettings = Parameters<typeof import('../../shared/r
 export class SessionLaunchService {
   constructor(private readonly store: { get(): AdeConfig }, private readonly execution = new ExecutionBackendService()) {}
 
-  async options(selection: MobileWorkspaceSelection): Promise<SessionLaunchOptions> {
+  async options(selection: MobileTerminalSelection): Promise<SessionLaunchOptions> {
     const config = this.store.get(); const agent = config.agents.find((a) => a.id === selection.agentId);
     const workspace = selection.projectWorkspaceId ? config.projectWorkspaces.find((item) => item.id === selection.projectWorkspaceId) : undefined;
-    if (!selection.projectWorkspaceId && !agent) throw new Error('ade: Agent ist nicht mehr vorhanden.');
+    if (!selection.terminalHome && !selection.projectWorkspaceId && !agent) throw new Error('ade: Agent ist nicht mehr vorhanden.');
     if (selection.projectWorkspaceId && !workspace) throw new Error('ade: Projekt-Workspace ist nicht mehr vorhanden.');
     const repo = config.repositories.find((r) => r.id === (workspace?.repositoryId ?? selection.repositoryId));
-    if ((workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
-    const backend = repo?.executionBackend ?? agentHomeBackend(agent!);
+    if (!selection.terminalHome && (workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
+    const backend = selection.terminalHome ? 'native' : repo?.executionBackend ?? agentHomeBackend(agent!);
     const profiles = config.agents.filter((item) => agentHomeBackend(item) === backend).slice(0, 200);
     const [codex, claude, grok, hermes, models] = await Promise.all([
       this.present(backend, 'codex'), this.present(backend, 'claude'), this.present(backend, 'grok'), this.present(backend, 'hermes'), this.models(backend)]);
     return { environment: backend === 'native' ? (process.platform === 'win32' ? 'Windows' : process.platform) : redactForWire(backend, 150),
       ...(workspace ? { profiles: profiles.map((item) => ({ id: item.id, name: redactForWire(item.name, 200), runtime: item.runtime })) } : {}),
-      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: workspace ? profiles.length > 0 : true, notice: 'Verwendet die Einstellungen des ausdrücklich gewählten Profils in dieser Umgebung, einschliesslich eigener Startbefehle.' },
+      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: !selection.terminalHome && (workspace ? profiles.length > 0 : true), notice: selection.terminalHome ? 'Freies Terminal ohne Agent-Profil im Benutzerverzeichnis.' : 'Verwendet die Einstellungen des ausdrücklich gewählten Profils in dieser Umgebung, einschliesslich eigener Startbefehle.' },
         { mode: 'codex', available: codex, notice: codex ? null : 'Codex wurde in dieser Umgebung nicht gefunden.' },
         { mode: 'claude', available: claude, notice: claude ? null : 'Claude CLI wurde in dieser Umgebung nicht gefunden.' },
         { mode: 'grok', available: grok, notice: grok ? null : 'Grok CLI wurde in dieser Umgebung nicht gefunden.' },

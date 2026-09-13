@@ -9,15 +9,16 @@
 
 import type { JSX } from 'react';
 import { useSelection } from '../stores/selection';
-import { useSessions } from '../stores/sessions';
+import { useSessions, TERMINAL_HOME_GROUP } from '../stores/sessions';
+import { useSessionLaunch } from '../stores/sessionLaunch';
 import { useDiagnostics } from '../stores/diagnostics';
 import { TerminalPane } from './TerminalPane';
 import './terminal.css';
 
 export function TerminalArea(): JSX.Element {
   const agentId = useSelection((s) => s.selectedAgentId);
-  const order = useSessions((s) => (agentId ? s.orderByAgent[agentId] : undefined));
-  const active = useSessions((s) => (agentId ? s.activeByAgent[agentId] : null));
+  const order = useSessions((s) => s.orderByAgent[agentId ?? TERMINAL_HOME_GROUP]);
+  const active = useSessions((s) => s.activeByAgent[agentId ?? TERMINAL_HOME_GROUP]);
   const sessions = useSessions((s) => s.sessions);
   const error = useSessions((s) => s.error);
   const hydrate = useSessions((s) => s.hydrate);
@@ -82,10 +83,11 @@ export function TerminalArea(): JSX.Element {
     </div>
   );
 
-  if (!agentId) {
+  if (!agentId && !order?.length) {
     return (
       <div className="terminal-area terminal-area-empty">
-        <span className="terminal-hint">Select an agent</span>
+        <span className="terminal-hint">Terminal ohne Agent und Projekt öffnen oder links einen Agenten auswählen.</span>
+        <button className="btn primary" onClick={() => useSessionLaunch.getState().open(null)}>Terminal öffnen</button>
         {notice}
       </div>
     );

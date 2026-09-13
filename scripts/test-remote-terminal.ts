@@ -10,6 +10,8 @@ import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from
 import { HostRestartController } from '../src/main/application/HostRestartController';
 import type { MobileTerminalState } from '../src/shared/remote';
 import type { TerminalControlState } from '../src/shared/ipc';
+import { terminalHome } from '../src/main/pty/terminalHome';
+import { validateWorkbenchQuery } from '../src/main/application/RemoteWorkbenchService';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -29,7 +31,13 @@ void (async () => {
   const binding = store.get().workspaceBindings.find((item) => item.repositoryId === repo)!;
   const writes: string[] = []; let starts = 0; let now = Date.now(); let failWrite = false; const changes: TerminalControlState[] = [];
   const resources = new DeviceResourceService(store, (id) => devices.resourceAccess(id));
+  let homeStarts = 0;
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
+    createHome: async (choice, authorize) => {
+      authorize(); const session = { ...terminalHome(), id: `native-home-${++homeStarts}`, scopeSource: 'terminal-home' as const,
+        kind: 'interactive' as const, title: choice.mode, status: 'running' as const, createdAt: now, launchChoice: choice };
+      sessions.push(session); return session;
+    },
     create: async (agentId, repositoryId, bindingId, mode) => {
       const session = { id: `native-${++starts}`, agentId, repositoryId: repositoryId ?? undefined, workspaceBindingId: bindingId, workspaceDir: binding.workspaceDir,
         executionBackend: 'native' as const, kind: 'interactive' as const, title: mode, status: 'running' as const, createdAt: now };
@@ -120,6 +128,36 @@ void (async () => {
   check('owner can explicitly close the process', sessions[0]!.status === 'exited');
   await command({ operation: 'open', mode: 'agent' });
   check('final positive configured-agent control starts independently', starts === 2 && sessions.at(-1)!.title === 'agent');
+  const homeCommand = (payload: object, ctx = context()) => app.remoteTerminal(ctx, { terminalHome: true, ...payload }, 'command');
+  await refuses('selected-resource grant cannot launch a host-home terminal', () => homeCommand({ operation: 'open', mode: 'shell' }), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['terminal:control'], { mode: 'all' });
+  for (const extra of [{ agentId: 'builder', repositoryId: null }, { terminalHome: false }, { projectWorkspaceId: randomUUID() },
+    { workspaceDir: root }, { profileId: 'builder' }, { mode: 'agent' }, { expectedBranch: 'main' }]) {
+    await refuses('home terminal rejects mixed scope and caller-selected paths/profile', () => homeCommand({ operation: 'open', mode: 'shell', ...extra }), 'invalid_payload');
+  }
+  await refuses('terminal-home does not expose host home through workspace reads', () => validateWorkbenchQuery({ terminalHome: true, operation: 'tree', path: '' }), 'invalid_payload');
+  const homeContext = context(); const home = await homeCommand({ operation: 'open', mode: 'shell' }, homeContext) as { terminalId: string };
+  await homeCommand({ operation: 'open', mode: 'shell' }, homeContext);
+  const readHome = () => app.remoteTerminal(context(), { terminalHome: true, terminalId: home.terminalId }, 'query') as Promise<MobileTerminalState>;
+  const homeState = await readHome();
+  check('home open is idempotent and needs no agent or repository', homeStarts === 1 && !sessions.at(-1)!.agentId && !sessions.at(-1)!.repositoryId && homeState.selected?.owner === 'self');
+  const homeInventory = await app.remoteSessionInventory(context().principal);
+  check('inventory reconnects agent-free sessions using an opaque terminal-home selection', homeInventory.sessions.some((item) => item.id === home.terminalId && item.terminalHome)
+    && !JSON.stringify(homeInventory).includes('native-home-1') && !JSON.stringify(homeInventory).includes(terminalHome().workspaceDir));
+  const homeInput = { terminalHome: true, terminalId: home.terminalId, leaseId: homeState.leaseId!, sequence: 1, data: 'home\r', cols: 80, rows: 25 };
+  const writeCount = writes.length; const homeInputContext = context();
+  await app.remoteTerminal(homeInputContext, homeInput, 'input'); await app.remoteTerminal(homeInputContext, homeInput, 'input');
+  check('home input preserves at-most-once sequencing', writes.length === writeCount + 1);
+  terminal.reclaim('native-home-1');
+  await refuses('desktop reclaim invalidates home input lease', () => app.remoteTerminal(context(), { ...homeInput, sequence: 2 }, 'input'), 'command_rejected');
+  devices.setAdminScopes('tablet', ['terminal:control'], { mode: 'selected', repositoryIds: [repo], agentIds: ['builder'] });
+  await refuses('narrowed grant blocks a remembered home terminal', readHome, 'scope_not_granted');
+  await refuses('narrowed grant also blocks replaying a successful home open', () => homeCommand({ operation: 'open', mode: 'shell' }, homeContext), 'scope_not_granted');
+  check('narrowed grant hides home sessions from inventory', !(await app.remoteSessionInventory(context().principal)).sessions.some((item) => item.terminalHome));
+  devices.setAdminScopes('tablet', ['terminal:control'], { mode: 'all' });
+  await homeCommand({ operation: 'claim', terminalId: home.terminalId });
+  await homeCommand({ operation: 'close', terminalId: home.terminalId });
+  check('restored grant closes only the selected home process', sessions.find((item) => item.id === 'native-home-1')?.status === 'exited' && sessions.find((item) => item.id === 'native-2')?.status === 'running');
 })().catch((error) => { failed++; console.error(error); }).finally(() => {
   terminal?.dispose(); rmSync(root, { recursive: true, force: true }); console.log(`Remote terminal: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 });

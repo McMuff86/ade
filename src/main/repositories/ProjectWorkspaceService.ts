@@ -34,6 +34,20 @@ export class ProjectWorkspaceService {
     return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice };
   }
 
+  /** Read-only inspection of a main-discovered checkout; no registration or Git writes. */
+  async inspectCheckout(path: string, repositoryId: string) {
+    const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
+    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Ein geprüftes natives Projekt auswählen.');
+    const directoryIdentity = projectRootIdentity(path);
+    const identity = await this.gitIdentity(path);
+    const workspace = { id: '', repositoryId, workspaceDir: identity.top, directoryIdentity,
+      gitDirectory: identity.git, gitDirectoryIdentity: projectRootIdentity(identity.git),
+      gitPointerIdentity: identity.pointer, commonGitIdentity: projectRootIdentity(identity.common),
+      kind: sameHostPath(identity.git, identity.common) ? 'checkout' as const : 'worktree' as const, createdAt: 0 };
+    this.assertRecord(workspace, repository, identity);
+    return { workspace, branch: identity.branch };
+  }
+
   async open(entryId: string, assertAuthorized: ProjectAuthorization = () => undefined): Promise<ProjectWorkspaceView> {
     if (typeof entryId !== 'string' || !/^p[a-f0-9]{32}$/.test(entryId)) throw new Error('ade: Projekt-Auswahl ist ungültig.');
     return workspaceOperations.use(async () => {
@@ -42,6 +56,24 @@ export class ProjectWorkspaceService {
       if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
       return this.registerTarget(target, assertAuthorized);
     });
+  }
+
+  async inspectDirectory(entryId: string, authorize: ProjectAuthorization = () => undefined) {
+    const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
+    if (!target || target.entry.backend !== 'native' || target.entry.kind !== 'repository') throw new Error('ade: Erreichbaren nativen Git-Projektordner auswählen.');
+    authorize({ repositoryId: target.entry.repositoryId });
+    this.assertTarget(target); const identity = await this.gitIdentity(target.path); this.assertTarget(target);
+    const repository = this.store.get().repositories.find((item) => item.executionBackend === 'native' && sameHostPath(item.commonGitDir, identity.common));
+    if (repository && (!repository.verified || !sameHostPath(repository.rootPath, identity.main))) throw new Error('ade: Projektzuordnung am PC prüfen.');
+    authorize({ repositoryId: repository?.id });
+    return { target, identity, repositoryId: repository?.id, directoryIdentity: projectRootIdentity(target.path),
+      gitIdentity: projectRootIdentity(identity.git), commonIdentity: projectRootIdentity(identity.common) };
+  }
+
+  /** Main-only confirmation; caller holds the exclusive workspace gate. */
+  async registerDirectory(entryId: string, authorize: ProjectAuthorization) {
+    const inspected = await this.inspectDirectory(entryId); authorize({ repositoryId: inspected.repositoryId });
+    return this.registerTarget(inspected.target, authorize);
   }
 
   /** Main-only adoption after a branch service resolved or created a worktree.

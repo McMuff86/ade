@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MobileCatalog, MobileCommandResult, MobileHealth, MobileRunSummary, MobileSnapshot } from '../shared/remote';
+import type { MobileCatalog, MobileCommandResult, MobileRunDeleteResult, MobileHealth, MobileRunSummary, MobileSnapshot } from '../shared/remote';
 import { MobileClient, MobileClientError } from './client';
 import { clearDeviceDrafts, useDeviceDraft } from './deviceDrafts';
 import { mergeRunSummaries } from '../shared/runSummaryMerge';
@@ -125,16 +125,22 @@ export function useMobileHost() {
     };
   }, [paired, generation, refresh, lostAccess]);
 
-  const send = async (command: PendingCommand): Promise<MobileCommandResult | null> => {
+  const send = async (command: PendingCommand): Promise<MobileCommandResult | MobileRunDeleteResult | null> => {
     if (busyRef.current || status !== 'online') return null;
     if (!setPending(command)) { setError('Browser-Speicher nicht verfügbar. Auftrag wurde nicht gesendet.'); return null; }
     busyRef.current = true; setBusy(true); setError(''); setNotice('');
     const ownEpoch = epoch.current;
     try {
-      const result = await client.request<MobileCommandResult>(command.path, 'POST', command.payload, command.key);
+      const result = await client.request<MobileCommandResult | MobileRunDeleteResult>(command.path, 'POST', command.payload, command.key);
       if (ownEpoch !== epoch.current) return null;
-      setPending(null); setRuns((current) => [result.run, ...current.filter((run) => run.id !== result.run.id)]);
-      setNotice(result.replayed ? 'Bereits bestätigter Auftrag wiederhergestellt.' : 'ADE hat den Auftrag bestätigt.');
+      setPending(null);
+      if ('deleted' in result) {
+        setRuns((current) => current.filter((run) => run.id !== result.runId));
+        setNotice('Run gelöscht. Projektdateien und Workspaces bleiben erhalten.');
+      } else {
+        setRuns((current) => [result.run, ...current.filter((run) => run.id !== result.run.id)]);
+        setNotice(result.replayed ? 'Bereits bestätigter Auftrag wiederhergestellt.' : 'ADE hat den Auftrag bestätigt.');
+      }
       void refresh().catch(() => undefined); return result;
     } catch (reason) {
       if (ownEpoch !== epoch.current || await lostAccess(reason)) return null;

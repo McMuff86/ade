@@ -3,6 +3,7 @@ import type { MobileAdminCommand, MobileAdministrationResult, MobileGitResult, M
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 import { Dialog } from './ui';
+import { IntegrationDialog } from './IntegrationDialog';
 
 function detail(reason: unknown): string {
   if (reason instanceof MobileClientError) {
@@ -47,8 +48,11 @@ export function useRemoteAdministration(host: MobileHost) {
 }
 type Administration = ReturnType<typeof useRemoteAdministration>;
 
-export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admin: Administration; onClose: () => void }): JSX.Element {
+export function RemoteManager({ host, admin, onClose, onWorkspace }: { host: MobileHost; admin: Administration; onClose: () => void; onWorkspace?: (id: string) => void }): JSX.Element {
+  const [integrationOpen, setIntegrationOpen] = useState(false);
   const [tab, setTab] = useState<'projects' | 'agents' | 'git'>('projects');
+  const [groupCategory, setGroupCategory] = useState('');
+  const [groupName, setGroupName] = useState('');
   const [projectName, setProjectName] = useState(''); const [agentName, setAgentName] = useState('');
   const [source, setSource] = useState('runtime:codex'); const [categoryId, setCategoryId] = useState('');
   const [repositoryId, setRepositoryId] = useState(host.catalog?.repositories[0]?.id ?? '');
@@ -113,10 +117,21 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
         <label>Gruppe<select aria-label="Gruppe" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Standardgruppe</option>
           {host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button className="m-primary" disabled={disabled || !canCreate || !agentName.trim()}>Agent erstellen</button></form></section>}
+    {tab === 'agents' && <section><h3>Obergruppen</h3><p>Ordne bestehende Kategorien einer gemeinsamen Obergruppe zu.</p>
+      <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'category-group', input: { categoryId: groupCategory, navigationGroup: groupName.trim() || null } }); }}>
+        <label>Kategorie<select aria-label="Kategorie für Obergruppe" value={groupCategory} onChange={(event) => {
+          setGroupCategory(event.target.value); setGroupName(host.catalog?.categories?.find((item) => item.id === event.target.value)?.navigationGroup ?? '');
+        }}><option value="">Kategorie wählen</option>{host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>Obergruppe<input value={groupName} maxLength={80} list="mobile-navigation-groups" placeholder="Keine Obergruppe" onChange={(event) => setGroupName(event.target.value)} /></label>
+        <datalist id="mobile-navigation-groups">{[...new Set(host.catalog?.categories?.flatMap((item) => item.navigationGroup ? [item.navigationGroup] : []) ?? [])].map((name) => <option key={name} value={name} />)}</datalist>
+        <p>Vorhandenen Namen wählen oder eine neue Obergruppe eingeben. Leer entfernt die Zuordnung.</p>
+        <button disabled={disabled || !canCreate || !groupCategory}>Obergruppe speichern</button>
+      </form></section>}
     {tab === 'git' && <section><h3>Git-Abgleich</h3><p>Vergleiche den Projekt-Checkout und die Agent-Workspaces mit einer gemeinsamen Basis.</p>
       <div className="m-management-grid">{projectSelect}{git && <label>Vergleichsbasis<select aria-label="Vergleichsbasis" value={sourceRef} disabled={queryBusy || disabled}
         onChange={(event) => { setSourceRef(event.target.value); void query(repositoryId, event.target.value); }}>{git.overview.refs.map((item) => <option key={item.ref} value={item.ref}>{item.label}</option>)}</select></label>}</div>
       <div className="m-management-actions"><button disabled={!repositoryId || queryBusy || disabled} onClick={() => void query(repositoryId, sourceRef)}>Git-Zustand prüfen</button>
+        <button disabled={!repositoryId || disabled || selectionLimited} onClick={(event) => { event.currentTarget.focus(); setIntegrationOpen(true); }}>Änderungen übernehmen…</button>
         <button disabled={!repositoryId || !canGit || queryBusy || disabled} onClick={() => void perform({ operation: 'git-fetch', input: { repositoryId } })}>Änderungen abrufen</button></div>
       {!canGit && <p>Zum Abrufen und Aktualisieren Git-Verwaltungsrechte in ADE am PC freigeben.</p>}
       {queryBusy && <p role="status">Git-Zustand wird geprüft…</p>}{queryError && <p role="alert">{queryError}</p>}
@@ -127,6 +142,9 @@ export function RemoteManager({ host, admin, onClose }: { host: MobileHost; admi
             aria-label={`Update für ${target.name} prüfen`} onClick={() => void query(repositoryId, sourceRef, target.id)}>Update prüfen</button></li>)}</ul></>}
     </section>}
     {admin.busy && <p role="status">ADE führt die Aktion aus…</p>}
+    {integrationOpen && repositoryId && <IntegrationDialog key={repositoryId} host={host} repositoryId={repositoryId} canChange={canGit}
+      canTest={canGit && admin.state?.capabilities?.includes('terminal:control') === true} onClose={() => setIntegrationOpen(false)}
+      onWorkspace={(id) => { if (onWorkspace) { setIntegrationOpen(false); onClose(); onWorkspace(id); } }} />}
     {confirmGit && git?.preview && <Dialog title="Git-Update bestätigen" onClose={() => setConfirmGit(false)} fallbackId="mobile-title">
       <p><strong>{git.preview.target.name}</strong> auf {git.overview.sourceRef} aktualisieren.</p>
       <p className="m-sha">{git.preview.target.headSha} → {git.overview.sourceSha}</p>

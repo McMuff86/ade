@@ -60,6 +60,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'integration:query': { operation: 'sources', repositoryId: 'repo' },
+  'integration:command': { operation: 'test', integrationId: 'review' },
   'run:questions': { runId: 'run' },
   'run:answer': { runId: 'run', taskId: 'task', questionId: 'question', answers: { choice: { answers: ['Yes'] } } },
   'project:create': { name: 'Garden' },

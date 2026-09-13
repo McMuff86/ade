@@ -6,6 +6,7 @@ import { createServer } from 'node:net';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
+import { runDeletionFlow } from './helpers/runDeletionFlow';
 
 let passed = 0; let failed = 0;
 const check = (label: string, condition: boolean): void => { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -98,6 +99,7 @@ void (async () => {
   await phone.getByText('Private PC agent', { exact: true }).first().waitFor();
   check('positive control explicitly restores the full catalogue', true);
   await runQuestionFlow(app, desktop, phone, root, evidence, check);
+  await runDeletionFlow(desktop, phone, proxy, evidence, check);
   await inventory.getByRole('button', { name: 'Zugriff für Electron test phone widerrufen' }).click();
   await phone.getByRole('heading', { name: 'Gerät koppeln', exact: true }).waitFor();
   check('desktop revoke disconnects the real mobile browser', (await phone.getByRole('alert').textContent())!.includes('widerrufen'));

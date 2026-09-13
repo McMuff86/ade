@@ -8,6 +8,7 @@ import { FileEditor, type FileDrafts } from './FileEditor';
 import { AgentProfile, type ProfileDrafts } from './AgentProfile';
 import { DashboardLink } from './DashboardLink';
 import { TabletKeyboardContext } from './useTabletViewport';
+import { useWorkspaceSelection, WorkspaceAssignmentDialog } from './WorkspaceAssignment';
 
 export function workspaceError(error: unknown): string {
   if (error instanceof MobileClientError) {
@@ -54,8 +55,10 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   const [search, setSearch] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const version = useRef(0); const heading = useRef<HTMLHeadingElement>(null); const detailOpener = useRef<HTMLElement | null>(null);
   const agent = host.catalog?.agents.find((item) => item.id === agentId);
+  const assigned = useWorkspaceSelection(host, agentId, repositoryId || null);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
   const query = useCallback((input: MobileWorkspaceOperation) =>
-    host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { ...input, agentId, repositoryId: repositoryId || null }), [host.request, agentId, repositoryId]);
+    host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { ...input, ...assigned.selection }), [host.request, assigned.selection]);
   const refresh = useCallback(async () => {
     const own = ++version.current; setBusy(true); setError(''); setDetail(null); setListing(null); setOverview(undefined); setDirectory(''); setSearch('');
     try {
@@ -66,7 +69,8 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     } catch (reason) { if (own === version.current) setError(workspaceError(reason)); }
     finally { if (own === version.current) setBusy(false); }
   }, [query, repositoryId]);
-  useEffect(() => { void refresh(); return () => { version.current++; }; }, [refresh, host.identityVersion]);
+  useEffect(() => { if (!assigned.loading && !assigned.error) void refresh(); else { setOverview(undefined); setListing(null); setDetail(null); }
+    return () => { version.current++; }; }, [refresh, host.identityVersion, assigned.loading, assigned.error]);
   useEffect(() => { if (!repositoryId) selectTab((current) => current === 'git' ? 'files' : current); }, [repositoryId]);
   useLayoutEffect(() => { if (detail) heading.current?.focus(); }, [detail]);
   const load = async (input: MobileWorkspaceOperation, detailTitle?: string) => {
@@ -82,7 +86,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     const opener = detailOpener.current; (opener?.isConnected ? opener : document.getElementById('workspace-refresh'))?.focus();
   }); };
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
-  const disabled = busy || host.status !== 'online';
+  const disabled = busy || assigned.loading || !!assigned.error || host.status !== 'online';
   return <Dialog title={projectEntry ? `Projekt · ${host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace'}` : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}
     headerActions={tab === 'terminal' && <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle"
       aria-label="Terminal-Bedienung" aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls"
@@ -93,9 +97,11 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     </aside>}<div className="m-tablet-workbench-main">
     <div className="m-workspace-controls">{!projectEntry && <label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
       <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>}
-      <button id="workspace-refresh" disabled={disabled} onClick={() => void refresh()}>Workspace aktualisieren</button>
+      <button id="workspace-refresh" disabled={busy || assigned.loading || host.status !== 'online'} onClick={() => { if (repositoryId) assigned.refresh(); else void refresh(); }}>Workspace aktualisieren</button>
+      <button id="workspace-assignment" disabled={host.status !== 'online'} onClick={() => setAssignmentOpen(true)}>Workspace-Zuweisung prüfen</button>
       <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button>{agent && <DashboardLink agent={agent} />}</div>
-    {overview?.ready && <p className="m-field-note">{projectEntry ? 'ADE-Arbeitskopie · ' : ''}{repositoryId ? `Branch ${overview.branch} · ` : ''}Stand beim Aktualisieren: {overview.busy ? 'Workspace verwendet' : 'Workspace frei'}</p>}
+    {overview?.ready && <p className="m-field-note">Zuordnung: {assigned.view?.label ?? (repositoryId ? 'Eigene ADE-Arbeitskopie' : 'Eigener Agent-Ordner')} · {repositoryId ? `Branch ${overview.branch} · ` : ''}Belegung beim Aktualisieren: {overview.busy ? 'Durch Terminal oder Auftrag belegt' : 'Nicht belegt'}</p>}
+    {assigned.loading && <p role="status">Workspace-Zuordnung wird geladen…</p>}{assigned.error && <p role="alert">{assigned.error}</p>}
     <nav className="m-management-tabs" aria-label="Workspace-Bereich"><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>Dateien</button>
       <button disabled={!repositoryId} title={!repositoryId ? 'Für Git ein Projekt auswählen' : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>Git-Änderungen</button>
       <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>Terminal</button>
@@ -105,11 +111,12 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     {!repositoryId && <p>Dateien und Terminal verwenden den eigenen Agent-Ordner. Für verwaltete Aufgaben und Git ein Projekt auswählen.</p>}
     {tab !== 'terminal' && overview?.notice && <p>{overview.notice}</p>}
     {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
-    <div className="m-terminal-slot" hidden={tab !== 'terminal'}><RemoteTerminalPane key={`${agentId}:${repositoryId}:${host.identityVersion}`} host={host} agentId={agentId} repositoryId={repositoryId || null} active={tab === 'terminal'}
+    <div className="m-terminal-slot" hidden={tab !== 'terminal'}>{!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${host.identityVersion}`} host={host} {...assigned.selection} active={tab === 'terminal'}
+      expectedBranch={assigned.view?.branch} defaultProfileId={assigned.selection.projectWorkspaceId ? agentId : undefined}
       projectEntry={projectEntry}
       compactControls={keyboardOpen && !keyboardControls}
       initialTerminalId={repositoryId === initialRepositoryId ? initialTerminalId : undefined}
-      profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} /></div>
+      profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} />}</div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} drafts={profileDrafts} />}
     {overview?.ready && (tab === 'files' || tab === 'git') && <div className={`m-workbench-split ${detail ? 'has-detail' : ''}`}>
       <section className="m-workbench-list" aria-label={tab === 'files' ? 'Workspace-Dateien' : 'Geänderte Dateien'}>
@@ -133,12 +140,14 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
       <section className="m-workbench-detail" aria-label="Dateiinhalt">{detail ? <><button onClick={closeDetail}>Zurück zur Liste</button>
         <h3 ref={heading} tabIndex={-1}>{title}</h3>{detail.file?.notice && <p>{detail.file.notice}</p>}
         {detail.limited && <p>Diff ist gekürzt.</p>}
-        {detail.file ? <FileEditor key={`${agentId}:${repositoryId}:${detail.file.path}`} host={host} file={detail.file} workspaceVersion={detail.workspaceVersion}
+        {detail.file ? <FileEditor key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${detail.file.path}`} host={host} file={detail.file} workspaceVersion={detail.workspaceVersion} selection={assigned.selection}
           agentId={agentId} repositoryId={repositoryId || null} busyWorkspace={overview.busy} drafts={fileDrafts} onSaved={() => { void refresh(); document.getElementById('workspace-refresh')?.focus(); }} />
           : <pre tabIndex={0} aria-label="Git-Diff">{detail.diff?.split('\n').map((line, index) =>
           <span key={index} className={line.startsWith('+') ? 'm-diff-add' : line.startsWith('-') ? 'm-diff-delete' : undefined}>{line}{'\n'}</span>)}</pre>}</>
         : <p>Eine Datei oder Änderung auswählen.</p>}</section>
     </div>}
     </div></div>
+    {assignmentOpen && <WorkspaceAssignmentDialog host={host} agentId={agentId} repositoryId={repositoryId || undefined} fallbackId="workspace-assignment"
+      onClose={() => setAssignmentOpen(false)} onAssigned={(view) => { setRepositoryId(view.repositoryId); assigned.refresh(); }} />}
   </Dialog>;
 }

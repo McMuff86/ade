@@ -1,3 +1,5 @@
+import { categoryNavigationFlow } from './helpers/categoryNavigationFlow';
+import { integrationFlow } from './helpers/integrationFlow';
 import { terminalComposer, terminalLauncher } from './helpers/terminalControls';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +17,8 @@ import { PNG } from 'pngjs';
 import { inspectionFixtureCode, runInspectionFlow } from './helpers/runInspectionFlow';
 import { projectWorkspaceLaunchFlow } from './helpers/projectWorkspaceLaunchFlow';
 import { projectGitFlow } from './helpers/projectGitFlow';
+import { terminalHomeFlow } from './helpers/terminalHomeFlow';
+import { workspaceAssignmentFlow } from './helpers/workspaceAssignmentFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
@@ -40,7 +44,9 @@ void (async () => {
   execFileSync('git', ['init', '--initial-branch=main', repoPath], { windowsHide: true });
   execFileSync('git', ['-C', repoPath, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture'], { windowsHide: true });
   const launcher = join(root, 'launch.cjs');
+  mkdirSync(join(root, 'terminal-home'));
   writeFileSync(launcher, `
+require('node:os').homedir = () => ${JSON.stringify(join(root, 'terminal-home'))};
 const cp = require('node:child_process'); const original = cp.execFile;
 cp.execFile = function(file, args, options, callback) {
   if (!/tailscale(?:\\.exe)?$/i.test(file)) return original.call(this, file, args, options, callback);
@@ -87,6 +93,18 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--integration-only')) {
+    await integrationFlow(desktop, page, root, evidence, proxy, check); return;
+  }
+  if (process.argv.includes('--category-navigation-only')) {
+    await categoryNavigationFlow(desktop, page, evidence, check); return;
+  }
+  if (process.argv.includes('--workspace-assignment-only')) {
+    await workspaceAssignmentFlow(desktop, page, proxy, root, evidence, check); return;
+  }
+  if (process.argv.includes('--terminal-home-only')) {
+    await terminalHomeFlow(desktop, page, root, evidence, check); return;
+  }
   if (process.argv.includes('--project-git-only')) {
     await projectGitFlow(desktop, page, root, evidence, proxy, check); return;
   }
@@ -233,6 +251,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await projectEntryFlow(desktop, page, evidence, check, proxy);
   await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check);
   await projectDirectoryFlow(desktop, page, proxy, root, evidence, check);
+  await terminalHomeFlow(desktop, page, root, evidence, check);
+  await workspaceAssignmentFlow(desktop, page, proxy, root, evidence, check);
+  await categoryNavigationFlow(desktop, page, evidence, check);
+  await integrationFlow(desktop, page, root, evidence, proxy, check);
   }
   if (process.argv.includes('--wsl') || process.argv.includes('--wsl-only')) {
     wslHome = `/tmp/ade-session-${randomUUID()}`;
@@ -299,6 +321,11 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
 })().catch(async (error) => {
   failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'terminal-failure.png') }).catch(() => undefined);
   try { console.error(readFileSync(join(root, 'profile/ade/logs/main.log'), 'utf8').slice(-2500)); } catch { /* no log */ }
+  try {
+    const bytes = readFileSync(join(root, 'profile/ade/remote/commands.json'), 'utf8');
+    const ledger = JSON.parse(bytes) as { entries: Array<{ state: string }> };
+    console.error('Fixture receipt diagnostics', { bytes: Buffer.byteLength(bytes), entries: ledger.entries.length, reserved: ledger.entries.filter((entry) => entry.state === 'reserved').length });
+  } catch { /* No fixture ledger. */ }
 }).finally(async () => {
   await browser?.close(); await proxy?.close(); await app?.close().catch(() => undefined);
   if (wslHomeCreationAttempted && wslHome && /^\/tmp\/ade-session-[a-f0-9-]+$/.test(wslHome)) {

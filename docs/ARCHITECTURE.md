@@ -1,5 +1,81 @@
 # ADE — Architecture (binding decisions)
 
+## Completed run deletion from mobile
+
+The dedicated `POST /api/v1/runs/:id/delete` route accepts no body and calls
+`AdeApplicationService.deleteRun`. It requires an active signed device with
+`runs:write`, full resource access and a required idempotency key. The existing
+desktop `run:delete` channel stays desktop-only; the generic remote IPC allowlist
+is unchanged. `RemoteCommandLedger` also accepts `runs:write` for this operation;
+its durable receipt contains only the deleted ID and confirmation, survives the
+run, rejects key reuse, and fails closed after interrupted or missing receipts.
+`RunCoordinator.deleteRun(id, true)` checks terminal run status inside its
+per-run serialization. Existing lease and external-publication guards remain.
+Owned journal rows are removed together and `journalRetention.prunedSeq` advances;
+project files and workspaces are preserved. Mobile keeps unconfirmed requests in
+the existing device-bound recovery journal, removes confirmed runs from all views,
+and restores focus to the active navigation tab when the opener disappears.
+Evidence: 23 focused deletion checks and seven real Electron/mobile UI checks,
+including lost response, reload, phone width, tablet landscape and focus recovery.
+
+## Reviewed workspace integration
+
+Desktop `integration:query`/`integration:command` are strict desktop-only
+read/launch channels. Dedicated signed mobile `/api/v1/integration/query` and
+`/command` routes call only `AdeApplicationService`; all queries require
+`workspace:read` and complete resource access, commands additionally require
+`repositories:write`, idempotency and durable audit, tests additionally require
+`terminal:control`. No generic remote IPC privilege is added.
+`IntegrationService` pins native source/target/workspace identity, snapshots only
+selected changes through a separate index, prepares a three-way merge in a
+registered independent worktree, stores bounded durable reports and binds fixed
+recipe results to the reviewed file state. Explicit final approval rechecks
+source, clean target, leases, PTYs and test proof before commit and fast-forward.
+All wire text passes the error/wire redaction funnel. Test jobs fence Git
+mutations and graceful restart; interrupted jobs lose proof on reload.
+[Full contract and operator workflow](WORKSPACE_INTEGRATION.md).
+
+## Single-level navigation groups
+
+`Category.navigationGroup` is an optional 1–80 character display heading. Equal
+names group categories at their first catalog position; category and agent IDs,
+membership, Graph roles and repository defaults retain their existing semantics.
+Desktop and mobile preserve collapse state locally and search through collapsed
+parents. Portable workspace bundles retain the optional heading. The mobile
+catalog includes each authorized agent's category ID and only permitted categories.
+The dedicated administration operation `category-group` requires full resource
+access, `catalog:write`, signed device proof, idempotency and audit. It never
+widens the generic IPC remote command allowlist. Catalog updates use the existing
+main-to-renderer catalog event through `rendererWindows`.
+Delivery progress: [integration/navigation goals](INTEGRATION_NAVIGATION_GOALS.md).
+
+## Mobile project discovery and interactive workspace assignment
+
+`workspaceAssignments` maps each agent/repository pair to a validated native
+`ProjectWorkspace` for mobile files and terminal navigation. Managed worktree
+bindings and historical execution snapshots remain unchanged. Dedicated signed
+assignment queries build read-only previews from host-discovered directories or
+registered Git worktrees; confirmation revalidates identity, Git state, active
+work and resource grants under the exclusive workspace gate. A bounded,
+device-owned preview plus the durable command ledger separates inspection from
+mutation and preserves at-most-once confirmation across lost replies.
+No path-bearing payload or generic remote IPC capability is added.
+Contracts and evidence: [Workspace assignment](WORKSPACE_ASSIGNMENT.md).
+
+## Agent-free terminal workspace
+
+`MobileTerminalSelection` adds `{ terminalHome: true }` only to the dedicated
+terminal APIs and existing desktop session channels. Main resolves the native
+host home with no-follow directory identity checks; the client supplies no path.
+PTYs have `scopeSource: terminal-home` and no agent, repository or binding.
+They share the existing interactive launch, replay, CLI lifecycle and remote
+input-lease contracts. Home sessions require terminal control and an unrestricted
+resource grant, rechecked before replay and around asynchronous work. Workspace
+file APIs do not accept this scope. There is no generic remote allowlist widening.
+Desktop groups these sessions independently; Mobile has a dedicated Terminals
+view with the same sessions, CLI launcher and device-local display preferences.
+Contract, UI and executable evidence: [Terminal workspace](TERMINAL_WORKSPACE.md).
+
 ## Guided desktop setup
 
 The always-reachable Einrichtung dialog and the empty first-run card route to

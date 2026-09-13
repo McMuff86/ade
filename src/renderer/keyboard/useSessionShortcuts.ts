@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useMode } from '../stores/mode';
 import { useSelection } from '../stores/selection';
-import { useSessions } from '../stores/sessions';
+import { useSessions, TERMINAL_HOME_GROUP } from '../stores/sessions';
 import { useSessionLaunch } from '../stores/sessionLaunch';
 
 export const SHORTCUTS = {
@@ -37,10 +37,10 @@ export function useSessionShortcuts(): void {
       if (useMode.getState().mode !== 'terminals') return;
 
       const agentId = useSelection.getState().selectedAgentId;
-      if (!agentId) return;
+      const group = agentId ?? TERMINAL_HOME_GROUP;
       const sessions = useSessions.getState();
-      const order = sessions.orderByAgent[agentId] ?? [];
-      const active = sessions.activeByAgent[agentId] ?? null;
+      const order = sessions.orderByAgent[group] ?? [];
+      const active = sessions.activeByAgent[group] ?? null;
 
       if (primary && event.shiftKey && !event.altKey && event.key.toLowerCase() === 't') {
         if (event.repeat) return;
@@ -63,7 +63,7 @@ export function useSessionShortcuts(): void {
         const currentIndex = active ? order.indexOf(active) : 0;
         const index = currentIndex < 0 ? 0 : currentIndex;
         const next = order[(index + direction + order.length) % order.length];
-        if (next) sessions.setActive(agentId, next);
+        if (next) sessions.setActive(group, next);
         return;
       }
 
@@ -71,7 +71,7 @@ export function useSessionShortcuts(): void {
         const next = order[Number(event.key) - 1];
         if (!next) return;
         event.preventDefault();
-        sessions.setActive(agentId, next);
+        sessions.setActive(group, next);
       }
     };
 

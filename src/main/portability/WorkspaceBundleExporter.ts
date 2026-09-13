@@ -273,6 +273,7 @@ export function exportWorkspaceBundle(
     return {
       id: category.id,
       name: category.name,
+      ...(category.navigationGroup ? { navigationGroup: category.navigationGroup } : {}),
       agentIds: [...ordered, ...unlisted],
       ...(category.defaultRepositoryId ? { defaultRepositoryId: category.defaultRepositoryId } : {}),
       ...(category.kind ? { kind: category.kind } : {}),

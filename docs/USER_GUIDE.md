@@ -1,6 +1,13 @@
 # ADE User-Guide
 
-Stand: 11. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Neu: **Terminals → Projekt → Projekte durchsuchen…** findet vorhandene Git-Projekte
+im gespeicherten Projekt-Stammordner und im ADE-Katalog. Ein Projekt auswählen,
+**Projekt prüfen** und danach **Workspace zuweisen**. In der Agentenansicht steht
+derselbe Ablauf neben **Workspace aktualisieren**. **Nicht belegt** beschreibt
+die Nutzung durch Terminals/Aufträge; die tatsächliche Zuordnung steht daneben.
+[Ablauf und Grenzen](WORKSPACE_ASSIGNMENT.md).
+
+Stand: 12. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
 
 ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
@@ -231,6 +238,25 @@ Bei einer unterbrochenen Antwort **Start fortsetzen** verwenden. ADE prüft den
 bereits begonnenen Vorgang; kein zweites Projekt nur wegen einer Warteanzeige anlegen.
 **Startablauf schliessen · erstellte Arbeit behalten** beendet den Startablauf,
 ohne bereits angelegte Projektdateien zu löschen.
+
+## Terminal ohne Agent und Projekt öffnen
+
+Am Desktop **Terminals → Terminal öffnen** wählen. Im Dialog **Leeres Terminal**,
+**Codex**, **Claude CLI** oder **Grok CLI** auswählen und **Sitzung starten** drücken.
+Die Sitzung beginnt im Benutzerverzeichnis des ADE-Rechners. Mit **Freie Terminals**
+links kehrst du zu diesen Sitzungen zurück. Du kannst die CLI auch selbst in der
+Shell starten; ADE zeigt den CLI-Status nur für den von ADE gestarteten Aufruf.
+
+Auf Mobile **Terminals** oder **Terminal öffnen** wählen. Die linke Navigation zeigt
+Agents und bestehende Sitzungen; auf dem Telefon erreichst du sie über
+**Agents und Sitzungen**. Mit **Eingabe übernehmen** bedienst du eine vorhandene
+Desktop-Sitzung. **Neue Sitzung starten** öffnet eine weitere Sitzung.
+**Schriftgrösse**, **Terminal vergrössern**, Theme und Tastaturhilfen passen die
+Ansicht an dein Gerät an. Das Terminal läuft auf dem ADE-Rechner.
+
+Für freie Terminals muss das Gerät am PC **Interaktive Terminals steuern** und
+Zugriff auf **Alle** Ressourcen erhalten. Installation und Anmeldung der CLI
+erfolgen in der nativen Umgebung des ADE-Rechners. [Details und Abnahmestand](TERMINAL_WORKSPACE.md).
 
 ## 5. In einem bestehenden Projekt arbeiten
 
@@ -604,3 +630,26 @@ Pro Datei gilt 16 MiB, pro Aufgabe werden bis zu 100 geänderte Dateien gesicher
 der Ergebnisspeicher ist auf 2 GiB begrenzt. Eine unvollständige Sicherung wird
 angezeigt. Die Seitennavigation zeigt die im ADE-Journal behaltenen Runs;
 bereits in JSON ausgelagerte Langzeitarchive bleiben Operator-Dateien.
+
+Abgeschlossene, fehlgeschlagene und abgebrochene Runs kannst du auf Mobile in
+**Work → Run auswählen → Run löschen** aus dem Verlauf entfernen. Bestätige
+die Rückfrage; Projektdateien und Workspaces bleiben erhalten. Runs mit einem
+Veröffentlichungsnachweis lassen sich nicht löschen. Das gekoppelte Gerät
+benötigt vollständige Ressourcenfreigabe. Bei einer verlorenen Antwort bietet
+**Diesen Auftrag erneut prüfen** dieselbe Löschbestätigung auch nach Neuladen an.
+
+## Übernahme und Agent-Obergruppen
+
+Unter **Repository synchronisieren** (Desktop) beziehungsweise
+**Verwalten → Git-Abgleich** (Mobile) führt **Änderungen übernehmen…** durch
+Dateiauswahl, separate Arbeitskopie, Projektprüfungen und ausdrückliche Übernahme.
+Die einzelnen Schritte und die Wiederaufnahme gespeicherter Berichte stehen in
+[WORKSPACE_INTEGRATION.md](WORKSPACE_INTEGRATION.md).
+
+Kategorien erhalten optional eine **Obergruppe**, zum Beispiel **Agent-Systeme**.
+Auf Desktop steht das Feld in den Kategorieeinstellungen, auf Mobile unter
+**Verwalten → Agents → Obergruppen**. Leeres Feld entfernt die Obergruppe.
+Mehrere Kategorien mit gleichem Gruppennamen erscheinen zusammen; Agenten und
+ihre Projektzuordnungen bleiben erhalten. Die Suche in der Terminal-Navigation
+findet auch Agenten in eingeklappten Gruppen. Der Auf-/Zuklapp-Zustand wird je
+Gerät gespeichert.

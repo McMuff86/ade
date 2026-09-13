@@ -75,7 +75,7 @@ void (async () => {
   devices.setAdminScopes(device.id, ['projects:write']);
   await refuses('write grant without read does not expose workspace result', () => application.commandProject(context('http-open-0001'), input), 'scope_not_granted');
   devices.setAdminScopes(device.id, ['workspace:read', 'projects:write']);
-  const authorized = (id: string, scope: import('../src/shared/remoteDevices').RemoteAdminScope) => devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope));
+  const authorized = (id: string, scope: import('../src/main/application/RemoteCommandLedger').RemoteLedgerScope) => devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope));
   const restarted = new RemoteCommandLedger(receiptFile, (event) => devices.audit(event), authorized);
   const durable = await restarted.execute(context('http-open-0001'), 'project:open', 'projects:write', input, () => { throw new Error('Must not rerun'); });
   check('receipt survives process/service restart and never reruns open', durable.replayed);

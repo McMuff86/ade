@@ -40,7 +40,7 @@ export type RuntimeId =
   | 'shell'
   | 'custom';
 
-export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home' | 'project-workspace';
+export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home' | 'project-workspace' | 'terminal-home';
 
 /** First-class local Git repository catalog entry (Goal 5). */
 export interface Repository {
@@ -123,6 +123,8 @@ export type CategoryKind = 'plain' | 'orchestrator' | 'team';
 export interface Category {
   id: string;
   name: string;
+  /** Optional single-level navigation heading; no policy or workspace inheritance. */
+  navigationGroup?: string;
   /** photos/<file> under userData */
   photo?: string;
   /** optional git repo backing this category */
@@ -1079,6 +1081,7 @@ export interface AdeConfig {
   repositories: Repository[];
   workspaceBindings: WorkspaceBinding[];
   projectWorkspaces: import('./projectWorkspaces').ProjectWorkspace[];
+  workspaceAssignments: import('./remote').WorkspaceAssignment[];
   agentTemplates: AgentTemplate[];
   runs: Run[];
   runParticipants: RunParticipant[];
@@ -1105,6 +1108,7 @@ export const DEFAULT_CONFIG: AdeConfig = {
   repositories: [],
   workspaceBindings: [],
   projectWorkspaces: [],
+  workspaceAssignments: [],
   agentTemplates: [],
   runs: [],
   runParticipants: [],
@@ -1345,6 +1349,7 @@ export interface AgentFile {
 
 export interface CategoryCreateInput {
   name: string;
+  navigationGroup?: string;
   photo?: string;
   repoPath?: string;
   defaultRepositoryId?: string;
@@ -1354,6 +1359,8 @@ export interface CategoryCreateInput {
 export interface CategoryUpdateInput {
   id: string;
   name: string;
+  /** null removes the heading; omitted preserves the current group. */
+  navigationGroup?: string | null;
   /** Stored photo filename; null removes the photo, undefined preserves it. */
   photo?: string | null;
 }

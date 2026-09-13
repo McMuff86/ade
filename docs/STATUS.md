@@ -1,5 +1,36 @@
 # ADE implementation status
 
+
+## Abnahme: Terminals, Übernahme und Obergruppen (13. September 2026)
+
+Freie Terminals, CLI-Auswahl, Projektbrowser und geprüfte Workspace-Zuweisung
+sind auf Desktop/Mobile umgesetzt. Dazu kommen die geprüfte Übernahme älterer
+Änderungen, optionale Agent-Obergruppen und das Löschen abgeschlossener Runs auf
+Mobile. Vollständiges `pnpm verify`: **3.018 Checks bestanden** — 48 fokussierte
+Suiten mit 2.329 Checks und 689 reale Electron-/Browser-Prüfungen, einschliesslich
+22 visueller Vergleiche. Alle drei TypeScript-Projekte und Produktionsbuild bestehen.
+RhinoLayoutTools enthält die in Rhino 8/9 geprüfte FastenerPlace-Palette auf
+`main`, nach `origin/main` gepusht als `5c4b820`.
+ADE-Commit/Push, persönliche Gruppenzuweisung und Neustart folgen auf diese Abnahme.
+[Übernahme-Vertrag](WORKSPACE_INTEGRATION.md) · [Teilziele und Evidenz](INTEGRATION_NAVIGATION_GOALS.md).
+
+## Projekte durchsuchen und Workspace-Zuweisung (12. September 2026)
+
+Mobile Suche, Prüfung und explizite Zuweisung vorhandener Projektordner sind
+implementiert. Belegungsstatus und Zuordnung werden getrennt angezeigt.
+Vollständiges `pnpm verify`: **2.880 Checks bestanden**. Genau eine geprüfte
+ADE-Instanz läuft seit 14:21 Uhr mit dem persönlichen Profil; Mobile-HTTPS und
+erhaltene Gerätekopplung sind bestätigt. [Verträge und Evidenz](WORKSPACE_ASSIGNMENT.md).
+
+## Freie Terminals und Mobile-Terminalansicht (12. September 2026)
+
+Desktop-Einstieg ohne Agent/Projekt und eigener Mobile-Reiter sind implementiert.
+CLI-Auswahl, bestehende Sitzungen, Eingabeübernahme und lokale Anzeigeoptionen
+sind unter Windows geprüft. Vollständiges `pnpm verify`: **2.828 Checks bestanden**.
+Genau eine Instanz des geprüften Builds läuft mit dem persönlichen Profil;
+Mobile-HTTPS und unveränderte Kopplung sind bestätigt.
+Aktuelle Evidenz und Operatorzustand: [TERMINAL_WORKSPACE](TERMINAL_WORKSPACE.md).
+
 ## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
 
 Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie

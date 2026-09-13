@@ -105,6 +105,7 @@ function importedConfig(
         ? { defaultRepositoryId: plan.idMap.repositories[source.defaultRepositoryId] }
         : {}),
       ...(source.kind ? { kind: source.kind } : {}),
+      ...(source.navigationGroup ? { navigationGroup: source.navigationGroup } : {}),
       ...(source.photoAssetId ? { photo: assetNames.get(source.photoAssetId) } : {}),
     };
   });

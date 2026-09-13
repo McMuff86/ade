@@ -1,12 +1,13 @@
 import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
 import type { RunSummary } from '../shared/types';
 
-export type View = 'overview' | 'projects' | 'work' | 'graph';
-export const VIEWS: { id: View; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projekte' }, { id: 'work', label: 'Work' }, { id: 'graph', label: 'Graph' }];
+export type View = 'overview' | 'projects' | 'terminals' | 'work' | 'graph';
+export const VIEWS: { id: View; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projekte' }, { id: 'terminals', label: 'Terminals' }, { id: 'work', label: 'Work' }, { id: 'graph', label: 'Graph' }];
 export const finalStates = new Set(['completed', 'failed', 'cancelled']);
 export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'project' | 'refresh' | 'sun' | 'moon' }): JSX.Element {
   const paths: Record<string, ReactNode> = {
     overview: <path d="M4 7h16M4 12h10M4 17h7" />,
+    terminals: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 8 4 4-4 4m7 0h4" /></>,
     work: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m8 9 2 2 4-4M8 16h8" /></>,
     graph: <><circle cx="12" cy="5" r="2.4" /><circle cx="5" cy="18" r="2.4" /><circle cx="19" cy="18" r="2.4" /><path d="M12 7.4v4M10.5 13l-4 3M13.5 13l4 3" /></>,
     plus: <path d="M12 5v14M5 12h14" />, close: <path d="m6 6 12 12M6 18 12 6" />,
@@ -55,8 +56,10 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
       target?.focus();
     };
   }, [fallbackId]);
-  return <dialog ref={ref} className={`m-dialog ${className}`} aria-label={title} onCancel={(event) => { event.preventDefault(); close.current(); }}
+  return <dialog ref={ref} className={`m-dialog ${className}`} aria-label={title} onCancel={(event) => { event.preventDefault(); event.stopPropagation(); close.current(); }}
     onKeyDown={(event) => {
+      if ((event.target as Element).closest('dialog') !== event.currentTarget) return;
+      if (event.key === 'Escape') { event.stopPropagation(); return; }
       if (event.key !== 'Tab') return;
       const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
         .filter((node) => !node.matches(':disabled') && node.getClientRects().length > 0);

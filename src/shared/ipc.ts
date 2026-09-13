@@ -96,6 +96,8 @@ export const IPC = {
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
   ProjectWorkspaceQuery: 'project:query',
+  IntegrationQuery: 'integration:query',
+  IntegrationCommand: 'integration:command',
   ProjectWorkspaceCommand: 'project:command',
   ProjectCreate: 'project:create',
   ProjectFileRead: 'project:fileRead',
@@ -628,6 +630,8 @@ export interface WorkspaceBundleExportResult {
  */
 export interface IpcInvokeMap {
   'project:query': { req: import('./remote').ProjectWorkspaceQuery; res: import('./remote').ProjectWorkspaceQueryResult };
+  'integration:query': { req: import('./remote').IntegrationQuery; res: import('./remote').IntegrationResult };
+  'integration:command': { req: import('./remote').IntegrationCommand; res: import('./remote').IntegrationResult };
   'project:command': { req: import('./remote').ProjectWorkspaceCommand; res: import('./remote').ProjectWorkspaceCommandResult };
   'project:create': { req: { name: string }; res: { repositoryId: string } };
   'project:fileRead': { req: { projectWorkspaceId: string; path: string }; res: import('./remote').MobileWorkspaceResult };
@@ -704,7 +708,7 @@ export interface IpcInvokeMap {
   'clipboard:readText': { req: void; res: ClipboardReadTextResult };
   'clipboard:writeText': { req: ClipboardWriteTextRequest; res: void };
   'pty:create': { req: PtyCreateRequest; res: SessionMeta };
-  'session:options': { req: import('./remote').MobileWorkspaceSelection; res: import('./remote').SessionLaunchOptions };
+  'session:options': { req: import('./remote').MobileTerminalSelection; res: import('./remote').SessionLaunchOptions };
   'session:launch': { req: import('./remote').SessionLaunchRequest & { workspaceBindingId?: string }; res: SessionMeta };
   'pty:write': { req: PtyWriteRequest; res: void };
   'pty:resize': { req: PtyResizeRequest; res: void };

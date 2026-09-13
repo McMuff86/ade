@@ -1,0 +1,116 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
+import { WorkspaceAssignmentService } from '../src/main/application/WorkspaceAssignmentService';
+import { RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
+import { validateCompleteConfig } from '../src/main/config/store';
+import { normalizeConfig } from '../src/main/orchestration/migrate';
+import { DEFAULT_CONFIG } from '../src/shared/types';
+import { validAssignmentRequest } from '../src/shared/workspaceAssignments';
+
+let passed = 0;
+const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok  ${name}`); };
+async function refuses(name: string, action: () => unknown, match: RegExp) {
+  try { await action(); } catch (error) { check(name, match.test(`${error instanceof RemoteApiError ? error.code : ''} ${String(error)}`)); return; } throw new Error(name);
+}
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-assignment-')));
+void (async () => {
+  const fixture = createRemoteWorkspaceFixture(root); const { application: app, store, devices, sessions, projects } = fixture;
+  devices.enroll('tablet', 'Tablet', 'd'.repeat(40)); devices.setAdminScopes('tablet', ['workspace:read', 'catalog:write']);
+  const context = (): RemoteCommandContext => ({ principal: { id: 'tablet', kind: 'device', proof: 'device-signature', scopes: new Set(devices.activeDevices()[0]!.scopes) }, idempotencyKey: randomUUID(), requestId: 'assignment' });
+  const created = await app.administer(context(), { operation: 'project-create', input: { name: 'Layout tools' } });
+  const selection = { agentId: 'builder', repositoryId: created.created!.id };
+  await app.administer(context(), { operation: 'workspace-prepare', input: selection });
+  const repository = store.get().repositories.find((item) => item.id === selection.repositoryId)!;
+  const binding = store.get().workspaceBindings.find((item) => item.agentId === 'builder')!;
+  const query = (value: Record<string, unknown>) => app.workspaceAssignment(context(), value, false);
+  const apply = (previewId: string, ctx = context()) => app.workspaceAssignment(ctx, { agentId: 'builder', previewId }, true);
+  writeFileSync(join(repository.rootPath, 'original.txt'), 'Original project, preserve this.\n');
+  const before = JSON.stringify(store.get());
+  const view = await query({ ...selection, operation: 'overview' });
+  check('overview distinguishes existing ADE assignment from project checkout', view.view.candidates.some((item) => item.id === 'ade' && item.current)
+    && view.view.candidates.some((item) => item.kind === 'checkout' && !item.current));
+  check('overview never provisions or changes config', JSON.stringify(store.get()) === before);
+  devices.setAdminScopes('tablet', ['terminal:control']);
+  check('terminal-only permission can resolve its saved interactive selection', (await query({ ...selection, operation: 'overview' })).view.selection.agentId === 'builder');
+  await refuses('terminal control alone cannot prepare assignment', () => query({ ...selection, operation: 'preview', candidateId: 'ade' }), /scope_not_granted/);
+  devices.setAdminScopes('tablet', ['workspace:read', 'catalog:write']);
+  const candidate = view.view.candidates.find((item) => item.kind === 'checkout')!;
+  const preview = await query({ ...selection, operation: 'preview', candidateId: candidate.id });
+  check('read-only preview checks Git and preserves dirty files', !preview.preview!.blockers.length && preview.preview!.checks.some((item) => item.includes('Lokale Änderungen')) && JSON.stringify(store.get()) === before);
+  check('wire contains no absolute paths', !JSON.stringify(preview).includes(root.replace(/\\/g, '\\\\')));
+  check('query rejects path and hidden command injection', !validAssignmentRequest({ ...selection, operation: 'preview', candidateId: repository.rootPath }, false)
+    && !validAssignmentRequest({ ...selection, operation: 'overview', command: 'git reset' }, false));
+  check('command rejects caller-supplied workspace paths', !validAssignmentRequest({ agentId: 'builder', previewId: randomUUID(), path: root }, true));
+  await refuses('missing idempotency key cannot assign', () => apply(preview.preview!.id, { ...context(), idempotencyKey: undefined }), /idempotency/i);
+  const commandContext = context(); const assigned = await apply(preview.preview!.id, commandContext);
+  check('confirm persists a project workspace association', !!assigned.view.selection.projectWorkspaceId && store.get().workspaceAssignments.length === 1);
+  check('managed worktree binding remains exact and unchanged', JSON.stringify(store.get().workspaceBindings.find((item) => item.id === binding.id)) === JSON.stringify(binding));
+  check('assignment does not alter project files', readFileSync(join(repository.rootPath, 'original.txt'), 'utf8') === 'Original project, preserve this.\n');
+  check('file reads in assigned scope reach original project', (await app.queryWorkspace(context(), { ...assigned.view.selection, operation: 'file', path: 'original.txt' })).file?.text.includes('Original project') === true);
+  check('retry replays the receipt without creating a second assignment', (await apply(preview.preview!.id, commandContext)).replayed === true && store.get().workspaceAssignments.length === 1);
+  const reloaded = new WorkspaceAssignmentService(store, projects, () => sessions);
+  check('association survives service restart', (await reloaded.overview(selection, () => undefined)).view.selection.projectWorkspaceId === assigned.view.selection.projectWorkspaceId);
+  const own = await query({ ...selection, operation: 'preview', candidateId: 'ade' });
+  sessions.push({ id: 'live', agentId: 'builder', title: 'Shell', kind: 'interactive', status: 'running', createdAt: Date.now(), workspaceDir: repository.rootPath, executionBackend: 'native' });
+  await refuses('terminal opened after preview blocks reassignment', () => apply(own.preview!.id), /Terminal/);
+  sessions.length = 0;
+  await apply(own.preview!.id);
+  check('explicit return to ADE copy clears interactive override', store.get().workspaceAssignments.length === 0 && (await query({ ...selection, operation: 'overview' })).view.selection.agentId === 'builder');
+  execFileSync('git', ['-C', repository.rootPath, 'branch', '-m', 'api_key=private-assignment-fixture'], { windowsHide: true });
+  const redactedPreview = await query({ ...selection, operation: 'preview', candidateId: candidate.id });
+  const redactedAssignment = await apply(redactedPreview.preview!.id);
+  check('sensitive branch text is redacted in preview and confirmed result', !JSON.stringify([redactedPreview, redactedAssignment]).includes('private-assignment-fixture'));
+  await apply((await query({ ...selection, operation: 'preview', candidateId: 'ade' })).preview!.id);
+  const stale = await query({ ...selection, operation: 'preview', candidateId: candidate.id });
+  writeFileSync(join(repository.rootPath, 'later.txt'), 'new file');
+  await refuses('changed Git working state requires a new preview', () => apply(stale.preview!.id), /seit der Prüfung geändert/);
+  const revoked = await query({ ...selection, operation: 'preview', candidateId: candidate.id });
+  devices.setAdminScopes('tablet', ['workspace:read']);
+  await refuses('revoked mutation grant cannot assign', () => apply(revoked.preview!.id), /scope_not_granted/);
+  devices.setAdminScopes('tablet', ['workspace:read', 'catalog:write']);
+  const service = new WorkspaceAssignmentService(store, projects, () => sessions, () => 0);
+  const owned = await service.preview(selection, candidate.id, 'first', () => undefined);
+  await refuses('preview belongs to one device', () => service.confirm('builder', owned.preview!.id, 'second', () => undefined), /anderen Auswahl/);
+  let clock = 0; const expiring = new WorkspaceAssignmentService(store, projects, () => sessions, () => clock);
+  const expired = await expiring.preview(selection, candidate.id, 'first', () => undefined); clock = 120_001;
+  await refuses('expired preview fails closed', () => expiring.confirm('builder', expired.preview!.id, 'first', () => undefined), /abgelaufen/);
+  const parent = join(root, 'all-projects'); mkdirSync(parent); const unknown = join(parent, 'Other layout'); mkdirSync(unknown);
+  const git = (...args: string[]) => execFileSync('git', ['-C', unknown, ...args], { windowsHide: true, encoding: 'utf8' });
+  git('init', '--initial-branch=main'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Initial');
+  new ProjectDefaultsService(store).save({ rootPath: parent, agentId: null });
+  const entries = (await app.queryProjects(context(), { operation: 'directory' })).directory!.entries;
+  const entry = entries.find((item) => item.name === 'Other layout')!;
+  check('project search includes unregistered projects from configured root', !!entry && !entry.repositoryId);
+  const catalogBefore = JSON.stringify(store.get());
+  const unknownPreview = await query({ operation: 'project-preview', agentId: 'builder', entryId: entry.id });
+  check('browsed project is inspected without catalog registration', JSON.stringify(store.get()) === catalogBefore && unknownPreview.preview!.checks.some((item) => item.includes('erst beim Zuweisen')));
+  const unknownAssigned = await apply(unknownPreview.preview!.id);
+  check('confirmed browsed project is registered and assigned to selected agent', !!unknownAssigned.view.repositoryId && store.get().repositories.some((item) => item.id === unknownAssigned.view.repositoryId)
+    && store.get().workspaceAssignments.some((item) => item.agentId === 'builder' && item.repositoryId === unknownAssigned.view.repositoryId));
+  check('no extra ADE binding or agent is created by project assignment', store.get().workspaceBindings.length === JSON.parse(before).workspaceBindings.length
+    && store.get().agents.length === JSON.parse(before).agents.length);
+  devices.setAdminScopes('tablet', ['workspace:read', 'catalog:write'], { mode: 'selected', agentIds: ['builder'], repositoryIds: [selection.repositoryId] });
+  await refuses('selected-project device cannot inspect another project', () => query({ operation: 'project-preview', agentId: 'builder', entryId: entry.id }), /scope_not_granted/);
+  devices.setAdminScopes('tablet', ['workspace:read', 'catalog:write'], { mode: 'all' });
+  const link = join(parent, 'Linked project'); symlinkSync(unknown, link, process.platform === 'win32' ? 'junction' : 'dir');
+  const linked = (await projects.directory()).entries.find((item) => item.name === 'Linked project')!;
+  await refuses('junction cannot be assigned as project', () => query({ operation: 'project-preview', agentId: 'builder', entryId: linked.id }), /Git-Projektordner/);
+  const unborn = join(parent, 'New Git project'); mkdirSync(unborn); execFileSync('git', ['init', '--initial-branch=main', unborn], { windowsHide: true });
+  const unbornEntry = (await projects.directory()).entries.find((item) => item.name === 'New Git project')!;
+  const unbornPreview = await query({ operation: 'project-preview', agentId: 'builder', entryId: unbornEntry.id });
+  check('Git repository with no first commit can be inspected without inventing a commit', !unbornPreview.preview!.blockers.length
+    && unbornPreview.preview!.candidate.branch === 'main');
+  const normal = normalizeConfig({ ...DEFAULT_CONFIG, workspaceAssignments: undefined }).config;
+  check('older config migrates to an empty assignment list', normal.workspaceAssignments.length === 0);
+  validateCompleteConfig(store.get()); check('persisted associations pass complete config validation', true);
+  const invalid = structuredClone(store.get()); invalid.workspaceAssignments.push({ agentId: 'missing', repositoryId: selection.repositoryId, projectWorkspaceId: randomUUID() });
+  await refuses('invalid association references are rejected by config validation', () => validateCompleteConfig(invalid), /assignment relationship/);
+  check('final positive control still resolves original selected project', (await projects.resolve(unknownAssigned.view.selection.projectWorkspaceId!)).workspace.workspaceDir === unknown);
+  console.log(`Workspace assignment: ${passed} passed, 0 failed`);
+})().catch((error) => { console.error(error instanceof RemoteApiError ? `${error.code}: ${error.message}` : error); process.exitCode = 1; })
+  .finally(() => rmSync(root, { recursive: true, force: true }));

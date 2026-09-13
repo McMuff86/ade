@@ -9,9 +9,12 @@ import type { Duplex } from 'node:stream';
 export async function mobileTlsProxy() {
   let targetPort = 0;
   let loseTaskReply = false;
+  let loseDeleteReply = false;
   let loseAdminReply = false;
   let loseWorkspaceReply = false;
   let loseProjectReply = false;
+  let loseAssignmentReply = false;
+  let loseIntegrationReply = false;
   let loseTerminalReply = false;
   let loseInputReply = false;
   let inputReplyMatch: string | undefined;
@@ -34,8 +37,11 @@ export async function mobileTlsProxy() {
         try { const input = JSON.parse(Buffer.concat(inputChunks).toString('utf8')); matchingInput = typeof input.data === 'string' && input.data.includes(inputReplyMatch); } catch {}
       }
       if (req.method === 'POST' && ((loseTaskReply && req.url === '/api/v1/tasks')
+        || (loseDeleteReply && /^\/api\/v1\/runs\/[^/]+\/delete$/.test(req.url ?? ''))
         || (loseAdminReply && req.url === '/api/v1/admin/commands') || (loseWorkspaceReply && req.url === '/api/v1/workspace/save')
         || (loseProjectReply && req.url === '/api/v1/projects/command')
+        || (loseAssignmentReply && req.url === '/api/v1/workspace/assignment/command')
+        || (loseIntegrationReply && req.url === '/api/v1/integration/command')
         || (loseTerminalReply && req.url === '/api/v1/terminal/command') || (loseInputReply && matchingInput && req.url === '/api/v1/terminal/input'))) {
         reply.resume(); res.destroy(); return;
       }
@@ -53,9 +59,12 @@ export async function mobileTlsProxy() {
     target: (value: number) => { targetPort = value; },
     rewriteOrigin: (value: string) => { upstreamOrigin = value; },
     loseTaskReplies: (value: boolean) => { loseTaskReply = value; },
+    loseDeleteReplies: (value: boolean) => { loseDeleteReply = value; },
     loseAdminReplies: (value: boolean) => { loseAdminReply = value; },
     loseWorkspaceReplies: (value: boolean) => { loseWorkspaceReply = value; },
     loseProjectReplies: (value: boolean) => { loseProjectReply = value; },
+    loseAssignmentReplies: (value: boolean) => { loseAssignmentReply = value; },
+    loseIntegrationReplies: (value: boolean) => { loseIntegrationReply = value; },
     loseTerminalReplies: (value: boolean) => { loseTerminalReply = value; },
     loseInputReplies: (value: boolean, match?: string) => { loseInputReply = value; inputReplyMatch = match; },
     setApiOffline: (value: boolean) => { rejectApi = value; if (value) for (const socket of sockets) socket.destroy(); },

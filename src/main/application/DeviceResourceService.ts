@@ -1,6 +1,6 @@
 import type { AdeConfig } from '../../shared/types';
 import type { DeviceResourceAccess } from '../../shared/remoteDevices';
-import type { MobileCatalog, MobileWorkspaceSelection } from '../../shared/remote';
+import type { MobileCatalog, MobileTerminalSelection } from '../../shared/remote';
 import type { RemotePrincipal } from '../remote/authorization';
 import { RemoteApiError } from './AdeApplicationService';
 
@@ -28,7 +28,8 @@ export class DeviceResourceService {
     if (!workspace) throw new RemoteApiError(404, 'not_found');
     this.assertRepository(principal, workspace.repositoryId);
   }
-  assertSelection(principal: RemotePrincipal | string, selection: Partial<MobileWorkspaceSelection> & { profileId?: string }): void {
+  assertSelection(principal: RemotePrincipal | string, selection: Partial<MobileTerminalSelection> & { profileId?: string }): void {
+    if (selection.terminalHome) this.assertAll(principal);
     if (selection.projectWorkspaceId) this.assertWorkspace(principal, selection.projectWorkspaceId);
     if (selection.agentId) this.assertAgent(principal, selection.agentId);
     if (selection.profileId) this.assertAgent(principal, selection.profileId);

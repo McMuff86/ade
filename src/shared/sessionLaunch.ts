@@ -1,5 +1,13 @@
 import type { SessionLaunchChoice } from './remote';
 import { OLLAMA_MODEL_PATTERN } from './runtimes';
+import { validWorkspaceSelection } from './projectWorkspaceRequests';
+
+export function validTerminalSelection(value: Record<string, unknown>): boolean {
+  return Object.hasOwn(value, 'terminalHome')
+    ? value.terminalHome === true && !['agentId', 'repositoryId', 'projectWorkspaceId', 'workspaceBindingId', 'expectedBranch', 'profileId'].some((key) => Object.hasOwn(value, key))
+      && value.mode !== 'agent'
+    : validWorkspaceSelection(value);
+}
 
 export const SESSION_LAUNCH_LABELS: Record<SessionLaunchChoice['mode'], string> = {
   shell: 'Leeres Terminal', agent: 'Gespeichertes Agent-Profil', codex: 'Codex', claude: 'Claude CLI', grok: 'Grok CLI', hermes: 'Hermes', ollama: 'Ollama',

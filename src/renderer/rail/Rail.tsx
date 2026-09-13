@@ -1,3 +1,5 @@
+import { groupCategories } from '../../shared/categoryNavigation';
+import { useNavigationCollapse } from '../../shared/useNavigationCollapse';
 /**
  * Left rail — two-level list of categories and their agents, per the mockup.
  *
@@ -45,9 +47,13 @@ export function Rail(): React.ReactElement {
   const openAgentSettings = useOnboarding((s) => s.openAgentSettings);
   const openAgentCard = useOnboarding((s) => s.openAgentCard);
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const toggle = (id: string): void =>
-    setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const { collapsed, toggle } = useNavigationCollapse('ade:rail:collapsed');
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLocaleLowerCase();
+  const visible = categories.map((cat) => {
+    const matches = `${cat.name} ${cat.navigationGroup ?? ''}`.toLocaleLowerCase().includes(query);
+    return { ...cat, agents: cat.agents.filter((id) => matches || `${agents[id]?.name ?? ''} ${agents[id]?.role ?? ''}`.toLocaleLowerCase().includes(query)) };
+  }).filter((cat) => !query || cat.agents.length > 0 || `${cat.name} ${cat.navigationGroup ?? ''}`.toLocaleLowerCase().includes(query));
 
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [hint, setHint] = useState<DropHint | null>(null);
@@ -116,9 +122,16 @@ export function Rail(): React.ReactElement {
 
   return (
     <nav className="rail-inner" aria-label="Categories and agents">
+      <button className="btn" aria-pressed={!selectedAgentId} onClick={() => setSelectedAgent(null)}>Freie Terminals</button>
+      <label className="rail-search">Agents suchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <div className="rail-scroll">
-        {categories.map((cat) => {
-          const isCollapsed = collapsed[cat.id] ?? false;
+        {visible.length === 0 && <p role="status">Keine passenden Kategorien oder Agents.</p>}
+        {groupCategories(visible).map((group) => <section key={group.key} className={group.name ? 'rail-group' : undefined} aria-label={group.name}>
+          {group.name && <button type="button" className="rail-group-heading" aria-expanded={!!query || !collapsed[group.key]} onClick={() => toggle(group.key)}>
+            <span aria-hidden="true">{!query && collapsed[group.key] ? '▸' : '▾'}</span> {group.name}
+          </button>}
+          {(!group.name || !!query || !collapsed[group.key]) && group.categories.map((cat) => {
+          const isCollapsed = !query && (collapsed[cat.id] ?? false);
           const catKey = `cat:${cat.id}`;
           const catHint = hint?.key === catKey ? hint : null;
           const catDropClass = catHint
@@ -154,6 +167,7 @@ export function Rail(): React.ReactElement {
                 <button
                   type="button"
                   className="cat-settings"
+                  data-category-settings={cat.id}
                   aria-label={`Category settings for ${cat.name}`}
                   title="Category settings"
                   onClick={() => openCategorySettings(cat.id)}
@@ -229,7 +243,8 @@ export function Rail(): React.ReactElement {
               </div>
             </div>
           );
-        })}
+          })}
+        </section>)}
       </div>
 
       <div className="rail-foot">

@@ -1,3 +1,4 @@
+import { NavigationGroupField } from './NavigationGroupField';
 /**
  * Existing-category settings: display name and profile photo. Structure
  * (agents, repository default, kind) is managed elsewhere and stays put.
@@ -19,6 +20,7 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
   const updateCategory = useAppData((s) => s.updateCategory);
   const deleteCategory = useAppData((s) => s.deleteCategory);
   const [name, setName] = useState(category.name);
+  const [group, setGroup] = useState(category.navigationGroup ?? '');
   const [photo, setPhoto] = useState<string | undefined>(category.photo);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
         id: category.id,
         name: name.trim(),
         photo: photo ?? null,
+        navigationGroup: group.trim() || null,
       });
       onClose();
     } catch (err) {
@@ -44,7 +47,9 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
   };
 
   return (
-    <Modal title="Category settings" subtitle="Rename the category or change its photo." onClose={onClose}>
+    <Modal title="Category settings" subtitle="Rename the category or change its photo." onClose={onClose}
+      fallbackFocus={() => document.querySelector<HTMLElement>(`[data-category-settings="${CSS.escape(category.id)}"]`)
+        ?? document.querySelector<HTMLElement>('.rail-search input')}>
       <div className="field">
         <label>PROFILE PHOTO</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
@@ -65,6 +70,7 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
 
       {saveError ? <div className="modal-error" role="alert">{saveError}</div> : null}
 
+      <NavigationGroupField value={group} onChange={setGroup} disabled={busy} />
       <div className="modal-actions">
         <DeleteAction
           label="Kategorie löschen"

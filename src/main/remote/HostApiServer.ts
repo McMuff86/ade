@@ -57,6 +57,8 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'integrationQuery' | 'integrationCommand' }
+  | { kind: 'assignmentQuery' | 'assignmentCommand' }
   | { kind: 'runQuestions' | 'runAnswer'; runId: string }
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
@@ -64,9 +66,9 @@ type Route =
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
-  | { kind: 'startRun' | 'cancelRun'; runId: string };
+  | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -118,9 +120,13 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/host/restart': return { route: { kind: 'restartHost' }, allow: ['POST'] };
     case '/api/v1/admin/commands': return { route: { kind: 'administer' }, allow: ['POST'] };
     case '/api/v1/projects/query': return { route: { kind: 'projectQuery' }, allow: ['POST'] };
+    case '/api/v1/integration/query': return { route: { kind: 'integrationQuery' }, allow: ['POST'] };
+    case '/api/v1/integration/command': return { route: { kind: 'integrationCommand' }, allow: ['POST'] };
     case '/api/v1/projects/command': return { route: { kind: 'projectCommand' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
+    case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
+    case '/api/v1/workspace/assignment/command': return { route: { kind: 'assignmentCommand' }, allow: ['POST'] };
     case '/api/v1/workspace/save': return { route: { kind: 'saveWorkspaceFile' }, allow: ['POST'] };
     case '/api/v1/profile/query': return { route: { kind: 'queryProfile' }, allow: ['POST'] };
     case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
@@ -142,10 +148,10 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
         if (action === 'files' && (!fileId || taskId)) return { route: { kind: fileId ? 'runFile' : 'runFiles', runId: runId!, taskId, fileId }, allow: ['GET'] };
         return null;
       }
-      const match = /^\/api\/v1\/runs\/([^/]+)\/(start|cancel)$/.exec(path);
+      const match = /^\/api\/v1\/runs\/([^/]+)\/(start|cancel|delete)$/.exec(path);
       if (!match || !RUN_ID_PATTERN.test(match[1]!)) return null;
       return {
-        route: { kind: match[2] === 'start' ? 'startRun' : 'cancelRun', runId: match[1]! },
+        route: { kind: match[2] === 'start' ? 'startRun' : match[2] === 'delete' ? 'deleteRun' : 'cancelRun', runId: match[1]! },
         allow: ['POST'],
       };
     }
@@ -444,6 +450,10 @@ export class HostApiServer {
         case 'projectCommand':
         case 'queryGit':
         case 'queryWorkspace':
+        case 'assignmentQuery':
+        case 'integrationQuery':
+        case 'integrationCommand':
+        case 'assignmentCommand':
         case 'saveWorkspaceFile':
         case 'queryProfile':
         case 'updateProfile':
@@ -469,6 +479,7 @@ export class HostApiServer {
           return;
         case 'startRun':
         case 'cancelRun':
+        case 'deleteRun':
         case 'runAnswer':
           await this.handleCommand(
             request, response, requestId, bearer, target.path, matched.route.kind, matched.route.runId, browserRequest,
@@ -496,9 +507,10 @@ export class HostApiServer {
     runId?: string,
     browserRequest = false,
   ): Promise<void> {
-    const expectsJson = kind !== 'startRun' && kind !== 'cancelRun';
+    const expectsJson = kind !== 'startRun' && kind !== 'cancelRun' && kind !== 'deleteRun';
     const body = await this.readBody(request, response, expectsJson);
     if (body === null) return;
+    if (kind === 'deleteRun' && body.length !== 0) { writeError(response, 400, 'invalid_payload', 'delete takes no body'); return; }
 
     let principal = bearer;
     const deviceId = singleHeader(request, 'x-ade-device');
@@ -544,8 +556,11 @@ export class HostApiServer {
     }
 
     try {
-      const result = kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
+      const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
+        : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
         : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
+        : kind === 'assignmentQuery' || kind === 'assignmentCommand' ? await this.application.workspaceAssignment(context, payload, kind === 'assignmentCommand')
+        : kind === 'integrationQuery' || kind === 'integrationCommand' ? await this.application.integration(context, payload, kind === 'integrationCommand')
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)

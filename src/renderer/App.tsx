@@ -20,7 +20,8 @@ import { adjacentMode, useMode, type AppMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
 import { OverviewView } from './overview/OverviewView';
 import { ProjectsView } from './projects/ProjectsView';
-import { useSessions } from './stores/sessions';
+import { useSessions, TERMINAL_HOME_GROUP } from './stores/sessions';
+import { useSessionLaunch } from './stores/sessionLaunch';
 import { useRuns } from './stores/runs';
 import { useDiagnostics } from './stores/diagnostics';
 import { DiagnosticsModal } from './diagnostics/DiagnosticsModal';
@@ -180,6 +181,7 @@ function TerminalsLayout(props: {
   onInspectorExpand: () => void;
   onToggleInspector: () => void;
 }): JSX.Element {
+  const hasHomeSessions = useSessions((state) => !!state.orderByAgent[TERMINAL_HOME_GROUP]?.length);
   const rail = (
     <Panel
       id="rail"
@@ -197,6 +199,7 @@ function TerminalsLayout(props: {
       <div className="tabbar">
         <TabStrip />
         <div className="strip-actions">
+          <button className="btn" onClick={() => useSessionLaunch.getState().open(null)}>Terminal öffnen</button>
           <button
             className={props.inspectorOpen ? 'btn btn-toggled' : 'btn'}
             onClick={props.onToggleInspector}
@@ -207,7 +210,7 @@ function TerminalsLayout(props: {
         </div>
       </div>
       <div className="workarea">
-        {props.firstRun ? <FirstRun onSetup={props.onSetup} onProjects={props.onProjects} /> : <TerminalArea />}
+        {props.firstRun && !hasHomeSessions ? <FirstRun onSetup={props.onSetup} onProjects={props.onProjects} /> : <TerminalArea />}
       </div>
     </Panel>
   );

@@ -1,5 +1,57 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Run-Verlauf auf Mobile löschen
+
+In den Run-Details erscheint **Run löschen** für abgeschlossene, fehlgeschlagene
+und abgebrochene Runs. Die endgültige Entfernung aus dem Verlauf verlangt eine
+Bestätigung; Projektdateien und Workspaces bleiben erhalten. Aktive Leases und
+externe Veröffentlichungsnachweise sperren die Löschung. Sie benötigt ein
+gekoppeltes Gerät mit `runs:write` und vollständiger Ressourcenfreigabe. Bei
+Antwortverlust wird derselbe Auftrag nach Neuladen erneut geprüft. Eine bestätigte
+Löschung entfernt den Run auch aus Work und Graph und setzt den Tastaturfokus auf
+die aktive Navigation zurück. Desktop behält seine vorhandene Löschfunktion.
+
+## Geprüfte Übernahme älterer Workspace-Änderungen
+
+Desktop und Mobile bieten im Git-Abgleich **Änderungen übernehmen…**.
+Benutzer wählen einen Quell-Workspace und einzelne Dateien, vergleichen Basis,
+Quelle und Ziel und bereiten eine unabhängige Arbeitskopie vor. Gespeicherte
+Berichte führen zu Datei-/Konfliktbearbeitung, ausführbaren Projektprüfungen und
+ausdrücklicher Commit-/Fast-forward-Freigabe. Erfolgreiche Tests ersetzen keine
+fachliche oder Rhino-Liveprüfung. Quelle und ungewählte Inhalte bleiben erhalten.
+Veränderte Basis, belegte Workspaces, Konflikte und fehlender Testnachweis sperren
+die Übernahme. Mobile-Anfragen bleiben nach Antwortverlust mit demselben
+Idempotenzschlüssel prüfbar. [Bedienung und Grenzen](WORKSPACE_INTEGRATION.md).
+
+## Agent-Obergruppen
+
+Bestehende Kategorien können optional einer benannten Obergruppe zugeordnet
+werden. Es gibt genau eine zusätzliche Ebene. Desktop-Terminals und mobile
+Terminals zeigen dieselbe Hierarchie, mit Suche und gespeicherter Auf-/Zuklapp-
+Auswahl. Desktop-Kategorieeinstellungen und die mobile Verwaltung unter Agents
+erlauben einen bestehenden oder neuen Gruppennamen; leer entfernt die Zuordnung.
+Agent-Identitäten, Projektzuordnung und Graph-Rollen bleiben erhalten.
+[Aktiver Implementierungs- und Abnahmeauftrag](INTEGRATION_NAVIGATION_GOALS.md).
+
+## Mobile Projekt- und Workspace-Zuweisung
+
+Die Projekt-Auswahl bietet **Projekte durchsuchen…**, einschliesslich bisher
+unregistrierter Git-Projekte im konfigurierten Stammordner. **Prüfen** zeigt
+Git-Zuordnung, Branch, lokale Änderungen und Belegung ohne Mutation; erst
+**Workspace zuweisen** bestätigt die Auswahl für mobile Dateien und Terminals.
+Die Anzeige unterscheidet die vorhandene Zuordnung von **Nicht belegt**.
+Details, Grenzen und Abnahme: [Workspace assignment](WORKSPACE_ASSIGNMENT.md).
+
+## Freie Terminals auf Desktop und Mobile
+
+**Terminal öffnen** starts a native host-home shell or a discovered CLI without
+requiring an agent or project. Desktop **Freie Terminals** and Mobile **Terminals**
+expose these same main-owned sessions. Mobile includes agent/session navigation,
+CLI choice, exclusive input ownership, close confirmation, expanded terminal,
+font size and a theme that also updates xterm. Phone navigation collapses into
+**Agents und Sitzungen**. The terminal grant plus all-resource access is required
+for free home sessions. Detailed scope and validation: [TERMINAL_WORKSPACE](TERMINAL_WORKSPACE.md).
+
 ## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)
 
 Freigaben, Startwiederholung, native Codex-Rückfragen mit Live-Aktivität sowie

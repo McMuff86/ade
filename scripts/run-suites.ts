@@ -27,8 +27,12 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
+  { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
+  { id: 'run-deletion', script: 'test-run-deletion.ts', floors: { win32: 23 } },
+  { id: 'category-navigation', script: 'test-category-navigation.ts', floors: { win32: 23 } },
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
-  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 33 } },
+  { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 46 } },
+  { id: 'workspace-assignment', script: 'test-workspace-assignment.ts', floors: { win32: 33 } },
   { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 26 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
@@ -60,11 +64,11 @@ const SUITES: Suite[] = [
   { id: 'run-inspection', script: 'test-run-inspection.ts', floors: { win32: 57 } },
   { id: 'run-file-storage', script: 'test-run-file-storage.ts', floors: { win32: 20 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 42 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 59 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 30 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
-  { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 32 } },
+  { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 39 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
   { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 74 } },
@@ -74,7 +78,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 227 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 229 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

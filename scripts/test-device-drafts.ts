@@ -10,6 +10,16 @@ Object.defineProperties(storage, {
   removeItem: { value: (key: string) => { values.delete(key); delete (storage as unknown as Record<string, unknown>)[key]; } },
 });
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+check('free-terminal selection survives reload', writeDeviceDraft('home-tablet', 'terminal-target', { terminalHome: true, terminalId: 'opaque' })
+  && readDeviceDraft<{ terminalHome: boolean } | null>('home-tablet', 'terminal-target', null)?.terminalHome === true);
+check('terminal font preference survives reload', writeDeviceDraft('home-tablet', 'terminal-font-size', 18)
+  && readDeviceDraft<number>('home-tablet', 'terminal-font-size', 14) === 18);
+writeDeviceDraft('home-tablet', 'terminal-font-size', 999);
+check('invalid terminal font falls back safely', readDeviceDraft<number>('home-tablet', 'terminal-font-size', 14) === 14);
+check('pending home open persists exact idempotency key', writeDeviceDraft('home-tablet', 'terminal-command:terminal-home', { key: 'home-open', command: { terminalHome: true, operation: 'open', mode: 'shell' } })
+  && readDeviceDraft<{ key: string } | null>('home-tablet', 'terminal-command:terminal-home', null)?.key === 'home-open');
+writeDeviceDraft('home-tablet', 'terminal-target', { terminalHome: true, agentId: 'builder', repositoryId: null });
+check('home selection cannot masquerade as an agent scope', readDeviceDraft('home-tablet', 'terminal-target', null) === null);
 const key = 'terminal-draft:agent:repo:terminal';
 const fallback = { text: '', review: false };
 check('unpaired pages cannot save device data', !writeDeviceDraft(null, key, { text: 'private', review: false }));
@@ -91,6 +101,25 @@ writeDeviceDraft('pub-tablet', publishKey, { ...publishPending, preview: { ...pu
 check('malformed publication cannot crash renderer preview', readDeviceDraft('pub-tablet', publishKey, null) === null);
 writeDeviceDraft('pub-tablet', publishKey, { ...publishPending, preview: { ...publishPending.preview, status: { ...publishPending.preview.status, pullRequests: [{ number: 1, url: 'javascript:alert(1)', head: 'a'.repeat(40), base: 'main', draft: true }] } } });
 check('persisted publication rejects unsafe PR links', readDeviceDraft('pub-tablet', publishKey, null) === null);
+const assignmentKey = 'workspace-assignment:builder'; const assignmentPending = { key: 'assignment-key', command: { agentId: 'builder', previewId: '12345678-1234-1234-1234-123456789abd' } };
+storage.setItem(`ade-work:assignment-tablet:${assignmentKey}`, JSON.stringify({ at: 1, value: assignmentPending }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('assignment-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('unconfirmed workspace assignment survives expiry and eviction', readDeviceDraft<typeof assignmentPending | null>('assignment-tablet', assignmentKey, null)?.key === assignmentPending.key);
+writeDeviceDraft('assignment-tablet', assignmentKey, { ...assignmentPending, command: { ...assignmentPending.command, agentId: 'other' } });
+check('workspace assignment receipt cannot cross agents', readDeviceDraft('assignment-tablet', assignmentKey, null) === null);
+writeDeviceDraft('assignment-tablet', assignmentKey, { ...assignmentPending, command: { ...assignmentPending.command, path: 'C:\\private' } });
+check('workspace assignment receipt rejects host paths', readDeviceDraft('assignment-tablet', assignmentKey, null) === null);
+const integrationKey = 'integration:repo'; const integrationPending = { key: 'integration-key', command: { operation: 'test', integrationId: 'review' } };
+storage.setItem(`ade-work:integration-tablet:${integrationKey}`, JSON.stringify({ at: 1, value: integrationPending }));
+for (let i = 0; i < 35; i++) writeDeviceDraft('integration-tablet', `terminal-selection:${i}`, `session-${i}`);
+check('unconfirmed integration survives expiry and eviction', readDeviceDraft<typeof integrationPending | null>('integration-tablet', integrationKey, null)?.key === integrationPending.key);
+writeDeviceDraft('integration-tablet', integrationKey, { ...integrationPending, command: { ...integrationPending.command, command: 'unsafe' } });
+check('integration recovery rejects hidden shell commands', readDeviceDraft('integration-tablet', integrationKey, null) === null);
+check('integration receipt is scoped to its paired device', readDeviceDraft('other-tablet', integrationKey, null) === null);
+const deletePending = { path: '/api/v1/runs/finished-run/delete', key: 'delete-key-001' };
+storage.setItem('ade-work:delete-tablet:pending-task', JSON.stringify({ at: 1, value: deletePending }));
+check('run deletion preserves its exact confirmation key across reload and expiry', readDeviceDraft<typeof deletePending | null>('delete-tablet', 'pending-task', null)?.key === deletePending.key);
+check('run deletion cannot restore another paired device confirmation', readDeviceDraft('another-tablet', 'pending-task', null) === null);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage disabled'); } });
 check('storage failure is reported before any command can use it', !writeDeviceDraft('tablet', key, fallback) && readDeviceDraft('tablet', key, fallback) === fallback);
 delete (globalThis as unknown as Record<string, unknown>).localStorage;

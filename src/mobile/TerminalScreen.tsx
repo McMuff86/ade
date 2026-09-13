@@ -5,6 +5,7 @@ import type { MobileTerminalFrame } from '../shared/remote';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
 import '@xterm/xterm/css/xterm.css';
+import { XTERM_THEMES } from '../renderer/theme/themes';
 
 /** Only styles created by xterm receive the per-document CSP nonce. */
 function terminalDocument(): Document {
@@ -19,17 +20,21 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, enabled, active, onData, onSize }: {
+export function TerminalScreen({ frame, enabled, active, onData, onSize, fontSize = 14 }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
+  fontSize?: number;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
   const container = useRef<HTMLDivElement>(null); const terminal = useRef<Terminal | undefined>(undefined);
   const callbacks = useRef({ onData, onSize }); callbacks.current = { onData, onSize };
   const lastFrame = useRef('');
+  const measureRef = useRef<() => void>(() => undefined);
   useEffect(() => {
-    const term = new Terminal({ cols: frame.cols, rows: frame.rows, fontSize: 14, fontFamily: 'Consolas, monospace', documentOverride: terminalDocument(),
-      scrollback: 0, cursorBlink: true, disableStdin: true, convertEol: false, theme: { background: '#0d0f12', foreground: '#c9ccd3' } });
+    const term = new Terminal({ cols: frame.cols, rows: frame.rows, fontSize, fontFamily: 'Consolas, monospace', documentOverride: terminalDocument(),
+      scrollback: 0, cursorBlink: true, disableStdin: true, convertEol: false });
+    const theme = () => { term.options.theme = XTERM_THEMES[document.documentElement.dataset.theme === 'light' ? 'light' : 'dark']; };
+    theme(); const themes = new MutationObserver(theme); themes.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     const fit = new FitAddon(); term.loadAddon(fit); term.open(container.current!); terminal.current = term;
     term.textarea?.setAttribute('aria-label', 'Direkte Terminal-Eingabe');
     term.textarea?.setAttribute('autocapitalize', 'off');
@@ -39,9 +44,11 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize }: {
       const size = fit.proposeDimensions();
       if (size && container.current!.clientHeight > 0) callbacks.current.onSize(Math.max(20, Math.min(240, size.cols)), Math.max(5, Math.min(100, size.rows)));
     };
+    measureRef.current = measure;
     const observer = new ResizeObserver(measure); observer.observe(container.current!); measure();
-    return () => { observer.disconnect(); data.dispose(); term.dispose(); terminal.current = undefined; lastFrame.current = ''; };
+    return () => { themes.disconnect(); observer.disconnect(); data.dispose(); term.dispose(); terminal.current = undefined; lastFrame.current = ''; measureRef.current = () => undefined; };
   }, []);
+  useEffect(() => { if (terminal.current) { terminal.current.options.fontSize = fontSize; measureRef.current(); } }, [fontSize]);
   useEffect(() => { if (terminal.current) terminal.current.options.disableStdin = !enabled || !active; }, [enabled, active]);
   useEffect(() => {
     const term = terminal.current; if (!term || lastFrame.current === frame.revision) return;

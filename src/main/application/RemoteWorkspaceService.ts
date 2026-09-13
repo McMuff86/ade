@@ -4,14 +4,14 @@ import { projectRootIdentity } from '../settings/ProjectDefaultsService';
 import { randomUUID } from 'node:crypto';
 import type { AdeConfig, SessionMeta } from '../../shared/types';
 import type { MobileAdminCommand, MobileAdministrationValue } from '../../shared/remote';
-import { createAgent, createCategory, spawnAgentTemplate } from '../identity';
+import { createAgent, createCategory, spawnAgentTemplate, updateCategory } from '../identity';
 import type { RepositoryScopeService } from '../repositories/RepositoryScopeService';
 import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 import { redactForWire } from '../errors';
 import { projectGit } from '../repositories/ProjectGitBoundary';
 
-export type WorkspaceProvisionCommand = Extract<MobileAdminCommand, { operation: 'agent-create' | 'project-create' | 'workspace-prepare' }>;
+export type WorkspaceProvisionCommand = Extract<MobileAdminCommand, { operation: 'agent-create' | 'project-create' | 'workspace-prepare' | 'category-group' }>;
 /** Host-selected settings and generated paths only; no remote filesystem or shell dispatch. */
 export class RemoteWorkspaceService {
   constructor(private readonly store: { get(): AdeConfig; save(partial: Partial<AdeConfig>): AdeConfig },
@@ -20,6 +20,12 @@ export class RemoteWorkspaceService {
 
   async execute(command: WorkspaceProvisionCommand, authorize: () => void = () => undefined): Promise<MobileAdministrationValue> {
     authorize();
+    if (command.operation === 'category-group') {
+      const category = this.store.get().categories.find((item) => item.id === command.input.categoryId);
+      if (!category) throw new Error('ade: Kategorie ist nicht mehr verfügbar.');
+      updateCategory(this.store, { id: category.id, name: category.name, navigationGroup: command.input.navigationGroup });
+      return {};
+    }
     if (command.operation === 'agent-create') {
       const input = command.input; const config = this.store.get();
       if (config.agents.length >= 200) throw new Error('ade: Maximal 200 Agents. Nicht mehr benötigte Agents am PC verwalten.');

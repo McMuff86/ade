@@ -21,6 +21,14 @@ void (async () => {
   execution.run = async (backend, file, args) => { calls.push({ backend, file, args });
     return { code: available ? 0 : 1, stdout: Buffer.from(file === 'ollama' || args[1] === 'ollama list' ? models : 'fixture'), stderr: Buffer.alloc(0), timedOut: false, signal: null }; };
   const service = new SessionLaunchService(store, execution);
+  const homeOptions = await service.options({ terminalHome: true });
+  check('home launcher discovers native CLIs without agent/project', homeOptions.choices.some((item) => item.mode === 'codex' && item.available)
+    && homeOptions.choices.find((item) => item.mode === 'agent')?.available === false && calls.every((call) => call.backend === 'native'));
+  validateInvoke('session:launch', { terminalHome: true, mode: 'shell' });
+  check('desktop accepts explicit terminal-home shell launch', true);
+  for (const extra of [{ mode: 'agent' }, { agentId: 'builder', repositoryId: null }, { workspaceBindingId: 'binding' }, { terminalHome: false }, { cwd: root }]) {
+    await reject('desktop refuses mixed or caller-controlled home scope', () => validateInvoke('session:launch', { terminalHome: true, mode: 'shell', ...extra }));
+  }
   const original = { ...store.get().agents.find((a) => a.id === 'builder')!, runtime: 'custom' as const, permissionMode: 'bypass' as const,
     customCommand: 'general --tui', codexModel: 'pinned', codexReasoningEffort: 'high' as const };
   store.save({ agents: store.get().agents.map((a) => a.id === original.id ? original : a) });

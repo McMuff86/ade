@@ -44,6 +44,7 @@ import { broadcastToRenderers, isRendererWindow, rendererWindows } from './rende
 import { isTrustedRendererUrl } from './security';
 import { RepositoryScopeService } from './repositories/RepositoryScopeService';
 import { ProjectWorkspaceService } from './repositories/ProjectWorkspaceService';
+import { WorkspaceAssignmentService } from './application/WorkspaceAssignmentService';
 import { RunInspectionService } from './application/RunInspectionService';
 import { RunFileTracker } from './application/RunFileTracker';
 import { RunFileStore } from './application/RunFileStore';
@@ -71,6 +72,7 @@ import { RemoteWorkbenchService, validateFileSave } from './application/RemoteWo
 import { RemoteTerminalService } from './application/RemoteTerminalService';
 import { RemoteProfileService } from './application/RemoteProfileService';
 import { workspaceOperations } from './repositories/WorkspaceOperationGate';
+import { IntegrationService } from './repositories/IntegrationService';
 import { projectOverview } from './overview/projectOverview';
 import { HostApiServer } from './remote/HostApiServer';
 import { MobileAccessController } from './remote/MobileAccessController';
@@ -97,6 +99,7 @@ let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
 let mobileAccess: MobileAccessController | null = null;
 let remoteWorkbench: RemoteWorkbenchService | null = null;
+let integrationService: IntegrationService | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
 const hostOperations = new HostOperationGate();
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
@@ -293,6 +296,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (queue && (queue.active > 0 || queue.queued > 0)) reasons.push('Aufgaben laufen oder warten auf einen Task-Slot.');
     if (store.get().runs.some((run) => run.status === 'running')) reasons.push('Ein Run ist noch aktiv.');
     if (workspaceOperations.busy()) reasons.push('Ein Workspace wird vorbereitet oder aktualisiert.');
+    if (integrationService?.busy()) reasons.push('Eine Übernahmeprüfung läuft.');
     return reasons;
   }, () => {
     // Keep the app's local arguments, without launcher-only instrumentation
@@ -314,6 +318,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projectBranches = new ProjectBranchService(store, projects, () => ptyManager?.list() ?? []);
   const projectGitActions = new ProjectGitService(store, projects, () => ptyManager?.list() ?? []);
   const projectPublish = new ProjectPublishService(projectGitActions);
+  const integration = new IntegrationService(store, projects, () => ptyManager?.list() ?? [], join(app.getPath('userData'), 'ade', 'integrations'));
+  integrationService = integration;
+  handle(IPC.IntegrationQuery, (input) => integration.query(input, 'desktop'));
+  handle(IPC.IntegrationCommand, (input) => integration.command(input, 'desktop'));
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
   const resultFiles = new RunFileStore(join(app.getPath('userData'), 'ade', 'archive', 'files'));
   ptyManager!.setTaskFileTracker(new RunFileTracker(store, workbench, resultFiles));
@@ -326,6 +334,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     list: () => ptyManager?.list() ?? [],
     create: (agentId, repositoryId, bindingId, mode, model, authorize) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model, authorize),
     createProject: (workspaceId, branch, choice, profileId, authorize) => ptyManager!.createProjectInteractive(workspaceId, branch, choice, profileId, authorize),
+    createHome: (choice, authorize) => ptyManager!.createHomeInteractive(choice, authorize),
     options: (selection) => ptyManager!.sessionOptions(selection),
     display: (id) => ptyManager!.remoteDisplay(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
@@ -355,9 +364,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     { status: () => ptyManager!.queueStatus() },
     {
       activity: hostOperations,
+      integration,
+      catalogChanged: () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }),
       questions: runQuestions,
       resourceAccess: (id) => remoteDevices.resourceAccess(id),
       projects,
+      assignments: new WorkspaceAssignmentService(store, projects, () => ptyManager?.list() ?? []),
       runInspection,
       projectBranches,
       projectGit: projectGitActions,
@@ -378,6 +390,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       // The same coordinator/service methods the desktop IPC handlers call
       // below; the remote path adds nothing the renderer could not do, it
       // only reaches fewer channels.
+      deleteCompletedRun: (runId) => runCoordinator!.deleteRun(runId, true),
       commands: {
         createRun: (input) => orchestration!.createRun(input),
         startRun: (runId, commandId) => runCoordinator!.start(runId, commandId),
@@ -811,7 +824,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   /* --------------------------------------------------- pty (Phase B1) */
   handle(IPC.SessionOptions, (selection) => ptyManager!.sessionOptions(selection));
-  handle(IPC.SessionLaunch, (input) => input.projectWorkspaceId
+  handle(IPC.SessionLaunch, (input) => input.terminalHome
+    ? ptyManager!.createHomeInteractive(input.mode === 'ollama' ? { mode: input.mode, model: input.model } : { mode: input.mode })
+    : input.projectWorkspaceId
     ? ptyManager!.createProjectInteractive(input.projectWorkspaceId, input.expectedBranch!, input.mode === 'ollama' ? { mode: input.mode, model: input.model } : { mode: input.mode }, input.profileId)
     : ptyManager!.createRemoteInteractive(input.agentId!, input.repositoryId!, input.workspaceBindingId, input.mode, input.mode === 'ollama' ? input.model : undefined));
 
@@ -1086,6 +1101,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export function disposePtyManager(): void {
+  integrationService?.stop(); integrationService = null;
   stopTerminalRevocation?.(); stopTerminalRevocation = null;
   remoteTerminals?.dispose(); remoteTerminals = null;
   remoteWorkbench?.dispose(); remoteWorkbench = null;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
-import type { MobileFileSaveInput, MobileFileSaveResult, MobileWorkspaceFile, MobileWorkspaceResult } from '../shared/remote';
+import type { MobileFileSaveInput, MobileFileSaveResult, MobileWorkspaceFile, MobileWorkspaceResult, MobileWorkspaceSelection } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 import { workspaceError } from './AgentWorkspace';
@@ -27,11 +27,12 @@ export function useFileDrafts(identity: number) {
 }
 export type FileDrafts = ReturnType<typeof useFileDrafts>;
 
-export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId, busyWorkspace, drafts, onSaved }: {
+export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId, busyWorkspace, drafts, onSaved, selection = { agentId, repositoryId } }: {
   host: MobileHost; file: MobileWorkspaceFile; workspaceVersion: string; agentId: string; repositoryId: string | null;
   busyWorkspace: boolean; drafts: FileDrafts; onSaved: () => void;
+  selection?: MobileWorkspaceSelection;
 }): JSX.Element {
-  const key = `${agentId}:${repositoryId}:${file.path}`; const draft = drafts.drafts[key];
+  const key = `${selection.projectWorkspaceId ?? `${agentId}:${repositoryId}`}:${file.path}`; const draft = drafts.drafts[key];
   const [error, setError] = useState(''); const [saving, setSaving] = useState(false); const [find, setFind] = useState('');
   const editor = useRef<HTMLTextAreaElement>(null); const numbers = useRef<HTMLPreElement>(null); const inFlight = useRef(false);
   const live = useRef(true);
@@ -52,7 +53,7 @@ export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId
   };
   const save = async () => {
     if (!draft || inFlight.current || host.status !== 'online') return;
-    const pending = draft.pending ?? { input: { agentId, repositoryId, path: file.path, workspaceVersion: draft.workspaceVersion,
+    const pending = draft.pending ?? { input: { ...selection, path: file.path, workspaceVersion: draft.workspaceVersion,
       revision: draft.base.revision, text: draft.text }, key: crypto.randomUUID() };
     inFlight.current = true; setSaving(true); setError('');
     drafts.change(key, (current) => current ? { ...current, pending } : undefined);
@@ -63,7 +64,7 @@ export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId
         drafts.change(key, (current) => current?.pending?.key === pending.key ? undefined : current);
         if (live.current) onSaved();
       } else {
-        const latest = await host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { agentId, repositoryId, operation: 'file', path: file.path });
+        const latest = await host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { ...selection, operation: 'file', path: file.path });
         drafts.change(key, (current) => current ? { ...current, pending: undefined, conflict: latest.file,
           notice: 'Die Datei wurde inzwischen geändert. Dein Entwurf wurde nicht gespeichert.' } : undefined);
       }

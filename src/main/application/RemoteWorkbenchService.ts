@@ -15,10 +15,12 @@ import { remoteWslWorkspace } from './RemoteWslWorkspace';
 import { WslRootProbe } from './WslRootProbe';
 import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
+import type { MobileTerminalSelection } from '../../shared/remote';
+import { terminalHome } from '../pty/terminalHome';
 export { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
 
 export type WorkbenchScope = Pick<WorkspaceBinding, 'workspaceDir' | 'executionBackend'>
-  & Partial<Pick<WorkspaceBinding, 'agentId' | 'id' | 'repositoryId' | 'status'>> & { rootIdentity?: string; projectWorkspaceId?: string; projectName?: string; branch?: string };
+  & Partial<Pick<WorkspaceBinding, 'agentId' | 'id' | 'repositoryId' | 'status'>> & { terminalHome?: true; rootIdentity?: string; projectWorkspaceId?: string; projectName?: string; branch?: string };
 
 const TEXT_BYTES = 24 * 1024;
 const DIFF_CHARS = 64 * 1024;
@@ -192,6 +194,10 @@ export class RemoteWorkbenchService {
     });
   }
 
+  async resolveTerminal(input: MobileTerminalSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
+    return input.terminalHome ? { ...terminalHome(), terminalHome: true } : this.resolve(input, optional, prepareHome);
+  }
+
   async resolve(input: MobileWorkspaceSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
     const config = this.store.get();
     if (input.projectWorkspaceId) {
@@ -218,10 +224,16 @@ export class RemoteWorkbenchService {
   }
 
   version(binding: WorkbenchScope): string {
-    return workbenchDigest(JSON.stringify([binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend, binding.rootIdentity, binding.projectWorkspaceId, binding.branch]));
+    const parts = [binding.id, binding.agentId, binding.repositoryId, binding.workspaceDir, binding.executionBackend, binding.rootIdentity, binding.projectWorkspaceId, binding.branch];
+    if (binding.terminalHome) parts.push('terminal-home');
+    return workbenchDigest(JSON.stringify(parts));
   }
 
   async revalidate(binding: WorkbenchScope): Promise<void> {
+    if (binding.terminalHome) {
+      if (this.version({ ...terminalHome(), terminalHome: true }) !== this.version(binding)) reject('Benutzerverzeichnis hat sich geändert. Terminal neu öffnen.');
+      return;
+    }
     if (binding.projectWorkspaceId) {
       const current = await this.resolve({ projectWorkspaceId: binding.projectWorkspaceId });
       if (!current || this.version(current) !== this.version(binding)) reject('Projekt-Workspace oder Branch wurde geändert. Neu öffnen.');
@@ -266,7 +278,8 @@ export class RemoteWorkbenchService {
   }
 
   sessionMatches(binding: WorkbenchScope, session: SessionMeta): boolean {
-    return session.agentId === binding.agentId && session.repositoryId === binding.repositoryId
+    return !!binding.terminalHome === (session.scopeSource === 'terminal-home')
+      && session.agentId === binding.agentId && session.repositoryId === binding.repositoryId
       && session.projectWorkspaceId === binding.projectWorkspaceId && (!binding.projectWorkspaceId || session.branch === binding.branch)
       && session.workspaceBindingId === binding.id && (session.executionBackend ?? 'native') === binding.executionBackend
       && !!session.workspaceDir && this.execution.samePath(binding.executionBackend, session.workspaceDir, binding.workspaceDir);

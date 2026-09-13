@@ -1,3 +1,4 @@
+import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
@@ -5,9 +6,10 @@ import { IPC, type IpcInvokeMap } from '../shared/ipc';
 import { isValidDeviceId } from './remote/authorization';
 import { isDeviceResourceAccess, isRemoteAdminScopes, isValidRemoteDeviceName } from '../shared/remoteDevices';
 import { validSyncRef } from '../shared/gitSync';
-import { validProjectLaunch, validSessionChoice } from '../shared/sessionLaunch';
+import { validProjectLaunch, validSessionChoice, validTerminalSelection } from '../shared/sessionLaunch';
 import { validWorkspaceSelection } from '../shared/projectWorkspaceRequests';
 import { validProjectWorkspaceCommand, validProjectWorkspaceQuery } from '../shared/projectWorkspaceRequests';
+import { validIntegrationCommand, validIntegrationQuery } from '../shared/integrationRequests';
 import { validProjectGitPath } from '../shared/projectGit';
 import { isExecutionBackendId } from '../shared/executionBackends';
 import { MAX_TASK_MINUTES_LIMIT, WORKSPACE_PREPARE_MODES } from '../shared/types';
@@ -207,21 +209,23 @@ function validateConfigSave(channel: string, payload: unknown): void {
 
 function validateCategoryCreate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['name', 'photo', 'repoPath', 'defaultRepositoryId', 'kind']);
+  exactKeys(channel, request, ['name', 'photo', 'repoPath', 'defaultRepositoryId', 'kind', 'navigationGroup']);
   stringValue(channel, request.name, 'name', { max: 200 });
   filename(channel, request.photo, 'photo');
   optionalString(channel, request.repoPath, 'repoPath', { max: 32_768 });
   optionalId(channel, request.defaultRepositoryId, 'defaultRepositoryId');
   if (request.kind !== undefined) enumValue(channel, request.kind, 'kind', CATEGORY_KINDS);
+  if (request.navigationGroup !== undefined && !validNavigationGroup(request.navigationGroup)) invalid(channel, 'navigationGroup is invalid');
 }
 
 function validateCategoryUpdate(channel: string, payload: unknown): void {
   const request = record(channel, payload);
-  exactKeys(channel, request, ['id', 'name', 'photo']);
+  exactKeys(channel, request, ['id', 'name', 'photo', 'navigationGroup']);
   id(channel, request.id, 'id');
   stringValue(channel, request.name, 'name', { max: 200 });
   // null removes the stored photo; a string must be a stored filename.
   if (request.photo !== null) filename(channel, request.photo, 'photo');
+  if (request.navigationGroup !== undefined && request.navigationGroup !== null && !validNavigationGroup(request.navigationGroup)) invalid(channel, 'navigationGroup is invalid');
 }
 
 function validateAgentInput(channel: string, payload: unknown, update: boolean): void {
@@ -631,6 +635,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ProjectWorkspaceQuery:
       if (!validProjectWorkspaceQuery(payload)) invalid(channel, 'invalid project query');
       return;
+    case IPC.IntegrationQuery:
+      if (!validIntegrationQuery(payload)) invalid(channel, 'invalid integration query');
+      return;
+    case IPC.IntegrationCommand:
+      if (!validIntegrationCommand(payload)) invalid(channel, 'invalid integration command');
+      return;
     case IPC.ProjectWorkspaceCommand:
       if (!validProjectWorkspaceCommand(payload)) invalid(channel, 'invalid project command');
       return;
@@ -897,9 +907,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.SessionOptions:
     case IPC.SessionLaunch: {
       const input = record(channel, payload);
-      const selectionKeys = input.projectWorkspaceId ? ['projectWorkspaceId'] : ['agentId', 'repositoryId'];
-      exactKeys(channel, input, channel === IPC.SessionOptions ? selectionKeys : [...selectionKeys, 'mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : ['workspaceBindingId'])]);
-      if (!validWorkspaceSelection(input)) invalid(channel, 'invalid scope identity');
+      const selectionKeys = input.terminalHome ? ['terminalHome'] : input.projectWorkspaceId ? ['projectWorkspaceId'] : ['agentId', 'repositoryId'];
+      exactKeys(channel, input, channel === IPC.SessionOptions ? selectionKeys : [...selectionKeys, 'mode', 'model', ...(input.terminalHome ? [] : input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : ['workspaceBindingId'])]);
+      if (!validTerminalSelection(input)) invalid(channel, 'invalid scope identity');
       if (channel === IPC.SessionLaunch && !validSessionChoice(input)) invalid(channel, 'invalid launch choice');
       if (channel === IPC.SessionLaunch && input.projectWorkspaceId && !validProjectLaunch(input)) invalid(channel, 'invalid project launch');
       if (input.workspaceBindingId !== undefined) id(channel, input.workspaceBindingId, 'workspaceBindingId');

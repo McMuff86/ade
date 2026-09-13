@@ -5,6 +5,10 @@ import type { PtyExitReason, RuntimeId, SessionMeta, TaskQueueStatus } from '../
 import type { PtyCancelTasksRequest } from '../../shared/ipc';
 import type { SessionLaunchChoice } from '../../shared/remote';
 
+/** UI grouping only; never an agent identity sent to main. */
+export const TERMINAL_HOME_GROUP = '@terminal-home';
+const sessionGroup = (meta: SessionMeta) => meta.scopeSource === 'terminal-home' ? TERMINAL_HOME_GROUP : meta.agentId;
+
 export interface SessionOperationError {
   message: string;
   agentId?: string;
@@ -31,6 +35,7 @@ interface SessionsState {
     launchChoice?: SessionLaunchChoice,
   ) => Promise<SessionMeta>;
   createProjectSession: (workspaceId: string, branch: string, choice: SessionLaunchChoice, profileId?: string) => Promise<SessionMeta>;
+  createHomeSession: (choice: SessionLaunchChoice) => Promise<SessionMeta>;
   /** Terminal running the harness's documented sign-in command. */
   openHarnessLogin: (agentId: string, runtime: RuntimeId) => Promise<SessionMeta>;
   closeSession: (sessionId: string) => Promise<void>;
@@ -60,7 +65,7 @@ function errorMessage(error: unknown): string {
 function withoutSession(state: SessionsState, sessionId: string): Partial<SessionsState> {
   const meta = state.sessions[sessionId];
   if (!meta) return {};
-  const { agentId } = meta;
+  const agentId = sessionGroup(meta);
   const sessions = { ...state.sessions };
   delete sessions[sessionId];
   if (!agentId) return { sessions };
@@ -121,7 +126,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
           const merged = [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
           const sessions = Object.fromEntries(merged.map((meta) => [meta.id, meta]));
           const orderByAgent: Record<string, string[]> = {};
-          for (const meta of merged) if (meta.agentId) (orderByAgent[meta.agentId] ??= []).push(meta.id);
+          for (const meta of merged) { const group = sessionGroup(meta); if (group) (orderByAgent[group] ??= []).push(meta.id); }
           const activeByAgent: Record<string, string | null> = {};
           for (const [agentId, order] of Object.entries(orderByAgent)) {
             const previous = state.activeByAgent[agentId];
@@ -190,6 +195,20 @@ export const useSessions = create<SessionsState>((set, get) => ({
     }
   },
 
+  createHomeSession: async (choice) => {
+    try {
+      const meta = await window.ade.invoke('session:launch', { terminalHome: true, ...choice });
+      if (!get().hydrated) createdDuringHydrate.add(meta.id);
+      set((state) => ({
+        sessions: { ...state.sessions, [meta.id]: { ...meta, program: pendingPrograms.get(meta.id) ?? meta.program } },
+        orderByAgent: { ...state.orderByAgent, [TERMINAL_HOME_GROUP]: [...new Set([...(state.orderByAgent[TERMINAL_HOME_GROUP] ?? []), meta.id])] },
+        activeByAgent: { ...state.activeByAgent, [TERMINAL_HOME_GROUP]: meta.id },
+        error: state.error?.source === 'launch' ? null : state.error,
+      }));
+      return meta;
+    } catch (error) { get().reportError(error, { source: 'launch' }); throw error; }
+  },
+
   createProjectSession: async (workspaceId, branch, choice, profileId) => {
     const meta = await window.ade.invoke('session:launch', { projectWorkspaceId: workspaceId, expectedBranch: branch, ...choice, ...(profileId ? { profileId } : {}) });
     if (!get().hydrated) createdDuringHydrate.add(meta.id);
@@ -235,7 +254,9 @@ export const useSessions = create<SessionsState>((set, get) => ({
     const repositoryId = previous.scopeSource === 'plain-home'
       ? null
       : previous.repositoryId;
-    const replacement = previous.projectWorkspaceId
+    const replacement = previous.scopeSource === 'terminal-home'
+      ? await get().createHomeSession(previous.launchChoice ?? { mode: 'shell' })
+      : previous.projectWorkspaceId
       ? await get().createProjectSession(previous.projectWorkspaceId, previous.branch!, previous.launchChoice ?? { mode: 'shell' }, previous.launchProfileId)
       : await get().createSession(
       previous.agentId!,

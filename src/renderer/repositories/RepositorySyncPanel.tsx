@@ -1,8 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { GitSyncOverview, GitSyncPreview } from '../../shared/gitSync';
 import './repository-sync.css';
+import { IntegrationReview, type PendingIntegration } from './IntegrationReview';
+import type { IntegrationQuery, IntegrationCommand } from '../../shared/remote';
+import { useMode } from '../stores/mode';
+import { useSelection } from '../stores/selection';
 
-export function RepositorySyncPanel({ repositoryId }: { repositoryId: string }): JSX.Element {
+const integrationQuery = (input: IntegrationQuery) => window.ade.invoke('integration:query', input);
+const integrationCommand = (input: IntegrationCommand) => window.ade.invoke('integration:command', input);
+const integrationError = (error: unknown) => String(error).replace(/^Error: Error invoking remote method '[^']+':\s*/, '').slice(0, 1000);
+
+export function RepositorySyncPanel({ repositoryId, onOpenWorkspace }: { repositoryId: string; onOpenWorkspace?: (id: string) => void }): JSX.Element {
+  const [integrationOpen, setIntegrationOpen] = useState(false);
+  const [integrationPending, setIntegrationPending] = useState<PendingIntegration | null>(null);
   const [overview, setOverview] = useState<GitSyncOverview | null>(null);
   const [preview, setPreview] = useState<GitSyncPreview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -46,9 +56,14 @@ export function RepositorySyncPanel({ repositoryId }: { repositoryId: string }):
     setPreview(null); setConfirmed(false);
     setOverview(await window.ade.invoke('repository:syncOverview', { repositoryId, ...(sourceRef ? { sourceRef } : {}) }));
   };
+  if (integrationOpen) return <IntegrationReview repositoryId={repositoryId} online canChange canTest query={integrationQuery} command={integrationCommand}
+    pending={integrationPending} savePending={(value) => { setIntegrationPending(value); return true; }} errorText={integrationError} certainError={() => true}
+    onBack={() => { setIntegrationOpen(false); requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-open-integration]')?.focus()); }}
+    onWorkspace={(id) => { if (onOpenWorkspace) onOpenWorkspace(id); else { useSelection.getState().setProjectWorkspace(id); useMode.getState().setMode('projects'); } }} />;
   return <div className="repo-sync" data-testid="repository-sync" aria-busy={busy}>
-    <p>Vergleiche die gewünschte Git-Basis mit Hauptrepository und Agent-Worktrees. Übernommen werden ausschliesslich Commits; uncommittete Dateien bleiben im jeweiligen Arbeitsordner.</p>
+    <p>Vergleiche die gewünschte Git-Basis mit Hauptrepository und Agent-Worktrees. „Update prüfen“ aktualisiert per Fast-forward. Eigene Commits und lokale Änderungen kannst du separat zur Übernahme prüfen.</p>
     <div className="repo-sync-actions">
+      <button type="button" className="btn" data-open-integration disabled={busy || overview?.executionBackend !== 'native'} onClick={() => setIntegrationOpen(true)}>Änderungen übernehmen…</button>
       <button type="button" className="btn" ref={refresh} aria-disabled={busy} onClick={() => { if (!busy) void perform(() => load()); }}>Anzeige aktualisieren</button>
       <button type="button" className="btn" disabled={busy} onClick={() => void perform(async () => {
         setPreview(null); setConfirmed(false);

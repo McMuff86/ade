@@ -1,3 +1,4 @@
+import { validNavigationGroup } from './categoryNavigation';
 import { createHash } from 'node:crypto';
 import type {
   CategoryKind,
@@ -41,6 +42,7 @@ export interface WorkspaceBundleRepository {
 }
 
 export interface WorkspaceBundleCategory {
+  navigationGroup?: string;
   id: string;
   name: string;
   agentIds: string[];
@@ -269,7 +271,8 @@ function parseRepository(value: unknown, index: number): WorkspaceBundleReposito
 function parseCategory(value: unknown, index: number): WorkspaceBundleCategory {
   const label = `categories[${index}]`;
   const raw = record(value, label);
-  exactKeys(raw, ['id', 'name', 'agentIds', 'defaultRepositoryId', 'kind', 'photoAssetId'], label);
+  exactKeys(raw, ['id', 'name', 'agentIds', 'defaultRepositoryId', 'kind', 'photoAssetId', 'navigationGroup'], label);
+  if (raw.navigationGroup !== undefined && !validNavigationGroup(raw.navigationGroup)) throw new Error('workspace bundle: invalid navigation group');
   const kind = raw.kind === undefined ? undefined : enumeration(raw.kind, CATEGORY_KINDS, `${label}.kind`);
   const agentIds = array(raw.agentIds, `${label}.agentIds`, 500)
     .map((entry, i) => id(entry, `${label}.agentIds[${i}]`));
@@ -280,6 +283,7 @@ function parseCategory(value: unknown, index: number): WorkspaceBundleCategory {
     id: id(raw.id, `${label}.id`),
     name: identityName(raw.name, `${label}.name`),
     agentIds,
+    ...(raw.navigationGroup ? { navigationGroup: raw.navigationGroup as string } : {}),
     ...(optionalId(raw.defaultRepositoryId, `${label}.defaultRepositoryId`) ? {
       defaultRepositoryId: optionalId(raw.defaultRepositoryId, `${label}.defaultRepositoryId`),
     } : {}),

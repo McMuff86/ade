@@ -549,10 +549,13 @@ export class RunCoordinator {
   }
 
   /** Full run deletion (stop owned tasks first); IPC stays a one-liner. */
-  async deleteRun(runId: string): Promise<void> {
+  async deleteRun(runId: string, completedOnly = false): Promise<void> {
     await this.serialized(runId, async () => {
       const snapshot = this.orchestration.snapshot();
       const run = snapshot.runs.find((candidate) => candidate.id === runId);
+      if (completedOnly && (!run || !['completed', 'failed', 'cancelled'].includes(run.status))) {
+        throw new Error('ade: Nur abgeschlossene, fehlgeschlagene oder abgebrochene Runs können hier gelöscht werden.');
+      }
       if (run?.mode === 'managed' && run.status === 'running') {
         throw new Error('ade: cancel the managed run before deleting it');
       }
