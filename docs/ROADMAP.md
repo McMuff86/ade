@@ -95,6 +95,9 @@ startup collision on port 4317; the morning restart evidence is historical.
 2. Durable result-file storage, pagination and older archived-run browsing.
 3. WSL readiness/lifecycle investigation and separate backend result-file support.
 4. Consistent German labels and a wider measured accessibility audit.
+5. Multi-host access: host directory, session/device grants approved on the
+   target host and an SSH terminal preset; proposed 2026-09-13 in
+   [MULTI_HOST_ACCESS_PLAN](MULTI_HOST_ACCESS_PLAN.md), not yet authorized.
 
 These proposals require prioritization; no new delivery is implied. Acceptance
 criteria and sources are in the September 10 review.
