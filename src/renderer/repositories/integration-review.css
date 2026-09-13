@@ -4,6 +4,8 @@
 .integration-review input:not([type="checkbox"]), .integration-review select { width: 100%; min-width: 0; max-width: 100%; padding: 9px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 .integration-review button { min-height: 36px; white-space: normal; overflow-wrap: anywhere; }
 .integration-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.integration-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 8px 8px 8px 26px; color: var(--muted); }
+.integration-steps [aria-current="step"] { color: var(--text); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
 .integration-review fieldset { min-width: 0; border: 1px solid var(--line); padding: 10px; }
 .integration-files, .integration-reviews { list-style: none; padding: 0; margin: 8px 0; }
 .integration-files li { padding: 9px 0; border-bottom: 1px solid var(--line); }

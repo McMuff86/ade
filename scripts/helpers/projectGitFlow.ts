@@ -20,6 +20,11 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await desktop.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   await desktop.getByRole('button', { name: 'Git', exact: true }).click();
   const desktopGit = desktop.getByRole('region', { name: 'Projekt-Git', exact: true });
+  await desktopGit.getByRole('heading', { name: 'Lokale Änderungen sichern', exact: true }).waitFor();
+  await desktopGit.getByRole('button', { name: 'Auswählbare Dateien markieren', exact: true }).click();
+  check('Git guide identifies dirty workspace and supports deliberate bulk selection', await desktopGit.getByLabel('a.txt', { exact: true }).isChecked() && await desktopGit.getByLabel('b.txt', { exact: true }).isChecked());
+  await desktopGit.getByRole('button', { name: 'Auswahl leeren', exact: true }).click();
+  check('clearing selection leaves staged files untouched', !await desktopGit.getByLabel('a.txt', { exact: true }).isChecked() && git('diff', '--cached', '--name-only').trim() === 'b.txt');
   await desktopGit.getByLabel('a.txt', { exact: true }).check(); await desktopGit.getByLabel('Commit-Nachricht', { exact: true }).fill('Review selected edit');
   await desktopGit.getByRole('button', { name: 'Diff anzeigen: a.txt', exact: true }).click();
   await desktopGit.getByRole('region', { name: 'Git-Diff', exact: true }).getByText('+selected edit', { exact: false }).waitFor();

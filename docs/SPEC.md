@@ -596,6 +596,10 @@ source-install and tablet setup steps are in [USER_GUIDE.md](USER_GUIDE.md).
 - Windows first (dev machine is Win11; ConPTY), keep macOS/Linux compatible.
 - Terminal scrollback survives tab switches; sessions survive app reload
   where the PTY layer allows it.
+- Mobile terminal history opens with the visible Verlauf button, upward wheel,
+  downward touch swipe or Shift+PageUp. The bounded redacted text snapshot stays
+  still during output; Escape or Zur Live-Ausgabe returns focus to the button.
+  It is retained terminal text, not a complete archive of repainted TUI screens.
 - Closing a tab or deleting its owner leaves no inaccessible PTY. Exited
   sessions have bounded retention.
 - Keyboard: visible focus, tab switching shortcuts.

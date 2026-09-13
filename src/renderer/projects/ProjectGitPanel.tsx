@@ -108,7 +108,18 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
         <button disabled={busy} onClick={() => { if (!savePending(null)) return; restore.current = true; setPreview(undefined); setError(''); void load(); }}>{pending ? 'Stand lesen und Vorschau verwerfen' : 'Abbrechen'}</button></div>
     </section> : state && <>
       <p>{state.files.length ? `${state.files.length} geänderte Dateien` : 'Arbeitsverzeichnis sauber'} · HEAD {state.head?.slice(0, 12) ?? 'ohne Commit'}</p>
+      <section aria-label="Nächster Git-Schritt">
+        <h3>{state.merge ? 'Zusammenführung abschliessen' : state.files.length ? 'Lokale Änderungen sichern' : 'Projektstand abgleichen'}</h3>
+        <p>{state.merge ? 'Konflikte bearbeiten und als aufgelöst markieren. Danach den Merge-Commit prüfen.'
+          : state.files.length ? 'Dateien auswählen und committen. Danach lässt sich der GitHub-Stand übernehmen oder dein Branch pushen.'
+            : 'Zuerst Fetch ausführen, dann den Remote-Branch per Fast-forward übernehmen. Bei getrennten Entwicklungen Merge verwenden.'}</p>
+        <p>Arbeitsziel: <strong>{state.workspace.branch}</strong> · {state.workspace.name}</p>
+      </section>
       {state.merge && <p role="status">Merge offen · {state.files.filter((file) => file.conflict).length} Konfliktdateien</p>}
+      {!!state.files.length && <div className="project-workspace-actions">
+        <button disabled={blocked} onClick={() => setSelected(state.files.filter((file) => file.selectable && (!state.merge || file.conflict)).map((file) => file.path))}>Auswählbare Dateien markieren</button>
+        <button disabled={blocked || !selected.length} onClick={() => setSelected([])}>Auswahl leeren</button><span>{selected.length} Dateien ausgewählt</span>
+      </div>}
       <ul className="project-git-files">{state.files.map((file) => <li key={file.path}>
         <label><input type="checkbox" disabled={busy || !file.selectable || !!pending} checked={selected.includes(file.path)} onChange={(event) => setSelected((value) => event.target.checked ? [...value, file.path] : value.filter((path) => path !== file.path))} />{file.path}</label>
         <span>{file.conflict ? 'Konflikt' : `${file.index}${file.working}`}</span>
@@ -133,13 +144,16 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
         <p>Ungespeicherter Text bleibt nur auf dieser Seite. Eine gesendete, unbestätigte Speicherung bleibt bis zur Prüfung erhalten.</p>
       </section>}
       {!state.merge && <details><summary>Branches zusammenführen und Remote-Stand</summary>
+        {!!state.files.length && <p role="status">Merge und Fast-forward warten, bis die lokalen Änderungen committet sind. Fetch ist bereits möglich.</p>}
         <label>Quellbranch<select aria-label="Git-Quellbranch" value={ref} onChange={(event) => setRef(event.target.value)}>{state.refs.filter((item) => item.ref !== `refs/heads/${workspace.branch}`).map((item) => <option key={item.ref} value={item.ref}>{item.ref.replace(/^refs\/(heads|remotes)\//, '')}</option>)}</select></label>
         <button disabled={blocked || !ref || !!state.files.length} onClick={() => void prepare({ kind: 'merge', ref })}>Merge prüfen</button>
+        {ref && <p>Übernehmen aus <strong>{ref.replace(/^refs\/(heads|remotes)\//, '')}</strong> in <strong>{state.workspace.branch}</strong>. Der Quellbranch bleibt erhalten.</p>}
         {state.remotes.length ? <><label>Remote<select aria-label="Git-Remote" value={remote} onChange={(event) => setRemote(event.target.value)}>{state.remotes.map((name) => <option key={name}>{name}</option>)}</select></label>
           <button disabled={blocked || !remote} onClick={() => void prepare({ kind: 'fetch', remote })}>Fetch prüfen</button>
           <label>Pull-Branch<select aria-label="Pull-Branch" value={selectedPull} onChange={(event) => setPullRef(event.target.value)}>{pullRefs.map((item) => <option key={item.ref} value={item.ref}>{item.ref.slice(13)}</option>)}</select></label>
           <button disabled={blocked || !selectedPull || !!state.files.length} onClick={() => void prepare({ kind: 'pull', remote, ref: selectedPull })}>Fast-forward prüfen</button>
           <p>Remote-Branches zeigen den zuletzt gefetchten Stand. Fetch aktualisiert sie; Fast-forward übernimmt den danach geprüften Commit.</p>
+          <p>Letzter Fetch in ADE: {state.fetchedAt ? new Date(state.fetchedAt).toLocaleString() : 'Noch nicht abgerufen'}. Eine Aktualisierung der Git-Anzeige allein lädt nichts von GitHub.</p>
         </> : <p>Noch kein Remote konfiguriert. Am PC einen Remote hinzufügen.</p>}
       </details>}
     </>}

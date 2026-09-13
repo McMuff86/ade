@@ -337,6 +337,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     createHome: (choice, authorize) => ptyManager!.createHomeInteractive(choice, authorize),
     options: (selection) => ptyManager!.sessionOptions(selection),
     display: (id) => ptyManager!.remoteDisplay(id),
+    usage: (id) => ptyManager!.subscriptionUsage(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
@@ -867,6 +868,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   // Phase B1: ring-buffer replay so scrollback survives (re)attach
   handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
   handle(IPC.TerminalControl, ({ sessionId }) => remoteTerminals!.desktopState(sessionId));
+  handle(IPC.TerminalUsage, ({ sessionId }) => ptyManager!.subscriptionUsage(sessionId));
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
 
   // Reconcile renderer state after a reload without losing main-owned PTYs.

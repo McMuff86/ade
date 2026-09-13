@@ -384,7 +384,22 @@ frame/resize effects only update the existing terminal. Follow-up evidence:
 
 ## Interactive assistant access and Overview
 
+Terminal subscription observations use desktop `terminal:usage` (launch effect)
+and the existing device-authorized terminal query with an explicit `usage: true`
+and terminal ID. The main-owned session fixes provider/backend/API-key mode;
+the remote service revalidates device resources and workspace after the probe.
+Only native default Codex launches query the local account, with bounded stdio,
+no model turn, a 12-second timeout and a shared 60-second observation cache.
+Claude/Grok expose their provider CLI command with unknown numeric quota.
+No host paths, credentials, raw server errors or account identity reach the DTO.
+See [subscription contract and limits](WORKSPACE_IMPROVEMENTS.md).
+
 `RemoteTerminalDisplay` maintains a headless screen for each interactive PTY.
+Its normal buffer retains 1,000 scrollback lines; the existing redacted `screen`
+projection remains bounded to the final 65,536 UTF-16 code units. Mobile history
+uses this projection, never raw PTY bytes. Opening history freezes a local text
+snapshot and scroll position while live frame polling continues. Reopening takes
+a fresh snapshot. Alternate-screen repainting is not an archived conversation.
 `RemoteTerminalService` returns a redacted `MobileTerminalFrame` through the
 existing device-authorized application service. Raw terminal control sequences
 are never forwarded. `mobileDashboard` projects fixed credential-free private

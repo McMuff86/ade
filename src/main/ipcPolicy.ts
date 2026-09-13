@@ -157,6 +157,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'pty:kill': launch,
   'pty:attach': read,
   'terminal:control': read,
+  'terminal:usage': launch,
   'terminal:reclaim': { ...mutate, audit: true },
   'pty:activitySnapshot': read,
   'runTask:activity': read,

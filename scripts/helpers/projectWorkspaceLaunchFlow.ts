@@ -77,6 +77,10 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await page.setViewportSize({ width: 1280, height: 800 });
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
   await dialog.locator('.project-branches > summary').click();
+  await dialog.getByLabel('Neuer Branch-Name', { exact: true }).fill('bad name');
+  check('branch name feedback prevents invalid preview requests', await dialog.getByLabel('Neuer Branch-Name', { exact: true }).getAttribute('aria-invalid') === 'true' && await dialog.getByRole('button', { name: 'Branch anlegen', exact: true }).isDisabled());
+  await dialog.getByLabel('Neuer Branch-Name', { exact: true }).fill('main');
+  check('existing branch is explained before creation', await dialog.getByText('Dieser lokale Branch existiert bereits.', { exact: false }).isVisible() && await dialog.getByRole('button', { name: 'Branch anlegen', exact: true }).isDisabled());
   await dialog.getByLabel('Neuer Branch-Name', { exact: true }).fill('feature/parallel');
   await dialog.getByRole('button', { name: 'Branch anlegen', exact: true }).click();
   const mobilePreview = dialog.getByRole('region', { name: 'Branch-Vorschau', exact: true });

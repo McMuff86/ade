@@ -25,8 +25,10 @@ export class RemoteTerminalDisplay {
   private disposed = false;
   private pendingBytes = 0;
   private overflow = false;
+  private version = 0;
+  private cached?: { version: number; value: { screen: string; frame: MobileTerminalFrame } };
   constructor(cols: number, rows: number) {
-    this.terminal = new Terminal({ cols, rows, scrollback: 200, allowProposedApi: true });
+    this.terminal = new Terminal({ cols, rows, scrollback: 1000, allowProposedApi: true });
     for (const final of ['h', 'l']) this.terminal.parser.registerCsiHandler({ prefix: '?', final }, (params) => {
       if (params.includes(25)) this.cursorVisible = final === 'h'; return false;
     });
@@ -35,10 +37,12 @@ export class RemoteTerminalDisplay {
     if (this.disposed || this.overflow) return;
     if (this.pendingBytes + bytes.length > 2 * 1024 * 1024) { this.overflow = true; return; }
     this.pendingBytes += bytes.length;
-    this.terminal.write(bytes, () => { this.pendingBytes -= bytes.length; });
+    this.terminal.write(bytes, () => { this.pendingBytes -= bytes.length; this.version++; });
   }
   resize(cols: number, rows: number): void {
-    if (!this.disposed) this.terminal.resize(Math.min(500, cols), Math.min(200, rows));
+    if (!this.disposed && (this.terminal.cols !== Math.min(500, cols) || this.terminal.rows !== Math.min(200, rows))) {
+      this.terminal.resize(Math.min(500, cols), Math.min(200, rows)); this.version++;
+    }
   }
   dispose(): void { if (this.disposed) return; this.disposed = true; this.terminal.dispose(); }
   async snapshot(): Promise<{ screen: string; frame: MobileTerminalFrame }> {
@@ -49,6 +53,7 @@ export class RemoteTerminalDisplay {
       this.terminal.write('', () => { clearTimeout(timer); resolve(); });
     });
     if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
+    if (this.cached?.version === this.version && this.pendingBytes === 0) return this.cached.value;
     const term = this.terminal; const buffer = term.buffer.active;
     const cols = Math.min(240, term.cols); const rows = Math.min(100, term.rows);
     const logical: string[] = []; const originals: string[] = []; const safeRows = new Map<number, string>();
@@ -90,7 +95,8 @@ export class RemoteTerminalDisplay {
     for (const [mode, enabled] of [[1, modes.applicationCursorKeysMode], [66, modes.applicationKeypadMode],
       [2004, modes.bracketedPasteMode], [25, this.cursorVisible]] as const) ansi += `${CSI}?${mode}${enabled ? 'h' : 'l'}`;
     const revision = createHash('sha256').update(ansi).digest('hex');
-    return { screen: fullText.slice(-64 * 1024).trimEnd(), frame: { cols, rows, ansi, revision } };
+    const value = { screen: fullText.slice(-64 * 1024).trimEnd(), frame: { cols, rows, ansi, revision } };
+    this.cached = { version: this.version, value }; return value;
   }
 }
 

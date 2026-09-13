@@ -1,0 +1,8 @@
+.terminal-usage { flex: none; min-width: 0; color: var(--text); background: var(--bg); border-bottom: 1px solid var(--line); font: 12px/1.5 var(--mono, monospace); }
+.terminal-usage summary { cursor: pointer; padding: 6px 12px; }
+.terminal-usage section { padding: 4px 12px 12px; max-height: 35vh; overflow: auto; overflow-wrap: anywhere; }
+.terminal-usage section > div { display: grid; gap: 4px; margin: 12px 0; }
+.terminal-usage progress { width: min(100%, 340px); accent-color: var(--accent); }
+.terminal-usage button { min-height: 36px; }
+.m-keyboard-compact .terminal-usage:not([open]) { display: none; }
+@media (pointer: coarse) { .terminal-usage summary { min-height: 44px; display: flex; align-items: center; } .terminal-usage button { min-height: 44px; } }

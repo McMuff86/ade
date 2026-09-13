@@ -1,5 +1,24 @@
 # ADE — aktuelle Übergabe
 
+## Angeforderter Zwischencommit: Abo, Terminal und Git (13. September 2026)
+
+Benutzer bittet ausdrücklich um zeitnahen Commit und Push. Der lokale Stand
+enthält nun auch Abo-Nutzung, weniger wiederholte Terminalaufbereitung und
+Git-Bedienhilfen. TypeScript, Build sowie 33 Terminal- und 14 Abo-Checks bestanden.
+Die Gesamt-Abnahme ist noch offen; die persönliche Instanz wurde nicht neu
+gestartet. [Konkreter Umfang, Grenzen und Fortsetzung](WORKSPACE_IMPROVEMENTS.md).
+Dieser Abschnitt ersetzt den darunterstehenden Zwischenstatus der laufenden Prüfung.
+
+## Laufende Abnahme: Terminalverlauf (13. September 2026)
+
+Der lokale Arbeitsstand ergänzt mobilen Verlauf per Knopf/Mausrad/Wischgeste/
+Shift+PageUp mit eingefrorener Textansicht und Fokus-Rückgabe. Der gezielte reale
+Terminalablauf besteht mit 36 Prüfungen. `pnpm verify` läuft mit Log unter
+`test-results/terminal-scroll-verify.log`. Keine persönliche Instanz wurde für
+diese Änderung beendet oder neu gestartet; PID 53592 lief bei der Prüfung weiter
+mit der unten dokumentierten Releasekopie. Kein Commit/Push dieses Folgeauftrags.
+[Abnahme und nächste Schritte](TERMINAL_SCROLL_RESULTS.md).
+
 
 ## Abgeschlossen: Terminals, Übernahme und Obergruppen (13. September 2026)
 

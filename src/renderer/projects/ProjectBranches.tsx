@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ProjectBranchAction, ProjectBranchOverview, ProjectBranchPreview } from '../../shared/projectBranches';
+import { validProjectBranchName } from '../../shared/projectBranches';
 import type { ProjectWorkspaceQuery, ProjectWorkspaceQueryResult, ProjectWorkspaceView } from '../../shared/remote';
 
 export interface PendingBranch { preview: ProjectBranchPreview; key: string }
@@ -21,6 +22,9 @@ export function ProjectBranches({ workspace, online, canChange, query, apply, on
   const live = useRef(true); const lock = useRef(false); const review = useRef<HTMLHeadingElement>(null); const opener = useRef<HTMLElement | null>(null);
   const summary = useRef<HTMLElement>(null); const restoringFocus = useRef(false);
   const current = pending?.preview ?? preview;
+  const branchNameError = !name.trim() ? '' : !validProjectBranchName(name.trim()) ? 'Branch-Name ist ungültig. Zum Beispiel feature/meine-idee verwenden.'
+    : overview?.branches.some((branch) => branch.kind === 'local' && branch.name === name.trim()) ? 'Dieser lokale Branch existiert bereits. Oben auswählen und wechseln.' : '';
+  const basis = overview?.branches.find((branch) => branch.ref === ref);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   useLayoutEffect(() => { if (current) review.current?.focus(); else if (restoringFocus.current) {
     restoringFocus.current = false; (opener.current?.isConnected ? opener.current : summary.current)?.focus();
@@ -78,10 +82,13 @@ export function ProjectBranches({ workspace, online, canChange, query, apply, on
       <button disabled={busy || !online || !canChange || !ref || overview.branches.find((branch) => branch.ref === ref)?.current || !!overview.blockedReason}
         onClick={() => void prepare({ kind: 'switch', ref })}>Branch wechseln</button>
       <fieldset disabled={busy || !online || !canChange}><legend>Neuer Branch</legend>
-        <label>Branch-Name<input aria-label="Neuer Branch-Name" value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder="feature/meine-idee" /></label>
+        <p>Basis: <strong>{basis?.name ?? 'Ohne Commit'}</strong>{basis && <> · <code>{basis.head.slice(0, 12)}</code></>}</p>
+        <label>Branch-Name<input aria-label="Neuer Branch-Name" aria-invalid={!!branchNameError} value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder="feature/meine-idee" /></label>
+        {branchNameError && <p role="status">{branchNameError}</p>}
         <label className="project-checkbox"><input type="checkbox" checked={separate} onChange={(event) => setSeparate(event.target.checked)} />Zusätzliche Arbeitskopie anlegen</label>
         <p>Die Basis ist der oben gewählte Commit-Stand. Ungesicherte Änderungen bleiben im bisherigen Workspace.</p>
-        <button disabled={!name.trim() || !separate && !!overview.blockedReason} onClick={() => void prepare({ kind: 'create', name: name.trim(), baseRef: ref || null, separate })}>Branch anlegen</button>
+        {overview.dirty && <p>Hier liegen uncommittete Änderungen. Erst im Git-Bereich committen, wenn der neue Branch diese enthalten soll.</p>}
+        <button disabled={!name.trim() || !!branchNameError || !separate && !!overview.blockedReason} onClick={() => void prepare({ kind: 'create', name: name.trim(), baseRef: ref || null, separate })}>Branch anlegen</button>
       </fieldset>
       <details><summary>Vorhandene Arbeitskopien ({overview.worktrees.length})</summary>
         <ul>{overview.worktrees.map((worktree) => <li key={worktree.id}><span>{worktree.name} · {worktree.branch}{worktree.current ? ' · aktuell' : ''}</span>

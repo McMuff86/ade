@@ -1,0 +1,20 @@
+import { spawn } from 'node:child_process';
+import { projectCodexUsage, readCodexAccountUsage } from '../src/main/settings/CodexAccountUsage';
+let passed = 0; let failed = 0;
+const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
+const primary = { usedPercent: 11, windowDurationMins: 10080, resetsAt: 1789805424 };
+void (async () => {
+  const projected = projectCodexUsage({ rateLimits: { primary, email: 'private@example.invalid', token: 'secret' } }, 123);
+  check('quota reports provider percentages and epoch reset without inventing token counts', projected.windows[0]?.remainingPercent === 89 && projected.windows[0]?.resetsAt === 1789805424000 && projected.checkedAt === 123);
+  check('account identity and credential fields are never projected', !/private|secret|email|token/i.test(JSON.stringify(projected)));
+  check('specific Codex bucket wins over unrelated legacy bucket', projectCodexUsage({ rateLimits: { primary: { ...primary, usedPercent: 90 } }, rateLimitsByLimitId: { codex: { primary } } }).windows[0]?.remainingPercent === 89);
+  check('missing subscription quota is unknown rather than 100 percent remaining', projectCodexUsage({}).status === 'unavailable' && projectCodexUsage({}).windows.length === 0);
+  for (const value of [-1, 101, NaN, Infinity, '11', null]) check('invalid quota percentage is rejected', projectCodexUsage({ rateLimits: { primary: { ...primary, usedPercent: value } } }).windows.length === 0);
+  check('invalid reset is rejected before UI date conversion', !projectCodexUsage({ rateLimits: { primary: { ...primary, resetsAt: Number.MAX_SAFE_INTEGER } } }).windows.length);
+  check('zero remaining quota stays visible', projectCodexUsage({ rateLimits: { primary: { ...primary, usedPercent: 100 } } }).windows[0]?.remainingPercent === 0);
+  const fixture = `const r=require('node:readline').createInterface({input:process.stdin}); let initialized=false; r.on('line',line=>{const m=JSON.parse(line); if(m.method==='initialize') console.log(JSON.stringify({id:m.id,result:{}})); else if(m.method==='initialized') initialized=true; else if(m.method==='account/rateLimits/read' && initialized) console.log(JSON.stringify({id:m.id,result:{rateLimits:{primary:${JSON.stringify(primary)}}}})); else process.exit(4); });`;
+  const realProtocol = await readCodexAccountUsage(() => spawn(process.execPath, ['-e', fixture], { stdio: 'pipe', windowsHide: true }));
+  check('stdio handshake reads only account limits without starting a model thread', realProtocol.status === 'available' && realProtocol.windows[0]?.remainingPercent === 89);
+  const malformed = await readCodexAccountUsage(() => spawn(process.execPath, ['-e', "console.log('malformed secret C:/private/path');"], { stdio: 'pipe', windowsHide: true }));
+  check('malformed provider output returns a safe unavailable state', malformed.status === 'unavailable' && !/secret|private/.test(JSON.stringify(malformed)));
+})().catch((error) => { failed++; console.error(error); }).finally(() => { console.log(`Subscription usage: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0; });

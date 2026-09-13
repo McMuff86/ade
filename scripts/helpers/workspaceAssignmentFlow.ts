@@ -45,7 +45,9 @@ export async function workspaceAssignmentFlow(desktop: Page, page: Page, proxy: 
   await dialog.getByRole('button', { name: 'Zuweisungsstatus prüfen', exact: true }).waitFor();
   await dialog.getByRole('alert').waitFor();
   proxy.loseAssignmentReplies(false);
-  check('lost assignment reply still creates one main-owned association', (await desktop.evaluate(() => window.ade.invoke('config:get'))).workspaceAssignments.filter((item) => item.agentId === agent.id).length === 1);
+  const assignedBeforeReply = await desktop.evaluate(() => window.ade.invoke('config:get'));
+  const targetWorkspace = assignedBeforeReply.projectWorkspaces.find((item) => item.workspaceDir === directory);
+  check('lost assignment reply still creates one main-owned association', !!targetWorkspace && assignedBeforeReply.workspaceAssignments.filter((item) => item.agentId === agent.id && item.projectWorkspaceId === targetWorkspace.id).length === 1);
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await page.getByRole('button', { name: 'Projekte durchsuchen', exact: true }).click();
   await dialog.getByRole('button', { name: 'Zuweisungsstatus prüfen', exact: true }).click(); await dialog.waitFor({ state: 'hidden' }); page.off('request', record);

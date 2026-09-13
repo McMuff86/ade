@@ -359,6 +359,26 @@ keine gemeinsame Gesprächssitzung zwischen TUI und Dashboard.
 
 ## 8. Dateien behalten und Änderungen sichern
 
+**Abo-Nutzung** am Terminal zeigt für native Codex-Sitzungen die gemeldeten
+Restprozente und Reset-Zeitpunkte. Die Anzeige nennt ihren Messzeitpunkt;
+Aktualisierungen werden für eine Minute zusammengefasst. Bei Claude/Grok führt
+der angezeigte Befehl `/usage` zur Nutzung in der bereiten Anbieter-CLI. Diese
+Werte werden noch nicht automatisch in ADE übertragen. API-Verbrauch und das
+Kontextfenster sind getrennt vom Abo-Kontingent.
+
+Im Git-Bereich zeigt **Nächster Git-Schritt** die passende Reihenfolge; Quelle
+und Ziel stehen vor einem Merge sichtbar da. Beim neuen Branch zeigt ADE den
+gewählten Basis-Commit und meldet ungültige oder vorhandene Namen. Uncommittete
+Dateien müssen zuerst gesichert werden, wenn ein separater Branch sie enthalten soll.
+
+Im mobilen Terminal öffnet **Verlauf** die gespeicherte Textausgabe. Ebenso gehen
+Hochscrollen mit dem Mausrad, nach unten wischen oder **Umschalt+Bild↑**.
+Während du liest, bleibt diese Ansicht stehen, auch wenn neue Ausgabe eintrifft.
+**Zur Live-Ausgabe** oder **Escape** schliesst sie; beim erneuten Öffnen ist sie
+aktuell. Der Verlauf ist begrenzt (1.000 Scrollback-Zeilen, maximal 65.536 Zeichen
+in der Textansicht). Von einer Terminalanwendung überschriebene Bildschirmbilder
+sind kein gespeicherter Chatverlauf.
+
 Für den neuen Projekteinstieg: **Projekte → Workspace öffnen → Git**. Zuerst die
 laufende Terminal-Sitzung beenden, damit kein Assistent gleichzeitig Dateien ändert.
 Der Git-Bereich zeigt den tatsächlichen Branch und HEAD sowie geänderte Dateien.

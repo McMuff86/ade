@@ -23,6 +23,7 @@ import { useSettings } from '../stores/settings';
 import { XTERM_THEMES } from '../theme/themes';
 import { createWriteCoalescer } from './write-coalescer';
 import { useSessions } from '../stores/sessions';
+import { SubscriptionUsagePanel } from './SubscriptionUsagePanel';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -260,6 +261,7 @@ export function TerminalPane({
   }, [active, sessionId]);
 
   return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <SubscriptionUsagePanel key={sessionId} load={() => window.ade.invoke('terminal:usage', { sessionId })} />
     {remoteInput && <div role="status" className="terminal-control-banner" style={{ padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
       <span>Dieses Terminal wird von einem verbundenen Gerät gesteuert.</span>
       <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus()); }}>Eingabe am Desktop übernehmen</button>

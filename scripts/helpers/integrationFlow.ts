@@ -47,6 +47,10 @@ export async function integrationFlow(desktop: Page, page: Page, root: string, e
   await picker.selectOption((await picker.locator('option', { hasText: 'old-palette' }).getAttribute('value'))!);
   await review.getByRole('button', { name: 'Änderungen prüfen', exact: true }).click();
   await review.getByLabel('Übernehmen: part.txt', { exact: true }).waitFor();
+  check('integration progress names the current comparison step', await review.locator('[aria-current="step"]').innerText() === 'Dateien vergleichen');
+  await review.getByRole('button', { name: 'Dateiauswahl leeren', exact: true }).click();
+  check('empty integration selection prevents preparing a workspace', await review.getByRole('button', { name: 'Auswahl sichern und Arbeitskopie vorbereiten', exact: true }).isDisabled());
+  await review.getByRole('button', { name: 'Empfohlene Auswahl wiederherstellen', exact: true }).click();
   check('desktop preview focuses heading and excludes instructions by default', await review.getByRole('heading', { name: 'Änderungen geprüft übernehmen', exact: true }).evaluate((node) => node === document.activeElement)
     && await review.getByLabel('Übernehmen: part.txt', { exact: true }).isChecked() && !await review.getByLabel('Übernehmen: AGENTS.md', { exact: true }).isChecked());
   await review.getByRole('button', { name: 'Vergleich: part.txt', exact: true }).click();

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, type JSX } from 'react';
+import { useContext, useEffect, useRef, useState, type JSX } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { MobileTerminalFrame } from '../shared/remote';
@@ -20,8 +20,9 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, enabled, active, onData, onSize, fontSize = 14 }: {
+export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14 }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
+  screen: string;
   fontSize?: number;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
@@ -30,6 +31,18 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize, fontSiz
   const callbacks = useRef({ onData, onSize }); callbacks.current = { onData, onSize };
   const lastFrame = useRef('');
   const measureRef = useRef<() => void>(() => undefined);
+  const [history, setHistory] = useState<string | null>(null);
+  const historyRef = useRef<HTMLPreElement>(null);
+  const historyButton = useRef<HTMLButtonElement>(null);
+  const touchStart = useRef<number | null>(null);
+  const swiped = useRef(false);
+  const showHistory = () => setHistory(screen || 'Noch keine Terminalausgabe vorhanden.');
+  const closeHistory = () => { setHistory(null); historyButton.current?.focus(); };
+  useEffect(() => {
+    if (history === null || !historyRef.current) return;
+    historyRef.current.scrollTop = Math.max(0, historyRef.current.scrollHeight - historyRef.current.clientHeight - 80);
+    historyRef.current.focus();
+  }, [history]);
   useEffect(() => {
     const term = new Terminal({ cols: frame.cols, rows: frame.rows, fontSize, fontFamily: 'Consolas, monospace', documentOverride: terminalDocument(),
       scrollback: 0, cursorBlink: true, disableStdin: true, convertEol: false });
@@ -54,12 +67,33 @@ export function TerminalScreen({ frame, enabled, active, onData, onSize, fontSiz
     const term = terminal.current; if (!term || lastFrame.current === frame.revision) return;
     term.resize(frame.cols, frame.rows); term.write(frame.ansi); lastFrame.current = frame.revision;
   }, [frame]);
-  return <div className="m-terminal-screen m-terminal-xterm" aria-label="Terminalanzeige" ref={container}
+  return <div className="m-terminal-screen m-terminal-xterm m-terminal-history-host" aria-label="Terminalanzeige"
+    onKeyDownCapture={(event) => {
+      if (event.shiftKey && event.key === 'PageUp') { event.preventDefault(); event.stopPropagation(); showHistory(); }
+      if (history !== null && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeHistory(); }
+    }}>
+    <div className="m-terminal-live" ref={container}
+    aria-hidden={history !== null} inert={history !== null}
+    onWheelCapture={(event) => { if (event.deltaY < 0 && !event.ctrlKey) { event.stopPropagation(); showHistory(); } }}
+    onTouchStart={(event) => { touchStart.current = event.touches.length === 1 ? event.touches[0]!.clientY : null; swiped.current = false; }}
+    onTouchMove={(event) => {
+      if (touchStart.current !== null && event.touches.length === 1 && event.touches[0]!.clientY - touchStart.current > 24) {
+        swiped.current = true; touchStart.current = null; showHistory();
+      }
+    }}
     onPointerDown={(event) => { if (enabled && active && event.pointerType === 'mouse') terminal.current?.focus(); }}
     onClick={() => {
+      if (swiped.current) { swiped.current = false; return; }
       if (!enabled || !active) return;
       // A completed tap carries touch user activation; pointerdown may not.
       if (navigator.maxTouchPoints > 0) openTerminalKeyboard(terminal.current?.textarea, keyboardOpen);
       else terminal.current?.focus();
-    }} />;
+    }} />
+    <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
+      onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
+    {history !== null && <div className="m-terminal-history-panel">
+      <p>Gespeicherter Textverlauf · Anzeige pausiert. Zur Live-Ausgabe zurückkehren, um weiter einzugeben.</p>
+      <pre ref={historyRef} tabIndex={0} aria-label="Terminalverlauf lesen">{history}</pre>
+    </div>}
+  </div>;
 }

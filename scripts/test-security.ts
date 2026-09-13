@@ -165,6 +165,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'pty:kill': { sessionId: 'session' },
   'pty:attach': { sessionId: 'session' },
   'terminal:control': { sessionId: 'session' },
+  'terminal:usage': { sessionId: 'session' },
   'terminal:reclaim': { sessionId: 'session' },
   'pty:list': undefined,
   'overview:get': undefined,

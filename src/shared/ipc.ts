@@ -130,6 +130,7 @@ export const IPC = {
   PtyKill: 'pty:kill',
   PtyAttach: 'pty:attach',
   TerminalControl: 'terminal:control',
+  TerminalUsage: 'terminal:usage',
   TerminalReclaim: 'terminal:reclaim',
   PtyActivitySnapshot: 'pty:activitySnapshot',
   RunTaskActivity: 'runTask:activity',
@@ -715,6 +716,7 @@ export interface IpcInvokeMap {
   'pty:kill': { req: PtyKillRequest; res: void };
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'terminal:control': { req: PtyAttachRequest; res: TerminalControlState };
+  'terminal:usage': { req: PtyAttachRequest; res: import('./remote').SubscriptionUsage };
   'terminal:reclaim': { req: PtyAttachRequest; res: TerminalControlState };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
   'runTask:activity': { req: { taskId: string }; res: PtyActivityResult };

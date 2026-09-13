@@ -64,6 +64,32 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await keyboardToggle.waitFor({ state: 'hidden' });
   check('closing keyboard restores the terminal view navigation', await page.getByRole('tab', { name: 'Terminals', exact: true }).isVisible());
   await page.setViewportSize(beforeKeyboardViewport);
+  await keyboardInput.focus();
+  await page.keyboard.type("1..350 | ForEach-Object { Write-Output ('SCROLL_LINE_' + $_) }; Start-Sleep -Seconds 8; Write-Output ('SCROLL_LIVE_' + 'UPDATE')", { delay: 5 });
+  await page.keyboard.press('Enter');
+  await terminal.getByLabel('Terminal-Textverlauf', { exact: true }).getByText('SCROLL_LINE_350', { exact: false }).waitFor({ state: 'attached' });
+  await terminal.getByLabel('Terminalanzeige', { exact: true }).hover(); await page.mouse.wheel(0, -300);
+  const history = terminal.getByLabel('Terminalverlauf lesen', { exact: true }); await history.waitFor();
+  check('wheel up opens focusable history beyond the live screen', (await history.innerText()).includes('SCROLL_LINE_1\n')
+    && await history.evaluate((node) => node === document.activeElement && node.scrollHeight > node.clientHeight));
+  await history.evaluate((node) => { node.scrollTop = 0; });
+  const frozen = await history.innerText();
+  await terminal.getByLabel('Terminal-Textverlauf', { exact: true }).getByText('SCROLL_LIVE_UPDATE', { exact: false }).waitFor({ state: 'attached' });
+  check('incoming output preserves the text and scroll position being read', await history.innerText() === frozen && await history.evaluate((node) => node.scrollTop === 0));
+  await page.keyboard.press('Escape'); await history.waitFor({ state: 'hidden' });
+  check('Escape returns focus to the history button', await terminal.getByRole('button', { name: 'Verlauf', exact: true }).evaluate((node) => node === document.activeElement));
+  await page.keyboard.press('Shift+PageUp'); await history.waitFor();
+  check('keyboard history refreshes the snapshot on reopening', (await history.innerText()).includes('SCROLL_LIVE_UPDATE'));
+  await terminal.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).click();
+  const touchBox = (await terminal.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!;
+  const touch = await page.context().newCDPSession(page);
+  const touchPoint = { x: touchBox.x + 40, y: touchBox.y + 60 };
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchPoint] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...touchPoint, y: touchPoint.y + 80 }] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await touch.detach();
+  await history.waitFor(); check('downward touch gesture opens readable history', await history.isVisible());
+  await page.screenshot({ path: join(evidence, 'terminal-scroll-history.png') });
+  await terminal.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).click();
   await desktop.getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
   await terminal.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).waitFor();
   check('desktop can reclaim the mobile home terminal', !(await desktop.evaluate((id) => window.ade.invoke('terminal:control', { sessionId: id }), shell.id)).remote);
@@ -92,6 +118,19 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
     check(`mobile starts ${mode} fixture in home with no profile and preserves CLI exit`, (await homeSessions()).some((item) => item.launchChoice?.mode === mode
       && item.workspaceDir === join(root, 'terminal-home') && !item.agentId && item.status === 'running' && item.program?.status === 'exited' && item.program.exitCode === 0));
     check(`${mode} uses the requested home as its actual working directory`, readFileSync(join(root, 'terminal-home/session-launch-proof.txt'), 'utf8').includes(`ADE_SESSION_${mode.toUpperCase()}_READY`));
+    await terminal.locator('.terminal-usage > summary').click();
+    const usage = terminal.getByRole('region', { name: 'Abo-Nutzung', exact: true });
+    await usage.getByRole('button', { name: 'Nutzung aktualisieren', exact: true }).waitFor();
+    if (mode === 'codex') {
+      await usage.getByText('7 Tage: 75 % übrig', { exact: true }).waitFor();
+      check('Codex subscription quota is read through the account-only CLI fixture', await usage.getByRole('progressbar').getAttribute('value') === '25');
+      const quotaSession = (await homeSessions()).find((item) => item.launchChoice?.mode === 'codex')!;
+      check('desktop and mobile share the same bounded quota observation', (await desktop.evaluate((id) => window.ade.invoke('terminal:usage', { sessionId: id }), quotaSession.id)).windows[0]?.remainingPercent === 75);
+    } else {
+      await usage.getByText('/usage', { exact: true }).waitFor();
+      check(`${mode} exposes its provider usage command without inventing a remaining percentage`, !(await usage.getByRole('progressbar').count()));
+    }
+    await terminal.locator('.terminal-usage > summary').click();
   }
   const after = await desktop.evaluate(() => window.ade.invoke('config:get'));
   check('agent-free launches create no identity, workspace or injected instructions', JSON.stringify(after.agents) === JSON.stringify(before.agents)

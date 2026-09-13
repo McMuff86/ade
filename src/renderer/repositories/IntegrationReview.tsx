@@ -27,6 +27,7 @@ export function IntegrationReview(props: Props): JSX.Element {
   const [paths, setPaths] = useState<string[]>([]); const [diff, setDiff] = useState<IntegrationDiff>();
   const [busy, setBusy] = useState(false); const [loaded, setLoaded] = useState(false); const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false); const [message, setMessage] = useState('');
+  const step = report?.phase === 'integrated' ? 4 : report?.tested ? 3 : report ? 2 : preview ? 1 : 0;
   const live = useRef(true); const lock = useRef(false); const heading = useRef<HTMLHeadingElement>(null);
   const current = useRef(props); current.current = props;
   useLayoutEffect(() => { heading.current?.focus(); }, [preview?.id, report?.id]);
@@ -88,6 +89,8 @@ export function IntegrationReview(props: Props): JSX.Element {
     {pending && <div className="integration-notice"><p>Die letzte Anfrage ist noch nicht bestätigt. Dieselbe Anfrage erneut prüfen.</p>
       <button type="button" className="btn" disabled={busy || !online} onClick={() => void send(pending.command, true)}>Anfrage erneut prüfen</button></div>}
     {!canChange && <p>Für Vorbereiten und Übernehmen am PC die Git-Verwaltungsrechte und den Zugriff auf alle Projekte freigeben.</p>}
+    <ol aria-label="Schritte der Übernahme" className="integration-steps">{['Quelle wählen', 'Dateien vergleichen', 'Arbeitskopie prüfen', 'Übernahme bestätigen', 'Abgeschlossen'].map((label, index) =>
+      <li key={label} aria-current={index === step ? 'step' : undefined}>{index < step ? '✓ ' : ''}{label}</li>)}</ol>
     <label>Quell-Workspace<select aria-label="Quell-Workspace" value={sourceId} disabled={disabled} onChange={(event) => { setSourceId(event.target.value); setPreview(undefined); setReport(undefined); setConfirmed(false); setDiff(undefined); }}>
       <option value="">Arbeitskopie auswählen</option>{sources.map((source) => <option value={source.id} key={source.id}>{source.name} · {source.branch}</option>)}</select></label>
     <button type="button" className="btn" disabled={disabled || !sourceId} onClick={() => void perform(() => query({ operation: 'preview', repositoryId, sourceId }))}>Änderungen prüfen</button>
@@ -96,6 +99,9 @@ export function IntegrationReview(props: Props): JSX.Element {
       <button type="button" className="btn" disabled={disabled} onClick={() => void perform(() => query({ operation: 'report', integrationId: review.id }))}>{review.sourceName} · {phases[review.phase]} · {review.id.slice(0, 8)}</button></li>)}</ul></details>}
     {preview && <div className="integration-preview">
       <h4>{preview.sourceName} → {preview.projectName} · {preview.targetBranch}</h4>
+      <p>Gewählte Dateien werden in einer separaten Arbeitskopie geprüft und danach in <strong>{preview.targetBranch}</strong> übernommen. Push erfolgt anschliessend im Hauptworkspace.</p>
+      <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => setPaths(preview.files.filter((file) => file.selectable && file.suggested).map((file) => file.path))}>Empfohlene Auswahl wiederherstellen</button>
+        <button type="button" className="btn" disabled={disabled || !paths.length} onClick={() => setPaths([])}>Dateiauswahl leeren</button><span>{paths.length} Dateien ausgewählt</span></div>
       <p>{preview.ownCommits} eigene Commits · {preview.behind} Commits hinter dem Ziel. Der Vergleich beruht auf der gemeinsamen Git-Basis; die fachliche Prüfung bleibt erforderlich.</p>
       <p>Quelle <code>{preview.sourceHead.slice(0, 12)}</code> · Ziel <code>{preview.targetHead.slice(0, 12)}</code></p>
       {!!preview.blockers.length && <ul className="integration-notice">{preview.blockers.map((blocker, index) => <li key={index}>{blocker}</li>)}</ul>}

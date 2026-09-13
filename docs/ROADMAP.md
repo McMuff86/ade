@@ -1,5 +1,18 @@
 # ADE delivery roadmap
 
+## Laufend: Terminal, Aboanzeige und Git-Bedienung
+
+Vom Benutzer angeforderter Zwischencommit für den PC-Abgleich. Native Codex-
+Quotaabfrage und Bedienhilfen sind implementiert; Gesamtprüfung, Latenzmessung
+und persönliche Aktivierung stehen aus. Claude/Grok bieten den CLI-Einstieg.
+[Fortsetzung](WORKSPACE_IMPROVEMENTS.md).
+
+## Terminalverlauf (13. September 2026)
+
+Direkter mobiler Verlauf und ruhige Leseposition sind implementiert und fokussiert
+geprüft. Vollständige Abnahme und Aktivierung der persönlichen Instanz stehen noch
+aus. [Nachweise und Grenzen](TERMINAL_SCROLL_RESULTS.md).
+
 
 ## Abgeschlossen: Terminals, Übernahme und Obergruppen (13. September 2026)
 

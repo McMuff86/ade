@@ -1,5 +1,20 @@
 # ADE implementation status
 
+## Zwischenstand: Abo, Terminal und Git (13. September 2026)
+
+Native Codex-Aboanzeige, mobiler Verlauf, Terminal-Aufbereitung und Git-Hilfen
+sind im Arbeitsstand vorhanden. Claude/Grok verwenden weiterhin ihre `/usage`-
+Anzeige. TypeScript, Build und fokussierte Checks bestanden; vollständige
+Abnahme und Aktivierung sind offen. [Umfang und Nachweise](WORKSPACE_IMPROVEMENTS.md).
+
+## Terminalverlauf: Umsetzung in Abnahme (13. September 2026)
+
+Mobile bietet direkten Verlauf per Knopf, Mausrad, Wischgeste und Shift+PageUp.
+Die Textansicht bleibt während neuer Ausgabe stehen; Rückkehr mit Escape oder
+Live-Knopf. Fokussierter Terminalablauf: 36 reale Electron-/Chromium-Prüfungen
+bestanden. Vollständige Abnahme läuft; dieser Arbeitsstand ist noch nicht in der
+persönlichen ADE-Instanz aktiviert. Details: [Terminalverlauf](TERMINAL_SCROLL_RESULTS.md).
+
 
 ## Abgeschlossen: Terminals, Übernahme und Obergruppen (13. September 2026)
 

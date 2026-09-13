@@ -12,6 +12,7 @@ import { remoteTerminalScreen } from './RemoteTerminalScreen';
 import type { MobileSessionInventory } from '../../shared/remote';
 
 export interface RemoteTerminalPort {
+  usage?(sessionId: string): Promise<import('../../shared/remote').SubscriptionUsage>;
   display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
   list(): SessionMeta[];
   create(agentId: string, repositoryId: string | null, bindingId: string | undefined, mode: SessionLaunchChoice['mode'], model?: string, authorize?: () => void): Promise<SessionMeta>;
@@ -34,7 +35,7 @@ const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
+  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
   if (Object.keys(input).some((key) => !allowed.includes(key)) || !validTerminalSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
@@ -42,6 +43,7 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
     || (input.operation === 'open' ? !validSessionChoice(input) : typeof input.terminalId !== 'string'))) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'command' && input.operation === 'open' && input.projectWorkspaceId && !validProjectLaunch(input)) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'query' && input.usage !== undefined && (input.usage !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
     || !Number.isSafeInteger(input.sequence) || (input.sequence as number) < 1 || typeof input.data !== 'string' || Buffer.byteLength(input.data) > 2048 || input.data.includes('\0')
     || !Number.isInteger(input.cols) || (input.cols as number) < 20 || (input.cols as number) > 240
@@ -92,12 +94,13 @@ export class RemoteTerminalService {
     if (!input.terminalId) return current();
     const entry = this.entries.get(input.terminalId); const session = sessions.find((item) => item.id === entry?.sessionId);
     if (!entry || !session || entry.workspaceVersion !== this.workbench.version(binding)) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
+    const subscriptionUsage = input.usage ? await this.port.usage?.(entry!.sessionId) : undefined;
     const display = this.port.display ? await this.port.display(entry!.sessionId)
       : { screen: await remoteTerminalScreen(Buffer.from(this.port.attach(entry!.sessionId).replayBase64, 'base64'), entry!.cols, entry!.rows) };
     this.requireGrant(deviceId, input); await this.workbench.revalidate(binding); this.requireGrant(deviceId, input); this.expire();
     if (!this.visible(deviceId, session!)) throw new RemoteApiError(403, 'scope_not_granted');
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
-    return { ...current(), selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
+    return { ...current(), subscriptionUsage, selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
 

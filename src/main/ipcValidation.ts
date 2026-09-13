@@ -937,6 +937,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyKill:
     case IPC.PtyAttach:
     case IPC.TerminalControl:
+    case IPC.TerminalUsage:
     case IPC.TerminalReclaim:
       validateIdRequest(channel, payload, 'sessionId');
       return;

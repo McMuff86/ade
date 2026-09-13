@@ -66,6 +66,8 @@ import { SessionLaunchService, type InteractiveLaunchSettings } from './SessionL
 import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
+import { cachedCodexAccountUsage } from '../settings/CodexAccountUsage';
+import type { SubscriptionUsage } from '../../shared/remote';
 import type { MobileTerminalSelection, SessionLaunchChoice } from '../../shared/remote';
 import { terminalHome } from './terminalHome';
 import { workspaceOperations, WorkspaceOperationBusyError } from '../repositories/WorkspaceOperationGate';
@@ -116,6 +118,8 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  usageProvider?: 'codex' | 'claude' | 'grok';
+  usageApiKey?: boolean;
   lastOutputAt?: number;
   outputBytes?: number;
   programReader?: ProgramSignalReader;
@@ -418,6 +422,23 @@ export class PtyManager {
     });
   }
 
+  async subscriptionUsage(sessionId: string): Promise<SubscriptionUsage> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) throw new Error('Interaktives Terminal ist nicht verfügbar.');
+    const provider = session.usageProvider ?? 'unknown';
+    const fallback: SubscriptionUsage = { provider, source: 'cli', checkedAt: Date.now(), status: 'unavailable', windows: [],
+      message: provider === 'unknown' ? 'Für diese Shell oder diesen eigenen Startbefehl ist kein Abo-Anbieter bekannt.'
+        : provider === 'claude' ? 'Claude Code zeigt die aktuellen Abo-Limits mit /usage. Automatische Übernahme in ADE ist noch nicht eingerichtet.'
+          : provider === 'grok' ? 'Grok Build zeigt den aktuellen Verbrauch und Reset mit /usage.'
+            : 'Für diese Umgebung die Abo-Limits mit /status in Codex prüfen.',
+      ...(provider !== 'unknown' ? { command: provider === 'codex' ? '/status' : '/usage' } as const : {}) };
+    if (session.usageApiKey) return { ...fallback, command: undefined, message: 'Für diese Sitzung ist ein API-Schlüssel konfiguriert. API-Verbrauch ist vom Abo-Kontingent getrennt.' };
+    if (provider !== 'codex' || session.meta.executionBackend !== 'native') return fallback;
+    const result = await cachedCodexAccountUsage();
+    if (this.sessions.get(sessionId) !== session) throw new Error('Terminalsitzung wurde inzwischen geschlossen.');
+    return { ...result, command: '/status' };
+  }
+
   async remoteDisplay(sessionId: string): Promise<Awaited<ReturnType<RemoteTerminalDisplay['snapshot']>>> {
     const display = this.sessions.get(sessionId)?.display;
     if (!display) throw new Error('Interaktives Terminal ist nicht mehr verfügbar.');
@@ -594,6 +615,8 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      usageProvider: !agent.customCommand && (agent.runtime === 'codex' || agent.runtime === 'claude' || agent.runtime === 'grok') ? agent.runtime : undefined,
+      usageApiKey: !!(credentialEnv.OPENAI_API_KEY || credentialEnv.ANTHROPIC_API_KEY || credentialEnv.XAI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.XAI_API_KEY),
       display: meta.kind === 'interactive' ? new RemoteTerminalDisplay(DEFAULT_COLS, DEFAULT_ROWS) : undefined,
       meta,
       proc,

@@ -7,6 +7,7 @@ import { workspaceError } from './AgentWorkspace';
 import { Dialog } from './ui';
 import { useDeviceDraft } from './deviceDrafts';
 import { TerminalScreen } from './TerminalScreen';
+import { SubscriptionUsagePanel } from '../renderer/terminal/SubscriptionUsagePanel';
 import { TerminalInputQueue } from './TerminalInputQueue';
 import { DashboardLink } from './DashboardLink';
 import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
@@ -98,6 +99,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       if (refreshing) { requested = true; return; }
       if (document.hidden) { timer = setTimeout(() => void refresh(), 1000); return; }
       refreshing = true; requested = false;
+      const previousRevision = stateRef.current.frame?.revision;
       try { await query(); if (!stopped) setReadError(''); }
       catch (reason) { if (!stopped && live.current) {
         if (reason instanceof MobileClientError && [401, 403, 409].includes(reason.status)) {
@@ -109,7 +111,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         }
       } }
       refreshing = false;
-      if (!stopped) timer = setTimeout(() => void refresh(), requested ? 0 : 100);
+      if (!stopped) timer = setTimeout(() => void refresh(), requested ? 0 : stateRef.current.frame?.revision !== previousRevision ? 40 : 100);
     };
     const wake = () => { clearTimeout(timer); void refresh(); };
     refreshNow.current = wake; document.addEventListener('visibilitychange', wake);
@@ -274,8 +276,11 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button disabled={busy || !!pending || !owning || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
-    {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      enabled={inputEnabled} fontSize={fontSize}
+    {state.selected && <><SubscriptionUsagePanel key={`usage-${state.selected.id}`} online={host.status === 'online'} load={async () => {
+      const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, usage: true });
+      if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
+    }} />{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize}
       onData={(data) => keyboard.enqueue(data)} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}

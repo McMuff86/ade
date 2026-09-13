@@ -28,6 +28,17 @@ void (async () => {
     await new Promise<void>((resolve) => browser.write(safe.frame.ansi, resolve));
     check('redacted frame stays interpretable', browser.buffer.active.getLine(0)!.translateToString(true).includes('[path]'));
   } finally { display.dispose(); browser.dispose(); }
+  const history = new RemoteTerminalDisplay(80, 10);
+  try {
+    history.write(Buffer.from(Array.from({ length: 400 }, (_, i) => `HISTORY_${i}\r\n`).join('')));
+    const retained = await history.snapshot();
+    check('mobile transcript retains output beyond the former 200-line window', retained.screen.includes('HISTORY_0\n') && retained.screen.includes('HISTORY_399'));
+    history.write(Buffer.from('api_key=HISTORY_SECRET\r\n' + 'next\r\n'.repeat(300)));
+    check('history preserves redaction when older lines are retained', !JSON.stringify(await history.snapshot()).includes('HISTORY_SECRET'));
+    history.write(Buffer.from('next\r\n'.repeat(1100)));
+    const boundedHistory = await history.snapshot();
+    check('history remains bounded and old output is evicted', boundedHistory.screen.length <= 64 * 1024 && !boundedHistory.screen.includes('HISTORY_0\n'));
+  } finally { history.dispose(); }
   const dense = new RemoteTerminalDisplay(240, 100);
   try {
     let output = '\x1b[?7l';
