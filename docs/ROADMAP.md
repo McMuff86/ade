@@ -1,7 +1,7 @@
 # ADE delivery roadmap
 
 
-## Abnahme: Terminals, Übernahme und Obergruppen (13. September 2026)
+## Abgeschlossen: Terminals, Übernahme und Obergruppen (13. September 2026)
 
 Freie Terminals, CLI-Auswahl, Projektbrowser und geprüfte Workspace-Zuweisung
 sind auf Desktop/Mobile umgesetzt. Dazu kommen die geprüfte Übernahme älterer
@@ -11,7 +11,12 @@ Suiten mit 2.329 Checks und 689 reale Electron-/Browser-Prüfungen, einschliessl
 22 visueller Vergleiche. Alle drei TypeScript-Projekte und Produktionsbuild bestehen.
 RhinoLayoutTools enthält die in Rhino 8/9 geprüfte FastenerPlace-Palette auf
 `main`, nach `origin/main` gepusht als `5c4b820`.
-ADE-Commit/Push, persönliche Gruppenzuweisung und Neustart folgen auf diese Abnahme.
+ADE-Code ist als `bab7df7` nach `origin/main` gepusht. Seit 12:48 Uhr
+Europe/Zurich läuft genau eine geprüfte ADE-Instanz (PID **53592**); die bisherige
+Instanz 35068 ist beendet. Hermes Agent, OpenClaw und GrokBuild liegen unter
+**Agent-Systeme**. Sechs Agenten, fünf Projekte und die Gerätekopplung sind erhalten.
+Private Mobile-HTTPS-Auslieferung stimmt per SHA-256 mit dem geprüften Build
+überein. Mobile einmal neu laden. Dieser Betrieb ersetzt die älteren Einträge unten.
 [Übernahme-Vertrag](WORKSPACE_INTEGRATION.md) · [Teilziele und Evidenz](INTEGRATION_NAVIGATION_GOALS.md).
 
 ## Projekte durchsuchen und Workspace-Zuweisung (12. September 2026)

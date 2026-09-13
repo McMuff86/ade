@@ -1,6 +1,6 @@
 # Übernahme älterer Änderungen und Agent-Obergruppen
 
-Aktives Ziel vom 13. September 2026. Auftrag: den Vorschlag aus
+Abgeschlossenes Ziel vom 13. September 2026. Auftrag: den Vorschlag aus
 `FASTENER_INTEGRATION_REVIEW.md` implementieren, prüfen, committen, pushen und
 ADE anschliessend mit genau einer geprüften Instanz neu starten.
 
@@ -17,11 +17,11 @@ ADE anschliessend mit genau einer geprüften Instanz neu starten.
 - [x] RhinoLayoutTools: FastenerPlace-Palette auf aktuellem Hauptstand mit
   `rlt_ui`, Silhouetten, korrektem Normwechsel und erhaltener Bohrungswahl;
   fokussierte Prüfungen und echte Rhino-Abnahme.
-- [ ] Beide Repositories: Dokumentation und vollständige vorgeschriebene Checks;
+- [x] Beide Repositories: Dokumentation und vollständige vorgeschriebene Checks;
   Task-Änderungen committen und nach `origin` pushen.
-- [ ] Persönliches Profil: Hermes Agent, OpenClaw und GrokBuild unter der
+- [x] Persönliches Profil: Hermes Agent, OpenClaw und GrokBuild unter der
   Obergruppe **Agent-Systeme** ordnen; Identitäten, Workspaces und Kopplung erhalten.
-- [ ] Alle ADE-Instanzen schliessen, genau eine geprüfte Instanz neu starten und
+- [x] Alle ADE-Instanzen schliessen, genau eine geprüfte Instanz neu starten und
   private mobile HTTPS-Auslieferung kontrollieren.
 
 ## Abnahme vom 13. September 2026
@@ -32,7 +32,20 @@ Produktionsbuilds und alle drei TypeScript-Projekte. Der reale gemeinsame
 Terminal-/Obergruppen-/Übernahmelauf besteht mit 190 Checks. Belege:
 `test-results/integration-final-verify.log` und `integration-final-results.json`.
 Quellfingerabdruck des geprüften Builds: `ede490ffbd9f434df6e8`.
-ADE-Commit/Push und persönlicher Neustart werden anschliessend ergänzt.
+ADE-Code-Commit `bab7df78f79dd1c5ff1ca7dc97b27fd4cf812705` und Rhino-Commit
+`5c4b820a6d83bf645db6e8087c17228a458bef37` sind jeweils auf `origin/main` bestätigt.
+
+Seit **12:48 Uhr Europe/Zurich** läuft genau eine persönliche ADE-Instanz,
+PID **53592**, aus `test-results/operator-integration-20260913-124809-01333ede-verified`.
+Der vorherige Hauptprozess 35068 wurde geschlossen; keine Aufgaben waren aktiv.
+Hermes Agent, OpenClaw und GrokBuild tragen jetzt **Agent-Systeme** als Obergruppe.
+Alle anderen Konfigurationsfelder, sechs Agenten, fünf Projekte und die
+Gerätekopplung blieben erhalten. Backup:
+`test-results/operator-integration-backup-20260913-124809`.
+Der private HTTPS-Zugang liefert Status 200; die ausgelieferten JS-/CSS-Dateien
+stimmen per SHA-256 mit der geprüften Kopie überein. Der Mobile-Listener bleibt
+auf `127.0.0.1:4317`. Beleg: `test-results/integration-restart.json`.
+Dieser Abschluss ersetzt die folgenden historischen Zwischenstände.
 
 ## Entwicklung und Zwischenabnahmen (historisch)
 
@@ -136,6 +149,6 @@ Umgesetzter Service-Vertrag:
   und Audit. Generische Remote-IPC-Allowlist bleibt unverändert.
 
 Die vollständige Gesamtabnahme ist bestanden; die bestehende visuelle Suite
-besteht mit 22 Checks. Ausstehend sind ADE-Commit/Push, persönlicher Neustart
-und Kontrolle der privaten Auslieferung.
+besteht mit 22 Checks. Commit/Push, persönlicher Neustart und Kontrolle der
+privaten Auslieferung sind im Abschluss oben bestätigt.
 RhinoLayoutTools ist bereits auf `main` integriert und gepusht.
