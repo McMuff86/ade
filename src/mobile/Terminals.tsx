@@ -7,6 +7,7 @@ import { AgentNavigation } from './AgentNavigation';
 import { MobileClientError } from './client';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { useWorkspaceSelection, WorkspaceAssignmentDialog } from './WorkspaceAssignment';
+import { TerminalPanelResize, useTerminalPanelWidths } from './TerminalPanelResize';
 
 export type TerminalTarget = MobileTerminalSelection & { terminalId?: string; expectedBranch?: string };
 export function terminalTarget(session: MobileRecentSession): TerminalTarget {
@@ -25,6 +26,8 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
   const [railOpen, setRailOpen] = useState(false);
   const [focusVersion, setFocusVersion] = useState(0);
   const title = useRef<HTMLHeadingElement>(null);
+  const panels = useRef<HTMLDivElement>(null);
+  const panelWidths = useTerminalPanelWidths();
   const keyboardOpen = useContext(TabletKeyboardContext);
   const [keyboardControls, setKeyboardControls] = useState(false);
   const keyboardToggle = useRef<HTMLButtonElement>(null);
@@ -56,7 +59,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
   const project = host.catalog?.repositories.find((item) => item.id === target.repositoryId);
   const key = `${target.terminalHome ? 'home' : target.projectWorkspaceId ?? `${target.agentId}:${target.repositoryId ?? 'home'}`}:${launchVersion}`;
   useLayoutEffect(() => { title.current?.focus({ preventScroll: true }); }, [focusVersion, launchVersion]);
-  return <div className={`m-terminals-page ${keyboardOpen ? 'm-terminals-keyboard' : ''}`}>
+  return <div ref={panels} style={panelWidths.style} className={`m-terminals-page ${keyboardOpen ? 'm-terminals-keyboard' : ''}`}>
     <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle" aria-label="Terminal-Bedienung"
       aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls" onPointerDown={(event) => event.preventDefault()}
       onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? 'Bedienung einklappen' : 'Bedienung'}</button>
@@ -72,6 +75,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
           onClick={() => choose(terminalTarget(session))}><span>{session.title}<small>{session.terminalHome ? 'Benutzerverzeichnis' : session.projectName ?? host.catalog?.agents.find((item) => item.id === session.agentId)?.name ?? 'Workspace'}</small><small>{sessionStateLabel(session)}</small></span></button>)}
       {!!inventory?.omitted && <p>{inventory.omitted} weitere oder nicht verfügbare Sitzungen.</p>}
     </aside>
+    <TerminalPanelResize side="agents" value={panelWidths.widths[0]} onChange={(value) => panelWidths.resize(0, value)} container={panels} />
     <section className="m-terminal-main" aria-label="Terminal-Arbeitsfläche">
       <h2 ref={title} tabIndex={-1} className="m-terminal-heading">{target.terminalHome ? 'Freie Terminals' : agent?.name ?? 'Projekt-Terminal'}</h2>
       {agent && <label className="m-terminal-scope">Projekt<select id="terminal-project-selection" aria-label="Terminal-Projekt" value={target.repositoryId ?? ''}
@@ -86,7 +90,8 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
         active initialTerminalId={target.terminalId} projectEntry={!!target.projectWorkspaceId}
         compactControls={keyboardOpen && !keyboardControls} fallbackFocusId="view-tab-terminals" onSelectionChanged={(id) => onTarget({ ...target, terminalId: id })} />}
     </section>
-    <aside className="m-terminal-context" aria-label="Terminal-Kontext"><h2>Inspector</h2>
+    <TerminalPanelResize side="inspector" value={panelWidths.widths[1]} onChange={(value) => panelWidths.resize(1, value)} container={panels} />
+    <aside id="terminal-inspector" className="m-terminal-context" aria-label="Terminal-Kontext"><h2>Inspector</h2>
       <p>{target.terminalHome ? 'Freies Terminal' : agent?.name ?? 'Projekt-Terminal'}</p>
       <p>{target.terminalHome ? 'Start im Benutzerverzeichnis des ADE-Rechners.' : project?.name ?? (target.projectWorkspaceId ? 'Vorhandener Projekt-Workspace' : 'Eigener Agent-Workspace')}</p>
       {target.expectedBranch && <p>Branch: {target.expectedBranch}</p>}

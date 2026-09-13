@@ -315,10 +315,17 @@ export class HostApiServer {
     }
 
     const origin = singleHeader(request, 'origin');
-    if (browserRequest ? (origin !== undefined && origin !== browser!.origin)
+    // Installed app launchers and external links may navigate from another site.
+    // Only the public entry document gets this exception; every API request and
+    // subresource still uses the original origin/fetch-metadata checks below.
+    const publicLaunch = browserRequest && request.method === 'GET'
+      && (request.url === '/' || request.url === '/index.html')
+      && singleHeader(request, 'sec-fetch-mode') === 'navigate'
+      && singleHeader(request, 'sec-fetch-dest') === 'document';
+    if (!publicLaunch && (browserRequest ? (origin !== undefined && origin !== browser!.origin)
       || (request.method !== 'GET' && origin !== browser!.origin)
       || ![undefined, 'same-origin', 'none'].includes(singleHeader(request, 'sec-fetch-site'))
-      : origin !== undefined) {
+      : origin !== undefined)) {
       writeError(response, 403, 'origin_not_allowed');
       return;
     }

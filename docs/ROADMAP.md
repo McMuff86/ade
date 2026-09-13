@@ -1,5 +1,29 @@
 # ADE delivery roadmap
 
+## Tablet-Bedienung und einzelne Projekte
+
+PC-Import einzelner Projekte, gespeicherte Tablet-Seitenbreiten und korrigierte
+PWA-Startnavigation sind implementiert. Chromium-Prüfungen decken externe
+Navigation und Wiederanmeldung mit Geräteschlüssel ab. Der reale Android-PWA-
+Launcher bleibt eine Geräteabnahme. [Details](TABLET_POLISH_RESULTS.md).
+
+## Mobile Commit-Details
+
+Commit-Metadaten, Dateistatistik und historische Datei-Diffs sind umgesetzt und
+auf Tablet-/Smartphone-Größen mit Chromium geprüft. Persönliche Aktivierung
+erfolgte am 13. September um 21:17 Uhr. Gesamtabnahme bleibt durch den bereits
+bekannten Codex-Quota-Fixture-Timeout offen; Commit-Prüfungen bestehen.
+[Nachweise](MOBILE_COMMIT_DETAILS.md).
+
+## Linke Navigation anordnen
+
+Sichtbarer Desktop-Modus für Projekt-, Obergruppen- und Agent-Reihenfolge
+implementiert und im echten Windows-Electron geprüft (zwölf Anordnen-Checks).
+Gesamtabnahme bleibt durch den Codex-Quota-Fixture-Timeout offen. Persönliche
+Aktivierung samt Anordnung und fehlenden Profilbildern erfolgte am 13. September,
+20:53 Uhr, auf ausdrücklichen Benutzerauftrag.
+[Nachweise](RAIL_ORDERING_RESULTS.md).
+
 ## Laufend: Terminal, Aboanzeige und Git-Bedienung
 
 Vom Benutzer angeforderter Zwischencommit für den PC-Abgleich. Native Codex-

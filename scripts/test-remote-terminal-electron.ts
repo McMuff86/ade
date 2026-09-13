@@ -11,6 +11,7 @@ import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { projectStartFlow } from './helpers/projectStartFlow';
 import { projectEntryFlow } from './helpers/projectEntryFlow';
 import { projectDirectoryFlow } from './helpers/projectDirectoryFlow';
+import { tabletLayoutFlow } from './helpers/tabletLayoutFlow';
 import { assistantAccessFlow } from './helpers/assistantAccessFlow';
 import { terminalEchoLatency } from './helpers/terminalLatency';
 import { PNG } from 'pngjs';
@@ -97,6 +98,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--tablet-layout-only')) {
+    await tabletLayoutFlow(app, desktop, page, root, check); return;
+  }
   if (process.argv.includes('--integration-only')) {
     await integrationFlow(desktop, page, root, evidence, proxy, check); return;
   }

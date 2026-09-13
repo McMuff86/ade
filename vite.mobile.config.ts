@@ -20,7 +20,15 @@ self.addEventListener('activate', event => event.waitUntil(caches.keys().then(ke
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.search || !SHELL.includes(url.pathname)) return;
-  event.respondWith(fetch(event.request).catch(() => caches.open(CACHE).then(cache => cache.match(url.pathname)).then(response => response || Response.error())));
+  // A launcher navigation forwarded verbatim by a worker can retain cross-site
+  // metadata but lose its navigation destination. Fetch public shell documents
+  // from the worker's own origin instead; device APIs never enter this handler.
+  const request = event.request.mode === 'navigate'
+    ? new Request(url.href, { credentials: 'omit', cache: 'no-store' }) : event.request;
+  event.respondWith(fetch(request).then(response => {
+    if (!response.ok) throw new Error('Public shell unavailable');
+    return response;
+  }).catch(() => caches.open(CACHE).then(cache => cache.match(url.pathname)).then(response => response || Response.error())));
 });
 ` });
     },

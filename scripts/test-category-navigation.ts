@@ -2,11 +2,11 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { groupCategories, navigationGroup, validNavigationGroup } from '../src/shared/categoryNavigation';
+import { groupCategories, navigationGroup, validNavigationGroup, shiftNavigationItem } from '../src/shared/categoryNavigation';
 import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
 import { ConfigStore, validateCompleteConfig } from '../src/main/config/store';
 import { assertIpcPayload } from '../src/main/ipcValidation';
-import { updateCategory } from '../src/main/identity';
+import { updateCategory, reorderCategories } from '../src/main/identity';
 import { exportWorkspaceBundle } from '../src/main/portability/WorkspaceBundleExporter';
 import { parseWorkspaceBundle } from '../src/shared/workspaceBundle';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
@@ -31,6 +31,15 @@ void (async () => {
   const rows = groupCategories(config.categories);
   check('group keeps its first category position without consuming loose categories', rows.map((row) => row.key).join() === 'category:local,group:Agent-Systeme,category:other');
   check('member order follows existing category order', rows[1]!.categories.map((item) => item.id).join() === 'hermes,claw');
+  check('moving a group moves all members past a loose project', shiftNavigationItem(config.categories, 'group:Agent-Systeme', 1)?.join() === 'local,other,hermes,claw');
+  check('moving a loose project skips the complete adjacent group', shiftNavigationItem(config.categories, 'category:other', -1)?.join() === 'local,other,hermes,claw');
+  check('moving a first group member preserves the group root position', shiftNavigationItem(config.categories, 'category:hermes', 1)?.join() === 'local,claw,hermes,other');
+  check('moving a member up preserves membership and other rows', shiftNavigationItem(config.categories, 'category:claw', -1)?.join() === 'local,claw,hermes,other');
+  check('boundaries and unknown keys cannot move', shiftNavigationItem(config.categories, 'category:local', -1) === null
+    && shiftNavigationItem(config.categories, 'category:other', 1) === null
+    && shiftNavigationItem(config.categories, 'category:hermes', -1) === null
+    && shiftNavigationItem(config.categories, 'category:claw', 1) === null
+    && shiftNavigationItem([], 'missing', 1) === null);
   check('plain legacy categories preserve their original layout order', groupCategories(config.categories.map(({ navigationGroup: _group, ...item }) => item)).length === 4);
   check('grouping never mutates category identities or records', config.categories.map((item) => item.id).join() === 'local,hermes,other,claw');
   check('group names are bounded and reject control characters', !validNavigationGroup('x'.repeat(81)) && !validNavigationGroup('a\nb') && !validNavigationGroup(' x ') && validNavigationGroup('Agent-Systeme'));
@@ -50,6 +59,8 @@ void (async () => {
   check('group survives config restart', new ConfigStore(join(root, 'config.json')).get().categories[1]!.navigationGroup === 'Agent-Systeme');
   const bundle = exportWorkspaceBundle(store.get(), { sourcePlatform: 'win32' }).bundle;
   check('portable bundle preserves category group', parseWorkspaceBundle(JSON.parse(JSON.stringify(bundle))).categories[1]!.navigationGroup === 'Agent-Systeme');
+  reorderCategories(store, shiftNavigationItem(store.get().categories, 'group:Agent-Systeme', 1)!);
+  check('whole group order survives a config store restart', new ConfigStore(join(root, 'config.json')).get().categories.map((cat) => cat.id).join() === 'local,other,hermes,claw');
   const f = createRemoteWorkspaceFixture(join(root, 'remote')); const { application: app, devices } = f;
   devices.enroll('tablet', 'Tablet', 'n'.repeat(40));
   const context = (): RemoteCommandContext => ({ principal: { id: 'tablet', kind: 'device', proof: 'device-signature', scopes: new Set(devices.activeDevices()[0]!.scopes) }, idempotencyKey: randomUUID(), requestId: 'group-review' });

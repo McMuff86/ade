@@ -48,6 +48,18 @@ void (async () => {
     else if (await page!.getByRole('button', { name: 'Inspector schliessen' }).count()) await page!.getByRole('button', { name: 'Inspector schliessen' }).click();
   };
   await page.goto(browserOrigin);
+  if (!useWebkit) {
+    await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    // Real cross-site top-level navigation, as opposed to spoofing Fetch Metadata.
+    await page.goto(proxy.localOrigin);
+    await page.setContent(`<a href="${browserOrigin}/">ADE starten</a>`);
+    const launch = page.waitForResponse((response) => response.url() === `${browserOrigin}/` && response.request().isNavigationRequest());
+    await page.getByRole('link', { name: 'ADE starten' }).click();
+    const launchResponse = await launch;
+    if (launchResponse.status() !== 200) console.error('Public launch rejection', launchResponse.status(), await launchResponse.text());
+    check('cross-site launcher reaches the public PWA entry in Chromium', launchResponse.status() === 200);
+  }
   await page.getByRole('heading', { name: 'Gerät koppeln', exact: true }).waitFor();
   check('unpaired phone sees useful pairing instructions without private catalog', !(await page.content()).includes('Mobile project'));
   const challenge = sessions!.beginPairing(proxy.origin);
@@ -107,6 +119,13 @@ void (async () => {
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   check('view and theme changes preserve the device draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Complete the deterministic mobile fixture task.');
   check('navigation and appearance changes retain the same event stream and identity', streams === navigationStreams && fixture.devices.inventory().devices.length === 1);
+  await context.clearCookies();
+  const appWindow = await context.newPage();
+  await appWindow.goto(browserOrigin);
+  await appWindow.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  check('cold app window restores saved device proof even without a session cookie', fixture.devices.inventory().devices.length === 1
+    && await appWindow.getByRole('tab', { name: 'Work', exact: true }).getAttribute('aria-selected') === 'true');
+  await appWindow.close();
   proxy.loseTaskReplies(true);
   await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
   await page.getByRole('heading', { name: 'Antwort noch unklar' }).waitFor();
@@ -132,6 +151,12 @@ void (async () => {
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   const cached = await page.evaluate(async () => (await Promise.all((await caches.keys()).map(async (key) => (await (await caches.open(key)).keys()).map((request) => request.url)))).flat());
   check('service worker caches only public shell assets', cached.length >= 4 && cached.every((url) => !url.includes('/api/') && !url.includes('#pair=')));
+  if (!windowsWebkit) {
+    proxy.setShellUnavailable(true);
+    await page.reload(); await connected();
+    check('PWA shell survives an HTTP failure using public cache and live signed API', await page.getByRole('tab', { name: 'Work', exact: true }).isVisible());
+    proxy.setShellUnavailable(false);
+  }
   await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
   await page.getByLabel('Aufgabe', { exact: true }).fill('Preserve this offline draft.');
   await context.setOffline(true);

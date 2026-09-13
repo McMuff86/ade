@@ -1,5 +1,130 @@
 # ADE — aktuelle Übergabe
 
+## ElevenLabs-Verbindung geprüft; nächste Session: Sprache (13. September 2026)
+
+Der Benutzer hat `ELEVENLABS_API_KEY` in ADE als verschlüsselten Service-Key
+mit Scope `all` gespeichert. Lokaler Electron-Probeprozess mit dem persönlichen
+ADE-userData und dem echten `HarnessCredentialService`: Entschlüsselung und
+`envFor` für Codex, Claude, Shell, Grok und Custom erfolgreich. ElevenLabs
+`GET /v1/voices` liefert HTTP 200 mit 21 Stimmen. `GET /v1/user/subscription`
+liefert HTTP 401 / `missing_permissions`; Abo-/Guthabenabfrage mit diesem Key
+ist damit nicht freigeschaltet. Kein Schlüsselwert in Logs oder Repository.
+Lokaler Nachweis: `test-results/elevenlabs-access-result.json`.
+
+Der Probeprozess bestätigt Credential-Service und API-Zugriff, keinen bereits
+laufenden Agent-Prozess. Neue ADE-Sitzungen erhalten den Key beim Start;
+laufende Sitzungen müssen dafür neu gestartet werden. Diese externe Codex-
+Session hatte den Key nicht in ihrer geerbten Umgebung. Noch keine Sprache
+erzeugt oder abgespielt, keine Sprach-UI implementiert. In der nächsten Session
+mit dem Benutzer Spracherzeugung/Sprachausgabe testen und den gewünschten
+Bedienablauf klären. Das zuvor gemeldete Guthabenproblem bleibt separat offen.
+
+Benutzerauftrag zum Abschluss: aktuellen Arbeitsstand committen und pushen.
+Desktop-/Mobile-Build und Start dieser Session erfolgreich; der unten
+dokumentierte Gesamtabnahmefehler bleibt offen.
+Vor dem Commit erneut bestanden: `pnpm typecheck`, Remote-Commits 29,
+Kategorie-Navigation 29, Mobile Access 79 sowie `git diff --cached --check`.
+
+## Build für manuellen Tablet-Test gestartet (13. September 2026, 22:11 Uhr)
+
+`pnpm build` erfolgreich (Desktop und Mobile). Persönliche Instanz PID **54384**
+aus `test-results/operator-tablet-manual-test-20260913-221124-abb840da-build`
+ersetzt PID 50472. Vorher keine laufenden/queued Aufgaben und keine Terminal-
+Kindprozesse festgestellt. Sechs Agenten, fünf Repositories und Gerätekopplung
+erhalten; Profilsicherung und Startbeleg: `test-results/tablet-manual-test-restart.json`.
+Fenster auf 1600 × 1100 gesetzt. Private HTTPS-Seite liefert 200; ausgelieferte
+Mobile-JS/CSS-Dateien stimmen per SHA-256 mit dem neuen Build überein.
+Nur Build und Start geprüft, kein erneutes `pnpm verify`. Das vom Benutzer
+gemeldete Guthabenproblem bleibt offen; dieser Auftrag ändert keine Produktlogik.
+Dieser Start ersetzt die darunter dokumentierten Operatorzustände.
+
+## Tablet-Polish aktiviert (13. September 2026, 21:49 Uhr)
+
+PC-Einzelprojekt-Freigabe, gespeicherte Terminal-Seitenbreiten auf Tablet und
+PWA-Startkorrekturen sind in der persönlichen Instanz aktiv. PID **50472**
+aus `operator-tablet-polish-20260913-214947-4c343de5-focused` (unter `test-results/`).
+Vorige PID 36064 beendet; sechs Agenten, fünf Repositories und Kopplung erhalten.
+Fenster wieder 1600 × 1100. Belege: `test-results/tablet-polish-restart.json`,
+`test-results/tablet-pwa-operator-validation.json`. Tatsächlicher privater
+Startaufruf 200, fremdseitiger API-Aufruf weiterhin 403, neuer Worker ausgeliefert.
+
+Gezielte Prüfungen: Typecheck/Build, Mobile Access 79, Tablet-Layout/Import 13,
+Mobile Browser 60 Checks grün. `pnpm verify` endet mit Exit 1 am bekannten Codex-Quota-Fixture
+(`7 Tage: 75 % übrig` fehlt). 50 fokussierte Suiten/2.387 Checks,
+197 Desktop-Electron-, 60 Mobile-Browser-, 39 Workbench- und 13 neue
+Tablet-Layout/Import-Checks bestehen. Remote-Terminal: 141 bestanden, ein
+Timeout; nachfolgende verkettete Suiten wurden nicht ausgeführt.
+Log: `test-results/tablet-polish-verify.log`. Keine vollständige Gesamtabnahme. Kein Commit/Push durch diese Arbeit. Zwischenzeitlicher
+fremder Dokumentationscommit b640c3f bleibt erhalten.
+
+PWA-Update: ADE im Browser neu laden, dann sämtliche ADE-Tabs/PWA-Fenster
+schließen und neu öffnen, damit der neue Worker aktiviert wird. Bei getrenntem
+App-Speicher direkt in der PWA koppeln. Reale Android-Launcher-Abnahme bleibt
+beim Tablet; automatisiert sind Chromium-Navigation mit aktivem Worker und
+Anmeldung in neuem Fenster ohne Sitzungscookie geprüft.
+[Umfang und Nachweise](TABLET_POLISH_RESULTS.md). Dieser Operatorstand ersetzt
+die darunter dokumentierten Starts.
+
+## Mobile Commit-Details aktiviert (13. September 2026, 21:17 Uhr)
+
+Die bisher reine Commit-Liste öffnet jetzt Details, Dateistatistiken und
+historische Diffs. 29 Backend-/39 Browserprüfungen, Typecheck und Build bestehen.
+Auf Benutzerauftrag wurde PID 7968 beendet. Seit 21:17 Uhr läuft genau eine
+persönliche ADE-Instanz, PID **36064**, aus
+`test-results/operator-commitdetails-20260913-211701-b75df981-focused`.
+Mobile-HTTPS liefert Status 200 und passende JS-/CSS-Hashes. Alle sechs Agenten,
+fünf Repository-Projekte, Profilbilder, Reihenfolge und Gerätekopplung sind erhalten.
+Fenster wieder 1600 × 1100. Neustartbeleg: `test-results/commitdetails-restart.json`;
+Sicherung: `test-results/operator-commitdetails-backup-20260913-211701`.
+Die beiden markierten RhinoClaw-Commits bestehen auch mit den echten Workspace-
+Daten (13 bzw. 71 Dateien plus geladene Diffs). Gesamtlauf:
+`test-results/commit-details-verify.log`, 50 fokussierte Suiten/2.382 Checks,
+197 Desktop-Electron- und 39 Workbench-Browser-Checks bestanden. Exit 1 am bereits
+bekannten Codex-Quota-Fixture (`7 Tage: 75 % übrig` fehlt), somit weiterhin keine
+vollständige Repository-Freigabe. Kein Commit oder Push.
+Dieser Operatorstand ersetzt die darunter dokumentierten Starts.
+[Umfang und Abnahmestand](MOBILE_COMMIT_DETAILS.md).
+
+## Operator aktualisiert, angeordnet und bebildert (13. September 2026, 20:53 Uhr)
+
+Auf ausdrücklichen Benutzerauftrag wurde die bisherige Instanz 55156 beendet.
+Jetzt läuft genau eine persönliche ADE-Instanz, PID **7968**, aus
+`test-results/operator-portraits-20260913-205333-f0e8e866-focused` mit dem
+aktuellen Arbeitsbaum-Build einschliesslich Anordnen. Dies ist kein neuer Commit.
+Der vorübergehende Prüfstart 62784 ist ebenfalls beendet; der endgültige Start
+hat keinen Remote-Debugging-Port. Fenster: 1600 × 1100, Spalten 25/55/20 Prozent.
+
+Reihenfolge: **ADE Main → RhinoClaw → RhinoLayoutTools → Agent-Systeme**,
+darin Hermes Agent → OpenClaw → GrokBuild. Alle Kategorien sind aufgeklappt.
+Vier neue generierte Profilbilder sind gesetzt: Main Chef, RhinoClaw_Agent,
+GrokMain und LayoutTool_FrontendDesigner. Die drei bisher bildlosen Kategorien
+verwenden das Bild ihres Agents. Bestehende Bilder wurden beibehalten.
+[Originale und vollständige Imagegen-Prompts](../output/imagegen/ade-agent-profiles-20260913/PROMPTS.md).
+
+Im realen Renderer wurden sechs geladene Agent-Bilder, sechs Kategorie-Bilder,
+die gewünschte Reihenfolge und die ohne Scrollen passende Navigation geprüft.
+Nachweise: `test-results/operator-rail-validation.json`,
+`test-results/operator-portraits-arranged.png`, `test-results/portraits-restart.json`.
+Sechs Agent-Identitäten, fünf Repository-Projekte, Laufzeiteinstellungen und
+Gerätekopplung sind erhalten; private HTTPS-Auslieferung Status 200, JS/CSS-Hashes
+stimmen mit dem Build überein. Vor der Änderung gab es keine aktiven Aufgaben.
+Sicherung vor Profiländerung: `test-results/operator-portraits-backup-20260913-205117`.
+
+Die vollständige Repository-Abnahme bleibt am unten beschriebenen Codex-Quota-
+Fixture offen. Dieser aktivierte Operatorstand ersetzt die Hinweise auf eine
+noch ausstehende persönliche Aktivierung; kein Commit oder Push dieses Auftrags.
+
+## Linke Navigation: Anordnen implementiert und fokussiert geprüft (13. September 2026)
+
+Arbeitsbaum ergänzt einen Desktop-Anordnen-Modus für Obergruppen, Projekte
+und Agents. Speicherung nutzt die bestehenden IPC-Kanäle; keine Migration.
+29 Kategorie-Checks, zwölf Anordnen-Electron-Checks, Typecheck und Build bestehen;
+der vollständige Desktop-Ablauf besteht mit 197 Checks. Gesamtlauf:
+`test-results/rail-ordering-verify.log`, Exit 1 am bereits offenen Codex-Quota-
+Fixture (`7 Tage: 75 % übrig` fehlt). Persönliche Instanz und Mobile-Auslieferung
+bleiben auf dem darunter dokumentierten Operatorstand. Kein Commit oder Push.
+[Bedienung, Abnahme und Grenzen](RAIL_ORDERING_RESULTS.md).
+
 ## Operator-Neustart mit Tablet-Zwischenstand (13. September 2026, 20:09 Uhr)
 
 Die ADE-Mobile-Codex-Sitzung wurde um 19:28 Uhr unterbrochen, bevor ihr

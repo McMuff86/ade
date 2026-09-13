@@ -265,6 +265,8 @@ export type MobileWorkspaceOperation =
   | { operation: 'search'; search: string }
   | { operation: 'file'; path: string }
   | { operation: 'diff'; path: string; staged: boolean }
+  | { operation: 'commit'; sha: string }
+  | { operation: 'commit-file'; sha: string; path: string }
 ;
 export type MobileWorkspaceQuery = MobileWorkspaceSelection & MobileWorkspaceOperation;
 export interface MobileWorkspaceEntry { path: string; name: string; kind: 'file' | 'directory' }
@@ -287,6 +289,30 @@ export interface MobileWorkspaceResult {
   limited?: boolean;
   file?: MobileWorkspaceFile;
   diff?: string;
+  commit?: MobileCommitDetail;
+  notice?: string;
+}
+
+/** Read-only, redacted history of the selected workspace, compared to first parent. */
+export interface MobileCommitFile {
+  path: string;
+  status: 'added' | 'modified' | 'deleted' | 'type-changed';
+  additions: number | null;
+  deletions: number | null;
+}
+export interface MobileCommitDetail {
+  sha: string;
+  parents: string[];
+  author: string;
+  authoredAt: string;
+  committedAt: string;
+  message: string;
+  messageLimited: boolean;
+  files: MobileCommitFile[];
+  additions: number;
+  deletions: number;
+  binaryFiles: number;
+  limited: boolean;
 }
 
 export type MobileRunSummary = RunSummary;

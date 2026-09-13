@@ -162,6 +162,7 @@ function MobileApp(): JSX.Element {
     </div>
     {host.paired === null ? <main className="m-pair"><p role="status">Geräteverbindung wird geladen…</p></main> : !host.paired ? <main className="m-pair">
       <div className="m-pair-mark">ade<span>_</span></div><h1>Mit deinem PC verbinden</h1><p>Tailscale auf diesem Gerät verbinden. In ADE am PC unter Einstellungen → Mobiler Zugriff einen Pairing-Code erstellen.</p>
+      <p>Falls die installierte ADE-App diese Seite zeigt: Den Code direkt hier in der App eingeben. Manche Browser führen für die App einen eigenen Gerätespeicher. Die Freigaben dieses Geräts anschließend am PC unter Settings → Verbundene Geräte prüfen.</p>
       <section><h2>Gerät koppeln</h2><p>QR-Code am PC scannen oder den einmaligen Code hier einfügen. Er gilt fünf Minuten.</p>
         <form onSubmit={(event) => { event.preventDefault(); void host.pair(challenge.trim(), deviceName.trim()).then((ok) => {
           if (ok) { setChallenge(''); document.getElementById('mobile-title')?.focus(); }

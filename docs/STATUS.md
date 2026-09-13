@@ -1,5 +1,34 @@
 # ADE implementation status
 
+## Einzelprojekte, Tablet-Breiten und PWA (13. September 2026)
+
+PC-Projekte können bestehende Git-Ordner außerhalb des Standardordners aufnehmen.
+Die Tablet-Terminalseitenbereiche sind per Touch/Maus/Tastatur verstellbar und
+speichern ihre Breiten. PWA-Startkorrekturen behandeln externe Navigation und
+deren Weiterleitung durch den Service Worker; Geräteberechtigungen bleiben
+unverändert. Persönlich seit 21:49 Uhr aktiv. Gesamtlauf: 50 Suiten/2.387
+Checks grün, erneut Exit 1 am bestehenden Codex-Quota-Fixture. [Umfang und Prüfungen](TABLET_POLISH_RESULTS.md).
+
+## Mobile Commit-Details (13. September 2026)
+
+Antippbare Commit-Liste mit vollständiger Nachricht, Autor/Zeitpunkten,
+Dateistatistik und historischen Datei-Diffs implementiert. 29 fokussierte
+Checks und 39 Workbench-Browser-Checks bestanden. Persönliche Instanz und private
+Mobile-Auslieferung seit 21:17 Uhr aktualisiert. Gesamtabnahme: 50 fokussierte
+Suiten/2.382 Checks bestanden, aber weiterhin Exit 1 am bekannten Codex-Quota-
+Fixture im Remote-Terminal-Browserlauf.
+[Vertrag und Nachweise](MOBILE_COMMIT_DETAILS.md).
+
+## Linke Navigation anordnen (13. September 2026)
+
+Desktop-Anordnen-Modus für Projekte, Obergruppen und Agents implementiert;
+persistierte Reihenfolge, Tastaturbedienung und sichtbare Speicherzustände.
+Fokussierte Kategorie-Prüfungen: 29 bestanden; zwölf Anordnen-Checks und der
+vollständige Desktop-Ablauf (197 Checks) bestehen. `pnpm verify` stoppt weiterhin
+am Codex-Quota-Fixture im Remote-Terminal-Browserlauf. Persönliche Instanz am
+13. September um 20:53 Uhr aktualisiert, geordnet und um vier Agent-Bilder ergänzt.
+[Bedienung, Nachweise und Operatorzustand](RAIL_ORDERING_RESULTS.md).
+
 ## Zwischenstand: Abo, Terminal und Git (13. September 2026)
 
 Native Codex-Aboanzeige, mobiler Verlauf, Terminal-Aufbereitung und Git-Hilfen

@@ -19,11 +19,13 @@ export async function mobileTlsProxy() {
   let loseInputReply = false;
   let inputReplyMatch: string | undefined;
   let rejectApi = false;
+  let rejectShell = false;
   let upstreamOrigin: string | null = null;
   const sockets = new Set<Duplex>();
   const server = createServer({ key: readFileSync(resolve('scripts/fixtures/mobile-tls/key.pem')),
     cert: readFileSync(resolve('scripts/fixtures/mobile-tls/cert.pem')) }, (req, res) => {
     if (rejectApi && req.url?.startsWith('/api/')) { res.destroy(); return; }
+    if (rejectShell && req.method === 'GET' && !req.url?.startsWith('/api/')) { res.writeHead(503); res.end('Fixture shell unavailable'); return; }
     const headers = { ...req.headers, ...(upstreamOrigin ? { host: new URL(upstreamOrigin).host,
       ...(req.headers.origin ? { origin: upstreamOrigin } : {}) } : {}) };
     const inputChunks: Buffer[] = []; let inputBytes = 0;
@@ -68,6 +70,7 @@ export async function mobileTlsProxy() {
     loseTerminalReplies: (value: boolean) => { loseTerminalReply = value; },
     loseInputReplies: (value: boolean, match?: string) => { loseInputReply = value; inputReplyMatch = match; },
     setApiOffline: (value: boolean) => { rejectApi = value; if (value) for (const socket of sockets) socket.destroy(); },
+    setShellUnavailable: (value: boolean) => { rejectShell = value; },
     close: async () => { for (const socket of sockets) socket.destroy(); await new Promise<void>((done) => server.close(() => done())); },
   };
 }

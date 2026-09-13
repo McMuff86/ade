@@ -12,6 +12,7 @@ import { RemoteAuthorizer } from '../src/main/remote/authorization';
 import { loadMobileAssets } from '../src/main/remote/mobileAssets';
 import type { RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { PNG } from 'pngjs';
+import { commitDetailsFlow } from './helpers/commitDetailsFlow';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -30,6 +31,11 @@ void (async () => {
   for (const repositoryId of [first, second]) await app.administer(context(), { operation: 'workspace-prepare', input: { agentId: 'builder', repositoryId } });
   const binding = store.get().workspaceBindings.find((item) => item.repositoryId === first)!;
   const other = store.get().workspaceBindings.find((item) => item.repositoryId === second)!;
+  const historyGit = (...args: string[]) => execFileSync('git', ['-C', binding.workspaceDir, '-c', 'user.name=Tablet Author', '-c', 'user.email=tablet@example.test', '-c', 'commit.gpgSign=false', ...args], { windowsHide: true, encoding: 'utf8' });
+  writeFileSync(join(binding.workspaceDir, 'history.txt'), 'before\nkeep\n'); historyGit('add', '--', 'history.txt'); historyGit('commit', '-m', 'Initial history');
+  writeFileSync(join(binding.workspaceDir, 'history.txt'), 'after\nkeep\nextra\n'); writeFileSync(join(binding.workspaceDir, 'badge.bin'), Buffer.from([0, 1, 2]));
+  historyGit('add', '--', 'history.txt', 'badge.bin'); historyGit('commit', '-m', 'Review tablet history\n\nWhy this layout changed.');
+  const historySha = historyGit('rev-parse', 'HEAD').trim();
   mkdirSync(join(binding.workspaceDir, 'docs')); writeFileSync(join(binding.workspaceDir, 'docs', 'guide.md'), '# First workspace\n');
   execFileSync('git', ['-C', binding.workspaceDir, 'add', '--', 'docs/guide.md'], { windowsHide: true });
   writeFileSync(join(binding.workspaceDir, 'docs', 'guide.md'), '# First workspace\nSmall change\n');
@@ -84,6 +90,7 @@ void (async () => {
   await workspace.getByRole('button', { name: 'Vorgemerkte Änderung', exact: true }).click();
   await workspace.getByLabel('Git-Diff', { exact: true }).waitFor();
   check('index diff is separate from working file', !(await workspace.getByLabel('Git-Diff', { exact: true }).innerText()).includes('Small change'));
+  await commitDetailsFlow(page, workspace, historySha, check);
   await workspace.getByLabel('Workspace-Projekt', { exact: true }).selectOption(second);
   await workspace.getByRole('button', { name: 'Dateien', exact: true }).click();
   await workspace.getByRole('button', { name: 'second.txt', exact: true }).waitFor();

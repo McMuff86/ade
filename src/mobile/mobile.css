@@ -130,6 +130,19 @@ h1, h2, h3 { line-height: 1.35; }
 .m-workspace-location, .m-workbench-detail h3 { overflow-wrap: anywhere; }
 .m-workbench-detail pre { max-height: 60dvh; overflow: auto; padding: 12px; background: var(--bg); border: 1px solid var(--line); font: 12px/1.6 monospace; tab-size: 2; }
 .m-diff-add { color: var(--add); }.m-diff-delete { color: var(--del); }
+.m-commit-list button { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; width: 100%; text-align: left; overflow-wrap: anywhere; }
+.m-commit-list button code { color: var(--muted); }
+.m-commit-list button[aria-pressed="true"], .m-commit-files button[aria-pressed="true"] { border-color: var(--accent); }
+.m-commit-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-commit-metadata { display: grid; gap: 10px; margin: 16px 0; }
+.m-commit-metadata div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 3fr); gap: 12px; }
+.m-commit-metadata dt { color: var(--muted); }.m-commit-metadata dd { margin: 0; overflow-wrap: anywhere; }
+.m-commit-stats { padding: 12px; border: 1px solid var(--line); border-radius: 8px; line-height: 1.8; }
+.m-commit-files { list-style: none; padding: 0; }
+.m-commit-files button { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; width: 100%; text-align: left; overflow-wrap: anywhere; }
+.m-commit-files button span { color: var(--muted); }
+.m-commit-details h4:focus, .m-workbench-detail h3:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 699px) { .m-commit-metadata div { grid-template-columns: minmax(0, 1fr); gap: 3px; } }
 .m-remote-terminal { min-width: 0; }.m-remote-terminal form { display: grid; gap: 10px; }
 .m-terminal-screen { background: #101114; color: #ddd; border: 1px solid var(--line); min-height: 200px; max-height: 50dvh; overflow: auto; padding: 12px; font: 12px/1.5 Consolas, monospace; }
 .m-remote-terminal textarea { width: 100%; font-family: monospace; }

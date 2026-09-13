@@ -17,6 +17,7 @@ import type { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceSe
 import { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
 import type { MobileTerminalSelection } from '../../shared/remote';
 import { terminalHome } from '../pty/terminalHome';
+import { readCommitDetail, readCommitPatch, validCommitSha } from './RemoteCommitDetails';
 export { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
 
 export type WorkbenchScope = Pick<WorkspaceBinding, 'workspaceDir' | 'executionBackend'>
@@ -43,13 +44,15 @@ export function validateWorkbenchQuery(value: unknown): MobileWorkspaceQuery {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
   const extra = input.operation === 'tree' || input.operation === 'file' ? ['path']
-    : input.operation === 'diff' ? ['path', 'staged'] : input.operation === 'search' ? ['search'] : [];
-  if (!['overview', 'tree', 'file', 'diff', 'search'].includes(String(input.operation))
+    : input.operation === 'diff' ? ['path', 'staged'] : input.operation === 'search' ? ['search']
+      : input.operation === 'commit' ? ['sha'] : input.operation === 'commit-file' ? ['sha', 'path'] : [];
+  if (!['overview', 'tree', 'file', 'diff', 'search', 'commit', 'commit-file'].includes(String(input.operation))
     || Object.keys(input).some((key) => !['operation', 'agentId', 'repositoryId', 'projectWorkspaceId', ...extra].includes(key))
     || !validWorkspaceSelection(input)) {
     throw new RemoteApiError(400, 'invalid_payload');
   }
   if (extra.includes('path')) workbenchPath(input.path, input.operation === 'tree');
+  if (extra.includes('sha') && !validCommitSha(input.sha)) throw new RemoteApiError(400, 'invalid_payload');
   if (input.operation === 'diff' && typeof input.staged !== 'boolean') throw new RemoteApiError(400, 'invalid_payload');
   if (input.operation === 'search' && (typeof input.search !== 'string' || !input.search.trim() || input.search.length > 80
     || /[\x00-\x1f]/.test(input.search))) throw new RemoteApiError(400, 'invalid_payload');
@@ -146,6 +149,12 @@ export class RemoteWorkbenchService {
         }).filter((commit) => /^[a-f0-9]{40,64}$/.test(commit.sha));
         result.overview = { ready: true, workspaceVersion, branch: redactForWire(branch.trim(), 200),
           busy: this.busy(binding), changes, commits, notice: omitted ? 'Einträge sind begrenzt; geschützte Dateien werden ausgelassen.' : null };
+      } else if (input.operation === 'commit' || input.operation === 'commit-file') {
+        if (!binding.repositoryId || binding.executionBackend !== 'native') reject('Commit-Details benötigen ein natives Projekt-Workspace.');
+        const git = (args: string[]) => this.git(binding, ['--no-replace-objects', ...args]);
+        const commit = await readCommitDetail(git, input.sha, (path) => { this.path(binding, path, true); });
+        if (input.operation === 'commit') result.commit = commit;
+        else Object.assign(result, await readCommitPatch(git, commit, input.path));
       } else if (input.operation === 'file') result.file = await this.readScoped(binding, input.path);
       else if (input.operation === 'diff') {
         if (!binding.repositoryId) reject('Git-Änderungen benötigen ein ausgewähltes Projekt.');

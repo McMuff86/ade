@@ -1,5 +1,44 @@
 # ADE — Architecture (binding decisions)
 
+## Desktop project registration and mobile shell layout
+
+The desktop Projects view offers native folder selection plus the existing
+`repository:import` boundary. Registration outside the configured project root
+reuses catalog discovery; no remote import channel or new device grant is added.
+Mobile terminal panel widths are local appearance preferences, bounded to
+14–32 percent with touch capture and keyboard separators. They never resize a
+host terminal directly; its existing terminal viewport measurement applies.
+Public GET entry documents (`/`, `/index.html`) allow external top-level
+navigation (`Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`). Every API
+and subresource retains origin checks; host/Funnel checks precede the exception.
+The shell worker reissues public navigations from its own origin without
+credentials and uses cached public assets after HTTP failure. No API caching.
+[Behavior and evidence](TABLET_POLISH_RESULTS.md).
+
+## Mobile workspace commit history
+
+The existing read-only workspace query supports `commit` (full SHA) and
+`commit-file` (full SHA plus safe relative path). It stays behind
+`AdeApplicationService.queryWorkspace`, signed-device/resource authorization and
+`workspace:read`; no new invoke or remote mutation channel. `RemoteCommitDetails`
+reads immutable, HEAD-reachable objects, compares merges to first parent and
+root commits to the empty tree, filters protected/link paths, and redacts all
+text sent to the wire. Metadata and per-file patches are separate bounded reads;
+DTOs live in `src/shared/remote.ts`. [Full contract and evidence](MOBILE_COMMIT_DETAILS.md).
+
+## Desktop navigation ordering
+
+The rail exposes an explicit ordering mode alongside existing drag/drop. Root
+rows (loose categories or whole navigation groups), group members and category
+agents move using focusable up/down buttons. `shiftNavigationItem` preserves
+membership and moves whole root groups, even when their persisted members were
+interleaved. The existing full-permutation `category:reorder` and indexed
+`agent:move` IPC contracts persist order; no new channel or schema is introduced.
+The renderer serializes its moves, announces saving/errors and reloads the
+catalog after a mutation. Ordering is unavailable while search filters rows.
+Escape closes ordering with focus restored to its toggle. See
+[validation and operator state](RAIL_ORDERING_RESULTS.md).
+
 ## Completed run deletion from mobile
 
 The dedicated `POST /api/v1/runs/:id/delete` route accepts no body and calls

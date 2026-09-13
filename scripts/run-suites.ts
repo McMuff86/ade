@@ -29,7 +29,7 @@ interface Suite {
 const SUITES: Suite[] = [
   { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
   { id: 'run-deletion', script: 'test-run-deletion.ts', floors: { win32: 23 } },
-  { id: 'category-navigation', script: 'test-category-navigation.ts', floors: { win32: 23 } },
+  { id: 'category-navigation', script: 'test-category-navigation.ts', floors: { win32: 29 } },
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
   { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 46 } },
   { id: 'workspace-assignment', script: 'test-workspace-assignment.ts', floors: { win32: 33 } },
@@ -64,6 +64,7 @@ const SUITES: Suite[] = [
   { id: 'run-inspection', script: 'test-run-inspection.ts', floors: { win32: 57 } },
   { id: 'run-file-storage', script: 'test-run-file-storage.ts', floors: { win32: 20 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
+  { id: 'remote-commits', script: 'test-remote-commits.ts', floors: { win32: 29 } },
   { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 59 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 33 } },
   { id: 'subscription-usage', script: 'test-subscription-usage.ts', floors: { win32: 14 } },
@@ -72,7 +73,7 @@ const SUITES: Suite[] = [
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 39 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
-  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 74 } },
+  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 79 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply

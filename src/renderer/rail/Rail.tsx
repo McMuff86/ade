@@ -1,4 +1,4 @@
-import { groupCategories } from '../../shared/categoryNavigation';
+import { groupCategories, shiftNavigationItem } from '../../shared/categoryNavigation';
 import { useNavigationCollapse } from '../../shared/useNavigationCollapse';
 /**
  * Left rail — two-level list of categories and their agents, per the mockup.
@@ -13,7 +13,7 @@ import { useNavigationCollapse } from '../../shared/useNavigationCollapse';
  * rail. Order persists through agent:move / category:reorder.
  */
 
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { Avatar } from './Avatar';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
@@ -49,6 +49,36 @@ export function Rail(): React.ReactElement {
 
   const { collapsed, toggle } = useNavigationCollapse('ade:rail:collapsed');
   const [search, setSearch] = useState('');
+  const [arranging, setArranging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [orderStatus, setOrderStatus] = useState('');
+  const savingRef = useRef(false);
+  const arrangeButton = useRef<HTMLButtonElement>(null);
+  const saveOrder = async (action: () => Promise<void>): Promise<void> => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true); setOrderError(''); setOrderStatus('');
+    try { await action(); setOrderStatus('Reihenfolge gespeichert.'); }
+    catch { setOrderError('Reihenfolge konnte nicht gespeichert werden. Bitte erneut versuchen.'); }
+    finally { savingRef.current = false; setSaving(false); }
+  };
+  const orderControls = (name: string, action: (direction: -1 | 1) => (() => Promise<void>) | null) => (
+    <span className="rail-order-controls">
+      {([-1, 1] as const).map((direction) => {
+        const move = action(direction);
+        const label = `${name} nach ${direction === -1 ? 'oben' : 'unten'}`;
+        return <button key={direction} type="button" aria-label={label} title={label}
+          aria-disabled={!move || saving} onClick={() => { if (move && !savingRef.current) void saveOrder(move); }}>
+          {direction === -1 ? '↑' : '↓'}
+        </button>;
+      })}
+    </span>
+  );
+  const categoryControls = (key: string, name: string) => orderControls(name, (direction) => {
+    const ids = shiftNavigationItem(categories, key, direction);
+    return ids ? () => reorderCategories(ids) : null;
+  });
   const query = search.trim().toLocaleLowerCase();
   const visible = categories.map((cat) => {
     const matches = `${cat.name} ${cat.navigationGroup ?? ''}`.toLocaleLowerCase().includes(query);
@@ -63,6 +93,7 @@ export function Rail(): React.ReactElement {
   };
 
   const startDrag = (item: DragItem) => (event: DragEvent<HTMLElement>): void => {
+    if (savingRef.current || query) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', item.id);
     setDrag(item);
@@ -95,8 +126,8 @@ export function Rail(): React.ReactElement {
       const list = category.agents.filter((id) => id !== drag.id);
       const pos = list.indexOf(targetAgentId);
       const index = pos < 0 ? list.length : edge === 'before' ? pos : pos + 1;
-      void moveAgent(drag.id, categoryId, index).catch((error) =>
-        console.error('[ade] agent move failed:', error));
+      const agentId = drag.id;
+      void saveOrder(() => moveAgent(agentId, categoryId, index));
       clearDnd();
     };
 
@@ -107,29 +138,42 @@ export function Rail(): React.ReactElement {
     if (drag?.kind === 'agent') {
       const category = categories.find((c) => c.id === categoryId);
       const end = category ? category.agents.filter((id) => id !== drag.id).length : 0;
-      void moveAgent(drag.id, categoryId, end).catch((error) =>
-        console.error('[ade] agent move failed:', error));
+      const agentId = drag.id;
+      void saveOrder(() => moveAgent(agentId, categoryId, end));
     } else if (drag?.kind === 'category' && drag.id !== categoryId) {
       const edge = edgeOf(event);
       const ids = categories.map((c) => c.id).filter((id) => id !== drag.id);
       const pos = ids.indexOf(categoryId);
       ids.splice(edge === 'before' ? pos : pos + 1, 0, drag.id);
-      void reorderCategories(ids).catch((error) =>
-        console.error('[ade] category reorder failed:', error));
+      void saveOrder(() => reorderCategories(ids));
     }
     clearDnd();
   };
 
   return (
-    <nav className="rail-inner" aria-label="Categories and agents">
+    <nav className={`rail-inner${arranging ? ' arranging' : ''}`} aria-label="Categories and agents" onKeyDown={(event) => {
+      if (event.key === 'Escape' && arranging) {
+        event.preventDefault(); event.stopPropagation(); setArranging(false); arrangeButton.current?.focus();
+      }
+    }}>
       <button className="btn" aria-pressed={!selectedAgentId} onClick={() => setSelectedAgent(null)}>Freie Terminals</button>
       <label className="rail-search">Agents suchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      <div className="rail-arrange">
+        <button ref={arrangeButton} type="button" className="btn" aria-pressed={arranging}
+          onClick={() => { setArranging(!arranging); setSearch(''); clearDnd(); }}>
+          {arranging ? 'Fertig' : 'Anordnen'}
+        </button>
+        {arranging && <p>↑ / ↓ verschiebt innerhalb der Gruppe.</p>}
+        {arranging && query && <p>Zum Anordnen die Suche leeren.</p>}
+        <span role="status">{saving ? 'Reihenfolge wird gespeichert…' : orderStatus}</span>
+        {orderError && <p role="alert">{orderError}</p>}
+      </div>
       <div className="rail-scroll">
         {visible.length === 0 && <p role="status">Keine passenden Kategorien oder Agents.</p>}
         {groupCategories(visible).map((group) => <section key={group.key} className={group.name ? 'rail-group' : undefined} aria-label={group.name}>
-          {group.name && <button type="button" className="rail-group-heading" aria-expanded={!!query || !collapsed[group.key]} onClick={() => toggle(group.key)}>
+          {group.name && <div className="rail-group-entry"><button type="button" className="rail-group-heading" aria-expanded={!!query || !collapsed[group.key]} onClick={() => toggle(group.key)}>
             <span aria-hidden="true">{!query && collapsed[group.key] ? '▸' : '▾'}</span> {group.name}
-          </button>}
+          </button>{arranging && !query && categoryControls(group.key, group.name)}</div>}
           {(!group.name || !!query || !collapsed[group.key]) && group.categories.map((cat) => {
           const isCollapsed = !query && (collapsed[cat.id] ?? false);
           const catKey = `cat:${cat.id}`;
@@ -150,7 +194,8 @@ export function Rail(): React.ReactElement {
                   className="cat-head"
                   aria-expanded={!isCollapsed}
                   onClick={() => toggle(cat.id)}
-                  draggable
+                  title="Ziehen zum Verschieben oder Anordnen verwenden"
+                  draggable={!saving && !query}
                   onDragStart={startDrag({ kind: 'category', id: cat.id })}
                   onDragEnd={clearDnd}
                   onDragOver={allowDrop(catKey, ['agent', 'category'], true)}
@@ -164,6 +209,7 @@ export function Rail(): React.ReactElement {
                     ▾
                   </span>
                 </button>
+                {arranging && !query && categoryControls(`category:${cat.id}`, cat.name)}
                 <button
                   type="button"
                   className="cat-settings"
@@ -187,7 +233,7 @@ export function Rail(): React.ReactElement {
                     <div
                       key={agent.id}
                       className={`agent-entry${selected ? ' selected' : ''}${drag?.kind === 'agent' && drag.id === agent.id ? ' dragging' : ''}${rowHint ? ` drop-${rowHint.edge}` : ''}`}
-                      draggable
+                      draggable={!saving && !query}
                       onDragStart={startDrag({ kind: 'agent', id: agent.id })}
                       onDragEnd={clearDnd}
                       onDragOver={allowDrop(rowKey, ['agent'], true)}
@@ -217,6 +263,10 @@ export function Rail(): React.ReactElement {
                           {agent.role ? <span className="agent-role">{agent.role}</span> : null}
                         </span>
                       </button>
+                      {arranging && !query && orderControls(agent.name, (direction) => {
+                        const index = cat.agents.indexOf(agent.id) + direction;
+                        return index >= 0 && index < cat.agents.length ? () => moveAgent(agent.id, cat.id, index) : null;
+                      })}
                       <button
                         type="button"
                         className="agent-settings"

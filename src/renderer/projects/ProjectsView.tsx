@@ -8,6 +8,7 @@ import { ProjectPublishPanel, type PendingProjectPublish } from './ProjectPublis
 import { ProjectRunResults } from './ProjectRunResults';
 import { desktopRunFiles } from '../graph/RunFilesPanel';
 import { useSelection } from '../stores/selection';
+import { useAppData } from '../stores/appdata';
 
 const query = (input: ProjectWorkspaceQuery) => window.ade.invoke('project:query', input);
 const applyBranch = async (previewId: string) => (await window.ade.invoke('project:command', { operation: 'branch-apply', previewId })).workspace;
@@ -20,6 +21,8 @@ export function ProjectsView(): JSX.Element {
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [newName, setNewName] = useState('');
   const [createdId, setCreatedId] = useState<string>();
+  const [shareNotice, setShareNotice] = useState('');
+  const shareButton = useRef<HTMLButtonElement>(null);
   const selectedId = useSelection((state) => state.projectWorkspaceId);
   const repositoryId = useSelection((state) => state.projectRepositoryId);
   const sessionId = useSelection((state) => state.projectSessionId);
@@ -52,6 +55,19 @@ export function ProjectsView(): JSX.Element {
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const repositoryEntry = repositoryId ? directory?.entries.find((entry) => entry.repositoryId === repositoryId) : undefined;
+  const shareProject = async () => {
+    if (lock.current) return; lock.current = true; setBusy(true); setError(''); setShareNotice('');
+    try {
+      const picked = await window.ade.invoke('dialog:pickFolder');
+      if (!picked.path || !live.current) return;
+      const repository = await useAppData.getState().importRepository(picked.path, undefined, 'native');
+      if (!live.current) return;
+      setShareNotice(`${repository.name} ist in ADE erfasst. Auf dem Tablet unter Projekte die Projektordner aktualisieren. Es gelten die Freigaben des gekoppelten Geräts unter Settings → Verbundene Geräte.`);
+      const result = await query({ operation: 'directory' });
+      if (live.current) setDirectory(result.directory);
+    } catch (reason) { if (live.current) setError(String(reason)); }
+    finally { lock.current = false; if (live.current) { setBusy(false); requestAnimationFrame(() => shareButton.current?.focus()); } }
+  };
   const create = async () => {
     if (lock.current) return; lock.current = true; setBusy(true); setError('');
     try {
@@ -85,7 +101,11 @@ export function ProjectsView(): JSX.Element {
           onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); } }} />
           <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online canPublish query={query} apply={applyPublish} errorText={errorText}
             pending={publishReceipts[workspace.id] ?? null} savePending={(value) => { setPublishReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }} /></>}
-    </> : <><details><summary>Neues Projekt</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
+    </> : <><section aria-label="Einzelnes Projekt freigeben">
+      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>Einzelnes Projekt für ADE Mobile freigeben</button>
+      <p>Wähle einen bestehenden Git-Projektordner auf diesem PC, auch außerhalb deines Repos-Ordners. Der Projekt-Stammordner bleibt unverändert.</p>
+      {busy && <p role="status">Projektaktion läuft…</p>}{shareNotice && <p role="status">{shareNotice}</p>}
+    </section><details><summary>Neues Projekt</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
       <label>Projektname<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
       <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? 'Angelegtes Projekt öffnen' : 'Projekt anlegen und öffnen'}</button>
       <p>Im eingestellten Projekt-Stammordner, mit Branch main. CLI und optionales Profil danach wählen.</p>

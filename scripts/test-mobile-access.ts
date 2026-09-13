@@ -64,6 +64,12 @@ void (async () => {
   check('missing mutation origin is refused', (await http('/api/v1/pair', 'POST', '{}', { origin: undefined })).status === 403);
   check('unknown host is refused even with forwarded host', (await http('/', 'GET', '', { host: 'evil.example', 'x-forwarded-host': new URL(origin).host })).status === 400);
   check('cross-site fetch metadata is refused', (await http('/', 'GET', '', { 'sec-fetch-site': 'cross-site' })).status === 403);
+  const launchHeaders = { origin: undefined, 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
+  check('external PWA launch can load the public entry document', (await http('/', 'GET', '', launchHeaders)).status === 200);
+  check('PWA navigation exception never opens the catalog', (await http('/api/v1/catalog', 'GET', '', launchHeaders)).status === 403);
+  check('PWA navigation exception never permits pairing mutations', (await http('/api/v1/pair', 'POST', '{}', launchHeaders)).status === 403);
+  check('embedded cross-site shell remains denied', (await http('/', 'GET', '', { ...launchHeaders, 'sec-fetch-dest': 'iframe' })).status === 403);
+  check('PWA launch still rejects public Funnel ingress', (await http('/', 'GET', '', { ...launchHeaders, 'tailscale-funnel-request': '?1' })).status === 403);
   check('public Funnel request is refused even with the expected host', (await http('/', 'GET', '', { 'tailscale-funnel-request': '?1' })).status === 403);
   check('static traversal is not served', (await http('/../package.json')).status === 404);
   check('pairing is unavailable through the legacy loopback interface', (await http('/api/v1/pair', 'POST', '{}',

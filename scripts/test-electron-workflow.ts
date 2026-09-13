@@ -32,6 +32,7 @@ import { publicationBranch } from '../src/main/publishing/PublicationService';
 import { writeFakeGithubCli } from './fixtures/fake-gh';
 import { MODEL_FIXTURE_CATALOG, writeModelCliFixtures } from './fixtures/model-clis';
 import { exerciseModelPicker } from './helpers/modelPickerFlow';
+import { railOrderingFlow } from './helpers/railOrderingFlow';
 
 let passed = 0;
 let failed = 0;
@@ -650,6 +651,12 @@ async function run(): Promise<void> {
     evidencePage = page;
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
+    await railOrderingFlow(page, check);
+    if (process.argv.includes('--rail-ordering-only')) {
+      console.log(`Rail ordering: ${passed} passed, ${failed} failed`);
+      process.exitCode = failed > 0 ? 1 : 0;
+      return;
+    }
 
     const surface = await page.evaluate(() => {
       const global = window as unknown as {
