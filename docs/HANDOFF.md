@@ -1,5 +1,20 @@
 # ADE — aktuelle Übergabe
 
+## Operator-Neustart mit Tablet-Zwischenstand (13. September 2026, 20:09 Uhr)
+
+Die ADE-Mobile-Codex-Sitzung wurde um 19:28 Uhr unterbrochen, bevor ihr
+angeforderter Commit lief; der gestagte Stand wurde auf dem PC geprüft
+(Typecheck, Build, 33 Terminal-, 14 Abo- und 230 IPC-Sicherheitschecks) und als
+`5e27bdd` nach `origin/main` gepusht. Seit 20:09 Uhr Europe/Zurich läuft genau
+eine persönliche ADE-Instanz, PID **55156**, aus
+`test-results/operator-tabletfeatures-20260913-200907-6cc8c202-verified`;
+die bisherige Instanz 53592 ist beendet. Sechs Agenten, fünf Projekte und die
+Gerätekopplung sind erhalten; die private HTTPS-Auslieferung stimmt per SHA-256
+mit dem Build überein. Nachweis: `test-results/tabletfeatures-restart.json`.
+Mobile einmal neu laden; dann sind Terminalverlauf, Abo-Nutzung und die
+Git-Bedienhilfen aktiv. Das vollständige `pnpm verify` für diesen Stand ist
+weiterhin offen; dieser Betrieb ersetzt den darunter beschriebenen Zustand.
+
 ## Angeforderter Zwischencommit: Abo, Terminal und Git (13. September 2026)
 
 Benutzer bittet ausdrücklich um zeitnahen Commit und Push. Der lokale Stand
