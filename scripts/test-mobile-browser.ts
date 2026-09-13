@@ -71,9 +71,12 @@ void (async () => {
   await connected(); await firstStream;
   check('browser pairs and loads real host catalog in desktop-style Overview', await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).isVisible());
   check('phone layout has no horizontal overflow', await noOverflow());
-  check('mobile shares desktop dark tokens and monospace typography', await page.evaluate(() => {
+  check('mobile shares desktop dark tokens with sans UI and monospace machine text', await page.evaluate(() => {
     const style = getComputedStyle(document.body);
-    return style.backgroundColor === 'rgb(14, 15, 18)' && style.getPropertyValue('--accent').trim() === '#E09A4A' && style.fontFamily.includes('Cascadia Code');
+    const code = document.createElement('code'); document.body.append(code);
+    const machineFont = getComputedStyle(code).fontFamily; code.remove();
+    return style.backgroundColor === 'rgb(14, 15, 18)' && style.getPropertyValue('--accent').trim() === '#E09A4A'
+      && style.fontFamily.includes('Segoe UI') && machineFont.includes('Cascadia Code');
   }));
   check('missing token telemetry is shown as unknown', (await page.getByLabel('Overview figures').textContent())!.includes('Noch keine Token-Angabe'));
   check('signing key is non-exportable in IndexedDB', await page.evaluate(async () => new Promise<boolean>((done) => {

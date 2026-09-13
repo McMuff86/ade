@@ -11,12 +11,14 @@ Neustart erfolgen pro sinnvollem Meilenstein.
 
 - **Goal 23.0a:** globale Stimmenwahl und fester Stimmtest auf dem Tablet;
   Provider-Key bleibt am PC, eigene begrenzte Remote-Berechtigung. Implementiert,
-  fokussiert geprüft, Gesamtabnahme und persönliche Aktivierung offen.
+  fokussiert geprüft, persönlich seit 14. September 00:54 Uhr aktiviert;
+  vollständige Prüfkette in zwei Teilläufen bestanden (Details in HANDOFF).
 - **Goal 23.0b:** optionale Stimmen pro Agent und Projekt. Auflösung:
   explizite Agent-Stimme → Projekt-Stimme → ADE-Standard; bei einer normalen
   CLI ohne Agent-Profil gilt Projekt → Standard. „Erben“ ist ausdrücklich
   auswählbar; die Oberfläche zeigt die wirksame Stimme und ihre Herkunft.
-  Implementiert; mobile Standard- und Agentwahl sowie Vererbungslogik in Abnahme.
+  Implementiert und geprüft; mobile Standard-, Agent- und Projektwahl sowie
+  Zurücksetzen und Vererbung bestehen die Browser- und Domain-Abnahme.
 - **Goal 26.1a:** Agent-Profil mit Spezialisierung, konkreten Arbeitsanweisungen
   und zuweisbaren Markdown-Dateien. Bestehende Repository-Anweisungen bleiben
   wirksam; Identitätsanweisungen liegen außerhalb geleaster Repositories.

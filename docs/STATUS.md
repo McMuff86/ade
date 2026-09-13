@@ -1,13 +1,17 @@
 # ADE implementation status
 
-## Mobile-Stimmen und Profilbilder (14. September 2026, in Abnahme)
+## Mobile-Stimmen und Profilbilder (14. September 2026)
 
 Mobile-Einstellungen, globale/Agent-/Projekt-Stimmen mit Vererbung und
 vergrößerbare Profilbilder sind implementiert. 23 Domain-Prüfungen und
 28 Mobile-Sprach-Browserprüfungen bestehen, einschließlich tatsächlicher
 MP3-Wiedergabe und Wiederaufnahme ohne zweite Erzeugung. Profilbild-Browserlauf:
-43 Prüfungen bestanden. `pnpm verify` läuft erneut; noch nicht persönlich
-aktiviert. Ausführliche wirksame Profilanweisungen bleiben Goal 26.1.
+43 Prüfungen bestanden. Die vollständige Prüfkette besteht nach Korrektur
+einer veralteten Schrift-Erwartung in zwei Teilläufen: 52 fokussierte Suiten
+mit 2.483 Checks sowie sämtliche Electron-/Browser-/Visual-Prüfungen.
+Details und genaue Laufgrenze in HANDOFF. Persönlich seit 00:54 Uhr
+mit Tablet-Stimmenfreigabe aktiviert (`8fa89f2`); Details in HANDOFF.
+Ausführliche wirksame Profilanweisungen bleiben Goal 26.1.
 
 ## Sprache und Projektauswahl (13. September 2026, laufende Abnahme)
 

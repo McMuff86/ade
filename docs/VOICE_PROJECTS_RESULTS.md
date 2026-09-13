@@ -86,6 +86,20 @@ positiver Kontrolllauf besteht. Der erste Gesamtlauf bestand 52 Suiten/2.480
 Checks, stoppte an diesem neuen Browsertest. Erneute Gesamtabnahme:
 `test-results/mobile-voice-verify-final.log`, noch offen.
 
+Der erneute Lauf besteht 52 Suiten/2.483 Checks, Build und Sprach-/Desktop-
+Electron-Prüfungen. Ein alter Mobile-Test erwartete trotz des parallel
+eingecheckten Calm Pass weiterhin Monospace für alle Texte. Die Prüfung folgt
+jetzt dem dokumentierten Vertrag: Sans für UI, Monospace für Maschinentext.
+Der anschließende Mobile-Lauf besteht 60 Checks. Die Fortsetzung auf demselben
+Produktbuild besteht außerdem den vollständigen Remote-Terminal-Lauf mit
+202 Checks und die Run-Inspection mit 27 Checks. Weitere Abschlussprüfungen
+bestanden anschließend ebenfalls. Fortsetzung Exit 0:
+`test-results/mobile-voice-verify-continuation.log`. Projekt-CLI 28, Projekt-Git
+22, Veröffentlichung 12, Einrichtung 37, visuelle Regression 22 Checks.
+Ein vollständig grüner einzelner `pnpm verify`-Aufruf wird nicht behauptet;
+die gesamte Prüfkette ist durch die beiden Teilläufe abgedeckt. Persönlicher
+Build `8fa89f2` seit 00:54 Uhr aktiv, einschließlich Samsung-Stimmenfreigabe.
+
 [Goals 23–25 und Multi-Host-Abfolge](VOICE_USAGE_TERMINAL_PLAN.md),
 [Main Chef / Goal 26](MAIN_CHEF_COORDINATION_PLAN.md).
 Diktat, vollständige Claude-/Grok-Nutzungscollector, weitere Terminal-

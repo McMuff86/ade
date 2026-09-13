@@ -1,9 +1,48 @@
 # ADE — aktuelle Übergabe
 
+## Mobile-Stimmen-Abnahme abgeschlossen (14. September 2026)
+
+`pnpm verify` bestand TypeScript, 52 Suiten/2.483 Checks, Produktionsbuild,
+Sprach-Electron (10), Sprach-Mobile (28), Desktop-Electron (197) und Git-Electron.
+Der Lauf stoppte an der veralteten Monospace-Erwartung im Mobile-Browsertest
+nach dem parallelen Calm Pass. Nach Korrektur nur dieser Test-Erwartung wurde
+die vollständige verbleibende Kette auf demselben Produktbuild ausgeführt:
+Mobile-Browser 60, Mobile-Electron 36, Neustart 12, Remote-Workspace 24,
+Remote-Workbench 43, Tablet-Layout 17, vollständige Remote-Terminals 202,
+Run-Inspection 27, Projekt-CLI 28, Projekt-Git 22, Veröffentlichung 12,
+Einrichtung 37 und visuelle Regression 22 Checks, alle bestanden, Exit 0.
+Kein einzelner komplett grüner `pnpm verify`-Aufruf wird behauptet; beide
+Teilläufe zusammen decken die vollständige Kette ab.
+Logs: `test-results/mobile-voice-verify-final.log` und
+`test-results/mobile-voice-verify-continuation.log`.
+Persönliche Aktivierung bleibt `8fa89f2`, PID 23852, siehe unten.
+Weitere Ziele: wirksame Profilanweisungen (26.1), Diktat (23), belastbare
+CLI-Nutzungsdaten (24), gemessene Eingabelatenz (25), Mehr-PC-Koordination (20–22).
+
+## Mobile-Stimmen persönlich aktiviert (14. September 2026, 00:54 Uhr)
+
+Commit `8fa89f2` gepusht, Produktionsbuild erfolgreich. Persönliche ADE-Instanz
+gezielt von PID 50460 auf PID 23852 neu gestartet. Unveränderliche Releasekopie:
+`test-results/operator-mobile-voices-20260914-005414`, vorheriges Profilbackup:
+`test-results/operator-mobile-voices-backup-20260914-005414`. Main-SHA256:
+`93BB3655C0DAAB426D419749BECD2E32E34E814682D294B2FC9F593748E35F55`.
+
+Für das bereits gekoppelte „Samsung Galaxy S10 Ultra“ wurde über den
+Desktop-IPC die zusätzliche Stimmenfreigabe aktiviert; bestehende Rechte
+erhalten. Sarah bleibt ADE-Standard, alle sechs Agenten-/Projektidentitäten,
+fünf Meine-Projekte und verschlüsselte Zugangsdaten sind unverändert.
+Private HTTPS-Mobile-Seite: HTTP 200, neues Asset `index-BHqyJIBT.js` bestätigt.
+Tablet neu laden; Einstellungen → Sprachausgabe, Agent-Profil → Agent-Stimme
+und Projekt-Einstellungen → Projekt-Stimme. Kein weiterer kostenpflichtiger
+Test bei dieser Aktivierung. Der isolierte Browser-Sprachtest besteht 28 Checks.
+Vollständige Gesamtabnahme läuft separat weiter und ist noch nicht als grün
+gemeldet. Lokale Nachweise: `mobile-voices-restart.json`, Release-`activation.json`,
+`mobile-voice-personal-validation.json`, `mobile-voice-release-build.log`.
+
 ## Mobile-Stimmen-Arbeitsstand (14. September 2026)
 
 Einstellungen auf Mobile, globale/Agent-/Projekt-Stimmen und Profilbilddialog
-implementiert; noch nicht persönlich aktiviert. Aktueller Gesamtlauf:
+implementiert; persönliche Aktivierung siehe oben. Aktueller Gesamtlauf:
 `test-results/mobile-voice-verify-final.log`. Der erste Mobile-Stimmen-Lauf
 bestand 52 Suiten/2.480 Checks und stoppte am neuen Projekt-Stimmentest; die
 Konkurrenz zwischen Metadatenänderung und Git-Probe ist gezielt korrigiert und
@@ -13,7 +52,7 @@ Suiten/2.444 Checks, blieb aber im Remote-Terminal-Browserlauf stehen. Der
 Fortsetzungslauf zeigte Offline beim Grok-Start. Terminal-Polling konnte das
 allgemeine Requestbudget erschöpfen; es erhält jetzt einen eigenen begrenzten
 Topf. Eine gemessene Verbesserung der Eingabelatenz ist noch nicht belegt.
-Persönliche Instanz bleibt bis zum nächsten sinnvollen Meilenstein PID 50460.
+Persönliche Instanz wurde zum oben dokumentierten Meilenstein aktualisiert.
 
 ## Sprach-/Projekt-Build persönlich aktiviert (13. September 2026, 23:48 Uhr)
 
