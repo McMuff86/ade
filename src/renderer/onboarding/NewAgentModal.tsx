@@ -121,7 +121,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       onClose={onClose}
     >
       <div className="field">
-        <label htmlFor="agent-cat">CATEGORY</label>
+        <label htmlFor="agent-cat">Category</label>
         <select
           id="agent-cat"
           value={catId}
@@ -154,7 +154,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       ) : null}
 
       <div className="field">
-        <label htmlFor="agent-repository">DEFAULT REPOSITORY</label>
+        <label htmlFor="agent-repository">Default repository</label>
         <select
           id="agent-repository"
           value={defaultRepositoryId}
@@ -169,7 +169,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       </div>
 
       <div className="field">
-        <label htmlFor="agent-name">NAME</label>
+        <label htmlFor="agent-name">Name</label>
         <input
           id="agent-name"
           type="text"
@@ -181,7 +181,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       </div>
 
       <div className="field">
-        <label htmlFor="agent-rt">RUNTIME</label>
+        <label htmlFor="agent-rt">Runtime</label>
         <select
           id="agent-rt"
           value={runtime}
@@ -207,7 +207,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
 
       <div className="field">
-        <label htmlFor="agent-perm">PERMISSION MODE</label>
+        <label htmlFor="agent-perm">Permission mode</label>
         <select
           id="agent-perm"
           value={permissionMode}
@@ -222,7 +222,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       </div>
 
       <div className="field">
-        <label>PROFILE PHOTO</label>
+        <label>Profile photo</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} />
       </div>
 
@@ -238,7 +238,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       {advancedOpen ? (
         <div className="advanced-body">
           <div className="field">
-            <label htmlFor="agent-role">ROLE</label>
+            <label htmlFor="agent-role">Role</label>
             <input
               id="agent-role"
               type="text"
@@ -249,7 +249,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
             />
           </div>
           <div className="field">
-            <label htmlFor="agent-cmd">CUSTOM COMMAND OVERRIDE</label>
+            <label htmlFor="agent-cmd">Custom command override</label>
             <input
               id="agent-cmd"
               type="text"

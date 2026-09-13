@@ -8,6 +8,7 @@
  */
 
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --bg:         #0E0F12;  /* app ground, warm near-black */
   --panel:      #15171C;  /* rail + side panels */
   --raised:     #1B1E24;  /* active surfaces, tabs */
@@ -26,6 +27,7 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --bg:         #F3EFE7;  /* warm paper ground */
   --panel:      #EAE5DA;
   --raised:     #E0DACB;
@@ -45,7 +47,23 @@
 
 :root {
   --mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
-  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /*
+   * Type roles. The UI chrome (labels, buttons, prose) is set in the sans
+   * face so it recedes; the mono face is reserved for what is literally
+   * machine text: terminals, paths, SHAs, branch names, diffs. That contrast
+   * is the hierarchy — a label never competes with the data it describes.
+   */
+  --fs-xs: 11px;
+  --fs-s: 12px;
+  --fs-m: 13px;
+  --fs-l: 15px;
+  --fs-xl: 20px;
+
+  --radius-s: 5px;
+  --radius-m: 8px;
+  --control-h: 28px;
 }
 
 /* ------------------------------------------------------------- base reset */
@@ -65,10 +83,19 @@ body,
 body {
   background: var(--app-bg-layer);
   color: var(--text);
-  font-family: var(--mono);
-  font-size: 13px;
+  font-family: var(--sans);
+  font-size: var(--fs-m);
   line-height: 1.5;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Machine text keeps the mono face wherever it appears. */
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--mono);
 }
 
 button {
@@ -87,8 +114,38 @@ input:focus-visible,
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+/* Native controls take the theme by default. :where() keeps this at zero
+   specificity, so any component rule overrides it without a fight. */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea) {
+  min-height: var(--control-h);
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+:where(input, select, textarea)::placeholder {
+  color: var(--faint);
+}
+
+:where(input, select, textarea):focus-visible {
+  border-color: var(--accent-dim);
+  outline: none;
+}
+
+:where(details) > summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+:where(details) > summary:hover {
+  color: var(--text);
 }
 
 ::-webkit-scrollbar {

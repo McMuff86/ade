@@ -14,7 +14,7 @@
 /* scope over the Phase-A .tabstrip placeholder rule */
 .center .tabstrip {
   flex: 1;
-  height: 40px;
+  height: 38px;
   display: flex;
   align-items: flex-end;
   gap: 2px;
@@ -119,10 +119,10 @@
   align-self: center;
   margin: 0 8px 4px 0;
   padding: 4px 10px;
-  border: 1px solid var(--edge, #23262d);
+  border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-s);
   white-space: nowrap;
 }
 .tab-dashboard:hover:not(:disabled) {
@@ -137,20 +137,36 @@
   flex: none;
   align-self: center;
   margin: 0 8px 4px 0;
-  color: var(--error, #e5484d);
-  font-size: 11.5px;
+  color: var(--del);
+  font-size: var(--fs-xs);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Actions at the end of the tab row stay text-only: the tabs are the
+   content here, the actions are a means to get more of them. */
 .strip-actions {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   padding: 0 8px 5px 0;
+}
+
+.strip-actions .btn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.strip-actions .btn:hover {
+  background: var(--panel);
+}
+
+.strip-actions .btn-toggled {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* ---------------------------------------------------------- terminal area */
@@ -173,7 +189,12 @@
 
 .terminal-hint {
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--fs-s);
+}
+
+.terminal-area-empty {
+  gap: 10px;
+  align-content: center;
 }
 
 .terminal-pane-wrap {

@@ -1,18 +1,24 @@
-/* Overview — inventory ledger over ADE's own journal. */
-.ov-toolbar, .ov-work-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
-.ov-toolbar p { color: var(--muted); font-size: 11px; }
-.ov-toolbar button, .ov-work-heading select { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 5px; padding: 8px 12px; }
-.ov-work-heading label { color: var(--muted); font-size: 12px; }
+/* Overview — inventory ledger over ADE's own journal. Reads as one column
+   of ~1100px: wide monitors get margin, not five columns of muted text. */
+.ov-toolbar, .ov-work-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.ov-toolbar p { color: var(--faint); font-size: var(--fs-xs); }
+.ov-toolbar button, .ov-work-heading select { min-height: var(--control-h); background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: var(--fs-s); }
+.ov-toolbar button:hover { color: var(--text); border-color: var(--faint); }
+.ov-work-heading select { background: var(--panel); color: var(--text); }
+.ov-work-heading label { color: var(--muted); font-size: var(--fs-s); display: inline-flex; align-items: center; gap: 8px; }
 .ov-run:disabled { opacity: .65; cursor: default; }
-.ov-agent-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px 42px; }
-.ov-agent-actions button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--text); cursor: pointer; }
+.ov-agents > li { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); }
+.ov-agents > li > .ov-agent { flex: 1; min-width: 0; border-top: 0; }
+.ov-agent-actions { display: flex; flex: none; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin: 0; padding-right: 6px; }
+.ov-agent-actions button { min-height: 26px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); font-size: var(--fs-s); cursor: pointer; }
+.ov-agent-actions button:hover { color: var(--text); border-color: var(--faint); }
 .ov-agent-actions button:focus-visible, .ov-toolbar button:focus-visible, .ov-work-heading select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .ov {
   position: absolute;
   inset: 0;
   overflow: auto;
-  padding: 20px 28px 36px;
+  padding: 20px max(28px, calc((100% - 1120px) / 2)) 36px;
   background: var(--bg);
 }
 
@@ -25,15 +31,15 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--line);
 }
 
 .ov-stat {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 20px 16px 0;
+  gap: 2px;
+  padding: 6px 20px 14px 0;
 }
 
 .ov-stat + .ov-stat {
@@ -42,42 +48,38 @@
 }
 
 .ov-stat-label {
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
 .ov-stat-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 1.1;
+  line-height: 1.15;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 .ov-stat-note {
-  font-size: 11px;
-  color: var(--muted);
+  font-size: var(--fs-xs);
+  color: var(--faint);
   max-width: 28ch;
 }
 
 .ov-section {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .ov-section h2 {
-  margin: 0 0 10px;
-  font-size: 10px;
+  margin: 0 0 6px;
+  font-size: var(--fs-s);
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 
 .ov-empty {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 
 .ov-agents,
@@ -95,7 +97,7 @@
   display: grid;
   align-items: center;
   gap: 10px 16px;
-  padding: 8px 6px;
+  padding: 7px 6px;
   border: 0;
   border-top: 1px solid var(--line);
   background: transparent;
@@ -140,7 +142,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-s);
+}
+
+.ov-agent-id strong {
+  font-weight: 600;
 }
 
 .ov-live {
@@ -171,7 +177,7 @@
   gap: 4px;
   padding: 12px 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: var(--radius-m);
 }
 
 .ov-project-head {
@@ -183,9 +189,7 @@
 
 .ov-pill {
   flex: none;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   color: var(--accent);
 }
 
@@ -194,8 +198,7 @@
 }
 
 .ov-status {
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-xs);
 }
 
 .ov-status-decision {
@@ -232,6 +235,16 @@
   .ov-agent,
   .ov-run {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .ov-agents > li {
+    flex-wrap: wrap;
+  }
+
+  .ov-agent-actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 0 8px 44px;
   }
 
   .ov-agent .avatar {

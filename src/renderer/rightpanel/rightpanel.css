@@ -15,9 +15,8 @@
 
 .rp-scope {
   flex: none;
-  padding: 12px 14px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--raised) 45%, var(--panel));
 }
 
 .rp-scope-title,
@@ -43,28 +42,27 @@
 
 .rp-scope-title span {
   color: var(--faint);
-  font-size: 10px;
-  letter-spacing: 0.65px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
 }
 
 .rp-scope-title strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--fs-l);
+  font-weight: 600;
+  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rp-scope-title .rp-scope-source {
   flex: none;
+  margin-top: 2px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 2px 6px;
+  padding: 1px 7px;
   color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 10px;
 }
 
 /* The full working directory. Wraps rather than truncates: an abbreviated
@@ -73,25 +71,23 @@
 .rp-scope-path {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   margin-top: 6px;
 }
 
 .rp-scope-path-label {
   flex: none;
   color: var(--faint);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding-top: 2px;
+  font-size: var(--fs-xs);
+  padding-top: 1px;
 }
 
 .rp-scope-path code {
   flex: 1;
   min-width: 0;
-  color: var(--text);
+  color: var(--muted);
   font-size: 10.5px;
-  line-height: 1.45;
+  line-height: 1.5;
   word-break: break-all;
   user-select: text;
   cursor: text;
@@ -99,24 +95,30 @@
 
 .rp-scope-path-copy {
   flex: none;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
+  padding: 0 6px;
+  border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
 .rp-scope-path-copy:hover {
   color: var(--text);
+  border-color: var(--line);
 }
 
 .rp-scope-meta {
   min-width: 0;
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
+}
+
+.rp-scope-meta > span:first-child {
+  font-family: var(--mono);
+  color: var(--muted);
 }
 
 .rp-scope-meta > span {
@@ -159,18 +161,18 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--panel);
+  background: var(--bg);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--fs-s);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rp-scope-controls .btn,
 .rp-scope-actions .btn {
-  min-height: 28px;
-  padding: 4px 8px;
-  font-size: 10.5px;
+  min-height: var(--control-h);
+  padding: 4px 9px;
+  font-size: var(--fs-xs);
 }
 
 .rp-scope-actions {
@@ -181,8 +183,8 @@
 .rp-scope-lock,
 .rp-scope-notice {
   margin-top: 7px;
-  font-size: 10.5px;
-  line-height: 1.35;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
 }
 
 .rp-scope-error {
@@ -234,33 +236,34 @@
 .rp-scope-manage input {
   min-width: 0;
   flex: 1;
-  height: 28px;
-  padding: 0 7px;
+  height: var(--control-h);
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--panel);
+  background: var(--bg);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--fs-s);
 }
 
 /* ------------------------------------------------------------------ tabs */
 
 .rp-head {
   flex: none;
-  padding: 12px 14px 0;
+  padding: 6px 14px 0;
 }
 
 .rp-tabs {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   border-bottom: 1px solid var(--line);
 }
 
 .rp-tab {
-  padding: 4px 2px 8px;
-  font-size: 12px;
+  padding: 6px 1px 7px;
+  font-size: var(--fs-s);
   color: var(--muted);
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
 }
 
 .rp-tab:hover {
@@ -313,17 +316,24 @@
 
 .ch-note {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--fs-s);
   padding: 14px;
 }
 
-/* ------------------------------------------------ repository inspector */
+/* ------------------------------------------------ repository inspector
+   Flat sections separated by hairlines, not cards inside a card: the panel
+   itself is already the frame, so a second border per section only adds
+   edges without adding information. */
 
 .ri {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 10px 16px;
+  gap: 0;
+  padding: 4px 0 16px;
+}
+
+.ri > * + * {
+  border-top: 1px solid var(--line);
 }
 
 .ri-toolbar,
@@ -340,11 +350,12 @@
 
 .ri-toolbar {
   justify-content: space-between;
-  gap: 10px;
-  padding: 2px 3px 0;
+  gap: 8px;
+  padding: 10px 14px 10px;
 }
 
 .ri-toolbar > div {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -352,24 +363,33 @@
 
 .ri-eyebrow {
   color: var(--faint);
-  font-size: 9.5px;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
 }
 
 .ri-toolbar strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-m);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.ri-toolbar .btn {
+  flex: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ri-toolbar .btn:hover {
+  background: var(--raised);
+}
+
 .ri-refresh {
   flex: none;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--line);
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 1px solid transparent;
   border-radius: 7px;
   color: var(--muted);
   font-size: 16px;
@@ -389,40 +409,37 @@
 
 .ri-health,
 .ri-section {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--raised) 34%, var(--panel));
   overflow: hidden;
+}
+
+.ri-health {
+  padding: 4px 0 6px;
 }
 
 .ri-health-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 12px;
+  padding: 4px 14px;
 }
 
 .ri-health-grid > div {
   min-width: 0;
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.ri-health-grid > div:nth-child(odd) {
-  border-right: 1px solid var(--line);
+  padding: 5px 0;
 }
 
 .ri-health-grid dt {
   color: var(--faint);
-  font-size: 9px;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
 }
 
 .ri-health-grid dd {
   overflow: hidden;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--text);
-  font-size: 11.5px;
-  font-weight: 650;
+  font-family: var(--mono);
+  font-size: var(--fs-s);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -444,9 +461,9 @@
   justify-content: space-between;
   min-width: 0;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 2px 14px 0;
   color: var(--faint);
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
 }
 
 .ri-health-foot > span:first-child {
@@ -465,23 +482,20 @@
 .ri-health-skeleton {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--line);
+  gap: 8px 12px;
+  padding: 10px 14px;
 }
 
 .ri-health-skeleton span {
-  height: 48px;
+  height: 34px;
+  border-radius: 4px;
   background: var(--raised);
 }
 
 .ri-section-head {
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 10px 8px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 14px 6px;
 }
 
 .ri-section-head > div {
@@ -490,27 +504,25 @@
 
 .ri-section-head h3 {
   color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.35px;
-  text-transform: uppercase;
+  font-size: var(--fs-s);
+  font-weight: 600;
 }
 
 .ri-section-head div > span {
   display: block;
   margin-top: 1px;
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--fs-xs);
 }
 
 .ri-count {
   flex: none;
   min-width: 22px;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
+  padding: 0 6px;
   border-radius: 999px;
-  color: var(--muted);
-  font-size: 9.5px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -519,19 +531,21 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 11px 10px;
+  padding: 4px 14px 10px;
   color: var(--faint);
-  font-size: 10.5px;
-  line-height: 1.4;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
 }
 
 .ri-state button {
   flex: none;
   color: var(--accent);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .ri-state-error {
+  margin: 4px 14px 10px;
+  padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--del) 45%, var(--line));
   border-radius: 8px;
   color: var(--del);
@@ -556,13 +570,14 @@
 
 .ri-empty strong {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-m);
+  font-weight: 600;
 }
 
 .ri-empty span {
   max-width: 280px;
-  font-size: 10.5px;
-  line-height: 1.45;
+  font-size: var(--fs-s);
+  line-height: 1.5;
 }
 
 .ri-pr-list,
@@ -580,8 +595,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 3px;
+  padding: 7px 14px;
   color: var(--text);
   text-align: left;
   text-decoration: none;
@@ -618,15 +633,15 @@
 .ri-pr-line code,
 .ri-commit-line code {
   flex: none;
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .ri-pr-line strong,
 .ri-commit-line strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-s);
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -639,7 +654,7 @@
 .ri-pr-line > span:last-child {
   flex: none;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .ri-pr-meta,
@@ -649,7 +664,7 @@
   flex-wrap: wrap;
   gap: 3px 8px;
   color: var(--faint);
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
 }
 
 .ri-pr-meta span,
@@ -669,13 +684,12 @@
 
 .ri-tag {
   flex: none;
-  padding: 0 5px;
+  padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 8.5px;
-  line-height: 1.45;
-  text-transform: uppercase;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 /* Decision-relevant states only: review needed and requested changes speak
@@ -692,7 +706,6 @@
 
 button.ri-tag-ci {
   cursor: pointer;
-  text-transform: none;
 }
 
 button.ri-tag-ci:hover,
@@ -763,17 +776,13 @@ button.ri-ci-failed.open {
 .ri-check-state {
   flex: none;
   color: var(--faint);
-  font-size: 9.5px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
 }
 
 @container (max-width: 330px) {
   .ri-health-grid {
     grid-template-columns: 1fr;
-  }
-
-  .ri-health-grid > div:nth-child(odd) {
-    border-right: 0;
+    gap: 0;
   }
 
   .ri-pr-meta span:nth-child(2) {
@@ -795,8 +804,9 @@ button.ri-ci-failed.open {
 }
 
 .ch-branch .name {
-  font-weight: 700;
-  font-size: 12.5px;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-s);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -830,8 +840,7 @@ button.ri-ci-failed.open {
 
 .ch-group {
   color: var(--faint);
-  font-size: 10px;
-  letter-spacing: 0.8px;
+  font-size: var(--fs-xs);
   padding: 10px 8px 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -845,7 +854,8 @@ button.ri-ci-failed.open {
   width: 100%;
   padding: 4px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: var(--fs-s);
   text-align: left;
   color: var(--text);
 }
@@ -872,8 +882,8 @@ button.ri-ci-failed.open {
 }
 
 .ch-file .tag {
-  font-size: 9.5px;
-  letter-spacing: 0.5px;
+  font-family: var(--sans);
+  font-size: 10px;
   color: var(--accent);
   border: 1px solid var(--accent-dim);
   border-radius: 999px;
@@ -892,9 +902,7 @@ button.ri-ci-failed.open {
 
 .fs-section-head {
   color: var(--faint);
-  font-size: 10px;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   padding: 8px 8px 4px;
 }
 
@@ -905,7 +913,8 @@ button.ri-ci-failed.open {
   width: 100%;
   padding: 3px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: var(--fs-s);
   text-align: left;
   color: var(--text);
 }
@@ -940,9 +949,8 @@ button.ri-ci-failed.open {
 .fs-location {
   flex: none;
   color: var(--faint);
-  font-size: 9px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 10px;
 }
 
 .fs-row .plus,
@@ -966,7 +974,8 @@ button.ri-ci-failed.open {
   flex: none;
   background: var(--panel);
   padding: 8px 14px;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
   color: var(--muted);
   display: flex;
   justify-content: space-between;

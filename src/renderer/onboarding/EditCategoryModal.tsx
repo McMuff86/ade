@@ -51,12 +51,12 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
       fallbackFocus={() => document.querySelector<HTMLElement>(`[data-category-settings="${CSS.escape(category.id)}"]`)
         ?? document.querySelector<HTMLElement>('.rail-search input')}>
       <div className="field">
-        <label>PROFILE PHOTO</label>
+        <label>Profile photo</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
       </div>
 
       <div className="field">
-        <label htmlFor="edit-category-name">NAME</label>
+        <label htmlFor="edit-category-name">Name</label>
         <input
           id="edit-category-name"
           type="text"

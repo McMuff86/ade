@@ -62,7 +62,7 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
       onClose={onClose}
     >
       <div className="field">
-        <label htmlFor="cat-name">NAME</label>
+        <label htmlFor="cat-name">Name</label>
         <input
           id="cat-name"
           type="text"
@@ -77,7 +77,7 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
       </div>
 
       <div className="field">
-        <label>PROFILE PHOTO</label>
+        <label>Profile photo</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
       </div>
 

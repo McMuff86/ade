@@ -13,17 +13,32 @@
 /* ------------------------------------------------------------- title bar */
 
 .titlebar {
-  height: 34px;
+  height: 38px;
   flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
+  padding: 0 12px 0 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
+/* Secondary chrome (setup, settings, diagnostics, theme) is text-only until
+   hovered: one visual weight in the title bar, so the mode switch reads as
+   the only "real" control up here. */
+.titlebar > .btn {
+  border-color: transparent;
+  background: transparent;
+  padding: 4px 8px;
+}
+
+.titlebar > .btn:hover {
+  background: var(--raised);
+  border-color: transparent;
+}
+
 .logotype {
+  font-family: var(--mono);
   font-weight: 700;
   letter-spacing: 0.5px;
 }
@@ -47,7 +62,13 @@
 
 .titlebar-sub {
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
+}
+
+@media (max-width: 1100px) {
+  .titlebar-sub {
+    display: none;
+  }
 }
 
 /* --------------------------------------------------------------- buttons */
@@ -56,9 +77,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: var(--control-h);
   padding: 4px 10px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-s);
+  line-height: 1.2;
   border: 1px solid var(--line);
   color: var(--muted);
   background: var(--panel);
@@ -66,10 +89,22 @@
 
 .btn-icon {
   justify-content: center;
-  min-width: 28px;
+  min-width: var(--control-h);
   padding: 4px 6px;
   font-size: 13px;
   line-height: 1;
+}
+
+/* Quiet variant: no border until hovered. For actions that must be
+   reachable but should not compete with content. */
+.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn-quiet:hover {
+  background: var(--raised);
+  border-color: transparent;
 }
 
 .btn:hover {
@@ -168,7 +203,7 @@
 }
 
 .tabstrip {
-  height: 40px;
+  height: 38px;
   flex: none;
   display: flex;
   align-items: center;
@@ -180,7 +215,7 @@
 
 .tabstrip-hint {
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   padding-left: 4px;
 }
 
@@ -204,9 +239,8 @@
 
 .placeholder-title {
   color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: var(--fs-m);
+  font-weight: 600;
 }
 
 .placeholder-sub {

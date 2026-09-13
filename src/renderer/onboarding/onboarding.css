@@ -23,14 +23,15 @@
 }
 
 .modal h2 {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   margin-bottom: 4px;
 }
 
 .modal-sub {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
   margin-bottom: 18px;
 }
 
@@ -43,24 +44,22 @@
 .field label {
   display: block;
   color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.6px;
+  font-size: var(--fs-s);
   margin-bottom: 6px;
 }
 
-.field input[type='text'],
-.field select {
+.field :where(input:not([type='checkbox'], [type='radio'])),
+.field select,
+.field textarea {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
   background: var(--panel);
   border: 1px solid var(--line);
   color: var(--text);
-  font-family: var(--mono);
 }
 
-.field input[type='text']:focus,
-.field select:focus {
+.field :where(input, select, textarea):focus {
   border-color: var(--accent-dim);
   outline: none;
 }
@@ -260,9 +259,7 @@
 }
 
 .agent-card-status {
-  font-size: 10.5px;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   color: var(--faint);
 }
 
@@ -278,9 +275,7 @@
 }
 
 .agent-card-spec dt {
-  font-size: 10.5px;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   color: var(--faint);
   margin-bottom: 2px;
 }
@@ -295,8 +290,8 @@
 }
 
 .agent-card-spec dd.mono {
-  font-size: 12px;
-  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--fs-s);
+  font-family: var(--mono);
 }
 
 @keyframes agent-card-in {
@@ -316,7 +311,7 @@
   background: var(--accent);
   color: var(--accent-contrast);
   border-color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .btn.primary:hover {
@@ -349,14 +344,14 @@
 }
 
 .firstrun-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   margin-bottom: 8px;
 }
 
 .firstrun-sub {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-s);
   line-height: 1.6;
   margin-bottom: 20px;
 }

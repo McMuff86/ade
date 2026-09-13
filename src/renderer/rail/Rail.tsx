@@ -156,17 +156,31 @@ export function Rail(): React.ReactElement {
         event.preventDefault(); event.stopPropagation(); setArranging(false); arrangeButton.current?.focus();
       }
     }}>
-      <button className="btn" aria-pressed={!selectedAgentId} onClick={() => setSelectedAgent(null)}>Freie Terminals</button>
-      <label className="rail-search">Agents suchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-      <div className="rail-arrange">
-        <button ref={arrangeButton} type="button" className="btn" aria-pressed={arranging}
-          onClick={() => { setArranging(!arranging); setSearch(''); clearDnd(); }}>
-          {arranging ? 'Fertig' : 'Anordnen'}
+      <div className="rail-tools">
+        <button type="button" className={`rail-home${selectedAgentId ? '' : ' selected'}`} aria-pressed={!selectedAgentId} onClick={() => setSelectedAgent(null)}>
+          <span className="rail-home-glyph" aria-hidden="true">&gt;_</span>
+          Freie Terminals
         </button>
-        {arranging && <p>↑ / ↓ verschiebt innerhalb der Gruppe.</p>}
-        {arranging && query && <p>Zum Anordnen die Suche leeren.</p>}
-        <span role="status">{saving ? 'Reihenfolge wird gespeichert…' : orderStatus}</span>
-        {orderError && <p role="alert">{orderError}</p>}
+        <div className="rail-search-row">
+          <input
+            className="rail-search"
+            type="search"
+            aria-label="Agents suchen"
+            placeholder="Agents suchen"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <button ref={arrangeButton} type="button" className="btn btn-quiet rail-arrange-toggle" aria-pressed={arranging}
+            onClick={() => { setArranging(!arranging); setSearch(''); clearDnd(); }}>
+            {arranging ? 'Fertig' : 'Anordnen'}
+          </button>
+        </div>
+        <div className="rail-arrange">
+          {arranging && <p>↑ / ↓ verschiebt innerhalb der Gruppe.</p>}
+          {arranging && query && <p>Zum Anordnen die Suche leeren.</p>}
+          <span role="status">{saving ? 'Reihenfolge wird gespeichert…' : orderStatus}</span>
+          {orderError && <p role="alert">{orderError}</p>}
+        </div>
       </div>
       <div className="rail-scroll">
         {visible.length === 0 && <p role="status">Keine passenden Kategorien oder Agents.</p>}

@@ -168,12 +168,12 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   return (
     <Modal title="Agent settings" subtitle="Configure how new terminal sessions start." onClose={onClose}>
       <div className="field">
-        <label>PROFILE PHOTO</label>
+        <label>Profile photo</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} />
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-name">NAME</label>
+        <label htmlFor="edit-agent-name">Name</label>
         <input
           id="edit-agent-name"
           type="text"
@@ -184,7 +184,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-role">ROLE</label>
+        <label htmlFor="edit-agent-role">Role</label>
         <input
           id="edit-agent-role"
           type="text"
@@ -196,7 +196,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-runtime">RUNTIME</label>
+        <label htmlFor="edit-agent-runtime">Runtime</label>
         <select
           id="edit-agent-runtime"
           value={runtime}
@@ -222,7 +222,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
 
       <div className="field">
-        <label htmlFor="edit-agent-perm">PERMISSION MODE</label>
+        <label htmlFor="edit-agent-perm">Permission mode</label>
         <select
           id="edit-agent-perm"
           value={permissionMode}
@@ -237,7 +237,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-repository">DEFAULT REPOSITORY</label>
+        <label htmlFor="edit-agent-repository">Default repository</label>
         <select
           id="edit-agent-repository"
           value={defaultRepositoryId}
@@ -252,7 +252,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-home-backend">HOME BACKEND</label>
+        <label htmlFor="edit-agent-home-backend">Home backend</label>
         <select
           id="edit-agent-home-backend"
           value={homeBackend}
@@ -275,7 +275,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-home-dir">HOME DIRECTORY</label>
+        <label htmlFor="edit-agent-home-dir">Home directory</label>
         <input
           id="edit-agent-home-dir"
           type="text"
@@ -291,7 +291,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-cmd">START COMMAND</label>
+        <label htmlFor="edit-agent-cmd">Start command</label>
         <input
           id="edit-agent-cmd"
           type="text"
@@ -303,7 +303,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-cmd">DASHBOARD COMMAND</label>
+        <label htmlFor="edit-agent-dash-cmd">Dashboard command</label>
         <input
           id="edit-agent-dash-cmd"
           type="text"
@@ -320,7 +320,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-url">DASHBOARD URL</label>
+        <label htmlFor="edit-agent-dash-url">Dashboard URL</label>
         <input
           id="edit-agent-dash-url"
           type="text"
@@ -333,7 +333,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-target">DASHBOARD OPENS IN</label>
+        <label htmlFor="edit-agent-dash-target">Dashboard opens in</label>
         <select
           id="edit-agent-dash-target"
           value={dashboardTarget}
@@ -345,7 +345,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-template">REUSABLE TEMPLATE</label>
+        <label htmlFor="edit-agent-template">Reusable template</label>
         <div className="repo-picker">
           <input
             id="edit-agent-template"

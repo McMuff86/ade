@@ -61,7 +61,7 @@ export function RuntimeModelPicker({ id, label, runtime, backend = 'native', val
     {!busy && value && !selected && <p className="repo-hint">Die ausgewählte Modell-ID bleibt erhalten. Ihre Verfügbarkeit konnte beim letzten Abruf nicht bestätigt werden.</p>}
     <button type="button" className="btn" disabled={busy} onClick={() => setRefresh((count) => count + 1)}>Modelle aktualisieren</button>
     {onEffortChange && effort && <div className="field runtime-model-effort">
-      <label htmlFor={id.replace(/model$/, 'reasoning')}>REASONING EFFORT</label>
+      <label htmlFor={id.replace(/model$/, 'reasoning')}>Reasoning effort</label>
       <select id={id.replace(/model$/, 'reasoning')} value={effort} onChange={(event) => onEffortChange(event.target.value as CodexReasoningEffort)}>
         {!availableEfforts.some((item) => item.id === effort) && <option value={effort}>{effort} · nicht vom Modell gemeldet</option>}
         {availableEfforts.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
