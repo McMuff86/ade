@@ -54,6 +54,7 @@ export interface MobileSessionInfo {
 }
 
 export interface MobileRepositorySummary {
+  inMyProjects?: boolean;
   id: string;
   name: string;
   executionBackend: ExecutionBackendId;
@@ -155,6 +156,7 @@ export interface MobileGitResult { overview: GitSyncOverview; preview?: GitSyncP
 
 /** Directory/workspace projections never contain absolute host paths. */
 export interface ProjectDirectoryEntry {
+  inMyProjects?: boolean;
   id: string;
   name: string;
   repositoryId?: string;
@@ -292,6 +294,14 @@ export interface MobileWorkspaceResult {
   commit?: MobileCommitDetail;
   notice?: string;
 }
+export interface ProjectMembershipInput { entryId: string; included: boolean }
+export interface ProjectMembershipResult { repositoryId: string; included: boolean; replayed: boolean }
+export function validProjectMembership(value: unknown): value is ProjectMembershipInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return Object.keys(item).length === 2 && typeof item.entryId === 'string'
+    && /^p[a-f0-9]{32}$/.test(item.entryId) && typeof item.included === 'boolean';
+}
 
 /** Read-only, redacted history of the selected workspace, compared to first parent. */
 export interface MobileCommitFile {
@@ -415,6 +425,8 @@ export interface MobileCommandResult {
 }
 export interface SubscriptionWindow { label: string; usedPercent: number; remainingPercent: number; windowMinutes: number; resetsAt: number }
 export interface SubscriptionUsage {
+  /** Observed launch credentials or local account quota, never a claim about per-request billing. */
+  authentication?: 'api-key-present' | 'subscription-account' | 'unknown';
   provider: 'codex' | 'claude' | 'grok' | 'unknown';
   source: 'codex-account' | 'cli'; status: 'available' | 'unavailable'; checkedAt: number;
   windows: SubscriptionWindow[]; message: string;

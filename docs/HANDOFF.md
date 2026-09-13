@@ -1,5 +1,25 @@
 # ADE — aktuelle Übergabe
 
+## ElevenLabs-Hörtest ausgeführt (13. September 2026, 22:43 Uhr)
+
+Persönliche ADE-Instanz aus dem zuletzt dokumentierten Tablet-Build geöffnet
+(PID 47088). Separates temporäres Electron-Testfenster „ADE · ElevenLabs-Hörtest“
+(PID 31068), noch keine integrierte Sprach-UI. Echter `HarnessCredentialService`
+mit persönlichem ADE-userData entschlüsselt den gespeicherten Service-Key;
+`GET /v1/voices` und `POST /v1/text-to-speech/{voice_id}` liefern HTTP 200.
+Stimme Roger, Modell `eleven_multilingual_v2`, deutscher Testsatz, MP3 114.564 Bytes.
+Der Player meldet `ended` nach 7,105 Sekunden; hörbare Ausgabe am Lautsprecher
+ist noch vom Benutzer zu bestätigen. Wiedergabe im Testfenster wiederholbar.
+Ein erster Versuch mit eigenem Probe-userData konnte den Key nicht entschlüsseln;
+mit dem persönlichen Profil erfolgreich. Kein Key in Renderer, Logs oder Bericht.
+
+Lokale Artefakte: `test-results/test-elevenlabs-speech.cjs`,
+`test-results/elevenlabs-speech-result.json`, `test-results/elevenlabs-speech-test.mp3`
+und `test-results/elevenlabs-speech-player.html`. Keine Produktlogik geändert,
+kein erneutes `pnpm verify`, keine Aussage zur Gesamtabnahme. Vorschlag für
+den nächsten Schritt: „Stimme testen“ in Einstellungen und gezieltes Vorlesen
+von Ergebnissen/Rückfragen mit Stop/Stumm statt sämtlicher Terminalausgaben.
+
 ## ElevenLabs-Verbindung geprüft; nächste Session: Sprache (13. September 2026)
 
 Der Benutzer hat `ELEVENLABS_API_KEY` in ADE als verschlüsselten Service-Key

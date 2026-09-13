@@ -117,7 +117,7 @@ export class RepositoryScopeService implements RepositoryScopePort {
       ),
     );
     if (existing) {
-      const updated = this.verifiedRepository(existing, identity, requestedName);
+      const updated = { ...this.verifiedRepository(existing, identity, requestedName), inMyProjects: true };
       if (!sameRepository(existing, updated)) {
         beforeSave();
         this.store.save({
@@ -572,6 +572,7 @@ function samePath(
 
 function sameRepository(left: Repository, right: Repository): boolean {
   return left.name === right.name
+    && left.inMyProjects === right.inMyProjects
     && left.rootPath === right.rootPath
     && left.commonGitDir === right.commonGitDir
     && repositoryBackend(left) === repositoryBackend(right)

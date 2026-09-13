@@ -31,7 +31,7 @@ export function ContinueWork({ host, onSession, onProject }: { host: MobileHost;
         <small>{sessionStateLabel(session)}</small>
       </button></li>)}</ul>}
     {!!inventory?.omitted && <p>Weitere oder nicht mehr erreichbare Sitzungen sind ausgeblendet.</p>}
-    {!!host.catalog?.repositories.length && <div className="m-project-shortcuts" aria-label="Projekte öffnen">{host.catalog.repositories.slice(-12).reverse().map((repo) =>
+    {!!host.catalog?.repositories.some(repo => repo.inMyProjects !== false) && <div className="m-project-shortcuts" aria-label="Projekte öffnen">{host.catalog.repositories.filter(repo => repo.inMyProjects !== false).slice(-12).reverse().map((repo) =>
       <button key={repo.id} onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }}>Projekt öffnen: {repo.name}</button>)}</div>}
   </section>;
 }

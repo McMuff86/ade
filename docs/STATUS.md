@@ -1,5 +1,16 @@
 # ADE implementation status
 
+## Sprache und Projektauswahl (13. September 2026, laufende Abnahme)
+
+Im Arbeitsstand: ElevenLabs-Stimmenwahl mit weiblicher Vorauswahl und deutschem
+Test, persistente Meine-ADE-Projekte-Auswahl auf Desktop/Mobile sowie kompakte
+mobile Terminal-/Nutzungsbedienung. Fokus-, API- und Wiedergabeprüfungen laufen;
+der endgültige Nachweis und persönliche Start werden in HANDOFF dokumentiert.
+Die reale native Codex-Kontoabfrage lieferte 84 % Rest im 7-Tage-Fenster;
+dies ist eine zeitgebundene Kontoaufnahme, kein Nachweis der Terminal-Anmeldung.
+Claude/Grok-Nutzungscollector, Diktat und Multi-Host bleiben geplante Schritte.
+[Plan und Quellen](VOICE_USAGE_TERMINAL_PLAN.md).
+
 ## Einzelprojekte, Tablet-Breiten und PWA (13. September 2026)
 
 PC-Projekte können bestehende Git-Ordner außerhalb des Standardordners aufnehmen.

@@ -54,6 +54,22 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
   const claude = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id && item.launchChoice?.mode === 'claude')!;
   check('tablet Claude uses chosen branch and no saved profile', claude.workspaceDir === repo && claude.branch === 'feature/tablet' && !claude.agentId && !claude.launchProfileId);
+  const compactToggle = dialog.getByRole('button', { name: 'Sitzung & Workspace', exact: true });
+  const screenBefore = (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!;
+  await compactToggle.focus(); await compactToggle.press('Enter');
+  check('session controls collapse through keyboard while ownership stays in project header', await compactToggle.getAttribute('aria-expanded') === 'false'
+    && !await dialog.getByLabel('Projekt-CLI', { exact: true }).isVisible()
+    && await dialog.locator('.m-dialog-head').getByText('Eingabe: Du (Tablet)', { exact: true }).isVisible());
+  check('collapsed controls give actual space back to terminal', (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!.height > screenBefore.height);
+  const usageSummary = dialog.locator('.m-dialog-head .terminal-usage summary');
+  await usageSummary.click();
+  await dialog.getByRole('region', { name: 'Abo-Nutzung', exact: true }).waitFor();
+  await usageSummary.press('Escape');
+  check('usage dropdown Escape restores summary without closing project', await dialog.isVisible() && !await dialog.getByRole('region', { name: 'Abo-Nutzung', exact: true }).isVisible());
+  await page.setViewportSize({ width: 390, height: 844 });
+  check('compact project header fits a phone', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await compactToggle.click();
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
   await terminalLauncher(dialog);
   await dialog.getByLabel('Sitzung starten mit', { exact: true }).selectOption('agent');

@@ -65,6 +65,23 @@ void (async () => {
   check('open registers exact checkout and no agent or agent binding', store.get().projectWorkspaces[0]?.workspaceDir === repo
     && JSON.stringify(store.get().agents) === beforeAgents && JSON.stringify(store.get().workspaceBindings) === beforeBindings && opened.workspace.branch === 'main');
   const detail = await (await request('/api/v1/projects/query', { operation: 'workspace', workspaceId: opened.workspace.id })).json() as ProjectWorkspaceQueryResult;
+  const membership = { entryId: entry.id, included: false };
+  await refuses('project membership requires catalog scope', () => application.projectMembership(context('membership-0001'), membership), 'scope_not_granted');
+  devices.setAdminScopes(device.id, ['workspace:read', 'projects:write', 'catalog:write']);
+  await refuses('membership rejects hidden host paths', () => application.projectMembership(context('membership-0001'), { ...membership, path: repo }), 'invalid_payload');
+  await refuses('membership requires idempotency key', () => application.projectMembership({ ...context(), idempotencyKey: undefined }, membership), 'idempotency_key_required');
+  const removed = await request('/api/v1/projects/membership', membership, 'membership-0001');
+  check('signed HTTP membership removes only selection', removed.status === 200 && store.get().repositories[0]?.inMyProjects === false && store.get().projectWorkspaces.length === 1);
+  check('membership receipt replays safely', (await application.projectMembership(context('membership-0001'), membership)).replayed);
+  await refuses('membership key cannot be reused for a different choice', () => application.projectMembership(context('membership-0001'), { ...membership, included: true }), 'idempotency_key_reused');
+  devices.setAdminScopes(device.id, ['workspace:read', 'projects:write']);
+  await refuses('revoked catalog scope blocks receipt replay', () => application.projectMembership(context('membership-0001'), membership), 'scope_not_granted');
+  devices.setAdminScopes(device.id, ['workspace:read', 'projects:write', 'catalog:write']);
+  check('explicit positive re-add restores selection', (await application.projectMembership(context('membership-0002'), { ...membership, included: true })).included);
+  devices.setAdminScopes(device.id, ['workspace:read', 'projects:write', 'catalog:write'], { mode: 'selected', repositoryIds: [opened.workspace.repositoryId], agentIds: [] });
+  await refuses('selected-resource device cannot change shared membership even for an allowed project', () => application.projectMembership(context('membership-selected'), membership), 'scope_not_granted');
+  devices.setAdminScopes(device.id, ['workspace:read', 'projects:write', 'catalog:write'], { mode: 'all' });
+  await refuses('bearer cannot change project membership', () => application.projectMembership({ ...context('membership-bearer'), principal: BOOTSTRAP_PRINCIPAL }, membership), 'device_proof_required');
   check('workspace query uses opaque identity and returns actual branch', detail.workspace?.id === opened.workspace.id && detail.workspace?.kind === 'checkout');
   const receiptFile = join(root, 'remote', 'commands.json'); const receiptText = readFileSync(receiptFile, 'utf8');
   check('responses and receipt contain no absolute paths, device secret or profile content', !JSON.stringify([directory, opened, detail]).includes(root.replace(/\\/g, '\\\\'))

@@ -1,5 +1,24 @@
 # ADE delivery roadmap
 
+## Sprache, Projektauswahl und Terminal-Bedienung
+
+Desktop-Stimmenwahl/Stimmtest, Meine ADE Projekte und einklappbare mobile
+Terminal-Bedienung werden im aktuellen Arbeitsstand umgesetzt und geprüft.
+Erweiterungen: **Goal 23 Diktat**, **Goal 24 belastbare CLI-Nutzungsdaten**,
+**Goal 25 gemessene Tablet-Latenz**. Reihenfolge, Quellen und messbare
+Abnahmekriterien stehen im [Ausbauplan](VOICE_USAGE_TERMINAL_PLAN.md).
+Der bestehende [Multi-Host-Plan mit Goals 20–22](MULTI_HOST_ACCESS_PLAN.md)
+bleibt Grundlage für einen zweiten Tailscale-PC; konkrete erste Abnahme ist
+Hostwechsel zwischen zwei getrennt gekoppelten ADE-Hosts.
+Diese Ausbauziele sind geplant, keine Freigabe bereits unterstützter Funktionen.
+
+**Goal 26 Main Chef** ergänzt zuweisbare, versionierte Markdown-Anweisungen,
+Projektverantwortliche und einen Koordinationsauftrag über getrennte Runs je
+Repository. Der vom Benutzer angeforderte Sub-Agent hat dazu den
+[Main-Chef-Plan](MAIN_CHEF_COORDINATION_PLAN.md) erstellt. Erste Lieferung:
+Anweisungen zuweisen und wirksamen Kontext vor dem Start anzeigen; danach
+namensbasierte Projektauswahl und begrenzte Delegation.
+
 ## Tablet-Bedienung und einzelne Projekte
 
 PC-Import einzelner Projekte, gespeicherte Tablet-Seitenbreiten und korrigierte

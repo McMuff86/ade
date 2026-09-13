@@ -62,13 +62,13 @@ type Route =
   | { kind: 'runQuestions' | 'runAnswer'; runId: string }
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
-  | { kind: 'projectQuery' | 'projectCommand' }
+  | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -123,6 +123,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/integration/query': return { route: { kind: 'integrationQuery' }, allow: ['POST'] };
     case '/api/v1/integration/command': return { route: { kind: 'integrationCommand' }, allow: ['POST'] };
     case '/api/v1/projects/command': return { route: { kind: 'projectCommand' }, allow: ['POST'] };
+    case '/api/v1/projects/membership': return { route: { kind: 'projectMembership' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
     case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
@@ -455,6 +456,7 @@ export class HostApiServer {
         case 'administer':
         case 'projectQuery':
         case 'projectCommand':
+        case 'projectMembership':
         case 'queryGit':
         case 'queryWorkspace':
         case 'assignmentQuery':
@@ -570,6 +572,7 @@ export class HostApiServer {
         : kind === 'integrationQuery' || kind === 'integrationCommand' ? await this.application.integration(context, payload, kind === 'integrationCommand')
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
+        : kind === 'projectMembership' ? await this.application.projectMembership(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
         : kind === 'saveWorkspaceFile'
         ? await this.application.saveWorkspaceFile(context, payload)

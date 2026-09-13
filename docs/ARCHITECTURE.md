@@ -1,5 +1,46 @@
 # ADE — Architecture (binding decisions)
 
+## Speech tests, project membership and compact terminal status
+
+Desktop speech uses `speech:voices`, `speech:select` and `speech:test`; all are
+desktop-only IPC. Network calls are classified `host`, selection is `mutate`.
+`SpeechService` obtains the scoped ElevenLabs credential in main, uses a fixed
+HTTPS provider with redirects refused, 30-second timeout and bounded 2-MiB
+responses. Only validated voice metadata and MP3 base64 reach the renderer;
+provider error bodies and keys never do. Test text/model are fixed in main.
+One generation may run at a time. `settings.speechVoiceId` stores only the voice
+identifier; older profiles suggest an available female voice. Renderer CSP
+allows `media-src data:` for this playback, with sandbox/context isolation
+unchanged. No microphone or remote speech API is introduced in this slice.
+
+`Repository.inMyProjects` is optional for migration: absent means included.
+False is a presentation membership flag, not deletion or revocation. Main and
+mobile overview project cards/shortcuts filter it; workspaces, active sessions,
+run history and device resource grants retain their identities. A discovered
+checkout opened without membership is registered with false. Explicit native
+folder import includes/reactivates membership. The shared project directory
+offers All/My filters and explicit inclusion/removal, including unreachable
+registered entries. Fresh discovery/Git validation is required to adopt a new
+checkout; membership changes to an existing record need no filesystem writes.
+
+Desktop `project:membership` stays desktop-only `mutate`. The explicit host
+route `POST /api/v1/projects/membership` delegates only to
+`AdeApplicationService.projectMembership`, requiring device proof,
+`workspace:read`, `catalog:write`, full resource selection and a durable
+payload-bound idempotency receipt/audit. The DTO accepts only an opaque
+directory entry id and boolean. No generic remote IPC allowlist is widened.
+The tablet saves its pending receipt before submission and offers explicit retry.
+
+Mobile terminal status is portaled into its owning dialog header; other terminal
+surfaces render it inline. Session controls have a device-local disclosure
+preference, with controls always available before any session is selected.
+Usage is a compact disclosure with keyboard/Escape behavior and bounded content.
+Provider credentials are detected only for the chosen CLI. Native Codex account
+quotas can be shown even when an API key was supplied, explicitly as local
+account data, not as proof of the existing TUI's billing/authentication mode.
+Future account-aware collectors, dictation and measured latency work are in
+[the expansion plan](VOICE_USAGE_TERMINAL_PLAN.md).
+
 ## Desktop project registration and mobile shell layout
 
 The desktop Projects view offers native folder selection plus the existing

@@ -74,7 +74,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   check('tablet input writes the project scaffold in the real host workspace', readFileSync(join(repo.rootPath, 'scaffold.txt'), 'utf8').includes('TABLET_SCAFFOLD'));
   await (await terminalComposer(workspace)).fill('A prompt to finish later');
   proxy.setApiOffline(true);
-  await page.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
+  await page.locator('.m-connection.offline').waitFor();
   check('offline tablet preserves input and disables sending', await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue() === 'A prompt to finish later'
     && await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).isDisabled());
   proxy.setApiOffline(false); await page.evaluate(() => window.dispatchEvent(new Event('online')));

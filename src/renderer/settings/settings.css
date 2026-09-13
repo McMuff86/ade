@@ -360,3 +360,11 @@
 .st-device-resources, .st-device-resources fieldset { display: grid; gap: 8px; min-width: 0; border: 1px solid var(--line); padding: 10px; }
 .st-device-resources label { overflow-wrap: anywhere; }
 .st-device-resources input { flex-shrink: 0; }
+
+.st-speech { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.st-speech h3, .st-speech p { flex-basis: 100%; margin: 4px 0; }
+.st-speech label { display: grid; gap: 6px; flex: 1 1 260px; min-width: 0; }
+.st-speech select { width: 100%; min-width: 0; padding: 10px; color: var(--text); background: var(--panel); border: 1px solid var(--line); }
+.st-speech button { min-height: 44px; }
+.st-speech audio { max-width: 100%; }
+.st-speech :is(button,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

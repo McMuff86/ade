@@ -138,7 +138,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_CONFIGURED_AGENT_READY', { exact: false }).last().waitFor();
   check('tablet attaches a real desktop-started configured session', true);
   await workspace.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
-  await workspace.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+  await workspace.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
   const blocked = await desktop.evaluate(async (id) => {
     try { await window.ade.invoke('pty:write', { sessionId: id, dataBase64: btoa('SHOULD_NOT_RUN\r') }); return false; } catch { return true; }
   }, setup.session.id);
@@ -152,11 +152,11 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
   await desktop.locator('.agent-row', { hasText: 'Terminal Agent' }).click();
   await desktop.getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
-  await workspace.getByText('Der Desktop steuert die Eingabe.', { exact: true }).waitFor();
+  await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor();
   check('desktop takeover disables tablet input', await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).isDisabled());
   await terminalLauncher(workspace);
     await workspace.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
-  await workspace.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+  await workspace.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.m-terminal-screen')?.textContent?.includes('PS '));
   const newSession = await desktop.evaluate(() => window.ade.invoke('pty:list'));
   check('remote shell opens independently without starting configured agent command', newSession.sessions.length === 2 && newSession.sessions.some((session) => session.title === 'Shell')
@@ -285,7 +285,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await terminalLauncher(ws);
     wslHomeCreationAttempted = true;
     await ws.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
-    await ws.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+    await ws.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
     await page.waitForFunction(() => /[$#]/.test(document.querySelector('.m-terminal-screen')?.textContent ?? ''), { timeout: 60_000 });
     await (await terminalComposer(ws)).fill("printf 'ADE_WSL_HOME_READY\\n' > tablet-wsl.txt; printf '\\101DE_WSL_WRITE_DONE\\n'");
     await ws.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();

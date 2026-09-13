@@ -1,4 +1,6 @@
 import { validNavigationGroup } from '../shared/categoryNavigation';
+import { validProjectMembership } from '../shared/remote';
+import { validVoiceId } from '../shared/speech';
 import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
@@ -645,6 +647,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       if (!validProjectWorkspaceCommand(payload)) invalid(channel, 'invalid project command');
       return;
     case IPC.ConfigGet:
+    case IPC.SpeechVoices:
     case IPC.ProjectDefaultsGet:
     case IPC.ConfigHealth:
     case IPC.RemoteDevicesList:
@@ -666,6 +669,16 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       exactKeys(channel, request, ['runtime', 'backend']);
       enumValue(channel, request.runtime, 'runtime', ['codex', 'grok', 'claude', 'ollama']);
       if (request.backend !== undefined && !isExecutionBackendId(request.backend)) invalid(channel, 'backend is not supported');
+      return;
+    }
+    case IPC.ProjectMembership:
+      if (!validProjectMembership(payload)) invalid(channel, 'invalid project membership');
+      return;
+    case IPC.SpeechSelect:
+    case IPC.SpeechTest: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['voiceId']);
+      if (!validVoiceId(request.voiceId)) invalid(channel, 'invalid voice');
       return;
     }
     case IPC.MobileAccessSetEnabled: {

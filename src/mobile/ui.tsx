@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
+import { createContext, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import type { RunSummary } from '../shared/types';
 
 export type View = 'overview' | 'projects' | 'terminals' | 'work' | 'graph';
@@ -37,10 +37,12 @@ export function reportedTokens(runs: RunSummary[]): string | null {
   return total > 0 ? String(total) : null;
 }
 
+export const DialogHeaderSlot = createContext<HTMLElement | null>(null);
 export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions }: {
   title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null; headerActions?: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const close = useRef(onClose); close.current = onClose;
   useLayoutEffect(() => {
     // Openers focus themselves on activation: WebKit pointer clicks alone do not
@@ -70,7 +72,7 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
     }}
     onClick={(event) => { if (event.target === ref.current) { const box = ref.current.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close.current(); } }}>
-    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2>{headerActions}<button className="m-icon-button" aria-label={`${title} schliessen`} onClick={onClose}><Icon name="close" /></button></div>
-    {children}
+    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2><div ref={setHeaderSlot} className="m-dialog-terminal-header" />{headerActions}<button className="m-icon-button" aria-label={`${title} schliessen`} onClick={onClose}><Icon name="close" /></button></div>
+    <DialogHeaderSlot.Provider value={headerSlot}>{children}</DialogHeaderSlot.Provider>
   </dialog>;
 }

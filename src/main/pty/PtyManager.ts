@@ -67,6 +67,7 @@ import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import { cachedCodexAccountUsage } from '../settings/CodexAccountUsage';
+import { providerApiKeyPresent } from '../../shared/sessionAuthentication';
 import type { SubscriptionUsage } from '../../shared/remote';
 import type { MobileTerminalSelection, SessionLaunchChoice } from '../../shared/remote';
 import { terminalHome } from './terminalHome';
@@ -432,11 +433,15 @@ export class PtyManager {
           : provider === 'grok' ? 'Grok Build zeigt den aktuellen Verbrauch und Reset mit /usage.'
             : 'Für diese Umgebung die Abo-Limits mit /status in Codex prüfen.',
       ...(provider !== 'unknown' ? { command: provider === 'codex' ? '/status' : '/usage' } as const : {}) };
-    if (session.usageApiKey) return { ...fallback, command: undefined, message: 'Für diese Sitzung ist ein API-Schlüssel konfiguriert. API-Verbrauch ist vom Abo-Kontingent getrennt.' };
-    if (provider !== 'codex' || session.meta.executionBackend !== 'native') return fallback;
+    const launchUsage: SubscriptionUsage = session.usageApiKey && provider !== 'unknown' ? { ...fallback, authentication: 'api-key-present',
+      message: `Für ${provider === 'codex' ? 'Codex' : provider === 'claude' ? 'Claude Code' : 'Grok Build'} wurde beim Start ein eigener API-Zugang übergeben. Das ist kein ElevenLabs-Key. Die tatsächlich verwendete Anmeldung und Abrechnung in der CLI prüfen.` } : fallback;
+    if (provider !== 'codex' || session.meta.executionBackend !== 'native') return launchUsage;
+    // A supplied API key must not hide an independently observable local subscription.
+    // This probe observes the host account, not the auth state of the existing TUI.
     const result = await cachedCodexAccountUsage();
     if (this.sessions.get(sessionId) !== session) throw new Error('Terminalsitzung wurde inzwischen geschlossen.');
-    return { ...result, command: '/status' };
+    return { ...result, authentication: session.usageApiKey ? 'api-key-present' : result.status === 'available' ? 'subscription-account' : 'unknown',
+      message: `${session.usageApiKey ? launchUsage.message + ' ' : ''}${result.message}`, command: '/status' };
   }
 
   async remoteDisplay(sessionId: string): Promise<Awaited<ReturnType<RemoteTerminalDisplay['snapshot']>>> {
@@ -616,7 +621,8 @@ export class PtyManager {
     };
     const session: Session = {
       usageProvider: !agent.customCommand && (agent.runtime === 'codex' || agent.runtime === 'claude' || agent.runtime === 'grok') ? agent.runtime : undefined,
-      usageApiKey: !!(credentialEnv.OPENAI_API_KEY || credentialEnv.ANTHROPIC_API_KEY || credentialEnv.XAI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.XAI_API_KEY),
+      usageApiKey: !agent.customCommand && providerApiKeyPresent(agent.runtime, scope.executionBackend === NATIVE_EXECUTION_BACKEND
+        ? env : { ...credentialEnv, ...(backendEnv ?? spec.env ?? {}) }),
       display: meta.kind === 'interactive' ? new RemoteTerminalDisplay(DEFAULT_COLS, DEFAULT_ROWS) : undefined,
       meta,
       proc,

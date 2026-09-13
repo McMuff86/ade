@@ -48,11 +48,13 @@ export async function integrationFlow(desktop: Page, page: Page, root: string, e
   await review.getByRole('button', { name: 'Änderungen prüfen', exact: true }).click();
   await review.getByLabel('Übernehmen: part.txt', { exact: true }).waitFor();
   check('integration progress names the current comparison step', await review.locator('[aria-current="step"]').innerText() === 'Dateien vergleichen');
+  check('desktop preview focuses heading and excludes instructions by default', await review.getByRole('heading', { name: 'Änderungen geprüft übernehmen', exact: true }).evaluate((node) => node === document.activeElement)
+    && await review.getByLabel('Übernehmen: part.txt', { exact: true }).isChecked() && !await review.getByLabel('Übernehmen: AGENTS.md', { exact: true }).isChecked());
   await review.getByRole('button', { name: 'Dateiauswahl leeren', exact: true }).click();
   check('empty integration selection prevents preparing a workspace', await review.getByRole('button', { name: 'Auswahl sichern und Arbeitskopie vorbereiten', exact: true }).isDisabled());
   await review.getByRole('button', { name: 'Empfohlene Auswahl wiederherstellen', exact: true }).click();
-  check('desktop preview focuses heading and excludes instructions by default', await review.getByRole('heading', { name: 'Änderungen geprüft übernehmen', exact: true }).evaluate((node) => node === document.activeElement)
-    && await review.getByLabel('Übernehmen: part.txt', { exact: true }).isChecked() && !await review.getByLabel('Übernehmen: AGENTS.md', { exact: true }).isChecked());
+  check('restoring recommended selection keeps instructions excluded', await review.getByLabel('Übernehmen: part.txt', { exact: true }).isChecked()
+    && !await review.getByLabel('Übernehmen: AGENTS.md', { exact: true }).isChecked());
   await review.getByRole('button', { name: 'Vergleich: part.txt', exact: true }).click();
   await review.getByRole('region', { name: 'Dateivergleich part.txt', exact: true }).getByText('palette', { exact: true }).waitFor();
   check('three-way text preview leaves source and target untouched', git(source, 'rev-parse', 'HEAD') === oldHead && git(target, 'rev-parse', 'HEAD') === targetHead);

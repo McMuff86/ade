@@ -44,6 +44,8 @@ export type ExecutionScopeSource = 'explicit' | 'agent-default' | 'plain-home' |
 
 /** First-class local Git repository catalog entry (Goal 5). */
 export interface Repository {
+  /** Missing on older catalogs means included. False hides it from My ADE Projects only. */
+  inMyProjects?: boolean;
   id: string;
   name: string;
   /** Canonical main-worktree root chosen for new ADE worktrees. */
@@ -1054,6 +1056,7 @@ export type InspectorSide = 'left' | 'right';
 export const DEFAULT_INSPECTOR_SIDE: InspectorSide = 'right';
 
 export interface Settings {
+  speechVoiceId?: string;
   projectDefaults?: import('./projectDefaults').ProjectDefaults;
   theme: ThemeName;
   /**

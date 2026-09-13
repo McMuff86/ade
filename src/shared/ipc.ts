@@ -95,6 +95,10 @@ export const IPC = {
   AgentTemplateDelete: 'agentTemplate:delete',
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
+  ProjectMembership: 'project:membership',
+  SpeechVoices: 'speech:voices',
+  SpeechSelect: 'speech:select',
+  SpeechTest: 'speech:test',
   ProjectWorkspaceQuery: 'project:query',
   IntegrationQuery: 'integration:query',
   IntegrationCommand: 'integration:command',
@@ -682,6 +686,10 @@ export interface IpcInvokeMap {
   'agentTemplate:delete': { req: { id: string }; res: void };
   'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
   'repository:import': { req: RepositoryImportRequest; res: Repository };
+  'project:membership': { req: import('./remote').ProjectMembershipInput; res: import('./remote').ProjectMembershipResult };
+  'speech:voices': { req: void; res: import('./speech').SpeechCatalog };
+  'speech:select': { req: { voiceId: string }; res: void };
+  'speech:test': { req: { voiceId: string }; res: import('./speech').SpeechAudio };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
   'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
   'repository:fetch': { req: { repositoryId: string }; res: GitSyncOverview };

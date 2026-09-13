@@ -8,6 +8,7 @@ import { ProjectWorkspaceService } from '../src/main/repositories/ProjectWorkspa
 import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
 import { workspaceOperations } from '../src/main/repositories/WorkspaceOperationGate';
 import { DEFAULT_CONFIG } from '../src/shared/types';
+import { projectOverview } from '../src/main/overview/projectOverview';
 import { validProjectBranchAction, validProjectBranchName, validProjectBranchRef } from '../src/shared/projectBranches';
 
 let passed = 0;
@@ -63,6 +64,17 @@ void (async () => {
   const reopened = await Promise.all([service.open(selected.id), service.open(selected.id)]);
   check('repeated and concurrent opens keep one workspace identity', reopened.every((item) => item.id === opened.id) && store.get().projectWorkspaces.length === 1);
   const registered = await service.directory();
+  const membershipEntry = registered.entries.find(item => item.repositoryId === opened.repositoryId)!;
+  check('merely opening a discovered checkout does not opt it into My Projects', membershipEntry.inMyProjects === false);
+  await service.membership(membershipEntry.id, false);
+  check('removal hides project from overview without dropping workspace or files', !projectOverview(store.get(), []).projects.some(item => item.id === opened.repositoryId)
+    && (await service.overview(opened.id)).id === opened.id && readFileSync(join(main, 'AGENTS.md'), 'utf8') === originalInstructions);
+  check('removed membership persists on disk', new ConfigStore(configFile).get().repositories.find(item => item.id === opened.repositoryId)?.inMyProjects === false);
+  await service.open(membershipEntry.id);
+  check('opening a removed project does not silently re-add membership', store.get().repositories.find(item => item.id === opened.repositoryId)?.inMyProjects === false);
+  await service.membership(membershipEntry.id, true);
+  check('explicit re-add restores same project identity and overview card', projectOverview(store.get(), []).projects.some(item => item.id === opened.repositoryId)
+    && store.get().projectWorkspaces.length === 1 && git(main, ['status', '--porcelain']) === '');
   check('registered project is merged with its discovered folder instead of duplicated', registered.entries.filter((item) => item.repositoryId === opened.repositoryId).length === 1);
   const persisted = new ConfigStore(configFile); const restored = new ProjectWorkspaceService(persisted);
   check('workspace identity and branch survive a real config reload', (await restored.overview(opened.id)).id === opened.id && !persisted.getLoadFailure());

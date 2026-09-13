@@ -1,10 +1,11 @@
-import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { createPortal } from 'react-dom';
 import type { MobileTerminalCommand, MobileTerminalInput, MobileTerminalState, MobileTerminalSelection, SessionLaunchChoice, SessionLaunchOptions } from '../shared/remote';
 import { canLaunchChoice, SessionLaunchFields } from '../renderer/sessions/SessionLaunchFields';
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 import { workspaceError } from './AgentWorkspace';
-import { Dialog } from './ui';
+import { Dialog, DialogHeaderSlot } from './ui';
 import { useDeviceDraft } from './deviceDrafts';
 import { TerminalScreen } from './TerminalScreen';
 import { SubscriptionUsagePanel } from '../renderer/terminal/SubscriptionUsagePanel';
@@ -28,6 +29,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   profileIntent?: string; onProfileIntentConsumed?: () => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
+  const headerSlot = useContext(DialogHeaderSlot);
+  const controlsId = useId();
+  const [controlsExpanded, setControlsExpanded] = useDeviceDraft(host.deviceId, 'terminal-controls-expanded', true);
   const selection = useMemo<MobileTerminalSelection>(() => terminalHome ? { terminalHome: true } : projectWorkspaceId ? { projectWorkspaceId } : { agentId: agentId!, repositoryId: repositoryId! }, [terminalHome, projectWorkspaceId, agentId, repositoryId]);
   const scopeKey = terminalHome ? 'terminal-home' : projectWorkspaceId ? `project/${projectWorkspaceId}` : `${agentId}:${repositoryId ?? 'home'}`;
   const [fontSize, setFontSize] = useDeviceDraft(host.deviceId, 'terminal-font-size', 14);
@@ -220,8 +224,20 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       focusTerminal.current = null;
     }
   }, [active, owning, busy, profileOpening, state.frame]);
-  return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
-    <div className="m-terminal-focus-bar" id="workspace-terminal-controls">{(projectEntry || terminalHome) && <label>Sitzung öffnen mit<select aria-label={terminalHome ? 'Terminal-CLI' : 'Projekt-CLI'} disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
+  const controlsVisible = !state.selected || controlsExpanded;
+  const statusBar = <div className="m-terminal-status-bar" aria-label="Terminalstatus">
+    <span role="status">{host.status !== 'online' ? 'Offline' : state.selected?.status === 'exited' ? 'Sitzung beendet' : state.selected ? 'Terminal verbunden' : 'Keine Sitzung'}</span>
+    {state.selected && <span role="status" aria-label="CLI- und Terminalstatus">{sessionStateLabel(state.selected)}</span>}
+    {state.selected?.status === 'running' && <span role="status">{owning ? 'Eingabe: Du (Tablet)' : state.selected.owner === 'other' ? 'Eingabe: anderes Gerät' : 'Eingabe: Desktop'}</span>}
+    {state.selected && <SubscriptionUsagePanel compact key={`usage-${state.selected.id}`} online={host.status === 'online'} load={async () => {
+      const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, usage: true });
+      if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
+    }} />}
+    {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>Sitzung &amp; Workspace</button>}
+  </div>;
+  return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
+    {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
+    <div className="m-terminal-focus-bar" id={controlsId} hidden={!controlsVisible}>{(projectEntry || terminalHome) && <label>Sitzung öffnen mit<select aria-label={terminalHome ? 'Terminal-CLI' : 'Projekt-CLI'} disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
       {(['codex', 'claude', 'grok', 'shell'] as const).map((mode) => <option key={mode} value={mode} disabled={!canLaunchChoice({ mode }, options)}>
         {SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? ' · nicht verfügbar' : ''}</option>)}
     </select></label>}
@@ -232,7 +248,6 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         {[12, 14, 16, 18, 20].map((size) => <option key={size} value={size}>{size} px</option>)}
       </select></label>
       {terminalHome && <span>Benutzerverzeichnis · Ohne Agent und Projekt</span>}
-      {state.selected && <span role="status" aria-label="CLI- und Terminalstatus">{sessionStateLabel(state.selected)}</span>}
       {projectWorkspaceId && <span>{expectedBranch} · {state.selected?.launchProfileName ?? 'Ohne Agent-Profil'}</span>}
       {focused && <><span role="status">{host.status !== 'online' ? 'Offline · letzter Anzeigestand' : owning ? 'Eingabe: Tablet' : 'Eingabe: PC / anderes Gerät'}</span>
         {state.selected && <>{!owning && <button disabled={blocked || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>}
@@ -261,7 +276,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     <label>Sitzung<select aria-label="Terminal-Sitzung" disabled={blocked} value={selected} onChange={(event) => { setSelected(event.target.value); setError(''); setState({ terminals: state.terminals }); }}>
       <option value="">Sitzung wählen</option>{state.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{sessionStateLabel(terminal)}</option>)}</select></label>
     {!state.terminals.length && !error && <p>Keine verfügbaren interaktiven Sitzungen. Verwaltete Aufgaben erscheinen in Work.</p>}
-    {(error || readError) && <p role="alert" className="m-alert">{error || readError}</p>}{notice && <p role="status" className="m-terminal-notice">{notice}</p>}
+    {(error || readError) && <p role="alert" className="m-alert">{error || readError}</p>}{notice && notice !== 'Terminal ist verbunden.' && <p role="status" className="m-terminal-notice">{notice}</p>}
     {pending && <button disabled={busy || host.status !== 'online'} onClick={() => void command(pending.command, true)}>Terminalaktion erneut prüfen</button>}
     {uncertain && <div className="m-notice"><p>Die letzte Eingabe ist nicht bestätigt. Sie wird nicht automatisch wiederholt.</p>
       <button disabled={busy || host.status !== 'online'} onClick={() => { void query().then((result) => {
@@ -270,16 +285,13 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       }).catch((reason) => setError(terminalError(reason))); }}>Eingabestatus prüfen</button></div>}
     {draft.review && !directSending.current && <p role="alert">Eine frühere Eingabe ist noch unbestätigt. Ausgabe prüfen, bevor du den Entwurf erneut verwendest.
       <button disabled={busy || !!uncertain || !!state.inputUncertain || host.status !== 'online'} onClick={() => saveDraft((value) => ({ ...value, review: false }))}>Ausgabe geprüft · Entwurf freigeben</button></p>}
-    {state.selected && <><p role="status">{state.selected.status === 'exited' ? 'Prozess beendet. Die Ausgabe bleibt lesbar.' : owning ? 'Du steuerst die Eingabe.' : state.selected.owner === 'other' ? 'Ein anderes Gerät steuert die Eingabe.' : 'Der Desktop steuert die Eingabe.'}</p>
+    {state.selected && <>
       {state.inputUncertain && <p role="alert">Eine Eingabe konnte nicht sicher an den Prozess übergeben werden. Ausgabe prüfen und die Eingabe freigeben; sie wird nicht wiederholt.</p>}
       <div className="m-management-actions"><button disabled={blocked || owning || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>
         <button disabled={busy || !!pending || !owning || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
-    {state.selected && <><SubscriptionUsagePanel key={`usage-${state.selected.id}`} online={host.status === 'online'} load={async () => {
-      const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, usage: true });
-      if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
-    }} />{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
+    {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
       screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize}
       onData={(data) => keyboard.enqueue(data)} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }

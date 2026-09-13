@@ -33,7 +33,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   check('mobile terminal view attaches desktop home session without starting another PTY', (await homeSessions()).length === 1);
   await terminal.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
-  await terminal.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+  await terminal.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).getByText(/PS \[path\]>/).last().waitFor();
   await terminal.locator('.xterm-helper-textarea').focus();
   await page.keyboard.type("Write-Output 'ADE_HOME_ECHO'", { delay: 30 }); await page.keyboard.press('Enter');

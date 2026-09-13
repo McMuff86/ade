@@ -34,6 +34,27 @@ export class ProjectWorkspaceService {
     return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice };
   }
 
+  /** Membership is catalog metadata; existing workspaces, runs and files remain intact. */
+  async membership(entryId: string, included: boolean, authorize: ProjectAuthorization = () => undefined) {
+    return workspaceOperations.use(async () => {
+      authorize();
+      const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
+      if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
+      authorize({ repositoryId: target.entry.repositoryId });
+      let repositoryId = target.entry.repositoryId;
+      if (!repositoryId) {
+        if (!included) throw new Error('ade: Projekt ist noch nicht in ADE erfasst.');
+        repositoryId = (await this.registerTarget(target, authorize)).repositoryId;
+      }
+      authorize({ repositoryId });
+      const current = this.store.get();
+      if (!current.repositories.some((item) => item.id === repositoryId)) throw new Error('ade: Projekt wurde inzwischen geändert.');
+      this.store.save({ repositories: current.repositories.map((item) => item.id === repositoryId ? { ...item, inMyProjects: included } : item) });
+      this.changed();
+      return { repositoryId, included, replayed: false };
+    });
+  }
+
   /** Read-only inspection of a main-discovered checkout; no registration or Git writes. */
   async inspectCheckout(path: string, repositoryId: string) {
     const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
@@ -100,7 +121,7 @@ export class ProjectWorkspaceService {
       if (repository && (!repository.verified || projectRootIdentity(repository.commonGitDir) !== commonIdentity || !sameHostPath(repository.rootPath, identity.main))) {
         throw new Error('ade: Repository zuerst am PC erneut prüfen.');
       }
-      if (!repository) repository = { id: randomUUID(), name: basename(identity.main), rootPath: identity.main, commonGitDir: identity.common,
+      if (!repository) repository = { id: randomUUID(), inMyProjects: false, name: basename(identity.main), rootPath: identity.main, commonGitDir: identity.common,
         executionBackend: 'native', verified: true, createdAt: Date.now() };
       if (expectedRepositoryId && repository.id !== expectedRepositoryId) throw new Error('ade: Arbeitskopie gehört nicht zum gewählten Projekt.');
       assertAuthorized({ repositoryId: repository.id });
@@ -222,7 +243,7 @@ export class ProjectWorkspaceService {
       const id = 'p' + createHash('sha256').update(`${backend}\0${key}\0${identity}\0${rootIdentity ?? ''}`).digest('hex').slice(0, 32);
       paths.add(key);
       targets.push({ path, identity, rootIdentity, entry: { id, name: redactForWire(repository?.name ?? basename(path), 200),
-        repositoryId: repository?.id, kind, backend, source: rootIdentity ? 'root' : 'catalog', notice: entryNotice } });
+        repositoryId: repository?.id, inMyProjects: !!repository && repository.inMyProjects !== false, kind, backend, source: rootIdentity ? 'root' : 'catalog', notice: entryNotice } });
     };
     if (defaults) {
       try {

@@ -1,4 +1,5 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
+import { SpeechService } from './settings/SpeechService';
 import { DeviceResourceService } from './application/DeviceResourceService';
 /**
  * IPC channel registration (main side).
@@ -359,6 +360,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (input.operation === 'publish-apply') return { ...await projectPublish.apply(input.previewId, 'desktop'), replayed: false };
     return { workspace: input.operation === 'open' ? await projects.open(input.entryId) : await projectBranches.apply(input.previewId, 'desktop'), replayed: false };
   });
+  handle(IPC.ProjectMembership, (input) => projects.membership(input.entryId, input.included));
   const application = new AdeApplicationService(
     store,
     orchestration,
@@ -755,6 +757,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     items: harnessCredentials.status(),
     serviceKeys: harnessCredentials.serviceKeyStatus(),
   }));
+  const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
+  handle(IPC.SpeechVoices, () => speech.catalog(true));
+  handle(IPC.SpeechSelect, ({ voiceId }) => speech.select(voiceId));
+  handle(IPC.SpeechTest, ({ voiceId }) => speech.test(voiceId));
   handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {
     harnessCredentials.set(runtime, apiKey);
   });

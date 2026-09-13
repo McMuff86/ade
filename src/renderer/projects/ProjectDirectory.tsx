@@ -1,29 +1,41 @@
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceView } from '../../shared/remote';
 import './projects.css';
 
 /** Shared presentation; filesystem access and mutations stay in the platform adapters. */
-export function ProjectDirectory({ directory, busy, error, online = true, onRefresh, onOpen }: {
+export function ProjectDirectory({ directory, busy, error, online = true, onRefresh, onOpen, onMembership, canManage = true }: {
   directory?: ProjectDirectoryView; busy: boolean; error: string; online?: boolean;
   onRefresh: () => void; onOpen: (entry: ProjectDirectoryEntry, opener: HTMLButtonElement) => void;
+  onMembership?: (entry: ProjectDirectoryEntry, included: boolean) => Promise<void>; canManage?: boolean;
 }): JSX.Element {
   const [search, setSearch] = useState('');
-  const entries = directory?.entries.filter((entry) => entry.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const [filter, setFilter] = useState<'all' | 'mine'>('all');
+  const filterButton = useRef<HTMLButtonElement>(null);
+  const mine = (entry: ProjectDirectoryEntry) => entry.inMyProjects ?? !!entry.repositoryId;
+  const entries = directory?.entries.filter((entry) => (filter === 'all' || mine(entry)) && entry.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   return <section className="project-directory" aria-label="Projektordner">
     <div className="project-directory-tools"><label>Projekte durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <button disabled={busy || !online} onClick={onRefresh}>Projektordner aktualisieren</button></div>
-    <p>Ordner im Projekt-Stamm und registrierte Repositories. Öffne den vorhandenen Workspace; ein Agent-Profil ist optional.</p>
+    <div className="project-workspace-actions" aria-label="Projektfilter"><button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Alle</button>
+      <button ref={filterButton} aria-pressed={filter === 'mine'} onClick={() => setFilter('mine')}>Meine ADE Projekte</button></div>
+    <p>Füge Projekte zu „Meine ADE Projekte“ hinzu, um sie in der Übersicht zu sehen. Entfernen aus der Auswahl erhält Dateien, Terminals und Verlauf.</p>
     {!online && <p role="status">PC nicht verbunden. Angezeigte Projektordner können veraltet sein.</p>}
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Projektordner werden geladen…</p>}
     {directory?.notice && <p role="status">{directory.notice}</p>}
     {directory?.limited && <p role="status">Die Liste ist begrenzt. Einen kleineren Projekt-Stamm am PC wählen oder weitere Repositories am PC registrieren.</p>}
-    {entries && !entries.length && <p>{search ? 'Keine passenden Projektordner. Suche ändern.' : 'Noch keine Projektordner. Unter Settings den Projekt-Stamm speichern oder ein neues Projekt anlegen.'}</p>}
+    {entries && !entries.length && <p>{search ? 'Keine passenden Projektordner. Suche ändern.' : filter === 'mine' ? 'Noch keine eigenen Projekte. Unter Alle ein Projekt hinzufügen.' : 'Noch keine Projektordner. Unter Settings den Projekt-Stamm speichern oder ein neues Projekt anlegen.'}</p>}
     <ul className="project-directory-grid">{entries?.map((entry) => <li key={entry.id}>
       <button aria-label={`Workspace öffnen: ${entry.name}`} disabled={!online || busy || entry.kind !== 'repository'} onClick={(event) => {
         event.currentTarget.focus(); onOpen(entry, event.currentTarget);
       }}><strong>{entry.name}</strong><span>{entry.kind === 'repository' ? 'Git-Repository' : entry.kind === 'folder' ? 'Ordner ohne Git' : 'Nicht verfügbar'}</span>
-        <span>{entry.repositoryId ? 'In ADE erfasst' : 'Im Projekt-Stamm gefunden'} · {entry.backend}</span></button>
+        <span>{mine(entry) ? 'Mein ADE Projekt' : 'Nicht in meiner ADE-Auswahl'} · {entry.backend}</span></button>
+      {onMembership && (entry.repositoryId || entry.kind === 'repository') && <button disabled={!online || busy || !canManage}
+        aria-label={`${mine(entry) ? 'Aus meinen ADE Projekten entfernen' : 'Zu meinen ADE Projekten hinzufügen'}: ${entry.name}`}
+        onClick={() => { void onMembership(entry, !mine(entry)).then(() => {
+          if (filter === 'mine' && mine(entry)) filterButton.current?.focus();
+        }).catch(() => undefined); }}>
+        {mine(entry) ? 'Aus meinen ADE Projekten entfernen' : 'Zu meinen ADE Projekten hinzufügen'}</button>}
       {entry.notice && <p>{entry.notice}</p>}{entry.kind === 'folder' && <p>Git zuerst am PC initialisieren.</p>}
     </li>)}</ul>
   </section>;

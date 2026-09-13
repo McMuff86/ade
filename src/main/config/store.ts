@@ -141,7 +141,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
-  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults'], 'config.settings');
+  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults', 'speechVoiceId'], 'config.settings');
+  if (settings.speechVoiceId !== undefined && (typeof settings.speechVoiceId !== 'string' || !/^[a-zA-Z0-9]{10,80}$/.test(settings.speechVoiceId))) throw new Error('Invalid speech voice.');
   if (settings.projectDefaults !== undefined) {
     const defaults = object(settings.projectDefaults, 'config.settings.projectDefaults');
     exactKeys(defaults, ['rootPath', 'rootIdentity', 'agentId'], 'config.settings.projectDefaults');
@@ -242,7 +243,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const repository of config.repositories) {
     exactKeys(repository as unknown as Record<string, unknown>,
-      ['id', 'name', 'rootPath', 'commonGitDir', 'executionBackend', 'verified', 'createdAt'], 'repository');
+      ['id', 'name', 'rootPath', 'commonGitDir', 'executionBackend', 'verified', 'createdAt', 'inMyProjects'], 'repository');
+    if (repository.inMyProjects !== undefined && typeof repository.inMyProjects !== 'boolean') throw new Error('Invalid project membership.');
     boundedString(repository.name, 'repository.name');
     boundedString(repository.rootPath, 'repository.rootPath');
     boundedString(repository.commonGitDir, 'repository.commonGitDir');

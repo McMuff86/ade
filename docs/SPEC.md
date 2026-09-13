@@ -1,5 +1,30 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Stimmen und Meine ADE Projekte
+
+Desktop Settings bietet „Sprachausgabe · ElevenLabs“: Stimmen laden, Stimme
+auswählen, „Stimme testen“ und Wiedergabe stoppen. Die Auswahl wird gespeichert;
+ohne bisherige Wahl wird eine verfügbare weibliche Stimme vorgeschlagen. Ein
+kurzer deutscher Testsatz wird nur nach Betätigung erzeugt. Fehlender Key,
+fehlende Provider-Rechte, leere Listen und Wiedergabefehler sind sichtbar.
+Spracherkennung/Diktat ist als nächster Schritt geplant, noch nicht enthalten.
+
+Desktop und Mobile zeigen unter Projekte „Alle“ / „Meine ADE Projekte“.
+Hinzufügen und Entfernen ändern die persönliche ADE-Auswahl auf diesem Host;
+Dateien, Git, Terminals und Verlauf bleiben erhalten. Die Overview-Projektkarten
+und Projekt-Shortcuts zeigen diese Auswahl. Laufende Sitzungen bleiben unter
+Weiterarbeiten erreichbar. Ein neu entdeckter Ordner wird durch bloßes Öffnen
+nicht automatisch zur Auswahl hinzugefügt. Am PC nimmt ein Ordnerdialog auch
+bestehende Git-Projekte außerhalb des Projekt-Stamms auf. Mobile benötigt zum
+Ändern der Auswahl die Projektverwaltung und volle Ressourcenfreigabe.
+
+Die mobile Terminal-Kopfzeile bündelt Verbindung, Eingabebesitzer und
+Nutzungsdetails. „Sitzung & Workspace“ klappt Start-/Workspace-Bedienelemente
+ein und aus; die Einstellung bleibt auf dem Gerät erhalten. Nutzungsanzeigen
+benennen CLI und Datenquelle, vorhandene API-Zugänge, unbestätigte Anmeldung,
+gemeldete Abo-Fenster, verbrauchten/restlichen Anteil und Reset-Zeit.
+Ein vorhandener Key beweist keine tatsächliche API-Abrechnung.
+
 ## Run-Verlauf auf Mobile löschen
 
 In den Run-Details erscheint **Run löschen** für abgeschlossene, fehlgeschlagene

@@ -1,4 +1,5 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { validProjectMembership, type ProjectMembershipResult } from '../../shared/remote';
 import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
 import type { RunQuestionService } from '../orchestration/RunQuestionService';
 import { createHash } from 'node:crypto';
@@ -421,6 +422,28 @@ export class AdeApplicationService {
     authorize(); return { ...result.value, ...(git ? { workspace: git.workspace, git } : {}), replayed: result.replayed };
   }
 
+  async projectMembership(context: RemoteCommandContext, payload: unknown): Promise<ProjectMembershipResult> {
+    const ledger = this.options.administration?.ledger; const projects = this.options.projects;
+    if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
+    if (!validProjectMembership(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const authorize: ProjectAuthorization = (target) => {
+      ledger.permits(context, 'workspace:read'); ledger.permits(context, 'catalog:write');
+      // Membership changes the shared catalog, so selected-resource devices cannot edit it.
+      if (this.resources.access(context.principal).mode === 'selected') throw new RemoteApiError(403, 'scope_not_granted');
+      if (target?.repositoryId) this.resources.assertRepository(context.principal, target.repositoryId);
+    };
+    authorize();
+    try {
+      const receipt = await ledger.execute(context, 'project:membership', 'catalog:write', payload, () => {
+        const execute = () => projects.membership(payload.entryId, payload.included, authorize);
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      authorize({ repositoryId: receipt.value.repositoryId });
+      this.options.catalogChanged?.();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
   async remoteTerminal(context: RemoteCommandContext, payload: unknown, kind: 'query' | 'command' | 'input') {
     const ledger = this.options.administration?.ledger; const terminals = this.options.terminals;
     if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
@@ -614,6 +637,7 @@ export class AdeApplicationService {
         ...config.agentTemplates.map((template) => ({ id: template.id, kind: 'template' as const, name: redactForWire(template.name, 160), runtime: template.runtime })),
       ],
       repositories: config.repositories.map((repository) => ({
+        inMyProjects: repository.inMyProjects !== false,
         id: repository.id,
         name: redactForWire(repository.name, 160),
         executionBackend: repository.executionBackend,

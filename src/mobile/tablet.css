@@ -120,3 +120,18 @@
 .m-independent-project.m-project-git-workspace { overflow-y: auto; }
 .m-project-git-body { flex: none; min-height: 0; overflow: visible; }
 .m-independent-project.m-project-git-workspace .m-project-context { max-height: none; overflow: visible; }
+
+.m-dialog-terminal-header:empty { display: none; }
+.m-dialog-terminal-header { flex: 1; min-width: 0; }
+.m-terminal-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; min-width: 0; }
+.m-terminal-status-bar > span { color: var(--muted); }
+.m-terminal-status-bar button { min-height: 44px; }
+.m-terminal-focus-bar[hidden] { display: none; }
+.m-controls-collapsed .m-terminal-tools > :is(details,label,.m-management-actions),
+.m-controls-collapsed .m-terminal-tools > p:not([role=alert]):not(.m-terminal-notice) { display: none; }
+.m-dialog-head:has(.m-terminal-status-bar) { flex-wrap: wrap; margin-bottom: 8px; }
+.m-dialog-head:has(.m-terminal-status-bar) h2 { margin: 0; }
+@media (max-width: 760px) { .m-dialog-terminal-header:not(:empty) { flex-basis: 100%; order: 3; } }
+.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { flex-wrap: nowrap; }
+.m-terminal-workspace:has(.m-keyboard-compact) .m-dialog-terminal-header,
+.m-keyboard-compact > .m-terminal-status-bar { display: none; }

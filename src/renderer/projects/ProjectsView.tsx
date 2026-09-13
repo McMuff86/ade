@@ -55,6 +55,15 @@ export function ProjectsView(): JSX.Element {
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const repositoryEntry = repositoryId ? directory?.entries.find((entry) => entry.repositoryId === repositoryId) : undefined;
+  const membership = async (entry: ProjectDirectoryEntry, included: boolean) => {
+    if (lock.current) return; lock.current = true; setBusy(true); setError(''); setShareNotice('');
+    try {
+      await window.ade.invoke('project:membership', { entryId: entry.id, included });
+      const result = await query({ operation: 'directory' });
+      if (live.current) { setDirectory(result.directory); setShareNotice(`${entry.name}: ${included ? 'Zu meinen ADE Projekten hinzugefügt.' : 'Aus meiner ADE-Auswahl entfernt. Dateien und Verlauf bleiben erhalten.'}`); }
+    } catch (reason) { if (live.current) setError(String(reason)); throw reason; }
+    finally { lock.current = false; if (live.current) setBusy(false); }
+  };
   const shareProject = async () => {
     if (lock.current) return; lock.current = true; setBusy(true); setError(''); setShareNotice('');
     try {
@@ -102,7 +111,7 @@ export function ProjectsView(): JSX.Element {
           <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online canPublish query={query} apply={applyPublish} errorText={errorText}
             pending={publishReceipts[workspace.id] ?? null} savePending={(value) => { setPublishReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }} /></>}
     </> : <><section aria-label="Einzelnes Projekt freigeben">
-      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>Einzelnes Projekt für ADE Mobile freigeben</button>
+      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>Bestehenden Ordner zu meinen ADE Projekten hinzufügen</button>
       <p>Wähle einen bestehenden Git-Projektordner auf diesem PC, auch außerhalb deines Repos-Ordners. Der Projekt-Stammordner bleibt unverändert.</p>
       {busy && <p role="status">Projektaktion läuft…</p>}{shareNotice && <p role="status">{shareNotice}</p>}
     </section><details><summary>Neues Projekt</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
@@ -113,6 +122,6 @@ export function ProjectsView(): JSX.Element {
     </form></details>{repositoryEntry && <section aria-label="Gewähltes Projekt"><h2>{repositoryEntry.name}</h2>
       <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>Projekt-Workspace öffnen</button></section>}
       {repositoryId && directory && !repositoryEntry && <p role="status">Das gewählte Projekt ist gerade nicht erreichbar. Projektordner aktualisieren.</p>}
-      <ProjectDirectory directory={directory} busy={busy} error={error} onRefresh={() => void refresh()} onOpen={(entry, button) => void open(entry, button)} /></>}
+      <ProjectDirectory directory={directory} busy={busy} error={error} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} /></>}
   </section>;
 }

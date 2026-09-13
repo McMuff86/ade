@@ -16,12 +16,15 @@ import { ProjectRunResults } from '../renderer/projects/ProjectRunResults';
 import { useRunFilesPort } from './useRunFilesPort';
 
 interface Opening { key: string; entryId: string; name: string }
+interface MembershipChange { key: string; entryId: string; included: boolean; name: string }
 export interface ProjectOpenIntent { key: string; workspaceId?: string; repositoryId?: string; terminalId?: string }
 /** Persist the receipt before sending; a lost reply is resolved by an explicit replay. */
 export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentConsumed }: { host: MobileHost; onAgentWorkspace: (repositoryId: string) => void; intent?: ProjectOpenIntent; onIntentConsumed?: () => void }): JSX.Element {
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [rights, setRights] = useState<MobileHostState>();
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [selected, setSelected] = useState<ProjectDirectoryEntry>();
   const [opening, saveOpening] = useDeviceDraft<Opening | null>(host.deviceId, 'project-opening', null);
+  const [membershipChange, saveMembershipChange] = useDeviceDraft<MembershipChange | null>(host.deviceId, 'project-membership', null);
+  const [membershipNotice, setMembershipNotice] = useState('');
   const [workspaceId, saveWorkspaceId] = useDeviceDraft<string | null>(host.deviceId, 'project-selected', null);
   const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
   const [terminalId, setTerminalId] = useState<string>();
@@ -88,11 +91,33 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const close = () => { setSelected(undefined); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); setError(''); };
+  const membership = async (entry: ProjectDirectoryEntry, included: boolean) => {
+    if (lock.current || !online) return;
+    lock.current = true; setBusy(true); setError(''); setMembershipNotice('');
+    const command = membershipChange ?? { key: crypto.randomUUID(), entryId: entry.id, included, name: entry.name };
+    try {
+      if (!saveMembershipChange(command)) throw new Error('Browser-Speicher nicht verfügbar. Projekt-Auswahl wurde nicht geändert.');
+      await host.request('/api/v1/projects/membership', 'POST', { entryId: command.entryId, included: command.included }, command.key);
+      if (!live.current) return;
+      saveMembershipChange(null);
+      const result = await host.request<ProjectWorkspaceQueryResult>('/api/v1/projects/query', 'POST', { operation: 'directory' });
+      if (live.current) { setDirectory(result.directory); setMembershipNotice(`${command.name}: ${command.included ? 'Zu meinen ADE Projekten hinzugefügt.' : 'Aus meiner ADE-Auswahl entfernt. Dateien und Verlauf bleiben erhalten.'}`); }
+      await host.refresh();
+    } catch (reason) { if (live.current) {
+      if (reason instanceof MobileClientError && reason.status >= 400 && reason.status < 500) saveMembershipChange(null);
+      setError(reason instanceof Error && !(reason instanceof MobileClientError) ? reason.message : workspaceError(reason));
+    } throw reason; }
+    finally { lock.current = false; if (live.current) setBusy(false); }
+  };
   const show = !!selected || !!workspaceId;
   const name = workspace?.name ?? selected?.name ?? opening?.name ?? 'Workspace';
   return <>
     {online && rights && !canRead && <p role="alert">Am PC unter Settings → Verbundene Geräte „Workspace-Dateien und Git-Diffs lesen“ freigeben. Danach Projektordner aktualisieren.</p>}
-    <ProjectDirectory directory={directory} busy={busy || !!opening} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
+    {membershipNotice && <p role="status">{membershipNotice}</p>}
+    {membershipChange && <p role="status">Projekt-Auswahl für {membershipChange.name} noch nicht bestätigt. <button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>Projekt-Auswahl erneut prüfen</button></p>}
+    {canRead && !rights?.capabilities?.includes('catalog:write') && <p>Zum Hinzufügen und Entfernen am PC unter Verbundene Geräte die Projektverwaltung freigeben.</p>}
+    <ProjectDirectory directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
+      onMembership={membership} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}
       onOpen={(entry, button) => { opener.current = button; setSelected(entry); setError(''); }} />
     {opening && !show && <div role="status"><p>Öffnen von „{opening.name}“ noch nicht bestätigt.</p><button onClick={(event) => {
       opener.current = event.currentTarget; setSelected(directory?.entries.find((entry) => entry.id === opening.entryId)

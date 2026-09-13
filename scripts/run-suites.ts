@@ -27,6 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
+  { id: 'speech', script: 'test-speech.ts', floors: { win32: 38 } },
   { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
   { id: 'run-deletion', script: 'test-run-deletion.ts', floors: { win32: 23 } },
   { id: 'category-navigation', script: 'test-category-navigation.ts', floors: { win32: 29 } },
@@ -46,12 +47,12 @@ const SUITES: Suite[] = [
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
   { id: 'prompts', script: 'test-prompts.ts', floors: { win32: 31 } },
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
-  { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 40 } },
+  { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 45 } },
   { id: 'project-branches', script: 'test-project-branches.ts', floors: { win32: 40 } },
   { id: 'project-launch', script: 'test-project-launch.ts', floors: { win32: 41 } },
   { id: 'project-git', script: 'test-project-git.ts', floors: { win32: 47 } },
   { id: 'project-publish', script: 'test-project-publish.ts', floors: { win32: 41 } },
-  { id: 'project-directory-api', script: 'test-project-directory-api.ts', floors: { win32: 26 } },
+  { id: 'project-directory-api', script: 'test-project-directory-api.ts', floors: { win32: 36 } },
   { id: 'repository-inspector', script: 'test-repository-inspector.ts', floors: { win32: 27 } },
   { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },

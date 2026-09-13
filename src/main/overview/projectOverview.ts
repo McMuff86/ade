@@ -154,7 +154,7 @@ export function projectOverview(
     ));
   }
 
-  const projects: OverviewProjectCard[] = config.repositories.map((repository) => {
+  const projects: OverviewProjectCard[] = config.repositories.filter((repository) => repository.inMyProjects !== false).map((repository) => {
     const bindings = config.workspaceBindings.filter((binding) => binding.repositoryId === repository.id);
     const names = [...new Set(bindings.map((binding) => agentName.get(binding.agentId)).filter(
       (name): name is string => Boolean(name),

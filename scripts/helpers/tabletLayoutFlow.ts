@@ -9,7 +9,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   execFileSync('git', ['init', '--initial-branch=main', external], { windowsHide: true });
   await desktop.evaluate((rootPath) => window.ade.invoke('projectDefaults:save', { rootPath, agentId: null }), parent);
   await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
-  const share = desktop.getByRole('button', { name: 'Einzelnes Projekt für ADE Mobile freigeben', exact: true });
+  const share = desktop.getByRole('button', { name: 'Bestehenden Ordner zu meinen ADE Projekten hinzufügen', exact: true });
   await share.waitFor();
   const before = await desktop.evaluate(() => window.ade.invoke('config:get'));
   const pick = async (path: string | null) => {
@@ -37,7 +37,33 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Projektordner aktualisieren', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: External project', exact: true }).waitFor();
-  check('paired tablet discovers external project but has no PC folder picker', !await page.getByRole('button', { name: 'Einzelnes Projekt für ADE Mobile freigeben', exact: true }).count());
+  check('paired tablet discovers external project but has no PC folder picker', !await page.getByRole('button', { name: 'Bestehenden Ordner zu meinen ADE Projekten hinzufügen', exact: true }).count());
+  const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find(item => item.name === 'Terminal tablet')!;
+  await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
+    { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'catalog:write' as const, 'workspace:read' as const])] });
+  await page.getByRole('button', { name: 'Projektordner aktualisieren', exact: true }).click();
+  await page.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).click();
+  const remove = page.getByRole('button', { name: 'Aus meinen ADE Projekten entfernen: External project', exact: true });
+  await remove.click();
+  await page.getByRole('button', { name: 'Workspace öffnen: External project', exact: true }).waitFor({ state: 'hidden' });
+  check('tablet removal leaves files and catalog identity and returns focus to filter', (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find(repo => repo.name === 'External project')?.inMyProjects === false
+    && await page.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).evaluate(node => node === document.activeElement));
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('button', { name: 'Projekt öffnen: External project', exact: true }).waitFor({ state: 'hidden' });
+  check('removed project disappears from mobile overview', !await page.getByRole('button', { name: 'Projekt öffnen: External project', exact: true }).count());
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
+  await page.getByRole('button', { name: 'Zu meinen ADE Projekten hinzufügen: External project', exact: true }).click();
+  await page.getByRole('button', { name: 'Aus meinen ADE Projekten entfernen: External project', exact: true }).waitFor();
+  check('tablet explicit re-add reuses original repository identity', (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find(repo => repo.name === 'External project')?.id === after.repositories.find(repo => repo.name === 'External project')?.id);
+  await desktop.getByRole('button', { name: 'Projektordner aktualisieren', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Aus meinen ADE Projekten entfernen: External project', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Workspace öffnen: External project', exact: true }).waitFor({ state: 'hidden' });
+  check('desktop membership uses the same shared selection', (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find(repo => repo.name === 'External project')?.inMyProjects === false);
+  await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Zu meinen ADE Projekten hinzufügen: External project', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Aus meinen ADE Projekten entfernen: External project', exact: true }).waitFor();
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
   const rail = page.getByRole('separator', { name: 'Breite der Agentenliste', exact: true });

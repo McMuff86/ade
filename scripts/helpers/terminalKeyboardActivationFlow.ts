@@ -42,13 +42,13 @@ export async function terminalKeyboardActivationFlow(page: Page, workspace: Loca
       const calls = (window as unknown as ProbeWindow).keyboardProbe.requests; return calls.length === 3 && calls.every((call) => call.editable && call.activated);
     }));
     await workspace.getByRole('button', { name: 'Eingabe freigeben', exact: true }).click();
-    await workspace.getByText('Der Desktop steuert die Eingabe.', { exact: true }).waitFor();
+    await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor();
     await screen.tap({ position: { x: 24, y: 24 } });
     check('read-only terminal taps cannot request a keyboard or take desktop ownership', await page.evaluate(() => (window as unknown as ProbeWindow).keyboardProbe.requests.length) === 3
       && await input.evaluate((node) => (node as HTMLTextAreaElement).readOnly)
       && await workspace.getByRole('button', { name: 'Tastatur öffnen', exact: true }).isDisabled());
     await workspace.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
-    await workspace.getByText('Du steuerst die Eingabe.', { exact: true }).waitFor();
+    await workspace.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
     await screen.tap({ position: { x: 24, y: 24 } });
     check('explicit input takeover restores touch keyboard activation without a new session', await page.evaluate(() => {
       const calls = (window as unknown as ProbeWindow).keyboardProbe.requests; return calls.length === 4 && calls[3]!.editable;

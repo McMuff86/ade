@@ -40,8 +40,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
             onClick={(event) => { event.currentTarget.focus(); onTerminal(agent.id); }}>Terminal öffnen / fortsetzen</button><DashboardLink agent={agent} /></div></li>;
         })}</ul>}
       </section>
-      <section className="m-ledger" aria-labelledby="mobile-projects-title"><h2 id="mobile-projects-title">Projects <span>{catalog.repositories.length}</span></h2>
-        {!catalog.repositories.length ? <p className="m-empty-copy">Noch keine Repositories. Am PC in ADE einrichten.</p> : <ul className="m-projects">{catalog.repositories.map((repo) => {
+      <section className="m-ledger" aria-labelledby="mobile-projects-title"><h2 id="mobile-projects-title">Meine ADE Projekte <span>{catalog.repositories.filter(repo => repo.inMyProjects !== false).length}</span></h2>
+        {!catalog.repositories.some(repo => repo.inMyProjects !== false) ? <p className="m-empty-copy">Noch keine eigenen Projekte. Unter Projekte → Alle hinzufügen.</p> : <ul className="m-projects">{catalog.repositories.filter(repo => repo.inMyProjects !== false).map((repo) => {
           const projectRuns = runs.filter((run) => run.repositoryId === repo.id);
           const last = [...projectRuns].sort((a, b) => b.updatedAt - a.updatedAt)[0];
           return <li key={repo.id}><button className="m-project-card" onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }} aria-label={`Projekt öffnen: ${repo.name}`}>
