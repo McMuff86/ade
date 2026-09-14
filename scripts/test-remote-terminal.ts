@@ -31,8 +31,9 @@ void (async () => {
   const binding = store.get().workspaceBindings.find((item) => item.repositoryId === repo)!;
   const writes: string[] = []; let starts = 0; let now = Date.now(); let failWrite = false; const changes: TerminalControlState[] = [];
   const resources = new DeviceResourceService(store, (id) => devices.resourceAccess(id));
-  let homeStarts = 0;
+  let homeStarts = 0; let profileReads = 0;
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
+    profileContext: () => { profileReads++; return 'Captured profile marker\nC:\\private\\profile\\AGENTS.md'; },
     createHome: async (choice, authorize) => {
       authorize(); const session = { ...terminalHome(), id: `native-home-${++homeStarts}`, scopeSource: 'terminal-home' as const,
         kind: 'interactive' as const, title: choice.mode, status: 'running' as const, createdAt: now, launchChoice: choice };
@@ -65,6 +66,11 @@ void (async () => {
   await command({ operation: 'open', mode: 'shell' }, openedContext);
   check('duplicate open starts exactly one interactive process', starts === 1);
   const state = await query(opened.terminalId);
+  check('ordinary terminal polling does not load or return profile instructions', profileReads === 0 && !Object.hasOwn(state, 'profileContextText'));
+  const contextText = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, profileContext: true }, 'query') as MobileTerminalState;
+  check('explicit profile detail is bounded and host paths are redacted', profileReads === 1 && contextText.profileContextText?.includes('Captured profile marker') === true && !contextText.profileContextText.includes('private'));
+  await refuses('profile detail requires a selected terminal', () => app.remoteTerminal(context(), { ...selection, profileContext: true }, 'query'), 'invalid_payload');
+  await refuses('profile detail flag rejects ambiguous values', () => app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, profileContext: false }, 'query'), 'invalid_payload');
   check('new terminal belongs to device and raw PTY identity stays in main', state.selected?.owner === 'self' && !JSON.stringify(state).includes('native-1'));
   sessions[0]!.program = { status: 'running', startedAt: now };
   check('wire reports the foreground invocation separately from shell liveness', (await query(opened.terminalId)).selected?.program?.status === 'running');
@@ -108,6 +114,7 @@ void (async () => {
   devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control'], { mode: 'selected', repositoryIds: [], agentIds: [] });
   check('removing resource grants empties global session inventory', !(await app.remoteSessionInventory(context().principal)).sessions.length);
   await refuses('remembered terminal cannot be read after resource removal', () => query(opened.terminalId), 'scope_not_granted');
+  await refuses('captured profile text cannot bypass resource removal', () => app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, profileContext: true }, 'query'), 'scope_not_granted');
   await refuses('cached terminal open cannot replay after resource removal', () => command({ operation: 'open', mode: 'shell' }, openedContext), 'scope_not_granted');
   await refuses('terminal service independently enforces current resource grants', () => terminal!.query('tablet', { ...selection, terminalId: opened.terminalId }), 'scope_not_granted');
   await refuses('old terminal input cannot bypass resource removal', () => terminal!.input(inputContext, input), 'scope_not_granted');

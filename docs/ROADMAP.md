@@ -22,9 +22,14 @@ Neustart erfolgen pro sinnvollem Meilenstein.
 - **Goal 26.1a:** Agent-Profil mit Spezialisierung, konkreten Arbeitsanweisungen
   und zuweisbaren Markdown-Dateien. Bestehende Repository-Anweisungen bleiben
   wirksam; Identitätsanweisungen liegen außerhalb geleaster Repositories.
+  Editor und native Transportanbindung implementiert, noch nicht aktiviert.
+  Echte einmalige Codex-/Claude-Proben bestätigen Profilmarker in `exec`/`-p`;
+  interaktiver ADE-Lifecycle wird separat geprüft.
 - **Goal 26.1b:** Kontextansicht zeigt Herkunft, Reihenfolge, Version/Digest
   und tatsächlich beim Start verwendete Anweisungen. Profiländerungen gelten
   für neue Sitzungen; laufende Sitzungen erhalten einen Versionshinweis.
+  Start-Digest/Quellen, expliziter Vergleich und eingefrorener Sitzungstext sind
+  angebunden; 39 Electron-Prüfungen bestanden. Gesamtabnahme vollständig grün.
 - **Goal 26.1c:** Profil vom Agenten und Projekt aus bearbeiten/auswählen;
   spezialisierter Agent oder normale Codex-/Claude-CLI bleibt eine bewusste
   Auswahl. Eine Rollenbeschreibung ist keine zusätzliche Systemberechtigung.

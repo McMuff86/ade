@@ -24,6 +24,12 @@ export function ProjectsView(): JSX.Element {
   const [createdId, setCreatedId] = useState<string>();
   const [shareNotice, setShareNotice] = useState('');
   const shareButton = useRef<HTMLButtonElement>(null);
+  const restoreShareFocus = useRef(false);
+  // Restore after React has re-enabled the opener. A frame callback can run
+  // while the old disabled DOM is still present and silently lose focus.
+  useLayoutEffect(() => {
+    if (!busy && restoreShareFocus.current) { restoreShareFocus.current = false; shareButton.current?.focus(); }
+  });
   const selectedId = useSelection((state) => state.projectWorkspaceId);
   const repositoryId = useSelection((state) => state.projectRepositoryId);
   const sessionId = useSelection((state) => state.projectSessionId);
@@ -76,7 +82,7 @@ export function ProjectsView(): JSX.Element {
       const result = await query({ operation: 'directory' });
       if (live.current) setDirectory(result.directory);
     } catch (reason) { if (live.current) setError(String(reason)); }
-    finally { lock.current = false; if (live.current) { setBusy(false); requestAnimationFrame(() => shareButton.current?.focus()); } }
+    finally { lock.current = false; if (live.current) { restoreShareFocus.current = true; setBusy(false); } }
   };
   const create = async () => {
     if (lock.current) return; lock.current = true; setBusy(true); setError('');

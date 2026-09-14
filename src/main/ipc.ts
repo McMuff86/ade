@@ -1,6 +1,7 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { SpeechService } from './settings/SpeechService';
 import { SpeechPreferences } from './settings/SpeechPreferences';
+import { AgentBehaviorService } from './memory/AgentBehaviorService';
 import { RemoteSpeechService } from './application/RemoteSpeechService';
 import { DeviceResourceService } from './application/DeviceResourceService';
 /**
@@ -274,6 +275,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   const speechPreferences = new SpeechPreferences(store, speech);
+  const agentBehavior = new AgentBehaviorService(store);
+  handle(IPC.AgentBehaviorGet, ({ agentId }) => agentBehavior.query(agentId));
+  handle(IPC.AgentBehaviorSet, (input) => agentBehavior.update(input));
   const runtimeModels = new RuntimeModelService(harnessCredentials);
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
@@ -343,6 +347,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     options: (selection) => ptyManager!.sessionOptions(selection),
     display: (id) => ptyManager!.remoteDisplay(id),
     usage: (id) => ptyManager!.subscriptionUsage(id),
+    profileContext: (id) => ptyManager!.profileContextText(id),
     attach: (id) => ptyManager!.attach(id), write: (id, data) => ptyManager!.write(id, data),
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
@@ -383,6 +388,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       projectPublish,
       workbench, terminals: remoteTerminals,
       speech: new RemoteSpeechService(speechPreferences, speech),
+      behavior: agentBehavior,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
@@ -881,6 +887,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
   handle(IPC.TerminalControl, ({ sessionId }) => remoteTerminals!.desktopState(sessionId));
   handle(IPC.TerminalUsage, ({ sessionId }) => ptyManager!.subscriptionUsage(sessionId));
+  handle(IPC.TerminalProfileContext, ({ sessionId }) => ptyManager!.profileContextText(sessionId));
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
 
   // Reconcile renderer state after a reload without losing main-owned PTYs.

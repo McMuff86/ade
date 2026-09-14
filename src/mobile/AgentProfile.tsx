@@ -5,6 +5,8 @@ import { Avatar } from '../renderer/rail/Avatar';
 import { MobileClientError } from './client';
 import { Dialog } from './ui';
 import { MobileSpeechSettings } from './SpeechSettings';
+import { AgentBehaviorEditor } from '../renderer/onboarding/AgentBehaviorEditor';
+import type { AgentBehaviorView } from '../shared/agentBehavior';
 
 function photoBlob(base64: string): Blob {
   const raw = atob(base64); const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0));
@@ -119,6 +121,10 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
       <button onClick={() => setPhotoOpen(false)}>Zurück zum Profil</button>
     </Dialog>}
     {profile && <MobileSpeechSettings host={host} target={{ kind: 'agent', agentId, ...(repositoryId ? { repositoryId } : {}) }} title="Agent-Stimme" />}
+    {profile && <AgentBehaviorEditor key={`${host.identityVersion}:${agentId}`} agentId={agentId} enabled={host.status === 'online'} canEdit={allowed} port={{
+      load: () => host.request<AgentBehaviorView>('/api/v1/profile/behavior/query', 'POST', { agentId }),
+      save: (input, key) => host.request('/api/v1/profile/behavior/update', 'POST', input, key),
+    }} />}
     <button disabled={busy} onClick={() => { void refresh(); }}>Profil neu laden</button>
     {draft && profile && draft.input.revision !== profile.revision && <p>Profil wurde geändert. Entwurf prüfen und erst danach die neue Basis bestätigen.
       <button disabled={busy || !!draft.pending} onClick={() => update({ revision: profile.revision })}>Neue Profilbasis bestätigen</button></p>}

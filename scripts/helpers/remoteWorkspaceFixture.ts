@@ -27,6 +27,7 @@ import type { ActivityLine } from '../../src/shared/ipc';
 import { RunInspectionService } from '../../src/main/application/RunInspectionService';
 import { RunFileStore } from '../../src/main/application/RunFileStore';
 import type { RemoteSpeechService } from '../../src/main/application/RemoteSpeechService';
+import { AgentBehaviorService } from '../../src/main/memory/AgentBehaviorService';
 
 /** Real native Git scopes/domain/HTTP; runtime processes alone are deterministic fixtures. */
 export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}, speechFactory?: (store: ReturnType<typeof createMobileFixture>['store']) => RemoteSpeechService) {
@@ -67,6 +68,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     commandsEnabled: () => true, activity: gate, changes, audit: (entry) => devices.audit(entry),
     workbench, runInspection: inspection, projects, projectBranches, projectGit, projectPublish,
     speech: speechFactory?.(store),
+    behavior: new AgentBehaviorService(store),
     integration,
     assignments: new WorkspaceAssignmentService(store, projects, () => sessions),
     resourceAccess: (id) => devices.resourceAccess(id),

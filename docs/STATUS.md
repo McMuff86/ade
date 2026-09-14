@@ -1,5 +1,17 @@
 # ADE implementation status
 
+## Agent-Profilanweisungen (14. September 2026, vollständig geprüft)
+
+Desktop und Mobile können Arbeitsanweisungen und geordnete Markdown-Kopien
+speichern. Neue native Windows-Profilsitzungen mit Codex/Claude erhalten einen
+eingefrorenen Kontext einschließlich aktiviertem Memory. Profilvergleich und
+explizite Ansicht des Starttexts sind implementiert; normale CLI-Starts bleiben
+ohne neue ADE-Profilübergabe. 39 Electron-, 12 Mobile-Browser- und zehn neue
+Memory-Snapshot-Prüfungen bestehen. Echte einmalige CLI-Proben bestätigen den
+Profilmarker. `pnpm verify` ist vollständig grün: 56 Suiten / 2.558 Checks,
+Produktionsbuild und alle UI-Prüfungen. Persönliche Aktivierung folgt;
+Details in `AGENT_PROFILE_RESULTS.md` und `HANDOFF.md`.
+
 ## Mobile-Stimmen und Profilbilder (14. September 2026)
 
 Mobile-Einstellungen, globale/Agent-/Projekt-Stimmen mit Vererbung und

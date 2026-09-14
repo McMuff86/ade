@@ -1,4 +1,5 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { validateAgentBehaviorProfile } from '../../shared/agentProfile';
 import { validRunQuestions } from '../../shared/runQuestions';
 /**
  * Typed atomic JSON config store.
@@ -209,13 +210,14 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const agent of config.agents) {
     exactKeys(agent as unknown as Record<string, unknown>, [
-      'id', 'categoryId', 'name', 'role', 'photo', 'speechVoiceId', 'runtime', 'permissionMode', 'customCommand',
+      'id', 'categoryId', 'name', 'role', 'photo', 'speechVoiceId', 'profile', 'runtime', 'permissionMode', 'customCommand',
       'ollamaModel', 'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'workspaceDir', 'homeWorkspaceDir',
       'homeExecutionBackend', 'defaultRepositoryId', 'memoryDir', 'teamRole', 'dashboardUrl',
       'dashboardCommand', 'dashboardTarget',
     ], 'agent');
     if (agent.speechVoiceId !== undefined && (typeof agent.speechVoiceId !== 'string' || !/^[a-zA-Z0-9]{10,80}$/.test(agent.speechVoiceId))) throw new Error('Invalid agent voice.');
+    if (agent.profile !== undefined) validateAgentBehaviorProfile(agent.profile);
     boundedString(agent.name, 'agent.name');
     boundedString(agent.workspaceDir, 'agent.workspaceDir');
     boundedString(agent.memoryDir, 'agent.memoryDir');

@@ -1,0 +1,55 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { AgentBehaviorService } from '../src/main/memory/AgentBehaviorService';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import type { RemoteCommandContext } from '../src/main/application/AdeApplicationService';
+import { validateCompleteConfig } from '../src/main/config/store';
+import { previewAgentInstructions } from '../src/main/memory/agentInstructions';
+
+let passed = 0; let failed = 0;
+const check = (name: string, result: boolean) => { if (!result) throw new Error(name); passed++; console.log(`  ok ${name}`); };
+async function refuses(name: string, operation: () => unknown, pattern?: RegExp) {
+  try { await operation(); } catch (error) { check(name, !pattern || pattern.test(String(error))); return; } throw new Error(name);
+}
+const root = mkdtempSync(join(tmpdir(), 'ade-agent-behavior-'));
+void (async () => {
+  const { application, store, devices } = createRemoteWorkspaceFixture(root);
+  const service = new AgentBehaviorService(store); const agent = store.get().agents.find(item => item.id === 'builder')!;
+  const initial = service.query(agent.id);
+  check('read-only preview does not create identity instructions', !existsSync(join(agent.memoryDir, 'AGENTS.md')) && initial.context.sources.length === 1);
+  const profile = { instructions: 'Prüfe Maße in Millimetern.\nTrenne Beobachtung und Vermutung.', documents: [{ id: 'sheetmetal', name: 'Sheetmetal.md', text: '# Blechprüfung\nBiegeradius zuerst prüfen.' }] };
+  const updated = service.update({ agentId: agent.id, revision: initial.revision, profile });
+  check('profile update persists a detached copy', updated.revision !== initial.revision && store.get().agents.find(item => item.id === agent.id)!.profile !== profile);
+  check('profile copies never create repository or identity instruction files', !existsSync(join(agent.workspaceDir, 'AGENTS.md')) && !existsSync(join(agent.memoryDir, 'AGENTS.md')));
+  validateCompleteConfig(store.get()); check('complete config accepts bounded profile copies', true);
+  const view = service.query(agent.id);
+  check('preview shows instructions and assigned document provenance', view.context.text.includes(profile.instructions) && view.context.sources.some(source => source.id === 'sheetmetal' && /^[a-f0-9]{64}$/.test(source.sha256)));
+  const snapshot = previewAgentInstructions(store.get().agents.find(item => item.id === agent.id)!);
+  check('editor revision matches the effective launch snapshot', snapshot.sha256 === view.revision && snapshot.content === view.context.text);
+  await refuses('stale edits do not overwrite a newer profile', () => service.update({ agentId: agent.id, revision: initial.revision, profile }), /inzwischen/);
+  await refuses('unknown config fields are refused', () => service.update({ agentId: agent.id, revision: view.revision, profile, path: 'outside.md' }), /Ungültig/);
+  await refuses('invalid Markdown path cannot become a document name', () => service.update({ agentId: agent.id, revision: view.revision, profile: { ...profile, documents: [{ id: 'escape', name: '../AGENTS.md', text: 'x' }] } }), /Ungültig/);
+  devices.enroll('tablet', 'Profile tablet', 'p'.repeat(40));
+  const context = (): RemoteCommandContext => ({ principal: { id: 'tablet', kind: 'device', proof: 'device-signature', scopes: new Set(devices.activeDevices().find(item => item.id === 'tablet')!.scopes) }, idempotencyKey: randomUUID(), requestId: 'profile-fixture' });
+  const input = { agentId: agent.id, revision: view.revision, profile: { ...profile, instructions: 'Neue Spezialisierung' } };
+  await refuses('read-only tablet cannot change behavior', () => application.agentBehavior(context(), input, true));
+  devices.setAdminScopes('tablet', ['profiles:write']);
+  const request = context(); const first = await application.agentBehavior(request, input, true); const second = await application.agentBehavior(request, input, true);
+  check('lost update reply replays the same revision', 'revision' in first && first.revision === second.revision && 'replayed' in second && second.replayed === true);
+  await refuses('receipt cannot be rebound to another behavior', () => application.agentBehavior(request, { ...input, profile }, true));
+  check('durable command receipts do not store instruction bodies', !readFileSync(join(root, 'remote', 'commands.json'), 'utf8').includes('Neue Spezialisierung'));
+  devices.setAdminScopes('tablet', ['profiles:write'], { mode: 'selected', agentIds: ['reviewer'], repositoryIds: [] });
+  await refuses('selected devices cannot read another profile context', () => application.agentBehavior(context(), { agentId: 'builder' }, false));
+  await refuses('resource revocation also blocks receipt replay', () => application.agentBehavior(request, input, true));
+  const privateView = service.query(agent.id);
+  service.update({ agentId: agent.id, revision: privateView.revision, profile: { instructions: 'Read C:\\Users\\Private\\work\\secret.md', documents: [] } });
+  const wire = service.query(agent.id, true);
+  check('wire masks native paths and disables editing a redacted copy', wire.redacted === true && !JSON.stringify(wire).includes('C:\\\\Users'));
+  check('desktop keeps exact private instructions without wire redaction', service.query(agent.id).profile.instructions.includes('C:\\Users'));
+  devices.setAdminScopes('tablet', ['profiles:write'], { mode: 'all' });
+  const finalView = service.query(agent.id);
+  await application.agentBehavior(context(), { agentId: agent.id, revision: finalView.revision, profile }, true);
+  check('final positive update works after rejected operations', service.query(agent.id).profile.instructions === profile.instructions);
+})().catch(error => { failed++; console.error(error); }).finally(() => { rmSync(root, { recursive: true, force: true }); console.log(`Agent behavior: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0; });

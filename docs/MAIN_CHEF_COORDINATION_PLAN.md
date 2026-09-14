@@ -196,7 +196,9 @@ vorgeschriebenen Modell-/Reasoning-/Bypass- und dauerhaften Rollenvertrags-Pins.
 Anweisungsverwaltung und einen überprüfbaren Plan. 26.3 folgt mit zwei Projekten
 auf einem PC. Hostübergreifende Autonomie folgt erst nach nachgewiesener
 Hostauswahl, getrennten Berechtigungen und zuverlässigem Abbruch.
-## Implementierungsbefund vom 14. September 2026
+## Ausgangsbefund vom 14. September 2026
+
+Historischer Befund vor der unten beschriebenen Umsetzung:
 
 Die erneute lokale Sub-Agent-Analyse zeigt eine konkrete Voraussetzung für
 Goal 26.1: Interaktive Sitzungen und Managed Tasks bekommen heute nicht denselben
@@ -250,3 +252,30 @@ bisherige Prompt gespeichert bleiben; eine Profiländerung darf deshalb keinen
 unbelegten Live-Wechsel behaupten.
 [CLI-Referenz](https://code.claude.com/docs/en/cli-reference).
 Die Dokumentationsprüfung ersetzt noch keinen echten ADE-Startnachweis.
+
+### Implementierungsstand: Profilbearbeitung und Transportbausteine
+
+Der gemeinsame Editor für Desktop und Mobile kann Arbeitsanweisungen sowie
+geordnete Markdown-Kopien speichern. Grenzen: 8.000 Zeichen je Text/Dokument,
+acht Dokumente, zusammen 24.000 Zeichen; der vollständige Identitätskontext
+ist auf 32.000 Zeichen begrenzt und wird bei Überschreitung abgelehnt.
+Die reine Vorschau schreibt keine Dateien. Revision und Quellen-Digests
+erkennen konkurrierende Änderungen. Mobile nutzt dedizierte Profilrouten mit
+bestehender Gerätefreigabe und signiertem Idempotenz-Ledger; Profiltext wird
+nicht in allgemeine Zusammenfassungen oder Ledger-Ergebnisse aufgenommen.
+
+Ein nativer Windows-Transportbaustein legt unveränderliche Snapshot-Dateien
+außerhalb des Workspace ab. Codex verlangt vor dem Anhängen ausdrücklich
+verifizierte bestehende Developer-Anweisungen; unbekannter Zustand blockiert.
+Claude verwendet die zusätzliche Prompt-Datei. Zwölf Tests belegen sicheren
+Argumenttransport einschließlich PowerShell 5.1, PowerShell 7 und npm-Shim.
+Die Anbindung an den ADE-Sitzungsstart ist inzwischen implementiert: 39
+Electron-Prüfungen mit echten PTYs belegen Profil-/Projektstarts, Starttext,
+Quellen, Versionsvergleich und unveränderte Repository-Dateien. Aktiviertes
+MEMORY/USER samt Pflegeanweisungen bleibt erhalten; deaktivierte Quellen werden
+nicht gelesen. Profil- und vollständiger Start-Digest sind getrennt.
+Zwölf mobile Browserprüfungen decken die Profilbearbeitung einschließlich
+Konflikten und Erhalt eigener Entwürfe ab. Je eine echte Codex-/Claude-Probe
+bestätigt die Verarbeitung des nur im Profil enthaltenen Antwortmarkers.
+Die vollständige Gesamtabnahme ist grün; die persönliche Aktivierung folgt
+nach Commit/Push. Genaue Belege und Plattformgrenzen: `AGENT_PROFILE_RESULTS.md`.

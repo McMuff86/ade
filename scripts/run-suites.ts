@@ -38,7 +38,11 @@ const SUITES: Suite[] = [
   { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 26 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
-  { id: 'memory', script: 'test-memory.ts', floors: { win32: 28 } },
+  { id: 'memory', script: 'test-memory.ts', floors: { win32: 45 } },
+  { id: 'agent-behavior', script: 'test-agent-behavior.ts', floors: { win32: 18 } },
+  { id: 'profile-launch', script: 'test-profile-launch.ts', floors: { win32: 12 } },
+  { id: 'codex-profile-config', script: 'test-codex-profile-config.ts', floors: { win32: 10 } },
+  { id: 'interactive-profile-snapshot', script: 'test-interactive-profile-snapshot.ts', floors: { win32: 10 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 47 } },
   { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 27 } },
@@ -67,7 +71,7 @@ const SUITES: Suite[] = [
   { id: 'run-file-storage', script: 'test-run-file-storage.ts', floors: { win32: 20 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
   { id: 'remote-commits', script: 'test-remote-commits.ts', floors: { win32: 29 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 59 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 64 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 33 } },
   { id: 'subscription-usage', script: 'test-subscription-usage.ts', floors: { win32: 14 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
@@ -82,7 +86,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 236 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 239 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

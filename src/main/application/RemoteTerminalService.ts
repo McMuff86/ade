@@ -12,6 +12,7 @@ import { remoteTerminalScreen } from './RemoteTerminalScreen';
 import type { MobileSessionInventory } from '../../shared/remote';
 
 export interface RemoteTerminalPort {
+  profileContext?(sessionId: string): string | null;
   usage?(sessionId: string): Promise<import('../../shared/remote').SubscriptionUsage>;
   display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
   list(): SessionMeta[];
@@ -35,7 +36,7 @@ const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
+  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage', 'profileContext'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
   if (Object.keys(input).some((key) => !allowed.includes(key)) || !validTerminalSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
@@ -44,6 +45,7 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
   if (kind === 'command' && input.operation === 'open' && input.projectWorkspaceId && !validProjectLaunch(input)) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.usage !== undefined && (input.usage !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'query' && input.profileContext !== undefined && (input.profileContext !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
     || !Number.isSafeInteger(input.sequence) || (input.sequence as number) < 1 || typeof input.data !== 'string' || Buffer.byteLength(input.data) > 2048 || input.data.includes('\0')
     || !Number.isInteger(input.cols) || (input.cols as number) < 20 || (input.cols as number) > 240
@@ -100,7 +102,10 @@ export class RemoteTerminalService {
     this.requireGrant(deviceId, input); await this.workbench.revalidate(binding); this.requireGrant(deviceId, input); this.expire();
     if (!this.visible(deviceId, session!)) throw new RemoteApiError(403, 'scope_not_granted');
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
-    return { ...current(), subscriptionUsage, selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
+    const profileText = input.profileContext ? this.port.profileContext?.(entry!.sessionId) : undefined;
+    return { ...current(), subscriptionUsage,
+      ...(input.profileContext ? { profileContextText: typeof profileText === 'string' ? redactForWire(profileText, 32_000) : null } : {}),
+      selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
 
@@ -226,6 +231,12 @@ export class RemoteTerminalService {
   }
   private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
+      profileContext: session.profileContext ? { profileId: session.profileContext.profileId,
+        profileName: redactForWire(session.profileContext.profileName, 200), digest: session.profileContext.digest,
+        profileDigest: session.profileContext.profileDigest,
+        capturedAt: session.profileContext.capturedAt, delivery: session.profileContext.delivery,
+        sources: session.profileContext.sources.map(source => ({ kind: source.kind, id: source.id,
+          name: redactForWire(source.name, 200), sha256: source.sha256, chars: source.chars })) } : undefined,
       program: session.program ? { ...session.program } : undefined,
       launchMode: session.launchChoice?.mode ?? 'agent',
       launchProfileId: session.launchProfileId,

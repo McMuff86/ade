@@ -100,6 +100,8 @@ export const IPC = {
   SpeechSelect: 'speech:select',
   SpeechTest: 'speech:test',
   SpeechPreferences: 'speech:preferences',
+  AgentBehaviorGet: 'agent:behaviorGet',
+  AgentBehaviorSet: 'agent:behaviorSet',
   SpeechConfigure: 'speech:configure',
   ProjectWorkspaceQuery: 'project:query',
   IntegrationQuery: 'integration:query',
@@ -137,6 +139,7 @@ export const IPC = {
   PtyAttach: 'pty:attach',
   TerminalControl: 'terminal:control',
   TerminalUsage: 'terminal:usage',
+  TerminalProfileContext: 'terminal:profileContext',
   TerminalReclaim: 'terminal:reclaim',
   PtyActivitySnapshot: 'pty:activitySnapshot',
   RunTaskActivity: 'runTask:activity',
@@ -693,6 +696,8 @@ export interface IpcInvokeMap {
   'speech:select': { req: { voiceId: string }; res: void };
   'speech:test': { req: { voiceId: string }; res: import('./speech').SpeechAudio };
   'speech:preferences': { req: import('./speech').SpeechTarget; res: import('./speech').SpeechPreference };
+  'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
+  'agent:behaviorSet': { req: import('./agentBehavior').AgentBehaviorUpdate; res: { revision: string } };
   'speech:configure': { req: import('./speech').SpeechSelection; res: void };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
   'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
@@ -729,6 +734,7 @@ export interface IpcInvokeMap {
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'terminal:control': { req: PtyAttachRequest; res: TerminalControlState };
   'terminal:usage': { req: PtyAttachRequest; res: import('./remote').SubscriptionUsage };
+  'terminal:profileContext': { req: PtyAttachRequest; res: string | null };
   'terminal:reclaim': { req: PtyAttachRequest; res: TerminalControlState };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
   'runTask:activity': { req: { taskId: string }; res: PtyActivityResult };

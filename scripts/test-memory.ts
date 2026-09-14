@@ -7,13 +7,15 @@
  * Pure Node — no Electron — so it runs under tsx.
  */
 
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   AGENT_ROLE_END_MARKER,
   AGENT_ROLE_START_MARKER,
   snapshotAgentInstructions,
+  previewAgentInstructions,
   syncAgentInstructions,
 } from '../src/main/memory/agentInstructions';
 import {
@@ -24,6 +26,7 @@ import {
 } from '../src/main/memory/legacyInstructions';
 import { ENTRY_DELIMITER, MemoryStore } from '../src/main/memory/MemoryStore';
 import type { Agent } from '../src/shared/types';
+import { isValidAgentBehaviorProfile, validateAgentBehaviorProfile } from '../src/shared/agentProfile';
 
 let passed = 0;
 let failed = 0;
@@ -220,6 +223,88 @@ section('role-aware AGENTS.md');
       && snapshot.content.includes('Orchestration role: main orchestrator')
       && /^[0-9a-f]{64}$/.test(snapshot.sha256)
       && snapshot.chars === snapshot.content.length);
+}
+
+section('profile snapshots and safe identity files');
+{
+  const dir = freshDir();
+  const agent: Agent = { id: 'profile', categoryId: 'cat', name: 'Profile Agent', runtime: 'codex', permissionMode: 'default',
+    workspaceDir: join(dir, 'repo'), memoryDir: join(dir, 'identity'), profile: {
+      instructions: 'Specialize in geometry.\nKeep the tolerance explicit.',
+      documents: [{ id: 'quality', name: 'QUALITY.md', text: 'Run geometry checks.' },
+        { id: 'context', name: 'Project Context.md', text: 'Dimensions are millimetres.' }],
+    } };
+  const hash = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+  const rejects = (action: () => unknown, expected: RegExp) => {
+    try { action(); return false; } catch (error) { return expected.test(String(error)); }
+  };
+  const preview = previewAgentInstructions(agent);
+  check('profile preview writes neither identity nor repository files', !existsSync(agent.memoryDir) && !existsSync(agent.workspaceDir));
+  const snapshot = snapshotAgentInstructions(agent);
+  check('preview and launch use the same exact effective context', preview.content === snapshot.content && preview.sha256 === snapshot.sha256);
+  check('profile instructions and ordered documents work without a MEMORY scaffold',
+    snapshot.content.includes(agent.profile!.instructions)
+    && snapshot.content.indexOf('Run geometry checks.') < snapshot.content.indexOf('Dimensions are millimetres.')
+    && !existsSync(join(agent.memoryDir, 'MEMORY.md')) && !existsSync(agent.workspaceDir));
+  check('snapshot source provenance hashes actual document contents', snapshot.sha256 === hash(snapshot.content)
+    && snapshot.sources.map((source) => source.kind).join(',') === 'identity,instructions,document,document'
+    && snapshot.sources[2]!.sha256 === hash(agent.profile!.documents[0]!.text)
+    && snapshot.sources[2]!.id === 'quality' && snapshot.sources[3]!.chars === agent.profile!.documents[1]!.text.length);
+  const persistedPath = join(agent.memoryDir, 'AGENTS.md');
+  const persisted = readFileSync(persistedPath, 'utf8');
+  check('sync never duplicates profile text into the persistent identity contract', !persisted.includes('Specialize in geometry.')
+    && !persisted.includes('Run geometry checks.') && snapshotAgentInstructions(agent).sha256 === snapshot.sha256);
+  writeFileSync(persistedPath, `${persisted}\nUser-owned instructions.`, 'utf8');
+  const augmented = snapshotAgentInstructions(agent);
+  check('user-owned identity content remains effective and changes full-context hash', augmented.content.includes('User-owned instructions.')
+    && augmented.sha256 !== snapshot.sha256 && augmented.profileRevision === snapshot.profileRevision);
+  const changed: Agent = { ...agent, profile: { ...agent.profile!, documents: [...agent.profile!.documents].reverse() } };
+  check('document ordering changes revision without mutating prior snapshot', previewAgentInstructions(changed).profileRevision !== snapshot.profileRevision
+    && snapshot.sources[2]!.id === 'quality');
+  const edited: Agent = { ...agent, profile: { ...agent.profile!, instructions: 'Different instructions.' } };
+  const updated = previewAgentInstructions(edited);
+  check('new profile revision differs while prior snapshot stays fixed', updated.profileRevision !== snapshot.profileRevision
+    && updated.sha256 !== snapshot.sha256 && snapshot.content.includes('Specialize in geometry.'));
+  const beforePreview = readFileSync(persistedPath, 'utf8');
+  previewAgentInstructions({ ...agent, name: 'Renamed agent' });
+  check('preview does not synchronize stale persisted role blocks', readFileSync(persistedPath, 'utf8') === beforePreview);
+
+  const profile = agent.profile!;
+  check('strict validator accepts detached canonical imported profile copies', validateAgentBehaviorProfile(profile) !== profile
+    && validateAgentBehaviorProfile(profile).documents[0] !== profile.documents[0]);
+  const invalidProfiles: unknown[] = [null, {}, { ...profile, extra: true }, { instructions: 1, documents: [] },
+    { ...profile, instructions: 'x'.repeat(8001) }, { ...profile, instructions: 'bad\0text' },
+    { ...profile, documents: [...profile.documents, profile.documents[0]] },
+    { ...profile, documents: [{ id: 'unsafe/id', name: 'Safe.md', text: '' }] },
+    { ...profile, documents: [{ id: 'safe', name: '../Unsafe.md', text: '' }] },
+    { ...profile, documents: [{ id: 'safe', name: 'Unsafe.txt', text: '' }] },
+    { ...profile, documents: [{ id: 'safe', name: 'Safe.md', text: 'x'.repeat(8001) }] },
+    { ...profile, documents: [{ id: 'safe', name: 'Safe.md', text: '', extra: true }] },
+    { instructions: '', documents: Array.from({ length: 9 }, (_, i) => ({ id: `d${i}`, name: 'Doc.md', text: '' })) },
+    { instructions: 'x', documents: Array.from({ length: 3 }, (_, i) => ({ id: `d${i}`, name: 'Doc.md', text: 'x'.repeat(8000) })) }];
+  check('strict validator rejects wrong keys, bounds, paths, duplicate IDs and NUL', invalidProfiles.every((value) =>
+    !isValidAgentBehaviorProfile(value) && rejects(() => validateAgentBehaviorProfile(value), /Ungültige Profilanweisungen/)));
+  check('total content exact boundary remains accepted', isValidAgentBehaviorProfile({ instructions: '',
+    documents: Array.from({ length: 3 }, (_, i) => ({ id: `d${i}`, name: 'Doc.md', text: 'x'.repeat(8000) })) }));
+  writeFileSync(persistedPath, 'x'.repeat(32_001), 'utf8');
+  check('oversized effective instructions fail instead of truncating', rejects(() => previewAgentInstructions(agent), /32000/)
+    && rejects(() => snapshotAgentInstructions(agent), /32000/));
+  writeFileSync(persistedPath, 'x'.repeat(256 * 1024 + 1), 'utf8');
+  check('oversized stored identity file is rejected before reading', rejects(() => syncAgentInstructions(agent), /256 KiB/));
+  const linkedMemory = join(dir, 'hardlink-identity'); mkdirSync(linkedMemory);
+  const original = join(dir, 'original.md'); writeFileSync(original, 'Original instructions.');
+  linkSync(original, join(linkedMemory, 'AGENTS.md'));
+  check('hardlinked identity cannot be read or synchronized', rejects(() => previewAgentInstructions({ ...agent, memoryDir: linkedMemory }), /unverknüpfte/)
+    && rejects(() => syncAgentInstructions({ ...agent, memoryDir: linkedMemory }), /unverknüpfte/)
+    && readFileSync(original, 'utf8') === 'Original instructions.');
+  const target = join(dir, 'target'); mkdirSync(target);
+  const redirected = join(dir, 'redirected'); symlinkSync(target, redirected, process.platform === 'win32' ? 'junction' : 'dir');
+  check('linked parent directories are rejected even when identity file is absent',
+    rejects(() => previewAgentInstructions({ ...agent, memoryDir: redirected }), /Verknüpfung/)
+    && rejects(() => syncAgentInstructions({ ...agent, memoryDir: redirected }), /Verknüpfung/)
+    && !existsSync(join(target, 'AGENTS.md')));
+  const directoryMemory = join(dir, 'directory-identity'); mkdirSync(join(directoryMemory, 'AGENTS.md'), { recursive: true });
+  check('invalid identity file is not silently replaced by empty content', rejects(() => syncAgentInstructions({ ...agent, memoryDir: directoryMemory }), /reguläre/));
 }
 
 /* ---------------------------------------------------------- summary */

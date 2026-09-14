@@ -684,6 +684,42 @@ windows through `catalog:changed`; no runtime, permission or general config
 fields are exposed. The mobile CSP permits blob images for authenticated
 avatars, while script and navigation rules remain unchanged.
 
+Agent behavior is a separate bounded contract: `agent:behaviorGet/Set` on the
+desktop and `POST /api/v1/profile/behavior/query` / `update` remotely. The
+read-only preview composes identity guidance, explicit instructions and ordered
+Markdown copies without writing AGENTS.md. A full-context SHA guards updates.
+Remote writes require active device-signature proof, `profiles:write`, selected
+resource authorization and the existing durable idempotency ledger. Only the
+result revision is journaled; profile bodies are never receipt results. Wire
+redaction prevents host paths from escaping and marks altered editable copies
+read-only, avoiding accidental loss when round-tripping a redacted profile.
+
+Saving behavior opts interactive agent-profile starts into an external immutable
+snapshot. Native Windows Codex appends to developer instructions obtained by a
+bounded read-only `config/read` probe with matching cwd/environment; unknown
+configuration blocks the launch. Native Claude uses its additional prompt-file
+option. Custom commands and other backends are explicitly rejected for this
+transport. Plain CLI, shell and login launches do not inject new ADE guidance.
+Previously injected repository blocks are not automatically removed.
+PTY metadata carries only profile ID/name, snapshot SHA, timestamp and source
+digests. Desktop/mobile can compare this captured revision with the saved
+profile; editing a profile does not mutate a running session. The metadata
+proves the selected launch transport, not model compliance or resumed-thread
+prompt replacement. Captured text remains in the private main Session record
+until that session is removed. Desktop `terminal:profileContext` and an explicit
+remote terminal query with `profileContext: true` can read it; normal polling,
+inventory and events never contain it. The remote path reuses the terminal's
+current device/resource authorization and applies bounded wire redaction.
+Native Windows end-to-end acceptance passed; evidence and platform limits are
+recorded in `AGENT_PROFILE_RESULTS.md`.
+
+Interactive profile snapshots preserve enabled MEMORY/USER content and the
+existing maintenance guidance without injecting files into the project.
+Bounded descriptor-checked reads reject links, hardlinks and malformed UTF-8;
+disabled sources are not read. The full snapshot digest includes captured
+memory; a separate profile digest is used for comparison with the saved profile.
+Previewing/saving the behavior itself still performs no memory writes.
+
 All new scopes are granted only in desktop Settings per device; pairing and
 existing identities gain none automatically. New wire contracts live in
 `shared/remote.ts` and use AdeApplicationService, signatures, browser CSRF,

@@ -78,6 +78,9 @@ export interface MobileAgentSummary {
   dashboard?: { url?: string; notice?: string };
 }
 export interface MobileAgentProfile { agent: MobileAgentSummary; revision: string; photo?: { mime: 'image/png'; bytesBase64: string }; photoError?: string }
+export type MobileAgentBehaviorQuery = { agentId: string };
+export type MobileAgentBehaviorView = import('./agentBehavior').AgentBehaviorView;
+export type MobileAgentBehaviorUpdate = import('./agentBehavior').AgentBehaviorUpdate;
 export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null }
 
 export interface MobileCatalog {
@@ -218,6 +221,7 @@ export interface SessionLaunchOptions {
   profiles?: Array<{ id: string; name: string; runtime: import('./types').RuntimeId }>;
 }
 export interface MobileTerminalSummary {
+  profileContext?: import('./agentBehavior').SessionProfileContext;
   program?: import('./types').SessionProgramState;
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
   launchMode?: SessionLaunchChoice['mode'];
@@ -244,6 +248,8 @@ export interface MobileRunFile { id: string; path: string; name: string; bytes: 
 export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
   unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
+  /** Returned only for an explicit profileContext detail request. */
+  profileContextText?: string | null;
   subscriptionUsage?: SubscriptionUsage;
   launchOptions?: SessionLaunchOptions;
   terminals: MobileTerminalSummary[];
@@ -258,7 +264,7 @@ export interface MobileTerminalState {
 }
 /** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
 export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
-export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true };
+export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true };
 export type MobileTerminalCommand = MobileTerminalSelection & (
   | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }

@@ -45,6 +45,9 @@ import { ClaudeActivityParser, type ActivityLine } from '../orchestration/claude
 import { CodexActivityParser } from '../orchestration/codexStream';
 import { GrokActivityParser } from '../orchestration/grokStream';
 import { injectMemoryBlock } from '../memory/inject';
+import { buildInteractiveProfileSnapshot } from '../memory/interactiveProfileSnapshot';
+import { prepareProfileLaunch, type PreparedProfileLaunch } from './profileLaunch';
+import { readCodexProfileConfig } from './CodexProfileConfig';
 import { showSessionExitNotification } from '../notifications';
 import { redactArgs } from '../errors';
 import { resolveHostShell, sameHostPath } from '../platform';
@@ -125,6 +128,9 @@ interface Session {
   outputBytes?: number;
   programReader?: ProgramSignalReader;
   programCleanup?: () => void;
+  profileCleanup?: () => void;
+  /** Captured text is main-only and available through an explicit detail read. */
+  profileText?: string;
   programStartTimer?: ReturnType<typeof setTimeout>;
   display?: RemoteTerminalDisplay;
   meta: SessionMeta;
@@ -398,6 +404,12 @@ export class PtyManager {
     });
   }
 
+  profileContextText(sessionId: string): string | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error('ade: Sitzung ist nicht mehr vorhanden.');
+    return session.profileText ?? null;
+  }
+
   async createProjectInteractive(workspaceId: string, expectedBranch: string, choice: SessionLaunchChoice,
     profileId?: string, assertAuthorized: () => void = () => undefined): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
@@ -504,17 +516,23 @@ export class PtyManager {
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
     const allowQuestions = !!task?.runTaskId && this.store.get().runTasks.find((item) => item.id === task.runTaskId)?.allowQuestions === true;
+    // A raw CLI/login/shell never receives ADE behavior just because its tab
+    // belongs to an agent. An explicitly saved behavior opts a profile into the
+    // external snapshot transport, independent of the memory toggle.
+    const profileIdentity = !task && !login && (!launchChoice || launchChoice.mode === 'agent')
+      ? project?.profileId ? this.requireAgent(project.profileId) : savedAgent : undefined;
+    const profileSnapshot = profileIdentity?.profile !== undefined ? buildInteractiveProfileSnapshot(profileIdentity, this.store.get().settings.memory) : undefined;
     if (allowQuestions && (agent.runtime !== 'codex' || agent.customCommand?.trim() || scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !this.questions)) {
       throw new Error('ade: Interaktive Runs benötigen eine native Codex-Laufzeit und den ADE-Rückfragendienst.');
     }
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (savedAgent && !project && !managedLaunch && !login && launchChoice?.mode !== 'shell' && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
+    if (savedAgent && !project && !managedLaunch && !login && !profileSnapshot && (!launchChoice || launchChoice.mode === 'agent') && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
         injectMemoryBlock({ ...savedAgent, ...agent }, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
-        console.warn(`[ade] memory inject failed for agent=${agentId}:`, error);
+        console.warn(`[ade] memory inject failed for agent=${agentId}:`, redactedErrorDetail(error));
       }
     }
 
@@ -526,6 +544,7 @@ export class PtyManager {
         ? this.resolveLoginSpawn(login.command, backendPlatform)
         : this.resolveInteractiveSpawn(agent, backendPlatform);
     let spec = baseSpec;
+    let preparedProfile: PreparedProfileLaunch | undefined;
     let promptScratchDir: string | undefined;
     let backendEnv: Record<string, string> | undefined;
     if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND && task) {
@@ -534,15 +553,32 @@ export class PtyManager {
       backendEnv = prepared.env;
       promptScratchDir = prepared.promptScratchDir;
     }
-    const program = !task && !login && spec.initialCommand
+    const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
+    if (profileSnapshot && profileIdentity) {
+      if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error('ade: Interaktive Profilanweisungen benötigen derzeit einen nativen Windows-Start.');
+      if (!spec.initialCommand) throw new Error('ade: Dieser Sitzungsstart kann keine Profilanweisungen übertragen.');
+      const baseline = agent.runtime === 'codex' ? await readCodexProfileConfig({ cwd,
+        env: { ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) } }) : undefined;
+      if (baseline?.status === 'unavailable') throw new Error(baseline.message);
+      preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent }, snapshot: profileSnapshot,
+        command: spec.initialCommand, scratchRoot: join(os.tmpdir(), 'ade-profile-snapshots'), workspaceDir: scope.workspaceDir,
+        executionBackend: scope.executionBackend,
+        codexDeveloperInstructions: baseline?.status === 'verified' ? { mode: 'append-verified', existing: baseline.developerInstructions ?? '' } : undefined });
+      spec = { ...spec, initialCommand: preparedProfile.command };
+    }
+    let program: Awaited<ReturnType<typeof prepareProgram>> | undefined;
+    try { program = !task && !login && spec.initialCommand
       ? await prepareProgram(spec.initialCommand, backendPlatform, (path) => scope.executionBackend === NATIVE_EXECUTION_BACKEND
         ? Promise.resolve(path) : this.execution.toBackendPath(scope.executionBackend, path)) : undefined;
+    } catch (error) { preparedProfile?.dispose(); throw error; }
     if (program) spec = { ...spec, args: program.args ?? spec.args, initialCommand: program.initialCommand };
+    // Match the read-only Codex config probe's clean shell environment. A
+    // PowerShell profile must not swap aliases/config after baseline capture.
+    if (preparedProfile && !spec.args.includes('-NoProfile')) spec = { ...spec, args: ['-NoProfile', ...spec.args] };
     // Stored service keys and the matching harness API key reach only
     // sessions of the effective runtime; explicit task/launch env always
     // wins. Login terminals stay credential-free so the CLI's own sign-in
     // state is what gets created and checked.
-    const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
     let command: ReturnType<ExecutionBackendService['ptyCommand']>;
     try { command = this.execution.ptyCommand(
       scope.executionBackend,
@@ -554,7 +590,7 @@ export class PtyManager {
         ...credentialEnv,
         ...(backendEnv ?? spec.env ?? {}),
       },
-    ); } catch (error) { program?.dispose(); throw error; }
+    ); } catch (error) { program?.dispose(); preparedProfile?.dispose(); throw error; }
     // WSL launches receive their backend fields through WSLENV in the host
     // environment of wsl.exe (see ExecutionBackendService.wslLaunch), never
     // through argv, so the credential is not on the relay's command line.
@@ -570,6 +606,9 @@ export class PtyManager {
     let proc: TaskProcess;
     try {
       if (project) await project.revalidate();
+      if (profileSnapshot && profileIdentity && buildInteractiveProfileSnapshot(this.requireAgent(profileIdentity.id), this.store.get().settings.memory).sha256 !== profileSnapshot.sha256) {
+        throw new Error('ade: Profilanweisungen wurden während des Starts geändert. Sitzung erneut öffnen.');
+      }
       if (task?.runTaskId && this.taskFileTracker) {
         await this.taskFileTracker.before(task.runTaskId, scope);
         const currentTask = this.store.get().runTasks.find((item) => item.id === task.runTaskId);
@@ -590,6 +629,7 @@ export class PtyManager {
       });
     } catch (error) {
       program?.dispose();
+      preparedProfile?.dispose();
       if (promptScratchDir) rmSync(promptScratchDir, { recursive: true, force: true });
       throw error;
     }
@@ -597,6 +637,8 @@ export class PtyManager {
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
+      profileContext: profileSnapshot && profileIdentity ? { profileId: profileIdentity.id, profileName: profileIdentity.name,
+        digest: profileSnapshot.sha256, profileDigest: profileSnapshot.profileDigest, capturedAt: Date.now(), delivery: 'supplied', sources: profileSnapshot.sources } : undefined,
       program: program ? { status: 'starting' } : undefined,
       launchChoice,
       remoteAccessBlocked: login ? true : undefined,
@@ -620,6 +662,8 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      profileText: profileSnapshot?.content,
+      profileCleanup: preparedProfile?.dispose,
       usageProvider: !agent.customCommand && (agent.runtime === 'codex' || agent.runtime === 'claude' || agent.runtime === 'grok') ? agent.runtime : undefined,
       usageApiKey: !agent.customCommand && providerApiKeyPresent(agent.runtime, scope.executionBackend === NATIVE_EXECUTION_BACKEND
         ? env : { ...credentialEnv, ...(backendEnv ?? spec.env ?? {}) }),
@@ -840,6 +884,8 @@ export class PtyManager {
   }
 
   private releaseTaskLease(session: Session): void {
+    session.profileCleanup?.();
+    session.profileCleanup = undefined;
     if (session.programStartTimer) clearTimeout(session.programStartTimer);
     session.programStartTimer = undefined;
     session.programCleanup?.();

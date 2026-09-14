@@ -88,7 +88,7 @@ export function injectMemoryBlock(
     userLimit: cfg.userCharLimit,
   });
 
-  const block = buildBlock(agent, store, cfg);
+  const block = buildMemoryBlock(agent, store, cfg);
 
   for (const file of files) {
     writeManagedBlock(join(workspaceDir, file), block);
@@ -97,7 +97,9 @@ export function injectMemoryBlock(
 
 /* --------------------------------------------------------------- block */
 
-function buildBlock(agent: Agent, store: MemoryStore, cfg: MemorySettings): string {
+/** Pure renderer shared with external interactive snapshots. The caller owns
+ * safe reads; rendering never creates a scaffold or writes instruction files. */
+export function buildMemoryBlock(agent: Agent, store: Pick<MemoryStore, 'filePath' | 'renderBlock'>, cfg: MemorySettings): string {
   const memoryPath = store.filePath('memory');
   const userPath = store.filePath('user');
 

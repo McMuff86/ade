@@ -66,11 +66,11 @@ type Route =
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
   | { kind: 'speechQuery' | 'speechCommand' }
   | { kind: 'terminalSessions' }
-  | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' }
+  | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -133,6 +133,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
     case '/api/v1/workspace/assignment/command': return { route: { kind: 'assignmentCommand' }, allow: ['POST'] };
     case '/api/v1/workspace/save': return { route: { kind: 'saveWorkspaceFile' }, allow: ['POST'] };
+    case '/api/v1/profile/behavior/query': return { route: { kind: 'queryBehavior' }, allow: ['POST'] };
+    case '/api/v1/profile/behavior/update': return { route: { kind: 'updateBehavior' }, allow: ['POST'] };
     case '/api/v1/profile/query': return { route: { kind: 'queryProfile' }, allow: ['POST'] };
     case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
     case '/api/v1/terminal/query': return { route: { kind: 'terminalQuery' }, allow: ['POST'] };
@@ -468,6 +470,8 @@ export class HostApiServer {
         case 'integrationCommand':
         case 'assignmentCommand':
         case 'saveWorkspaceFile':
+        case 'queryBehavior':
+        case 'updateBehavior':
         case 'queryProfile':
         case 'updateProfile':
         case 'terminalQuery':
@@ -571,6 +575,7 @@ export class HostApiServer {
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
+        : kind === 'queryBehavior' || kind === 'updateBehavior' ? await this.application.agentBehavior(context, payload, kind === 'updateBehavior')
         : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
         : kind === 'assignmentQuery' || kind === 'assignmentCommand' ? await this.application.workspaceAssignment(context, payload, kind === 'assignmentCommand')
         : kind === 'integrationQuery' || kind === 'integrationCommand' ? await this.application.integration(context, payload, kind === 'integrationCommand')

@@ -1,4 +1,5 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { AgentBehaviorService, validateBehaviorUpdate } from '../memory/AgentBehaviorService';
 import { validSpeechQuery, validSpeechCommand, type RemoteSpeechService } from './RemoteSpeechService';
 import type { SpeechTarget } from '../../shared/speech';
 import type { MobileSpeechResult } from '../../shared/remote';
@@ -134,6 +135,7 @@ export interface ApplicationOptions {
   workbench?: RemoteWorkbenchService;
   terminals?: RemoteTerminalService;
   profiles?: RemoteProfileService;
+  behavior?: AgentBehaviorService;
   deviceActive?: (deviceId: string) => boolean;
   activity?: HostOperationGate;
   administration?: { ledger: RemoteCommandLedger; restart: HostRestartController; workspaces?: RemoteWorkspaceService; git?: RepositorySyncService };
@@ -280,6 +282,28 @@ export class AdeApplicationService {
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
       authorize(payload.target); this.options.catalogChanged?.();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async agentBehavior(context: RemoteCommandContext, payload: unknown, command: boolean) {
+    const behavior = this.options.behavior; const ledger = this.options.administration?.ledger;
+    if (!behavior) throw new RemoteApiError(404, 'not_found');
+    if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    try {
+      if (!command) {
+        const id = validateProfileQuery(payload); this.resources.assertAgent(context.principal, id);
+        return behavior.query(id, true);
+      }
+      if (!ledger) throw new RemoteApiError(404, 'not_found');
+      ledger.permits(context, 'profiles:write');
+      const input = validateBehaviorUpdate(payload); this.resources.assertAgent(context.principal, input.agentId);
+      const receipt = await ledger.execute(context, 'profile:behavior', 'profiles:write', input, () => {
+        const execute = () => { this.resources.assertAgent(context.principal, input.agentId); return behavior.update(input); };
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      this.resources.assertAgent(context.principal, input.agentId); this.options.catalogChanged?.();
       return { ...receipt.value, replayed: receipt.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }

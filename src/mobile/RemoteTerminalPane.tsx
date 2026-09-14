@@ -9,6 +9,7 @@ import { Dialog, DialogHeaderSlot } from './ui';
 import { useDeviceDraft } from './deviceDrafts';
 import { TerminalScreen } from './TerminalScreen';
 import { SubscriptionUsagePanel } from '../renderer/terminal/SubscriptionUsagePanel';
+import { SessionProfileContext } from '../renderer/terminal/SessionProfileContext';
 import { TerminalInputQueue } from './TerminalInputQueue';
 import { DashboardLink } from './DashboardLink';
 import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
@@ -249,6 +250,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       </select></label>
       {terminalHome && <span>Benutzerverzeichnis · Ohne Agent und Projekt</span>}
       {projectWorkspaceId && <span>{expectedBranch} · {state.selected?.launchProfileName ?? 'Ohne Agent-Profil'}</span>}
+      {state.selected?.profileContext && <SessionProfileContext key={state.selected.id} context={state.selected.profileContext}
+        readText={async () => (await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, profileContext: true })).profileContextText ?? null}
+        readRevision={async () => (await host.request<{ revision: string }>('/api/v1/profile/behavior/query', 'POST', { agentId: state.selected!.profileContext!.profileId })).revision} />}
       {focused && <><span role="status">{host.status !== 'online' ? 'Offline · letzter Anzeigestand' : owning ? 'Eingabe: Tablet' : 'Eingabe: PC / anderes Gerät'}</span>
         {state.selected && <>{!owning && <button disabled={blocked || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>}
           {owning && <button disabled={busy || !!pending || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>}

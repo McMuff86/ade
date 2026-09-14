@@ -5,6 +5,7 @@
  */
 
 import type { ExecutionBackendId } from './executionBackends';
+import type { AgentBehaviorProfile } from './agentProfile';
 
 export type PermissionMode = 'default' | 'accept-edits' | 'bypass';
 
@@ -149,6 +150,8 @@ export interface Agent {
   categoryId: string;
   name: string;
   role?: string;
+  /** Owned instruction/document copies, stored outside repository workspaces. */
+  profile?: AgentBehaviorProfile;
   /** Optional voice override; absent inherits the project and ADE default. */
   speechVoiceId?: string;
   /** photos/<file> under userData */
@@ -227,6 +230,8 @@ export interface SessionProgramState {
 }
 
 export interface SessionMeta {
+  /** Captured profile metadata only; instruction text remains in main. */
+  profileContext?: import('./agentBehavior').SessionProfileContext;
   /** Project ownership is independent of an optional launch-settings profile. */
   projectWorkspaceId?: string;
   launchProfileId?: string;

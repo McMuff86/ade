@@ -1,4 +1,5 @@
 import { validNavigationGroup } from '../shared/categoryNavigation';
+import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
 import { validProjectMembership } from '../shared/remote';
 import { validVoiceId, validSpeechSelection, validSpeechTarget } from '../shared/speech';
 import { validQuestionAnswers } from '../shared/runQuestions';
@@ -684,6 +685,11 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.SpeechPreferences:
       if (!validSpeechTarget(payload)) invalid(channel, 'invalid speech target');
       return;
+    case IPC.AgentBehaviorGet: {
+      const request = record(channel, payload); exactKeys(channel, request, ['agentId']); id(channel, request.agentId, 'agentId'); return;
+    }
+    case IPC.AgentBehaviorSet:
+      validateBehaviorUpdate(payload); return;
     case IPC.SpeechConfigure:
       if (!validSpeechSelection(payload)) invalid(channel, 'invalid speech selection');
       return;
@@ -957,6 +963,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyAttach:
     case IPC.TerminalControl:
     case IPC.TerminalUsage:
+    case IPC.TerminalProfileContext:
     case IPC.TerminalReclaim:
       validateIdRequest(channel, payload, 'sessionId');
       return;

@@ -1,5 +1,65 @@
 # ADE — aktuelle Übergabe
 
+## Profil-Meilenstein: Gesamtabnahme grün (14. September 2026)
+
+`pnpm verify` vollständig Exit 0, Log
+`test-results/agent-profiles-release-verify.log` (Handle 96094 beendet).
+56 Suiten / 2.558 Checks, Produktionsbuild und sämtliche konfigurierten
+Electron-/Browser-/Visual-Prüfungen grün. Vollständige Zahlen in
+`AGENT_PROFILE_RESULTS.md`. Keine weitere Produktänderung seit diesem Lauf.
+Nächster Schritt: diesen Stand committen/pushen und persönliche Aktivierung
+mit dem vorbereiteten, auf PID/Wrapper geprüften Neustartskript.
+
+## Profilanweisungen in Arbeit (14. September 2026)
+
+Noch nicht aktiviert: ein gemeinsamer Desktop-/Mobile-Editor speichert begrenzte
+Arbeitsanweisungen und bis zu acht Markdown-Kopien mit Revisionsprüfung. Explizite
+Profilabfragen liefern Vorschau und Quellen-Prüfsummen; signierte mobile Änderungen
+verwenden `profiles:write`, Ressourcenfreigaben und den Idempotenz-Ledger. Die
+Vorschau verändert weder Identitätsdateien noch Repositorys. Mobile blendet
+Hostpfade aus und verhindert das Überschreiben einer dadurch gekürzten Kopie.
+
+Fokussierte Nachweise: Memory 45, Profilservice 18, native Argument-/Dateiübergabe
+12, Mobile-Browser 10 Checks bestanden; TypeScript und Mobile-Build bestanden.
+Der Browsertest umfasst Markdown-Reihenfolge, Speichern, Revisionskonflikt,
+abgelehnten Import mit anschließendem erfolgreichen Speichern, schmale Ansicht
+und Escape/Fokusrückgabe. Dabei wurde ein initiales Laden während der
+Wiederverbindung korrigiert. Logs: `test-results/agent-behavior-browser.log`,
+`test-results/agent-behavior-typecheck-current.log`.
+
+Inzwischen angebunden: native PTY-Profilübergabe mit vorhandenen Codex-Anweisungen,
+Start-Digest/Quellen, Vergleich sowie explizite Abfrage des eingefrorenen Texts.
+29 Electron-Prüfungen belegen den interaktiven Start und eingefrorenen Text mit lokalen CLI-Fixtures;
+je eine echte Codex-/Claude-Modellprobe bestätigt den Profilmarker. Details und
+Grenzen stehen in `AGENT_PROFILE_RESULTS.md`. Terminal-Berechtigungen bestehen
+64 Checks, IPC/Sicherheit 239. Der erste Gesamtlauf
+`test-results/agent-profiles-verify.log` (Exec-Handle 28011) wurde gezielt nach
+dem Reviewbefund abgebrochen, Exit 1: aktiviertes Memory fehlte im neuen
+Profiltransport. Die Korrektur ergänzt Memory/User samt Pflegeanweisungen
+außerhalb der Projekte; zehn neue Tests bestehen, TypeScript/Build ebenfalls.
+Ergänzte Electron-Prüfungen: 39 bestanden, Mobile-Profil: 12 bestanden;
+Memory-Regressionssuite: 45 bestanden. Korrigierte Gesamtabnahme gestartet:
+`pnpm verify`, Log `test-results/agent-profiles-verify-final.log`, Exec-Handle
+35986 ist inzwischen mit Exit 1 beendet: alle 56 Suiten / 2.558 Checks,
+Build und UI-Ketten bis Remote-Workbench grün; anschließend Fokusfehler beim
+Abbrechen des PC-Ordnerdialogs. Der Button wird jetzt nach dem React-Commit
+fokussiert. Gezielte Tablet-Layout-Abnahme: 17/17 grün.
+
+**Aktiver Gesamtlauf:** `test-results/agent-profiles-release-verify.log`,
+Exec-Handle **96094**. Diesen Handle bei Fortsetzung pollen, nicht aufgrund
+eines Beobachtungstimeouts neu starten. Persönlicher Stimmen-Release unverändert.
+
+Vorbereitet, noch nicht ausgeführt: `test-results/restart-agent-profiles.ps1`
+mit bestätigter persönlicher PID 23852/Wrapper `activate-mobile-voices.cjs`.
+Die neue Aktivierung `test-results/activate-agent-profiles.cjs` bewahrt die
+vorhandenen Tablet-Rechte und ergänzt das ausdrücklich gewünschte
+`profiles:write`; sie prüft Main-Chef-Vorschau und zeigt das Appfenster.
+Erst nach grünem Gesamtlauf und Commit/Push ausführen; Prozessidentität vorher
+erneut prüfen. Keine Keys oder persönlichen Profiltexte in Prüfberichte schreiben.
+Ein Argumenttransport-Test belegt keine Verarbeitung durch das Modell.
+Die persönliche Instanz bleibt unverändert auf dem unten beschriebenen
+Stimmen-Release; keine Veröffentlichung dieses Zwischenstands.
+
 ## Mobile-Stimmen-Abnahme abgeschlossen (14. September 2026)
 
 `pnpm verify` bestand TypeScript, 52 Suiten/2.483 Checks, Produktionsbuild,

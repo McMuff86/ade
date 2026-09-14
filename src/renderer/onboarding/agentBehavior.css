@@ -1,0 +1,9 @@
+.agent-behavior-editor { display: grid; gap: 12px; min-width: 0; margin-top: 20px; }
+.agent-behavior-editor label { display: grid; gap: 6px; min-width: 0; }
+.agent-behavior-editor textarea, .agent-behavior-editor input { max-width: 100%; width: 100%; box-sizing: border-box; }
+.agent-behavior-editor textarea { resize: vertical; min-height: 130px; }
+.agent-behavior-editor button { min-height: 40px; }
+.agent-behavior-editor li { overflow-wrap: anywhere; margin-bottom: 8px; }
+.agent-behavior-editor li button { margin: 4px; }
+.agent-behavior-editor pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 350px; overflow: auto; }
+.agent-behavior-editor summary { cursor: pointer; min-height: 40px; }

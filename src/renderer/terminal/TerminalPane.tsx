@@ -24,6 +24,7 @@ import { XTERM_THEMES } from '../theme/themes';
 import { createWriteCoalescer } from './write-coalescer';
 import { useSessions } from '../stores/sessions';
 import { SubscriptionUsagePanel } from './SubscriptionUsagePanel';
+import { SessionProfileContext } from './SessionProfileContext';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -55,6 +56,7 @@ export function TerminalPane({
   active: boolean;
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
+  const profileContext = useSessions(state => state.sessions[sessionId]?.profileContext);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const [remoteInput, setRemoteInput] = useState(false);
@@ -262,6 +264,9 @@ export function TerminalPane({
 
   return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
     <SubscriptionUsagePanel key={sessionId} load={() => window.ade.invoke('terminal:usage', { sessionId })} />
+    {profileContext && <SessionProfileContext key={sessionId} context={profileContext}
+      readText={() => window.ade.invoke('terminal:profileContext', { sessionId })}
+      readRevision={async () => (await window.ade.invoke('agent:behaviorGet', { agentId: profileContext.profileId })).revision} />}
     {remoteInput && <div role="status" className="terminal-control-banner" style={{ padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
       <span>Dieses Terminal wird von einem verbundenen Gerät gesteuert.</span>
       <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus()); }}>Eingabe am Desktop übernehmen</button>
