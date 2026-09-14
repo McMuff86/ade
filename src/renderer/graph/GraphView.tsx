@@ -2316,7 +2316,7 @@ function safeGithubPullRequestUrl(value: string): string | null {
   }
 }
 
-function NewRunModal(props: {
+export function NewRunModal(props: {
   categories: Category[];
   agents: Record<string, Agent>;
   repositories: Repository[];
@@ -2324,6 +2324,12 @@ function NewRunModal(props: {
   onCancel: () => void;
   onCreate: (input: RunCreateInput) => Promise<void>;
 }): JSX.Element {
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    formRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); else document.querySelector<HTMLElement>('.mode-switch [aria-selected="true"]')?.focus(); };
+  }, []);
   const [name, setName] = useState(props.suggestedName);
   const [goal, setGoal] = useState('');
   const [goalPasteOverflow, setGoalPasteOverflow] = useState(false);
@@ -2486,20 +2492,32 @@ function NewRunModal(props: {
   };
 
   return (
-    <div className="gcomposer-back" onPointerDown={props.onCancel}>
+    <div className="gcomposer-back" onPointerDown={() => { if (!submitting) props.onCancel(); }}>
       <form
+        ref={formRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-run-title"
         className="grun-modal"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') { event.stopPropagation(); if (!submitting) props.onCancel(); }
+          if (event.key !== 'Tab') return;
+          const nodes = Array.from(formRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])') ?? []).filter(node => node.getClientRects().length > 0);
+          const first = nodes[0]; const last = nodes[nodes.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}
         onPointerDown={(event) => event.stopPropagation()}
         onSubmit={(event) => { event.preventDefault(); void submit(); }}
       >
         <div className="grun-modal-head">
-          <div><h2>Neuer Run</h2><p>Bestehende Agenten für ein konkretes Ziel zusammenstellen</p></div>
+          <div><h2 id="new-run-title">Neuer Run</h2><p>Bestehende Agenten für ein konkretes Ziel zusammenstellen</p></div>
           <button type="button" className="ginsp-close" title="Schließen" onClick={props.onCancel}><Ico>{I.close}</Ico></button>
         </div>
         <div className="grun-modal-body">
           <label className="grun-field">
             <span>Name</span>
-            <input value={name} maxLength={80} autoFocus onChange={(event) => setName(event.target.value)} />
+            <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
           </label>
           <label className="grun-field">
             <span>Ziel</span>

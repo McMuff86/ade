@@ -165,12 +165,18 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminal.getByLabel('Sitzung starten mit', { exact: true }).selectOption('shell');
   await terminal.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
-  check('direct phone entry starts an additional free shell', (await homeSessions()).length === count + 1);
+  const afterOpen = await homeSessions();
+  const added = afterOpen.find(item => !sessionsBefore.some(previous => previous.id === item.id));
+  check('direct phone entry starts an additional free shell', afterOpen.length === count + 1 && !!added);
+  if (!added) throw new Error('New free shell was not identified');
   await terminal.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
   const confirmation = page.getByRole('dialog').last();
   check('terminal close confirmation takes keyboard focus', await confirmation.evaluate((node) => node.contains(document.activeElement)));
   await confirmation.getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
   await confirmation.waitFor({ state: 'hidden' });
   await terminal.getByText('Sitzung beendet.', { exact: true }).waitFor();
+  // Command acknowledgement precedes ConPTY's asynchronous exit. Observe the
+  // particular new session ending before comparing the untouched older ones.
+  await desktop.waitForFunction(async id => !(await window.ade.invoke('pty:list')).sessions.some(item => item.id === id && item.status === 'running'), added.id, { timeout: 10_000, polling: 100 });
   check('closing one home terminal retains the other sessions', JSON.stringify((await homeSessions()).filter((item) => item.status === 'running').map(item => item.id).sort()) === JSON.stringify(runningBefore));
 }

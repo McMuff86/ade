@@ -1,5 +1,20 @@
 # ADE — aktuelle Übergabe
 
+## Desktop Work und Profil-Einstellungen: abgenommen (14. September 2026)
+
+Work ist auch am PC als eigener Reiter mit Projekt-/Agent-/Statusfilter, Suche,
+Run-Bericht, Graph-Wechsel, neuer Aufgabe und neuem Run verfügbar. Normale
+PC-Agent-Einstellungen enthalten jetzt Anweisungen, Markdown-Kopien und Stimme.
+`pnpm verify` ist vollständig grün: 56 Suiten / 2.558 Checks, Build und alle
+Electron-/Browser-Läufe, darunter 20 neue Work- und 7 Profileinstellungs-Prüfungen.
+Zwei bestehende asynchrone Testabfragen wurden an den tatsächlichen Viewport-
+bzw. ConPTY-Endzustand gebunden; die bisherigen Bedingungen bestehen unverändert.
+Details und Nachweise: `WORK_PARITY_RESULTS.md`.
+
+Persönliche Aktivierung folgt nach Commit/Push mit einer eigenen Releasekopie
+und Konfigurationsbackup. Bis dahin läuft weiterhin die unten dokumentierte
+Instanz PID 3624. Keine neuen Gerätefreigaben oder Provider-Aufrufe erforderlich.
+
 ## Agent-Profile persönlich aktiviert (14. September 2026, 02:41 Uhr)
 
 Produktcommit `661b41aeeb46fa49acaa9a86d7f24fecb0cf1e1b` ist gepusht.

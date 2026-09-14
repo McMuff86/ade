@@ -82,7 +82,13 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   await page.reload(); await workspace.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   check('reconnect and reload preserve selected project, session and draft without relaunch', await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue() === 'A prompt to finish later'
     && (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((session) => session.repositoryId === repo.id).length === 1);
-  await page.setViewportSize({ width: 1280, height: 480 }); await workspace.getByLabel('Terminal-Eingabe', { exact: true }).focus();
+  await page.setViewportSize({ width: 1280, height: 480 });
+  // Resize delivery updates the CSS viewport asynchronously. Focus/scroll must
+  // use that new geometry, not the previous 800px workspace during the event.
+  await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--tablet-height') === '480px'
+    && !document.querySelector<HTMLTextAreaElement>('[aria-label="Terminal-Eingabe"]')?.disabled);
+  await workspace.getByLabel('Terminal-Eingabe', { exact: true }).focus();
+  await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
   check('short tablet viewport keeps composer and send action visible', await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).evaluate((node) => {
     const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= (window.visualViewport?.height ?? innerHeight) + 1;
   }));

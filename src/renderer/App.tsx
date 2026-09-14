@@ -20,6 +20,7 @@ import { adjacentMode, useMode, type AppMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
 import { OverviewView } from './overview/OverviewView';
 import { ProjectsView } from './projects/ProjectsView';
+import { WorkView } from './work/WorkView';
 import { useSessions, TERMINAL_HOME_GROUP } from './stores/sessions';
 import { useSessionLaunch } from './stores/sessionLaunch';
 import { useRuns } from './stores/runs';
@@ -101,6 +102,9 @@ export function App() {
               <path d="M7 9l3 3-3 3M13 15h4" />
             </svg>
           </ModeTab>
+          <ModeTab id="work" label="Work" selected={mode === 'work'} onSelect={setMode}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="m8 11 2 2 5-5M8 17h8" /></svg>
+          </ModeTab>
           <ModeTab
             id="graph"
             label="Graph"
@@ -146,6 +150,8 @@ export function App() {
           <GraphView />
         ) : mode === 'overview' ? (
           firstRun && repositoryCount === 0 ? <FirstRun onSetup={() => setSetupOpen(true)} onProjects={openProjects} allowCategory={false} /> : <OverviewView />
+        ) : mode === 'work' ? (
+          <WorkView />
         ) : mode === 'projects' ? (
           <ProjectsView />
         ) : (

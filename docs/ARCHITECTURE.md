@@ -1,5 +1,17 @@
 # ADE — Architecture (binding decisions)
 
+## Desktop/mobile Work navigation
+
+`shared/appViews.ts` owns navigation identities and order. Desktop `WorkView`
+uses `useRuns`/`OrchestrationView` and the existing catalog, never main snapshots.
+The existing `RunReportPanel` and `NewRunModal` supply report and run creation;
+`SingleTaskModal` invokes the existing validated `runTask:submit` contract.
+Retries retain an immutable payload and command ID. No new IPC or remote
+permission is introduced. Mobile retains its host-backed Work implementation.
+The normal desktop agent settings embed the same `DesktopAgentBehavior` and
+`TargetSpeechSettings` as the profile card; profile storage and launch contracts
+are unchanged. New Run takes focus, traps Tab and restores its opener on close.
+
 ## Speech tests, project membership and compact terminal status
 
 Desktop speech uses `speech:voices`, `speech:select` and `speech:test`; all are

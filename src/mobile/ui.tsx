@@ -1,8 +1,9 @@
 import { createContext, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import type { RunSummary } from '../shared/types';
 
-export type View = 'overview' | 'projects' | 'terminals' | 'work' | 'graph';
-export const VIEWS: { id: View; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projekte' }, { id: 'terminals', label: 'Terminals' }, { id: 'work', label: 'Work' }, { id: 'graph', label: 'Graph' }];
+export { APP_VIEWS as VIEWS } from '../shared/appViews';
+import type { AppView as View } from '../shared/appViews';
+export type { AppView as View } from '../shared/appViews';
 export const finalStates = new Set(['completed', 'failed', 'cancelled']);
 export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'project' | 'refresh' | 'sun' | 'moon' }): JSX.Element {
   const paths: Record<string, ReactNode> = {

@@ -1,0 +1,96 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { _electron as electron, type ElectronApplication } from 'playwright';
+
+let passed = 0; let failed = 0; let app: ElectronApplication | undefined;
+const root = mkdtempSync(join(tmpdir(), 'ade-work-view-'));
+const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
+void (async () => {
+  const repo = join(root, 'Design'); mkdirSync(repo); execFileSync('git', ['init', repo], { stdio: 'ignore' });
+  writeFileSync(join(repo, 'README.md'), '# Design'); execFileSync('git', ['-C', repo, 'add', '.']);
+  execFileSync('git', ['-C', repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { stdio: 'ignore' });
+  app = await electron.launch({ args: [resolve('out/main/index.js')], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
+  const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
+  const work = page.getByRole('tab', { name: 'Work view', exact: true });
+  await work.click(); await page.getByRole('heading', { name: 'Noch keine Runs' }).waitFor();
+  check('Work is a desktop tab with useful empty state', await work.getAttribute('aria-selected') === 'true');
+  check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'View mode' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Overview,Projekte,Terminals,Work,Graph');
+  await work.focus(); await page.keyboard.press('ArrowRight');
+  check('keyboard navigation moves Work to Graph', await page.getByRole('tab', { name: 'Graph view', exact: true }).getAttribute('aria-selected') === 'true');
+  await page.keyboard.press('ArrowLeft'); await page.reload(); await work.waitFor();
+  check('Work selection survives reload', await work.getAttribute('aria-selected') === 'true');
+  const fixture = await page.evaluate(async path => {
+    const category = await window.ade.invoke('category:create', { name: 'Design team' });
+    const first = await window.ade.invoke('agent:create', { categoryId: category.id, name: 'Designer', runtime: 'codex', permissionMode: 'default' });
+    const second = await window.ade.invoke('agent:create', { categoryId: category.id, name: 'Reviewer', runtime: 'codex', permissionMode: 'default' });
+    const repository = await window.ade.invoke('repository:import', { path });
+    const run = await window.ade.invoke('run:create', { name: 'CAD geometry', repositoryId: repository.id, participants: [{ agentId: first.id, role: 'orchestrator' }] });
+    const ended = await window.ade.invoke('run:create', { name: 'Earlier review', repositoryId: null, participants: [{ agentId: second.id, role: 'orchestrator' }] });
+    return { first, second, repository, run, ended };
+  }, repo);
+  const snapshot = await page.evaluate(() => window.ade.invoke('run:get'));
+  // Finished-state fixture without starting a real agent or running shell commands.
+  const endedFixture = snapshot.runs.find(run => run.id === fixture.ended.id)!;
+  endedFixture.status = 'cancelled';
+  await app.evaluate(({ ipcMain }, view) => { ipcMain.removeHandler('run:get'); ipcMain.handle('run:get', () => view); }, snapshot);
+  const region = page.getByRole('region', { name: 'Work', exact: true });
+  await region.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
+  const rows = region.locator('.work-row'); await rows.filter({ hasText: 'CAD geometry' }).waitFor();
+  check('live Work lists newly created and ended runs', await rows.count() === 2);
+  await region.getByLabel('Projektfilter', { exact: true }).selectOption(fixture.repository.id);
+  check('project filter selects the matching run', await rows.count() === 1 && (await rows.innerText()).includes('CAD geometry'));
+  await region.getByLabel('Projektfilter', { exact: true }).selectOption('');
+  await region.getByLabel('Agentfilter', { exact: true }).selectOption(fixture.second.id);
+  check('agent filter uses participant identity', await rows.count() === 1 && (await rows.innerText()).includes('Earlier review'));
+  await region.getByLabel('Agentfilter', { exact: true }).selectOption('');
+  await region.getByLabel('Status', { exact: true }).selectOption('finished');
+  check('finished status includes cancelled run', await rows.count() === 1 && (await rows.innerText()).includes('Earlier review'));
+  await region.getByLabel('Status', { exact: true }).selectOption('open');
+  check('open status includes draft and excludes cancelled run', await rows.count() === 1 && (await rows.innerText()).includes('CAD geometry'));
+  await region.getByLabel('Runs durchsuchen', { exact: true }).fill('missing');
+  await region.getByRole('heading', { name: 'Keine passenden Runs' }).waitFor();
+  check('search has a helpful no-match state', await rows.count() === 0);
+  await region.getByLabel('Runs durchsuchen', { exact: true }).fill('Designer');
+  await rows.click(); const report = page.getByRole('dialog', { name: 'CAD geometry', exact: true }); await report.waitFor();
+  check('selecting a run opens its report in Work', await work.getAttribute('aria-selected') === 'true');
+  await page.keyboard.press('Escape'); await report.waitFor({ state: 'hidden' });
+  check('closing report restores row focus', await rows.evaluate(node => node === document.activeElement));
+  await region.getByRole('button', { name: 'Neuer Run', exact: true }).click();
+  const newRun = page.getByRole('dialog', { name: 'Neuer Run', exact: true }); await newRun.waitFor();
+  check('new run composer receives focus in Work', await newRun.evaluate(node => node.contains(document.activeElement)));
+  await page.keyboard.press('Escape'); await newRun.waitFor({ state: 'hidden' });
+  check('new run Escape restores opener', await region.getByRole('button', { name: 'Neuer Run', exact: true }).evaluate(node => node === document.activeElement));
+  await region.getByRole('complementary', { name: 'Agent-Workspaces' }).getByRole('button', { name: 'Designer', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Designer', exact: true }).getByLabel('Profil-Arbeitsanweisungen').waitFor();
+  check('Work agents open the shared editable profile', true); await page.keyboard.press('Escape');
+  // Instrument only the isolated IPC submission boundary: no CLI/model invocation.
+  await app.evaluate(({ ipcMain }, run) => {
+    const state = globalThis as unknown as { workAttempts: unknown[] }; state.workAttempts = [];
+    ipcMain.removeHandler('runTask:submit'); ipcMain.handle('runTask:submit', (_event, payload) => {
+      state.workAttempts.push(payload); if (state.workAttempts.length === 1) throw new Error('Temporary submission failure');
+      return { run, task: { id: 'fixture-task' } };
+    });
+  }, fixture.run);
+  await region.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  const task = page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true });
+  await task.getByLabel('Projekt', { exact: true }).selectOption(fixture.repository.id);
+  await task.getByLabel('Agent', { exact: true }).selectOption(fixture.first.id);
+  await task.getByLabel('Anweisung', { exact: true }).fill('Prüfe die Geometrie.');
+  await task.getByRole('button', { name: 'Aufgabe senden', exact: true }).click(); await task.getByRole('alert').waitFor();
+  check('failed task submission retains the immutable draft', await task.getByLabel('Anweisung', { exact: true }).isDisabled());
+  await task.getByRole('button', { name: 'Erneut versuchen', exact: true }).click(); await task.waitFor({ state: 'hidden' });
+  const attempts = await app.evaluate(() => (globalThis as unknown as { workAttempts: Array<{ commandId: string }> }).workAttempts);
+  check('task retry sends the identical command and idempotency key', attempts.length === 2 && !!attempts[0]!.commandId && JSON.stringify(attempts[0]) === JSON.stringify(attempts[1]));
+  await report.waitFor(); await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 760, height: 720 });
+  check('Work content fits a compact desktop window', await region.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  check('navigation remains within the compact window', await page.locator('.titlebar').evaluate(node => Array.from(node.children).every(child => child.getBoundingClientRect().right <= window.innerWidth + 1)));
+  await page.screenshot({ path: resolve('test-results/work-desktop-compact.png') });
+  await region.getByRole('button', { name: 'Im Graph öffnen: CAD geometry', exact: true }).click();
+  check('graph handoff selects the same run', await page.getByLabel('Aktiver Run', { exact: true }).inputValue() === fixture.run.id);
+})().catch(error => { failed++; console.error(error); }).finally(async () => {
+  await app?.close(); rmSync(root, { recursive: true, force: true });
+  console.log(`Desktop Work Electron: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
+});

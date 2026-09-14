@@ -1,5 +1,22 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Work und Profile auf Desktop und Tablet
+
+Beide Oberflächen bieten die Navigation Overview, Projekte, Terminals, Work,
+Graph in derselben Reihenfolge. Work zeigt Runs mit Suche nach Name, Projekt
+oder Agent sowie Projekt-, Agent- und Statusfilter (alle/offen/beendet).
+Run-Auswahl öffnet Details; am PC ist zusätzlich der direkte Wechsel zum selben
+Run im Graph möglich. „Neue Aufgabe“ sendet einen einzelnen Auftrag für einen
+Agenten in einem Projekt; „Neuer Run“ öffnet die Team-Zusammenstellung.
+Fehlgeschlagene Aufgabenübermittlung kann mit identischem Auftragsschlüssel
+wiederholt werden. Die Work-Liste und Profilauswahl starten keine CLI.
+
+Die normalen PC-„Agent settings“ enthalten denselben Editor für Arbeitsweise,
+Anweisungen, geordnete Markdown-Kopien, Vorschau und Agent-Stimme wie Profilkarte
+und Tablet. Anweisungen werden mit „Profilanweisungen speichern“ gespeichert;
+das allgemeine „Save“ speichert die übrigen Agent-Einstellungen. Neue Sitzungen
+übernehmen die gespeicherten Anweisungen nach den bestehenden Profilregeln.
+
 ## Stimmen und Meine ADE Projekte
 
 Desktop Settings bietet „Sprachausgabe · ElevenLabs“: Stimmen laden, Stimme

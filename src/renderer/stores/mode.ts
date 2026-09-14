@@ -8,16 +8,17 @@
  */
 
 import { create } from 'zustand';
+import { APP_VIEWS, type AppView } from '../../shared/appViews';
 
-export const APP_MODES = ['overview', 'projects', 'terminals', 'graph'] as const;
-export type AppMode = (typeof APP_MODES)[number];
+export const APP_MODES = APP_VIEWS.map(view => view.id);
+export type AppMode = AppView;
 
 const KEY = 'ade:mode';
 
 function initial(): AppMode {
   try {
     const stored = localStorage.getItem(KEY);
-    if (stored === 'overview' || stored === 'projects' || stored === 'graph' || stored === 'terminals') return stored;
+    if (APP_MODES.includes(stored as AppMode)) return stored as AppMode;
   } catch {
     /* ignore */
   }

@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Desktop/Tablet-Bedienung (14. September 2026)
+
+Desktop Work mit Run-Suche, Projekt-/Agent-/Statusfilter, Berichten, Graph-Wechsel,
+Agent-Profilen und Aufgaben-/Run-Erstellung ist implementiert. Die Navigation
+nutzt gemeinsame Identitäten mit Mobile. Die normalen PC-Agent-Einstellungen
+bieten nun ebenfalls Arbeitsanweisungen, Markdown-Zuweisung und Agent-Stimme.
+20 Work- und 7 Profileinstellungs-Prüfungen sind in `pnpm verify` aufgenommen.
+Die gesamte Prüfkette besteht einschließlich aller mobilen und visuellen Tests.
+Abnahme und persönliche Aktivierung: siehe `WORK_PARITY_RESULTS.md`.
+
 ## Agent-Profilanweisungen (14. September 2026, vollständig geprüft)
 
 Desktop und Mobile können Arbeitsanweisungen und geordnete Markdown-Kopien

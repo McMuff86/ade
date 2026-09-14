@@ -27,6 +27,8 @@ import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
 import { RuntimeModelPicker } from './RuntimeModelPicker';
+import { DesktopAgentBehavior } from './AgentBehaviorEditor';
+import { TargetSpeechSettings } from '../settings/TargetSpeechSettings';
 import {
   AGENT_PERMISSION_MODES, AGENT_RUNTIMES,
 } from './agentOptions';
@@ -194,6 +196,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           onChange={(e) => setRole(e.target.value)}
         />
       </div>
+
+      <DesktopAgentBehavior agentId={agent.id} />
+      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title="Agent-Stimme" />
 
       <div className="field">
         <label htmlFor="edit-agent-runtime">Runtime</label>
