@@ -9,7 +9,8 @@ explizite Ansicht des Starttexts sind implementiert; normale CLI-Starts bleiben
 ohne neue ADE-Profilübergabe. 39 Electron-, 12 Mobile-Browser- und zehn neue
 Memory-Snapshot-Prüfungen bestehen. Echte einmalige CLI-Proben bestätigen den
 Profilmarker. `pnpm verify` ist vollständig grün: 56 Suiten / 2.558 Checks,
-Produktionsbuild und alle UI-Prüfungen. Persönliche Aktivierung folgt;
+Produktionsbuild und alle UI-Prüfungen. Persönlich seit 02:41 Uhr mit
+Produktcommit `661b41a` aktiviert, Tablet-Profilbearbeitung freigegeben;
 Details in `AGENT_PROFILE_RESULTS.md` und `HANDOFF.md`.
 
 ## Mobile-Stimmen und Profilbilder (14. September 2026)

@@ -277,5 +277,6 @@ nicht gelesen. Profil- und vollständiger Start-Digest sind getrennt.
 Zwölf mobile Browserprüfungen decken die Profilbearbeitung einschließlich
 Konflikten und Erhalt eigener Entwürfe ab. Je eine echte Codex-/Claude-Probe
 bestätigt die Verarbeitung des nur im Profil enthaltenen Antwortmarkers.
-Die vollständige Gesamtabnahme ist grün; die persönliche Aktivierung folgt
-nach Commit/Push. Genaue Belege und Plattformgrenzen: `AGENT_PROFILE_RESULTS.md`.
+Die vollständige Gesamtabnahme ist grün; Produktcommit `661b41a` ist gepusht
+und persönlich aktiviert. Genaue Belege und Plattformgrenzen:
+`AGENT_PROFILE_RESULTS.md`, Betriebsstand in `HANDOFF.md`.

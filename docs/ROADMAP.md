@@ -22,7 +22,8 @@ Neustart erfolgen pro sinnvollem Meilenstein.
 - **Goal 26.1a:** Agent-Profil mit Spezialisierung, konkreten Arbeitsanweisungen
   und zuweisbaren Markdown-Dateien. Bestehende Repository-Anweisungen bleiben
   wirksam; Identitätsanweisungen liegen außerhalb geleaster Repositories.
-  Editor und native Transportanbindung implementiert, noch nicht aktiviert.
+  Editor und native Transportanbindung implementiert, geprüft und seit
+  14. September 02:41 Uhr persönlich aktiviert (`661b41a`).
   Echte einmalige Codex-/Claude-Proben bestätigen Profilmarker in `exec`/`-p`;
   interaktiver ADE-Lifecycle wird separat geprüft.
 - **Goal 26.1b:** Kontextansicht zeigt Herkunft, Reihenfolge, Version/Digest
@@ -33,6 +34,9 @@ Neustart erfolgen pro sinnvollem Meilenstein.
 - **Goal 26.1c:** Profil vom Agenten und Projekt aus bearbeiten/auswählen;
   spezialisierter Agent oder normale Codex-/Claude-CLI bleibt eine bewusste
   Auswahl. Eine Rollenbeschreibung ist keine zusätzliche Systemberechtigung.
+  Native Windows-Codex-/Claude-Profile geliefert; weitere Runtime-Transporte
+  benötigen eigene Nachweise. Projektübergreifende Main-Chef-Delegation bleibt
+  Goal 26.2 ff. gemäß Koordinationsplan.
 
 Abnahme: Desktop und Tablet, Vererbung/Zurücksetzen/Neuladen, fehlende Stimmen,
 widerrufene und eingeschränkte Geräte, bestehende Sitzungen, tatsächlicher

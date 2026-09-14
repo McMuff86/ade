@@ -501,7 +501,7 @@ native worktree; reads never create one implicitly.
   and tablet; name/role changes also update the durable role instructions.
   Managed identities cannot be edited until their run releases them. Photo
   upload is limited to 32 KiB/256×256 after normalization.
-- **Behavior profiles (current development):** Desktop and mobile share an
+- **Behavior profiles:** Desktop and mobile share an
   instructions/Markdown-copy editor with ordered sources and revision conflicts.
   Explicitly saved behavior is supplied to new native Windows Codex/Claude
   profile sessions, independently of memory. Plain CLI starts remain deliberate
@@ -509,7 +509,8 @@ native worktree; reads never create one implicitly.
   captured profile digest and compares it with the saved revision. An explicit
   action retrieves the frozen session instructions; normal polling does not.
   Unsupported transports fail with a useful error. Resumed-thread behavior is
-  not claimed; this development state is not yet personally activated.
+  not claimed. Native Windows acceptance and personal activation are recorded
+  in `AGENT_PROFILE_RESULTS.md` and `HANDOFF.md`.
 
 Every grant is opt-in at the desktop, independently of Tailscale membership.
 Dedicated typed application APIs require signed devices and current grants;

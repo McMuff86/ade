@@ -1,5 +1,29 @@
 # ADE — aktuelle Übergabe
 
+## Agent-Profile persönlich aktiviert (14. September 2026, 02:41 Uhr)
+
+Produktcommit `661b41aeeb46fa49acaa9a86d7f24fecb0cf1e1b` ist gepusht.
+Persönliche ADE-Instanz von PID 23852 auf **3624** neu gestartet, ausschließlich
+die vier zugehörigen Prozesse beendet. Unveränderliche Releasekopie:
+`test-results/operator-agent-profiles-20260914-024141`; Backup:
+`test-results/operator-agent-profiles-backup-20260914-024141`.
+Main-SHA256: `3E6A63DB1479E0D55453FB20D9421EB0D731B4E6EE32EAD8E5D8D535AC4D358E`.
+
+Aktivierung bestätigt Main-Chef-Kontextvorschau und die vorhandene Sarah-Stimme.
+Für das gekoppelte Samsung Galaxy S10 Ultra wurden bestehende Freigaben erhalten
+und `profiles:write` ergänzt. Alle sechs Agenten, sechs Repository-Einträge,
+fünf Meine-Projekte und die verschlüsselten Credentials sind unverändert.
+Private Mobile-Adresse liefert HTTP 200 mit dem neuen Asset
+`/assets/index-B1pEAKZ-.js`, das in der Releasekopie liegt. App reagiert.
+Nachweise: `test-results/agent-profiles-restart.json`, Release/`activation.json`,
+`test-results/agent-profiles-personal-validation.json`.
+
+Tablet neu laden. Agent-Profil → Arbeitsweise und Anweisungen erlaubt Text und
+Markdown-Kopien; Profil beim Start zeigt eingefrorenen Text und Versionsvergleich.
+Gespeicherte Verhaltensprofile gelten für neue native Windows-Codex-/Claude-
+Profilsitzungen. Normale CLI-Auswahl bleibt ohne neue ADE-Profilübergabe.
+Keine erneute kostenpflichtige Sprach-/Modellprobe bei der Aktivierung.
+
 ## Profil-Meilenstein: Gesamtabnahme grün (14. September 2026)
 
 `pnpm verify` vollständig Exit 0, Log
@@ -7,8 +31,7 @@
 56 Suiten / 2.558 Checks, Produktionsbuild und sämtliche konfigurierten
 Electron-/Browser-/Visual-Prüfungen grün. Vollständige Zahlen in
 `AGENT_PROFILE_RESULTS.md`. Keine weitere Produktänderung seit diesem Lauf.
-Nächster Schritt: diesen Stand committen/pushen und persönliche Aktivierung
-mit dem vorbereiteten, auf PID/Wrapper geprüften Neustartskript.
+Commit/Push und persönliche Aktivierung sind inzwischen abgeschlossen, siehe oben.
 
 ## Profilanweisungen in Arbeit (14. September 2026)
 
