@@ -181,6 +181,23 @@ Contracts and evidence: [Workspace assignment](WORKSPACE_ASSIGNMENT.md).
 
 ## Agent-free terminal workspace
 
+The desktop independent launch dialog can also select a discovered project.
+It resolves the opaque entry with `project:command/open`, displays the returned
+branch and probes `session:options` for that workspace. Launch uses the existing
+`projectWorkspaceId`/`expectedBranch` contract; only explicit profile mode adds a
+`profileId`. Changing the selection discards stale probes and profile selection.
+Quick project actions for Codex, Claude Code and shell share the same main-owned
+launcher. Reuse requires matching workspace, branch, mode, Ollama model and
+profile plus a live program (or live shell). Explicit additional sessions always
+create a new PTY. Renderer-local active project selection survives view changes.
+
+Desktop terminal controls operate on the mounted xterm instance: bounded
+5,000-line scrollback search, selection copy, clipboard paste, history navigation
+and a validated local font preference. Search uses the xterm search addon;
+clipboard uses the existing desktop IPC. Input ownership still gates paste and
+PTY writes; no new IPC channel, remote permission or provider option is added.
+Behavior and validation: [Workspace terminals](WORKSPACE_TERMINALS_RESULTS.md).
+
 `MobileTerminalSelection` adds `{ terminalHome: true }` only to the dedicated
 terminal APIs and existing desktop session channels. Main resolves the native
 host home with no-follow directory identity checks; the client supplies no path.

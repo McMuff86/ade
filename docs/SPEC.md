@@ -96,6 +96,22 @@ Details, Grenzen und Abnahme: [Workspace assignment](WORKSPACE_ASSIGNMENT.md).
 
 ## Freie Terminals auf Desktop und Mobile
 
+Desktop **Terminal öffnen** offers a **Workspace** chooser with native home and
+discovered projects. A project launch displays its actual branch and opens the
+independent workspace, without a mandatory agent. Its three quick actions open
+Codex, Claude Code or a shell; a saved agent profile is an explicit option.
+Matching live sessions are reused; **Zusätzliche Sitzung starten** creates another.
+Project session tabs support Left/Right/Home/End, Ctrl+PageUp/PageDown and
+Ctrl+Shift+T/W. Exited terminals retain output and offer restart. Active project
+selection survives switching to Git and back; live sessions recover on reload.
+
+Desktop terminals offer selection copy, clipboard paste, search (Ctrl+Shift+F,
+Enter/Shift+Enter, Escape to close and restore input focus), history start/live
+navigation and font sizes 11–24 px. Font preference survives reload. Search is
+limited to the retained xterm buffer. Paste is disabled while another device
+owns input and for exited terminals. Existing Ctrl+C selection/SIGINT and
+clipboard-image forwarding semantics are retained.
+
 **Terminal öffnen** starts a native host-home shell or a discovered CLI without
 requiring an agent or project. Desktop **Freie Terminals** and Mobile **Terminals**
 expose these same main-owned sessions. Mobile includes agent/session navigation,

@@ -5,6 +5,12 @@ abschließen und einen konkreten Ausbauplan für Diktat, Nutzungsdaten,
 Terminalgeschwindigkeit und einen zweiten Tailscale-PC ausarbeiten.
 Die folgenden Ausbauziele sind geplant, nicht als implementiert freigegeben.
 
+Priorisierung vom 15. September: Goal 23.1 wird jetzt nach der gemeinsamen
+CLI-Arbeitsübersicht am nativen Windows-Desktop umgesetzt. Der neue
+[Zielplan](CLI_WORK_AND_DICTATION_GOALS.md) konkretisiert sitzungsgebundene
+Entwürfe, CLI-Übergabe und Abnahme. Mobile Diktat-Unterstützung und die übrigen
+Goals bleiben gesonderte Lieferungen.
+
 ## Reihenfolge und Abnahmeziele
 
 | Priorität / Ziel | Lieferbares Ergebnis | Messbare Abnahme |

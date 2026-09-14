@@ -54,7 +54,7 @@ const SUITES: Suite[] = [
   { id: 'repositories', script: 'test-repository-scopes.ts', floors: { win32: 62 } },
   { id: 'project-workspaces', script: 'test-project-workspaces.ts', floors: { win32: 48 } },
   { id: 'project-branches', script: 'test-project-branches.ts', floors: { win32: 40 } },
-  { id: 'project-launch', script: 'test-project-launch.ts', floors: { win32: 41 } },
+  { id: 'project-launch', script: 'test-project-launch.ts', floors: { win32: 50 } },
   { id: 'project-git', script: 'test-project-git.ts', floors: { win32: 47 } },
   { id: 'project-publish', script: 'test-project-publish.ts', floors: { win32: 41 } },
   { id: 'project-directory-api', script: 'test-project-directory-api.ts', floors: { win32: 36 } },

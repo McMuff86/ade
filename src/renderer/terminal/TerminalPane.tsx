@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { SearchAddon } from '@xterm/addon-search';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useSettings } from '../stores/settings';
@@ -25,6 +26,7 @@ import { createWriteCoalescer } from './write-coalescer';
 import { useSessions } from '../stores/sessions';
 import { SubscriptionUsagePanel } from './SubscriptionUsagePanel';
 import { SessionProfileContext } from './SessionProfileContext';
+import { TERMINAL_FONT_SIZES, useTerminalPreferences } from './preferences';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -59,6 +61,18 @@ export function TerminalPane({
   const profileContext = useSessions(state => state.sessions[sessionId]?.profileContext);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const searchRef = useRef<SearchAddon | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const pasteRef = useRef<() => void>(() => undefined);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [searchResult, setSearchResult] = useState('');
+  const [hasSelection, setHasSelection] = useState(false);
+  const [scrolledBack, setScrolledBack] = useState(false);
+  const [toolError, setToolError] = useState('');
+  const [toolNotice, setToolNotice] = useState('');
+  const exited = useSessions(state => state.sessions[sessionId]?.status === 'exited');
+  const fontSize = useTerminalPreferences(state => state.fontSize);
   const [remoteInput, setRemoteInput] = useState(false);
   const remoteInputRef = useRef(false);
   useEffect(() => {
@@ -86,7 +100,8 @@ export function TerminalPane({
       allowProposedApi: true, // required for the unicode11 addon
       scrollback: SCROLLBACK,
       fontFamily: monoFontFamily(),
-      fontSize: 13,
+      fontSize: useTerminalPreferences.getState().fontSize,
+      disableStdin: remoteInputRef.current,
       theme: XTERM_THEMES[theme],
     });
     const fitAddon = new FitAddon();
@@ -94,8 +109,12 @@ export function TerminalPane({
     const unicode11 = new Unicode11Addon();
     term.loadAddon(unicode11);
     term.unicode.activeVersion = '11';
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
+    searchRef.current = searchAddon;
 
     term.open(host);
+    term.textarea?.setAttribute('aria-label', 'Terminal-Eingabe');
     termRef.current = term;
     fitRef.current = fitAddon;
 
@@ -106,6 +125,8 @@ export function TerminalPane({
     }
 
     const coalescer = createWriteCoalescer((data) => term.write(data));
+    const selectionDisp = term.onSelectionChange(() => setHasSelection(term.hasSelection()));
+    const scrollDisp = term.onScroll(() => setScrolledBack(term.buffer.active.viewportY < term.buffer.active.baseY));
 
     // Clipboard chords. navigator.clipboard is blocked by the app's deny-all
     // permission policy, so copy/paste goes through the main-process bridge.
@@ -120,6 +141,17 @@ export function TerminalPane({
         .invoke('pty:write', { sessionId, dataBase64: utf8ToBase64('\x16') })
         .catch(() => undefined);
     };
+    const paste = (): void => {
+      if (remoteInputRef.current || useSessions.getState().sessions[sessionId]?.status === 'exited') return;
+      setToolError('');
+      void window.ade.invoke('clipboard:readText').then(({ text }) => {
+        if (disposed || remoteInputRef.current) return;
+        term.focus();
+        if (text.length > 0) term.paste(text);
+        else forwardRawPasteKey();
+      }).catch(() => { if (!disposed) setToolError('Zwischenablage konnte nicht gelesen werden. Erneut versuchen.'); });
+    };
+    pasteRef.current = paste;
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true;
       const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
@@ -136,12 +168,7 @@ export function TerminalPane({
       const pasteChord = (ctrl && key === 'v')
         || (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'Insert');
       if (pasteChord) {
-        void window.ade.invoke('clipboard:readText')
-          .then(({ text }) => {
-            if (text.length > 0) term.paste(text);
-            else forwardRawPasteKey();
-          })
-          .catch(forwardRawPasteKey);
+        paste();
         return false;
       }
       return true;
@@ -207,7 +234,7 @@ export function TerminalPane({
         return;
       }
       if (term.cols > 0 && term.rows > 0) {
-        window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows });
+        void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
       }
     };
 
@@ -224,11 +251,15 @@ export function TerminalPane({
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       observer.disconnect();
       keyDisp.dispose();
+      selectionDisp.dispose();
+      scrollDisp.dispose();
       unsubscribeData();
       coalescer.dispose();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
+      searchRef.current = null;
+      pasteRef.current = () => undefined;
     };
   }, [sessionId]);
 
@@ -238,6 +269,25 @@ export function TerminalPane({
     const term = termRef.current;
     if (term) term.options.theme = XTERM_THEMES[theme];
   }, [theme]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    const host = hostRef.current;
+    if (!term) return;
+    term.options.fontSize = fontSize;
+    if (!host?.clientWidth || !host.clientHeight) return;
+    try { fitRef.current?.fit(); } catch { return; }
+    void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
+  }, [fontSize, sessionId]);
+  useEffect(() => { if (searchOpen && active) searchInput.current?.focus(); }, [searchOpen, active]);
+  const find = (text = query, previous = false, incremental = false) => {
+    if (!text) { searchRef.current?.clearDecorations(); termRef.current?.clearSelection(); setSearchResult(''); return; }
+    const found = previous ? searchRef.current?.findPrevious(text) : searchRef.current?.findNext(text, { incremental });
+    setSearchResult(found ? 'Treffer ausgewählt' : 'Keine Treffer im Terminalverlauf');
+  };
+  const closeSearch = () => {
+    setSearchOpen(false); searchRef.current?.clearDecorations(); termRef.current?.clearSelection(); termRef.current?.focus();
+  };
 
   // On becoming the visible tab, refit (the host had 0 size while hidden) + focus.
   useEffect(() => {
@@ -255,21 +305,56 @@ export function TerminalPane({
         return;
       }
       if (term.cols > 0 && term.rows > 0) {
-        window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows });
+        void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
       }
-      if (!document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) term.focus();
+      if (!document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')
+        && !document.activeElement?.matches('[role="tab"], .terminal-search input')) term.focus();
     });
     return () => cancelAnimationFrame(raf);
   }, [active, sessionId]);
 
-  return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+  return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+    onKeyDownCapture={(event) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault(); event.stopPropagation(); setSearchOpen(true); searchInput.current?.focus();
+      }
+    }}>
+    <div className="terminal-tools" role="group" aria-label="Terminal-Werkzeuge">
+      <button type="button" disabled={!hasSelection} title="Auswahl kopieren (Ctrl+Shift+C)" onClick={() => {
+        const text = termRef.current?.getSelection(); if (!text) return; setToolError('');
+        void window.ade.invoke('clipboard:writeText', { text }).then(() => setToolNotice('Auswahl kopiert.'))
+          .catch(() => setToolError('Auswahl konnte nicht kopiert werden. Erneut versuchen.'));
+      }}>Kopieren</button>
+      <button type="button" disabled={remoteInput || exited} title="Aus Zwischenablage einfügen (Ctrl+Shift+V)" onClick={() => pasteRef.current()}>Einfügen</button>
+      <button type="button" aria-expanded={searchOpen} title="Terminal durchsuchen (Ctrl+Shift+F)" onClick={() => { setSearchOpen(true); searchInput.current?.focus(); }}>Suchen</button>
+      <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>Verlauf-Anfang</button>
+      <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>Zur Live-Ausgabe</button>
+      <label>Schrift<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
+        {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size} px</option>)}
+      </select></label>
+    </div>
+    {searchOpen && <form className="terminal-search" role="search" aria-label="Terminalverlauf durchsuchen"
+      onSubmit={(event) => { event.preventDefault(); find(); }} onKeyDown={(event) => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeSearch(); }
+        else if (event.key === 'Enter' && event.shiftKey) { event.preventDefault(); find(query, true); }
+      }}>
+      <input ref={searchInput} type="search" aria-label="Im Terminal suchen" maxLength={200} value={query} placeholder="Im Terminalverlauf suchen…"
+        onChange={(event) => { setQuery(event.target.value); find(event.target.value, false, true); }} />
+      <button type="button" disabled={!query} onClick={() => find(query, true)} title="Shift+Enter">Vorheriger Treffer</button>
+      <button type="submit" disabled={!query} title="Enter">Nächster Treffer</button>
+      <button type="button" aria-label="Terminalsuchen schliessen" onClick={closeSearch}>×</button>
+      <span role="status">{searchResult}</span>
+    </form>}
+    {toolError && <div className="terminal-tool-error" role="alert">{toolError}<button onClick={() => setToolError('')} aria-label="Terminal-Werkzeugfehler schliessen">×</button></div>}
+    <span className="terminal-tool-status" role="status">{toolNotice}</span>
     <SubscriptionUsagePanel key={sessionId} load={() => window.ade.invoke('terminal:usage', { sessionId })} />
     {profileContext && <SessionProfileContext key={sessionId} context={profileContext}
       readText={() => window.ade.invoke('terminal:profileContext', { sessionId })}
       readRevision={async () => (await window.ade.invoke('agent:behaviorGet', { agentId: profileContext.profileId })).revision} />}
     {remoteInput && <div role="status" className="terminal-control-banner" style={{ padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
       <span>Dieses Terminal wird von einem verbundenen Gerät gesteuert.</span>
-      <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus()); }}>Eingabe am Desktop übernehmen</button>
+      <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus())
+        .catch(() => setToolError('Eingabe konnte nicht übernommen werden. Erneut versuchen.')); }}>Eingabe am Desktop übernehmen</button>
     </div>}
     <div className="terminal-host" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
   </div>;

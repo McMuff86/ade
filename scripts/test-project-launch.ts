@@ -14,6 +14,7 @@ import { resolveLaunchCommand } from '../src/shared/runtimes';
 import type { SessionMeta } from '../src/shared/types';
 import { validateCompleteConfig } from '../src/main/config/store';
 import { projectOverview } from '../src/main/overview/projectOverview';
+import { reusableProjectSession } from '../src/renderer/projects/projectSessions';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -70,6 +71,24 @@ void (async () => {
   check('terminal matching excludes a session from a different branch', !f.workbench.sessionMatches(current!, session));
   session.branch = 'feature/tablet';
   check('matching does not require an agent identity', f.workbench.sessionMatches(current!, session));
+  const shell: SessionMeta = { ...session, launchChoice: { mode: 'shell' } };
+  const cli: SessionMeta = { ...session, id: 'cli', launchChoice: { mode: 'codex' }, program: { status: 'running' } };
+  const reuse = (items: SessionMeta[], choice: Parameters<typeof reusableProjectSession>[3], profile?: string) =>
+    reusableProjectSession(items, workspaceId, session.branch!, choice, profile);
+  check('workspace shell action reuses an existing interactive shell', reuse([shell], { mode: 'shell' })?.id === shell.id);
+  check('workspace quick launch reuses a running matching CLI', reuse([cli], { mode: 'codex' })?.id === cli.id);
+  check('workspace quick launch excludes exited and unknown programs', !reuse([{ ...cli, program: { status: 'exited', exitCode: 0 } }], { mode: 'codex' })
+    && !reuse([{ ...cli, program: undefined }], { mode: 'codex' }));
+  check('workspace quick launch excludes other branches and workspaces', !reuse([{ ...cli, branch: 'other' }, { ...cli, projectWorkspaceId: 'other' }], { mode: 'codex' }));
+  check('workspace quick launch excludes tasks and closed terminals', !reuse([{ ...cli, kind: 'task' }, { ...cli, status: 'exited' }], { mode: 'codex' }));
+  check('plain CLI action never reuses an agent profile', !reuse([{ ...cli, launchProfileId: 'builder' }], { mode: 'codex' }));
+  const profiled = { ...cli, launchChoice: { mode: 'agent' as const }, launchProfileId: 'builder' };
+  check('profile reuse requires the explicitly selected profile', reuse([profiled], { mode: 'agent' }, 'builder')?.id === cli.id
+    && !reuse([profiled], { mode: 'agent' }, 'other'));
+  const model = { ...cli, launchChoice: { mode: 'ollama' as const, model: 'fixture:small' } };
+  check('Ollama reuse distinguishes model choices', reuse([model], { mode: 'ollama', model: 'fixture:small' })?.id === cli.id
+    && !reuse([model], { mode: 'ollama', model: 'fixture:large' }));
+  check('reuse selects the newest matching session independently of list order', reuse([{ ...shell, id: 'newer', createdAt: 5 }, shell], { mode: 'shell' })?.id === 'newer');
   devices.setAdminScopes('tablet', ['workspace:read', 'projects:write']);
   await rejects('revoked branch grant cannot replay an earlier success', () => app.commandProject(commandContext, { operation: 'branch-apply', previewId: preview.id }), 'scope_not_granted');
   const execution = new ExecutionBackendService(); execution.run = async () => ({ code: 0, stdout: Buffer.from('found'), stderr: Buffer.alloc(0), timedOut: false, signal: null });

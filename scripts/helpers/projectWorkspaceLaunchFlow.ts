@@ -3,10 +3,12 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { join } from 'node:path';
 import type { Page } from 'playwright';
 import { terminalLauncher } from './terminalControls';
+import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
 import type { mobileTlsProxy } from './mobileBrowser';
 
 export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root: string, evidence: string, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>,
   check: (name: string, ok: boolean) => void): Promise<void> {
+  await desktopWorkspaceTerminalFlow(desktop, root, evidence, check);
   const parent = join(root, 'cli-projects'); const repo = join(parent, 'Without profile'); mkdirSync(repo, { recursive: true });
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', windowsHide: true });
   git('init', '--initial-branch=main'); writeFileSync(join(repo, 'AGENTS.md'), '# Project instructions\nPROJECT_RULES_ONLY\n');

@@ -93,6 +93,9 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
   await desktop.getByRole('button', { name: 'Freie Terminals', exact: true }).click();
   await desktop.locator(`#session-tab-${shell.id}`).click();
+  await desktop.waitForFunction((id) => document.activeElement === document.querySelector(`#session-panel-${id} .xterm-helper-textarea`), shell.id);
+  check('clicking a desktop session tab focuses its terminal input', true);
+  check('desktop paste toolbar respects tablet input ownership', await desktop.locator(`#session-panel-${shell.id}`).getByRole('button', { name: 'Einfügen', exact: true }).isDisabled());
   await desktop.locator(`#session-panel-${shell.id}`).getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
   await terminal.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).waitFor();
   check('desktop can reclaim the mobile home terminal', !(await desktop.evaluate((id) => window.ade.invoke('terminal:control', { sessionId: id }), shell.id)).remote);

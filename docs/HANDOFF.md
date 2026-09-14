@@ -1,5 +1,101 @@
 # ADE — aktuelle Übergabe
 
+## Goals gesetzt und Sicherungscommit beauftragt (15. September 2026)
+
+Operator bestätigt den sichtbaren Umbau und beauftragt ein aktives Ziel für
+CLI-Arbeitsübersicht (Goal 27) und ElevenLabs-Promptübergabe (Goal 23.1 Desktop).
+Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. Noch keine neue
+Produktimplementierung: zunächst Arbeitsliste, dann gebundener Textentwurf,
+Diktat und vollständige Abnahme. Weitere Produktideen bleiben priorisierte
+Vorschläge im [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
+
+Anschliessend ausdrücklich beauftragt: den jetzigen Projektstand zeitnah
+committen und pushen. Der Sicherungsstand umfasst die zuvor vollständig
+geprüften Workspace-Terminaländerungen, Neuordnungsnachweise und Zielplanung.
+Persönliche Konfiguration und Dateisicherungen bleiben im lokalen ADE-Backup.
+Zusätzlicher Operatorauftrag: sämtliche führenden Dokumente, Goals und
+Architekturaussagen mit dem Code synchronisieren. Umfang und Audit-Abnahme
+sind im aktiven Zielplan ergänzt; der vollständige Audit bleibt ausstehend.
+
+## Projekt-Neuordnung aktiviert, WSL-Assistenten geprüft (15. September 2026)
+
+Operator akzeptiert: bestehende Arbeit direkt, neue parallele Aufgabe mit eigenem
+Branch/Worktree, Profile optional. Gewünschte Projekte: ADE, RhinoLayoutTools,
+RhinoClaw, RhinoSheetMetal; Originalordner unter `repos` niemals löschen.
+Bereinigung und neutrale Coding-Profile wurden danach ausdrücklich bestätigt.
+
+Konfiguration/Agentdaten/Remote-Daten/verschlüsselte Credentials gesichert unter
+`C:\Users\Adi.Muff\ADE-Backups\Neuordnung-20260914-234214`.
+Alle sechs alten ADE-Arbeitskopien gesichert: 19.222 reguläre Dateien mit
+SHA-256-Abgleich, 1.040 Verknüpfungen als Link-Manifeste, eigener LayoutTools-
+Commit zusätzlich als geprüftes inkrementelles Git-Bundle. Fünf Git-Registrierungen
+entfernt; ungültiger Main-Chef-Ordner und Reste einer Git-Entfernung zusätzlich
+ins Backup verschoben. Alle sechs alten Pfade entfernt. Original-HEADs,
+Branch-Referenzen, Status, Diffs und unversionierte Dateien unverändert geprüft.
+
+Persönliche App bei der Änderung gestoppt; Konfiguration validiert, über
+`ConfigStore.save` atomar aktiviert und erneut ohne Migration geladen. Vier
+Originalprojekte, drei optionale Profile Codex/Claude Code/Grok, keine alten
+Bindings oder Workspace-Overrides. 2D_rpg_jumpnrun und Codex Native nur aus
+ADE entladen; Originalordner erhalten. Runs/Tasks/Leases waren bereits leer.
+Historische Sitzungsdaten und bisherige Assistenten-Identitäten bleiben erhalten.
+
+Hermes General: `wsl:Ubuntu`, `general --tui`; Sentinel auf letzten Operatorwunsch:
+`openclaw tui --session agent:main:tui`. Beide direkt aus Overview des gepackten
+Windows-Builds bis „ready“ bzw. Gateway-Verbindung getestet, ohne Arbeitsauftrag.
+Dashboards öffnen extern: Sentinel `http://127.0.0.1:18789/chat/main`, Hermes
+behält seine bestehende HTTPS-Anmeldeseite. Beide HTTP 200. Browseranmeldung und
+neue Modellantwort nicht geprüft. TUI- und Browser-Sitzung bei Sentinel bewusst
+unterschiedlich (`agent:main:tui` bzw. `/chat/main`). Testterminals geschlossen.
+Nachweise: `test-results/reorganization-ui/`, Backup-`activation.json` und
+`cleanup.json`. Alte persönliche PID 62964 wurde für die Neuordnung beendet.
+
+Alle vier Projektkarten anschliessend im echten persönlichen Profil über
+„Projekt-Workspace öffnen“ geprüft: jeweiliger Originalordner, Branch `main`,
+kein Pflichtprofil. Nachweis: `test-results/reorganization-personal/verification.json`.
+Windows-Build am 15. September um 00:09 Uhr regulär neu geöffnet, PID **37308**,
+reagierendes Fenster, Startansicht Overview. Startnachweis:
+`test-results/reorganization-personal-start.json`.
+
+Neue Feststellung: ElevenLabs bietet in ADE bisher Stimmenwahl und TTS-Tests;
+Mikrofon/STT und gezielte Desktop-Promptübergabe an CLIs fehlen.
+[Aktive Ordnung, Nachweise und nächste Produktschritte](PROJECT_WORKFLOW_REORGANIZATION.md).
+
+## Workflow-Analyse und Windows-Build geöffnet (14. September 2026, 23:20 Uhr)
+
+Auf Wunsch des Operators den Stand `797aba0` einschliesslich der vorhandenen,
+uncommitteten Workspace-Terminal-Erweiterungen gebaut und als Windows-x64-App
+gepackt: `dist/workflow-review-20260914/win-unpacked/ADE.exe`.
+Persönliches Profil `%APPDATA%/ade`, gestartete PID **62964**, App reagiert.
+Konfigurationsbackup: `test-results/workflow-review-backup-20260914-232041`;
+Startnachweis: `test-results/workflow-review-activation.json`.
+Kein Produktcode geändert und kein Commit, Push, Branchwechsel oder Abgleich
+in den persönlichen Repositorys ausgeführt.
+
+Build, Packaging, drei TypeScript-Projekte und `pnpm test` grün: 56 Suiten /
+2.567 Checks. Vier gezielte Electron-Abläufe zusätzlich grün: Work 20,
+Git-Abgleich 20, Workspace/CLI 54, Projekt-Git 22. Gepackte EXE mit separatem
+Katalog-Prüfprofil durch alle fünf Ansichten geöffnet; native PTY-Echoausgabe
+im Originalprojekt bestätigt. Kein neuer vollständiger `pnpm verify`-Durchlauf
+und keine Provider-Inferenz. Screenshots/JSON: `test-results/workflow-review/`.
+
+[Analyse und vorgeschlagener täglicher Ablauf](WORKFLOW_REVIEW_2026-09-14.md)
+unterscheiden Hauptcheckout, Task-Worktree, Agent-Binding und mobilen Override.
+Konkrete Altstände: LayoutTool-Designer 81 Commits hinter dem Hauptprojekt,
+1 eigener Commit und 2 lokale Änderungen; GrokMain dort 15 Commits zurück.
+Die gemeinsame Arbeitsliste und eine konsistente Projekt-/Workspace-Navigation
+sind Empfehlungen zur Diskussion, keine bereits umgesetzte neue Funktion.
+
+## Workspace-Terminals: lokaler Arbeitsstand (14. September 2026)
+
+Workspace-Auswahl im freien Starter, direkte CLI-Aktionen, optionale Profile,
+Projektsitzungs-Tabs und Desktop-Terminalwerkzeuge sind umgesetzt. Vollständiges
+`pnpm verify`: Exit 0, 56 Suiten / 2.567 fokussierte und 903 Electron-/Browser-/
+Visual-Checks, drei TypeScript-Projekte und Produktionsbuild bestanden.
+Bei dieser ursprünglichen Abnahme blieb die persönliche Instanz unverändert;
+der neue Windows-Build ist inzwischen geöffnet, siehe aktuellen Eintrag oben.
+[Verträge, Bedienung und Abnahme](WORKSPACE_TERMINALS_RESULTS.md).
+
 ## Desktop Work und Profil-Einstellungen: aktiviert (14. September 2026, 06:49 Uhr)
 
 Work ist auch am PC als eigener Reiter mit Projekt-/Agent-/Statusfilter, Suche,

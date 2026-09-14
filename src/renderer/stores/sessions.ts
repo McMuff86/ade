@@ -20,6 +20,8 @@ interface SessionsState {
   sessions: Record<string, SessionMeta>;
   orderByAgent: Record<string, string[]>;
   activeByAgent: Record<string, string | null>;
+  activeByProject: Record<string, string | null>;
+  setActiveProject: (workspaceId: string, sessionId: string) => void;
   taskQueue: TaskQueueStatus;
   hydrated: boolean;
   error: SessionOperationError | null;
@@ -68,7 +70,13 @@ function withoutSession(state: SessionsState, sessionId: string): Partial<Sessio
   const agentId = sessionGroup(meta);
   const sessions = { ...state.sessions };
   delete sessions[sessionId];
-  if (!agentId) return { sessions };
+  if (!agentId) {
+    const workspaceId = meta.projectWorkspaceId;
+    return { sessions, ...(workspaceId && state.activeByProject[workspaceId] === sessionId ? {
+      activeByProject: { ...state.activeByProject, [workspaceId]: Object.values(sessions)
+        .filter((item) => item.projectWorkspaceId === workspaceId && item.branch === meta.branch && item.kind === 'interactive').at(-1)?.id ?? null },
+    } : {}) };
+  }
 
   const previous = state.orderByAgent[agentId] ?? [];
   const index = previous.indexOf(sessionId);
@@ -87,6 +95,9 @@ export const useSessions = create<SessionsState>((set, get) => ({
   sessions: {},
   orderByAgent: {},
   activeByAgent: {},
+  activeByProject: {},
+  setActiveProject: (workspaceId, sessionId) => set((state) => state.sessions[sessionId]?.projectWorkspaceId === workspaceId
+    ? { activeByProject: { ...state.activeByProject, [workspaceId]: sessionId } } : {}),
   taskQueue: { active: 0, queued: 0, maxActive: 4 },
   hydrated: false,
   error: null,
@@ -212,7 +223,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
   createProjectSession: async (workspaceId, branch, choice, profileId) => {
     const meta = await window.ade.invoke('session:launch', { projectWorkspaceId: workspaceId, expectedBranch: branch, ...choice, ...(profileId ? { profileId } : {}) });
     if (!get().hydrated) createdDuringHydrate.add(meta.id);
-    set((state) => ({ sessions: { ...state.sessions, [meta.id]: { ...meta, program: pendingPrograms.get(meta.id) ?? meta.program } } }));
+    set((state) => ({ sessions: { ...state.sessions, [meta.id]: { ...meta, program: pendingPrograms.get(meta.id) ?? meta.program } },
+      activeByProject: { ...state.activeByProject, [workspaceId]: meta.id } }));
     return meta;
   },
 

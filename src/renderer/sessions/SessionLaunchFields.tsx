@@ -3,7 +3,7 @@ import { SESSION_LAUNCH_LABELS } from '../../shared/sessionLaunch';
 import './sessionLaunch.css';
 
 export function canLaunchChoice(choice: SessionLaunchChoice, options?: SessionLaunchOptions): boolean {
-  return choice.mode === 'shell' || choice.mode === 'agent' && options?.choices.find((item) => item.mode === 'agent')?.available !== false || !!options?.choices.find((item) => item.mode === choice.mode)?.available
+  return choice.mode === 'shell' || !!options?.choices.find((item) => item.mode === choice.mode)?.available
     && (choice.mode !== 'ollama' || options.models.includes(choice.model));
 }
 

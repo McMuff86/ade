@@ -241,9 +241,30 @@ ohne bereits angelegte Projektdateien zu löschen.
 
 ## Terminal ohne Agent und Projekt öffnen
 
+Am Desktop kannst du bei **Terminals → Terminal öffnen → Workspace** auch direkt
+ein Projekt wählen. Danach Codex oder Claude auswählen und **Sitzung starten**.
+ADE zeigt vorher den Branch. Ein dem Projekt zugewiesener Agent ist dafür nicht
+erforderlich. Neue Ordner zuerst unter **Projekte** hinzufügen.
+
+Im geöffneten Projekt stehen **Codex öffnen**, **Claude Code öffnen** und
+**Leeres Terminal öffnen** direkt bereit. **Zusätzliche Sitzung starten** öffnet
+ein weiteres Terminal. Unter **Arbeiten mit → Gespeichertes Agent-Profil** kannst
+du ein vorhandenes Profil ausdrücklich für diesen Workspace auswählen.
+
+Die Sitzungen erscheinen als Tabs. **Ctrl+PageUp/PageDown** wechselt die Sitzung,
+**Ctrl+Shift+T** startet eine zusätzliche und **Ctrl+Shift+W** schliesst sie nach
+Bestätigung. Beim Wechsel zwischen Terminal und Git bleibt die Auswahl erhalten.
+
+Über dem Terminal findest du **Kopieren**, **Einfügen**, **Suchen**,
+**Verlauf-Anfang**, **Zur Live-Ausgabe** und die gespeicherte Schriftgrösse.
+**Ctrl+Shift+F** durchsucht den vorhandenen Terminalverlauf; Enter/Shift+Enter
+wechselt Treffer, Escape bringt den Fokus zurück ins Terminal. Ctrl+C kopiert
+bei markiertem Text; ohne Markierung erreicht es weiterhin das laufende Programm.
+
 Am Desktop **Terminals → Terminal öffnen** wählen. Im Dialog **Leeres Terminal**,
 **Codex**, **Claude CLI** oder **Grok CLI** auswählen und **Sitzung starten** drücken.
-Die Sitzung beginnt im Benutzerverzeichnis des ADE-Rechners. Mit **Freie Terminals**
+Mit **Workspace → Benutzerverzeichnis** beginnt die Sitzung im Benutzerverzeichnis
+des ADE-Rechners. Mit **Freie Terminals**
 links kehrst du zu diesen Sitzungen zurück. Du kannst die CLI auch selbst in der
 Shell starten; ADE zeigt den CLI-Status nur für den von ADE gestarteten Aufruf.
 
@@ -265,8 +286,9 @@ erfolgen in der nativen Umgebung des ADE-Rechners. [Details und Abnahmestand](TE
 3. **Branches** aufklappen, den gewünschten Branch auswählen und die Vorschau
    prüfen. Für parallele Arbeit einen neuen Branch mit **Zusätzliche Arbeitskopie
    anlegen** verwenden. Ungesicherte Dateien bleiben im bisherigen Workspace.
-4. Unter **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell auswählen
-   und den zugehörigen **… öffnen**-Knopf drücken.
+4. Am Desktop direkt **Codex öffnen**, **Claude Code öffnen** oder **Leeres Terminal öffnen**
+   wählen. Weitere CLIs und Profile unter **Arbeiten mit → Auswahl öffnen / fortsetzen**.
+   Auf Mobile unter **Sitzung öffnen mit** auswählen und **… öffnen** drücken.
 
 ![Projekteinstieg mit Suchfeld und Projektkarte](media/user-guide/06-projects.png)
 

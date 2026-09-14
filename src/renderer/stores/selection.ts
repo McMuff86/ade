@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSessions } from './sessions';
 
 /**
  * Cross-cutting selection state shared between the rail (sets it) and the
@@ -23,7 +24,10 @@ export const useSelection = create<SelectionState>((set) => ({
   projectRepositoryId: null,
   projectSessionId: null,
   openProjectRepository: (id) => set({ projectRepositoryId: id, projectWorkspaceId: null, projectSessionId: null }),
-  openProjectSession: (workspaceId, sessionId) => set({ projectWorkspaceId: workspaceId, projectRepositoryId: null, projectSessionId: sessionId }),
+  openProjectSession: (workspaceId, sessionId) => {
+    useSessions.getState().setActiveProject(workspaceId, sessionId);
+    set({ projectWorkspaceId: workspaceId, projectRepositoryId: null, projectSessionId: sessionId });
+  },
   setProjectWorkspace: (id) => set({ projectWorkspaceId: id, projectRepositoryId: null, projectSessionId: null }),
   selectedAgentId: null,
   selectedRepositoryId: null,

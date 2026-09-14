@@ -1,5 +1,24 @@
 # ADE delivery roadmap
 
+## Aktives Ziel: laufende CLI-Arbeit und Diktat (15. September 2026)
+
+Operator bestätigt die neue Ordnung der vier Originalprojekte und beauftragt
+die nächsten Goals: **Goal 27** führt interaktive CLI-Sitzungen in Work/Overview
+zusammen; **Goal 23.1 Desktop** ergänzt einen sitzungsgebundenen Promptentwurf
+und ElevenLabs-Diktat mit gezielter CLI-Übergabe. Reihenfolge: Arbeitsliste,
+Orientierung/Wechsel, Textentwurf, Diktat, vollständige Abnahme und Windows-Build.
+Beide Ziele sind aktiv geplant, ihre neuen Funktionen noch nicht implementiert.
+Zusätzlich beauftragt: vollständiger Dokumentationsabgleich gegen Code,
+Abnahmen und Zielstruktur; dieser ist Teil der abschliessenden Lieferung.
+[Umfang, Abnahmekriterien und weitere priorisierte Verbesserungen](CLI_WORK_AND_DICTATION_GOALS.md).
+
+## CLI direkt im Workspace und Terminal-Bedienung
+
+Workspace-Auswahl ohne Agent-Zuweisung, direkte Codex-/Claude-/Shell-Aktionen,
+optionale Profile und Desktop-Terminalwerkzeuge sind implementiert.
+Die vollständige UI-/Gesamtabnahme ist bestanden und in
+[Workspace-Terminals](WORKSPACE_TERMINALS_RESULTS.md) dokumentiert.
+
 ## Desktop/Tablet-Bedienung angleichen
 
 Work wird auch am PC als eigener Reiter mit derselben Filterauswahl angeboten.
@@ -12,7 +31,7 @@ Mehr-PC-Meilensteine bleiben separat geplant.
 
 ## Sprache, Projektauswahl und Terminal-Bedienung
 
-### Nächster Meilenstein: mobile Stimme und wirksame Agent-Profile
+### Bisheriger Meilenstein: mobile Stimme und wirksame Agent-Profile
 
 Benutzerauftrag vom 13. September, 23:57 Uhr: nach der aktuellen Abnahme
 weiterarbeiten und Aktivierungen zu spürbaren Verbesserungen bündeln.

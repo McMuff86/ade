@@ -107,7 +107,7 @@ export function ProjectsView(): JSX.Element {
       <ProjectBranches key={workspace.id} workspace={workspace} online canChange query={query} apply={applyBranch} errorText={errorText}
         pending={pending} savePending={(value) => { setPending(value); return true; }} onWorkspace={(value) => { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); }} />
       <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>
-      {section === 'terminal' ? <ProjectTerminal key={`${workspace.id}:${workspace.branch}:${sessionId ?? ''}`} workspace={workspace} initialSessionId={sessionId ?? undefined} />
+      {section === 'terminal' ? <ProjectTerminal key={`${workspace.id}:${workspace.branch}`} workspace={workspace} initialSessionId={sessionId ?? undefined} />
         : section === 'results' ? <ProjectRunResults key={workspace.id} workspaceId={workspace.id} query={query} port={desktopRunFiles} online errorText={errorText} />
         : section === 'settings' ? <TargetSpeechSettings target={{ kind: 'project', repositoryId: workspace.repositoryId }} title="Projekt-Stimme" />
         : <><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online canChange canEdit query={query} apply={applyGit} errorText={errorText}

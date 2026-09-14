@@ -1,5 +1,31 @@
 # ADE implementation status
 
+## Persönliche Neuordnung bestätigt; nächste Goals aktiv (15. September 2026)
+
+Vier Originalprojekte, optionale Coding-Profile und separate WSL-Assistenten
+sind eingerichtet und im Windows-Build geprüft. Die sechs alten ADE-Arbeitskopien
+wurden nach geprüfter Sicherung bereinigt; Originalrepositorys blieben erhalten.
+Die persönliche App ist wieder geöffnet; Details in
+[Neuordnung](PROJECT_WORKFLOW_REORGANIZATION.md).
+
+Neu beauftragt, noch nicht implementiert: gemeinsame Übersicht laufender CLI-
+Arbeit (Goal 27) und sitzungsgebundener Text-/ElevenLabs-Diktatentwurf mit
+gezielter Übergabe (Goal 23.1 Desktop). Work zeigt derzeit Runs; bestehende
+ElevenLabs-Unterstützung ist Stimmenwahl/TTS. Die Liefer- und Abnahmegrenzen
+stehen im [neuen Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
+Der Operator hat ausserdem den vollständigen Dokumentationsabgleich als
+verbindlichen Abschlussmeilenstein ergänzt. Dieser Audit ist noch ausstehend.
+
+## Direkter Workspace-Start und Desktop-Terminals (14. September 2026)
+
+Arbeitsstand ergänzt Workspace-Auswahl im freien Terminalstarter, direkte
+Codex-/Claude-/Shell-Aktionen, optionale Profile, Projektsitzungs-Tabs und
+Terminalsuche, Zwischenablage, Verlauf und gespeicherte Schriftgrösse.
+Vollständiges `pnpm verify` bestanden: 56 Suiten / 2.567 fokussierte Checks,
+903 Electron-/Browser-/Visual-Checks, alle drei TypeScript-Projekte und Build.
+Die persönliche Instanz wurde für diesen lokalen Arbeitsstand nicht neu gestartet.
+Umfang und Grenzen: [Workspace-Terminals](WORKSPACE_TERMINALS_RESULTS.md).
+
 ## Desktop/Tablet-Bedienung (14. September 2026)
 
 Desktop Work mit Run-Suche, Projekt-/Agent-/Statusfilter, Berichten, Graph-Wechsel,

@@ -226,6 +226,18 @@
 
 /* ------------------------------------------------------ recovery / exits */
 
+.terminal-tools, .terminal-search { flex: none; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.terminal-tools label { display: flex; gap: 6px; align-items: center; margin-left: auto; color: var(--muted); font-size: 11px; }
+.terminal-with-control .terminal-tools button, .terminal-with-control .terminal-search button,
+.terminal-tools select, .terminal-search input { min-height: 30px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; font-size: 11px; }
+.terminal-tools button:disabled, .terminal-search button:disabled { opacity: .5; }
+.terminal-tools :is(button,select):focus-visible, .terminal-search :is(input,button):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.terminal-search input { flex: 1 1 160px; min-width: 0; max-width: 100%; }
+.terminal-search span { color: var(--muted); font-size: 11px; }
+.terminal-tools .terminal-live-return { color: var(--accent); border-color: var(--accent); }
+.terminal-tool-error { flex: none; padding: 8px; color: var(--del); }
+.terminal-tool-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
 .session-notices {
   position: absolute;
   z-index: 5;

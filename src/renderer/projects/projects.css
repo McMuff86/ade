@@ -29,6 +29,14 @@
 .project-branches li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px 0; overflow-wrap: anywhere; }
 .project-branch-review { border: 1px solid var(--accent); margin-top: 12px; padding: 12px; overflow-wrap: anywhere; }
 .project-terminal { min-width: 0; }
+.project-quick-start { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.project-quick-start button:first-child { border-color: var(--accent); color: var(--accent); }
+.project-launch-context { color: var(--muted); overflow-wrap: anywhere; }
+.project-session-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; min-width: 0; }
+.project-session-tabs { flex: 1 1 280px; display: flex; gap: 6px; overflow-x: auto; min-width: 0; padding: 4px; }
+.project-session-tabs button { flex: none; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-session-tabs button[aria-selected=true] { border-color: var(--accent); color: var(--accent); background: var(--raised); }
+.project-session-profile { display: block; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 .project-terminal-screen { height: max(320px, 52vh); min-width: 0; margin: 16px 0; }
 .project-terminal p, .project-branches p { line-height: 1.6; }
 .project-git { min-width: 0; padding: 12px 0; }

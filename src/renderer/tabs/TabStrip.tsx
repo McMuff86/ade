@@ -67,7 +67,11 @@ export function TabStrip(): JSX.Element | null {
               aria-label={stateLabel}
               className="tab-select"
               tabIndex={isActive ? 0 : -1}
-              onClick={() => setActive(group, id)}
+              onClick={() => {
+                setActive(group, id);
+                requestAnimationFrame(() => document.getElementById(`session-panel-${id}`)
+                  ?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus());
+              }}
               onKeyDown={(event) => {
                 let index: number | null = null;
                 if (event.key === 'ArrowLeft') index = (sessionIds.indexOf(id) - 1 + sessionIds.length) % sessionIds.length;
