@@ -1,6 +1,6 @@
 # ADE — aktuelle Übergabe
 
-## Desktop Work und Profil-Einstellungen: abgenommen (14. September 2026)
+## Desktop Work und Profil-Einstellungen: aktiviert (14. September 2026, 06:49 Uhr)
 
 Work ist auch am PC als eigener Reiter mit Projekt-/Agent-/Statusfilter, Suche,
 Run-Bericht, Graph-Wechsel, neuer Aufgabe und neuem Run verfügbar. Normale
@@ -11,9 +11,20 @@ Zwei bestehende asynchrone Testabfragen wurden an den tatsächlichen Viewport-
 bzw. ConPTY-Endzustand gebunden; die bisherigen Bedingungen bestehen unverändert.
 Details und Nachweise: `WORK_PARITY_RESULTS.md`.
 
-Persönliche Aktivierung folgt nach Commit/Push mit einer eigenen Releasekopie
-und Konfigurationsbackup. Bis dahin läuft weiterhin die unten dokumentierte
-Instanz PID 3624. Keine neuen Gerätefreigaben oder Provider-Aufrufe erforderlich.
+Produktcommit `8c6dd633abd14632c2ad744b7cf8596ea88dcb8b` ist gepusht.
+Die persönliche Instanz wurde von PID 3624 auf **21576** neu gestartet;
+ausschließlich ihre vier Electron-Prozesse wurden beendet. Releasekopie:
+`test-results/operator-work-parity-20260914-064933`; Backup:
+`test-results/operator-work-parity-backup-20260914-064933`.
+Main-SHA256: `0D35147D32EF84CEBE730154709B7CE0B913EB19FC490EDB8E66AAD7D0A3C199`.
+
+ADE reagiert und zeigt Work mit allen fünf Reitern und den drei Auswahlfiltern.
+Die private Tablet-Adresse liefert HTTP 200 und `/assets/index-C1qEXNl6.js`
+aus der Releasekopie. Alle sechs Agenten und sechs Repository-Einträge sowie
+die verschlüsselten Credentials sind unverändert; Sarah bleibt Standardstimme.
+Keine neuen Gerätefreigaben oder Provider-Aufrufe waren erforderlich.
+Nachweise: `test-results/work-parity-restart.json`,
+`test-results/work-parity-personal-validation.json`, Release/`activation.json`.
 
 ## Agent-Profile persönlich aktiviert (14. September 2026, 02:41 Uhr)
 

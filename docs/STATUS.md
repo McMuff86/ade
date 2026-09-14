@@ -8,6 +8,8 @@ nutzt gemeinsame Identitäten mit Mobile. Die normalen PC-Agent-Einstellungen
 bieten nun ebenfalls Arbeitsanweisungen, Markdown-Zuweisung und Agent-Stimme.
 20 Work- und 7 Profileinstellungs-Prüfungen sind in `pnpm verify` aufgenommen.
 Die gesamte Prüfkette besteht einschließlich aller mobilen und visuellen Tests.
+Persönlich seit 06:49 Uhr mit Produktcommit `8c6dd63` aktiviert; PC-Work und
+Mobile-HTTP-Auslieferung sind bestätigt, Konfiguration und Credentials erhalten.
 Abnahme und persönliche Aktivierung: siehe `WORK_PARITY_RESULTS.md`.
 
 ## Agent-Profilanweisungen (14. September 2026, vollständig geprüft)

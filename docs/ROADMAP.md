@@ -6,7 +6,7 @@ Work wird auch am PC als eigener Reiter mit derselben Filterauswahl angeboten.
 Profile können über die normalen PC-Agent-Einstellungen bearbeitet werden,
 einschließlich Anweisungen, Markdown-Kopien und Stimme. Umsetzung und neue
 Electron-Prüfungen sind abgeschlossen; `pnpm verify` ist vollständig grün.
-Abnahme/Aktivierung wird in
+Abnahme und persönliche Aktivierung um 06:49 Uhr sind in
 `WORK_PARITY_RESULTS.md` dokumentiert. Die übrigen Sprach-, Quoten- und
 Mehr-PC-Meilensteine bleiben separat geplant.
 

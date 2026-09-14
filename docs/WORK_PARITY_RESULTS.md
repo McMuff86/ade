@@ -36,5 +36,10 @@ Electron-/Browser-Prüfungen einschließlich 20 Work-, 7 Profileinstellungs-,
 fehlgeschlagenen Bedingungen bestehen im vollständigen Lauf.
 Nachweis: `test-results/work-parity-verify-final.log`.
 
-Die persönliche ADE-Instanz verwendet bis zur unten bzw. in `HANDOFF.md`
-protokollierten Aktivierung weiterhin den bisherigen Release.
+Persönlich seit 06:49 Uhr aktiviert: Produktcommit
+`8c6dd633abd14632c2ad744b7cf8596ea88dcb8b`, neuer Main-PID 21576,
+Release `test-results/operator-work-parity-20260914-064933`.
+Work ist sichtbar und die private Mobile-Adresse liefert HTTP 200 mit dem
+Release-Asset `/assets/index-C1qEXNl6.js`. Alle Agent-/Repository-Datensätze
+und die verschlüsselten Credentials blieben beim Neustart unverändert.
+Backup und vollständige Aktivierungsnachweise stehen in `HANDOFF.md`.
