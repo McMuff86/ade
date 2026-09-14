@@ -1,5 +1,34 @@
 # ADE-Dokumentationsaudit
 
+## Laufender Folgeabgleich vom 15. September 2026
+
+Der aktuelle Auftrag umfasst CLI-Arbeitsübersicht, Diktat auf PC und Tablet,
+Terminal-Latenz und Verbrauch/Kosten. README, Index, SPEC, ARCHITECTURE,
+STATUS, ROADMAP und HANDOFF werden gemeinsam mit dem Code fortgeschrieben.
+Die abschliessende Gesamtprüfung und neue persönliche Aktivierung stehen im
+[aktuellen Nachweis](CLI_WORK_LATENCY_RESULTS.md); Diktat und Verbrauch sind
+noch nicht als geliefert abgenommen.
+
+Bereits korrigiert: README erklärt jetzt Projekte und optionale Coding-Profile,
+direkten Branch-/CLI-Start sowie den Unterschied zwischen Originalordner und
+Worktree. Die frühere pauschale Aussage, ADE könne keinen Push oder Merge
+ausführen, gilt nur für den eingeschränkten Managed-Run-Publisher. Explizite
+Projekt-Git-Aktionen besitzen eigene Vorschau- und Bestätigungsverträge
+(`ProjectGitService`, `ProjectPublishService`, `IntegrationService`).
+
+Das [Zielregister](GOAL_REGISTRY.md) löst die doppelte Vergabe von 20/21 auf:
+gelieferte Session-Workspace-Ziele bleiben 20/21, der spätere Multi-Host-Vorschlag
+wird als 28–30 geführt. Frühere Ergebnisdateien und datierte Zähler bleiben
+als historische Nachweise erhalten. Veraltete Aussagen zu laufenden Prüfungen,
+Neustarts und einer Listener-Kollision sind in der Roadmap als damaliger Stand
+eingeordnet. Der finale Abgleich folgt nach den noch offenen Implementierungen.
+
+Inventar dieses Folgeabgleichs: **92 Markdown-Dateien unter docs**, dazu das
+Root-README. Ein Dateiziel-Check aller 93 Dateien findet **357 relative Verweise
+ohne fehlendes Ziel**. Das prüft lokale Dateiziele, keine externen URLs oder
+Überschriftsanker. Einzelne Windows-1252-Zeichen in der ansonsten UTF-8-kodierten
+älteren Latenz-Ergebnisdatei sind vereinheitlicht; ihr historischer Inhalt bleibt erhalten.
+
 ## Folgeabgleich vom 11. September 2026
 
 Der Onboarding-Goal ergänzt den aktiven Bestand auf **65 Markdown-Dateien unter

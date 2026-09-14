@@ -20,7 +20,7 @@ export async function workspaceAssignmentFlow(desktop: Page, page: Page, proxy: 
   const agent = before.agents.find((item) => item.name === 'Terminal Agent')!;
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
-  await page.getByRole('complementary', { name: 'Agents und Terminals', exact: true }).getByRole('button').filter({ hasText: 'Terminal Agent' }).click();
+  await page.getByRole('complementary', { name: 'Agents und Terminals', exact: true }).getByRole('button', { name: 'Terminal Agent', exact: true }).click();
   const project = page.getByLabel('Terminal-Projekt', { exact: true });
   check('terminal dropdown explicitly offers project browsing', await project.locator('option[value="@browse"]').count() === 1);
   await project.selectOption('@browse');

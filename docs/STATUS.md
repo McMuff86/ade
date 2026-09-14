@@ -8,13 +8,25 @@ wurden nach geprüfter Sicherung bereinigt; Originalrepositorys blieben erhalten
 Die persönliche App ist wieder geöffnet; Details in
 [Neuordnung](PROJECT_WORKFLOW_REORGANIZATION.md).
 
-Neu beauftragt, noch nicht implementiert: gemeinsame Übersicht laufender CLI-
-Arbeit (Goal 27) und sitzungsgebundener Text-/ElevenLabs-Diktatentwurf mit
-gezielter Übergabe (Goal 23.1 Desktop). Work zeigt derzeit Runs; bestehende
-ElevenLabs-Unterstützung ist Stimmenwahl/TTS. Die Liefer- und Abnahmegrenzen
+Implementiert und vollständig mit `pnpm verify` geprüft: gemeinsame Übersicht
+interaktiver CLI-Arbeit in Work/Overview (Goal 27), Titel/Filter und direkter
+Sitzungswechsel. Native Projekt-Terminal-Latenz ist deutlich reduziert;
+physische Tablet-/WAN-Abnahme steht aus. Noch zu implementieren: gebundener
+Text-/ElevenLabs-Diktatentwurf mit gezielter Übergabe (Goal 23.1 PC und Mobile).
+Bestehende ElevenLabs-Unterstützung ist Stimmenwahl/TTS. Die Abnahmegrenzen
 stehen im [neuen Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 Der Operator hat ausserdem den vollständigen Dokumentationsabgleich als
 verbindlichen Abschlussmeilenstein ergänzt. Dieser Audit ist noch ausstehend.
+Weiterer Auftrag: Diktat auch mobil und messbare Optimierung der Tablet-
+Terminal-Eingabelatenz (Goal 25). Beides gehört jetzt zur aktiven Gesamtabnahme.
+Ebenfalls beauftragt, noch zu implementieren: Goal 24 für sitzungs-/projektbezogene
+Token-, Cache-, Reasoning- und Kostenwerte sowie ElevenLabs-Verbrauch. Die
+[Quellen- und Abnahmeregeln](USAGE_AND_COST_GOALS.md) unterscheiden Abos,
+API-Schätzungen und Anbieterabrechnung.
+Aktuelle Code-Abnahme: **3.543 Checks**, davon 2.615 in 58 fokussierten Suiten
+und 928 Electron-/Browser-/Visual-Checks. Windows-Paket und Aktivierung folgen.
+Nachweise und verbleibender Auftrag:
+[CLI-Arbeit und Terminal-Latenz](CLI_WORK_LATENCY_RESULTS.md).
 
 ## Direkter Workspace-Start und Desktop-Terminals (14. September 2026)
 
@@ -23,7 +35,9 @@ Codex-/Claude-/Shell-Aktionen, optionale Profile, Projektsitzungs-Tabs und
 Terminalsuche, Zwischenablage, Verlauf und gespeicherte Schriftgrösse.
 Vollständiges `pnpm verify` bestanden: 56 Suiten / 2.567 fokussierte Checks,
 903 Electron-/Browser-/Visual-Checks, alle drei TypeScript-Projekte und Build.
-Die persönliche Instanz wurde für diesen lokalen Arbeitsstand nicht neu gestartet.
+Die persönliche Aktivierung dieses damaligen Standes erfolgte anschliessend
+mit der oben dokumentierten Neuordnung. Der neue CLI-/Latenz-Arbeitsstand ist
+noch nicht persönlich aktiviert.
 Umfang und Grenzen: [Workspace-Terminals](WORKSPACE_TERMINALS_RESULTS.md).
 
 ## Desktop/Tablet-Bedienung (14. September 2026)

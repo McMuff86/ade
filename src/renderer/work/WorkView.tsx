@@ -8,6 +8,7 @@ import { OnboardingModals } from '../onboarding/OnboardingModals';
 import { NewRunModal } from '../graph/GraphView';
 import { RunReportPanel } from '../graph/RunReportPanel';
 import { SingleTaskModal } from './SingleTaskModal';
+import { CliWorkPanel } from './CliWorkPanel';
 import './work.css';
 
 const finished = new Set(['completed', 'failed', 'cancelled']);
@@ -58,6 +59,8 @@ export function WorkView() {
       {!Object.keys(agents).length && <p>Noch keine Agents</p>}
       {Object.values(agents).map(item => <button key={item.id} aria-label={item.name} title="Agentprofil öffnen" onClick={() => useOnboarding.getState().openAgentCard(item.id)}><Avatar name={item.name} photo={item.photo} shape="round" size={26} /><span>{item.name}</span></button>)}
     </aside><div className="work-content">
+      <CliWorkPanel project={project} profile={agent} />
+      <h2>Managed Runs</h2>
       <div className="work-filters"><label>Runs durchsuchen<input type="search" value={search} placeholder="Name, Projekt oder Agent" onChange={event => setSearch(event.target.value)} /></label>
         <label>Status<select aria-label="Status" value={status} onChange={event => setStatus(event.target.value)}><option value="all">Alle Runs</option><option value="open">Offene Runs</option><option value="finished">Beendete Runs</option></select></label></div>
       {loading && <p role="status">Runs werden geladen…</p>}

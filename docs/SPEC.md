@@ -2,6 +2,22 @@
 
 ## Work und Profile auf Desktop und Tablet
 
+Am Desktop stehen interaktive Sitzungen unter **CLI-Arbeit** in Work und
+Overview: Projekt, Originalordner/Worktree, Startbranch, CLI, Backend, optionales
+Startprofil und tatsächlich bekannter Startmodellwert. Eigene Titel, Suche und
+Filter erleichtern den Wechsel. **Sitzung öffnen** wählt dieselbe Sitzung ohne
+Doppelstart; ein inzwischen geänderter Projektbranch wird als Konflikt erklärt.
+**Neue Ausgabe** ist eine Beobachtung, kein erfundener Aufgabenfortschritt.
+CLI-Ende, offene Shell, geschlossenes Terminal und unbekannter Status bleiben
+unterscheidbar. Managed Runs haben ihre eigene Liste. Mobile behält seine
+bestehende Sitzungs-/Continue-Work-Navigation; keine vollständige Desktop-Parität
+dieser neuen Arbeitsliste behaupten.
+
+Mobile Terminals zeigen bestätigte PTY-Ausgabe. Kurze aktive Abfrageintervalle,
+ausgelassene unveränderte Bilddaten und Prozessscope-Prüfungen ohne Git-Start
+pro Taste verkürzen die Rückmeldung. Die lokale Messung ist keine pauschale
+Tablet-/WAN-Latenzzusage. Diktat und Kostenjournal bleiben aktive Ausbauziele.
+
 Beide Oberflächen bieten die Navigation Overview, Projekte, Terminals, Work,
 Graph in derselben Reihenfolge. Work zeigt Runs mit Suche nach Name, Projekt
 oder Agent sowie Projekt-, Agent- und Statusfilter (alle/offen/beendet).

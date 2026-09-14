@@ -18,6 +18,8 @@ import { useMode } from '../stores/mode';
 import { useSelection } from '../stores/selection';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
+import { CliWorkPanel } from '../work/CliWorkPanel';
+import { useAppData } from '../stores/appdata';
 import './overview.css';
 
 function usageCaption(usage: OverviewUsageRollup): string {
@@ -137,7 +139,9 @@ export function OverviewView(): JSX.Element {
     setMode('terminals');
   };
   const openProject = (repositoryId: string): void => {
-    useSelection.getState().openProjectRepository(repositoryId);
+    const original = useAppData.getState().projectWorkspaces.find(workspace => workspace.repositoryId === repositoryId && workspace.kind === 'checkout');
+    if (original) useSelection.getState().setProjectWorkspace(original.id);
+    else useSelection.getState().openProjectRepository(repositoryId);
     setMode('projects');
   };
   const openHomeTerminal = async (agentId: string): Promise<void> => {
@@ -274,8 +278,10 @@ export function OverviewView(): JSX.Element {
                     <span className="ov-pill">{card.backendLabel}</span>
                   </span>
                   <span className="ov-muted">
-                    {card.boundAgentCount === 0
-                      ? 'Noch kein Agent-Workspace'
+                    {card.hasOriginalWorkspace
+                      ? `Originalworkspace${(card.projectWorkspaceCount ?? 0) > 1 ? ` · ${card.projectWorkspaceCount! - 1} weitere Arbeitskopien` : ''}`
+                      : card.boundAgentCount === 0
+                      ? 'Projekt öffnen · Profil optional'
                       : card.boundAgentCount <= 3
                         ? `${card.boundAgentCount} Workspace${card.boundAgentCount === 1 ? '' : 's'} · ${card.boundAgentNames.join(', ')}`
                         : `${card.boundAgentCount} Agent-Workspaces`}
@@ -295,6 +301,7 @@ export function OverviewView(): JSX.Element {
         )}
       </section>
 
+      <CliWorkPanel compact />
       <section className="ov-section" aria-labelledby="ov-work-h">
         <div className="ov-work-heading"><h2 id="ov-work-h">Work</h2><label>Anzeige <select aria-label="Overview-Arbeit filtern" value={workFilter} onChange={(event) => setWorkFilter(event.target.value as typeof workFilter)}>
           <option value="current">Aktuelle Arbeit</option><option value="history">Historie</option><option value="all">Alles</option></select></label></div>

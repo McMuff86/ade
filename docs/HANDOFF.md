@@ -1,21 +1,33 @@
 # ADE — aktuelle Übergabe
 
-## Goals gesetzt und Sicherungscommit beauftragt (15. September 2026)
+## Aktive Goals und gesicherter Umbau (15. September 2026)
 
 Operator bestätigt den sichtbaren Umbau und beauftragt ein aktives Ziel für
 CLI-Arbeitsübersicht (Goal 27) und ElevenLabs-Promptübergabe (Goal 23.1 Desktop).
-Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. Noch keine neue
-Produktimplementierung: zunächst Arbeitsliste, dann gebundener Textentwurf,
-Diktat und vollständige Abnahme. Weitere Produktideen bleiben priorisierte
+Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. Die CLI-Arbeitsliste
+ist inzwischen implementiert; der CLI-/Latenz-Stand besteht `pnpm verify`
+vollständig mit **3.543 Checks** (58 Suiten / 2.615 fokussierte + 928 UI-Checks).
+Windows-Paket und persönliche Aktivierung folgen. Danach gebundener Textentwurf, Diktat, Verbrauch und vollständige
+Abnahme. Weitere Produktideen bleiben priorisierte
 Vorschläge im [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 
 Anschliessend ausdrücklich beauftragt: den jetzigen Projektstand zeitnah
 committen und pushen. Der Sicherungsstand umfasst die zuvor vollständig
 geprüften Workspace-Terminaländerungen, Neuordnungsnachweise und Zielplanung.
 Persönliche Konfiguration und Dateisicherungen bleiben im lokalen ADE-Backup.
+Sicherungscommit **bff299a984ca1ff0c5e243434519b97434f9dc26** wurde auf `main`
+erstellt und zu `origin/main` gepusht; Remote-SHA abgeglichen. Neue Produktarbeit
+seit diesem Checkpoint: [laufender Abnahmenachweis](CLI_WORK_LATENCY_RESULTS.md).
 Zusätzlicher Operatorauftrag: sämtliche führenden Dokumente, Goals und
 Architekturaussagen mit dem Code synchronisieren. Umfang und Audit-Abnahme
 sind im aktiven Zielplan ergänzt; der vollständige Audit bleibt ausstehend.
+Spätere Erweiterung desselben Ziels: mobiles Diktat ist erforderlich, ebenso
+die Messung/Optimierung des Tablet-Terminal-Echos (Goal 25). Sofort sichtbarer
+lokaler Promptentwurf und echte TUI-Ausgabe bleiben technisch unterscheidbar;
+kein unsicheres blindes Zeichen-Echo. Der Zielplan enthält Mess- und Abnahmekriterien.
+Weitere verbindliche Erweiterung: Goal 24 Verbrauch/Kosten für Codex, Claude
+Code, Grok und ElevenLabs. Native Usage-Daten zuerst, Proxy nur als gezielte
+Option; noch keine neue Zählerimplementierung. [Umfang](USAGE_AND_COST_GOALS.md).
 
 ## Projekt-Neuordnung aktiviert, WSL-Assistenten geprüft (15. September 2026)
 

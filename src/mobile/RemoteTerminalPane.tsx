@@ -67,6 +67,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const screenRoot = useRef<HTMLElement>(null); const focusTerminal = useRef<Element | null>(null);
   const dimensions = useRef({ cols: 100, rows: 30 }); const resizePending = useRef(false);
   const directSending = useRef(false);
+  const typingUntil = useRef(0);
   const refreshNow = useRef<() => void>(() => undefined);
   const clearRevokedState = (reason: unknown) => {
     if (reason instanceof MobileClientError && [401, 403].includes(reason.status)) {
@@ -76,8 +77,17 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const query = useCallback(async (id = selected) => {
     const own = ++queryVersion.current;
     const started = performance.now();
-    const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, ...(id ? { terminalId: id } : {}) });
+    const previous = stateRef.current;
+    const knownDisplayRevision = id && previous.selected?.id === id ? previous.displayRevision : undefined;
+    const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, ...(id ? { terminalId: id } : {}),
+      ...(knownDisplayRevision ? { knownDisplayRevision } : {}) });
     if (live.current && own === queryVersion.current) {
+      if (result.displayUnchanged) {
+        if (!knownDisplayRevision || result.displayRevision !== knownDisplayRevision || result.selected?.id !== previous.selected?.id) {
+          throw new Error('Terminalanzeige konnte nicht zugeordnet werden. Sitzung erneut öffnen.');
+        }
+        result.frame = previous.frame; result.screen = previous.screen;
+      }
       setResponseMs(Math.round(performance.now() - started));
       if (result.leaseId && result.leaseId === stateRef.current.leaseId && (stateRef.current.lastSequence ?? 0) > (result.lastSequence ?? 0)) {
         result.lastSequence = stateRef.current.lastSequence; result.inputUncertain = stateRef.current.inputUncertain;
@@ -116,7 +126,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         }
       } }
       refreshing = false;
-      if (!stopped) timer = setTimeout(() => void refresh(), requested ? 0 : stateRef.current.frame?.revision !== previousRevision ? 40 : 100);
+      if (!stopped) timer = setTimeout(() => void refresh(), requested ? 0 : performance.now() < typingUntil.current ? 16 : stateRef.current.frame?.revision !== previousRevision ? 40 : 100);
     };
     const wake = () => { clearTimeout(timer); void refresh(); };
     refreshNow.current = wake; document.addEventListener('visibilitychange', wake);
@@ -297,7 +307,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
       screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize}
-      onData={(data) => keyboard.enqueue(data)} onSize={(cols, rows) => {
+      onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
       {state.frame && <details className="m-terminal-transcript"><summary>Textausgabe und Verlauf</summary><pre tabIndex={0} aria-label="Terminal-Textverlauf">{state.screen}</pre></details>}

@@ -14,6 +14,7 @@ import { projectDirectoryFlow } from './helpers/projectDirectoryFlow';
 import { tabletLayoutFlow } from './helpers/tabletLayoutFlow';
 import { assistantAccessFlow } from './helpers/assistantAccessFlow';
 import { terminalEchoLatency } from './helpers/terminalLatency';
+import { terminalLatencyFlow } from './helpers/terminalLatencyFlow';
 import { PNG } from 'pngjs';
 import { inspectionFixtureCode, runInspectionFlow } from './helpers/runInspectionFlow';
 import { projectWorkspaceLaunchFlow } from './helpers/projectWorkspaceLaunchFlow';
@@ -39,7 +40,13 @@ void (async () => {
     if (line.Contains("account/rateLimits/read")) Console.WriteLine(${JSON.stringify(JSON.stringify({ id: 2, result: { rateLimits: { primary: { usedPercent: 25, windowDurationMins: 10080, resetsAt: 1893456000 } } } }))});
     else if (line.Contains("clientInfo")) Console.WriteLine(${JSON.stringify(JSON.stringify({ id: 1, result: {} }))});
   } return; }`;
-  writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  ${quotaFixture}\n  ${inspectionFixtureCode}\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (args.Length == 0 || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n} }\n'@\n`);
+  const latencyFixture = String.raw`if (File.Exists("terminal-latency-fixture")) {
+    Console.TreatControlCAsInput = true; int count = 0; Console.Write("ADE_LATENCY_READY");
+    while (true) { var key = Console.ReadKey(true); if (key.KeyChar == 3) break;
+      Console.Write("\x1b[2J\x1b[HADE_LATENCY_ECHO_" + (++count) + "_READY"); }
+    return;
+  }`;
+  writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  ${quotaFixture}\n  ${inspectionFixtureCode}\n  ${latencyFixture}\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (args.Length == 0 || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n} }\n'@\n`);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
   const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
@@ -54,6 +61,11 @@ void (async () => {
 require('node:os').homedir = () => ${JSON.stringify(join(root, 'terminal-home'))};
 const cp = require('node:child_process'); const original = cp.execFile;
 cp.execFile = function(file, args, options, callback) {
+  if (${process.argv.includes('--terminal-latency-only')} && /git(?:\\.exe)?$/i.test(file)) {
+    const started = performance.now(); return original.call(this, file, args, options, (error, stdout, stderr) => {
+      (globalThis.adeGitMeasurements ??= []).push(Math.round(performance.now() - started)); callback(error, stdout, stderr);
+    });
+  }
   if (!/tailscale(?:\\.exe)?$/i.test(file)) return original.call(this, file, args, options, callback);
   const config = {TCP: {'443': {HTTPS: true}}, Web: {'ade-mobile.fixture.ts.net:443': {Handlers: {'/': {Proxy: 'http://127.0.0.1:${port}'}}}}};
   queueMicrotask(() => callback(null, JSON.stringify(args[0] === 'status' ? {BackendState:'Running',Self:{DNSName:'ade-mobile.fixture.ts.net.',Online:true}} : config))); return {};
@@ -118,6 +130,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   }
   if (process.argv.includes('--workspace-cli-only')) {
     await projectWorkspaceLaunchFlow(desktop, page, root, evidence, proxy, check); return;
+  }
+  if (process.argv.includes('--terminal-latency-only')) {
+    await terminalLatencyFlow(app, desktop, page, root, evidence, check); return;
   }
   if (process.argv.includes('--run-inspection-only')) {
     await runInspectionFlow(desktop, page, setup.agent.categoryId, setup.repo.id, evidence, check); return;

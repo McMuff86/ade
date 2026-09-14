@@ -172,6 +172,8 @@ export function projectOverview(
       id: repository.id,
       name: repository.name,
       backendLabel: backendLabel(repository.executionBackend),
+      projectWorkspaceCount: config.projectWorkspaces.filter(workspace => workspace.repositoryId === repository.id).length,
+      hasOriginalWorkspace: config.projectWorkspaces.some(workspace => workspace.repositoryId === repository.id && workspace.kind === 'checkout'),
       boundAgentCount: names.length,
       boundAgentNames: names.slice(0, NAMED_BOUND_AGENTS),
       lastActivityAt,

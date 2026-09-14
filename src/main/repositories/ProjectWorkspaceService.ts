@@ -12,6 +12,7 @@ import { redactForWire } from '../errors';
 import { hostPathKey, sameHostPath } from '../platform';
 import { assertNoLinks } from './pathDiscipline';
 import { workspaceOperations } from './WorkspaceOperationGate';
+import { terminalWorkspaceBranch } from './TerminalWorkspaceIdentity';
 
 const execute = promisify(execFile);
 const MAX_ENTRIES = 500;
@@ -167,6 +168,19 @@ export class ProjectWorkspaceService {
     return this.view(state.workspace, state.repository, state.branch);
   }
 
+  /** Existing terminal I/O uses sealed directory identity, without launching Git
+   * on every key or frame. Never use this path for launch or filesystem actions. */
+  async resolveTerminal(workspaceId: string): Promise<{ workspace: ProjectWorkspace; repository: Repository; branch: string }> {
+    const workspace = this.store.get().projectWorkspaces.find(item => item.id === workspaceId);
+    const repository = workspace && this.store.get().repositories.find(item => item.id === workspace.repositoryId);
+    if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt-Workspace ist nicht verfügbar.');
+    this.assertRecordPaths(workspace, repository);
+    const branch = terminalWorkspaceBranch(workspace, repository);
+    this.assertRecordPaths(workspace, repository);
+    if (branch === null) return this.resolve(workspaceId);
+    return { workspace: { ...workspace }, repository: { ...repository }, branch };
+  }
+
   private view(workspace: ProjectWorkspace, repository: Repository, branch: string): ProjectWorkspaceView {
     return { id: workspace.id, repositoryId: repository.id, name: redactForWire(repository.name, 200),
       branch: redactForWire(branch, 200), kind: workspace.kind, backend: 'native' };
@@ -206,19 +220,27 @@ export class ProjectWorkspaceService {
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !GIT_LOCATION_ENV.has(key.toUpperCase())));
     const read = async (args: string[]): Promise<string> => (await execute('git', ['-C', path, '-c', 'core.fsmonitor=false', ...args],
       { windowsHide: true, timeout: 10_000, maxBuffer: 64 * 1024, encoding: 'utf8', env: { ...env, GIT_OPTIONAL_LOCKS: '0' } })).stdout.trim();
-    const raw = await read(['rev-parse', '--path-format=absolute', '--show-toplevel', '--absolute-git-dir', '--git-common-dir']);
+    // Independent read-only probes share one process-start round trip. Never
+    // cache authority: pointer/record identities are still checked on every call.
+    const results = await Promise.allSettled([
+      read(['rev-parse', '--path-format=absolute', '--show-toplevel', '--absolute-git-dir', '--git-common-dir']),
+      read(['worktree', 'list', '--porcelain', '-z']),
+      read(['symbolic-ref', '--quiet', '--short', 'HEAD']).catch((error: unknown) => {
+        if ((error as { code?: number }).code !== 1) throw error;
+        return '(detached HEAD)';
+      }),
+    ]);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+    const [raw, worktrees, branch] = results.map(result => (result as PromiseFulfilledResult<string>).value) as [string, string, string];
     const parts = raw.split(/\r?\n/);
     if (parts.length !== 3 || parts.some((part) => !part || /[\0-\x1f]/.test(part))) throw new Error('ade: Git-Workspace konnte nicht eindeutig bestimmt werden.');
     const [top, git, common] = parts.map((part) => { projectRootIdentity(part); return realpathSync.native(part); }) as [string, string, string];
     if (!sameHostPath(top, path)) throw new Error('ade: Einen Repository-Stamm statt eines Unterordners öffnen.');
-    const worktrees = await read(['worktree', 'list', '--porcelain', '-z']);
     const mainPath = worktrees.split('\0').find((line) => line.startsWith('worktree '))?.slice(9);
     if (!mainPath) throw new Error('ade: Git-Hauptworkspace fehlt.');
     projectRootIdentity(mainPath);
     const main = realpathSync.native(mainPath);
-    let branch: string;
-    try { branch = await read(['symbolic-ref', '--quiet', '--short', 'HEAD']); }
-    catch (error) { if ((error as { code?: number }).code !== 1) throw error; branch = '(detached HEAD)'; }
     if (this.pointerIdentity(path) !== pointer) throw new Error('ade: Git-Zuordnung wurde während des Lesens geändert.');
     return { top, main, git, common, pointer, branch };
   }

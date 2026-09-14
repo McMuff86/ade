@@ -7,10 +7,22 @@ die nächsten Goals: **Goal 27** führt interaktive CLI-Sitzungen in Work/Overvi
 zusammen; **Goal 23.1 Desktop** ergänzt einen sitzungsgebundenen Promptentwurf
 und ElevenLabs-Diktat mit gezielter CLI-Übergabe. Reihenfolge: Arbeitsliste,
 Orientierung/Wechsel, Textentwurf, Diktat, vollständige Abnahme und Windows-Build.
-Beide Ziele sind aktiv geplant, ihre neuen Funktionen noch nicht implementiert.
+Desktop-Arbeitsliste und erste native Latenzoptimierung bestehen die vollständige
+Code-Abnahme mit 3.543 Checks. Windows-Paket und persönliche Aktivierung folgen.
+Diktat bleibt zu implementieren; [Nachweise](CLI_WORK_LATENCY_RESULTS.md).
+Erweiterung: Goal 23.1 umfasst auch mobiles Tablet-Diktat; Goal 25 zur Messung
+und Optimierung der Tablet-Terminal-Latenz ist ebenfalls aktiver Lieferumfang.
+Die Desktop-Lieferung allein erfüllt diesen erweiterten Auftrag nicht.
+Weiterer Auftrag: **Goal 24** um die implementierbare Verbrauchs-/Kostenbilanz
+für Codex, Claude Code, Grok und ElevenLabs erweitern. Zähler, Quelle und
+Abrechnung unterscheiden; [führender Plan](USAGE_AND_COST_GOALS.md).
 Zusätzlich beauftragt: vollständiger Dokumentationsabgleich gegen Code,
 Abnahmen und Zielstruktur; dieser ist Teil der abschliessenden Lieferung.
 [Umfang, Abnahmekriterien und weitere priorisierte Verbesserungen](CLI_WORK_AND_DICTATION_GOALS.md).
+
+Die folgenden Liefernotizen sind datierte Meilensteine. Frühere Pendenzen und
+Prozess-IDs beschreiben den jeweiligen damaligen Stand; aktueller Betrieb steht
+in [HANDOFF](HANDOFF.md), eindeutige Zielnummern im [Zielregister](GOAL_REGISTRY.md).
 
 ## CLI direkt im Workspace und Terminal-Bedienung
 
@@ -76,7 +88,7 @@ Terminal-Bedienung werden im aktuellen Arbeitsstand umgesetzt und geprüft.
 Erweiterungen: **Goal 23 Diktat**, **Goal 24 belastbare CLI-Nutzungsdaten**,
 **Goal 25 gemessene Tablet-Latenz**. Reihenfolge, Quellen und messbare
 Abnahmekriterien stehen im [Ausbauplan](VOICE_USAGE_TERMINAL_PLAN.md).
-Der bestehende [Multi-Host-Plan mit Goals 20–22](MULTI_HOST_ACCESS_PLAN.md)
+Der bestehende [Multi-Host-Plan mit Goals 28–30](MULTI_HOST_ACCESS_PLAN.md)
 bleibt Grundlage für einen zweiten Tailscale-PC; konkrete erste Abnahme ist
 Hostwechsel zwischen zwei getrennt gekoppelten ADE-Hosts.
 Diese Ausbauziele sind geplant, keine Freigabe bereits unterstützter Funktionen.
@@ -112,7 +124,7 @@ Aktivierung samt Anordnung und fehlenden Profilbildern erfolgte am 13. September
 20:53 Uhr, auf ausdrücklichen Benutzerauftrag.
 [Nachweise](RAIL_ORDERING_RESULTS.md).
 
-## Laufend: Terminal, Aboanzeige und Git-Bedienung
+## Historischer Zwischenstand: Terminal, Aboanzeige und Git-Bedienung (13. September)
 
 Vom Benutzer angeforderter Zwischencommit für den PC-Abgleich. Native Codex-
 Quotaabfrage und Bedienhilfen sind implementiert; Gesamtprüfung, Latenzmessung
@@ -173,7 +185,7 @@ Status: 2026-09-11. [Capabilities](STATUS.md), [project workflow tasks](PROJECT_
 and [current product review](research/ADE_PRODUCT_REVIEW_2026-09-10.md) have distinct roles.
 Intermediate delivery notes are preserved in the [checkpoint archive](archived/ROADMAP_2026-09-10_CHECKPOINT.md).
 
-## Current delivery
+## Delivered baseline from September 11
 
 September 11 follow-up S0–S3 is delivered: guided desktop setup, explicit grant
 presets and Mobile orientation/build identity. Full pnpm verify passed with
@@ -189,30 +201,26 @@ full `pnpm verify` with 2,588 passing checks. Task commits form one final delive
 the operator build and publication are recorded in HANDOFF. The extra WSL
 lifecycle recheck remains blocked at a read-only readiness probe.
 
-## Requested next slice: live run activity and questions
+## Delivered follow-up: live run activity and questions
 
-The September 11 follow-up is implemented in the current working tree: sequenced
-activity, native Codex questions on desktop/mobile, result-file storage and
-retained-history pagination. Focused checks and real Windows Codex inference
-pass. Full verification and the personal-host restart are the remaining delivery
-steps; WSL readiness remains an independently observed host problem. Evidence:
-[LIVE_RUN_INTERACTION_PLAN](LIVE_RUN_INTERACTION_PLAN.md),
-[Tablet goals](TABLET_WORKSPACE_GOALS.md).
-The current operator connection also needs retry/revalidation after a listener
-startup collision on port 4317; the morning restart evidence is historical.
+The September 11 follow-up delivered sequenced activity, native Codex questions
+on desktop/mobile, result-file storage and retained-history pagination. Its
+later full Windows verification and personal-host activation are recorded in
+[TABLET_WORKSPACE_RESULTS](TABLET_WORKSPACE_RESULTS.md). The earlier listener
+collision and pending restart are historical observations, not current blockers.
+Separate WSL lifecycle evidence must not be inferred from native Windows tests;
+the subsequently checked Sentinel/Hermes entry points are recorded in HANDOFF.
 
-## Other proposed product slices — for discussion
+## Further proposed product slices
 
-1. Physical Samsung Chrome keyboard/DeX/rotation and network-transition acceptance.
-2. Durable result-file storage, pagination and older archived-run browsing.
-3. WSL readiness/lifecycle investigation and separate backend result-file support.
-4. Consistent German labels and a wider measured accessibility audit.
-5. Multi-host access: host directory, session/device grants approved on the
-   target host and an SSH terminal preset; proposed 2026-09-13 in
-   [MULTI_HOST_ACCESS_PLAN](MULTI_HOST_ACCESS_PLAN.md), not yet authorized.
+The active CLI, dictation, cost and terminal-latency work is defined at the top
+of this roadmap. Physical Samsung/DeX/rotation and network-transition acceptance
+remains necessary for mobile claims. Additional WSL backend flows and wider
+accessibility/localization work need their own executable evidence.
 
-These proposals require prioritization; no new delivery is implied. Acceptance
-criteria and sources are in the September 10 review.
+Multi-host switching, target-host-approved access and SSH presets remain a
+separate proposal: [Goals 28–30](MULTI_HOST_ACCESS_PLAN.md). Renumbering the plan
+resolves duplicate identifiers and does not authorize implementation.
 
 ## Existing engineering tracks and exit criteria
 

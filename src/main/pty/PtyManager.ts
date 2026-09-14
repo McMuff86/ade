@@ -122,6 +122,8 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  cols: number;
+  rows: number;
   usageProvider?: 'codex' | 'claude' | 'grok';
   usageApiKey?: boolean;
   lastOutputAt?: number;
@@ -294,7 +296,7 @@ export class PtyManager {
 
   list(): SessionMeta[] {
     return [...this.sessions.values()]
-      .map((session) => ({ ...session.meta }))
+      .map((session) => ({ ...session.meta, lastOutputAt: session.lastOutputAt, outputSequence: session.sequence }))
       .sort((a, b) => a.createdAt - b.createdAt);
   }
 
@@ -316,9 +318,11 @@ export class PtyManager {
   resize(sessionId: string, cols: number, rows: number): void {
     const session = this.sessions.get(sessionId);
     if (!session || session.meta.status === 'exited' || cols < 1 || rows < 1) return;
+    if (session.cols === cols && session.rows === rows) return;
     try {
       session.proc.resize(cols, rows);
       session.display?.resize(cols, rows);
+      session.cols = cols; session.rows = rows;
     } catch (error) {
       console.warn(`[ade] pty:resize ${sessionId} failed:`, error);
     }
@@ -637,6 +641,12 @@ export class PtyManager {
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
+      runtime: agent.runtime,
+      launchModel: agent.customCommand ? undefined : agent.runtime === 'codex' ? agent.codexModel
+        : agent.runtime === 'claude' ? agent.claudeModel : agent.runtime === 'grok' ? agent.grokModel
+        : launchChoice?.mode === 'ollama' ? launchChoice.model : undefined,
+      workspaceKind: project?.workspaceId ? this.store.get().projectWorkspaces.find(item => item.id === project.workspaceId)?.kind
+        : scope.workspaceBindingId ? 'worktree' : 'home',
       profileContext: profileSnapshot && profileIdentity ? { profileId: profileIdentity.id, profileName: profileIdentity.name,
         digest: profileSnapshot.sha256, profileDigest: profileSnapshot.profileDigest, capturedAt: Date.now(), delivery: 'supplied', sources: profileSnapshot.sources } : undefined,
       program: program ? { status: 'starting' } : undefined,
@@ -662,6 +672,7 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      cols: DEFAULT_COLS, rows: DEFAULT_ROWS,
       profileText: profileSnapshot?.content,
       profileCleanup: preparedProfile?.dispose,
       usageProvider: !agent.customCommand && (agent.runtime === 'codex' || agent.runtime === 'claude' || agent.runtime === 'grok') ? agent.runtime : undefined,

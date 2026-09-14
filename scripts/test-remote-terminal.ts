@@ -32,7 +32,10 @@ void (async () => {
   const writes: string[] = []; let starts = 0; let now = Date.now(); let failWrite = false; const changes: TerminalControlState[] = [];
   const resources = new DeviceResourceService(store, (id) => devices.resourceAccess(id));
   let homeStarts = 0; let profileReads = 0;
+  let screenText = 'PS C:\\private\\workspace>\r\nready\r\n';
+  let displayEffect = async () => {};
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
+    display: async () => { await displayEffect(); return { screen: await remoteTerminalScreen(Buffer.from(screenText), 120, 32) }; },
     profileContext: () => { profileReads++; return 'Captured profile marker\nC:\\private\\profile\\AGENTS.md'; },
     createHome: async (choice, authorize) => {
       authorize(); const session = { ...terminalHome(), id: `native-home-${++homeStarts}`, scopeSource: 'terminal-home' as const,
@@ -66,6 +69,15 @@ void (async () => {
   await command({ operation: 'open', mode: 'shell' }, openedContext);
   check('duplicate open starts exactly one interactive process', starts === 1);
   const state = await query(opened.terminalId);
+  const unchanged = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, knownDisplayRevision: state.displayRevision }, 'query') as MobileTerminalState;
+  check('unchanged display omits bodies while returning current lease and metadata', unchanged.displayUnchanged === true && unchanged.screen === undefined
+    && unchanged.frame === undefined && unchanged.displayRevision === state.displayRevision && unchanged.leaseId === state.leaseId);
+  screenText += 'new scrollback\r\n';
+  const updated = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, knownDisplayRevision: state.displayRevision }, 'query') as MobileTerminalState;
+  check('changed output invalidates display digest and sends complete safe body', !updated.displayUnchanged && updated.displayRevision !== state.displayRevision && updated.screen?.includes('new scrollback') === true);
+  for (const body of [{ ...selection, knownDisplayRevision: state.displayRevision }, { ...selection, terminalId: opened.terminalId, knownDisplayRevision: 'invalid' }]) {
+    await refuses('display revision requires selected terminal and bounded digest', () => app.remoteTerminal(context(), body, 'query'), 'invalid_payload');
+  }
   check('ordinary terminal polling does not load or return profile instructions', profileReads === 0 && !Object.hasOwn(state, 'profileContextText'));
   const contextText = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, profileContext: true }, 'query') as MobileTerminalState;
   check('explicit profile detail is bounded and host paths are redacted', profileReads === 1 && contextText.profileContextText?.includes('Captured profile marker') === true && !contextText.profileContextText.includes('private'));
@@ -165,6 +177,16 @@ void (async () => {
   await homeCommand({ operation: 'claim', terminalId: home.terminalId });
   await homeCommand({ operation: 'close', terminalId: home.terminalId });
   check('restored grant closes only the selected home process', sessions.find((item) => item.id === 'native-home-1')?.status === 'exited' && sessions.find((item) => item.id === 'native-2')?.status === 'running');
+  const finalOpen = await command({ operation: 'open', mode: 'shell' }) as { terminalId: string };
+  displayEffect = async () => { devices.setAdminScopes('tablet', ['workspace:read']); };
+  await refuses('grant revoked during display read prevents any screen response', () => query(finalOpen.terminalId), 'scope_not_granted');
+  displayEffect = async () => {};
+  devices.setAdminScopes('tablet', ['workspace:read', 'terminal:control']);
+  const bindingRecords = store.get().workspaceBindings;
+  displayEffect = async () => { store.save({ workspaceBindings: bindingRecords.map(item => item.id === binding.id ? { ...item, branch: 'changed-during-display' } : item) }); };
+  await refuses('scope changed during display read is rejected by final validation', () => query(finalOpen.terminalId), 'command_rejected');
+  displayEffect = async () => {}; store.save({ workspaceBindings: bindingRecords });
+  check('final positive control returns same terminal after validation failures', (await query(finalOpen.terminalId)).selected?.id === finalOpen.terminalId);
 })().catch((error) => { failed++; console.error(error); }).finally(() => {
   terminal?.dispose(); rmSync(root, { recursive: true, force: true }); console.log(`Remote terminal: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 });

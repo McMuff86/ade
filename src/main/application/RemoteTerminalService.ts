@@ -36,7 +36,7 @@ const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage', 'profileContext'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
+  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage', 'profileContext', 'knownDisplayRevision'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
   if (Object.keys(input).some((key) => !allowed.includes(key)) || !validTerminalSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
@@ -46,6 +46,8 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
   if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.usage !== undefined && (input.usage !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.profileContext !== undefined && (input.profileContext !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'query' && input.knownDisplayRevision !== undefined && (typeof input.terminalId !== 'string'
+    || typeof input.knownDisplayRevision !== 'string' || !/^[a-f0-9]{64}$/.test(input.knownDisplayRevision))) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
     || !Number.isSafeInteger(input.sequence) || (input.sequence as number) < 1 || typeof input.data !== 'string' || Buffer.byteLength(input.data) > 2048 || input.data.includes('\0')
     || !Number.isInteger(input.cols) || (input.cols as number) < 20 || (input.cols as number) > 240
@@ -91,9 +93,13 @@ export class RemoteTerminalService {
     const terminals = sessions.slice(-32).filter((session) => this.entry(session, binding).workspaceVersion === this.workbench.version(binding))
       .map((session) => this.summary(this.entry(session, binding), session, deviceId));
     const current = () => ({ terminals: terminals.filter((item) => this.visible(deviceId, sessions.find((session) => session.id === this.entries.get(item.id)?.sessionId)!)), launchOptions: options() });
-    this.requireGrant(deviceId, input); await this.workbench.revalidate(binding);
     this.requireGrant(deviceId, input);
-    if (!input.terminalId) return current();
+    if (!input.terminalId) {
+      await this.workbench.revalidate(binding); this.requireGrant(deviceId, input);
+      return current();
+    }
+    // The selected display is read-only. Revalidate once AFTER the awaited
+    // display/usage read, immediately before returning anything to the device.
     const entry = this.entries.get(input.terminalId); const session = sessions.find((item) => item.id === entry?.sessionId);
     if (!entry || !session || entry.workspaceVersion !== this.workbench.version(binding)) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
     const subscriptionUsage = input.usage ? await this.port.usage?.(entry!.sessionId) : undefined;
@@ -103,9 +109,11 @@ export class RemoteTerminalService {
     if (!this.visible(deviceId, session!)) throw new RemoteApiError(403, 'scope_not_granted');
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
     const profileText = input.profileContext ? this.port.profileContext?.(entry!.sessionId) : undefined;
-    return { ...current(), subscriptionUsage,
+    const displayRevision = workbenchDigest(JSON.stringify([entry!.id, display.frame?.revision, display.screen]));
+    return { ...current(), subscriptionUsage, displayRevision,
       ...(input.profileContext ? { profileContextText: typeof profileText === 'string' ? redactForWire(profileText, 32_000) : null } : {}),
-      selected: this.summary(entry!, session!, deviceId), ...display, cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
+      selected: this.summary(entry!, session!, deviceId), ...(input.knownDisplayRevision === displayRevision ? { displayUnchanged: true as const } : display),
+      cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
 

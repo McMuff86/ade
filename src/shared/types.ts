@@ -230,6 +230,13 @@ export interface SessionProgramState {
 }
 
 export interface SessionMeta {
+  /** Captured launch values, not a claim about a model later selected inside a CLI. */
+  runtime?: RuntimeId;
+  launchModel?: string;
+  workspaceKind?: 'checkout' | 'worktree' | 'home';
+  /** Output observation only; never implies model progress or input readiness. */
+  lastOutputAt?: number;
+  outputSequence?: number;
   /** Captured profile metadata only; instruction text remains in main. */
   profileContext?: import('./agentBehavior').SessionProfileContext;
   /** Project ownership is independent of an optional launch-settings profile. */
@@ -746,6 +753,8 @@ export interface OverviewAgentRow {
 }
 
 export interface OverviewProjectCard {
+  projectWorkspaceCount?: number;
+  hasOriginalWorkspace?: boolean;
   id: string;
   name: string;
   backendLabel: string;

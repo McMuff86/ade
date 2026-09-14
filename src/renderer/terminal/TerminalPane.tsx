@@ -27,6 +27,7 @@ import { useSessions } from '../stores/sessions';
 import { SubscriptionUsagePanel } from './SubscriptionUsagePanel';
 import { SessionProfileContext } from './SessionProfileContext';
 import { TERMINAL_FONT_SIZES, useTerminalPreferences } from './preferences';
+import { useCliWorkPreferences } from '../work/cliWorkPreferences';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -75,6 +76,7 @@ export function TerminalPane({
   const fontSize = useTerminalPreferences(state => state.fontSize);
   const [remoteInput, setRemoteInput] = useState(false);
   const remoteInputRef = useRef(false);
+  const activeRef = useRef(active); activeRef.current = active;
   useEffect(() => {
     let live = true;
     const update = (state: { sessionId: string; remote: boolean }) => {
@@ -190,6 +192,13 @@ export function TerminalPane({
     let disposed = false;
     let attached = false;
     let lastSequence = 0;
+    const markViewed = () => {
+      if (!activeRef.current || disposed || !host.clientWidth || !host.clientHeight || !document.hasFocus()
+        || document.visibilityState === 'hidden' || term.buffer.active.viewportY < term.buffer.active.baseY) return;
+      const seen = useCliWorkPreferences.getState().entries[sessionId]?.seenSequence ?? 0;
+      if (lastSequence > seen) useCliWorkPreferences.getState().update(sessionId, { seenSequence: lastSequence });
+    };
+    const seenTimer = window.setInterval(markViewed, 500);
     const pendingLive: Array<{ sequence: number; data: Uint8Array }> = [];
 
     // Subscribe before taking the replay snapshot. Sequence numbers let us
@@ -247,6 +256,7 @@ export function TerminalPane({
     doFit();
 
     return () => {
+      markViewed(); clearInterval(seenTimer);
       disposed = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       observer.disconnect();

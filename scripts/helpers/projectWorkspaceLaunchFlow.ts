@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Page } from 'playwright';
 import { terminalLauncher } from './terminalControls';
 import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
+import { cliWorkFlow } from './cliWorkFlow';
 import type { mobileTlsProxy } from './mobileBrowser';
 
 export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root: string, evidence: string, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>,
@@ -126,6 +127,7 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
   check('tablet empty terminal uses the same selected branch', (await sessions()).some((item) => item.projectWorkspaceId === parallel.id && item.launchChoice?.mode === 'shell' && item.branch === 'feature/parallel'));
+  await cliWorkFlow(desktop, evidence, workspace.id, parallel.id, check);
   for (const session of (await sessions()).filter((item) => item.projectWorkspaceId === workspace.id || item.projectWorkspaceId === parallel.id)) await desktop.evaluate((id) => window.ade.invoke('pty:kill', { sessionId: id }), session.id);
   await page.keyboard.press('Escape');
   if (existsSync(join(repo, 'session-launch-proof.txt'))) unlinkSync(join(repo, 'session-launch-proof.txt'));
@@ -144,7 +146,6 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
     && !(await sessions()).some((item) => item.repositoryId === created.id));
   await desktop.getByRole('tab', { name: 'Overview view', exact: true }).click();
   await desktop.getByRole('button', { name: /Desktop Garden/ }).click();
-  await desktop.getByRole('button', { name: 'Projekt-Workspace öffnen', exact: true }).click();
   await desktop.getByRole('heading', { name: 'Projekt · Desktop Garden', exact: true }).waitFor();
   check('Overview project card opens the independent workspace entry', await desktop.getByRole('region', { name: 'Projekt-Terminal', exact: true }).isVisible());
 }

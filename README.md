@@ -9,17 +9,17 @@
   <img alt="Automated checks" src="https://img.shields.io/badge/checks-2100%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
 </p>
 
-**ADE** (agentic development environment) is a desktop workspace where your CLI
-coding agents — Claude Code, Codex, Gemini, OpenCode, Ollama models or any
-custom CLI — live as **named identities with real terminals**. Give each agent
-a face, a runtime, a permission mode and a home (native Windows or inside a
-WSL distribution), then work with them interactively or orchestrate them as
-managed runs on a graph.
+**ADE** (agentic development environment) brings projects, coding CLIs and
+their real terminals into one desktop application with a private mobile companion.
+Open an existing checkout, choose Codex, Claude Code, Grok or a shell, and return
+to that same session while another project is running. Start an independent task
+in its own branch and worktree. Saved agent profiles are optional for interactive
+project work; managed runs use explicit agent roles and leased workspaces.
 
 **New to ADE? [User-Guide mit aktuellen Screenshots](docs/USER_GUIDE.md)** —
 PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 [Documentation index](docs/README.md) · [Current status](docs/STATUS.md) ·
-[Product review and next improvements](docs/research/ADE_PRODUCT_REVIEW_2026-09-09.md).
+[Active CLI, dictation and mobile goals](docs/CLI_WORK_AND_DICTATION_GOALS.md).
 
 ---
 
@@ -27,9 +27,10 @@ PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 
 **Project folders** — **Projekte** on desktop and tablet discovers existing folders
 under the configured project root, including unregistered repositories. Open the
-exact checkout without creating an agent; see its actual branch. Branch selection
-and profile-free CLI launch are the next [goal task](docs/PROJECT_WORKFLOW_GOALS.md).
-The explicit **Agent-Arbeitskopie** action retains the existing terminal workflow.
+exact checkout without creating an agent; see its actual branch, select an
+existing branch or prepare a new task worktree, then launch a profile-free CLI.
+The explicit **Agent-Arbeitskopie** action retains the profile-bound worktree flow.
+[Project workflow and evidence](docs/PROJECT_WORKFLOW_GOALS.md).
 
 **Agent workspace on your tablet** — open an agent working copy,
 then choose Codex, Claude CLI, Grok CLI or a shell. Open a saved assistant profile
@@ -53,10 +54,13 @@ inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
 confirm a clean worktree's fast-forward. Dirty or divergent worktrees show why
 they need attention. [Workflow and boundaries](docs/REPOSITORY_SYNC_PLAN.md).
 
-**Overview** — a home over ADE's own journal with direct terminal/dashboard actions: live sessions, open
-runs, reported tokens, every agent, every catalog project and the last twenty
-runs. Clicks jump to Terminals or Graph. Missing token or cost data stays
-unknown instead of becoming zero.
+**Overview and Work** — return directly to an existing interactive CLI session,
+filter by project/runtime/status, name sessions and see new output. CLI activity
+and managed runs are shown separately. Overview also provides saved projects,
+profiles and dashboard links. Output activity does not prove that an agent is
+ready or still thinking. Existing token summaries cover reported managed-run
+usage; comprehensive CLI and ElevenLabs accounting is an
+[active implementation goal](docs/USAGE_AND_COST_GOALS.md).
 
 **Terminals** — categories and agents on the left, real PTY sessions as tabs,
 repository scope and inspector on the right. Scrollback survives tab and agent
@@ -99,13 +103,15 @@ directory, with the right PATH.
   runs preserve them in provenance.
 - Reusable agent templates: save runtime, profile and a bounded memory seed,
   then spawn independent identities from it.
-- Bounded per-agent memory (`MEMORY.md` + `USER.md`) and a durable role-aware
-  `AGENTS.md` contract, injected without dirtying repository worktrees.
+- Bounded per-agent memory (`MEMORY.md` + `USER.md`). Managed tasks receive role
+  guidance outside leased repositories; profile-free CLI sessions use their
+  provider's own project instructions and configuration.
 
 **Repositories & execution backends**
-- First-class repository scopes: give a specialist a default repo, keep a
-  generalist portable, or pick a repo per session/run. Every agent/repo pair
-  gets its own ADE worktree under `.ade-worktrees`.
+- Project workspaces refer either to the original checkout or to an explicitly
+  created task worktree. Registering a project does not copy or synchronize it.
+  The separate profile-bound agent/repository workflow creates ADE worktrees
+  under `.ade-worktrees`; these remain independent Git working directories.
 - Explicit execution backends: a repository — or an agent's repo-less home —
   runs natively on Windows or deliberately inside `wsl:<distribution>`. Paths,
   Git, worktrees, diagnostics, terminals and managed tasks stay on the chosen
@@ -120,7 +126,10 @@ directory, with the right PATH.
   with independent verification.
 - Verified Draft-PR publishing re-checks the attested HEAD, the unchanged
   remote base and GitHub access, then creates only a new `ade/**` branch plus
-  a Draft Pull Request. ADE has no direct push or merge to `main`.
+  a Draft Pull Request. This managed-run publisher does not merge to `main`.
+- Independent project Git actions provide explicit commit, push/PR and local
+  integration previews with confirmation and repository-state checks. Worktrees
+  are never synchronized automatically. See the [project workflow](docs/PROJECT_WORKFLOW_GOALS.md).
 
 **Safety net**
 - Sandboxed renderer, strict CSP, runtime-validated IPC, encrypted write-only
@@ -189,8 +198,8 @@ pnpm package:linux      # AppImage + .deb
 ```
 
 The NSIS installer is unsigned for local builds; the release workflow signs
-with `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` when configured. The Linux profile
-lives at `${XDG_CONFIG_HOME:-$HOME/.config}/ADE/ade/config.json`; release
+with `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` when configured. The profile lives under
+Electron's platform-specific `userData` directory in `ade/config.json`; release
 evidence including the hosted 47-check packaged workflow is linked from
 [GitHub Actions](https://github.com/McMuff86/ade/actions).
 

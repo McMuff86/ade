@@ -248,6 +248,9 @@ export interface MobileRunFile { id: string; path: string; name: string; bytes: 
 export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
   unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
+  /** Digest of safe frame AND scrollback; unchanged replies omit both bodies. */
+  displayRevision?: string;
+  displayUnchanged?: true;
   /** Returned only for an explicit profileContext detail request. */
   profileContextText?: string | null;
   subscriptionUsage?: SubscriptionUsage;
@@ -264,7 +267,7 @@ export interface MobileTerminalState {
 }
 /** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
 export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
-export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true };
+export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true; knownDisplayRevision?: string };
 export type MobileTerminalCommand = MobileTerminalSelection & (
   | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }

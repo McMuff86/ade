@@ -3,13 +3,31 @@
 Stand: 15. September 2026. Der Operator hat die bereinigte Projektordnung
 bestätigt und die Ziele für CLI-Übersicht und ElevenLabs-Übergabe beauftragt.
 Ein gemeinsames Umsetzungsziel ist in der Codex-Zielverwaltung aktiv. Die
-folgenden Meilensteine sind geplant; ihre Funktionen sind noch nicht geliefert.
+folgenden Meilensteine bleiben bis zur gemeinsamen Abnahme aktiv. Die Desktop-
+CLI-Arbeitsliste und die erste native Latenzoptimierung bestehen die vollständige
+Code-Abnahme mit 3.543 Checks. Windows-Paket und Aktivierung folgen.
+Diktat und Kostenjournal sind noch zu
+implementieren. [Aktuelle Nachweise](CLI_WORK_LATENCY_RESULTS.md).
 
 Erweiterung des aktiven Ziels auf weiteren Operatorauftrag: die Dokumentation
 vollständig gegen den aktuellen Code und die tatsächlichen Abnahmen prüfen
 und synchronisieren. Der verlangte Sicherungscommit/-push hat Vorrang vor
 weiterer Produktarbeit; der abschliessende Doku-Abgleich folgt auf den finalen
 Implementierungsstand und ist Teil der Fertigstellung.
+
+Weitere verbindliche Erweiterung: Diktat muss auch mobil auf dem Tablet
+funktionieren. Goal 25 zur Eingabelatenz ist jetzt ebenfalls aktiver Lieferumfang.
+Desktop zuerst ist nur die Implementierungsreihenfolge; Desktop allein erfüllt
+den Auftrag nicht. Ziel ist unmittelbar sichtbarer lokal getippter Entwurf und
+eine gemessen möglichst reaktive echte CLI-Anzeige auf dem Tablet.
+
+Zusätzlicher verbindlicher Operatorauftrag: **Goal 24 Verbrauch und Kosten**.
+Codex, Claude Code, Grok und ElevenLabs erhalten eine nachvollziehbare
+Verbrauchserfassung mit Sitzungs-/Projektbezug, Cache-/Reasoning-Aufschlüsselung
+wo gemeldet, Kostenschätzung und Abgleich mit Anbieterwerten. Dieser Ausbau ist
+zu implementieren und gehört zum aktiven Ziel; Details und Quellstrategie in
+[Verbrauch und Kosten](USAGE_AND_COST_GOALS.md). Er ersetzt die laufenden
+Diktat-/Latenzarbeiten nicht.
 
 ## Zielbild und Reihenfolge
 
@@ -24,12 +42,15 @@ WSL-Assistenten bleiben Grundlage. Kein erneuter Aufbau fester Agent-Bindings.
 | 2 | Goal 27.2: Orientierung und Wechsel | Aussagekräftige Sitzungsnamen, Projekt-/CLI-/Statusfilter, Original oder Worktree, Branch und neue Ausgabe; verständliche Projektkarten |
 | 3 | Goal 23.1a: Promptentwurf | Mehrzeiliger editierbarer Entwurf mit festem Sitzungsziel und kontrollierter Übergabe an die CLI |
 | 4 | Goal 23.1b: ElevenLabs-Diktat | Mikrofon → Aufnahme stoppen → Transkript prüfen → an die ausgewählte CLI übergeben |
+| 4a | Goal 23.1c: mobiles Diktat | Derselbe Ablauf über die gekoppelte HTTPS-Tablet-Oberfläche mit festem Zielhost und Eingabebesitz |
+| 4b | Goal 25: Tablet-Eingabelatenz | Messung Taste → CLI-Echo → sichtbarer Frame; Engpässe beseitigen, sofortiger lokaler Textentwurf |
+| 4c | Goal 24: Verbrauch und Kosten | Zähler und Herkunft pro Sitzung/Projekt/Anbieter; ElevenLabs-Einheiten; Kosten-/Budgetübersicht auf PC und Tablet |
 | 5 | Gemeinsame Abnahme | Vertragsprüfungen, echte Electron-/Playwright-Abläufe, vollständiges `pnpm verify` und geprüfter Windows-Build |
 | 6 | Dokumentationsabgleich | Architektur, Spezifikation, Bedienung, Status, Roadmap und Übergabe stimmen mit dem geprüften Code und den aktiven Goals überein |
 
 Goal 23 wird aus dem bestehenden [Sprachplan](VOICE_USAGE_TERMINAL_PLAN.md)
-fortgeführt. Der jetzige erste Lieferumfang ist der native Windows-Desktop.
-Mobile Diktat-Abnahme auf einem echten Android-Tablet folgt separat. Windows
+fortgeführt. Die Umsetzung beginnt am nativen Windows-Desktop und umfasst
+anschliessend die mobile Oberfläche und reale Tablet-Abnahme. Windows
 mit WSL-Backend, native Linux/WSLg und macOS sind getrennte Ausführungsmodelle.
 
 ## Goal 27: eine Übersicht für den täglichen Projektwechsel
@@ -48,9 +69,9 @@ als automatisch erkannte, getrennte Aufgaben ausgegeben.
 
 Der aktuelle Code liefert bereits `SessionMeta`, `SessionProgramState`,
 `sessionStateLabel`, Sitzungshydrierung und den Wechsel über
-`openProjectSession`. `WorkView` rendert derzeit ausschliesslich Runs;
-`projectOverview` zählt laufende Terminals, führt sie aber nicht als aktuelle
-Arbeit auf. Die neue Liste baut auf diesen bestehenden Sitzungsidentitäten auf.
+`openProjectSession`. Die neue gemeinsame `CliWorkPanel`-Liste baut auf diesen
+Sitzungsidentitäten auf; Work rendert sie zusätzlich zur Managed-Run-Liste und
+Overview kompakt zusätzlich zum bisherigen Verlauf. Sie benötigt keine neue IPC.
 
 Verbindliche Anzeigen:
 
@@ -128,7 +149,33 @@ Neue IPCs werden klassifiziert, Fehler redigiert und Renderer-Ereignisse zentral
 versendet. Die bestehende Remote-Command-Allowlist wird dafür nicht erweitert.
 Mobile Audio benötigt später einen eigenen begrenzten Upload-Vertrag mit
 Geräteidentität, Berechtigung und Idempotenz; Desktop-Unterstützung impliziert
-keine Remote-Freigabe.
+keine Remote-Freigabe. Diese Remote-Erweiterung ist inzwischen ausdrücklich
+beauftragt und benötigt ihre eigene vollständige Abnahme.
+
+## Goal 25: reaktive Tablet-Terminals
+
+Die Messung unterscheidet Hardwaretastatur und Bildschirmtastatur, einzelne
+Zeichen und Bursts, native Windows-CLI und WSL sowie direkten LAN-/Tailscale-
+Pfad und Verbindungen unterwegs. Erfassen: Eingabe, Warteschlange, signierter
+Request, Hostprüfung, PTY-Write/-Output, Frame und Darstellung. Keine getippten
+Inhalte in Messlogs. p50/p95, Roundtrip-Zeit, Ausgabefrequenz und verwendeter
+Netzpfad gehören zum Ergebnis. Ziel auf direktem Pfad: p50 ≤ 100 ms und
+p95 ≤ 200 ms; die tatsächliche Netzwerkgrenze und zusätzliche ADE-Latenz
+werden separat ausgewiesen. Keine pauschale Null-Latenz-Zusage unterwegs.
+
+Der lokale Promptentwurf reagiert sofort und puffert lange Texte vor ihrer
+expliziten Übergabe. Für den Terminalpfad zunächst wiederholte Git-/Workspace-
+Prozessprüfungen, Polling, Frame-Erzeugung und Eingabebündelung messen. Danach
+gezielt überflüssige Arbeit beseitigen, die Vertrauensprüfung erhalten und
+revisionsbasierte Updates oder Push prüfen. Kein paralleles Vollbildpolling,
+das ältere Antworten über neuere Frames schreibt.
+
+Der Vorschlag lokales Echo wird an den tatsächlichen TUI-Fällen geprüft:
+Cursorbewegung, Backspace, Completion, IME/Composition, Passwortfelder,
+Eingabebesitzwechsel und Ausgabe während des Tippens. Optimistische Zeichen
+dürfen weder doppelt erscheinen noch verdeckte Eingabe preisgeben. Ein
+unsicherer Echo-Modus wird nicht als Latenzverbesserung freigegeben; stattdessen
+den verlässlichen lokalen Entwurf und schnellere echte Rückmeldung liefern.
 
 ## Abnahme: der tatsächliche Alltag
 
@@ -167,7 +214,8 @@ Aktivierungen bündeln und laufende Benutzerarbeit erhalten.
 
 Diese Zusatzideen sind priorisierte Vorschläge. Sie erweitern nicht automatisch
 das aktive Lieferziel. Verbrauchsanzeigen und zweiter PC bleiben in den
-bereits vorhandenen Goals 20–25; Main-Chef-Delegation aus Goal 26 ist ebenfalls
+bereits vorhandenen Goals; Goal 24 und Goal 25 sind inzwischen ausdrücklich
+aktiver Lieferumfang. Main-Chef-Delegation aus Goal 26 ist hingegen
 ein eigener späterer Schritt.
 
 ## Verbindlicher Dokumentationsabgleich

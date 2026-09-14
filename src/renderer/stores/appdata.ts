@@ -18,6 +18,7 @@ import type {
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 
 interface CatalogSlice {
+  projectWorkspaces: AdeConfig['projectWorkspaces'];
   categories: Category[];
   agents: Record<string, Agent>;
   repositories: Repository[];
@@ -51,6 +52,7 @@ interface AppDataState extends CatalogSlice {
 
 function catalogState(config: AdeConfig): CatalogSlice {
   return {
+    projectWorkspaces: config.projectWorkspaces,
     categories: config.categories,
     agents: Object.fromEntries(config.agents.map((agent) => [agent.id, agent])),
     repositories: config.repositories,
@@ -71,6 +73,7 @@ export const useAppData = create<AppDataState>((set, get) => ({
   categories: [],
   agents: {},
   repositories: [],
+  projectWorkspaces: [],
   workspaceBindings: [],
   agentTemplates: [],
   loaded: false,

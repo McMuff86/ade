@@ -2,6 +2,50 @@
 
 ## Desktop/mobile Work navigation
 
+Desktop `CliWorkPanel` adds an interactive session inventory to Work and
+Overview. `shared/cliWork.ts` projects existing `pty:list` metadata; credential
+login and managed-task PTYs are excluded. No synthetic runs or launches.
+`SessionMeta` captures runtime, optional actual launch model and workspace kind;
+`lastOutputAt`/`outputSequence` describe observed output, never model readiness.
+`openCliSession` reconciles live identities and verifies the project branch
+before selecting the same session. Missing/changed targets produce an error.
+Titles and seen-output markers are local, bounded to 256 entries under
+`ade:cli-work`. No output bodies enter the list or orchestration history.
+Active, visible foreground terminals mark output seen only at the live bottom.
+Existing original-workspace cards navigate directly, independently of profiles.
+
+## Interactive terminal latency boundary
+
+Native project terminal query/input/attachment revalidate the recorded process
+scope through `ProjectWorkspaceService.resolveTerminal`. This checks directory
+and Git-pointer identities plus ordinary `.git`, `commondir`, `gitdir` backlink
+and HEAD topology on every access, with bounded, link-free metadata reads.
+It does not reinterpret a running PTY's directory using subsequent Git config
+changes. Uncommon layouts and HEAD symbolic-ref chains fall back to the full
+Git resolver. No TTL authorization cache. `terminalValidation` is main-only and
+never accepted from a device payload. Project opening, new CLI launch and all
+workspace file/Git operations continue through the full Git resolver. Existing
+agent-bound worktrees and WSL homes keep their separate validation paths.
+
+The full resolver runs its three independent read-only Git probes concurrently,
+then checks recorded identities. A terminal display request revalidates after
+awaited display/usage reads, before returning output. Revocation, managed leases,
+device resources, control ownership and input idempotency still apply.
+
+`MobileTerminalQuery.knownDisplayRevision` is an optional 64-character digest
+with a selected terminal. The response digest covers the opaque terminal ID,
+safe ANSI-frame revision and safe scrollback. Matching replies carry
+`displayUnchanged: true` and omit both bodies; current status/control metadata
+is always returned. The browser retains bodies only for the same terminal and
+matching revision. Polling stays serial with stale-response protection, using
+16 ms waits briefly while typing, then 40/100 ms for changing/idle output.
+Hidden pages slow down; disconnected views stop. Equal-size PTY resize calls
+are suppressed centrally, including desktop/mobile handoff. The bounded input
+queue coalesces for 8 ms and keeps ordered single-flight delivery. No speculative
+terminal characters are rendered; the composer is local text.
+
+## Managed Work navigation
+
 `shared/appViews.ts` owns navigation identities and order. Desktop `WorkView`
 uses `useRuns`/`OrchestrationView` and the existing catalog, never main snapshots.
 The existing `RunReportPanel` and `NewRunModal` supply report and run creation;

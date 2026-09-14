@@ -71,6 +71,19 @@ laufendes Terminalprogramm. Ein **Run** ist ein von ADE verwalteter Aufgabenabla
 
 Du brauchst keinen Run, um interaktiv mit Codex, Claude oder Grok zu arbeiten.
 
+**Am PC zwischen laufenden Arbeiten wechseln:** Unter **Work → CLI-Arbeit**
+stehen deine interaktiven Sitzungen, in **Overview** dieselbe Liste kompakt.
+Eine Zeile öffnet das vorhandene Terminal. Mit **Benennen** gibst du der Sitzung
+einen Arbeitstitel; über Projekt, Profil, CLI, Status oder Suche findest du sie
+wieder. **Originalordner** bedeutet die ursprüngliche Arbeitskopie, **Worktree**
+eine separate. Der Branch in dieser Liste ist der Branch beim Start. Nach einem
+externen Branchwechsel zuerst den Arbeitsort unter **Projekte** prüfen.
+**Neue Ausgabe** heisst nur, dass neuer Terminaltext vorhanden ist. Eine
+beendete CLI mit noch offener Shell ist keine automatisch abgeschlossene Aufgabe.
+Titel bleiben beim Neuladen erhalten; ein vollständiger App-Neustart stellt
+keinen alten Prozess wieder her. Die Projektkarte in Overview öffnet den
+vorhandenen Originalworkspace direkt.
+
 ![ADE Mobile Overview mit Agenten, Projekten und direkten Terminalaktionen](media/user-guide/05-tablet-overview.png)
 
 *Overview ist der gemeinsame Überblick. Für die tägliche Arbeit an Code führt der

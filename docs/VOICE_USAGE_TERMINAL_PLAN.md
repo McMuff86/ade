@@ -8,8 +8,13 @@ Die folgenden Ausbauziele sind geplant, nicht als implementiert freigegeben.
 Priorisierung vom 15. September: Goal 23.1 wird jetzt nach der gemeinsamen
 CLI-Arbeitsübersicht am nativen Windows-Desktop umgesetzt. Der neue
 [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md) konkretisiert sitzungsgebundene
-Entwürfe, CLI-Übergabe und Abnahme. Mobile Diktat-Unterstützung und die übrigen
-Goals bleiben gesonderte Lieferungen.
+Entwürfe, CLI-Übergabe und Abnahme. Mobile Diktat-Unterstützung und Goal 25 zur
+Tablet-Eingabelatenz sind durch den anschliessenden Operatorauftrag verbindliche
+Teile des aktiven Lieferziels.
+Weiterer Auftrag vom selben Tag: Goal 24 ist ebenfalls zur Implementierung
+beauftragt, einschliesslich Sitzungstokens, Cache/Reasoning, Kosten und
+ElevenLabs-Einheiten. Der ergänzende [führende Verbrauchsplan](USAGE_AND_COST_GOALS.md)
+definiert Quellen, Zählregeln, Proxy-Alternative und Abnahme.
 
 ## Reihenfolge und Abnahmeziele
 
@@ -21,7 +26,7 @@ Goals bleiben gesonderte Lieferungen.
 | Goal 23.1: Diktat | Mikrofon → Transkriptentwurf → Bearbeiten → Einfügen / Senden | PC und echtes Android-Tablet; Ablehnen der Mikrofonfreigabe, Abbruch, Verbindungsabbruch, Host-/Sitzungswechsel, mehrzeiliger Text, kein doppeltes Senden |
 | Goal 25.2: Schnellere Ausgabe | Engpass aus Messung beseitigt | Ziel auf direktem WLAN-Pfad: p50 ≤ 100 ms, p95 ≤ 200 ms für Zeichen-Echo; bei langsamer Route Zusatzlatenz von ADE separat ausweisen; keine Abschwächung der Identitätsprüfung |
 | Goal 24.2/24.3: Claude/Grok | Gleiche Nutzungsdarstellung mit expliziten Datenquellen | Numerische Anzeigen nur mit realem Provider-Nachweis; unbekannte/fehlende Felder bleiben unbekannt |
-| Goal 20a: Zweiter ADE-PC | Sichtbarer Hostwähler und getrennte Kopplung je PC | Zwei echte PCs und Tablet; Wechsel ohne Daten-/Key-/Entwurfsvermischung, offline/revoked, Rückkehr zum ersten PC |
+| Goal 28a: Zweiter ADE-PC | Sichtbarer Hostwähler und getrennte Kopplung je PC | Zwei echte PCs und Tablet; Wechsel ohne Daten-/Key-/Entwurfsvermischung, offline/revoked, Rückkehr zum ersten PC |
 | Goals 22 / 21 | SSH-Preset / zeitlich begrenzte Gastfreigabe | Getrennte Ausbauschritte entsprechend bestehendem Multi-Host-Plan |
 
 ## Goal 23: Diktieren statt Tippen
@@ -117,6 +122,11 @@ eine arbeitende CLI. API-RPS/TPM-Limits sind kein verbleibendes Abo-Guthaben.
 
 ## Goal 25: Tablet-Latenz
 
+Fortschreibung vom 15. September: Der Projektpfad wurde inzwischen gemessen
+und optimiert; direkter Topologieabgleich, bedingte Frames und kürzere
+Eingabepuffer stehen im [aktuellen CLI-/Latenz-Nachweis](CLI_WORK_LATENCY_RESULTS.md).
+Die folgenden Screenshotwerte und Vermutungen dokumentieren den Ausgangspunkt.
+
 Der Screenshot meldet 668 ms „PC-Antwort“. Das ist nicht direkt die Zeit bis
 zum gezeichneten Buchstaben. ADE puffert Tasten bereits nur 16 ms; die Anzeige
 fragt aktuell nach Antwort/Änderung nach 40 bzw. 100 ms erneut ab.
@@ -146,7 +156,7 @@ lokales Echo in fremde TUIs: Es würde Cursorsteuerung, Passwortfelder und
 Completion leicht falsch darstellen. Der lokale ADE-Entwurf reagiert dagegen
 sofort und ist ein sinnvoller Weg für längere Texte und Diktat.
 
-## Zweiter PC: bestehende Goals 20–22 konkretisieren
+## Zweiter PC: bestehende Goals 28–30 konkretisieren
 
 Commit `b640c3f` vom 13. September enthält bereits den
 [Multi-Host-Plan](MULTI_HOST_ACCESS_PLAN.md). Er wird weiterverwendet.
@@ -155,7 +165,7 @@ HTTPS-Origin über Tailscale Serve, separate Kopplung/Rechte und Hostwähler.
 Ausführung, Repositories und Provider-Anmeldung bleiben jeweils am Ziel-PC.
 [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve).
 
-Goal 20a braucht zusätzlich klare UX: Hostname permanent im Kopf, Offlinezustand,
+Goal 28a braucht zusätzlich klare UX: Hostname permanent im Kopf, Offlinezustand,
 pinning der Hostinstanz, getrennte Browserpartitionen am Desktop und Navigation
 zur Ziel-Origin auf dem Tablet. Kein CORS-Aufweichen, keine Übernahme fremder
 Cookies, keine Vermischung von Entwürfen und Idempotenzschlüsseln. Beim Wechsel
@@ -163,9 +173,9 @@ Eingabesteuerung freigeben bzw. geordnet ablaufen lassen. Tailscale-Mitgliedscha
 allein gewährt keine ADE-Rechte. Hostwechsel ist keine automatische Verteilung
 von Runs auf mehrere PCs.
 
-Goal 22 ist ein eigener SSH-Terminalpfad für Hosts ohne vollständiges ADE:
+Goal 30 ist ein eigener SSH-Terminalpfad für Hosts ohne vollständiges ADE:
 fester Zielhost/Benutzer, Schlüssel im OS-/SSH-Agent, bekannte Hostkeys und
 expliziter Umgang mit geändertem Fingerprint; Betriebssysteme getrennt prüfen.
-Goal 21 folgt für Einmal-/Gastzugriff mit Ablauf, Ziel-PC-Bestätigung und Widerruf.
+Goal 29 folgt für Einmal-/Gastzugriff mit Ablauf, Ziel-PC-Bestätigung und Widerruf.
 Für die reale Abnahme später Ziel-PC und Betriebssystem auswählen; die
 Architektur- und Fixture-Arbeit kann davor erfolgen.

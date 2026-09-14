@@ -62,8 +62,8 @@ keydown to DOM-rendered real PTY acknowledgement, and requires less than 500 ms
 on the local test connection. This is distinct from the physical tablet's
 Tailscale route; the operator must repeat typing there after the updated build.
 
-A separate physical-network spot check found 4–7 ms from PC to the WLAN router,
-100–430 ms directly to the Galaxy tablet on LAN (244 ms average), and 85–453 ms
+A separate physical-network spot check found 4â€“7 ms from PC to the WLAN router,
+100â€“430 ms directly to the Galaxy tablet on LAN (244 ms average), and 85â€“453 ms
 through its Tailscale IP (261 ms average), all without packet loss. Tailscale
 discovery confirmed a direct LAN path rather than a relay. The tablet screen/app
 state was not confirmed; these are network RTT observations, not typing-echo

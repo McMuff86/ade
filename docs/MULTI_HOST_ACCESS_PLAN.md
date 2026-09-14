@@ -1,10 +1,15 @@
-# ADE multi-host access plan (proposed Goals 20–22)
+# ADE multi-host access plan (proposed Goals 28–30)
 
 Status: proposed 2026-09-13, not yet authorized by the operator. Nothing in
 this document changes the current contract in `SPEC.md`, `ARCHITECTURE.md` or
 `REMOTE_CONTROL_PLAN.md`. Operator request: reach the own desktop while away,
 reach a second PC after its owner confirms or hands over a code, and keep a
 durable SSH-like path for hosts that are used again and again.
+
+Numbering corrected on 2026-09-15: the original proposed 20/21/22 labels
+collided with delivered session-workspace Goals 20/21. This proposal now uses
+28/29/30; its scope and authorization status are unchanged. See the
+[goal registry](GOAL_REGISTRY.md).
 
 ## Decision
 
@@ -18,9 +23,9 @@ Three bounded additions cover the request:
 
 | Goal | Adds | Reuses |
 |---|---|---|
-| 20 | Host directory and host switching on desktop and PWA, optional remote-desktop launcher | `GET /api/v1/host` identity, Tailscale Serve origin, existing PWA per host |
-| 21 | Access request approved on the target host: one-time session grant or durable device grant | QR pairing challenge, `RemoteDeviceStore`, admin scopes, resource access, revocation, audit |
-| 22 | SSH terminal preset per host | Free terminals, PTY sessions, `SessionLaunchChoice`, `terminal:control` grant |
+| 28 | Host directory and host switching on desktop and PWA, optional remote-desktop launcher | `GET /api/v1/host` identity, Tailscale Serve origin, existing PWA per host |
+| 29 | Access request approved on the target host: one-time session grant or durable device grant | QR pairing challenge, `RemoteDeviceStore`, admin scopes, resource access, revocation, audit |
+| 30 | SSH terminal preset per host | Free terminals, PTY sessions, `SessionLaunchChoice`, `terminal:control` grant |
 
 Execution, credentials, repositories and worktrees stay on the host that owns
 them. A client never runs an agent for another host locally.
@@ -37,7 +42,7 @@ them. A client never runs an agent for another host locally.
 - Free terminals exist on desktop and mobile; launch choices are shell and
   fixed agent CLIs. No SSH choice, no host list.
 
-## Goal 20 - host directory and switching
+## Goal 28 - host directory and switching
 
 Model (client-side, path-free):
 
@@ -49,7 +54,7 @@ KnownHost {
   lastSeen: number | null
   pairing: 'unknown' | 'paired' | 'revoked' | 'expired'
   remoteDesktop?: { kind: 'rdp'; target: string } | { kind: 'url'; url: string }
-  ssh?: { target: string }   // Goal 22, e.g. adi@buero-pc
+  ssh?: { target: string }   // Goal 30, e.g. adi@buero-pc
 }
 ```
 
@@ -70,9 +75,9 @@ KnownHost {
   until a concrete UX need justifies CORS relaxation and per-origin session
   handling.
 
-## Goal 21 - access request with session or device grant
+## Goal 29 - access request with session or device grant
 
-Today pairing can only start on the target desktop. Goal 21 adds the inverse
+Today pairing can only start on the target desktop. Goal 29 adds the inverse
 flow so a client that already knows a host origin can ask for access while the
 host owner decides on the host screen.
 
@@ -112,7 +117,7 @@ Client                              Target host desktop
 - No grant is inherited from Tailscale identity, an existing device or a prior
   session. A revoked device cannot reuse its request id.
 
-## Goal 22 - SSH terminal preset
+## Goal 30 - SSH terminal preset
 
 - `SessionLaunchChoice` gains `{ mode: 'ssh'; hostId: string }`. The PTY runs
   the system `ssh` client with the stored `target` and fixed safe options
@@ -132,14 +137,14 @@ Client                              Target host desktop
   relay, Tailscale Funnel, LAN or public binds, Wake-on-LAN, pre-login access.
 - Accounts or multi-user authorization; every grant is decided on the target
   host by whoever sits at it, which is the existing single-owner model per host.
-- Cross-origin API calls from one PWA to several hosts (see Goal 20).
+- Cross-origin API calls from one PWA to several hosts (see Goal 28).
 
 ## Security requirements
 
 - All existing rules from `REMOTE_CONTROL_PLAN.md` apply unchanged: loopback
   bind, Serve-only ingress, signed device requests, exact Origin, bounded
   payloads, redacted errors, append-only audit.
-- Goal 21 is the only unauthenticated write surface ever added; it creates
+- Goal 29 is the only unauthenticated write surface ever added; it creates
   nothing but a pending prompt and must fail closed when the desktop window is
   unavailable or the host is not in mobile-access mode.
 - Session grants are the default in the approval dialog; durable grants need an
@@ -162,10 +167,10 @@ Client                              Target host desktop
 
 ## Delivery sequence
 
-1. Goal 20a host directory + desktop host window (smallest useful slice).
-2. Goal 22 SSH preset (independent of Goal 21, immediately useful).
-3. Goal 21 session/device grants (largest change, touches the host API).
-4. Goal 20b remote-desktop launcher (optional, after 20a).
+1. Goal 28a host directory + desktop host window (smallest useful slice).
+2. Goal 30 SSH preset (independent of Goal 29, immediately useful).
+3. Goal 29 session/device grants (largest change, touches the host API).
+4. Goal 28b remote-desktop launcher (optional, after 28a).
 
 Exit criteria: a known host can be opened from desktop and tablet without
 re-pairing; a second PC grants a session that expires and a device that can be

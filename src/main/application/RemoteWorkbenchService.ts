@@ -21,7 +21,7 @@ import { readCommitDetail, readCommitPatch, validCommitSha } from './RemoteCommi
 export { validWorkspaceSelection } from '../../shared/projectWorkspaceRequests';
 
 export type WorkbenchScope = Pick<WorkspaceBinding, 'workspaceDir' | 'executionBackend'>
-  & Partial<Pick<WorkspaceBinding, 'agentId' | 'id' | 'repositoryId' | 'status'>> & { terminalHome?: true; rootIdentity?: string; projectWorkspaceId?: string; projectName?: string; branch?: string };
+  & Partial<Pick<WorkspaceBinding, 'agentId' | 'id' | 'repositoryId' | 'status'>> & { terminalValidation?: true; terminalHome?: true; rootIdentity?: string; projectWorkspaceId?: string; projectName?: string; branch?: string };
 
 const TEXT_BYTES = 24 * 1024;
 const DIFF_CHARS = 64 * 1024;
@@ -74,7 +74,7 @@ export function validateFileSave(value: unknown): MobileFileSaveInput {
 export class RemoteWorkbenchService {
   private readonly rootProbe: WslRootProbe;
   constructor(readonly store: { get(): AdeConfig }, readonly sessions: () => SessionMeta[],
-    readonly execution = new ExecutionBackendService(), private readonly projects?: Pick<ProjectWorkspaceService, 'resolve'>) { this.rootProbe = new WslRootProbe(execution); }
+    readonly execution = new ExecutionBackendService(), private readonly projects?: Pick<ProjectWorkspaceService, 'resolve'> & Partial<Pick<ProjectWorkspaceService, 'resolveTerminal'>>) { this.rootProbe = new WslRootProbe(execution); }
   dispose(): void { this.rootProbe.dispose(); }
 
   async save(input: MobileFileSaveInput, authorize: () => void): Promise<{ saved: boolean; revision: string }> {
@@ -204,16 +204,16 @@ export class RemoteWorkbenchService {
   }
 
   async resolveTerminal(input: MobileTerminalSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
-    return input.terminalHome ? { ...terminalHome(), terminalHome: true } : this.resolve(input, optional, prepareHome);
+    return input.terminalHome ? { ...terminalHome(), terminalHome: true } : this.resolve(input, optional, prepareHome, true);
   }
 
-  async resolve(input: MobileWorkspaceSelection, optional = false, prepareHome = false): Promise<WorkbenchScope | null> {
+  async resolve(input: MobileWorkspaceSelection, optional = false, prepareHome = false, terminalOnly = false): Promise<WorkbenchScope | null> {
     const config = this.store.get();
     if (input.projectWorkspaceId) {
       if (!this.projects) return reject('Projekt-Workspaces sind nicht verfügbar.');
-      const resolved = await this.projects.resolve(input.projectWorkspaceId);
+      const resolved = await (terminalOnly && this.projects.resolveTerminal ? this.projects.resolveTerminal(input.projectWorkspaceId) : this.projects.resolve(input.projectWorkspaceId));
       return { projectWorkspaceId: resolved.workspace.id, projectName: resolved.repository.name, repositoryId: resolved.repository.id, workspaceDir: resolved.workspace.workspaceDir,
-        executionBackend: 'native', rootIdentity: resolved.workspace.directoryIdentity, branch: resolved.branch };
+        executionBackend: 'native', rootIdentity: resolved.workspace.directoryIdentity, branch: resolved.branch, ...(terminalOnly ? { terminalValidation: true as const } : {}) };
     }
     const agent = config.agents.find((agent) => agent.id === input.agentId);
     if (!agent) return reject('Agent ist nicht mehr vorhanden.');
@@ -244,7 +244,7 @@ export class RemoteWorkbenchService {
       return;
     }
     if (binding.projectWorkspaceId) {
-      const current = await this.resolve({ projectWorkspaceId: binding.projectWorkspaceId });
+      const current = await this.resolve({ projectWorkspaceId: binding.projectWorkspaceId }, false, false, !!binding.terminalValidation);
       if (!current || this.version(current) !== this.version(binding)) reject('Projekt-Workspace oder Branch wurde geändert. Neu öffnen.');
       return;
     }
