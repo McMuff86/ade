@@ -1,5 +1,42 @@
 # ADE — aktuelle Übergabe
 
+## Auf main gesichert; persönlicher Neustart vorbereitet (16. September 2026)
+
+Der Operator beauftragt nach der Tablet-Anleitung ausdrücklich die Ausführung
+von Sicherung, Synchronisierung und Aktivierung. Der gemeinsam geprüfte Stand
+mit Ollama, Terminal-Dock und Desktop-Live-Diktat ist als **413c573** auf
+`origin/main` gesichert; der Remote-Commit wurde anschliessend gelesen und
+bestätigt. Es gab keinen divergierenden Branch und keinen erforderlichen Merge.
+
+Der Produktionsbuild stimmt mit den aktuellen Build-Eingaben überein:
+**sourceId `27bf304cecceca08c100`**. Eine unveränderliche Kopie liegt unter
+`dist/live-dictation-413c573`. Dies ist ein Startordner für die vorhandene lokale
+Electron-Runtime, kein neuer Windows-Installer. Die separate Electron-Startprobe
+mit isoliertem Profil besteht; der neue Live-IPC-Handler weist ein unbekanntes
+Aufnahmeticket wie erwartet ab. Nachweis: `test-results/live-release-smoke.json`.
+Die vollständige vorherige Abnahme bleibt `test-results/prompt-live-verify.log`.
+
+Der Startmenüeintrag **ADE** zeigt auf diesen geprüften Startordner. Konfiguration,
+Gerätekopplung, Credentials/Local State und vorherige Verknüpfung wurden vor der
+Umstellung gesichert unter
+`C:\Users\Adi.Muff\ADE-Backups\LiveDictation-20260916-011211`.
+Sechs Profile und vier Repository-Einträge werden beim Start unverändert geprüft.
+
+Diese Unterhaltung läuft selbst unter der persönlichen ADE **PID 35044**,
+Terminalshell **PID 51332**. Deshalb ist der abschliessende Neustart verzögert
+vorgesehen; er beendet diese ausdrücklich freigegebene Sitzung. Ein unabhängiger,
+unsichtbarer Windows-Helfer wurde im selben Desktop erfolgreich probegestartet.
+`test-results/restart-live-release.ps1` prüft vor dem Beenden erneut Prozessidentität,
+zusätzliche Sitzungen, aktive Runs, Git-Stand und alle 16 Startartefakte.
+
+**Neustart noch nicht als abgeschlossen ausgeben:** `test-results/live-restart.json`
+enthält den tatsächlichen Zustand (`scheduled`, `starting`, `passed` oder `failed`).
+Erst `passed` zusammen mit `dist/live-dictation-413c573/activation.json` bestätigt
+neuen Prozess, erhaltene Profile/Projekte/Geräte und erreichbare Tablet-Seite.
+Bei fehlendem Nachweis diese Dateien und den persönlichen Main-Log prüfen.
+Ein Test mit persönlichem Mikrofon/ElevenLabs bleibt offen. Tablet-Diktat bleibt
+beim bisherigen Batch-Pfad; nach Wiederverbindung die Tablet-Seite neu laden.
+
 ## Terminal-Dock und Live-Diktat (16. September 2026)
 
 Der neue Desktop-Bereich „Prompt und Diktat“ lässt das Terminal sichtbar und

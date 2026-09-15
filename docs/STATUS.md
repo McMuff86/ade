@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Git-Sicherung und Aktivierung vorbereitet (16. September 2026)
+
+Der geprüfte gemeinsame Ollama-/Live-Diktat-Stand **413c573** ist auf `origin/main`
+gesichert. Der Produktionsbuild mit sourceId `27bf304cecceca08c100` entspricht
+den Build-Eingaben und besteht eine zusätzliche isolierte Electron-Startprobe.
+Der ADE-Startmenüeintrag verwendet jetzt `dist/live-dictation-413c573`; persönliche
+Konfiguration und Gerätekopplung sind gesichert. Da diese Unterhaltung selbst in
+ADE läuft, folgt der freigegebene Neustart verzögert. Persönliche Aktivierung erst
+mit `passed` in `test-results/live-restart.json` bestätigen; [Betriebsdetails](HANDOFF.md).
+
 ## Sichtbares Terminal und Live-Diktat (16. September 2026)
 
 „Prompt und Diktat“ ist am Desktop rechts neben beziehungsweise unter dem

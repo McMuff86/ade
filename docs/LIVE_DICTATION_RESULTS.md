@@ -65,8 +65,14 @@ Dauer; Transkripte und Audio werden nicht im Verbrauchsjournal gespeichert.
 - Bilder: `test-results/dictation/desktop-dock-wide.png`, `desktop-live.png`
   und `desktop.png`.
 
-Kein Paket, Commit, Push oder Neustart der persönlichen ADE-Instanz. Die neue
-Oberfläche benötigt einen Neustart mit dem neuen Build, weil auch Main neue
-IPC-Handler bereitstellt; offene Terminals wurden für die Implementierung
-nicht beendet. Ein Test mit persönlichem Mikrofon und echtem ElevenLabs-Konto
-ist noch offen.
+Die Implementierungsphase hat persönliche Terminals unverändert gelassen.
+Anschliessend beauftragte der Operator Sicherung und Aktivierung: gemeinsamer
+Codecommit **413c573** auf `origin/main`, geprüfter Startordner
+`dist/live-dictation-413c573`, sourceId `27bf304cecceca08c100`. Eine zusätzliche
+isolierte Electron-Startprobe bestätigt Oberfläche und Registrierung des neuen
+Live-Handlers (`test-results/live-release-smoke.json`). Kein neuer Installer.
+Die neue Oberfläche benötigt auch einen Main-Neustart. Der persönliche Neustart
+ist wegen der darin laufenden Unterhaltung als verzögerter letzter Schritt
+vorbereitet; tatsächlichen Erfolg ausschliesslich anhand der Aktivierungsbelege
+im [Handoff](HANDOFF.md) bestätigen. Ein Test mit persönlichem Mikrofon und echtem
+ElevenLabs-Konto ist noch offen.
