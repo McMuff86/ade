@@ -4,6 +4,8 @@ Stand: 15. September 2026. Arbeitsstand nach Sicherungscommit `bff299a`.
 Die vollständige Code-Abnahme und der Windows-Pakettest sind bestanden.
 Persönliche Aktivierung steht wegen einer offenen WSL-Sitzung aus.
 Aktives [Gesamtziel](CLI_WORK_AND_DICTATION_GOALS.md).
+Der spätere Sprachstand besitzt einen [eigenen Abnahmebericht](DICTATION_IMPLEMENTATION_RESULTS.md);
+die Zahlen in diesem Dokument gehören zur vorherigen CLI-/Latenz-Lieferung.
 
 ## Implementiert
 

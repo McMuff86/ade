@@ -1,5 +1,8 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { SpeechService } from './settings/SpeechService';
+import { DictationService } from './settings/DictationService';
+import { DictationJobs } from './settings/DictationJobs';
+import { desktopMicrophone } from './settings/desktopMicrophone';
 import { SpeechPreferences } from './settings/SpeechPreferences';
 import { AgentBehaviorService } from './memory/AgentBehaviorService';
 import { RemoteSpeechService } from './application/RemoteSpeechService';
@@ -97,6 +100,7 @@ import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
 let remoteTerminals: RemoteTerminalService | null = null;
+let dictationJobs: DictationJobs | null = null;
 let stopTerminalRevocation: (() => void) | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
@@ -274,6 +278,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
+  const dictation = new DictationService(() => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
+  const recordings = new DictationJobs({ transcribe: (audio, authorize, signal) => hostOperations.use(() => dictation.transcribe(audio, authorize, signal)) });
+  dictationJobs = recordings;
   const speechPreferences = new SpeechPreferences(store, speech);
   const agentBehavior = new AgentBehaviorService(store);
   handle(IPC.AgentBehaviorGet, ({ agentId }) => agentBehavior.query(agentId));
@@ -340,6 +347,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   remoteWorkbench = workbench;
   const deviceResources = new DeviceResourceService(store, (id) => remoteDevices.resourceAccess(id));
   remoteTerminals = new RemoteTerminalService(workbench, {
+    promptCapability: (id, requirePaste) => ptyManager!.promptCapability(id, requirePaste),
+    deliverPrompt: (request, authorize) => ptyManager!.deliverPrompt(request, authorize),
+    writePrompt: (id, text, authorize) => ptyManager!.writePrompt(id, text, authorize),
     list: () => ptyManager?.list() ?? [],
     create: (agentId, repositoryId, bindingId, mode, model, authorize) => ptyManager!.createRemoteInteractive(agentId, repositoryId, bindingId, mode, model, authorize),
     createProject: (workspaceId, branch, choice, profileId, authorize) => ptyManager!.createProjectInteractive(workspaceId, branch, choice, profileId, authorize),
@@ -353,7 +363,11 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state), undefined,
   (id, selection) => deviceResources.assertSelection(id, selection));
-  stopTerminalRevocation = remoteDevices.onRevoked((id) => remoteTerminals?.revoke(id));
+  stopTerminalRevocation = remoteDevices.onRevoked((id) => {
+    remoteTerminals?.revoke(id);
+    if (id === null) dictationJobs?.revokeDevices();
+    else dictationJobs?.revokeOwner(`device:${id}`);
+  });
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
     ? { directory: await projects.directory() }
       : input.operation === 'run-results' ? { runResults: runInspection.projectRuns((await projects.overview(input.workspaceId)).repositoryId, input.cursor) }
@@ -388,6 +402,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       projectPublish,
       workbench, terminals: remoteTerminals,
       speech: new RemoteSpeechService(speechPreferences, speech),
+      dictation: dictationJobs!,
       behavior: agentBehavior,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -889,6 +904,25 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.TerminalUsage, ({ sessionId }) => ptyManager!.subscriptionUsage(sessionId));
   handle(IPC.TerminalProfileContext, ({ sessionId }) => ptyManager!.profileContextText(sessionId));
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
+  handle(IPC.TerminalPromptQuery, ({ sessionId }) => remoteTerminals!.desktopPromptCapability(sessionId));
+  handle(IPC.TerminalPromptSend, request => remoteTerminals!.desktopPrompt(request));
+  handleWithEvent(IPC.DictationPrepare, async ({ sessionId }, event) => {
+    const checkTarget = await remoteTerminals!.desktopRecordingTarget(sessionId);
+    return recordings.prepare(`desktop:${event.sender.id}`, () => {
+      if (event.sender.isDestroyed()) throw new Error('Das aufnehmende ADE-Fenster wurde geschlossen.');
+      checkTarget();
+    });
+  });
+  handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
+    const audio = Buffer.from(audioBase64, 'base64');
+    if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
+    return recordings.submit(`desktop:${event.sender.id}`, jobId, key, audio);
+  });
+  handleWithEvent(IPC.DictationQuery, ({ jobId }, event) => recordings.read(`desktop:${event.sender.id}`, jobId));
+  handleWithEvent(IPC.DictationCancel, ({ jobId }, event) => recordings.cancel(`desktop:${event.sender.id}`, jobId));
+  handleWithEvent(IPC.DictationMicrophone, ({ allow }, event) => {
+    if (allow) desktopMicrophone.grant(event.sender.id); else desktopMicrophone.revoke(event.sender.id);
+  });
 
   // Reconcile renderer state after a reload without losing main-owned PTYs.
   handle(IPC.PtyList, async () => {
@@ -1122,6 +1156,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export function disposePtyManager(): void {
+  dictationJobs?.dispose(); dictationJobs = null;
   integrationService?.stop(); integrationService = null;
   stopTerminalRevocation?.(); stopTerminalRevocation = null;
   remoteTerminals?.dispose(); remoteTerminals = null;

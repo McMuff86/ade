@@ -120,9 +120,9 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
       if (Date.now() >= deadline) throw new Error(`${mode} home CLI did not finish`);
       await new Promise((done) => setTimeout(done, 100));
     }
-    await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+    await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
     check(`mobile starts ${mode} fixture in home with no profile and preserves CLI exit`, (await homeSessions()).some((item) => item.launchChoice?.mode === mode
-      && item.workspaceDir === join(root, 'terminal-home') && !item.agentId && item.status === 'running' && item.program?.status === 'exited' && item.program.exitCode === 0));
+      && item.workspaceDir === join(root, 'terminal-home') && !item.agentId && item.status === 'exited' && item.program?.status === 'exited' && item.program.exitCode === 0));
     check(`${mode} uses the requested home as its actual working directory`, readFileSync(join(root, 'terminal-home/session-launch-proof.txt'), 'utf8').includes(`ADE_SESSION_${mode.toUpperCase()}_READY`));
     await terminal.locator('.terminal-usage > summary').click();
     const usage = terminal.getByRole('region', { name: 'Abo-Nutzung', exact: true });
@@ -147,8 +147,10 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await navigation.locator('button[aria-pressed="true"]').filter({ hasText: 'Grok Build' }).waitFor();
   check('session rail follows the CLI selected by the terminal launcher', true);
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Grok Build beendet' }).waitFor();
-  check('reload restores the most recently launched CLI rather than an older shell', true);
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
+  const restoredGrok = (await homeSessions()).findLast(item => item.launchChoice?.mode === 'grok')!;
+  check('reload restores the most recently launched ended CLI rather than an older shell', !!restoredGrok && restoredGrok.status === 'exited'
+    && (await terminal.getByLabel('Terminalanzeige', { exact: true }).innerText()).includes('ADE_SESSION_GROK_READY'));
   await terminalLauncher(terminal);
   await terminal.locator('.m-terminal-tools > details > summary').first().click();
   await page.setViewportSize({ width: 1400, height: 900 });

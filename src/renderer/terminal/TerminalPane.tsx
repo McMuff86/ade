@@ -28,6 +28,8 @@ import { SubscriptionUsagePanel } from './SubscriptionUsagePanel';
 import { SessionProfileContext } from './SessionProfileContext';
 import { TERMINAL_FONT_SIZES, useTerminalPreferences } from './preferences';
 import { useCliWorkPreferences } from '../work/cliWorkPreferences';
+import { DesktopPromptDialog } from './DesktopPromptDialog';
+import { useAppData } from '../stores/appdata';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -59,6 +61,10 @@ export function TerminalPane({
   active: boolean;
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null);
+  const session = useSessions(state => state.sessions[sessionId]);
+  const repository = useAppData(state => state.repositories.find(item => item.id === session?.repositoryId));
+  const [promptOpen, setPromptOpen] = useState(false);
+  useEffect(() => { if (!active) setPromptOpen(false); }, [active]);
   const profileContext = useSessions(state => state.sessions[sessionId]?.profileContext);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -325,6 +331,7 @@ export function TerminalPane({
 
   return <div className="terminal-with-control" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
     onKeyDownCapture={(event) => {
+      if ((event.target as Element).closest('[role="dialog"], dialog')) return;
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
         event.preventDefault(); event.stopPropagation(); setSearchOpen(true); searchInput.current?.focus();
       }
@@ -337,6 +344,7 @@ export function TerminalPane({
       }}>Kopieren</button>
       <button type="button" disabled={remoteInput || exited} title="Aus Zwischenablage einfügen (Ctrl+Shift+V)" onClick={() => pasteRef.current()}>Einfügen</button>
       <button type="button" aria-expanded={searchOpen} title="Terminal durchsuchen (Ctrl+Shift+F)" onClick={() => { setSearchOpen(true); searchInput.current?.focus(); }}>Suchen</button>
+      <button type="button" aria-haspopup="dialog" onClick={() => setPromptOpen(true)}>Prompt / Diktat</button>
       <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>Verlauf-Anfang</button>
       <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>Zur Live-Ausgabe</button>
       <label>Schrift<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
@@ -367,5 +375,8 @@ export function TerminalPane({
         .catch(() => setToolError('Eingabe konnte nicht übernommen werden. Erneut versuchen.')); }}>Eingabe am Desktop übernehmen</button>
     </div>}
     <div className="terminal-host" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
+    {promptOpen && <DesktopPromptDialog sessionId={sessionId}
+      label={`${session?.title ?? 'CLI'} · ${repository?.name ?? 'Eigener Workspace'}${session?.branch ? ` · ${session.branch}` : ''}`}
+      onClose={() => setPromptOpen(false)} fallbackFocus={() => hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} />}
   </div>;
 }

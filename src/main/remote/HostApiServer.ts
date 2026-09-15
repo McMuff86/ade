@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { BrowserRequestBudget } from './BrowserRequestBudget';
+import { DICTATION_MAX_BASE64_CHARS } from '../../shared/dictationRequests';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
@@ -58,6 +59,7 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' }
   | { kind: 'integrationQuery' | 'integrationCommand' }
   | { kind: 'assignmentQuery' | 'assignmentCommand' }
   | { kind: 'runQuestions' | 'runAnswer'; runId: string }
@@ -70,7 +72,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -141,6 +143,9 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/terminal/sessions': return { route: { kind: 'terminalSessions' }, allow: ['GET'] };
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
+    case '/api/v1/terminal/prompt': return { route: { kind: 'terminalPrompt' }, allow: ['POST'] };
+    case '/api/v1/dictation/command': return { route: { kind: 'dictationCommand' }, allow: ['POST'] };
+    case '/api/v1/dictation/upload': return { route: { kind: 'dictationUpload' }, allow: ['POST'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
     case '/api/v1/runs': return { route: { kind: 'runs' }, allow: ['GET', 'POST'] };
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
@@ -192,6 +197,7 @@ export class HostApiServer {
   private readonly connections = new Map<ServerResponse, string>();
   private unsubscribeRevocation: (() => void) | null = null;
   private readonly requestBudget = new BrowserRequestBudget();
+  private dictationUploads = 0;
 
   constructor(
     private readonly application: AdeApplicationService,
@@ -358,7 +364,7 @@ export class HostApiServer {
         response.writeHead(200, { ...RESPONSE_HEADERS, 'content-type': asset.contentType,
           'content-length': body.length,
           'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self' 'nonce-${nonce}'; img-src 'self' blob:; media-src data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
-          'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'service-worker-allowed': '/',
+          'permissions-policy': 'camera=(), microphone=(self), geolocation=()', 'service-worker-allowed': '/',
         });
         response.end(body); return;
       }
@@ -477,6 +483,9 @@ export class HostApiServer {
         case 'terminalQuery':
         case 'terminalCommand':
         case 'terminalInput':
+        case 'terminalPrompt':
+        case 'dictationCommand':
+        case 'dictationUpload':
           await this.handleCommand(request, response, requestId, bearer, target.path, matched.route.kind, undefined, browserRequest); return;
         case 'catalog':
           writeJson(response, 200, this.application.catalog(readPrincipal!));
@@ -515,6 +524,20 @@ export class HostApiServer {
    * redacted, bounded message.
    */
   private async handleCommand(
+    request: IncomingMessage, response: ServerResponse, requestId: string, bearer: RemotePrincipal | null,
+    path: string, kind: CommandKind, runId?: string, browserRequest = false,
+  ): Promise<void> {
+    if (kind !== 'dictationUpload') return this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest);
+    if (this.dictationUploads >= 2) {
+      writeError(response, 503, 'unavailable', undefined, { connection: 'close' });
+      response.once('finish', () => request.destroy()); return;
+    }
+    this.dictationUploads++;
+    try { await this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest); }
+    finally { this.dictationUploads--; }
+  }
+
+  private async executeCommand(
     request: IncomingMessage,
     response: ServerResponse,
     requestId: string,
@@ -525,7 +548,7 @@ export class HostApiServer {
     browserRequest = false,
   ): Promise<void> {
     const expectsJson = kind !== 'startRun' && kind !== 'cancelRun' && kind !== 'deleteRun';
-    const body = await this.readBody(request, response, expectsJson);
+    const body = await this.readBody(request, response, expectsJson, kind === 'dictationUpload' ? DICTATION_MAX_BASE64_CHARS + 1024 : this.maxBodyBytes);
     if (body === null) return;
     if (kind === 'deleteRun' && body.length !== 0) { writeError(response, 400, 'invalid_payload', 'delete takes no body'); return; }
 
@@ -574,6 +597,8 @@ export class HostApiServer {
 
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
+        : kind === 'terminalPrompt' ? await this.application.remotePrompt(context, payload)
+        : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
         : kind === 'queryBehavior' || kind === 'updateBehavior' ? await this.application.agentBehavior(context, payload, kind === 'updateBehavior')
         : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
@@ -627,6 +652,7 @@ export class HostApiServer {
     request: IncomingMessage,
     response: ServerResponse,
     expectsJson: boolean,
+    maxBodyBytes = this.maxBodyBytes,
   ): Promise<Buffer | null> {
     const lengthHeader = singleHeader(request, 'content-length');
     const declared = lengthHeader !== undefined && /^\d{1,10}$/.test(lengthHeader) ? Number(lengthHeader) : null;
@@ -642,7 +668,7 @@ export class HostApiServer {
     if (request.headers['transfer-encoding'] !== undefined || declared === null) {
       return refuse(411, 'length_required');
     }
-    if (declared > this.maxBodyBytes) return refuse(413, 'payload_too_large');
+    if (declared > maxBodyBytes) return refuse(413, 'payload_too_large');
     if (expectsJson) {
       const contentType = singleHeader(request, 'content-type')?.toLowerCase().replace(/\s+/g, '') ?? '';
       if (contentType !== 'application/json' && contentType !== 'application/json;charset=utf-8') {
@@ -656,9 +682,11 @@ export class HostApiServer {
     const chunks: Buffer[] = [];
     let received = 0;
     const body = await new Promise<Buffer | null>((resolve) => {
+      const deadline = setTimeout(() => { request.destroy(); resolve(null); }, 30_000); deadline.unref();
+      request.once('end', () => clearTimeout(deadline)); request.once('close', () => clearTimeout(deadline));
       request.on('data', (chunk: Buffer) => {
         received += chunk.length;
-        if (received > declared || received > this.maxBodyBytes) {
+        if (received > declared || received > maxBodyBytes) {
           resolve(null);
           request.destroy();
           return;

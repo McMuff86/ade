@@ -9,7 +9,9 @@ void (async () => {
   const display = new RemoteTerminalDisplay(40, 10); const browser = new Terminal({ cols: 40, rows: 10, allowProposedApi: true });
   try {
     display.write(Buffer.from('\x1b[?1049h\x1b[2J\x1b[3;5H\x1b[38;2;12;34;56mMENU\x1b[5;7H\x1b[?1h\x1b[?2004h'));
+    check('pending output cannot advertise stale paste capability', !display.acceptsBracketedPaste());
     const first = await display.snapshot(); await new Promise<void>((resolve) => browser.write(first.frame.ansi, resolve));
+    check('parsed bracketed-paste mode enables prompt capability', display.acceptsBracketedPaste());
     const cell = browser.buffer.active.getLine(2)!.getCell(4)!;
     check('alternate screen preserves absolute placement and RGB color', cell.getChars() === 'M' && cell.getFgColor() === 0x0c2238);
     check('cursor and application keyboard modes survive safe projection', browser.buffer.active.cursorX === 6 && browser.buffer.active.cursorY === 4 && browser.modes.applicationCursorKeysMode && browser.modes.bracketedPasteMode);
@@ -27,6 +29,8 @@ void (async () => {
     check('hard newline credential values cannot bypass frame redaction', !JSON.stringify(await display.snapshot()).includes('HARD_NEWLINE_SECRET'));
     await new Promise<void>((resolve) => browser.write(safe.frame.ansi, resolve));
     check('redacted frame stays interpretable', browser.buffer.active.getLine(0)!.translateToString(true).includes('[path]'));
+    display.write(Buffer.from('\x1b[?2004l')); await display.snapshot();
+    check('CLI leaving paste mode disables prompt capability', !display.acceptsBracketedPaste());
   } finally { display.dispose(); browser.dispose(); }
   const history = new RemoteTerminalDisplay(80, 10);
   try {

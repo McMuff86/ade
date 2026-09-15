@@ -45,6 +45,10 @@ export class RemoteTerminalDisplay {
     }
   }
   dispose(): void { if (this.disposed) return; this.disposed = true; this.terminal.dispose(); }
+  /** Pending output may disable paste; never authorize using a stale mode. */
+  acceptsBracketedPaste(): boolean {
+    return !this.disposed && !this.overflow && this.pendingBytes === 0 && this.terminal.modes.bracketedPasteMode;
+  }
   async snapshot(): Promise<{ screen: string; frame: MobileTerminalFrame }> {
     if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
     if (this.overflow) throw new Error('Terminalausgabe ist zu umfangreich. Am Desktop weiterarbeiten oder eine neue Sitzung öffnen.');

@@ -16,7 +16,8 @@ dieser neuen Arbeitsliste behaupten.
 Mobile Terminals zeigen bestätigte PTY-Ausgabe. Kurze aktive Abfrageintervalle,
 ausgelassene unveränderte Bilddaten und Prozessscope-Prüfungen ohne Git-Start
 pro Taste verkürzen die Rückmeldung. Die lokale Messung ist keine pauschale
-Tablet-/WAN-Latenzzusage. Diktat und Kostenjournal bleiben aktive Ausbauziele.
+Tablet-/WAN-Latenzzusage. Der unten beschriebene Diktatablauf ist implementiert;
+das Kostenjournal bleibt ein aktives Ausbauziel.
 
 Beide Oberflächen bieten die Navigation Overview, Projekte, Terminals, Work,
 Graph in derselben Reihenfolge. Work zeigt Runs mit Suche nach Name, Projekt
@@ -40,7 +41,16 @@ auswählen, „Stimme testen“ und Wiedergabe stoppen. Die Auswahl wird gespeic
 ohne bisherige Wahl wird eine verfügbare weibliche Stimme vorgeschlagen. Ein
 kurzer deutscher Testsatz wird nur nach Betätigung erzeugt. Fehlender Key,
 fehlende Provider-Rechte, leere Listen und Wiedergabefehler sind sichtbar.
-Spracherkennung/Diktat ist als nächster Schritt geplant, noch nicht enthalten.
+„Prompt / Diktat“ ist im Terminal als eigener, sitzungsgebundener Editor
+implementiert. „Diktieren“ nimmt bis zu 60 Sekunden auf; „Aufnahme stoppen“
+überträgt an ElevenLabs. Der Text bleibt vor der Übergabe editierbar. „In CLI
+einfügen“ fügt ein, „An CLI absenden“ ergänzt Enter. Ein unbestätigter Versand
+bleibt sichtbar und wird nicht automatisch wiederholt. Der Entwurf wird auf
+diesem Gerät gespeichert; Aufnahme und API-Key werden dort nicht gespeichert.
+Am Tablet benötigt Diktat die eigene Gerätefreigabe sowie Browser-Mikrofonzugriff.
+Geschützte Promptziele sind neu gestartete native Windows-Codex/Claude/Grok-CLIs
+mit aktivem mehrzeiligem Paste. Tatsächliche Providerabnahme bleibt separat:
+[Implementierungsnachweis](DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Mobile bietet einen sichtbaren Zugang „Einstellungen“ mit Stimmenwahl und
 Stimmtest. Die Gerätefreigabe „Stimmen wählen und ElevenLabs-Stimmtests
@@ -242,11 +252,12 @@ an explicitly selected saved profile contributes launch settings only. Live
 sessions prevent changing their checkout's branch. Agent-Arbeitskopie preserves
 the previous agent-owned CLI flow.
 
-Interactive lifecycle (2026-09-09): the selected session displays its launched
-CLI separately from the terminal shell, for example **Claude Code beendet ·
-Terminal offen**. Launcher choice describes what to open and cannot relabel the
-current session. Opening after CLI return starts a new invocation while keeping
-the previous shell/output available; opening a matching live invocation reattaches
+Interactive lifecycle (updated 2026-09-15): the selected session displays its
+launched CLI separately from the terminal. Protected native Windows coding
+invocations end their terminal with the CLI; custom/assistant/WSL launches can
+still show **CLI beendet · Terminal offen**. Launcher choice describes what to
+open and cannot relabel the current session. Opening after CLI return starts a
+new invocation while keeping previous output available; a matching live invocation reattaches
 it. Browser connectivity and input ownership remain separate indicators. Later
 manually typed shell commands are not represented as tracked ADE CLI launches.
 Implementation and acceptance: [project workflow goal T1](PROJECT_WORKFLOW_GOALS.md).

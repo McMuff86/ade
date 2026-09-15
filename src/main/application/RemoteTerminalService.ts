@@ -10,8 +10,14 @@ import { RemoteApiError, type RemoteCommandContext } from './AdeApplicationServi
 import { workbenchDigest, type RemoteWorkbenchService, type WorkbenchScope } from './RemoteWorkbenchService';
 import { remoteTerminalScreen } from './RemoteTerminalScreen';
 import type { MobileSessionInventory } from '../../shared/remote';
+import type { MobileTerminalPrompt, MobileDictationTarget } from '../../shared/remote';
+import { terminalPromptBytes, validTerminalPrompt, type TerminalPromptCapability, type TerminalPromptRequest, type TerminalPromptReceipt } from '../../shared/terminalPrompt';
+import { validPromptText } from '../../shared/dictation';
 
 export interface RemoteTerminalPort {
+  promptCapability?(sessionId: string, requirePaste?: boolean): TerminalPromptCapability;
+  deliverPrompt?(request: TerminalPromptRequest, authorize: () => void | Promise<void>): TerminalPromptReceipt | Promise<TerminalPromptReceipt>;
+  writePrompt?(sessionId: string, text: string, authorize: () => void | Promise<void>): void | Promise<void>;
   profileContext?(sessionId: string): string | null;
   usage?(sessionId: string): Promise<import('../../shared/remote').SubscriptionUsage>;
   display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
@@ -36,7 +42,7 @@ const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'input'): MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
   const input = value as Record<string, unknown>;
-  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage', 'profileContext', 'knownDisplayRevision'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
+  const allowed = ['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', ...(kind === 'query' ? ['terminalId', 'options', 'usage', 'profileContext', 'prompt', 'knownDisplayRevision'] : kind === 'command' ? ['operation', ...(input.operation === 'open' ? ['mode', 'model', ...(input.projectWorkspaceId ? ['expectedBranch', 'profileId'] : [])] : ['terminalId'])]
     : ['terminalId', 'leaseId', 'sequence', 'data', 'cols', 'rows'])];
   if (Object.keys(input).some((key) => !allowed.includes(key)) || !validTerminalSelection(input)
     || (input.terminalId !== undefined && (typeof input.terminalId !== 'string' || !ID.test(input.terminalId)))) throw new RemoteApiError(400, 'invalid_payload');
@@ -46,6 +52,7 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
   if (kind === 'query' && input.options !== undefined && input.options !== true) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.usage !== undefined && (input.usage !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.profileContext !== undefined && (input.profileContext !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
+  if (kind === 'query' && input.prompt !== undefined && (input.prompt !== true || typeof input.terminalId !== 'string')) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'query' && input.knownDisplayRevision !== undefined && (typeof input.terminalId !== 'string'
     || typeof input.knownDisplayRevision !== 'string' || !/^[a-f0-9]{64}$/.test(input.knownDisplayRevision))) throw new RemoteApiError(400, 'invalid_payload');
   if (kind === 'input' && (typeof input.terminalId !== 'string' || typeof input.leaseId !== 'string' || !ID.test(input.leaseId)
@@ -53,6 +60,14 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
     || !Number.isInteger(input.cols) || (input.cols as number) < 20 || (input.cols as number) > 240
     || !Number.isInteger(input.rows) || (input.rows as number) < 5 || (input.rows as number) > 100)) throw new RemoteApiError(400, 'invalid_payload');
   return input as unknown as MobileTerminalQuery | MobileTerminalCommand | MobileTerminalInput;
+}
+
+export function validateTerminalPrompt(value: unknown): MobileTerminalPrompt {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
+  const { text, mode, ...selection } = value as Record<string, unknown>;
+  if (Object.hasOwn(selection, 'data') || !validPromptText(text) || (mode !== 'insert' && mode !== 'submit')) throw new RemoteApiError(400, 'invalid_payload');
+  validateTerminal({ ...selection, data: '' }, 'input');
+  return value as MobileTerminalPrompt;
 }
 
 /** Remote identities map to live interactive PTYs only inside main. No raw PTY ids on the wire. */
@@ -78,6 +93,40 @@ export class RemoteTerminalService {
     return { sessionId, remote: false };
   }
   desktopMayWrite(sessionId: string): boolean { return !this.desktopState(sessionId).remote; }
+
+  desktopPromptCapability(sessionId: string): TerminalPromptCapability {
+    return this.desktopMayWrite(sessionId) ? this.port.promptCapability?.(sessionId) ?? { available: false, reason: 'Promptübergabe ist nicht verfügbar.' }
+      : { available: false, reason: 'Dieses Terminal wird von einem anderen Gerät gesteuert. Eingabe am Desktop übernehmen.' };
+  }
+
+  async desktopPrompt(request: TerminalPromptRequest): Promise<TerminalPromptReceipt> {
+    if (!validTerminalPrompt(request) || !this.port.deliverPrompt) throw new Error('Ungültiger Promptauftrag.');
+    const authorize = await this.desktopRecordingTarget(request.sessionId);
+    return this.port.deliverPrompt(request, async () => {
+      // Repeat filesystem/link validation after a delayed paste as well as before
+      // it. The original closure also binds this command to its captured target.
+      await this.desktopRecordingTarget(request.sessionId); authorize();
+    });
+  }
+
+  async desktopRecordingTarget(sessionId: string): Promise<() => void> {
+    const session = this.port.list().find(item => item.id === sessionId);
+    if (!session) throw new Error('Sitzung ist nicht mehr verfügbar.');
+    const selection: MobileTerminalSelection = session.projectWorkspaceId ? { projectWorkspaceId: session.projectWorkspaceId }
+      : session.agentId ? { agentId: session.agentId, repositoryId: session.repositoryId ?? null } : { terminalHome: true };
+    const binding = await this.workbench.resolveTerminal(selection);
+    if (!binding) throw new Error('Workspace ist nicht mehr verfügbar.');
+    await this.workbench.revalidate(binding);
+    const authorize = () => {
+      const current = this.port.list().find(item => item.id === sessionId);
+      if (!current || !this.workbench.sessionMatches(binding, current) || this.workbench.managed(binding) || !this.desktopMayWrite(sessionId)) {
+        throw new Error('Sitzungsziel, Workspace oder Eingabebesitz wurde geändert.');
+      }
+      const capability = this.port.promptCapability?.(sessionId, false);
+      if (!capability?.available) throw new Error(capability && !capability.available ? capability.reason : 'Promptübergabe ist nicht verfügbar.');
+    };
+    authorize(); return authorize;
+  }
 
   async query(deviceId: string, input: MobileTerminalQuery): Promise<MobileTerminalState> {
     this.requireGrant(deviceId, input); this.expire();
@@ -110,7 +159,10 @@ export class RemoteTerminalService {
     const own = entry!.control?.deviceId === deviceId ? entry!.control : undefined;
     const profileText = input.profileContext ? this.port.profileContext?.(entry!.sessionId) : undefined;
     const displayRevision = workbenchDigest(JSON.stringify([entry!.id, display.frame?.revision, display.screen]));
+    const promptCapability: TerminalPromptCapability | undefined = !input.prompt ? undefined : own ? this.port.promptCapability?.(entry!.sessionId)
+      ?? { available: false, reason: 'Promptübergabe ist nicht verfügbar.' } : { available: false, reason: 'Zuerst die Terminal-Eingabe übernehmen.' };
     return { ...current(), subscriptionUsage, displayRevision,
+      ...(promptCapability ? { promptCapability: promptCapability.available ? promptCapability : { available: false as const, reason: redactForWire(promptCapability.reason, 1000) } } : {}),
       ...(input.profileContext ? { profileContextText: typeof profileText === 'string' ? redactForWire(profileText, 32_000) : null } : {}),
       selected: this.summary(entry!, session!, deviceId), ...(input.knownDisplayRevision === displayRevision ? { displayUnchanged: true as const } : display),
       cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
@@ -180,7 +232,33 @@ export class RemoteTerminalService {
     return { terminalId: entry.id };
   }
 
-  async input(context: RemoteCommandContext, input: MobileTerminalInput): Promise<{ sequence: number; replayed: boolean }> {
+  async prompt(context: RemoteCommandContext, input: MobileTerminalPrompt): Promise<{ sequence: number; replayed: boolean }> {
+    if (!this.port.writePrompt) failure('Promptübergabe ist nicht verfügbar.');
+    const { text, mode, ...selection } = input;
+    // Bind the receipt to the original text/mode as well as to the generated bytes.
+    return this.input(context, { ...selection, data: terminalPromptBytes(text, mode) }, { text, mode });
+  }
+
+  async recordingTarget(deviceId: string, target: MobileDictationTarget): Promise<() => void> {
+    this.requireGrant(deviceId, target); this.expire();
+    const binding = await this.workbench.resolveTerminal(target);
+    if (!binding) failure('Workspace ist nicht mehr verfügbar.');
+    const entry = this.requireEntry(target.terminalId, binding!); const control = entry.control;
+    await this.workbench.revalidate(binding!);
+    const authorize = () => {
+      this.requireGrant(deviceId, target); this.expire();
+      const current = this.requireEntry(target.terminalId, binding!);
+      if (current !== entry || !control || entry.control !== control || control.deviceId !== deviceId || control.leaseId !== target.leaseId
+        || this.workbench.managed(binding!)) failure('Aufnahmeziel oder Eingabebesitz hat sich geändert.');
+      const session = this.port.list().find(item => item.id === entry.sessionId)!;
+      if (!this.visible(deviceId, session)) throw new RemoteApiError(403, 'scope_not_granted');
+      const capability = this.port.promptCapability?.(entry.sessionId, false);
+      if (!capability?.available) failure(capability && !capability.available ? capability.reason : 'Promptübergabe ist nicht verfügbar.');
+    };
+    authorize(); return authorize;
+  }
+
+  async input(context: RemoteCommandContext, input: MobileTerminalInput, prompt?: Pick<MobileTerminalPrompt, 'text' | 'mode'>): Promise<{ sequence: number; replayed: boolean }> {
     const deviceId = context.principal.id; this.requireGrant(deviceId, input); this.expire();
     const binding = await this.workbench.resolveTerminal(input); this.requireGrant(deviceId, input); const entry = this.requireEntry(input.terminalId, binding!);
       if (!this.visible(deviceId, this.port.list().find((session) => session.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
@@ -190,7 +268,7 @@ export class RemoteTerminalService {
     const key = context.idempotencyKey;
     if (!key) throw new RemoteApiError(400, 'idempotency_key_required');
     if (!isValidIdempotencyKey(key)) throw new RemoteApiError(400, 'idempotency_key_invalid');
-    const fingerprint = workbenchDigest(JSON.stringify(input)); const previous = control!.receipts.get(input.sequence);
+    const fingerprint = workbenchDigest(JSON.stringify(prompt ? [input, prompt] : input)); const previous = control!.receipts.get(input.sequence);
     if (previous) {
       if (previous.key !== key || previous.fingerprint !== fingerprint) throw new RemoteApiError(409, 'idempotency_key_reused');
       if (!previous.accepted) throw new RemoteApiError(409, 'command_uncertain');
@@ -208,10 +286,14 @@ export class RemoteTerminalService {
       return { sequence: input.sequence, replayed: true };
     }
     if (input.sequence !== control!.sequence + 1) failure('Eingabereihenfolge hat sich geändert.');
-    // No await from receipt reservation through write. A crash loses this live lease,
-    // so old input cannot be replayed into a new process. Audit never contains input.
+    if (prompt) {
+      const capability = this.port.promptCapability?.(entry.sessionId);
+      if (!capability?.available) failure(capability && !capability.available ? redactForWire(capability.reason, 1000) : 'Promptübergabe ist nicht verfügbar.');
+    }
+    // Reserve before write; a pending receipt blocks subsequent input while the
+    // protected writer separates paste and Enter. Audit never contains input.
     const audit: DeviceAuditEntry = { at: this.now(), principalId: deviceId, principalKind: 'device', requestId: context.requestId,
-      channel: 'terminal:input', target: entry.id, outcome: 'requested' };
+      channel: prompt ? 'terminal:prompt' : 'terminal:input', target: entry.id, outcome: 'requested' };
     this.audit(audit);
     if (control!.sequence > 0 && control!.receipts.get(control!.sequence)?.accepted !== true) throw new RemoteApiError(409, 'command_uncertain');
     const receipt = { key, fingerprint, accepted: false };
@@ -219,7 +301,13 @@ export class RemoteTerminalService {
     if (control!.receipts.size > 128) control!.receipts.delete(control!.receipts.keys().next().value!);
     entry.cols = input.cols; entry.rows = input.rows;
     this.port.resize(entry.sessionId, input.cols, input.rows);
-    this.port.write(entry.sessionId, Buffer.from(input.data, 'utf8'));
+    if (prompt) await this.port.writePrompt!(entry.sessionId, input.data, async () => {
+      await this.workbench.revalidate(binding!);
+      this.requireGrant(deviceId, input); this.expire();
+      if (entry.control !== control || this.requireEntry(input.terminalId, binding!) !== entry || this.workbench.managed(binding!)) failure('Promptziel oder Eingabebesitz hat sich geändert.');
+      if (!this.visible(deviceId, this.port.list().find(item => item.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
+    });
+    else this.port.write(entry.sessionId, Buffer.from(input.data, 'utf8'));
     receipt.accepted = true;
     control!.expiresAt = this.now() + 30_000;
     this.audit({ ...audit, outcome: 'executed' });

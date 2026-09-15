@@ -13,6 +13,7 @@ import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './pho
 import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
 import { registerRendererWindow, rendererWindows } from './rendererWindows';
 import { MainLogSink } from './logging/mainLog';
+import { desktopMicrophone } from './settings/desktopMicrophone';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
 registerPhotoProtocolScheme();
@@ -142,10 +143,10 @@ Menu.setApplicationMenu(null);
 void app.whenReady().then(async () => {
   if (!ownsProfile) return;
   app.setAppUserModelId('com.adimuff.ade');
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    callback(desktopMicrophone.allows(contents.id, permission, details));
   });
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => desktopMicrophone.allows(contents?.id, permission, details));
   const store = new ConfigStore();
   try {
     await registerIpcHandlers(store);

@@ -67,6 +67,7 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
   };
   const disabled = launchDisabled(choice);
   return <section ref={root} className="project-terminal" aria-label="Projekt-Terminal" onKeyDownCapture={(event) => {
+    if ((event.target as Element).closest('[role="dialog"], dialog')) return;
     if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) return;
     if (!event.shiftKey && ['PageUp', 'PageDown'].includes(event.key) && available.length > 1) {
       event.preventDefault(); event.stopPropagation();

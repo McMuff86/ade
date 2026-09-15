@@ -4,15 +4,18 @@
 
 Operator bestätigt den sichtbaren Umbau und beauftragt ein aktives Ziel für
 CLI-Arbeitsübersicht (Goal 27) und ElevenLabs-Promptübergabe (Goal 23.1 Desktop).
-Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. Die CLI-Arbeitsliste
-ist inzwischen implementiert; der CLI-/Latenz-Stand besteht `pnpm verify`
-vollständig mit **3.543 Checks** (58 Suiten / 2.615 fokussierte + 928 UI-Checks).
-Windows-Paket unter `dist/cli-work-20260915/win-unpacked/ADE.exe` mit sieben
-Paketprüfungen bestanden. Produktcommit **b2e134e4113f81715a174598193287ee339e3d25**
-ist auf `origin/main` gesichert, Remote-SHA abgeglichen. Die persönliche Instanz
-37308 bleibt wegen einer offenen WSL-Shell unverändert; nicht ungeprüft beenden.
-Danach gebundener Textentwurf, Diktat, Verbrauch und vollständige
-Abnahme. Weitere Produktideen bleiben priorisierte
+Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. CLI-Arbeitsliste,
+Textentwurf und Diktat auf Desktop/Mobile sind implementiert. Der neue Stand
+besteht `pnpm verify` vollständig mit **3.735 Checks** (64 Suiten / 2.786
+fokussierte + 949 UI-Checks). Windows-Paket unter
+`dist/dictation-20260915/win-unpacked/ADE.exe` mit zehn Paketprüfungen bestanden.
+Ein echter Scribe-v2-Aufruf und die native Promptübergabe an Codex, Claude Code
+und Grok sind erfolgreich; physische Tablet-/WAN-Abnahme bleibt gesondert.
+Der frühere CLI-Checkpoint `b2e134e` und Paketnachweis `5ea3b3c` sind auf
+`origin/main` gesichert. Die persönliche Instanz 37308 bleibt wegen einer
+offenen WSL-Shell unverändert; nicht ungeprüft beenden.
+Verbrauchsjournal und die zwei Orientierungsdetails aus Goal 27.2 sind noch offen.
+[Aktueller Diktatstand](DICTATION_IMPLEMENTATION_RESULTS.md). Weitere Produktideen bleiben priorisierte
 Vorschläge im [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 
 Anschliessend ausdrücklich beauftragt: den jetzigen Projektstand zeitnah

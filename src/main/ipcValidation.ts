@@ -2,6 +2,9 @@ import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
 import { validProjectMembership } from '../shared/remote';
 import { validVoiceId, validSpeechSelection, validSpeechTarget } from '../shared/speech';
+import { validTerminalPrompt } from '../shared/terminalPrompt';
+import { validDictationUpload, validPromptSessionId } from '../shared/dictationRequests';
+import { validDictationJobId } from '../shared/dictation';
 import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
@@ -692,6 +695,23 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       validateBehaviorUpdate(payload); return;
     case IPC.SpeechConfigure:
       if (!validSpeechSelection(payload)) invalid(channel, 'invalid speech selection');
+      return;
+    case IPC.TerminalPromptSend:
+      if (!validTerminalPrompt(payload)) invalid(channel, 'invalid terminal prompt');
+      return;
+    case IPC.TerminalPromptQuery:
+    case IPC.DictationPrepare:
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'sessionId') || !validPromptSessionId((payload as { sessionId: unknown }).sessionId)) invalid(channel, 'invalid prompt session');
+      return;
+    case IPC.DictationSubmit:
+      if (!validDictationUpload(payload)) invalid(channel, 'invalid dictation upload');
+      return;
+    case IPC.DictationQuery:
+    case IPC.DictationCancel:
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'jobId') || !validDictationJobId((payload as { jobId: unknown }).jobId)) invalid(channel, 'invalid dictation ticket');
+      return;
+    case IPC.DictationMicrophone:
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'allow') || typeof (payload as { allow: unknown }).allow !== 'boolean') invalid(channel, 'invalid microphone permission');
       return;
     case IPC.MobileAccessSetEnabled: {
       const request = record(channel, payload);

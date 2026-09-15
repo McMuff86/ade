@@ -33,7 +33,7 @@ export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evi
   await launch.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await launch.waitFor({ state: 'hidden' });
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
-  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
   const config = await page.evaluate(() => window.ade.invoke('config:get'));
   const workspaceId = config.projectWorkspaces.find(item => item.workspaceDir === repo)!.id;
   const sessions = async () => (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter(item => item.projectWorkspaceId === workspaceId);
@@ -42,7 +42,7 @@ export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evi
     && codex.workspaceDir === repo && codex.branch === 'main' && !codex.agentId && !codex.launchProfileId);
   await terminal.getByRole('button', { name: 'Claude Code öffnen', exact: true }).click();
   await expect.poll(async () => (await sessions()).length).toBe(2);
-  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
   check('one-click Claude launch is independent of the Codex session', (await sessions()).length === 2
     && (await sessions()).some(item => item.launchChoice?.mode === 'claude' && !item.agentId && !item.launchProfileId));
   await terminal.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();

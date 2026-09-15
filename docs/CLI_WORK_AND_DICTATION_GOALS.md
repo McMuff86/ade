@@ -4,12 +4,14 @@ Stand: 15. September 2026. Der Operator hat die bereinigte Projektordnung
 bestätigt und die Ziele für CLI-Übersicht und ElevenLabs-Übergabe beauftragt.
 Ein gemeinsames Umsetzungsziel ist in der Codex-Zielverwaltung aktiv. Die
 folgenden Meilensteine bleiben bis zur gemeinsamen Abnahme aktiv. Die Desktop-
-CLI-Arbeitsliste und die erste native Latenzoptimierung bestehen die vollständige
-Code-Abnahme mit 3.543 Checks; das Windows-Paket besteht sieben weitere Checks.
-`b2e134e` ist gesichert und gepusht. Persönliche Aktivierung steht wegen einer
-offenen WSL-Sitzung aus.
-Diktat und Kostenjournal sind noch zu
-implementieren. [Aktuelle Nachweise](CLI_WORK_LATENCY_RESULTS.md).
+CLI-Arbeitsliste, erste native Latenzoptimierung und Diktat auf Desktop/Mobile
+bestehen die vollständige Code-Abnahme mit **3.735 Checks**; das Windows-Paket
+besteht zehn weitere Checks. Reale ElevenLabs- und native Codex-/Claude-/Grok-
+Promptproben sind erfolgreich. Der frühere CLI-Checkpoint `b2e134e`/`5ea3b3c`
+ist gesichert und gepusht. Persönliche Aktivierung steht wegen einer offenen
+WSL-Sitzung aus. Das Kostenjournal sowie die unten benannten zwei Details aus
+Goal 27.2 bleiben zu implementieren; physische Tablet-/WAN-Abnahme ist gesondert.
+[CLI-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Erweiterung des aktiven Ziels auf weiteren Operatorauftrag: die Dokumentation
 vollständig gegen den aktuellen Code und die tatsächlichen Abnahmen prüfen
@@ -94,8 +96,11 @@ Verbindliche Anzeigen:
 Die vier Projektkarten zeigen den vorhandenen Originalworkspace statt der
 irreführenden Aussage „Noch kein Agent-Workspace“. Projektaktionen öffnen den
 gewählten Arbeitsort. Eigene Profil-Homes und die WSL-Assistenten bleiben klar
-bezeichnet. Die Projektübersicht bevorzugt die gespeicherte ADE-Auswahl;
-der gesamte gefundene Ordnerbestand bleibt bewusst erreichbar.
+bezeichnet. Noch offen in Goal 27.2: Die Projektübersicht soll beim Einstieg die
+gespeicherte ADE-Auswahl bevorzugen; der gesamte gefundene Ordnerbestand bleibt
+bewusst erreichbar. Der mobile Promptdialog soll auch bei profilfreien Starts
+den konkreten Projektnamen zeigen; momentan benennt er dort nur Projekt, CLI
+und Branch. Das gebundene technische Sitzungsziel ist davon unabhängig.
 
 ## Goal 23.1: Text und Sprache an die richtige Sitzung
 
@@ -115,8 +120,8 @@ gemeinsamer Vertrag festgelegt. Live-Streaming und Wake Word sind spätere Ideen
 
 Technische Grundlage ist ElevenLabs `POST /v1/speech-to-text` mit Audio-Upload
 und explizitem Transkriptionsmodell. Die aktuelle Referenz verwendet `scribe_v2`;
-Deutsch ist dokumentiert. Ein erfolgreicher vorhandener TTS-Stimmtest bestätigt
-noch keine STT-Berechtigung des persönlichen Keys.
+Deutsch ist dokumentiert. Der persönliche STT-Zugriff ist separat mit einem echten
+5,98-Sekunden-Aufruf bestätigt; ein TTS-Test allein würde dies nicht beweisen.
 [API-Referenz](https://elevenlabs.io/docs/api-reference/speech-to-text/convert),
 [Sprachunterstützung](https://elevenlabs.io/docs/overview/capabilities/speech-to-text).
 
@@ -129,15 +134,19 @@ die ElevenLabs-Referenz beschränkt `enable_logging=false` auf Enterprise;
 ADE darf keine allgemeine Speicherungslosigkeit beim Anbieter versprechen.
 [Aufbewahrungsoption](https://elevenlabs.io/docs/api-reference/speech-to-text/convert).
 
-Besonders zu lösen ist die eigentliche CLI-Übergabe: Die derzeitige PTY startet
-eine CLI in einer danach weiterlaufenden Shell. Die privaten Lifecycle-Marker
+Die CLI-Übergabe benötigt einen geschützten Start: Die früheren PTY-Starts liessen
+nach dem CLI-Ende eine Shell offen. Die privaten Lifecycle-Marker
 in `InteractiveProgram` sind Beobachtung, keine sichere Eingabeberechtigung.
 Ein Statuscheck allein verhindert nicht, dass die CLI unmittelbar danach
 endet und gepufferte Eingabe bei PowerShell oder Bash landet. Daher gehört
 ein nachweisbarer, laufzeitgebundener Eingabepfad zur Abnahme. Unterstützte
 Transporte erhalten diesen Vertrag; bei unbekannter oder beendeter CLI bleibt
 der Text im Entwurf. Ein universeller Versand durch blindes `pty:write` ist
-keine akzeptierte Ersatzlösung.
+keine akzeptierte Ersatzlösung. Implementiert ist dieser Schutz für neue native
+Windows-Codex/Claude/Grok-Starts: Die aufrufende Shell endet mit der CLI;
+Paste und abschliessendes Enter werden mit erneuter Autorisierung serialisiert.
+WSL-/Custom-/Assistentenstarts behalten ihre bisherigen Startwege und bleiben
+für die strukturierte Promptübergabe gesperrt.
 
 „In die CLI einfügen“ und „Absenden“ brauchen getrennte, getestete Semantik für
 mehrzeiligen Text und TUI-Paste. Der verfügbare Eingabebesitz wird in main geprüft.
@@ -149,10 +158,11 @@ wird nicht als sicher ungesendet behandelt. Bestätigung bedeutet zunächst
 Mikrofon-, STT- und Entwurfsverträge erweitern die schmalen bestehenden Grenzen.
 Neue IPCs werden klassifiziert, Fehler redigiert und Renderer-Ereignisse zentral
 versendet. Die bestehende Remote-Command-Allowlist wird dafür nicht erweitert.
-Mobile Audio benötigt später einen eigenen begrenzten Upload-Vertrag mit
+Mobile Audio verwendet einen eigenen begrenzten Upload-Vertrag mit
 Geräteidentität, Berechtigung und Idempotenz; Desktop-Unterstützung impliziert
-keine Remote-Freigabe. Diese Remote-Erweiterung ist inzwischen ausdrücklich
-beauftragt und benötigt ihre eigene vollständige Abnahme.
+keine Remote-Freigabe. Die separate Gerätefreigabe `dictation:transcribe` ist
+erforderlich. Die Browserabnahme dieses Ablaufs ersetzt keine physische
+Tablet-Mikrofonprobe; Nachweise stehen im verlinkten Implementierungsbericht.
 
 ## Goal 25: reaktive Tablet-Terminals
 

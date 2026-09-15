@@ -27,6 +27,12 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
+  { id: 'dictation', script: 'test-dictation.ts', floors: { win32: 35 } },
+  { id: 'remote-dictation', script: 'test-remote-dictation.ts', floors: { win32: 24 } },
+  { id: 'dictation-jobs', script: 'test-dictation-jobs.ts', floors: { win32: 18 } },
+  { id: 'terminal-prompt', script: 'test-terminal-prompt.ts', floors: { win32: 28 } },
+  { id: 'microphone-access', script: 'test-microphone-access.ts', floors: { win32: 15 } },
+  { id: 'prompt-drafts', script: 'test-prompt-drafts.ts', floors: { win32: 16 } },
   { id: 'speech', script: 'test-speech.ts', floors: { win32: 38 } },
   { id: 'speech-preferences', script: 'test-speech-preferences.ts', floors: { win32: 23 } },
   { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
@@ -74,7 +80,7 @@ const SUITES: Suite[] = [
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
   { id: 'remote-commits', script: 'test-remote-commits.ts', floors: { win32: 29 } },
   { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 71 } },
-  { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 33 } },
+  { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 36 } },
   { id: 'subscription-usage', script: 'test-subscription-usage.ts', floors: { win32: 14 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
@@ -88,7 +94,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 239 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 271 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

@@ -19,7 +19,7 @@ export async function cliWorkFlow(page: Page, evidence: string, workspaceId: str
   check('real PTY metadata captures native runtime, worktree and original folder', original.runtime === 'claude' && original.workspaceKind === 'checkout'
     && parallel.runtime === 'grok' && parallel.workspaceKind === 'worktree' && parallel.executionBackend === 'native');
   check('plain CLI shows no invented model or profile', !original.launchModel && !original.launchProfileId && !(await row(original.id).innerText()).includes('Startmodell:'));
-  check('finished CLI remains an open shell in Work', (await row(original.id).innerText()).includes('beendet · Terminal offen'));
+  check('live CLI remains marked running in Work', (await row(original.id).innerText()).includes('läuft · Terminal offen'));
   check('CLI row identifies exact branch and separate workspace', (await row(parallel.id).innerText()).includes('Worktree · feature/parallel')
     && (await row(original.id).innerText()).includes('Originalordner · feature/tablet'));
   await page.getByLabel('Projektfilter', { exact: true }).selectOption(original.repositoryId!);

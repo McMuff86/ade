@@ -16,6 +16,8 @@ import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
 import { canReuseLaunch, sessionStateLabel } from '../shared/sessionState';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
+import { MobilePromptDialog } from './PromptDialog';
+import type { MobileTerminalPrompt } from '../shared/remote';
 
 interface TerminalDraft { text: string; review: boolean }
 
@@ -48,6 +50,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const text = draft.text; const setText = (value: string) => saveDraft((current) => ({ ...current, text: value }));
   const [launchOpen, setLaunchOpen] = useState(!!terminalHome && !initialTerminalId);
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
+  const [promptOpen, setPromptOpen] = useState(false);
+  useEffect(() => { setPromptOpen(false); }, [selected, active]);
   const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [readError, setReadError] = useState('');
@@ -61,7 +65,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const profileLock = useRef(false);
   const [options, setOptions] = useState<SessionLaunchOptions>();
   const [loadingOptions, setLoadingOptions] = useState(false); const [optionsRefresh, setOptionsRefresh] = useState(0);
-  const lock = useRef(false); const live = useRef(true); const queryVersion = useRef(0);
+  const lock = useRef(false); const commandLock = useRef(false); const live = useRef(true); const queryVersion = useRef(0);
   const stateRef = useRef(state); stateRef.current = state;
   const input = useRef<HTMLTextAreaElement>(null);
   const screenRoot = useRef<HTMLElement>(null); const focusTerminal = useRef<Element | null>(null);
@@ -79,8 +83,15 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     const started = performance.now();
     const previous = stateRef.current;
     const knownDisplayRevision = id && previous.selected?.id === id ? previous.displayRevision : undefined;
-    const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, ...(id ? { terminalId: id } : {}),
-      ...(knownDisplayRevision ? { knownDisplayRevision } : {}) });
+    let result: MobileTerminalState;
+    try { result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, ...(id ? { terminalId: id } : {}),
+      ...(knownDisplayRevision ? { knownDisplayRevision } : {}) }); }
+    catch (reason) {
+      // A reply for the previous selection must not erase a newer close/open
+      // result. Apply the same generation rule to failures as to successful reads.
+      if (!live.current || own !== queryVersion.current) return stateRef.current;
+      throw reason;
+    }
     if (live.current && own === queryVersion.current) {
       if (result.displayUnchanged) {
         if (!knownDisplayRevision || result.displayRevision !== knownDisplayRevision || result.selected?.id !== previous.selected?.id) {
@@ -112,7 +123,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     const refresh = async () => {
       if (stopped) return;
       if (refreshing) { requested = true; return; }
-      if (document.hidden) { timer = setTimeout(() => void refresh(), 1000); return; }
+      if (document.hidden || commandLock.current) { timer = setTimeout(() => void refresh(), document.hidden ? 1000 : 100); return; }
       refreshing = true; requested = false;
       const previousRevision = stateRef.current.frame?.revision;
       try { await query(); if (!stopped) setReadError(''); }
@@ -137,6 +148,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     const request = retry && pending ? pending : { command: operation, key: crypto.randomUUID() };
     if (!setPending(request)) { setError('Browser-Speicher ist nicht verfügbar. Terminalaktion wurde nicht gesendet.'); return; }
     lock.current = true; setBusy(true); setError(''); setNotice('');
+    commandLock.current = true;
+    queryVersion.current++;
     if (operation.operation === 'claim' || operation.operation === 'open') focusTerminal.current = document.activeElement;
     try {
       const result = await host.request<{ terminalId: string }>('/api/v1/terminal/command', 'POST', request.command, request.key);
@@ -151,7 +164,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       clearRevokedState(reason);
       if (reason instanceof MobileClientError && [400, 403, 404, 409, 422].includes(reason.status)) setPending(null);
       setError(terminalError(reason));
-    } finally { lock.current = false; if (live.current) setBusy(false); }
+    } finally { commandLock.current = false; lock.current = false; if (live.current) setBusy(false); }
   };
   const transmit = async (data: string, clearText = false): Promise<'accepted' | 'busy' | 'failed'> => {
     const current = stateRef.current;
@@ -222,6 +235,28 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     return () => clearInterval(timer);
   }, [active]);
   const blocked = busy || profileOpening || !!pending || !!uncertain || !!state.inputUncertain || host.status !== 'online';
+  const sendPrompt = async (text: string, mode: 'insert' | 'submit', key: string) => {
+    const targetId = selected; const leaseId = stateRef.current.leaseId;
+    const deadline = performance.now() + 5000;
+    while ((!keyboard.idle || lock.current) && performance.now() < deadline) await new Promise(done => setTimeout(done, 8));
+    const current = stateRef.current;
+    if (!live.current || !keyboard.idle || lock.current || profileLock.current || pending || uncertain || draft.review || current.inputUncertain
+      || current.selected?.id !== targetId || !leaseId || current.leaseId !== leaseId || current.selected.owner !== 'self' || host.status !== 'online') {
+      throw new Error('Terminal ist noch beschäftigt oder die Eingabe wurde übernommen. Entwurf behalten und Terminal prüfen.');
+    }
+    const outgoing: MobileTerminalPrompt = { ...selection, terminalId: targetId, leaseId, sequence: (current.lastSequence ?? 0) + 1, text, mode, ...dimensions.current };
+    lock.current = true; setBusy(true);
+    try {
+      const receipt = await host.request<{ sequence: number; replayed: boolean }>('/api/v1/terminal/prompt', 'POST', outgoing, key);
+      if (stateRef.current.leaseId === leaseId) {
+        stateRef.current = { ...stateRef.current, lastSequence: receipt.sequence, inputUncertain: false }; setState(stateRef.current);
+      }
+      refreshNow.current(); return { accepted: true as const, replayed: receipt.replayed };
+    } catch (reason) {
+      if (live.current) { stateRef.current = { ...stateRef.current, inputUncertain: true }; setState(stateRef.current); refreshNow.current(); }
+      throw reason;
+    } finally { lock.current = false; if (live.current) setBusy(false); }
+  };
   const owning = state.selected?.owner === 'self';
   const inputEnabled = owning && !profileOpening && host.status === 'online' && !pending && !uncertain && !state.inputUncertain
     && (!draft.review || directSending.current) && state.selected?.status === 'running';
@@ -245,6 +280,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
     }} />}
     {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>Sitzung &amp; Workspace</button>}
+    {state.selected && <button aria-haspopup="dialog" disabled={!owning || !state.leaseId || blocked} onClick={event => { event.currentTarget.focus(); setPromptOpen(true); }}>Prompt / Diktat</button>}
   </div>;
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
@@ -322,6 +358,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></div>
     </>}
     <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label="Terminal-Antwortzeit">PC-Antwort: {responseMs} ms (Netzwerk und Verarbeitung). </span>}Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>
+    {promptOpen && state.selected && state.leaseId && <MobilePromptDialog key={`${selected}/${state.leaseId}`} host={host}
+      target={{ ...selection, terminalId: selected, leaseId: state.leaseId }} label={`${agent?.name ?? 'Projekt'} · ${state.selected.title} · ${expectedBranch ?? state.selected.branch ?? ''}`}
+      send={sendPrompt} onClose={() => setPromptOpen(false)} fallbackId={fallbackFocusId} />}
     {confirmClose && <Dialog title="Terminalsitzung beenden" onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>Der laufende Prozess dieser Sitzung wird beendet.</p><button onClick={() => setConfirmClose(false)}>Abbrechen</button>
       <button className="m-danger" onClick={() => { setConfirmClose(false); void action('close'); }}>Beenden bestätigen</button></Dialog>}

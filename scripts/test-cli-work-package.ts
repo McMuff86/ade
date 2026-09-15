@@ -39,6 +39,21 @@ void (async () => {
     await new Promise(done => setTimeout(done, 100));
   }
   check('packaged terminal executes the inert output probe', found);
+  const promptButton = terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true });
+  await promptButton.click();
+  const prompt = page.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  const draft = prompt.getByLabel('CLI-Promptentwurf', { exact: true });
+  await draft.fill('Paketprobe\nEntwurf erhalten.');
+  const capability = await page.evaluate(sessionId => window.ade.invoke('terminal:promptQuery', { sessionId }), session.id);
+  check('packaged prompt editor refuses shell delivery', !capability.available
+    && await prompt.getByRole('button', { name: 'In CLI einfügen', exact: true }).isDisabled()
+    && await prompt.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled());
+  await page.keyboard.press('Escape'); await prompt.waitFor({ state: 'hidden' });
+  check('packaged prompt close returns focus to its opener', await promptButton.evaluate(node => node === document.activeElement));
+  await promptButton.click();
+  check('packaged prompt draft survives closing without delivery', await draft.inputValue() === 'Paketprobe\nEntwurf erhalten.');
+  await prompt.getByRole('button', { name: 'Entwurf löschen', exact: true }).click();
+  await page.keyboard.press('Escape'); await prompt.waitFor({ state: 'hidden' });
   await page.getByRole('tab', { name: 'Work view', exact: true }).click();
   const work = page.getByRole('region', { name: 'CLI-Arbeit', exact: true });
   const row = work.locator(`li[data-session-id="${session.id}"]`); await row.waitFor();
@@ -52,7 +67,7 @@ void (async () => {
   const config = await page.evaluate(() => window.ade.invoke('config:get'));
   check('package smoke uses isolated config and creates no agent binding', config.agents.length === 0 && config.workspaceBindings.length === 0 && config.repositories.every(item => item.rootPath === repo));
   await page.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), session.id);
-  writeFileSync(resolve('test-results/cli-work-package-smoke.json'), JSON.stringify({ at: new Date().toISOString(), executable, sha256: createHash('sha256').update(readFileSync(executable)).digest('hex'), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), passed }, null, 2));
+  writeFileSync(resolve('test-results/cli-work-package-smoke.json'), JSON.stringify({ at: new Date().toISOString(), executable, sha256: createHash('sha256').update(readFileSync(executable)).digest('hex'), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceDirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(), passed }, null, 2));
   console.log(`Packaged CLI smoke: ${passed} passed, 0 failed`);
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   await app?.close();

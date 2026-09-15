@@ -67,7 +67,8 @@ provider error bodies and keys never do. Test text/model are fixed in main.
 One generation may run at a time. `settings.speechVoiceId` stores only the voice
 identifier; older profiles suggest an available female voice. Renderer CSP
 allows `media-src data:` for this playback, with sandbox/context isolation
-unchanged. No microphone capture is introduced.
+unchanged. Speech playback does not request microphone access; the separate
+dictation contract below owns microphone recording and transcription.
 
 `SpeechPreferences` resolves optional agent → project → global voice IDs, then
 the available female default. Missing saved voices remain visible rather than
@@ -119,8 +120,9 @@ Usage is a compact disclosure with keyboard/Escape behavior and bounded content.
 Provider credentials are detected only for the chosen CLI. Native Codex account
 quotas can be shown even when an API key was supplied, explicitly as local
 account data, not as proof of the existing TUI's billing/authentication mode.
-Future account-aware collectors, dictation and measured latency work are in
-[the expansion plan](VOICE_USAGE_TERMINAL_PLAN.md).
+Account-aware usage collectors remain planned. Implemented dictation and
+latency contracts have their own sections in this document; remaining provider
+and device acceptance is tracked in [the expansion plan](VOICE_USAGE_TERMINAL_PLAN.md).
 
 ## Desktop project registration and mobile shell layout
 
@@ -519,8 +521,12 @@ before ring-buffer replay, screen interpretation, or renderer output. The parser
 handles split frames, bounded incomplete candidates and duplicate signals. These
 markers are observational and never grant permission or relax workspace locks.
 
-PowerShell reads the local wrapper into a scriptblock with `-NoExit`; bash sources
-the wrapper around a foreground subshell. CLI commands/credentials are not moved
+New native Windows Codex/Claude/Grok invocations use `prepareProtectedProgram`:
+PowerShell reads the local wrapper without `-NoExit`, with `-NoProfile`, and exits
+with the CLI. This prevents a delayed structured prompt from reaching a surviving
+command-reading shell. Custom, WSL, assistant and other legacy launches retain
+their earlier shell lifecycle: PowerShell uses `-NoExit`; bash sources the wrapper
+around a foreground subshell. CLI commands/credentials are not moved
 into process argv. WSL receives a translated local script path; credential
 environment still uses WSLENV. Cleanup removes the known script and empty
 temporary directory without recursive deletion. Login and managed task transport
@@ -534,6 +540,54 @@ terminal queries/inventory include the same path-free program state; no new
 invoke channel or remote command authorization is added. Launch actions reuse
 only a matching starting/running program (or an explicitly requested shell).
 Exit/reload/reopen evidence is recorded in [the active goal](PROJECT_WORKFLOW_GOALS.md).
+
+## Dictation and explicit CLI prompts
+
+Desktop and mobile share `PromptComposer`, `DictationRecorder` and an origin-local
+bounded `PromptDraftStore` (16 drafts; 12,000 characters each). The target is bound
+before recording; text stays editable until explicit insert/submit. Saving the
+pending command locally precedes delivery. Lost replies never trigger automatic
+resubmission. Accepted PTY writes are transport receipts, not model completion.
+
+Main grants microphone access for 30 seconds only to the requesting trusted ADE
+renderer window's audio-only main frame. Camera, subframes, dashboards and other
+permissions remain denied. Mobile's HTTPS document permits `microphone=(self)`;
+browser consent and the independent `dictation:transcribe` device grant are both
+required. Existing devices and project-work presets do not gain that grant.
+
+`DictationJobs` issues private, owner-bound tickets before recording (maximum 16;
+five-minute preparation, ten-minute result lifetime). Canonical mono PCM/WAV at
+16 kHz is checked from actual bytes: 0.1–60 seconds, at most 1,920,044 bytes.
+Only main sends multipart audio to the fixed ElevenLabs Scribe-v2 endpoint.
+One provider request runs at a time with a 60-second deadline; no automatic
+provider retries. Raw audio is not persisted. Device revocation/target changes
+abort or invalidate jobs; final transcripts are returned only by explicit detail
+reads, never journal/view teasers, logs or command receipts.
+
+Desktop channels `terminal:promptQuery`, `terminal:promptSend` and `dictation:*`
+are classified in `ipcPolicy.ts`; `REMOTE_COMMAND_CHANNELS` is unchanged.
+Dedicated host routes call only `AdeApplicationService`: `POST /api/v1/terminal/prompt`
+uses the existing terminal lease/sequence discipline; `/api/v1/dictation/command`
+prepares, queries or cancels a ticket; `/api/v1/dictation/upload` submits audio.
+Mutations require device signatures, current scopes/resources, idempotency and
+audit. Only the audio route accepts up to 2,561,084 JSON bytes (two concurrent
+uploads); all ordinary JSON commands retain 64 KiB. The durable ledger holds
+ticket/receipt data and hashes, never audio or transcribed text. Wire text is
+additionally redacted. A lost/expired ticket cannot become a new paid request.
+
+Prompt delivery requires a still-running protected invocation, valid workspace,
+input ownership and parsed bracketed-paste mode with no pending output. Main
+normalizes line breaks and writes one bracketed paste. Explicit submit waits
+500 ms before its separate Enter because native Codex suppresses immediate
+Enter during a paste burst. `ProtectedPromptWriter` serializes input per PTY
+and rechecks authorization and the protected invocation before Enter; partial
+or ambiguous delivery remains unconfirmed and is never repeated automatically.
+Native Windows is the implemented protected launch path;
+WSL/custom/assistant sessions explain that structured delivery is unavailable.
+Those sessions retain their existing direct terminal and dashboard access.
+CLI login/trust dialogs must be completed directly in the terminal first; paste
+support alone does not identify a ready composer. Current evidence:
+[dictation implementation results](DICTATION_IMPLEMENTATION_RESULTS.md).
 
 ## Mobile project entry
 

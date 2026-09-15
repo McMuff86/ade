@@ -1,6 +1,13 @@
 import type { ExecutionBackendId } from './executionBackends';
 import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
+import type { DictationJobState } from './dictation';
+
+export type MobileDictationTarget = MobileTerminalSelection & { terminalId: string; leaseId: string };
+export type MobileDictationRequest = { operation: 'prepare'; target: MobileDictationTarget }
+  | { operation: 'query' | 'cancel'; jobId: string };
+export interface MobileDictationUpload { jobId: string; audioBase64: string }
+export type MobileDictationResult = { jobId: string; replayed: boolean } | { state: DictationJobState } | { cancelled: true; replayed: boolean };
 
 export type MobileSpeechQuery = { operation: 'voices'; target: SpeechTarget } | { operation: 'audio'; testId: string };
 export type MobileSpeechCommand = { operation: 'select'; target: SpeechTarget; voiceId: string | null } | { operation: 'test'; target: SpeechTarget; voiceId: string };
@@ -248,6 +255,7 @@ export interface MobileRunFile { id: string; path: string; name: string; bytes: 
 export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
   unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
+  promptCapability?: import('./terminalPrompt').TerminalPromptCapability;
   /** Digest of safe frame AND scrollback; unchanged replies omit both bodies. */
   displayRevision?: string;
   displayUnchanged?: true;
@@ -267,13 +275,16 @@ export interface MobileTerminalState {
 }
 /** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
 export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
-export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true; knownDisplayRevision?: string };
+export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true; prompt?: true; knownDisplayRevision?: string };
 export type MobileTerminalCommand = MobileTerminalSelection & (
   | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)
   | { operation: 'claim' | 'release' | 'close'; terminalId: string }
 );
 export type MobileTerminalInput = MobileTerminalSelection & {
   terminalId: string; leaseId: string; sequence: number; data: string; cols: number; rows: number;
+};
+export type MobileTerminalPrompt = MobileTerminalSelection & {
+  terminalId: string; leaseId: string; sequence: number; text: string; mode: 'insert' | 'submit'; cols: number; rows: number;
 };
 export type MobileWorkspaceOperation =
   | { operation: 'overview' }

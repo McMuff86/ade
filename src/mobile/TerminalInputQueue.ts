@@ -11,6 +11,7 @@ export class TerminalInputQueue {
     this.text += data; this.schedule();
   }
   clear(): void { this.generation++; this.text = ''; clearTimeout(this.timer); this.timer = undefined; }
+  get idle(): boolean { return !this.text && !this.sending; }
   private schedule(): void {
     if (!this.timer && !this.sending && this.text) this.timer = setTimeout(() => { this.timer = undefined; void this.flush(); }, this.delay);
   }

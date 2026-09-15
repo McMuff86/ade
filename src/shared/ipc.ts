@@ -103,6 +103,13 @@ export const IPC = {
   AgentBehaviorGet: 'agent:behaviorGet',
   AgentBehaviorSet: 'agent:behaviorSet',
   SpeechConfigure: 'speech:configure',
+  TerminalPromptQuery: 'terminal:promptQuery',
+  TerminalPromptSend: 'terminal:promptSend',
+  DictationPrepare: 'dictation:prepare',
+  DictationSubmit: 'dictation:submit',
+  DictationQuery: 'dictation:query',
+  DictationCancel: 'dictation:cancel',
+  DictationMicrophone: 'dictation:microphone',
   ProjectWorkspaceQuery: 'project:query',
   IntegrationQuery: 'integration:query',
   IntegrationCommand: 'integration:command',
@@ -699,6 +706,13 @@ export interface IpcInvokeMap {
   'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
   'agent:behaviorSet': { req: import('./agentBehavior').AgentBehaviorUpdate; res: { revision: string } };
   'speech:configure': { req: import('./speech').SpeechSelection; res: void };
+  'terminal:promptQuery': { req: { sessionId: string }; res: import('./terminalPrompt').TerminalPromptCapability };
+  'terminal:promptSend': { req: import('./terminalPrompt').TerminalPromptRequest; res: import('./terminalPrompt').TerminalPromptReceipt };
+  'dictation:prepare': { req: { sessionId: string }; res: { jobId: string } };
+  'dictation:submit': { req: import('./dictationRequests').DictationUpload; res: { jobId: string; replayed: boolean } };
+  'dictation:query': { req: { jobId: string }; res: import('./dictation').DictationJobState };
+  'dictation:cancel': { req: { jobId: string }; res: void };
+  'dictation:microphone': { req: { allow: boolean }; res: void };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
   'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
   'repository:fetch': { req: { repositoryId: string }; res: GitSyncOverview };

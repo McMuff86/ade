@@ -5,6 +5,7 @@ export const REMOTE_SCOPE_LABELS: Record<RemoteAdminScope, string> = {
   'workspace:read': 'Workspace-Dateien und Git-Diffs lesen', 'workspace:write': 'Kleine Workspace-Textdateien bearbeiten',
   'profiles:write': 'Agent-Namen, Rollen und Profilbilder bearbeiten', 'projects:write': 'Projekt-Workspaces ohne Agent-Profil öffnen',
   'speech:control': 'Stimmen wählen und ElevenLabs-Stimmtests ausführen (verbraucht Guthaben)',
+  'dictation:transcribe': 'Mikrofonaufnahmen mit ElevenLabs transkribieren (verbraucht Guthaben)',
   'projectGit:write': 'Projekt-Branches und lokale Git-Aktionen ausführen', 'projectGit:publish': 'Projekt-Branches pushen und GitHub-PRs erstellen',
   'terminal:control': 'Interaktive Terminals steuern (Befehle mit den Rechten meines Windows-Benutzers)',
 };

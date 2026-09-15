@@ -66,6 +66,13 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   const started = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((item) => item.repositoryId === repo.id);
   check('Codex opens exact new checkout with no profile and no duplicate after lost reply', started.length === 1 && started[0]!.workspaceDir === repo.rootPath
     && started[0]!.projectWorkspaceId === independent.id && !started[0]!.agentId && !started[0]!.launchProfileId);
+  // The inert Codex fixture exits. Native coding invocations no longer leave
+  // a command-reading shell behind; use an explicit shell for filesystem input.
+  await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
+  await desktop.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), started[0]!.id);
+  await workspace.getByLabel('Projekt-CLI', { exact: true }).selectOption('shell');
+  await workspace.getByRole('button', { name: 'Shell öffnen', exact: true }).click();
+  await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal offen' }).waitFor();
   await (await terminalComposer(workspace)).fill("Set-Content -LiteralPath scaffold.txt -Value 'TABLET_SCAFFOLD'");
   await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   await page.waitForFunction(() => (document.querySelector('[aria-label="Terminal-Eingabe"]') as HTMLTextAreaElement)?.value === '');

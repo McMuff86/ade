@@ -66,6 +66,15 @@ usage; comprehensive CLI and ElevenLabs accounting is an
 repository scope and inspector on the right. Scrollback survives tab and agent
 switches; sessions reconnect across reloads.
 
+**Prompt and dictation** — **Prompt / Diktat** opens an editable draft tied to
+the selected CLI on desktop and the paired HTTPS tablet. Record up to 60 seconds,
+review the ElevenLabs transcript, then insert it or explicitly submit it. Finish
+CLI sign-in and project-trust dialogs in the terminal first. Structured delivery
+currently requires a newly started native Windows Codex, Claude Code or Grok
+invocation with paste support. Custom commands and WSL assistants keep their
+existing terminal workflow. Unconfirmed sends retain the draft without automatic
+resubmission. [Implementation and evidence](docs/DICTATION_IMPLEMENTATION_RESULTS.md).
+
 <p align="center">
   <img src="docs/media/terminals.png" alt="Terminals view: agent rail, live PTY session and repository inspector" width="92%">
 </p>

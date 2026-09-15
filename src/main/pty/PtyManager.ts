@@ -3,7 +3,8 @@ import type { RunQuestionService } from '../orchestration/RunQuestionService';
 /**
  * Main-process PTY supervisor.
  *
- * Interactive sessions keep a shell alive around the selected CLI. Graph tasks
+ * Supported native coding CLIs end their wrapper shell with the invocation;
+ * custom/WSL assistants retain their existing interactive shell. Graph tasks
  * are separate, bounded one-shot sessions: a FIFO lease caps active task CLIs,
  * the prompt is delivered through a runtime-specific non-interactive command,
  * and the slot is released only when the process exits or is cancelled.
@@ -68,6 +69,10 @@ import { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { SessionLaunchService, type InteractiveLaunchSettings } from './SessionLaunchService';
 import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
+import { prepareProtectedProgram } from './ProtectedProgram';
+import { TerminalPromptDelivery } from './TerminalPromptDelivery';
+import { ProtectedPromptWriter } from './ProtectedPromptWriter';
+import type { TerminalPromptCapability, TerminalPromptRequest } from '../../shared/terminalPrompt';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import { cachedCodexAccountUsage } from '../settings/CodexAccountUsage';
 import { providerApiKeyPresent } from '../../shared/sessionAuthentication';
@@ -122,6 +127,7 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  promptProtected?: boolean;
   cols: number;
   rows: number;
   usageProvider?: 'codex' | 'claude' | 'grok';
@@ -173,6 +179,11 @@ interface SpawnSpec {
 let sessionSeq = 0;
 
 export class PtyManager {
+  private readonly promptWriter = new ProtectedPromptWriter({ check: id => {
+    const capability = this.promptCapability(id);
+    if (!capability.available) throw new Error(capability.reason);
+  }, write: (id, text) => this.sessions.get(id)!.proc.write(text) });
+  private readonly promptDelivery = new TerminalPromptDelivery({ capability: id => this.promptCapability(id), write: (id, text, authorize) => this.writePrompt(id, text, authorize) });
   private taskFileTracker?: RunFileTracker;
   setTaskFileTracker(tracker: RunFileTracker): void { this.taskFileTracker = tracker; }
   private readonly sessions = new Map<string, Session>();
@@ -310,9 +321,27 @@ export class PtyManager {
   }
 
   write(sessionId: string, data: Buffer): void {
+    if (this.promptWriter.busy(sessionId)) throw new Error('Promptübergabe läuft. Bitte kurz warten.');
     const session = this.sessions.get(sessionId);
     if (!session || session.meta.status === 'exited') return;
     session.proc.write(data.toString('utf8'));
+  }
+
+  promptCapability(sessionId: string, requirePaste = true): TerminalPromptCapability {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.meta.status !== 'running' || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) {
+      return { available: false, reason: 'Diese CLI-Sitzung ist beendet oder nicht verfügbar. Der Entwurf bleibt erhalten.' };
+    }
+    if (!session.promptProtected) return { available: false, reason: 'Für sichere Promptübergabe eine neue native Codex-, Claude-Code- oder Grok-Sitzung öffnen.' };
+    if (session.meta.program?.status !== 'running') return { available: false, reason: 'Die gestartete CLI ist noch nicht verfügbar oder bereits beendet.' };
+    if (requirePaste && !session.display?.acceptsBracketedPaste()) return { available: false, reason: 'Die CLI nimmt gerade keinen mehrzeiligen Paste an. Terminal prüfen und kurz warten.' };
+    return { available: true };
+  }
+
+  deliverPrompt(request: TerminalPromptRequest, authorize: () => void | Promise<void>) { return this.promptDelivery.deliver(request, authorize); }
+
+  writePrompt(sessionId: string, text: string, authorize: () => void | Promise<void>): Promise<void> {
+    return this.promptWriter.write(sessionId, text, authorize);
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
@@ -570,9 +599,11 @@ export class PtyManager {
         codexDeveloperInstructions: baseline?.status === 'verified' ? { mode: 'append-verified', existing: baseline.developerInstructions ?? '' } : undefined });
       spec = { ...spec, initialCommand: preparedProfile.command };
     }
+    const promptProtected = !task && !login && !!spec.initialCommand && !agent.customCommand && process.platform === 'win32'
+      && scope.executionBackend === NATIVE_EXECUTION_BACKEND && ['codex', 'claude', 'grok'].includes(agent.runtime);
     let program: Awaited<ReturnType<typeof prepareProgram>> | undefined;
     try { program = !task && !login && spec.initialCommand
-      ? await prepareProgram(spec.initialCommand, backendPlatform, (path) => scope.executionBackend === NATIVE_EXECUTION_BACKEND
+      ? await (promptProtected ? prepareProtectedProgram : prepareProgram)(spec.initialCommand, backendPlatform, (path) => scope.executionBackend === NATIVE_EXECUTION_BACKEND
         ? Promise.resolve(path) : this.execution.toBackendPath(scope.executionBackend, path)) : undefined;
     } catch (error) { preparedProfile?.dispose(); throw error; }
     if (program) spec = { ...spec, args: program.args ?? spec.args, initialCommand: program.initialCommand };
@@ -672,6 +703,7 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      promptProtected,
       cols: DEFAULT_COLS, rows: DEFAULT_ROWS,
       profileText: profileSnapshot?.content,
       profileCleanup: preparedProfile?.dispose,
@@ -890,6 +922,7 @@ export class PtyManager {
     if (session.forceStopTimer) clearTimeout(session.forceStopTimer);
     this.releaseTaskLease(session);
     this.sessions.delete(sessionId);
+    this.promptDelivery.forget(sessionId);
     session.display?.dispose();
     this.broadcast(IPC_EVENTS.PtyRemoved, { sessionId });
   }

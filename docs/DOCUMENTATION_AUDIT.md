@@ -5,9 +5,11 @@
 Der aktuelle Auftrag umfasst CLI-Arbeitsübersicht, Diktat auf PC und Tablet,
 Terminal-Latenz und Verbrauch/Kosten. README, Index, SPEC, ARCHITECTURE,
 STATUS, ROADMAP und HANDOFF werden gemeinsam mit dem Code fortgeschrieben.
-Die abschliessende Gesamtprüfung und neue persönliche Aktivierung stehen im
-[aktuellen Nachweis](CLI_WORK_LATENCY_RESULTS.md); Diktat und Verbrauch sind
-noch nicht als geliefert abgenommen.
+Die CLI-Lieferung steht im [CLI-Nachweis](CLI_WORK_LATENCY_RESULTS.md), der
+folgende Sprachmeilenstein in den [Diktat-Nachweisen](DICTATION_IMPLEMENTATION_RESULTS.md).
+Persönliche Aktivierung und physische Tablet-Abnahme bleiben gesondert.
+Der [Verbrauchsquellenbericht](USAGE_SOURCE_RESULTS.md) beschreibt echte native
+Proben; ein integriertes Kostenjournal ist weiterhin zu implementieren.
 
 Bereits korrigiert: README erklärt jetzt Projekte und optionale Coding-Profile,
 direkten Branch-/CLI-Start sowie den Unterschied zwischen Originalordner und
@@ -23,9 +25,21 @@ als historische Nachweise erhalten. Veraltete Aussagen zu laufenden Prüfungen,
 Neustarts und einer Listener-Kollision sind in der Roadmap als damaliger Stand
 eingeordnet. Der finale Abgleich folgt nach den noch offenen Implementierungen.
 
-Inventar dieses Folgeabgleichs: **92 Markdown-Dateien unter docs**, dazu das
-Root-README. Ein Dateiziel-Check aller 93 Dateien findet **357 relative Verweise
-ohne fehlendes Ziel**. Das prüft lokale Dateiziele, keine externen URLs oder
+Der Sprachabgleich prüft zusätzlich folgende Aussagen gegen Code und Tests:
+
+| Aussage | Quelle / Korrektur |
+|---|---|
+| Projekt zuerst, Profil optional | `ProjectTerminal`, `CliWorkPanel`; Guide definiert das Profil ohne zwingende Projektzuweisung. Die Vorauswahl „Meine ADE Projekte“ bleibt als offener Teil von Goal 27.2 sichtbar. |
+| Diktat und gezielte Übergabe sind angebunden | `PromptComposer`, `DictationRecorder`, `DictationJobs`, `DictationService`; Guide beschreibt Aufnahme, Prüfung, Einfügen/Absenden und gerätelokale Entwürfe. |
+| Ende der CLI darf keinen Shell-Befehl auslösen | `ProtectedProgram`, `ProtectedPromptWriter`, `TerminalPromptDelivery`; neuer nativer Windows-Start, aktives Paste-Protokoll, erneute Prüfung vor Enter. WSL/Custom bleiben ausgeschlossen. |
+| Mobile Freigaben und Daten bleiben begrenzt | `MicrophoneAccess`, `HostApiServer`, `AdeApplicationService`; eigene Diktatfreigabe und begrenzter Upload, keine breitere allgemeine Remote-IPC-Freigabe. |
+| Provider- und Gerätenachweise sind verschieden | Drei echte Windows-CLI-Proben und ein echter STT-Aufruf sind beschrieben; lokales Chromium mit Audio-Fixture belegt kein physisches Tablet-Mikrofon. |
+| Verbrauch ist noch keine gelieferte Zählerfunktion | Native Quellen, Cache-/Reasoning-Semantik und Kostengrenzen stehen im Quellenbericht; Aboquoten und geplantes Journal bleiben getrennt. |
+| Zielnummern sind eindeutig | Verbliebene alte Multi-Host-Nummern im Sprachplan auf 29/30 korrigiert; historische Ergebnisnummern bleiben erhalten. |
+
+Inventar dieses Folgeabgleichs: **94 Markdown-Dateien unter docs**, dazu das
+Root-README. Der Dateiziel-Check findet **401 relative Verweise ohne fehlendes
+Ziel**. Er prüft lokale Dateiziele, keine externen URLs oder
 Überschriftsanker. Einzelne Windows-1252-Zeichen in der ansonsten UTF-8-kodierten
 älteren Latenz-Ergebnisdatei sind vereinheitlicht; ihr historischer Inhalt bleibt erhalten.
 

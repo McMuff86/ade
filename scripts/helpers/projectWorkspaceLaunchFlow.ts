@@ -24,13 +24,16 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await desktop.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const terminal = desktop.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
-  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
   const config = await desktop.evaluate(() => window.ade.invoke('config:get')); const workspace = config.projectWorkspaces.find((item) => item.workspaceDir === repo)!;
   const sessions = async () => (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
   const codex = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id)!;
   check('desktop Codex starts in original checkout with no agent or injected profile', !!workspace && codex.workspaceDir === repo && !codex.agentId && !codex.launchProfileId
     && config.agents.length === before.agents.length && config.workspaceBindings.length === before.workspaceBindings.length && readFileSync(join(repo, 'AGENTS.md'), 'utf8') === '# Project instructions\nPROJECT_RULES_ONLY\n');
-  check('desktop project CLI exit is distinct from still open shell', codex.program?.status === 'exited' && codex.program.exitCode === 0 && codex.status === 'running');
+  check('desktop coding CLI exit also ends its protected terminal', codex.program?.status === 'exited' && codex.program.exitCode === 0 && codex.status === 'exited');
+  await desktop.evaluate(id => window.ade.invoke('pty:kill', { sessionId: id }), codex.id);
+  await terminal.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen/ }).waitFor();
   await desktop.locator('.project-branches > summary').click();
   await desktop.getByLabel('Projekt-Branch', { exact: true }).selectOption('refs/heads/feature/tablet');
   check('live project terminal blocks current-checkout branch switch', await desktop.getByRole('button', { name: 'Branch wechseln', exact: true }).isDisabled());
@@ -48,13 +51,14 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await preview.getByRole('button', { name: 'Branch-Aktion ausführen', exact: true }).click();
   await desktop.locator('.project-branches > summary').filter({ hasText: 'feature/tablet' }).waitFor();
   check('desktop branch action switches the exact selected existing checkout', git('branch', '--show-current').trim() === 'feature/tablet');
+  writeFileSync(join(root, 'bin', 'cli-work-live'), 'Keep Claude and Grok fixture processes alive for CLI navigation.');
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Without profile', exact: true });
   await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('claude');
   await dialog.getByRole('button', { name: 'Claude CLI öffnen', exact: true }).click();
-  await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+  await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
   const claude = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id && item.launchChoice?.mode === 'claude')!;
   check('tablet Claude uses chosen branch and no saved profile', claude.workspaceDir === repo && claude.branch === 'feature/tablet' && !claude.agentId && !claude.launchProfileId);
   const compactToggle = dialog.getByRole('button', { name: 'Sitzung & Workspace', exact: true });
@@ -119,7 +123,7 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
     && git('branch', '--show-current').trim() === 'feature/tablet' && (await sessions()).some((item) => item.id === profile.id && item.status === 'running'));
   await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('grok');
   await dialog.getByRole('button', { name: 'Grok CLI öffnen', exact: true }).click();
-  await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
+  await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
   check('tablet Grok starts in selected parallel checkout without profile', (await sessions()).some((item) => item.projectWorkspaceId === parallel.id
     && item.workspaceDir === parallel.workspaceDir && item.branch === 'feature/parallel' && item.launchChoice?.mode === 'grok' && !item.agentId && !item.launchProfileId));
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();

@@ -1,13 +1,11 @@
 # ADE User-Guide
 
-Neu: **Terminals → Projekt → Projekte durchsuchen…** findet vorhandene Git-Projekte
-im gespeicherten Projekt-Stammordner und im ADE-Katalog. Ein Projekt auswählen,
-**Projekt prüfen** und danach **Workspace zuweisen**. In der Agentenansicht steht
-derselbe Ablauf neben **Workspace aktualisieren**. **Nicht belegt** beschreibt
-die Nutzung durch Terminals/Aufträge; die tatsächliche Zuordnung steht daneben.
-[Ablauf und Grenzen](WORKSPACE_ASSIGNMENT.md).
+Für die tägliche Arbeit mit mehreren Repositories beginne unter **Projekte**.
+Die gemeinsame Sitzungsübersicht steht unter **Work → CLI-Arbeit**; der
+Prompteditor mit Diktat sitzt direkt im gewünschten Terminal.
 
-Stand: 12. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Stand: 15. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Die unten datierten Screenshots zeigen frühere, weiterhin geltende Grundabläufe.
 
 ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
@@ -65,9 +63,35 @@ Zusätzliche Branch-, Git- und Ergebnisbilder stammen aus den jeweiligen Prüfl�
 | Mehrere Agents koordiniert arbeiten lassen | **Work → Neuer Run**, danach Fortschritt in **Work/Graph** |
 
 Ein **Projekt** ist ein registriertes Git-Repository. Ein **Agent** ist ein
-gespeichertes Profil mit Name, Startprogramm, Einstellungen und eigenem Ordner.
+gespeichertes Profil mit Name, Startprogramm und Einstellungen; eine feste
+Projektzuweisung ist optional. Persönliche Assistenten können einen eigenen
+Arbeitsordner haben.
 Ein **Workspace** ist das konkrete Arbeitsverzeichnis. Eine **Sitzung** ist ein
 laufendes Terminalprogramm. Ein **Run** ist ein von ADE verwalteter Aufgabenablauf.
+
+**Prompt und Diktat:** Im gewünschten Terminal **Prompt / Diktat** öffnen.
+Anmeldung und Projektvertrauen vorher direkt in der CLI abschliessen. Text tippen
+oder **Diktieren → Aufnahme stoppen** verwenden, das Transkript bearbeiten und
+erst danach **In CLI einfügen** oder **An CLI absenden** wählen. Letzteres sendet
+zusätzlich Enter. Die Aufnahme endet spätestens nach 60 Sekunden. Das Ziel bleibt
+sichtbar und gebunden; ein Entwurf wechselt nicht mit einem anderen Projekt.
+
+Am PC einen `ELEVENLABS_API_KEY` unter **Settings → Service-Keys** für alle
+Sessions hinterlegen. Auf dem Tablet zusätzlich unter **Verbundene Geräte**
+die separate Diktatfreigabe und Terminalsteuerung einschalten; der HTTPS-Browser
+fragt beim Aufnehmen nach Mikrofonzugriff. Der Schlüssel bleibt auf dem PC.
+Desktop und Tablet verwenden denselben Editor, speichern ihre Entwürfe jedoch
+lokal im jeweiligen Browserprofil; Entwürfe werden nicht zwischen Geräten
+synchronisiert. Bei unbestätigtem Versand bleibt der Text erhalten: zuerst die
+CLI-Ausgabe prüfen, dann den Entwurf wieder freigeben. Es gibt keinen automatischen
+zweiten Versand.
+
+Die strukturierte Promptübergabe gilt zunächst für neue native Windows-Sitzungen
+mit Codex, Claude Code und Grok, sofern die CLI das Paste-Protokoll aktiviert hat.
+WSL-Assistenten und eigene Startbefehle verwenden weiterhin ihre direkte
+Terminaleingabe. Der lokale Tablet-Browserablauf ist automatisiert geprüft;
+physisches Mikrofon und die eigene Mobilverbindung separat ausprobieren.
+[Abnahme und Grenzen](DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Du brauchst keinen Run, um interaktiv mit Codex, Claude oder Grok zu arbeiten.
 

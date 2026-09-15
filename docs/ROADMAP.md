@@ -7,10 +7,12 @@ die nächsten Goals: **Goal 27** führt interaktive CLI-Sitzungen in Work/Overvi
 zusammen; **Goal 23.1 Desktop** ergänzt einen sitzungsgebundenen Promptentwurf
 und ElevenLabs-Diktat mit gezielter CLI-Übergabe. Reihenfolge: Arbeitsliste,
 Orientierung/Wechsel, Textentwurf, Diktat, vollständige Abnahme und Windows-Build.
-Desktop-Arbeitsliste und erste native Latenzoptimierung bestehen die vollständige
-Code-Abnahme mit 3.543 Checks; Windows-Paket mit sieben weiteren Checks geprüft.
-`b2e134e` ist gepusht, persönliche Aktivierung wegen offener WSL-Sitzung ausstehend.
-Diktat bleibt zu implementieren; [Nachweise](CLI_WORK_LATENCY_RESULTS.md).
+Desktop-Arbeitsliste, erste native Latenzoptimierung und Diktat bestehen die
+vollständige Code-Abnahme mit 3.735 Checks; Windows-Paket mit zehn weiteren
+Checks geprüft. Reale ElevenLabs-/Codex-/Claude-/Grok-Proben sind erfolgreich.
+Der frühere CLI-Checkpoint `b2e134e`/`5ea3b3c` ist gepusht; persönliche Aktivierung
+der neuen Lieferung wegen offener WSL-Sitzung ausstehend.
+[CLI-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
 Erweiterung: Goal 23.1 umfasst auch mobiles Tablet-Diktat; Goal 25 zur Messung
 und Optimierung der Tablet-Terminal-Latenz ist ebenfalls aktiver Lieferumfang.
 Die Desktop-Lieferung allein erfüllt diesen erweiterten Auftrag nicht.

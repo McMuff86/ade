@@ -7,6 +7,12 @@ zusammen mit den laufenden Goals 27, 23.1 und 25. Die bestehenden
 [Quoten-Meilensteine](VOICE_USAGE_TERMINAL_PLAN.md#goal-24-nutzungsdaten-anmeldung-und-kosten)
 werden erweitert, nicht durch eine zweite Zielnummer ersetzt.
 
+Inzwischen liegen begrenzte **echte native Quellenproben für alle drei CLIs**
+vor, mit wichtigen Unterschieden bei vorbereitenden Codex-Zählern, Claude-
+Hilfsmodellen und Grok-Cache-/Kostenformaten. Der
+[Quellennachweis](USAGE_SOURCE_RESULTS.md) führt die Implementierungsentscheidung;
+er ersetzt noch keine integrierte ADE-Verbrauchsansicht.
+
 ## Sichtbares Ergebnis
 
 PC und Tablet zeigen Verbrauch für die aktuelle Sitzung, das Projekt und den
@@ -31,8 +37,8 @@ Schlussbilanz hinzu. Neustart und Fortsetzen verlieren keine schon erfassten Wer
 | Anbieter | Erster Integrationspfad | Abnahmegrenze |
 |---|---|---|
 | Codex | Strukturierte Thread-/Turn-Nutzung; dokumentiertes `thread/tokenUsage/updated`; passende lokale Laufzeitdaten bzw. Schlussbilanz nur mit eindeutiger Sitzungsbindung | Installierte CLI-Version und reale Felder prüfen; ein separater Probe-App-Server sieht nicht automatisch die Nutzung beliebiger anderer CLI-Prozesse |
-| Claude Code | Strukturierte Statusline-/Laufzeitdaten und gegebenenfalls versionierter Session-Collector | `cost.total_cost_usd` ist eine Schätzung; Kontextfensterwerte sind keine kumulierte Sitzungssumme. Bestehende Statusline erhalten; Reasoning-Aufwand ist kein Reasoning-Tokenzähler |
-| Grok | Dokumentiertes Usage-Objekt bzw. native strukturierte CLI-Daten; Schlussbilanzparser nur mit Versionsfixtures | xAI-API-Usage beweist nicht, dass ein normaler Grok-Build-Abo-Aufruf dieselben Felder exportiert; Lücken ausdrücklich anzeigen |
+| Claude Code | Native OTel-Requestereignisse; eindeutig zugeordnete strukturierte Sessiondaten ergänzen separat gemeldete Thinking-Tokens | Kosten bleiben Schätzungen; Hilfsmodelle zählen mit. Kontextfensterwerte sind keine kumulierte Sitzungssumme. Bestehende Statusline erhalten |
+| Grok | Native OTel-Ereignisse und eindeutig gebundene `turn_completed`-Bilanz mit Versionsfixtures | ACP-Input enthält Cache, Headless-Input ist ohne Cache. Kostenvollständigkeit und Ticks separat prüfen; unbekannte Streaming-Kosten nicht als kostenlos ausgeben |
 | ElevenLabs | ADE kennt die eigenen STT-/TTS-Anfragen; Provider-Response-/Usage-/Billing-Daten ergänzen und abgleichen | Modell, Produkt, Dauer/Zeichen/Credits und Tarifstand erfassen; parallele Nutzung ausserhalb ADE nicht als Verbrauch einer ADE-Sitzung verbuchen |
 
 Offizielle Ausgangsquellen, am 15. September geöffnet:
@@ -74,6 +80,47 @@ Werte nicht stillschweigend mit neuen Tarifen überschreiben. Abos, vorausbezahl
 Credits, zusätzliche Nutzung und API-Abrechnung getrennt halten. Abgebrochene
 oder unbeantwortete Requests können trotzdem berechnet sein: unbekannter
 Ausgang darf nicht als kostenloser Erfolg erscheinen.
+
+## Collectorvertrag nach den nativen Quellenproben
+
+Der folgende Vertrag ist die nächste Implementierungsstufe, noch keine
+gelieferte Collector-Funktion:
+
+- Pro ADE-Start eine eigene Collector-Identität. Ein lokaler OTLP-Empfänger
+  akzeptiert nur begrenzte, authentisierte Nachrichten dieser Prozesse. Den
+  Empfängerschlüssel nur über die Prozessumgebung übergeben. Prompts, Antworten,
+  Benutzerkennungen und Toolargumente sofort verwerfen; nicht im Journal ablegen.
+- Codex: das native Konversationsereignis ordnet die exakte Rolloutdatei zu.
+  Deren kumulierte `token_count`-Bilanz ist die Zählquelle. Vorbereitende
+  `response.completed`-Ereignisse nicht zusätzlich aufsummieren. Ein anderer
+  App-Serverprozess ist kein Beobachter der interaktiven Sitzung.
+- Claude: die pro Start erfassten API-Ereignisse zählen auch Hilfsmodelle.
+  Cache-Anteile zum Input ohne Cache nach dem Claude-Vertrag ergänzen;
+  Reasoning nur über den passenden Request aus der eigenen Sessiondatei.
+  Request-ID und Startidentität sind stärker als eine neu beginnende Sequenz.
+- Grok: `turn_completed` aus der eindeutig benannten eigenen Sitzung ist die
+  Bilanzquelle; OTel und Headless-Endergebnis sind Vergleichsquellen. Das
+  ACP-Input enthält Cache bereits. Kosten-Ticks haben den Faktor 10^10/USD;
+  fehlende Vollständigkeitsangaben erlauben keine vollständige Rechnung.
+- Für kumulierte Quellen den letzten Zählstand dauerhaft mitführen. Gleiche
+  Ereignisse, Wiederlesen und ADE-Neustart dürfen keine neuen Kosten erzeugen.
+  Resume, Fork und paralleler Zugriff auf dieselbe native Session benötigen
+  eine eigene Zuordnungsprüfung; ohne sie Datenabdeckung als unvollständig
+  anzeigen und fremde frühere Nutzung nicht der neuen Aufgabe zuschreiben.
+- ElevenLabs schon beim Versand als eigenen Versuch mit gemessener Dauer
+  beziehungsweise festem TTS-Zeichenumfang erfassen. Abbruch und verlorene
+  Antwort behalten den Zustand „Abrechnung unbekannt“. Ein erfolgreiches
+  Transkript beweist noch keinen Einzelpreis. Anbieter-Request-IDs und Credits
+  nur übernehmen, wenn der jeweilige Antwortvertrag sie tatsächlich liefert.
+- Das Journal bewahrt nur begrenzte Zahlen-/Identitätsdatensätze. Beschädigung,
+  Kapazitätsgrenze oder Dateiumleitung führen zu einer sichtbaren Erfassungslücke,
+  nicht zu einem leeren kostenlosen Neustart. Historische Beträge bleiben mit
+  ihrer Quelle und ihrem damaligen Preisstand erhalten.
+
+Die gemeinsame Anzeige soll Input insgesamt, die darin enthaltenen Cache-Anteile,
+Output insgesamt und den darin enthaltenen Reasoning-Anteil kenntlich machen.
+Nicht jede CLI liefert alle Felder. Summen zeigen ihre Abdeckung; Kontingente,
+geschätzte API-Preise und vom Anbieter gemeldete Beträge bleiben getrennt.
 
 ## Reverse Proxy als gezielte Alternative
 

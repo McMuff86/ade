@@ -48,7 +48,11 @@ import type { RemoteCommandLedger } from './RemoteCommandLedger';
 import type { HostOperationGate } from './HostOperationGate';
 import type { RemoteWorkspaceService } from './RemoteWorkspaceService';
 import { validateFileSave, validateWorkbenchQuery, type RemoteWorkbenchService } from './RemoteWorkbenchService';
-import { validateTerminal, type RemoteTerminalService } from './RemoteTerminalService';
+import { validateTerminal, validateTerminalPrompt, type RemoteTerminalService } from './RemoteTerminalService';
+import type { DictationJobs } from '../settings/DictationJobs';
+import { validDictationBase64 } from '../../shared/dictationRequests';
+import { validDictationJobId } from '../../shared/dictation';
+import type { MobileDictationTarget, MobileDictationResult } from '../../shared/remote';
 import type { MobileTerminalQuery, MobileTerminalCommand, MobileTerminalInput } from '../../shared/remote';
 import { validateProfileQuery, validateProfileUpdate, type RemoteProfileService } from './RemoteProfileService';
 import type { RepositorySyncService } from '../repositories/RepositorySyncService';
@@ -120,6 +124,7 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  dictation?: DictationJobs;
   speech?: RemoteSpeechService;
   deleteCompletedRun?: (runId: string) => Promise<void>;
   integration?: IntegrationService;
@@ -523,6 +528,64 @@ export class AdeApplicationService {
       if (error instanceof RemoteApiError) throw error;
       throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error));
     }
+  }
+
+  async remotePrompt(context: RemoteCommandContext, payload: unknown) {
+    const ledger = this.options.administration?.ledger; const terminals = this.options.terminals;
+    if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'terminal:control');
+    const input = validateTerminalPrompt(payload); this.resources.assertSelection(context.principal, input);
+    try { return await terminals.prompt(context, input); }
+    catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async remoteDictation(context: RemoteCommandContext, payload: unknown, upload = false): Promise<MobileDictationResult> {
+    const ledger = this.options.administration?.ledger; const jobs = this.options.dictation; const terminals = this.options.terminals;
+    if (!ledger || !jobs || !terminals) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => { ledger.permits(context, 'dictation:transcribe'); ledger.permits(context, 'terminal:control'); };
+    authorize();
+    const request = requireRecord(payload, 'request'); const owner = `device:${context.principal.id}`;
+    try {
+      if (upload) {
+        requireKeys(request, ['jobId', 'audioBase64'], 'request');
+        if (!validDictationJobId(request.jobId) || !validDictationBase64(request.audioBase64)) throw new RemoteApiError(400, 'invalid_payload');
+        const audio = Buffer.from(request.audioBase64, 'base64');
+        if (audio.toString('base64') !== request.audioBase64) throw new RemoteApiError(400, 'invalid_payload');
+        const jobId = request.jobId;
+        // Only a digest enters the durable receipt; audio and transcript never do.
+        const result = await ledger.execute(context, 'dictation:submit', 'dictation:transcribe',
+          { jobId, audioSha256: createHash('sha256').update(audio).digest('hex') }, () => {
+            authorize(); return jobs.submit(owner, jobId, context.idempotencyKey!, audio);
+          });
+        authorize(); jobs.read(owner, jobId); return { jobId, replayed: result.replayed || result.value.replayed };
+      }
+      if (request.operation === 'prepare') {
+        requireKeys(request, ['operation', 'target'], 'request');
+        const target = requireRecord(request.target, 'target');
+        validateTerminal({ ...target, sequence: 1, data: '', cols: 80, rows: 24 }, 'input');
+        if (Object.keys(target).some(key => !['terminalHome', 'agentId', 'repositoryId', 'projectWorkspaceId', 'terminalId', 'leaseId'].includes(key))) throw new RemoteApiError(400, 'invalid_payload');
+        const selection = target as unknown as MobileDictationTarget;
+        const check = () => { authorize(); this.resources.assertSelection(context.principal, selection); }; check();
+        const result = await ledger.execute(context, 'dictation:prepare', 'dictation:transcribe', request, async () => {
+          const checkTarget = await terminals.recordingTarget(context.principal.id, selection);
+          return jobs.prepare(owner, () => { check(); checkTarget(); });
+        });
+        check(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
+      }
+      requireKeys(request, ['operation', 'jobId'], 'request');
+      if (!validDictationJobId(request.jobId) || !['query', 'cancel'].includes(String(request.operation))) throw new RemoteApiError(400, 'invalid_payload');
+      const jobId = request.jobId;
+      if (request.operation === 'query') {
+        const state = jobs.read(owner, jobId); authorize();
+        if (state.status === 'complete') state.transcript.text = redactForWire(state.transcript.text, 12_000);
+        if (state.status === 'failed') state.message = redactedWireMessage(state.message);
+        return { state };
+      }
+      const result = await ledger.execute(context, 'dictation:cancel', 'dictation:transcribe', request, () => {
+        authorize(); jobs.cancel(owner, jobId); return { cancelled: true as const };
+      });
+      authorize(); return { ...result.value, replayed: result.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
   async remoteSessionInventory(principal: RemotePrincipal) {

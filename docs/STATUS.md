@@ -11,9 +11,11 @@ Die persönliche App ist wieder geöffnet; Details in
 Implementiert und vollständig mit `pnpm verify` geprüft: gemeinsame Übersicht
 interaktiver CLI-Arbeit in Work/Overview (Goal 27), Titel/Filter und direkter
 Sitzungswechsel. Native Projekt-Terminal-Latenz ist deutlich reduziert;
-physische Tablet-/WAN-Abnahme steht aus. Noch zu implementieren: gebundener
-Text-/ElevenLabs-Diktatentwurf mit gezielter Übergabe (Goal 23.1 PC und Mobile).
-Bestehende ElevenLabs-Unterstützung ist Stimmenwahl/TTS. Die Abnahmegrenzen
+physische Tablet-/WAN-Abnahme steht aus. Gebundener Text-/ElevenLabs-Diktatentwurf
+mit gezielter Übergabe ist an PC und Mobile angebunden und vollständig geprüft.
+Ein echter ElevenLabs-Aufruf und native Codex-/Claude-/Grok-Proben sind erfolgreich.
+[Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
+Stimmenwahl/TTS bleibt separat verfügbar. Die Abnahmegrenzen
 stehen im [neuen Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 Der Operator hat ausserdem den vollständigen Dokumentationsabgleich als
 verbindlichen Abschlussmeilenstein ergänzt. Dieser Audit ist noch ausstehend.
@@ -23,12 +25,12 @@ Ebenfalls beauftragt, noch zu implementieren: Goal 24 für sitzungs-/projektbezo
 Token-, Cache-, Reasoning- und Kostenwerte sowie ElevenLabs-Verbrauch. Die
 [Quellen- und Abnahmeregeln](USAGE_AND_COST_GOALS.md) unterscheiden Abos,
 API-Schätzungen und Anbieterabrechnung.
-Aktuelle Code-Abnahme: **3.543 Checks**, davon 2.615 in 58 fokussierten Suiten
-und 928 Electron-/Browser-/Visual-Checks. Zusätzlich sieben echte Windows-
-Paketprüfungen bestanden. `b2e134e` ist gepusht; persönliche Aktivierung steht
-wegen einer offenen WSL-Sitzung aus.
-Nachweise und verbleibender Auftrag:
-[CLI-Arbeit und Terminal-Latenz](CLI_WORK_LATENCY_RESULTS.md).
+Aktuelle Code-Abnahme: **3.735 Checks**, davon 2.786 in 64 fokussierten Suiten
+und 949 Electron-/Browser-/Visual-Checks. Zusätzlich zehn echte Windows-
+Paketprüfungen bestanden; Paket: `dist/dictation-20260915/win-unpacked/ADE.exe`.
+Persönliche Aktivierung steht wegen einer offenen WSL-Sitzung aus.
+Der vorherige CLI-Checkpoint ist als `b2e134e`/`5ea3b3c` gepusht;
+seine früheren Zahlen stehen in [CLI-Arbeit und Terminal-Latenz](CLI_WORK_LATENCY_RESULTS.md).
 
 ## Direkter Workspace-Start und Desktop-Terminals (14. September 2026)
 

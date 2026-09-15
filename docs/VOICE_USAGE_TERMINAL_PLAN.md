@@ -3,7 +3,11 @@
 Stand: 13. September 2026. Benutzerauftrag: laufende Stimmen-/Projektverbesserungen
 abschließen und einen konkreten Ausbauplan für Diktat, Nutzungsdaten,
 Terminalgeschwindigkeit und einen zweiten Tailscale-PC ausarbeiten.
-Die folgenden Ausbauziele sind geplant, nicht als implementiert freigegeben.
+Historischer Ausbauplan mit Fortschrittsabgleich vom 15. September: CLI-Übersicht
+und erste native Latenzoptimierung sind geprüft; Prompteditor und Diktat sind an
+Desktop/Mobile integriert. Die aktuelle Abnahme steht in den
+[Diktat-Nachweisen](DICTATION_IMPLEMENTATION_RESULTS.md). Kostenjournal und
+Multi-Host bleiben offene Lieferziele.
 
 Priorisierung vom 15. September: Goal 23.1 wird jetzt nach der gemeinsamen
 CLI-Arbeitsübersicht am nativen Windows-Desktop umgesetzt. Der neue
@@ -27,13 +31,13 @@ definiert Quellen, Zählregeln, Proxy-Alternative und Abnahme.
 | Goal 25.2: Schnellere Ausgabe | Engpass aus Messung beseitigt | Ziel auf direktem WLAN-Pfad: p50 ≤ 100 ms, p95 ≤ 200 ms für Zeichen-Echo; bei langsamer Route Zusatzlatenz von ADE separat ausweisen; keine Abschwächung der Identitätsprüfung |
 | Goal 24.2/24.3: Claude/Grok | Gleiche Nutzungsdarstellung mit expliziten Datenquellen | Numerische Anzeigen nur mit realem Provider-Nachweis; unbekannte/fehlende Felder bleiben unbekannt |
 | Goal 28a: Zweiter ADE-PC | Sichtbarer Hostwähler und getrennte Kopplung je PC | Zwei echte PCs und Tablet; Wechsel ohne Daten-/Key-/Entwurfsvermischung, offline/revoked, Rückkehr zum ersten PC |
-| Goals 22 / 21 | SSH-Preset / zeitlich begrenzte Gastfreigabe | Getrennte Ausbauschritte entsprechend bestehendem Multi-Host-Plan |
+| Goals 30 / 29 | SSH-Preset / zeitlich begrenzte Gastfreigabe | Getrennte Ausbauschritte entsprechend bestehendem Multi-Host-Plan und Zielregister |
 
 ## Goal 23: Diktieren statt Tippen
 
 Der Mikrofonknopf sitzt am Terminal-Entwurf auf Desktop und Mobile. Ablauf:
-Aufnehmen → Stoppen → Transkribieren → Text prüfen → „In Terminal einfügen“
-oder separat „Text und Enter senden“. Eine Aufnahme startet nie automatisch.
+„Diktieren“ → „Aufnahme stoppen“ → Transkribieren → Text prüfen → „In CLI einfügen“
+oder separat „An CLI absenden“. Eine Aufnahme startet nie automatisch.
 Die Aufnahme zeigt Dauer, Zielhost, Projekt und Sitzung; Abbruch verwirft die
 Audioaufnahme. Zielwechsel stoppen die Aufnahme und verlangen eine erneute
 Auswahl. Transkripte werden nicht ungefragt an einen anderen Agent gesendet.
@@ -42,8 +46,9 @@ Erster Schnitt: begrenzte Aufnahme (z. B. maximal 60 Sekunden, tatsächliche
 Byte-Grenze passend zum unterstützten Codec), danach Batch-Transkription.
 ElevenLabs Scribe bietet Batch und Realtime; Deutsch ist dokumentiert.
 Streaming lohnt sich erst nach einem gemessenen, zuverlässigen Grundablauf.
-Den vorhandenen Key auf Speech-to-Text-Berechtigung prüfen; erfolgreicher
-Text-to-Speech-Zugriff bestätigt diese zusätzliche Freigabe nicht.
+Der persönliche Key wurde am 15. September mit einem echten, 5,98 Sekunden langen
+deutschen Scribe-v2-Aufruf erfolgreich auf Speech-to-Text-Zugriff geprüft.
+TTS- und STT-Berechtigungen bleiben bei anderen Keys getrennt zu prüfen.
 [ElevenLabs Transcription](https://elevenlabs.io/docs/overview/capabilities/speech-to-text).
 
 Audio geht vom HTTPS-Tablet bzw. sandboxed Desktop an den zuständigen ADE-Host;

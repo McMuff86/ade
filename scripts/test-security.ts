@@ -60,6 +60,13 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'terminal:promptQuery': { sessionId: 'sfixture' },
+  'terminal:promptSend': { sessionId: 'sfixture', commandId: '11111111-1111-4111-8111-111111111111', text: 'Prüfe den Code.', mode: 'insert' },
+  'dictation:prepare': { sessionId: 'sfixture' },
+  'dictation:submit': { jobId: '11111111-1111-4111-8111-111111111111', key: '22222222-2222-4222-8222-222222222222', audioBase64: 'A'.repeat(4328) },
+  'dictation:query': { jobId: '11111111-1111-4111-8111-111111111111' },
+  'dictation:cancel': { jobId: '11111111-1111-4111-8111-111111111111' },
+  'dictation:microphone': { allow: true },
   'integration:query': { operation: 'sources', repositoryId: 'repo' },
   'integration:command': { operation: 'test', integrationId: 'review' },
   'run:questions': { runId: 'run' },
@@ -237,6 +244,17 @@ for (const channel of INVOKE_CHANNELS) {
   check(`${channel} accepts its contract payload`, accepted);
 }
 
+for (const channel of ['terminal:promptQuery', 'terminal:promptSend', 'dictation:prepare', 'dictation:submit', 'dictation:query', 'dictation:cancel', 'dictation:microphone'] as const) {
+  const payload = valid[channel] as Record<string, unknown>;
+  check(`${channel} rejects extra destination or provider fields`, rejects(channel, { ...payload, url: 'https://invalid.example' }));
+  check(`${channel} rejects array payloads`, rejects(channel, Object.assign([], payload)));
+  check(`${channel} stays outside the remote invoke allowlist`, !REMOTE_COMMAND_CHANNELS.includes(channel));
+}
+for (const [channel, field] of [['dictation:prepare', 'sessionId'], ['dictation:query', 'jobId'], ['dictation:microphone', 'allow']] as const) {
+  const inherited = Object.assign(Object.create({ [field]: (valid[channel] as Record<string, unknown>)[field] }), { extra: true });
+  check(`${channel} rejects inherited required fields`, rejects(channel, inherited));
+}
+check('prompt rejects embedded terminal escape sequences', rejects('terminal:promptSend', { ...(valid['terminal:promptSend'] as object), text: '\x1b[201~\runsafe' }));
 check('config writes cannot replace catalog data', rejects('config:save', { categories: [] }));
 check('config save accepts an inspector side without changing the theme',
   !rejects('config:save', { settings: { inspectorSide: 'left' } }));
