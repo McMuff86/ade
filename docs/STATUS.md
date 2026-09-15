@@ -24,7 +24,9 @@ Token-, Cache-, Reasoning- und Kostenwerte sowie ElevenLabs-Verbrauch. Die
 [Quellen- und Abnahmeregeln](USAGE_AND_COST_GOALS.md) unterscheiden Abos,
 API-Schätzungen und Anbieterabrechnung.
 Aktuelle Code-Abnahme: **3.543 Checks**, davon 2.615 in 58 fokussierten Suiten
-und 928 Electron-/Browser-/Visual-Checks. Windows-Paket und Aktivierung folgen.
+und 928 Electron-/Browser-/Visual-Checks. Zusätzlich sieben echte Windows-
+Paketprüfungen bestanden. `b2e134e` ist gepusht; persönliche Aktivierung steht
+wegen einer offenen WSL-Sitzung aus.
 Nachweise und verbleibender Auftrag:
 [CLI-Arbeit und Terminal-Latenz](CLI_WORK_LATENCY_RESULTS.md).
 

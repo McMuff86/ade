@@ -7,7 +7,11 @@ CLI-Arbeitsübersicht (Goal 27) und ElevenLabs-Promptübergabe (Goal 23.1 Deskto
 Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. Die CLI-Arbeitsliste
 ist inzwischen implementiert; der CLI-/Latenz-Stand besteht `pnpm verify`
 vollständig mit **3.543 Checks** (58 Suiten / 2.615 fokussierte + 928 UI-Checks).
-Windows-Paket und persönliche Aktivierung folgen. Danach gebundener Textentwurf, Diktat, Verbrauch und vollständige
+Windows-Paket unter `dist/cli-work-20260915/win-unpacked/ADE.exe` mit sieben
+Paketprüfungen bestanden. Produktcommit **b2e134e4113f81715a174598193287ee339e3d25**
+ist auf `origin/main` gesichert, Remote-SHA abgeglichen. Die persönliche Instanz
+37308 bleibt wegen einer offenen WSL-Shell unverändert; nicht ungeprüft beenden.
+Danach gebundener Textentwurf, Diktat, Verbrauch und vollständige
 Abnahme. Weitere Produktideen bleiben priorisierte
 Vorschläge im [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 

@@ -8,7 +8,8 @@ zusammen; **Goal 23.1 Desktop** ergänzt einen sitzungsgebundenen Promptentwurf
 und ElevenLabs-Diktat mit gezielter CLI-Übergabe. Reihenfolge: Arbeitsliste,
 Orientierung/Wechsel, Textentwurf, Diktat, vollständige Abnahme und Windows-Build.
 Desktop-Arbeitsliste und erste native Latenzoptimierung bestehen die vollständige
-Code-Abnahme mit 3.543 Checks. Windows-Paket und persönliche Aktivierung folgen.
+Code-Abnahme mit 3.543 Checks; Windows-Paket mit sieben weiteren Checks geprüft.
+`b2e134e` ist gepusht, persönliche Aktivierung wegen offener WSL-Sitzung ausstehend.
 Diktat bleibt zu implementieren; [Nachweise](CLI_WORK_LATENCY_RESULTS.md).
 Erweiterung: Goal 23.1 umfasst auch mobiles Tablet-Diktat; Goal 25 zur Messung
 und Optimierung der Tablet-Terminal-Latenz ist ebenfalls aktiver Lieferumfang.

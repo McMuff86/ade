@@ -5,7 +5,9 @@ bestätigt und die Ziele für CLI-Übersicht und ElevenLabs-Übergabe beauftragt
 Ein gemeinsames Umsetzungsziel ist in der Codex-Zielverwaltung aktiv. Die
 folgenden Meilensteine bleiben bis zur gemeinsamen Abnahme aktiv. Die Desktop-
 CLI-Arbeitsliste und die erste native Latenzoptimierung bestehen die vollständige
-Code-Abnahme mit 3.543 Checks. Windows-Paket und Aktivierung folgen.
+Code-Abnahme mit 3.543 Checks; das Windows-Paket besteht sieben weitere Checks.
+`b2e134e` ist gesichert und gepusht. Persönliche Aktivierung steht wegen einer
+offenen WSL-Sitzung aus.
 Diktat und Kostenjournal sind noch zu
 implementieren. [Aktuelle Nachweise](CLI_WORK_LATENCY_RESULTS.md).
 

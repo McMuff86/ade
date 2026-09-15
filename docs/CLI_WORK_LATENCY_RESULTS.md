@@ -1,8 +1,9 @@
 # CLI-Arbeit und Terminal-Latenz: Windows-Abnahme
 
 Stand: 15. September 2026. Arbeitsstand nach Sicherungscommit `bff299a`.
-Die vollständige Code-Abnahme ist bestanden; Windows-Paket und persönliche
-Aktivierung folgen. Aktives [Gesamtziel](CLI_WORK_AND_DICTATION_GOALS.md).
+Die vollständige Code-Abnahme und der Windows-Pakettest sind bestanden.
+Persönliche Aktivierung steht wegen einer offenen WSL-Sitzung aus.
+Aktives [Gesamtziel](CLI_WORK_AND_DICTATION_GOALS.md).
 
 ## Implementiert
 
@@ -79,9 +80,30 @@ bleiben ignoriert. Sie enthalten Messzahlen und Fixture-Daten, keine Nutzereinga
 
 ## Noch offen
 
-Neuer geprüfter Windows-Build und gebündelte Aktivierung; weitere Latenz- und
+Gebündelte persönliche Aktivierung; weitere Latenz- und
 Gerätetests; gespeicherte Projektauswahl als Standardeinstieg aus Goal 27.2;
 sichere CLI-Promptübergabe,
 PC-/Mobile-ElevenLabs-Diktat, Verbrauchs-/Kostenjournal (Goal 24) und der
 vollständige Dokumentationsaudit. Die persönliche laufende Instanz bleibt
 während dieser Implementierung erhalten.
+
+## Sicherung und Windows-Paket
+
+Produktcommit **b2e134e4113f81715a174598193287ee339e3d25** liegt auf `main`
+und `origin/main`; die Remote-SHA wurde separat abgeglichen.
+Das neu gebaute Programm liegt unter
+`dist/cli-work-20260915/win-unpacked/ADE.exe`.
+SHA-256 der EXE:
+`cc4a7eed939d21b21801f34ba55ec5e8eced80980e5e0e820fbf5794daaa5706`.
+
+Sieben Prüfungen am echten Paket bestanden: Sandboxing/Context Isolation,
+Originalworkspace ohne Profil, echte ConPTY-Ausgabe, Work-Liste, Rückkehr ohne
+Doppelstart, gleiche Sitzung in Overview und isolierte Konfiguration ohne
+Agentbindung. Reproduzierbarer Treiber:
+`pnpm exec tsx scripts/test-cli-work-package.ts dist/cli-work-20260915/win-unpacked/ADE.exe`.
+Nachweis: `test-results/cli-work-package-smoke.json`, Log und Screenshot daneben.
+
+Die persönliche Instanz PID 37308 bleibt auf dem zuvor aktivierten Paket.
+Eine noch offene WSL-Shell im Assistenten-Arbeitsordner wurde erkannt und bleibt
+erhalten. Der Pakettest verwendet ausschliesslich eine eigene temporäre
+Konfiguration und ein Testrepository; er aktiviert keinen persönlichen Host.
