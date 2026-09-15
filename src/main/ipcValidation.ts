@@ -5,6 +5,7 @@ import { validVoiceId, validSpeechSelection, validSpeechTarget } from '../shared
 import { validTerminalPrompt } from '../shared/terminalPrompt';
 import { validDictationUpload, validPromptSessionId } from '../shared/dictationRequests';
 import { validDictationJobId } from '../shared/dictation';
+import { validLiveDictationChunk } from '../shared/liveDictation';
 import { validQuestionAnswers } from '../shared/runQuestions';
 /** Runtime validation for every renderer -> main IPC request. */
 
@@ -242,7 +243,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'runtime',
     'permissionMode',
     'customCommand',
-    'ollamaModel',
+    'ollamaModel', 'ollamaMode',
     'claudeModel',
     'codexModel',
     'codexReasoningEffort',
@@ -263,6 +264,10 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
   optionalOllamaModel(channel, request.ollamaModel);
+  if (request.ollamaMode !== undefined) {
+    enumValue(channel, request.ollamaMode, 'ollamaMode', ['chat', 'coding']);
+    if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama mode requires runtime ollama');
+  }
   optionalClaudeModel(channel, request.claudeModel);
   if (request.runtime !== 'claude' && request.claudeModel !== undefined) invalid(channel, 'Claude model settings require runtime "claude"');
   optionalCodexModel(channel, request.codexModel);
@@ -708,7 +713,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.DictationQuery:
     case IPC.DictationCancel:
+    case IPC.DictationStreamStart:
+    case IPC.DictationStreamFinish:
       if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'jobId') || !validDictationJobId((payload as { jobId: unknown }).jobId)) invalid(channel, 'invalid dictation ticket');
+      return;
+    case IPC.DictationStreamChunk:
+      if (!validLiveDictationChunk(payload)) invalid(channel, 'invalid live dictation chunk');
       return;
     case IPC.DictationMicrophone:
       if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'allow') || typeof (payload as { allow: unknown }).allow !== 'boolean') invalid(channel, 'invalid microphone permission');
@@ -871,7 +881,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         'runtime',
         'permissionMode',
         'customCommand',
-        'ollamaModel',
+        'ollamaModel', 'ollamaMode',
         'claudeModel',
         'codexModel',
         'codexReasoningEffort',
@@ -890,6 +900,10 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       }
       optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
       optionalOllamaModel(channel, request.ollamaModel);
+      if (request.ollamaMode !== undefined) {
+        enumValue(channel, request.ollamaMode, 'ollamaMode', ['chat', 'coding']);
+        if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama mode requires runtime ollama');
+      }
       optionalClaudeModel(channel, request.claudeModel);
       if (request.runtime !== undefined && request.runtime !== 'claude' && request.claudeModel !== undefined) invalid(channel, 'Claude model settings require runtime "claude"');
       optionalCodexModel(channel, request.codexModel);

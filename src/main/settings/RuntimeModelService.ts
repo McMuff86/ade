@@ -205,10 +205,14 @@ export class RuntimeModelService {
     try {
       const models = await this.probe.run(runtime, backend, this.credentials.envFor(runtime));
       return { runtime, backend, status: models.length ? 'ready' : 'empty', models, checkedAt: Date.now(),
-        message: models.length ? 'Von der installierten CLI gemeldete Modelle. Die Liste verwendet deren Anmeldung und Konfiguration.' : 'Die CLI hat keine auswählbaren Modelle gemeldet.' };
+        message: runtime === 'ollama'
+          ? models.length ? `${models.length} Modelle von deinem Ollama-Dienst gemeldet. Nach dem Hinzufügen oder Entfernen eines Modells die Liste aktualisieren.`
+            : 'Ollama ist erreichbar, hat aber keine Modelle gemeldet. Zuerst ein Modell mit ollama pull <modell> hinzufügen, danach aktualisieren.'
+          : models.length ? 'Von der installierten CLI gemeldete Modelle. Die Liste verwendet deren Anmeldung und Konfiguration.' : 'Die CLI hat keine auswählbaren Modelle gemeldet.' };
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
       const message = code === 'cli_missing' ? 'CLI in dieser Umgebung nicht gefunden. Installation unter Settings → Harnesses prüfen.'
+        : runtime === 'ollama' ? 'Ollama-Modelle konnten nicht geladen werden. Ollama in dieser Umgebung starten und die Verbindung mit ollama list prüfen, danach aktualisieren.'
         : code === 'authentication_required' ? 'Anmeldung fehlt. Unter Settings → Harnesses anmelden und die Modelle aktualisieren.'
           : code === 'cli_timeout' ? 'Modellabfrage hat zu lange gedauert. Verbindung und Anmeldung prüfen, danach aktualisieren.'
             : 'Modelle konnten nicht bestätigt werden. CLI-Version, Anmeldung und Verbindung unter Settings → Harnesses prüfen.';

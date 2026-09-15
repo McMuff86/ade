@@ -207,6 +207,7 @@ export async function createAgent(
     permissionMode: input.permissionMode,
     customCommand: input.customCommand,
     ollamaModel: input.ollamaModel,
+    ollamaMode: input.runtime === 'ollama' ? input.ollamaMode : undefined,
     claudeModel: input.runtime === 'claude' ? input.claudeModel?.trim() || undefined : undefined,
     codexModel: input.runtime === 'codex'
       ? input.codexModel?.trim() || DEFAULT_CODEX_MODEL
@@ -292,6 +293,7 @@ export async function updateAgent(
     runtime: input.runtime,
     permissionMode: input.permissionMode,
     customCommand: input.customCommand?.trim() || undefined,
+    ollamaMode: input.runtime === 'ollama' ? input.ollamaMode ?? existing.ollamaMode : undefined,
     ollamaModel:
       input.runtime === 'ollama' && input.ollamaModel?.trim()
         ? input.ollamaModel.trim()
@@ -414,6 +416,7 @@ export function createAgentTemplate(
     permissionMode: agent.permissionMode,
     customCommand: agent.customCommand,
     ollamaModel: agent.ollamaModel,
+    ollamaMode: agent.ollamaMode,
     claudeModel: agent.claudeModel,
     codexModel: agent.codexModel,
     codexReasoningEffort: agent.codexReasoningEffort,
@@ -453,6 +456,7 @@ export async function spawnAgentTemplate(
     permissionMode: input.permissionMode ?? template.permissionMode,
     customCommand: input.customCommand?.trim() || template.customCommand,
     ollamaModel: input.ollamaModel?.trim() || template.ollamaModel,
+    ollamaMode: input.ollamaMode ?? template.ollamaMode,
     claudeModel: input.claudeModel?.trim() || template.claudeModel,
     codexModel: input.codexModel?.trim() || template.codexModel,
     codexReasoningEffort: input.codexReasoningEffort ?? template.codexReasoningEffort,

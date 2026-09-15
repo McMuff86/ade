@@ -31,7 +31,7 @@ interface Counter { key: string; tokens: TokenCounts }
 type Event = { type: 'session'; session: UsageSession }
   | { type: 'fact'; fact: UsageFact; counter?: Counter }
   | { type: 'coverage'; sessionId: string; coverage: UsageSession['coverage']; endedAt?: number }
-  | { type: 'speech-outcome'; factId: string; state: 'complete' | 'unconfirmed' | 'not-sent' }
+  | { type: 'speech-outcome'; factId: string; state: 'complete' | 'unconfirmed' | 'not-sent'; audioSeconds?: number }
   | { type: 'budget'; monthlyUsd: number | null };
 const MAX_BYTES = 32 * 1024 * 1024;
 const MAX_LINE = 16 * 1024;
@@ -167,10 +167,11 @@ export class UsageJournal {
     });
   }
 
-  speechOutcome(factId: string, state: 'complete' | 'unconfirmed' | 'not-sent'): Promise<void> {
+  speechOutcome(factId: string, state: 'complete' | 'unconfirmed' | 'not-sent', audioSeconds?: number): Promise<void> {
     return this.enqueue(async () => {
-      if (this.facts.get(factId)?.requestState === state) return;
-      await this.append({ type: 'speech-outcome', factId, state });
+      const fact = this.facts.get(factId);
+      if (fact?.requestState === state && (audioSeconds === undefined || fact.audioSeconds === audioSeconds)) return;
+      await this.append({ type: 'speech-outcome', factId, state, ...(audioSeconds === undefined ? {} : { audioSeconds }) });
     });
   }
 
@@ -192,7 +193,8 @@ export class UsageJournal {
         || event.counter && (!own(event.counter, ['key', 'tokens']) || !hashId(event.counter.key) || !validTokens(event.counter.tokens))) throw new Error('invalid fact');
     } else if (event.type === 'speech-outcome') {
       const fact = this.facts.get(event.factId);
-      if (!own(event, ['type', 'factId', 'state']) || !hashId(event.factId) || !fact || !fact.source.startsWith('elevenlabs-')
+      if (!own(event, ['type', 'factId', 'state', 'audioSeconds']) || !hashId(event.factId) || !fact || !fact.source.startsWith('elevenlabs-')
+        || event.audioSeconds !== undefined && (fact.model !== 'scribe_v2_realtime' || fact.audioSeconds !== null || !nonnegative(event.audioSeconds) || event.audioSeconds > 60)
         || fact.requestState !== 'pending' || !['complete', 'unconfirmed', 'not-sent'].includes(event.state)) throw new Error('invalid speech outcome');
     } else if (event.type === 'coverage') {
       const session = this.sessions.get(event.sessionId);
@@ -207,7 +209,10 @@ export class UsageJournal {
     else if (event.type === 'fact') {
       this.facts.set(event.fact.id, event.fact); if (event.counter) this.counters.set(event.counter.key, event.counter.tokens);
       const session = this.sessions.get(event.fact.sessionId)!; if (session.coverage === 'waiting') session.coverage = 'recording';
-    } else if (event.type === 'speech-outcome') this.facts.get(event.factId)!.requestState = event.state;
+    } else if (event.type === 'speech-outcome') {
+      const fact = this.facts.get(event.factId)!; fact.requestState = event.state;
+      if (event.audioSeconds !== undefined) fact.audioSeconds = event.audioSeconds;
+    }
     else if (event.type === 'coverage') Object.assign(this.sessions.get(event.sessionId)!, { coverage: event.coverage }, event.endedAt === undefined ? {} : { endedAt: event.endedAt });
     else this.monthlyUsd = event.monthlyUsd;
   }

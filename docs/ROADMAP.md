@@ -1,9 +1,21 @@
 # ADE delivery roadmap
 
-Operatorentscheidung zum aktuellen Checkpoint: Code und Handoff sichern,
-Windows-Build für den eigenen Tablet-Test starten und danach **pausieren**.
-Die offenen Prüfungen und Ausbauschritte stehen führend im [Handoff](HANDOFF.md).
-Die folgenden aktiven Ziele werden dadurch nicht pauschal als erledigt markiert.
+Aktuelle Operatorrückmeldung: Terminal beim Diktieren sichtbar halten und den
+gesprochenen Text bereits während der Aufnahme anzeigen. Desktop-Dock und
+Live-Streaming sind implementiert; `pnpm verify` besteht vollständig. Die
+Aktivierung in der persönlichen Instanz und der eigene Mikrofontest stehen aus.
+Live-Diktat auf dem Tablet ist noch nicht implementiert.
+[Stand und Nachweise](LIVE_DICTATION_RESULTS.md).
+
+Neue Operatorrückmeldung: Diktat funktioniert wie gewünscht; Arbeit mit Ollama-
+Anbindung und sichtbaren verfügbaren Modellen fortsetzen. Ollama-Coding über die
+Codex CLI und direkter Modellchat sind implementiert und fokussiert geprüft.
+Gesamtprüfung in zwei Teilläufen bestanden; persönliche Aktivierung nach
+Neustartfreigabe abgeschlossen: Ollama-Profil mit `qwen3-coder:30b` und 13 sichtbaren
+Modellen. Sicherung und Betriebszustand stehen im [Handoff](HANDOFF.md).
+Interaktive Ollama-Verbrauchserfassung bleibt offen; bisherige native
+Codex-/Claude-/Grok-Erfassung verwendet CLI-Quellen, keinen Reverse Proxy.
+[Ollama-Nachweise](OLLAMA_RESULTS.md). Andere offene Ziele bleiben offen.
 
 ## Aktives Ziel: laufende CLI-Arbeit und Diktat (15. September 2026)
 

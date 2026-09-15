@@ -52,7 +52,7 @@ export function RuntimeModelPicker({ id, label, runtime, backend = 'native', val
       </select>
     </div>
     <div className="runtime-model-status" id={`${id}-status`} role="status">
-      {busy ? 'Modelle werden aus deiner CLI-Anmeldung geladen…' : error || active?.message}
+      {busy ? runtime === 'ollama' ? 'Verfügbare Modelle werden von Ollama geladen…' : 'Modelle werden aus deiner CLI-Anmeldung geladen…' : error || active?.message}
       <span>{backend === 'native' ? 'Native Umgebung dieses PCs' : backend}</span>
       {!busy && active?.checkedAt && <span>Geprüft um {new Date(active.checkedAt).toLocaleTimeString()}</span>}
     </div>

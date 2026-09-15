@@ -26,7 +26,9 @@ export function SessionConsumptionView({ value }: { value: SessionConsumption })
       <strong>ElevenLabs · {speech.product === 'dictation' ? 'Diktat' : 'Stimmtest'}</strong>
       <dl>{(['complete', 'pending', 'unconfirmed', 'not-sent'] as const).filter(state => speech.requests[state] > 0).map(state => <div key={state}>
         <dt>{{ complete: 'Antwort erhalten', pending: 'Abschluss ausstehend', unconfirmed: 'Antwort unbestätigt', 'not-sent': 'Vor Versand beendet' }[state]}</dt>
-        <dd>{speech.amounts[state].toLocaleString(undefined, { maximumFractionDigits: 2 })} {speech.unit === 'audioSeconds' ? 'Sek. Audio' : 'Zeichen'} · {speech.requests[state]} Auftrag/Aufträge</dd>
+        <dd>{speech.unknownAmounts?.[state] === speech.requests[state] ? 'Menge noch unbekannt'
+          : <>{speech.amounts[state].toLocaleString(undefined, { maximumFractionDigits: 2 })} {speech.unit === 'audioSeconds' ? 'Sek. Audio' : 'Zeichen'}
+            {!!speech.unknownAmounts?.[state] && ' · teilweise unbekannt'}</>} · {speech.requests[state]} Auftrag/Aufträge</dd>
       </div>)}</dl>
       <p>Gemessene Eingabemenge dieser Sitzung. Credits und Kosten pro Auftrag sind unbekannt. Ausstehende oder unbestätigte Aufträge können Verbrauch verursacht haben.</p>
     </div>)}

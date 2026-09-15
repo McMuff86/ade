@@ -208,6 +208,15 @@
   background: var(--bg);
 }
 
+.terminal-with-control { container: terminal-pane / inline-size; min-width: 0; }
+.terminal-prompt-layout { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.terminal-prompt-layout > .terminal-host { min-width: 0; min-height: 0; overflow: hidden; }
+.terminal-prompt-layout-open { grid-template-columns: minmax(0, 1fr) clamp(320px, 38%, 420px); }
+@container terminal-pane (max-width: 760px) {
+  .terminal-prompt-layout-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+  .terminal-prompt-layout-open > .desktop-prompt-panel { border-left: 0; border-top: 1px solid var(--line); }
+}
+
 /* The inset must live on the .xterm element, not the host: the fit addon
    subtracts only the terminal element's own padding from the host size, so
    host padding would push the bottom row out of view. */

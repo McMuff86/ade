@@ -24,6 +24,18 @@ try {
   check('Claude auth and initialization return resolved aliases without prompting', claude.status === 'ready'
     && claude.models[0]?.resolvedModel === 'claude-fixture-opus[1m]' && claude.models[1]?.id === 'sonnet');
   check('Ollama uses installed model list', (await service.list({ runtime: 'ollama' })).models[0]?.id === 'local-fixture:latest');
+  writeFileSync(fixture.state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, ollama: [] }));
+  const emptyOllama = await service.list({ runtime: 'ollama' });
+  check('empty Ollama catalog explains how to add a model', emptyOllama.status === 'empty' && emptyOllama.message.includes('ollama pull'));
+  writeFileSync(fixture.state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, failure: true }));
+  const unavailableOllama = await service.list({ runtime: 'ollama' });
+  check('unreachable Ollama explains local service recovery without suggesting a provider login', unavailableOllama.status === 'unavailable'
+    && unavailableOllama.message.includes('ollama list') && !unavailableOllama.message.includes('Anmeldung'));
+  writeFileSync(fixture.state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, ollama: ['coder:small', 'coder:large'] }));
+  const refreshedOllama = await service.list({ runtime: 'ollama' });
+  check('Ollama refresh discovers changed installed models after service recovery', refreshedOllama.status === 'ready'
+    && refreshedOllama.models.length === 2 && refreshedOllama.message.startsWith('2 Modelle'));
+  writeFileSync(fixture.state, JSON.stringify(MODEL_FIXTURE_CATALOG));
   const events = readFileSync(fixture.events, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as { method?: string });
   check('discovery sends only initialization, account and model requests', events.every((event) => !event.method || ['initialize', 'initialized', 'account/read', 'model/list', 'control_request'].includes(event.method)));
   writeFileSync(fixture.state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, grok: ['grok-refreshed'] }));

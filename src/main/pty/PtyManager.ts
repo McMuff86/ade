@@ -478,7 +478,8 @@ export class PtyManager {
     const provider = session.usageProvider ?? 'unknown';
     const fallback: SubscriptionUsage = { provider, source: 'cli', checkedAt: Date.now(), status: 'unavailable', windows: [],
       consumption: this.nativeUsage?.consumption(sessionId),
-      message: provider === 'unknown' ? 'Für diese Shell oder diesen eigenen Startbefehl ist kein Abo-Anbieter bekannt.'
+      message: session.meta.runtime === 'ollama' ? 'Diese Sitzung verwendet Ollama. Eine automatische Abo- und Sitzungsverbrauchsanzeige für Ollama ist noch nicht eingerichtet.'
+        : provider === 'unknown' ? 'Für diese Shell oder diesen eigenen Startbefehl ist kein Abo-Anbieter bekannt.'
         : provider === 'claude' ? 'Claude Code zeigt die aktuellen Abo-Limits mit /usage. Automatische Übernahme in ADE ist noch nicht eingerichtet.'
           : provider === 'grok' ? 'Grok Build zeigt den aktuellen Verbrauch und Reset mit /usage.'
             : 'Für diese Umgebung die Abo-Limits mit /status in Codex prüfen.',
@@ -549,6 +550,8 @@ export class PtyManager {
     if (!settings || ((task || login) && !savedAgent)) throw new Error('ade: Sitzung hat keinen gültigen Startkontext.');
     const agent = launchChoice ? await new SessionLaunchService(this.store, this.execution).effectiveSettings(settings, scope.executionBackend, launchChoice)
       : this.effectiveTaskAgent(savedAgent!, task?.runTaskId);
+    if (!login) await new SessionLaunchService(this.store, this.execution).validateOllamaCoding(agent, scope.executionBackend);
+    const ollamaCoding = agent.runtime === 'ollama' && agent.ollamaMode === 'coding';
     if (agentId && before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
     this.assertScopeAvailable(scope, task?.runTaskId);
     const managedLaunch = task?.runTaskId
@@ -596,20 +599,20 @@ export class PtyManager {
     if (profileSnapshot && profileIdentity) {
       if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error('ade: Interaktive Profilanweisungen benötigen derzeit einen nativen Windows-Start.');
       if (!spec.initialCommand) throw new Error('ade: Dieser Sitzungsstart kann keine Profilanweisungen übertragen.');
-      const baseline = agent.runtime === 'codex' ? await readCodexProfileConfig({ cwd,
+      const baseline = agent.runtime === 'codex' || ollamaCoding ? await readCodexProfileConfig({ cwd,
         env: { ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) } }) : undefined;
       if (baseline?.status === 'unavailable') throw new Error(baseline.message);
-      preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent }, snapshot: profileSnapshot,
+      preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent, ...(ollamaCoding ? { runtime: 'codex' as const } : {}) }, snapshot: profileSnapshot,
         command: spec.initialCommand, scratchRoot: join(os.tmpdir(), 'ade-profile-snapshots'), workspaceDir: scope.workspaceDir,
         executionBackend: scope.executionBackend,
         codexDeveloperInstructions: baseline?.status === 'verified' ? { mode: 'append-verified', existing: baseline.developerInstructions ?? '' } : undefined });
       spec = { ...spec, initialCommand: preparedProfile.command };
     }
     const promptProtected = !task && !login && !!spec.initialCommand && !agent.customCommand && process.platform === 'win32'
-      && scope.executionBackend === NATIVE_EXECUTION_BACKEND && ['codex', 'claude', 'grok'].includes(agent.runtime);
+      && scope.executionBackend === NATIVE_EXECUTION_BACKEND && (ollamaCoding || ['codex', 'claude', 'grok'].includes(agent.runtime));
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     let usageLaunch: NativeUsageLaunch | undefined;
-    if (promptProtected && this.nativeUsage) {
+    if (promptProtected && !ollamaCoding && this.nativeUsage) {
       try {
         usageLaunch = await this.nativeUsage.prepare({ provider: agent.runtime as 'codex' | 'claude' | 'grok', command: spec.initialCommand!,
           env: { ...process.env, ...credentialEnv, ...spec.env }, terminalSessionId: id, repositoryId: scope.repositoryId, agentId });
@@ -691,7 +694,7 @@ export class PtyManager {
       runtime: agent.runtime,
       launchModel: agent.customCommand ? undefined : agent.runtime === 'codex' ? agent.codexModel
         : agent.runtime === 'claude' ? agent.claudeModel : agent.runtime === 'grok' ? agent.grokModel
-        : launchChoice?.mode === 'ollama' ? launchChoice.model : undefined,
+        : agent.runtime === 'ollama' ? agent.ollamaModel : undefined,
       workspaceKind: project?.workspaceId ? this.store.get().projectWorkspaces.find(item => item.id === project.workspaceId)?.kind
         : scope.workspaceBindingId ? 'worktree' : 'home',
       profileContext: profileSnapshot && profileIdentity ? { profileId: profileIdentity.id, profileName: profileIdentity.name,

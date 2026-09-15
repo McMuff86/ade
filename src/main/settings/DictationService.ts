@@ -4,6 +4,7 @@ import {
 } from '../../shared/dictation';
 import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
 import { redactedErrorDetail } from '../errors';
+import { openLiveDictation, type LiveDictationSession } from './LiveDictationService';
 
 /** Accept only the exact PCM/WAV envelope produced by ADE's recorder. No codec,
  * remote URL, filename or client-reported duration is trusted by the host. */
@@ -29,6 +30,18 @@ export class DictationService {
   private usage?: SpeechUsageService;
   setUsage(usage: SpeechUsageService): void { this.usage = usage; }
   constructor(private readonly key: () => string | undefined, private readonly fetcher: typeof fetch = fetch) {}
+
+  async startLive(authorize: () => void, signal: AbortSignal, attribution: SpeechUsageAttribution, preview: (text: string) => void): Promise<LiveDictationSession> {
+    authorize();
+    if (this.busy) throw new Error('Eine Transkription läuft bereits. Bitte warten.');
+    const key = this.key(); if (!key) throw new Error('ElevenLabs-Key fehlt. Unter Service-Keys ELEVENLABS_API_KEY speichern.');
+    this.busy = true;
+    try {
+      const session = await openLiveDictation({ key, authorize, signal, attribution, preview, usage: this.usage, fetcher: this.fetcher });
+      void session.result.finally(() => { this.busy = false; }).catch(() => undefined);
+      return session;
+    } catch (error) { this.busy = false; throw error; }
+  }
 
   async transcribe(audio: Uint8Array, authorize: () => void, signal?: AbortSignal, attribution: SpeechUsageAttribution = {}): Promise<DictationTranscript> {
     authorize();

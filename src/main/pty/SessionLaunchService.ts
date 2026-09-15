@@ -45,8 +45,17 @@ export class SessionLaunchService {
     if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error('ade: Ollama-Modell ist nicht mehr verfügbar. Modellliste aktualisieren.');
     return { ...settings, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
+      ollamaMode: undefined,
       claudeModel: undefined, codexModel: undefined, codexReasoningEffort: undefined, grokModel: undefined, grokReasoningEffort: undefined,
       ollamaModel: choice.mode === 'ollama' ? choice.model : undefined };
+  }
+
+  async validateOllamaCoding(settings: InteractiveLaunchSettings, backend: ExecutionBackendId): Promise<void> {
+    if (settings.runtime !== 'ollama' || settings.ollamaMode !== 'coding' || settings.customCommand?.trim()) return;
+    if (!await this.present(backend, 'codex')) throw new Error('ade: Ollama-Coding benötigt die Codex CLI in dieser Umgebung.');
+    if (!settings.ollamaModel || !(await this.models(backend)).includes(settings.ollamaModel)) {
+      throw new Error('ade: Ollama-Modell ist nicht verfügbar. Ollama starten und die Modellliste aktualisieren.');
+    }
   }
 
   private async present(backend: ExecutionBackendId, executable: 'codex' | 'claude' | 'grok' | 'hermes'): Promise<boolean> {

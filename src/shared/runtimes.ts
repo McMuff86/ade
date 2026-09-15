@@ -153,12 +153,13 @@ export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Ag
  */
 export function resolveLaunchCommand(
   agent: Pick<Agent,
-    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' |
     'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
 ): string {
   if (agent.customCommand && agent.customCommand.trim().length > 0) {
     return agent.customCommand.trim();
   }
+  if (agent.runtime === 'ollama' && agent.ollamaMode === 'coding') return resolveOllamaCodingCommand(agent);
   const profile = LAUNCH_PROFILES[agent.runtime];
   const command = profile.commands[agent.permissionMode] ?? profile.commands['default'] ?? '';
   const resolved = command.includes('${model}')
@@ -189,6 +190,18 @@ function safeOllamaModel(model: string | undefined): string {
   return value;
 }
 
+/** Explicit local provider for each invocation; never changes the user's Codex config. */
+export function resolveOllamaCodingCommand(
+  agent: Pick<Agent, 'permissionMode' | 'ollamaModel'>,
+  task = false,
+): string {
+  const model = safeOllamaModel(agent.ollamaModel);
+  if (!model) throw new Error('ade: Select an Ollama model before starting a coding session.');
+  const base = task ? resolveCodexExecCommand(agent.permissionMode)
+    : LAUNCH_PROFILES.codex.commands[agent.permissionMode]!;
+  return `${base} --oss --local-provider ollama --model ${model}`;
+}
+
 /**
  * Build a one-shot command for Graph task sessions. The task itself lives in
  * ADE_TASK_PROMPT, so arbitrary user text never has to be shell-escaped into
@@ -197,7 +210,7 @@ function safeOllamaModel(model: string | undefined): string {
  */
 export function resolveTaskLaunchCommand(
   agent: Pick<Agent,
-    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' |
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' |
     'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
   platform: 'win32' | 'posix',
 ): TaskLaunchCommand | null {
@@ -240,6 +253,10 @@ export function resolveTaskLaunchCommand(
     case 'gemini':
       return { command: `${base} -p ${prompt}`, transport: 'argument' };
     case 'ollama':
+      if (agent.ollamaMode === 'coding') {
+        const pipe = platform === 'win32' ? '$env:ADE_TASK_PROMPT | ' : `printf '%s\\n' "$ADE_TASK_PROMPT" | `;
+        return { command: `${pipe}${resolveOllamaCodingCommand(agent, true)} --json --skip-git-repo-check -`, transport: 'stdin', activityFormat: 'codex-jsonl' };
+      }
       return { command: `${base} ${prompt}`, transport: 'argument' };
     case 'grok': {
       // Headless Grok does not read stdin as the prompt. --prompt-file is the

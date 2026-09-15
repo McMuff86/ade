@@ -102,10 +102,12 @@ export class NativeUsageService {
       if (!selected.length) continue;
       const unit = product === 'dictation' ? 'audioSeconds' : 'characters';
       const requests = { complete: 0, pending: 0, unconfirmed: 0, 'not-sent': 0 }; const amounts = { ...requests };
+      const unknownAmounts = { ...requests };
       for (const fact of selected) {
         const state = fact.requestState ?? 'pending'; requests[state]++; amounts[state] += fact[unit] ?? 0;
+        if (fact[unit] === null) unknownAmounts[state]++;
       }
-      speech.push({ product, unit, requests, amounts });
+      speech.push({ product, unit, requests, amounts, ...(Object.values(unknownAmounts).some(value => value > 0) ? { unknownAmounts } : {}) });
     }
     return { status: view.error ? 'incomplete' : !sessions.length ? 'unsupported' : sessions.some(session => session.coverage === 'incomplete') ? 'incomplete'
       : facts.length ? 'recording' : 'waiting', ended: sessions.length > 0 && sessions.every(session => session.endedAt !== undefined),

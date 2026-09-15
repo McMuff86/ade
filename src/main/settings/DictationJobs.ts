@@ -3,11 +3,13 @@ import type { DictationJobState } from '../../shared/dictation';
 import { redactedErrorMessage } from '../errors';
 import { validateDictationAudio, type DictationService } from './DictationService';
 import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
+import type { LiveDictationSession } from './LiveDictationService';
 
 interface Job {
   usage: SpeechUsageAttribution;
   owner: string; authorize: () => void; expiresAt: number; state: DictationJobState;
   controller: AbortController; submission?: { key: string; fingerprint: string };
+  live?: LiveDictationSession; nextSequence?: number;
 }
 
 /** Host-issued tickets are bound before recording. An expired ticket or a host
@@ -16,7 +18,7 @@ interface Job {
 export class DictationJobs {
   private readonly jobs = new Map<string, Job>();
   private readonly timer: ReturnType<typeof setInterval>;
-  constructor(private readonly service: Pick<DictationService, 'transcribe'>, private readonly now = Date.now) {
+  constructor(private readonly service: Pick<DictationService, 'transcribe'> & Partial<Pick<DictationService, 'startLive'>>, private readonly now = Date.now) {
     this.timer = setInterval(() => this.prune(), 30_000); this.timer.unref();
   }
   dispose(): void { clearInterval(this.timer); for (const job of this.jobs.values()) job.controller.abort(); this.jobs.clear(); }
@@ -24,7 +26,7 @@ export class DictationJobs {
   prepare(owner: string, authorize: () => void, usage: SpeechUsageAttribution = {}): { jobId: string } {
     authorize(); this.prune();
     while (this.jobs.size >= 16) {
-      const settled = [...this.jobs].find(([, job]) => !['prepared', 'transcribing'].includes(job.state.status));
+      const settled = [...this.jobs].find(([, job]) => !['prepared', 'recording', 'transcribing'].includes(job.state.status));
       if (!settled) throw new Error('Zu viele offene Aufnahmen. Eine Aufnahme beenden oder abbrechen.');
       this.jobs.delete(settled[0]);
     }
@@ -56,6 +58,39 @@ export class DictationJobs {
   }
 
   read(owner: string, jobId: string): DictationJobState { return structuredClone(this.require(owner, jobId).state); }
+
+  async startLive(owner: string, jobId: string): Promise<void> {
+    const job = this.require(owner, jobId);
+    if (!this.service.startLive || job.state.status !== 'prepared') throw new Error('Diese Aufnahme kann nicht als Live-Diktat gestartet werden.');
+    job.state = { status: 'recording', text: '' }; job.nextSequence = 0;
+    try {
+      const live = await this.service.startLive(job.authorize, job.controller.signal, job.usage, text => {
+        if (job.state.status === 'recording' && !job.controller.signal.aborted) job.state = { status: 'recording', text };
+      });
+      job.live = live;
+      void live.result.then(transcript => {
+        if (this.jobs.get(jobId) === job && job.state.status === 'transcribing') job.state = { status: 'complete', transcript };
+      }).catch(error => {
+        if (this.jobs.get(jobId) === job && ['recording', 'transcribing'].includes(job.state.status)) job.state = { status: 'failed', message: redactedErrorMessage(error, 1000) };
+      });
+    } catch (error) {
+      if (!job.controller.signal.aborted) job.state = { status: 'failed', message: redactedErrorMessage(error, 1000) };
+      throw error;
+    }
+  }
+
+  pushLive(owner: string, jobId: string, sequence: number, audio: Uint8Array): void {
+    const job = this.require(owner, jobId);
+    if (!job.live || job.state.status !== 'recording' || sequence !== job.nextSequence) throw new Error('Audiostream nicht verfügbar oder Reihenfolge geändert. Keine automatische Wiederholung.');
+    job.live.push(audio); job.nextSequence++;
+  }
+
+  finishLive(owner: string, jobId: string): void {
+    const job = this.require(owner, jobId);
+    if (job.live && ['transcribing', 'complete'].includes(job.state.status)) return;
+    if (!job.live || job.state.status !== 'recording') throw new Error('Live-Diktat ist nicht mehr verfügbar.');
+    job.state = { status: 'transcribing' }; job.expiresAt = this.now() + 10 * 60_000; job.live.finish();
+  }
 
   cancel(owner: string, jobId: string): void {
     const job = this.require(owner, jobId); job.controller.abort(); job.state = { status: 'cancelled' };

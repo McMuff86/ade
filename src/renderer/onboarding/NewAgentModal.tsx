@@ -1,12 +1,13 @@
 /**
  * New-agent modal — name + photo + category + runtime + permission mode.
- * Ollama reveals a free-text model field; an "Advanced" section (collapsed by
+ * Ollama reveals its installed model catalog; an "Advanced" section (collapsed by
  * default) holds a free-text custom-command override and optional role.
  */
 
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
+import { OllamaModePicker } from './OllamaModePicker';
 import { RuntimeModelPicker } from './RuntimeModelPicker';
 import { useAppData } from '../stores/appdata';
 import { useSelection } from '../stores/selection';
@@ -48,6 +49,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
   );
   const [runtime, setRuntime] = useState<RuntimeId>('codex');
   const [ollamaModel, setOllamaModel] = useState('');
+  const [ollamaMode, setOllamaMode] = useState<'chat' | 'coding'>('coding');
   const [claudeModel, setClaudeModel] = useState('');
   const [codexModel, setCodexModel] = useState('');
   const [codexReasoningEffort, setCodexReasoningEffort] =
@@ -77,6 +79,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         runtime,
         permissionMode,
         customCommand: customCommand.trim() || undefined,
+        ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
@@ -107,6 +110,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     setPermissionMode(template.permissionMode);
     setCustomCommand(template.customCommand ?? '');
     setOllamaModel(template.ollamaModel ?? '');
+    setOllamaMode(template.ollamaMode ?? 'chat');
     setClaudeModel(template.claudeModel ?? '');
     setCodexModel(template.codexModel ?? DEFAULT_CODEX_MODEL);
     setCodexReasoningEffort(template.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT);
@@ -195,6 +199,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         </select>
       </div>
 
+      {runtime === 'ollama' && <OllamaModePicker id="agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
         id={`agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}

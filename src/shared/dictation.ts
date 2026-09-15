@@ -8,10 +8,11 @@ export interface DictationTranscript {
   text: string;
   language: string | null;
   audioSeconds: number;
-  model: 'scribe_v2';
+  model: 'scribe_v2' | 'scribe_v2_realtime';
 }
 
 export type DictationJobState = { status: 'prepared' | 'transcribing' | 'cancelled' }
+  | { status: 'recording'; text: string }
   | { status: 'complete'; transcript: DictationTranscript }
   | { status: 'failed'; message: string };
 export const validDictationJobId = (value: unknown): value is string => typeof value === 'string'

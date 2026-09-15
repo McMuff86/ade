@@ -26,6 +26,7 @@ import { useAppData } from '../stores/appdata';
 import { DeleteAction } from './DeleteAction';
 import { Modal } from './Modal';
 import { PhotoPicker } from './PhotoPicker';
+import { OllamaModePicker } from './OllamaModePicker';
 import { RuntimeModelPicker } from './RuntimeModelPicker';
 import { DesktopAgentBehavior } from './AgentBehaviorEditor';
 import { TargetSpeechSettings } from '../settings/TargetSpeechSettings';
@@ -50,6 +51,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [runtime, setRuntime] = useState<RuntimeId>(agent.runtime);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(agent.permissionMode);
   const [ollamaModel, setOllamaModel] = useState(agent.ollamaModel ?? '');
+  const [ollamaMode, setOllamaMode] = useState<'chat' | 'coding'>(agent.ollamaMode ?? 'chat');
   const [claudeModel, setClaudeModel] = useState(agent.claudeModel ?? '');
   const [codexModel, setCodexModel] = useState(agent.codexModel ?? DEFAULT_CODEX_MODEL);
   const [codexReasoningEffort, setCodexReasoningEffort] = useState<CodexReasoningEffort>(
@@ -77,10 +79,11 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const defaultCommand = resolveLaunchCommand({
+  const defaultCommand = runtime === 'ollama' && ollamaMode === 'coding' && !ollamaModel.trim() ? '' : resolveLaunchCommand({
     runtime,
     permissionMode,
     customCommand: undefined,
+    ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
     ollamaModel: runtime === 'ollama' ? ollamaModel.trim() || undefined : undefined,
     claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
     codexModel: runtime === 'codex' ? codexModel.trim() || DEFAULT_CODEX_MODEL : undefined,
@@ -106,7 +109,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const homeIsWsl = homeBackend !== NATIVE_EXECUTION_BACKEND;
   const homeDirValid = !homeIsWsl || homeDir.trim().replace(/\\/g, '/').startsWith('/');
   const modelBackend = repositories.find((repository) => repository.id === defaultRepositoryId)?.executionBackend ?? homeBackend;
-  const canSave = name.trim().length > 0 && homeDirValid && !busy;
+  const canSave = name.trim().length > 0 && homeDirValid && !busy
+    && (runtime !== 'ollama' || !!customCommand.trim() || !!ollamaModel.trim());
   // A stored distro stays selectable even when `wsl --list` no longer knows it.
   const homeBackendOptions: Array<{ backend: ExecutionBackendId; label: string }> = [
     { backend: NATIVE_EXECUTION_BACKEND, label: 'Windows (native)' },
@@ -131,6 +135,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         runtime,
         permissionMode,
         customCommand: customCommand.trim() || undefined,
+        ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
@@ -215,6 +220,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         </select>
       </div>
 
+      {runtime === 'ollama' && <OllamaModePicker id="edit-agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
         id={`edit-agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}

@@ -110,6 +110,9 @@ export const IPC = {
   DictationQuery: 'dictation:query',
   DictationCancel: 'dictation:cancel',
   DictationMicrophone: 'dictation:microphone',
+  DictationStreamStart: 'dictation:streamStart',
+  DictationStreamChunk: 'dictation:streamChunk',
+  DictationStreamFinish: 'dictation:streamFinish',
   ProjectWorkspaceQuery: 'project:query',
   IntegrationQuery: 'integration:query',
   IntegrationCommand: 'integration:command',
@@ -713,6 +716,9 @@ export interface IpcInvokeMap {
   'dictation:query': { req: { jobId: string }; res: import('./dictation').DictationJobState };
   'dictation:cancel': { req: { jobId: string }; res: void };
   'dictation:microphone': { req: { allow: boolean }; res: void };
+  'dictation:streamStart': { req: { jobId: string }; res: void };
+  'dictation:streamChunk': { req: import('./liveDictation').LiveDictationChunk; res: void };
+  'dictation:streamFinish': { req: { jobId: string }; res: void };
   'repository:overview': { req: RepositoryInspectRequest; res: RepositoryOverview };
   'repository:syncOverview': { req: GitSyncRequest; res: GitSyncOverview };
   'repository:fetch': { req: { repositoryId: string }; res: GitSyncOverview };

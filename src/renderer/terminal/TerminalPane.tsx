@@ -344,7 +344,11 @@ export function TerminalPane({
       }}>Kopieren</button>
       <button type="button" disabled={remoteInput || exited} title="Aus Zwischenablage einfügen (Ctrl+Shift+V)" onClick={() => pasteRef.current()}>Einfügen</button>
       <button type="button" aria-expanded={searchOpen} title="Terminal durchsuchen (Ctrl+Shift+F)" onClick={() => { setSearchOpen(true); searchInput.current?.focus(); }}>Suchen</button>
-      <button type="button" aria-haspopup="dialog" onClick={() => setPromptOpen(true)}>Prompt / Diktat</button>
+      <button type="button" aria-haspopup="dialog" aria-expanded={promptOpen} aria-controls={promptOpen ? `prompt-panel-${sessionId}` : undefined}
+        onClick={() => {
+          if (promptOpen) document.getElementById(`prompt-panel-${sessionId}`)?.querySelector('textarea')?.focus();
+          else setPromptOpen(true);
+        }}>Prompt / Diktat</button>
       <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>Verlauf-Anfang</button>
       <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>Zur Live-Ausgabe</button>
       <label>Schrift<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
@@ -374,9 +378,13 @@ export function TerminalPane({
       <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus())
         .catch(() => setToolError('Eingabe konnte nicht übernommen werden. Erneut versuchen.')); }}>Eingabe am Desktop übernehmen</button>
     </div>}
-    <div className="terminal-host" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
+    <div className={`terminal-prompt-layout${promptOpen ? ' terminal-prompt-layout-open' : ''}`}>
+    <div className="terminal-host" ref={hostRef} />
     {promptOpen && <DesktopPromptDialog sessionId={sessionId}
       label={`${session?.title ?? 'CLI'} · ${repository?.name ?? 'Eigener Workspace'}${session?.branch ? ` · ${session.branch}` : ''}`}
-      onClose={() => setPromptOpen(false)} fallbackFocus={() => hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} />}
+      onClose={() => setPromptOpen(false)} focusTerminal={() => termRef.current?.focus()}
+      fallbackFocus={() => [...document.querySelectorAll<HTMLElement>('.terminal-host .xterm-helper-textarea, [role="tab"][aria-selected="true"]')]
+        .find(element => element.getClientRects().length > 0) ?? null} />}
+    </div>
   </div>;
 }

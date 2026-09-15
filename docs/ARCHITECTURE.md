@@ -609,6 +609,34 @@ before recording; text stays editable until explicit insert/submit. Saving the
 pending command locally precedes delivery. Lost replies never trigger automatic
 resubmission. Accepted PTY writes are transport receipts, not model completion.
 
+The desktop composer is a non-modal dock within `TerminalPane`: to the right
+above 760 px of pane width, below at narrower widths. The terminal stays mounted,
+refits through its existing ResizeObserver and remains interactive. Opening
+focuses the draft; Tab may leave the dock, “Zum Terminal” focuses xterm, and
+Escape inside the dock closes it. Closing restores the opener or a visible
+terminal/tab fallback without stealing focus from a navigation action.
+
+Desktop dictation streams through `LiveDictationRecorder` and a bundled
+AudioWorklet (16 kHz mono PCM, 256 ms packets, hard 60-second sample cap).
+Main owns the ElevenLabs single-use token and WebSocket; renderer CSP and the
+remote command allowlist are unchanged. `dictation:streamStart/streamChunk/streamFinish`
+are desktop-only host operations; every chunk is target/owner checked, bounded
+to 16,000 bytes and accepted only in sequence. `DictationJobs` exposes private
+partial text through its existing query. Partials replace the previous preview;
+one manual commit on Stop supplies the final editable text. `scribe_v2_realtime`
+shares the transcription concurrency gate with batch `scribe_v2`. There is no
+automatic reconnection or batch resubmission. Closing/cancelling releases the
+microphone and aborts the stream; connection loss preserves the last received
+preview with an explicit incomplete-text notice. Mobile currently retains batch
+recording and transcription after Stop.
+
+Live speech usage is journalled before connecting, with unknown audio duration
+until the stream settles. The optional numeric `speech-outcome.audioSeconds`
+updates that same fact once; replay includes the measured PCM duration. Unfinished
+stream quantities stay explicitly unknown in `SessionConsumption.speech.unknownAmounts`
+and its desktop/mobile view. Tokens, credits and provider prices are not inferred.
+The accounting measures transmitted PCM, not provider-billed connection time.
+
 Main grants microphone access for 30 seconds only to the requesting trusted ADE
 renderer window's audio-only main frame. Camera, subframes, dashboards and other
 permissions remain denied. Mobile's HTTPS document permits `microphone=(self)`;
@@ -618,7 +646,7 @@ required. Existing devices and project-work presets do not gain that grant.
 `DictationJobs` issues private, owner-bound tickets before recording (maximum 16;
 five-minute preparation, ten-minute result lifetime). Canonical mono PCM/WAV at
 16 kHz is checked from actual bytes: 0.1–60 seconds, at most 1,920,044 bytes.
-Only main sends multipart audio to the fixed ElevenLabs Scribe-v2 endpoint.
+Only main sends batch multipart audio to the fixed ElevenLabs Scribe-v2 endpoint.
 One provider request runs at a time with a 60-second deadline; no automatic
 provider retries. Raw audio is not persisted. Device revocation/target changes
 abort or invalidate jobs; final transcripts are returned only by explicit detail
@@ -715,6 +743,18 @@ Transport bounds, keyboard acknowledgement and launch semantics are specified in
 `TERMINAL_LATENCY_RESULTS.md`.
 
 ## Runtime model catalogs
+
+Ollama identities additionally persist `ollamaMode: 'chat' | 'coding'` across
+agent/template/bundle contracts. Absent/chat preserves `ollama run`; coding uses
+the existing Codex CLI with explicit `--oss --local-provider ollama --model`,
+preserving permission mode. Main rechecks CLI/model availability before spawning.
+`ollama-codex-jsonl-v1` reuses the structured result protocol while retaining a
+distinct identity from the Goal 6 Codex adapter. Native Windows interactive
+coding uses the protected program transport; saved behavior uses the existing
+Codex instruction delivery. Ollama sessions remain runtime `ollama` and never
+enter the OpenAI subscription collector. Their interactive token collection is
+not implemented. Direct session choice `ollama` remains chat; saved-profile
+choice preserves coding mode. [Evidence and platform limits](OLLAMA_RESULTS.md).
 
 `harness:models` is a desktop-only audited launch channel with strict runtime/
 backend inputs. `RuntimeModelService` runs bounded CLI metadata probes in that

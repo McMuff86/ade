@@ -1,5 +1,56 @@
 # ADE — aktuelle Übergabe
 
+## Terminal-Dock und Live-Diktat (16. September 2026)
+
+Der neue Desktop-Bereich „Prompt und Diktat“ lässt das Terminal sichtbar und
+bedienbar. AudioWorklet und main-eigene ElevenLabs-Verbindung liefern bereits
+während der Aufnahme Text. Einfügen/Absenden bleibt ausdrücklich manuell.
+53 Live-Vertragschecks und 52 kombinierte Electron-/Browserchecks bestanden mit
+lokalem Provider-Fixture. `pnpm verify` hat alle 72 fokussierten Suiten mit
+3.036 Checks, den Produktionsbuild und sämtliche anschliessenden Electron-,
+Browser- und Visualprüfungen bestanden (Exit 0). Der abschliessende fokussierte
+Live-Test prüft auch die konkreten Ablehnungsgründe aller Negativkontrollen.
+Log: `test-results/prompt-live-verify.log`.
+Persönliche ADE-Sitzungen wurden nicht beendet oder neu gestartet. Der neue
+Build ist noch nicht in der geöffneten persönlichen Oberfläche aktiviert.
+Ein persönlicher Mikrofon-/ElevenLabs-Test ist noch offen.
+Details: [LIVE_DICTATION_RESULTS](LIVE_DICTATION_RESULTS.md).
+
+## Ollama nach erfolgreichem Diktat-Test (15. September 2026)
+
+Der Operator bestätigt den eigenen Diktat-Test und beauftragt Ollama samt
+Modellübersicht. Die frühere Pause ist damit für diese Arbeit aufgehoben.
+Implementierung und begrenzte Nachweise stehen in [OLLAMA_RESULTS](OLLAMA_RESULTS.md).
+30 Modell-, 21 Coding-Vertrags- und 18 Electron-/ConPTY-Prüfungen bestanden,
+ebenso TypeScript und Build. Gesamtabnahme in zwei Teilläufen: `pnpm verify`
+bestand **71 Suiten / 2.980 Checks**, Build und sämtliche nachfolgenden App-/
+Browserprüfungen bis zum Einrichtungstest. Dieser erwartete ein unregistriertes
+Projekt unter dem inzwischen voreingestellten Filter „Meine ADE Projekte“.
+Der Test wählt jetzt ausdrücklich „Alle“ und prüft zusätzlich den Startfilter;
+Produktcode blieb für diese Korrektur unverändert. Anschliessend bestanden
+**38 Einrichtungschecks**, **22 Visualchecks** und nochmals TypeScript.
+Ein einzelner erneut grüner Gesamtlauf wurde nach dieser Testkorrektur nicht
+ausgeführt. Logs: `test-results/ollama-verify.log`, `ollama-setup-positive.log`
+und `ollama-visual.log`.
+
+**Persönliche Aktivierung abgeschlossen:** Der Operator hat das Beenden der
+offenen Codex-Sitzung und den Neustart ausdrücklich freigegeben. Der bisherige
+Prozessbaum (ADE 49340, Codex 4800) wurde beendet. Das Skript
+`test-results/activate-ollama.cjs --apply` hat über normales IPC das portable
+Profil „Ollama“ unter „Coding-Profile“ angelegt: Runtime `ollama`,
+`ollamaMode=coding`, Modell `qwen3-coder:30b`, Berechtigungen `default`.
+Profil-ID: `5bcaf16c-3f3f-4704-84c7-15a57d901a15`; dauerhaftes `AGENTS.md` vorhanden.
+Die fünf bisherigen Agenten und Repository-Einträge sind unverändert.
+Die ursprüngliche Konfiguration liegt unter
+`C:\Users\Adi.Muff\ADE-Backups\Ollama-BeforeRestart-20260915-231010\config.json`.
+
+ADE läuft wieder interaktiv als Entwicklungsstart `electron.exe .`, PID 35044,
+mit dem üblichen Profil unter AppData/Roaming/ade. Die Ollama-Einstellungen sind
+geöffnet und zeigen 13 Modelle sowie die Auswahl `qwen3-coder:30b`.
+Nachweise: `test-results/ollama/activation.json` und
+`test-results/ollama/personal-active-models.png`. Es wurde noch keine persönliche
+Ollama-Coding-Sitzung gestartet. Kein neues Paket, Commit oder Push für diese Arbeit.
+
 ## Übergabe zum Tablet-Test; danach auf Operatorwunsch pausieren (15. September 2026)
 
 Der Operator verlangt jetzt: diesen Code samt Handoff committen und pushen,

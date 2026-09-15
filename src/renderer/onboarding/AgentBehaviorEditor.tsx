@@ -52,7 +52,7 @@ export function AgentBehaviorEditor({ agentId, port, enabled = true, canEdit = t
   return <section className="agent-behavior-editor" aria-label="Agent-Verhalten">
     <h3>Arbeitsweise und Anweisungen</h3>
     <p>Diese Anweisungen spezialisieren neue Sitzungen mit Agent-Profil. Repository-Anweisungen bleiben wirksam. Bereits laufende Sitzungen behalten ihren Startstand.</p>
-    <p>Interaktive Profilanweisungen unterstützen derzeit native Windows-Starts mit Codex oder Claude. Andere Laufzeiten und eigene Startbefehle können ein gespeichertes Verhalten noch nicht übernehmen.</p>
+    <p>Interaktive Profilanweisungen unterstützen derzeit native Windows-Starts mit Codex, Claude oder Ollama-Coding über Codex. Andere Laufzeiten und eigene Startbefehle können ein gespeichertes Verhalten noch nicht übernehmen.</p>
     {!enabled && <p role="status">PC nicht verbunden.</p>}
     {!canEdit && <p>Die Gerätefreigabe zum Bearbeiten von Agent-Profilen fehlt.</p>}
     {view?.redacted && <p role="status">Dieses Profil enthält ausgeblendete Inhalte. Zum Bearbeiten am PC öffnen.</p>}

@@ -7,7 +7,7 @@ import type {
   StructuredTaskResult,
   TaskUsage,
 } from '../../shared/types';
-import { resolveClaudeCommand, resolveCodexExecCommand, resolveLaunchCommand } from '../../shared/runtimes';
+import { resolveClaudeCommand, resolveCodexExecCommand, resolveLaunchCommand, resolveOllamaCodingCommand } from '../../shared/runtimes';
 import { parseClaudeUsage } from './claudeStream';
 import { parseCodexUsage } from './codexStream';
 import { parseGrokUsage, structuredResultFromGrokStream } from './grokStream';
@@ -65,6 +65,7 @@ export class RuntimeAdapterRegistry {
 
   constructor(adapters: RuntimeTaskAdapter[] = [
     new CodexJsonAdapter(),
+    new OllamaCodingAdapter(),
     new ClaudeStreamJsonAdapter(),
     new GrokJsonAdapter(),
     new FileResultAdapter(),
@@ -105,7 +106,7 @@ export class RuntimeAdapterRegistry {
 
 /** Codex owns the result file and validates it against JSON Schema. */
 export class CodexJsonAdapter implements RuntimeTaskAdapter {
-  readonly id = 'codex-jsonl-v1';
+  readonly id: string = 'codex-jsonl-v1';
 
   supports(agent: Agent): boolean {
     return agent.runtime === 'codex' && !agent.customCommand?.trim();
@@ -123,7 +124,7 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
     platform: 'win32' | 'posix',
   ): ManagedTaskLaunch {
     prepareFiles(files);
-    const base = resolveCodexExecCommand(agent.permissionMode, agent);
+    const base = agent.runtime === 'ollama' ? resolveOllamaCodingCommand(agent, true) : resolveCodexExecCommand(agent.permissionMode, agent);
     const envRef = (name: string): string => platform === 'win32' ? `"$env:${name}"` : `"$${name}"`;
     const args = [
       '--skip-git-repo-check',
@@ -161,6 +162,14 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
     // Codex CLI currently reports tokens, not monetary cost. Preserve unknown.
     result.usage.costUsd = null;
     return result;
+  }
+}
+
+/** Same structured CLI protocol; a distinct provider identity, excluded from Goal 6. */
+export class OllamaCodingAdapter extends CodexJsonAdapter {
+  override readonly id = 'ollama-codex-jsonl-v1';
+  override supports(agent: Agent): boolean {
+    return agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && !agent.customCommand?.trim();
   }
 }
 

@@ -86,6 +86,8 @@ export interface AgentTemplate {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  ollamaMode?: 'chat' | 'coding';
   /** Claude CLI model id or alias, including its optional [1m] suffix. */
   claudeModel?: string;
   /** Exact Codex CLI model id, e.g. "gpt-5.6-sol". */
@@ -162,6 +164,8 @@ export interface Agent {
   customCommand?: string;
   /** model name for the ollama runtime, e.g. "llama3.3" */
   ollamaModel?: string;
+  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  ollamaMode?: 'chat' | 'coding';
   /** Claude CLI model id or alias, including its optional [1m] suffix. */
   claudeModel?: string;
   /** Exact model pin for the Codex runtime, e.g. "gpt-5.6-sol". */
@@ -1395,6 +1399,8 @@ export interface AgentCreateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  ollamaMode?: 'chat' | 'coding';
   claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
@@ -1413,6 +1419,8 @@ export interface AgentUpdateInput {
   permissionMode: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  ollamaMode?: 'chat' | 'coding';
   claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
@@ -1450,6 +1458,8 @@ export interface AgentTemplateSpawnInput {
   permissionMode?: PermissionMode;
   customCommand?: string;
   ollamaModel?: string;
+  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  ollamaMode?: 'chat' | 'coding';
   claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;

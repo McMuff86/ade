@@ -468,6 +468,8 @@ export interface SessionConsumption {
     unit: 'audioSeconds' | 'characters';
     requests: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
     amounts: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
+    /** Streams have no final measured duration until they settle. */
+    unknownAmounts?: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
   }>;
   status: 'waiting' | 'recording' | 'incomplete' | 'unsupported';
   ended: boolean;

@@ -1,5 +1,33 @@
 # ADE implementation status
 
+## Sichtbares Terminal und Live-Diktat (16. September 2026)
+
+„Prompt und Diktat“ ist am Desktop rechts neben beziehungsweise unter dem
+Terminal angedockt. Das Terminal bleibt bedienbar. Live-Diktat mit ElevenLabs
+`scribe_v2_realtime` zeigt Zwischenstände während der Aufnahme und übernimmt
+den bestätigten Text nach Stoppen in den Entwurf. 53 Live-Vertragschecks,
+52 Diktat-/Terminal-Appchecks und alle 72 fokussierten Suiten mit 3.036 Checks
+sind positiv. `pnpm verify` besteht vollständig, einschliesslich Build und
+aller App-/Browser-/Visualprüfungen. Die persönliche Instanz wurde nicht neu
+gestartet; ein Versuch mit echtem Mikrofon und ElevenLabs-Konto steht noch aus.
+Tablet-Diktat verwendet weiterhin die bisherige Aufnahme mit anschliessender
+Transkription. [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
+
+## Ollama-Coding und Modellwahl (15. September 2026)
+
+Nach positivem Diktatfeedback beauftragt: zusätzlicher Ollama-Agent. Coding-Modus
+über die vorhandene Codex CLI, direkter Chat und aktualisierbare Modellliste sind
+implementiert. 30 Modellkatalog-, 21 Ollama-Vertrags- und 18 Electron-/ConPTY-Checks
+bestehen; echte lokale Qwen-Probe hat eine Datei geändert und getestet.
+Die Gesamtabnahme besteht in zwei Teilläufen: 71 Suiten / 2.980 Fachchecks,
+Build und App-/Browserprüfungen; nach Korrektur eines veralteten Filter-Schritts
+im Einrichtungstest auch dessen 38 Checks und 22 Visualchecks. Kein erneut
+grüner einzelner `pnpm verify` nach dieser reinen Testkorrektur. Persönliche
+Aktivierung nach ausdrücklicher Neustartfreigabe abgeschlossen: Profil „Ollama“
+unter „Coding-Profile“, `qwen3-coder:30b`, Berechtigungen `default`; die geöffneten
+Einstellungen zeigen 13 verfügbare Modelle. Bisherige Profile sind unverändert.
+[Vertrag, Verbrauchsgrenzen und Nachweise](OLLAMA_RESULTS.md).
+
 ## Checkpoint für den persönlichen Tablet-Test (15. September 2026)
 
 Der Operator übernimmt den Tablet-Test und bittet danach um Pause. Dieser Stand

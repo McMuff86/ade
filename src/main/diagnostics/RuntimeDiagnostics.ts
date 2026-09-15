@@ -344,6 +344,11 @@ async function diagnoseAgent(
     authProbe(agent.runtime, executable, backend, execution, options),
   ]);
   const version = compactLine(versionResult.stdout) ?? compactLine(versionResult.stderr);
+  if (agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && !await locate('codex', backend, execution)) {
+    return { agentId: agent.id, agentName: agent.name, runtime: agent.runtime, label, command: binary,
+      installed: true, version, authStatus: auth.status, authDetail: auth.detail, taskTransport: transport,
+      status: 'error', message: 'Ollama-Coding benötigt zusätzlich die Codex CLI in dieser Umgebung.' };
+  }
   const versionReady = versionResult.code === 0 && !versionResult.timedOut;
   const ready = versionReady
     && auth.status !== 'not-authenticated'

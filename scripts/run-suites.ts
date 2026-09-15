@@ -34,6 +34,7 @@ const SUITES: Suite[] = [
   { id: 'native-usage-service', script: 'test-native-usage-service.ts', floors: { win32: 26 } },
   { id: 'speech-usage', script: 'test-speech-usage.ts', floors: { win32: 36 } },
   { id: 'dictation', script: 'test-dictation.ts', floors: { win32: 35 } },
+  { id: 'live-dictation', script: 'test-live-dictation.ts', floors: { win32: 53 } },
   { id: 'remote-dictation', script: 'test-remote-dictation.ts', floors: { win32: 24 } },
   { id: 'dictation-jobs', script: 'test-dictation-jobs.ts', floors: { win32: 19 } },
   { id: 'terminal-prompt', script: 'test-terminal-prompt.ts', floors: { win32: 28 } },
@@ -48,7 +49,8 @@ const SUITES: Suite[] = [
   { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 51 } },
   { id: 'workspace-assignment', script: 'test-workspace-assignment.ts', floors: { win32: 33 } },
   { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 26 } },
-  { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 27 } },
+  { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 30 } },
+  { id: 'ollama-coding', script: 'test-ollama-coding.ts', floors: { win32: 21 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 45 } },
   { id: 'agent-behavior', script: 'test-agent-behavior.ts', floors: { win32: 18 } },
@@ -100,7 +102,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 271 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 274 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

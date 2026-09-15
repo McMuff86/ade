@@ -1,5 +1,14 @@
 .prompt-composer { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.prompt-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.desktop-prompt-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--line); background: var(--panel); }
+.desktop-prompt-header { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.desktop-prompt-header h2 { margin: 0; flex: 1 1 150px; font-size: 14px; }
+.desktop-prompt-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.desktop-prompt-panel button { min-height: 32px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+.desktop-prompt-panel button:disabled { opacity: .5; cursor: default; }
+.desktop-prompt-panel :is(button, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.desktop-prompt-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
+.desktop-prompt-panel .prompt-composer { gap: 10px; font-size: 12px; line-height: 1.5; }
+.desktop-prompt-panel .prompt-target { padding: 8px 10px; }
 .m-prompt-dialog .prompt-composer { padding: 16px; overflow-y: auto; }
 .prompt-composer p { margin: 0; overflow-wrap: anywhere; }
 .prompt-target { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }

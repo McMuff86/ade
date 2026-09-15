@@ -287,7 +287,14 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   const dictation = new DictationService(() => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   speech.setUsage(speechUsage); dictation.setUsage(speechUsage);
-  const recordings = new DictationJobs({ transcribe: (audio, authorize, signal, usage) => hostOperations.use(() => dictation.transcribe(audio, authorize, signal, usage)) });
+  const recordings = new DictationJobs({
+    transcribe: (audio, authorize, signal, usage) => hostOperations.use(() => dictation.transcribe(audio, authorize, signal, usage)),
+    startLive: async (authorize, signal, usage, preview) => {
+      const live = await dictation.startLive(authorize, signal, usage, preview);
+      void hostOperations.use(() => live.result).catch(() => undefined);
+      return live;
+    },
+  });
   dictationJobs = recordings;
   const speechPreferences = new SpeechPreferences(store, speech);
   const agentBehavior = new AgentBehaviorService(store);
@@ -929,6 +936,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
   handleWithEvent(IPC.DictationQuery, ({ jobId }, event) => recordings.read(`desktop:${event.sender.id}`, jobId));
   handleWithEvent(IPC.DictationCancel, ({ jobId }, event) => recordings.cancel(`desktop:${event.sender.id}`, jobId));
+  handleWithEvent(IPC.DictationStreamStart, ({ jobId }, event) => recordings.startLive(`desktop:${event.sender.id}`, jobId));
+  handleWithEvent(IPC.DictationStreamChunk, ({ jobId, sequence, audioBase64 }, event) => {
+    const audio = Buffer.from(audioBase64, 'base64');
+    if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
+    recordings.pushLive(`desktop:${event.sender.id}`, jobId, sequence, audio);
+  });
+  handleWithEvent(IPC.DictationStreamFinish, ({ jobId }, event) => recordings.finishLive(`desktop:${event.sender.id}`, jobId));
   handleWithEvent(IPC.DictationMicrophone, ({ allow }, event) => {
     if (allow) desktopMicrophone.grant(event.sender.id); else desktopMicrophone.revoke(event.sender.id);
   });
