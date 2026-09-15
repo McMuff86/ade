@@ -29,13 +29,44 @@ diesen Checkpoint steht aus**; der letzte vollständige Lauf bleibt `128b503`
 mit 3.735 Checks. Lokale Logs: `usage-verify-fixture-negative.log`,
 `usage-terminal-positive.log`, `usage-typecheck-package.log` unter `test-results`.
 
-Geplanter finaler Programmort: `dist/usage-20260915/win-unpacked/ADE.exe`.
-Build-/Paketnachweis und tatsächliche Aktivierung werden nach dem Build unten
-ergänzt. Beim letzten Prozesscheck besitzt die alte persönliche Instanz 37308
-nur noch Electron-Hilfsprozesse und einen ConPTY-Host; der frühere WSL-Prozess
-65516 ist beendet. Originalrepositorys, Profile, Geräte und verschlüsselte
-Service-Keys bleiben erhalten. Die vorhandene Startmenü-Verknüpfung zeigt bisher
-auf `dist/workflow-review-20260914/win-unpacked/ADE.exe`.
+**Aktiviert am 15. September, 04:32 UTC:**
+`dist/usage-20260915/win-unpacked/ADE.exe`, persönliche Hauptinstanz **PID 22860**,
+ein sichtbares ADE-Fenster mit den üblichen Electron-Hilfsprozessen. Der Code-
+Checkpoint **406a06c37bbb0e12a74ceb0c76013b74ec47ba31** samt diesem Handoff ist
+auf `origin/main` gesichert; danach wurden nur Pakettest und Betriebsnachweis
+ergänzt. Der Produktionsbuild wurde nach diesem Commit erstellt.
+
+Das Windows-Paket besteht **13 reale Paketprüfungen**, einschliesslich ConPTY,
+Work-/Overview-Rückkehr, Promptentwurf und authentisierter nativer Zahlen-Fixture.
+Eine erste Paketprobe öffnete die Nutzungsanzeige zu früh am alten Shell-Tab;
+der Driver wartet jetzt ausdrücklich auf die aktive Codex-Sitzung und besteht.
+Log: `test-results/usage-package-smoke-positive.log`; Manifest:
+`test-results/cli-work-package-smoke.json` (SourceDirty betrifft diese Testkorrektur,
+der Produktcode entspricht 406a06c).
+
+- EXE-SHA256: `e8a1fcba5a975268c68908c9e855e555200e45a3db17f181a110e47d412b80bb`
+- App-ASAR-SHA256: `e4b448330202cc053695a7832cc55247877bb162af23e3bdb6e5c426a23ad75d`
+- Tablet: **https://number-cruncher.tailfc0b86.ts.net/**; HTML-Abruf nach Start
+  mit HTTP 200. Die geschützte API lehnt unangemeldete Abfragen weiterhin mit 401 ab.
+- Bestehendes Gerät **Samsung Galaxy S10 Ultra** behält seine Kopplung/Rechte
+  und erhielt zusätzlich `dictation:transcribe` über den validierenden,
+  auditierenden DeviceStore. Terminalfreigabe und bisherige Ressourcenauswahl
+  bleiben erhalten. Tabletseite neu laden; keine neue Kopplung erforderlich.
+- Die Startmenü-Verknüpfung **ADE** zeigt jetzt auf das neue Programm. Die alte
+  Instanz 37308 wurde nach Prüfung ihrer Kindprozesse beendet: keine Coding-CLI
+  und kein WSL-Prozess mehr vorhanden, nur Electron-Hilfsprozesse/ConPTY-Host.
+  Vorherige Konfiguration, Gerätebestand, Audit und Verknüpfung gesichert unter
+  `C:\Users\Adi.Muff\ADE-Backups\UsageActivation-20260915`.
+- C: lief beim ersten Paketversuch voll. Zwei unbenutzte erzeugte Buildordner
+  (`dist/win-unpacked`, `dist/cli-work-20260915`) wurden vollständig nach
+  `D:\ADE-Build-Archive\20260915-usage-checkpoint` verschoben. Keine Original-
+  repositorys gelöscht oder verschoben. Letzter freier Platz auf C: rund **1 GB**;
+  vor weiterer längerer Arbeit Speicherplatz prüfen. Die aktuelle Version und
+  die frühere Workflow-/Diktat-Version sind erhalten.
+
+Alle vier persönlichen Originalprojekte sind weiterhin registriert. Keine
+CLI-Testaufträge laufen in der persönlichen Instanz. **ADE offen lassen und
+jetzt pausieren**, damit der Operator selbst am Tablet testen kann.
 
 Offen für die nächste ausdrücklich freigegebene Arbeitsphase:
 

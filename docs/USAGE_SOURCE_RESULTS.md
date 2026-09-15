@@ -207,6 +207,9 @@ alte Bedingung „keine Argumente“ passte nicht zu den neuen Startargumenten.
 Nach Anpassung besteht der komplette Terminal-Driver erneut 204 Checks. Ein
 erneuter vollständiger Gesamtversuch steht noch aus. Der Operator wünscht jetzt
 einen gesicherten Build zum eigenen Tablet-Test und danach Pause; [Handoff](HANDOFF.md).
+Dieser Build ist inzwischen aus Codecheckpoint `406a06c` erzeugt, mit 13 eigenen
+Paketchecks bestanden und als persönliche Instanz gestartet. Die Quellenlücken
+und ausstehende vollständige Wiederholungsabnahme bleiben bestehen.
 
 Vor dem STT-/TTS-Aufruf speichert ADE einen Versuch. Erfolg, unbestätigter
 Ausgang und Abbruch vor Versand aktualisieren denselben Versuch ohne doppelte

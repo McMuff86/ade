@@ -87,6 +87,7 @@ ${nativeUsageFixtureSource}
   check('package smoke uses isolated config and creates no agent binding', config.agents.length === 0 && config.workspaceBindings.length === 0 && config.repositories.every(item => item.rootPath === repo));
   await page.getByRole('region', { name: 'CLI-Arbeit', exact: true }).locator(`li[data-session-id="${session.id}"]`).getByRole('button', { name: /^Sitzung öffnen:/ }).click();
   await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
   await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
   const usageView = terminal.getByRole('region', { name: 'Sitzungsverbrauch', exact: true });
   await usageView.getByText('codex-usage-fixture', { exact: false }).waitFor();

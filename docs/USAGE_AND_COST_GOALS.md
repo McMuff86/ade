@@ -18,8 +18,9 @@ privater OTLP-Empfänger und exakt gebundene native Dateiquellen sind implementi
 **130 fokussierte Checks** bestehen (27 Normalisierung, 35 Journal, 19 Empfänger,
 23 Dateiquelle, 26 Collector). Neue native Windows-CLI-Starts sind angebunden;
 eine sitzungsbezogene Anzeige ergänzt den bestehenden Terminal-Nutzungsabruf
-auf PC und Tablet. Die erneute integrierte Abnahme läuft noch. Persönliche
-Aktivierung, Projekt-/Monatsübersicht, Budgets und vollständige
+auf PC und Tablet. Der Windows-Build aus Codecheckpoint `406a06c` ist persönlich
+aktiviert und besteht 13 Paketprüfungen; die erneute vollständige Gesamtprüfung
+steht aus. Projekt-/Monatsübersicht, Budgets und vollständige
 Resume-/Fork-/Unteragentabdeckung stehen aus. ElevenLabs-STT-/TTS-Versuche sind
 inzwischen dauerhaft angebunden, mit **36 weiteren fokussierten Checks**:
 Audiosekunden bzw. Zeichen, unveränderlicher Zielbezug und getrennte Abschlüsse.
@@ -27,7 +28,7 @@ Die Sitzungsansicht zeigt Diktate separat von LLM-Tokens; Einzelpreise/Credits
 bleiben unbekannt. Der echte lesende Kontenabgleich ist als Quelle geprüft,
 noch keine integrierte Kontenansicht. Der Ausbauauftrag bleibt aktiv.
 
-## Sichtbares Ergebnis
+## Geplantes vollständiges Ergebnis
 
 PC und Tablet zeigen Verbrauch für die aktuelle Sitzung, das Projekt und den
 gewählten Zeitraum, aufgeschlüsselt nach Host, Backend, Provider und tatsächlich

@@ -14,7 +14,8 @@ Terminal-Latenz und Verbrauch/Kosten. README, Index, SPEC, ARCHITECTURE,
 STATUS, ROADMAP und HANDOFF werden gemeinsam mit dem Code fortgeschrieben.
 Die CLI-Lieferung steht im [CLI-Nachweis](CLI_WORK_LATENCY_RESULTS.md), der
 folgende Sprachmeilenstein in den [Diktat-Nachweisen](DICTATION_IMPLEMENTATION_RESULTS.md).
-Persönliche Aktivierung und physische Tablet-Abnahme bleiben gesondert.
+Die persönliche Aktivierung ist im Handoff mit Paket- und Prozessnachweis
+festgehalten; die physische Tablet-Abnahme übernimmt jetzt der Operator.
 Der [Verbrauchsquellenbericht](USAGE_SOURCE_RESULTS.md) beschreibt echte native
 Proben; die inzwischen angeschlossene native Sitzungserfassung besitzt eine eigene
 Fixture-Abnahme und erste echte Integrationsproben. Die zusätzliche
@@ -48,7 +49,7 @@ Der Sprachabgleich prüft zusätzlich folgende Aussagen gegen Code und Tests:
 | Zielnummern sind eindeutig | Verbliebene alte Multi-Host-Nummern im Sprachplan auf 29/30 korrigiert; historische Ergebnisnummern bleiben erhalten. |
 
 Inventar dieses Folgeabgleichs: **94 Markdown-Dateien unter docs**, dazu das
-Root-README. Der Dateiziel-Check findet **412 relative Verweise ohne fehlendes
+Root-README. Der Dateiziel-Check findet **413 relative Verweise ohne fehlendes
 Ziel**. Er prüft lokale Dateiziele, keine externen URLs oder
 Überschriftsanker. Einzelne Windows-1252-Zeichen in der ansonsten UTF-8-kodierten
 älteren Latenz-Ergebnisdatei sind vereinheitlicht; ihr historischer Inhalt bleibt erhalten.

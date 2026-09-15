@@ -9,7 +9,10 @@ Verbrauchs-Appchecks und der korrigierte komplette Terminal-Driver mit 204 Check
 sind positiv. Der erste Gesamtversuch scheiterte an einer inzwischen angepassten
 CLI-Fixture; **ein erneut vollständig grünes `pnpm verify` steht noch aus**.
 Keine Gesamtabnahme der offenen Goal-24-Funktionen behaupten.
-Aktivierung, Paket und Restarbeit führt das [Handoff](HANDOFF.md).
+Der gebaute Codecheckpoint `406a06c` ist gepusht; das neue Windows-Paket besteht
+13 zusätzliche Prüfungen und ist als einzelne persönliche ADE-Instanz geöffnet.
+Samsung-Tablet-Diktat ist freigegeben, die private HTTPS-Seite antwortet mit 200.
+Aktivierung, Paket, knapper Speicherplatz und Restarbeit führt das [Handoff](HANDOFF.md).
 
 ## Vorheriger vollständiger Diktatstand und folgende Arbeit (15. September 2026)
 

@@ -431,8 +431,9 @@ Im aktuellen Code ergänzt **Sitzungsverbrauch** diese Anzeige für neue native
 Windows-Codex-/Claude-/Grok-Starts. Sie zeigt gemeldeten Input/Output, darin
 enthaltenen Cache/Reasoning und verfügbare Kosten mit ihrer jeweiligen Quelle.
 Fehlende Felder bleiben unbekannt; API-Schätzungen sind keine Abo-Rechnung.
-Bei geöffnetem Bereich wird alle zehn Sekunden aktualisiert. Dieser Ausbau
-ist noch in Abnahme und nicht im zuletzt aktivierten persönlichen Programm.
+Bei geöffnetem Bereich wird alle zehn Sekunden aktualisiert. Der Ausbau ist im
+am 15. September aktivierten persönlichen Programm verfügbar; die vollständige
+Folgeabnahme und weiteren Ausbaustufen bleiben im Handoff als offen geführt.
 Fortgesetzte ältere Gespräche, Forks, Unteragenten und andere Backends sind noch
 nicht vollständig erfasst; eine unvollständige Anzeige ist keine Gesamtrechnung.
 

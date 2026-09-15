@@ -1,8 +1,9 @@
 # Diktat und Promptübergabe: Implementierungsstand
 
 15. September 2026. Fortsetzung nach der CLI-/Latenz-Lieferung. Diese Module
-sind an Desktop und Mobile angebunden; die laufende persönliche ADE-Instanz
-bietet den neuen Ablauf noch nicht an. [Verbindlicher Auftrag](CLI_WORK_AND_DICTATION_GOALS.md).
+sind an Desktop und Mobile angebunden. Seit der Aktivierung des Verbrauchs-
+Checkpoints `406a06c` bietet auch die persönliche ADE-Instanz diesen Ablauf an;
+[aktueller Betrieb und Grenzen](HANDOFF.md). [Verbindlicher Auftrag](CLI_WORK_AND_DICTATION_GOALS.md).
 
 Gesicherter Diktatcommit: **`128b503a098b541ada26d3879109028a40bc3099`**,
 auf `origin/main` gepusht und mit dem entfernten SHA abgeglichen.
