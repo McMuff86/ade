@@ -17,7 +17,18 @@ Mobile Terminals zeigen bestätigte PTY-Ausgabe. Kurze aktive Abfrageintervalle,
 ausgelassene unveränderte Bilddaten und Prozessscope-Prüfungen ohne Git-Start
 pro Taste verkürzen die Rückmeldung. Die lokale Messung ist keine pauschale
 Tablet-/WAN-Latenzzusage. Der unten beschriebene Diktatablauf ist implementiert;
-das Kostenjournal bleibt ein aktives Ausbauziel.
+das Kostenjournal bleibt ein aktives Ausbauziel. Im aktuellen Arbeitsstand
+ergänzt „Sitzungsverbrauch“ den Terminal-Nutzungsabruf für neue native
+Windows-Codex-/Claude-/Grok-Starts: Input/Output, darin enthaltene Cache-/Reasoning-
+Anteile, Datenlücken und getrennt bezeichnete API-Schätzungen/Anbieterbeträge.
+Die Anzeige wird am PC und Tablet geteilt. Kontingente, Gesamtbudget und
+Einzelabrechnung bleiben verschiedene Angaben; unbekannte Werte sind nicht 0.
+ElevenLabs-Diktat zählt die geprüften Audiosekunden dieser Sitzung, Stimmtests die
+übergebenen Zeichen. Beantwortete, ausstehende, unbestätigte und vor Versand
+beendete Aufträge bleiben getrennt. Das erzeugt keine geschätzten LLM-Tokens oder
+erfundenen Einzelpreise. Projekt-/Zeitsummen, Kontenansicht, Budgets und vollständige
+Wiederaufnahmeabdeckung sind noch offen. Die neue Verdrahtung ist separat vom
+Diktat-Paket in Abnahme.
 
 Beide Oberflächen bieten die Navigation Overview, Projekte, Terminals, Work,
 Graph in derselben Reihenfolge. Work zeigt Runs mit Suche nach Name, Projekt
@@ -35,6 +46,11 @@ das allgemeine „Save“ speichert die übrigen Agent-Einstellungen. Neue Sitzu
 übernehmen die gespeicherten Anweisungen nach den bestehenden Profilregeln.
 
 ## Stimmen und Meine ADE Projekte
+
+Die Projektliste beginnt mit „Meine ADE Projekte“. Eine bewusst gewählte Ansicht
+„Alle“ bleibt beim Wiederöffnen erhalten; fehlender Browser-Speicher verhindert
+das Filtern nicht. Der mobile Promptdialog benennt den tatsächlich zugeordneten
+Projekt-Workspace auch dann, wenn die CLI ohne Agent-Profil gestartet wurde.
 
 Desktop Settings bietet „Sprachausgabe · ElevenLabs“: Stimmen laden, Stimme
 auswählen, „Stimme testen“ und Wiedergabe stoppen. Die Auswahl wird gespeichert;

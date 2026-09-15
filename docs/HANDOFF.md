@@ -1,12 +1,71 @@
 # ADE — aktuelle Übergabe
 
-## Aktive Goals und gesicherter Umbau (15. September 2026)
+## Übergabe zum Tablet-Test; danach auf Operatorwunsch pausieren (15. September 2026)
+
+Der Operator verlangt jetzt: diesen Code samt Handoff committen und pushen,
+anschliessend einen Windows-Build erstellen, genau eine persönliche ADE-Instanz
+für seinen Tablet-Test offen lassen und danach die Arbeit pausieren. Keine
+weitere Implementierung oder automatische Testserie bis zu seiner Rückmeldung.
+Offene Goals bleiben offen; diese Übergabe ist keine Gesamterledigung von Goal 24.
+
+Dieser Checkpoint ergänzt die erste Projektansicht, mobile Projektnamen und eine
+gemeinsame Verbrauchsanzeige unter **Abo-Nutzung → Sitzungsverbrauch** für neue
+native Windows-Codex-/Claude-/Grok-Starts. Gemeldete Input-/Output-/Cache-/Reasoning-
+Werte, unbekannte Felder und API-Schätzungen bleiben unterscheidbar. ElevenLabs-
+STT/TTS schreibt Versuche mit Audiosekunden beziehungsweise Zeichen dauerhaft
+vor dem Versand. Diktatwerte erscheinen an der ursprünglichen Sitzung, getrennt
+nach bestätigtem, ausstehendem, unbestätigtem oder nicht versendetem Ausgang.
+Anbieterkosten/Credits pro Sprachauftrag bleiben ohne eindeutige Quelle unbekannt.
+
+Prüfstand: alle drei TypeScript-Projekte, Produktionsbuild und **2.956 Checks in
+70 fokussierten Suiten** bestanden; zusätzlich **32 kombinierte Diktat-/Verbrauchs-
+Appchecks**. Der erste Gesamtversuch stoppte im freien Terminal: dessen CLI-
+Fixture schrieb ihren Dateinachweis nur ohne Argumente. Sie berücksichtigt jetzt
+auch die tatsächlichen Telemetrie-/Sitzungsargumente. Der vollständige betroffene
+Electron-/Tablet-Driver besteht danach **204 Checks**, einschliesslich des
+tatsächlichen Arbeitsordners aller drei CLIs. Produktcode wurde für diese
+Korrektur nicht abgeschwächt. **Ein erneut vollständig grünes `pnpm verify` für
+diesen Checkpoint steht aus**; der letzte vollständige Lauf bleibt `128b503`
+mit 3.735 Checks. Lokale Logs: `usage-verify-fixture-negative.log`,
+`usage-terminal-positive.log`, `usage-typecheck-package.log` unter `test-results`.
+
+Geplanter finaler Programmort: `dist/usage-20260915/win-unpacked/ADE.exe`.
+Build-/Paketnachweis und tatsächliche Aktivierung werden nach dem Build unten
+ergänzt. Beim letzten Prozesscheck besitzt die alte persönliche Instanz 37308
+nur noch Electron-Hilfsprozesse und einen ConPTY-Host; der frühere WSL-Prozess
+65516 ist beendet. Originalrepositorys, Profile, Geräte und verschlüsselte
+Service-Keys bleiben erhalten. Die vorhandene Startmenü-Verknüpfung zeigt bisher
+auf `dist/workflow-review-20260914/win-unpacked/ADE.exe`.
+
+Offen für die nächste ausdrücklich freigegebene Arbeitsphase:
+
+1. `pnpm verify` erneut vollständig ausführen; verbleibende UI-/Latenz-/Visual-
+   Driver dieses Checkpoints sind nicht als neu vollständig abgenommen auszugeben.
+2. Rückmeldung vom echten Tablet: Browser/OS, Mikrofonfreigabe, Diktat, Wechsel
+   zwischen Projekten und Tastaturgefühl. Lokale Chromium-/ConPTY-Messungen sind
+   keine Messung der Mobilfunk-/WAN-Verbindung. Die bestehende Gerätefreigabe
+   **Diktat mit ElevenLabs** (`dictation:transcribe`) muss für Diktat aktiv sein.
+3. Goal 24: Projekt-/Tages-/Monatsansicht, Budgetwarnungen und separate ElevenLabs-
+   Kontenansicht. Gelesene Kontensummen nicht als exakte ADE-Einzelpreise oder
+   zusätzliche Kopie bereits gezählter Sprachversuche verbuchen.
+4. Codex-Zusatzereignis mit unzugeordneter Konversationsidentität klären; bekannte
+   Rolloutwerte bleiben korrekt und ausdrücklich unvollständig. Resume/Fork,
+   Unteragenten und andere Backends benötigen eigene Nachweise. Claude-Reasoning
+   bleibt ohne passend zugeordnetes Quellfeld unbekannt.
+5. Weitere Produktideen nur priorisiert angehen: Schnellwechsler, ruhige Hinweise
+   auf Prüfbedarf und erkennbare gleichzeitige Schreiber im selben Checkout.
+
+Führende Quellen: [Verbrauchsnachweise](USAGE_SOURCE_RESULTS.md),
+[Verbrauchsziele](USAGE_AND_COST_GOALS.md), [CLI-/Diktat-Ziele](CLI_WORK_AND_DICTATION_GOALS.md),
+[Dokumentationsaudit](DOCUMENTATION_AUDIT.md).
+
+## Vorheriger Diktatcheckpoint und anschliessender Ausbau (15. September 2026)
 
 Operator bestätigt den sichtbaren Umbau und beauftragt ein aktives Ziel für
 CLI-Arbeitsübersicht (Goal 27) und ElevenLabs-Promptübergabe (Goal 23.1 Desktop).
 Das Ziel ist in der Zielverwaltung angelegt, ohne Tokenbudget. CLI-Arbeitsliste,
 Textentwurf und Diktat auf Desktop/Mobile sind implementiert. Der neue Stand
-besteht `pnpm verify` vollständig mit **3.735 Checks** (64 Suiten / 2.786
+besteht als Diktatcommit `128b503` `pnpm verify` vollständig mit **3.735 Checks** (64 Suiten / 2.786
 fokussierte + 949 UI-Checks). Windows-Paket unter
 `dist/dictation-20260915/win-unpacked/ADE.exe` mit zehn Paketprüfungen bestanden.
 Ein echter Scribe-v2-Aufruf und die native Promptübergabe an Codex, Claude Code
@@ -14,7 +73,21 @@ und Grok sind erfolgreich; physische Tablet-/WAN-Abnahme bleibt gesondert.
 Der frühere CLI-Checkpoint `b2e134e` und Paketnachweis `5ea3b3c` sind auf
 `origin/main` gesichert. Die persönliche Instanz 37308 bleibt wegen einer
 offenen WSL-Shell unverändert; nicht ungeprüft beenden.
-Verbrauchsjournal und die zwei Orientierungsdetails aus Goal 27.2 sind noch offen.
+Der Diktatcommit **128b503a098b541ada26d3879109028a40bc3099** ist jetzt ebenfalls
+gepusht und der Remote-SHA abgeglichen. Die zwei Orientierungsdetails aus Goal
+27.2 sind danach implementiert und fokussiert geprüft; neues Gesamtverify/Paket
+für diese Folgeänderung noch ausstehend. Die native Verbrauchserfassung ist nun
+mit neuen geschützten Windows-CLI-Starts und einer gemeinsamen PC-/Tablet-
+Sitzungsanzeige verbunden. 130 native Vertragschecks sowie 32 kombinierte Diktat-/
+Verbrauchs-Electronchecks bestehen; alle drei CLI-Quellen im App-Test sind
+isolierte Fixtures. Erste echte integrierte Codex-/Claude-/Grok-Proben liegen
+inzwischen vor. Codex markiert ein zusätzliches unzugeordnetes Konversations-
+ereignis korrekt als unvollständig; dessen Herkunft bleibt zu klären.
+ElevenLabs-STT-/TTS-Versuche sind ebenfalls angebunden und mit 36 fokussierten
+Checks geprüft. Ihre Audiosekunden/Zeichen und Abschlüsse bleiben separat; ein
+unbestätigter Auftrag wird nicht als kostenlos ausgegeben. Projekt-/Monatsansicht,
+Kontenansicht, Budgets und Wiederaufnahmefälle sind noch offen.
+Führender Befund: [Verbrauchsquellen](USAGE_SOURCE_RESULTS.md).
 [Aktueller Diktatstand](DICTATION_IMPLEMENTATION_RESULTS.md). Weitere Produktideen bleiben priorisierte
 Vorschläge im [Zielplan](CLI_WORK_AND_DICTATION_GOALS.md).
 
@@ -34,7 +107,7 @@ lokaler Promptentwurf und echte TUI-Ausgabe bleiben technisch unterscheidbar;
 kein unsicheres blindes Zeichen-Echo. Der Zielplan enthält Mess- und Abnahmekriterien.
 Weitere verbindliche Erweiterung: Goal 24 Verbrauch/Kosten für Codex, Claude
 Code, Grok und ElevenLabs. Native Usage-Daten zuerst, Proxy nur als gezielte
-Option; noch keine neue Zählerimplementierung. [Umfang](USAGE_AND_COST_GOALS.md).
+Option; die inzwischen ergänzte erste Zählerimplementierung steht oben. [Umfang](USAGE_AND_COST_GOALS.md).
 
 ## Projekt-Neuordnung aktiviert, WSL-Assistenten geprüft (15. September 2026)
 

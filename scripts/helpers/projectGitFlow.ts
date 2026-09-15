@@ -17,6 +17,7 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   const grants = [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])];
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }), { deviceId: device.id, scopes: grants });
   await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   await desktop.getByRole('button', { name: 'Git', exact: true }).click();
   const desktopGit = desktop.getByRole('region', { name: 'Projekt-Git', exact: true });
@@ -39,6 +40,7 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await desktopGit.getByText('Git-Aktion bestätigt.', { exact: false }).waitFor();
   check('desktop selective commit preserves unrelated staged changes', git('show', 'HEAD:a.txt') === 'selected edit\n' && git('show', 'HEAD:b.txt') === 'base\n' && git('diff', '--cached', '--name-only').trim() === 'b.txt');
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Review project', exact: true }); await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await dialog.getByRole('button', { name: 'Git', exact: true }).click(); const panel = dialog.getByRole('region', { name: 'Projekt-Git', exact: true });

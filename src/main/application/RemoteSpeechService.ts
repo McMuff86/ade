@@ -22,7 +22,9 @@ export class RemoteSpeechService {
   constructor(readonly preferences: SpeechPreferences, private readonly engine: SpeechService, private readonly now = Date.now) {}
   async test(owner: string, target: SpeechTarget, voiceId: string, authorize: () => void): Promise<{ testId: string }> {
     await this.preferences.query(target); authorize();
-    const audio = await this.engine.test(voiceId, authorize); authorize();
+    const audio = await this.engine.test(voiceId, authorize, target.kind === 'default' ? {} : {
+      repositoryId: target.repositoryId, ...(target.kind === 'agent' ? { agentId: target.agentId } : {}),
+    }); authorize();
     for (const [id, record] of this.audio) if (record.expiresAt <= this.now()) this.audio.delete(id);
     while (this.audio.size >= 8) this.audio.delete(this.audio.keys().next().value!);
     const testId = randomUUID(); this.audio.set(testId, { owner, target, expiresAt: this.now() + 10 * 60_000, audio });

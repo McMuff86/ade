@@ -43,6 +43,7 @@ export async function terminalLatencyFlow(app: ElectronApplication, desktop: Pag
   await desktop.evaluate(({ id, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: id, scopes }),
     { id: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])] });
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Latency', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Latency', exact: true });
   await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();

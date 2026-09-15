@@ -4,6 +4,11 @@
 .terminal-usage section > div { display: grid; gap: 4px; margin: 12px 0; }
 .terminal-usage progress { width: min(100%, 340px); accent-color: var(--accent); }
 .terminal-usage button { min-height: 36px; }
+.session-consumption { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.session-consumption p { margin: 4px 0; }
+.session-consumption dl { margin: 4px 0; }
+.session-consumption dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 16px; }
+.session-consumption dd { margin: 0; font-variant-numeric: tabular-nums; }
 .m-keyboard-compact .terminal-usage:not([open]) { display: none; }
 @media (pointer: coarse) { .terminal-usage summary { min-height: 44px; display: flex; align-items: center; } .terminal-usage button { min-height: 44px; } }
 

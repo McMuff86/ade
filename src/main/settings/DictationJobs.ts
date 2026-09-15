@@ -2,8 +2,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { DictationJobState } from '../../shared/dictation';
 import { redactedErrorMessage } from '../errors';
 import { validateDictationAudio, type DictationService } from './DictationService';
+import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
 
 interface Job {
+  usage: SpeechUsageAttribution;
   owner: string; authorize: () => void; expiresAt: number; state: DictationJobState;
   controller: AbortController; submission?: { key: string; fingerprint: string };
 }
@@ -19,14 +21,14 @@ export class DictationJobs {
   }
   dispose(): void { clearInterval(this.timer); for (const job of this.jobs.values()) job.controller.abort(); this.jobs.clear(); }
 
-  prepare(owner: string, authorize: () => void): { jobId: string } {
+  prepare(owner: string, authorize: () => void, usage: SpeechUsageAttribution = {}): { jobId: string } {
     authorize(); this.prune();
     while (this.jobs.size >= 16) {
       const settled = [...this.jobs].find(([, job]) => !['prepared', 'transcribing'].includes(job.state.status));
       if (!settled) throw new Error('Zu viele offene Aufnahmen. Eine Aufnahme beenden oder abbrechen.');
       this.jobs.delete(settled[0]);
     }
-    const jobId = randomUUID(); this.jobs.set(jobId, { owner, authorize, expiresAt: this.now() + 5 * 60_000,
+    const jobId = randomUUID(); this.jobs.set(jobId, { owner, authorize, usage: structuredClone(usage), expiresAt: this.now() + 5 * 60_000,
       state: { status: 'prepared' }, controller: new AbortController() });
     return { jobId };
   }
@@ -45,7 +47,7 @@ export class DictationJobs {
     job.authorize(); job.submission = { key, fingerprint }; job.state = { status: 'transcribing' }; job.expiresAt = this.now() + 10 * 60_000;
     // Reserve before scheduling the provider request. Submit acknowledges only
     // acceptance; callers read the private job result and never resubmit blindly.
-    void Promise.resolve().then(() => this.service.transcribe(recording, job.authorize, job.controller.signal)).then(transcript => {
+    void Promise.resolve().then(() => this.service.transcribe(recording, job.authorize, job.controller.signal, job.usage)).then(transcript => {
       if (this.jobs.get(jobId) === job && job.state.status === 'transcribing') job.state = { status: 'complete', transcript };
     }).catch(error => {
       if (this.jobs.get(jobId) === job && job.state.status === 'transcribing') job.state = { status: 'failed', message: redactedErrorMessage(error, 1000) };

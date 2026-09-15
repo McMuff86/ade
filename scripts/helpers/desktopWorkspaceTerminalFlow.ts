@@ -95,6 +95,7 @@ export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evi
   check('paste toolbar sends clipboard text to the existing shell', true);
   await page.screenshot({ path: join(evidence, 'desktop-workspace-terminals.png') });
   await page.reload(); await page.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Direct workspace', exact: true }).click();
   await expect(tabs.getByRole('tab')).toHaveCount(4);
   await expect(terminal.getByRole('tabpanel').filter({ visible: true }).getByLabel('Terminal-Schriftgrösse', { exact: true })).toHaveValue('17');

@@ -13,7 +13,10 @@ sessions require **Eingabe übernehmen** before typing. **Neue Sitzung starten**
 keeps the explicit shell/profile/runtime launcher available.
 
 For Hermes General, keep the existing WSL home and `general --tui` profile.
-For Sentinel, keep its WSL home and `openclaw tui` profile. ADE hosts those
+For Sentinel, keep its WSL home and `openclaw tui --session agent:main:tui`
+profile, as selected in the [personal reorganization](PROJECT_WORKFLOW_REORGANIZATION.md).
+Its desktop dashboard remains `http://127.0.0.1:18789/chat/main`; the browser chat
+and explicitly selected TUI session are separate targets. ADE hosts those
 processes on the PC. Their own authentication, models and conversations remain
 owned by the provider. This change does not merge dashboard chats with a TUI
 conversation or attach arbitrary processes started outside ADE.

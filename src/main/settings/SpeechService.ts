@@ -1,16 +1,21 @@
 import type { Settings } from '../../shared/types';
 import { SPEECH_TEST_TEXT, validVoiceId, type SpeechAudio, type SpeechCatalog, type SpeechVoice } from '../../shared/speech';
+import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
+import { redactedErrorDetail } from '../errors';
 
 interface Port { get(): { settings: Settings }; save(value: { settings: Settings }): unknown }
 /** Fixed provider and fixed test text. Credentials and upstream error bodies never leave main. */
 export class SpeechService {
   private busy = false;
   private cached?: { at: number; voices: SpeechVoice[] };
+  private usage?: SpeechUsageService;
+  setUsage(usage: SpeechUsageService): void { this.usage = usage; }
   constructor(private readonly store: Port, private readonly key: () => string | undefined, private readonly fetcher: typeof fetch = fetch) {}
 
-  private async request(path: string, method = 'GET', body?: string): Promise<Response> {
+  private async request(path: string, method = 'GET', body?: string, dispatch?: () => void): Promise<Response> {
     const key = this.key();
     if (!key) throw new Error('ElevenLabs-Key fehlt oder ist nicht verfügbar. Unter Service-Keys ELEVENLABS_API_KEY für alle Sessions speichern.');
+    dispatch?.();
     let response: Response;
     try { response = await this.fetcher(`https://api.elevenlabs.io${path}`, { method, body,
       headers: { 'xi-api-key': key, 'Content-Type': 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(30_000) }); }
@@ -60,18 +65,25 @@ export class SpeechService {
     this.store.save({ settings: { ...this.store.get().settings, speechVoiceId: voiceId } });
   }
 
-  async test(voiceId: string, authorize: () => void = () => undefined): Promise<SpeechAudio> {
+  async test(voiceId: string, authorize: () => void = () => undefined, attribution: SpeechUsageAttribution = {}): Promise<SpeechAudio> {
     if (this.busy) throw new Error('Ein Stimmtest läuft bereits. Bitte warten.');
     this.busy = true;
+    let attempt: SpeechUsageAttempt | undefined; let dispatched = false;
     try {
       if (!validVoiceId(voiceId) || !(await this.catalog()).voices.some(v => v.id === voiceId)) throw new Error('Eine verfügbare Stimme auswählen.');
       authorize();
+      attempt = await this.usage?.begin({ ...attribution, product: 'speech-test', model: 'eleven_multilingual_v2', characters: SPEECH_TEST_TEXT.length });
+      authorize();
       const response = await this.request(`/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, 'POST',
-        JSON.stringify({ text: SPEECH_TEST_TEXT, model_id: 'eleven_multilingual_v2', language_code: 'de' }));
+        JSON.stringify({ text: SPEECH_TEST_TEXT, model_id: 'eleven_multilingual_v2', language_code: 'de' }), () => { dispatched = true; });
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('audio/mpeg')) { await response.body?.cancel(); throw new Error('ElevenLabs hat keine MP3-Audiodatei geliefert.'); }
       const audio = await this.bytes(response, 2 * 1024 * 1024);
       if (audio.length < 100) throw new Error('ElevenLabs-Audio ist leer oder unvollständig.');
+      await attempt?.finish('complete').catch(error => console.warn('[ade] speech usage finalization failed:', redactedErrorDetail(error)));
       return { base64: audio.toString('base64'), mimeType: 'audio/mpeg', text: SPEECH_TEST_TEXT, voiceId };
+    } catch (error) {
+      await attempt?.finish(dispatched ? 'unconfirmed' : 'not-sent').catch(failure => console.warn('[ade] speech usage finalization failed:', redactedErrorDetail(failure)));
+      throw error;
     } finally { this.busy = false; }
   }
 }

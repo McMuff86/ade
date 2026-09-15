@@ -1,5 +1,10 @@
 # ADE delivery roadmap
 
+Operatorentscheidung zum aktuellen Checkpoint: Code und Handoff sichern,
+Windows-Build für den eigenen Tablet-Test starten und danach **pausieren**.
+Die offenen Prüfungen und Ausbauschritte stehen führend im [Handoff](HANDOFF.md).
+Die folgenden aktiven Ziele werden dadurch nicht pauschal als erledigt markiert.
+
 ## Aktives Ziel: laufende CLI-Arbeit und Diktat (15. September 2026)
 
 Operator bestätigt die neue Ordnung der vier Originalprojekte und beauftragt
@@ -11,7 +16,13 @@ Desktop-Arbeitsliste, erste native Latenzoptimierung und Diktat bestehen die
 vollständige Code-Abnahme mit 3.735 Checks; Windows-Paket mit zehn weiteren
 Checks geprüft. Reale ElevenLabs-/Codex-/Claude-/Grok-Proben sind erfolgreich.
 Der frühere CLI-Checkpoint `b2e134e`/`5ea3b3c` ist gepusht; persönliche Aktivierung
-der neuen Lieferung wegen offener WSL-Sitzung ausstehend.
+der neuen Lieferung wegen offener WSL-Sitzung ausstehend. Auch Diktatcommit
+`128b503` ist inzwischen gepusht. Die anschliessende erste Projektansicht und der
+mobile Prompt-Projektname sind fokussiert geprüft. Das native Verbrauchsjournal
+ist mit neuen CLI-Starts und der PC-/Tablet-Sitzungsanzeige verbunden und besteht
+130 native Vertragschecks. ElevenLabs-STT-/TTS-Versuche sind mit weiteren 36
+Vertragschecks angebunden, samt sitzungsbezogenen Audiosekunden und getrennten
+Antwortzuständen. Die neue Gesamtabnahme und der weitere Goal-24-Ausbau laufen noch.
 [CLI-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
 Erweiterung: Goal 23.1 umfasst auch mobiles Tablet-Diktat; Goal 25 zur Messung
 und Optimierung der Tablet-Terminal-Latenz ist ebenfalls aktiver Lieferumfang.

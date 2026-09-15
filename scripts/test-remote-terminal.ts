@@ -8,7 +8,7 @@ import { DeviceResourceService } from '../src/main/application/DeviceResourceSer
 import { remoteTerminalScreen } from '../src/main/application/RemoteTerminalScreen';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { HostRestartController } from '../src/main/application/HostRestartController';
-import type { MobileTerminalState } from '../src/shared/remote';
+import type { MobileTerminalState, SubscriptionUsage } from '../src/shared/remote';
 import type { TerminalControlState } from '../src/shared/ipc';
 import { terminalHome } from '../src/main/pty/terminalHome';
 import { validateWorkbenchQuery } from '../src/main/application/RemoteWorkbenchService';
@@ -34,7 +34,16 @@ void (async () => {
   let homeStarts = 0; let profileReads = 0;
   let screenText = 'PS C:\\private\\workspace>\r\nready\r\n';
   let displayEffect = async () => {};
+  let usageEffect = async () => {}; const usageReads: string[] = [];
   terminal = new RemoteTerminalService(workbench, { list: () => sessions,
+    usage: async id => {
+      usageReads.push(id); await usageEffect();
+      return { provider: 'claude', source: 'cli', checkedAt: now, status: 'unavailable', windows: [], message: 'Fixture',
+        consumption: { status: 'recording', ended: false, checkedAt: now, lastReportedAt: now, events: 1,
+          tokens: { input: 10, inputUncached: 8, cacheRead: 2, cacheWrite: 0, output: 2, reasoning: null },
+          missing: { input: 0, inputUncached: 0, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 1 },
+          costs: [], eventsWithoutCost: 1, models: ['C:\\private\\model'], notice: 'Source C:\\private\\usage.jsonl' } } satisfies SubscriptionUsage;
+    },
     display: async () => { await displayEffect(); return { screen: await remoteTerminalScreen(Buffer.from(screenText), 120, 32) }; },
     profileContext: () => { profileReads++; return 'Captured profile marker\nC:\\private\\profile\\AGENTS.md'; },
     createHome: async (choice, authorize) => {
@@ -69,6 +78,11 @@ void (async () => {
   await command({ operation: 'open', mode: 'shell' }, openedContext);
   check('duplicate open starts exactly one interactive process', starts === 1);
   const state = await query(opened.terminalId);
+  check('ordinary screen polling does not fetch session consumption', usageReads.length === 0 && state.subscriptionUsage === undefined);
+  const consumption = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, usage: true }, 'query') as MobileTerminalState;
+  check('explicit consumption uses only the selected native session and redacts its wire labels', usageReads.length === 1 && usageReads[0] === 'native-1'
+    && consumption.subscriptionUsage?.consumption?.tokens.input === 10 && !JSON.stringify(consumption.subscriptionUsage).includes('private')
+    && !JSON.stringify(consumption.subscriptionUsage).includes('native-1'));
   const unchanged = await app.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId, knownDisplayRevision: state.displayRevision }, 'query') as MobileTerminalState;
   check('unchanged display omits bodies while returning current lease and metadata', unchanged.displayUnchanged === true && unchanged.screen === undefined
     && unchanged.frame === undefined && unchanged.displayRevision === state.displayRevision && unchanged.leaseId === state.leaseId);
@@ -186,6 +200,9 @@ void (async () => {
   displayEffect = async () => { store.save({ workspaceBindings: bindingRecords.map(item => item.id === binding.id ? { ...item, branch: 'changed-during-display' } : item) }); };
   await refuses('scope changed during display read is rejected by final validation', () => query(finalOpen.terminalId), 'command_rejected');
   displayEffect = async () => {}; store.save({ workspaceBindings: bindingRecords });
+  usageEffect = async () => { devices.setAdminScopes('tablet', ['workspace:read']); };
+  await refuses('grant revoked during consumption read prevents the numeric response', () => app.remoteTerminal(context(), { ...selection, terminalId: finalOpen.terminalId, usage: true }, 'query'), 'scope_not_granted');
+  usageEffect = async () => {}; devices.setAdminScopes('tablet', ['workspace:read', 'terminal:control']);
   check('final positive control returns same terminal after validation failures', (await query(finalOpen.terminalId)).selected?.id === finalOpen.terminalId);
 })().catch((error) => { failed++; console.error(error); }).finally(() => {
   terminal?.dispose(); rmSync(root, { recursive: true, force: true }); console.log(`Remote terminal: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

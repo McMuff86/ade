@@ -58,8 +58,10 @@ they need attention. [Workflow and boundaries](docs/REPOSITORY_SYNC_PLAN.md).
 filter by project/runtime/status, name sessions and see new output. CLI activity
 and managed runs are shown separately. Overview also provides saved projects,
 profiles and dashboard links. Output activity does not prove that an agent is
-ready or still thinking. Existing token summaries cover reported managed-run
-usage; comprehensive CLI and ElevenLabs accounting is an
+ready or still thinking. The terminal usage panel adds native Windows
+Codex/Claude/Grok session counters and ADE dictation audio duration, with unknown
+fields and provider estimates labelled explicitly. Managed runs retain their
+own reported summaries. Project/month totals and budgets remain an
 [active implementation goal](docs/USAGE_AND_COST_GOALS.md).
 
 **Terminals** — categories and agents on the left, real PTY sessions as tabs,

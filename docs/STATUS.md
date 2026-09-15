@@ -1,6 +1,17 @@
 # ADE implementation status
 
-## Persönliche Neuordnung bestätigt; nächste Goals aktiv (15. September 2026)
+## Checkpoint für den persönlichen Tablet-Test (15. September 2026)
+
+Der Operator übernimmt den Tablet-Test und bittet danach um Pause. Dieser Stand
+ergänzt die native CLI-/Sprachverbrauchsanzeige und Projektorientierung.
+2.956 fokussierte Checks in 70 Suiten, Produktionsbuild, 32 kombinierte Diktat-/
+Verbrauchs-Appchecks und der korrigierte komplette Terminal-Driver mit 204 Checks
+sind positiv. Der erste Gesamtversuch scheiterte an einer inzwischen angepassten
+CLI-Fixture; **ein erneut vollständig grünes `pnpm verify` steht noch aus**.
+Keine Gesamtabnahme der offenen Goal-24-Funktionen behaupten.
+Aktivierung, Paket und Restarbeit führt das [Handoff](HANDOFF.md).
+
+## Vorheriger vollständiger Diktatstand und folgende Arbeit (15. September 2026)
 
 Vier Originalprojekte, optionale Coding-Profile und separate WSL-Assistenten
 sind eingerichtet und im Windows-Build geprüft. Die sechs alten ADE-Arbeitskopien
@@ -21,16 +32,28 @@ Der Operator hat ausserdem den vollständigen Dokumentationsabgleich als
 verbindlichen Abschlussmeilenstein ergänzt. Dieser Audit ist noch ausstehend.
 Weiterer Auftrag: Diktat auch mobil und messbare Optimierung der Tablet-
 Terminal-Eingabelatenz (Goal 25). Beides gehört jetzt zur aktiven Gesamtabnahme.
-Ebenfalls beauftragt, noch zu implementieren: Goal 24 für sitzungs-/projektbezogene
+Ebenfalls beauftragt, in Implementierung: Goal 24 für sitzungs-/projektbezogene
 Token-, Cache-, Reasoning- und Kostenwerte sowie ElevenLabs-Verbrauch. Die
 [Quellen- und Abnahmeregeln](USAGE_AND_COST_GOALS.md) unterscheiden Abos,
 API-Schätzungen und Anbieterabrechnung.
-Aktuelle Code-Abnahme: **3.735 Checks**, davon 2.786 in 64 fokussierten Suiten
+Letzte vollständige Code-Abnahme (Diktatcommit `128b503`): **3.735 Checks**, davon 2.786 in 64 fokussierten Suiten
 und 949 Electron-/Browser-/Visual-Checks. Zusätzlich zehn echte Windows-
 Paketprüfungen bestanden; Paket: `dist/dictation-20260915/win-unpacked/ADE.exe`.
 Persönliche Aktivierung steht wegen einer offenen WSL-Sitzung aus.
 Der vorherige CLI-Checkpoint ist als `b2e134e`/`5ea3b3c` gepusht;
 seine früheren Zahlen stehen in [CLI-Arbeit und Terminal-Latenz](CLI_WORK_LATENCY_RESULTS.md).
+`128b503` ist ebenfalls gepusht und mit dem Remote-SHA abgeglichen. Seitdem sind
+die erste Projektansicht und der mobile Prompt-Projektname aus Goal 27.2 ergänzt
+und separat fokussiert geprüft; der Paketstand oben enthält diese Folgeänderung
+noch nicht. Das Verbrauchsjournal ist inzwischen mit neuen nativen CLI-Starts
+und einer sitzungsbezogenen Terminalanzeige verbunden; 130 fokussierte Checks
+bestehen. Erste echte integrierte CLI-Proben sind dokumentiert; ein zusätzliches
+unzugeordnetes Codex-Ereignis hält dessen Abdeckung sichtbar unvollständig.
+ElevenLabs-STT-/TTS-Versuche sind jetzt mit 36 weiteren fokussierten Checks an
+dasselbe Journal angebunden; die Sitzung zeigt Audiosekunden getrennt nach
+Antwortstatus, ohne erfundene Credits oder Einzelpreise. Projekt-/Monatsansicht,
+Kontenansicht und Budgets folgen. Der oben genannte Volltest und
+Paketstand enthalten diesen laufenden Ausbau noch nicht.
 
 ## Direkter Workspace-Start und Desktop-Terminals (14. September 2026)
 

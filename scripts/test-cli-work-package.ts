@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
 let app: ElectronApplication | undefined; let passed = 0;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`ok ${name}`); };
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-cli-package-smoke-')));
@@ -13,7 +14,24 @@ void (async () => {
   const projects = join(root, 'projects'); const repo = join(projects, 'Package review'); mkdirSync(repo, { recursive: true });
   execFileSync('git', ['init', '--initial-branch=main', repo], { windowsHide: true });
   execFileSync('git', ['-C', repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Package fixture'], { windowsHide: true });
-  app = await electron.launch({ executablePath: executable, args: [], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0' }, timeout: 30000 });
+  const bin = join(root, 'bin'); mkdirSync(bin); const compile = join(root, 'compile.ps1');
+  writeFileSync(compile, String.raw`param([string]$Target)
+Add-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'
+using System;
+public class Fixture {
+  public static void Main(string[] args) {
+    if (Array.IndexOf(args, "--version") >= 0) { Console.WriteLine("codex 1.0.0"); return; }
+    if (Array.IndexOf(args, "app-server") >= 0) return;
+    NativeUsageFixture.Report(args);
+    Console.WriteLine("PACKAGED_USAGE_READY"); Console.ReadLine();
+  }
+}
+${nativeUsageFixtureSource}
+'@
+`);
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
+  app = await electron.launch({ executablePath: executable, args: [], env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`,
+    CODEX_HOME: join(root, 'codex-home'), ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0' }, timeout: 30000 });
   const page = await app.firstWindow(); page.setDefaultTimeout(25000);
   check('Windows package launches sandboxed and context-isolated', await app.evaluate(({ BrowserWindow }) => {
     // Electron exposes this inspection helper at runtime but omits it from its public typings.
@@ -24,6 +42,7 @@ void (async () => {
   }));
   await page.evaluate(path => window.ade.invoke('projectDefaults:save', { rootPath: path, agentId: null }), projects);
   await page.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Package review', exact: true }).click();
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
@@ -66,8 +85,25 @@ void (async () => {
   check('packaged Overview contains the same live CLI row', await page.getByRole('region', { name: 'CLI-Arbeit', exact: true }).locator(`li[data-session-id="${session.id}"]`).isVisible());
   const config = await page.evaluate(() => window.ade.invoke('config:get'));
   check('package smoke uses isolated config and creates no agent binding', config.agents.length === 0 && config.workspaceBindings.length === 0 && config.repositories.every(item => item.rootPath === repo));
+  await page.getByRole('region', { name: 'CLI-Arbeit', exact: true }).locator(`li[data-session-id="${session.id}"]`).getByRole('button', { name: /^Sitzung öffnen:/ }).click();
+  await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
+  await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  const usageView = terminal.getByRole('region', { name: 'Sitzungsverbrauch', exact: true });
+  await usageView.getByText('codex-usage-fixture', { exact: false }).waitFor();
+  const usage = await page.evaluate(async () => {
+    const item = (await window.ade.invoke('pty:list')).sessions.find(item => item.runtime === 'codex')!;
+    return { id: item.id, view: (await window.ade.invoke('terminal:usage', { sessionId: item.id })).consumption };
+  });
+  check('packaged collector receives authenticated native fixture and counts repeated snapshots once', usage.view?.tokens.input === 15731 && usage.view.events === 1);
+  check('packaged usage view labels unknown prices without exposing source paths', (await usageView.innerText()).includes('ohne Kostenangabe') && !JSON.stringify(usage.view).includes(root));
+  await page.evaluate(id => window.ade.invoke('pty:kill', { sessionId: id }), usage.id);
+  const journal = readFileSync(join(root, 'profile', 'ade', 'usage', 'events.jsonl'), 'utf8');
+  check('packaged usage persists numeric facts in its isolated journal', journal.includes('"input":15731') && !journal.includes('PACKAGED_USAGE_READY'));
   await page.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), session.id);
-  writeFileSync(resolve('test-results/cli-work-package-smoke.json'), JSON.stringify({ at: new Date().toISOString(), executable, sha256: createHash('sha256').update(readFileSync(executable)).digest('hex'), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceDirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(), passed }, null, 2));
+  writeFileSync(resolve('test-results/cli-work-package-smoke.json'), JSON.stringify({ at: new Date().toISOString(), executable,
+    sha256: createHash('sha256').update(readFileSync(executable)).digest('hex'),
+    asarSha256: createHash('sha256').update(readFileSync(join(dirname(executable), 'resources', 'app.asar'))).digest('hex'),
+    sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceDirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(), passed }, null, 2));
   console.log(`Packaged CLI smoke: ${passed} passed, 0 failed`);
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   await app?.close();

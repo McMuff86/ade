@@ -231,12 +231,14 @@ export interface MobileTerminalSummary {
   profileContext?: import('./agentBehavior').SessionProfileContext;
   program?: import('./types').SessionProgramState;
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
+  /** Safe display name from the currently authorized project workspace. */
+  projectName?: string;
   launchMode?: SessionLaunchChoice['mode'];
   launchProfileId?: string;
   launchProfileName?: string;
   branch?: string;
 }
-export type MobileRecentSession = MobileTerminalSummary & MobileTerminalSelection & { createdAt: number; projectName?: string };
+export type MobileRecentSession = MobileTerminalSummary & MobileTerminalSelection & { createdAt: number };
 export interface MobileSessionInventory { sessions: MobileRecentSession[]; omitted: number }
 
 /** Read-only observations, with output separate from the run summary. No PTY ids. */
@@ -450,12 +452,35 @@ export interface MobileCommandResult {
 }
 export interface SubscriptionWindow { label: string; usedPercent: number; remainingPercent: number; windowMinutes: number; resetsAt: number }
 export interface SubscriptionUsage {
+  /** Numeric projection of this terminal only, separate from account quotas. */
+  consumption?: SessionConsumption;
   /** Observed launch credentials or local account quota, never a claim about per-request billing. */
   authentication?: 'api-key-present' | 'subscription-account' | 'unknown';
   provider: 'codex' | 'claude' | 'grok' | 'unknown';
   source: 'codex-account' | 'cli'; status: 'available' | 'unavailable'; checkedAt: number;
   windows: SubscriptionWindow[]; message: string;
   command?: '/status' | '/usage';
+}
+
+export interface SessionConsumption {
+  speech?: Array<{
+    product: 'dictation' | 'speech-test';
+    unit: 'audioSeconds' | 'characters';
+    requests: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
+    amounts: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
+  }>;
+  status: 'waiting' | 'recording' | 'incomplete' | 'unsupported';
+  ended: boolean;
+  checkedAt: number;
+  lastReportedAt: number | null;
+  events: number;
+  tokens: import('./usage').TokenCounts;
+  /** Number of observed events lacking each field; no missing value is zero. */
+  missing: Record<keyof import('./usage').TokenCounts, number>;
+  costs: Array<{ kind: Exclude<import('./usage').UsageCostKind, 'unknown'>; usd: number; events: number; complete: boolean }>;
+  eventsWithoutCost: number;
+  models: string[];
+  notice: string;
 }
 
 /** Deletion receipts outlive the run and contain no run contents. */

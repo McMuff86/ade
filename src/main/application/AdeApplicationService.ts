@@ -568,7 +568,7 @@ export class AdeApplicationService {
         const check = () => { authorize(); this.resources.assertSelection(context.principal, selection); }; check();
         const result = await ledger.execute(context, 'dictation:prepare', 'dictation:transcribe', request, async () => {
           const checkTarget = await terminals.recordingTarget(context.principal.id, selection);
-          return jobs.prepare(owner, () => { check(); checkTarget(); });
+          return jobs.prepare(owner, () => { check(); checkTarget(); }, checkTarget.usage);
         });
         check(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
       }

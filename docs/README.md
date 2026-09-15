@@ -10,7 +10,7 @@ Stand: 2026-09-15. Beginne je nach Anliegen hier:
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |
 | Aktueller Funktionsumfang und Grenzen | [STATUS](STATUS.md) |
 | Laufende CLI-Aufgaben, Diktat auf PC/Tablet und aktuelle Arbeit | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [CLI-/Latenz-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md) |
-| Verbrauch und Kosten von Coding-CLIs und ElevenLabs | [Verbrauchsvertrag und Umsetzungskriterien](USAGE_AND_COST_GOALS.md) |
+| Verbrauch und Kosten von Coding-CLIs und ElevenLabs | [Verbrauchsvertrag und Umsetzungskriterien](USAGE_AND_COST_GOALS.md), [native Quellen und Integrationsnachweise](USAGE_SOURCE_RESULTS.md) |
 | Eindeutige Zielnummern und historische Zuordnung | [Zielregister](GOAL_REGISTRY.md) |
 | Projekt → Branch → CLI → Git und Ergebnisdateien: Umsetzung und Abnahme | [Projekt-Workflow-Tasks](PROJECT_WORKFLOW_GOALS.md) |
 | Prioritäten und frühere Produktbewertung | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [datierter Review vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md) |

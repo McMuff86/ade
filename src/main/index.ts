@@ -183,8 +183,17 @@ app.on('window-all-closed', () => {
 });
 
 // kill every live pty on quit so no orphan ConPTY process lingers
-app.on('before-quit', () => {
+let shutdownStarted = false;
+let shutdownFinished = false;
+app.on('before-quit', (event) => {
+  if (shutdownFinished) return;
+  event.preventDefault();
+  if (shutdownStarted) return;
+  shutdownStarted = true;
   quitting = true;
   hostTray?.destroy(); hostTray = null;
-  disposePtyManager();
+  // Finish the bounded numeric journal before Electron terminates its I/O.
+  void disposePtyManager().catch(() => console.warn('[ade] usage shutdown incomplete.')).finally(() => {
+    shutdownFinished = true; app.quit();
+  });
 });

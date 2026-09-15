@@ -9,15 +9,22 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
   onMembership?: (entry: ProjectDirectoryEntry, included: boolean) => Promise<void>; canManage?: boolean;
 }): JSX.Element {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'mine'>('all');
+  const [filter, setFilter] = useState<'all' | 'mine'>(() => {
+    try { return localStorage.getItem('ade:project-directory-filter') === 'all' ? 'all' : 'mine'; }
+    catch { return 'mine'; }
+  });
+  const chooseFilter = (value: 'all' | 'mine') => {
+    setFilter(value);
+    try { localStorage.setItem('ade:project-directory-filter', value); } catch { /* Filtering remains usable without storage. */ }
+  };
   const filterButton = useRef<HTMLButtonElement>(null);
   const mine = (entry: ProjectDirectoryEntry) => entry.inMyProjects ?? !!entry.repositoryId;
   const entries = directory?.entries.filter((entry) => (filter === 'all' || mine(entry)) && entry.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   return <section className="project-directory" aria-label="Projektordner">
     <div className="project-directory-tools"><label>Projekte durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <button disabled={busy || !online} onClick={onRefresh}>Projektordner aktualisieren</button></div>
-    <div className="project-workspace-actions" aria-label="Projektfilter"><button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Alle</button>
-      <button ref={filterButton} aria-pressed={filter === 'mine'} onClick={() => setFilter('mine')}>Meine ADE Projekte</button></div>
+    <div className="project-workspace-actions" aria-label="Projektfilter"><button aria-pressed={filter === 'all'} onClick={() => chooseFilter('all')}>Alle</button>
+      <button ref={filterButton} aria-pressed={filter === 'mine'} onClick={() => chooseFilter('mine')}>Meine ADE Projekte</button></div>
     <p>Füge Projekte zu „Meine ADE Projekte“ hinzu, um sie in der Übersicht zu sehen. Entfernen aus der Auswahl erhält Dateien, Terminals und Verlauf.</p>
     {!online && <p role="status">PC nicht verbunden. Angezeigte Projektordner können veraltet sein.</p>}
     {error && <p role="alert">{error}</p>}

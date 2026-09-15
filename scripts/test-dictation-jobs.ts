@@ -12,15 +12,18 @@ const tick = () => new Promise<void>(done => setImmediate(done));
 void (async () => {
   let now = 1000; let allowed = true; let calls = 0; let aborted = false;
   let finish!: (value: DictationTranscript) => void; let firstSample = -1;
+  let usageTarget: string | undefined;
   const authorize = () => { if (!allowed) throw new Error('revoked'); };
   const transcript: DictationTranscript = { text: 'privater Entwurf', language: 'de', audioSeconds: 1, model: 'scribe_v2' };
-  const jobs = new DictationJobs({ transcribe: (audio, checkGrant, signal) => {
+  const jobs = new DictationJobs({ transcribe: (audio, checkGrant, signal, usage) => {
+    usageTarget = usage?.terminalSessionId;
     checkGrant(); calls++; firstSample = audio[44]; signal?.addEventListener('abort', () => { aborted = true; });
     return new Promise(resolve => { finish = resolve; });
   } }, () => now);
   try {
     const audio = encodeDictationPcm(new Float32Array(16_000));
-    const first = jobs.prepare('desktop', authorize);
+    const attribution = { terminalSessionId: 'original-terminal' };
+    const first = jobs.prepare('desktop', authorize, attribution); attribution.terminalSessionId = 'changed-terminal';
     check('host ticket is prepared before any provider request', jobs.read('desktop', first.jobId).status === 'prepared' && calls === 0);
     await refuses('another owner cannot read a prepared recording', () => jobs.read('device', first.jobId), /nicht mehr verfügbar/);
     await refuses('unknown ticket cannot create a provider request', () => jobs.submit('desktop', 'unknown', 'recording-1', audio), /nicht mehr verfügbar/);
@@ -28,6 +31,7 @@ void (async () => {
     check('upload acknowledges a queued transcription without returning text', !receipt.replayed && jobs.read('desktop', first.jobId).status === 'transcribing');
     audio[44] = 9; await tick(); audio[44] = 0;
     check('submitted audio is immutable before asynchronous provider launch', firstSample === 0);
+    check('usage attribution remains bound to the prepared target', usageTarget === 'original-terminal');
     check('same upload replay does not schedule a second provider call', jobs.submit('desktop', first.jobId, 'recording-1', audio).replayed);
     await tick(); check('provider starts exactly once', calls === 1);
     const changed = audio.slice(); changed[44] = 1;

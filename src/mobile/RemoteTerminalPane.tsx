@@ -359,7 +359,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     </>}
     <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label="Terminal-Antwortzeit">PC-Antwort: {responseMs} ms (Netzwerk und Verarbeitung). </span>}Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>
     {promptOpen && state.selected && state.leaseId && <MobilePromptDialog key={`${selected}/${state.leaseId}`} host={host}
-      target={{ ...selection, terminalId: selected, leaseId: state.leaseId }} label={`${agent?.name ?? 'Projekt'} · ${state.selected.title} · ${expectedBranch ?? state.selected.branch ?? ''}`}
+      target={{ ...selection, terminalId: selected, leaseId: state.leaseId }} label={`${state.selected.projectName ?? agent?.name ?? (terminalHome ? 'Freies Terminal' : 'Projekt')} · ${state.selected.title} · ${state.selected.branch ?? expectedBranch ?? ''}`}
       send={sendPrompt} onClose={() => setPromptOpen(false)} fallbackId={fallbackFocusId} />}
     {confirmClose && <Dialog title="Terminalsitzung beenden" onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>Der laufende Prozess dieser Sitzung wird beendet.</p><button onClick={() => setConfirmClose(false)}>Abbrechen</button>

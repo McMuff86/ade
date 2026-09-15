@@ -27,9 +27,15 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
+  { id: 'usage-normalization', script: 'test-usage-normalization.ts', floors: { win32: 27 } },
+  { id: 'usage-journal', script: 'test-usage-journal.ts', floors: { win32: 35 } },
+  { id: 'usage-receiver', script: 'test-usage-receiver.ts', floors: { win32: 19 } },
+  { id: 'native-usage-file', script: 'test-native-usage-file.ts', floors: { win32: 23 } },
+  { id: 'native-usage-service', script: 'test-native-usage-service.ts', floors: { win32: 26 } },
+  { id: 'speech-usage', script: 'test-speech-usage.ts', floors: { win32: 36 } },
   { id: 'dictation', script: 'test-dictation.ts', floors: { win32: 35 } },
   { id: 'remote-dictation', script: 'test-remote-dictation.ts', floors: { win32: 24 } },
-  { id: 'dictation-jobs', script: 'test-dictation-jobs.ts', floors: { win32: 18 } },
+  { id: 'dictation-jobs', script: 'test-dictation-jobs.ts', floors: { win32: 19 } },
   { id: 'terminal-prompt', script: 'test-terminal-prompt.ts', floors: { win32: 28 } },
   { id: 'microphone-access', script: 'test-microphone-access.ts', floors: { win32: 15 } },
   { id: 'prompt-drafts', script: 'test-prompt-drafts.ts', floors: { win32: 16 } },
@@ -79,7 +85,7 @@ const SUITES: Suite[] = [
   { id: 'run-file-storage', script: 'test-run-file-storage.ts', floors: { win32: 20 } },
   { id: 'remote-workbench', script: 'test-remote-workbench.ts', floors: { win32: 46 } },
   { id: 'remote-commits', script: 'test-remote-commits.ts', floors: { win32: 29 } },
-  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 71 } },
+  { id: 'remote-terminal', script: 'test-remote-terminal.ts', floors: { win32: 74 } },
   { id: 'terminal-display', script: 'test-terminal-display.ts', floors: { win32: 36 } },
   { id: 'subscription-usage', script: 'test-subscription-usage.ts', floors: { win32: 14 } },
   { id: 'wsl-root-probe', script: 'test-wsl-root-probe.ts', floors: { win32: 16 } },

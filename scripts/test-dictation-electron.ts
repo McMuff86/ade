@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { _electron as electron, chromium, type Browser, type ElectronApplication } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
@@ -23,6 +24,8 @@ public class Fixture {
   [DllImport("kernel32.dll")] static extern bool SetConsoleCP(uint cp);
   public static void Main(string[] args) {
   if (Array.IndexOf(args, "--version") >= 0) { Console.WriteLine("codex 1.0.0"); return; }
+  if (Array.IndexOf(args, "app-server") >= 0) return;
+  NativeUsageFixture.Report(args);
   Console.Write("\x1b[?2004hDICTATION_CLI_READY\r\n");
   uint mode; var handle = GetStdHandle(-10); GetConsoleMode(handle, out mode); SetConsoleMode(handle, (mode & ~7u) | 0x200u); SetConsoleCP(65001);
   var input = new StringBuilder(); var stdin = Console.OpenStandardInput();
@@ -35,9 +38,11 @@ public class Fixture {
     }
   }
 } }
+${nativeUsageFixtureSource}
 '@
 `);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
+  copyFileSync(join(bin, 'codex.exe'), join(bin, 'claude.exe')); copyFileSync(join(bin, 'codex.exe'), join(bin, 'grok.exe'));
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { windowsHide: true });
   git('init', '--initial-branch=main'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture');
   const launcher = join(root, 'launch.cjs');
@@ -61,6 +66,7 @@ cp.execFile[require('node:util').promisify.custom] = (file,args,options) => new 
 require(${JSON.stringify(resolve('out/main/index.js'))});`);
   app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], cwd: resolve('.'), env: {
     ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test',
+    CODEX_HOME: join(root, 'codex-home'), CLAUDE_CONFIG_DIR: join(root, 'claude-home'), GROK_HOME: join(root, 'grok-home'),
   } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
   await page.evaluate(async ({ path, parent }) => {
@@ -72,6 +78,12 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await page.getByRole('button', { name: 'Workspace öffnen: Dictation project', exact: true }).click();
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
+  await terminal.getByLabel('Abo-Nutzung', { exact: true }).click();
+  const consumption = terminal.getByRole('region', { name: 'Sitzungsverbrauch', exact: true });
+  await consumption.getByText('codex-usage-fixture', { exact: false }).waitFor();
+  check('desktop usage receives native Codex fixture through real launch argv and authenticated collector', (await consumption.innerText()).includes('15') && (await consumption.innerText()).includes('Input gesamt'));
+  check('desktop usage labels unknown prices and cache subsets', (await consumption.innerText()).includes('ohne Kostenangabe') && (await consumption.innerText()).includes('Davon Cache gelesen'));
+  await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
   const microphoneDenied = await page.evaluate(async () => {
     try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(track => track.stop()); return false; } catch { return true; }
   });
@@ -96,6 +108,15 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await dialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
   check('real Chromium microphone/MediaRecorder/decode reaches provider as bounded WAV', JSON.parse(readFileSync(join(root, 'provider.jsonl'), 'utf8').trim()).bytes > 3244);
   check('transcript is appended to editable draft without terminal execution', await draft.inputValue() === 'Prüfe zuerst.\nBitte prüfe den Code.' && !existsSync(join(repo, 'prompt-proof.jsonl')));
+  await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
+  await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  const desktopSpeech = consumption.getByRole('region', { name: 'Diktatverbrauch', exact: true });
+  await desktopSpeech.getByText('Antwort erhalten', { exact: true }).waitFor();
+  check('desktop dictation appears as measured audio with unknown cost', (await desktopSpeech.innerText()).includes('Sek. Audio') && (await desktopSpeech.innerText()).includes('Kosten pro Auftrag sind unbekannt'));
+  const measured = await page.evaluate(async id => (await window.ade.invoke('terminal:usage', { sessionId: id })).consumption?.speech?.[0], session.id);
+  check('desktop speech usage is exactly one completed request on its target', measured?.requests.complete === 1 && measured.amounts.complete > 0 && measured.requests.unconfirmed === 0);
+  await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   await draft.fill('Prüfe nur diese Datei.');
   await dialog.getByRole('button', { name: 'An CLI absenden', exact: true }).click();
   await dialog.getByText('An die CLI übergeben. Die Verarbeitung durch das Modell ist damit noch nicht bestätigt.', { exact: true }).waitFor();
@@ -110,7 +131,26 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('prompt dialog fits narrow desktop', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   check('API key never appears in rendered UI', !(await page.content()).includes('dictation-fixture-secret'));
   await page.screenshot({ path: join(evidence, 'desktop.png') });
-  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.keyboard.press('Escape');
+  for (const [runtime, model, expected] of [['claude', 'claude-usage-fixture', 17225], ['grok', 'grok-usage-fixture', 5280]] as const) {
+    if (runtime === 'claude') await terminal.getByRole('button', { name: 'Claude Code öffnen', exact: true }).click();
+    else {
+      await terminal.getByLabel('Projekt-CLI', { exact: true }).selectOption('grok');
+      await terminal.getByRole('button', { name: 'Auswahl öffnen / fortsetzen', exact: true }).click();
+    }
+    await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: runtime === 'claude' ? 'Claude Code läuft' : 'Grok Build läuft' }).waitFor();
+    await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+    const current = terminal.getByRole('region', { name: 'Sitzungsverbrauch', exact: true });
+    await current.getByText(model, { exact: false }).waitFor();
+    const usage = await page.evaluate(async model => {
+      const sessions = (await window.ade.invoke('pty:list')).sessions;
+      const runtime = model.startsWith('claude') ? 'claude' : 'grok'; const session = sessions.find(item => item.runtime === runtime)!;
+      return (await window.ade.invoke('terminal:usage', { sessionId: session.id })).consumption;
+    }, model);
+    check(`${model} is counted from its own native source after the actual ADE start`, usage?.tokens.input === expected && usage.events === 1);
+    await terminal.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  }
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const mobileSettings = page.getByTestId('mobile-access');
   await mobileSettings.getByRole('button', { name: 'Mit Tailscale aktivieren', exact: true }).click();
   await mobileSettings.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
@@ -137,8 +177,15 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
+  await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  const mobileConsumption = project.getByRole('region', { name: 'Sitzungsverbrauch', exact: true });
+  await mobileConsumption.getByText('codex-usage-fixture', { exact: false }).waitFor();
+  check('tablet gets the selected terminal numeric usage through the existing authorized read', (await mobileConsumption.innerText()).includes('Input gesamt') && !(await mobileConsumption.innerText()).includes(root));
+  await tablet.keyboard.press('Escape');
+  check('tablet usage Escape returns focus to its disclosure', await project.locator('summary[aria-label="Abo-Nutzung"]:visible').evaluate(node => node === document.activeElement));
   await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   const mobileDialog = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  check('tablet prompt names the authorized project even without an agent profile', (await mobileDialog.innerText()).includes('An: Dictation project · Codex · main'));
   const mobileDraft = mobileDialog.getByLabel('CLI-Promptentwurf', { exact: true });
   await mobileDraft.fill('Auf dem Tablet.');
   await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
@@ -149,6 +196,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('tablet records actual browser audio and appends transcript through signed host API', await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
   const requests = readFileSync(join(root, 'provider.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line) as { bytes: number });
   check('tablet uploads audio beyond normal command size without a second desktop charge', requests.length === 2 && requests[1]!.bytes > 64 * 1024);
+  await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
+  await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  const mobileSpeech = mobileConsumption.getByRole('region', { name: 'Diktatverbrauch', exact: true });
+  await mobileSpeech.getByText('Antwort erhalten', { exact: true }).waitFor();
+  check('tablet sees its own single dictation attempt through authorized usage query', (await mobileSpeech.innerText()).includes('1 Auftrag/Aufträge'));
+  check('tablet speech usage stays within its narrow panel', await mobileSpeech.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
+  await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   await mobileDraft.fill('Aufgabe vom Tablet.');
   await mobileDialog.getByRole('button', { name: 'An CLI absenden', exact: true }).click();
   await mobileDialog.getByText('An die CLI übergeben. Die Verarbeitung durch das Modell ist damit noch nicht bestätigt.', { exact: true }).waitFor();

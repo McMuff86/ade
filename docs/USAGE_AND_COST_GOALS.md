@@ -11,7 +11,21 @@ Inzwischen liegen begrenzte **echte native Quellenproben für alle drei CLIs**
 vor, mit wichtigen Unterschieden bei vorbereitenden Codex-Zählern, Claude-
 Hilfsmodellen und Grok-Cache-/Kostenformaten. Der
 [Quellennachweis](USAGE_SOURCE_RESULTS.md) führt die Implementierungsentscheidung;
-er ersetzt noch keine integrierte ADE-Verbrauchsansicht.
+er belegt Quellen und Grenzen der inzwischen integrierten Sitzungsansicht.
+
+Arbeitsstand nach Diktatcommit `128b503`: Normalisierung, begrenztes Zahlenjournal,
+privater OTLP-Empfänger und exakt gebundene native Dateiquellen sind implementiert.
+**130 fokussierte Checks** bestehen (27 Normalisierung, 35 Journal, 19 Empfänger,
+23 Dateiquelle, 26 Collector). Neue native Windows-CLI-Starts sind angebunden;
+eine sitzungsbezogene Anzeige ergänzt den bestehenden Terminal-Nutzungsabruf
+auf PC und Tablet. Die erneute integrierte Abnahme läuft noch. Persönliche
+Aktivierung, Projekt-/Monatsübersicht, Budgets und vollständige
+Resume-/Fork-/Unteragentabdeckung stehen aus. ElevenLabs-STT-/TTS-Versuche sind
+inzwischen dauerhaft angebunden, mit **36 weiteren fokussierten Checks**:
+Audiosekunden bzw. Zeichen, unveränderlicher Zielbezug und getrennte Abschlüsse.
+Die Sitzungsansicht zeigt Diktate separat von LLM-Tokens; Einzelpreise/Credits
+bleiben unbekannt. Der echte lesende Kontenabgleich ist als Quelle geprüft,
+noch keine integrierte Kontenansicht. Der Ausbauauftrag bleibt aktiv.
 
 ## Sichtbares Ergebnis
 
@@ -50,7 +64,8 @@ Das sind mögliche Integrationsquellen, noch keine ADE-Runtime-Abnahme.
 
 Die bestehenden Managed-Run-Adapter normalisieren bereits Input/Output/Kosten
 (`claudeStream.ts`, `grokStream.ts`, `RunTaskUsage`). Die interaktive CLI-Liste
-enthält bisher keine verlässliche Nutzungsbilanz. `CodexAccountUsage` erfasst
+enthält selbst keine Nutzungsbilanz; der Terminal-Nutzungsbereich ergänzt jetzt
+die begrenzte native Sitzungsbilanz. `CodexAccountUsage` erfasst
 Kontingentfenster und ersetzt keinen Sitzungszähler. Diese Unterschiede bleiben
 auch nach dem Ausbau sichtbar.
 
@@ -83,8 +98,8 @@ Ausgang darf nicht als kostenloser Erfolg erscheinen.
 
 ## Collectorvertrag nach den nativen Quellenproben
 
-Der folgende Vertrag ist die nächste Implementierungsstufe, noch keine
-gelieferte Collector-Funktion:
+Der folgende Vertrag führt die Collector-Implementierung. Der Arbeitsstand oben
+grenzt die bereits angebundenen Teile von den weiterhin offenen Ausbaustufen ab:
 
 - Pro ADE-Start eine eigene Collector-Identität. Ein lokaler OTLP-Empfänger
   akzeptiert nur begrenzte, authentisierte Nachrichten dieser Prozesse. Den
@@ -123,6 +138,34 @@ Nicht jede CLI liefert alle Felder. Summen zeigen ihre Abdeckung; Kontingente,
 geschätzte API-Preise und vom Anbieter gemeldete Beträge bleiben getrennt.
 
 ## Reverse Proxy als gezielte Alternative
+
+### ElevenLabs-Abgleich: aktualisierte Quellenprüfung
+
+Am 15. September 2026 nennt die [ElevenAPI-Preisseite](https://elevenlabs.io/pricing/api)
+eine Abrechnung in USD und produktspezifische Einheiten. Gleichzeitig liefert
+die [Workspace-Usage-API](https://elevenlabs.io/docs/api-reference/analytics/workspace/usage)
+tabellarische Creditwerte. Deshalb weder pauschal einen Zeichen-/Creditfaktor
+noch das Abrechnungsmodell des persönlichen Kontos aus einem vorhandenen Key
+ableiten. Einheiten und Kontingente bleiben an ihre tatsächlich gelesene Quelle
+gebunden. Preisstände dürfen historische Zahlen nicht stillschweigend ändern.
+
+Die [Request-Analytics](https://elevenlabs.io/docs/api-reference/analytics/workspace/requests)
+besitzt Zeitfilter und begrenzte Ergebnismengen. Das dokumentierte Beispiel zeigt
+Request-IDs; die echte Kontoabfrage lieferte stattdessen Event-/Tracekennungen,
+Endpoint und HTTP-Status. Deshalb keine garantierte Request-ID-Zuordnung annehmen.
+Der Antwortvertrag garantiert dort keinen Preis
+pro Anfrage. [STT](https://elevenlabs.io/docs/api-reference/speech-to-text/convert)
+und [TTS](https://elevenlabs.io/docs/api-reference/text-to-speech/convert) liefern
+ebenfalls nicht pauschal eine belegte Einzelabrechnung. Erst eigene Versuche mit
+gemessener Dauer bzw. festem Textumfang journalisieren; nachträgliche Anbieter-
+Angaben nur mit passender ID und eindeutig dokumentierter Einheit ergänzen.
+Ein globaler Kontoanstieg ist keine Zuweisung zu einer ADE-Aufnahme.
+
+Der Versuch muss schon vor dem Provideraufruf dauerhaft sein. Nicht versendet,
+bestätigtes Ergebnis und unbestätigter Ausgang sind unterscheidbar; Abbruch oder
+Reload dürfen weder die Dauer doppelt zählen noch eine kostenlose Anfrage
+vortäuschen. Kontenabgleich ist eine eigene Lesefunktion mit eigenen Grenzen,
+keine Voraussetzung für normale Mikrofonaufnahme und Terminaleingabe.
 
 Vorgeschlagene Reihenfolge: native Nutzungsereignisse → sitzungsgebundener
 Collector → unterstützter API-Gateway/Reverse-Proxy nur bei nachgewiesener Lücke.

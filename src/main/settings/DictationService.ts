@@ -2,6 +2,8 @@ import {
   DICTATION_MAX_AUDIO_BYTES, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE,
   validPromptText, type DictationTranscript,
 } from '../../shared/dictation';
+import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
+import { redactedErrorDetail } from '../errors';
 
 /** Accept only the exact PCM/WAV envelope produced by ADE's recorder. No codec,
  * remote URL, filename or client-reported duration is trusted by the host. */
@@ -24,9 +26,11 @@ export function validateDictationAudio(audio: Uint8Array): number {
  * persistence. The caller owns authorization, idempotency and draft identity. */
 export class DictationService {
   private busy = false;
+  private usage?: SpeechUsageService;
+  setUsage(usage: SpeechUsageService): void { this.usage = usage; }
   constructor(private readonly key: () => string | undefined, private readonly fetcher: typeof fetch = fetch) {}
 
-  async transcribe(audio: Uint8Array, authorize: () => void, signal?: AbortSignal): Promise<DictationTranscript> {
+  async transcribe(audio: Uint8Array, authorize: () => void, signal?: AbortSignal, attribution: SpeechUsageAttribution = {}): Promise<DictationTranscript> {
     authorize();
     const audioSeconds = validateDictationAudio(audio);
     if (this.busy) throw new Error('Eine Transkription läuft bereits. Bitte warten.');
@@ -36,6 +40,7 @@ export class DictationService {
     const cancellation = signal ? AbortSignal.any([signal, deadline]) : deadline;
     if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
     this.busy = true;
+    let attempt: SpeechUsageAttempt | undefined; let dispatched = false;
     try {
       const form = new FormData();
       form.set('file', new Blob([new Uint8Array(audio)], { type: 'audio/wav' }), 'dictation.wav');
@@ -44,8 +49,11 @@ export class DictationService {
       form.set('tag_audio_events', 'false');
       form.set('diarize', 'false');
       authorize();
+      attempt = await this.usage?.begin({ ...attribution, product: 'dictation', model: 'scribe_v2', audioSeconds });
+      authorize(); if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
       let response: Response;
       try {
+        dispatched = true;
         response = await this.fetcher('https://api.elevenlabs.io/v1/speech-to-text', {
           method: 'POST', headers: { 'xi-api-key': key }, body: form, redirect: 'error', signal: cancellation,
         });
@@ -85,8 +93,12 @@ export class DictationService {
         || (data.text.trim() && !validPromptText(data.text))) throw new Error('Das Transkript ist zu lang oder enthält ungültige Steuerzeichen.');
       if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
       authorize();
+      await attempt?.finish('complete').catch(error => console.warn('[ade] speech usage finalization failed:', redactedErrorDetail(error)));
       return { text: data.text, language: typeof data.language_code === 'string' && /^[a-z]{2,3}$/.test(data.language_code)
         ? data.language_code : null, audioSeconds, model: 'scribe_v2' };
+    } catch (error) {
+      await attempt?.finish(dispatched ? 'unconfirmed' : 'not-sent').catch(failure => console.warn('[ade] speech usage finalization failed:', redactedErrorDetail(failure)));
+      throw error;
     } finally { this.busy = false; }
   }
 }

@@ -13,6 +13,12 @@ import type { MobileSessionInventory } from '../../shared/remote';
 import type { MobileTerminalPrompt, MobileDictationTarget } from '../../shared/remote';
 import { terminalPromptBytes, validTerminalPrompt, type TerminalPromptCapability, type TerminalPromptRequest, type TerminalPromptReceipt } from '../../shared/terminalPrompt';
 import { validPromptText } from '../../shared/dictation';
+import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
+
+type RecordingAuthorization = (() => void) & { usage: Readonly<SpeechUsageAttribution> };
+const recordingAuthorization = (authorize: () => void, session: SessionMeta): RecordingAuthorization => Object.assign(authorize, {
+  usage: Object.freeze({ terminalSessionId: session.id, repositoryId: session.repositoryId ?? undefined, agentId: session.agentId ?? undefined }),
+});
 
 export interface RemoteTerminalPort {
   promptCapability?(sessionId: string, requirePaste?: boolean): TerminalPromptCapability;
@@ -109,7 +115,7 @@ export class RemoteTerminalService {
     });
   }
 
-  async desktopRecordingTarget(sessionId: string): Promise<() => void> {
+  async desktopRecordingTarget(sessionId: string): Promise<RecordingAuthorization> {
     const session = this.port.list().find(item => item.id === sessionId);
     if (!session) throw new Error('Sitzung ist nicht mehr verfügbar.');
     const selection: MobileTerminalSelection = session.projectWorkspaceId ? { projectWorkspaceId: session.projectWorkspaceId }
@@ -125,7 +131,7 @@ export class RemoteTerminalService {
       const capability = this.port.promptCapability?.(sessionId, false);
       if (!capability?.available) throw new Error(capability && !capability.available ? capability.reason : 'Promptübergabe ist nicht verfügbar.');
     };
-    authorize(); return authorize;
+    authorize(); return recordingAuthorization(authorize, session);
   }
 
   async query(deviceId: string, input: MobileTerminalQuery): Promise<MobileTerminalState> {
@@ -140,7 +146,7 @@ export class RemoteTerminalService {
     const sessions = this.port.list().filter((session) => session.kind === 'interactive' && !session.runTaskId && !session.remoteAccessBlocked
       && this.workbench.sessionMatches(binding, session) && this.visible(deviceId, session));
     const terminals = sessions.slice(-32).filter((session) => this.entry(session, binding).workspaceVersion === this.workbench.version(binding))
-      .map((session) => this.summary(this.entry(session, binding), session, deviceId));
+      .map((session) => this.summary(this.entry(session, binding), session, deviceId, binding));
     const current = () => ({ terminals: terminals.filter((item) => this.visible(deviceId, sessions.find((session) => session.id === this.entries.get(item.id)?.sessionId)!)), launchOptions: options() });
     this.requireGrant(deviceId, input);
     if (!input.terminalId) {
@@ -152,6 +158,9 @@ export class RemoteTerminalService {
     const entry = this.entries.get(input.terminalId); const session = sessions.find((item) => item.id === entry?.sessionId);
     if (!entry || !session || entry.workspaceVersion !== this.workbench.version(binding)) failure('Terminal ist nicht mehr verfügbar. Sitzungsliste aktualisieren.');
     const subscriptionUsage = input.usage ? await this.port.usage?.(entry!.sessionId) : undefined;
+    if (subscriptionUsage?.consumption) subscriptionUsage.consumption = { ...subscriptionUsage.consumption,
+      models: subscriptionUsage.consumption.models.map(model => redactForWire(model, 128)),
+      notice: redactForWire(subscriptionUsage.consumption.notice, 1000) };
     const display = this.port.display ? await this.port.display(entry!.sessionId)
       : { screen: await remoteTerminalScreen(Buffer.from(this.port.attach(entry!.sessionId).replayBase64, 'base64'), entry!.cols, entry!.rows) };
     this.requireGrant(deviceId, input); await this.workbench.revalidate(binding); this.requireGrant(deviceId, input); this.expire();
@@ -164,7 +173,7 @@ export class RemoteTerminalService {
     return { ...current(), subscriptionUsage, displayRevision,
       ...(promptCapability ? { promptCapability: promptCapability.available ? promptCapability : { available: false as const, reason: redactForWire(promptCapability.reason, 1000) } } : {}),
       ...(input.profileContext ? { profileContextText: typeof profileText === 'string' ? redactForWire(profileText, 32_000) : null } : {}),
-      selected: this.summary(entry!, session!, deviceId), ...(input.knownDisplayRevision === displayRevision ? { displayUnchanged: true as const } : display),
+      selected: this.summary(entry!, session!, deviceId, binding), ...(input.knownDisplayRevision === displayRevision ? { displayUnchanged: true as const } : display),
       cols: display.frame?.cols ?? entry!.cols, rows: display.frame?.rows ?? entry!.rows,
       ...(own ? { leaseId: own.leaseId, lastSequence: own.sequence, inputUncertain: own.sequence > 0 && own.receipts.get(own.sequence)?.accepted !== true } : {}) };
   }
@@ -188,8 +197,7 @@ export class RemoteTerminalService {
         if (entry.workspaceVersion !== this.workbench.version(binding)) { result.omitted++; continue; }
         if (!this.port.list().some((item) => item.id === session.id)) { result.omitted++; continue; }
         if (!this.visible(deviceId, session)) continue;
-        result.sessions.push({ ...this.summary(entry, session, deviceId), ...selection, createdAt: session.createdAt,
-          ...(session.projectWorkspaceId ? { projectName: redactForWire(binding.projectName ?? 'Projekt', 200) } : {}) });
+        result.sessions.push({ ...this.summary(entry, session, deviceId, binding), ...selection, createdAt: session.createdAt });
       } catch { result.omitted++; }
     }
     this.requireGrant(deviceId);
@@ -239,7 +247,7 @@ export class RemoteTerminalService {
     return this.input(context, { ...selection, data: terminalPromptBytes(text, mode) }, { text, mode });
   }
 
-  async recordingTarget(deviceId: string, target: MobileDictationTarget): Promise<() => void> {
+  async recordingTarget(deviceId: string, target: MobileDictationTarget): Promise<RecordingAuthorization> {
     this.requireGrant(deviceId, target); this.expire();
     const binding = await this.workbench.resolveTerminal(target);
     if (!binding) failure('Workspace ist nicht mehr verfügbar.');
@@ -255,7 +263,7 @@ export class RemoteTerminalService {
       const capability = this.port.promptCapability?.(entry.sessionId, false);
       if (!capability?.available) failure(capability && !capability.available ? capability.reason : 'Promptübergabe ist nicht verfügbar.');
     };
-    authorize(); return authorize;
+    authorize(); return recordingAuthorization(authorize, this.port.list().find(item => item.id === entry.sessionId)!);
   }
 
   async input(context: RemoteCommandContext, input: MobileTerminalInput, prompt?: Pick<MobileTerminalPrompt, 'text' | 'mode'>): Promise<{ sequence: number; replayed: boolean }> {
@@ -325,8 +333,9 @@ export class RemoteTerminalService {
     if (this.entries.size >= 128) failure('Zu viele Terminal-Verbindungen. Alte Sitzungen am PC schliessen.');
     const entry: TerminalEntry = { id: randomUUID(), sessionId: session.id, cols: 120, rows: 32, workspaceVersion: this.workbench.version(binding) }; this.entries.set(entry.id, entry); return entry;
   }
-  private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string): MobileTerminalSummary {
+  private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string, binding: WorkbenchScope): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
+      ...(binding.projectName ? { projectName: redactForWire(binding.projectName, 200) } : {}),
       profileContext: session.profileContext ? { profileId: session.profileContext.profileId,
         profileName: redactForWire(session.profileContext.profileName, 200), digest: session.profileContext.digest,
         profileDigest: session.profileContext.profileDigest,

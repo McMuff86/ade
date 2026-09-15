@@ -1,5 +1,10 @@
 # Laufende CLI-Arbeit und Diktat: nächste ADE-Ziele
 
+Aktuelle Operatorentscheidung: Checkpoint inklusive Handoff committen/pushen,
+Windows-Build starten, eine ADE-Instanz für seinen Tablet-Test offen lassen und
+danach pausieren. Fortsetzung erst nach Rückmeldung. [Prüfstand und offene Punkte](HANDOFF.md)
+sind führend; offene Goals sind keine als fertig gemeldete Lieferung.
+
 Stand: 15. September 2026. Der Operator hat die bereinigte Projektordnung
 bestätigt und die Ziele für CLI-Übersicht und ElevenLabs-Übergabe beauftragt.
 Ein gemeinsames Umsetzungsziel ist in der Codex-Zielverwaltung aktiv. Die
@@ -9,8 +14,11 @@ bestehen die vollständige Code-Abnahme mit **3.735 Checks**; das Windows-Paket
 besteht zehn weitere Checks. Reale ElevenLabs- und native Codex-/Claude-/Grok-
 Promptproben sind erfolgreich. Der frühere CLI-Checkpoint `b2e134e`/`5ea3b3c`
 ist gesichert und gepusht. Persönliche Aktivierung steht wegen einer offenen
-WSL-Sitzung aus. Das Kostenjournal sowie die unten benannten zwei Details aus
-Goal 27.2 bleiben zu implementieren; physische Tablet-/WAN-Abnahme ist gesondert.
+WSL-Sitzung aus. Der Diktatstand ist inzwischen als **`128b503`** auf `origin/main`
+gesichert, Remote-SHA abgeglichen. Die anschliessenden Orientierungsdetails aus
+Goal 27.2 sind implementiert und fokussiert geprüft. Das begrenzte Verbrauchsjournal
+und die native CLI-/Diktat-Sitzungsanzeige sind inzwischen angebunden; Projekt-/
+Monatssummen und Budgets bleiben offen. Physische Tablet-/WAN-Abnahme ist gesondert.
 [CLI-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Erweiterung des aktiven Ziels auf weiteren Operatorauftrag: die Dokumentation
@@ -96,11 +104,12 @@ Verbindliche Anzeigen:
 Die vier Projektkarten zeigen den vorhandenen Originalworkspace statt der
 irreführenden Aussage „Noch kein Agent-Workspace“. Projektaktionen öffnen den
 gewählten Arbeitsort. Eigene Profil-Homes und die WSL-Assistenten bleiben klar
-bezeichnet. Noch offen in Goal 27.2: Die Projektübersicht soll beim Einstieg die
-gespeicherte ADE-Auswahl bevorzugen; der gesamte gefundene Ordnerbestand bleibt
-bewusst erreichbar. Der mobile Promptdialog soll auch bei profilfreien Starts
-den konkreten Projektnamen zeigen; momentan benennt er dort nur Projekt, CLI
-und Branch. Das gebundene technische Sitzungsziel ist davon unabhängig.
+bezeichnet. Die Projektübersicht beginnt mit „Meine ADE Projekte“ und merkt sich
+eine ausdrücklich gewählte Ansicht „Alle“ auf diesem Gerät. Der gesamte gefundene
+Ordnerbestand bleibt dadurch erreichbar. Der mobile Promptdialog zeigt auch bei
+profilfreien Starts den konkreten Projektnamen aus der geprüften Workspace-Zuordnung.
+Diese Folgeänderung ist separat fokussiert geprüft; der obige Paketstand gehört
+noch zum vorherigen Diktatmeilenstein.
 
 ## Goal 23.1: Text und Sprache an die richtige Sitzung
 

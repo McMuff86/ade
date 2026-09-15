@@ -17,6 +17,7 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
     { deviceId: device.id, scopes: (device.adminScopes ?? []).filter((scope) => scope !== 'projects:write') });
   const configBefore = await desktop.evaluate(() => window.ade.invoke('config:get'));
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Discover me', exact: true });
   await dialog.getByText('Am PC unter Settings → Verbundene Geräte zusätzlich', { exact: false }).waitFor();
@@ -64,6 +65,7 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await desktop.keyboard.press('ArrowRight');
   check('keyboard navigation reaches the new desktop Projects tab', await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).getAttribute('aria-selected') === 'true'
     && await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).evaluate((node) => node === document.activeElement));
+  await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   await desktop.getByRole('region', { name: 'Geöffneter Projekt-Workspace', exact: true }).waitFor();
   check('desktop opens the same independent checkout and focuses its title', await desktop.getByText('feature/tablet', { exact: true }).isVisible()

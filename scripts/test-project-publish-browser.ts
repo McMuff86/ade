@@ -24,7 +24,9 @@ void (async () => {
   await page.goto(sessions.beginPairing(proxy.origin).url); await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor(); const device = f.devices.activeDevices()[0]!;
   f.devices.setAdminScopes(device.id, ['workspace:read', 'projects:write', 'projectGit:write']);
-  await page.getByRole('tab', { name: 'Projekte', exact: true }).click(); await page.getByRole('button', { name: 'Workspace öffnen: Publication demo', exact: true }).click();
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
+  await page.getByRole('button', { name: 'Workspace öffnen: Publication demo', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Publication demo', exact: true });
   await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click(); await dialog.getByRole('button', { name: 'Git', exact: true }).click();
   await dialog.getByText('Push und Pull Request', { exact: true }).click(); const panel = dialog.getByRole('region', { name: 'Projekt veröffentlichen', exact: true });

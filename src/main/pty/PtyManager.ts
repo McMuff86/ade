@@ -75,6 +75,7 @@ import { ProtectedPromptWriter } from './ProtectedPromptWriter';
 import type { TerminalPromptCapability, TerminalPromptRequest } from '../../shared/terminalPrompt';
 import { RemoteTerminalDisplay } from '../application/RemoteTerminalScreen';
 import { cachedCodexAccountUsage } from '../settings/CodexAccountUsage';
+import type { NativeUsageLaunch, NativeUsageService } from '../usage/NativeUsageService';
 import { providerApiKeyPresent } from '../../shared/sessionAuthentication';
 import type { SubscriptionUsage } from '../../shared/remote';
 import type { MobileTerminalSelection, SessionLaunchChoice } from '../../shared/remote';
@@ -127,6 +128,7 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  usageFinish?: NativeUsageLaunch['finish'];
   promptProtected?: boolean;
   cols: number;
   rows: number;
@@ -179,6 +181,8 @@ interface SpawnSpec {
 let sessionSeq = 0;
 
 export class PtyManager {
+  private nativeUsage?: NativeUsageService;
+  setNativeUsage(service: NativeUsageService): void { this.nativeUsage = service; }
   private readonly promptWriter = new ProtectedPromptWriter({ check: id => {
     const capability = this.promptCapability(id);
     if (!capability.available) throw new Error(capability.reason);
@@ -473,6 +477,7 @@ export class PtyManager {
     if (!session || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) throw new Error('Interaktives Terminal ist nicht verfügbar.');
     const provider = session.usageProvider ?? 'unknown';
     const fallback: SubscriptionUsage = { provider, source: 'cli', checkedAt: Date.now(), status: 'unavailable', windows: [],
+      consumption: this.nativeUsage?.consumption(sessionId),
       message: provider === 'unknown' ? 'Für diese Shell oder diesen eigenen Startbefehl ist kein Abo-Anbieter bekannt.'
         : provider === 'claude' ? 'Claude Code zeigt die aktuellen Abo-Limits mit /usage. Automatische Übernahme in ADE ist noch nicht eingerichtet.'
           : provider === 'grok' ? 'Grok Build zeigt den aktuellen Verbrauch und Reset mit /usage.'
@@ -485,7 +490,7 @@ export class PtyManager {
     // This probe observes the host account, not the auth state of the existing TUI.
     const result = await cachedCodexAccountUsage();
     if (this.sessions.get(sessionId) !== session) throw new Error('Terminalsitzung wurde inzwischen geschlossen.');
-    return { ...result, authentication: session.usageApiKey ? 'api-key-present' : result.status === 'available' ? 'subscription-account' : 'unknown',
+    return { ...result, consumption: this.nativeUsage?.consumption(sessionId), authentication: session.usageApiKey ? 'api-key-present' : result.status === 'available' ? 'subscription-account' : 'unknown',
       message: `${session.usageApiKey ? launchUsage.message + ' ' : ''}${result.message}`, command: '/status' };
   }
 
@@ -512,6 +517,7 @@ export class PtyManager {
     this.cancelledDispatches.clear();
 
     for (const session of this.sessions.values()) {
+      void session.usageFinish?.().catch(error => console.warn('[ade] usage finalization failed:', redactedErrorDetail(error)));
       if (session.reapTimer) clearTimeout(session.reapTimer);
       session.display?.dispose();
       if (session.forceStopTimer) clearTimeout(session.forceStopTimer);
@@ -601,11 +607,21 @@ export class PtyManager {
     }
     const promptProtected = !task && !login && !!spec.initialCommand && !agent.customCommand && process.platform === 'win32'
       && scope.executionBackend === NATIVE_EXECUTION_BACKEND && ['codex', 'claude', 'grok'].includes(agent.runtime);
+    const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
+    let usageLaunch: NativeUsageLaunch | undefined;
+    if (promptProtected && this.nativeUsage) {
+      try {
+        usageLaunch = await this.nativeUsage.prepare({ provider: agent.runtime as 'codex' | 'claude' | 'grok', command: spec.initialCommand!,
+          env: { ...process.env, ...credentialEnv, ...spec.env }, terminalSessionId: id, repositoryId: scope.repositoryId, agentId });
+        spec = { ...spec, initialCommand: usageLaunch.command, env: { ...spec.env, ...usageLaunch.env } };
+      } catch (error) { console.warn('[ade] usage collection could not start:', redactedErrorDetail(error)); }
+    }
+    const finishUsage = () => { void usageLaunch?.finish().catch(error => console.warn('[ade] usage finalization failed:', redactedErrorDetail(error))); };
     let program: Awaited<ReturnType<typeof prepareProgram>> | undefined;
     try { program = !task && !login && spec.initialCommand
       ? await (promptProtected ? prepareProtectedProgram : prepareProgram)(spec.initialCommand, backendPlatform, (path) => scope.executionBackend === NATIVE_EXECUTION_BACKEND
         ? Promise.resolve(path) : this.execution.toBackendPath(scope.executionBackend, path)) : undefined;
-    } catch (error) { preparedProfile?.dispose(); throw error; }
+    } catch (error) { finishUsage(); preparedProfile?.dispose(); throw error; }
     if (program) spec = { ...spec, args: program.args ?? spec.args, initialCommand: program.initialCommand };
     // Match the read-only Codex config probe's clean shell environment. A
     // PowerShell profile must not swap aliases/config after baseline capture.
@@ -625,7 +641,7 @@ export class PtyManager {
         ...credentialEnv,
         ...(backendEnv ?? spec.env ?? {}),
       },
-    ); } catch (error) { program?.dispose(); preparedProfile?.dispose(); throw error; }
+    ); } catch (error) { finishUsage(); program?.dispose(); preparedProfile?.dispose(); throw error; }
     // WSL launches receive their backend fields through WSLENV in the host
     // environment of wsl.exe (see ExecutionBackendService.wslLaunch), never
     // through argv, so the credential is not on the relay's command line.
@@ -663,13 +679,13 @@ export class PtyManager {
       useConpty: true,
       });
     } catch (error) {
+      finishUsage();
       program?.dispose();
       preparedProfile?.dispose();
       if (promptScratchDir) rmSync(promptScratchDir, { recursive: true, force: true });
       throw error;
     }
 
-    const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     const label = LAUNCH_PROFILES[agent.runtime]?.label ?? 'Shell';
     const meta: SessionMeta = {
       runtime: agent.runtime,
@@ -703,6 +719,7 @@ export class PtyManager {
       scopeSource: scope.source,
     };
     const session: Session = {
+      usageFinish: usageLaunch?.finish,
       promptProtected,
       cols: DEFAULT_COLS, rows: DEFAULT_ROWS,
       profileText: profileSnapshot?.content,
@@ -833,6 +850,8 @@ export class PtyManager {
   }
 
   private handleExit(session: Session, exitCode: number): void {
+    void session.usageFinish?.(exitCode === 0 && !session.stopping && !session.cancelled ? 'normal' : 'interrupted')
+      .catch(error => console.warn('[ade] usage finalization failed:', redactedErrorDetail(error)));
     const tracked = this.sessions.get(session.meta.id) === session;
     this.releaseTaskLease(session);
     if (!tracked) return;

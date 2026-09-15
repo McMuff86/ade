@@ -11,8 +11,10 @@ ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien
 liegen auf dem PC. Das Tablet bedient ADE über eine private Verbindung; es muss
 die Entwicklungswerkzeuge nicht selbst installieren.
 
-**Der neue Projekteinstieg: Projekte → Workspace öffnen.** Die Liste zeigt auch
-Ordner unter deinem Projekt-Stamm, die noch nicht in ADE erfasst sind. Der geöffnete
+**Der neue Projekteinstieg: Projekte → Workspace öffnen.** Zuerst siehst du
+„Meine ADE Projekte“. Unter **Alle** findest du auch Ordner unter deinem
+Projekt-Stamm, die noch nicht in ADE erfasst sind. ADE merkt sich deine ausdrücklich
+gewählte Filteransicht auf diesem Gerät. Der geöffnete
 Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
 Unter **Branches** den Branch wählen und die Aktion prüfen. Danach unter
 **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
@@ -422,8 +424,25 @@ keine gemeinsame Gesprächssitzung zwischen TUI und Dashboard.
 Restprozente und Reset-Zeitpunkte. Die Anzeige nennt ihren Messzeitpunkt;
 Aktualisierungen werden für eine Minute zusammengefasst. Bei Claude/Grok führt
 der angezeigte Befehl `/usage` zur Nutzung in der bereiten Anbieter-CLI. Diese
-Werte werden noch nicht automatisch in ADE übertragen. API-Verbrauch und das
-Kontextfenster sind getrennt vom Abo-Kontingent.
+Kontingentwerte werden noch nicht automatisch in ADE übertragen. API-Verbrauch
+und das Kontextfenster sind getrennt vom Abo-Kontingent.
+
+Im aktuellen Code ergänzt **Sitzungsverbrauch** diese Anzeige für neue native
+Windows-Codex-/Claude-/Grok-Starts. Sie zeigt gemeldeten Input/Output, darin
+enthaltenen Cache/Reasoning und verfügbare Kosten mit ihrer jeweiligen Quelle.
+Fehlende Felder bleiben unbekannt; API-Schätzungen sind keine Abo-Rechnung.
+Bei geöffnetem Bereich wird alle zehn Sekunden aktualisiert. Dieser Ausbau
+ist noch in Abnahme und nicht im zuletzt aktivierten persönlichen Programm.
+Fortgesetzte ältere Gespräche, Forks, Unteragenten und andere Backends sind noch
+nicht vollständig erfasst; eine unvollständige Anzeige ist keine Gesamtrechnung.
+
+Nach einem Diktat zeigt derselbe Bereich **ElevenLabs · Diktat** mit den gemessenen
+Audiosekunden. „Antwort erhalten“ bestätigt ein Ergebnis; „Abschluss ausstehend“
+oder „Antwort unbestätigt“ kann ebenfalls Kosten verursacht haben. „Vor Versand
+beendet“ bedeutet, dass ADE den Anbieter noch nicht aufgerufen hat. Credits und
+Kosten pro Auftrag bleiben ohne eindeutige Anbieterquelle unbekannt. Diktate werden
+der beim Aufnahmestart gewählten Sitzung zugeordnet. Stimmtests erfassen separat
+Zeichen und ihren Projekt-/Profilbezug; eine gemeinsame Monatsansicht folgt noch.
 
 Im Git-Bereich zeigt **Nächster Git-Schritt** die passende Reihenfolge; Quelle
 und Ziel stehen vor einem Merge sichtbar da. Beim neuen Branch zeigt ADE den

@@ -14,6 +14,61 @@ Titles and seen-output markers are local, bounded to 256 entries under
 Active, visible foreground terminals mark output seen only at the live bottom.
 Existing original-workspace cards navigate directly, independently of profiles.
 
+## Native session usage (Goal 24, implementation in progress)
+
+`main/usage/normalize` normalizes inclusive input/cache/reasoning semantics;
+`UsageJournal` stores only
+numeric facts and attribution IDs. The append journal serializes writes and
+fsync asynchronously, retains cumulative baselines and native-event digests,
+and detects conflicting replay, torn writes and changed/missing initialized files.
+Limits are 32 MiB, 16 KiB per event, 50,000 facts and 4,096 sessions; reaching a
+bound reports incomplete collection and preserves the file.
+
+`NativeUsageService` is connected to new protected native Windows interactive
+Codex/Claude/Grok starts in `PtyManager`. The private lazy loopback OTLP/JSON
+receiver requires a per-launch header supplied only through the process env,
+rejects browser origins, and bounds request size, connections and batches.
+Codex's telemetry identifies one fresh CLI conversation; its exact, link-free
+rollout provides cumulative counters. Pre-existing/forked conversations are
+refused rather than imported as new usage. Claude receives a generated session
+ID; matching API events include auxiliary models. Grok receives a generated ID
+and is read through its exact `turn_completed` file. Provider config files and
+personal login state are not modified. Transcript readers bound every read and
+discard bodies after projecting known numeric fields; no transcript is copied.
+
+The existing `terminal:usage` / authorized mobile terminal query returns a
+`SessionConsumption` DTO from `shared/remote.ts`, scoped to the selected PTY.
+It exposes numbers, field coverage, safe model labels and distinctly typed costs,
+never native session IDs, provider paths, collector tokens or raw facts.
+Remote model labels and notices pass `redactForWire`; existing selection/device
+revalidation still runs after awaited reads. No invoke channel, scope or generic
+remote command allowlist is widened. The shared terminal view refreshes only
+while opened. Electron waits for numeric-journal shutdown after stopping PTYs.
+Forced stops, nonzero process exits and host shutdown preserve known totals but
+mark coverage incomplete because the final provider usage may not have arrived.
+
+`SpeechUsageService` shares the same journal. Dictation and fixed-text voice tests
+durably record a pending numeric attempt before the paid request. Dictation uses
+validated WAV duration; TTS uses the submitted character count. `DictationJobs`
+captures main-resolved terminal/project/profile attribution at preparation,
+including remote control/resource checks. Outcomes append separately and never
+add the duration twice: complete, unconfirmed or not-sent. A crash or finalization
+failure keeps pending usage; network uncertainty is never free usage. An unavailable
+journal prevents a new paid dispatch, while failure to save an outcome does not
+discard an already received transcript. Audio/text/key/request bodies are absent
+from the journal. The selected terminal's DTO exposes separate speech units by
+outcome; these never increase LLM-token totals or CLI-cost sums. Voice tests without
+a terminal retain project/profile or global attribution in main. Per-request
+credits and USD remain unknown. Read-only ElevenLabs account analytics were
+probed separately and are not yet an integrated account view or exact request bill.
+
+This first path does not yet provide project/month totals,
+budgets or complete resume/fork/subagent coverage. WSL/custom/managed terminals
+are not covered by this collector. First integrated real-provider probes are
+documented in `USAGE_SOURCE_RESULTS.md`; Codex additionally emits an unmatched
+conversation event and remains explicitly incomplete. Its extra source identity
+is unresolved. The new full verification is pending.
+
 ## Interactive terminal latency boundary
 
 Native project terminal query/input/attachment revalidate the recorded process
@@ -104,6 +159,11 @@ folder import includes/reactivates membership. The shared project directory
 offers All/My filters and explicit inclusion/removal, including unreachable
 registered entries. Fresh discovery/Git validation is required to adopt a new
 checkout; membership changes to an existing record need no filesystem writes.
+The initial directory filter is My Projects. An explicit All/My choice is saved
+as a bounded enum under `ade:project-directory-filter` in the local browser profile;
+invalid or unavailable storage defaults to My and never prevents filtering.
+Authorized terminal summaries carry a redacted `projectName` from the resolved
+workspace, so the mobile prompt editor identifies profile-free projects too.
 
 Desktop `project:membership` stays desktop-only `mutate`. The explicit host
 route `POST /api/v1/projects/membership` delegates only to

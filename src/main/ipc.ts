@@ -2,6 +2,9 @@ import { RunQuestionService } from './orchestration/RunQuestionService';
 import { SpeechService } from './settings/SpeechService';
 import { DictationService } from './settings/DictationService';
 import { DictationJobs } from './settings/DictationJobs';
+import { NativeUsageService } from './usage/NativeUsageService';
+import { SpeechUsageService } from './usage/SpeechUsageService';
+import { UsageJournal } from './usage/UsageJournal';
 import { desktopMicrophone } from './settings/desktopMicrophone';
 import { SpeechPreferences } from './settings/SpeechPreferences';
 import { AgentBehaviorService } from './memory/AgentBehaviorService';
@@ -101,6 +104,7 @@ import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 let ptyManager: PtyManager | null = null;
 let remoteTerminals: RemoteTerminalService | null = null;
 let dictationJobs: DictationJobs | null = null;
+let nativeUsage: NativeUsageService | null = null;
 let stopTerminalRevocation: (() => void) | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
@@ -277,9 +281,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
+  const usageJournal = new UsageJournal(join(app.getPath('userData'), 'ade', 'usage', 'events.jsonl'));
+  nativeUsage = new NativeUsageService(usageJournal);
+  const speechUsage = new SpeechUsageService(usageJournal);
   const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   const dictation = new DictationService(() => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
-  const recordings = new DictationJobs({ transcribe: (audio, authorize, signal) => hostOperations.use(() => dictation.transcribe(audio, authorize, signal)) });
+  speech.setUsage(speechUsage); dictation.setUsage(speechUsage);
+  const recordings = new DictationJobs({ transcribe: (audio, authorize, signal, usage) => hostOperations.use(() => dictation.transcribe(audio, authorize, signal, usage)) });
   dictationJobs = recordings;
   const speechPreferences = new SpeechPreferences(store, speech);
   const agentBehavior = new AgentBehaviorService(store);
@@ -288,6 +296,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const runtimeModels = new RuntimeModelService(harnessCredentials);
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
+  ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
   const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), {
     available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
@@ -911,7 +920,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return recordings.prepare(`desktop:${event.sender.id}`, () => {
       if (event.sender.isDestroyed()) throw new Error('Das aufnehmende ADE-Fenster wurde geschlossen.');
       checkTarget();
-    });
+    }, checkTarget.usage);
   });
   handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
     const audio = Buffer.from(audioBase64, 'base64');
@@ -1155,7 +1164,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
-export function disposePtyManager(): void {
+export async function disposePtyManager(): Promise<void> {
   dictationJobs?.dispose(); dictationJobs = null;
   integrationService?.stop(); integrationService = null;
   stopTerminalRevocation?.(); stopTerminalRevocation = null;
@@ -1175,4 +1184,6 @@ export function disposePtyManager(): void {
   ptyManager = null;
   runCoordinator = null;
   orchestration = null;
+  const usage = nativeUsage; nativeUsage = null;
+  await usage?.close();
 }

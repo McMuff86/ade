@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SubscriptionUsage } from '../../shared/remote';
+import { SessionConsumptionView } from './SessionConsumptionView';
 import './subscription-usage.css';
 
 export function SubscriptionUsagePanel({ load, online = true, compact = false }: { load: () => Promise<SubscriptionUsage>; online?: boolean; compact?: boolean }) {
@@ -17,6 +18,10 @@ export function SubscriptionUsagePanel({ load, online = true, compact = false }:
     finally { locked.current = false; if (live.current) setBusy(false); }
   };
   useEffect(() => { if (compact && online) void refresh(); }, [compact, online]);
+  useEffect(() => {
+    if (!opened || !online) return;
+    const timer = setInterval(() => { void refresh(); }, 10_000); return () => clearInterval(timer);
+  }, [opened, online]);
   const provider = usage?.provider === 'codex' ? 'Codex' : usage?.provider === 'claude' ? 'Claude Code' : usage?.provider === 'grok' ? 'Grok Build' : 'CLI';
   const mode = usage?.authentication === 'api-key-present' ? 'API-Zugang vorhanden' : usage?.authentication === 'subscription-account' ? 'Abo-Konto erkannt' : 'Anmeldung unbestätigt';
   return <details className={`terminal-usage ${compact ? 'terminal-usage-compact' : ''}`} open={opened} onKeyDown={(event) => {
@@ -30,6 +35,7 @@ export function SubscriptionUsagePanel({ load, online = true, compact = false }:
       {!online && <p role="status">PC nicht verbunden. Werte können veraltet sein.</p>}
       {busy && <p role="status">Nutzung wird abgefragt…</p>}{error && <p role="alert">{error}</p>}
       {usage && <>
+        {usage.consumption && <SessionConsumptionView value={usage.consumption} />}
         <p><strong>{provider} · {mode}</strong></p>
         {usage.source === 'codex-account' && usage.windows.length > 0 && <p>Das lokale Codex-Konto liefert diese Abo-Limits. Sie zeigen kein API-Guthaben und bestätigen nicht die Anmeldung der laufenden CLI-Sitzung.</p>}
         {!usage.authentication && <p>ADE kann die aktive Anmeldung dieser CLI nicht automatisch bestätigen. Ein fehlender API-Key beweist kein Abo.</p>}

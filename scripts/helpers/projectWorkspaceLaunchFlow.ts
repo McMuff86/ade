@@ -21,6 +21,7 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
     { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const, 'projectGit:write' as const])] });
   await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const terminal = desktop.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
@@ -53,6 +54,7 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   check('desktop branch action switches the exact selected existing checkout', git('branch', '--show-current').trim() === 'feature/tablet');
   writeFileSync(join(root, 'bin', 'cli-work-live'), 'Keep Claude and Grok fixture processes alive for CLI navigation.');
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Without profile', exact: true });
   await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();

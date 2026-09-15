@@ -4,6 +4,17 @@
 sind an Desktop und Mobile angebunden; die laufende persönliche ADE-Instanz
 bietet den neuen Ablauf noch nicht an. [Verbindlicher Auftrag](CLI_WORK_AND_DICTATION_GOALS.md).
 
+Gesicherter Diktatcommit: **`128b503a098b541ada26d3879109028a40bc3099`**,
+auf `origin/main` gepusht und mit dem entfernten SHA abgeglichen.
+
+Folgeänderung Orientierung: „Meine ADE Projekte“ als erste Ansicht mit erhaltener
+ausdrücklicher Filterwahl; echter Projektname im mobilen Promptdialog. Separat
+bestanden: alle drei TypeScript-Projekte, Build, 71 Remote-Terminal-Vertragschecks,
+20 Projekt-/Tablet-Layoutchecks, 22 Diktatchecks und 73 Workspace-CLI-Checks.
+Eine Kopierprüfung scheiterte während konkurrierender Desktop-UI-Läufe; der
+anschliessende alleinige vollständige Workspace-CLI-Lauf ist positiv.
+Diese Folgeänderung ist noch nicht durch den unten genannten Paketstand erfasst.
+
 ## Implementierte Verträge
 
 - PC und Tablet verwenden denselben Recorder und Prompteditor. Aufnahmen

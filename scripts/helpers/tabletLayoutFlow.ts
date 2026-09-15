@@ -11,6 +11,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
   const share = desktop.getByRole('button', { name: 'Bestehenden Ordner zu meinen ADE Projekten hinzufügen', exact: true });
   await share.waitFor();
+  check('desktop directory initially prefers My ADE Projects', await desktop.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).getAttribute('aria-pressed') === 'true');
   const before = await desktop.evaluate(() => window.ade.invoke('config:get'));
   const pick = async (path: string | null) => {
     await app.evaluate(({ dialog }, chosen) => {
@@ -37,6 +38,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Projektordner aktualisieren', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: External project', exact: true }).waitFor();
+  check('tablet directory initially prefers the same My Projects selection', await page.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).getAttribute('aria-pressed') === 'true');
   check('paired tablet discovers external project but has no PC folder picker', !await page.getByRole('button', { name: 'Bestehenden Ordner zu meinen ADE Projekten hinzufügen', exact: true }).count());
   const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find(item => item.name === 'Terminal tablet')!;
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
@@ -53,6 +55,9 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   check('removed project disappears from mobile overview', !await page.getByRole('button', { name: 'Projekt öffnen: External project', exact: true }).count());
   await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Zu meinen ADE Projekten hinzufügen: External project', exact: true }).waitFor();
+  check('explicit All filter survives tablet reload with the removed project still available', await page.getByRole('button', { name: 'Alle', exact: true }).getAttribute('aria-pressed') === 'true');
   await page.getByRole('button', { name: 'Zu meinen ADE Projekten hinzufügen: External project', exact: true }).click();
   await page.getByRole('button', { name: 'Aus meinen ADE Projekten entfernen: External project', exact: true }).waitFor();
   check('tablet explicit re-add reuses original repository identity', (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find(repo => repo.name === 'External project')?.id === after.repositories.find(repo => repo.name === 'External project')?.id);
