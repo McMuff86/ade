@@ -126,6 +126,7 @@
 .m-terminal-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; min-width: 0; }
 .m-terminal-status-bar > span { color: var(--muted); }
 .m-terminal-status-bar button { min-height: 44px; }
+.m-terminal-status-bar button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .m-terminal-focus-bar[hidden] { display: none; }
 .m-controls-collapsed .m-terminal-tools > :is(details,label,.m-management-actions),
 .m-controls-collapsed .m-terminal-tools > p:not([role=alert]):not(.m-terminal-notice) { display: none; }

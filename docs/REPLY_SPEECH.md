@@ -1,7 +1,7 @@
 # Antworten auf PC und Tablet vorlesen
 
 Stand 16. September 2026: implementiert; TypeScript, 28 Text-/Dienstprüfungen,
-20 Remote-Vertragsprüfungen und 23 echte Electron-/Chromium-Bedienprüfungen
+20 Remote-Vertragsprüfungen und 26 echte Electron-/Chromium-Bedienprüfungen
 bestanden. Gesamtabnahme und persönliche Aktivierung folgen.
 
 ## Bedienung
@@ -71,7 +71,7 @@ werden erneut geprüft. Alle Wire-Fehler durchlaufen die vorhandene Redaktion.
 ## Nachweise
 
 - `pnpm test:reply-speech`: 28 Dienst-/Textprüfungen, 20 Remote-Prüfungen.
-- `pnpm test:reply-speech-electron`: 23 Prüfungen mit echter nativer Windows-PTY,
+- `pnpm test:reply-speech-electron`: 26 Prüfungen mit echter nativer Windows-PTY,
   Electron-Renderer, gekoppeltem Chromium-Browser und signierter HTTPS-Kommunikation.
 - Audio-Decodierung, Vorschau ohne Synthese, gespeichertes Tempo, Wiederholung,
   Abbruch, Providerfehler, Code-only-Fehler, Fokus, Verlaufmarkierung, Telefonlayout,
@@ -84,3 +84,19 @@ werden erneut geprüft. Alle Wire-Fehler durchlaufen die vorhandene Redaktion.
 
 Der globale Einstieg **Sprachsteuerung** ist als nächster eigenständiger Ablauf
 beschrieben in [Sprachdialog-Vorschlag](VOICE_COMPANION_PROPOSAL.md).
+
+### Tablet-Fokusregression
+
+Der Gesamtlauf 16:20–16:33 CEST bestand alle 74 Suiten / 3.232 Fachprüfungen,
+Build, Ollama, Stimmparameter, Vorlesen und Computer-Test. Der Diktatdriver
+stoppte bei 56/1: Nach Schliessen des Dialogs verlor dessen Auslöser den Fokus,
+wenn eine regelmässige Terminalabfrage ihn kurz nativ deaktivierte. Dieser Lauf
+ist keine bestandene Gesamtabnahme (`reply-verify-focus-failure.log/.json`).
+
+Der Auslöser bleibt jetzt während vorübergehender Abfragen fokussierbar,
+meldet `aria-disabled` und verweigert die Aktion weiterhin im Click-Handler.
+Ohne Eingabebesitz oder Lease bleibt die native Sperre erhalten. Ein gezielter
+Test hält eine echte Resize-/Lease-Anfrage an: Alter Build scheitert am
+Fokus-Erhalt (`reply-heartbeat-negative.log`), korrigierter Build besteht alle
+26 Bedienprüfungen einschliesslich gesperrter Enter-Aktion und finaler Wiedergabe.
+Die Security-Mindestzahl ist auf die gemessenen 275 angehoben.

@@ -104,7 +104,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 274 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 275 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

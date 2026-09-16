@@ -283,7 +283,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
     }} />}
     {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>Sitzung &amp; Workspace</button>}
-    {state.selected && <button ref={promptOpener} aria-haspopup="dialog" disabled={!owning || !state.leaseId || blocked} onClick={event => { event.currentTarget.focus(); setPromptOpen(true); }}>Prompt / Diktat</button>}
+    {/* Native disabled would blur this opener on every short lease heartbeat. */}
+    {state.selected && <button ref={promptOpener} aria-haspopup="dialog" disabled={!owning || !state.leaseId} aria-disabled={blocked}
+      onClick={event => { if (blocked) return; event.currentTarget.focus(); setPromptOpen(true); }}>Prompt / Diktat</button>}
   </div>;
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}

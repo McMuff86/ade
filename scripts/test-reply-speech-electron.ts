@@ -155,6 +155,29 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await expect(project.locator('.xterm-screen')).toContainText('REPLY_CLI_READY');
+  await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
+  const promptOpener = project.getByRole('button', { name: 'Prompt / Diktat', exact: true });
+  await promptOpener.click();
+  const promptDialog = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  await promptDialog.waitFor(); await tablet.keyboard.press('Escape'); await expect(promptOpener).toBeFocused();
+  // A delayed resize/lease heartbeat must not blur the restored opener.
+  let heartbeatSeen = false; let releaseHeartbeat!: () => void;
+  const heartbeatGate = new Promise<void>(done => { releaseHeartbeat = done; });
+  let finishHeartbeat!: () => void; const heartbeatFinished = new Promise<void>(done => { finishHeartbeat = done; });
+  const inputRoute = '**/api/v1/terminal/input';
+  await tablet.route(inputRoute, async route => {
+    const held = !heartbeatSeen && route.request().postDataJSON()?.data === '';
+    if (held) { heartbeatSeen = true; await heartbeatGate; }
+    try { await route.continue(); } finally { if (held) finishHeartbeat(); }
+  });
+  try {
+    await tablet.setViewportSize({ width: 1000, height: 760 });
+    await expect.poll(() => heartbeatSeen, { timeout: 15_000 }).toBe(true);
+    check('delayed terminal heartbeat preserves focus on the restored prompt opener', await promptOpener.evaluate(node => node === document.activeElement));
+    check('busy prompt opener remains focusable while rejecting activation', await promptOpener.getAttribute('aria-disabled') === 'true' && await promptOpener.getAttribute('disabled') === null);
+    await tablet.keyboard.press('Enter'); check('heartbeat does not permit opening a second prompt action', await promptDialog.count() === 0);
+  } finally { releaseHeartbeat(); if (heartbeatSeen) await heartbeatFinished; await tablet.unroute(inputRoute); }
+  await expect(promptOpener).toBeEnabled(); await tablet.setViewportSize({ width: 1024, height: 768 });
   dialog = await openReply(tablet, project);
   await dialog.getByRole('alert').waitFor();
   check('terminal permission alone cannot authorize voice playback', requests().length === 4 && await dialog.getByRole('button', { name: 'Anhören', exact: true }).isDisabled());
@@ -202,7 +225,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   console.error(error); process.exitCode = 1;
   for (const [name, page] of [['desktop', app?.windows()[0]], ['tablet', browser?.contexts()[0]?.pages()[0]]] as const) if (page && !page.isClosed()) {
     await page.screenshot({ path: join(evidence, `${name}-failure.png`) }).catch(() => undefined);
-    writeFileSync(join(evidence, `${name}-failure.txt`), await page.locator('body').innerText());
+    writeFileSync(join(evidence, `${name}-failure.txt`), await page.locator('body').innerText().catch(() => 'Page closed during failure capture.'));
   }
 }).finally(async () => {
   await browser?.close(); await proxy?.close(); await app?.close();
