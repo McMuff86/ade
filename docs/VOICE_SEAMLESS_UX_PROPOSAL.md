@@ -384,6 +384,55 @@ Operators samt ihrer Codex-Sitzung per Prozessende gestoppt. Neue Instanz PID
 HTTP 200 mit byteidentischem Bundle (`test-results/voice-strip-restart.json`,
 `dist/voice-strip-1b73aff6/activation.json`).
 
+### Phase 2 und 3 (16. September 2026, ab 18:10 CEST)
+
+Adi wollte beide Phasen vor dem Gesamtlauf; Ziel: eine Sprachbedienung, die
+sich auf dem Tablet nativ anfühlt.
+
+**Phase 2, Anhören als Sheet.** `ReplySpeechButton` trennt Zustand
+(`useReplySpeech`) von Hülle: Der Desktop behält den modalen Dialog, das
+Tablet bekommt `ReplySpeechSheet`, ein nicht-modales `role="dialog"`, das
+per Portal in den Sheet-Platz der Leiste (`voice-sheet-slot`) rendert und
+dort Entwurf und Sprechzeile ersetzt (`data-sheet-open`). Kopfzeile: Titel,
+Quelle, Segment-Control **Kurz | Alles** (`radiogroup` „Vorleseumfang“),
+ⓘ für die Hinweise, Schliessen. Darunter der editierbare Text, der
+Sprechtext, dann **Anhören / Erneut**, **Stoppen** und der Status in einer
+Zeile. Escape schliesst nur das Sheet: Chromium löst den Abbruch des
+umgebenden nativen Dialogs beim Keyup aus, das nach dem Schliessen ausserhalb
+landet; das Sheet schluckt das folgende Escape-Keyup gezielt. Vorlesen
+braucht keinen Eingabebesitz; der blockierte Rahmen („Eingabe beim PC“)
+bietet den Sheet-Platz ebenfalls. `reply-speech.css` benutzt die Tokens aus
+`tokens.css` statt eigener Farben. Das Auslesen des Terminals wartet einen
+Takt, wenn xterm einen frisch geschriebenen Frame noch parst.
+
+**Phase 3, Computer als Einstieg.** Der Ablauf aus `ComputerVoiceTest`
+liegt jetzt in `useComputerCall` (gleiche Texte, gleiche Grenzen: 20 s
+Zuhören, feste Begrüssung, kein Prompt-Schreiben). Der Desktop-Kasten nutzt
+den Hook unverändert. In der Leiste startet **langes Drücken** auf den
+Sprechknopf oder `⋯ → Computer rufen` den Aufruf; der Knopf zeigt
+`Sage „Computer“` (pulsierender Ring), `Computer gehört…`, `Begrüssung…`,
+`Computer antwortet…`. Die Begrüssung erscheint als Panel über dem Entwurf
+mit **Erneut** und **Ausblenden**. Nach der abgespielten Begrüssung geht
+die Leiste ohne weiteren Tipp in `Hört zu` über (`onGreeted` →
+`record()`); die Aufgabe wird diktiert, geprüft und gesendet wie sonst.
+Der Übergang bleibt bei der harmlosen Begrüssung; Aufgaben werden nie
+automatisch gesendet.
+
+**Native Details.** Wake Lock hält den Bildschirm wach, solange die Leiste
+zuhört oder spricht; kurze Vibration beim Start/Stopp der Aufnahme und beim
+langen Drücken; `touch-action: manipulation` und unterdrücktes Kontextmenü
+auf dem Sprechknopf; das Sheet gleitet mit 160 ms ein, bei
+`prefers-reduced-motion` ohne Bewegung.
+
+**Nachweise.** `test-dictation-electron.ts --computer-only` fährt auf dem
+Tablet den neuen `computerStripFlow` (Menü, Abbruch mit Fokusrückgabe,
+langes Drücken, Begrüssung, automatischer Übergang ins Diktat, Erneut):
+21/0. `test-reply-speech-electron.ts` prüft das Sheet unter dem sichtbaren
+Terminal, das Segment-Control, Escape ohne Schliessen des Projekts und die
+grosse Audioantwort: 34/0 (`voice-strip-reply-electron-10.log`).
+Nicht umgesetzt: die Kürzung des CLI-Status-Labels („Codex läuft · Terminal
+offen“), weil über zehn Suiten auf diese Texte warten; das bleibt Textpflege.
+
 ### Nachtrag 18:07 CEST: Antwort anhören auf dem Tablet
 
 Adis erster Tablet-Test: Sprechen ohne Modal „sehr gut gelungen“, aber

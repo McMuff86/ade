@@ -42,3 +42,53 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   await dialog.screenshot({ path: join(evidence, `computer-${surface}.png`) });
   await page.screenshot({ path: join(evidence, `computer-${surface}-page.png`) });
 }
+
+/** Tablet: the Computer call lives in the voice strip. The menu and a long press on the
+ * microphone start it; a played greeting hands over to dictation without another tap. */
+export async function computerStripFlow(page: Page, strip: Locator, root: string, evidence: string, check: (name: string, ok: boolean) => void): Promise<void> {
+  const draft = strip.getByLabel('CLI-Promptentwurf', { exact: true });
+  const mic = strip.locator('.voice-mic');
+  const speak = strip.getByRole('button', { name: 'Sprechen', exact: true });
+  const calling = strip.getByRole('button', { name: 'Sage „Computer“', exact: true });
+  const listening = strip.getByRole('button', { name: /^Hört zu · \d+:\d\d$/ });
+  const generations = () => existsSync(join(root, 'greetings.jsonl')) ? readFileSync(join(root, 'greetings.jsonl'), 'utf8').trim().split('\n') : [];
+  await draft.fill('Entwurf tablet.');
+  writeFileSync(join(root, 'live-phrase.txt'), 'Prüfe den Computer');
+  await strip.getByRole('button', { name: 'Weitere Optionen', exact: true }).click();
+  await strip.getByRole('menuitem', { name: 'Computer rufen', exact: true }).click();
+  await calling.waitFor(); await page.waitForTimeout(700);
+  check('tablet: the strip listens for Computer in place, locking sending and keeping the draft', await strip.getByRole('button', { name: 'Senden', exact: true }).isDisabled()
+    && await draft.inputValue() === 'Entwurf tablet.' && await strip.getByRole('region', { name: 'Computer', exact: true }).getByText('Ich höre zu. Sage jetzt „Computer“.', { exact: true }).isVisible());
+  const before = generations().length;
+  await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await expect(speak).toBeFocused();
+  check('tablet: cancelling the call synthesizes nothing and returns focus to the microphone', generations().length === before);
+  writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
+  writeFileSync(join(root, 'committed-phrase.txt'), '');
+  const box = (await mic.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up();
+  await calling.waitFor();
+  check('tablet: a long press on the microphone calls the Computer', true);
+  await strip.getByLabel('Computer Antwort', { exact: true }).waitFor();
+  const answer = await strip.getByLabel('Computer Antwort', { exact: true }).innerText();
+  check('tablet: live Computer call survives an empty final transcript and plays one greeting', generations().length === before + 1
+    && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
+  writeFileSync(join(root, 'live-phrase.txt'), 'Bitte prüfe den Code.');
+  writeFileSync(join(root, 'committed-phrase.txt'), 'Bitte prüfe den Code.');
+  await listening.waitFor();
+  check('tablet: the played greeting hands over to dictation without another tap', await draft.getAttribute('readonly') !== null);
+  await page.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
+  await listening.click();
+  await strip.getByText('Erkannt · prüfen, dann senden', { exact: true }).waitFor();
+  check('tablet: the dictated task lands in the draft after the greeting without being sent', await draft.inputValue() === 'Entwurf tablet.\nBitte prüfe den Code.'
+    && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
+  await strip.getByRole('button', { name: 'Erneut', exact: true }).click();
+  await listening.waitFor();
+  check('tablet: replaying the greeting uses the existing audio and listens again', generations().length === before + 1);
+  await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await expect(speak).toBeEnabled();
+  check('tablet: cancelling the follow-up dictation keeps the draft', await draft.inputValue() === 'Entwurf tablet.\nBitte prüfe den Code.');
+  check('tablet: voice controls fit the available width', await strip.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await strip.screenshot({ path: join(evidence, 'computer-tablet.png') });
+  await page.screenshot({ path: join(evidence, 'computer-tablet-page.png') });
+}

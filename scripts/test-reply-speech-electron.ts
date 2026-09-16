@@ -202,9 +202,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   });
   dialog = await openReply(tablet, project, 'Anhören'); await editReply(dialog, 'Diese Antwort kommt vom Tablet. Bitte den Test noch prüfen.');
   check('tablet preview uses signed HTTP without synthesizing on open', requests().length === 4);
+  const sheetBox = await dialog.boundingBox(); const screenBox = await project.getByLabel('Terminalanzeige', { exact: true }).boundingBox();
+  const sheetFacts = { inStrip: await dialog.evaluate(node => node.tagName !== 'DIALOG' && node.closest('.voice-strip') !== null), sheet: sheetBox, screen: screenBox,
+    full: await dialog.getByRole('radiogroup', { name: 'Vorleseumfang', exact: true }).getByRole('radio', { name: 'Alles', exact: true }).getAttribute('aria-checked') };
+  check(`tablet reply opens as a sheet below the terminal, not as a modal, with the terminal still visible ${JSON.stringify(sheetFacts)}`, sheetFacts.inStrip
+    && !!sheetBox && !!screenBox && sheetBox.y >= screenBox.y + screenBox.height - 1 && screenBox.height >= 120 && sheetFacts.full === 'true');
   await listen(dialog);
   check('tablet plays audio larger than the general response cap through the authorized host API', requests().length === 5 && requests()[4]!.text.startsWith('Diese Antwort kommt vom Tablet.'));
-  await dialog.getByRole('button', { name: 'Erneut abspielen', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Erneut', exact: true }).click();
   await dialog.getByText('Fertig. Du kannst die Antwort erneut anhören.', { exact: true }).waitFor();
   check('tablet replay has no second provider cost', requests().length === 5);
   await dialog.screenshot({ path: join(evidence, 'tablet-reply.png') });

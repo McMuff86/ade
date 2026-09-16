@@ -58,7 +58,10 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
   const [noticeState, setNoticeState] = useState<{ text: string; kind: PromptNoticeKind }>({ text: '', kind: 'info' });
   const setNotice = (text: string, kind: PromptNoticeKind = 'info') => setNoticeState({ text, kind });
   const [liveText, setLiveText] = useState(''); const liveTextRef = useRef('');
-  const [computerBusy, setComputerBusy] = useState(false);
+  const [computerBusy, setComputerBusyState] = useState(false);
+  // A greeting hands over to dictation in the same tick the call settles; read the flag synchronously.
+  const computerBusyRef = useRef(false);
+  const setComputerBusy = (busy: boolean) => { computerBusyRef.current = busy; setComputerBusyState(busy); };
   const maxSeconds = port.liveRecording ? LIVE_DICTATION_MAX_SECONDS : DICTATION_MAX_SECONDS;
   const busy = useRef(false); const generation = useRef(0); const mounted = useRef(true);
   const recorder = useRef<DictationRecorder | LiveDictationRecorder | null>(null); const job = useRef<string | null>(null);
@@ -136,7 +139,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
   };
 
   const record = async () => {
-    if (busy.current || computerBusy || !online || !speechAllowed || draftRef.current.delivery) return;
+    if (busy.current || computerBusyRef.current || !online || !speechAllowed || draftRef.current.delivery || draftRef.current.recordingJob) return;
     busy.current = true; const own = ++generation.current; const target = portRef.current;
     setError(''); setNotice(''); setPhase('permission'); setSeconds(0);
     liveTextRef.current = ''; setLiveText('');

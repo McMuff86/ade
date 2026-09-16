@@ -68,3 +68,13 @@
   .voice-mic { min-height: 44px; }
   .voice-trailing { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
+/* Phase 2/3: sheet slot, Computer panel, long-press microphone, speaking state. */
+.voice-sheet-slot:empty { display: none; }
+.voice-strip[data-sheet-open='true'] > .voice-strip-row, .voice-strip[data-sheet-open='true'] .voice-draft,
+.voice-strip[data-sheet-open='true'] .voice-hint, .voice-strip[data-sheet-open='true'] .voice-computer { display: none; }
+.voice-computer { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; border-bottom: 1px solid var(--line); }
+.voice-computer-text { margin: 0; font: 13px/1.55 var(--sans); color: var(--text); overflow-wrap: anywhere; max-height: 26dvh; overflow: auto; }
+.voice-mic { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.voice-mic[data-phase='speaking'] .voice-mic-glyph { background: var(--accent); color: var(--accent-contrast); }
+.voice-mic[data-phase='speaking'] .voice-mic-glyph::before { border-color: transparent; }
+.voice-quiet, .voice-icon-button, .voice-reason { touch-action: manipulation; }

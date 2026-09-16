@@ -199,11 +199,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
     await strip.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
     await strip.getByRole('button', { name: 'Sprechen', exact: true }).waitFor();
-    await strip.getByRole('button', { name: 'Weitere Optionen', exact: true }).click();
-    await strip.getByRole('menuitem', { name: 'Computer rufen', exact: true }).click();
-    check('tablet Computer call lives in the voice strip under the visible terminal', await strip.getByRole('region', { name: 'Computer Sprachtest', exact: true }).isVisible()
-      && await project.getByLabel('Terminalanzeige', { exact: true }).isVisible() && await tablet.locator('dialog.m-prompt-dialog').count() === 0);
-    await computerVoiceFlow(tablet, strip, root, 'tablet', evidence, check, { record: 'Sprechen', send: 'Senden' });
+    check('tablet Computer call lives in the voice strip under the visible terminal', await project.getByLabel('Terminalanzeige', { exact: true }).isVisible()
+      && await tablet.locator('dialog.m-prompt-dialog').count() === 0);
+    const { computerStripFlow } = await import('./helpers/computerVoiceFlow');
+    await computerStripFlow(tablet, strip, root, evidence, check);
     console.log(`Computer Electron: ${passed} passed, 0 failed`); return;
   }
   check('desktop explains the five-minute live recording limit', (await dialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));

@@ -1,13 +1,36 @@
-.reply-speech-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border, #566); border-radius: 14px; background: var(--panel, #20252d); color: var(--text, #f4f4f4); font: 14px/1.5 system-ui, sans-serif; white-space: normal; overflow-wrap: anywhere; }
+/* Desktop keeps the modal dialog; the tablet sheet below shares the app tokens. */
+.reply-speech-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--line, #566); border-radius: 14px; background: var(--panel, #20252d); color: var(--text, #f4f4f4); font: 14px/1.5 var(--sans, system-ui, sans-serif); white-space: normal; overflow-wrap: anywhere; }
 .reply-speech-dialog::backdrop { background: #0007; }
 .reply-speech-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .reply-speech-dialog h2 { margin: 0; font-size: 1.2rem; }
 .reply-speech-dialog button, .reply-speech-dialog select { min-height: 44px; font: inherit; }
 .reply-speech-dialog button:focus-visible, .reply-speech-dialog select:focus-visible { outline: 2px solid var(--accent, #8cc8ff); outline-offset: 3px; }
 .reply-speech-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
-.reply-speech-dialog textarea { display: block; box-sizing: border-box; width: 100%; max-width: 100%; margin: 8px 0; padding: 10px; font: inherit; color: inherit; background: var(--surface, #15191e); border: 1px solid var(--border, #566); border-radius: 6px; resize: vertical; }
+.reply-speech-dialog textarea { display: block; box-sizing: border-box; width: 100%; max-width: 100%; margin: 8px 0; padding: 10px; font: inherit; color: inherit; background: var(--bg, #15191e); border: 1px solid var(--line, #566); border-radius: 6px; resize: vertical; }
 .reply-speech-dialog textarea:focus-visible { outline: 2px solid var(--accent, #8cc8ff); outline-offset: 2px; }
 .reply-speech-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .reply-speech-help { font-size: .9em; opacity: .8; line-height: 1.5; }
 .reply-speech-error { max-width: 100%; overflow-wrap: anywhere; }
 .m-terminal-reply-slot { display: contents; }
+
+/* Tablet sheet: takes the strip's place under the terminal, never covers it. */
+.reply-sheet { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 4px 0 4px; color: var(--text); font: 14px/1.5 var(--sans); white-space: normal; animation: voice-sheet-in .16s ease-out; }
+.reply-sheet-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.reply-sheet-head h2 { margin: 0; font: 600 14px/1.2 var(--sans); }
+.reply-sheet-head h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.reply-sheet-head > .voice-quiet:last-child { margin-left: auto; }
+.reply-segment { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); }
+.reply-segment button { min-height: 36px; padding: 4px 14px; margin: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; touch-action: manipulation; }
+.reply-segment button[aria-checked='true'] { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px #0003; }
+.reply-segment button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.reply-segment button:disabled { opacity: .5; cursor: default; }
+.reply-sheet .reply-speech-help { margin: 0; font-size: 12px; opacity: 1; color: var(--muted); }
+.reply-sheet-text { width: 100%; min-height: 44px; max-height: 24dvh; field-sizing: content; resize: none; box-sizing: border-box; padding: 8px 10px; margin: 0; font: 14px/1.5 var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.reply-sheet-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.reply-sheet-text:disabled { opacity: .7; }
+.reply-sheet .reply-speech-text { margin: 0; max-height: 26dvh; overflow: auto; padding: 0 2px; font: 14px/1.55 var(--sans); }
+.reply-sheet-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; min-width: 0; }
+.reply-sheet .voice-quiet, .reply-sheet .voice-icon-button { min-height: 44px; }
+.reply-sheet .voice-send svg { width: 14px; height: 14px; }
+@keyframes voice-sheet-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reply-sheet { animation: none; } }

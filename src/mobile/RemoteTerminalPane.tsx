@@ -56,6 +56,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const [launchOpen, setLaunchOpen] = useState(!!terminalHome && !initialTerminalId);
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
   const [replySlot, setReplySlot] = useState<HTMLElement | null>(null);
+  const [replySheetSlot, setReplySheetSlot] = useState<HTMLElement | null>(null);
+  const [replyOpen, setReplyOpen] = useState(false);
   const [keysShown, setKeysShown] = useState(false);
   const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
@@ -350,12 +352,12 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replySlot}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replySlot} replySheetContainer={replySheetSlot} onReplyOpenChange={setReplyOpen}
       onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
       {state.frame && <details className="m-terminal-transcript"><summary>Textausgabe und Verlauf</summary><pre tabIndex={0} aria-label="Terminal-Textverlauf">{state.screen}</pre></details>}
-      <TerminalVoiceStrip key={`${selected}/${state.leaseId ?? 'no-lease'}`} host={host} fallbackId={fallbackFocusId} send={sendPrompt}
+      <TerminalVoiceStrip key={`${selected}/${state.leaseId ?? 'no-lease'}`} host={host} fallbackId={fallbackFocusId} send={sendPrompt} sheetOpen={replyOpen} onSheetSlot={setReplySheetSlot}
         target={{ ...selection, terminalId: selected, leaseId: state.leaseId ?? '' }}
         label={`${state.selected.projectName ?? agent?.name ?? (terminalHome ? 'Freies Terminal' : 'Projekt')} · ${state.selected.title} · ${state.selected.branch ?? expectedBranch ?? ''}`}
         blocked={state.selected.status !== 'running' ? { reason: 'Sitzung beendet' }

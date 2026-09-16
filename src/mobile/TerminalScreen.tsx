@@ -22,13 +22,16 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort, replyButtonContainer }: {
+export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort, replyButtonContainer, replySheetContainer, onReplyOpenChange }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
   screen: string;
   fontSize?: number;
   replyPort?: ReplySpeechPort;
   /** The voice strip's slot; "Anhören" renders there instead of floating over the output. */
   replyButtonContainer?: HTMLElement | null;
+  /** The strip's sheet area; the reply opens there as a sheet instead of a modal. */
+  replySheetContainer?: HTMLElement | null;
+  onReplyOpenChange?: (open: boolean) => void;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -98,6 +101,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
       onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
     {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? 'Anhören' : 'Antwort anhören'}
+      sheetContainer={replySheetContainer} onOpenChange={onReplyOpenChange}
       fallbackFocus={() => historyButton.current} readSource={() => {
         if (history !== null) {
           const selection = window.getSelection();
