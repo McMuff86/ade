@@ -12,6 +12,7 @@ import { RemoteAuthorizer, sha256Hex, signRequest } from '../src/main/remote/aut
 import { DictationJobs } from '../src/main/settings/DictationJobs';
 import { encodeDictationPcm } from '../src/shared/dictationAudio';
 import type { MobileTerminalState } from '../src/shared/remote';
+import type { DictationTranscript } from '../src/shared/dictation';
 
 let passed = 0; let terminal: RemoteTerminalService | undefined; let jobs: DictationJobs | undefined; let server: HostApiServer | undefined;
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-remote-dictation-')));
@@ -43,11 +44,19 @@ void (async () => {
     writePrompt: (_id, text) => { if (!available) throw new Error('CLI ended'); writes.push(text); },
   }, id => devices.activeDevices().some(item => item.id === id && item.scopes.includes('terminal:control')),
   entry => devices.audit(entry), undefined, undefined, (id, target) => resources.assertSelection(id, target));
+  let liveStarts = 0; let livePackets = 0; let liveFinishes = 0; let liveAborts = 0;
   jobs = new DictationJobs({ transcribe: async (_audio, authorize) => { authorize(); providerCalls++;
-    return { text: 'Prüfe C:\\Users\\private\\file.ts bitte.', language: 'de', audioSeconds: 3, model: 'scribe_v2' }; } });
+    return { text: 'Prüfe C:\\Users\\private\\file.ts bitte.', language: 'de', audioSeconds: 3, model: 'scribe_v2' }; },
+    startLive: async (authorize, signal, _usage, preview) => {
+      authorize(); liveStarts++; let finish!: (value: DictationTranscript) => void;
+      const result = new Promise<DictationTranscript>((resolve, reject) => { finish = resolve; signal.addEventListener('abort', () => { liveAborts++; reject(new Error('aborted')); }, { once: true }); });
+      return { result, push: () => { authorize(); livePackets++; preview('Live C:\\Users\\private\\file.ts prüfen.'); },
+        finish: () => { authorize(); liveFinishes++; finish({ text: 'Live abgeschlossen.', language: 'de', audioSeconds: 3, model: 'scribe_v2_realtime' }); } };
+    } });
   devices.onRevoked(id => { terminal!.revoke(id); if (id === null) jobs!.revokeDevices(); else jobs!.revokeOwner(`device:${id}`); });
   const app = new AdeApplicationService(store, fixture.orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
     resourceAccess: id => devices.resourceAccess(id), workbench, terminals: terminal, dictation: jobs,
+    audit: entry => devices.audit(entry),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => {}, 'fixture', true) },
   });
   const opened = await app.remoteTerminal(context(), { ...selection, operation: 'open', mode: 'codex' }, 'command') as { terminalId: string };
@@ -85,6 +94,38 @@ void (async () => {
   await app.remotePrompt(promptContext, prompt); const resent = await app.remotePrompt(promptContext, prompt);
   check('remote prompt reaches one atomic bracketed write and replay stays inert', resent.replayed && writes.length === 1 && writes[0] === '\x1b[200~Ein\nPrompt.\x1b[201~\r');
   await refuses('prompt cannot inject terminal escape controls', () => app.remotePrompt(context(), { ...prompt, sequence: 2, text: '\x1b[201~unsafe' }), 'invalid_payload');
+  const liveTicket = await app.remoteDictation(context(), { operation: 'prepare', target }); if (!('jobId' in liveTicket)) throw new Error('no live ticket');
+  const liveId = liveTicket.jobId; const startContext = context();
+  await refuses('live start requires an idempotency key', () => app.remoteDictation({ ...context(), idempotencyKey: undefined }, { operation: 'stream-start', jobId: liveId }), 'idempotency_key_required');
+  await app.remoteDictation(startContext, { operation: 'stream-start', jobId: liveId });
+  const startReplay = await app.remoteDictation(startContext, { operation: 'stream-start', jobId: liveId });
+  check('live start replay opens exactly one provider stream', 'replayed' in startReplay && startReplay.replayed && liveStarts === 1);
+  await refuses('new key cannot restart a live ticket', () => app.remoteDictation(context(), { operation: 'stream-start', jobId: liveId }), 'command_rejected');
+  const packet = { operation: 'stream-chunk', jobId: liveId, sequence: 0, audioBase64: Buffer.alloc(8192).toString('base64') };
+  const packetContext = { ...context(), idempotencyKey: `${liveId}:0` };
+  for (const extra of [{ audioBase64: 'AAAA' }, { audioBase64: 'AB==' }, { audioBase64: 'A'.repeat(24000) }, { sequence: -1 }, { provider: 'injected' }]) {
+    await refuses('live packets reject malformed, odd, oversized or extra data', () => app.remoteDictation(packetContext, { ...packet, ...extra }), 'invalid_payload');
+  }
+  await refuses('live packet requires its job/sequence key', () => app.remoteDictation(context(), packet), 'idempotency_key_invalid');
+  await refuses('live packet cannot cross device identities', () => app.remoteDictation({ ...context('other'), idempotencyKey: `${liveId}:0` }, packet), 'command_rejected');
+  const receiptsBefore = readFileSync(join(root, 'remote', 'commands.json'), 'utf8');
+  await app.remoteDictation(packetContext, packet);
+  const replayPacket = await app.remoteDictation(packetContext, packet);
+  check('duplicate live packet is acknowledged without forwarding audio twice', 'replayed' in replayPacket && replayPacket.replayed && livePackets === 1);
+  await refuses('same live packet cannot change audio', () => app.remoteDictation(packetContext, { ...packet, audioBase64: Buffer.alloc(8192, 1).toString('base64') }), 'command_rejected');
+  await refuses('live packets cannot skip a sequence', () => app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:2` }, { ...packet, sequence: 2 }), 'command_rejected');
+  for (let sequence = 1; sequence < 235; sequence++) await app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:${sequence}` }, { ...packet, sequence });
+  check('minute of audio does not fill durable command receipts', readFileSync(join(root, 'remote', 'commands.json'), 'utf8') === receiptsBefore && livePackets === 235);
+  const partial = await app.remoteDictation(context(), { operation: 'query', jobId: liveId });
+  check('live previews are private result details with host paths removed', 'state' in partial && partial.state.status === 'recording' && partial.state.text.includes('Live') && !partial.state.text.includes('C:\\Users'));
+  const finishContext = context();
+  await app.remoteDictation(finishContext, { operation: 'stream-finish', jobId: liveId });
+  await app.remoteDictation(finishContext, { operation: 'stream-finish', jobId: liveId });
+  await new Promise(done => setImmediate(done));
+  const liveResult = await app.remoteDictation(context(), { operation: 'query', jobId: liveId });
+  check('live finish commits once and returns confirmed text without executing it', liveFinishes === 1 && writes.length === 1 && 'state' in liveResult && liveResult.state.status === 'complete' && liveResult.state.transcript.model === 'scribe_v2_realtime');
+  const liveRecords = readFileSync(join(root, 'remote', 'commands.json'), 'utf8') + readFileSync(join(root, 'remote', 'audit.jsonl'), 'utf8');
+  check('live receipts and audit contain no audio or transcript bodies', !liveRecords.includes(packet.audioBase64.slice(0, 100)) && !liveRecords.includes('Live abgeschlossen') && !liveRecords.includes('file.ts'));
   available = false;
   await refuses('ended CLI refuses new recording before billing', () => app.remoteDictation(context(), { operation: 'prepare', target }), 'command_rejected');
   available = true;
@@ -94,7 +135,7 @@ void (async () => {
 
   server = new HostApiServer(app, { authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, devices), port: 0 });
   const address = await server.start();
-  const post = async (path: string, body: object, key = randomUUID()) => {
+  const post = async (path: string, body: object, key: string = randomUUID()) => {
     const serialized = JSON.stringify(body); const timestamp = String(Date.now());
     return fetch(`http://127.0.0.1:${address.port}${path}`, { method: 'POST', headers: { authorization: `Bearer ${'t'.repeat(32)}`, 'content-type': 'application/json',
       'x-ade-device': 'tablet', 'x-ade-timestamp': timestamp, 'idempotency-key': key,
@@ -109,6 +150,16 @@ void (async () => {
   catch (error) { oversizedRefused = (error as { cause?: { code?: string } }).cause?.code === 'ECONNRESET'; }
   check('audio endpoint rejects oversized body with 413 or deliberate connection close', oversizedRefused);
   check('audio endpoint rejects invalid PCM envelope', (await post('/api/v1/dictation/upload', { jobId: httpPrepared.jobId, audioBase64: 'A'.repeat(4400) })).status === 422);
+  const httpLive = await (await post('/api/v1/dictation/command', { operation: 'prepare', target })).json() as { jobId: string };
+  check('signed HTTP starts a live stream', (await post('/api/v1/dictation/command', { operation: 'stream-start', jobId: httpLive.jobId })).status === 200);
+  check('signed HTTP accepts a bounded live packet', (await post('/api/v1/dictation/command', { ...packet, jobId: httpLive.jobId }, `${httpLive.jobId}:0`)).status === 200);
+  devices.setAdminScopes('tablet', ['terminal:control']);
+  await refuses('revoked dictation scope closes live reads', () => app.remoteDictation(context(), { operation: 'query', jobId: httpLive.jobId }), 'scope_not_granted');
+  devices.setAdminScopes('tablet', [...grants]);
+  await refuses('restoring permission cannot resurrect revoked audio', () => app.remoteDictation(context(), { operation: 'stream-finish', jobId: httpLive.jobId }), 'command_rejected');
+  check('revocation aborts the existing live provider session', liveAborts >= 1);
+  await app.remoteTerminal(context(), { ...selection, terminalId: target.terminalId, operation: 'claim' }, 'command');
+  target.leaseId = ((await app.remoteTerminal(context(), { ...selection, terminalId: target.terminalId }, 'query')) as MobileTerminalState).leaseId!;
   const waiting = await app.remoteDictation(context(), { operation: 'prepare', target }); if (!('jobId' in waiting)) throw new Error('no ticket');
   terminal.reclaim(sessions[0]!.id);
   await refuses('desktop takeover invalidates prepared mobile audio', () => app.remoteDictation(context(), { jobId: waiting.jobId, audioBase64 }, true), 'command_rejected');

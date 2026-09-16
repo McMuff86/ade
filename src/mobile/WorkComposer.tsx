@@ -54,7 +54,7 @@ export function WorkComposer({ draft, setDraft, catalog, host, onSend, onClose }
               const index = draft.agentIds.indexOf(agent.id);
               return <label className="m-roster-agent" key={agent.id}><input type="checkbox" aria-label={agent.name} checked={index >= 0}
                 onChange={(event) => patch({ agentIds: event.target.checked ? [...draft.agentIds, agent.id] : draft.agentIds.filter((id) => id !== agent.id) })} />
-                <Avatar name={agent.name} size={28} /><span><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
+                <Avatar name={agent.name} runtime={agent.runtime} size={28} /><span><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
                 <span className="m-role">{index === 0 ? '1 · Koordination' : index === 1 ? '2 · Lead' : index > 1 ? `${index + 1} · Worker` : ''}</span></label>;
             })}</fieldset>}
           <label><input type="checkbox" checked={draft.allowQuestions === true} onChange={(event) => patch({ allowQuestions: event.target.checked })} />Rückfragen erlauben (native Codex-Agenten)</label>

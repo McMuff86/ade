@@ -59,5 +59,21 @@ void (async () => {
     jobs.revokeOwner('desktop');
     check('final positive prepare succeeds after cleanup and rejections', jobs.read('desktop', jobs.prepare('desktop', authorize).jobId).status === 'prepared');
   } finally { jobs.dispose(); }
+  let releaseStream!: () => void; let cancelledStream = false; let cancellationConfirmed = false;
+  const streaming = new DictationJobs({ transcribe: async () => transcript,
+    startLive: async (_authorize, signal) => {
+      const result = new Promise<DictationTranscript>((_resolve, reject) => { releaseStream = () => reject(new Error('cancelled')); });
+      signal.addEventListener('abort', () => { cancelledStream = true; });
+      return { result, push: () => {}, finish: () => {} };
+    } });
+  try {
+    const ticket = streaming.prepare('device:tablet', () => {});
+    await streaming.startLive('device:tablet', ticket.jobId);
+    const cancellation = streaming.cancelAndWait('device:tablet', ticket.jobId).then(() => { cancellationConfirmed = true; });
+    await tick();
+    check('remote cancellation aborts immediately but waits for provider cleanup', cancelledStream && !cancellationConfirmed && streaming.read('device:tablet', ticket.jobId).status === 'cancelled');
+    releaseStream(); await cancellation;
+    check('remote cancellation confirms after the provider stream settles', cancellationConfirmed);
+  } finally { streaming.dispose(); }
   console.log(`Dictation jobs: ${passed} passed, 0 failed`);
 })().catch(error => { console.error(error); console.log(`Dictation jobs: ${passed} passed, 1 failed`); process.exitCode = 1; });

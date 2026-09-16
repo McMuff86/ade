@@ -228,7 +228,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
 
       <div className="field">
         <label>Profile photo</label>
-        <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} />
+        <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} runtime={runtime} />
       </div>
 
       <button

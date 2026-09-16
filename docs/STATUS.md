@@ -1,5 +1,19 @@
 # ADE implementation status
 
+## Tablet-Live-Diktat und scharfe Profilbilder (16. September 2026)
+
+Der Operator bestätigt den neuen Build und beauftragt Live-Transkription auch
+auf dem Tablet sowie hochauflösende Profilbilder. Tablet-Live-Streaming und
+lokal gebündelte SVG-Logos für Codex/OpenAI, Claude und Grok sind implementiert.
+46 Remote-Diktat-, 57 Diktat-Electron-/Browser-, 15 Profil-Electron- und 21
+Profil-Browserchecks sind positiv. `pnpm verify` besteht vollständig: 72
+fokussierte Suiten / 3.060 Checks, drei TypeScript-Projekte, Build und alle
+Electron-/Browser-/Visualprüfungen. Commit, finaler Build und persönliche
+Aktivierung sind vom Operator beauftragt und folgen nach dieser Abnahme.
+Der Ollama-Coding-Modus verwendet ausdrücklich Codex als Werkzeug-CLI und
+Ollama als Modellanbieter; direkter Ollama-Chat bleibt ein eigener Modus.
+[Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
+
 ## Git-Sicherung und Aktivierung vorbereitet (16. September 2026)
 
 Der geprüfte gemeinsame Ollama-/Live-Diktat-Stand **413c573** ist auf `origin/main`
@@ -20,8 +34,8 @@ den bestätigten Text nach Stoppen in den Entwurf. 53 Live-Vertragschecks,
 sind positiv. `pnpm verify` besteht vollständig, einschliesslich Build und
 aller App-/Browser-/Visualprüfungen. Die persönliche Instanz wurde nicht neu
 gestartet; ein Versuch mit echtem Mikrofon und ElevenLabs-Konto steht noch aus.
-Tablet-Diktat verwendet weiterhin die bisherige Aufnahme mit anschliessender
-Transkription. [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
+Dieser vorherige Checkpoint verwendete auf dem Tablet noch Batch-Diktat;
+die Erweiterung oben ergänzt Live-Streaming. [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
 
 ## Ollama-Coding und Modellwahl (15. September 2026)
 

@@ -1,5 +1,24 @@
 # ADE — aktuelle Übergabe
 
+## Tablet-Live-Diktat und Profilbilder (16. September 2026)
+
+Operator bestätigt, dass der neue Build funktioniert. Erklärung: Ollama Coding
+startet `codex --oss --local-provider ollama --model …`; Codex liefert die
+Coding-Werkzeuge, Ollama das ausgewählte Modell. `ollama run …` bleibt der
+direkte Chat-Modus. Keine Änderung am persönlichen Ollama-Profil erforderlich.
+
+Tablet-Live-Streaming und lokale SVG-Profilbilder für Codex/OpenAI, Claude und
+Grok sind implementiert. Eigene Profilfotos bleiben erhalten. 57 durchgehende
+Diktatchecks, Remote-/Profilprüfungen und 72 fokussierte Suiten / 3.060 Checks
+sind positiv. `pnpm verify` besteht vollständig, einschliesslich aller App- und
+Visualprüfungen (`test-results/tablet-live-verify.log`, Exit 0). Der Operator
+beauftragt zusätzlich Commit, finalen Build und Neustart nach Abschluss.
+Produktionsbuild liegt in `out/`; persönliche
+ADE-Prozesse, Startverknüpfung und der zuvor aktivierte Startordner wurden in
+diesem Arbeitslauf nicht geändert. [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
+
+Die folgenden Aktivierungsnotizen beschreiben den vorherigen Stand **413c573**.
+
 ## Auf main gesichert; persönlicher Neustart vorbereitet (16. September 2026)
 
 Der Operator beauftragt nach der Tablet-Anleitung ausdrücklich die Ausführung

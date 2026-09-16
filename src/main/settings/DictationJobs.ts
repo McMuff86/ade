@@ -10,6 +10,7 @@ interface Job {
   owner: string; authorize: () => void; expiresAt: number; state: DictationJobState;
   controller: AbortController; submission?: { key: string; fingerprint: string };
   live?: LiveDictationSession; nextSequence?: number;
+  packets?: Map<number, { fingerprint: string; complete: boolean }>;
 }
 
 /** Host-issued tickets are bound before recording. An expired ticket or a host
@@ -85,6 +86,23 @@ export class DictationJobs {
     job.live.push(audio); job.nextSequence++;
   }
 
+  /** Remote packet keys are fixed to jobId:sequence at the application boundary.
+   * Only digests remain in memory; expired/restarted jobs cannot replay audio. */
+  pushRemoteLive(owner: string, jobId: string, sequence: number, audio: Uint8Array): boolean {
+    const job = this.require(owner, jobId);
+    const fingerprint = createHash('sha256').update(audio).digest('hex');
+    const previous = job.packets?.get(sequence);
+    if (previous) {
+      if (previous.fingerprint !== fingerprint || !previous.complete) throw new Error('Audiopaket geändert oder Übergabe unbestätigt. Keine automatische Wiederholung.');
+      return true;
+    }
+    if (sequence !== job.nextSequence || !Number.isSafeInteger(sequence) || sequence < 0 || sequence >= 1000) throw new Error('Ungültige Audioreihenfolge.');
+    const receipt = { fingerprint, complete: false };
+    (job.packets ??= new Map()).set(sequence, receipt);
+    this.pushLive(owner, jobId, sequence, audio); receipt.complete = true;
+    return false;
+  }
+
   finishLive(owner: string, jobId: string): void {
     const job = this.require(owner, jobId);
     if (job.live && ['transcribing', 'complete'].includes(job.state.status)) return;
@@ -94,6 +112,12 @@ export class DictationJobs {
 
   cancel(owner: string, jobId: string): void {
     const job = this.require(owner, jobId); job.controller.abort(); job.state = { status: 'cancelled' };
+  }
+
+  async cancelAndWait(owner: string, jobId: string): Promise<void> {
+    const job = this.require(owner, jobId); this.cancel(owner, jobId);
+    // Wait for live usage finalization and the shared provider slot to release.
+    await job.live?.result.catch(() => undefined);
   }
 
   revokeOwner(owner: string): void {

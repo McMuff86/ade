@@ -6,6 +6,7 @@
 
 import { useRef, useState } from 'react';
 import { Avatar } from '../rail/Avatar';
+import type { RuntimeId } from '../../shared/types';
 
 const ACCEPT = 'image/png,image/jpeg,image/webp';
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -29,6 +30,7 @@ interface PhotoPickerProps {
   shape: 'round' | 'square';
   /** name used for the initials fallback preview. */
   name: string;
+  runtime?: RuntimeId;
 }
 
 export function PhotoPicker({
@@ -36,6 +38,7 @@ export function PhotoPicker({
   onChange,
   shape,
   name,
+  runtime,
 }: PhotoPickerProps): React.ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -71,7 +74,7 @@ export function PhotoPicker({
 
   return (
     <div className="photo-picker">
-      <Avatar name={name || '?'} photo={value} shape={shape} size={52} />
+      <Avatar name={name || '?'} photo={value} runtime={runtime} shape={shape} size={52} />
       <div className="photo-picker-actions">
         <button type="button" className="btn" onClick={pick} disabled={busy}>
           {busy ? 'Importing…' : value ? 'Change photo' : 'Upload photo'}

@@ -1,11 +1,13 @@
 /**
- * Avatar — profile photo (via ade-photo://) or an initials-on-gradient
+ * Avatar — personal photo, bundled runtime logo, or an initials-on-gradient
  * fallback. The gradient hue set is lifted verbatim from mockup/index.html;
  * the hue is chosen deterministically from a seed so a given category/agent
  * always keeps the same colour.
  */
 
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
+import type { RuntimeId } from '../../shared/types';
+import { runtimeLogo } from './runtimeLogos';
 
 /** mockup HUES — [from, to] gradient stops. */
 export const HUES: ReadonlyArray<readonly [string, string]> = [
@@ -38,6 +40,7 @@ export function photoUrl(file: string): string {
 interface AvatarProps {
   name: string;
   photo?: string;
+  runtime?: RuntimeId;
   /** round (agents) or square-ish (categories). */
   shape?: 'round' | 'square';
   /** px — 30 for categories, 26 for agents in the mockup. */
@@ -50,11 +53,15 @@ interface AvatarProps {
 export function Avatar({
   name,
   photo,
+  runtime,
   shape = 'round',
   size = 26,
   seed,
   className,
 }: AvatarProps): React.ReactElement {
+  const [failedPhoto, setFailedPhoto] = useState<string>();
+  const custom = photo && photo !== failedPhoto ? photoUrl(photo) : undefined;
+  const logo = runtimeLogo(runtime);
   const radius = shape === 'square' ? '8px' : '50%';
   const base: CSSProperties = {
     width: size,
@@ -72,13 +79,15 @@ export function Avatar({
 
   const classes = ['avatar', className].filter(Boolean).join(' ');
 
-  if (photo) {
+  if (custom || logo) {
     return (
-      <span className={classes} style={base}>
+      <span className={classes} style={{ ...base, background: custom ? undefined : '#111111' }}>
         <img
-          src={photoUrl(photo)}
+          src={custom ?? logo}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          data-runtime-logo={custom ? undefined : runtime}
+          onError={custom ? () => setFailedPhoto(photo) : undefined}
+          style={{ width: '100%', height: '100%', objectFit: custom ? 'cover' : 'contain', padding: custom ? 0 : '12%', boxSizing: 'border-box', display: 'block' }}
         />
       </span>
     );

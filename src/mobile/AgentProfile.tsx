@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileAgentProfile, MobileAgentSummary, MobileProfileUpdate } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
 import { Avatar } from '../renderer/rail/Avatar';
+import { runtimeLogo } from '../renderer/rail/runtimeLogos';
 import { MobileClientError } from './client';
 import { Dialog } from './ui';
 import { MobileSpeechSettings } from './SpeechSettings';
@@ -27,7 +28,7 @@ export function MobileAvatar({ host, agent, size = 30 }: { host: MobileHost; age
       .then((result) => { if (live) setPhoto(result.photo?.bytesBase64); }).catch(() => undefined);
     return () => { live = false; };
   }, [host.request, host.identityVersion, host.status, agent.id, agent.photoVersion]);
-  return url ? <img className="avatar m-profile-photo" src={url} width={size} height={size} alt="" onError={() => setPhoto(undefined)} /> : <Avatar name={agent.name} size={size} />;
+  return url ? <img className="avatar m-profile-photo" src={url} width={size} height={size} alt="" onError={() => setPhoto(undefined)} /> : <Avatar name={agent.name} runtime={agent.runtime} size={size} />;
 }
 interface ProfileDraft { input: MobileProfileUpdate; key?: string; pending?: boolean; notice?: string }
 export function useProfileDrafts(identity: number) {
@@ -53,6 +54,7 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
   const effective = draft?.input ?? (profile ? { agentId, revision: profile.revision, name: profile.agent.name, role: profile.agent.role ?? '' } : null);
   const photo = draft?.input.photo === null ? undefined : draft?.input.photo?.bytesBase64 ?? profile?.photo?.bytesBase64;
   const url = usePhotoUrl(photo);
+  const logo = runtimeLogo(profile?.agent.runtime); const imageUrl = url ?? logo;
   const [photoOpen, setPhotoOpen] = useState(false); const photoButton = useRef<HTMLButtonElement>(null);
   useEffect(() => setPhotoOpen(false), [agentId, host.identityVersion]);
   const refresh = async () => {
@@ -107,7 +109,7 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
     {!allowed && !loading && <p>Am PC unter Settings → Verbundene Geräte „Agent-Namen, Rollen und Profilbilder bearbeiten“ freigeben.</p>}
     {profile?.photoError && <p>{profile.photoError}</p>}{draft?.notice && <p>{draft.notice}</p>}
     {effective && <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <div className="m-profile-preview">{url ? <button ref={photoButton} type="button" className="m-profile-photo-button" aria-label="Profilbild vergrössern" onClick={event => { event.currentTarget.focus(); setPhotoOpen(true); }}><img className="m-profile-photo" src={url} width={96} height={96} alt="Profilbild-Vorschau" /></button> : <Avatar name={effective.name} size={96} />}</div>
+      <div className="m-profile-preview">{imageUrl ? <button ref={photoButton} type="button" className="m-profile-photo-button" aria-label="Profilbild vergrössern" onClick={event => { event.currentTarget.focus(); setPhotoOpen(true); }}><img className="m-profile-photo" src={imageUrl} width={96} height={96} alt="Profilbild-Vorschau" data-runtime-logo={url ? undefined : profile?.agent.runtime} /></button> : <Avatar name={effective.name} size={96} />}</div>
       <label>Profilbild auswählen<input aria-label="Profilbild auswählen" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled}
         onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ''; }} /></label>
       <button type="button" disabled={disabled || !photo && !profile?.agent.photoVersion} onClick={() => update({ photo: null })}>Profilbild entfernen</button>
@@ -116,8 +118,8 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
       <button className="m-primary" disabled={busy || !allowed || host.status !== 'online' || !effective.name.trim()}>{draft?.pending ? 'Profilaktion erneut prüfen' : 'Profil speichern'}</button>
       {draft && !draft.pending && <button type="button" disabled={busy} onClick={() => drafts.change(agentId, () => undefined)}>Profilentwurf verwerfen</button>}
     </form>}
-    {photoOpen && url && <Dialog title={`Profilbild · ${effective?.name ?? 'Agent'}`} className="m-profile-photo-dialog" restoreFocusTo={photoButton.current} onClose={() => setPhotoOpen(false)}>
-      <img className="m-profile-photo-large" src={url} alt={`Profilbild von ${effective?.name ?? 'Agent'}`} />
+    {photoOpen && imageUrl && <Dialog title={`Profilbild · ${effective?.name ?? 'Agent'}`} className="m-profile-photo-dialog" restoreFocusTo={photoButton.current} onClose={() => setPhotoOpen(false)}>
+      <img className="m-profile-photo-large" src={imageUrl} alt={`Profilbild von ${effective?.name ?? 'Agent'}`} data-runtime-logo={url ? undefined : profile?.agent.runtime} />
       <button onClick={() => setPhotoOpen(false)}>Zurück zum Profil</button>
     </Dialog>}
     {profile && <MobileSpeechSettings host={host} target={{ kind: 'agent', agentId, ...(repositoryId ? { repositoryId } : {}) }} title="Agent-Stimme" />}

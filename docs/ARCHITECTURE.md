@@ -14,6 +14,17 @@ Titles and seen-output markers are local, bounded to 256 entries under
 Active, visible foreground terminals mark output seen only at the live bottom.
 Existing original-workspace cards navigate directly, independently of profiles.
 
+## Runtime profile images
+
+Desktop and mobile use bundled SVG marks for Codex/OpenAI, Claude and Grok when
+an agent has no personal photo. Selection is by `RuntimeId`, never the profile
+name. `renderer/rail/runtimeLogos.ts` is shared by both builds; the public mobile
+shell includes the assets for offline access. Custom photos keep priority and
+their existing storage, import and wire bounds. Logos do not pass through that
+raster thumbnail pipeline or change stored profiles. Profile previews, cards and
+agent lists use the same marks. Tablet enlargement uses the existing focus-managed
+dialog. Asset provenance is recorded in `renderer/assets/runtime-logos/README.md`.
+
 ## Native session usage (Goal 24, implementation in progress)
 
 `main/usage/normalize` normalizes inclusive input/cache/reasoning semantics;
@@ -616,7 +627,7 @@ focuses the draft; Tab may leave the dock, “Zum Terminal” focuses xterm, and
 Escape inside the dock closes it. Closing restores the opener or a visible
 terminal/tab fallback without stealing focus from a navigation action.
 
-Desktop dictation streams through `LiveDictationRecorder` and a bundled
+Desktop and tablet dictation stream through `LiveDictationRecorder` and a bundled
 AudioWorklet (16 kHz mono PCM, 256 ms packets, hard 60-second sample cap).
 Main owns the ElevenLabs single-use token and WebSocket; renderer CSP and the
 remote command allowlist are unchanged. `dictation:streamStart/streamChunk/streamFinish`
@@ -627,8 +638,26 @@ one manual commit on Stop supplies the final editable text. `scribe_v2_realtime`
 shares the transcription concurrency gate with batch `scribe_v2`. There is no
 automatic reconnection or batch resubmission. Closing/cancelling releases the
 microphone and aborts the stream; connection loss preserves the last received
-preview with an explicit incomplete-text notice. Mobile currently retains batch
-recording and transcription after Stop.
+preview with an explicit incomplete-text notice, including when the mobile host
+connection reports offline. The tablet uses the same preview/finalization UI
+inside its existing accessible modal with focus restoration.
+
+Tablet `POST /api/v1/dictation/command` adds `stream-start`, `stream-chunk` and
+`stream-finish` DTOs in `shared/remote.ts`. These call `AdeApplicationService`,
+not desktop IPC. Start and finish use durable, channel-bound command receipts.
+Chunks retain the ordinary 64 KiB HTTP limit and the stricter 16,000-byte PCM
+limit, canonical base64 and even byte counts. Every request checks device
+signature, dictation/terminal grants and the ticket's resource/control lease.
+Chunk keys must equal `jobId:sequence`; job-local in-memory digest receipts
+acknowledge identical duplicates without forwarding audio and reject changed
+payloads, sequence gaps and uncertain sends. Receipts are bounded to 1,000 per
+ticket, disappear with the ticket and cannot restart after host restart. Audio
+packets do not consume the 500-entry durable administration ledger. Audit records
+contain metadata only. Both partial and final text pass through wire redaction;
+neither enters SSE, summaries or durable command receipts.
+After a connection failure, the open mobile composer retains failed cancellation
+tickets and retries cancellation before preparing another recording. Cancellation
+acknowledges only after the live provider result settles and releases its slot.
 
 Live speech usage is journalled before connecting, with unknown audio duration
 until the stream settles. The optional numeric `speech-outcome.audioSeconds`
@@ -656,7 +685,8 @@ Desktop channels `terminal:promptQuery`, `terminal:promptSend` and `dictation:*`
 are classified in `ipcPolicy.ts`; `REMOTE_COMMAND_CHANNELS` is unchanged.
 Dedicated host routes call only `AdeApplicationService`: `POST /api/v1/terminal/prompt`
 uses the existing terminal lease/sequence discipline; `/api/v1/dictation/command`
-prepares, queries or cancels a ticket; `/api/v1/dictation/upload` submits audio.
+prepares, queries, cancels or streams a ticket; `/api/v1/dictation/upload` retains
+batch compatibility.
 Mutations require device signatures, current scopes/resources, idempotency and
 audit. Only the audio route accepts up to 2,561,084 JSON bytes (two concurrent
 uploads); all ordinary JSON commands retain 64 KiB. The durable ledger holds

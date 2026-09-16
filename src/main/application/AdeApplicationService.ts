@@ -52,6 +52,7 @@ import { validateTerminal, validateTerminalPrompt, type RemoteTerminalService } 
 import type { DictationJobs } from '../settings/DictationJobs';
 import { validDictationBase64 } from '../../shared/dictationRequests';
 import { validDictationJobId } from '../../shared/dictation';
+import { LIVE_DICTATION_CHUNK_BYTES, validLiveDictationChunk } from '../../shared/liveDictation';
 import type { MobileDictationTarget, MobileDictationResult } from '../../shared/remote';
 import type { MobileTerminalQuery, MobileTerminalCommand, MobileTerminalInput } from '../../shared/remote';
 import { validateProfileQuery, validateProfileUpdate, type RemoteProfileService } from './RemoteProfileService';
@@ -572,17 +573,46 @@ export class AdeApplicationService {
         });
         check(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
       }
+      if (request.operation === 'stream-chunk') {
+        requireKeys(request, ['operation', 'jobId', 'sequence', 'audioBase64'], 'request');
+        const { operation: _operation, ...chunk } = request;
+        if (!validLiveDictationChunk(chunk)) throw new RemoteApiError(400, 'invalid_payload');
+        const audio = Buffer.from(chunk.audioBase64, 'base64');
+        if (audio.toString('base64') !== chunk.audioBase64 || audio.length % 2 !== 0 || audio.length > LIVE_DICTATION_CHUNK_BYTES) throw new RemoteApiError(400, 'invalid_payload');
+        if (!context.idempotencyKey) throw new RemoteApiError(400, 'idempotency_key_required');
+        if (context.idempotencyKey !== `${chunk.jobId}:${chunk.sequence}`) throw new RemoteApiError(400, 'idempotency_key_invalid');
+        // Packets use bounded, job-local receipts, like terminal input. Writing
+        // every packet to the durable command ledger would fill it in minutes.
+        this.audit(context, 'dictation:streamChunk', null, 'requested');
+        try {
+          const replayed = jobs.pushRemoteLive(owner, chunk.jobId, chunk.sequence, audio);
+          this.audit(context, 'dictation:streamChunk', null, replayed ? 'replayed' : 'executed');
+          return { jobId: chunk.jobId, replayed };
+        } catch (error) {
+          this.audit(context, 'dictation:streamChunk', null, 'rejected', redactedWireMessage(error)); throw error;
+        }
+      }
       requireKeys(request, ['operation', 'jobId'], 'request');
-      if (!validDictationJobId(request.jobId) || !['query', 'cancel'].includes(String(request.operation))) throw new RemoteApiError(400, 'invalid_payload');
+      if (!validDictationJobId(request.jobId) || !['query', 'cancel', 'stream-start', 'stream-finish'].includes(String(request.operation))) throw new RemoteApiError(400, 'invalid_payload');
       const jobId = request.jobId;
       if (request.operation === 'query') {
         const state = jobs.read(owner, jobId); authorize();
+        if (state.status === 'recording') state.text = redactForWire(state.text, 12_000);
         if (state.status === 'complete') state.transcript.text = redactForWire(state.transcript.text, 12_000);
         if (state.status === 'failed') state.message = redactedWireMessage(state.message);
         return { state };
       }
-      const result = await ledger.execute(context, 'dictation:cancel', 'dictation:transcribe', request, () => {
-        authorize(); jobs.cancel(owner, jobId); return { cancelled: true as const };
+      if (request.operation === 'stream-start' || request.operation === 'stream-finish') {
+        const start = request.operation === 'stream-start';
+        const result = await ledger.execute(context, start ? 'dictation:streamStart' : 'dictation:streamFinish', 'dictation:transcribe', request, async () => {
+          authorize();
+          if (start) await jobs.startLive(owner, jobId); else jobs.finishLive(owner, jobId);
+          return { jobId };
+        });
+        authorize(); jobs.read(owner, jobId); return { ...result.value, replayed: result.replayed };
+      }
+      const result = await ledger.execute(context, 'dictation:cancel', 'dictation:transcribe', request, async () => {
+        authorize(); await jobs.cancelAndWait(owner, jobId); return { cancelled: true as const };
       });
       authorize(); return { ...result.value, replayed: result.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }

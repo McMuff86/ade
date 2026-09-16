@@ -98,7 +98,7 @@ export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.R
       onClose={onClose}
       lead={(
         <div className="agent-card-portrait">
-          <Avatar name={agent.name} photo={agent.photo} shape="round" size={112} seed={agent.id} />
+          <Avatar name={agent.name} photo={agent.photo} runtime={agent.runtime} shape="round" size={112} seed={agent.id} />
           <span className={running > 0 ? 'agent-card-status on' : 'agent-card-status'}>
             {running > 0
               ? `${running} session${running === 1 ? '' : 's'} running`

@@ -228,7 +228,7 @@ export function OverviewView(): JSX.Element {
                   onClick={() => openAgent(row.id)}
                   onKeyDown={(event) => onRowKey(event, () => openAgent(row.id))}
                 >
-                  <Avatar name={row.name} photo={row.photo} shape="round" size={28} />
+                  <Avatar name={row.name} photo={row.photo} runtime={row.runtime} shape="round" size={28} />
                   <span className="ov-agent-id">
                     <strong>{row.name}</strong>
                     <span className="ov-muted">{row.runtimeLabel}</span>

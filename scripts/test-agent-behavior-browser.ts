@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, type Browser } from 'playwright';
@@ -24,7 +24,7 @@ void (async () => {
     browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: entry => devices.audit(entry) });
   proxy.target((await server.start()).port);
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
-  const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true, ignoreHTTPSErrors: true });
+  const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, deviceScaleFactor: 2, hasTouch: true, ignoreHTTPSErrors: true });
   page.setDefaultTimeout(25_000); const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(sessions.beginPairing(proxy.origin).url);
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
@@ -35,6 +35,27 @@ void (async () => {
     await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
     await page.getByRole('dialog', { name: 'Workspace · Builder', exact: true }).getByRole('button', { name: 'Agent-Profil', exact: true }).click();
   };
+  const originalRuntime = store.get().agents.find(agent => agent.id === 'builder')!.runtime;
+  for (const runtime of ['codex', 'claude', 'grok'] as const) {
+    store.save({ agents: store.get().agents.map(agent => agent.id === 'builder' ? { ...agent, runtime } : agent) });
+    await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+    await open();
+    const enlarge = page.getByRole('button', { name: 'Profilbild vergrössern', exact: true });
+    await enlarge.waitFor();
+    await page.waitForFunction(runtime => [...document.querySelectorAll<HTMLImageElement>(`img[data-runtime-logo="${runtime}"]`)].some(image => image.complete && image.naturalWidth > 0), runtime);
+    check(`tablet ${runtime} profile loads its bundled vector logo`, (await enlarge.locator('img').getAttribute('src'))?.includes('.svg') === true);
+    await enlarge.focus(); await page.keyboard.press('Enter');
+    const portrait = page.getByRole('dialog', { name: 'Profilbild · Builder', exact: true });
+    check(`tablet ${runtime} portrait uses the vector at display density 2`, await portrait.locator(`img[data-runtime-logo="${runtime}"]`).count() === 1
+      && await portrait.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+    mkdirSync(resolve('test-results/profile-logos'), { recursive: true });
+    await portrait.screenshot({ path: resolve(`test-results/profile-logos/tablet-${runtime}.png`) });
+    await page.keyboard.press('Escape'); await portrait.waitFor({ state: 'hidden' });
+    check('closing enlarged logo restores profile button focus', await enlarge.evaluate(node => node === document.activeElement));
+    await page.keyboard.press('Escape');
+  }
+  store.save({ agents: store.get().agents.map(agent => agent.id === 'builder' ? { ...agent, runtime: originalRuntime } : agent) });
+  await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await open();
   const workspace = page.getByRole('dialog', { name: 'Workspace · Builder', exact: true });
   const editor = workspace.getByRole('region', { name: 'Agent-Verhalten', exact: true });

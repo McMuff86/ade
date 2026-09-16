@@ -1,10 +1,10 @@
 # ADE delivery roadmap
 
-Aktuelle Operatorrückmeldung: Terminal beim Diktieren sichtbar halten und den
-gesprochenen Text bereits während der Aufnahme anzeigen. Desktop-Dock und
-Live-Streaming sind implementiert; `pnpm verify` besteht vollständig. Die
-Aktivierung in der persönlichen Instanz und der eigene Mikrofontest stehen aus.
-Live-Diktat auf dem Tablet ist noch nicht implementiert.
+Aktuelle Operatorrückmeldung: neuer Build funktioniert. Live-Diktat wird auch
+auf dem Tablet gebraucht; Codex, Claude Code und Grok erhalten scharfe
+Profilbilder. Tablet-Live-Anbindung und gebündelte Vektorlogos sind implementiert
+und mit 57 durchgehenden Diktatchecks geprüft; `pnpm verify` besteht vollständig.
+Commit, finaler Build und persönlicher Neustart sind beauftragt.
 [Stand und Nachweise](LIVE_DICTATION_RESULTS.md).
 
 Neue Operatorrückmeldung: Diktat funktioniert wie gewünscht; Arbeit mit Ollama-

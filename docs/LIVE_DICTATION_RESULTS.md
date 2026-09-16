@@ -16,8 +16,9 @@ Stand: 16. September 2026.
 - Bei einer unterbrochenen Verbindung bleibt der zuletzt gelesene Zwischenstand
   mit einem Hinweis auf mögliche Unvollständigkeit erhalten. Expliziter Abbruch
   verwirft die laufende Aufnahme und behält den vorherigen Entwurf.
-- Tablet verwendet weiterhin den bestehenden Batch-Pfad. Die neue Desktop-
-  Funktion behauptet keine Live-Unterstützung auf Tablet, Linux oder macOS.
+- Tablet verwendet denselben Live-Pfad im bestehenden Prompt-/Diktat-Dialog.
+  Zwischenstände erscheinen vor Stoppen; bestätigter Text bleibt vor dem Versand
+  prüfbar. Nach Verbindungsverlust wird der letzte Zwischenstand gesichert.
 
 ## Umsetzung und Grenzen
 
@@ -29,6 +30,14 @@ für `scribe_v2_realtime`. Weder Token noch API-Key verlassen Main. Authentisier
 IPC-Aufrufe binden Start, geordnete Audiopakete und Stoppen an das vorbereitete
 Aufnahmeticket. Vorschautext wird privat abgefragt und weder protokolliert noch
 an Orchestrierungsansichten oder den Eventjournal weitergegeben.
+
+Das Tablet überträgt signierte `stream-start`/`stream-chunk`/`stream-finish`-
+Anfragen über `/api/v1/dictation/command`. Diktat- und Terminalfreigabe sowie
+Gerät, Ziel und Eingabebesitz werden bei jedem Schritt geprüft. Paket-Schlüssel
+sind an Ticket und Sequenz gebunden; identische Wiederholungen werden ohne
+erneuten Audioversand quittiert. Nur Hashes bleiben befristet im Speicher.
+235 reguläre Audiopakete füllen deshalb nicht den dauerhaften Aktionsspeicher.
+Zwischenstände durchlaufen dieselbe Wire-Redaktion wie fertige Transkripte.
 
 Manuelles Commit beim Stoppen bestätigt den letzten Text. Es gibt weder
 automatische Wiederverbindung noch erneute Übertragung als vollständige
@@ -44,7 +53,33 @@ PCM-Dauer ist keine Aussage über Anbieterabrechnung, Verbindungslaufzeit,
 Credits oder Preis. Abstürze behalten einen offenen Versuch mit unbekannter
 Dauer; Transkripte und Audio werden nicht im Verbrauchsjournal gespeichert.
 
-## Nachweise
+## Tablet-Erweiterung und Profilbilder (16. September 2026)
+
+- `test-remote-dictation.ts`: 46 Prüfungen positiv, einschliesslich Live-Start/
+  Stop, Paketwiederholung, falscher Reihenfolge, fremdem Gerät, entzogenen
+  Freigaben, begrenztem Speicher und privaten Zwischenständen.
+- Codex/OpenAI-, Claude- und Grok-Profilbilder sind lokal gebündelte SVGs.
+  Eigene Fotos bleiben vorrangig. Desktop-Einstellungen, Profilkarten und
+  Tablet-Vergrösserung sind geprüft: 15 Electron- und 21 Browserchecks positiv.
+  Tablet-Bilder wurden mit zweifacher Pixeldichte aufgenommen und visuell geprüft.
+  Nachweise: `test-results/profile-logos/` und `profile-logos-*.log`.
+- `test-dictation-electron.ts`: 57 Prüfungen positiv, einschliesslich Live-Text
+  vor Stoppen, genau einer Transkription, ausbleibendem automatischem
+  CLI-Versand, Verbindungsabbruch mit erhaltenem Zwischenstand, erneutem
+  Diktieren, Schliessen einer aktiven Aufnahme und positiver Schlussaufnahme.
+  Nachweis: `test-results/tablet-live-dictation.log`, `dictation/tablet-live.png`.
+- `test-dictation-jobs.ts`: 21 Prüfungen positiv. Abbruch wartet auf den
+  Abschluss des Anbieterstreams, bevor eine neue Aufnahme vorbereitet wird.
+- `pnpm verify` vollständig positiv (Exit 0): alle drei TypeScript-Projekte,
+  72 fokussierte Suiten / 3.060 Checks, Produktionsbuild und alle folgenden
+  Electron-/Browserprüfungen bis zu den 22 abschliessenden Visualchecks.
+  Protokoll: `test-results/tablet-live-verify.log`. Die neuen Test-Mindestzahlen
+  sind im Suite-Runner auf 46 Remote-Diktat- und 21 Diktat-Jobchecks angehoben.
+- Physisches Tablet, persönliches Mikrofon und bezahlte Anbieterantworten sind
+  damit nicht geprüft. Chromium-Tests verwenden echte Browseraufnahme mit
+  simuliertem Mikrofon und kontrollierten ElevenLabs-Antworten.
+
+## Vorherige Desktop-Nachweise (413c573)
 
 - `test-live-dictation.ts`: 53 Vertragschecks bestanden, einschliesslich der
   unbekannten Live-Dauer in der Sitzungsansicht. Abschliessend erneut positiv

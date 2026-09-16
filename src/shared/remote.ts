@@ -2,10 +2,12 @@ import type { ExecutionBackendId } from './executionBackends';
 import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
 import type { DictationJobState } from './dictation';
+import type { LiveDictationChunk } from './liveDictation';
 
 export type MobileDictationTarget = MobileTerminalSelection & { terminalId: string; leaseId: string };
 export type MobileDictationRequest = { operation: 'prepare'; target: MobileDictationTarget }
-  | { operation: 'query' | 'cancel'; jobId: string };
+  | { operation: 'query' | 'cancel' | 'stream-start' | 'stream-finish'; jobId: string }
+  | ({ operation: 'stream-chunk' } & LiveDictationChunk);
 export interface MobileDictationUpload { jobId: string; audioBase64: string }
 export type MobileDictationResult = { jobId: string; replayed: boolean } | { state: DictationJobState } | { cancelled: true; replayed: boolean };
 

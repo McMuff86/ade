@@ -57,7 +57,7 @@ export function WorkView() {
     </div>
     <div className="work-body"><aside aria-label="Agent-Workspaces" className="work-agents"><h2>Agents</h2>
       {!Object.keys(agents).length && <p>Noch keine Agents</p>}
-      {Object.values(agents).map(item => <button key={item.id} aria-label={item.name} title="Agentprofil öffnen" onClick={() => useOnboarding.getState().openAgentCard(item.id)}><Avatar name={item.name} photo={item.photo} shape="round" size={26} /><span>{item.name}</span></button>)}
+      {Object.values(agents).map(item => <button key={item.id} aria-label={item.name} title="Agentprofil öffnen" onClick={() => useOnboarding.getState().openAgentCard(item.id)}><Avatar name={item.name} photo={item.photo} runtime={item.runtime} shape="round" size={26} /><span>{item.name}</span></button>)}
     </aside><div className="work-content">
       <CliWorkPanel project={project} profile={agent} />
       <h2>Managed Runs</h2>

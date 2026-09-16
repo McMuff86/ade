@@ -262,7 +262,7 @@ export function Rail(): React.ReactElement {
                         onClick={() => openAgentCard(agent.id)}
                       >
                         <span className="agent-avatar-wrap">
-                          <Avatar name={agent.name} photo={agent.photo} shape="round" size={26} seed={agent.id} />
+                          <Avatar name={agent.name} photo={agent.photo} runtime={agent.runtime} shape="round" size={26} seed={agent.id} />
                           <span className="presence" aria-hidden="true" />
                         </span>
                       </button>

@@ -78,16 +78,19 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     return () => clearInterval(timer);
   }, [phase]);
   useEffect(() => { if (liveText && input.current) input.current.scrollTop = input.current.scrollHeight; }, [liveText]);
-  const cancel = () => {
+  const cancel = (preservePreview = false) => {
+    const preview = preservePreview ? liveTextRef.current.trim() : '';
     generation.current++; recorder.current?.cancel(); recorder.current = null;
     const id = job.current; job.current = null; busy.current = false; setPhase('idle');
     liveTextRef.current = ''; setLiveText('');
     if (id) void portRef.current.cancelRecording(id).catch(() => undefined);
     void portRef.current.revokeMicrophone?.().catch(() => undefined);
     setNotice('Aufnahme abgebrochen. Bereits übertragene Audiodaten können beim Anbieter verarbeitet worden sein.');
-    if (online) save({ ...draftRef.current, recordingJob: undefined });
+    if (online || preservePreview) save({ ...draftRef.current, recordingJob: undefined,
+      ...(preview ? { text: [draftRef.current.text, preview].filter(Boolean).join('\n').slice(0, DICTATION_MAX_TEXT_CHARS) } : {}) });
+    if (preview) setNotice('Verbindung unterbrochen. Der letzte Zwischenstand wurde als Entwurf gesichert. Bitte auf Vollständigkeit prüfen.');
   };
-  useEffect(() => { if (!online && recorder.current) cancel(); }, [online]);
+  useEffect(() => { if (!online && recorder.current) cancel(true); }, [online]);
 
   const recover = async (id: string, own: number, wait: boolean) => {
     const target = portRef.current;
@@ -208,7 +211,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     <div className="prompt-actions">
       <button type="button" disabled={phase !== 'idle' || !online || !speechAllowed || !!draft.delivery || !!draft.recordingJob} onClick={() => void record()}>Diktieren</button>
       {phase === 'recording' && <button type="button" onClick={() => recorder.current?.stop()}>Aufnahme stoppen · {seconds} s</button>}
-      {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={cancel}>Aufnahme abbrechen</button>}
+      {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={() => cancel()}>Aufnahme abbrechen</button>}
       {phase === 'permission' && <span role="status">Mikrofon wird angefragt…</span>}{phase === 'transcribing' && <span role="status">Audio wird transkribiert…</span>}
       <button type="button" disabled={disabled} onClick={() => void send('insert')}>In CLI einfügen</button>
       <button type="button" disabled={disabled} onClick={() => void send('submit')}>An CLI absenden</button>

@@ -176,7 +176,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     <Modal title="Agent settings" subtitle="Configure how new terminal sessions start." onClose={onClose}>
       <div className="field">
         <label>Profile photo</label>
-        <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} />
+        <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} runtime={runtime} />
       </div>
 
       <div className="field">

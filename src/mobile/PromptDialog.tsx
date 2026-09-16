@@ -5,8 +5,9 @@ import { PromptComposer, type PromptComposerPort } from '../renderer/terminal/Pr
 import type { MobileHost } from './useMobileHost';
 import { Dialog } from './ui';
 
-export function MobilePromptDialog({ host, target, label, send, onClose, fallbackId }: {
+export function MobilePromptDialog({ host, target, label, send, onClose, fallbackId, restoreFocusTo }: {
   host: MobileHost; target: MobileDictationTarget; label: string; fallbackId: string; onClose: () => void;
+  restoreFocusTo?: () => HTMLElement | null;
   send(text: string, mode: 'insert' | 'submit', commandId: string): Promise<TerminalPromptReceipt>;
 }) {
   const [speechAllowed, setSpeechAllowed] = useState(false);
@@ -14,6 +15,14 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
   // Parent remounts for a different terminal/lease; microphone callbacks keep this target.
   const bound = useRef(target).current;
   const request = host.request;
+  // Cancellation is safe to repeat. Retain failed cancellations across a
+  // disconnect and settle them before requesting another paid stream.
+  const pendingCancellations = useRef(new Set<string>());
+  const cancelRecording = async (jobId: string) => {
+    pendingCancellations.current.add(jobId);
+    await request('/api/v1/dictation/command', 'POST', { operation: 'cancel', jobId }, crypto.randomUUID());
+    pendingCancellations.current.delete(jobId);
+  };
   useEffect(() => {
     let stopped = false;
     const load = () => { void request<MobileHostState>('/api/v1/host').then(state => {
@@ -31,6 +40,7 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
     },
     send: (text, mode, key) => sender.current(text, mode, key),
     prepareRecording: async () => {
+      for (const jobId of pendingCancellations.current) await cancelRecording(jobId);
       const result = await request<MobileDictationResult>('/api/v1/dictation/command', 'POST', { operation: 'prepare', target: bound }, crypto.randomUUID());
       if (!('jobId' in result)) throw new Error('Aufnahme konnte nicht vorbereitet werden.'); return result;
     },
@@ -42,10 +52,18 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
       const result = await request<MobileDictationResult>('/api/v1/dictation/command', 'POST', { operation: 'query', jobId });
       if (!('state' in result)) throw new Error('Aufnahmestatus fehlt.'); return result.state;
     },
-    cancelRecording: jobId => request('/api/v1/dictation/command', 'POST', { operation: 'cancel', jobId }, crypto.randomUUID()),
+    cancelRecording,
+    liveRecording: {
+      start: jobId => request('/api/v1/dictation/command', 'POST', { operation: 'stream-start', jobId }, crypto.randomUUID()),
+      push: (jobId, sequence, bytes) => {
+        let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+        return request('/api/v1/dictation/command', 'POST', { operation: 'stream-chunk', jobId, sequence, audioBase64: btoa(binary) }, `${jobId}:${sequence}`);
+      },
+      finish: jobId => request('/api/v1/dictation/command', 'POST', { operation: 'stream-finish', jobId }, crypto.randomUUID()),
+    },
     copyText: text => navigator.clipboard.writeText(text),
   }), [request, bound]);
-  return <Dialog title="Prompt und Diktat" onClose={onClose} fallbackId={fallbackId} className="m-prompt-dialog">
+  return <Dialog title="Prompt und Diktat" onClose={onClose} fallbackId={fallbackId} restoreFocusTo={restoreFocusTo} className="m-prompt-dialog">
     <PromptComposer key={`${host.deviceId}/${bound.terminalId}`} draftKey={`mobile/${host.deviceId}/${bound.terminalId}`}
       targetLabel={label} online={host.status === 'online'} speechAllowed={speechAllowed} port={port} />
   </Dialog>;

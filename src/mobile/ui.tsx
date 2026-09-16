@@ -40,7 +40,7 @@ export function reportedTokens(runs: RunSummary[]): string | null {
 
 export const DialogHeaderSlot = createContext<HTMLElement | null>(null);
 export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions }: {
-  title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null; headerActions?: ReactNode;
+  title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null | (() => HTMLElement | null); headerActions?: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
@@ -54,8 +54,10 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
     (dialog.querySelector<HTMLElement>('[data-inspector-heading]') ?? dialog.querySelector<HTMLElement>('[data-dialog-heading]'))?.focus();
     return () => {
       dialog.close();
-      const target = opener?.isConnected && opener.matches('button,input,select,textarea,a[href],[tabindex]')
-        && !opener.matches(':disabled') && opener.getClientRects().length && !opener.closest('[inert]') ? opener : document.getElementById(fallbackId);
+      const currentOpener = typeof opener === 'function' ? opener() : opener;
+      const target = currentOpener?.isConnected && currentOpener.matches('button,input,select,textarea,a[href],[tabindex]')
+        && !currentOpener.matches(':disabled') && currentOpener.getClientRects().length && !currentOpener.closest('[inert]') ? currentOpener : document.getElementById(fallbackId)
+          ?? dialog.parentElement?.closest('dialog')?.querySelector<HTMLElement>('[data-dialog-heading]');
       target?.focus();
     };
   }, [fallbackId]);

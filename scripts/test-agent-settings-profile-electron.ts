@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
@@ -13,9 +13,37 @@ void (async () => {
     const category = await window.ade.invoke('category:create', { name: 'Profile test' });
     return window.ade.invoke('agent:create', { categoryId: category.id, name: 'Profile parity', runtime: 'codex', permissionMode: 'default' });
   });
+  for (const runtime of ['codex', 'claude', 'grok'] as const) {
+    const named = await page.evaluate(async runtime => {
+      const config = await window.ade.invoke('config:get');
+      return window.ade.invoke('agent:create', { categoryId: config.categories.find(item => item.name === 'Profile test')!.id,
+        name: `Logo ${runtime}`, runtime, permissionMode: 'default' });
+    }, runtime);
+    const cardButton = page.getByRole('button', { name: `Agent card for Logo ${runtime}`, exact: true });
+    await cardButton.locator('img').waitFor();
+    await page.waitForFunction(runtime => [...document.querySelectorAll<HTMLImageElement>(`img[data-runtime-logo="${runtime}"]`)].some(image => image.complete && image.naturalWidth > 0), runtime);
+    check(`${runtime} has a bundled vector profile logo in the rail`, (await cardButton.locator('img').getAttribute('src'))?.includes('.svg') === true);
+    await cardButton.focus(); await page.keyboard.press('Enter');
+    const profile = page.getByRole('dialog', { name: `Logo ${runtime}`, exact: true });
+    check(`${runtime} profile card uses the same sharp logo`, await profile.locator(`img[data-runtime-logo="${runtime}"]`).count() === 1);
+    mkdirSync(resolve('test-results/profile-logos'), { recursive: true });
+    await profile.screenshot({ path: resolve(`test-results/profile-logos/desktop-${runtime}.png`) });
+    await page.keyboard.press('Escape'); await profile.waitFor({ state: 'hidden' });
+    if (runtime === 'codex') {
+      await page.evaluate(async id => {
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+        const context = canvas.getContext('2d')!; context.fillStyle = '#996633'; context.fillRect(0, 0, 64, 64);
+        const photo = await window.ade.invoke('photo:import', { mime: 'image/png', bytesBase64: canvas.toDataURL('image/png').split(',')[1]! });
+        await window.ade.invoke('agent:update', { id, name: 'Logo codex', runtime: 'codex', permissionMode: 'default', photo: photo.file });
+      }, named.id);
+      await page.waitForFunction(() => document.querySelector<HTMLImageElement>('[aria-label="Agent card for Logo codex"] img')?.src.startsWith('ade-photo://'));
+      check('personal profile photo takes priority over runtime branding', await cardButton.locator('img[data-runtime-logo]').count() === 0);
+    }
+  }
   const opener = page.getByRole('button', { name: 'Agent settings for Profile parity', exact: true });
   await opener.click({ force: true });
   const dialog = page.getByRole('dialog', { name: 'Agent settings', exact: true });
+  check('agent settings preview includes its runtime logo', await dialog.locator('img[data-runtime-logo="codex"]').count() === 1);
   const behavior = dialog.getByRole('region', { name: 'Agent-Verhalten', exact: true });
   const text = behavior.getByLabel('Profil-Arbeitsanweisungen', { exact: true });
   await text.waitFor();
