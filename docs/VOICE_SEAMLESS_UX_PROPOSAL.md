@@ -383,3 +383,18 @@ Operators samt ihrer Codex-Sitzung per Prozessende gestoppt. Neue Instanz PID
 20656: Startquittung bestanden, 6 Profile, 5 Projekte, 1 Gerät, Tablet-Seite
 HTTP 200 mit byteidentischem Bundle (`test-results/voice-strip-restart.json`,
 `dist/voice-strip-1b73aff6/activation.json`).
+
+### Nachtrag 18:07 CEST: Antwort anhören auf dem Tablet
+
+Adis erster Tablet-Test: Sprechen ohne Modal „sehr gut gelungen“, aber
+**Antwort anhören** endete mit `response_too_large`. Ursache: Der Host-API-
+Server begrenzt JSON-Antworten auf 512 KiB, das Base64-MP3 einer Antwort
+(vom Provider bis 2 MiB erlaubt) passt nicht hinein. Korrektur in
+`HostApiServer.ts`: Die Routen `terminalSpeech` und `speechQuery` dürfen
+4 MiB, alle anderen behalten die Grenze. `test-reply-speech-electron.ts`
+fährt jetzt die Leiste und lässt das Fixture-Audio per ID3-Padding über die
+alte Grenze wachsen (33/0, Desktop und Tablet). Commit 6002cd8 auf `main`
+(nach 99a0e47 mit der Leiste und dem vorgespulten `codex/reply-speech`).
+Aktiviert als `dist/voice-strip-d5db34c4`, PID 17632; die vorherige Instanz
+endete diesmal regulär vor dem Helfer-Fallback. Backup
+`ADE-Backups\VoiceStrip-20260916-180656`.
