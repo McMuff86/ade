@@ -4,7 +4,7 @@
 
 PC-/Tablet-Vorlesedialog implementiert: editierbarer Sprechtext, ausdrückliches
 Abspielen, Stoppen und Wiederholung ohne erneute Synthese. TypeScript und
-28 Dienst-, 20 Remote- sowie 26 Electron-/Chromium-Prüfungen bestanden.
+28 Dienst-, 20 Remote- sowie 34 Electron-/Chromium-Prüfungen bestanden.
 Gesamtabnahme und persönlicher Neustart folgen; das Beenden der laufenden
 Tablet-Sitzung wurde ausdrücklich erlaubt. [Verträge und Nachweise](REPLY_SPEECH.md).
 Der globale Button „Sprachsteuerung“ ist ein [dokumentierter Vorschlag](VOICE_COMPANION_PROPOSAL.md).

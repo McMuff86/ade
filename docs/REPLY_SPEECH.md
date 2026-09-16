@@ -1,13 +1,14 @@
 # Antworten auf PC und Tablet vorlesen
 
 Stand 16. September 2026: implementiert; TypeScript, 28 Text-/Dienstprüfungen,
-20 Remote-Vertragsprüfungen und 26 echte Electron-/Chromium-Bedienprüfungen
+20 Remote-Vertragsprüfungen und 34 echte Electron-/Chromium-Bedienprüfungen
 bestanden. Gesamtabnahme und persönliche Aktivierung folgen.
 
 ## Bedienung
 
 1. In einer interaktiven Terminalsitzung **Antwort anhören** wählen. Auf dem
-   Tablet steht der Button oben links in der Terminalanzeige, auch im **Verlauf**.
+   Tablet steht der Button neben **Prompt / Diktat** in der Kopfzeile und bleibt
+   auch beim geöffneten **Verlauf** erreichbar.
 2. Eine vorhandene Textmarkierung wird übernommen, sonst der sichtbare Ausschnitt
    beziehungsweise der geöffnete Verlauf. Das ist keine automatische Erkennung
    der letzten Agentenantwort: Eingaben und Statusmeldungen können enthalten sein.
@@ -71,7 +72,7 @@ werden erneut geprüft. Alle Wire-Fehler durchlaufen die vorhandene Redaktion.
 ## Nachweise
 
 - `pnpm test:reply-speech`: 28 Dienst-/Textprüfungen, 20 Remote-Prüfungen.
-- `pnpm test:reply-speech-electron`: 26 Prüfungen mit echter nativer Windows-PTY,
+- `pnpm test:reply-speech-electron`: 34 Prüfungen mit echter nativer Windows-PTY,
   Electron-Renderer, gekoppeltem Chromium-Browser und signierter HTTPS-Kommunikation.
 - Audio-Decodierung, Vorschau ohne Synthese, gespeichertes Tempo, Wiederholung,
   Abbruch, Providerfehler, Code-only-Fehler, Fokus, Verlaufmarkierung, Telefonlayout,
@@ -100,3 +101,22 @@ Test hält eine echte Resize-/Lease-Anfrage an: Alter Build scheitert am
 Fokus-Erhalt (`reply-heartbeat-negative.log`), korrigierter Build besteht alle
 26 Bedienprüfungen einschliesslich gesperrter Enter-Aktion und finaler Wiedergabe.
 Die Security-Mindestzahl ist auf die gemessenen 275 angehoben.
+
+### Freie Terminalfläche und Touch-Tastatur
+
+Der folgende Gesamtlauf bestand die 74 Fachsuiten und alle Sprachdriver,
+scheiterte aber im Assistant-Terminalablauf am Touch-Tastaturtest. Der zunächst
+in der Terminalfläche platzierte Vorlese-Button überdeckte den getesteten
+Tap-Punkt. Dieser Lauf ist ebenfalls keine grüne Gesamtabnahme
+(`reply-verify-tap-failure.log/.json`).
+
+Der Auslöser sitzt jetzt über ein Portal in der bestehenden Kopfzeile neben
+**Prompt / Diktat**. Der Dialog bleibt am Terminal montiert; das Einklappen der
+Kopfzeile während der Texteingabe versteckt keinen offenen Vorlesedialog.
+Der Vorlesetest führt nun auch die sieben bestehenden Touch-Tastaturprüfungen
+aus und prüft geometrisch, dass der Button oberhalb der Terminalfläche liegt.
+Nach explizit abgeschlossener Eingabeübernahme bestehen alle 34 Bedienprüfungen.
+
+Der ursprüngliche Assistant-Terminaldriver besteht mit dem neuen Layout ebenfalls:
+`pnpm exec tsx scripts/test-remote-terminal-electron.ts --assistant-only`, 59/0
+(`test-results/reply-assistant-positive.log`).

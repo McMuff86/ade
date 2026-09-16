@@ -22,11 +22,12 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort }: {
+export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort, replyButtonContainer }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
   screen: string;
   fontSize?: number;
   replyPort?: ReplySpeechPort;
+  replyButtonContainer?: HTMLElement | null;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -95,7 +96,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     }} />
     <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
       onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
-    {replyPort && <div className="m-terminal-read-reply"><ReplySpeechButton port={replyPort} active={active}
+    {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer}
       fallbackFocus={() => historyButton.current} readSource={() => {
         if (history !== null) {
           const selection = window.getSelection();
@@ -103,7 +104,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
           return { source: selected ? 'selection' : 'screen', text: selected || history };
         }
         return terminalReplySource(terminal.current);
-      }} /></div>}
+      }} />}
     {history !== null && <div className="m-terminal-history-panel">
       <p>Gespeicherter Textverlauf · Anzeige pausiert. Zur Live-Ausgabe zurückkehren, um weiter einzugeben.</p>
       <pre ref={historyRef} tabIndex={0} aria-label="Terminalverlauf lesen">{history}</pre>

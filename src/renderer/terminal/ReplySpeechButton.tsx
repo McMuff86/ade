@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MAX_REPLY_SOURCE_CHARS, type ReplyInput, type ReplyMode, type ReplyPreview, type ReplyResult, type ReplySource } from '../../shared/terminalSpeech';
 import type { SpeechAudio } from '../../shared/speech';
 import './reply-speech.css';
@@ -10,15 +11,16 @@ export interface ReplySpeechPort {
   cancel(replyId: string): Promise<unknown>;
 }
 
-export function ReplySpeechButton({ port, readSource, active, disabled = false, fallbackFocus }: {
+export function ReplySpeechButton({ port, readSource, active, disabled = false, fallbackFocus, buttonContainer }: {
   port: ReplySpeechPort; readSource: () => ReplySource; active: boolean; disabled?: boolean; fallbackFocus: () => HTMLElement | null;
+  buttonContainer?: HTMLElement | null;
 }) {
   const [source, setSource] = useState<ReplySource>(); const [error, setError] = useState('');
   const button = useRef<HTMLButtonElement>(null); const context = useRef<AudioContext | undefined>(undefined);
   const close = () => { setSource(undefined); void context.current?.close().catch(() => undefined); context.current = undefined; };
   useEffect(() => { if (!active || disabled) close(); }, [active, disabled]);
   useEffect(() => () => { void context.current?.close().catch(() => undefined); }, []);
-  return <>
+  const trigger = <>
     <button ref={button} type="button" aria-haspopup="dialog" aria-expanded={!!source} disabled={disabled || !active}
       onPointerDown={event => event.preventDefault()} onClick={() => {
       setError('');
@@ -32,6 +34,9 @@ export function ReplySpeechButton({ port, readSource, active, disabled = false, 
       } catch (reason) { setError(reason instanceof Error ? reason.message : 'Die Antwort konnte nicht gelesen werden.'); }
     }}>Antwort anhören</button>
     {error && <span role="alert" className="reply-speech-error">{error}</span>}
+  </>;
+  return <>
+    {buttonContainer === undefined ? trigger : buttonContainer ? createPortal(trigger, buttonContainer) : null}
     {source && <ReplySpeechDialog source={source} port={port} context={context.current!} onClose={close}
       restoreFocus={() => button.current?.isConnected && button.current.getClientRects().length ? button.current : fallbackFocus()} />}
   </>;

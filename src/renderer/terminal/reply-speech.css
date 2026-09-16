@@ -10,5 +10,4 @@
 .reply-speech-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .reply-speech-help { font-size: .9em; opacity: .8; line-height: 1.5; }
 .reply-speech-error { max-width: 100%; overflow-wrap: anywhere; }
-.m-terminal-read-reply { position: absolute; top: 4px; left: 12px; z-index: 3; }
-.m-terminal-read-reply > button { min-height: 44px; }
+.m-terminal-reply-slot { display: contents; }

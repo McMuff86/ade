@@ -54,6 +54,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
   const [promptOpen, setPromptOpen] = useState(false);
   const promptOpener = useRef<HTMLButtonElement>(null);
+  const [replyToolbar, setReplyToolbar] = useState<HTMLSpanElement | null>(null);
   useEffect(() => { setPromptOpen(false); }, [selected, active]);
   const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
@@ -286,6 +287,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     {/* Native disabled would blur this opener on every short lease heartbeat. */}
     {state.selected && <button ref={promptOpener} aria-haspopup="dialog" disabled={!owning || !state.leaseId} aria-disabled={blocked}
       onClick={event => { if (blocked) return; event.currentTarget.focus(); setPromptOpen(true); }}>Prompt / Diktat</button>}
+    {state.selected && <span ref={setReplyToolbar} className="m-terminal-reply-slot" />}
   </div>;
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
@@ -347,7 +349,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replyToolbar}
       onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
