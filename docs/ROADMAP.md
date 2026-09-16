@@ -4,7 +4,9 @@ Aktuelle Operatorrückmeldung: neuer Build funktioniert. Live-Diktat wird auch
 auf dem Tablet gebraucht; Codex, Claude Code und Grok erhalten scharfe
 Profilbilder. Tablet-Live-Anbindung und gebündelte Vektorlogos sind implementiert
 und mit 57 durchgehenden Diktatchecks geprüft; `pnpm verify` besteht vollständig.
-Commit, finaler Build und persönlicher Neustart sind beauftragt.
+Codecommit **441f0ce**, finaler Build und persönlicher Neustart sind abgeschlossen.
+Profile, Projekte und Gerätekopplung sind erhalten; Tablet-Seite mit HTTP 200
+erreichbar. Persönlicher Tablet-Mikrofontest bleibt offen.
 [Stand und Nachweise](LIVE_DICTATION_RESULTS.md).
 
 Neue Operatorrückmeldung: Diktat funktioniert wie gewünscht; Arbeit mit Ollama-

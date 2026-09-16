@@ -11,11 +11,27 @@ Tablet-Live-Streaming und lokale SVG-Profilbilder für Codex/OpenAI, Claude und
 Grok sind implementiert. Eigene Profilfotos bleiben erhalten. 57 durchgehende
 Diktatchecks, Remote-/Profilprüfungen und 72 fokussierte Suiten / 3.060 Checks
 sind positiv. `pnpm verify` besteht vollständig, einschliesslich aller App- und
-Visualprüfungen (`test-results/tablet-live-verify.log`, Exit 0). Der Operator
-beauftragt zusätzlich Commit, finalen Build und Neustart nach Abschluss.
-Produktionsbuild liegt in `out/`; persönliche
-ADE-Prozesse, Startverknüpfung und der zuvor aktivierte Startordner wurden in
-diesem Arbeitslauf nicht geändert. [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
+Visualprüfungen (`test-results/tablet-live-verify.log`, Exit 0). Der beauftragte
+Commit, finale Build und persönliche Neustart sind abgeschlossen:
+
+- Codecommit **441f0ce3b53c3ae958c407c174e52c17a68b33a7**; kein Push beauftragt.
+- Neuer Startordner `dist/tablet-live-441f0ce`, sourceId **1a4a914d76bc06f5fd83**.
+  22 Startartefakte geprüft; separate isolierte Electron-Startprobe positiv.
+- ADE über die vorhandene Tray-Aktion sauber beendet und neu gestartet:
+  vorher PID 64460, jetzt **28356**, bestätigt am 16. September um 02:18 Uhr MESZ.
+  Alle sechs Profile und vier Projekte stimmen mit dem Stand vor dem Neustart
+  überein; ein gekoppeltes Gerät ist erhalten. Die drei Runtime-Logos sind geladen.
+- Tablet-Seite antwortet mit HTTP 200; Live-Code ist im ausgelieferten Browser-
+  Build enthalten. Auf dem Tablet die Seite einmal neu laden. Ein persönlicher
+  Mikrofontest auf dem physischen Tablet bleibt offen.
+- Startmenüeintrag **ADE** zeigt auf den neuen Startordner. Sicherung:
+  `C:\Users\Adi.Muff\ADE-Backups\TabletLive-20260916-021801`.
+  Der vorherige Startordner bleibt als Rückfalloption bestehen.
+- Nachweise: `test-results/tablet-live-restart.json`,
+  `test-results/tablet-release-smoke.json`, `dist/tablet-live-441f0ce/activation.json`
+  und `dist/tablet-live-441f0ce/desktop-active.png`.
+
+[Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).
 
 Die folgenden Aktivierungsnotizen beschreiben den vorherigen Stand **413c573**.
 

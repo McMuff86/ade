@@ -8,8 +8,11 @@ lokal gebündelte SVG-Logos für Codex/OpenAI, Claude und Grok sind implementier
 46 Remote-Diktat-, 57 Diktat-Electron-/Browser-, 15 Profil-Electron- und 21
 Profil-Browserchecks sind positiv. `pnpm verify` besteht vollständig: 72
 fokussierte Suiten / 3.060 Checks, drei TypeScript-Projekte, Build und alle
-Electron-/Browser-/Visualprüfungen. Commit, finaler Build und persönliche
-Aktivierung sind vom Operator beauftragt und folgen nach dieser Abnahme.
+Electron-/Browser-/Visualprüfungen. Codecommit **441f0ce**, finaler Build und
+persönliche Aktivierung sind abgeschlossen: Startordner `dist/tablet-live-441f0ce`,
+sourceId **1a4a914d76bc06f5fd83**, ADE PID 28356. Alle sechs Profile, vier Projekte
+und die Gerätekopplung sind erhalten; die drei Logos sind geladen und die
+Tablet-Seite antwortet mit HTTP 200. Auf dem Tablet die Seite neu laden.
 Der Ollama-Coding-Modus verwendet ausdrücklich Codex als Werkzeug-CLI und
 Ollama als Modellanbieter; direkter Ollama-Chat bleibt ein eigener Modus.
 [Vertrag und Nachweise](LIVE_DICTATION_RESULTS.md).

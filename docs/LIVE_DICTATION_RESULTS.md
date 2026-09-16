@@ -79,6 +79,18 @@ Dauer; Transkripte und Audio werden nicht im Verbrauchsjournal gespeichert.
   damit nicht geprüft. Chromium-Tests verwenden echte Browseraufnahme mit
   simuliertem Mikrofon und kontrollierten ElevenLabs-Antworten.
 
+## Aktivierte Lieferung
+
+Codecommit **441f0ce**, danach erneut gebaut. Der neue Startordner
+`dist/tablet-live-441f0ce` hat sourceId **1a4a914d76bc06f5fd83** und besteht eine
+isolierte Electron-Startprobe. Am 16. September um 02:18 Uhr MESZ wurde die
+persönliche Instanz über ihre Tray-Aktion sauber beendet und als PID **28356**
+neu gestartet. Die Startprüfung bestätigt erhaltene sechs Profile, vier Projekte,
+ein gekoppeltes Gerät, geladene Codex-/Claude-/Grok-Logos und HTTP 200 für die
+Tablet-Seite. Startmenüeintrag aktualisiert; vorheriger Startordner und Backup
+bleiben erhalten. Belege: `test-results/tablet-live-restart.json` und
+`dist/tablet-live-441f0ce/activation.json`. Kein neuer Installer und kein Push.
+
 ## Vorherige Desktop-Nachweise (413c573)
 
 - `test-live-dictation.ts`: 53 Vertragschecks bestanden, einschliesslich der
