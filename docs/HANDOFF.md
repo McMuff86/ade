@@ -2,6 +2,16 @@
 
 ## Goal 32 — Fünf-Minuten-Diktat abschliessen (16. September 2026)
 
+**Aktueller persönlicher Build: 06cd6ea, aktiviert 11:57 CEST**, Source-ID
+**d2260ccf00b102a2e736**, PID **57428** bei Aktivierung. Enthält den Hotfix für
+den vom Operator gemeldeten Computer-Erkennungsfehler. Regulärer Neustart und
+aktuelles HTTPS-Tablet-Bundle bestätigt. Gesamtabnahme am 16. September um 12:27 CEST
+mit Exit 0 abgeschlossen: 72 Suiten / 3’123 Checks, Diktat 64/0 und Computer 18/0.
+Die parallele Stimmabstimmung wurde zusätzlich mit aktuellen Typechecks und
+55 Sprachverträgen geprüft; sie ist eine separate, hier nicht aktivierte Änderung.
+Details und Quellenabgrenzung: [Goal 32](LONG_DICTATION_GOALS.md).
+Die folgenden Aktivierungsangaben zu 07e8ae4 dokumentieren die erste Vorschau.
+
 Operator meldet funktionierende Live-Vorschau und fragt nach längeren Aufnahmen.
 Die Grenze stammt aus ADE. Live-Pfad für PC und Tablet auf 5 Minuten angehoben;
 Batch-Kompatibilität bleibt auf 60 Sekunden. Provider bestätigt Abschnitte schon

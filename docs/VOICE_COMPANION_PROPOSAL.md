@@ -76,6 +76,16 @@ Die neue Regression scheitert am ersten Build gezielt mit **5/1** und genau
 derselben sichtbaren Fehlermeldung. Mit der Korrektur bestehen **16/0**,
 einschliesslich tatsächlicher Audiowiedergabe auf beiden Oberflächen.
 Logs: `test-results/computer-empty-final-{negative,positive}.log`.
+Hotfix **06cd6ea** seit **11:57 CEST** aktiv, Source-ID
+**d2260ccf00b102a2e736**, PID **57428** bei Aktivierung. Isolierter Start und
+persönlicher Neustart bestanden; Desktop und HTTPS-Tablet liefern diesen Stand.
+Backup: `C:\Users\Adi.Muff\ADE-Backups\LongDictation-20260916-115703`.
+Ein erster Tray-Menüversuch erreichte die Beenden-Aktion nicht; die Wiederholung
+beendete ADE regulär und prüfte danach den neuen Prozess. Keine erzwungene
+Prozessbeendigung des persönlichen Hosts. Die vollständige Prüfung endete
+am 16. September um 12:27 CEST mit Exit 0. Integrierte Computer-Prüfung 18/0
+inklusive paralleler Stimmabstimmung; deren 55 Verträge und aktuelle Typechecks
+zusätzlich bestanden. [Abgrenzung der Nachweise](LONG_DICTATION_GOALS.md).
 
 ## Erlebnis
 

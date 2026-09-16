@@ -19,7 +19,7 @@ führen den aktuellen Code- beziehungsweise Betriebsstand.
 | 27 | [CLI-Arbeitsübersicht](CLI_WORK_AND_DICTATION_GOALS.md) | Aktive Lieferung mit gemeinsamer Work-/Overview-Liste |
 | 28–30 | [Multi-Host-Vorschlag](MULTI_HOST_ACCESS_PLAN.md) | Hostwechsel, Gast-/Gerätefreigabe, SSH; separater Vorschlag |
 | 31 | [Ollama-Coding-Harness](OLLAMA_HARNESS_GOALS.md) | Abgeschlossen: Auswahl Codex CLI/Qwen Code, persistierte Profile, PC-/Tablet-Starts und verwaltete Aufgaben; vollständige Abnahme bestanden, Commit 3b0bddd gebaut und persönlich aktiviert |
-| 32 | [Fünf Minuten Live-Diktat](LONG_DICTATION_GOALS.md) | Startfrist korrigiert; Vorschau 07e8ae4 aktiviert; vollständige Gesamtabnahme läuft |
+| 32 | [Fünf Minuten Live-Diktat](LONG_DICTATION_GOALS.md) | Abgeschlossen: 5-Minuten-Diktat und Startfrist geprüft; Computer-Hotfix 06cd6ea aktiviert; Gesamtabnahme bestanden |
 | 33 | [Persönlicher Sprachdialog](VOICE_COMPANION_PROPOSAL.md) | 33.0: Computer-Aufruf mit persönlicher Stimme auf PC/Tablet als geprüfte Vorschau aktiviert; Rückblick und weitere Aktionen als Vorschlag |
 
 Im Multi-Host-Vorschlag vom 13. September waren 20 und 21 erneut vergeben,

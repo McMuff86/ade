@@ -7,9 +7,9 @@ PC und Tablet. Bestätigte Textabschnitte werden gesammelt; Stoppen wartet auf
 alle noch offenen Bestätigungen. Startfrist korrigiert: Mikrofonfreigabe vor
 Provideraufbau, eigene 30-Sekunden-Startfrist und 305 Sekunden ab erstem Audio.
 79 Live-Vertragschecks bestanden, einschliesslich vollem Audio nach verzögertem
-Start. Die Vorschau aus **07e8ae4** ist seit **11:46 CEST** auf dem persönlichen
+Start. Die korrigierte Vorschau aus **06cd6ea** ist seit **11:57 CEST** auf dem persönlichen
 Host aktiv; das Tablet erhält nachweislich denselben Build. 16 Computer-UI-Checks
-bestehen auf Desktop/Tablet. Die vollständige Abnahme läuft unter
+bestehen auf Desktop/Tablet. Die vollständige Abnahme ist bestanden; Nachweise unter
 [Goal 32](LONG_DICTATION_GOALS.md). Der [Sprachdialog mit Begrüssung und
 Arbeitsrückblick](VOICE_COMPANION_PROPOSAL.md) läuft unter Goal 33: Der erste
 explizite „Computer“-Aufruf mit persönlicher gesprochener Antwort ist auf beiden

@@ -4,8 +4,10 @@ Stand: 16. September 2026.
 
 Die Fünf-Minuten-Lieferung wird in [Goal 32](LONG_DICTATION_GOALS.md) abgeschlossen.
 Der im [Audit](LIVE_DICTATION_LIMIT_AUDIT.md) gefundene Startfristfehler ist
-korrigiert. Persönliche Vorschau **07e8ae4** seit 16. September, **11:46 CEST**
-aktiviert; Gesamtprüfung über den um den Computer-Test erweiterten Stand läuft.
+korrigiert. Persönliche Vorschau mit Computer-Hotfix **06cd6ea** seit 16. September, **11:57 CEST**
+aktiviert. `pnpm verify` endete um **12:27 CEST** mit Exit 0; 64 Diktat-UI-Checks
+und tatsächlich **63,352 s** Desktop-/ **61,08 s** Tablet-PCM bestanden.
+Details zur parallelen Stimmabstimmung und ergänzenden Prüfung: [Goal 32](LONG_DICTATION_GOALS.md).
 
 ## Verhalten
 
