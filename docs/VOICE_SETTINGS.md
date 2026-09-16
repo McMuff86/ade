@@ -63,9 +63,7 @@ Wiederaufnahme nach verlorenem Beleg. Provider und Audio stammen aus Fixtures.
 Der Diktatdriver wartet beim Schliessen jetzt begrenzt auf die tatsächliche
 Fokusrückgabe, statt diese im selben Renderwechsel sofort abzufragen.
 
-Vollständiges `pnpm verify`, finaler Commit und persönliche Aktivierung stehen
-für diese Erweiterung noch aus. Der bisherige persönliche Release und die
-Kopplung bleiben während der Prüfung aktiv.
+Der vollständige Lauf `pnpm verify` vom 16. September 2026 (14:08–14:31 CEST) ist bestanden: drei TypeScript-Projekte, 72 Suiten / 3.183 Fachchecks, Produktionsbuild und sämtliche Electron-/Browser-/Layoutdriver. Sprach-UI: Desktop 21/0, Computer 18/0, Diktat 64/0, Tablet-Stimme 36/0. Geprüfter Quellstand: `93ca8ad`, Source-ID `71abb464e4bc9b4196cc`. Log und Exit-Beleg liegen unter `test-results/voice-settings-verify.log` und `test-results/voice-settings-verify-exit.json` im isolierten Checkout. Persönliche Aktivierung steht noch aus; der Status der zweiten interaktiven ADE-Sitzung ist ungeklärt.
 
 Die vollständige Abnahme wird in `test-results/voice-settings-checkout` auf
 Branch `codex/voice-settings` durchgeführt. Der zuerst im Hauptcheckout
@@ -82,3 +80,8 @@ den Abbruch eines tatsächlich zu grossen Chunked-Streams. Der Empfänger selbst
 bleibt unverändert; alle 20 Empfängerchecks einschliesslich abschliessender
 gültiger Meldung bestehen. Negativer Gesamtlauf:
 `test-results/voice-settings-verify-usage-failure.log`.
+
+Der abschliessende Lauf enthält auch die passive WSL-Erkennung aus
+[der Hermes-Diagnose](HERMES_WSL_DIAGNOSIS.md). Eine erste Typprüfung des neuen
+Prozess-Fixtures fand falsch typisierte schreibbare Streams; diese wurden
+korrigiert und im anschliessenden vollständigen positiven Lauf geprüft.

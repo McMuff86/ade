@@ -49,4 +49,10 @@ autostart, or WSL idle-timeout setting is changed by this fix.
   This is a temporary process, not a persistent service setup. Stopping it
   can allow WSL to idle-stop again if no other Windows-owned guest command
   remains. Do not terminate the personal gateway as test cleanup.
-- Full verification and activation of the corrected ADE build are pending.
+- Full `pnpm verify` passed at 14:31 CEST on source `71abb464e4bc9b4196cc`: three TypeScript projects, 72 suites / 3,183 checks, production build, and every Electron/browser/layout driver. Personal activation is pending the second interactive session.
+
+The gateway remained active with the same Linux PID 348 and start time
+14:03:38 throughout the observed test window, with no later shutdown entries.
+This observation uses the temporary keepalive; it is not evidence of an
+unattended restart or permanent Windows autostart setup. The current receipt
+is `test-results/hermes-stability-observation.json` in the main checkout.

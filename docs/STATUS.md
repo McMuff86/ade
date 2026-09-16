@@ -1,5 +1,11 @@
 # ADE implementation status
 
+## Stimmen-Tab und WSL-Fix vollständig geprüft (16. September 2026)
+
+Der vollständige Lauf `pnpm verify` vom 16. September 2026 (14:08–14:31 CEST) ist bestanden: drei TypeScript-Projekte, 72 Suiten / 3.183 Fachchecks, Produktionsbuild und sämtliche Electron-/Browser-/Layoutdriver. Sprach-UI: Desktop 21/0, Computer 18/0, Diktat 64/0, Tablet-Stimme 36/0. Geprüfter Quellstand: `93ca8ad`, Source-ID `71abb464e4bc9b4196cc`. Log und Exit-Beleg liegen unter `test-results/voice-settings-verify.log` und `test-results/voice-settings-verify-exit.json` im isolierten Checkout. Persönliche Aktivierung steht noch aus; der Status der zweiten interaktiven ADE-Sitzung ist ungeklärt.
+
+[Stimmparameter](VOICE_SETTINGS.md) · [Hermes-Diagnose](HERMES_WSL_DIAGNOSIS.md).
+
 ## Passive WSL discovery / Hermes (16 September 2026)
 
 WSL-Erkennung ohne Gaststart implementiert; 34 Backendchecks bestanden. Die Hermes-Warnungen passen zu WSL-Abschaltungen nach bisherigen ADE-Erkennungsabfragen. Vollständige Abnahme und Aktivierung folgen. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
