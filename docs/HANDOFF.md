@@ -1,12 +1,20 @@
 # ADE — aktuelle Übergabe
 
-## Ollama-Profillogo (16. September 2026, in Abnahme)
+## Ollama-Profillogo (16. September 2026, aktiviert)
 
-Operator wünscht das Ollama-Logo entsprechend den vorhandenen Codex-/Grok-Logos.
-Offizielles Vektorlogo lokal eingebunden, weisse Pfadfarbe für den vorhandenen
-dunklen Logohintergrund; MIT-Lizenz im SVG erhalten. Desktop- und Tablet-Prüfungen
-um Ollama ergänzt. Abnahme, Commit, Build und persönliche Aktivierung folgen;
-bis dahin gilt der unten dokumentierte Harness-Release.
+Offizielles Ollama-SVG lokal eingebunden, mit weisser Kontur auf dunklem Hintergrund
+und quadratischem Bildrahmen für das vollständige Motiv. 17 Desktop- und 24 Tablet-
+Profilchecks sowie vollständiges `pnpm verify` bestanden. Die Logo-Lieferung wurde
+wegen paralleler Diktat-Arbeit im separaten Checkout von **ea14c18** geprüft.
+
+- Codecommit **ea14c18fe3f9e7c9085615eb93ba3f1e489926fd**, sourceId **7bc2bd085b4f34107413**.
+- Startordner `dist/ollama-logo-ea14c18`; ADE PID **15628 → 49556**.
+  Startmenüeintrag aktualisiert; Ollama-Logo im persönlichen Profil geladen.
+- 6 Profile, 4 Projekte und 1 Gerätekopplung erhalten;
+  Tablet-Seite HTTP 200. Tablet-Seite neu laden, um das Logo zu sehen.
+- Sicherung: `C:\Users\Adi.Muff\ADE-Backups\OllamaLogo-20260916-092905`.
+- [Abnahme und Aktivierungsnachweise](OLLAMA_LOGO_RESULTS.md). Parallele Änderungen
+  am Diktat bleiben ein eigener Lieferstand; dieser Release enthält den Logo-Commit.
 
 ## Goal 31 — Harness-Auswahl (16. September 2026, aktiviert)
 

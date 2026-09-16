@@ -1,10 +1,10 @@
 # ADE delivery roadmap
 
-## Ollama-Profillogo ergänzen
+## Ollama-Profillogo abgeschlossen
 
-Die beauftragte Ergänzung nutzt das offizielle SVG im vorhandenen Desktop-/Tablet-
-Logosystem. Implementiert; erweiterte Profilprüfungen, Gesamtprüfung und Aktivierung
-folgen. Kein zusätzlicher Runtime- oder Harness-Vertrag.
+Das offizielle SVG ergänzt das Desktop-/Tablet-Logosystem. Profilprüfungen und
+vollständiges `pnpm verify` bestanden; Codecommit **ea14c18** gebaut und auf dem
+persönlichen Windows-Host aktiviert. [Nachweise](OLLAMA_LOGO_RESULTS.md).
 
 ## Abgeschlossenes Goal 31 — Ollama-Coding-Harness wählen
 

@@ -4,8 +4,10 @@
 
 Das offizielle Ollama-SVG ergänzt die vorhandenen Runtime-Logos in Desktop und
 Tablet. Gemeinsame Profilanzeige, Vergrösserung und Vorrang eigener Fotos bleiben
-erhalten. Die bestehenden Electron-/Browser-Logoprüfungen enthalten jetzt Ollama;
-Abnahme und persönliche Aktivierung folgen.
+erhalten. Abnahme abgeschlossen: 17 Desktop- und 24 Tablet-Profilchecks sowie
+vollständiges `pnpm verify` positiv. Codecommit **ea14c18** ist als
+`dist/ollama-logo-ea14c18` aktiviert, ADE PID **49556**. Ollama-Logo
+geladen; Profile, Projekte und Gerätekopplung erhalten. [Nachweise](OLLAMA_LOGO_RESULTS.md).
 
 ## Goal 31 — Ollama-Coding-Harness (16. September 2026)
 
