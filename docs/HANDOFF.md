@@ -1,5 +1,9 @@
 # ADE — aktuelle Übergabe
 
+## Stimmen-Tab und WSL-Fix aktiviert (16. September 2026)
+
+Der geprüfte Release **35c3eec** mit Source-ID **71abb464e4bc9b4196cc** ist seit 16. September 2026, 14:48 CEST persönlich aktiv (PID 52412). Stimmen-Tab, Standardtempo 0.85 und passive WSL-Erkennung sind auf Desktop und ausgeliefertem Tablet-Bundle bestätigt. Profile, Projekte und Kopplung erhalten. [Aktivierung, Sicherung und Nachweise](VOICE_SETTINGS_ACTIVATION.md). Die folgenden ausstehenden Aktivierungsangaben sind historisch.
+
 ## Stimmen-Tab und WSL-Fix vollständig geprüft (16. September 2026)
 
 Der vollständige Lauf `pnpm verify` vom 16. September 2026 (14:08–14:31 CEST) ist bestanden: drei TypeScript-Projekte, 72 Suiten / 3.183 Fachchecks, Produktionsbuild und sämtliche Electron-/Browser-/Layoutdriver. Sprach-UI: Desktop 21/0, Computer 18/0, Diktat 64/0, Tablet-Stimme 36/0. Geprüfter Quellstand: `93ca8ad`, Source-ID `71abb464e4bc9b4196cc`. Log und Exit-Beleg liegen unter `test-results/voice-settings-verify.log` und `test-results/voice-settings-verify-exit.json` im isolierten Checkout. Persönliche Aktivierung steht noch aus; der Status der zweiten interaktiven ADE-Sitzung ist ungeklärt.

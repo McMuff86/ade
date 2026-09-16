@@ -1,5 +1,7 @@
 # Hermes shutdown notices during ADE use — 16 September 2026
 
+**Aktiviert:** Der geprüfte Release **35c3eec** mit Source-ID **71abb464e4bc9b4196cc** ist seit 16. September 2026, 14:48 CEST persönlich aktiv (PID 52412). Stimmen-Tab, Standardtempo 0.85 und passive WSL-Erkennung sind auf Desktop und ausgeliefertem Tablet-Bundle bestätigt. Profile, Projekte und Kopplung erhalten. [Aktivierung, Sicherung und Nachweise](VOICE_SETTINGS_ACTIVATION.md). Die folgenden ausstehenden Aktivierungsangaben sind historisch.
+
 ## Finding
 
 The personal `hermes-gateway-general.service` runs in Ubuntu under WSL systemd.
