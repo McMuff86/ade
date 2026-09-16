@@ -433,6 +433,19 @@ grosse Audioantwort: 34/0 (`voice-strip-reply-electron-10.log`).
 Nicht umgesetzt: die Kürzung des CLI-Status-Labels („Codex läuft · Terminal
 offen“), weil über zehn Suiten auf diese Texte warten; das bleibt Textpflege.
 
+**Gesamtlauf** (Commit 7ede135, 18:27–18:55 CEST): `pnpm verify` bestand
+alle drei TypeScript-Projekte, sämtliche fokussierten Suiten, den Build und
+die Electron-/Browser-Driver bis einschliesslich Dictation Electron 63/0,
+Computer Electron 21/0 und Reply Electron/Tablet 34/0. Ein einzelner Check
+der Workbench-Browser-Suite („Escape leaves workspace open and restores
+commit-list focus“, Fokus-Timing unter Last) war rot und beendete die Kette;
+die Suite ist einzeln 43/0. Die danach ausstehenden Driver liefen als
+Restkette mit Exit 0: Terminal-Hauptsuite 208/0, Tablet-Layout 20/0,
+Run-Inspektion 27/0, Workspace-CLI 75/0, Projekt-Git 22/0, Latenz 6/0,
+Projekt-Publish 12/0, Setup 38/0, Visual 22/0. Logs:
+`test-results/voice-strip-verify.log`, `voice-strip-workbench.log`,
+`voice-strip-verify-tail.log`.
+
 ### Nachtrag 18:07 CEST: Antwort anhören auf dem Tablet
 
 Adis erster Tablet-Test: Sprechen ohne Modal „sehr gut gelungen“, aber
