@@ -14,6 +14,18 @@ and output. The component never changes drafts or dispatches CLI input.
 `speech:test` and the existing signed, idempotent remote speech command accept
 an optional strict `SpeechPreset`: `voice-check` or `computer-greeting`.
 Main chooses bounded German text from host time. Arbitrary text is rejected.
+Speech delivery uses optional validated `Settings.speechTuning`, with default
+speed 0.85, stability 0.9, similarity 0.75, style 0 and speaker boost on.
+`speech:configure` may save all five bounded parameters only for the default
+target. `speech:test` accepts a validated unsaved preview only for voice-check;
+the Computer greeting always uses persisted delivery. Main snapshots values and
+explicitly maps them to request-local `voice_settings`. No provider-account
+settings are changed. The shared Settings/Stimme tab uses the existing signed,
+idempotent speech command, global-target authorization and recovery drafts;
+IPC policy and generic remote allowlists stay unchanged. [Contract](VOICE_SETTINGS.md).
+The greeting welcomes Adi and explains explicitly choosing Diktieren, reviewing
+the draft and sending it to the selected session. It claims neither an active
+microphone nor knowledge of previous work. Greeting clients cannot override delivery.
 Existing speech:control/default-target access and owner-bound expiring audio
 receipts remain enforced; no new channel or generic remote-write permission.
 Usage remains speech-test with actual text length. Both clients select the

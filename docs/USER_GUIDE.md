@@ -1,5 +1,16 @@
 # ADE User-Guide
 
+## Stimme persönlich einstellen
+
+Auf PC und Tablet **Settings/Einstellungen → Stimme → Stimmen laden** öffnen.
+**Tempo** macht die Stimme langsamer oder schneller; der neue Standard ist 0.85.
+Weitere Regler passen Stabilität, Stimmähnlichkeit und Stil an; Speaker Boost
+lässt sich ein- und ausschalten. **Stimme testen** hört den Entwurf vor, ohne
+ihn zu speichern. **Parameter speichern** übernimmt ihn für PC und Tablet,
+einschliesslich der Computer-Begrüssung. **Änderungen verwerfen** holt den
+gespeicherten Stand zurück. **Ruhiger Computer** lädt ein noch zu speicherndes
+Preset. [Details](VOICE_SETTINGS.md).
+
 Für die tägliche Arbeit mit mehreren Repositories beginne unter **Projekte**.
 Die gemeinsame Sitzungsübersicht steht unter **Work → CLI-Arbeit**; der
 Prompteditor mit Diktat sitzt direkt im gewünschten Terminal.

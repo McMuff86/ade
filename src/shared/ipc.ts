@@ -704,7 +704,7 @@ export interface IpcInvokeMap {
   'project:membership': { req: import('./remote').ProjectMembershipInput; res: import('./remote').ProjectMembershipResult };
   'speech:voices': { req: void; res: import('./speech').SpeechCatalog };
   'speech:select': { req: { voiceId: string }; res: void };
-  'speech:test': { req: { voiceId: string; preset?: import('./speech').SpeechPreset }; res: import('./speech').SpeechAudio };
+  'speech:test': { req: import('./speech').SpeechTestInput; res: import('./speech').SpeechAudio };
   'speech:preferences': { req: import('./speech').SpeechTarget; res: import('./speech').SpeechPreference };
   'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
   'agent:behaviorSet': { req: import('./agentBehavior').AgentBehaviorUpdate; res: { revision: string } };

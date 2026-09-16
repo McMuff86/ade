@@ -1,3 +1,4 @@
+import { validSpeechTuning } from '../../shared/speech';
 import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { validateAgentBehaviorProfile } from '../../shared/agentProfile';
 import { validRunQuestions } from '../../shared/runQuestions';
@@ -142,7 +143,8 @@ export function validateCompleteConfig(config: AdeConfig): void {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
-  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults', 'speechVoiceId'], 'config.settings');
+  exactKeys(settings, ['theme', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults', 'speechVoiceId', 'speechTuning'], 'config.settings');
+  if (settings.speechTuning !== undefined && !validSpeechTuning(settings.speechTuning)) throw new Error('Invalid speech tuning.');
   if (settings.speechVoiceId !== undefined && (typeof settings.speechVoiceId !== 'string' || !/^[a-zA-Z0-9]{10,80}$/.test(settings.speechVoiceId))) throw new Error('Invalid speech voice.');
   if (settings.projectDefaults !== undefined) {
     const defaults = object(settings.projectDefaults, 'config.settings.projectDefaults');

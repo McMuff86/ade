@@ -12,7 +12,7 @@ export interface MobileDictationUpload { jobId: string; audioBase64: string }
 export type MobileDictationResult = { jobId: string; replayed: boolean } | { state: DictationJobState } | { cancelled: true; replayed: boolean };
 
 export type MobileSpeechQuery = { operation: 'voices'; target: SpeechTarget } | { operation: 'audio'; testId: string };
-export type MobileSpeechCommand = { operation: 'select'; target: SpeechTarget; voiceId: string | null } | { operation: 'test'; target: SpeechTarget; voiceId: string; preset?: import('./speech').SpeechPreset };
+export type MobileSpeechCommand = ({ operation: 'select' } & import('./speech').SpeechSelection) | ({ operation: 'test'; target: SpeechTarget } & import('./speech').SpeechTestInput);
 export type MobileSpeechResult = { preferences?: SpeechPreference; audio?: SpeechAudio; testId?: string; replayed?: boolean };
 import type { GitSyncOverview, GitSyncPreview } from './gitSync';
 import type {

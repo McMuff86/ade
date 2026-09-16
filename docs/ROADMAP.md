@@ -1,5 +1,11 @@
 # ADE delivery roadmap
 
+## Goal 33.0b — Stimmen-Tab
+
+Native ElevenLabs-Regler, Vorschau und gemeinsame Speicherung auf PC/Tablet
+implementiert; langsamerer Standard 0.85. Fokussiert geprüft, Gesamtabnahme und
+persönliche Aktivierung folgen. [Vertrag](VOICE_SETTINGS.md).
+
 ## Live-Diktat bis 5 Minuten
 
 Eigene Zeit-, Sample-, Paket- und Ticketgrenzen für PC und Tablet angehoben;
@@ -12,6 +18,9 @@ Computer-Hotfix **06cd6ea** mit langem Diktat aktiviert; Gesamtabnahme unter [Go
 33.0 implementiert „Computer testen“ auf PC und Tablet: explizit aktivieren,
 Computer sagen, persönliche Begrüssung mit Standardstimme hören. Als geprüfte
 Vorschau aktiviert; die Gesamtabnahme des ersten Computer-Tests ist bestanden.
+Die auf Operatorwunsch ruhigere Computerstimme ist implementiert und fokussiert
+geprüft, eine echte Hörprobe liegt vor. Der Gesamtlauf stoppt beim Tablet-Fokus
+nach Diktatdialogschluss; persönliche Klangbeurteilung und Aktivierung stehen aus.
 Danach persönliche Begrüssung und belegter Arbeitsrückblick, begrenzte
 Bedienabsichten und schliesslich Unterbrechen/Gerätewechsel. Gemeinsamer
 Dialog auf PC und Tablet; [Vorschlag und Abnahmekriterien](VOICE_COMPANION_PROPOSAL.md).

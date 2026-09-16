@@ -26,6 +26,10 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   const answer = await test.getByLabel('Computer Antwort', { exact: true }).innerText();
   check(`${surface}: live Computer call survives an empty final transcript and plays one greeting`, generations().length === before + 1
     && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
+  const delivery = JSON.parse(generations().at(-1)!).voice_settings;
+  check(`${surface}: extended greeting explains dictation and review with even, measured delivery`, answer.includes('Wähle nach dieser Begrüssung „Diktieren“')
+    && answer.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && answer.length >= 200 && answer.length <= 400
+    && delivery?.stability === 0.9 && delivery.style === 0 && delivery.speed === 0.85);
   check(`${surface}: voice test never alters or submits the draft`, await draft.inputValue() === `Entwurf ${surface}.`
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
   await expect(call).toBeEnabled();

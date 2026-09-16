@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
-import { validSpeechTarget, validSpeechSelection } from '../src/shared/speech';
+import { DEFAULT_SPEECH_TUNING, validSpeechTuning, validSpeechTarget, validSpeechSelection, type SpeechTuning } from '../src/shared/speech';
+import { assertIpcPayload } from '../src/main/ipcValidation';
 import { SpeechService } from '../src/main/settings/SpeechService';
 import { SpeechPreferences } from '../src/main/settings/SpeechPreferences';
 import { RemoteSpeechService, validSpeechQuery, validSpeechCommand } from '../src/main/application/RemoteSpeechService';
@@ -54,5 +55,39 @@ void (async () => {
   await refuses('removed resource grant blocks existing audio', () => remote.read('tablet',result.testId,() => {throw new Error('revoked');}));
   now += 600_001; await refuses('expired audio cannot trigger another generation', () => remote.read('tablet',result.testId,() => undefined));
   check('expired or denied retrieval consumes no extra provider requests', generations === 1);
+  const standard = { kind: 'default' as const };
+  check('legacy settings get the slower shared computer default', (await prefs.query(standard)).tuning.speed === 0.85);
+  const tuning: SpeechTuning = { speed: 0.8, stability: 0.6, similarityBoost: 0.7, style: 0.2, speakerBoost: false };
+  assertIpcPayload('speech:configure', { target: standard, voiceId: female, tuning });
+  assertIpcPayload('speech:test', { voiceId: female, tuning });
+  await prefs.select({ target: standard, voiceId: female, tuning });
+  tuning.speed = 1;
+  check('preferences persist a detached snapshot of native tuning', config.settings.speechTuning?.speed === 0.8);
+  check('all voice targets observe the same saved global delivery', (await prefs.query(context)).tuning.speed === 0.8 && (await new SpeechPreferences(store, engine).query(standard)).tuning.style === 0.2);
+  await prefs.select({ target: standard, voiceId: projectVoice });
+  check('voice-only selection preserves saved tuning', config.settings.speechTuning?.speed === 0.8);
+  const saved = JSON.stringify(config);
+  await refuses('a selected agent cannot change global parameters', () => prefs.select({ target: context, voiceId: female, tuning }));
+  await refuses('revoked tuning mutation is rejected before save', () => prefs.select({ target: standard, voiceId: female, tuning }, () => { throw Error('revoked'); }));
+  check('rejected tuning writes preserve the complete configuration', JSON.stringify(config) === saved);
+  for (const malformed of [null, {}, { ...tuning, speed: 0.69 }, { ...tuning, speed: 1.21 }, { ...tuning, speed: NaN }, { ...tuning, stability: Infinity },
+    { ...tuning, style: -0.01 }, { ...tuning, similarityBoost: 1.01 }, { ...tuning, speakerBoost: 'true' }, { ...tuning, pitch: 2 }]) {
+    check('native tuning rejects malformed, unsupported or out-of-range settings', !validSpeechTuning(malformed));
+    await refuses('IPC rejects invalid preview tuning', () => assertIpcPayload('speech:test', { voiceId: female, tuning: malformed }));
+    check('signed command validator rejects invalid tuning', !validSpeechCommand({ operation: 'select', target: standard, voiceId: female, tuning: malformed }));
+  }
+  await refuses('greeting cannot override saved delivery', () => assertIpcPayload('speech:test', { voiceId: female, preset: 'computer-greeting', tuning }));
+  check('native tuning accepts exact provider boundaries', validSpeechTuning({ ...tuning, speed: 0.7, stability: 0, style: 1 }) && validSpeechTuning({ ...tuning, speed: 1.2, stability: 1, similarityBoost: 0 }));
+  validateCompleteConfig(config);
+  await refuses('complete config validation rejects invalid persisted tuning', () => validateCompleteConfig({ ...config, settings: { ...config.settings, speechTuning: { ...tuning, speed: 2 } } }));
+  let request: { voice_settings?: Record<string, unknown> } = {};
+  const previewEngine = new SpeechService(store, () => 'fixture-key', async (url, init) => {
+    if (String(url).endsWith('/voices')) return Response.json({ voices: [{ voice_id: female }] });
+    request = JSON.parse(String(init?.body)); return new Response(new Uint8Array(512), { headers: { 'content-type': 'audio/mpeg' } });
+  });
+  await previewEngine.test(female, undefined, undefined, 'voice-check', { ...DEFAULT_SPEECH_TUNING, speed: 0.73 });
+  check('unsaved preview sends exact native fields without persisting', request.voice_settings?.speed === 0.73 && request.voice_settings.use_speaker_boost === true && JSON.stringify(config) === saved);
+  await previewEngine.test(female, undefined, undefined, 'computer-greeting');
+  check('final greeting uses stored delivery after unsaved preview', request.voice_settings?.speed === 0.8 && request.voice_settings.style === 0.2 && request.voice_settings.use_speaker_boost === false);
   console.log(`Speech preferences: ${passed} passed, 0 failed`);
 })().catch(error => {console.error(error); console.log(`Speech preferences: ${passed} passed, 1 failed`);process.exitCode=1;});

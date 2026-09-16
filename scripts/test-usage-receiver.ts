@@ -1,4 +1,5 @@
 import { OtlpUsageReceiver, projectUsageLogs, type UsageLog } from '../src/main/usage/OtlpUsageReceiver';
+import { request as httpRequest } from 'node:http';
 let passed = 0;
 const check = (name: string, value: boolean) => { if (!value) throw new Error(name); passed++; console.log(`  ok ${name}`); };
 const attribute = (key: string, value: string | number) => ({ key, value: typeof value === 'string' ? { stringValue: value } : { intValue: String(value) } });
@@ -27,7 +28,25 @@ void (async () => {
   check('browser origin cannot use the native receiver', (await send({ origin: 'https://untrusted.example' })).status === 403 && received.length === 0);
   check('browser preflight cannot enable cross-origin telemetry', (await fetch(registration.endpoint, { method: 'OPTIONS' })).status === 403);
   check('gzip is not accepted without the configured bounded decoder', (await send({ 'content-encoding': 'gzip' })).status === 403);
-  check('oversized authenticated body is refused', (await send({}, { extra: 'x'.repeat(1024 * 1024) })).status === 413 && received.length === 0);
+  // Observe the header rejection before uploading. Undici can otherwise reject
+  // its still-running body upload with ECONNRESET after the server sends 413.
+  const oversizedStatus = await new Promise<number>((resolve, reject) => {
+    const request = httpRequest(registration.endpoint, { method: 'POST', headers: {
+      'content-type': 'application/json', [header!]: token!, 'content-length': 1024 * 1024 + 1,
+    } }, response => { response.resume(); response.on('end', () => { resolve(response.statusCode!); request.destroy(); }); });
+    request.on('error', reject); request.setTimeout(5000, () => request.destroy(new Error('Oversized header test timed out')));
+    request.flushHeaders();
+  });
+  check('oversized authenticated declared length is refused with HTTP 413', oversizedStatus === 413 && received.length === 0);
+  const oversizedStream = await new Promise<string>((resolve, reject) => {
+    const request = httpRequest(registration.endpoint, { method: 'POST', headers: {
+      'content-type': 'application/json', [header!]: token!, 'transfer-encoding': 'chunked',
+    } }, response => { response.resume(); response.on('end', () => resolve(String(response.statusCode))); });
+    request.on('error', (error: NodeJS.ErrnoException) => error.code === 'ECONNRESET' ? resolve(error.code) : reject(error));
+    request.setTimeout(5000, () => request.destroy(new Error('Oversized stream test timed out')));
+    request.end(JSON.stringify({ extra: 'x'.repeat(1024 * 1024) }));
+  });
+  check('oversized chunked upload is disconnected before its consumer runs', oversizedStream === 'ECONNRESET' && received.length === 0);
   const accepted = await send();
   check('valid native batch reaches only its registered consumer', accepted.status === 200 && received.length === 1 && received[0]!.length === 2);
   check('successful OTLP acknowledgement contains no projected metadata', await accepted.text() === '{}');

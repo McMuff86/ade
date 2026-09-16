@@ -37,7 +37,8 @@ export function Modal({
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // move focus into the dialog (first field, else the dialog itself)
-    const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+    const first = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+      .find(node => node.tabIndex >= 0 && node.getClientRects().length > 0);
     (first ?? dialogRef.current)?.focus();
 
     return () => {
@@ -55,7 +56,8 @@ export function Modal({
     if (e.key !== 'Tab') return;
     const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
     if (!nodes || nodes.length === 0) return;
-    const list = Array.from(nodes);
+    const list = Array.from(nodes).filter(node => node.tabIndex >= 0 && node.getClientRects().length > 0);
+    if (!list.length) return;
     const first = list[0];
     const last = list[list.length - 1];
     const active = document.activeElement as HTMLElement | null;

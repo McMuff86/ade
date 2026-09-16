@@ -1,11 +1,36 @@
 # ADE — aktuelle Übergabe
 
+## Stimmen-Tab und langsameres Tempo (16. September 2026)
+
+Eigener Tab auf PC/Tablet mit fünf nativen ElevenLabs-Parametern, Vorschau und
+Speichern am Host implementiert. Neuer Standard 0.85. Fokussierte Abnahme
+bestanden; Gesamtprüfung und Aktivierung folgen. [Vertrag und Nachweise](VOICE_SETTINGS.md).
+Die Abnahme erfolgt auf Branch `codex/voice-settings` in einer isolierten
+Arbeitskopie, weil parallel die nächste Vorlesefunktion im Hauptcheckout entsteht.
+
 ## Computerstimme aktiviert (16. September 2026, 12:59 CEST)
 
 Die vorbereitete Stimmvorschau läuft jetzt persönlich mit Source-ID
 `9d2ad0abc6c9b97a1d29`, PID **49568**. Tablet-Bundle, Profile und Kopplung
 bestätigt; [Aktivierung, Prüfgrenzen und Testweg](COMPUTER_VOICE_ACTIVATION.md).
 Die folgenden Angaben zur ausstehenden Aktivierung beschreiben den früheren Stand.
+
+## Computerstimme Richtung Voyager (16. September 2026)
+
+Auf Operatorwunsch sind gleichmässige Betonung, Tempo 0.95 und die knappe
+Antwort „Guten Morgen/Tag/Abend, Adi. Bereit. Bitte nenne deine Anfrage.“
+implementiert. Keine Änderung der gewählten Stimme oder des Providerkontos.
+55 Sprachverträge, 36 Verbrauchs- und 18 Computer-UI-Prüfungen bestanden.
+`pnpm verify` bestand TypeScript, 72 Suiten / 3.132 Fachchecks, Build sowie
+Ollama-/Sprach-/Computer-UI. Anschliessend stoppte der allgemeine Diktattest
+bei `mobile dialog returns focus to prompt opener` (56/1, Zeile 430 des Drivers).
+Die verbleibenden App-Prüfungen wurden dadurch nicht ausgeführt. Kein grüner
+Gesamtlauf; Log `test-results/computer-voice-verify.log`. Die Sandbox blockierte
+zuvor den ersten Compilerstart mit EPERM; Wiederholung ausserhalb der Sandbox.
+Echte Hörprobe: `test-results/computer-voice/computer-voice.mp3`, Sarah,
+HTTP 200, 3.30 Sekunden, 50 Zeichen im separaten Vorschaujournal erfasst.
+Persönliche Klangbeurteilung und Aktivierung stehen aus. Die nachstehenden
+Releases enthalten diese neue Abstimmung noch nicht. [Details](VOICE_COMPANION_PROPOSAL.md).
 
 ## Goal 32 — Fünf-Minuten-Diktat abschliessen (16. September 2026)
 

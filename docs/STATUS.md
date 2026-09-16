@@ -1,11 +1,30 @@
 # ADE implementation status
 
+## Persönliche Stimmparameter (16. September 2026)
+
+**Einstellungen → Stimme** implementiert Tempo, Stabilität, Stimmähnlichkeit,
+Stil und Speaker Boost für PC/Tablet; Standardtempo 0.85. Probehören speichert
+nichts, Speichern gilt auch für die Computer-Begrüssung. Fokussiert geprüft;
+Gesamtabnahme und Aktivierung folgen. [Goal 33.0b](VOICE_SETTINGS.md).
+
 ## Computerstimme persönlich gestartet (16. September 2026, 12:59 CEST)
 
 Die Vorschau mit ruhigerer Stimme und Computer-Erkennungsfix ist auf PC und
 Tablet aktiviert. Persönliche Hörabnahme offen; der Stimmen-Einstellungstab
 ist noch geplant. [Aktivierungsnachweise und Prüfgrenzen](COMPUTER_VOICE_ACTIVATION.md).
 Die nachstehende ausstehende Aktivierung wurde damit abgeschlossen.
+
+## Computerstimme abstimmen (16. September 2026)
+
+Ruhige, gleichmässige Sprachausgabe Richtung Voyager-Computer implementiert:
+leicht reduziertes Tempo und kurze sachliche Begrüssung. Stimmvorschau und
+Computer-Test nutzen dieselben Parameter. 55 Sprachverträge, 36 Verbrauchs-
+und 18 Desktop-/Tablet-Computerprüfungen bestanden. Echte ElevenLabs-Hörprobe mit Sarah erzeugt und als
+3.30 Sekunden MP3 dekodiert. `pnpm verify` bestand TypeScript, 72 Suiten /
+3.132 Fachchecks, Build und die Sprachoberflächen; der anschliessende allgemeine
+Diktattest stoppte beim Tablet-Fokus nach Dialogschluss (56/1). Gesamtabnahme,
+persönliche Klangbeurteilung und Aktivierung stehen aus.
+[Abstimmung und Nachweise](VOICE_COMPANION_PROPOSAL.md).
 
 ## Computer-Test und längeres Live-Diktat (16. September 2026, Vorschau aktiviert)
 

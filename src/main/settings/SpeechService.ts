@@ -1,9 +1,10 @@
 import type { Settings } from '../../shared/types';
-import { SPEECH_TEST_TEXT, computerGreeting, validSpeechPreset, validVoiceId, type SpeechPreset, type SpeechAudio, type SpeechCatalog, type SpeechVoice } from '../../shared/speech';
+import { DEFAULT_SPEECH_TUNING, validSpeechTuning, type SpeechTuning, SPEECH_TEST_TEXT, computerGreeting, validSpeechPreset, validVoiceId, type SpeechPreset, type SpeechAudio, type SpeechCatalog, type SpeechVoice } from '../../shared/speech';
 import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
 import { redactedErrorDetail } from '../errors';
 
 interface Port { get(): { settings: Settings }; save(value: { settings: Settings }): unknown }
+
 /** Fixed provider and bounded server-owned presets. Credentials and upstream error bodies never leave main. */
 export class SpeechService {
   private busy = false;
@@ -65,8 +66,11 @@ export class SpeechService {
     this.store.save({ settings: { ...this.store.get().settings, speechVoiceId: voiceId } });
   }
 
-  async test(voiceId: string, authorize: () => void = () => undefined, attribution: SpeechUsageAttribution = {}, preset: SpeechPreset = 'voice-check'): Promise<SpeechAudio> {
+  async test(voiceId: string, authorize: () => void = () => undefined, attribution: SpeechUsageAttribution = {}, preset: SpeechPreset = 'voice-check', tuning?: SpeechTuning): Promise<SpeechAudio> {
     if (!validSpeechPreset(preset)) throw new Error('Unbekannte Sprachvorlage.');
+    if (tuning !== undefined && (preset === 'computer-greeting' || !validSpeechTuning(tuning))) throw new Error('Ungültige Stimmparameter.');
+    const delivery = { ...(tuning ?? this.store.get().settings.speechTuning ?? DEFAULT_SPEECH_TUNING) };
+    if (!validSpeechTuning(delivery)) throw new Error('Ungültige gespeicherte Stimmparameter.');
     const text = preset === 'computer-greeting' ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT;
     if (this.busy) throw new Error('Ein Stimmtest läuft bereits. Bitte warten.');
     this.busy = true;
@@ -77,7 +81,7 @@ export class SpeechService {
       attempt = await this.usage?.begin({ ...attribution, product: 'speech-test', model: 'eleven_multilingual_v2', characters: text.length });
       authorize();
       const response = await this.request(`/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, 'POST',
-        JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'de' }), () => { dispatched = true; });
+        JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'de', voice_settings: { speed: delivery.speed, stability: delivery.stability, similarity_boost: delivery.similarityBoost, style: delivery.style, use_speaker_boost: delivery.speakerBoost } }), () => { dispatched = true; });
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('audio/mpeg')) { await response.body?.cancel(); throw new Error('ElevenLabs hat keine MP3-Audiodatei geliefert.'); }
       const audio = await this.bytes(response, 2 * 1024 * 1024);
       if (audio.length < 100) throw new Error('ElevenLabs-Audio ist leer oder unvollständig.');

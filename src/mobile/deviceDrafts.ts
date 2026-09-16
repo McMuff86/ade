@@ -6,7 +6,7 @@ import { validProjectGitAction, validProjectGitPath } from '../shared/projectGit
 import { validProjectPublishPreview } from '../shared/projectPublish';
 import { validAssignmentRequest } from '../shared/workspaceAssignments';
 import { validIntegrationCommand } from '../shared/integrationRequests';
-import { speechTargetKey, validSpeechSelection, validVoiceId } from '../shared/speech';
+import { speechTargetKey, validMobileSpeechCommand } from '../shared/speech';
 
 const PREFIX = 'ade-work:';
 const MAX_BYTES = 128 * 1024;
@@ -23,9 +23,7 @@ function valid(key: string, value: unknown): boolean {
   if (key === 'terminal-controls-expanded') return typeof value === 'boolean';
   if (key === 'project-membership') return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key)
     && text(value.entryId, 33) && /^p[a-f0-9]{32}$/.test(value.entryId) && typeof value.included === 'boolean' && text(value.name, 200);
-  if (key.startsWith('speech:')) return value === null || object(value) && Object.keys(value).length === 2 && text(value.key, 64) && /^[\w-]+$/.test(value.key) && object(value.command) && Object.keys(value.command).length === 3
-    && validSpeechSelection({ target: value.command.target, voiceId: value.command.voiceId })
-    && (value.command.operation === 'select' || value.command.operation === 'test' && validVoiceId(value.command.voiceId))
+  if (key.startsWith('speech:')) return value === null || object(value) && Object.keys(value).length === 2 && text(value.key, 64) && /^[\w-]+$/.test(value.key) && validMobileSpeechCommand(value.command)
     && speechTargetKey(value.command.target as import('../shared/speech').SpeechTarget) === key;
   if (key.startsWith('integration:')) return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key) && validIntegrationCommand(value.command);
   if (key.startsWith('workspace-assignment:')) return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key)

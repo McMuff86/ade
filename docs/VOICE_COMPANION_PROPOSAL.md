@@ -1,5 +1,10 @@
 # Goal 33 — Persönlicher Sprachdialog auf PC und Tablet
 
+**Aktueller Ausbau 33.0b:** eigener Stimmen-Tab mit den direkt unterstützten
+ElevenLabs-Parametern und Standardtempo 0.85. Implementiert und fokussiert geprüft;
+[Vertrag, Bedienung und Abnahme](VOICE_SETTINGS.md). Die folgenden festen Werte
+von 0.95 beschreiben die vorherige persönliche Vorschau.
+
 Stand 16. September 2026: Der Operator priorisiert einen sofort testbaren
 „Computer“-Aufruf. Goal 33.0 ist deshalb implementiert und in Abnahme;
 der weitergehende Dialog bleibt ein Vorschlag. Parallel läuft [Goal 32](LONG_DICTATION_GOALS.md).
@@ -9,7 +14,7 @@ der weitergehende Dialog bleibt ein Vorschlag. Parallel läuft [Goal 32](LONG_DI
 PC und Tablet: Im aktiven CLI-Terminal **Prompt / Diktat → Computer testen**
 wählen, Mikrofon erlauben und **Computer** sagen. Nach der isolierten Live-Erkennung
 stoppt die Aufnahme, dann antwortet die gewählte ADE-Standardstimme:
-„Guten Morgen/Tag/Abend, Adi. Ich bin bereit. Was möchtest du als Nächstes angehen?“
+„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Ich bin bereit für unseren nächsten Schritt. Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“
 Massgeblich ist die Tageszeit des Hosts. Derselbe Text steht im Fenster.
 **Computer-Test beenden** stoppt Aufnahme/Wiedergabe; **Begrüssung abspielen**
 verwendet bereits empfangenes Audio ohne weitere Synthese. Die nächste Aufgabe
@@ -35,6 +40,39 @@ Abnahme: `pnpm exec tsx scripts/test-dictation-electron.ts --computer-only`
 prüft die echte Electron-/Chromium-Audiopipeline mit simuliertem Mikrofon und
 Provider über beide Produktionsoberflächen. Physisches Samsung-Tablet und echte
 ElevenLabs-Erkennung werden anschliessend vom Operator live erprobt.
+
+### Stimmanpassung Richtung Voyager-Computer, 16. September 2026
+
+Auf Operatorwunsch erhält die Sprachausgabe eine ruhigere, sachliche Abstimmung.
+`SpeechService` sendet für Stimmvorschau und Computer-Begrüssung dieselben
+anfragebezogenen Werte: Stabilität 0.9, Ähnlichkeit zur gewählten Stimme 0.75,
+Stilübertreibung 0, Speaker Boost aktiv und Tempo 0.95. Die bisher gewählte
+Stimme bleibt erhalten. Der kurze neue Antworttext steht oben.
+
+Die [ElevenLabs-Sprachdokumentation](https://elevenlabs.io/docs/eleven-creative/playground/text-to-speech)
+beschreibt hohe Stabilität als gleichmässigere, emotionsärmere Ausgabe und
+Werte unter 1 als langsameres Tempo. Die konkreten Werte sind unsere erste
+Abstimmung, keine Zusage einer bestimmten Klangähnlichkeit.
+[Anfragebezogene Stimmparameter](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)
+verändern keine gespeicherten Einstellungen im ElevenLabs-Konto.
+
+55 Sprachvertrags-, 36 Verbrauchs- und 18 Computer-UI-Prüfungen auf Desktop und
+Tablet bestanden. `pnpm verify` bestand alle drei TypeScript-Projekte,
+72 Suiten / 3.132 Fachchecks, den Produktionsbuild, 28 Ollama-, 10 Sprach-
+und 18 Computer-Electron-Checks. Danach stoppte der allgemeine Diktattest
+bei `mobile dialog returns focus to prompt opener` mit 56/1. Dieser Lauf
+ist keine bestandene Gesamtabnahme. Log: `test-results/computer-voice-verify.log`.
+Die Sprachtest-Mindestzahl ist von 46 auf die gemessenen 55 angehoben.
+Eine echte Hörprobe
+mit der gewählten Stimme Sarah erhielt HTTP 200 und wurde von Chromium als
+3.30 Sekunden MP3 dekodiert: `test-results/computer-voice/computer-voice.mp3`.
+50 Zeichen sind im separaten Vorschaujournal als abgeschlossen erfasst;
+Guthaben-/Dollarpreis bleibt unbekannt. Der erste Versuch im isolierten Profil
+konnte den Key nicht entschlüsseln und erreichte den Provider nicht. Die
+Wiederholung verwendet die verschlüsselte Chromium-Schlüsseldatei in einem
+temporären Profil; das persönliche Profil wurde nur gelesen.
+Nachweis: `test-results/computer-voice/preview.json`. Persönliche Beurteilung
+der Klangähnlichkeit und Aktivierung stehen noch aus.
 
 ### Aktivierte Vorschau, 16. September 2026 um 11:46 CEST
 

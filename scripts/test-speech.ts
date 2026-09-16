@@ -23,6 +23,9 @@ void (async () => {
     generation++;
     const input = JSON.parse(String(init?.body));
     check('generation sends only server-owned German text and multilingual model', input.text === (greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_multilingual_v2' && input.language_code === 'de');
+    check('voice preview and greeting use the same even computer delivery at the provider boundary',
+      input.voice_settings?.stability === 0.9 && input.voice_settings.similarity_boost === 0.75
+      && input.voice_settings.style === 0 && input.voice_settings.use_speaker_boost === true && input.voice_settings.speed === 0.85);
     return new Response(new Uint8Array(large ? 2 * 1024 * 1024 + 1 : 512), { headers: { 'content-type': invalidType ? 'text/html' : 'audio/mpeg' } });
   };
   const store = { get: () => ({ settings }), save: (value: { settings: Settings }) => { settings = value.settings; } };
@@ -39,10 +42,18 @@ void (async () => {
   assertIpcPayload('speech:test', { voiceId: female, preset: 'computer-greeting' });
   await refuses('unknown greeting preset is rejected at IPC', () => assertIpcPayload('speech:test', { voiceId: female, preset: 'arbitrary' }));
   await refuses('greeting cannot carry arbitrary text at IPC', () => assertIpcPayload('speech:test', { voiceId: female, preset: 'computer-greeting', text: 'Execute' }));
+  await refuses('caller cannot override the server-owned delivery at IPC', () => assertIpcPayload('speech:test', { voiceId: female, voice_settings: { speed: 1.2 } }));
   const remoteGreeting = { operation: 'test', target: { kind: 'default' }, voiceId: female, preset: 'computer-greeting' };
   check('remote greeting accepts only bounded preset', validSpeechCommand(remoteGreeting) && !validSpeechCommand({ ...remoteGreeting, preset: 'arbitrary' }) && !validSpeechCommand({ ...remoteGreeting, text: 'Execute' }));
+  check('remote caller cannot override the server-owned delivery', !validSpeechCommand({ ...remoteGreeting, voice_settings: { speed: 1.2 } }));
   check('Computer requires an isolated call and does not match arbitrary dictation', isComputerCall('Computer.') && isComputerCall('Hey, Computer!') && !isComputerCall('Computers') && !isComputerCall('Prüfe den Computer'));
   check('greeting follows host time and avoids self-introduction', computerGreeting(8).startsWith('Guten Morgen, Adi.') && computerGreeting(14).startsWith('Guten Tag, Adi.') && computerGreeting(20).startsWith('Guten Abend, Adi.') && !computerGreeting(8).includes('ADE'));
+  check('extended greeting explains explicit dictation and review before sending at every time of day', Array.from({ length: 24 }, (_, hour) => computerGreeting(hour))
+    .every(text => text.includes('Schön, dass du da bist.') && text.includes('Wähle nach dieser Begrüssung „Diktieren“')
+      && text.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && text.length >= 200 && text.length <= 400));
+  check('greeting switches at the host morning, noon and evening boundaries',
+    [[0, 'Abend'], [4, 'Abend'], [5, 'Morgen'], [11, 'Morgen'], [12, 'Tag'], [17, 'Tag'], [18, 'Abend'], [23, 'Abend']]
+      .every(([hour, label]) => computerGreeting(Number(hour)).startsWith(`Guten ${label}, Adi.`)));
   greeting = true;
   check('personal greeting returns exactly the spoken text', (await service.test(female, undefined, undefined, 'computer-greeting')).text === computerGreeting(new Date().getHours()));
   greeting = false;

@@ -110,7 +110,7 @@ export function ComputerVoiceTest({ port, enabled, onBusy }: {
       {active && <button type="button" onClick={stop}>Computer-Test beenden</button>}
       {reply && !active && <button type="button" disabled={!enabled} onClick={() => void run(reply)}>Begrüssung abspielen</button>}
     </div>
-    <p className="prompt-help">Aktivieren, dann „Computer“ sagen. Kurze Begrüssung mit der ADE-Standardstimme. Der Test hört bis zu 20 Sekunden zu; dieses Fenster offen lassen. Verwendet ElevenLabs für Erkennung und Stimme.</p>
+    <p className="prompt-help">Aktivieren, dann „Computer“ sagen. Persönliche Begrüssung mit der ADE-Standardstimme und einem Hinweis zum nächsten Diktat. Der Test hört bis zu 20 Sekunden zu; dieses Fenster offen lassen. Verwendet ElevenLabs für Erkennung und Stimme.</p>
     {!enabled && <p className="prompt-help">Benötigt eine freie Diktatfunktion und auf dem Tablet auch die Freigabe für Stimmen.</p>}
     {status && <p role="status">{status}</p>}{reply && <p aria-label="Computer Antwort">{reply.text}</p>}
     {error && <p role="alert">{error}</p>}

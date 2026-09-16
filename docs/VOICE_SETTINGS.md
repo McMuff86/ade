@@ -1,0 +1,84 @@
+# Goal 33.0b — Stimme und Tempo persönlich einstellen
+
+Der Operator wünscht nach der Hörprobe ein langsameres Tempo und einen eigenen
+Stimmen-Tab auf PC und Tablet. Am 16. September 2026 auf die direkt von ElevenLabs
+angebotenen Parameter begrenzt; kein Pitch-/Tonhöhen-Effekt.
+
+## Bedienung und Vertrag
+
+**Settings/Einstellungen → Stimme → Stimmen laden** zeigt Stimmenwahl und
+die gemeinsamen Regler. Das neue Standardtempo ist **0.85** (vorher 0.95).
+Bestehende gespeicherte Einstellungen haben Vorrang.
+
+| Regler | Bereich | ADE-Standard |
+|---|---|---|
+| Tempo | 0.70–1.20 | 0.85 |
+| Stabilität | 0–1 | 0.90 |
+| Stimmähnlichkeit | 0–1 | 0.75 |
+| Stil | 0–1 | 0 |
+| Speaker Boost | aus/ein | ein |
+
+**Stimme testen** verwendet den aktuellen Entwurf ohne ihn zu speichern.
+**Parameter speichern** schreibt die Werte im persönlichen Hostprofil und macht
+sie für die Computer-Begrüssung und weitere Stimmtests auf PC und Tablet wirksam.
+**Änderungen verwerfen** stellt den gespeicherten Stand wieder her.
+**Ruhiger Computer** lädt die obigen Werte als noch zu speichernden Entwurf.
+Die bestehende Stimmenwahl wird weiterhin sofort gespeichert; Projekt-/Agent-
+Stimmen behalten ihren Vorrang, ihre Ausspracheparameter folgen dem globalen Stand.
+Beim Verlassen des Tabs endet die Wiedergabe; ungespeicherte Reglerwerte werden
+verworfen. Pfeiltasten sowie Home/End wechseln die Tabs; native Regler bleiben
+per Tastatur bedienbar. Lade-, Fehler-, Offline- und offene Aktionszustände sind
+sichtbar. Die Desktop-Ansicht hält Tabwahl und Schliessen ausserhalb der Scrollfläche.
+
+Die Werte entsprechen den [ElevenLabs-Stimmparametern](https://elevenlabs.io/docs/api-reference/voices/settings/get)
+und dem dokumentierten [Tempo-Bereich](https://elevenlabs.io/docs/help-center/product/core-capabilities/text-to-speech/can-i-change-the-pace-of-the-voice).
+Sie gelten pro Syntheseanfrage; keine Änderung der ElevenLabs-Kontoeinstellungen.
+Die tatsächliche Stimmwirkung bleibt vom gewählten Modell und der Stimme abhängig.
+
+## Grenzen und Speicherung
+
+`Settings.speechTuning` ist optional, vollständig und streng begrenzt validiert.
+Ältere Profile erhalten die gemeinsamen Standardwerte ohne Migration. Keine
+beliebigen Providerparameter oder vom Client gelieferten TTS-Texte. Main bildet
+die fünf freigegebenen Felder explizit auf `voice_settings` ab und verwendet pro
+Anfrage einen separaten Snapshot. Nur der feste Stimmtest darf einen ungespeicherten
+Entwurf verwenden; die Computer-Begrüssung liest immer den gespeicherten Stand.
+
+Bestehende IPC-Verträge `speech:configure` und `speech:test` werden erweitert;
+ihre Policy-Klassifizierung bleibt bestehen. Der Tabletpfad bleibt innerhalb
+`AdeApplicationService.remoteSpeech`, `speech:control`, signierter Gerätebeweise,
+Idempotenz und Audit. Nur das Ziel `default` darf globale Parameter speichern;
+beschränkt freigegebene Geräte erhalten dadurch keine globalen Schreibrechte.
+Der wiederherstellbare Browserauftrag umfasst auch den Parameterentwurf, sodass
+ein verlorener Stimmtest-Beleg keinen neuen bezahlten Auftrag erzeugt. Audio
+bleibt kurzlebig und an das anfragende Gerät gebunden.
+
+## Abnahme
+
+Fokussiert bestanden: 65 Präferenz-/Parameterverträge, 56 Sprachverträge,
+21 Desktop-UI- und 36 Tablet-Browserprüfungen; drei TypeScript-Projekte und Build.
+Geprüft sind Grenzen, ungültige Felder, Widerruf, Vorschau ohne Speichern,
+wirksame gespeicherte Begrüssung, Tab-/Dialogfokus, schmale Ansichten und
+Wiederaufnahme nach verlorenem Beleg. Provider und Audio stammen aus Fixtures.
+Der Diktatdriver wartet beim Schliessen jetzt begrenzt auf die tatsächliche
+Fokusrückgabe, statt diese im selben Renderwechsel sofort abzufragen.
+
+Vollständiges `pnpm verify`, finaler Commit und persönliche Aktivierung stehen
+für diese Erweiterung noch aus. Der bisherige persönliche Release und die
+Kopplung bleiben während der Prüfung aktiv.
+
+Die vollständige Abnahme wird in `test-results/voice-settings-checkout` auf
+Branch `codex/voice-settings` durchgeführt. Der zuerst im Hauptcheckout
+gestartete Lauf wurde wegen paralleler Implementierung der nächsten Vorlesefunktion
+unterbrochen. Diese fremden Änderungen bleiben im Hauptcheckout erhalten und
+sind nicht Bestandteil dieses Lieferstands. Der separate Checkout enthält auch
+die Korrektur für Tab/Shift+Tab mit dem ausgewählten Einstellungs-Tab.
+
+Der erste isolierte Gesamtlauf fand einen bestehenden Testclient-Randfall im
+OTLP-Verbrauchsempfänger: Bei der vorzeitigen HTTP-413-Antwort auf einen zu
+grossen Upload meldete Undici ECONNRESET. Der Test prüft die deklarierte
+Übergrösse nun vor dem Upload mit dem nativen HTTP-Client und prüft zusätzlich
+den Abbruch eines tatsächlich zu grossen Chunked-Streams. Der Empfänger selbst
+bleibt unverändert; alle 20 Empfängerchecks einschliesslich abschliessender
+gültiger Meldung bestehen. Negativer Gesamtlauf:
+`test-results/voice-settings-verify-usage-failure.log`.

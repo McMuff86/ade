@@ -39,8 +39,8 @@ function SpeechSettings({ host, target, title }: { host: MobileHost; target: Spe
         const result = await host.request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target });
         if (!result.preferences) throw new Error('Stimmeneinstellungen sind nicht verfügbar.'); return result.preferences;
       },
-      select: async voiceId => { await execute({ key: crypto.randomUUID(), command: { operation: 'select', target, voiceId } }); },
-      test: async voiceId => (await execute({ key: crypto.randomUUID(), command: { operation: 'test', target, voiceId } }))!,
+      select: async (voiceId, tuning) => { await execute({ key: crypto.randomUUID(), command: { operation: 'select', target, voiceId, ...(tuning ? { tuning } : {}) } }); },
+      test: async (voiceId, tuning) => (await execute({ key: crypto.randomUUID(), command: { operation: 'test', target, voiceId, ...(tuning ? { tuning } : {}) } }))!,
     }} />
     {pending && <section aria-label="Offene Sprachaktion"><p>Die letzte Sprachaktion ist noch nicht bestätigt. Erneut prüfen verwendet denselben Auftrag.</p>
       <button disabled={executing || retrying || host.status !== 'online'} onClick={() => {

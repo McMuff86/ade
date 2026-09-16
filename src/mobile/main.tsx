@@ -18,6 +18,7 @@ import { useDeviceDraft } from './deviceDrafts';
 import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
+import { SettingsTabs } from '../renderer/settings/SettingsTabs';
 import { MobileSpeechSettings } from './SpeechSettings';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
 import { emptyDraft, PendingNotice, WorkComposer, type WorkDraft } from './WorkComposer';
@@ -229,13 +230,14 @@ function MobileApp(): JSX.Element {
       onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
       onManage={() => { setWorkspace(null); setManagement(true); }} />}
     {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title">
-      {host.paired && <MobileSpeechSettings host={host} target={{ kind: 'default' }} />}
+      <SettingsTabs voice={host.paired ? <MobileSpeechSettings host={host} target={{ kind: 'default' }} /> : <p>Zum Einstellen der Stimme zuerst mit dem PC verbinden.</p>}>
       {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
         requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
       <section className="m-settings-section"><h3>Darstellung</h3><p>Theme auf diesem Gerät. Deine PC-Einstellung bleibt unabhängig.</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />Dark</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />Light</label></div></section>
       <section className="m-settings-section"><h3>Verbindung</h3><p>Privat über Tailscale. PC eingeschaltet und ADE geöffnet lassen.</p><p>Als App nutzen: Im Browser „Zum Home-Bildschirm“ oder „App installieren“ wählen.</p>
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>Dieses Gerät lokal trennen</button><p className="m-field-note">Zum vollständigen Widerruf: Gerät in ADE am PC entfernen.</p></>}</section>
+      </SettingsTabs>
     </Dialog>}
   </div></TabletKeyboardContext.Provider>;
 }

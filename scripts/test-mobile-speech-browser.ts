@@ -19,12 +19,12 @@ const check=(name:string,ok:boolean)=>{if(!ok)throw new Error(name);passed++;con
 async function rejects(name:string, action:()=>unknown, code:string) {try{await action();}catch(error){check(name,error instanceof RemoteApiError && error.code===code);return;}throw new Error(name);}
 const root=mkdtempSync(join(tmpdir(),'ade-mobile-speech-')); let browser:Browser|undefined; let server:HostApiServer|undefined; let sessions:BrowserSessions|undefined; let proxy:Awaited<ReturnType<typeof mobileTlsProxy>>|undefined;
 void (async()=>{
-  const female='femaleVoice0000000001'; const male='maleVoice000000000001'; let generations=0;
+  const female='femaleVoice0000000001'; const male='maleVoice000000000001'; let generations=0; let lastDelivery: Record<string, unknown> = {};
   const fixture=createRemoteWorkspaceFixture(root,{},store=>{
     const engine=new SpeechService(store,()=> 'fixture-provider-secret',async (url,init)=>{
       check('provider key stays in main and provider URL is fixed',String(url).startsWith('https://api.elevenlabs.io/') && (init?.headers as Record<string,string>)['xi-api-key']==='fixture-provider-secret');
       if(String(url).endsWith('/voices'))return Response.json({voices:[{voice_id:female,name:'Sarah Fixture',labels:{gender:'female'}},{voice_id:male,name:'Roger Fixture',labels:{gender:'male'}}]});
-      generations++;return new Response(readFileSync(resolve('scripts/fixtures/speech-silence.mp3')),{headers:{'content-type':'audio/mpeg'}});
+      lastDelivery=JSON.parse(String(init?.body)).voice_settings; generations++;return new Response(readFileSync(resolve('scripts/fixtures/speech-silence.mp3')),{headers:{'content-type':'audio/mpeg'}});
     });return new RemoteSpeechService(new SpeechPreferences(store,engine),engine);
   });
   const {application:app,store,devices}=fixture;
@@ -38,7 +38,7 @@ void (async()=>{
   await page.getByRole('status').filter({hasText:/^Verbunden$/}).waitFor();
   const deviceId=devices.activeDevices()[0]!.id;
   const context=():RemoteCommandContext=>({principal:{id:deviceId,kind:'device',proof:'device-signature',scopes:new Set(devices.activeDevices().find(d=>d.id===deviceId)!.scopes)},idempotencyKey:randomUUID(),requestId:'speech-fixture'});
-  await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await page.getByRole('button',{name:'Einstellungen',exact:true}).click();await page.getByRole('tab',{name:'Stimme',exact:true}).click();
   const settings=page.getByRole('dialog',{name:'Settings',exact:true}); const speech=settings.getByRole('region',{name:'Sprachausgabe',exact:true});
   await speech.getByRole('button',{name:'Stimmen laden',exact:true}).click();await speech.getByRole('alert').waitFor();
   check('mobile settings explain the dedicated voice grant', (await speech.getByRole('alert').innerText()).includes('Freigabe'));
@@ -50,6 +50,16 @@ void (async()=>{
   check('tablet saves the global voice in the host profile',store.get().settings.speechVoiceId===male);
   await speech.getByRole('button',{name:'Stimme testen',exact:true}).click();await speech.getByText('Stimmtest vollständig abgespielt.',{exact:true}).waitFor();
   check('mobile CSP permits actual MP3 playback',await speech.getByLabel('Stimmtest Wiedergabe').evaluate(node=>(node as HTMLAudioElement).ended));
+  check('tablet displays the shared slower default',await speech.getByRole('slider',{name:'Tempo',exact:true}).inputValue()==='0.85');
+  await speech.getByRole('slider',{name:'Tempo',exact:true}).fill('0.78');
+  await speech.getByRole('slider',{name:'Stil',exact:true}).fill('0.3');
+  await speech.getByRole('button',{name:'Stimme testen',exact:true}).click();
+  await speech.getByText('Stimmtest vollständig abgespielt.',{exact:true}).waitFor();
+  check('tablet previews native parameters without saving',lastDelivery.speed===0.78 && lastDelivery.style===0.3 && !store.get().settings.speechTuning);
+  await speech.getByRole('button',{name:'Parameter speichern',exact:true}).click();
+  await speech.getByText('Stimmparameter gespeichert. Gilt auf PC und Tablet.',{exact:true}).waitFor();
+  check('tablet persists tuning in the PC configuration',store.get().settings.speechTuning?.speed===0.78);
+  await rejects('selected agent target cannot write global tuning',()=>app.remoteSpeech(context(),{operation:'select',target:{kind:'agent',agentId:'builder'},voiceId:female,tuning:store.get().settings.speechTuning},true),'invalid_payload');
   let dropped=false;
   let finishDrop!: () => void;
   const dropFinished = new Promise<void>(resolve => { finishDrop = resolve; });
@@ -61,10 +71,12 @@ void (async()=>{
   }else await route.continue();});
   await speech.getByRole('button',{name:'Stimme testen',exact:true}).click();await settings.getByRole('region',{name:'Offene Sprachaktion',exact:true}).waitFor();
   await dropFinished;
-  await page.reload();await page.getByRole('status').filter({hasText:/^Verbunden$/}).waitFor();await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await page.reload();await page.getByRole('status').filter({hasText:/^Verbunden$/}).waitFor();await page.getByRole('button',{name:'Einstellungen',exact:true}).click();await page.getByRole('tab',{name:'Stimme',exact:true}).click();
   const generationBefore=generations;
   await settings.getByRole('button',{name:'Sprachaktion erneut prüfen',exact:true}).click();await speech.getByText('Stimmtest vollständig abgespielt.',{exact:true}).waitFor();
   check('lost paid test reply survives reload and replay does not generate again',dropped && generations===generationBefore);
+  await speech.getByRole('button',{name:'Stimmen laden',exact:true}).click();
+  check('saved tablet tuning survives reload',await speech.getByRole('slider',{name:'Tempo',exact:true}).inputValue()==='0.78');
   check('provider key never reaches browser storage or content',!await page.evaluate(()=>JSON.stringify({...localStorage}).includes('fixture-provider-secret') || document.body.innerText.includes('fixture-provider-secret')));
   const select={operation:'select',target:{kind:'agent',agentId:'builder'},voiceId:female};
   await app.remoteSpeech(context(),select,true);

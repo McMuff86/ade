@@ -282,8 +282,8 @@ export class AdeApplicationService {
       const receipt = await ledger.execute<MobileSpeechResult>(context, `speech:${payload.operation}`, 'speech:control', payload, async () => {
         const execute = async (): Promise<MobileSpeechResult> => {
           authorize(payload.target);
-          if (payload.operation === 'select') { await speech.preferences.select({ target: payload.target, voiceId: payload.voiceId }, () => authorize(payload.target)); return {}; }
-          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target), payload.preset);
+          if (payload.operation === 'select') { await speech.preferences.select({ target: payload.target, voiceId: payload.voiceId, ...(payload.tuning ? { tuning: payload.tuning } : {}) }, () => authorize(payload.target)); return {}; }
+          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target), payload.preset, payload.tuning);
         };
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });

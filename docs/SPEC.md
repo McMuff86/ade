@@ -1,5 +1,13 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Persönliche Stimme (Goal 33.0b)
+
+Ein eigener Stimmen-Tab auf PC und Tablet bietet Tempo (0.70–1.20), Stabilität,
+Stimmähnlichkeit, Stil und Speaker Boost. Vorschau verwendet ungespeicherte
+Reglerwerte; Speichern gilt global auch für die Computer-Begrüssung. Standardtempo
+0.85. Stimmenwahl und vorhandene Projekt-/Agent-Vererbung bleiben bestehen.
+Kein Pitch-Effekt; [Bedienung und Vertrag](VOICE_SETTINGS.md).
+
 ## Computer-Sprachtest (Goal 33.0)
 
 Im Prompt-/Diktatfenster auf PC und Tablet aktiviert **Computer testen** einen
@@ -12,6 +20,12 @@ Der Test hört höchstens 20 Sekunden zu und endet bei geschlossenem/verborgenem
 Fenster oder verlorener Verbindung. Freigaben für Diktat, Terminalsteuerung und
 Stimmtests gelten auch hier. Arbeitsrückblick und weitere Sprachaktionen sind
 eine spätere Ausbaustufe; [Goal 33](VOICE_COMPANION_PROPOSAL.md).
+
+Die gewünschte Anmutung orientiert sich am Voyager-Computer: ruhig, sachlich,
+gleichmässige Betonung und leicht reduziertes Tempo. Die Begrüssung lautet
+„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Ich bin bereit für unseren nächsten Schritt. Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“ Stimmvorschau
+und Computer-Test verwenden dieselbe Abstimmung auf der ausgewählten Stimme.
+Die konkrete Klangähnlichkeit wird durch eine persönliche Hörprobe beurteilt.
 
 ## Work und Profile auf Desktop und Tablet
 

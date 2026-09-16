@@ -37,7 +37,8 @@ import './settings.css';
 import { RemoteDevicesSection } from './RemoteDevicesSection';
 import { MobileAccessSection } from './MobileAccessSection';
 import { ProjectDefaultsSection } from './ProjectDefaultsSection';
-import { SpeechSection } from './SpeechSection';
+import { TargetSpeechSettings } from './TargetSpeechSettings';
+import { SettingsTabs } from './SettingsTabs';
 
 const SCOPE_RUNTIMES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
@@ -498,7 +499,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
       subtitle="Darstellung, verbundene Geräte, Workspaces und Harness-Verwaltung."
       onClose={onClose}
     >
-      <div className="st-body" data-testid="settings-harnesses">
+      <SettingsTabs voice={<div className="st-body"><TargetSpeechSettings target={{ kind: 'default' }} /></div>}><div className="st-body" data-testid="settings-harnesses">
         {error ? <div className="st-error" role="alert">{error}</div> : null}
         <div className="st-theme-row" role="group" aria-label="Darstellung">
           <span className="st-theme-label">Darstellung</span>
@@ -544,7 +545,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         </div>
         <MobileAccessSection />
         <ProjectDefaultsSection />
-        <SpeechSection />
         <RemoteDevicesSection />
         <section className="st-bundle-section" data-testid="workspace-bundle-settings">
           <div className="st-section-head">
@@ -865,7 +865,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           Ablage des Betriebssystems verschlüsselt, nie angezeigt und nur den
           gewählten Sessions als Umgebungsvariable übergeben.
         </div>
-      </div>
+      </div></SettingsTabs>
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => void runDiagnose()} disabled={diagnosing}>
           {diagnosing ? 'Prüfe…' : 'CLI-Status erneut prüfen'}

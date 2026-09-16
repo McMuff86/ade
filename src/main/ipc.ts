@@ -801,7 +801,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }));
   handle(IPC.SpeechVoices, () => speech.catalog(true));
   handle(IPC.SpeechSelect, ({ voiceId }) => speech.select(voiceId));
-  handle(IPC.SpeechTest, ({ voiceId, preset }) => speech.test(voiceId, undefined, undefined, preset));
+  handle(IPC.SpeechTest, ({ voiceId, preset, tuning }) => speech.test(voiceId, undefined, undefined, preset, tuning));
   handle(IPC.SpeechPreferences, (target) => speechPreferences.query(target, true));
   handle(IPC.SpeechConfigure, (input) => speechPreferences.select(input));
   handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {

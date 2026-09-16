@@ -1,3 +1,4 @@
+import { validSpeechTest } from '../shared/speech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
 import { validProjectMembership } from '../shared/remote';
@@ -687,10 +688,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ProjectMembership:
       if (!validProjectMembership(payload)) invalid(channel, 'invalid project membership');
       return;
-    case IPC.SpeechSelect:
-    case IPC.SpeechTest: {
+    case IPC.SpeechTest:
+      if (!validSpeechTest(payload)) invalid(channel, 'invalid speech test');
+      return;
+    case IPC.SpeechSelect: {
       const request = record(channel, payload);
-      exactKeys(channel, request, channel === IPC.SpeechTest ? ['voiceId', 'preset'] : ['voiceId']);
+      exactKeys(channel, request, ['voiceId']);
       if (!validVoiceId(request.voiceId)) invalid(channel, 'invalid voice');
       if (Object.hasOwn(request, 'preset') && !validSpeechPreset(request.preset)) invalid(channel, 'invalid speech preset');
       return;

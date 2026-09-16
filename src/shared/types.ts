@@ -1083,6 +1083,7 @@ export const DEFAULT_INSPECTOR_SIDE: InspectorSide = 'right';
 
 export interface Settings {
   speechVoiceId?: string;
+  speechTuning?: import('./speech').SpeechTuning;
   projectDefaults?: import('./projectDefaults').ProjectDefaults;
   theme: ThemeName;
   /**

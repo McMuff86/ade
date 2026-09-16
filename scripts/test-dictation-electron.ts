@@ -7,6 +7,7 @@ import { _electron as electron, chromium, type Browser, type ElectronApplication
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
 import { LIVE_DICTATION_MAX_SECONDS } from '../src/shared/liveDictation';
+import { expect } from 'playwright/test';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
@@ -427,6 +428,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('lost prompt receipt retains and locks draft instead of resending', await mobileDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.' && await mobileDraft.getAttribute('readonly') !== null);
   proxy.losePromptReplies(false);
   await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
+  await expect(project.getByRole('button', { name: 'Prompt / Diktat', exact: true })).toBeFocused();
   check('mobile dialog returns focus to prompt opener', await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).evaluate(node => node === document.activeElement));
   await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   check('reopened tablet draft preserves uncertain delivery', await mobileDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.' && await mobileDraft.getAttribute('readonly') !== null);
