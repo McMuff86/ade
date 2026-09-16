@@ -1,14 +1,25 @@
 # ADE delivery roadmap
 
-## Antwort anhören in Abnahme (16. September 2026)
+## Antwort anhören aktiviert (16. September 2026)
 
-PC-/Tablet-Vorlesedialog implementiert: editierbarer Sprechtext, ausdrückliches
-Abspielen, Stoppen und Wiederholung ohne erneute Synthese. TypeScript und
-28 Dienst-, 20 Remote- sowie 34 Electron-/Chromium-Prüfungen bestanden.
-Gesamtabnahme und persönlicher Neustart folgen; das Beenden der laufenden
-Tablet-Sitzung wurde ausdrücklich erlaubt. [Verträge und Nachweise](REPLY_SPEECH.md).
-Der globale Button „Sprachsteuerung“ ist ein [dokumentierter Vorschlag](VOICE_COMPANION_PROPOSAL.md).
+Der Release **e9e032d** mit Source-ID **e876a22034d56525fe7b** ist seit
+17:36 CEST persönlich aktiv. **Antwort anhören** ist auf PC und
+Tablet verfügbar; auf dem Tablet steht der Button neben **Prompt / Diktat**.
+Text prüfen/bearbeiten, dann ausdrücklich **Anhören**; Stoppen und Wiederholung
+verwenden den bestehenden Sprachdialog und die gespeicherten Stimmparameter.
 
+Alle Prüfungen des `pnpm verify`-Rezepts (17:08–17:33 CEST) sind bestanden:
+drei TypeScript-Projekte, 74 Suiten / 3.232 Fachprüfungen, Produktionsbuild und
+sämtliche Electron-/Browser-/Layoutdriver. Nach einem Windows-Aufruffehler wurden
+die letzten sieben Driver einzeln auf unverändertem Code und Build ausgeführt;
+`pnpm verify` selbst hat Exit 1. Der Vorlesedriver besteht 34 Prüfungen.
+6 Profile, 5 Projekte und 1 Gerätekopplung(en) sind erhalten;
+das private HTTPS-Tablet liefert das aktuelle Bundle.
+[Aktivierung und Nachweise](REPLY_SPEECH_ACTIVATION.md) · [Bedienung und Verträge](REPLY_SPEECH.md).
+
+Der globale Button **Sprachsteuerung** bleibt ein
+[Vorschlag für den nächsten Ausbau](VOICE_COMPANION_PROPOSAL.md).
+Die folgenden Aktivierungsangaben beschreiben frühere Releases.
 
 ## Stimmen-Tab und WSL-Fix aktiviert (16. September 2026)
 

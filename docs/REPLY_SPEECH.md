@@ -1,8 +1,12 @@
 # Antworten auf PC und Tablet vorlesen
 
-Stand 16. September 2026: implementiert; TypeScript, 28 Text-/Dienstprüfungen,
-20 Remote-Vertragsprüfungen und 34 echte Electron-/Chromium-Bedienprüfungen
-bestanden. Gesamtabnahme und persönliche Aktivierung folgen.
+Stand 16. September 2026: vollständig geprüft und persönlich aktiviert.
+Alle Prüfungen des `pnpm verify`-Rezepts (17:08–17:33 CEST) sind bestanden:
+drei TypeScript-Projekte, 74 Suiten / 3.232 Fachprüfungen, Produktionsbuild und
+alle Electron-/Browserdriver. Der Sammelaufruf endete mit einem Windows-Pfadfehler
+(Exit 1); die verbleibenden sieben Driver bestanden einzeln auf demselben Build.
+Der Vorlesedriver besteht 34 Bedienprüfungen.
+[Release, Sicherung und Aktivierung](REPLY_SPEECH_ACTIVATION.md).
 
 ## Bedienung
 
