@@ -152,6 +152,40 @@ async function pureContracts(): Promise<void> {
   const utf16 = Buffer.from('\uFEFFUbuntu\r\ndocker-desktop\r\n', 'utf16le');
   check('WSL distro output accepts UTF-16LE Windows output',
     decodeWslOutput(utf16).includes('docker-desktop'));
+  const discoveryCalls: Array<{ file: string; args: string[] }> = [];
+  let discoveryExit = 0;
+  const discoverySpawn = (file: string, args: string[]): ChildProcessWithoutNullStreams => {
+    discoveryCalls.push({ file, args });
+    const child = new EventEmitter() as ChildProcessWithoutNullStreams;
+    Object.assign(child, { stdout: new PassThrough(), stderr: new PassThrough(), stdin: new PassThrough(), kill: () => true });
+    setImmediate(() => {
+      child.stdout.end(Buffer.from('\uFEFFUbuntu\r\nUbuntu\r\nDebian\r\n../invalid\r\n', 'utf16le'));
+      child.stderr.end(); child.emit('close', discoveryExit, null);
+    });
+    return child;
+  };
+  const discovery = new ExecutionBackendService('win32', discoverySpawn as unknown as typeof spawn);
+  const listed = await discovery.listWslDistributions();
+  check('discovery lists registered distributions without starting a guest or its services',
+    discoveryCalls.length === 1 && discoveryCalls[0]!.file === 'wsl.exe'
+      && JSON.stringify(discoveryCalls[0]!.args) === JSON.stringify(['--list', '--quiet']));
+  check('discovery deduplicates and validates distribution names',
+    JSON.stringify(listed.distributions.map((item) => item.name)) === JSON.stringify(['Ubuntu', 'Debian']));
+  check('registered distributions remain selectable without a runtime health probe',
+    listed.supported && listed.distributions.every((item) => item.available && item.backend === `wsl:${item.name}`));
+  const beforeCached = discoveryCalls.length;
+  await discovery.listWslDistributions();
+  check('reopening backend selectors reuses the bounded discovery cache', discoveryCalls.length === beforeCached);
+  const unsupported = await new ExecutionBackendService('linux', discoverySpawn as unknown as typeof spawn).listWslDistributions();
+  check('native Linux discovery does not invoke Windows WSL', !unsupported.supported && discoveryCalls.length === beforeCached);
+  discoveryExit = 1;
+  const unavailable = await new ExecutionBackendService('win32', discoverySpawn as unknown as typeof spawn).listWslDistributions();
+  check('failed WSL enumeration does not expose partial names as selectable', !unavailable.supported && unavailable.distributions.length === 0);
+  discoveryExit = 0;
+  const beforeExplicit = discoveryCalls.length;
+  await discovery.checked('wsl:Ubuntu', '/bin/true', []);
+  check('explicit backend work still invokes the selected guest', discoveryCalls.length === beforeExplicit + 1
+    && JSON.stringify(discoveryCalls.at(-1)!.args) === JSON.stringify(['--distribution', 'Ubuntu', '--exec', '/bin/true']));
   check('unborn Git branches retain their complete branch name',
     parseBranch('## No commits yet on feature/unborn').branch === 'feature/unborn');
 

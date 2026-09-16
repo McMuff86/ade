@@ -1,5 +1,9 @@
 # ADE delivery roadmap
 
+## Passive WSL discovery / Hermes (16 September 2026)
+
+WSL discovery hotfix: passive enumeration implemented and regression checked; full verification and personal activation pending. Persistent availability of personal WSL services remains an operator concern. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+
 ## Goal 33.0b — Stimmen-Tab
 
 Native ElevenLabs-Regler, Vorschau und gemeinsame Speicherung auf PC/Tablet

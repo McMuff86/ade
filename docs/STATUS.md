@@ -1,5 +1,9 @@
 # ADE implementation status
 
+## Passive WSL discovery / Hermes (16 September 2026)
+
+WSL-Erkennung ohne Gaststart implementiert; 34 Backendchecks bestanden. Die Hermes-Warnungen passen zu WSL-Abschaltungen nach bisherigen ADE-Erkennungsabfragen. Vollständige Abnahme und Aktivierung folgen. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+
 ## Persönliche Stimmparameter (16. September 2026)
 
 **Einstellungen → Stimme** implementiert Tempo, Stabilität, Stimmähnlichkeit,

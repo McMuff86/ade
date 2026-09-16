@@ -1,5 +1,9 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Passive WSL discovery / Hermes (16 September 2026)
+
+Listing execution environments must not start WSL distributions. Registration makes a backend selectable; only an explicit backend operation may start it and validate runtime health. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+
 ## Persönliche Stimme (Goal 33.0b)
 
 Ein eigener Stimmen-Tab auf PC und Tablet bietet Tempo (0.70–1.20), Stabilität,

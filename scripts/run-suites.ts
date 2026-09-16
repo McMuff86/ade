@@ -59,7 +59,7 @@ const SUITES: Suite[] = [
   { id: 'interactive-profile-snapshot', script: 'test-interactive-profile-snapshot.ts', floors: { win32: 10 } },
   { id: 'dispatch', script: 'test-worker-dispatch.ts', floors: { win32: 12 } },
   { id: 'runtime', script: 'test-runtime-reliability.ts', floors: { win32: 47 } },
-  { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 27 } },
+  { id: 'backends', script: 'test-execution-backends.ts', floors: { win32: 34 } },
   { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 82 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'run-questions', script: 'test-run-questions.ts', floors: { win32: 26 } },

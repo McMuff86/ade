@@ -1,5 +1,9 @@
 # ADE — Architecture (binding decisions)
 
+## Passive WSL discovery / Hermes (16 September 2026)
+
+WSL discovery (`wsl:list`) only enumerates registered names through `wsl.exe --list --quiet`. It must never execute a guest health probe: even `true` boots systemd services and can trigger shutdown notifications when WSL later idles. `available` means registered for selection. Explicit backend operations retain runtime validation. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+
 ## Explicit Computer voice test (Goal 33.0)
 
 `ComputerVoiceTest` shares the existing target-bound `PromptComposerPort` on

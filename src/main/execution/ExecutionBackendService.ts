@@ -257,8 +257,9 @@ export class ExecutionBackendService {
 
   async listWslDistributions(): Promise<WslListResult> {
     if (this.hostPlatform !== 'win32') return { supported: false, distributions: [] };
-    // Every scope header / agent modal asks on mount; probing distros each
-    // time churns the WSL VM for no new information.
+    // Scope headers / agent modals ask on mount. Enumeration must stay passive:
+    // even `true` boots a stopped guest and its personal systemd gateways.
+    // WSL may then idle-stop the guest and interrupt those unrelated services.
     const cached = this.wslListCache;
     if (cached && Date.now() - cached.at < WSL_LIST_CACHE_MS) return cached.result;
     const result = await this.spawnAndCollect('wsl.exe', ['--list', '--quiet'], {
@@ -271,30 +272,11 @@ export class ExecutionBackendService {
       .split(/\r?\n/)
       .map((name) => name.trim())
       .filter(Boolean);
-    const distributions = await Promise.all([...new Set(names)]
+    const distributions = [...new Set(names)]
       .filter(isWslDistributionName)
-      .map(async (name) => {
-        const backend = wslExecutionBackend(name);
-        try {
-          const probe = await this.run(backend, 'true', [], { timeoutMs: 5_000, maxBuffer: 64 * 1024 });
-          // A timed-out probe usually means a cold VM still booting, not a
-          // broken distro — availability is advisory, so assume the best.
-          if (probe.timedOut || probe.code === 0) return { name, backend, available: true } as const;
-          return {
-            name,
-            backend,
-            available: false,
-            error: decodeOutput(probe.stderr).trim().slice(0, 500) || `exit code ${probe.code ?? 'unknown'}`,
-          } as const;
-        } catch (error) {
-          return {
-            name,
-            backend,
-            available: false,
-            error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
-          } as const;
-        }
-      }));
+      // Selectable registration, not a health assertion. Only an explicit
+      // operation on that backend may start it and report launch failures.
+      .map((name) => ({ name, backend: wslExecutionBackend(name), available: true }));
     const listResult: WslListResult = { supported: true, distributions };
     this.wslListCache = { at: Date.now(), result: listResult };
     return listResult;

@@ -1,5 +1,9 @@
 # ADE — aktuelle Übergabe
 
+## Passive WSL discovery / Hermes (16 September 2026)
+
+Die Hermes-Telegram-Warnungen wurden auf WSL-Start/Stop-Zyklen zurückgeführt. ADE startete Gäste bei der Umgebungserkennung; der Fix entfernt diese Probe. Gesamtlauf für die Diagnose unterbrochen. Temporärer Ubuntu-Keepalive PID 37556 hält Hermes offen; keine dauerhafte Systemkonfiguration geändert. Persönliche Aktivierung steht aus. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+
 ## Stimmen-Tab und langsameres Tempo (16. September 2026)
 
 Eigener Tab auf PC/Tablet mit fünf nativen ElevenLabs-Parametern, Vorschau und

@@ -511,6 +511,7 @@ export interface HarnessLoginRequest {
 export interface WslDistributionInfo {
   name: string;
   backend: ExecutionBackendId;
+  /** Registered for selection; enumeration does not boot or health-check a guest. */
   available: boolean;
   error?: string;
 }
