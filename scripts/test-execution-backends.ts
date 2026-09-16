@@ -157,10 +157,11 @@ async function pureContracts(): Promise<void> {
   const discoverySpawn = (file: string, args: string[]): ChildProcessWithoutNullStreams => {
     discoveryCalls.push({ file, args });
     const child = new EventEmitter() as ChildProcessWithoutNullStreams;
-    Object.assign(child, { stdout: new PassThrough(), stderr: new PassThrough(), stdin: new PassThrough(), kill: () => true });
+    const stdout = new PassThrough(); const stderr = new PassThrough();
+    Object.assign(child, { stdout, stderr, stdin: new PassThrough(), kill: () => true });
     setImmediate(() => {
-      child.stdout.end(Buffer.from('\uFEFFUbuntu\r\nUbuntu\r\nDebian\r\n../invalid\r\n', 'utf16le'));
-      child.stderr.end(); child.emit('close', discoveryExit, null);
+      stdout.end(Buffer.from('\uFEFFUbuntu\r\nUbuntu\r\nDebian\r\n../invalid\r\n', 'utf16le'));
+      stderr.end(); child.emit('close', discoveryExit, null);
     });
     return child;
   };
