@@ -315,6 +315,14 @@ replace the default text-only model fields. Claude selection is persisted and
 passed to session launch; Codex effort choices follow model capabilities.
 Contract and executable evidence: `RUNTIME_MODEL_SELECTION.md`.
 
+Ollama coding harness selection (2026-09-16, Goal 31): **Ollama verwenden als →
+Coding-Agent → Coding-Harness** offers **Codex CLI · Ollama** and **Qwen Code ·
+Ollama**. The model remains a separate selection. Existing coding profiles keep
+Codex; direct chat stays `ollama run`. Creation, editing, templates, copies and
+portable bundles retain the selection. PC/tablet saved-profile launches use it;
+a missing selected CLI produces an actionable error, never a fallback.
+Contracts, permission semantics and platform evidence: `OLLAMA_HARNESS_GOALS.md`.
+
 Tablet project entry (2026-09-09): Overview offers **Neues Projekt** and
 **Weiterarbeiten**. The PC owns the native project parent; the tablet supplies a
 name and opens a fresh local Git project on main without a profile or automatic

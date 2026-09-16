@@ -64,6 +64,14 @@ void (async () => {
   check('agent has independent memory and durable instructions', readFileSync(join(agent.memoryDir, 'AGENTS.md'), 'utf8').length > 0
     && agent.memoryDir !== store.get().agents.find((item) => item.id === 'builder')!.memoryDir);
   check('agent retry creates no duplicate', (await command(agentCommand, agentContext)).created!.id === agentId && store.get().agents.filter((item) => item.name === 'Remote Builder').length === 1);
+  const originalBuilder = store.get().agents.find(item => item.id === 'builder')!;
+  store.save({ agents: store.get().agents.map(item => item.id === 'builder' ? { ...item, runtime: 'ollama', customCommand: undefined,
+    ollamaMode: 'coding', ollamaHarness: 'qwen-code', ollamaModel: 'qwen3-coder:30b' } : item) });
+  const remoteQwen = await command({ operation: 'agent-create', input: { name: 'Remote Qwen', source: { kind: 'agent', id: 'builder' } } });
+  const copiedQwen = store.get().agents.find(item => item.id === remoteQwen.created!.id)!;
+  check('mobile profile copies preserve the selected Ollama coding harness and model', copiedQwen.ollamaHarness === 'qwen-code'
+    && copiedQwen.ollamaMode === 'coding' && copiedQwen.ollamaModel === 'qwen3-coder:30b');
+  store.save({ agents: store.get().agents.map(item => item.id === 'builder' ? originalBuilder : item) });
   await refuses('missing host profile cannot create an agent', () => command({ operation: 'agent-create', input: { name: 'No profile', source: { kind: 'agent', id: 'missing' } } }), 'command_rejected');
   const workspace = await command({ operation: 'workspace-prepare', input: { agentId, repositoryId: repoId } });
   const binding = store.get().workspaceBindings.find((item) => item.id === workspace.created!.id)!;

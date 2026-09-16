@@ -40,7 +40,10 @@ function runtimeLine(agent: Agent): string {
     return `${label} · ${model}${effort}`;
   }
   if (agent.runtime === 'claude' && agent.claudeModel) return `${label} · ${agent.claudeModel}`;
-  if (agent.runtime === 'ollama' && agent.ollamaModel) return `${label} · ${agent.ollamaModel}`;
+  if (agent.runtime === 'ollama' && agent.ollamaModel) {
+    const harness = agent.ollamaMode === 'coding' ? (agent.ollamaHarness === 'qwen-code' ? 'Qwen Code' : 'Codex CLI') : 'Chat';
+    return `${label} · ${harness} · ${agent.ollamaModel}`;
+  }
   return label;
 }
 

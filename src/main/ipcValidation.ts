@@ -243,7 +243,7 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
     'runtime',
     'permissionMode',
     'customCommand',
-    'ollamaModel', 'ollamaMode',
+    'ollamaModel', 'ollamaMode', 'ollamaHarness',
     'claudeModel',
     'codexModel',
     'codexReasoningEffort',
@@ -264,6 +264,10 @@ function validateAgentInput(channel: string, payload: unknown, update: boolean):
   enumValue(channel, request.permissionMode, 'permissionMode', PERMISSION_MODES);
   optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
   optionalOllamaModel(channel, request.ollamaModel);
+  if (request.ollamaHarness !== undefined) {
+    enumValue(channel, request.ollamaHarness, 'ollamaHarness', ['codex', 'qwen-code']);
+    if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama harness requires runtime ollama');
+  }
   if (request.ollamaMode !== undefined) {
     enumValue(channel, request.ollamaMode, 'ollamaMode', ['chat', 'coding']);
     if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama mode requires runtime ollama');
@@ -881,7 +885,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
         'runtime',
         'permissionMode',
         'customCommand',
-        'ollamaModel', 'ollamaMode',
+        'ollamaModel', 'ollamaMode', 'ollamaHarness',
         'claudeModel',
         'codexModel',
         'codexReasoningEffort',
@@ -900,6 +904,10 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       }
       optionalString(channel, request.customCommand, 'customCommand', { max: 4_096, allowEmpty: true });
       optionalOllamaModel(channel, request.ollamaModel);
+      if (request.ollamaHarness !== undefined) {
+        enumValue(channel, request.ollamaHarness, 'ollamaHarness', ['codex', 'qwen-code']);
+        if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama harness requires runtime ollama');
+      }
       if (request.ollamaMode !== undefined) {
         enumValue(channel, request.ollamaMode, 'ollamaMode', ['chat', 'coding']);
         if (request.runtime !== undefined && request.runtime !== 'ollama') invalid(channel, 'Ollama mode requires runtime ollama');

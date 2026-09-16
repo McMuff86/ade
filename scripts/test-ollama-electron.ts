@@ -1,7 +1,7 @@
 /** Native Windows Electron/IPC/ConPTY evidence with deterministic local CLI fixtures. */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
@@ -45,6 +45,7 @@ void (async () => {
     assert.equal(process.platform, 'win32');
     execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
     copyFileSync(join(bin, 'codex.exe'), join(bin, 'ollama.exe'));
+    copyFileSync(join(bin, 'codex.exe'), join(bin, 'qwen.exe'));
     app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), env: { ...process.env,
       Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_OLLAMA_PROOF: proof, ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
     const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
@@ -55,6 +56,8 @@ void (async () => {
     await dialog.locator('#agent-ollama-model option[value="coder:large"]').waitFor({ state: 'attached' });
     check('new Ollama profile offers coding and direct chat modes', await dialog.getByLabel('Ollama verwenden als').inputValue() === 'coding'
       && await dialog.getByLabel('Ollama verwenden als').locator('option').count() === 2);
+    check('new coding profiles default to Codex and offer Qwen Code', await dialog.getByLabel('Coding-Harness', { exact: true }).inputValue() === 'codex'
+      && await dialog.getByLabel('Coding-Harness', { exact: true }).locator('option[value="qwen-code"]').count() === 1);
     check('installed models are visible in a native keyboard accessible select', await dialog.locator('#agent-ollama-model').locator('option').count() === 2);
     await dialog.locator('#agent-ollama-model').selectOption('coder:large');
     await dialog.getByRole('button', { name: 'Create agent', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
@@ -68,6 +71,8 @@ void (async () => {
     check('reopened settings preserve the coding model and preview the local provider', await dialog.locator('#edit-agent-ollama-model').inputValue() === 'coder:large'
       && (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.includes('--oss --local-provider ollama --model coder:large'));
     await dialog.getByLabel('Ollama verwenden als').focus(); await page.keyboard.press('Tab');
+    check('keyboard navigation reaches the harness selector first', await dialog.getByLabel('Coding-Harness', { exact: true }).evaluate(node => node === document.activeElement));
+    await page.keyboard.press('Tab');
     check('keyboard navigation reaches the model selector', await dialog.locator('#edit-agent-ollama-model').evaluate(node => node === document.activeElement));
     writeFileSync(modelFile, ''); await dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true }).click();
     await dialog.getByText('Ollama ist erreichbar, hat aber keine Modelle gemeldet.', { exact: false }).waitFor();
@@ -80,6 +85,7 @@ void (async () => {
     await dialog.locator('#edit-agent-ollama-model').selectOption('coder:new');
     check('model refresh discovers a newly installed model', (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.includes('--model coder:new'));
     await dialog.getByLabel('Ollama verwenden als').selectOption('chat');
+    check('chat hides the coding-only harness selection', await dialog.getByLabel('Coding-Harness', { exact: true }).count() === 0);
     check('direct chat previews the existing Ollama command', await dialog.locator('#edit-agent-cmd').getAttribute('placeholder') === 'ollama run coder:new');
     await dialog.getByLabel('Ollama verwenden als').selectOption('coding');
     await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
@@ -103,11 +109,31 @@ void (async () => {
     const positive = await page.evaluate(agentId => window.ade.invoke('session:launch', { agentId, repositoryId: null, mode: 'agent' }), agent.id);
     check('restoring the model permits a new session', positive.launchModel === 'coder:new');
     await page.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), positive.id);
+    await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).click(); await dialog.waitFor();
+    await dialog.getByLabel('Coding-Harness', { exact: true }).selectOption('qwen-code');
+    check('Qwen selection previews the explicit local endpoint and selected model', (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.startsWith('qwen --auth-type openai')
+      && (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.includes('--model coder:new'));
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+    check('Qwen harness is durably persisted', JSON.parse(readFileSync(configPath, 'utf8')).agents.find((item: { id: string }) => item.id === agent.id).ollamaHarness === 'qwen-code');
+    const qwenTemplate = await page.evaluate(id => window.ade.invoke('agentTemplate:create', { sourceAgentId: id, name: 'Qwen Template' }), agent.id);
+    const qwenCopy = await page.evaluate(templateId => window.ade.invoke('agentTemplate:spawn', { templateId, categoryId: 'coding', name: 'Qwen Copy', defaultRepositoryId: null }), qwenTemplate.id);
+    check('Qwen templates and copies retain their harness', qwenTemplate.ollamaHarness === 'qwen-code' && qwenCopy.ollamaHarness === 'qwen-code');
+    unlinkSync(proof);
+    const qwenSession = await page.evaluate(agentId => window.ade.invoke('session:launch', { agentId, repositoryId: null, mode: 'agent' }), agent.id);
+    for (let attempt = 0; attempt < 100 && !existsSync(proof); attempt++) await new Promise(done => setTimeout(done, 100));
+    const qwenLaunched = readFileSync(proof, 'utf8');
+    check('real ConPTY launches Qwen instead of Codex for the chosen profile', qwenLaunched.startsWith('qwen.exe\n')
+      && qwenLaunched.includes('--openai-base-url\nhttp://127.0.0.1:11434/v1') && qwenLaunched.includes('--model\ncoder:new'));
+    check('Qwen receives ADE identity instructions even without a custom behavior profile', qwenLaunched.includes('--append-system-prompt\n')
+      && qwenLaunched.includes('# ADE agent role contract') && qwenLaunched.includes('Identity: Ollama Fixture'));
+    check('Qwen profile delivery creates no project-owned QWEN.md', !existsSync(join(agent.workspaceDir, 'QWEN.md')));
+    await page.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), qwenSession.id);
     config = await page.evaluate(() => window.ade.invoke('config:get'));
     check('existing identities are unchanged', config.agents.find(item => item.id === 'shell')?.runtime === 'shell');
     check('Ollama flows have no renderer errors', errors.length === 0);
     mkdirSync(resolve('test-results/ollama'), { recursive: true });
     await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).click(); await dialog.waitFor();
+    check('reopened settings retain the selected Qwen harness', await dialog.getByLabel('Coding-Harness', { exact: true }).inputValue() === 'qwen-code');
     await dialog.getByLabel('Ollama verwenden als').scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve('test-results/ollama/settings.png') });
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });

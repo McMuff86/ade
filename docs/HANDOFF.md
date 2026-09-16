@@ -1,5 +1,23 @@
 # ADE — aktuelle Übergabe
 
+## Goal 31 — Harness-Auswahl (16. September 2026, Code-Abnahme bestanden)
+
+Operator beauftragt die besprochene Auswahl **Codex CLI/Qwen Code** im
+Ollama-Coding-Modus mit zugehörigen Goals. Arbeits-Goal und Goal-31-Vertrag
+sind angelegt. Auswahl, Profilübernahme, verwalteter Adapter und PC-/Tablet-
+Starts sind implementiert; reale lokale Probe mit Qwen Code **0.23.4** und
+`qwen3-coder:30b` erfolgreich. Qwen Code 0.23.4 ist nun im vorhandenen
+Benutzer-npm-Prefix installiert; keine Änderung globaler Modellanmeldungen.
+46 Ollama-Vertrags-, 14 Profiltransport- und 28 Electron-UI-Checks sowie fünf
+gezielte Tablet-/Host-Prüfungen sind positiv. Vollständiges `pnpm verify` ist
+mit Exit 0 bestanden: 72 Suiten / 3.088 Fachchecks, alle TypeScript-Projekte,
+Build, App-/Browserprüfungen und 22 Visualchecks. Zusätzlich 151 Adapterchecks.
+Log: `test-results/qwen-verify-final.log`. Commit/Build/Neustart folgen.
+Persönliches Ollama-Profil bleibt zunächst beim
+vorhandenen Codex-Harness. [Vertrag und Nachweise](OLLAMA_HARNESS_GOALS.md).
+
+Die nachstehenden Aktivierungsdaten gelten bis zum neuen Neustart weiter.
+
 ## Tablet-Live-Diktat und Profilbilder (16. September 2026)
 
 Operator bestätigt, dass der neue Build funktioniert. Erklärung: Ollama Coding

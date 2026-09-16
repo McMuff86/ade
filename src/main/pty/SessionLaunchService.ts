@@ -46,19 +46,23 @@ export class SessionLaunchService {
     return { ...settings, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
       ollamaMode: undefined,
+      ollamaHarness: undefined,
       claudeModel: undefined, codexModel: undefined, codexReasoningEffort: undefined, grokModel: undefined, grokReasoningEffort: undefined,
       ollamaModel: choice.mode === 'ollama' ? choice.model : undefined };
   }
 
   async validateOllamaCoding(settings: InteractiveLaunchSettings, backend: ExecutionBackendId): Promise<void> {
     if (settings.runtime !== 'ollama' || settings.ollamaMode !== 'coding' || settings.customCommand?.trim()) return;
-    if (!await this.present(backend, 'codex')) throw new Error('ade: Ollama-Coding benötigt die Codex CLI in dieser Umgebung.');
-    if (!settings.ollamaModel || !(await this.models(backend)).includes(settings.ollamaModel)) {
+    const qwen = settings.ollamaHarness === 'qwen-code';
+    if (!await this.present(backend, qwen ? 'qwen' : 'codex')) throw new Error(qwen
+      ? 'ade: Qwen Code wurde in dieser Umgebung nicht gefunden. Qwen Code installieren oder Codex CLI als Coding-Harness wählen.'
+      : 'ade: Ollama-Coding benötigt die Codex CLI in dieser Umgebung.');
+    if (!settings.ollamaModel || !(await this.models(backend, qwen)).includes(settings.ollamaModel)) {
       throw new Error('ade: Ollama-Modell ist nicht verfügbar. Ollama starten und die Modellliste aktualisieren.');
     }
   }
 
-  private async present(backend: ExecutionBackendId, executable: 'codex' | 'claude' | 'grok' | 'hermes'): Promise<boolean> {
+  private async present(backend: ExecutionBackendId, executable: 'codex' | 'claude' | 'grok' | 'hermes' | 'qwen'): Promise<boolean> {
     try {
       const windows = backend === 'native' && process.platform === 'win32';
       const result = await this.execution.run(backend, windows ? 'where.exe' : '/bin/bash', windows ? [executable]
@@ -66,10 +70,11 @@ export class SessionLaunchService {
       return result.code === 0 && !result.timedOut && result.stdout.length > 0;
     } catch { return false; }
   }
-  private async models(backend: ExecutionBackendId): Promise<string[]> {
+  private async models(backend: ExecutionBackendId, localOnly = false): Promise<string[]> {
     try {
       const windows = backend === 'native' && process.platform === 'win32';
-      const result = await this.execution.run(backend, windows ? 'ollama' : '/bin/bash', windows ? ['list'] : ['-lc', 'ollama list'], { timeoutMs: 4000, maxBuffer: 64 * 1024 });
+      const result = await this.execution.run(backend, windows ? 'ollama' : '/bin/bash', windows ? ['list'] : ['-lc', 'ollama list'], {
+        timeoutMs: 4000, maxBuffer: 64 * 1024, ...(localOnly ? { env: { OLLAMA_HOST: 'http://127.0.0.1:11434' } } : {}) });
       if (result.code !== 0 || result.timedOut) return [];
       const lines = result.stdout.toString('utf8').split(/\r?\n/);
       if (!/^NAME\s+ID\s+SIZE\s+MODIFIED\s*$/.test(lines.shift()?.trim() ?? '')) return [];

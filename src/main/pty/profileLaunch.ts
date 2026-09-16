@@ -69,8 +69,9 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
   if (input.executionBackend !== 'native' || (input.platform ?? process.platform) !== 'win32') {
     throw new Error('ade: Profilanweisungen werden für diesen Start bisher nur nativ unter Windows übertragen.');
   }
-  if (agent.customCommand?.trim() || !['codex', 'claude'].includes(agent.runtime)) {
-    throw new Error('ade: Profilanweisungen benötigen einen unterstützten Codex- oder Claude-Start ohne eigenen Startbefehl.');
+  const qwen = agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && agent.ollamaHarness === 'qwen-code';
+  if (agent.customCommand?.trim() || (!['codex', 'claude'].includes(agent.runtime) && !qwen)) {
+    throw new Error('ade: Profilanweisungen benötigen einen unterstützten Codex-, Claude- oder Qwen-Code-Start ohne eigenen Startbefehl.');
   }
   if (!command.trim() || command.includes('\0') || /developer_instructions|append-system-prompt|model_instructions_file/i.test(command)) {
     throw new Error('ade: Profilstart benötigt einen unveränderten ADE-Laufzeitbefehl ohne zusätzliche Anweisungsoptionen.');
@@ -82,6 +83,12 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
   // Validate Unicode for file transport too; never silently replace invalid text.
   tomlString(snapshot.content);
   let argument: string | undefined;
+  if (qwen) {
+    argument = snapshot.content;
+    if (windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
+      throw new Error('ade: Profilanweisungen überschreiten die sichere Windows-Aufrufgrenze von 28000 Zeichen. Profil kürzen.');
+    }
+  }
   if (agent.runtime === 'codex') {
     const baseline = input.codexDeveloperInstructions;
     if (baseline?.mode !== 'append-verified' || typeof baseline.existing !== 'string') {
@@ -145,11 +152,13 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
         '(& {',
         `$adeProfileArg = [IO.File]::ReadAllText(${quotePs(argumentPath)}, [Text.Encoding]::UTF8);`,
         "if ($PSVersionTable.PSVersion -lt [version]'7.3' -or $PSNativeCommandArgumentPassing -eq 'Legacy') {",
-        String.raw`[regex]::Replace($adeProfileArg, '(\\*)"', '$1$1\"')`,
+        String.raw`$adeProfileNeedsQuotes = $adeProfileArg -match '\s';`,
+        String.raw`$adeProfileArg = [regex]::Replace($adeProfileArg, '(\\*)"', '$1$1\"');`,
+        String.raw`if ($adeProfileNeedsQuotes) { [regex]::Replace($adeProfileArg, '(\\+)$', '$1$1') } else { $adeProfileArg }`,
         '} else { $adeProfileArg }',
         '})',
       ].join(' ');
-      prepared = `${command} -c ${expression}`;
+      prepared = `${command} ${qwen ? '--append-system-prompt' : '-c'} ${expression}`;
     } else {
       prepared = `${command} --append-system-prompt-file ${quotePs(snapshotPath)}`;
     }

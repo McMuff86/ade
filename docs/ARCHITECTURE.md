@@ -774,17 +774,33 @@ Transport bounds, keyboard acknowledgement and launch semantics are specified in
 
 ## Runtime model catalogs
 
-Ollama identities additionally persist `ollamaMode: 'chat' | 'coding'` across
-agent/template/bundle contracts. Absent/chat preserves `ollama run`; coding uses
-the existing Codex CLI with explicit `--oss --local-provider ollama --model`,
-preserving permission mode. Main rechecks CLI/model availability before spawning.
-`ollama-codex-jsonl-v1` reuses the structured result protocol while retaining a
-distinct identity from the Goal 6 Codex adapter. Native Windows interactive
-coding uses the protected program transport; saved behavior uses the existing
-Codex instruction delivery. Ollama sessions remain runtime `ollama` and never
-enter the OpenAI subscription collector. Their interactive token collection is
-not implemented. Direct session choice `ollama` remains chat; saved-profile
-choice preserves coding mode. [Evidence and platform limits](OLLAMA_RESULTS.md).
+Ollama identities persist `ollamaMode: 'chat' | 'coding'` and
+`ollamaHarness?: 'codex' | 'qwen-code'` across agent/template/bundle contracts.
+Absent/chat preserves `ollama run`; coding defaults to Codex when the harness
+field is absent. Codex uses `--oss --local-provider ollama --model`; Qwen Code
+uses explicit OpenAI-compatible auth, `http://127.0.0.1:11434/v1`, the selected
+model, and the public placeholder key `ollama`. No global authentication is
+rewritten. Permission modes map to Qwen `default` / `auto-edit` / `yolo`; this
+does not claim Codex's sandbox semantics for Qwen. Main rechecks the selected
+CLI and model before spawning; no silent fallback to another harness.
+`ollama-codex-jsonl-v1` and `ollama-qwen-stream-json-v1` remain distinct from
+native Codex and ineligible for Goal 6. Qwen receives the task on stdin and the
+schema by `--json-schema @file`; main validates the terminal success envelope
+and result schema before writing the bounded result file. CLI token counters
+override model-authored usage; Qwen prompt totals already include cached tokens,
+and costs stay unknown. Live Qwen events use their own format identity.
+Native Windows interactive coding uses protected program transport. Saved
+behavior uses the Codex instruction transport or Qwen's append-system-prompt
+argument with immutable external snapshots and tested PowerShell marshalling.
+Qwen receives identity and enabled memory this way even without an edited
+behavior profile, because it does not auto-read ADE's AGENTS.md injection;
+ADE never creates a project-owned QWEN.md. This interactive Qwen snapshot
+transport currently requires native Windows.
+Ollama sessions remain runtime `ollama` and never enter the OpenAI subscription
+collector. Interactive token collection is not implemented. Direct session
+choice `ollama` remains chat; saved-profile choice preserves mode and harness
+on PC/tablet. No remote command allowlist or host path exposure is added.
+[Goal 31 and evidence](OLLAMA_HARNESS_GOALS.md), [earlier evidence](OLLAMA_RESULTS.md).
 
 `harness:models` is a desktop-only audited launch channel with strict runtime/
 backend inputs. `RuntimeModelService` runs bounded CLI metadata probes in that

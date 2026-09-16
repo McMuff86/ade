@@ -211,7 +211,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   for (const agent of config.agents) {
     exactKeys(agent as unknown as Record<string, unknown>, [
       'id', 'categoryId', 'name', 'role', 'photo', 'speechVoiceId', 'profile', 'runtime', 'permissionMode', 'customCommand',
-      'ollamaModel', 'ollamaMode', 'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
+      'ollamaModel', 'ollamaMode', 'ollamaHarness', 'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'workspaceDir', 'homeWorkspaceDir',
       'homeExecutionBackend', 'defaultRepositoryId', 'memoryDir', 'teamRole', 'dashboardUrl',
       'dashboardCommand', 'dashboardTarget',
@@ -229,6 +229,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['dashboardCommand', agent.dashboardCommand],
     ] as const) boundedString(value, `agent.${field}`, true);
     if (agent.ollamaMode !== undefined && (agent.runtime !== 'ollama' || !['chat', 'coding'].includes(agent.ollamaMode))) throw new Error('Invalid Ollama mode.');
+    if (agent.ollamaHarness !== undefined && (agent.runtime !== 'ollama' || !['codex', 'qwen-code'].includes(agent.ollamaHarness))) throw new Error('Invalid Ollama harness.');
     modelId(agent.ollamaModel, OLLAMA_MODEL_PATTERN, 'agent.ollamaModel');
     modelId(agent.claudeModel, CLAUDE_MODEL_PATTERN, 'agent.claudeModel');
     modelId(agent.codexModel, CODEX_MODEL_PATTERN, 'agent.codexModel');
@@ -300,7 +301,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
   }
   for (const template of config.agentTemplates) {
     exactKeys(template as unknown as Record<string, unknown>, [
-      'id', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand', 'ollamaModel', 'ollamaMode',
+      'id', 'name', 'role', 'photo', 'runtime', 'permissionMode', 'customCommand', 'ollamaModel', 'ollamaMode', 'ollamaHarness',
       'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
       'memorySeed', 'createdAt', 'updatedAt',
     ], 'agent template');
@@ -311,6 +312,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
       ['grokModel', template.grokModel],
     ] as const) boundedString(value, `agentTemplate.${field}`, true);
     if (template.ollamaMode !== undefined && (template.runtime !== 'ollama' || !['chat', 'coding'].includes(template.ollamaMode))) throw new Error('Invalid Ollama template mode.');
+    if (template.ollamaHarness !== undefined && (template.runtime !== 'ollama' || !['codex', 'qwen-code'].includes(template.ollamaHarness))) throw new Error('Invalid Ollama harness.');
     modelId(template.ollamaModel, OLLAMA_MODEL_PATTERN, 'agentTemplate.ollamaModel');
     modelId(template.claudeModel, CLAUDE_MODEL_PATTERN, 'agentTemplate.claudeModel');
     modelId(template.codexModel, CODEX_MODEL_PATTERN, 'agentTemplate.codexModel');

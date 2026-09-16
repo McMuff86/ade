@@ -1,5 +1,10 @@
 # Ollama in ADE (15. September 2026)
 
+Erweiterung vom 16. September: [Goal 31](OLLAMA_HARNESS_GOALS.md) ergänzt
+Qwen Code als auswählbaren Coding-Harness. Die folgenden Nachweise beschreiben
+die ursprüngliche Codex-Anbindung; aktuelle Abnahme und Aktivierung stehen im
+Goal-31-Dokument und im [Handoff](HANDOFF.md).
+
 Der Operator hat das Diktat erfolgreich selbst getestet und einen zusätzlichen
 Ollama-Agenten samt Modellübersicht beauftragt.
 

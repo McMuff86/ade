@@ -49,6 +49,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
   );
   const [runtime, setRuntime] = useState<RuntimeId>('codex');
   const [ollamaModel, setOllamaModel] = useState('');
+  const [ollamaHarness, setOllamaHarness] = useState<'codex' | 'qwen-code'>('codex');
   const [ollamaMode, setOllamaMode] = useState<'chat' | 'coding'>('coding');
   const [claudeModel, setClaudeModel] = useState('');
   const [codexModel, setCodexModel] = useState('');
@@ -80,6 +81,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
+        ollamaHarness: runtime === 'ollama' ? ollamaHarness : undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
@@ -111,6 +113,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
     setCustomCommand(template.customCommand ?? '');
     setOllamaModel(template.ollamaModel ?? '');
     setOllamaMode(template.ollamaMode ?? 'chat');
+    setOllamaHarness(template.ollamaHarness ?? 'codex');
     setClaudeModel(template.claudeModel ?? '');
     setCodexModel(template.codexModel ?? DEFAULT_CODEX_MODEL);
     setCodexReasoningEffort(template.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT);
@@ -199,7 +202,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         </select>
       </div>
 
-      {runtime === 'ollama' && <OllamaModePicker id="agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} />}
+      {runtime === 'ollama' && <OllamaModePicker id="agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} harness={ollamaHarness} onHarnessChange={setOllamaHarness} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
         id={`agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}

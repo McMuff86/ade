@@ -70,6 +70,7 @@ import { SessionLaunchService, type InteractiveLaunchSettings } from './SessionL
 import { ProjectWorkspaceService } from '../repositories/ProjectWorkspaceService';
 import { prepareProgram, ProgramSignalReader } from './InteractiveProgram';
 import { prepareProtectedProgram } from './ProtectedProgram';
+import { QwenActivityParser } from '../orchestration/qwenStream';
 import { TerminalPromptDelivery } from './TerminalPromptDelivery';
 import { ProtectedPromptWriter } from './ProtectedPromptWriter';
 import type { TerminalPromptCapability, TerminalPromptRequest } from '../../shared/terminalPrompt';
@@ -114,7 +115,7 @@ export interface TaskLifecycleSink {
     env: Record<string, string>;
     command?: string;
     transport?: 'argument' | 'stdin';
-    activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
+    activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json';
   } | undefined;
   handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
@@ -168,7 +169,7 @@ interface Session {
 }
 
 interface SpawnSpec {
-  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json';
   file: string;
   args: string[];
   lineEnding: string;
@@ -552,6 +553,7 @@ export class PtyManager {
       : this.effectiveTaskAgent(savedAgent!, task?.runTaskId);
     if (!login) await new SessionLaunchService(this.store, this.execution).validateOllamaCoding(agent, scope.executionBackend);
     const ollamaCoding = agent.runtime === 'ollama' && agent.ollamaMode === 'coding';
+    const ollamaCodex = ollamaCoding && agent.ollamaHarness !== 'qwen-code';
     if (agentId && before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
     this.assertScopeAvailable(scope, task?.runTaskId);
     const managedLaunch = task?.runTaskId
@@ -563,7 +565,11 @@ export class PtyManager {
     // external snapshot transport, independent of the memory toggle.
     const profileIdentity = !task && !login && (!launchChoice || launchChoice.mode === 'agent')
       ? project?.profileId ? this.requireAgent(project.profileId) : savedAgent : undefined;
-    const profileSnapshot = profileIdentity?.profile !== undefined ? buildInteractiveProfileSnapshot(profileIdentity, this.store.get().settings.memory) : undefined;
+    // Qwen does not automatically read ADE's AGENTS.md/CLAUDE.md injection.
+    // Deliver identity/memory through the same external snapshot even without
+    // an explicitly edited behavior profile; never create QWEN.md in a project.
+    const profileSnapshot = profileIdentity && (profileIdentity.profile !== undefined || (ollamaCoding && !ollamaCodex))
+      ? buildInteractiveProfileSnapshot(profileIdentity, this.store.get().settings.memory) : undefined;
     if (allowQuestions && (agent.runtime !== 'codex' || agent.customCommand?.trim() || scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !this.questions)) {
       throw new Error('ade: Interaktive Runs benötigen eine native Codex-Laufzeit und den ADE-Rückfragendienst.');
     }
@@ -599,10 +605,10 @@ export class PtyManager {
     if (profileSnapshot && profileIdentity) {
       if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error('ade: Interaktive Profilanweisungen benötigen derzeit einen nativen Windows-Start.');
       if (!spec.initialCommand) throw new Error('ade: Dieser Sitzungsstart kann keine Profilanweisungen übertragen.');
-      const baseline = agent.runtime === 'codex' || ollamaCoding ? await readCodexProfileConfig({ cwd,
+      const baseline = agent.runtime === 'codex' || ollamaCodex ? await readCodexProfileConfig({ cwd,
         env: { ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) } }) : undefined;
       if (baseline?.status === 'unavailable') throw new Error(baseline.message);
-      preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent, ...(ollamaCoding ? { runtime: 'codex' as const } : {}) }, snapshot: profileSnapshot,
+      preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent, ...(ollamaCodex ? { runtime: 'codex' as const } : {}) }, snapshot: profileSnapshot,
         command: spec.initialCommand, scratchRoot: join(os.tmpdir(), 'ade-profile-snapshots'), workspaceDir: scope.workspaceDir,
         executionBackend: scope.executionBackend,
         codexDeveloperInstructions: baseline?.status === 'verified' ? { mode: 'append-verified', existing: baseline.developerInstructions ?? '' } : undefined });
@@ -1235,9 +1241,10 @@ export class PtyManager {
 }
 
 function activityParserFor(
-  format: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json',
+  format: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json',
 ): ClaudeActivityParser | CodexActivityParser | GrokActivityParser {
   if (format === 'codex-jsonl') return new CodexActivityParser();
   if (format === 'grok-streaming-json') return new GrokActivityParser();
+  if (format === 'qwen-stream-json') return new QwenActivityParser();
   return new ClaudeActivityParser();
 }

@@ -21,6 +21,7 @@ import { projectWorkspaceLaunchFlow } from './helpers/projectWorkspaceLaunchFlow
 import { projectGitFlow } from './helpers/projectGitFlow';
 import { terminalHomeFlow } from './helpers/terminalHomeFlow';
 import { workspaceAssignmentFlow } from './helpers/workspaceAssignmentFlow';
+import { ollamaHarnessFlow } from './helpers/ollamaHarnessFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
@@ -49,11 +50,16 @@ void (async () => {
   // Usage configuration/session-ID flags are part of an interactive start.
   // Account probes return above; version checks must not write a workspace proof.
   const interactiveProof = `args.Length == 0 || (cli == "CODEX" && Array.IndexOf(args, "-c") >= 0)
+    || (cli == "QWEN" && Array.IndexOf(args, "--model") >= 0)
     || ((cli == "CLAUDE" || cli == "GROK") && Array.IndexOf(args, "--session-id") >= 0)
     || (cli == "OLLAMA" && args.Length > 0 && args[0] == "run")`;
   writeFileSync(compile, `param([string]$Target)\nAdd-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\nusing System; using System.IO;\npublic class Fixture { public static void Main(string[] args) {\n  string cli = Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).ToUpperInvariant();\n  if (cli == "OLLAMA" && args.Length == 1 && args[0] == "list") { Console.WriteLine("NAME ID SIZE MODIFIED\\nfixture:small abc 1GB today\\nfixture:large def 2GB today"); return; }\n  ${quotaFixture}\n  ${inspectionFixtureCode}\n  ${latencyFixture}\n  string result = "ADE_SESSION_" + cli + "_READY " + String.Join(" ", args);\n  if (${interactiveProof}) File.WriteAllText("session-launch-proof.txt", result); Console.WriteLine(result);\n  if ((cli == "CLAUDE" || cli == "GROK") && File.Exists(Path.Combine(Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName), "cli-work-live"))) { while (true) System.Threading.Thread.Sleep(100); }\n} }\n'@\n`);
+  // A real interactive Qwen CLI remains open and does not echo its entire
+  // appended identity prompt. Keep this fixture visible through tablet attach.
+  writeFileSync(compile, readFileSync(compile, 'utf8').replace('Console.WriteLine(result);',
+    'if (cli == "QWEN" && Array.IndexOf(args, "--model") >= 0) { Console.WriteLine("ADE_SESSION_QWEN_READY model " + args[Array.IndexOf(args, "--model") + 1]); while (true) System.Threading.Thread.Sleep(100); } Console.WriteLine(result);'));
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
-  for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
+  for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama', 'qwen']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
   const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
   const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('missing port');
   const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
@@ -115,6 +121,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--ollama-harness-only')) {
+    await ollamaHarnessFlow(desktop, page, workspace, setup.agent, evidence, check); return;
+  }
   if (process.argv.includes('--tablet-layout-only')) {
     await tabletLayoutFlow(app, desktop, page, root, check); return;
   }
@@ -242,6 +251,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_OLLAMA_READY run fixture:large', { exact: false }).last().waitFor();
   const ollamaSessions = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
   check('tablet starts selected Ollama model in real home PTY', ollamaSessions.some((s) => s.launchChoice?.mode === 'ollama' && s.launchChoice.model === 'fixture:large' && !s.repositoryId));
+  await ollamaHarnessFlow(desktop, page, workspace, setup.agent, evidence, check);
   await terminalLauncher(workspace);
   await workspace.getByLabel('Sitzung starten mit', { exact: true }).selectOption('codex');
   await workspace.getByRole('button', { name: 'Sitzung starten', exact: true }).click();

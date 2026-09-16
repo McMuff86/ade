@@ -11,6 +11,7 @@ import { resolveClaudeCommand, resolveCodexExecCommand, resolveLaunchCommand, re
 import { parseClaudeUsage } from './claudeStream';
 import { parseCodexUsage } from './codexStream';
 import { parseGrokUsage, structuredResultFromGrokStream } from './grokStream';
+import { qwenTerminalResult } from './qwenStream';
 
 const RESULT_CAP_BYTES = 1024 * 1024;
 
@@ -41,7 +42,7 @@ export interface ManagedTaskLaunch {
   reportsTokens: boolean;
   reportsCost: boolean;
   /** Machine-readable output the main process can render as live activity. */
-  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json';
   /** Exact repo HEAD observed immediately before the managed process starts. */
   workspaceHeadSha?: string;
 }
@@ -66,6 +67,7 @@ export class RuntimeAdapterRegistry {
   constructor(adapters: RuntimeTaskAdapter[] = [
     new CodexJsonAdapter(),
     new OllamaCodingAdapter(),
+    new OllamaQwenAdapter(),
     new ClaudeStreamJsonAdapter(),
     new GrokJsonAdapter(),
     new FileResultAdapter(),
@@ -169,7 +171,32 @@ export class CodexJsonAdapter implements RuntimeTaskAdapter {
 export class OllamaCodingAdapter extends CodexJsonAdapter {
   override readonly id = 'ollama-codex-jsonl-v1';
   override supports(agent: Agent): boolean {
-    return agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && !agent.customCommand?.trim();
+    return agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && agent.ollamaHarness !== 'qwen-code' && !agent.customCommand?.trim();
+  }
+}
+
+/** Qwen Code executes tools; Ollama supplies inference. Distinct from native Codex/Goal 6. */
+export class OllamaQwenAdapter implements RuntimeTaskAdapter {
+  readonly id = 'ollama-qwen-stream-json-v1';
+  supports(agent: Agent): boolean {
+    return agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && agent.ollamaHarness === 'qwen-code' && !agent.customCommand?.trim();
+  }
+  capabilities(): { reportsTokens: boolean; reportsCost: boolean } { return { reportsTokens: true, reportsCost: false }; }
+  prepare(agent: Agent, _task: RunTask, prompt: string, files: ManagedTaskFiles, platform: 'win32' | 'posix'): ManagedTaskLaunch {
+    prepareFiles(files);
+    const base = resolveOllamaCodingCommand(agent, true);
+    const pipe = platform === 'win32' ? '$env:ADE_TASK_PROMPT | ' : `printf '%s\\n' "$ADE_TASK_PROMPT" | `;
+    const schema = platform === 'win32' ? '"@$env:ADE_TASK_SCHEMA_PATH"' : '"@$ADE_TASK_SCHEMA_PATH"';
+    return { adapterId: this.id, prompt: appendResultContract(prompt, files, true), files, env: taskEnv(files),
+      command: `${pipe}${base} --output-format stream-json --json-schema ${schema}`, transport: 'stdin', reportsTokens: true, reportsCost: false,
+      activityFormat: 'qwen-stream-json' };
+  }
+  readResult(launch: ManagedTaskLaunch, output: string): StructuredTaskResult {
+    const terminal = qwenTerminalResult(output);
+    const result = validateStructuredResult(terminal.result);
+    result.usage = { inputTokens: terminal.usage?.inputTokens ?? null, outputTokens: terminal.usage?.outputTokens ?? null, costUsd: null };
+    writeFileSync(launch.files.resultPath, `${JSON.stringify(result)}\n`, 'utf8');
+    return result;
   }
 }
 

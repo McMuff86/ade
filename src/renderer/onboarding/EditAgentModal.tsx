@@ -51,6 +51,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const [runtime, setRuntime] = useState<RuntimeId>(agent.runtime);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(agent.permissionMode);
   const [ollamaModel, setOllamaModel] = useState(agent.ollamaModel ?? '');
+  const [ollamaHarness, setOllamaHarness] = useState<'codex' | 'qwen-code'>(agent.ollamaHarness ?? 'codex');
   const [ollamaMode, setOllamaMode] = useState<'chat' | 'coding'>(agent.ollamaMode ?? 'chat');
   const [claudeModel, setClaudeModel] = useState(agent.claudeModel ?? '');
   const [codexModel, setCodexModel] = useState(agent.codexModel ?? DEFAULT_CODEX_MODEL);
@@ -84,6 +85,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     permissionMode,
     customCommand: undefined,
     ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
+    ollamaHarness: runtime === 'ollama' ? ollamaHarness : undefined,
     ollamaModel: runtime === 'ollama' ? ollamaModel.trim() || undefined : undefined,
     claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
     codexModel: runtime === 'codex' ? codexModel.trim() || DEFAULT_CODEX_MODEL : undefined,
@@ -136,6 +138,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         permissionMode,
         customCommand: customCommand.trim() || undefined,
         ollamaMode: runtime === 'ollama' ? ollamaMode : undefined,
+        ollamaHarness: runtime === 'ollama' ? ollamaHarness : undefined,
         ollamaModel: runtime === 'ollama' && ollamaModel.trim() ? ollamaModel.trim() : undefined,
         claudeModel: runtime === 'claude' ? claudeModel.trim() || undefined : undefined,
         codexModel: runtime === 'codex' && codexModel.trim() ? codexModel.trim() : undefined,
@@ -220,7 +223,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
         </select>
       </div>
 
-      {runtime === 'ollama' && <OllamaModePicker id="edit-agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} />}
+      {runtime === 'ollama' && <OllamaModePicker id="edit-agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} harness={ollamaHarness} onHarnessChange={setOllamaHarness} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
         id={`edit-agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}

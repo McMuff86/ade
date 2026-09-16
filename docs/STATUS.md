@@ -1,5 +1,16 @@
 # ADE implementation status
 
+## Goal 31 — Ollama-Coding-Harness (16. September 2026)
+
+Im Coding-Modus ist **Codex CLI oder Qwen Code** auswählbar; Modellwahl bleibt
+separat. Auswahl bleibt in Profilen/Vorlagen/portablen Daten erhalten und gilt
+für PC-/Tablet-Profilstarts und verwaltete Aufgaben. Fokussierte Abnahme und
+reale native Qwen-Code-/Qwen3-Coder-Dateiänderung mit positivem Test bestanden.
+`pnpm verify` besteht vollständig: drei TypeScript-Projekte, 72 Suiten / 3.088
+Fachchecks, Build, alle App-/Browserflows und 22 Visualchecks. Codecommit,
+finaler Build und persönliche Aktivierung folgen. [Goals und Nachweise](OLLAMA_HARNESS_GOALS.md).
+Die folgenden Abschnitte beschreiben vorherige Lieferungen.
+
 ## Tablet-Live-Diktat und scharfe Profilbilder (16. September 2026)
 
 Der Operator bestätigt den neuen Build und beauftragt Live-Transkription auch

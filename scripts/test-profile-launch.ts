@@ -61,6 +61,18 @@ check('scratch cannot be inside identity or actual project workspace', () => {
 if (process.platform === 'win32') {
   const shells = [join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), 'pwsh.exe'];
   for (const shell of shells) {
+    check(`${shell.includes('WindowsPowerShell') ? 'Windows PowerShell 5.1' : 'PowerShell 7'} delivers exact Qwen profile through an npm-style shim`, () => {
+      const prepared = prepareProfileLaunch({ ...base, command: `& ${ps(shim)}`,
+        agent: { ...agent, runtime: 'ollama', ollamaMode: 'coding', ollamaHarness: 'qwen-code' }, codexDeveloperInstructions: undefined });
+      try {
+        assert.equal(prepared.command.includes('PRIVATE PROFILE CONTENT'), false);
+        const script = join(root, 'launch-qwen.ps1'); writeFileSync(script, prepared.command, 'utf8');
+        execFileSync(shell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { cwd: repo, stdio: 'pipe', timeout: 15_000 });
+        assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), ['--append-system-prompt', content]);
+        assert.equal(existsSync(marker), false);
+        assert.deepEqual(readdirSync(repo), []);
+      } finally { prepared.dispose(); }
+    });
     check(`${shell.includes('WindowsPowerShell') ? 'Windows PowerShell 5.1' : 'PowerShell 7'} delivers exact Codex TOML argument`, () => {
       const prepared = prepareProfileLaunch(base);
       try {

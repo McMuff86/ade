@@ -64,8 +64,10 @@ export interface WorkspaceBundleAgent {
   runtime: RuntimeId;
   permissionMode: PermissionMode;
   ollamaModel?: string;
-  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  /** Absent/chat preserves direct Ollama chat; coding uses the selected harness with Ollama. */
   ollamaMode?: 'chat' | 'coding';
+  /** Coding harness; absent preserves Codex CLI. */
+  ollamaHarness?: 'codex' | 'qwen-code';
   claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
@@ -86,8 +88,10 @@ export interface WorkspaceBundleAgentTemplate {
   runtime: RuntimeId;
   permissionMode: PermissionMode;
   ollamaModel?: string;
-  /** Absent/chat preserves direct Ollama chat; coding uses the Codex CLI with Ollama. */
+  /** Absent/chat preserves direct Ollama chat; coding uses the selected harness with Ollama. */
   ollamaMode?: 'chat' | 'coding';
+  /** Coding harness; absent preserves Codex CLI. */
+  ollamaHarness?: 'codex' | 'qwen-code';
   claudeModel?: string;
   codexModel?: string;
   codexReasoningEffort?: CodexReasoningEffort;
@@ -298,6 +302,11 @@ function parseCategory(value: unknown, index: number): WorkspaceBundleCategory {
   };
 }
 
+function parseOllamaHarness(value: unknown, runtime: unknown, label: string): 'codex' | 'qwen-code' {
+  if (runtime !== 'ollama') throw new Error(`${label}: Ollama harness requires runtime ollama`);
+  return enumeration(value, new Set(['codex', 'qwen-code'] as const), `${label}.ollamaHarness`);
+}
+
 function parseOllamaMode(value: unknown, runtime: unknown, label: string): 'chat' | 'coding' {
   if (runtime !== 'ollama') throw new Error(`${label}: Ollama mode requires runtime ollama`);
   return enumeration(value, new Set(['chat', 'coding'] as const), `${label}.ollamaMode`);
@@ -307,7 +316,7 @@ function parseAgent(value: unknown, index: number): WorkspaceBundleAgent {
   const label = `agents[${index}]`;
   const raw = record(value, label);
   exactKeys(raw, [
-    'id', 'categoryId', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel', 'ollamaMode',
+    'id', 'categoryId', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel', 'ollamaMode', 'ollamaHarness',
     'claudeModel', 'codexModel', 'codexReasoningEffort', 'grokModel', 'grokReasoningEffort',
     'defaultRepositoryId', 'teamRole',
     'photoAssetId', 'memory', 'sourceHomeBackend', 'sourceHomePathStyle',
@@ -327,6 +336,7 @@ function parseAgent(value: unknown, index: number): WorkspaceBundleAgent {
     ...(text(raw.role, `${label}.role`, 500, { optional: true }) ? { role: raw.role as string } : {}),
     runtime,
     permissionMode: enumeration(raw.permissionMode, PERMISSION_MODES, `${label}.permissionMode`),
+    ...(raw.ollamaHarness === undefined ? {} : { ollamaHarness: parseOllamaHarness(raw.ollamaHarness, raw.runtime, label) }),
     ...(raw.ollamaMode === undefined ? {} : { ollamaMode: parseOllamaMode(raw.ollamaMode, raw.runtime, label) }),
     ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
     ...(text(raw.claudeModel, `${label}.claudeModel`, 100, { optional: true, pattern: CLAUDE_MODEL_PATTERN }) ? { claudeModel: raw.claudeModel as string } : {}),
@@ -347,7 +357,7 @@ function parseTemplate(value: unknown, index: number): WorkspaceBundleAgentTempl
   const label = `agentTemplates[${index}]`;
   const raw = record(value, label);
   exactKeys(raw, [
-    'id', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel', 'ollamaMode', 'claudeModel', 'codexModel',
+    'id', 'name', 'role', 'runtime', 'permissionMode', 'ollamaModel', 'ollamaMode', 'ollamaHarness', 'claudeModel', 'codexModel',
     'codexReasoningEffort', 'grokModel', 'grokReasoningEffort', 'photoAssetId', 'memorySeed',
   ], label);
   const effort = raw.codexReasoningEffort === undefined
@@ -362,6 +372,7 @@ function parseTemplate(value: unknown, index: number): WorkspaceBundleAgentTempl
     ...(text(raw.role, `${label}.role`, 500, { optional: true }) ? { role: raw.role as string } : {}),
     runtime: enumeration(raw.runtime, RUNTIMES, `${label}.runtime`),
     permissionMode: enumeration(raw.permissionMode, PERMISSION_MODES, `${label}.permissionMode`),
+    ...(raw.ollamaHarness === undefined ? {} : { ollamaHarness: parseOllamaHarness(raw.ollamaHarness, raw.runtime, label) }),
     ...(raw.ollamaMode === undefined ? {} : { ollamaMode: parseOllamaMode(raw.ollamaMode, raw.runtime, label) }),
     ...(text(raw.ollamaModel, `${label}.ollamaModel`, 200, { optional: true, pattern: OLLAMA_MODEL_PATTERN }) ? { ollamaModel: raw.ollamaModel as string } : {}),
     ...(text(raw.claudeModel, `${label}.claudeModel`, 100, { optional: true, pattern: CLAUDE_MODEL_PATTERN }) ? { claudeModel: raw.claudeModel as string } : {}),

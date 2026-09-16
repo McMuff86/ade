@@ -39,7 +39,7 @@ export class RemoteWorkspaceService {
         ? await spawnAgentTemplate(this.store, { templateId: input.source.id, categoryId, name: input.name, defaultRepositoryId: null }, this.scopes, { baseDir: this.baseDir })
         : await createAgent(this.store, { categoryId, name: input.name, defaultRepositoryId: null,
           runtime: source?.runtime ?? 'codex', permissionMode: source?.permissionMode ?? 'default', role: source?.role,
-          customCommand: source?.customCommand, ollamaModel: source?.ollamaModel, ollamaMode: source?.ollamaMode, claudeModel: source?.claudeModel, codexModel: source?.codexModel,
+          customCommand: source?.customCommand, ollamaModel: source?.ollamaModel, ollamaMode: source?.ollamaMode, ollamaHarness: source?.ollamaHarness, claudeModel: source?.claudeModel, codexModel: source?.codexModel,
           codexReasoningEffort: source?.codexReasoningEffort, grokModel: source?.grokModel, grokReasoningEffort: source?.grokReasoningEffort,
         }, this.scopes, { baseDir: this.baseDir });
       return { created: { kind: 'agent', id: agent.id } };

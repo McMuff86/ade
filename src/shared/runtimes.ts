@@ -18,7 +18,7 @@ export interface LaunchProfile {
 }
 
 export interface TaskLaunchCommand {
-  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json';
+  activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json';
   command: string;
   transport: 'argument' | 'stdin';
 }
@@ -153,7 +153,7 @@ export function effectiveParticipantAgent(agent: Agent, runtime?: RuntimeId): Ag
  */
 export function resolveLaunchCommand(
   agent: Pick<Agent,
-    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' |
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' | 'ollamaHarness' |
     'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
 ): string {
   if (agent.customCommand && agent.customCommand.trim().length > 0) {
@@ -190,13 +190,20 @@ function safeOllamaModel(model: string | undefined): string {
   return value;
 }
 
-/** Explicit local provider for each invocation; never changes the user's Codex config. */
+/** Explicit provider for each invocation; never changes global CLI authentication. */
 export function resolveOllamaCodingCommand(
-  agent: Pick<Agent, 'permissionMode' | 'ollamaModel'>,
+  agent: Pick<Agent, 'permissionMode' | 'ollamaModel' | 'ollamaHarness'>,
   task = false,
 ): string {
   const model = safeOllamaModel(agent.ollamaModel);
   if (!model) throw new Error('ade: Select an Ollama model before starting a coding session.');
+  if (agent.ollamaHarness === 'qwen-code') {
+    const approval = agent.permissionMode === 'bypass' ? 'yolo' : agent.permissionMode === 'accept-edits' ? 'auto-edit' : 'default';
+    // "ollama" is a public placeholder, never a stored provider credential.
+    // Explicit CLI values take precedence over Qwen's cloud/provider defaults.
+    return `qwen --auth-type openai --openai-base-url http://127.0.0.1:11434/v1 --openai-api-key ollama --model ${model} --approval-mode ${approval}`;
+  }
+  if (agent.ollamaHarness !== undefined && agent.ollamaHarness !== 'codex') throw new Error('ade: Invalid Ollama coding harness.');
   const base = task ? resolveCodexExecCommand(agent.permissionMode)
     : LAUNCH_PROFILES.codex.commands[agent.permissionMode]!;
   return `${base} --oss --local-provider ollama --model ${model}`;
@@ -210,7 +217,7 @@ export function resolveOllamaCodingCommand(
  */
 export function resolveTaskLaunchCommand(
   agent: Pick<Agent,
-    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' |
+    'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' | 'ollamaHarness' |
     'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
   platform: 'win32' | 'posix',
 ): TaskLaunchCommand | null {
@@ -255,6 +262,9 @@ export function resolveTaskLaunchCommand(
     case 'ollama':
       if (agent.ollamaMode === 'coding') {
         const pipe = platform === 'win32' ? '$env:ADE_TASK_PROMPT | ' : `printf '%s\\n' "$ADE_TASK_PROMPT" | `;
+        if (agent.ollamaHarness === 'qwen-code') {
+          return { command: `${pipe}${base} --output-format stream-json`, transport: 'stdin', activityFormat: 'qwen-stream-json' };
+        }
         return { command: `${pipe}${resolveOllamaCodingCommand(agent, true)} --json --skip-git-repo-check -`, transport: 'stdin', activityFormat: 'codex-jsonl' };
       }
       return { command: `${base} ${prompt}`, transport: 'argument' };

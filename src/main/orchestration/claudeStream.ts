@@ -55,6 +55,8 @@ function describeTool(name: string, input: unknown): string {
 /** Incremental renderer: feed PTY chunks, receive readable activity lines. */
 export class ClaudeActivityParser {
   private pending = '';
+  constructor(private readonly usageReader: (event: Record<string, unknown>) => ClaudeUsage | null = readUsage,
+    private readonly initSubtypes: readonly string[] = ['init']) {}
 
   push(chunk: string): ActivityLine[] {
     this.pending += normalizePtyJsonStream(chunk);
@@ -75,7 +77,7 @@ export class ClaudeActivityParser {
   private render(event: Record<string, unknown>): ActivityLine[] {
     const type = event['type'];
 
-    if (type === 'system' && event['subtype'] === 'init') {
+    if (type === 'system' && typeof event['subtype'] === 'string' && this.initSubtypes.includes(event['subtype'])) {
       const model = typeof event['model'] === 'string' ? event['model'] : 'unbekannt';
       return [{ kind: 'init', text: `Session gestartet · ${model}` }];
     }
@@ -103,7 +105,7 @@ export class ClaudeActivityParser {
     }
 
     if (type === 'result') {
-      const usage = readUsage(event);
+      const usage = this.usageReader(event);
       const failed = event['is_error'] === true || event['subtype'] !== 'success';
       const turns = typeof event['num_turns'] === 'number' ? `${event['num_turns']} Turns` : null;
       const tokens = usage ? `${usage.inputTokens} in / ${usage.outputTokens} out` : null;
