@@ -1,4 +1,4 @@
-.reply-speech-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border, #566); border-radius: 14px; background: var(--panel, #20252d); color: var(--text, #f4f4f4); }
+.reply-speech-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border, #566); border-radius: 14px; background: var(--panel, #20252d); color: var(--text, #f4f4f4); font: 14px/1.5 system-ui, sans-serif; white-space: normal; overflow-wrap: anywhere; }
 .reply-speech-dialog::backdrop { background: #0007; }
 .reply-speech-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .reply-speech-dialog h2 { margin: 0; font-size: 1.2rem; }

@@ -1,7 +1,7 @@
 # Antworten auf PC und Tablet vorlesen
 
 Stand 16. September 2026: implementiert; TypeScript, 28 Text-/Dienstprüfungen,
-20 Remote-Vertragsprüfungen und 22 echte Electron-/Chromium-Bedienprüfungen
+20 Remote-Vertragsprüfungen und 23 echte Electron-/Chromium-Bedienprüfungen
 bestanden. Gesamtabnahme und persönliche Aktivierung folgen.
 
 ## Bedienung
@@ -71,7 +71,7 @@ werden erneut geprüft. Alle Wire-Fehler durchlaufen die vorhandene Redaktion.
 ## Nachweise
 
 - `pnpm test:reply-speech`: 28 Dienst-/Textprüfungen, 20 Remote-Prüfungen.
-- `pnpm test:reply-speech-electron`: 22 Prüfungen mit echter nativer Windows-PTY,
+- `pnpm test:reply-speech-electron`: 23 Prüfungen mit echter nativer Windows-PTY,
   Electron-Renderer, gekoppeltem Chromium-Browser und signierter HTTPS-Kommunikation.
 - Audio-Decodierung, Vorschau ohne Synthese, gespeichertes Tempo, Wiederholung,
   Abbruch, Providerfehler, Code-only-Fehler, Fokus, Verlaufmarkierung, Telefonlayout,

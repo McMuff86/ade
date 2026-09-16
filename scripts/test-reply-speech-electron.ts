@@ -188,6 +188,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   dialog = await openReply(tablet, project); await editReply(dialog);
   const box = await dialog.boundingBox();
   check('phone dialog stays within the viewport and uses touch-size controls', !!box && box.x >= 0 && box.x + box.width <= 390 && (await dialog.getByRole('button', { name: 'Anhören', exact: true }).boundingBox())!.height >= 44);
+  check('phone help text wraps instead of inheriting terminal whitespace and tiny type', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth && getComputedStyle(node).whiteSpace === 'normal' && Number.parseFloat(getComputedStyle(node).fontSize) >= 14));
   await dialog.screenshot({ path: join(evidence, 'phone-reply.png') });
   const storage = await tablet.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   const receipts = readFileSync(join(root, 'profile', 'ade', 'remote', 'commands.json'), 'utf8');
