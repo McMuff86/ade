@@ -116,6 +116,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'speech:configure': { target: { kind: 'default' }, voiceId: null },
   'speech:select': { voiceId: 'EXAVITQu4vr4xnSDxMaL' },
   'speech:test': { voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  'speech:reply': { operation: 'prepare', sessionId: 'sfixture', text: 'Die Antwort ist bereit.', source: 'selection', mode: 'excerpt' },
   'photo:import': { bytesBase64: 'YQ==', mime: 'image/png' },
   'category:create': { name: 'Project', kind: 'plain' },
   'category:update': { id: 'category', name: 'Project', photo: null },

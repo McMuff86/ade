@@ -135,6 +135,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'speech:voices': { effect: 'host', surface: 'desktop', audit: false },
   'speech:select': mutate,
   'speech:test': { effect: 'host', surface: 'desktop', audit: true },
+  'speech:reply': { effect: 'host', surface: 'desktop', audit: true },
   'speech:preferences': { effect: 'host', surface: 'desktop', audit: false },
   'agent:behaviorGet': { effect: 'host', surface: 'desktop', audit: false },
   'agent:behaviorSet': { effect: 'mutate', surface: 'desktop', audit: true },

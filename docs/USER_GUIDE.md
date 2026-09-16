@@ -1,5 +1,14 @@
 # ADE User-Guide
 
+## Eine Sitzungsantwort anhören
+
+Im Terminal **Antwort anhören** wählen. Eine Textmarkierung wird bevorzugt;
+sonst wird der sichtbare Ausschnitt übernommen. Auf dem Tablet kann auch der
+**Verlauf** geöffnet und darin Text markiert werden. Unter **Text zum Vorlesen**
+die gewünschte Antwort behalten, **Sprechtext prüfen**, dann **Anhören**.
+**Stoppen** bricht ab; **Erneut abspielen** verwendet das vorhandene Audio.
+Einstellungen → Stimme gilt auch hier. [Details und Grenzen](REPLY_SPEECH.md).
+
 ## Stimme persönlich einstellen
 
 Auf PC und Tablet **Settings/Einstellungen → Stimme → Stimmen laden** öffnen.

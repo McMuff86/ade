@@ -1,5 +1,13 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Antwort anhören
+
+PC und Tablet bieten in interaktiven Terminals **Antwort anhören**. Markierung
+oder Ausschnitt werden als bearbeitbarer Entwurf geöffnet; nach Prüfung startet
+**Anhören** mit der gespeicherten Stimme und ihren Parametern. Stoppen und
+kostenfreies Wiederholen desselben Audios gehören dazu. Keine behauptete automatische
+Erkennung der letzten Agentenantwort. [Grenzen und Nachweise](REPLY_SPEECH.md).
+
 ## Passive WSL discovery / Hermes (16 September 2026)
 
 Listing execution environments must not start WSL distributions. Registration makes a backend selectable; only an explicit backend operation may start it and validate runtime health. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).

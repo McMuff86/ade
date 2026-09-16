@@ -1,0 +1,14 @@
+.reply-speech-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border, #566); border-radius: 14px; background: var(--panel, #20252d); color: var(--text, #f4f4f4); }
+.reply-speech-dialog::backdrop { background: #0007; }
+.reply-speech-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.reply-speech-dialog h2 { margin: 0; font-size: 1.2rem; }
+.reply-speech-dialog button, .reply-speech-dialog select { min-height: 44px; font: inherit; }
+.reply-speech-dialog button:focus-visible, .reply-speech-dialog select:focus-visible { outline: 2px solid var(--accent, #8cc8ff); outline-offset: 3px; }
+.reply-speech-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.reply-speech-dialog textarea { display: block; box-sizing: border-box; width: 100%; max-width: 100%; margin: 8px 0; padding: 10px; font: inherit; color: inherit; background: var(--surface, #15191e); border: 1px solid var(--border, #566); border-radius: 6px; resize: vertical; }
+.reply-speech-dialog textarea:focus-visible { outline: 2px solid var(--accent, #8cc8ff); outline-offset: 2px; }
+.reply-speech-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.reply-speech-help { font-size: .9em; opacity: .8; line-height: 1.5; }
+.reply-speech-error { max-width: 100%; overflow-wrap: anywhere; }
+.m-terminal-read-reply { position: absolute; top: 4px; left: 12px; z-index: 3; }
+.m-terminal-read-reply > button { min-height: 44px; }

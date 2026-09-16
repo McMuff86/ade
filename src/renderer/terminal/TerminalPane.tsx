@@ -14,7 +14,7 @@
  * terminal is disposed only when the session's tab is closed (unmount).
  */
 
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { SearchAddon } from '@xterm/addon-search';
@@ -30,6 +30,8 @@ import { TERMINAL_FONT_SIZES, useTerminalPreferences } from './preferences';
 import { useCliWorkPreferences } from '../work/cliWorkPreferences';
 import { DesktopPromptDialog } from './DesktopPromptDialog';
 import { useAppData } from '../stores/appdata';
+import { ReplySpeechButton, type ReplySpeechPort } from './ReplySpeechButton';
+import { terminalReplySource } from './replySource';
 
 const RESIZE_DEBOUNCE_MS = 75;
 const SCROLLBACK = 5000;
@@ -67,6 +69,12 @@ export function TerminalPane({
   useEffect(() => { if (!active) setPromptOpen(false); }, [active]);
   const profileContext = useSessions(state => state.sessions[sessionId]?.profileContext);
   const termRef = useRef<Terminal | null>(null);
+  const replyPort = useMemo<ReplySpeechPort>(() => ({
+    prepare: input => window.ade.invoke('speech:reply', { operation: 'prepare', sessionId, ...input }),
+    speak: replyId => window.ade.invoke('speech:reply', { operation: 'speak', replyId }),
+    read: replyId => window.ade.invoke('speech:reply', { operation: 'read', replyId }),
+    cancel: replyId => window.ade.invoke('speech:reply', { operation: 'cancel', replyId }),
+  }), [sessionId]);
   const fitRef = useRef<FitAddon | null>(null);
   const searchRef = useRef<SearchAddon | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -353,6 +361,9 @@ export function TerminalPane({
           else setPromptOpen(true);
         }}>Prompt / Diktat</button>
       <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>Verlauf-Anfang</button>
+      {session?.kind === 'interactive' && !session.remoteAccessBlocked && <ReplySpeechButton key={sessionId} port={replyPort}
+        active={active} disabled={promptOpen} readSource={() => terminalReplySource(termRef.current)}
+        fallbackFocus={() => hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} />}
       <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>Zur Live-Ausgabe</button>
       <label>Schrift<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
         {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size} px</option>)}

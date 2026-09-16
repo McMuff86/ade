@@ -66,13 +66,13 @@ type Route =
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
-  | { kind: 'speechQuery' | 'speechCommand' }
+  | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
   | { kind: 'terminalSessions' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -130,6 +130,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/projects/membership': return { route: { kind: 'projectMembership' }, allow: ['POST'] };
     case '/api/v1/speech/query': return { route: { kind: 'speechQuery' }, allow: ['POST'] };
     case '/api/v1/speech/command': return { route: { kind: 'speechCommand' }, allow: ['POST'] };
+    case '/api/v1/terminal/speech': return { route: { kind: 'terminalSpeech' }, allow: ['POST'] };
     case '/api/v1/admin/git': return { route: { kind: 'queryGit' }, allow: ['POST'] };
     case '/api/v1/workspace/query': return { route: { kind: 'queryWorkspace' }, allow: ['POST'] };
     case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
@@ -469,6 +470,7 @@ export class HostApiServer {
         case 'projectMembership':
         case 'speechQuery':
         case 'speechCommand':
+        case 'terminalSpeech':
         case 'queryGit':
         case 'queryWorkspace':
         case 'assignmentQuery':
@@ -608,6 +610,7 @@ export class HostApiServer {
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'projectMembership' ? await this.application.projectMembership(context, payload)
         : kind === 'speechQuery' || kind === 'speechCommand' ? await this.application.remoteSpeech(context, payload, kind === 'speechCommand')
+        : kind === 'terminalSpeech' ? await this.application.terminalSpeech(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)
         : kind === 'saveWorkspaceFile'
         ? await this.application.saveWorkspaceFile(context, payload)

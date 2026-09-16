@@ -1,5 +1,7 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { SpeechService } from './settings/SpeechService';
+import { ReplySpeechService } from './settings/ReplySpeechService';
+import { isSecretEnvName } from './errors';
 import { DictationService } from './settings/DictationService';
 import { DictationJobs } from './settings/DictationJobs';
 import { NativeUsageService } from './usage/NativeUsageService';
@@ -106,6 +108,7 @@ let remoteTerminals: RemoteTerminalService | null = null;
 let dictationJobs: DictationJobs | null = null;
 let nativeUsage: NativeUsageService | null = null;
 let stopTerminalRevocation: (() => void) | null = null;
+let replySpeech: ReplySpeechService | null = null;
 let orchestration: OrchestrationService | null = null;
 let runCoordinator: RunCoordinator | null = null;
 let hostApiServer: HostApiServer | null = null;
@@ -297,6 +300,33 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
   dictationJobs = recordings;
   const speechPreferences = new SpeechPreferences(store, speech);
+  const replies = new ReplySpeechService(speech, speechPreferences, () => [...new Set(
+    (['shell', 'codex', 'claude', 'grok'] as const).flatMap(runtime => Object.entries(harnessCredentials.envFor(runtime))
+      .filter(([name]) => isSecretEnvName(name)).map(([, value]) => value)),
+  )]);
+  replySpeech = replies;
+  const replyOwners = new Set<number>();
+  handleWithEvent(IPC.SpeechReply, (input, event) => {
+    const owner = `desktop:${event.sender.id}`;
+    if (input.operation === 'prepare') {
+      if (!replyOwners.has(event.sender.id)) {
+        const id = event.sender.id; replyOwners.add(id);
+        event.sender.once('destroyed', () => { replies.revoke(owner); replyOwners.delete(id); });
+      }
+      const session = ptyManager?.getSessionMeta(input.sessionId);
+      const authorize = () => {
+        const current = ptyManager?.getSessionMeta(input.sessionId);
+        if (event.sender.isDestroyed() || !session || !current || current.kind !== 'interactive' || current.runTaskId || current.remoteAccessBlocked
+          || current.agentId !== session.agentId || current.repositoryId !== session.repositoryId) throw new Error('Diese Terminalsitzung ist nicht mehr verfügbar.');
+      };
+      return replies.prepare(owner, { text: input.text, source: input.source, mode: input.mode }, Object.assign(authorize, {
+        usage: { terminalSessionId: session?.id, agentId: session?.agentId, repositoryId: session?.repositoryId ?? undefined },
+      }));
+    }
+    if (input.operation === 'read') return replies.read(owner, input.replyId);
+    if (input.operation === 'cancel') return replies.cancel(owner, input.replyId);
+    return hostOperations.use(() => replies.speak(owner, input.replyId));
+  });
   const agentBehavior = new AgentBehaviorService(store);
   handle(IPC.AgentBehaviorGet, ({ agentId }) => agentBehavior.query(agentId));
   handle(IPC.AgentBehaviorSet, (input) => agentBehavior.update(input));
@@ -381,6 +411,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   (id, selection) => deviceResources.assertSelection(id, selection));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => {
     remoteTerminals?.revoke(id);
+    if (id === null) { for (const device of remoteDevices.inventory().devices) replies.revoke(`device:${device.id}`); }
+    else replies.revoke(`device:${id}`);
     if (id === null) dictationJobs?.revokeDevices();
     else dictationJobs?.revokeOwner(`device:${id}`);
   });
@@ -418,6 +450,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       projectPublish,
       workbench, terminals: remoteTerminals,
       speech: new RemoteSpeechService(speechPreferences, speech),
+      replies,
       dictation: dictationJobs!,
       behavior: agentBehavior,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
@@ -1179,6 +1212,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export async function disposePtyManager(): Promise<void> {
+  const replies = replySpeech; replySpeech = null;
+  await replies?.dispose();
   dictationJobs?.dispose(); dictationJobs = null;
   integrationService?.stop(); integrationService = null;
   stopTerminalRevocation?.(); stopTerminalRevocation = null;

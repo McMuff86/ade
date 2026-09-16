@@ -11,7 +11,7 @@ export interface TokenCounts {
 }
 export type UsageProvider = 'codex' | 'claude' | 'grok' | 'elevenlabs';
 export type UsageCostKind = 'unknown' | 'provider-estimate' | 'provider-reported' | 'configured-estimate';
-export type UsageProduct = 'coding' | 'dictation' | 'speech-test';
+export type UsageProduct = 'coding' | 'dictation' | 'speech-test' | 'speech-reply';
 
 export const TOKEN_FIELDS = ['input', 'inputUncached', 'output', 'cacheRead', 'cacheWrite', 'reasoning'] as const;
 export const unknownTokens = (): TokenCounts => ({ input: null, inputUncached: null, output: null, cacheRead: null, cacheWrite: null, reasoning: null });

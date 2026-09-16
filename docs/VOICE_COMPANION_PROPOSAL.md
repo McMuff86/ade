@@ -1,5 +1,28 @@
 # Goal 33 — Persönlicher Sprachdialog auf PC und Tablet
 
+## Nächster Vorschlag: globaler Einstieg „Sprachsteuerung“
+
+Adi wünscht den Computer unabhängig von einer Coding-Sitzung. Vorgeschlagen ist
+ein dauerhaft sichtbarer Button in der gemeinsamen Kopfleiste, erreichbar aus
+Overview, Projekte, Terminals, Work und Graph sowie dem Tablet. Alle Einstiege
+öffnen denselben zentralen Sprachdialog; Projekt und CLI sind keine Voraussetzung.
+
+Erster Ablauf: **Sprachsteuerung → Aktivieren → „Computer“ → kurze Begrüssung →
+Befehl**. Zunächst begrenzte Navigationsbefehle wie „Öffne meine Projekte“,
+„Zeige laufende Aufgaben“ und „Öffne Rhino Compute Platform“. Erkannten Befehl
+sichtbar zeigen; mehrdeutige Projektnamen zur Auswahl anbieten. Antworten nutzen
+die vorhandene Standardstimme und Einstellungen. Stoppen, Textbedienung und
+klare Anzeige, wann das Mikrofon hört, bleiben jederzeit verfügbar.
+
+Dafür braucht die zentrale Spracherkennung einen eigenen, sitzungsunabhängigen
+Vertrag: Die bisherigen Diktattickets sind absichtlich an ein konkretes Terminal
+gebunden. Freier Dialog, eine Zusammenfassung letzter Arbeiten und das Ausführen
+neuer Aufgaben folgen separat mit klarer Kontextauswahl. Dieser globale Ablauf
+ist hier als Vorschlag dokumentiert und noch nicht implementiert.
+
+Der aktuelle Ausbau [Antwort anhören](REPLY_SPEECH.md) ergänzt zuerst den
+prüfbaren Vorleseablauf in bestehenden Sitzungen.
+
 **Aktueller Ausbau 33.0b:** eigener Stimmen-Tab mit den direkt unterstützten
 ElevenLabs-Parametern und Standardtempo 0.85. Implementiert und fokussiert geprüft;
 [Vertrag, Bedienung und Abnahme](VOICE_SETTINGS.md). Die folgenden festen Werte

@@ -23,7 +23,7 @@ export function SessionConsumptionView({ value }: { value: SessionConsumption })
       {value.models.length > 0 && <p>Gemeldete Modelle: {value.models.join(', ')}</p>}
     </>}
     {value.speech?.map(speech => <div key={speech.product} role="region" aria-label={speech.product === 'dictation' ? 'Diktatverbrauch' : 'Stimmtestverbrauch'}>
-      <strong>ElevenLabs · {speech.product === 'dictation' ? 'Diktat' : 'Stimmtest'}</strong>
+      <strong>ElevenLabs · {speech.product === 'dictation' ? 'Diktat' : speech.product === 'speech-reply' ? 'Antwort vorlesen' : 'Stimmtest'}</strong>
       <dl>{(['complete', 'pending', 'unconfirmed', 'not-sent'] as const).filter(state => speech.requests[state] > 0).map(state => <div key={state}>
         <dt>{{ complete: 'Antwort erhalten', pending: 'Abschluss ausstehend', unconfirmed: 'Antwort unbestätigt', 'not-sent': 'Vor Versand beendet' }[state]}</dt>
         <dd>{speech.unknownAmounts?.[state] === speech.requests[state] ? 'Menge noch unbekannt'

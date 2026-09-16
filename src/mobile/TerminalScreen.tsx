@@ -6,6 +6,8 @@ import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
 import '@xterm/xterm/css/xterm.css';
 import { XTERM_THEMES } from '../renderer/theme/themes';
+import { ReplySpeechButton, type ReplySpeechPort } from '../renderer/terminal/ReplySpeechButton';
+import { terminalReplySource } from '../renderer/terminal/replySource';
 
 /** Only styles created by xterm receive the per-document CSP nonce. */
 function terminalDocument(): Document {
@@ -20,10 +22,11 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14 }: {
+export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
   screen: string;
   fontSize?: number;
+  replyPort?: ReplySpeechPort;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -69,6 +72,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
   }, [frame]);
   return <div className="m-terminal-screen m-terminal-xterm m-terminal-history-host" aria-label="Terminalanzeige"
     onKeyDownCapture={(event) => {
+      if (event.target instanceof Element && event.target.closest('.reply-speech-dialog')) return;
       if (event.shiftKey && event.key === 'PageUp') { event.preventDefault(); event.stopPropagation(); showHistory(); }
       if (history !== null && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeHistory(); }
     }}>
@@ -91,6 +95,15 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     }} />
     <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
       onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
+    {replyPort && <div className="m-terminal-read-reply"><ReplySpeechButton port={replyPort} active={active}
+      fallbackFocus={() => historyButton.current} readSource={() => {
+        if (history !== null) {
+          const selection = window.getSelection();
+          const selected = selection && historyRef.current?.contains(selection.anchorNode) && historyRef.current?.contains(selection.focusNode) ? selection.toString() : '';
+          return { source: selected ? 'selection' : 'screen', text: selected || history };
+        }
+        return terminalReplySource(terminal.current);
+      }} /></div>}
     {history !== null && <div className="m-terminal-history-panel">
       <p>Gespeicherter Textverlauf · Anzeige pausiert. Zur Live-Ausgabe zurückkehren, um weiter einzugeben.</p>
       <pre ref={historyRef} tabIndex={0} aria-label="Terminalverlauf lesen">{history}</pre>

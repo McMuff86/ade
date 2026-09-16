@@ -41,6 +41,8 @@ const SUITES: Suite[] = [
   { id: 'microphone-access', script: 'test-microphone-access.ts', floors: { win32: 15 } },
   { id: 'prompt-drafts', script: 'test-prompt-drafts.ts', floors: { win32: 16 } },
   { id: 'speech', script: 'test-speech.ts', floors: { win32: 56 } },
+  { id: 'reply-speech', script: 'test-reply-speech.ts', floors: { win32: 28 } },
+  { id: 'remote-reply-speech', script: 'test-remote-reply-speech.ts', floors: { win32: 20 } },
   { id: 'speech-preferences', script: 'test-speech-preferences.ts', floors: { win32: 65 } },
   { id: 'integration-workflow', script: 'test-integration-workflow.ts', floors: { win32: 53 } },
   { id: 'run-deletion', script: 'test-run-deletion.ts', floors: { win32: 23 } },

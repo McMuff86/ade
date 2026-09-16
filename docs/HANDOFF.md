@@ -1,5 +1,15 @@
 # ADE — aktuelle Übergabe
 
+## Antwort anhören in Abnahme (16. September 2026)
+
+PC-/Tablet-Vorlesedialog implementiert: editierbarer Sprechtext, ausdrückliches
+Abspielen, Stoppen und Wiederholung ohne erneute Synthese. TypeScript und
+28 Dienst-, 20 Remote- sowie 22 Electron-/Chromium-Prüfungen bestanden.
+Gesamtabnahme und persönlicher Neustart folgen; das Beenden der laufenden
+Tablet-Sitzung wurde ausdrücklich erlaubt. [Verträge und Nachweise](REPLY_SPEECH.md).
+Der globale Button „Sprachsteuerung“ ist ein [dokumentierter Vorschlag](VOICE_COMPANION_PROPOSAL.md).
+
+
 ## Stimmen-Tab und WSL-Fix aktiviert (16. September 2026)
 
 Der geprüfte Release **35c3eec** mit Source-ID **71abb464e4bc9b4196cc** ist seit 16. September 2026, 14:48 CEST persönlich aktiv (PID 52412). Stimmen-Tab, Standardtempo 0.85 und passive WSL-Erkennung sind auf Desktop und ausgeliefertem Tablet-Bundle bestätigt. Profile, Projekte und Kopplung erhalten. [Aktivierung, Sicherung und Nachweise](VOICE_SETTINGS_ACTIVATION.md). Die folgenden ausstehenden Aktivierungsangaben sind historisch.

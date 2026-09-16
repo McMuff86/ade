@@ -14,6 +14,8 @@ export type MobileDictationResult = { jobId: string; replayed: boolean } | { sta
 export type MobileSpeechQuery = { operation: 'voices'; target: SpeechTarget } | { operation: 'audio'; testId: string };
 export type MobileSpeechCommand = ({ operation: 'select' } & import('./speech').SpeechSelection) | ({ operation: 'test'; target: SpeechTarget } & import('./speech').SpeechTestInput);
 export type MobileSpeechResult = { preferences?: SpeechPreference; audio?: SpeechAudio; testId?: string; replayed?: boolean };
+export type MobileReplyRequest = ({ operation: 'prepare'; target: MobileTerminalSelection & { terminalId: string } } & import('./terminalSpeech').ReplyInput) | import('./terminalSpeech').ReplyAction;
+export type MobileReplyResult = import('./terminalSpeech').ReplyResult;
 import type { GitSyncOverview, GitSyncPreview } from './gitSync';
 import type {
   RunBudget,
@@ -466,7 +468,7 @@ export interface SubscriptionUsage {
 
 export interface SessionConsumption {
   speech?: Array<{
-    product: 'dictation' | 'speech-test';
+    product: 'dictation' | 'speech-test' | 'speech-reply';
     unit: 'audioSeconds' | 'characters';
     requests: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;
     amounts: Record<'complete' | 'pending' | 'unconfirmed' | 'not-sent', number>;

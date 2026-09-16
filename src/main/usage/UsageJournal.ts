@@ -60,7 +60,7 @@ const validTokens = (value: TokenCounts): boolean => {
 function validSession(value: UsageSession): boolean {
   return !!value && own(value, ['id', 'provider', 'product', 'backend', 'terminalSessionId', 'repositoryId', 'agentId', 'createdAt', 'endedAt', 'coverage'])
     && id(value.id) && ['codex', 'claude', 'grok', 'elevenlabs'].includes(value.provider)
-    && ['coding', 'dictation', 'speech-test'].includes(value.product) && ['native', 'unsupported'].includes(value.backend)
+    && ['coding', 'dictation', 'speech-test', 'speech-reply'].includes(value.product) && ['native', 'unsupported'].includes(value.backend)
     && ['terminalSessionId', 'repositoryId', 'agentId'].every(key => value[key as keyof UsageSession] === undefined || id(value[key as keyof UsageSession]))
     && time(value.createdAt) && (value.endedAt === undefined || time(value.endedAt) && value.endedAt >= value.createdAt) && coverage(value.coverage);
 }

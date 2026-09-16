@@ -96,7 +96,7 @@ export class NativeUsageService {
         complete: selected.every(fact => fact.costComplete === true) }] : [];
     });
     const speech: NonNullable<SessionConsumption['speech']> = [];
-    for (const product of ['dictation', 'speech-test'] as const) {
+    for (const product of ['dictation', 'speech-test', 'speech-reply'] as const) {
       const speechIds = new Set(view.sessions.filter(session => session.terminalSessionId === terminalSessionId && session.product === product).map(session => session.id));
       const selected = view.facts.filter(fact => speechIds.has(fact.sessionId) && fact.source === 'elevenlabs-request');
       if (!selected.length) continue;

@@ -99,6 +99,7 @@ export const IPC = {
   SpeechVoices: 'speech:voices',
   SpeechSelect: 'speech:select',
   SpeechTest: 'speech:test',
+  SpeechReply: 'speech:reply',
   SpeechPreferences: 'speech:preferences',
   AgentBehaviorGet: 'agent:behaviorGet',
   AgentBehaviorSet: 'agent:behaviorSet',
@@ -706,6 +707,7 @@ export interface IpcInvokeMap {
   'speech:voices': { req: void; res: import('./speech').SpeechCatalog };
   'speech:select': { req: { voiceId: string }; res: void };
   'speech:test': { req: import('./speech').SpeechTestInput; res: import('./speech').SpeechAudio };
+  'speech:reply': { req: import('./terminalSpeech').DesktopReplyRequest; res: import('./terminalSpeech').ReplyResult };
   'speech:preferences': { req: import('./speech').SpeechTarget; res: import('./speech').SpeechPreference };
   'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
   'agent:behaviorSet': { req: import('./agentBehavior').AgentBehaviorUpdate; res: { revision: string } };

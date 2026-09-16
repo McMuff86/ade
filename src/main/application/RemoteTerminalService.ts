@@ -266,6 +266,21 @@ export class RemoteTerminalService {
     authorize(); return recordingAuthorization(authorize, this.port.list().find(item => item.id === entry.sessionId)!);
   }
 
+  /** Read permission for speech is independent of keyboard ownership/paste support. */
+  async readingTarget(deviceId: string, target: MobileTerminalSelection & { terminalId: string }): Promise<RecordingAuthorization> {
+    validateTerminal(target, 'query'); this.requireGrant(deviceId, target);
+    const binding = await this.workbench.resolveTerminal(target);
+    if (!binding) failure('Workspace ist nicht mehr verfügbar.');
+    const entry = this.requireEntry(target.terminalId, binding!);
+    await this.workbench.revalidate(binding!);
+    const authorize = () => {
+      this.requireGrant(deviceId, target);
+      if (this.requireEntry(target.terminalId, binding!) !== entry
+        || !this.visible(deviceId, this.port.list().find(item => item.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
+    };
+    authorize(); return recordingAuthorization(authorize, this.port.list().find(item => item.id === entry.sessionId)!);
+  }
+
   async input(context: RemoteCommandContext, input: MobileTerminalInput, prompt?: Pick<MobileTerminalPrompt, 'text' | 'mode'>): Promise<{ sequence: number; replayed: boolean }> {
     const deviceId = context.principal.id; this.requireGrant(deviceId, input); this.expire();
     const binding = await this.workbench.resolveTerminal(input); this.requireGrant(deviceId, input); const entry = this.requireEntry(input.terminalId, binding!);

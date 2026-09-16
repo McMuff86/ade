@@ -1,4 +1,5 @@
 import { validSpeechTest } from '../shared/speech';
+import { validDesktopReply } from '../shared/terminalSpeech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
 import { validProjectMembership } from '../shared/remote';
@@ -690,6 +691,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.SpeechTest:
       if (!validSpeechTest(payload)) invalid(channel, 'invalid speech test');
+      return;
+    case IPC.SpeechReply:
+      if (!validDesktopReply(payload)) invalid(channel, 'invalid speech reply');
       return;
     case IPC.SpeechSelect: {
       const request = record(channel, payload);

@@ -1,5 +1,17 @@
 # ADE — Architecture (binding decisions)
 
+## Reviewed terminal reply speech (16 September 2026)
+
+`ReplySpeechService` owns bounded, expiring, window/device-bound speech receipts.
+The shared dialog captures a selected or visible terminal excerpt, permits editing,
+and displays the redacted preview before explicit synthesis. Desktop `speech:reply`
+is a host-effect desktop channel; signed tablet `POST /api/v1/terminal/speech`
+routes only through `AdeApplicationService`, with speech/terminal scopes, workspace
+revalidation and mutation idempotency/audit. No generic remote allowlist expansion.
+One provider attempt per receipt; source/audio are memory-only and usage records
+only measurements. Shutdown drains cancelled requests before closing usage.
+[Full contracts and executable evidence](REPLY_SPEECH.md).
+
 ## Passive WSL discovery / Hermes (16 September 2026)
 
 WSL discovery (`wsl:list`) only enumerates registered names through `wsl.exe --list --quiet`. It must never execute a guest health probe: even `true` boots systemd services and can trigger shutdown notifications when WSL later idles. `available` means registered for selection. Explicit backend operations retain runtime validation. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).

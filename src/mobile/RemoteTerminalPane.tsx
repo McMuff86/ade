@@ -18,6 +18,7 @@ import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
 import { MobilePromptDialog } from './PromptDialog';
 import type { MobileTerminalPrompt } from '../shared/remote';
+import { mobileReplyPort } from './replySpeechPort';
 
 interface TerminalDraft { text: string; review: boolean }
 
@@ -44,6 +45,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
   const [remembered, remember] = useDeviceDraft(host.deviceId, `terminal-selection:${scopeKey}`, '');
   const [selected, select] = useState(initialTerminalId ?? remembered);
+  const replyPort = useMemo(() => mobileReplyPort(host.request, { ...selection, terminalId: selected }), [host.request, selection, selected]);
   const setSelected = (id: string) => { select(id); remember(id); onSelectionChanged?.(id); };
   useEffect(() => { if (initialTerminalId !== undefined && initialTerminalId !== selected) setSelected(initialTerminalId); }, [initialTerminalId]);
   const [draft, saveDraft, durable] = useDeviceDraft<TerminalDraft>(host.deviceId, `terminal-draft:${scopeKey}:${selected}`, { text: '', review: false });
@@ -343,7 +345,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined}
       onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}

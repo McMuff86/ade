@@ -2,6 +2,9 @@ import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { AgentBehaviorService, validateBehaviorUpdate } from '../memory/AgentBehaviorService';
 import { validSpeechQuery, validSpeechCommand, type RemoteSpeechService } from './RemoteSpeechService';
 import type { SpeechTarget } from '../../shared/speech';
+import { validReplyAction, validReplyInput } from '../../shared/terminalSpeech';
+import type { ReplySpeechService } from '../settings/ReplySpeechService';
+import type { MobileReplyResult, MobileReplyRequest } from '../../shared/remote';
 import type { MobileSpeechResult } from '../../shared/remote';
 import { validProjectMembership, type ProjectMembershipResult } from '../../shared/remote';
 import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
@@ -127,6 +130,7 @@ export interface RemoteAuditEntry {
 export interface ApplicationOptions {
   dictation?: DictationJobs;
   speech?: RemoteSpeechService;
+  replies?: ReplySpeechService;
   deleteCompletedRun?: (runId: string) => Promise<void>;
   integration?: IntegrationService;
   catalogChanged?: () => void;
@@ -288,6 +292,42 @@ export class AdeApplicationService {
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
       authorize(payload.target); this.options.catalogChanged?.();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async terminalSpeech(context: RemoteCommandContext, payload: unknown): Promise<MobileReplyResult> {
+    const replies = this.options.replies; const terminals = this.options.terminals; const ledger = this.options.administration?.ledger;
+    if (!replies || !terminals || !ledger) throw new RemoteApiError(404, 'not_found');
+    const owner = `device:${context.principal.id}`;
+    const permit = () => { ledger.permits(context, 'speech:control'); ledger.permits(context, 'terminal:control'); };
+    permit();
+    try {
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new RemoteApiError(400, 'invalid_payload');
+      const { operation, target, ...input } = payload as Record<string, unknown>;
+      if (operation === 'prepare') {
+        if (!validReplyInput(input)) throw new RemoteApiError(400, 'invalid_payload');
+        validateTerminal(target, 'query');
+        // Query has optional fields that the speech preparation contract does not accept.
+        const selection = target as Record<string, unknown>;
+        if (!selection.terminalId || Object.keys(selection).some(key => !['terminalId', 'agentId', 'repositoryId', 'projectWorkspaceId', 'terminalHome'].includes(key))) throw new RemoteApiError(400, 'invalid_payload');
+        const authorize = await terminals.readingTarget(context.principal.id, (payload as MobileReplyRequest & { operation: 'prepare' }).target);
+        const receipt = await ledger.execute(context, 'speech:reply-prepare', 'speech:control', payload, () => {
+          permit(); authorize();
+          return replies.prepare(owner, input, Object.assign(() => { permit(); authorize(); }, { usage: authorize.usage }));
+        });
+        permit(); authorize(); return { ...receipt.value, replayed: receipt.replayed };
+      }
+      if (!validReplyAction(payload)) throw new RemoteApiError(400, 'invalid_payload');
+      if (payload.operation === 'read') return replies.read(owner, payload.replyId);
+      const receipt = await ledger.execute(context, `speech:reply-${payload.operation}`, 'speech:control', payload, async () => {
+        permit();
+        if (payload.operation === 'cancel') return replies.cancel(owner, payload.replyId);
+        const execute = () => replies.speak(owner, payload.replyId);
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      permit();
+      if (payload.operation === 'speak') replies.read(owner, payload.replyId);
       return { ...receipt.value, replayed: receipt.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }

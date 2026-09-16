@@ -2,6 +2,7 @@ import type { Settings } from '../../shared/types';
 import { DEFAULT_SPEECH_TUNING, validSpeechTuning, type SpeechTuning, SPEECH_TEST_TEXT, computerGreeting, validSpeechPreset, validVoiceId, type SpeechPreset, type SpeechAudio, type SpeechCatalog, type SpeechVoice } from '../../shared/speech';
 import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
 import { redactedErrorDetail } from '../errors';
+import { MAX_REPLY_SPOKEN_CHARS } from '../../shared/terminalSpeech';
 
 interface Port { get(): { settings: Settings }; save(value: { settings: Settings }): unknown }
 
@@ -13,13 +14,13 @@ export class SpeechService {
   setUsage(usage: SpeechUsageService): void { this.usage = usage; }
   constructor(private readonly store: Port, private readonly key: () => string | undefined, private readonly fetcher: typeof fetch = fetch) {}
 
-  private async request(path: string, method = 'GET', body?: string, dispatch?: () => void): Promise<Response> {
+  private async request(path: string, method = 'GET', body?: string, dispatch?: () => void, signal?: AbortSignal): Promise<Response> {
     const key = this.key();
     if (!key) throw new Error('ElevenLabs-Key fehlt oder ist nicht verfügbar. Unter Service-Keys ELEVENLABS_API_KEY für alle Sessions speichern.');
     dispatch?.();
     let response: Response;
     try { response = await this.fetcher(`https://api.elevenlabs.io${path}`, { method, body,
-      headers: { 'xi-api-key': key, 'Content-Type': 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(30_000) }); }
+      headers: { 'xi-api-key': key, 'Content-Type': 'application/json' }, redirect: 'error', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) }); }
     catch { throw new Error('ElevenLabs ist gerade nicht erreichbar. Bitte erneut versuchen.'); }
     if (!response.ok) {
       await response.body?.cancel();
@@ -72,16 +73,31 @@ export class SpeechService {
     const delivery = { ...(tuning ?? this.store.get().settings.speechTuning ?? DEFAULT_SPEECH_TUNING) };
     if (!validSpeechTuning(delivery)) throw new Error('Ungültige gespeicherte Stimmparameter.');
     const text = preset === 'computer-greeting' ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT;
-    if (this.busy) throw new Error('Ein Stimmtest läuft bereits. Bitte warten.');
+    return this.synthesize(voiceId, text, delivery, 'speech-test', authorize, attribution);
+  }
+
+  /** Only called with the already redacted, bounded preview owned by ReplySpeechService. */
+  async reply(voiceId: string, text: string, authorize: () => void, attribution: SpeechUsageAttribution, signal: AbortSignal): Promise<SpeechAudio> {
+    if (!text.trim() || text.length > MAX_REPLY_SPOKEN_CHARS) throw new Error('Ungültiger Sprechtext.');
+    const delivery = { ...(this.store.get().settings.speechTuning ?? DEFAULT_SPEECH_TUNING) };
+    if (!validSpeechTuning(delivery)) throw new Error('Ungültige gespeicherte Stimmparameter.');
+    return this.synthesize(voiceId, text, delivery, 'speech-reply', authorize, attribution, signal);
+  }
+
+  private async synthesize(voiceId: string, text: string, delivery: SpeechTuning, product: 'speech-test' | 'speech-reply',
+    authorize: () => void, attribution: SpeechUsageAttribution, signal?: AbortSignal): Promise<SpeechAudio> {
+    if (this.busy) throw new Error('Eine Sprachausgabe wird bereits vorbereitet. Bitte kurz warten.');
     this.busy = true;
     let attempt: SpeechUsageAttempt | undefined; let dispatched = false;
     try {
       if (!validVoiceId(voiceId) || !(await this.catalog()).voices.some(v => v.id === voiceId)) throw new Error('Eine verfügbare Stimme auswählen.');
       authorize();
-      attempt = await this.usage?.begin({ ...attribution, product: 'speech-test', model: 'eleven_multilingual_v2', characters: text.length });
+      signal?.throwIfAborted();
+      attempt = await this.usage?.begin({ ...attribution, product, model: 'eleven_multilingual_v2', characters: text.length });
       authorize();
+      signal?.throwIfAborted();
       const response = await this.request(`/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, 'POST',
-        JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'de', voice_settings: { speed: delivery.speed, stability: delivery.stability, similarity_boost: delivery.similarityBoost, style: delivery.style, use_speaker_boost: delivery.speakerBoost } }), () => { dispatched = true; });
+        JSON.stringify({ text, model_id: 'eleven_multilingual_v2', language_code: 'de', voice_settings: { speed: delivery.speed, stability: delivery.stability, similarity_boost: delivery.similarityBoost, style: delivery.style, use_speaker_boost: delivery.speakerBoost } }), () => { dispatched = true; }, signal);
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('audio/mpeg')) { await response.body?.cancel(); throw new Error('ElevenLabs hat keine MP3-Audiodatei geliefert.'); }
       const audio = await this.bytes(response, 2 * 1024 * 1024);
       if (audio.length < 100) throw new Error('ElevenLabs-Audio ist leer oder unvollständig.');
