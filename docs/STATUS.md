@@ -1,5 +1,12 @@
 # ADE implementation status
 
+## Computerstimme persönlich gestartet (16. September 2026, 12:59 CEST)
+
+Die Vorschau mit ruhigerer Stimme und Computer-Erkennungsfix ist auf PC und
+Tablet aktiviert. Persönliche Hörabnahme offen; der Stimmen-Einstellungstab
+ist noch geplant. [Aktivierungsnachweise und Prüfgrenzen](COMPUTER_VOICE_ACTIVATION.md).
+Die nachstehende ausstehende Aktivierung wurde damit abgeschlossen.
+
 ## Computer-Test und längeres Live-Diktat (16. September 2026, Vorschau aktiviert)
 
 ADEs eigene Live-Grenze ist von 60 Sekunden auf 5 Minuten erhöht, gemeinsam für

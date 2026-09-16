@@ -1,5 +1,12 @@
 # ADE — aktuelle Übergabe
 
+## Computerstimme aktiviert (16. September 2026, 12:59 CEST)
+
+Die vorbereitete Stimmvorschau läuft jetzt persönlich mit Source-ID
+`9d2ad0abc6c9b97a1d29`, PID **49568**. Tablet-Bundle, Profile und Kopplung
+bestätigt; [Aktivierung, Prüfgrenzen und Testweg](COMPUTER_VOICE_ACTIVATION.md).
+Die folgenden Angaben zur ausstehenden Aktivierung beschreiben den früheren Stand.
+
 ## Goal 32 — Fünf-Minuten-Diktat abschliessen (16. September 2026)
 
 **Aktueller persönlicher Build: 06cd6ea, aktiviert 11:57 CEST**, Source-ID
