@@ -16,8 +16,9 @@ const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); p
 type RequestBody = { text: string; voice_settings: { speed: number; stability: number } };
 const requests = (): RequestBody[] => existsSync(join(root, 'requests.jsonl')) ? readFileSync(join(root, 'requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [];
 const answer = 'Die neue Antwort ist bereit. Ein Test bleibt noch offen.';
-async function openReply(page: Page, parent: Locator): Promise<Locator> {
-  await parent.getByRole('button', { name: 'Antwort anhören', exact: true }).click();
+/** The desktop toolbar says "Antwort anhören"; the tablet voice strip shortens it to "Anhören". */
+async function openReply(page: Page, parent: Locator, name = 'Antwort anhören'): Promise<Locator> {
+  await parent.getByRole('button', { name, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Antwort anhören', exact: true });
   await dialog.waitFor(); return dialog;
 }
@@ -68,7 +69,12 @@ global.fetch = async (url, init) => {
   const mode = fs.existsSync(${JSON.stringify(join(root, 'provider-mode'))}) ? fs.readFileSync(${JSON.stringify(join(root, 'provider-mode'))}, 'utf8') : '';
   if (mode === 'wait') await new Promise((_done, fail) => init.signal.addEventListener('abort', () => { fs.writeFileSync(${JSON.stringify(join(root, 'aborted'))}, 'yes'); fail(new Error('aborted')); }, {once:true}));
   if (mode === 'fail') return new Response('private-fixture-secret C:\\\\Users\\\\Private', {status:500});
-  return new Response(fs.readFileSync(${JSON.stringify(resolve('scripts/fixtures/speech-silence.mp3'))}), {headers:{'content-type':'audio/mpeg'}});
+  // Real replies run to minutes of MP3. Grow the silent clip past the general 512 KiB JSON cap with an ID3v2
+  // padding tag (decoders skip it, playback stays 0.3 s) so the tablet path must carry a large audio answer.
+  const clip = fs.readFileSync(${JSON.stringify(resolve('scripts/fixtures/speech-silence.mp3'))});
+  const ownTag = clip.subarray(0, 3).toString() === 'ID3' ? 10 + ((clip[6] << 21) | (clip[7] << 14) | (clip[8] << 7) | clip[9]) : 0;
+  const pad = 450000; const tag = Buffer.concat([Buffer.from('ID3'), Buffer.from([3, 0, 0, (pad >> 21) & 127, (pad >> 14) & 127, (pad >> 7) & 127, pad & 127]), Buffer.alloc(pad)]);
+  return new Response(Buffer.concat([tag, clip.subarray(ownTag)]), {headers:{'content-type':'audio/mpeg'}});
 };
 const cp = require('node:child_process'); const originalExec = cp.execFile;
 cp.execFile = function(file,args,options,callback) {
@@ -161,12 +167,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await expect(project.getByLabel('Direkte Terminal-Eingabe', { exact: true })).toHaveJSProperty('readOnly', false);
   await terminalKeyboardActivationFlow(tablet, project, check);
   const terminalBox = await project.getByLabel('Terminalanzeige', { exact: true }).boundingBox();
-  const readButtonBox = await project.getByRole('button', { name: 'Antwort anhören', exact: true }).boundingBox();
-  check('reply action lives above the terminal without covering tap or selection cells', !!terminalBox && !!readButtonBox && readButtonBox.y + readButtonBox.height <= terminalBox.y);
-  const promptOpener = project.getByRole('button', { name: 'Prompt / Diktat', exact: true });
-  await promptOpener.click();
+  const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
+  const readButtonBox = await strip.getByRole('button', { name: 'Anhören', exact: true }).boundingBox();
+  check('reply action lives in the voice strip below the terminal without covering tap or selection cells', !!terminalBox && !!readButtonBox && readButtonBox.y >= terminalBox.y + terminalBox.height);
+  const optionsButton = strip.getByRole('button', { name: 'Weitere Optionen', exact: true });
+  await optionsButton.click();
+  await strip.getByRole('menuitem', { name: 'Im Editor öffnen', exact: true }).click();
   const promptDialog = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
-  await promptDialog.waitFor(); await tablet.keyboard.press('Escape'); await expect(promptOpener).toBeFocused();
+  await promptDialog.waitFor(); await tablet.keyboard.press('Escape'); await expect(optionsButton).toBeFocused();
   // A delayed resize/lease heartbeat must not blur the restored opener.
   let heartbeatSeen = false; let releaseHeartbeat!: () => void;
   const heartbeatGate = new Promise<void>(done => { releaseHeartbeat = done; });
@@ -180,12 +188,11 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   try {
     await tablet.setViewportSize({ width: 1000, height: 760 });
     await expect.poll(() => heartbeatSeen, { timeout: 15_000 }).toBe(true);
-    check('delayed terminal heartbeat preserves focus on the restored prompt opener', await promptOpener.evaluate(node => node === document.activeElement));
-    check('busy prompt opener remains focusable while rejecting activation', await promptOpener.getAttribute('aria-disabled') === 'true' && await promptOpener.getAttribute('disabled') === null);
-    await tablet.keyboard.press('Enter'); check('heartbeat does not permit opening a second prompt action', await promptDialog.count() === 0);
+    check('delayed terminal heartbeat preserves focus on the restored strip options button', await optionsButton.evaluate(node => node === document.activeElement));
+    check('strip options stay enabled while a heartbeat is pending', await optionsButton.isEnabled() && await promptDialog.count() === 0);
   } finally { releaseHeartbeat(); if (heartbeatSeen) await heartbeatFinished; await tablet.unroute(inputRoute); }
-  await expect(promptOpener).toBeEnabled(); await tablet.setViewportSize({ width: 1024, height: 768 });
-  dialog = await openReply(tablet, project);
+  await tablet.setViewportSize({ width: 1024, height: 768 });
+  dialog = await openReply(tablet, project, 'Anhören');
   await dialog.getByRole('alert').waitFor();
   check('terminal permission alone cannot authorize voice playback', requests().length === 4 && await dialog.getByRole('button', { name: 'Anhören', exact: true }).isDisabled());
   await tablet.keyboard.press('Escape');
@@ -193,29 +200,29 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     const device = (await window.ade.invoke('remoteDevices:list')).devices.find(item => item.name === 'Reply tablet')!;
     await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: ['workspace:read', 'projects:write', 'terminal:control', 'speech:control'] });
   });
-  dialog = await openReply(tablet, project); await editReply(dialog, 'Diese Antwort kommt vom Tablet. Bitte den Test noch prüfen.');
+  dialog = await openReply(tablet, project, 'Anhören'); await editReply(dialog, 'Diese Antwort kommt vom Tablet. Bitte den Test noch prüfen.');
   check('tablet preview uses signed HTTP without synthesizing on open', requests().length === 4);
   await listen(dialog);
-  check('tablet plays audio from its own browser through the authorized host API', requests().length === 5 && requests()[4]!.text.startsWith('Diese Antwort kommt vom Tablet.'));
+  check('tablet plays audio larger than the general response cap through the authorized host API', requests().length === 5 && requests()[4]!.text.startsWith('Diese Antwort kommt vom Tablet.'));
   await dialog.getByRole('button', { name: 'Erneut abspielen', exact: true }).click();
   await dialog.getByText('Fertig. Du kannst die Antwort erneut anhören.', { exact: true }).waitFor();
   check('tablet replay has no second provider cost', requests().length === 5);
   await dialog.screenshot({ path: join(evidence, 'tablet-reply.png') });
   await tablet.keyboard.press('Escape');
-  check('nested reply Escape leaves the project session open', await project.isVisible() && await project.getByRole('button', { name: 'Antwort anhören', exact: true }).evaluate(node => node === document.activeElement));
+  check('nested reply Escape leaves the project session open', await project.isVisible() && await strip.getByRole('button', { name: 'Anhören', exact: true }).evaluate(node => node === document.activeElement));
   await project.getByRole('button', { name: 'Verlauf', exact: true }).click();
   const history = project.getByLabel('Terminalverlauf lesen', { exact: true });
   await history.evaluate(node => {
     const range = document.createRange(); range.selectNodeContents(node);
     const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
   });
-  dialog = await openReply(tablet, project);
+  dialog = await openReply(tablet, project, 'Anhören');
   await dialog.getByText('Bereit zum Anhören.', { exact: true }).waitFor();
   check('tablet history selection reaches the preview through the visible read button', (await dialog.innerText()).includes('Dein markierter Text'));
   await tablet.keyboard.press('Escape');
   check('reply Escape preserves underlying history and project dialog', await history.isVisible() && await project.isVisible());
   await tablet.setViewportSize({ width: 390, height: 844 });
-  dialog = await openReply(tablet, project); await editReply(dialog);
+  dialog = await openReply(tablet, project, 'Anhören'); await editReply(dialog);
   const box = await dialog.boundingBox();
   check('phone dialog stays within the viewport and uses touch-size controls', !!box && box.x >= 0 && box.x + box.width <= 390 && (await dialog.getByRole('button', { name: 'Anhören', exact: true }).boundingBox())!.height >= 44);
   check('phone help text wraps instead of inheriting terminal whitespace and tiny type', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth && getComputedStyle(node).whiteSpace === 'normal' && Number.parseFloat(getComputedStyle(node).fontSize) >= 14));

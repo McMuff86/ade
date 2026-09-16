@@ -45,6 +45,8 @@ const RESPONSE_HEADERS = {
 const JSON_HEADERS = { ...RESPONSE_HEADERS, 'content-type': 'application/json; charset=utf-8' } as const;
 
 const MAX_RESPONSE_BYTES = 512 * 1_024;
+/** Speech replies carry base64 MP3 that SpeechService already bounds at 2 MiB. */
+const SPEECH_RESPONSE_BYTES = 4 * 1_024 * 1_024;
 const DEFAULT_MAX_BODY_BYTES = 64 * 1_024;
 /** Refused bodies up to this size are drained so the client still reads the error. */
 const DISCARD_BODY_LIMIT_BYTES = 1_024 * 1_024;
@@ -79,10 +81,10 @@ interface ParsedTarget {
   query: string | null;
 }
 
-function writeJson(response: ServerResponse, status: number, value: unknown, extra: Record<string, string> = {}): void {
+function writeJson(response: ServerResponse, status: number, value: unknown, extra: Record<string, string> = {}, limit = MAX_RESPONSE_BYTES): void {
   let responseStatus = status;
   let body = `${JSON.stringify(value)}\n`;
-  if (status < 400 && Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) {
+  if (status < 400 && Buffer.byteLength(body, 'utf8') > limit) {
     responseStatus = 503;
     body = `${JSON.stringify({ error: 'response_too_large' } satisfies MobileErrorBody)}\n`;
   }
@@ -635,7 +637,7 @@ export class HostApiServer {
         response.destroy();
         return;
       }
-      if (!response.destroyed) writeJson(response, 200, result);
+      if (!response.destroyed) writeJson(response, 200, result, {}, kind === 'terminalSpeech' || kind === 'speechQuery' ? SPEECH_RESPONSE_BYTES : MAX_RESPONSE_BYTES);
     } catch (error) {
       if (error instanceof RemoteApiError) {
         const detailed = error.status === 400 || error.status === 409 || error.status === 422;
