@@ -1,5 +1,12 @@
 # ADE implementation status
 
+## Ollama-Profillogo (16. September 2026)
+
+Das offizielle Ollama-SVG ergänzt die vorhandenen Runtime-Logos in Desktop und
+Tablet. Gemeinsame Profilanzeige, Vergrösserung und Vorrang eigener Fotos bleiben
+erhalten. Die bestehenden Electron-/Browser-Logoprüfungen enthalten jetzt Ollama;
+Abnahme und persönliche Aktivierung folgen.
+
 ## Goal 31 — Ollama-Coding-Harness (16. September 2026)
 
 Im Coding-Modus ist **Codex CLI oder Qwen Code** auswählbar; Modellwahl bleibt

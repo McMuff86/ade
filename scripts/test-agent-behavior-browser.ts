@@ -36,7 +36,7 @@ void (async () => {
     await page.getByRole('dialog', { name: 'Workspace · Builder', exact: true }).getByRole('button', { name: 'Agent-Profil', exact: true }).click();
   };
   const originalRuntime = store.get().agents.find(agent => agent.id === 'builder')!.runtime;
-  for (const runtime of ['codex', 'claude', 'grok'] as const) {
+  for (const runtime of ['codex', 'claude', 'grok', 'ollama'] as const) {
     store.save({ agents: store.get().agents.map(agent => agent.id === 'builder' ? { ...agent, runtime } : agent) });
     await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
     await open();

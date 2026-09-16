@@ -13,7 +13,7 @@ void (async () => {
     const category = await window.ade.invoke('category:create', { name: 'Profile test' });
     return window.ade.invoke('agent:create', { categoryId: category.id, name: 'Profile parity', runtime: 'codex', permissionMode: 'default' });
   });
-  for (const runtime of ['codex', 'claude', 'grok'] as const) {
+  for (const runtime of ['codex', 'claude', 'grok', 'ollama'] as const) {
     const named = await page.evaluate(async runtime => {
       const config = await window.ade.invoke('config:get');
       return window.ade.invoke('agent:create', { categoryId: config.categories.find(item => item.name === 'Profile test')!.id,

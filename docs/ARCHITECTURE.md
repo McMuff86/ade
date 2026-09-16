@@ -16,7 +16,7 @@ Existing original-workspace cards navigate directly, independently of profiles.
 
 ## Runtime profile images
 
-Desktop and mobile use bundled SVG marks for Codex/OpenAI, Claude and Grok when
+Desktop and mobile use bundled SVG marks for Codex/OpenAI, Claude, Grok and Ollama when
 an agent has no personal photo. Selection is by `RuntimeId`, never the profile
 name. `renderer/rail/runtimeLogos.ts` is shared by both builds; the public mobile
 shell includes the assets for offline access. Custom photos keep priority and

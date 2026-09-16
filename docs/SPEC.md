@@ -77,6 +77,9 @@ sind sichtbar. Nach einer verlorenen Antwort lässt sich derselbe Stimmtest
 erneut prüfen; ein neuer kostenpflichtiger Test erfordert eine neue Aktion.
 Ein Antippen des Profilbilds öffnet eine größere Ansicht mit Schließen,
 Escape und Fokusrückgabe. Diese vergrößert das ausgelieferte Vorschaubild.
+Ohne persönliches Foto zeigen Codex/OpenAI, Claude, Grok und Ollama auf Desktop
+und Tablet lokal gebündelte, scharf skalierende SVG-Logos. Eigene Fotos haben
+Vorrang; das Logo folgt der Runtime des Profils.
 
 Desktop und Mobile zeigen unter Projekte „Alle“ / „Meine ADE Projekte“.
 Hinzufügen und Entfernen ändern die persönliche ADE-Auswahl auf diesem Host;

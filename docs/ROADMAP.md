@@ -1,5 +1,11 @@
 # ADE delivery roadmap
 
+## Ollama-Profillogo ergänzen
+
+Die beauftragte Ergänzung nutzt das offizielle SVG im vorhandenen Desktop-/Tablet-
+Logosystem. Implementiert; erweiterte Profilprüfungen, Gesamtprüfung und Aktivierung
+folgen. Kein zusätzlicher Runtime- oder Harness-Vertrag.
+
 ## Abgeschlossenes Goal 31 — Ollama-Coding-Harness wählen
 
 **31.1** ergänzt die Auswahl Codex CLI/Qwen Code und persistierte Profile;

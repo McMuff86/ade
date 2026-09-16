@@ -1,5 +1,13 @@
 # ADE — aktuelle Übergabe
 
+## Ollama-Profillogo (16. September 2026, in Abnahme)
+
+Operator wünscht das Ollama-Logo entsprechend den vorhandenen Codex-/Grok-Logos.
+Offizielles Vektorlogo lokal eingebunden, weisse Pfadfarbe für den vorhandenen
+dunklen Logohintergrund; MIT-Lizenz im SVG erhalten. Desktop- und Tablet-Prüfungen
+um Ollama ergänzt. Abnahme, Commit, Build und persönliche Aktivierung folgen;
+bis dahin gilt der unten dokumentierte Harness-Release.
+
 ## Goal 31 — Harness-Auswahl (16. September 2026, aktiviert)
 
 Operator beauftragt die besprochene Auswahl **Codex CLI/Qwen Code** im
