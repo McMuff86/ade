@@ -446,6 +446,18 @@ Projekt-Publish 12/0, Setup 38/0, Visual 22/0. Logs:
 `test-results/voice-strip-verify.log`, `voice-strip-workbench.log`,
 `voice-strip-verify-tail.log`.
 
+**Aktivierung 20:19 CEST.** Release `dist/voice-strip-cac8a71a` (Source-ID
+`cac8a71aa9398b6938fb`, Commit 7ede135), isolierter Startcheck bestanden
+(`test-results/voice-strip-release-smoke-2.json`). Backup
+`ADE-Backups\VoiceStrip-20260916-201857`, Verknüpfung umgestellt. Die
+vorherige Instanz (PID 17632) mit einer laufenden Claude-Sitzung wurde nach
+Adis Freigabe per Prozessende gestoppt, weil das Tray-Symbol für die
+Automation erneut nicht auffindbar war. Neue Instanz PID 63248: 6 Profile,
+5 Projekte, 1 Gerät, Tablet-Seite HTTP 200 mit byteidentischem Bundle
+(`test-results/voice-strip-restart-3.json`,
+`dist/voice-strip-cac8a71a/activation.json`). Offen: ein automatisierbarer
+regulärer Tray-Quit und Adis Urteil vom Tablet.
+
 ### Nachtrag 18:07 CEST: Antwort anhören auf dem Tablet
 
 Adis erster Tablet-Test: Sprechen ohne Modal „sehr gut gelungen“, aber
