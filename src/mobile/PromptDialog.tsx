@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MobileDictationResult, MobileDictationTarget, MobileHostState, MobileTerminalState } from '../shared/remote';
+import type { MobileDictationResult, MobileDictationTarget, MobileHostState, MobileTerminalState, MobileSpeechResult } from '../shared/remote';
 import type { TerminalPromptReceipt } from '../shared/terminalPrompt';
 import { PromptComposer, type PromptComposerPort } from '../renderer/terminal/PromptComposer';
 import type { MobileHost } from './useMobileHost';
@@ -11,6 +11,7 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
   send(text: string, mode: 'insert' | 'submit', commandId: string): Promise<TerminalPromptReceipt>;
 }) {
   const [speechAllowed, setSpeechAllowed] = useState(false);
+  const [computerAllowed, setComputerAllowed] = useState(false);
   const sender = useRef(send); sender.current = send;
   // Parent remounts for a different terminal/lease; microphone callbacks keep this target.
   const bound = useRef(target).current;
@@ -26,8 +27,8 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
   useEffect(() => {
     let stopped = false;
     const load = () => { void request<MobileHostState>('/api/v1/host').then(state => {
-      if (!stopped) setSpeechAllowed(state.capabilities?.includes('dictation:transcribe') === true);
-    }).catch(() => { if (!stopped) setSpeechAllowed(false); }); };
+      if (!stopped) { setSpeechAllowed(state.capabilities?.includes('dictation:transcribe') === true); setComputerAllowed(state.capabilities?.includes('speech:control') === true); }
+    }).catch(() => { if (!stopped) { setSpeechAllowed(false); setComputerAllowed(false); } }); };
     if (host.status === 'online') load();
     const timer = setInterval(load, 5000); return () => { stopped = true; clearInterval(timer); };
   }, [request, host.status]);
@@ -62,7 +63,18 @@ export function MobilePromptDialog({ host, target, label, send, onClose, fallbac
       finish: jobId => request('/api/v1/dictation/command', 'POST', { operation: 'stream-finish', jobId }, crypto.randomUUID()),
     },
     copyText: text => navigator.clipboard.writeText(text),
-  }), [request, bound]);
+    computerAllowed,
+    computerGreeting: async () => {
+      const target = { kind: 'default' } as const;
+      const preferences = (await request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target })).preferences;
+      if (!preferences?.effectiveVoiceId) throw new Error('Unter Sprachausgabe zuerst eine Standardstimme wählen.');
+      const result = await request<MobileSpeechResult>('/api/v1/speech/command', 'POST', {
+        operation: 'test', target, voiceId: preferences.effectiveVoiceId, preset: 'computer-greeting',
+      }, crypto.randomUUID());
+      const audio = (await request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'audio', testId: result.testId })).audio;
+      if (!audio) throw new Error('Begrüssung konnte nicht geladen werden.'); return audio;
+    },
+  }), [request, bound, computerAllowed]);
   return <Dialog title="Prompt und Diktat" onClose={onClose} fallbackId={fallbackId} restoreFocusTo={restoreFocusTo} className="m-prompt-dialog">
     <PromptComposer key={`${host.deviceId}/${bound.terminalId}`} draftKey={`mobile/${host.deviceId}/${bound.terminalId}`}
       targetLabel={label} online={host.status === 'online'} speechAllowed={speechAllowed} port={port} />

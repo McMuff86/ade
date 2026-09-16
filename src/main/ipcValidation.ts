@@ -1,7 +1,7 @@
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
 import { validProjectMembership } from '../shared/remote';
-import { validVoiceId, validSpeechSelection, validSpeechTarget } from '../shared/speech';
+import { validVoiceId, validSpeechSelection, validSpeechTarget, validSpeechPreset } from '../shared/speech';
 import { validTerminalPrompt } from '../shared/terminalPrompt';
 import { validDictationUpload, validPromptSessionId } from '../shared/dictationRequests';
 import { validDictationJobId } from '../shared/dictation';
@@ -690,8 +690,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.SpeechSelect:
     case IPC.SpeechTest: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['voiceId']);
+      exactKeys(channel, request, channel === IPC.SpeechTest ? ['voiceId', 'preset'] : ['voiceId']);
       if (!validVoiceId(request.voiceId)) invalid(channel, 'invalid voice');
+      if (Object.hasOwn(request, 'preset') && !validSpeechPreset(request.preset)) invalid(channel, 'invalid speech preset');
       return;
     }
     case IPC.SpeechPreferences:

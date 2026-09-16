@@ -1,0 +1,34 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, type Locator, type Page } from 'playwright/test';
+
+export async function computerVoiceFlow(page: Page, dialog: Locator, root: string, surface: string, evidence: string, check: (name: string, ok: boolean) => void): Promise<void> {
+  const test = dialog.getByRole('region', { name: 'Computer Sprachtest', exact: true });
+  const draft = dialog.getByLabel('CLI-Promptentwurf', { exact: true });
+  const call = test.getByRole('button', { name: 'Computer testen', exact: true });
+  const generations = () => existsSync(join(root, 'greetings.jsonl')) ? readFileSync(join(root, 'greetings.jsonl'), 'utf8').trim().split('\n') : [];
+  await draft.fill(`Entwurf ${surface}.`);
+  writeFileSync(join(root, 'live-phrase.txt'), 'Prüfe den Computer');
+  await call.click(); await test.getByText('Ich höre zu. Sage jetzt „Computer“.', { exact: true }).waitFor();
+  await page.waitForTimeout(700);
+  check(`${surface}: listening locks dictation and sending while leaving the draft unchanged`, await dialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled()
+    && await dialog.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled() && await draft.inputValue() === `Entwurf ${surface}.`);
+  const before = generations().length;
+  await test.getByRole('button', { name: 'Computer-Test beenden', exact: true }).click();
+  await expect(call).toBeFocused();
+  check(`${surface}: stop restores focus without synthesizing a non-command`, generations().length === before && await call.evaluate(node => node === document.activeElement));
+  writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
+  await call.focus(); await page.keyboard.press('Enter');
+  await test.getByText('Begrüssung abgespielt. Du kannst jetzt eine Aufgabe diktieren.', { exact: true }).waitFor();
+  const answer = await test.getByLabel('Computer Antwort', { exact: true }).innerText();
+  check(`${surface}: Computer produces one personal server-owned greeting and real decoded audio playback`, generations().length === before + 1
+    && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
+  check(`${surface}: voice test never alters or submits the draft`, await draft.inputValue() === `Entwurf ${surface}.`
+    && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
+  await expect(call).toBeEnabled();
+  await test.getByRole('button', { name: 'Begrüssung abspielen', exact: true }).click();
+  await test.getByText('Begrüssung abgespielt. Du kannst jetzt eine Aufgabe diktieren.', { exact: true }).waitFor();
+  check(`${surface}: replay uses the existing audio without another provider request`, generations().length === before + 1);
+  check(`${surface}: voice controls fit the available width`, await test.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await dialog.screenshot({ path: join(evidence, `computer-${surface}.png`) });
+}

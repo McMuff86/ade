@@ -75,7 +75,10 @@ laufendes Terminalprogramm. Ein **Run** ist ein von ADE verwalteter Aufgabenabla
 Anmeldung und Projektvertrauen vorher direkt in der CLI abschliessen. Text tippen
 oder **Diktieren → Aufnahme stoppen** verwenden, das Transkript bearbeiten und
 erst danach **In CLI einfügen** oder **An CLI absenden** wählen. Letzteres sendet
-zusätzlich Enter. Die Aufnahme endet spätestens nach 60 Sekunden. Das Ziel bleibt
+zusätzlich Enter. Live-Aufnahmen auf PC und Tablet enden spätestens nach
+5 Minuten; diese Grenze setzt ADE. Die Mikrofonfreigabe zählt nicht zur Aufnahmezeit.
+Während der Aufnahme erscheinen bestätigte
+Abschnitte zusammen mit dem noch veränderlichen Zwischenstand. Das Ziel bleibt
 sichtbar und gebunden; ein Entwurf wechselt nicht mit einem anderen Projekt.
 
 Am PC einen `ELEVENLABS_API_KEY` unter **Settings → Service-Keys** für alle
@@ -87,6 +90,16 @@ lokal im jeweiligen Browserprofil; Entwürfe werden nicht zwischen Geräten
 synchronisiert. Bei unbestätigtem Versand bleibt der Text erhalten: zuerst die
 CLI-Ausgabe prüfen, dann den Entwurf wieder freigeben. Es gibt keinen automatischen
 zweiten Versand.
+
+**Computer live testen:** Im selben Fenster **Computer testen** wählen. Sobald
+„Ich höre zu“ erscheint, **Computer** sagen. Die Standardstimme begrüsst dich
+persönlich; der Text erscheint daneben. **Computer-Test beenden** stoppt den
+Ablauf. **Begrüssung abspielen** wiederholt das empfangene Audio. Der Test hört
+höchstens 20 Sekunden zu; Fenster und Tablet-Browser im Vordergrund lassen.
+Auf dem Tablet braucht es zusätzlich die Gerätefreigabe **Stimmen wählen und
+ElevenLabs-Stimmtests ausführen**. Stimme unter **Settings → Sprachausgabe**
+wählen. Danach kannst du mit **Diktieren** die nächste Aufgabe vorbereiten.
+Arbeitsrückblick und weitere Sprachbefehle folgen als nächste Ausbaustufe.
 
 Die strukturierte Promptübergabe gilt zunächst für neue native Windows-Sitzungen
 mit Codex, Claude Code und Grok, sofern die CLI das Paste-Protokoll aktiviert hat.

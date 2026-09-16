@@ -1,5 +1,20 @@
 # ADE delivery roadmap
 
+## Live-Diktat bis 5 Minuten
+
+Eigene Zeit-, Sample-, Paket- und Ticketgrenzen für PC und Tablet angehoben;
+mehrere bestätigte Textabschnitte mit vollständigem Stop-Abschluss implementiert.
+Startfrist-Randfall korrigiert und mit 79 Live-Vertragschecks geprüft.
+Gesamtabnahme und Aktivierung laufen unter [Goal 32](LONG_DICTATION_GOALS.md).
+
+## Goal 33 — Erster Computer-Test, danach Sprachdialog
+
+33.0 implementiert „Computer testen“ auf PC und Tablet: explizit aktivieren,
+Computer sagen, persönliche Begrüssung mit Standardstimme hören. In Abnahme.
+Danach persönliche Begrüssung und belegter Arbeitsrückblick, begrenzte
+Bedienabsichten und schliesslich Unterbrechen/Gerätewechsel. Gemeinsamer
+Dialog auf PC und Tablet; [Vorschlag und Abnahmekriterien](VOICE_COMPANION_PROPOSAL.md).
+
 ## Ollama-Profillogo abgeschlossen
 
 Das offizielle SVG ergänzt das Desktop-/Tablet-Logosystem. Profilprüfungen und

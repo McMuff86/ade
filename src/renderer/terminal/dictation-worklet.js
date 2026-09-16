@@ -1,11 +1,12 @@
 // Runs off the UI thread. AudioContext resamples the microphone to 16 kHz.
 class DictationPcmProcessor extends AudioWorkletProcessor {
-  buffer = new Int16Array(4096);
   used = 0;
   total = 0;
   ended = false;
-  constructor() {
+  constructor({ processorOptions: { maxSamples, packetSamples } }) {
     super();
+    if (!Number.isSafeInteger(maxSamples) || maxSamples < 1 || !Number.isSafeInteger(packetSamples) || packetSamples < 1) throw new Error('Invalid PCM limits');
+    this.maxSamples = maxSamples; this.buffer = new Int16Array(packetSamples);
     this.port.onmessage = event => { if (event.data === 'stop') this.finish(); };
   }
   flush() {
@@ -29,7 +30,7 @@ class DictationPcmProcessor extends AudioWorkletProcessor {
       this.buffer[this.used++] = Math.round(sample < 0 ? sample * 32768 : sample * 32767);
       this.total++;
       if (this.used === this.buffer.length) this.flush();
-      if (this.total >= 16000 * 60) { this.finish(); return false; }
+      if (this.total >= this.maxSamples) { this.finish(); return false; }
     }
     return true;
   }

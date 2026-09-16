@@ -17,5 +17,6 @@
 .prompt-help { opacity: .75; font-size: 12px; line-height: 1.5; }
 .prompt-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .prompt-composer button { min-height: 40px; }
+.computer-voice-test { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--accent, #c59551); border-radius: 8px; }
 .prompt-composer [role="alert"] { color: var(--danger, #e58d87); }
 @media (max-width: 600px) { .prompt-actions > button { flex: 1 1 140px; } .prompt-composer textarea { font-size: 16px; } }

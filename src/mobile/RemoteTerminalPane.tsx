@@ -364,7 +364,13 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       send={sendPrompt} onClose={() => setPromptOpen(false)} fallbackId={fallbackFocusId} restoreFocusTo={() => promptOpener.current} />}
     {confirmClose && <Dialog title="Terminalsitzung beenden" onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>Der laufende Prozess dieser Sitzung wird beendet.</p><button onClick={() => setConfirmClose(false)}>Abbrechen</button>
-      <button className="m-danger" onClick={() => { setConfirmClose(false); void action('close'); }}>Beenden bestätigen</button></Dialog>}
+      {busy && <p role="status">Laufende Terminalaktion wird abgeschlossen…</p>}
+      <button className="m-danger" disabled={blocked || !owning} onClick={() => {
+        // A heartbeat can acquire the lock before React updates the button.
+        // Keep the confirmation open instead of silently dropping its command.
+        if (lock.current || profileLock.current || blocked || !owning) return;
+        setConfirmClose(false); void action('close');
+      }}>Beenden bestätigen</button></Dialog>}
   </section>;
 }
 function terminalError(error: unknown): string {

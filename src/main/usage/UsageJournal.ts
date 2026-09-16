@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
 import { closeSync, constants, existsSync, fstatSync, fsync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, write, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { TokenCounts, UsageAmounts, UsageProduct, UsageProvider } from '../../shared/usage';
@@ -194,7 +195,7 @@ export class UsageJournal {
     } else if (event.type === 'speech-outcome') {
       const fact = this.facts.get(event.factId);
       if (!own(event, ['type', 'factId', 'state', 'audioSeconds']) || !hashId(event.factId) || !fact || !fact.source.startsWith('elevenlabs-')
-        || event.audioSeconds !== undefined && (fact.model !== 'scribe_v2_realtime' || fact.audioSeconds !== null || !nonnegative(event.audioSeconds) || event.audioSeconds > 60)
+        || event.audioSeconds !== undefined && (fact.model !== 'scribe_v2_realtime' || fact.audioSeconds !== null || !nonnegative(event.audioSeconds) || event.audioSeconds > LIVE_DICTATION_MAX_SECONDS)
         || fact.requestState !== 'pending' || !['complete', 'unconfirmed', 'not-sent'].includes(event.state)) throw new Error('invalid speech outcome');
     } else if (event.type === 'coverage') {
       const session = this.sessions.get(event.sessionId);

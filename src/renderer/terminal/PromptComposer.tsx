@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { DICTATION_MAX_TEXT_CHARS, validPromptText, type DictationJobState } from '../../shared/dictation';
+import { DICTATION_MAX_SECONDS, DICTATION_MAX_TEXT_CHARS, validPromptText, type DictationJobState } from '../../shared/dictation';
+import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
 import type { TerminalPromptCapability, TerminalPromptReceipt } from '../../shared/terminalPrompt';
 import { DictationRecorder } from './DictationRecorder';
 import { LiveDictationRecorder } from './LiveDictationRecorder';
+import { ComputerVoiceTest } from './ComputerVoiceTest';
 import { PromptDraftStore, type PromptDraft } from './promptDrafts';
 import './prompt-composer.css';
 
@@ -16,6 +18,8 @@ export interface PromptComposerPort {
   permitMicrophone?(): Promise<unknown>;
   revokeMicrophone?(): Promise<unknown>;
   copyText?(text: string): Promise<unknown>;
+  computerGreeting?(): Promise<import('../../shared/speech').SpeechAudio>;
+  computerAllowed?: boolean;
   liveRecording?: {
     start(jobId: string): Promise<unknown>;
     push(jobId: string, sequence: number, bytes: Uint8Array): Promise<unknown>;
@@ -40,6 +44,8 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
   const [phase, setPhase] = useState<'idle' | 'permission' | 'recording' | 'transcribing' | 'sending'>('idle');
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [seconds, setSeconds] = useState(0);
   const [liveText, setLiveText] = useState(''); const liveTextRef = useRef('');
+  const [computerBusy, setComputerBusy] = useState(false);
+  const maxSeconds = port.liveRecording ? LIVE_DICTATION_MAX_SECONDS : DICTATION_MAX_SECONDS;
   const busy = useRef(false); const generation = useRef(0); const mounted = useRef(true);
   const recorder = useRef<DictationRecorder | LiveDictationRecorder | null>(null); const job = useRef<string | null>(null);
   const portRef = useRef(port); portRef.current = port;
@@ -74,9 +80,9 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
   }, [online]);
   useEffect(() => {
     if (phase !== 'recording') return;
-    const started = Date.now(); const timer = window.setInterval(() => setSeconds(Math.min(60, Math.floor((Date.now() - started) / 1000))), 250);
+    const started = Date.now(); const timer = window.setInterval(() => setSeconds(Math.min(maxSeconds, Math.floor((Date.now() - started) / 1000))), 250);
     return () => clearInterval(timer);
-  }, [phase]);
+  }, [phase, maxSeconds]);
   useEffect(() => { if (liveText && input.current) input.current.scrollTop = input.current.scrollHeight; }, [liveText]);
   const cancel = (preservePreview = false) => {
     const preview = preservePreview ? liveTextRef.current.trim() : '';
@@ -115,7 +121,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
   };
 
   const record = async () => {
-    if (busy.current || !online || !speechAllowed || draftRef.current.delivery) return;
+    if (busy.current || computerBusy || !online || !speechAllowed || draftRef.current.delivery) return;
     busy.current = true; const own = ++generation.current; const target = portRef.current;
     setError(''); setNotice(''); setPhase('permission'); setSeconds(0);
     liveTextRef.current = ''; setLiveText('');
@@ -141,9 +147,11 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
           if (preview) setNotice(combined.length > DICTATION_MAX_TEXT_CHARS ? 'Der Zwischenstand wurde an der maximalen Entwurfslänge gekürzt. Bitte auf Vollständigkeit prüfen.'
             : 'Der letzte Zwischenstand wurde als Entwurf gesichert. Bitte auf Vollständigkeit prüfen.');
         };
+        const capture = new LiveDictationRecorder(); recorder.current = capture; let sequence = 0;
+        await capture.prepare();
+        if (!mounted.current || generation.current !== own) return;
         await live.start(prepared.jobId);
         if (!mounted.current || generation.current !== own) { void target.cancelRecording(prepared.jobId).catch(() => undefined); return; }
-        const capture = new LiveDictationRecorder(); recorder.current = capture; let sequence = 0;
         await capture.start(bytes => live.push(prepared.jobId, sequence++, bytes), done => {
           if (!mounted.current || generation.current !== own) return;
           recorder.current = null; setPhase('transcribing'); void target.revokeMicrophone?.().catch(() => undefined);
@@ -173,6 +181,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
       });
       if (mounted.current && generation.current === own && recorder.current) setPhase('recording');
     } catch (reason) {
+      if (!mounted.current || generation.current !== own) return;
       recorder.current?.cancel(); recorder.current = null;
       if (job.current) void target.cancelRecording(job.current).catch(() => undefined);
       if (mounted.current && generation.current === own) {
@@ -183,7 +192,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     }
   };
   const send = async (mode: 'insert' | 'submit') => {
-    if (busy.current || !online || !capability.available || draftRef.current.delivery || !validPromptText(draftRef.current.text)) return;
+    if (busy.current || computerBusy || !online || !capability.available || draftRef.current.delivery || !validPromptText(draftRef.current.text)) return;
     busy.current = true; setError(''); setNotice(''); const commandId = crypto.randomUUID();
     const outgoing = { ...draftRef.current, delivery: { commandId, mode } };
     if (!save(outgoing)) { busy.current = false; return; }
@@ -196,9 +205,11 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     } catch (reason) { if (mounted.current) setError(`${reason instanceof Error ? reason.message : 'Übergabe nicht bestätigt.'} Terminal prüfen; ADE sendet nicht automatisch erneut.`); }
     finally { busy.current = false; if (mounted.current) setPhase('idle'); }
   };
-  const disabled = phase !== 'idle' || !online || !capability.available || !!draft.delivery || !validPromptText(draft.text);
+  const disabled = computerBusy || phase !== 'idle' || !online || !capability.available || !!draft.delivery || !validPromptText(draft.text);
   return <section className="prompt-composer" aria-label="Promptentwurf">
     <p className="prompt-target"><strong>An: {targetLabel}</strong></p>
+    {port.computerGreeting && <ComputerVoiceTest port={port} onBusy={setComputerBusy}
+      enabled={online && speechAllowed && port.computerAllowed !== false && phase === 'idle' && !draft.delivery && !draft.recordingJob} />}
     <p>Vor der Übergabe Anmeldung und Projektvertrauen direkt im Terminal abschliessen. Die CLI muss ihren Eingabeprompt anzeigen.</p>
     {!online && <p role="status">Offline. Der Entwurf kann weiter bearbeitet werden.</p>}
     {!capability.available && <p role="status">{capability.reason}</p>}
@@ -206,10 +217,10 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
       readOnly={!!draft.delivery || !!port.liveRecording && phase !== 'idle'} value={[draft.text, liveText].filter(Boolean).join('\n')}
       onChange={event => save({ ...draftRef.current, text: event.target.value })} /></label>
     {port.liveRecording && phase === 'recording' && <p role="status">Live-Transkription · {liveText ? 'Zwischenstand – Wörter können sich noch ändern.' : 'Sprich jetzt. Der Text erscheint hier während der Aufnahme.'}</p>}
-    <p className="prompt-help">Dieser Entwurf bleibt an diese Sitzung gebunden und wird auf diesem Gerät gespeichert. Aufnahmen dauern höchstens 60 Sekunden. {port.liveRecording ? 'Beim Diktieren wird das Audio laufend an ElevenLabs übertragen.' : 'Beim Transkribieren geht das Audio an ElevenLabs.'}</p>
+    <p className="prompt-help">Dieser Entwurf bleibt an diese Sitzung gebunden und wird auf diesem Gerät gespeichert. Aufnahmen dauern höchstens {maxSeconds >= 120 ? `${maxSeconds / 60} Minuten` : `${maxSeconds} Sekunden`}. {port.liveRecording ? 'Beim Diktieren wird das Audio laufend an ElevenLabs übertragen.' : 'Beim Transkribieren geht das Audio an ElevenLabs.'}</p>
     {storageError && <p role="alert">{storageError}</p>}{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <div className="prompt-actions">
-      <button type="button" disabled={phase !== 'idle' || !online || !speechAllowed || !!draft.delivery || !!draft.recordingJob} onClick={() => void record()}>Diktieren</button>
+      <button type="button" disabled={computerBusy || phase !== 'idle' || !online || !speechAllowed || !!draft.delivery || !!draft.recordingJob} onClick={() => void record()}>Diktieren</button>
       {phase === 'recording' && <button type="button" onClick={() => recorder.current?.stop()}>Aufnahme stoppen · {seconds} s</button>}
       {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={() => cancel()}>Aufnahme abbrechen</button>}
       {phase === 'permission' && <span role="status">Mikrofon wird angefragt…</span>}{phase === 'transcribing' && <span role="status">Audio wird transkribiert…</span>}

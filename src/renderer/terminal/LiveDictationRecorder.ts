@@ -1,4 +1,5 @@
-import { DICTATION_MAX_SECONDS, DICTATION_SAMPLE_RATE } from '../../shared/dictation';
+import { DICTATION_SAMPLE_RATE } from '../../shared/dictation';
+import { LIVE_DICTATION_MAX_SECONDS, LIVE_DICTATION_PACKET_SAMPLES } from '../../shared/liveDictation';
 const workletUrl = new URL('./dictation-worklet.js?no-inline', import.meta.url).href;
 
 /** PCM packets use the existing authenticated bridge. No provider credentials
@@ -16,8 +17,9 @@ export class LiveDictationRecorder {
   private queuedBytes = 0;
   private onStop?: (done: Promise<void>) => void;
 
-  async start(push: (bytes: Uint8Array) => Promise<unknown>, onStop: (done: Promise<void>) => void): Promise<void> {
-    this.onStop = onStop;
+  /** Ask for the microphone before opening the provider stream. No audio is
+   * captured or queued until start connects the prepared worklet graph. */
+  async prepare(): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true }, video: false });
       if (this.cancelled) { stream.getTracks().forEach(track => track.stop()); return; }
@@ -26,7 +28,20 @@ export class LiveDictationRecorder {
       if (context.sampleRate !== DICTATION_SAMPLE_RATE) throw new Error('sample rate');
       await context.audioWorklet.addModule(workletUrl);
       if (this.cancelled) return;
-      const node = new AudioWorkletNode(context, 'ade-dictation-pcm'); this.node = node;
+    } catch {
+      this.release();
+      if (!this.cancelled) throw new Error('Live-Mikrofon konnte nicht vorbereitet werden. Gerät und Mikrofonfreigabe prüfen.');
+    }
+  }
+  async start(push: (bytes: Uint8Array) => Promise<unknown>, onStop: (done: Promise<void>) => void): Promise<void> {
+    this.onStop = onStop;
+    if (this.cancelled) return;
+    try {
+      const { stream, context } = this;
+      if (!stream || !context) throw new Error('microphone not prepared');
+      const node = new AudioWorkletNode(context, 'ade-dictation-pcm', { processorOptions: {
+        maxSamples: LIVE_DICTATION_MAX_SECONDS * DICTATION_SAMPLE_RATE, packetSamples: LIVE_DICTATION_PACKET_SAMPLES,
+      } }); this.node = node;
       node.port.onmessage = event => {
         if (this.cancelled || this.ended) return;
         if (event.data.type === 'end') { this.complete(); return; }
@@ -40,7 +55,7 @@ export class LiveDictationRecorder {
       context.createMediaStreamSource(stream).connect(node); node.connect(context.destination);
       await context.resume();
       if (this.cancelled) return;
-      this.timer = setTimeout(() => this.stop(), DICTATION_MAX_SECONDS * 1000);
+      this.timer = setTimeout(() => this.stop(), LIVE_DICTATION_MAX_SECONDS * 1000);
     } catch {
       this.release();
       if (!this.cancelled) throw new Error('Live-Mikrofon konnte nicht gestartet werden. Gerät und Mikrofonfreigabe prüfen.');

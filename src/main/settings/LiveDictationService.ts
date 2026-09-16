@@ -1,5 +1,5 @@
-import { DICTATION_MAX_SECONDS, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE, type DictationTranscript } from '../../shared/dictation';
-import { LIVE_DICTATION_CHUNK_BYTES } from '../../shared/liveDictation';
+import { DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE, type DictationTranscript } from '../../shared/dictation';
+import { LIVE_DICTATION_AUDIO_START_TIMEOUT_MS, LIVE_DICTATION_CHUNK_BYTES, LIVE_DICTATION_MAX_SECONDS, LIVE_DICTATION_SESSION_TIMEOUT_MS } from '../../shared/liveDictation';
 import { redactedErrorDetail } from '../errors';
 import type { SpeechUsageService, SpeechUsageAttribution } from '../usage/SpeechUsageService';
 
@@ -44,6 +44,12 @@ export async function openLiveDictation(options: {
   check();
   const attempt = await options.usage?.begin({ ...options.attribution, product: 'dictation', model: 'scribe_v2_realtime', audioSeconds: null });
   let socket: WebSocket | undefined; let bytes = 0; let settled = false; let finishing = false; let connected = false;
+  let committedText = ''; let segmentBytes = 0; let pendingCommits = 0;
+  const combinedText = (segment: string) => {
+    const text = [committedText, segment.trim()].filter(Boolean).join(' ');
+    if (text.length > DICTATION_MAX_TEXT_CHARS) throw new Error('transcript length');
+    return text;
+  };
   let resolveReady!: () => void; let rejectReady!: (error: Error) => void;
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
   let resolveResult!: (value: DictationTranscript) => void; let rejectResult!: (error: Error) => void;
@@ -79,12 +85,17 @@ export async function openLiveDictation(options: {
         if (typeof event.data !== 'string' || event.data.length > 64 * 1024) throw new Error('message');
         const data: unknown = JSON.parse(event.data);
         if (!data || typeof data !== 'object' || !('message_type' in data)) throw new Error('message');
-        if (data.message_type === 'session_started') { if (connected) throw new Error('duplicate session'); connected = true; arm(65_000); resolveReady(); return; }
+        if (data.message_type === 'session_started') { if (connected) throw new Error('duplicate session'); connected = true; arm(LIVE_DICTATION_AUDIO_START_TIMEOUT_MS); resolveReady(); return; }
         if (data.message_type === 'partial_transcript' || data.message_type === 'committed_transcript') {
           if (!connected || !('text' in data) || typeof data.text !== 'string' || data.text.length > DICTATION_MAX_TEXT_CHARS
             || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/.test(data.text)) throw new Error('transcript');
-          if (data.message_type === 'partial_transcript') options.preview(data.text);
-          else { if (!finishing) throw new Error('unexpected commit'); end(undefined, data.text); }
+          if (data.message_type === 'partial_transcript') options.preview(combinedText(data.text));
+          else {
+            committedText = combinedText(data.text);
+            if (pendingCommits > 0) pendingCommits--;
+            options.preview(committedText);
+            if (finishing && pendingCommits === 0) end(undefined, committedText);
+          }
           return;
         }
         // Ignore optional metadata, never expose provider payloads or errors.
@@ -99,16 +110,27 @@ export async function openLiveDictation(options: {
         check();
         if (settled || finishing || socket?.readyState !== 1) throw new Error('Live-Diktat ist nicht mehr aufnahmebereit.');
         if (!(audio instanceof Uint8Array) || !audio.length || audio.length % 2 || audio.length > LIVE_DICTATION_CHUNK_BYTES
-          || bytes + audio.length > DICTATION_MAX_SECONDS * DICTATION_SAMPLE_RATE * 2) throw new Error('Ungültiger oder zu langer Audiostream.');
+          || bytes + audio.length > LIVE_DICTATION_MAX_SECONDS * DICTATION_SAMPLE_RATE * 2) throw new Error('Ungültiger oder zu langer Audiostream.');
         if (socket.bufferedAmount > 64 * 1024) { end(new Error('Live-Diktat ist zu langsam verbunden. Bitte erneut aufnehmen.')); throw new Error('Audiostream gestoppt.'); }
-        socket.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: Buffer.from(audio).toString('base64'), sample_rate: DICTATION_SAMPLE_RATE }));
-        bytes += audio.length;
+        // Commit well before the provider's ~36-second automatic segment boundary.
+        // Count acknowledgements so Stop cannot mistake a pending segment for the final one.
+        // A bounded setup window must not consume recording time. Later packets
+        // cannot renew the recording deadline, even if the sender stalls.
+        if (bytes === 0) arm(LIVE_DICTATION_SESSION_TIMEOUT_MS);
+        bytes += audio.length; segmentBytes += audio.length;
+        const commit = segmentBytes >= 20 * DICTATION_SAMPLE_RATE * 2;
+        if (commit) { segmentBytes = 0; pendingCommits++; }
+        socket.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: Buffer.from(audio).toString('base64'),
+          sample_rate: DICTATION_SAMPLE_RATE, ...(commit ? { commit: true } : {}) }));
       },
       finish() {
         check(); if (finishing || settled) return;
         if (bytes < 3200 || socket?.readyState !== 1) { end(new Error('Aufnahme zu kurz. Bitte mindestens 0,1 Sekunden sprechen.')); return; }
         finishing = true; arm(15_000);
-        socket.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: '', commit: true, sample_rate: DICTATION_SAMPLE_RATE }));
+        if (segmentBytes) {
+          segmentBytes = 0; pendingCommits++;
+          socket.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: '', commit: true, sample_rate: DICTATION_SAMPLE_RATE }));
+        } else if (pendingCommits === 0) end(undefined, committedText);
       },
     };
   } catch {

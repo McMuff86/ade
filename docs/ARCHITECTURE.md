@@ -1,5 +1,24 @@
 # ADE — Architecture (binding decisions)
 
+## Explicit Computer voice test (Goal 33.0)
+
+`ComputerVoiceTest` shares the existing target-bound `PromptComposerPort` on
+desktop/mobile. An explicit button arms up to 20 seconds of live dictation;
+only an isolated Computer/Hey Computer call, confirmed in the final transcript,
+triggers one greeting. Capture ends before synthesis/playback. Closing, hiding,
+disconnecting or cancelling invalidates pending replies and releases microphone
+and output. The component never changes drafts or dispatches CLI input.
+`speech:test` and the existing signed, idempotent remote speech command accept
+an optional strict `SpeechPreset`: `voice-check` or `computer-greeting`.
+Main chooses bounded German text from host time. Arbitrary text is rejected.
+Existing speech:control/default-target access and owner-bound expiring audio
+receipts remain enforced; no new channel or generic remote-write permission.
+Usage remains speech-test with actual text length. Both clients select the
+global effective voice; restricted devices without default-target access cannot
+use this first preview. AudioContext is unlocked in the activating gesture,
+the visible reply can be replayed without another synthesis. This is an explicit
+foreground preview, not an always-on recognizer or work-history summarizer.
+
 ## Desktop/mobile Work navigation
 
 Desktop `CliWorkPanel` adds an interactive session inventory to Work and
@@ -310,8 +329,10 @@ create a new PTY. Renderer-local active project selection survives view changes.
 
 Desktop terminal controls operate on the mounted xterm instance: bounded
 5,000-line scrollback search, selection copy, clipboard paste, history navigation
-and a validated local font preference. Search uses the xterm search addon;
-clipboard uses the existing desktop IPC. Input ownership still gates paste and
+and a validated local font preference. Search uses the xterm search addon and
+resynchronizes the Copy button with the actual selection after each search;
+reselecting the same match can emit only the intermediate clear event in xterm.
+Clipboard uses the existing desktop IPC. Input ownership still gates paste and
 PTY writes; no new IPC channel, remote permission or provider option is added.
 Behavior and validation: [Workspace terminals](WORKSPACE_TERMINALS_RESULTS.md).
 
@@ -628,13 +649,25 @@ Escape inside the dock closes it. Closing restores the opener or a visible
 terminal/tab fallback without stealing focus from a navigation action.
 
 Desktop and tablet dictation stream through `LiveDictationRecorder` and a bundled
-AudioWorklet (16 kHz mono PCM, 256 ms packets, hard 60-second sample cap).
+AudioWorklet (16 kHz mono PCM, 256 ms packets, hard 300-second sample cap).
+`shared/liveDictation.ts` owns the live duration, worklet packet size, sequence
+budget, 30-second first-audio window and 305-second recording deadline; the latter
+starts on the first valid PCM packet and is never renewed by later packets.
+The recorder prepares microphone permission and the local audio module before
+opening a provider stream, then connects capture only after provider readiness.
+Cancellation releases even microphone tracks returned after a delayed permission.
+The recorder passes the sample cap into the worklet. These are ADE limits, independent of provider quotas. Batch compatibility
+keeps its separate 60-second WAV/upload bound.
 Main owns the ElevenLabs single-use token and WebSocket; renderer CSP and the
 remote command allowlist are unchanged. `dictation:streamStart/streamChunk/streamFinish`
 are desktop-only host operations; every chunk is target/owner checked, bounded
 to 16,000 bytes and accepted only in sequence. `DictationJobs` exposes private
-partial text through its existing query. Partials replace the previous preview;
-one manual commit on Stop supplies the final editable text. `scribe_v2_realtime`
+partial text through its existing query. Committed segments accumulate; partials
+replace only the current segment. Main requests a commit every 20 seconds of PCM,
+before ElevenLabs' documented automatic commit at approximately 36 seconds.
+Stop commits the remaining audio and waits for all outstanding acknowledgements;
+an already confirmed segment boundary needs no empty commit. The complete text,
+including the current partial, remains bounded to 12,000 characters. `scribe_v2_realtime`
 shares the transcription concurrency gate with batch `scribe_v2`. There is no
 automatic reconnection or batch resubmission. Closing/cancelling releases the
 microphone and aborts the stream; connection loss preserves the last received
@@ -650,7 +683,7 @@ limit, canonical base64 and even byte counts. Every request checks device
 signature, dictation/terminal grants and the ticket's resource/control lease.
 Chunk keys must equal `jobId:sequence`; job-local in-memory digest receipts
 acknowledge identical duplicates without forwarding audio and reject changed
-payloads, sequence gaps and uncertain sends. Receipts are bounded to 1,000 per
+payloads, sequence gaps and uncertain sends. Receipts are bounded to 1,172 per
 ticket, disappear with the ticket and cannot restart after host restart. Audio
 packets do not consume the 500-entry durable administration ledger. Audit records
 contain metadata only. Both partial and final text pass through wire redaction;
@@ -673,7 +706,10 @@ browser consent and the independent `dictation:transcribe` device grant are both
 required. Existing devices and project-work presets do not gain that grant.
 
 `DictationJobs` issues private, owner-bound tickets before recording (maximum 16;
-five-minute preparation, ten-minute result lifetime). Canonical mono PCM/WAV at
+five-minute preparation, ten-minute result lifetime). Live start renews the ticket
+for the first-audio window and recording deadline plus 40 seconds for token/socket
+setup and finalization, so preparation
+time does not consume the recording lifetime. Canonical batch mono PCM/WAV at
 16 kHz is checked from actual bytes: 0.1–60 seconds, at most 1,920,044 bytes.
 Only main sends batch multipart audio to the fixed ElevenLabs Scribe-v2 endpoint.
 One provider request runs at a time with a 60-second deadline; no automatic
@@ -929,6 +965,9 @@ cannot type twice. A failed write fences subsequent input until a new lease;
 the client checks acceptance without automatically replaying uncertain input.
 Old leases are invalid after host
 restart, desktop reclaim, scope withdrawal or 30 seconds without a heartbeat.
+The mobile close confirmation remains open and disabled while terminal transport
+is busy; a synchronous lock guard also covers a heartbeat starting before the
+button rerenders. Confirming cannot silently disappear without sending a command.
 No input text is logged or persisted in receipts. Only one device owns input;
 desktop `terminal:reclaim` is audited and `terminal:control` is read-only. Both
 remain desktop IPC. `pty:write` and resize respect ownership; control events use

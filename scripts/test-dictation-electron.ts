@@ -3,14 +3,49 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpat
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
-import { _electron as electron, chromium, type Browser, type ElectronApplication } from 'playwright';
+import { _electron as electron, chromium, type Browser, type ElectronApplication, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
+import { LIVE_DICTATION_MAX_SECONDS } from '../src/shared/liveDictation';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-dictation-electron-')));
 const evidence = resolve('test-results/dictation'); mkdirSync(evidence, { recursive: true });
+const tokenCount = () => existsSync(join(root, 'tokens.jsonl')) ? readFileSync(join(root, 'tokens.jsonl'), 'utf8').trim().split('\n').length : 0;
+// Hold the browser's actual microphone result, as with a slow permission prompt.
+// Release retains the real MediaStream so cancellation must stop its tracks.
+type MicGate = { stream?: MediaStream; release: () => void };
+async function holdMicrophone(page: Page): Promise<void> {
+  await page.evaluate(`(() => {
+    const media = navigator.mediaDevices; const original = media.getUserMedia.bind(media);
+    const gate = { release: () => undefined };
+    window.dictationMicGate = gate;
+    media.getUserMedia = async options => {
+      const stream = await original(options); gate.stream = stream;
+      await new Promise(done => { gate.release = () => { media.getUserMedia = original; done(); }; });
+      return stream;
+    };
+  })()`);
+}
+async function waitForMicrophone(page: Page): Promise<void> {
+  await page.waitForFunction(() => !!(window as unknown as { dictationMicGate: MicGate }).dictationMicGate.stream);
+}
+async function releaseMicrophone(page: Page): Promise<void> {
+  await page.evaluate(() => (window as unknown as { dictationMicGate: MicGate }).dictationMicGate.release());
+}
+// Synthetic browser audio can lag wall time. Observe the provider's actual PCM
+// and stop within a segment so the fixture records the explicit final commit.
+async function waitForLongAudio(): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let progress: { bytes: number; segmentBytes: number } | undefined;
+  while (Date.now() < deadline) {
+    try { progress = JSON.parse(readFileSync(join(root, 'provider-progress.json'), 'utf8')); } catch { /* next packet completes the file write */ }
+    if (progress && progress.bytes > 60 * 32000 && progress.segmentBytes >= 3200 && progress.segmentBytes < 15 * 32000) return;
+    await new Promise(done => setTimeout(done, 250));
+  }
+  throw new Error(`Long recording did not deliver sixty seconds of PCM: ${JSON.stringify(progress)}`);
+}
 void (async () => {
   const bin = join(root, 'bin'); mkdirSync(bin); const repo = join(root, 'Dictation project'); mkdirSync(repo);
   const compile = join(root, 'compile.ps1');
@@ -51,14 +86,22 @@ ${nativeUsageFixtureSource}
   const port = address.port; await new Promise<void>(done => reservation.close(() => done()));
   writeFileSync(launcher, `const fs = require('node:fs'); const original = global.fetch;
 global.fetch = async (url, init) => {
-  if (String(url) === 'https://api.elevenlabs.io/v1/single-use-token/realtime_scribe') return Response.json({token:'fixture-live-token'});
+  if (String(url) === 'https://api.elevenlabs.io/v1/voices') return Response.json({voices:[{voice_id:'EXAVITQu4vr4xnSDxMaL',name:'Sarah',labels:{gender:'female'}}]});
+  if (String(url).startsWith('https://api.elevenlabs.io/v1/text-to-speech/')) {
+    fs.appendFileSync(${JSON.stringify(join(root, 'greetings.jsonl'))}, init.body + '\\n');
+    return new Response(fs.readFileSync(${JSON.stringify(resolve('scripts/fixtures/speech-silence.mp3'))}), {headers:{'content-type':'audio/mpeg'}});
+  }
+  if (String(url) === 'https://api.elevenlabs.io/v1/single-use-token/realtime_scribe') {
+    fs.appendFileSync(${JSON.stringify(join(root, 'tokens.jsonl'))}, '{}\\n');
+    return Response.json({token:'fixture-live-token'});
+  }
   if (String(url) !== 'https://api.elevenlabs.io/v1/speech-to-text') return original(url, init);
   const file = init.body.get('file');
   fs.appendFileSync(${JSON.stringify(join(root, 'provider.jsonl'))}, JSON.stringify({bytes: file.size, model: init.body.get('model_id'), file: file.name}) + '\\n');
   return Response.json({text:'Bitte prüfe den Code.',language_code:'deu'});
 };
 global.WebSocket = class extends EventTarget {
-  readyState = 1; bufferedAmount = 0; bytes = 0; chunks = 0;
+  readyState = 1; bufferedAmount = 0; bytes = 0; segmentBytes = 0; chunks = 0; committed = false;
   constructor(url) {
     super(); const parsed = new URL(url);
     if (parsed.origin !== 'wss://api.elevenlabs.io' || parsed.searchParams.get('model_id') !== 'scribe_v2_realtime'
@@ -68,15 +111,21 @@ global.WebSocket = class extends EventTarget {
   message(data) { this.dispatchEvent(new MessageEvent('message', {data:JSON.stringify(data)})); }
   send(raw) {
     const data = JSON.parse(raw);
+    const phrasePath = ${JSON.stringify(join(root, 'live-phrase.txt'))};
+    const phrase = fs.existsSync(phrasePath) ? fs.readFileSync(phrasePath,'utf8') : 'Bitte prüfe den Code.';
     if (data.message_type !== 'input_audio_chunk' || data.sample_rate !== 16000) throw new Error('Unexpected audio format');
-    this.bytes += Buffer.from(data.audio_base_64, 'base64').length;
+    const audioBytes = Buffer.from(data.audio_base_64, 'base64').length;
+    this.bytes += audioBytes; this.segmentBytes += audioBytes;
     if (data.commit) {
-      fs.appendFileSync(${JSON.stringify(join(root, 'provider.jsonl'))}, JSON.stringify({bytes:this.bytes,model:'scribe_v2_realtime'}) + '\\n');
-      setTimeout(() => this.message({message_type:'committed_transcript',text:'Bitte prüfe den Code.'}), 5);
+      this.segmentBytes = 0;
+      if (!data.audio_base_64) fs.appendFileSync(${JSON.stringify(join(root, 'provider.jsonl'))}, JSON.stringify({bytes:this.bytes,model:'scribe_v2_realtime'}) + '\\n');
+      const text = this.committed ? '' : phrase; this.committed = true;
+      setTimeout(() => this.message({message_type:'committed_transcript',text}), 5);
     } else {
       this.chunks++;
-      this.message({message_type:'partial_transcript',text:this.chunks === 1 ? 'Bitte prüfe' : 'Bitte prüfe den Code.'});
+      this.message({message_type:'partial_transcript',text:this.committed ? '' : this.chunks === 1 ? phrase.split(' ').slice(0,2).join(' ') : phrase});
     }
+    fs.writeFileSync(${JSON.stringify(join(root, 'provider-progress.json'))}, JSON.stringify({bytes:this.bytes,segmentBytes:this.segmentBytes}));
   }
   close() { this.readyState = 3; this.dispatchEvent(new Event('close')); }
 };
@@ -115,6 +164,42 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).focus();
   await page.keyboard.press('Enter'); const dialog = page.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
   const draft = dialog.getByLabel('CLI-Promptentwurf', { exact: true });
+  if (process.argv.includes('--computer-only')) {
+    const { computerVoiceFlow } = await import('./helpers/computerVoiceFlow');
+    await computerVoiceFlow(page, dialog, root, 'desktop', evidence, check);
+    await page.keyboard.press('Escape');
+    const denied = await page.evaluate(async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(track => track.stop()); return false; } catch { return true; } });
+    check('Computer releases desktop microphone permission before the next test', denied);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const access = page.getByTestId('mobile-access');
+    await access.getByRole('button', { name: 'Mit Tailscale aktivieren', exact: true }).click();
+    await access.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
+    await access.getByRole('button', { name: 'Tablet oder Smartphone koppeln', exact: true }).click();
+    const code = await access.getByLabel('Einmaliger Pairing-Code').inputValue();
+    proxy = await mobileTlsProxy(); proxy.target(port); proxy.rewriteOrigin('https://ade-mobile.fixture.ts.net');
+    browser = await chromium.launch({ channel: 'chromium', args: ['--ignore-certificate-errors', '--use-fake-device-for-media-stream', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
+    const tablet = await browser.newPage({ viewport: { width: 768, height: 600 }, hasTouch: true, ignoreHTTPSErrors: true }); tablet.setDefaultTimeout(25_000);
+    await tablet.context().grantPermissions(['microphone'], { origin: proxy.origin });
+    await tablet.goto(`${proxy.origin}/#pair=${code}`);
+    await tablet.getByLabel('Gerätename', { exact: true }).fill('Computer tablet');
+    await tablet.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
+    await tablet.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+    await page.evaluate(async () => {
+      const device = (await window.ade.invoke('remoteDevices:list')).devices.find(item => item.name === 'Computer tablet')!;
+      await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: ['workspace:read', 'projects:write', 'terminal:control', 'dictation:transcribe', 'speech:control'] });
+    });
+    await tablet.getByRole('tab', { name: 'Projekte', exact: true }).click();
+    await tablet.getByRole('button', { name: 'Workspace öffnen: Dictation project', exact: true }).click();
+    const project = tablet.getByRole('dialog', { name: 'Projekt · Dictation project', exact: true });
+    await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+    await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
+    await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
+    await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).first().click();
+    await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
+    await computerVoiceFlow(tablet, tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true }), root, 'tablet', evidence, check);
+    console.log(`Computer Electron: ${passed} passed, 0 failed`); return;
+  }
+  check('desktop explains the five-minute live recording limit', (await dialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
   check('opening the dock focuses its draft and exposes its expanded state', await draft.evaluate(node => node === document.activeElement)
     && await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).getAttribute('aria-expanded') === 'true');
   check('prompt dock leaves the terminal non-modal', await dialog.getAttribute('aria-modal') !== 'true'
@@ -155,16 +240,34 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('Escape restores terminal tool focus', await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).evaluate(node => node === document.activeElement));
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   check('draft survives closing without sending', await draft.inputValue() === 'Prüfe zuerst.' && !existsSync(join(repo, 'prompt-proof.jsonl')));
+  await holdMicrophone(page);
   await dialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
+  await waitForMicrophone(page);
+  await dialog.getByRole('button', { name: 'Aufnahme abbrechen', exact: true }).click();
+  await releaseMicrophone(page);
+  await page.waitForFunction(() => (window as unknown as { dictationMicGate: MicGate }).dictationMicGate.stream?.getTracks().every(track => track.readyState === 'ended'));
+  check('cancelling pending permission releases late microphone tracks without a provider request', tokenCount() === 0 && await draft.inputValue() === 'Prüfe zuerst.');
+  await holdMicrophone(page);
+  await dialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
+  await waitForMicrophone(page); await page.waitForTimeout(20_000);
+  check('desktop waits for microphone permission before opening the provider or starting the recording timer', tokenCount() === 0 && await dialog.getByRole('button', { name: /Aufnahme stoppen/ }).count() === 0);
+  await releaseMicrophone(page);
   await dialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
   await page.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
   check('desktop live transcript appears before Stop without executing the prompt', (await draft.inputValue()).startsWith('Prüfe zuerst.\nBitte prüfe')
     && !existsSync(join(repo, 'prompt-proof.jsonl')) && await draft.getAttribute('readonly') !== null);
   await terminal.locator('.project-terminal-screen').screenshot({ path: join(evidence, 'desktop-live.png') });
+  await page.waitForTimeout(65_000);
+  await waitForLongAudio();
+  check('desktop recording and timer continue beyond sixty seconds with committed segments retained',
+    Number((await dialog.getByRole('button', { name: /Aufnahme stoppen/ }).innerText()).match(/(\d+) s/)?.[1]) > 60
+    && await draft.inputValue() === 'Prüfe zuerst.\nBitte prüfe den Code.');
+  await dialog.screenshot({ path: join(evidence, 'desktop-live-over60.png') });
   await dialog.getByRole('button', { name: /Aufnahme stoppen/ }).click();
   await dialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
   const liveRequest = JSON.parse(readFileSync(join(root, 'provider.jsonl'), 'utf8').trim());
-  check('real Chromium microphone and AudioWorklet stream bounded PCM to the live provider fixture', liveRequest.bytes >= 3200 && liveRequest.bytes <= 1_920_000 && liveRequest.model === 'scribe_v2_realtime');
+  writeFileSync(join(evidence, 'desktop-long-audio.json'), JSON.stringify(liveRequest, null, 2));
+  check('real Chromium microphone and AudioWorklet stream more than sixty seconds of bounded PCM to the live provider fixture', liveRequest.bytes > 60 * 32000 && liveRequest.bytes <= LIVE_DICTATION_MAX_SECONDS * 32000 && liveRequest.model === 'scribe_v2_realtime');
   check('transcript is appended to editable draft without terminal execution', await draft.inputValue() === 'Prüfe zuerst.\nBitte prüfe den Code.' && !existsSync(join(repo, 'prompt-proof.jsonl')));
   check('committed live transcript is editable again', await draft.getAttribute('readonly') === null);
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
@@ -217,6 +320,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   await draft.fill('Nur für die Grok-Sitzung.');
   await projectTabs.first().click(); await dialog.waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => document.activeElement?.matches('.project-terminal [role="tabpanel"]:not([hidden]) [aria-label="Terminal-Eingabe"]'));
   check('session switching closes the dock and keeps focus in the newly selected terminal', await host.getByLabel('Terminal-Eingabe', { exact: true }).evaluate(node => node === document.activeElement));
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   check('switching sessions shows that session’s own draft', await draft.inputValue() === 'Dieser Entwurf bleibt erhalten.');
@@ -276,21 +380,33 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('tablet usage Escape returns focus to its disclosure', await project.locator('summary[aria-label="Abo-Nutzung"]:visible').evaluate(node => node === document.activeElement));
   await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   const mobileDialog = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  check('tablet explains the same five-minute live recording limit', (await mobileDialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
   check('tablet prompt names the authorized project even without an agent profile', (await mobileDialog.innerText()).includes('An: Dictation project · Codex · main'));
   const mobileDraft = mobileDialog.getByLabel('CLI-Promptentwurf', { exact: true });
   await mobileDraft.fill('Auf dem Tablet.');
+  const tokensBeforeTablet = tokenCount(); await holdMicrophone(tablet);
   await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
+  await waitForMicrophone(tablet); await tablet.waitForTimeout(20_000);
+  check('tablet waits for microphone permission before opening the provider or starting the recording timer', tokenCount() === tokensBeforeTablet && await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).count() === 0);
+  await releaseMicrophone(tablet);
   await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
   await tablet.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
   check('tablet live preview appears before Stop and cannot submit unfinished speech', (await mobileDraft.inputValue()).startsWith('Auf dem Tablet.\nBitte prüfe')
     && await mobileDraft.getAttribute('readonly') !== null && await mobileDialog.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled());
   await tablet.screenshot({ path: join(evidence, 'tablet-live.png') });
-  await new Promise(done => setTimeout(done, 2200));
+  await tablet.waitForTimeout(65_000);
+  await waitForLongAudio();
+  check('tablet recording and timer continue beyond sixty seconds with committed segments retained',
+    Number((await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).innerText()).match(/(\d+) s/)?.[1]) > 60
+    && await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
+  await mobileDialog.screenshot({ path: join(evidence, 'tablet-live-over60.png') });
   await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).click();
   await mobileDialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
   check('tablet records actual browser audio and appends transcript through signed host API', await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
   const requests = readFileSync(join(root, 'provider.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line) as { bytes: number; model: string });
-  check('tablet streams actual PCM once using the live model without a batch upload', requests.length === 2 && requests[1]!.bytes > 64 * 1024 && requests[1]!.model === 'scribe_v2_realtime');
+  writeFileSync(join(evidence, 'long-audio-requests.json'), JSON.stringify(requests, null, 2));
+  check('tablet streams over sixty seconds of actual PCM once using the live model without a batch upload', requests.length === 2
+    && requests[1]!.bytes > 60 * 32000 && requests[1]!.bytes <= LIVE_DICTATION_MAX_SECONDS * 32000 && requests[1]!.model === 'scribe_v2_realtime');
   await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
   await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
   const mobileSpeech = mobileConsumption.getByRole('region', { name: 'Diktatverbrauch', exact: true });
@@ -335,9 +451,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   await tablet.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some(button => button.textContent === 'Diktieren' && !button.disabled));
   check('tablet can record again after closing an active live stream', !await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled());
+  const retainedMobileDraft = await mobileDraft.inputValue();
   await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
   await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
-  await tablet.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
+  await tablet.waitForFunction(previous => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.startsWith(`${previous}\nBitte prüfe`), retainedMobileDraft);
   await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).click();
   await mobileDialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
   check('final positive live recording succeeds after disconnect and cancellation', readFileSync(join(root, 'provider.jsonl'), 'utf8').trim().split('\n').length === 3);

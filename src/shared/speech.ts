@@ -1,6 +1,10 @@
 export interface SpeechVoice { id: string; name: string; gender: string; language: string }
 export interface SpeechCatalog { voices: SpeechVoice[]; selectedVoiceId: string | null }
 export interface SpeechAudio { base64: string; mimeType: 'audio/mpeg'; text: string; voiceId: string }
+export type SpeechPreset = 'voice-check' | 'computer-greeting';
+export const validSpeechPreset = (value: unknown): value is SpeechPreset => value === 'voice-check' || value === 'computer-greeting';
+export const computerGreeting = (hour: number): string => `${hour >= 5 && hour < 12 ? 'Guten Morgen' : hour >= 12 && hour < 18 ? 'Guten Tag' : 'Guten Abend'}, Adi. Ich bin bereit. Was möchtest du als Nächstes angehen?`;
+export const isComputerCall = (text: string): boolean => /^\s*(?:hey[,\s]+)?computer[.!?,\s]*$/iu.test(text);
 export const SPEECH_TEST_TEXT = 'Hallo Adi, hier spricht ADE. Die Sprachausgabe über ElevenLabs funktioniert. Ich bin bereit für unseren nächsten Schritt.';
 export const validVoiceId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9]{10,80}$/.test(value);
 

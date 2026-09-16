@@ -1,5 +1,18 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Computer-Sprachtest (Goal 33.0)
+
+Im Prompt-/Diktatfenster auf PC und Tablet aktiviert **Computer testen** einen
+begrenzten Sprachtest. **Computer** oder **Hey Computer** löst nach bestätigter
+Erkennung eine kurze persönliche Begrüssung aus, passend zur Tageszeit des PCs
+und gesprochen mit der ADE-Standardstimme. Text bleibt sichtbar. Abbruch stoppt
+Aufnahme und Ausgabe; Replay verwendet dieselbe Audiodatei. Andere Diktat- und
+Sendeaktionen sind währenddessen gesperrt. Der CLI-Entwurf bleibt unverändert.
+Der Test hört höchstens 20 Sekunden zu und endet bei geschlossenem/verborgenem
+Fenster oder verlorener Verbindung. Freigaben für Diktat, Terminalsteuerung und
+Stimmtests gelten auch hier. Arbeitsrückblick und weitere Sprachaktionen sind
+eine spätere Ausbaustufe; [Goal 33](VOICE_COMPANION_PROPOSAL.md).
+
 ## Work und Profile auf Desktop und Tablet
 
 Am Desktop stehen interaktive Sitzungen unter **CLI-Arbeit** in Work und
@@ -58,8 +71,15 @@ ohne bisherige Wahl wird eine verfügbare weibliche Stimme vorgeschlagen. Ein
 kurzer deutscher Testsatz wird nur nach Betätigung erzeugt. Fehlender Key,
 fehlende Provider-Rechte, leere Listen und Wiedergabefehler sind sichtbar.
 „Prompt / Diktat“ ist im Terminal als eigener, sitzungsgebundener Editor
-implementiert. „Diktieren“ nimmt bis zu 60 Sekunden auf; „Aufnahme stoppen“
-überträgt an ElevenLabs. Der Text bleibt vor der Übergabe editierbar. „In CLI
+implementiert. „Diktieren“ streamt auf PC und Tablet bis zu 5 Minuten an
+ElevenLabs; „Aufnahme stoppen“ schliesst die laufenden Textabschnitte ab.
+Die Mikrofonfreigabe erfolgt vor dem Provideraufbau und verbraucht keine
+Aufnahmezeit. Ohne erstes Audio endet eine bereite Verbindung nach 30 Sekunden;
+ab dem ersten Paket gilt eine feste Hostfrist von 305 Sekunden.
+Bestätigte Abschnitte bleiben neben dem ersetzbaren Zwischenstand erhalten;
+das gesamte Transkript ist auf 12.000 Zeichen begrenzt. Die Dauer ist eine
+ADE-Grenze, kein behauptetes ElevenLabs-Limit. Der kompatible Batch-Pfad bleibt
+auf 60 Sekunden begrenzt. Der Text bleibt vor der Übergabe editierbar. „In CLI
 einfügen“ fügt ein, „An CLI absenden“ ergänzt Enter. Ein unbestätigter Versand
 bleibt sichtbar und wird nicht automatisch wiederholt. Der Entwurf wird auf
 diesem Gerät gespeichert; Aufnahme und API-Key werden dort nicht gespeichert.
@@ -162,7 +182,9 @@ requiring an agent or project. Desktop **Freie Terminals** and Mobile **Terminal
 expose these same main-owned sessions. Mobile includes agent/session navigation,
 CLI choice, exclusive input ownership, close confirmation, expanded terminal,
 font size and a theme that also updates xterm. Phone navigation collapses into
-**Agents und Sitzungen**. The terminal grant plus all-resource access is required
+**Agents und Sitzungen**. The close confirmation stays open and waits while a
+terminal request is in flight; it cannot silently discard an accepted click.
+The terminal grant plus all-resource access is required
 for free home sessions. Detailed scope and validation: [TERMINAL_WORKSPACE](TERMINAL_WORKSPACE.md).
 
 ## Tablet-Arbeitsplatz: Windows-Abnahme und Neustart (12. September 2026)

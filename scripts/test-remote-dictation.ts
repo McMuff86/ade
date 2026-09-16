@@ -13,6 +13,7 @@ import { DictationJobs } from '../src/main/settings/DictationJobs';
 import { encodeDictationPcm } from '../src/shared/dictationAudio';
 import type { MobileTerminalState } from '../src/shared/remote';
 import type { DictationTranscript } from '../src/shared/dictation';
+import { LIVE_DICTATION_MAX_PACKETS } from '../src/shared/liveDictation';
 
 let passed = 0; let terminal: RemoteTerminalService | undefined; let jobs: DictationJobs | undefined; let server: HostApiServer | undefined;
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-remote-dictation-')));
@@ -114,8 +115,9 @@ void (async () => {
   check('duplicate live packet is acknowledged without forwarding audio twice', 'replayed' in replayPacket && replayPacket.replayed && livePackets === 1);
   await refuses('same live packet cannot change audio', () => app.remoteDictation(packetContext, { ...packet, audioBase64: Buffer.alloc(8192, 1).toString('base64') }), 'command_rejected');
   await refuses('live packets cannot skip a sequence', () => app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:2` }, { ...packet, sequence: 2 }), 'command_rejected');
-  for (let sequence = 1; sequence < 235; sequence++) await app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:${sequence}` }, { ...packet, sequence });
-  check('minute of audio does not fill durable command receipts', readFileSync(join(root, 'remote', 'commands.json'), 'utf8') === receiptsBefore && livePackets === 235);
+  for (let sequence = 1; sequence < LIVE_DICTATION_MAX_PACKETS; sequence++) await app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:${sequence}` }, { ...packet, sequence });
+  check('five minutes of audio do not fill durable command receipts', readFileSync(join(root, 'remote', 'commands.json'), 'utf8') === receiptsBefore && livePackets === LIVE_DICTATION_MAX_PACKETS);
+  await refuses('remote packet sequence stays bounded at the new limit', () => app.remoteDictation({ ...context(), idempotencyKey: `${liveId}:${LIVE_DICTATION_MAX_PACKETS}` }, { ...packet, sequence: LIVE_DICTATION_MAX_PACKETS }), 'invalid_payload');
   const partial = await app.remoteDictation(context(), { operation: 'query', jobId: liveId });
   check('live previews are private result details with host paths removed', 'state' in partial && partial.state.status === 'recording' && partial.state.text.includes('Live') && !partial.state.text.includes('C:\\Users'));
   const finishContext = context();

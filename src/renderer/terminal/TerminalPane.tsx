@@ -299,6 +299,9 @@ export function TerminalPane({
   const find = (text = query, previous = false, incremental = false) => {
     if (!text) { searchRef.current?.clearDecorations(); termRef.current?.clearSelection(); setSearchResult(''); return; }
     const found = previous ? searchRef.current?.findPrevious(text) : searchRef.current?.findNext(text, { incremental });
+    // xterm can clear and reselect the same match without a final selection event.
+    // Read the completed search so Copy reflects the actual selection.
+    setHasSelection(termRef.current?.hasSelection() ?? false);
     setSearchResult(found ? 'Treffer ausgewählt' : 'Keine Treffer im Terminalverlauf');
   };
   const closeSearch = () => {

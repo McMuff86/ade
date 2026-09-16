@@ -76,9 +76,23 @@ export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evi
   await input.focus(); await page.keyboard.press('Control+Shift+F');
   const search = panel.getByLabel('Im Terminal suchen', { exact: true }); await expect(search).toBeFocused();
   await search.fill('ADE_HISTORY_12');
-  await panel.getByRole('status').filter({ hasText: 'Treffer ausgewählt' }).waitFor();
-  await panel.getByRole('button', { name: 'Kopieren', exact: true }).click();
-  await expect.poll(async () => (await page.evaluate(() => window.ade.invoke('clipboard:readText'))).text).toBe('ADE_HISTORY_12');
+  await page.evaluate(() => window.ade.invoke('clipboard:writeText', { text: 'ADE_COPY_PENDING' }));
+  // Font/search layout changes can still repaint ConPTY and clear a match.
+  // Re-establish the selection and copy together; polling an untouched clipboard
+  // cannot recover a click that raced the repaint. The exact value remains required.
+  await expect(async () => {
+    await search.press('Enter');
+    await panel.getByRole('status').filter({ hasText: 'Treffer ausgewählt' }).waitFor({ timeout: 1000 });
+    await panel.getByRole('button', { name: 'Kopieren', exact: true }).click({ timeout: 1000 });
+    await expect.poll(async () => (await page.evaluate(() => window.ade.invoke('clipboard:readText'))).text, { timeout: 1000 }).toBe('ADE_HISTORY_12');
+  }).toPass({ timeout: 10_000 }).catch(async error => {
+    await page.screenshot({ path: join(evidence, 'desktop-copy-failure.png') });
+    writeFileSync(join(evidence, 'desktop-copy-failure.json'), JSON.stringify({
+      text: await panel.innerText(), selectionRects: await panel.locator('.xterm-selection div').count(),
+      search: await search.inputValue(), copyDisabled: await panel.getByRole('button', { name: 'Kopieren', exact: true }).isDisabled(),
+    }, null, 2));
+    throw error;
+  });
   check('terminal search finds scrollback and copies exact matching selection', true);
   await search.fill('NO_SUCH_TERMINAL_LINE');
   await panel.getByRole('status').filter({ hasText: 'Keine Treffer' }).waitFor();

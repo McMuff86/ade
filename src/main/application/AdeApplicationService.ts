@@ -283,7 +283,7 @@ export class AdeApplicationService {
         const execute = async (): Promise<MobileSpeechResult> => {
           authorize(payload.target);
           if (payload.operation === 'select') { await speech.preferences.select({ target: payload.target, voiceId: payload.voiceId }, () => authorize(payload.target)); return {}; }
-          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target));
+          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target), payload.preset);
         };
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });

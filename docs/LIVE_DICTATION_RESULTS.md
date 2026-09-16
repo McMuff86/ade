@@ -2,6 +2,10 @@
 
 Stand: 16. September 2026.
 
+Die Fünf-Minuten-Lieferung wird in [Goal 32](LONG_DICTATION_GOALS.md) abgeschlossen.
+Der im [Audit](LIVE_DICTATION_LIMIT_AUDIT.md) gefundene Startfristfehler ist
+korrigiert; Gesamtprüfung und persönliche Aktivierung folgen.
+
 ## Verhalten
 
 - Desktop: „Prompt und Diktat“ öffnet im Terminalbereich rechts, bei höchstens
@@ -23,7 +27,15 @@ Stand: 16. September 2026.
 ## Umsetzung und Grenzen
 
 AudioWorklet erzeugt mono PCM16 bei 16 kHz, Pakete alle 256 ms. Browser und Main
-begrenzen auf 60 Sekunden; die Warteschlange und einzelne Pakete sind begrenzt.
+begrenzen auf 5 Minuten; die Warteschlange und einzelne Pakete sind begrenzt.
+Die Dauer, Paketgrösse und maximal 1.172 Paketnummern stammen aus dem gemeinsamen
+Live-Vertrag. Mikrofonfreigabe und lokales Audio-Modul werden vor dem Provider
+vorbereitet. Ab dessen Bereitschaft bleiben höchstens 30 Sekunden bis zum ersten
+Audio; erst dieses startet die feste 305-Sekunden-Aufnahmefrist. Weitere Pakete
+verlängern sie nicht. Live-Start erneuert die Ticketlaufzeit für beide Fristen
+plus 40 Sekunden Aufbau-/Abschlussreserve. Abbruch während einer verspäteten
+Mikrofonfreigabe gibt auch nachträglich gelieferte Mikrofonspuren frei.
+Der kompatible Batch-Upload bleibt bei 60 Sekunden und 1.920.044 WAV-Bytes.
 Der Worklet wird als eigene lokale Datei unter der unveränderten CSP geladen.
 Main holt ein einzelnes ElevenLabs-Token und öffnet eine WebSocket-Verbindung
 für `scribe_v2_realtime`. Weder Token noch API-Key verlassen Main. Authentisierte
@@ -36,15 +48,54 @@ Anfragen über `/api/v1/dictation/command`. Diktat- und Terminalfreigabe sowie
 Gerät, Ziel und Eingabebesitz werden bei jedem Schritt geprüft. Paket-Schlüssel
 sind an Ticket und Sequenz gebunden; identische Wiederholungen werden ohne
 erneuten Audioversand quittiert. Nur Hashes bleiben befristet im Speicher.
-235 reguläre Audiopakete füllen deshalb nicht den dauerhaften Aktionsspeicher.
+1.172 reguläre Audiopakete füllen deshalb nicht den dauerhaften Aktionsspeicher.
 Zwischenstände durchlaufen dieselbe Wire-Redaktion wie fertige Transkripte.
 
-Manuelles Commit beim Stoppen bestätigt den letzten Text. Es gibt weder
+Main fordert alle 20 Sekunden Audio eine Abschnittsbestätigung an. Bestätigte
+Abschnitte werden zusammengefügt; ein neuer Zwischenstand ersetzt nur den
+laufenden Abschnitt. Das gesamte Transkript bleibt auf 12.000 Zeichen begrenzt.
+Stoppen bestätigt den letzten Abschnitt und wartet auch auf vorherige noch
+offene Bestätigungen. An einer bereits bestätigten Grenze ist kein leeres
+Commit nötig. Es gibt weder
 automatische Wiederverbindung noch erneute Übertragung als vollständige
 Batch-Aufnahme. Die angezeigte Latenz hängt von Netzwerk und Anbieter ab; es
 wird kein bestimmter Echtzeitwert zugesichert. Referenzen:
 [ElevenLabs-Protokoll](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime),
 [Zwischenstände und bestätigte Abschnitte](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/event-reference).
+
+### Herkunft der Zeitlimits (16. September 2026)
+
+Die frühere 60-Sekunden-Grenze war in ADE gesetzt: gemeinsame Batch-Dauer,
+Worklet-Samplegrenze, Aufnahmetimer, UI-Zähler und 65-Sekunden-WebSocket-Deadline.
+Zusätzlich hätten 1.000 Paketnummern nur etwa 256 Sekunden Live-Audio erlaubt;
+die fünfminütige Ticketvorbereitung durfte nicht zur Aufnahmefrist werden.
+Diese Grenzen sind für Live-Diktat jetzt gemeinsam angepasst.
+
+ElevenLabs dokumentiert automatische Abschnittsbestätigungen nach ungefähr
+36 Sekunden, auch bei manueller Commit-Strategie. ADE hatte solche Ereignisse
+vor dem Stoppen bislang abgelehnt. Bestätigte Abschnitte werden nun aufbewahrt;
+regelmässige manuelle Commits vermeiden diese automatische Abschnittsgrenze.
+[Commit-Vertrag](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/transcripts-and-commit-strategies).
+Das Einmal-Token hat eine dokumentierte Ablaufzeit von 15 Minuten; die API
+beschreibt es zur Anmeldung beim Verbindungsaufbau. Daraus folgt keine
+15-Minuten-Aufnahmegrenze. Die geprüfte Realtime-Referenz nennt zwar
+`session_time_limit_exceeded`, aber keine numerische maximale Sitzungsdauer.
+[Token und Client-Aufbau](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/client-side-streaming),
+[Realtime-API](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime).
+Guthaben, gleichzeitige Sitzungen und Anbieterfehler bleiben separate Grenzen.
+
+Aktuelle Abnahme: 79 Live-Vertragschecks bestanden, einschliesslich voller
+300 Sekunden PCM, genauer Worklet-Grenze, aller Paketnummern, verlängerter
+Host-/Ticketfrist, 20 Sekunden Startverzögerung vor 300 Sekunden Audio,
+Leerlaufabbruch, zusammengesetzter Texte und wartender Abschnittsbestätigungen.
+47 Remotechecks, Verbrauchs-/Journal-/Ticketprüfungen, TypeScript und Build
+bestanden. PC und Tablet überschreiten im Browser nachweislich 60 Sekunden.
+Die aktuelle UI-Wiederholung besteht mit **64 Checks**, einschliesslich
+verspäteter Mikrofonfreigabe auf beiden Oberflächen und Abbruch vor Providerstart.
+Gemessen sind **65,472 Sekunden** Desktop- und **61,08 Sekunden** Tablet-PCM;
+positive Wiederaufnahme nach Verbindungsverlust und Abbruch bestanden.
+Gesamtprüfung und Aktivierung laufen unter Goal 32. Kein neuer kostenpflichtiger
+ElevenLabs-Dauertest.
 
 Der Verbrauchsversuch wird vor dem Verbindungsaufbau dauerhaft erfasst. Die
 anfänglich unbekannte Audiodauer wird beim Abschluss in demselben Datensatz

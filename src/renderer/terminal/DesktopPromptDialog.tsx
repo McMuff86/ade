@@ -33,6 +33,11 @@ export function DesktopPromptDialog({ sessionId, label, onClose, focusTerminal, 
     permitMicrophone: () => window.ade.invoke('dictation:microphone', { allow: true }),
     revokeMicrophone: () => window.ade.invoke('dictation:microphone', { allow: false }),
     copyText: text => window.ade.invoke('clipboard:writeText', { text }),
+    computerGreeting: async () => {
+      const preferences = await window.ade.invoke('speech:preferences', { kind: 'default' });
+      if (!preferences.effectiveVoiceId) throw new Error('Unter Settings → Sprachausgabe zuerst eine Stimme wählen.');
+      return window.ade.invoke('speech:test', { voiceId: preferences.effectiveVoiceId, preset: 'computer-greeting' });
+    },
     liveRecording: {
       start: jobId => window.ade.invoke('dictation:streamStart', { jobId }),
       push: (jobId, sequence, bytes) => {

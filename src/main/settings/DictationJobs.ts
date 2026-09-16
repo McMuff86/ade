@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DictationJobState } from '../../shared/dictation';
+import { LIVE_DICTATION_AUDIO_START_TIMEOUT_MS, LIVE_DICTATION_MAX_PACKETS, LIVE_DICTATION_SESSION_TIMEOUT_MS } from '../../shared/liveDictation';
 import { redactedErrorMessage } from '../errors';
 import { validateDictationAudio, type DictationService } from './DictationService';
 import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
@@ -64,6 +65,8 @@ export class DictationJobs {
     const job = this.require(owner, jobId);
     if (!this.service.startLive || job.state.status !== 'prepared') throw new Error('Diese Aufnahme kann nicht als Live-Diktat gestartet werden.');
     job.state = { status: 'recording', text: '' }; job.nextSequence = 0;
+    // Include token/socket setup and finalization; do not inherit the preparation expiry.
+    job.expiresAt = this.now() + LIVE_DICTATION_AUDIO_START_TIMEOUT_MS + LIVE_DICTATION_SESSION_TIMEOUT_MS + 40_000;
     try {
       const live = await this.service.startLive(job.authorize, job.controller.signal, job.usage, text => {
         if (job.state.status === 'recording' && !job.controller.signal.aborted) job.state = { status: 'recording', text };
@@ -96,7 +99,7 @@ export class DictationJobs {
       if (previous.fingerprint !== fingerprint || !previous.complete) throw new Error('Audiopaket geändert oder Übergabe unbestätigt. Keine automatische Wiederholung.');
       return true;
     }
-    if (sequence !== job.nextSequence || !Number.isSafeInteger(sequence) || sequence < 0 || sequence >= 1000) throw new Error('Ungültige Audioreihenfolge.');
+    if (sequence !== job.nextSequence || !Number.isSafeInteger(sequence) || sequence < 0 || sequence >= LIVE_DICTATION_MAX_PACKETS) throw new Error('Ungültige Audioreihenfolge.');
     const receipt = { fingerprint, complete: false };
     (job.packets ??= new Map()).set(sequence, receipt);
     this.pushLive(owner, jobId, sequence, audio); receipt.complete = true;

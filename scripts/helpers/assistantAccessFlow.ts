@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import type { Page } from 'playwright';
+import type { Page, Route } from 'playwright';
 import { terminalEchoLatency } from './terminalLatency';
 import { terminalLauncher } from './terminalControls';
 import { terminalKeyboardFlow } from './terminalKeyboardFlow';
@@ -112,6 +112,27 @@ public class Tui { public static void Main(string[] args) {
     await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
     check(`${profile.name}: opening after CLI exit starts a new invocation and retains the old shell`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id).length === before.length + 1);
     await workspace.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
+    if (profile.name === 'Hermes General Fixture') {
+      // Hold a real heartbeat request while the confirmation is already open.
+      // Its transport lock must not silently swallow a visible confirmation.
+      let release!: () => void; let entered!: () => void; let completed!: () => void; let captured = false;
+      const held = new Promise<void>(done => { release = done; });
+      const observed = new Promise<void>(done => { entered = done; });
+      const finished = new Promise<void>(done => { completed = done; });
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const heartbeat = async (route: Route) => {
+        if (captured || route.request().postDataJSON()?.data !== '') { await route.continue(); return; }
+        captured = true; entered(); await held;
+        try { await route.continue(); } finally { completed(); }
+      };
+      await tablet.route('**/api/v1/terminal/input', heartbeat);
+      try {
+        await Promise.race([observed, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Heartbeat fixture did not observe input')), 15_000); })]);
+        check('terminal close confirmation waits visibly for an in-flight heartbeat',
+          await tablet.getByRole('dialog', { name: 'Terminalsitzung beenden' }).getByRole('button', { name: 'Beenden bestätigen' }).isDisabled());
+      } finally { clearTimeout(timeout); release(); if (captured) await finished; await tablet.unroute('**/api/v1/terminal/input', heartbeat); }
+      await tablet.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some(button => button.textContent === 'Sitzung beenden' && !button.disabled));
+    }
     await tablet.getByRole('dialog', { name: 'Terminalsitzung beenden' }).getByRole('button', { name: 'Beenden bestätigen' }).click();
     await workspace.getByText('Sitzung beendet.', { exact: true }).waitFor();
   }

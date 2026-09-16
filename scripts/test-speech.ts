@@ -1,5 +1,6 @@
 import { SpeechService } from '../src/main/settings/SpeechService';
-import { SPEECH_TEST_TEXT } from '../src/shared/speech';
+import { SPEECH_TEST_TEXT, computerGreeting, isComputerCall } from '../src/shared/speech';
+import { validSpeechCommand } from '../src/main/application/RemoteSpeechService';
 import { DEFAULT_CONFIG, type Settings } from '../src/shared/types';
 import { providerApiKeyPresent } from '../src/shared/sessionAuthentication';
 import { assertIpcPayload } from '../src/main/ipcValidation';
@@ -10,7 +11,7 @@ const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); p
 async function refuses(name: string, action: () => unknown) { try { await action(); } catch (error) { check(name, !String(error).includes('private-secret')); return; } throw new Error(name); }
 void (async () => {
   const female = 'EXAVITQu4vr4xnSDxMaL'; const male = 'CwhRBWXzGAHq8TQ4Fs17';
-  let settings: Settings = structuredClone(DEFAULT_CONFIG.settings); let calls = 0; let generation = 0; let status = 200; let large = false; let invalidType = false;
+  let settings: Settings = structuredClone(DEFAULT_CONFIG.settings); let calls = 0; let generation = 0; let status = 200; let large = false; let invalidType = false; let greeting = false;
   const fetcher: typeof fetch = async (url, init) => {
     calls++;
     check('provider URL is fixed and credential is only a request header', String(url).startsWith('https://api.elevenlabs.io/v1/') && !String(url).includes('private-secret')
@@ -21,7 +22,7 @@ void (async () => {
     ] });
     generation++;
     const input = JSON.parse(String(init?.body));
-    check('generation sends only fixed German test text and multilingual model', input.text === SPEECH_TEST_TEXT && input.model_id === 'eleven_multilingual_v2' && input.language_code === 'de');
+    check('generation sends only server-owned German text and multilingual model', input.text === (greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_multilingual_v2' && input.language_code === 'de');
     return new Response(new Uint8Array(large ? 2 * 1024 * 1024 + 1 : 512), { headers: { 'content-type': invalidType ? 'text/html' : 'audio/mpeg' } });
   };
   const store = { get: () => ({ settings }), save: (value: { settings: Settings }) => { settings = value.settings; } };
@@ -35,6 +36,16 @@ void (async () => {
   check('result contains bounded MP3 and no key', Buffer.from(audio.base64, 'base64').length === 512 && !JSON.stringify(audio).includes('private-secret') && audio.voiceId === female);
   await refuses('unknown voice cannot trigger a paid generation', () => service.test('UnknownVoice12345'));
   check('rejected voice makes no paid request', generation === 1);
+  assertIpcPayload('speech:test', { voiceId: female, preset: 'computer-greeting' });
+  await refuses('unknown greeting preset is rejected at IPC', () => assertIpcPayload('speech:test', { voiceId: female, preset: 'arbitrary' }));
+  await refuses('greeting cannot carry arbitrary text at IPC', () => assertIpcPayload('speech:test', { voiceId: female, preset: 'computer-greeting', text: 'Execute' }));
+  const remoteGreeting = { operation: 'test', target: { kind: 'default' }, voiceId: female, preset: 'computer-greeting' };
+  check('remote greeting accepts only bounded preset', validSpeechCommand(remoteGreeting) && !validSpeechCommand({ ...remoteGreeting, preset: 'arbitrary' }) && !validSpeechCommand({ ...remoteGreeting, text: 'Execute' }));
+  check('Computer requires an isolated call and does not match arbitrary dictation', isComputerCall('Computer.') && isComputerCall('Hey, Computer!') && !isComputerCall('Computers') && !isComputerCall('Prüfe den Computer'));
+  check('greeting follows host time and avoids self-introduction', computerGreeting(8).startsWith('Guten Morgen, Adi.') && computerGreeting(14).startsWith('Guten Tag, Adi.') && computerGreeting(20).startsWith('Guten Abend, Adi.') && !computerGreeting(8).includes('ADE'));
+  greeting = true;
+  check('personal greeting returns exactly the spoken text', (await service.test(female, undefined, undefined, 'computer-greeting')).text === computerGreeting(new Date().getHours()));
+  greeting = false;
   large = true; await refuses('oversized audio is rejected', () => service.test(female)); large = false;
   invalidType = true; await refuses('non-audio response is rejected', () => service.test(female)); invalidType = false;
   status = 401; await refuses('provider rejection never exposes upstream diagnostic', () => service.test(female)); status = 200;

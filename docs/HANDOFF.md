@@ -1,5 +1,28 @@
 # ADE — aktuelle Übergabe
 
+## Goal 32 — Fünf-Minuten-Diktat abschliessen (16. September 2026)
+
+Operator meldet funktionierende Live-Vorschau und fragt nach längeren Aufnahmen.
+Die Grenze stammt aus ADE. Live-Pfad für PC und Tablet auf 5 Minuten angehoben;
+Batch-Kompatibilität bleibt auf 60 Sekunden. Provider bestätigt Abschnitte schon
+nach ungefähr 36 Sekunden automatisch; ADE sammelt diese nun und fordert alle
+20 Sekunden eigene Bestätigungen an. Stop wartet auf alle offenen Abschnitte.
+Der im Audit gefundene Startfristfehler ist korrigiert: Mikrofonvorbereitung
+vor Provideröffnung; 30 Sekunden bis zum ersten Audio, danach feste 305 Sekunden.
+79 Live-Vertragschecks bestehen. Die vollständige Prüfung, Commit, Build und
+persönliche Aktivierung folgen unter [Goal 32](LONG_DICTATION_GOALS.md).
+Der ursprüngliche Audit mit negativer Probe bleibt als historischer Nachweis
+erhalten. [Goal 33](VOICE_COMPANION_PROPOSAL.md) beschreibt den gewünschten
+ruhigen Sprachdialog auf PC und Tablet. Auf Wunsch des Operators ist zuerst
+33.0 implementiert: **Prompt / Diktat → Computer testen → Computer sagen**.
+Die ADE-Standardstimme begrüsst Adi ohne Selbstvorstellung. Der erste Live-Test
+wird vor der zeitintensiven erneuten Gesamtabnahme aktiviert, sobald die
+gezielten PC-/Tablet-Audiotests und der isolierte Release-Start bestehen.
+Diese Vorabaktivierung ist ausdrücklich keine abgeschlossene Gesamtabnahme.
+Die erste Gesamtprüfung deckte zusätzlich eine verlorene Schliessbestätigung
+bei laufendem Tablet-Heartbeat auf. Korrektur mit gezielter Negativkontrolle
+(58/1) und positiver Wiederholung (59/0) geprüft; finale Gesamtabnahme läuft.
+
 ## Ollama-Profillogo (16. September 2026, aktiviert)
 
 Offizielles Ollama-SVG lokal eingebunden, mit weisser Kontur auf dunklem Hintergrund

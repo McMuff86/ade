@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { unknownTokens } from '../../shared/usage';
+import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
 import { UsageJournal, usageDigest } from './UsageJournal';
 
 /** Captured in main from the authorized target, never a client-owned DTO. */
@@ -36,7 +37,7 @@ export class SpeechUsageService {
     let finalized: { state: string; promise: Promise<void> } | undefined;
     return { finish: (state, measuredSeconds) => {
       const identity = JSON.stringify([state, measuredSeconds]);
-      if (measuredSeconds !== undefined && (input.model !== 'scribe_v2_realtime' || !Number.isFinite(measuredSeconds) || measuredSeconds < 0 || measuredSeconds > 60)) return Promise.reject(new Error('Ungültige Dauer für Live-Diktat.'));
+      if (measuredSeconds !== undefined && (input.model !== 'scribe_v2_realtime' || !Number.isFinite(measuredSeconds) || measuredSeconds < 0 || measuredSeconds > LIVE_DICTATION_MAX_SECONDS)) return Promise.reject(new Error('Ungültige Dauer für Live-Diktat.'));
       if (finalized) return finalized.state === identity ? finalized.promise : Promise.reject(new Error('Sprachversuch hat bereits einen anderen Abschluss.'));
       const promise = (async () => {
         await this.journal.speechOutcome(factId, state, measuredSeconds);
