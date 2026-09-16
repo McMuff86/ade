@@ -119,7 +119,8 @@ global.WebSocket = class extends EventTarget {
     if (data.commit) {
       this.segmentBytes = 0;
       if (!data.audio_base_64) fs.appendFileSync(${JSON.stringify(join(root, 'provider.jsonl'))}, JSON.stringify({bytes:this.bytes,model:'scribe_v2_realtime'}) + '\\n');
-      const text = this.committed ? '' : phrase; this.committed = true;
+      const committedPath = ${JSON.stringify(join(root, 'committed-phrase.txt'))};
+      const text = this.committed ? '' : fs.existsSync(committedPath) ? fs.readFileSync(committedPath,'utf8') : phrase; this.committed = true;
       setTimeout(() => this.message({message_type:'committed_transcript',text}), 5);
     } else {
       this.chunks++;

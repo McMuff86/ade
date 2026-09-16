@@ -3,8 +3,8 @@
 ## Computer-Sprachtest (Goal 33.0)
 
 Im Prompt-/Diktatfenster auf PC und Tablet aktiviert **Computer testen** einen
-begrenzten Sprachtest. **Computer** oder **Hey Computer** löst nach bestätigter
-Erkennung eine kurze persönliche Begrüssung aus, passend zur Tageszeit des PCs
+begrenzten Sprachtest. **Computer** oder **Hey Computer** löst nach isolierter
+Live-Erkennung eine kurze persönliche Begrüssung aus, passend zur Tageszeit des PCs
 und gesprochen mit der ADE-Standardstimme. Text bleibt sichtbar. Abbruch stoppt
 Aufnahme und Ausgabe; Replay verwendet dieselbe Audiodatei. Andere Diktat- und
 Sendeaktionen sind währenddessen gesperrt. Der CLI-Entwurf bleibt unverändert.

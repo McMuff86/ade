@@ -1,17 +1,19 @@
 # ADE implementation status
 
-## Live-Diktat: längere Aufnahme (16. September 2026, in Abnahme)
+## Computer-Test und längeres Live-Diktat (16. September 2026, Vorschau aktiviert)
 
 ADEs eigene Live-Grenze ist von 60 Sekunden auf 5 Minuten erhöht, gemeinsam für
 PC und Tablet. Bestätigte Textabschnitte werden gesammelt; Stoppen wartet auf
 alle noch offenen Bestätigungen. Startfrist korrigiert: Mikrofonfreigabe vor
 Provideraufbau, eigene 30-Sekunden-Startfrist und 305 Sekunden ab erstem Audio.
 79 Live-Vertragschecks bestanden, einschliesslich vollem Audio nach verzögertem
-Start. Die vollständige Abnahme und persönliche Aktivierung laufen unter
+Start. Die Vorschau aus **07e8ae4** ist seit **11:46 CEST** auf dem persönlichen
+Host aktiv; das Tablet erhält nachweislich denselben Build. 16 Computer-UI-Checks
+bestehen auf Desktop/Tablet. Die vollständige Abnahme läuft unter
 [Goal 32](LONG_DICTATION_GOALS.md). Der [Sprachdialog mit Begrüssung und
 Arbeitsrückblick](VOICE_COMPANION_PROPOSAL.md) läuft unter Goal 33: Der erste
 explizite „Computer“-Aufruf mit persönlicher gesprochener Antwort ist auf beiden
-Oberflächen implementiert und in Abnahme. Rückblick und weitere Aktionen folgen.
+Oberflächen zum Live-Test verfügbar. Rückblick und weitere Aktionen folgen.
 Zusätzlich ist ein in der Gesamtabnahme gefundener Tablet-Fehler korrigiert:
 „Sitzung beenden“ wartet bei einer laufenden Terminalanfrage mit offenem Dialog.
 Die Desktop-Suche hält „Kopieren“ nach erneuter Auswahl desselben Treffers aktiv.

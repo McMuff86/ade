@@ -4,7 +4,8 @@ Stand: 16. September 2026.
 
 Die Fünf-Minuten-Lieferung wird in [Goal 32](LONG_DICTATION_GOALS.md) abgeschlossen.
 Der im [Audit](LIVE_DICTATION_LIMIT_AUDIT.md) gefundene Startfristfehler ist
-korrigiert; Gesamtprüfung und persönliche Aktivierung folgen.
+korrigiert. Persönliche Vorschau **07e8ae4** seit 16. September, **11:46 CEST**
+aktiviert; Gesamtprüfung über den um den Computer-Test erweiterten Stand läuft.
 
 ## Verhalten
 

@@ -5,12 +5,13 @@
 Eigene Zeit-, Sample-, Paket- und Ticketgrenzen für PC und Tablet angehoben;
 mehrere bestätigte Textabschnitte mit vollständigem Stop-Abschluss implementiert.
 Startfrist-Randfall korrigiert und mit 79 Live-Vertragschecks geprüft.
-Gesamtabnahme und Aktivierung laufen unter [Goal 32](LONG_DICTATION_GOALS.md).
+Vorschau **07e8ae4** aktiviert; Gesamtabnahme läuft unter [Goal 32](LONG_DICTATION_GOALS.md).
 
 ## Goal 33 — Erster Computer-Test, danach Sprachdialog
 
 33.0 implementiert „Computer testen“ auf PC und Tablet: explizit aktivieren,
-Computer sagen, persönliche Begrüssung mit Standardstimme hören. In Abnahme.
+Computer sagen, persönliche Begrüssung mit Standardstimme hören. Als geprüfte
+Vorschau aktiviert; die vollständige Gesamtabnahme läuft.
 Danach persönliche Begrüssung und belegter Arbeitsrückblick, begrenzte
 Bedienabsichten und schliesslich Unterbrechen/Gerätewechsel. Gemeinsamer
 Dialog auf PC und Tablet; [Vorschlag und Abnahmekriterien](VOICE_COMPANION_PROPOSAL.md).

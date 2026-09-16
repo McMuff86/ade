@@ -83,7 +83,11 @@ aktivieren und den Operator live testen lassen; Gesamtabnahme anschliessend.
 Codecommit, Build aus diesem Commit, unveränderter
 Releaseordner, isolierter Start, gesicherte persönliche Konfiguration, sauberer
 ADE-Neustart und Nachweis der geladenen Desktop-/Tablet-Artefakte. Der bisherige
-Release bleibt als Rückfall verfügbar. Status: ausstehend.
+Release bleibt als Rückfall verfügbar. **Vorschau aktiviert am 16. September
+2026 um 11:46 CEST**, zusammen mit dem Computer-Test in Codecommit **07e8ae4**,
+Source-ID **e55be38907bc873ec7ba**. Isolierter Start und persönliche Aktivierung
+bestanden; aktuelles Tablet-Bundle über HTTPS bytegleich bestätigt. 6 Profile,
+4 Projekte und 1 Gerät erhalten. Vollständige Gesamtabnahme läuft noch.
 
 Der anschliessende UX-Vorschlag steht separat in
 [Goal 33 — Sprachdialog](VOICE_COMPANION_PROPOSAL.md).

@@ -18,10 +18,13 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   await expect(call).toBeFocused();
   check(`${surface}: stop restores focus without synthesizing a non-command`, generations().length === before && await call.evaluate(node => node === document.activeElement));
   writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
+  // Real short utterances can disappear from the final commit after being
+  // recognized in the live preview. A harmless greeting must keep that call.
+  writeFileSync(join(root, 'committed-phrase.txt'), '');
   await call.focus(); await page.keyboard.press('Enter');
   await test.getByText('Begrüssung abgespielt. Du kannst jetzt eine Aufgabe diktieren.', { exact: true }).waitFor();
   const answer = await test.getByLabel('Computer Antwort', { exact: true }).innerText();
-  check(`${surface}: Computer produces one personal server-owned greeting and real decoded audio playback`, generations().length === before + 1
+  check(`${surface}: live Computer call survives an empty final transcript and plays one greeting`, generations().length === before + 1
     && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
   check(`${surface}: voice test never alters or submits the draft`, await draft.inputValue() === `Entwurf ${surface}.`
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));

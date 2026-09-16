@@ -19,6 +19,18 @@ Die ADE-Standardstimme begrüsst Adi ohne Selbstvorstellung. Der erste Live-Test
 wird vor der zeitintensiven erneuten Gesamtabnahme aktiviert, sobald die
 gezielten PC-/Tablet-Audiotests und der isolierte Release-Start bestehen.
 Diese Vorabaktivierung ist ausdrücklich keine abgeschlossene Gesamtabnahme.
+Aktivierung erfolgt **11:46 CEST**, Codecommit **07e8ae4**, Source-ID
+**e55be38907bc873ec7ba**, persönlicher PID **34628**. Isolierter Start,
+6 Profile/4 Projekte/1 Gerät und aktuelles HTTPS-Tablet-Bundle bestätigt.
+Desktop-/Tablet-Computer-Test: **16/0**. Tablet-Seite neu laden und im bestehenden
+Terminal gegebenenfalls **Eingabe übernehmen**, dann **Computer testen**.
+Backup: `C:\Users\Adi.Muff\ADE-Backups\LongDictation-20260916-114614`.
+Vollständiges `pnpm verify` läuft über diesen Produktstand weiter.
+Der erste physische Tablet-Test fand danach eine zu strenge Abschlussprüfung:
+bereits live erkanntes „Computer“ wurde bei geändertem/leerem Schlusstext
+verworfen. Korrektur mit reproduzierter Negativkontrolle **5/1** und positiver
+PC-/Tablet-Wiederholung **16/0**. Die Gesamtprüfung wurde für diesen Hotfix
+unterbrochen und muss danach über den korrigierten Stand laufen.
 Die erste Gesamtprüfung deckte zusätzlich eine verlorene Schliessbestätigung
 bei laufendem Tablet-Heartbeat auf. Korrektur mit gezielter Negativkontrolle
 (58/1) und positiver Wiederholung (59/0) geprüft; finale Gesamtabnahme läuft.

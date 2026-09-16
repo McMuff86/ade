@@ -75,15 +75,18 @@ export function ComputerVoiceTest({ port, enabled, onBusy }: {
         if (!heard) throw new Error('„Computer“ wurde nicht erkannt. Du kannst den Test erneut starten.');
         setStatus('„Computer“ gehört. Begrüssung wird vorbereitet…');
         await port.liveRecording.finish(prepared.jobId); if (!valid()) return;
-        const finalDeadline = Date.now() + 16_000; let confirmed = false;
+        const finalDeadline = Date.now() + 16_000; let finalized = false;
         while (valid() && Date.now() < finalDeadline) {
           const state = await port.readRecording(prepared.jobId); if (!valid()) return;
-          if (state.status === 'complete') { confirmed = isComputerCall(state.transcript.text); break; }
+          // A short call can be revised/omitted in the final provider segment.
+          // The isolated live call already authorizes only this harmless greeting;
+          // never use this rule for task submission or other consequential actions.
+          if (state.status === 'complete') { finalized = true; break; }
           if (state.status === 'failed') throw new Error(state.message);
           await new Promise(done => setTimeout(done, 250));
         }
         if (!valid()) return;
-        if (!confirmed) throw new Error('„Computer“ wurde im fertigen Transkript nicht bestätigt. Bitte erneut versuchen.');
+        if (!finalized) throw new Error('Aufnahmeabschluss konnte nicht bestätigt werden. Bitte erneut versuchen.');
         job.current = undefined;
         audio = await port.computerGreeting(); if (!valid()) return;
         setReply(audio);

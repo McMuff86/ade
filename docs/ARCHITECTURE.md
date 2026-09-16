@@ -4,8 +4,11 @@
 
 `ComputerVoiceTest` shares the existing target-bound `PromptComposerPort` on
 desktop/mobile. An explicit button arms up to 20 seconds of live dictation;
-only an isolated Computer/Hey Computer call, confirmed in the final transcript,
-triggers one greeting. Capture ends before synthesis/playback. Closing, hiding,
+only an isolated Computer/Hey Computer call in the live transcript triggers one
+greeting. Main still finalizes the audio, but a revised or empty final segment
+does not discard an already recognized call. This allowance applies only to the
+fixed greeting, never task submission or consequential actions.
+Capture ends before synthesis/playback. Closing, hiding,
 disconnecting or cancelling invalidates pending replies and releases microphone
 and output. The component never changes drafts or dispatches CLI input.
 `speech:test` and the existing signed, idempotent remote speech command accept

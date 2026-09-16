@@ -4,7 +4,7 @@ Für die tägliche Arbeit mit mehreren Repositories beginne unter **Projekte**.
 Die gemeinsame Sitzungsübersicht steht unter **Work → CLI-Arbeit**; der
 Prompteditor mit Diktat sitzt direkt im gewünschten Terminal.
 
-Stand: 15. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
+Stand: 16. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
 Die unten datierten Screenshots zeigen frühere, weiterhin geltende Grundabläufe.
 
 ADE bündelt deine Projekte, CLI-Assistenten und Aufgaben. Programme und Dateien

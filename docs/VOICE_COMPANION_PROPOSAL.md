@@ -7,7 +7,7 @@ der weitergehende Dialog bleibt ein Vorschlag. Parallel läuft [Goal 32](LONG_DI
 ## Goal 33.0 — Erster Live-Test
 
 PC und Tablet: Im aktiven CLI-Terminal **Prompt / Diktat → Computer testen**
-wählen, Mikrofon erlauben und **Computer** sagen. Nach der bestätigten Erkennung
+wählen, Mikrofon erlauben und **Computer** sagen. Nach der isolierten Live-Erkennung
 stoppt die Aufnahme, dann antwortet die gewählte ADE-Standardstimme:
 „Guten Morgen/Tag/Abend, Adi. Ich bin bereit. Was möchtest du als Nächstes angehen?“
 Massgeblich ist die Tageszeit des Hosts. Derselbe Text steht im Fenster.
@@ -35,6 +35,47 @@ Abnahme: `pnpm exec tsx scripts/test-dictation-electron.ts --computer-only`
 prüft die echte Electron-/Chromium-Audiopipeline mit simuliertem Mikrofon und
 Provider über beide Produktionsoberflächen. Physisches Samsung-Tablet und echte
 ElevenLabs-Erkennung werden anschliessend vom Operator live erprobt.
+
+### Aktivierte Vorschau, 16. September 2026 um 11:46 CEST
+
+Codecommit **07e8ae4**, Source-ID **e55be38907bc873ec7ba**.
+**16 Computer-UI-Checks** auf Desktop und Tablet, **46 Sprachverträge**,
+**23 Stimmenpräferenz-Checks**, **36 Sprachverbrauchs-Checks**, alle drei
+TypeScript-Projekte und Produktionsbuild bestanden. Der isolierte Release-Start
+bestand ebenfalls. Bei der ersten UI-Probe fiel die Fokusrückgabe auf einen
+noch deaktivierten Knopf auf; sie wartet jetzt auf den nächsten Bildaufbau.
+Die Tablet-Fixture übernimmt ausdrücklich die vom Desktop gehaltene Eingabe.
+
+Persönlicher Release `dist/computer-preview-07e8ae4`, PID **34628** bei Aktivierung.
+Alle **6 Profile**, **4 Projekte** und **1 gekoppeltes Gerät** erhalten.
+HTTPS liefert nachweislich das aktuelle Tablet-Bundle (Bytevergleich), Status 200.
+Startmenü-Verknüpfung aktualisiert; Backup
+`C:\Users\Adi.Muff\ADE-Backups\LongDictation-20260916-114614`.
+Nachweise: `test-results/computer-preview-final.log`,
+`test-results/long-dictation-release-smoke.json`,
+`test-results/long-dictation-restart.json` sowie `activation.json` im Release.
+Vollständiges `pnpm verify` über diesen erweiterten Produktstand läuft noch;
+die Vorschau ist keine bereits abgeschlossene Gesamtabnahme.
+
+### Rückmeldung vom physischen Samsung-Tablet
+
+Der Operator erreicht den Test mit dem aktuellen Build. Sein Screenshot zeigt
+„Computer wurde im fertigen Transkript nicht bestätigt“. Damit ist der Live-
+Aufruf bereits erkannt worden, aber die zusätzliche Abschlussprüfung blockiert
+die Antwort. Die erste Fixture hatte Live- und Abschlusstext identisch geliefert
+und diesen Unterschied nicht abgedeckt.
+
+Korrektur: Der einmal erkannte isolierte Live-Aufruf gilt für die feste,
+harmlose Begrüssung. Audio wird weiterhin regulär abgeschlossen; ein leerer oder
+geänderter Schlusstext verwirft die Erkennung nicht mehr. Diese Regel darf nicht
+auf Aufgabenstarts oder andere folgenschwere Aktionen übertragen werden.
+Neue Regression: Live-Text „Computer“, leerer Schlusstext; derselbe Ablauf muss
+auf Desktop und Tablet genau eine Begrüssung ohne Promptänderung abspielen.
+Die genaue letzte Providerformulierung vom physischen Versuch ist nicht bekannt.
+Die neue Regression scheitert am ersten Build gezielt mit **5/1** und genau
+derselben sichtbaren Fehlermeldung. Mit der Korrektur bestehen **16/0**,
+einschliesslich tatsächlicher Audiowiedergabe auf beiden Oberflächen.
+Logs: `test-results/computer-empty-final-{negative,positive}.log`.
 
 ## Erlebnis
 
