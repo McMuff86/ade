@@ -7,6 +7,9 @@ diese Lieferung bis Tests, Commit, Build und persönlichem Neustart. Neue native
 `/goal`-Befehle oder eine automatische Dauerschleife sind kein zusätzlicher
 Produktvertrag dieser Änderung.
 
+**Abgeschlossen:** Goals 31.1–31.3 sind implementiert, geprüft und mit
+Codecommit **3b0bddd** auf dem persönlichen nativen Windows-Host aktiviert.
+
 ## Goal 31.1 — Auswahl und Profile
 
 - Agent anlegen/bearbeiten → Runtime **Ollama** → **Coding-Agent** →
@@ -71,7 +74,7 @@ Aktuell positive Nachweise:
 - Vollständiges `pnpm verify`: **bestanden**, Exit 0. Drei TypeScript-Projekte,
   **72 Suiten / 3.088 Fachchecks**, Produktionsbuild, alle Electron-/Browser-
   Abläufe und **22 Visualchecks**. Log: `test-results/qwen-verify-final.log`.
-  Codecommit, finaler Build und persönliche Aktivierung folgen.
+  Codecommit **3b0bddd**, finaler Build und persönliche Aktivierung abgeschlossen.
 
 Der erste Gesamtversuch bestand 72 Suiten/3.088 Checks, Build und die ersten
 App-Flows, scheiterte dann an der neuen Tablet-Fixture: Sie druckte den ganzen
@@ -88,6 +91,26 @@ Screenshots: `test-results/ollama/settings.png`,
 Native Linux/WSLg, Windows mit WSL-Backend und macOS wurden nicht praktisch
 abgenommen; plattformspezifische Startbefehle sind fokussiert geprüft. Der
 interaktive Profiltransport bleibt ausdrücklich auf natives Windows begrenzt.
+
+### Persönliche Aktivierung
+
+- Finaler Produktionsbuild aus **3b0bddd8cbe6f151fa448addec466a30d40649cf**;
+  sourceId **3db6da463aa4600a0573**, 22 unveränderte Releaseartefakte.
+- Isolierter Electron-Start des Releases bestanden. Anschliessend persönliche
+  ADE-Instanz über die Tray-Aktion sauber beendet und am 16. September 2026 um
+  **08:47 Uhr MESZ** neu gestartet: PID 28356 → **15628**.
+- `dist/ollama-harness-3b0bddd` ist jetzt das Ziel des ADE-Startmenüeintrags.
+  Sechs Profile und vier Projekte sind per Hashvergleich erhalten; eine
+  Gerätekopplung bleibt verfügbar. Tablet-Seite liefert HTTP 200; Live-Diktat
+  und Harness-Auswahl sind enthalten, Codex-/Claude-/Grok-Logos geladen.
+- Sicherung: `C:\Users\Adi.Muff\ADE-Backups\QwenHarness-20260916-084703`.
+  Bestehendes Ollama-Profil bleibt bei Codex CLI; die neue Auswahl ist eine
+  bewusste Profileinstellung. Qwen Code 0.23.4 ist installiert und lokal geprüft.
+- Nachweise: `test-results/qwen-final-build.log`, `test-results/qwen-release-smoke.json`,
+  `test-results/qwen-restart.json`, `dist/ollama-harness-3b0bddd/activation.json` und
+  `dist/ollama-harness-3b0bddd/desktop-active.png`. Nach zunächst fehlgeschlagener
+  Tray-Erkennung ist die Wiederholung mit vollständigem Startnachweis bestanden.
+  Ein Mikrofontest auf dem persönlichen physischen Tablet bleibt offen.
 
 ## Quellen
 

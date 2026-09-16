@@ -1,6 +1,6 @@
 # ADE — aktuelle Übergabe
 
-## Goal 31 — Harness-Auswahl (16. September 2026, Code-Abnahme bestanden)
+## Goal 31 — Harness-Auswahl (16. September 2026, aktiviert)
 
 Operator beauftragt die besprochene Auswahl **Codex CLI/Qwen Code** im
 Ollama-Coding-Modus mit zugehörigen Goals. Arbeits-Goal und Goal-31-Vertrag
@@ -12,11 +12,31 @@ Benutzer-npm-Prefix installiert; keine Änderung globaler Modellanmeldungen.
 gezielte Tablet-/Host-Prüfungen sind positiv. Vollständiges `pnpm verify` ist
 mit Exit 0 bestanden: 72 Suiten / 3.088 Fachchecks, alle TypeScript-Projekte,
 Build, App-/Browserprüfungen und 22 Visualchecks. Zusätzlich 151 Adapterchecks.
-Log: `test-results/qwen-verify-final.log`. Commit/Build/Neustart folgen.
+Log: `test-results/qwen-verify-final.log`.
 Persönliches Ollama-Profil bleibt zunächst beim
 vorhandenen Codex-Harness. [Vertrag und Nachweise](OLLAMA_HARNESS_GOALS.md).
 
-Die nachstehenden Aktivierungsdaten gelten bis zum neuen Neustart weiter.
+Der beauftragte Commit, finale Build und persönliche Neustart sind abgeschlossen:
+
+- Codecommit **3b0bddd8cbe6f151fa448addec466a30d40649cf**; kein Push beauftragt.
+- Startordner `dist/ollama-harness-3b0bddd`, sourceId **3db6da463aa4600a0573**.
+  22 Startartefakte geprüft; separate isolierte Electron-Startprobe positiv.
+- ADE über die vorhandene Tray-Aktion sauber beendet und neu gestartet:
+  vorher PID 28356, jetzt **15628**, bestätigt am 16. September um 08:47 Uhr MESZ.
+  Die Windows-Tray-Automation benötigte Wiederholungen; die abschliessende
+  Aktivierung ist mit `passed` bestätigt. Sechs Profile und vier Projekte stimmen
+  mit den Hashes vor dem Neustart überein; ein gekoppeltes Gerät ist erhalten.
+- Die drei Runtime-Logos sind geladen. Tablet-Seite HTTP 200; Live-Diktat und
+  Harness-Auswahl sind im Release enthalten. Auf dem Tablet die Seite neu laden.
+  Der persönliche Mikrofontest auf dem physischen Tablet bleibt offen.
+- Startmenüeintrag **ADE** zeigt auf den neuen Startordner. Sicherung:
+  `C:\Users\Adi.Muff\ADE-Backups\QwenHarness-20260916-084703`.
+  Der vorherige Startordner bleibt als Rückfalloption bestehen.
+- Nachweise: `test-results/qwen-final-build.log`, `test-results/qwen-restart.json`,
+  `test-results/qwen-release-smoke.json`, `dist/ollama-harness-3b0bddd/activation.json`
+  und `dist/ollama-harness-3b0bddd/desktop-active.png`.
+
+Die nachstehenden Aktivierungsdaten beschreiben vorherige Lieferungen.
 
 ## Tablet-Live-Diktat und Profilbilder (16. September 2026)
 

@@ -18,7 +18,7 @@ führen den aktuellen Code- beziehungsweise Betriebsstand.
 | 26 | [Main-Chef-Koordination](MAIN_CHEF_COORDINATION_PLAN.md) | Profilkontext teilweise geliefert; weitere Delegation separat geplant |
 | 27 | [CLI-Arbeitsübersicht](CLI_WORK_AND_DICTATION_GOALS.md) | Aktive Lieferung mit gemeinsamer Work-/Overview-Liste |
 | 28–30 | [Multi-Host-Vorschlag](MULTI_HOST_ACCESS_PLAN.md) | Hostwechsel, Gast-/Gerätefreigabe, SSH; separater Vorschlag |
-| 31 | [Ollama-Coding-Harness](OLLAMA_HARNESS_GOALS.md) | Auswahl Codex CLI/Qwen Code, persistierte Profile, PC-/Tablet-Starts und verwaltete Aufgaben; vollständige Code-Abnahme bestanden, Aktivierung folgt |
+| 31 | [Ollama-Coding-Harness](OLLAMA_HARNESS_GOALS.md) | Abgeschlossen: Auswahl Codex CLI/Qwen Code, persistierte Profile, PC-/Tablet-Starts und verwaltete Aufgaben; vollständige Abnahme bestanden, Commit 3b0bddd gebaut und persönlich aktiviert |
 
 Im Multi-Host-Vorschlag vom 13. September waren 20 und 21 erneut vergeben,
 obwohl sie bereits zum Session-Workspace gehörten. Die vorgeschlagenen

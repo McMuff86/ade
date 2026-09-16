@@ -1,14 +1,15 @@
 # ADE delivery roadmap
 
-## Aktives Goal 31 — Ollama-Coding-Harness wählen
+## Abgeschlossenes Goal 31 — Ollama-Coding-Harness wählen
 
 **31.1** ergänzt die Auswahl Codex CLI/Qwen Code und persistierte Profile;
 **31.2** liefert Start-, Berechtigungs-, Profil- und Ergebnisverträge;
 **31.3** umfasst reale PC-/Tablet-/Modellproben, Gesamtprüfung und Aktivierung.
 Beide Auswahlpfade und Qwen3-Coder-Dateibearbeitung sind fokussiert positiv
 geprüft. `pnpm verify` besteht vollständig mit 72 Suiten / 3.088 Fachchecks,
-Build und allen App-/Browser-/Visualprüfungen. Commit, finaler Build und
-persönlicher Neustart folgen.
+Build und allen App-/Browser-/Visualprüfungen. Codecommit **3b0bddd**, finaler
+Build und persönlicher Neustart sind abgeschlossen: ADE PID **15628**, alle
+Profile, Projekte und die Gerätekopplung erhalten; Tablet-Seite HTTP 200.
 [Detaillierter Liefervertrag](OLLAMA_HARNESS_GOALS.md). Andere Goals bleiben
 unverändert; Goal 6 bleibt ausschliesslich native Codex-Validierung.
 

@@ -7,8 +7,12 @@ separat. Auswahl bleibt in Profilen/Vorlagen/portablen Daten erhalten und gilt
 für PC-/Tablet-Profilstarts und verwaltete Aufgaben. Fokussierte Abnahme und
 reale native Qwen-Code-/Qwen3-Coder-Dateiänderung mit positivem Test bestanden.
 `pnpm verify` besteht vollständig: drei TypeScript-Projekte, 72 Suiten / 3.088
-Fachchecks, Build, alle App-/Browserflows und 22 Visualchecks. Codecommit,
-finaler Build und persönliche Aktivierung folgen. [Goals und Nachweise](OLLAMA_HARNESS_GOALS.md).
+Fachchecks, Build, alle App-/Browserflows und 22 Visualchecks. Codecommit
+**3b0bddd**, finaler Build und persönliche Aktivierung sind abgeschlossen:
+`dist/ollama-harness-3b0bddd`, sourceId **3db6da463aa4600a0573**, ADE PID **15628**.
+Sechs Profile, vier Projekte und eine Gerätekopplung sind erhalten; Tablet-HTTP
+200, Live-Diktat und Profil-Logos bestätigt. Das vorhandene Ollama-Profil behält
+Codex CLI; Qwen Code ist im Profil auswählbar. [Goals und Nachweise](OLLAMA_HARNESS_GOALS.md).
 Die folgenden Abschnitte beschreiben vorherige Lieferungen.
 
 ## Tablet-Live-Diktat und scharfe Profilbilder (16. September 2026)
