@@ -196,9 +196,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
     await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
     await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
-    await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).first().click();
-    await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
-    await computerVoiceFlow(tablet, tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true }), root, 'tablet', evidence, check);
+    const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
+    await strip.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
+    await strip.getByRole('button', { name: 'Sprechen', exact: true }).waitFor();
+    await strip.getByRole('button', { name: 'Weitere Optionen', exact: true }).click();
+    await strip.getByRole('menuitem', { name: 'Computer rufen', exact: true }).click();
+    check('tablet Computer call lives in the voice strip under the visible terminal', await strip.getByRole('region', { name: 'Computer Sprachtest', exact: true }).isVisible()
+      && await project.getByLabel('Terminalanzeige', { exact: true }).isVisible() && await tablet.locator('dialog.m-prompt-dialog').count() === 0);
+    await computerVoiceFlow(tablet, strip, root, 'tablet', evidence, check, { record: 'Sprechen', send: 'Senden' });
     console.log(`Computer Electron: ${passed} passed, 0 failed`); return;
   }
   check('desktop explains the five-minute live recording limit', (await dialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
@@ -380,86 +385,94 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('tablet gets the selected terminal numeric usage through the existing authorized read', (await mobileConsumption.innerText()).includes('Input gesamt') && !(await mobileConsumption.innerText()).includes(root));
   await tablet.keyboard.press('Escape');
   check('tablet usage Escape returns focus to its disclosure', await project.locator('summary[aria-label="Abo-Nutzung"]:visible').evaluate(node => node === document.activeElement));
-  await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
-  const mobileDialog = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
-  check('tablet explains the same five-minute live recording limit', (await mobileDialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
-  check('tablet prompt names the authorized project even without an agent profile', (await mobileDialog.innerText()).includes('An: Dictation project · Codex · main'));
-  const mobileDraft = mobileDialog.getByLabel('CLI-Promptentwurf', { exact: true });
+  const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
+  const speak = strip.getByRole('button', { name: 'Sprechen', exact: true });
+  const listening = strip.getByRole('button', { name: /^Hört zu · \d+:\d\d$/ });
+  await speak.waitFor();
+  await tablet.screenshot({ path: join(evidence, 'tablet-strip-idle.png') });
+  check('tablet voice strip sits under the visible terminal without a modal or scrolling', await tablet.locator('dialog.m-prompt-dialog').count() === 0
+    && await project.getByLabel('Terminalanzeige', { exact: true }).evaluate(node => { const box = node.getBoundingClientRect(); return box.height >= 220 && box.top >= 0; })
+    && await speak.evaluate(node => { const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight && box.height >= 44; }));
+  check('tablet explains the same five-minute live recording limit', (await strip.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
+  const mobileDraft = strip.getByLabel('CLI-Promptentwurf', { exact: true });
   await mobileDraft.fill('Auf dem Tablet.');
   const tokensBeforeTablet = tokenCount(); await holdMicrophone(tablet);
-  await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
+  await speak.click();
   await waitForMicrophone(tablet); await tablet.waitForTimeout(20_000);
-  check('tablet waits for microphone permission before opening the provider or starting the recording timer', tokenCount() === tokensBeforeTablet && await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).count() === 0);
+  check('tablet waits for microphone permission before opening the provider or starting the recording timer', tokenCount() === tokensBeforeTablet && await listening.count() === 0
+    && await strip.getByRole('button', { name: 'Mikrofon…', exact: true }).isDisabled());
   await releaseMicrophone(tablet);
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
+  await listening.waitFor();
   await tablet.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
-  check('tablet live preview appears before Stop and cannot submit unfinished speech', (await mobileDraft.inputValue()).startsWith('Auf dem Tablet.\nBitte prüfe')
-    && await mobileDraft.getAttribute('readonly') !== null && await mobileDialog.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled());
+  check('tablet live preview appears in the strip before Stop and cannot submit unfinished speech', (await mobileDraft.inputValue()).startsWith('Auf dem Tablet.\nBitte prüfe')
+    && await mobileDraft.getAttribute('readonly') !== null && await strip.getByRole('button', { name: 'Senden', exact: true }).isDisabled()
+    && await project.getByLabel('Terminalanzeige', { exact: true }).evaluate(node => node.getBoundingClientRect().height >= 220));
   await tablet.screenshot({ path: join(evidence, 'tablet-live.png') });
   await tablet.waitForTimeout(65_000);
   await waitForLongAudio();
+  const elapsed = (await listening.innerText()).match(/(\d+):(\d\d)/);
   check('tablet recording and timer continue beyond sixty seconds with committed segments retained',
-    Number((await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).innerText()).match(/(\d+) s/)?.[1]) > 60
-    && await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
-  await mobileDialog.screenshot({ path: join(evidence, 'tablet-live-over60.png') });
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).click();
-  await mobileDialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
-  check('tablet records actual browser audio and appends transcript through signed host API', await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
+    !!elapsed && Number(elapsed[1]) * 60 + Number(elapsed[2]) > 60 && await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.');
+  await strip.screenshot({ path: join(evidence, 'tablet-live-over60.png') });
+  await listening.click();
+  await strip.getByText('Erkannt · prüfen, dann senden', { exact: true }).waitFor();
+  check('tablet records actual browser audio and appends transcript through signed host API', await mobileDraft.inputValue() === 'Auf dem Tablet.\nBitte prüfe den Code.'
+    && await mobileDraft.getAttribute('readonly') === null);
   const requests = readFileSync(join(root, 'provider.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line) as { bytes: number; model: string });
   writeFileSync(join(evidence, 'long-audio-requests.json'), JSON.stringify(requests, null, 2));
   check('tablet streams over sixty seconds of actual PCM once using the live model without a batch upload', requests.length === 2
     && requests[1]!.bytes > 60 * 32000 && requests[1]!.bytes <= LIVE_DICTATION_MAX_SECONDS * 32000 && requests[1]!.model === 'scribe_v2_realtime');
-  await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
   await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
   const mobileSpeech = mobileConsumption.getByRole('region', { name: 'Diktatverbrauch', exact: true });
   await mobileSpeech.getByText('Antwort erhalten', { exact: true }).waitFor();
   check('tablet sees its own single dictation attempt through authorized usage query', (await mobileSpeech.innerText()).includes('1 Auftrag/Aufträge'));
   check('tablet speech usage stays within its narrow panel', await mobileSpeech.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();
-  await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
   await mobileDraft.fill('Aufgabe vom Tablet.');
-  await mobileDialog.getByRole('button', { name: 'An CLI absenden', exact: true }).click();
-  await mobileDialog.getByText('An die CLI übergeben. Die Verarbeitung durch das Modell ist damit noch nicht bestätigt.', { exact: true }).waitFor();
-  check('tablet prompt reaches the selected real PTY exactly once', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').at(-1) === Buffer.from('\x1b[200~Aufgabe vom Tablet.\x1b[201~\r').toString('base64'));
+  await strip.getByRole('button', { name: 'Senden', exact: true }).click();
+  await strip.getByText('Übergeben ✓', { exact: true }).waitFor();
+  check('tablet prompt reaches the selected real PTY exactly once while the terminal stays visible', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').at(-1) === Buffer.from('\x1b[200~Aufgabe vom Tablet.\x1b[201~\r').toString('base64')
+    && await mobileDraft.inputValue() === '' && await project.getByLabel('Terminalanzeige', { exact: true }).isVisible());
   await mobileDraft.fill('Entwurf bleibt bei Verbindungsverlust.');
   proxy.losePromptReplies(true);
-  await mobileDialog.getByRole('button', { name: 'An CLI absenden', exact: true }).click();
-  await mobileDialog.getByText('Die vorige Übergabe ist nicht bestätigt. Vor erneutem Senden zuerst die CLI prüfen.', { exact: true }).waitFor();
+  await strip.getByRole('button', { name: 'Senden', exact: true }).click();
+  await strip.getByText('Die vorige Übergabe ist nicht bestätigt. Vor erneutem Senden zuerst die CLI prüfen.', { exact: true }).waitFor();
   check('lost prompt receipt retains and locks draft instead of resending', await mobileDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.' && await mobileDraft.getAttribute('readonly') !== null);
   proxy.losePromptReplies(false);
-  await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
-  await expect(project.getByRole('button', { name: 'Prompt / Diktat', exact: true })).toBeFocused();
-  check('mobile dialog returns focus to prompt opener', await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).evaluate(node => node === document.activeElement));
-  await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
-  check('reopened tablet draft preserves uncertain delivery', await mobileDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.' && await mobileDraft.getAttribute('readonly') !== null);
+  await strip.getByRole('button', { name: 'Weitere Optionen', exact: true }).click();
+  await strip.getByRole('menuitem', { name: 'Im Editor öffnen', exact: true }).click();
+  const editor = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  const editorDraft = editor.getByLabel('CLI-Promptentwurf', { exact: true });
+  check('large editor shows the same locked draft and names the authorized project', await editorDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.'
+    && await editorDraft.getAttribute('readonly') !== null && (await editor.innerText()).includes('An: Dictation project · Codex · main'));
+  await tablet.keyboard.press('Escape'); await editor.waitFor({ state: 'hidden' });
+  await expect(strip.getByRole('button', { name: 'Weitere Optionen', exact: true })).toBeFocused();
+  check('closing the editor returns to the strip with the uncertain delivery intact', await mobileDraft.inputValue() === 'Entwurf bleibt bei Verbindungsverlust.' && await mobileDraft.getAttribute('readonly') !== null);
   await tablet.setViewportSize({ width: 768, height: 600 });
-  check('tablet prompt remains usable with reduced keyboard viewport', await mobileDialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  check('tablet strip remains usable with reduced keyboard viewport', await strip.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await tablet.screenshot({ path: join(evidence, 'tablet.png') });
   check('lost receipt never caused automatic repeated PTY writes', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').length === 3);
-  await mobileDialog.getByRole('button', { name: 'Terminal geprüft – Entwurf weiterbearbeiten', exact: true }).click();
+  await strip.getByRole('button', { name: 'Terminal geprüft – Entwurf weiterbearbeiten', exact: true }).click();
   await mobileDraft.fill('Live-Verbindung.');
-  await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
+  await speak.click();
+  await listening.waitFor();
   await tablet.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
   proxy.setApiOffline(true);
-  await mobileDialog.getByText(/Zwischenstand wurde als Entwurf gesichert/).waitFor();
+  await strip.getByText(/Zwischenstand gesichert/).waitFor();
   check('tablet connection loss preserves last live preview as an editable draft', (await mobileDraft.inputValue()).startsWith('Live-Verbindung.\nBitte prüfe') && await mobileDraft.getAttribute('readonly') === null);
   proxy.setApiOffline(false);
   await tablet.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-  await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
-  await tablet.keyboard.press('Escape'); await mobileDialog.waitFor({ state: 'hidden' });
-  check('closing live tablet dictation returns focus to its current opener or project heading', await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).evaluate(node =>
-    node === document.activeElement || node.closest('dialog')?.querySelector('[data-dialog-heading]') === document.activeElement));
-  await project.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
-  await tablet.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some(button => button.textContent === 'Diktieren' && !button.disabled));
-  check('tablet can record again after closing an active live stream', !await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled());
+  await speak.click();
+  await listening.waitFor();
+  await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await tablet.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some(button => button.textContent === 'Sprechen' && !button.disabled));
+  check('tablet can record again after cancelling an active live stream', !await speak.isDisabled() && await strip.getByText('Aufnahme abgebrochen', { exact: true }).isVisible());
   const retainedMobileDraft = await mobileDraft.inputValue();
-  await mobileDialog.getByRole('button', { name: 'Diktieren', exact: true }).click();
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).waitFor();
+  await speak.click();
+  await listening.waitFor();
   await tablet.waitForFunction(previous => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.startsWith(`${previous}\nBitte prüfe`), retainedMobileDraft);
-  await mobileDialog.getByRole('button', { name: /Aufnahme stoppen/ }).click();
-  await mobileDialog.getByText('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', { exact: true }).waitFor();
+  await listening.click();
+  await strip.getByText('Erkannt · prüfen, dann senden', { exact: true }).waitFor();
   check('final positive live recording succeeds after disconnect and cancellation', readFileSync(join(root, 'provider.jsonl'), 'utf8').trim().split('\n').length === 3);
   console.log(`Dictation Electron: ${passed} passed, 0 failed`);
 })().catch(async error => { console.error(error); console.log(`Dictation Electron: ${passed} passed, 1 failed`); process.exitCode = 1;

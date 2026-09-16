@@ -2,7 +2,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Locator, type Page } from 'playwright/test';
 
-export async function computerVoiceFlow(page: Page, dialog: Locator, root: string, surface: string, evidence: string, check: (name: string, ok: boolean) => void): Promise<void> {
+/** `dialog` is the prompt surface: the desktop dock or the tablet voice strip, whose buttons carry shorter names. */
+export async function computerVoiceFlow(page: Page, dialog: Locator, root: string, surface: string, evidence: string, check: (name: string, ok: boolean) => void,
+  names: { record: string; send: string } = { record: 'Diktieren', send: 'An CLI absenden' }): Promise<void> {
   const test = dialog.getByRole('region', { name: 'Computer Sprachtest', exact: true });
   const draft = dialog.getByLabel('CLI-Promptentwurf', { exact: true });
   const call = test.getByRole('button', { name: 'Computer testen', exact: true });
@@ -11,8 +13,8 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   writeFileSync(join(root, 'live-phrase.txt'), 'Prüfe den Computer');
   await call.click(); await test.getByText('Ich höre zu. Sage jetzt „Computer“.', { exact: true }).waitFor();
   await page.waitForTimeout(700);
-  check(`${surface}: listening locks dictation and sending while leaving the draft unchanged`, await dialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled()
-    && await dialog.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled() && await draft.inputValue() === `Entwurf ${surface}.`);
+  check(`${surface}: listening locks dictation and sending while leaving the draft unchanged`, await dialog.getByRole('button', { name: names.record, exact: true }).isDisabled()
+    && await dialog.getByRole('button', { name: names.send, exact: true }).isDisabled() && await draft.inputValue() === `Entwurf ${surface}.`);
   const before = generations().length;
   await test.getByRole('button', { name: 'Computer-Test beenden', exact: true }).click();
   await expect(call).toBeFocused();
@@ -38,4 +40,5 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   check(`${surface}: replay uses the existing audio without another provider request`, generations().length === before + 1);
   check(`${surface}: voice controls fit the available width`, await test.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await dialog.screenshot({ path: join(evidence, `computer-${surface}.png`) });
+  await page.screenshot({ path: join(evidence, `computer-${surface}-page.png`) });
 }

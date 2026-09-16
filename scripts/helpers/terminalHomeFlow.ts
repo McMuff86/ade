@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
-import { terminalLauncher } from './terminalControls';
+import { expandSessionControls, terminalLauncher } from './terminalControls';
 
 export async function terminalHomeFlow(desktop: Page, page: Page, root: string, evidence: string,
   check: (name: string, ok: boolean) => void): Promise<void> {
@@ -99,6 +99,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await desktop.locator(`#session-panel-${shell.id}`).getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
   await terminal.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).waitFor();
   check('desktop can reclaim the mobile home terminal', !(await desktop.evaluate((id) => window.ade.invoke('terminal:control', { sessionId: id }), shell.id)).remote);
+  await expandSessionControls(terminal);
   await terminal.getByLabel('Terminal-Schriftgrösse', { exact: true }).selectOption('18');
   await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
@@ -113,6 +114,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   check('desktop reload restores home terminal tabs from main-owned sessions', await desktop.locator('.tabstrip [role="tab"]').count() === 1
     && await desktop.locator('.tabstrip .tab-title').innerText() === 'Shell' && (await homeSessions())[0]!.id === shell.id);
   for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude CLI'], ['grok', 'Grok CLI']] as const) {
+    await expandSessionControls(terminal);
     await terminal.getByLabel('Terminal-CLI', { exact: true }).selectOption(mode);
     await terminal.getByRole('button', { name: `${label} öffnen`, exact: true }).click();
     const deadline = Date.now() + 30_000;
@@ -174,6 +176,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   const added = afterOpen.find(item => !sessionsBefore.some(previous => previous.id === item.id));
   check('direct phone entry starts an additional free shell', afterOpen.length === count + 1 && !!added);
   if (!added) throw new Error('New free shell was not identified');
+  await expandSessionControls(terminal);
   await terminal.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
   const confirmation = page.getByRole('dialog').last();
   check('terminal close confirmation takes keyboard focus', await confirmation.evaluate((node) => node.contains(document.activeElement)));

@@ -1,6 +1,6 @@
 import { categoryNavigationFlow } from './helpers/categoryNavigationFlow';
 import { integrationFlow } from './helpers/integrationFlow';
-import { terminalComposer, terminalLauncher } from './helpers/terminalControls';
+import { expandSessionControls, terminalComposer, terminalLauncher } from './helpers/terminalControls';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -161,6 +161,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   if (process.argv.includes('--assistant-only')) {
     await assistantAccessFlow(desktop, page, root, setup.agent.categoryId, evidence, check); return;
   }
+  await expandSessionControls(workspace);
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').filter({ hasText: 'Terminal offen' }).waitFor({ state: 'attached' });
   const terminalId = await workspace.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').nth(1).getAttribute('value');
   await workspace.getByLabel('Terminal-Sitzung', { exact: true }).selectOption(terminalId!);
@@ -212,6 +213,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   const agentTerminal = await workspace.getByLabel('Terminal-Sitzung', { exact: true }).inputValue();
   check('tablet starts the configured agent command in a new real PTY', agentTerminal !== shellId
     && (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === 3);
+  await expandSessionControls(workspace);
   await workspace.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
   await page.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
   await workspace.getByText('Sitzung beendet.', { exact: true }).waitFor();
@@ -326,6 +328,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await ws.getByLabel('Dateivorschau', { exact: true }).getByText('ADE_WSL_HOME_READY', { exact: false }).waitFor();
     check('real WSL PTY and tablet files share the configured home', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.some((s) => s.agentId === wslAgent.id && s.executionBackend === 'wsl:Ubuntu' && s.workspaceDir === wslHome));
     await ws.getByRole('button', { name: 'Terminal', exact: true }).click();
+    await expandSessionControls(ws);
     await ws.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
     await page.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true }).getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
     await ws.getByText('Sitzung beendet.', { exact: true }).waitFor();

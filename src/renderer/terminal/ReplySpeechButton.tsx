@@ -11,9 +11,9 @@ export interface ReplySpeechPort {
   cancel(replyId: string): Promise<unknown>;
 }
 
-export function ReplySpeechButton({ port, readSource, active, disabled = false, fallbackFocus, buttonContainer }: {
+export function ReplySpeechButton({ port, readSource, active, disabled = false, fallbackFocus, buttonContainer, label = 'Antwort anhören' }: {
   port: ReplySpeechPort; readSource: () => ReplySource; active: boolean; disabled?: boolean; fallbackFocus: () => HTMLElement | null;
-  buttonContainer?: HTMLElement | null;
+  buttonContainer?: HTMLElement | null; label?: string;
 }) {
   const [source, setSource] = useState<ReplySource>(); const [error, setError] = useState('');
   const button = useRef<HTMLButtonElement>(null); const context = useRef<AudioContext | undefined>(undefined);
@@ -32,7 +32,7 @@ export function ReplySpeechButton({ port, readSource, active, disabled = false, 
         context.current = new AudioContext(); void context.current.resume().catch(() => undefined);
         setSource(captured);
       } catch (reason) { setError(reason instanceof Error ? reason.message : 'Die Antwort konnte nicht gelesen werden.'); }
-    }}>Antwort anhören</button>
+    }}>{label}</button>
     {error && <span role="alert" className="reply-speech-error">{error}</span>}
   </>;
   return <>

@@ -27,6 +27,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
   screen: string;
   fontSize?: number;
   replyPort?: ReplySpeechPort;
+  /** The voice strip's slot; "Anhören" renders there instead of floating over the output. */
   replyButtonContainer?: HTMLElement | null;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
@@ -96,7 +97,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     }} />
     <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
       onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
-    {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer}
+    {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? 'Anhören' : 'Antwort anhören'}
       fallbackFocus={() => historyButton.current} readSource={() => {
         if (history !== null) {
           const selection = window.getSelection();

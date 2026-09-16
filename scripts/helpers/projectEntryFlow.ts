@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import type { Page } from 'playwright';
 import type { mobileTlsProxy } from './mobileBrowser';
+import { expandSessionControls } from './terminalControls';
 
 /** Uses deterministic native CLI executables supplied by the terminal Electron fixture. */
 export async function projectEntryFlow(desktop: Page, page: Page, evidence: string, check: (label: string, ok: boolean) => void,
@@ -34,6 +35,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     && readFileSync(join(original.rootPath, 'scaffold.txt'), 'utf8').includes('TABLET_SCAFFOLD'));
   await workspace.getByRole('button', { name: 'Terminal', exact: true }).click();
   for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude CLI'], ['grok', 'Grok CLI']] as const) {
+    await expandSessionControls(workspace);
     await workspace.getByLabel('Projekt-CLI', { exact: true }).selectOption(mode);
     await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).click({ trial: true });
     await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).press('Enter');

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Page, Route } from 'playwright';
 import { terminalEchoLatency } from './terminalLatency';
-import { terminalLauncher } from './terminalControls';
+import { expandSessionControls, terminalLauncher } from './terminalControls';
 import { terminalKeyboardFlow } from './terminalKeyboardFlow';
 import { terminalKeyboardActivationFlow } from './terminalKeyboardActivationFlow';
 
@@ -61,6 +61,7 @@ public class Tui { public static void Main(string[] args) {
       await normal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
       check('ordinary workspace keeps a usable terminal and folds the empty composer', await normal.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height >= 220)
         && !await normal.getByLabel('Terminal-Eingabe', { exact: true }).isVisible());
+      await expandSessionControls(normal);
       await normal.getByRole('button', { name: `${profile.name} öffnen`, exact: true }).focus(); await tablet.keyboard.press('Enter');
       await normal.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
       check('visible agent action starts the TUI from a shell and enlarges it', await normal.getByRole('button', { name: 'Workspace einblenden', exact: true }).isVisible());
@@ -111,6 +112,7 @@ public class Tui { public static void Main(string[] args) {
     await workspace.getByRole('button', { name: `${profile.name} öffnen`, exact: true }).click();
     await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
     check(`${profile.name}: opening after CLI exit starts a new invocation and retains the old shell`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id).length === before.length + 1);
+    await expandSessionControls(workspace);
     await workspace.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
     if (profile.name === 'Hermes General Fixture') {
       // Hold a real heartbeat request while the confirmation is already open.

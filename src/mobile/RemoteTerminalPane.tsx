@@ -16,9 +16,10 @@ import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
 import { canReuseLaunch, sessionStateLabel } from '../shared/sessionState';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
-import { MobilePromptDialog } from './PromptDialog';
 import type { MobileTerminalPrompt } from '../shared/remote';
 import { mobileReplyPort } from './replySpeechPort';
+import { TerminalVoiceStrip } from './TerminalVoiceStrip';
+import { KeyboardIcon } from '../renderer/terminal/VoiceStrip';
 
 interface TerminalDraft { text: string; review: boolean }
 
@@ -35,7 +36,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const keyboardOpen = useContext(TabletKeyboardContext);
   const headerSlot = useContext(DialogHeaderSlot);
   const controlsId = useId();
-  const [controlsExpanded, setControlsExpanded] = useDeviceDraft(host.deviceId, 'terminal-controls-expanded', true);
+  // A running session shows terminal and voice strip; launch and session
+  // management stay one tap away behind "Sitzung & Workspace".
+  const [controlsExpanded, setControlsExpanded] = useDeviceDraft(host.deviceId, 'terminal-controls-expanded', false);
   const selection = useMemo<MobileTerminalSelection>(() => terminalHome ? { terminalHome: true } : projectWorkspaceId ? { projectWorkspaceId } : { agentId: agentId!, repositoryId: repositoryId! }, [terminalHome, projectWorkspaceId, agentId, repositoryId]);
   const scopeKey = terminalHome ? 'terminal-home' : projectWorkspaceId ? `project/${projectWorkspaceId}` : `${agentId}:${repositoryId ?? 'home'}`;
   const [fontSize, setFontSize] = useDeviceDraft(host.deviceId, 'terminal-font-size', 14);
@@ -52,10 +55,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const text = draft.text; const setText = (value: string) => saveDraft((current) => ({ ...current, text: value }));
   const [launchOpen, setLaunchOpen] = useState(!!terminalHome && !initialTerminalId);
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
-  const [promptOpen, setPromptOpen] = useState(false);
-  const promptOpener = useRef<HTMLButtonElement>(null);
-  const [replyToolbar, setReplyToolbar] = useState<HTMLSpanElement | null>(null);
-  useEffect(() => { setPromptOpen(false); }, [selected, active]);
+  const [replySlot, setReplySlot] = useState<HTMLElement | null>(null);
+  const [keysShown, setKeysShown] = useState(false);
   const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [readError, setReadError] = useState('');
@@ -274,20 +275,22 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       focusTerminal.current = null;
     }
   }, [active, owning, busy, profileOpening, state.frame]);
-  const controlsVisible = !state.selected || controlsExpanded;
+  // Collapsed only while there is a live CLI to talk to. An exited CLI and an
+  // explicit "Bedienung" request need the launch row.
+  const cliIdle = !!state.selected && (state.selected.status !== 'running' || state.selected.program?.status === 'exited');
+  const controlsVisible = !state.selected || controlsExpanded || cliIdle || (keyboardOpen && !compactControls);
+  // One statement about who may type; the CLI label carries the process state.
+  const ownerText = host.status !== 'online' ? 'Offline' : !state.selected ? 'Keine Sitzung' : state.selected.status === 'exited' ? 'Sitzung beendet'
+    : owning ? 'Eingabe: Du (Tablet)' : state.selected.owner === 'other' ? 'Eingabe: anderes Gerät' : 'Eingabe: Desktop';
   const statusBar = <div className="m-terminal-status-bar" aria-label="Terminalstatus">
-    <span role="status">{host.status !== 'online' ? 'Offline' : state.selected?.status === 'exited' ? 'Sitzung beendet' : state.selected ? 'Terminal verbunden' : 'Keine Sitzung'}</span>
+    <span role="status" className="m-terminal-owner" data-state={host.status !== 'online' ? 'offline' : owning && state.selected?.status === 'running' ? 'own' : 'other'}>{ownerText}</span>
     {state.selected && <span role="status" aria-label="CLI- und Terminalstatus">{sessionStateLabel(state.selected)}</span>}
-    {state.selected?.status === 'running' && <span role="status">{owning ? 'Eingabe: Du (Tablet)' : state.selected.owner === 'other' ? 'Eingabe: anderes Gerät' : 'Eingabe: Desktop'}</span>}
     {state.selected && <SubscriptionUsagePanel compact key={`usage-${state.selected.id}`} online={host.status === 'online'} load={async () => {
       const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, usage: true });
       if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
     }} />}
     {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>Sitzung &amp; Workspace</button>}
-    {/* Native disabled would blur this opener on every short lease heartbeat. */}
-    {state.selected && <button ref={promptOpener} aria-haspopup="dialog" disabled={!owning || !state.leaseId} aria-disabled={blocked}
-      onClick={event => { if (blocked) return; event.currentTarget.focus(); setPromptOpen(true); }}>Prompt / Diktat</button>}
-    {state.selected && <span ref={setReplyToolbar} className="m-terminal-reply-slot" />}
+    {focused && <button onClick={() => setFocused(false)}>Workspace einblenden</button>}
   </div>;
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label="Interaktives Terminal">
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
@@ -297,7 +300,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     </select></label>}
       <button className="m-primary" disabled={blocked || !!(projectEntry || terminalHome) && !canLaunchChoice({ mode: projectMode }, options)} onClick={() => void openProfile(projectEntry || terminalHome ? projectMode : 'agent')}>
         {projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} öffnen</button>
-      <button aria-pressed={focused} onClick={() => { setFocused(!focused); if (!focused) setComposeOpen(false); }}>{focused ? 'Workspace einblenden' : 'Terminal vergrössern'}</button>
+      {!focused && <button onClick={() => { setFocused(true); setComposeOpen(false); }}>Terminal vergrössern</button>}
       <label>Schriftgrösse<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))}>
         {[12, 14, 16, 18, 20].map((size) => <option key={size} value={size}>{size} px</option>)}
       </select></label>
@@ -307,8 +310,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         readText={async () => (await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, profileContext: true })).profileContextText ?? null}
         readRevision={async () => (await host.request<{ revision: string }>('/api/v1/profile/behavior/query', 'POST', { agentId: state.selected!.profileContext!.profileId })).revision} />}
       {focused && <><span role="status">{host.status !== 'online' ? 'Offline · letzter Anzeigestand' : owning ? 'Eingabe: Tablet' : 'Eingabe: PC / anderes Gerät'}</span>
-        {state.selected && <>{!owning && <button disabled={blocked || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>}
-          {owning && <button disabled={busy || !!pending || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>}
+        {state.selected && <>{owning && <button disabled={busy || !!pending || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>}
           <button disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></>}
         {agent && <DashboardLink agent={agent} />}</>}
     </div>
@@ -344,30 +346,36 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       <button disabled={busy || !!uncertain || !!state.inputUncertain || host.status !== 'online'} onClick={() => saveDraft((value) => ({ ...value, review: false }))}>Ausgabe geprüft · Entwurf freigeben</button></p>}
     {state.selected && <>
       {state.inputUncertain && <p role="alert">Eine Eingabe konnte nicht sicher an den Prozess übergeben werden. Ausgabe prüfen und die Eingabe freigeben; sie wird nicht wiederholt.</p>}
-      <div className="m-management-actions"><button disabled={blocked || owning || state.selected.owner === 'other' || state.selected.status !== 'running'} onClick={() => void action('claim')}>Eingabe übernehmen</button>
-        <button disabled={busy || !!pending || !owning || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>
+      <div className="m-management-actions"><button disabled={busy || !!pending || !owning || host.status !== 'online'} onClick={() => void action('release')}>Eingabe freigeben</button>
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replyToolbar}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replySlot}
       onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
       {state.frame && <details className="m-terminal-transcript"><summary>Textausgabe und Verlauf</summary><pre tabIndex={0} aria-label="Terminal-Textverlauf">{state.screen}</pre></details>}
-      <div className="m-terminal-composer"><details open={composeOpen} onToggle={(event) => setComposeOpen(event.currentTarget.open)}><summary>Text verfassen</summary>
+      <TerminalVoiceStrip key={`${selected}/${state.leaseId ?? 'no-lease'}`} host={host} fallbackId={fallbackFocusId} send={sendPrompt}
+        target={{ ...selection, terminalId: selected, leaseId: state.leaseId ?? '' }}
+        label={`${state.selected.projectName ?? agent?.name ?? (terminalHome ? 'Freies Terminal' : 'Projekt')} · ${state.selected.title} · ${state.selected.branch ?? expectedBranch ?? ''}`}
+        blocked={state.selected.status !== 'running' ? { reason: 'Sitzung beendet' }
+          : !owning || !state.leaseId ? { reason: state.selected.owner === 'other' ? 'Eingabe bei einem anderen Gerät' : 'Eingabe beim PC',
+            action: <button className="m-primary" disabled={blocked || state.selected.owner === 'other'} onClick={() => void action('claim')}>Eingabe übernehmen</button> } : undefined}
+        trailing={<><div ref={setReplySlot} className="voice-strip-reply" />
+          <button className="voice-icon-button" aria-label="Tastatur öffnen" aria-pressed={keysShown} disabled={!inputEnabled}
+            onClick={() => { setKeysShown((value) => !value); openTerminalKeyboard(screenRoot.current?.querySelector<HTMLTextAreaElement>('.xterm-helper-textarea'), keyboardOpen); }}><KeyboardIcon /></button></>} />
+      <div className="m-terminal-composer">
+      <div className="m-management-actions m-terminal-keys" hidden={!(keyboardOpen || keysShown)}>
+      {[['Enter', '\r'], ['Tab', '\t'], ['Esc', '\x1b'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
+        <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => void transmit(data!)}>{label}</button>)}</div>
+      <details open={composeOpen} onToggle={(event) => setComposeOpen(event.currentTarget.open)}><summary>Text direkt ans Terminal senden</summary>
       <form onSubmit={(event) => { event.preventDefault(); void transmit(`${text.replace(/\r?\n/g, '\r')}\r`, true); }}>
         <label>Terminal-Eingabe<textarea ref={input} aria-label="Terminal-Eingabe" value={text} maxLength={2000} disabled={!owning || host.status !== 'online'}
           onChange={(event) => setText(event.target.value)} rows={3} spellCheck={false} autoCapitalize="off" autoCorrect="off" /></label>
-        <button disabled={blocked || draft.review || !owning || !text || state.selected.status !== 'running'}>Text und Enter senden</button></form></details>
-      <div className="m-management-actions"><button aria-label="Tastatur öffnen" disabled={!inputEnabled} onClick={() => openTerminalKeyboard(screenRoot.current?.querySelector<HTMLTextAreaElement>('.xterm-helper-textarea'), keyboardOpen)}>Tastatur</button>
-      {[['Enter', '\r'], ['Tab', '\t'], ['Esc', '\x1b'], ['Ctrl+C', '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
-        <button key={label} aria-label={`Terminaltaste ${label}`} disabled={blocked || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => void transmit(data!)}>{label}</button>)}</div>
-      <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></div>
+        <button disabled={blocked || draft.review || !owning || !text || state.selected.status !== 'running'}>Text und Enter senden</button></form>
+      <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></details></div>
     </>}
     <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label="Terminal-Antwortzeit">PC-Antwort: {responseMs} ms (Netzwerk und Verarbeitung). </span>}Ins Terminal tippen für direkte Eingabe. Bekannte Zugangsdaten und PC-Pfade werden ausgeblendet. Nach 30 Sekunden ohne Verbindung geht die Eingabe an den Desktop zurück.</p>
-    {promptOpen && state.selected && state.leaseId && <MobilePromptDialog key={`${selected}/${state.leaseId}`} host={host}
-      target={{ ...selection, terminalId: selected, leaseId: state.leaseId }} label={`${state.selected.projectName ?? agent?.name ?? (terminalHome ? 'Freies Terminal' : 'Projekt')} · ${state.selected.title} · ${state.selected.branch ?? expectedBranch ?? ''}`}
-      send={sendPrompt} onClose={() => setPromptOpen(false)} fallbackId={fallbackFocusId} restoreFocusTo={() => promptOpener.current} />}
     {confirmClose && <Dialog title="Terminalsitzung beenden" onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>Der laufende Prozess dieser Sitzung wird beendet.</p><button onClick={() => setConfirmClose(false)}>Abbrechen</button>
       {busy && <p role="status">Laufende Terminalaktion wird abgeschlossen…</p>}

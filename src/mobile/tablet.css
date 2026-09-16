@@ -141,3 +141,13 @@
 .m-profile-photo-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .m-profile-photo-dialog { width: min(90vw, 760px); max-height: 90dvh; }
 .m-profile-photo-large { display: block; width: 100%; max-height: 65dvh; object-fit: contain; margin-bottom: 16px; }
+/* Voice strip under the terminal: one ownership statement in the header, keys only with the keyboard. */
+.m-terminal-owner::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--faint); vertical-align: 1px; }
+.m-terminal-owner[data-state='own']::before { background: var(--add); }
+.m-terminal-owner[data-state='offline']::before { background: var(--accent); }
+.m-terminal-keys[hidden] { display: none; }
+.m-terminal-composer > details > summary { font-size: 12px; color: var(--muted); }
+.m-terminal-composer > details > .m-field-note { margin-top: 4px; }
+.m-remote-terminal .voice-strip { padding-top: 8px; }
+.m-keyboard-compact .voice-strip:not(:focus-within):not([data-phase='recording']):not([data-phase='transcribing']):not([data-phase='permission']) { display: none; }
+.m-keyboard-compact .m-terminal-composer > .m-terminal-keys { margin-top: 4px; }

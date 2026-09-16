@@ -1,4 +1,5 @@
 import type { Locator, Page } from 'playwright';
+import { expandSessionControls } from './terminalControls';
 
 interface KeyboardProbe {
   requests: { editable: boolean; activated: boolean }[];
@@ -41,6 +42,7 @@ export async function terminalKeyboardActivationFlow(page: Page, workspace: Loca
     check('explicit keyboard button focuses editable xterm and requests the keyboard', await page.evaluate(() => {
       const calls = (window as unknown as ProbeWindow).keyboardProbe.requests; return calls.length === 3 && calls.every((call) => call.editable && call.activated);
     }));
+    await expandSessionControls(workspace);
     await workspace.getByRole('button', { name: 'Eingabe freigeben', exact: true }).click();
     await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor();
     await screen.tap({ position: { x: 24, y: 24 } });

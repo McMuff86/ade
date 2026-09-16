@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ElectronApplication, Locator, Page } from 'playwright';
+import { expandSessionControls } from './terminalControls';
 
 async function samples(page: Page, terminal: Locator, burst: number, raw?: { count: number; offset: number }): Promise<number[]> {
   const direct = terminal.getByLabel('Direkte Terminal-Eingabe', { exact: true });
@@ -68,6 +69,7 @@ export async function terminalLatencyFlow(app: ElectronApplication, desktop: Pag
   check('latency report includes positive rendered-echo samples', single.every(ms => ms > 0) && bursts.every(ms => ms > 0));
   console.log(`  latency single p50=${report.single.p50} p95=${report.single.p95} ms; bursts p50=${report.bursts.p50} p95=${report.bursts.p95} ms`);
   writeFileSync(join(repo, 'terminal-latency-fixture'), 'Local raw-key fixture only; no provider request.');
+  await expandSessionControls(dialog);
   await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('codex');
   await dialog.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await dialog.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_LATENCY_READY', { exact: false }).waitFor();

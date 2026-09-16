@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
-import { terminalLauncher } from './terminalControls';
+import { expandSessionControls, terminalLauncher } from './terminalControls';
 import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
 import { cliWorkFlow } from './cliWorkFlow';
 import type { mobileTlsProxy } from './mobileBrowser';
@@ -64,12 +64,17 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   const claude = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id && item.launchChoice?.mode === 'claude')!;
   check('tablet Claude uses chosen branch and no saved profile', claude.workspaceDir === repo && claude.branch === 'feature/tablet' && !claude.agentId && !claude.launchProfileId);
   const compactToggle = dialog.getByRole('button', { name: 'Sitzung & Workspace', exact: true });
-  const screenBefore = (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!;
-  await compactToggle.focus(); await compactToggle.press('Enter');
-  check('session controls collapse through keyboard while ownership stays in project header', await compactToggle.getAttribute('aria-expanded') === 'false'
+  // Earlier flows in the same run may have expanded the per-device preference; start from the default.
+  if (await compactToggle.getAttribute('aria-expanded') === 'true') { await compactToggle.focus(); await compactToggle.press('Enter'); }
+  check('a running session starts with collapsed controls while ownership stays in project header', await compactToggle.getAttribute('aria-expanded') === 'false'
     && !await dialog.getByLabel('Projekt-CLI', { exact: true }).isVisible()
     && await dialog.locator('.m-dialog-head').getByText('Eingabe: Du (Tablet)', { exact: true }).isVisible());
-  check('collapsed controls give actual space back to terminal', (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!.height > screenBefore.height);
+  const screenCollapsed = (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!;
+  await compactToggle.focus(); await compactToggle.press('Enter');
+  check('session controls expand through keyboard', await compactToggle.getAttribute('aria-expanded') === 'true' && await dialog.getByLabel('Projekt-CLI', { exact: true }).isVisible());
+  check('collapsed controls give actual space to the terminal', screenCollapsed.height > (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!.height);
+  await compactToggle.press('Enter');
+  check('session controls collapse again through keyboard', await compactToggle.getAttribute('aria-expanded') === 'false');
   const usageSummary = dialog.locator('.m-dialog-head .terminal-usage summary');
   await usageSummary.click();
   await dialog.getByRole('region', { name: 'Abo-Nutzung', exact: true }).waitFor();
@@ -88,6 +93,7 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   const profile = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id && item.launchProfileId)!;
   check('explicit profile reuses settings but not its agent-owned workspace', profile.workspaceDir === repo && !profile.agentId && profile.launchProfileName === 'Terminal Agent' && !profile.workspaceBindingId);
   check('all project launches preserve repository instructions', readFileSync(join(repo, 'AGENTS.md'), 'utf8') === '# Project instructions\nPROJECT_RULES_ONLY\n');
+  await expandSessionControls(dialog);
   await dialog.getByRole('button', { name: 'Terminal vergrössern', exact: true }).click();
   await page.screenshot({ path: join(evidence, 'project-cli-tablet.png') });
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Overview', exact: true }).click();
@@ -123,12 +129,14 @@ export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root
   const parallel = (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.find((item) => item.repositoryId === workspace.repositoryId && item.id !== workspace.id)!;
   check('tablet creates separate branch while original terminal stays alive', !!parallel && parallel.workspaceDir !== repo
     && git('branch', '--show-current').trim() === 'feature/tablet' && (await sessions()).some((item) => item.id === profile.id && item.status === 'running'));
+  await expandSessionControls(dialog);
   await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('grok');
   await dialog.getByRole('button', { name: 'Grok CLI öffnen', exact: true }).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
   check('tablet Grok starts in selected parallel checkout without profile', (await sessions()).some((item) => item.projectWorkspaceId === parallel.id
     && item.workspaceDir === parallel.workspaceDir && item.branch === 'feature/parallel' && item.launchChoice?.mode === 'grok' && !item.agentId && !item.launchProfileId));
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
+  await expandSessionControls(dialog);
   await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('shell');
   await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
