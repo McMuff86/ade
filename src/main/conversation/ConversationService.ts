@@ -65,6 +65,17 @@ export class ConversationService {
     }
     try { this.deps.changed?.(); } catch (error) { console.warn('[ade] conversation notification failed:', redactedErrorMessage(error)); }
   }
+  /** Main-only source identity for a tool proposal; never supplied by the model. */
+  actionSource(id: string): { conversationId: string; turnId: string; binding: ConversationBinding } {
+    this.assertHealthy(); const c = this.find(this.store.snapshot(), id); this.editable(c);
+    const turn = c.turns.at(-1);
+    if (!turn || turn.status !== 'working' || this.connections.get(id)?.turnId !== turn.id) throw new Error('Kein aktiver ADE-Gesprächsschritt für diesen Vorschlag.');
+    return { conversationId: id, turnId: turn.id, binding: c.binding };
+  }
+  assertActionAuthority(id: string, binding: ConversationBinding, requireOpen: boolean): void {
+    this.assertHealthy(); const c = this.find(this.store.snapshot(), id);
+    if (!this.current(c) || conversationFingerprint(c.binding) !== conversationFingerprint(binding) || requireOpen && c.closed) throw new Error('ADE-Gespräch oder Projektumfang ist für diesen Auftrag nicht mehr gültig.');
+  }
   query(): ConversationSummary[] {
     this.assertHealthy(); return this.store.snapshot().conversations.map(c => {
       const t = c.turns.at(-1); const answer = t?.output ?? '';

@@ -17,10 +17,12 @@ try {
   const withoutHost = config(); withoutHost.config.features.code_mode_host = false;
   check('native host for dynamic ADE tools must remain explicitly enabled', rejects(() => assertCoordinatorCodexConfig(withoutHost)));
   check('inherited MCP server is refused', rejects(() => assertCoordinatorCodexConfig({ config: { ...config().config, mcp_servers: { unexpected: {} } } })));
+  check('explicitly enabled inherited MCP server is refused', rejects(() => assertCoordinatorCodexConfig({ config: { ...config().config, mcp_servers: { unexpected: { enabled: true } } } })));
+  check('only explicitly disabled inherited MCP entries are accepted', !rejects(() => assertCoordinatorCodexConfig({ config: { ...config().config, mcp_servers: { inherited: { enabled: false } } } })));
   check('inherited writable sandbox is refused', rejects(() => assertCoordinatorCodexConfig({ config: { ...config().config, sandbox_mode: 'danger-full-access' } })));
   check('native thread must confirm no network in its read-only sandbox', rejects(() => assertCoordinatorCodexThread({ sandbox: { type: 'readOnly', networkAccess: true }, approvalPolicy: 'never' })));
   check('native thread cannot override the configured read-only policy', rejects(() => assertCoordinatorCodexThread({ sandbox: { type: 'dangerFullAccess' }, approvalPolicy: 'never' })));
-  check('fixed launch overrides explicitly replace MCP configuration', COORDINATOR_CODEX_OVERRIDES.includes('mcp_servers={}') && COORDINATOR_CODEX_OVERRIDES.includes('sandbox_mode=read-only'));
+  check('fixed launch overrides retain read-only configuration', COORDINATOR_CODEX_OVERRIDES.includes('sandbox_mode=read-only'));
   assertCoordinatorCodexThread({ sandbox: { type: 'readOnly', networkAccess: false }, approvalPolicy: 'never' });
   check('final positive native thread contract follows negative controls', true);
 } catch (error) { failed++; console.error(error); }

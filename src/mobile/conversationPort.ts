@@ -51,6 +51,26 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
     cached.set(key, value); return value;
   };
   return {
+    actions: {
+      list: async conversationId => {
+        current(); try { const value = await host().request<import('../shared/coordinatorActions').CoordinatorActionSummary[]>('/api/v1/conversation/actions/query', 'POST', { operation: 'list', conversationId }); current(); return value; }
+        catch (error) { cached.clear(); current(); throw error; }
+      },
+      detail: async (conversationId, actionId) => {
+        current(); const value = await host().request<import('../shared/coordinatorActions').CoordinatorActionDetail>('/api/v1/conversation/actions/query', 'POST', { operation: 'detail', conversationId, actionId }); current(); return value;
+      },
+      work: async (conversationId, actionId) => {
+        current(); const value = await host().request<import('../shared/coordinatorActions').CoordinatorActionWork>('/api/v1/conversation/actions/query', 'POST', { operation: 'work', conversationId, actionId }); current(); return value;
+      },
+      command: async command => {
+        current(); const { commandId, ...input } = command;
+        const result = await host().request<import('../shared/coordinatorActions').CoordinatorActionReceipt>('/api/v1/conversation/actions/command', 'POST', input, commandId); current(); return result;
+      },
+      questions: {
+        read: async id => { current(); const value = await host().request<import('../shared/runQuestions').RunQuestionsView>(`/api/v1/runs/${id}/questions`); current(); return value; },
+        answer: async (input, key) => { current(); const value = await host().request(`/api/v1/runs/${input.runId}/answers`, 'POST', { taskId: input.taskId, questionId: input.questionId, answers: input.answers }, key); current(); return value; },
+      },
+    },
     recording: {
       microphone: async () => { current(); },
       prepare: async conversationId => {

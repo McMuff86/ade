@@ -244,10 +244,10 @@ export class PtyManager {
 
   async create(
     agentId: string, task?: string, dispatchId?: string, runTaskId?: string,
-    repositoryId?: string | null, workspaceBindingId?: string,
+    repositoryId?: string | null, workspaceBindingId?: string, authorize: () => void = () => undefined,
   ): Promise<SessionMeta> {
     try {
-      return await workspaceOperations.use(() => this.createInWorkspace(agentId, task, dispatchId, runTaskId, repositoryId, workspaceBindingId));
+      return await workspaceOperations.use(() => this.createInWorkspace(agentId, task, dispatchId, runTaskId, repositoryId, workspaceBindingId, authorize));
     } catch (error) {
       if (error instanceof WorkspaceOperationBusyError) this.notifyLaunchFailed(runTaskId, false, error);
       throw error;
@@ -261,7 +261,9 @@ export class PtyManager {
     runTaskId?: string,
     repositoryId?: string | null,
     workspaceBindingId?: string,
+    authorize: () => void = () => undefined,
   ): Promise<SessionMeta> {
+    authorize();
     const text = task?.trim() ?? '';
     if (text.length > MAX_TASK_PROMPT_CHARS) {
       const error = new Error(`ade: task exceeds ${MAX_TASK_PROMPT_CHARS} characters`);
@@ -271,7 +273,7 @@ export class PtyManager {
     if (!text) {
       const scope = await this.scopes.resolve(agentId, { repositoryId, workspaceBindingId });
       this.assertScopeAvailable(scope);
-      return await this.spawn(agentId, scope);
+      return await this.spawn(agentId, scope, undefined, undefined, undefined, undefined, authorize);
     }
     if (text.includes('\0')) {
       const error = new Error('ade: task contains a null character');
@@ -300,7 +302,8 @@ export class PtyManager {
       if (dispatchId && this.cancelledDispatches.has(dispatchId)) {
         throw new Error('ade: task dispatch was cancelled');
       }
-      return await this.spawn(agentId, scope, { task: text, dispatchId, runTaskId, lease });
+      authorize();
+      return await this.spawn(agentId, scope, { task: text, dispatchId, runTaskId, lease }, undefined, undefined, undefined, authorize);
     } catch (error) {
       lease?.release();
       const cancelled = error instanceof TaskQueueCancelledError ||

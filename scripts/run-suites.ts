@@ -66,7 +66,7 @@ const SUITES: Suite[] = [
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'run-questions', script: 'test-run-questions.ts', floors: { win32: 26 } },
   { id: 'codex-conversations', script: 'test-codex-conversations.ts', floors: { win32: 22 } },
-  { id: 'coordinator-codex-policy', script: 'test-coordinator-codex-policy.ts', floors: { win32: 33 } },
+  { id: 'coordinator-codex-policy', script: 'test-coordinator-codex-policy.ts', floors: { win32: 35 } },
   { id: 'codex-dynamic-tools', script: 'test-codex-dynamic-tools.ts', floors: { win32: 18 } },
   { id: 'supervision', script: 'test-supervision.ts', floors: { win32: 26 } },
   { id: 'conversation-service', script: 'test-conversation-service.ts', floors: { win32: 52 } },
@@ -74,6 +74,8 @@ const SUITES: Suite[] = [
   { id: 'conversation-drafts', script: 'test-conversation-drafts.ts', floors: { win32: 22 } },
   { id: 'conversation-recording', script: 'test-conversation-recording.ts', floors: { win32: 28 } },
   { id: 'coordinator-read-tools', script: 'test-coordinator-read-tools.ts', floors: { win32: 15 } },
+  { id: 'coordinator-actions', script: 'test-coordinator-actions.ts', floors: { win32: 46 } },
+  { id: 'remote-coordinator-actions', script: 'test-remote-coordinator-actions.ts', floors: { win32: 22 } },
   { id: 'handoffs', script: 'test-handoffs.ts', floors: { win32: 20 } },
   { id: 'remote-supervision', script: 'test-remote-supervision.ts', floors: { win32: 30 } },
   { id: 'publication', script: 'test-publication.ts', floors: { win32: 29 } },
@@ -117,7 +119,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 284 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 286 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

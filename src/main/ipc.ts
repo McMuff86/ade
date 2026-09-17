@@ -31,6 +31,8 @@ import type { ConfigStore } from './config/store';
 import { SupervisionStore } from './supervision/SupervisionStore';
 import { SupervisionService } from './supervision/SupervisionService';
 import { createCoordinatorConversation } from './conversation/CoordinatorConversation';
+import { CoordinatorActionService } from './conversation/CoordinatorActionService';
+import { CoordinatorActionStore } from './conversation/CoordinatorActionStore';
 import type { ConversationService } from './conversation/ConversationService';
 import { CONVERSATION_NOT_ACCEPTED } from '../shared/conversation';
 import { importPhoto } from './photos';
@@ -335,18 +337,33 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
   const agentBehavior = new AgentBehaviorService(store);
   let supervision: SupervisionService | undefined;
+  let coordinatorActions: CoordinatorActionService | undefined;
   const supervisionService = () => supervision ??= new SupervisionService(new SupervisionStore(join(app.getPath('userData'), 'ade', 'supervision.json')),
-    store, id => ptyManager?.getSessionMeta(id));
+    store, id => ptyManager?.getSessionMeta(id), Date.now, projectId => actionService().links(projectId));
   handle(IPC.SupervisionGet, () => supervisionService().query());
   handle(IPC.SupervisionDetail, ({ projectId }) => supervisionService().detail(projectId));
   handle(IPC.SupervisionCommand, input => supervisionService().command(input));
   handle(IPC.SupervisionBriefing, () => supervisionService().briefing());
   handle(IPC.SupervisionHandoff, ({ projectId, handoffId }) => supervisionService().handoff(projectId, handoffId));
   const conversationService = () => conversations ??= createCoordinatorConversation({ directory: join(app.getPath('userData'), 'ade'),
+    actions: () => actionService(),
     config: store, supervision: supervisionService(), env: () => ({ ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')), ...harnessCredentials.envFor('codex') }),
     changed: () => broadcastToRenderers(IPC_EVENTS.ConversationChanged, null) });
+  const actionService = (): CoordinatorActionService => coordinatorActions ??= new CoordinatorActionService(new CoordinatorActionStore(join(app.getPath('userData'), 'ade', 'conversation-actions.json')), {
+    config: store, supervision: supervisionService(),
+    authorize: (id, binding, requireOpen) => conversationService().assertActionAuthority(id, binding, requireOpen),
+    submit: (input, authorize, reserved) => runCoordinator!.submitSingleTask(input, authorize, reserved),
+    report: id => orchestration!.report(id), questions: id => runQuestions.view(id),
+    changed: () => broadcastToRenderers(IPC_EVENTS.ConversationChanged, null),
+  });
   handle(IPC.ConversationGet, () => conversationService().query());
   handle(IPC.ConversationDetail, ({ conversationId }) => conversationService().detail(conversationId));
+  handle(IPC.ConversationActionsQuery, input => {
+    conversationService().detail(input.conversationId);
+    return input.operation === 'list' ? actionService().list(input.conversationId)
+      : input.operation === 'detail' ? actionService().detail(input.conversationId, input.actionId) : actionService().work(input.conversationId, input.actionId);
+  });
+  handle(IPC.ConversationActionsCommand, input => actionService().command(input));
   handle(IPC.ConversationCommand, input => {
     const result = conversationService().admit(input);
     if (!result.accepted) throw new Error(`${result.uncertain ? '' : CONVERSATION_NOT_ACCEPTED}${result.error}`);
@@ -479,6 +496,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       behavior: agentBehavior,
       supervision: supervisionService,
       conversations: conversationService,
+      conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
@@ -532,7 +550,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       });
   }
   runCoordinator.connect(
-    (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId) =>
+    (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId, authorize) =>
       ptyManager!.create(
         agentId,
         prompt,
@@ -540,6 +558,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
         runTaskId,
         repositoryId,
         workspaceBindingId,
+        authorize,
       ),
     (runTaskIds) => { ptyManager!.cancelTasks({ runTaskIds }); },
   );

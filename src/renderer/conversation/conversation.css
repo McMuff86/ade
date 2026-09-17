@@ -17,3 +17,7 @@
 .conversation-note { font-size: 12px; color: var(--muted); }
 .conversation-voice { display: grid; gap: .5rem; margin-block: 1rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; }
 .conversation-voice textarea { width: 100%; box-sizing: border-box; }
+.conversation-actions { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 8px; }
+.conversation-action { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 12px; overflow-wrap: anywhere; }
+.conversation-action button { min-height: 44px; white-space: normal; }
+.conversation-action .gresult pre { white-space: pre-wrap; overflow-wrap: anywhere; }

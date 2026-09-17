@@ -1,6 +1,7 @@
 import { validSpeechTest } from '../shared/speech';
 import { validSupervisionCommand } from '../shared/supervision';
 import { conversationId, validConversationCommand } from '../shared/conversation';
+import { validCoordinatorActionCommand, validCoordinatorActionQuery } from '../shared/coordinatorActions';
 import { validDesktopReply } from '../shared/terminalSpeech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
@@ -724,6 +725,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.ConversationCommand:
       if (!validConversationCommand(payload)) invalid(channel, 'invalid conversation command');
+      break;
+    case IPC.ConversationActionsQuery:
+      if (!validCoordinatorActionQuery(payload)) invalid(channel, 'invalid conversation action query');
+      break;
+    case IPC.ConversationActionsCommand:
+      if (!validCoordinatorActionCommand(payload)) invalid(channel, 'invalid conversation action command');
       break;
     case IPC.SupervisionHandoff: {
       const request = record(channel, payload); exactKeys(channel, request, ['projectId', 'handoffId']); id(channel, request.projectId, 'projectId'); id(channel, request.handoffId, 'handoffId'); break;

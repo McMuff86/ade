@@ -566,6 +566,11 @@ export interface MobileConversationQuestion {
   value: import('./runQuestions').RunQuestionItem; redacted: boolean;
 }
 export interface MobileConversationOverview { conversations: import('./conversation').ConversationSummary[]; canWrite: boolean }
+export type MobileCoordinatorActionQuery = import('./coordinatorActions').CoordinatorActionQuery;
+export type MobileCoordinatorActionCommand = Omit<import('./coordinatorActions').CoordinatorActionCommand, 'commandId'>;
+/** Action content is explicit, redacted detail; task prompts never cross this DTO. */
+export type MobileCoordinatorActionResult = import('./coordinatorActions').CoordinatorActionSummary[]
+  | import('./coordinatorActions').CoordinatorActionDetail | import('./coordinatorActions').CoordinatorActionWork | import('./coordinatorActions').CoordinatorActionReceipt;
 /** Live conversation audio has its own owner namespace; no PTY or lease selector. */
 export type MobileConversationDictationCommand = { operation: 'prepare'; conversationId: string }
   | { operation: 'query' | 'cancel' | 'stream-start' | 'stream-finish'; jobId: string }

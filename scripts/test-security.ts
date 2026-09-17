@@ -64,6 +64,8 @@ const valid: Record<InvokeChannel, unknown> = {
   'conversation:detail': { conversationId: 'conversation' },
   'conversation:dictationPrepare': { conversationId: '11111111-1111-4111-8111-111111111111' },
   'conversation:command': { operation: 'create', profileId: 'profile', commandId: 'command' },
+  'conversation:actionsQuery': { operation: 'list', conversationId: '11111111-1111-4111-8111-111111111111' },
+  'conversation:actionsCommand': { operation: 'confirm', conversationId: '11111111-1111-4111-8111-111111111111', actionId: '22222222-2222-4222-8222-222222222222', commandId: 'command' },
   'supervision:get': undefined,
   'supervision:detail': { projectId: 'project' },
   'supervision:command': { operation: 'profile', agentId: null, commandId: 'command', revision: 0 },

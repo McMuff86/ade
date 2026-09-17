@@ -2,6 +2,44 @@
 
 ## Cross-project ADE supervision: implementation underway (17 September 2026)
 
+The Codex tablet pilot adds five bounded domain tools to the five reads:
+`ade_codex_profiles`, `ade_prepare_handoff`, `ade_prepare_task`, `ade_actions`
+and `ade_action_result`. Preparing only persists a proposal. A user confirms its
+exact action ID in the shared desktop/tablet dialog. Task prompts stay in main;
+handoff bodies require explicit detail. Task results use the existing RunReport
+fields and task-owned questions, not model claims or summary teasers.
+
+`CoordinatorActionStore` holds the immutable conversation/turn/binding, payload,
+native-call digest and stable dispatch key in `ade/conversation-actions.json`.
+Atomic link-safe writes are bounded to 4 MiB, 256 actions and 1,024 command
+receipts; capacity refuses new work instead of pruning parent evidence. These
+records are separate from the orchestration journal. Confirmation persists
+`dispatching` before any side effect. `RunCoordinator.submitSingleTask` atomically
+creates the child; its reservation callback persists the exact child IDs before
+queue admission. A failed parent save prevents launch and marks that child failed.
+The graph derives the relation from this ledger, without a fallible later link.
+Recovery reads an existing child/command receipt and never dispatches again;
+missing, pruned or conflicting evidence remains explicitly uncertain/unavailable.
+Ordinary run archive/retention continues to own the child's journal and results.
+
+Project tasks require available native repositories, mode `coordinate`, an
+explicit native Codex profile with model/reasoning and unchanged authority.
+The caller, project and worker are revalidated on admission, after the queue wait
+and immediately before native spawn. The separate single-task contract applies;
+this is not an automatically integrated managed multi-agent run. Ending the
+central conversation does not cancel an already accepted project task.
+
+Desktop `conversation:actionsQuery` and audited launch
+`conversation:actionsCommand` remain desktop-only. Signed host POST routes
+`/api/v1/conversation/actions/query` and `/command` use only
+`AdeApplicationService`, active-device proof, `read`, `workspace:read`, full
+resource access and, for decisions, `runs:write`, durable idempotency and audit.
+Payloads name the ADE conversation/action only. No client run, workspace, PTY or
+main command ID is accepted; the generic remote IPC allowlist is unchanged.
+Wire names, errors, handoff details, results and questions are redacted. Device
+epochs invalidate stale reads; loss of access removes action/result details.
+The reload-stable decision key uses the HTTP key alphabet (letters/digits/hyphens).
+
 Conversation dictation has a separate main-owned target. The audited desktop-only
 `conversation:dictationPrepare` takes exactly one ADE conversation UUID; existing
 dictation ticket channels transport PCM and read the result. `recordingTarget`
@@ -63,11 +101,12 @@ instructions/model/reasoning, supervised repository identity/backend/mode and to
 contract. Changed authority requires a fresh native context; old detail stays
 readable on the desktop. Native workspace directories live outside project repos.
 
-The first production coordinator uses the pinned Codex policy and five read-only
-domain tools for supervised projects, status, instructions and handoffs. Every
+The production coordinator uses the pinned Codex policy and ten domain tools
+for supervised projects, handoffs and user-confirmed Codex tasks. Every
 call revalidates authority and exact arguments. Long Unicode texts are chunked;
-they are not silently truncated. Project launch, write tools,
-event-driven wakeups and voice are subsequent contracts, not implied by this UI.
+they are not silently truncated. Contract `ade-project-actions-v1` requires a new
+conversation instead of expanding a resumed read-only context. Event-driven
+wakeups, other providers and spoken replies remain subsequent contracts.
 
 Implementation is underway; [implemented contracts and evidence](MAIN_AGENT_IMPLEMENTATION.md)
 cover the shared session switcher, native Codex continuation and durable supervision metadata.
@@ -96,7 +135,7 @@ idempotency before side effects. This transport alone does not restrict native
 Codex's other tools or implement the central coordinator. Codex 0.154 restores
 tool specifications from its rollout on resume; the conversation owner must pin
 its tool contract instead of assuming that resume replaces definitions.
-The explicit coordinator mode adds `CoordinatorCodexPolicy`: fixed native-Windows
+The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant native-Windows
 launch overrides, exact CLI 0.154.0 identity, effective config inspection before
 the first turn, and a read-only/no-network thread even when the selected coding
 profile allows bypass. Native execution, browser/computer, MCP, plugins and native
@@ -104,7 +143,13 @@ subagents are disabled. `code_mode_host` remains enabled because this CLI also
 uses it to mediate dynamic ADE tools. Policy and native negative/positive probes
 are separate from authorization in future domain handlers. Unexpected native
 tool events close the connection; this does not promise rollback of prior effects.
-The policy is not inherited by ordinary project task mode.
+Policy `codex-0.154.0-ade-v2` first inventories configured MCP names with the local
+CLI, without connecting, and adds process-local `enabled=false` overrides. Codex
+0.154 merges `mcp_servers={}` with global entries instead of deleting them.
+Names are bounded and restricted to safe TOML bare keys; malformed inventories
+fail closed. Effective config must confirm every inherited entry explicitly
+disabled. New/changed active entries still refuse the start. No global config
+is changed. The policy is not inherited by ordinary project task mode.
 The [goal plan](MAIN_AGENT_GOALS.md) extends Goals 26/27/33: an ADE supervisor
 links separate project conversations and runs, with explicit session identity,
 observed capabilities, event correlation and per-project control ownership.
@@ -117,8 +162,8 @@ navigates to the exact linked session/result. Native subagent relationships rema
 View selection, terminal input ownership and supervision authorization remain
 separate. Current managed leases can block interactive project launch, so direct
 takeover needs a validated handoff instead of relaxing workspace protections.
-Global voice needs its own session-independent recording contract; current
-dictation remains terminal-bound. Handoffs use the separate bounded supervision
+Global conversation dictation uses its own recording contract described above.
+Handoffs use the separate bounded supervision
 store, not an orchestration journal extension. New journal records must participate in archive
 and retention together with their owning records; renderer/wire redaction and
 the application-service/IPC boundaries continue to apply.

@@ -2,6 +2,9 @@ import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { conversationId, validConversationCommand } from '../../shared/conversation';
 import type { ConversationService } from '../conversation/ConversationService';
 import { conversationAnswerForWire, conversationDetailForWire, conversationQuestionForWire } from '../conversation/conversationWire';
+import type { CoordinatorActionService } from '../conversation/CoordinatorActionService';
+import { validCoordinatorActionCommand, validCoordinatorActionQuery } from '../../shared/coordinatorActions';
+import { coordinatorActionForWire, coordinatorActionDetailForWire, coordinatorActionWorkForWire } from '../conversation/coordinatorActionWire';
 import type { MobileConversationResult } from '../../shared/remote';
 import { validSupervisionCommand, supervisionId, type SupervisionCommand } from '../../shared/supervision';
 import type { SupervisionService } from '../supervision/SupervisionService';
@@ -136,6 +139,7 @@ export interface RemoteAuditEntry {
 
 export interface ApplicationOptions {
   conversations?: () => ConversationService;
+  conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
   dictation?: DictationJobs;
   speech?: RemoteSpeechService;
@@ -509,6 +513,39 @@ export class AdeApplicationService {
       });
       current(); available(receipt.value.conversationId);
       return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async conversationActions(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<import('../../shared/remote').MobileCoordinatorActionResult> {
+    const factory = this.options.conversationActions; const conversations = this.options.conversations; const ledger = this.options.administration?.ledger;
+    if (!factory || !conversations || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      ledger.permits(context, 'workspace:read'); this.resources.assertAll(context.principal);
+      if (command) ledger.permits(context, 'runs:write');
+    };
+    try {
+      authorize(); const input = requireRecord(payload, 'conversation action');
+      if (!conversationId(input.conversationId)) throw new RemoteApiError(400, 'invalid_payload');
+      const conversationId_ = input.conversationId;
+      const current = () => { authorize(); if (!conversations().detail(conversationId_).available) throw new RemoteApiError(403, 'scope_not_granted'); };
+      current(); const service = factory();
+      if (!command) {
+        if (!validCoordinatorActionQuery(input)) throw new RemoteApiError(400, 'invalid_payload');
+        const result = input.operation === 'list' ? service.list(conversationId_).map(coordinatorActionForWire)
+          : input.operation === 'detail' ? coordinatorActionDetailForWire(service.detail(conversationId_, input.actionId))
+            : coordinatorActionWorkForWire(service.work(conversationId_, input.actionId));
+        current(); return result;
+      }
+      if (Object.hasOwn(input, 'commandId')) throw new RemoteApiError(400, 'invalid_payload');
+      const native = { ...input, commandId: 'device:' + createHash('sha256').update(`${context.principal.id}\n${context.idempotencyKey}`).digest('hex') };
+      if (!validCoordinatorActionCommand(native)) throw new RemoteApiError(400, 'invalid_payload');
+      const receipt = await ledger.execute(context, 'conversation:actionsCommand', 'runs:write', input, () => {
+        const execute = () => { current(); return service.command(native, current); };
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      current(); return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 

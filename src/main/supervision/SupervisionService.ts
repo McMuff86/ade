@@ -7,7 +7,7 @@ import { SupervisionStore, supervisionDigest } from './SupervisionStore';
  * conversation contract, and ending supervision never kills a project process. */
 export class SupervisionService {
   constructor(private readonly store: SupervisionStore, private readonly catalog: { get(): AdeConfig }, private readonly session: (id: string) => SessionMeta | undefined,
-    private readonly now = Date.now) {}
+    private readonly now = Date.now, private readonly childLinks: (projectId: string) => Array<{ id: string; target: SupervisionTarget; createdAt: number }> = () => []) {}
   private resolve(repositoryId: string, target: SupervisionTarget) {
     const config = this.catalog.get();
     if (target.kind === 'run') {
@@ -25,7 +25,9 @@ export class SupervisionService {
         const repo = config.repositories.find(r => r.id === p.repositoryId);
         return { id: p.id, repositoryId: p.repositoryId, name: repo?.name ?? 'Entferntes Projekt', available: !!repo?.verified, mode: p.mode, updatedAt: p.updatedAt,
           objective: { sha256: supervisionDigest(p.objective), chars: p.objective.length },
-          links: p.links.map(l => ({ id: l.id, target: l.target, ...(this.resolve(p.repositoryId, l.target) ?? { title: 'Nicht mehr verfügbar', status: 'unavailable', available: false }) })) };
+          links: [...p.links, ...this.childLinks(p.id).filter(child => !p.links.some(l => l.target.kind === child.target.kind && l.target.id === child.target.id))]
+            .map(l => ({ id: l.id, target: l.target, ...(!p.links.some(saved => saved.id === l.id) ? { origin: 'conversation' as const } : {}),
+              ...(this.resolve(p.repositoryId, l.target) ?? { title: 'Nicht mehr verfügbar', status: 'unavailable', available: false }) })) };
       }) };
   }
   detail(projectId: string): { objective: string } {
@@ -74,7 +76,7 @@ export class SupervisionService {
       const project = state.projects.find(p => p.id === input.projectId); if (!project) throw new Error('Betreutes Projekt ist nicht mehr vorhanden.');
       if (input.operation === 'remember') {
         if (!config.repositories.some(r => r.id === project.repositoryId && r.verified)) throw new Error('Projekt ist nicht mehr verfügbar.');
-        const link = input.linkId === null ? null : project.links.find(l => l.id === input.linkId);
+        const link = input.linkId === null ? null : [...project.links, ...this.childLinks(project.id)].find(l => l.id === input.linkId);
         if (input.linkId !== null && !link) throw new Error('Übergabequelle gehört nicht zu diesem Projekt.');
         if (state.handoffs.length >= 1024) throw new Error('Übergabespeicher ist voll. Bestehende Übergaben bleiben erhalten.');
         state.handoffs.push({ id: randomUUID(), projectId: project.id, text: input.text, nextStep: input.nextStep,
@@ -96,5 +98,13 @@ export class SupervisionService {
     }
     state.revision++; state.commands.push({ id: input.commandId, fingerprint, revision: state.revision }); state.commands = state.commands.slice(-512);
     this.store.save(state); return { revision: state.revision, replayed: false };
+  }
+  /** Read-only recovery. An absent bounded receipt must never be retried as a
+   * new side effect by the coordinator. */
+  recall(input: SupervisionCommand): SupervisionReceipt | null {
+    const receipt = this.store.snapshot().commands.find(c => c.id === input.commandId);
+    if (!receipt) return null;
+    if (receipt.fingerprint !== supervisionDigest(JSON.stringify(input))) throw new Error('Betreuungsquittung gehört zu einer anderen Eingabe.');
+    return { revision: receipt.revision, replayed: true };
   }
 }

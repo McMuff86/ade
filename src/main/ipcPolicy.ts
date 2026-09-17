@@ -143,6 +143,8 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'conversation:detail': { effect: 'read', surface: 'desktop', audit: false },
   'conversation:command': { effect: 'launch', surface: 'desktop', audit: true },
   'conversation:dictationPrepare': { ...mutate, audit: true },
+  'conversation:actionsQuery': { effect: 'read', surface: 'desktop', audit: false },
+  'conversation:actionsCommand': { effect: 'launch', surface: 'desktop', audit: true },
   'supervision:detail': { effect: 'read', surface: 'desktop', audit: false },
   'supervision:command': { effect: 'mutate', surface: 'desktop', audit: true },
   'supervision:briefing': { effect: 'read', surface: 'desktop', audit: false },

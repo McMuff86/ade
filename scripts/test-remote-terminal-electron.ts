@@ -150,7 +150,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     await projectGitFlow(desktop, page, root, evidence, proxy, check); return;
   }
   if (process.argv.includes('--workspace-cli-only')) {
-    await projectWorkspaceLaunchFlow(desktop, page, root, evidence, proxy, check); return;
+    await projectWorkspaceLaunchFlow(app, desktop, page, root, evidence, proxy, check); return;
   }
   if (process.argv.includes('--terminal-latency-only')) {
     await terminalLatencyFlow(app, desktop, page, root, evidence, check); return;

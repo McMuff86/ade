@@ -131,7 +131,7 @@ function ProjectSupervision({ repositoryId, view, controller, detail, targets, d
       {revision !== view.revision && <button type="button" disabled={busy} onClick={() => void load(false)}>Aktuellen Auftrag laden</button>}
       {project && <><h3>Verknüpfte Arbeit</h3>{!project.links.length && <p>Noch keine Sitzung oder Arbeit verknüpft.</p>}
         <ul>{project.links.map(link => <li key={link.id}>{link.title} · {link.status}
-          <button type="button" disabled={busy} aria-label={`Verbindung lösen: ${link.title}`} onClick={() => void command({ operation: 'unlink', projectId: project.id, linkId: link.id }, view.revision).catch(() => undefined)}>Verbindung lösen</button>
+          {link.origin === 'conversation' ? <span>Aus ADE-Gespräch</span> : <button type="button" disabled={busy} aria-label={`Verbindung lösen: ${link.title}`} onClick={() => void command({ operation: 'unlink', projectId: project.id, linkId: link.id }, view.revision).catch(() => undefined)}>Verbindung lösen</button>}
         </li>)}</ul>
         {candidates.map(item => <button type="button" key={`${item.target.kind}:${item.target.id}`} disabled={busy}
           data-supervision-target={`${item.target.kind}:${item.target.id}`}

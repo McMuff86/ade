@@ -32,7 +32,16 @@ createInterface({ input: process.stdin }).on('line', line => {
       finish('turn-' + (state.turn - 1), 'STALE_MUST_NOT_ENTER_NEXT_ANSWER');
       send({ method: 'item/completed', params: { threadId: 'wrong-thread', turnId: id, item: { type: 'agentMessage', text: 'WRONG_PROJECT' } } });
     }
-    if (prompt === 'long-answer') {
+    if (prompt.startsWith('prepare-handoff:') || prompt.startsWith('prepare-task:')) {
+      const handoff = prompt.startsWith('prepare-handoff:');
+      const request = { id: 'tool-request-' + id, method: 'item/tool/call', params: { threadId: state.id, turnId: id, callId: 'call-' + id,
+        tool: handoff ? 'ade_prepare_handoff' : 'ade_prepare_task', arguments: JSON.parse(prompt.slice(handoff ? 16 : 13)) } };
+      tools.set(request.id, id); send(request);
+    } else if (prompt.includes('ADE_TABLET_PROJECT_TASK')) {
+      const requestId = 'task-question-' + id; questions.set(requestId, id);
+      send({ id: requestId, method: 'item/tool/requestUserInput', params: { threadId: state.id, turnId: id, isBlocking: true,
+        questions: [{ id: 'choice', header: 'Projektentscheidung', question: 'Welchen Text soll die Ergebnisdatei enthalten?', isOther: true, isSecret: false, options: null }] } });
+    } else if (prompt === 'long-answer') {
       finish(id, 'Beginning of complete answer\n' + '語😀'.repeat(6000) + '\nC:\\Private\\project\nFinal sentence of complete answer');
     } else if (prompt === 'projects') {
       const request = { id: 'tool-request-' + id, method: 'item/tool/call', params: { threadId: state.id, turnId: id, callId: 'call-' + id, tool: 'ade_projects', arguments: { offset: 0 } } };
@@ -47,6 +56,12 @@ createInterface({ input: process.stdin }).on('line', line => {
     } else if (prompt !== 'hold') setTimeout(() => { finish(id, prompt === 'recall' ? state.secret : 'Recorded'); finish(id, 'DUPLICATE'); }, 30);
   }
   if (!m.method && tools.has(m.id)) { const id = tools.get(m.id); tools.delete(m.id); finish(id, m.result?.contentItems?.[0]?.text || 'Tool failed'); }
-  if (!m.method && questions.has(m.id)) { const id = questions.get(m.id); questions.delete(m.id); event('serverRequest/resolved', { requestId: m.id }); setTimeout(() => finish(id, 'Antwort empfangen'), 30); }
+  if (!m.method && questions.has(m.id)) {
+    const id = questions.get(m.id); questions.delete(m.id); event('serverRequest/resolved', { requestId: m.id });
+    if (String(m.id).startsWith('task-question-')) {
+      const answer = m.result?.answers?.choice?.answers?.[0] || 'NO_ANSWER'; writeFileSync(join(process.cwd(), 'tablet-result.txt'), answer);
+      setTimeout(() => finish(id, 'ADE_CODEX_TASK_DONE: ' + answer), 100);
+    } else setTimeout(() => finish(id, 'Antwort empfangen'), 30);
+  }
   if (m.method === 'turn/interrupt') { ok({}); finish(m.params.turnId, 'Partial', 'interrupted'); }
 });

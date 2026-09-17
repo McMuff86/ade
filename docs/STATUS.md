@@ -1,5 +1,32 @@
 # ADE implementation status
 
+## Codex-Tablet-Pilot wieder aufgenommen (17. September 2026)
+
+Adi priorisiert den Codex-Ablauf. Übergaben und bestätigte Projektaufträge aus dem
+globalen Gespräch sind implementiert: dauerhafte Eltern-/Kindbelege vor Launch,
+Ergebnisse, Rückfragen, Graph und sichere Wiederholung. Fachverträge **46/0**,
+signierter Host-Zugang **22/0**, Sicherheitsprüfung **286/0**. Gesamter
+Gesprächsdriver Electron/gekoppelter Browser **55/0**, inklusive Text/Diktat,
+verlorener Auftragsquittung, Reload, Projektzuordnung und Rechteentzug.
+Echter Codex 0.154.0: **11/0** für Übergabe, Resume, bestätigten Auftrag, native
+Frage/Antwort, tatsächliche Datei und Ergebnisrückkanal. Der native Task-Test
+verwendet einen isolierten Launcher; die reale ADE-Queue/Workspace-Zuteilung wird
+separat im Electron-Driver mit Protokollpeer geprüft. Koordinator-Modell/Reasoning
+beobachtet `gpt-5.6-sol`/`high`; Task-Modell entsprechend angefordert.
+Globale MCP-Einträge werden nur im Koordinatorprozess deaktiviert und vor dem
+ersten Turn geprüft (**35/0**, nativ **3/0**); globale Konfiguration bleibt erhalten.
+
+Die vollständige Ausgangsabnahme auf `aacbc6c` besteht mit **Exit 0**, 87 Suiten /
+3.580 Prüfungen und allen Bedien-/Visualdrivern. Der frühere Clipboardfehler ist
+hier nicht reproduzierbar; zusätzliche native Schreib-/OS-Lesenachweise bestehen
+**77/0**, ohne eine historische Ursache zu behaupten. Die finale Gesamtabnahme
+des neuen Codes besteht **Exit 0** (19:07–19:32 CEST): drei TypeScript-Projekte,
+**89 Suiten / 3.652 Prüfungen**, Build und sämtliche Electron-/Browser-/Visualdriver.
+Source-ID `b05242ffd1f239a77f72`. Persönliche Aktivierung und physischer Tablet-Test
+noch offen. [Lieferplan](TABLET_CODEX_GOAL.md), [Testanleitung](TABLET_CODEX_TEST.md).
+
+Die folgenden Checkpoints sind historische Zustände vor dieser Wiederaufnahme.
+
 ## Gewünschter Entwicklungscheckpoint (17. September 2026)
 
 Der globale Text-/Diktatdialog besteht **44/0** in Electron und gekoppeltem

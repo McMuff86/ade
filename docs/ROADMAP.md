@@ -1,5 +1,18 @@
 # ADE delivery roadmap
 
+## Aktueller Lieferabschnitt: zuerst Codex auf dem Tablet
+
+Adi hat am 17. September die Wiederaufnahme und zuerst den Codex-Ablauf beauftragt.
+Übergaben, ausdrücklich bestätigte Projektaufträge, Rückfragen/Ergebnisse und
+dauerhafte Graph-Zuordnung sind implementiert; Gesprächsbedienung **55/0**,
+native Codex-Probe **11/0**. Finale Gesamtabnahme **Exit 0**, drei TypeScript-Projekte,
+89 Suiten / 3.652 Prüfungen und alle Bedien-/Visualdriver. Persönlicher Testbuild
+folgt im [Lieferplan](TABLET_CODEX_GOAL.md). Danach physische Tablet-Abnahme
+mit [diesem Ablauf](TABLET_CODEX_TEST.md). Claude/Grok, automatische weitere
+Projektarbeit, native Unteragentenbeziehungen und Sprachausgabe bleiben eigene
+Lieferabschnitte. Die übergeordneten Goals 26/27/33 sind damit nicht vollständig
+abgeschlossen. Die folgende ursprüngliche Pilotliste beschreibt deren Restumfang.
+
 ## Nächster Pilot: ein ADE-Agent, drei Projekte (17. September 2026)
 
 [Vorbereitete Goals und Abnahmen](MAIN_AGENT_GOALS.md), auf Basis des

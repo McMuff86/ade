@@ -3,6 +3,8 @@
 17. September 2026, Ausgangscommit `465b639`. Autorisierter Implementierungsauftrag
 für [Goals 26/27/33](MAIN_AGENT_GOALS.md); kein persönlicher Release aktiviert.
 Der Gesamtauftrag ist offen.
+Wiederaufnahme am selben Abend: Adi priorisiert den ersten Codex-Ablauf zum
+Tablet-Test. [Lieferfolge und aktuelles Goal](TABLET_CODEX_GOAL.md).
 Commit und Push sind nach abgeschlossener Umsetzung/Abnahme ausdrücklich
 beauftragt. [Update zu Hause und Erhalt des lokalen Profils](HOME_UPDATE.md).
 [Native Fähigkeiten je Verbindung](MAIN_AGENT_CAPABILITIES.md) und
@@ -11,6 +13,24 @@ Adapter-/Koordinatorarbeiten getrennt von bereits geprüften UI-Bausteinen fest.
 
 ## Implementierte Bausteine und Nachweise
 
+- **Erster Codex-Tablet-Auftrag:** Fünf zusätzliche Domänenwerkzeuge bereiten
+  Übergaben/Aufträge vor und lesen Profile, Auftragszustände und Ergebnisse.
+  Nur eine ausdrückliche UI-Bestätigung speichert die Übergabe oder startet den
+  Kind-Run. Begrenzter dauerhafter Elternbeleg vor Seiteneffekt, Kind-IDs vor
+  Queue-Zulassung, Rechteprüfung bis unmittelbar vor Prozessstart und reine
+  Wiederherstellung ohne erneuten Dispatch. Graph-Beziehung wird daraus
+  abgeleitet. Ergebnisse/Rückfragen erscheinen im selben PC-/Tablet-Dialog.
+  Fachverträge **46/0**, signierter Host-Zugang **22/0**, Gesprächsdriver **55/0**.
+  Native Produktionswerkzeuge plus isolierter Codex-Task-Launcher **11/0**:
+  echte Übergabe, Resume, Frage/Antwort, Datei und Ergebnisrückkanal; keine
+  Behauptung eines nativen PTY-/Queue-Tests. Aktuelle Koordinator-Policy **35/0**,
+  native Konfigurationsprobe **3/0** mit zwei übernommenen, ausdrücklich
+  deaktivierten MCP-Einträgen. Globale Codex-Konfiguration unverändert.
+  [Tablet-Pilot und Gesamtabnahme](TABLET_CODEX_GOAL.md).
+  Finale Gesamtabnahme am 17. September 19:07–19:32 CEST **Exit 0**:
+  drei TypeScript-Projekte, **89 Suiten / 3.652 Prüfungen**, Produktionsbuild,
+  sämtliche Electron-/Browser-/Visualdriver. Source-ID `b05242ffd1f239a77f72`.
+
 - **33.2, erster Textdialog:** PC/Tablet **ADE-Betreuung → Mit ADE sprechen**
   braucht kein Projektterminal. Eigener dauerhafter Verlauf, native Codex-Fortsetzung,
   Rückfragen, Unterbrechen, Beenden und getrennte Entwürfe. IPC bleibt desktop-only;
@@ -18,7 +38,7 @@ Adapter-/Koordinatorarbeiten getrennt von bereits geprüften UI-Bausteinen fest.
   verlangen vollständige Projektfreigabe, `read`/`workspace:read`, für Befehle
   zusätzlich `runs:write`, Ledger und Audit. Fünf lesende
   ADE-Werkzeuge liefern belegte Projektstände und vollständige Übergaben in
-  begrenzten Textabschnitten. Neue Aufgaben werden noch nicht gestartet.
+  begrenzten Textabschnitten. Bestätigte Codex-Aufträge ergänzt der obige Pilot.
   Gesprächsservice **52/0**, Werkzeug-/IPC-Grenzen **15/0**, Entwürfe **22/0**,
   Remote **48/0**, Text-/Diktatdialog Electron/Browser **44/0** mit lokalem Protokollpeer,
   Typecheck grün. Native Produktionsanbindung **4/0**:
@@ -68,7 +88,7 @@ Adapter-/Koordinatorarbeiten getrennt von bereits geprüften UI-Bausteinen fest.
   read-only ohne Netzwerk vor dem ersten Turn. Native Ausführungswerkzeuge sind
   dort deaktiviert. Ein Test-Schreibauftrag erzeugt keine Datei; danach arbeitet
   das ADE-Werkzeug weiterhin. Der Desktop-Dialog nutzt diesen Vertrag jetzt mit
-  lesenden Projektwerkzeugen; steuernde Koordinatorwerkzeuge bleiben offen.
+  lesenden Projektwerkzeugen; bestätigte Aktionen ergänzt der obige Pilot.
 - **26.2:** Revisionsgebundener, begrenzter Betreuungsplan in
   `userData/ade/supervision.json`, ausserhalb der Projektordner. Bis 64 Projekte,
   64 explizite Sitzungs-/Run-Verbindungen je Projekt, 512 quittierte Befehle,
@@ -153,8 +173,8 @@ bestanden danach einzeln: Projekt-Git 22/0, Latenz 6/0, Veröffentlichung 12/0,
 Einrichtung 38/0 und visuelle Vergleiche 22/0. Ursache der leeren Zwischenablage und vollständige
 Gesamtabnahme bleiben offen. [Kontexthandoff](CONTEXT_HANDOFF_2026-09-17.md).
 
-Die Codex-Verbindung ist als erster globaler Desktop-Textdialog verdrahtet. Die
-steuernden Koordinatorwerkzeuge, ereignisgesteuerte Koordination, tatsächliche
+Die Codex-Verbindung ist als globaler PC-/Tablet-Dialog mit bestätigten
+Projektaufträgen verdrahtet. Ereignisgesteuerte Koordination, tatsächliche
 Unteragenten im Graph, Sprachausgabe und Aktivierung bleiben offen.
 Der strukturierte Morgenüberblick bleibt auf PC/Tablet verfügbar. Der neue
 Desktop-Dialog kann dessen Inhalte über lesende Werkzeuge abfragen; native

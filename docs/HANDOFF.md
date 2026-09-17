@@ -1,5 +1,23 @@
 # ADE — aktuelle Übergabe
 
+## Wiederaufnahme: erster Codex-Ablauf auf dem Tablet (17. September 2026)
+
+Adi hat Planung und Weiterarbeit mit Goals beauftragt und zuerst den Codex-Ablauf
+priorisiert. Der [Tablet-Lieferplan](TABLET_CODEX_GOAL.md) ist der aktuelle Einstieg;
+die unten dokumentierte Pause ist aufgehoben. Claude/Grok und Sprachausgabe
+folgen nach dem ersten Tablet-Test. Ausgangsabnahme vollständig **Exit 0**,
+Clipboard mit getrennten nativen Schreib-/OS-Lesenachweisen **77/0**; die frühere
+Fehlerursache bleibt ungeklärt. Bestätigte Übergaben und Codex-Projektaufträge sind
+implementiert: dauerhafter Elternbeleg, Kind vor Queue-Zulassung, Ergebnisse,
+Rückfragen, Graph und sichere Wiederholung. Fachtests **46/0**, Remote **22/0**,
+Electron/gekoppelter Browser **55/0**, echter nativer Codex-Ablauf **11/0**.
+Globale MCP-Einträge werden pro Koordinatorprozess deaktiviert; Policy **35/0**,
+native Konfiguration **3/0**. Finale Gesamtabnahme **Exit 0**, 19:07–19:32 CEST:
+drei TypeScript-Projekte, **89 Suiten / 3.652 Prüfungen**, Build und alle
+Bedien-/Visualdriver. Source-ID `b05242ffd1f239a77f72`, Log im Hauptcheckout unter
+`test-results/tablet-codex-verify-final.log`. Persönliche Aktivierung steht noch aus.
+[Tablet-Bedienanleitung](TABLET_CODEX_TEST.md). Die folgenden Haltepunkte sind historisch.
+
 ## Gewünschter Haltepunkt vom 17. September 2026
 
 Adi hat einen Commit/Push mit wiederaufnehmbarem Zwischenstand innerhalb von

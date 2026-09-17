@@ -107,6 +107,8 @@ export const IPC = {
   ConversationDetail: 'conversation:detail',
   ConversationCommand: 'conversation:command',
   ConversationDictationPrepare: 'conversation:dictationPrepare',
+  ConversationActionsQuery: 'conversation:actionsQuery',
+  ConversationActionsCommand: 'conversation:actionsCommand',
   SupervisionDetail: 'supervision:detail',
   SupervisionCommand: 'supervision:command',
   SupervisionBriefing: 'supervision:briefing',
@@ -725,6 +727,8 @@ export interface IpcInvokeMap {
   'conversation:detail': { req: { conversationId: string }; res: import('./conversation').ConversationDetail };
   'conversation:command': { req: import('./conversation').ConversationCommand; res: import('./conversation').ConversationReceipt };
   'conversation:dictationPrepare': { req: { conversationId: string }; res: { jobId: string } };
+  'conversation:actionsQuery': { req: import('./coordinatorActions').CoordinatorActionQuery; res: import('./coordinatorActions').CoordinatorActionSummary[] | import('./coordinatorActions').CoordinatorActionDetail | import('./coordinatorActions').CoordinatorActionWork };
+  'conversation:actionsCommand': { req: import('./coordinatorActions').CoordinatorActionCommand; res: import('./coordinatorActions').CoordinatorActionReceipt };
   'supervision:detail': { req: { projectId: string }; res: { objective: string } };
   'supervision:command': { req: import('./supervision').SupervisionCommand; res: import('./supervision').SupervisionReceipt };
   'supervision:briefing': { req: void; res: import('./supervision').MorningBriefing };

@@ -3,6 +3,25 @@
 17. September 2026. Arbeitsnotizen zur laufenden Implementierung, kein neuer
 Supportnachweis. [Stand und Tests](MAIN_AGENT_IMPLEMENTATION.md) sind führend.
 
+## Aktueller Einstieg nach Wiederaufnahme
+
+Adi priorisiert zuerst den Codex-Tablet-Ablauf. Die vorher als nächster Schritt
+beschriebenen steuernden Werkzeuge sind jetzt als **Vorschlag → ausdrückliche
+Bestätigung** implementiert. `CoordinatorActionStore` speichert Elternbeleg und
+stabilen Dispatch-Key vor Seiteneffekt, `submitSingleTask` speichert Kind-IDs vor
+Queue-Zulassung. Ergebnisse und native Rückfragen erreichen denselben Dialog;
+Graph und Wiederholung verwenden die dauerhafte Beziehung. Fachtests **46/0**,
+Remote **22/0**, Gesprächsbedienung **55/0**, echter Codex-Ablauf **11/0**.
+Nächster Abschluss: finale Gesamtabnahme, persönlicher Testbuild und physischer
+Tablet-Test gemäss [Lieferplan](TABLET_CODEX_GOAL.md). Danach Claude/Grok,
+ereignisgesteuerte weitere Arbeit, tatsächliche Unteragenten und Sprachausgabe.
+
+Die native Prüfung auf diesem PC fand zwei globale MCP-Einträge: Die CLI führt
+`mcp_servers={}` mit ihnen zusammen. Policy v2 inventarisiert daher Namen und
+deaktiviert sie pro Koordinatorprozess; `config/read` verlangt jedes `enabled=false`.
+Dies ist nativ **3/0** und fokussiert **35/0** geprüft. Keine Änderung der globalen
+Codex-Konfiguration. Die nachstehenden Erstproben sind historischer Kontext.
+
 ## Bereits geprüfte Grundlagen
 
 - Codex 0.154.0: weitere Turns im selben Prozess, exakter Resume nach Neustart,
@@ -148,7 +167,7 @@ Bestätigte Abweisung, unbestätigte Zustellung und akzeptierter Modellfehler
 bleiben unterschiedliche Zustände. Entwürfe behalten ihr Gerät/Gespräch und
 werden beim Vergessen des Geräts entfernt. Kein pauschaler Remote-Zugriff auf
 den 8-MiB-Gesprächsspeicher. Das eigene Aufnahmeziel ist ebenfalls angebunden.
-Nächster Abschnitt nach der Pause: steuernde Domänenwerkzeuge.
+Die erste bestätigte Codex-Aktionsanbindung ist inzwischen oben dokumentiert.
 
 Für Sprache verwenden die Gesprächs-Tickets inzwischen `DictationJobs` mit
 eigener main-eigener Autorisierung statt einer PTY. Gespräch, Profil/Scope,

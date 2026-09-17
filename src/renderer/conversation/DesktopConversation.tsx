@@ -3,8 +3,16 @@ import { useAppData } from '../stores/appdata';
 import { useMode } from '../stores/mode';
 import { ConversationPanel, type ConversationPort } from './ConversationPanel';
 import { CONVERSATION_NOT_ACCEPTED, ConversationNotAcceptedError } from '../../shared/conversation';
+import { desktopRunQuestions } from '../graph/RunQuestionsPanel';
+import type { CoordinatorActionDetail, CoordinatorActionSummary, CoordinatorActionWork } from '../../shared/coordinatorActions';
 
 const port: ConversationPort = {
+  actions: {
+    list: async conversationId => await window.ade.invoke('conversation:actionsQuery', { operation: 'list', conversationId }) as CoordinatorActionSummary[],
+    detail: async (conversationId, actionId) => await window.ade.invoke('conversation:actionsQuery', { operation: 'detail', conversationId, actionId }) as CoordinatorActionDetail,
+    work: async (conversationId, actionId) => await window.ade.invoke('conversation:actionsQuery', { operation: 'work', conversationId, actionId }) as CoordinatorActionWork,
+    command: input => window.ade.invoke('conversation:actionsCommand', input), questions: desktopRunQuestions,
+  },
   recording: {
     microphone: allow => window.ade.invoke('dictation:microphone', { allow }),
     prepare: conversationId => window.ade.invoke('conversation:dictationPrepare', { conversationId }),

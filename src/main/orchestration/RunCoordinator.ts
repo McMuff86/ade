@@ -99,6 +99,7 @@ type TaskLauncher = (
   runTaskId: string,
   repositoryId?: string | null,
   workspaceBindingId?: string,
+  authorize?: () => void,
 ) => Promise<SessionMeta>;
 
 type TaskCanceller = (runTaskIds: string[]) => void | Promise<void>;
@@ -441,7 +442,8 @@ export class RunCoordinator {
    * the launcher rejects before reporting). Callers observe `task.started` /
    * terminal transitions through the journal, exactly like managed work.
    */
-  async submitSingleTask(input: RunTaskSubmitInput): Promise<RunTaskSubmission> {
+  async submitSingleTask(input: RunTaskSubmitInput, authorize: () => void = () => undefined, reserved: (submission: RunTaskSubmission) => void = () => undefined): Promise<RunTaskSubmission> {
+    authorize();
     const recalled = this.orchestration.recallCommand<{ runId: string; taskId: string }>(
       'runTask:submit',
       input.commandId,
@@ -450,12 +452,17 @@ export class RunCoordinator {
     if (!this.taskLauncher) throw new Error('ade: orchestration task launcher is not connected');
     const submission = this.orchestration.createSingleTaskRun(input);
     const { run, task } = submission;
+    // A coordinator parent must durably record the exact child before it can
+    // enter the task queue. Failure leaves a visible failed run, never live
+    // work without its saved parent relationship.
+    try { reserved(submission); authorize(); }
+    catch (error) { this.onTaskLaunchFailed(task.id, false, errorMessage(error)); throw error; }
     const participant = requireParticipant(
       this.orchestration.snapshot().participants,
       task.participantId,
       run.id,
     );
-    void this.taskLauncher(participant.agentId, task.prompt, randomUUID(), task.id, run.repositoryId)
+    void this.taskLauncher(participant.agentId, task.prompt, randomUUID(), task.id, run.repositoryId, undefined, authorize)
       .catch((error) => {
         const current = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === task.id);
         if (current?.status === 'queued') this.onTaskLaunchFailed(task.id, false, errorMessage(error));

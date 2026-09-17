@@ -2,6 +2,19 @@
 
 ## Zentraler ADE-Agent (Umsetzung läuft, 17. September 2026)
 
+Der erste Codex-Tablet-Ablauf ist implementiert: Im globalen Gespräch ausdrücklich
+eine Übergabe oder Projektaufgabe vorbereiten lassen. **Übergabe prüfen → Übergabe
+speichern** legt die Notiz dauerhaft beim Projekt ab. **Auftrag starten** bestätigt
+genau einen vorbereiteten Codex-Auftrag; **Vorschlag verwerfen** verwirft ihn.
+Projektaufgaben brauchen **Koordinieren** und ein natives Codex-Profil mit Modell
+und Reasoning. Brainstorming, Diktieren und Vorschläge starten keine Projektarbeit.
+Die zugehörige Karte zeigt tatsächlichen Zustand, vollständiges Ergebnis und
+beantwortbare Rückfragen. Neuladen oder verlorene Bestätigungsantworten erzeugen
+keinen zweiten Auftrag. Der Graph behält dessen Projektbeziehung; diese abgeleitete
+Beziehung lässt sich nicht als normale manuelle Verknüpfung entfernen.
+Ein neuer Werkzeugvertrag oder geänderte Projektrechte benötigen **Neues
+ADE-Gespräch**. [Tablet-Test und Grenzen](TABLET_CODEX_TEST.md).
+
 ADE soll morgens den belegten Stand mehrerer Projekte und ausdrücklich
 gespeicherte Abendübergaben zusammenfassen und einen nächsten Schritt vorschlagen.
 Projekt 1 arbeitet in einer eigenen Codex-Sitzung, Projekt 2 brainstormt in

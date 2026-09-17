@@ -1,15 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Page } from 'playwright';
+import type { ElectronApplication, Page } from 'playwright';
 import { expandSessionControls, terminalLauncher } from './terminalControls';
 import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
 import { cliWorkFlow } from './cliWorkFlow';
 import type { mobileTlsProxy } from './mobileBrowser';
 
-export async function projectWorkspaceLaunchFlow(desktop: Page, page: Page, root: string, evidence: string, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>,
+export async function projectWorkspaceLaunchFlow(app: ElectronApplication, desktop: Page, page: Page, root: string, evidence: string, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>,
   check: (name: string, ok: boolean) => void): Promise<void> {
-  await desktopWorkspaceTerminalFlow(desktop, root, evidence, check);
+  await desktopWorkspaceTerminalFlow(app, desktop, root, evidence, check);
   const parent = join(root, 'cli-projects'); const repo = join(parent, 'Without profile'); mkdirSync(repo, { recursive: true });
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', windowsHide: true });
   git('init', '--initial-branch=main'); writeFileSync(join(repo, 'AGENTS.md'), '# Project instructions\nPROJECT_RULES_ONLY\n');

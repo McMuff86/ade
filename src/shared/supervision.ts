@@ -19,7 +19,7 @@ export interface SupervisionView {
   profile: { id: string; name: string; available: boolean } | null;
   projects: Array<{ id: string; repositoryId: string; name: string; available: boolean; mode: SupervisionMode; updatedAt: number;
     objective: { sha256: string; chars: number };
-    links: Array<{ id: string; target: SupervisionTarget; title: string; status: string; available: boolean }> }>;
+    links: Array<{ id: string; target: SupervisionTarget; title: string; status: string; available: boolean; origin?: 'conversation' }> }>;
 }
 export interface SupervisionReceipt { revision: number; replayed: boolean }
 export interface ProjectHandoff {

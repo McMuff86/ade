@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, type Page } from 'playwright/test';
+import { expect, type ElectronApplication, type Page } from 'playwright/test';
 
 /** Real Electron renderer and ConPTY; provider CLIs are isolated deterministic fixtures. */
-export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evidence: string,
+export async function desktopWorkspaceTerminalFlow(app: ElectronApplication, page: Page, root: string, evidence: string,
   check: (label: string, ok: boolean) => void): Promise<void> {
   const parent = join(root, 'workspace-tools'); const repo = join(parent, 'Direct workspace');
   mkdirSync(repo, { recursive: true });
@@ -77,22 +77,46 @@ export async function desktopWorkspaceTerminalFlow(page: Page, root: string, evi
   const search = panel.getByLabel('Im Terminal suchen', { exact: true }); await expect(search).toBeFocused();
   await search.fill('ADE_HISTORY_12');
   await page.evaluate(() => window.ade.invoke('clipboard:writeText', { text: 'ADE_COPY_PENDING' }));
+  // Observe the real native write without replacing its result. Only this
+  // isolated fixture's copy action is recorded, never the operator clipboard.
+  await app.evaluate(({ clipboard }) => {
+    const probe = globalThis as typeof globalThis & { adeCopyProbe?: { writes: Array<{ selected: string; immediate: string }>; restore(): void } };
+    const original = clipboard.writeText;
+    const writes: Array<{ selected: string; immediate: string }> = [];
+    clipboard.writeText = (text, type) => {
+      original.call(clipboard, text, type);
+      if (writes.length < 30) writes.push({ selected: text, immediate: clipboard.readText() });
+    };
+    probe.adeCopyProbe = { writes, restore() { clipboard.writeText = original; } };
+  });
   // Font/search layout changes can still repaint ConPTY and clear a match.
   // Re-establish the selection and copy together; polling an untouched clipboard
   // cannot recover a click that raced the repaint. The exact value remains required.
-  await expect(async () => {
+  try { await expect(async () => {
     await search.press('Enter');
     await panel.getByRole('status').filter({ hasText: 'Treffer ausgewählt' }).waitFor({ timeout: 1000 });
     await panel.getByRole('button', { name: 'Kopieren', exact: true }).click({ timeout: 1000 });
     await expect.poll(async () => (await page.evaluate(() => window.ade.invoke('clipboard:readText'))).text, { timeout: 1000 }).toBe('ADE_HISTORY_12');
-  }).toPass({ timeout: 10_000 }).catch(async error => {
+  }).toPass({ timeout: 10_000 });
+    const writes = await app.evaluate(() => (globalThis as typeof globalThis & { adeCopyProbe: { writes: Array<{ selected: string; immediate: string }> } }).adeCopyProbe.writes);
+    const osText = execFileSync('powershell.exe', ['-NoProfile', '-STA', '-Command', '[Console]::Write((Get-Clipboard -Raw))'], { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+    writeFileSync(join(evidence, 'desktop-copy-proof.json'), JSON.stringify({ writes, osText }, null, 2));
+    check('xterm selection reaches native clipboard write and immediate Electron read unchanged', writes.some(w => w.selected === 'ADE_HISTORY_12' && w.immediate === w.selected));
+    check('independent Windows process reads the exact copied terminal selection', osText === 'ADE_HISTORY_12');
+  } catch (error) {
     await page.screenshot({ path: join(evidence, 'desktop-copy-failure.png') });
     writeFileSync(join(evidence, 'desktop-copy-failure.json'), JSON.stringify({
       text: await panel.innerText(), selectionRects: await panel.locator('.xterm-selection div').count(),
       search: await search.inputValue(), copyDisabled: await panel.getByRole('button', { name: 'Kopieren', exact: true }).isDisabled(),
+      writes: await app.evaluate(() => (globalThis as typeof globalThis & { adeCopyProbe: { writes: unknown[] } }).adeCopyProbe.writes),
     }, null, 2));
     throw error;
-  });
+  } finally {
+    await app.evaluate(() => {
+      const probe = globalThis as typeof globalThis & { adeCopyProbe?: { restore(): void } };
+      probe.adeCopyProbe?.restore(); delete probe.adeCopyProbe;
+    });
+  }
   check('terminal search finds scrollback and copies exact matching selection', true);
   await search.fill('NO_SUCH_TERMINAL_LINE');
   await panel.getByRole('status').filter({ hasText: 'Keine Treffer' }).waitFor();

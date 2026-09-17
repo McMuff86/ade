@@ -6,6 +6,7 @@ import { QuestionCard, type RunQuestionsPort } from '../graph/RunQuestionsPanel'
 import './conversation.css';
 import { ConversationVoice } from './ConversationVoice';
 import type { ConversationRecordingPort } from './ConversationRecording';
+import { CoordinatorActions, type CoordinatorActionsPort } from './CoordinatorActions';
 
 const STATUS: Record<ConversationTurnStatus | 'ready', string> = { ready: 'Bereit', working: 'ADE arbeitet', interrupting: 'Unterbrechung angefragt', completed: 'Antwort abgeschlossen', interrupted: 'Unterbrochen', uncertain: 'Abschluss nicht bestätigt' };
 const describe = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -13,6 +14,7 @@ type CommandInput = ConversationCommand extends infer C ? C extends Conversation
 export interface ConversationDisplayTurn extends Omit<ConversationTurnDetail, 'input' | 'output'> { input: string | { chars: number }; output: string | null; redacted?: boolean; revision?: string }
 export interface ConversationDisplayDetail extends Omit<ConversationDetail, 'turns'> { turns: ConversationDisplayTurn[] }
 export interface ConversationPort {
+  actions?: CoordinatorActionsPort;
   recording?: ConversationRecordingPort;
   list(): Promise<ConversationSummary[]>;
   detail(id: string): Promise<ConversationDisplayDetail>;
@@ -119,7 +121,7 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
     finally { loadingTurns.current.delete(turn.id); if (live.current) setLoadingTurnIds([...loadingTurns.current]); }
   };
   return <div className="conversation-panel" ref={panel} tabIndex={-1}>
-      <p>Projektstände besprechen, Übergaben lesen und Ideen entwickeln. Du kannst deine Nachricht schreiben oder diktieren. Projektaufträge werden in diesem Dialog noch angebunden.</p>
+      <p>Projektstände besprechen, Übergaben vorbereiten und Codex-Projektaufträge planen. Du kannst schreiben oder diktieren. Speichern und Start bestätigst du beim jeweiligen Vorschlag.</p>
       <div className="conversation-controls"><button type="button" onClick={onBack}>Zur Projektbetreuung</button><button type="button" onClick={onClose}>Dialog schliessen</button></div>
       <div className="conversation-controls">
         <label>Codex-Profil<select aria-label="Gesprächsprofil" value={profileId} onChange={event => { profileChosen.current = true; setProfileId(event.target.value); }}>
@@ -158,6 +160,8 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
           </article>)}
         </div>
         {last?.status === 'uncertain' && <p>Der letzte Schritt bleibt unbestätigt. Er wird nicht erneut gesendet. Prüfe den Stand und beginne bei Bedarf ein neues Gespräch.</p>}
+        {port.actions && <CoordinatorActions key={detail.id} conversationId={detail.id} port={port.actions} online={online && detail.available}
+          canWrite={canWrite && detail.available} canConfirm={detail.available && !detail.closed && !running} />}
         <form onSubmit={event => { event.preventDefault(); if (canSend && draft.trim()) void command({ operation: 'send', conversationId: detail.id, afterTurnId: last?.id ?? null, text: draft }); }}>
           <label>Nachricht an ADE<textarea ref={input} aria-label="Nachricht an ADE" rows={4} maxLength={64 * 1024} value={draft} onChange={event => edit(event.target.value)} readOnly={busy || !!pending || detail.closed || !detail.available} /></label>
           <button type="submit" disabled={busy || !canSend || !draft.trim()}>An ADE senden</button>

@@ -5,6 +5,15 @@ CLI-Fähigkeit, ADE-Adapter und fertiger Benutzerfunktion. Alle neuen nativen
 Proben liefen unter **Windows nativ**. Linux/WSLg, Windows-UI mit WSL-Backend und
 macOS wurden für diese neuen Gesprächsverträge nicht abgenommen.
 
+Aktueller Codex-Tablet-Pilot: echte Produktionswerkzeuge bereiten eine Übergabe
+und einen Projektauftrag vor; nach Bestätigung fragt der native Task nach, schreibt
+die Antwort in eine Testdatei und liefert das Ergebnis an den Koordinator zurück.
+**11/0** mit Codex 0.154.0, Koordinator-Modell/Reasoning beobachtet `gpt-5.6-sol` /
+`high`; Task entsprechend angefordert. Dieser native Driver verwendet einen
+isolierten Launcher. Reale ADE-Queue, Workspace-Zuteilung und gekoppelte Browser-
+Bedienung sind separat mit Protokollpeer geprüft (**55/0** Gesamtdialog).
+Das ist kein Nachweis automatischer Mehrprojekt- oder Mehranbieterkoordination.
+
 | Verbindung | Codex 0.154.0 | Claude Code 2.1.274 | Grok |
 |---|---|---|---|
 | Bestehende interaktive CLI in ADE anzeigen/bedienen | Vorhandener PTY-Weg; neue Navigation mit deterministischen CLI-Prozessen geprüft | Vorhandener PTY-Weg; kein neuer nativer UI-Pilot | Vorhandener Laufzeitresolver; hier kein nativer UI-Pilot |
@@ -39,8 +48,8 @@ Der eingeschränkte Modus verwendet den gepinnten Vertrag für CLI 0.154.0,
 deaktivierte native Ausführungswerkzeuge und read-only ohne Netzwerk. Die
 Code-Mode-Werkzeugvermittlung bleibt für ADE-Werkzeuge aktiv. Die negative
 Schreibprobe und der danach erfolgreiche ADE-Aufruf ersetzen keine Prüfung
-der noch zu implementierenden steuernden Projektwerkzeuge. Die fünf lesenden
-Projekt-/Übergabewerkzeuge sind inzwischen angebunden und separat geprüft.
+der steuernden Projektwerkzeuge; deren aktueller Beleg steht oben. Fünf lesende
+und fünf Aktions-/Ergebniswerkzeuge sind inzwischen angebunden und separat geprüft.
 
 `grok` wurde im aktuellen Windows-PATH nicht gefunden. Die offiziellen
 [Headless-Verträge](https://docs.x.ai/build/cli/headless-scripting) nennen benannte
