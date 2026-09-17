@@ -12,8 +12,8 @@ stabilen Dispatch-Key vor Seiteneffekt, `submitSingleTask` speichert Kind-IDs vo
 Queue-Zulassung. Ergebnisse und native Rückfragen erreichen denselben Dialog;
 Graph und Wiederholung verwenden die dauerhafte Beziehung. Fachtests **46/0**,
 Remote **22/0**, Gesprächsbedienung **55/0**, echter Codex-Ablauf **11/0**.
-Nächster Abschluss: finale Gesamtabnahme, persönlicher Testbuild und physischer
-Tablet-Test gemäss [Lieferplan](TABLET_CODEX_GOAL.md). Danach Claude/Grok,
+Finale Gesamtabnahme und persönliche Aktivierung sind bestanden. Nächster
+Einstieg: physischer Tablet-Test gemäss [Lieferplan](TABLET_CODEX_GOAL.md). Danach Claude/Grok,
 ereignisgesteuerte weitere Arbeit, tatsächliche Unteragenten und Sprachausgabe.
 
 Die native Prüfung auf diesem PC fand zwei globale MCP-Einträge: Die CLI führt

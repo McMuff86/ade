@@ -1,8 +1,9 @@
 # ADE-Agent: laufende Umsetzung
 
 17. September 2026, Ausgangscommit `465b639`. Autorisierter Implementierungsauftrag
-für [Goals 26/27/33](MAIN_AGENT_GOALS.md); kein persönlicher Release aktiviert.
-Der Gesamtauftrag ist offen.
+für [Goals 26/27/33](MAIN_AGENT_GOALS.md). Der erste Codex-Tablet-Testbuild ist
+seit 17. September 22:20 CEST persönlich aktiviert; der Gesamtauftrag mit weiteren
+Anbietern, Autonomie und Sprachausgabe bleibt offen.
 Wiederaufnahme am selben Abend: Adi priorisiert den ersten Codex-Ablauf zum
 Tablet-Test. [Lieferfolge und aktuelles Goal](TABLET_CODEX_GOAL.md).
 Commit und Push sind nach abgeschlossener Umsetzung/Abnahme ausdrücklich

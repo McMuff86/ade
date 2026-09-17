@@ -78,14 +78,15 @@ explizite unbestätigte Zustände und positive Kontrollen nach Negativfällen.
   voller Terminaldriver **208/0**, Workspace-CLI mit OS-Clipboard **77/0**,
   Setup **38/0**, Bildvergleiche **22/0**. Source-ID `b05242ffd1f239a77f72`.
   Log: `test-results/tablet-codex-verify-final.log`; Exit-Zeitbeleg:
-  `test-results/tablet-codex-verify-final-exit.json`. Persönliche Aktivierung folgt.
+  `test-results/tablet-codex-verify-final-exit.json`. Persönliche Aktivierung am
+  selben Tag um **22:20 CEST** bestanden; Details unten.
   [Anleitung für Adis Tablet-Test](TABLET_CODEX_TEST.md).
 
 Weitere Verträge: [Implementierung](MAIN_AGENT_IMPLEMENTATION.md),
 [nächste technische Anbindung](MAIN_AGENT_NEXT.md),
 [Gesamtplan](MAIN_AGENT_GOALS.md), [Architektur](ARCHITECTURE.md).
 
-## Persönlicher Testbuild vorbereitet, Aktivierung wartet
+## Persönlicher Codex-Tablet-Testbuild aktiviert
 
 Codecommit **`5fd687f`** ist auf `origin/main`. Der unveränderte geprüfte Build
 liegt unter `dist/tablet-codex-b05242ffd1f239a77f72`; isolierter echter Electron-
@@ -94,31 +95,39 @@ bestätigen dieselbe Source-ID. Plan, Artefakthashes und Startbeleg liegen unter
 `test-results/tablet-codex-release-plan.json` und
 `test-results/tablet-codex-isolated-release.json`.
 
-Das isolierte Git-Testprojekt ist unter
-`%USERPROFILE%/ADE-Testprojekte/Tablet-Codex-20260917` vorbereitet. Beim geprüften
-persönlichen Start wird es über normale ADE-IPC als **ADE-Tablet-Test** registriert,
-auf **Koordinieren** gestellt und ein frisches Codex-Gespräch ohne Modellaufruf
+Das isolierte Git-Testprojekt unter
+`%USERPROFILE%/ADE-Testprojekte/Tablet-Codex-20260917` wurde beim persönlichen
+Start über normale ADE-IPC als **ADE-Tablet-Test** registriert und auf
+**Koordinieren** gestellt. Ein frisches Codex-Gespräch wurde ohne Modellaufruf
 angelegt. Die sechs bestehenden Profile, fünf bestehenden Projekte und die
-Samsung-Kopplung werden erhalten; Profilzulassung separat ohne Änderung des
-persönlichen Zustands geprüft. Der private Zielzugang bleibt
+Samsung-Kopplung sind nach Inhalt geprüft erhalten. Mit dem zusätzlichen
+Testprojekt enthält der Katalog jetzt sechs Projekte. Der private Zugang bleibt
 `https://number-cruncher.tailfc0b86.ts.net/`.
 
-Die Aktivierung hat **noch nicht stattgefunden**: Der Vorabcheck erkannte in der
-alten ADE-Instanz (PID 65624) eine interaktive Codex-Sitzung mit Prozessbaum.
-Keine aktiven Run-/Task-Datensätze, aber ein beendeter Run beweist keine freie
-interaktive Sitzung. Deshalb wurde der Neustart vor jeder Beendigung angehalten
-und Adi ausdrücklich gefragt, ob diese Sitzung beendet werden darf. Diese
-Entscheidung steht aus; keine Zustimmung aus Wartezeit ableiten.
+**Aktiviert am 17. September 2026, 22:20 CEST**, nach Adis ausdrücklicher
+Freigabe zum Beenden der offenen Codex-Sitzung und Neustart. Die bisherige
+ADE-Instanz wurde über ihre normale Tray-Beenden-Aktion beendet. Alte ADE-PID
+65624 und Codex-PID 65772 sind nachweislich beendet; die neue ADE-PID **44420**
+läuft aus dem geprüften Release. Die Startmenü-Verknüpfung zeigt auf diesen
+Release. Source-ID **`b05242ffd1f239a77f72`**, Codecommit **`5fd687f`**.
 
-Bei bestätigter Freigabe führt
+Der ausgeführte Wechsel
 `test-results/restart-tablet-codex-release.ps1 -RestartInteractiveSessions`
-den vorbereiteten Wechsel durch: Prozessidentität und Artefakte prüfen,
-Profildaten sichern, vorhandene Tray-Beenden-Aktion verwenden, neuen Release
-starten, Originalkatalog/Kopplung und tatsächlich über privates HTTPS geliefertes
-Bundle prüfen und erst dann die Startmenü-Verknüpfung aktualisieren. Danach
-`activation.json`/Neustartbeleg prüfen und diesen Handoff auf den tatsächlichen
-Betriebsstand aktualisieren. Bei erhaltener Sitzung bleibt der neue Release
-vorbereitet; keinen zweiten Host mit demselben persönlichen Profil starten.
+prüfte Prozessidentität und Artefakte, sicherte Profildaten, startete den Release
+und bestätigte Originalkatalog und Kopplung. Privates HTTPS liefert **HTTP 200**
+und bytegleich das aktuelle Tablet-JavaScript; alle drei kompilierten Oberflächen
+haben dieselbe Source-ID. Die persönliche Aktivierung erzeugte keinen Modellturn
+und startete keine Projektarbeit. Der alte interaktive Codex-Prozess wurde beendet;
+das frische globale Gespräch übernimmt nicht dessen privaten CLI-Kontext.
+
+Sicherung: `%USERPROFILE%/ADE-Backups/TabletCodex-20260917-222005`.
+Aktivierungsbelege: `test-results/tablet-codex-restart.json` und
+`dist/tablet-codex-b05242ffd1f239a77f72/activation.json`, jeweils `passed`.
+Der Desktop-Screenshot liegt daneben als `desktop-active.png`.
+
+Der Lieferabschnitt ist damit für Adis Tablet-Test bereit. Der physische
+Samsung-Test (Touch, Mikrofon, Wiederaufnahme) bleibt seine praktische Abnahme;
+die übergeordneten Mehranbieter-/Autonomie-/Sprachausgabe-Goals bleiben offen.
 
 Die temporäre Implementierungs-Arbeitskopie wurde nach Inhaltsvergleich entfernt;
 ihre Prüfarbeitsdateien liegen unter `test-results/tablet-codex-work-evidence`.

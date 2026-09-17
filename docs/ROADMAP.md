@@ -7,7 +7,8 @@ Adi hat am 17. September die Wiederaufnahme und zuerst den Codex-Ablauf beauftra
 dauerhafte Graph-Zuordnung sind implementiert; Gesprächsbedienung **55/0**,
 native Codex-Probe **11/0**. Finale Gesamtabnahme **Exit 0**, drei TypeScript-Projekte,
 89 Suiten / 3.652 Prüfungen und alle Bedien-/Visualdriver. Persönlicher Testbuild
-folgt im [Lieferplan](TABLET_CODEX_GOAL.md). Danach physische Tablet-Abnahme
+seit 22:20 CEST aktiviert, einschliesslich isoliertem Testprojekt und geprüftem
+privatem HTTPS-Zugang ([Lieferplan](TABLET_CODEX_GOAL.md)). Danach physische Tablet-Abnahme
 mit [diesem Ablauf](TABLET_CODEX_TEST.md). Claude/Grok, automatische weitere
 Projektarbeit, native Unteragentenbeziehungen und Sprachausgabe bleiben eigene
 Lieferabschnitte. Die übergeordneten Goals 26/27/33 sind damit nicht vollständig

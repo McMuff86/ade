@@ -17,11 +17,16 @@ drei TypeScript-Projekte, **89 Suiten / 3.652 Prüfungen**, Build und alle
 Bedien-/Visualdriver. Source-ID `b05242ffd1f239a77f72`, Log im Hauptcheckout unter
 `test-results/tablet-codex-verify-final.log`. Codecommit **`5fd687f`** auf
 `origin/main`, separater Release und isolierter Electron-Start geprüft.
-**Aktivierung wartet auf Adis Entscheidung:** In der alten ADE-Instanz läuft
-noch eine interaktive Codex-Sitzung. Vor dem Beenden wurde angehalten und eine
-Neustartfreigabe angefragt. Keine Prozesse beendet, keine Zustimmung unterstellen.
-Konkreter Release, Testprojekt, Wechsel-Script und Belege stehen im
-[Betriebsabschnitt des Lieferplans](TABLET_CODEX_GOAL.md#persönlicher-testbuild-vorbereitet-aktivierung-wartet).
+**Persönlich aktiviert am 17. September, 22:20 CEST**, nach Adis ausdrücklicher
+Neustartfreigabe. Alte ADE-/Codex-Sitzung beendet, neue ADE-PID **44420** aus
+`dist/tablet-codex-b05242ffd1f239a77f72`; Startmenü-Verknüpfung aktualisiert.
+Sechs Profile, fünf bisherige Projekte und Samsung-Kopplung erhalten. Zusätzlich
+**ADE-Tablet-Test** auf **Koordinieren** und frisches Codex-Gespräch eingerichtet.
+Privates HTTPS liefert HTTP 200 und bytegleich das geprüfte Tablet-Bundle.
+Sicherung und Aktivierungsbelege stehen im
+[Betriebsabschnitt des Lieferplans](TABLET_CODEX_GOAL.md#persönlicher-codex-tablet-testbuild-aktiviert).
+Nächster Einstieg ist Adis physischer Tablet-Test; dieser wurde nicht automatisiert
+als bestanden behauptet. Danach die weiteren Anbieter und Autonomie ausbauen.
 [Tablet-Bedienanleitung](TABLET_CODEX_TEST.md). Die folgenden Haltepunkte sind historisch.
 
 ## Gewünschter Haltepunkt vom 17. September 2026
