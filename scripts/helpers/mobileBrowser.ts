@@ -18,6 +18,7 @@ export async function mobileTlsProxy() {
   let loseTerminalReply = false;
   let loseInputReply = false;
   let losePromptReply = false;
+  let loseConversationReply = false;
   let inputReplyMatch: string | undefined;
   let rejectApi = false;
   let rejectShell = false;
@@ -46,6 +47,7 @@ export async function mobileTlsProxy() {
         || (loseAssignmentReply && req.url === '/api/v1/workspace/assignment/command')
         || (loseIntegrationReply && req.url === '/api/v1/integration/command')
         || (loseTerminalReply && req.url === '/api/v1/terminal/command') || (losePromptReply && req.url === '/api/v1/terminal/prompt')
+        || (loseConversationReply && req.url === '/api/v1/conversation/command')
         || (loseInputReply && matchingInput && req.url === '/api/v1/terminal/input'))) {
         reply.resume(); res.destroy(); return;
       }
@@ -72,6 +74,7 @@ export async function mobileTlsProxy() {
     loseTerminalReplies: (value: boolean) => { loseTerminalReply = value; },
     loseInputReplies: (value: boolean, match?: string) => { loseInputReply = value; inputReplyMatch = match; },
     losePromptReplies: (value: boolean) => { losePromptReply = value; },
+    loseConversationReplies: (value: boolean) => { loseConversationReply = value; },
     setApiOffline: (value: boolean) => { rejectApi = value; if (value) for (const socket of sockets) socket.destroy(); },
     setShellUnavailable: (value: boolean) => { rejectShell = value; },
     close: async () => { for (const socket of sockets) socket.destroy(); await new Promise<void>((done) => server.close(() => done())); },

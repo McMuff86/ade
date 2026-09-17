@@ -25,6 +25,12 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
   useEffect(() => {
     if (initialSessionId && !useSessions.getState().activeByProject[workspace.id]) useSessions.getState().setActiveProject(workspace.id, initialSessionId);
   }, [initialSessionId, workspace.id]);
+  const initialAvailable = available.some(session => session.id === initialSessionId);
+  useEffect(() => {
+    if (!initialSessionId || !initialAvailable) return;
+    const frame = requestAnimationFrame(() => root.current?.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')?.scrollIntoView({ block: 'nearest' }));
+    return () => cancelAnimationFrame(frame);
+  }, [initialSessionId, initialAvailable]);
   useEffect(() => {
     let stopped = false; setLoading(true); setOptions(undefined); setError('');
     void window.ade.invoke('session:options', { projectWorkspaceId: workspace.id }).then((value) => { if (!stopped) setOptions(value); })
@@ -32,7 +38,11 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
     return () => { stopped = true; };
   }, [workspace.id, retry]);
   const focusTerminal = () => requestAnimationFrame(() => {
-    root.current?.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden]) .xterm-helper-textarea')?.focus();
+    const panel = root.current?.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])');
+    // Only explicit open/switch actions reveal the terminal. Live output never
+    // moves the project scroll position, and the global header stays outside it.
+    panel?.scrollIntoView({ block: 'nearest' });
+    panel?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus();
   });
   const launchDisabled = (value: SessionLaunchChoice) => busy || loading || !canLaunchChoice(value, options)
     || value.mode === 'agent' && !options?.profiles?.some((profile) => profile.id === profileId);

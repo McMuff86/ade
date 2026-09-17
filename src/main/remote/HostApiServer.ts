@@ -70,11 +70,13 @@ type Route =
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
   | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
   | { kind: 'terminalSessions' }
+  | { kind: 'supervisionQuery' | 'supervisionCommand' }
+  | { kind: 'conversationQuery' | 'conversationCommand' | 'conversationDictation' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -138,6 +140,11 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/workspace/assignment/query': return { route: { kind: 'assignmentQuery' }, allow: ['POST'] };
     case '/api/v1/workspace/assignment/command': return { route: { kind: 'assignmentCommand' }, allow: ['POST'] };
     case '/api/v1/workspace/save': return { route: { kind: 'saveWorkspaceFile' }, allow: ['POST'] };
+    case '/api/v1/supervision/query': return { route: { kind: 'supervisionQuery' }, allow: ['POST'] };
+    case '/api/v1/supervision/command': return { route: { kind: 'supervisionCommand' }, allow: ['POST'] };
+    case '/api/v1/conversation/query': return { route: { kind: 'conversationQuery' }, allow: ['POST'] };
+    case '/api/v1/conversation/command': return { route: { kind: 'conversationCommand' }, allow: ['POST'] };
+    case '/api/v1/conversation/dictation': return { route: { kind: 'conversationDictation' }, allow: ['POST'] };
     case '/api/v1/profile/behavior/query': return { route: { kind: 'queryBehavior' }, allow: ['POST'] };
     case '/api/v1/profile/behavior/update': return { route: { kind: 'updateBehavior' }, allow: ['POST'] };
     case '/api/v1/profile/query': return { route: { kind: 'queryProfile' }, allow: ['POST'] };
@@ -480,6 +487,11 @@ export class HostApiServer {
         case 'integrationCommand':
         case 'assignmentCommand':
         case 'saveWorkspaceFile':
+        case 'supervisionQuery':
+        case 'supervisionCommand':
+        case 'conversationQuery':
+        case 'conversationCommand':
+        case 'conversationDictation':
         case 'queryBehavior':
         case 'updateBehavior':
         case 'queryProfile':
@@ -604,6 +616,9 @@ export class HostApiServer {
         : kind === 'terminalPrompt' ? await this.application.remotePrompt(context, payload)
         : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
+        : kind === 'supervisionQuery' || kind === 'supervisionCommand' ? await this.application.supervision(context, payload, kind === 'supervisionCommand')
+        : kind === 'conversationQuery' || kind === 'conversationCommand' ? await this.application.conversation(context, payload, kind === 'conversationCommand')
+        : kind === 'conversationDictation' ? await this.application.conversationDictation(context, payload)
         : kind === 'queryBehavior' || kind === 'updateBehavior' ? await this.application.agentBehavior(context, payload, kind === 'updateBehavior')
         : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
         : kind === 'assignmentQuery' || kind === 'assignmentCommand' ? await this.application.workspaceAssignment(context, payload, kind === 'assignmentCommand')

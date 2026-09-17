@@ -1,5 +1,21 @@
 # Main Chef: Anweisungen und projektübergreifende Aufgaben
 
+## Konkretisierte Goals vom 17. September 2026
+
+Die [ADE-Agent-Goals](MAIN_AGENT_GOALS.md) führen diesen Plan für das aktuelle
+Benutzerbild weiter: eigene Codex-/Grok-/Claude-Projektsitzungen, zwei parallele
+Umsetzungen, ein Brainstorming, optionale Betreuung und direkte Übernahme.
+26.2–26.4 behalten Zuständigkeit/Planung, Mehrprojektarbeit und Steuerung/Bericht;
+26.6 ergänzt Verbindungsnachweise, 26.7 den projektübergreifenden Graph und 26.8
+die Übergabe zur direkten Arbeit. 27.3 und 33.1/33.2 verbinden Navigation und
+Sprache. Für die aktuelle Lieferreihenfolge ist der neue Plan massgeblich.
+[Laufende Umsetzung](MAIN_AGENT_IMPLEMENTATION.md): dauerhafte Zuordnung, Graph,
+Projektwechsel und Übergaben sind angebunden; automatische Koordination bleibt offen.
+[Baseline](MAIN_AGENT_BASELINE.md) enthält neu ausgeführte Teilprüfungen und
+offene Lücken. Die folgenden Analysen und 26.1/26.5 bleiben als Grundlagen
+erhalten; die frühere Beschränkung der ersten Reihenfolge auf Anweisungs-UI
+beschreibt nicht den neuen Pilotstart.
+
 Stand: 13. September 2026. **Entwurf für Goal 26, keine neue Supportzusage.**
 Diese Änderung dokumentiert eine Codeinspektion; die unten genannten Tests wurden
 für diesen Plan nicht ausgeführt. Bestehende Architektur und Produktstatus bleiben

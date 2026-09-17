@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ConfigStore } from '../src/main/config/store';
@@ -47,8 +47,14 @@ void (async () => {
   writeFileSync(headFile, head);
   renameSync(headFile, `${headFile}.saved`);
   const outside = join(root, 'outside-head'); writeFileSync(outside, head);
-  symlinkSync(outside, headFile, 'file');
-  await refuses('HEAD symlink is refused rather than read outside workspace', () => service.resolveTerminal(branch.id), /Verknüpfung|Umleitung/);
+  // Windows junctions exercise the same reparse-point boundary without requiring
+  // an elevated symlink privilege. Unix still exercises a real file symlink.
+  const outsideDirectory = join(root, 'outside-directory'); mkdirSync(outsideDirectory);
+  symlinkSync(process.platform === 'win32' ? outsideDirectory : outside, headFile, process.platform === 'win32' ? 'junction' : 'file');
+  await refuses(`HEAD ${process.platform === 'win32' ? 'junction' : 'symlink'} is refused before metadata access`, () => service.resolveTerminal(branch.id), /Verknüpfung|Umleitung/);
+  rmSync(headFile);
+  linkSync(outside, headFile);
+  await refuses('HEAD file hardlink is refused before reading shared metadata', () => service.resolveTerminal(branch.id), /Metadaten/);
   rmSync(headFile); renameSync(`${headFile}.saved`, headFile);
   const pointer = join(work, '.git'); const pointerText = readFileSync(pointer);
   rmSync(pointer);

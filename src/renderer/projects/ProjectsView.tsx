@@ -10,6 +10,7 @@ import { desktopRunFiles } from '../graph/RunFilesPanel';
 import { useSelection } from '../stores/selection';
 import { useAppData } from '../stores/appdata';
 import { TargetSpeechSettings } from '../settings/TargetSpeechSettings';
+import { SupervisionButton } from '../supervision/SupervisionGraph';
 
 const query = (input: ProjectWorkspaceQuery) => window.ade.invoke('project:query', input);
 const applyBranch = async (previewId: string) => (await window.ade.invoke('project:command', { operation: 'branch-apply', previewId })).workspace;
@@ -50,9 +51,11 @@ export function ProjectsView(): JSX.Element {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => { let stopped = false; if (selectedId && selectedId !== workspace?.id) {
+    setWorkspace(undefined); setError(''); setSection('terminal');
     void query({ operation: 'workspace', workspaceId: selectedId }).then((result) => { if (!stopped) setWorkspace(result.workspace); })
       .catch((reason) => { if (!stopped) setError(String(reason)); });
-  } return () => { stopped = true; }; }, [selectedId, workspace?.id]);
+  } return () => { stopped = true; }; }, [selectedId]);
+  useEffect(() => { if (sessionId) setSection('terminal'); }, [sessionId]);
   const open = async (entry: ProjectDirectoryEntry, button: HTMLButtonElement) => {
     if (lock.current) return; lock.current = true; opener.current = button; setBusy(true); setError('');
     try {
@@ -99,7 +102,7 @@ export function ProjectsView(): JSX.Element {
   };
   return <section className="project-desktop" aria-label="Projekte">
     <h1 ref={heading} tabIndex={-1}>{workspace ? `Projekt · ${workspace.name}` : 'Projekte'}</h1>
-    {workspace ? <><ProjectWorkspaceSummary workspace={workspace} /><button onClick={() => {
+    {workspace ? <><ProjectWorkspaceSummary workspace={workspace} /><SupervisionButton repositoryId={workspace.repositoryId} /><button onClick={() => {
       setWorkspace(undefined); useSelection.getState().setProjectWorkspace(null);
       const target = opener.current?.isConnected ? opener.current : document.getElementById('mode-tab-projects'); target?.focus();
       void refresh();

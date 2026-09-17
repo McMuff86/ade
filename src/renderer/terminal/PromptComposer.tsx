@@ -55,7 +55,8 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
   const [capability, setCapability] = useState<TerminalPromptCapability>({ available: false, reason: 'Sitzungsziel wird geprüft…' });
   const [phase, setPhase] = useState<PromptPhase>('idle');
   const [error, setError] = useState(''); const [seconds, setSeconds] = useState(0);
-  const [noticeState, setNoticeState] = useState<{ text: string; kind: PromptNoticeKind }>({ text: '', kind: 'info' });
+  const [noticeState, setNoticeState] = useState<{ text: string; kind: PromptNoticeKind }>(draft.recordingInterrupted
+    ? { text: 'Aufnahme beim Wechsel beendet. Erkannten Text vor dem Senden prüfen.', kind: 'recovered' } : { text: '', kind: 'info' });
   const setNotice = (text: string, kind: PromptNoticeKind = 'info') => setNoticeState({ text, kind });
   const [liveText, setLiveText] = useState(''); const liveTextRef = useRef('');
   const [computerBusy, setComputerBusyState] = useState(false);
@@ -80,9 +81,10 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
       mounted.current = false; generation.current++; recorder.current?.cancel();
       if (job.current) void initialPort.current.cancelRecording(job.current).catch(() => undefined);
       if (job.current && initialPort.current.liveRecording) {
-        // Closing a live dock cancels that stream; do not leave a stale ticket
-        // disabling the next recording when its saved draft is reopened.
-        try { store.current.save(savedKey.current, { ...draftRef.current, recordingJob: undefined }); } catch { /* Keep the existing draft on storage failure. */ }
+        // Preserve the last visible preview on its original target before
+        // cancelling a stream during navigation. It is not a final transcript.
+        const text = [draftRef.current.text, liveTextRef.current.trim()].filter(Boolean).join('\n').slice(0, DICTATION_MAX_TEXT_CHARS);
+        try { store.current.save(savedKey.current, { ...draftRef.current, text, recordingJob: undefined, recordingInterrupted: true }); } catch { /* Keep the existing draft on storage failure. */ }
       }
       void initialPort.current.revokeMicrophone?.().catch(() => undefined);
     };

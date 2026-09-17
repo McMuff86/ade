@@ -1,10 +1,12 @@
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, relative } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type { Agent } from '../../shared/types';
 import type { RunQuestionAnswers } from '../../shared/runQuestions';
 import { redactedErrorDetail } from '../errors';
 import { assertNoLinks } from '../repositories/pathDiscipline';
+import { CodexDynamicTools, type CodexDynamicTool } from './CodexDynamicTools';
+import { assertCoordinatorCodexConfig, assertCoordinatorCodexThread, assertCoordinatorCodexVersion, launchCoordinatorCodex } from './CoordinatorCodexPolicy';
 
 export interface TaskProcess {
   write(data: string): void;
@@ -20,17 +22,30 @@ export interface CodexAppServerOptions {
   prompt: string;
   resultPath?: string;
   schemaPath?: string;
+  /** An explicitly owned conversation stays alive between turns. Task mode remains one-shot. */
+  conversation?: {
+    resumeThreadId?: string;
+    /** Main-owned coordinator policy; never inherited by project task mode. */
+    coordinator?: true;
+    tools?: CodexDynamicTool[];
+    instructions?: string;
+    ready(identity: CodexConversationIdentity): void;
+    completed(result: CodexConversationResult): void;
+  };
   question(questions: unknown, blocking: boolean, deliver: (answers: RunQuestionAnswers) => Promise<void>): { id: string; expire(): void };
   /** Test transport: production uses only the constant native Codex invocation. */
   launch?: () => ChildProcessWithoutNullStreams;
 }
+export interface CodexConversationIdentity { threadId: string; sessionId?: string; model?: string; reasoningEffort?: string }
+export interface CodexConversationResult { threadId: string; turnId: string; status: 'completed' | 'interrupted'; text: string }
 interface Pending { resolve(value: Record<string, unknown>): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }
 interface QuestionRequest { expire(): void; ack?: Pending }
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const text = (value: unknown, cap = 64 * 1024): string => typeof value === 'string' ? value.slice(0, cap) : '';
 const MAX_FRAME = 2 * 1024 * 1024;
 
-/** One native Codex thread/turn. Only projected notifications become task output. */
+/** Native Codex transport. Task mode ends after one turn; explicit conversation
+ * mode retains its thread and requires a fresh, serialized sendTurn per message. */
 export class CodexAppServerProcess implements TaskProcess {
   private readonly child: ChildProcessWithoutNullStreams;
   private readonly dataListeners = new Set<(data: string) => void>();
@@ -47,9 +62,15 @@ export class CodexAppServerProcess implements TaskProcess {
   private received = '';
   private incoming: Promise<void> = Promise.resolve();
   private queuedBytes = 0;
+  private turnActive = false;
+  private readonly finishedTurns = new Set<string>();
+  private readonly dynamicTools?: CodexDynamicTools;
 
   constructor(private readonly options: CodexAppServerOptions) {
-    this.child = options.launch?.() ?? (process.platform === 'win32'
+    if (options.conversation) { if (!isAbsolute(options.cwd)) throw new Error('Gespräch braucht einen absoluten Workspace.'); assertNoLinks(options.cwd); }
+    if (options.conversation?.tools) this.dynamicTools = new CodexDynamicTools(options.conversation.tools);
+    if (options.conversation?.instructions && (options.conversation.instructions.length > 32 * 1024 || options.conversation.instructions.includes('\0'))) throw new Error('Ungültige ADE-Gesprächsanweisung.');
+    this.child = options.launch?.() ?? (options.conversation?.coordinator ? launchCoordinatorCodex(options.cwd, options.env) : process.platform === 'win32'
       ? spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '& codex app-server --listen stdio://'],
         { cwd: options.cwd, env: options.env, windowsHide: true, stdio: 'pipe' })
       : spawn('codex', ['app-server', '--listen', 'stdio://'], { cwd: options.cwd, env: options.env, stdio: 'pipe' }));
@@ -79,25 +100,74 @@ export class CodexAppServerProcess implements TaskProcess {
   }
 
   private async initialize(): Promise<void> {
-    await this.rpc('initialize', { clientInfo: { name: 'ade', title: 'ADE', version: '0.1.0' }, capabilities: { experimentalApi: true } });
+    const initialized = await this.rpc('initialize', { clientInfo: { name: 'ade', title: 'ADE', version: '0.1.0' }, capabilities: { experimentalApi: true } });
+    const coordinator = this.options.conversation?.coordinator;
+    if (coordinator) assertCoordinatorCodexVersion(initialized);
     this.send({ method: 'initialized' });
-    const thread = await this.rpc('thread/start', { cwd: this.options.cwd,
+    if (coordinator) assertCoordinatorCodexConfig(await this.rpc('config/read', { cwd: this.options.cwd, includeLayers: false }));
+    const resumeThreadId = this.options.conversation?.resumeThreadId;
+    if (resumeThreadId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(resumeThreadId)) throw new Error('Ungültige Codex-Gesprächsidentität.');
+    if (resumeThreadId) {
+      const previous = record((await this.rpc('thread/read', { threadId: resumeThreadId, includeTurns: false })).thread);
+      if (previous.id !== resumeThreadId || typeof previous.cwd !== 'string' || relative(resolve(this.options.cwd), resolve(previous.cwd)) !== '') {
+        throw new Error('Gespeichertes Codex-Gespräch gehört nicht zum erwarteten Workspace.');
+      }
+    }
+    const thread = await this.rpc(resumeThreadId ? 'thread/resume' : 'thread/start', { cwd: this.options.cwd,
+      ...(resumeThreadId ? { threadId: resumeThreadId } : {}),
+      // 0.154's resume schema restores tools from its rollout; it does not
+      // accept replacements. The owner must pin its tool contract per thread.
+      ...(!resumeThreadId && this.dynamicTools ? { dynamicTools: this.dynamicTools.specifications } : {}),
       model: this.options.agent.codexModel || undefined, approvalPolicy: 'never',
-      sandbox: this.options.agent.permissionMode === 'bypass' ? 'danger-full-access' : this.options.agent.permissionMode === 'accept-edits' ? 'workspace-write' : 'read-only',
+      sandbox: coordinator ? 'read-only' : this.options.agent.permissionMode === 'bypass' ? 'danger-full-access' : this.options.agent.permissionMode === 'accept-edits' ? 'workspace-write' : 'read-only',
       config: { 'features.default_mode_request_user_input': true,
-        ...(this.options.schemaPath && this.options.agent.permissionMode === 'accept-edits'
+        ...(this.options.agent.codexReasoningEffort ? { model_reasoning_effort: this.options.agent.codexReasoningEffort } : {}),
+        ...(!coordinator && this.options.schemaPath && this.options.agent.permissionMode === 'accept-edits'
           ? { 'sandbox_workspace_write.writable_roots': [dirname(this.options.schemaPath)] } : {}) },
-      developerInstructions: 'When a decision or missing information is needed from the user, use request_user_input. ADE presents the question and delivers the user answer. Do not invent an answer or use shell stdin for questions.',
+      developerInstructions: ['When a decision or missing information is needed from the user, use request_user_input. ADE presents the question and delivers the user answer. Do not invent an answer or use shell stdin for questions.', this.options.conversation?.instructions].filter(Boolean).join('\n\n'),
     });
+    if (coordinator) assertCoordinatorCodexThread(thread);
     this.threadId = text(record(thread.thread).id, 128);
     if (!this.threadId) throw new Error('Codex hat keine Thread-Identität geliefert.');
+    if (this.options.conversation) {
+      const native = record(thread.thread); const cwd = text(native.cwd, 8192);
+      if (resumeThreadId && this.threadId !== resumeThreadId || !cwd || relative(resolve(this.options.cwd), resolve(cwd)) !== '') {
+        throw new Error('Codex-Gespräch gehört nicht zum erwarteten Workspace.');
+      }
+      this.options.conversation.ready({ threadId: this.threadId, ...(typeof native.sessionId === 'string' ? { sessionId: text(native.sessionId, 128) } : {}),
+        ...(typeof thread.model === 'string' ? { model: text(thread.model, 128) } : {}),
+        ...(typeof thread.reasoningEffort === 'string' ? { reasoningEffort: text(thread.reasoningEffort, 32) } : {}) });
+    }
     this.emit({ type: 'thread.started', thread_id: this.threadId });
-    let outputSchema: unknown;
-    if (this.options.schemaPath) { assertNoLinks(this.options.schemaPath); outputSchema = JSON.parse(readFileSync(this.options.schemaPath, 'utf8')); }
-    const turn = await this.rpc('turn/start', { threadId: this.threadId,
-      input: [{ type: 'text', text: this.options.prompt, text_elements: [] }],
+    await this.startTurn(this.options.prompt);
+  }
+
+  /** No automatic replay: a failed acknowledgement leaves this process closed. */
+  async sendTurn(prompt: string): Promise<{ threadId: string; turnId: string }> {
+    if (!this.options.conversation) throw new Error('Diese Codex-Aufgabe ist kein fortsetzbares Gespräch.');
+    return this.startTurn(prompt);
+  }
+  async interruptTurn(): Promise<void> {
+    if (!this.options.conversation || !this.turnActive || !this.turnId || this.ended !== undefined) throw new Error('Kein bestätigter Gesprächsschritt zum Unterbrechen.');
+    try { await this.rpc('turn/interrupt', { threadId: this.threadId, turnId: this.turnId }); }
+    catch (error) { this.fail(error); throw error; }
+  }
+  private async startTurn(prompt: string): Promise<{ threadId: string; turnId: string }> {
+    if (!this.threadId || this.ended !== undefined || this.turnActive) throw new Error('Codex-Gespräch ist nicht bereit für eine weitere Nachricht.');
+    if (this.options.conversation && (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 64 * 1024 || prompt.includes('\0'))) throw new Error('Ungültige Gesprächsnachricht.');
+    if (this.finishedTurns.size >= 512) throw new Error('Gesprächsverbindung erreicht ihr Nachrichtenlimit. Gespräch gezielt wieder aufnehmen.');
+    this.turnActive = true; this.turnId = ''; this.finalMessage = ''; this.usage = undefined;
+    try {
+      let outputSchema: unknown;
+      if (this.options.schemaPath) { assertNoLinks(this.options.schemaPath); outputSchema = JSON.parse(readFileSync(this.options.schemaPath, 'utf8')); }
+      const turn = await this.rpc('turn/start', { threadId: this.threadId,
+      input: [{ type: 'text', text: prompt, text_elements: [] }],
       effort: this.options.agent.codexReasoningEffort || undefined, outputSchema });
-    this.turnId = text(record(turn.turn).id, 128);
+      const id = text(record(turn.turn).id, 128);
+      if (!id || this.finishedTurns.has(id) || this.turnId && this.turnId !== id) throw new Error('Codex hat einen widersprüchlichen Gesprächsschritt bestätigt.');
+      this.turnId = id;
+      return { threadId: this.threadId, turnId: id };
+    } catch (error) { this.fail(error); throw error; }
   }
 
   private rpc(method: string, params: unknown): Promise<Record<string, unknown>> {
@@ -122,6 +192,15 @@ export class CodexAppServerProcess implements TaskProcess {
       return;
     }
     const method = message.method; const params = record(message.params);
+    if (method === 'item/tool/call' && (typeof id === 'string' || typeof id === 'number') && this.dynamicTools) {
+      const turnId = this.turnId;
+      // Do not await inside the input queue: a tool may need a native RPC
+      // acknowledgement (for example interruption) while it is running.
+      void this.dynamicTools.request(id, params, { threadId: this.threadId, turnId, active: this.turnActive && this.ended === undefined })
+        .then(result => { if (this.ended === undefined && this.turnActive && this.turnId === turnId) this.send({ id, result }); })
+        .catch(error => this.fail(error));
+      return;
+    }
     if (method === 'serverRequest/resolved') {
       if (params.threadId !== this.threadId) return;
       const key = String(params.requestId); const question = this.questions.get(key); if (!question) return;
@@ -130,7 +209,7 @@ export class CodexAppServerProcess implements TaskProcess {
       this.questions.delete(key); await Promise.resolve(); return;
     }
     if (id !== undefined && typeof method === 'string') {
-      if (method !== 'item/tool/requestUserInput' || params.threadId !== this.threadId
+      if (this.options.conversation && !this.turnActive || method !== 'item/tool/requestUserInput' || params.threadId !== this.threadId
         || this.turnId && params.turnId !== this.turnId || typeof params.isBlocking !== 'boolean') {
         this.send({ id, error: { code: -32601, message: 'ADE does not support this server request.' } });
         throw new Error('Codex fordert eine nicht unterstützte Interaktion an.');
@@ -149,6 +228,13 @@ export class CodexAppServerProcess implements TaskProcess {
       return;
     }
     if (params.threadId && params.threadId !== this.threadId) return;
+    if (this.options.conversation) {
+      // Late and duplicate events cannot enter the next turn's answer.
+      const eventTurn = text(params.turnId || record(params.turn).id, 128);
+      if (!this.turnActive || eventTurn && (this.finishedTurns.has(eventTurn) || this.turnId && eventTurn !== this.turnId)) return;
+      if (typeof method === 'string' && method.startsWith('item/') && !eventTurn) return;
+      if ((method === 'turn/started' || method === 'turn/completed') && !eventTurn) throw new Error('Codex-Ereignis ohne Gesprächsschritt.');
+    }
     if (method === 'turn/started') { this.turnId = text(record(params.turn).id, 128); this.emit({ type: 'turn.started' }); }
     if (method === 'thread/tokenUsage/updated') {
       const usage = record(record(params.tokenUsage).total);
@@ -163,18 +249,33 @@ export class CodexAppServerProcess implements TaskProcess {
     if (method === 'turn/plan/updated') this.emit({ type: 'ade.plan', text: text(params.explanation, 4000), steps: params.plan });
     if (method === 'turn/completed') {
       const turn = record(params.turn);
-      if (turn.status !== 'completed') throw new Error(text(record(turn.error).message, 2000) || 'Codex-Auftrag wurde unterbrochen.');
-      if (this.questions.size) throw new Error('Codex hat den Auftrag mit einer unbestätigten Rückfrage beendet.');
+      if (turn.status !== 'completed' && !(this.options.conversation && turn.status === 'interrupted')) throw new Error(text(record(turn.error).message, 2000) || 'Codex-Auftrag wurde unterbrochen.');
+      if (turn.status === 'completed' && this.dynamicTools?.pending(this.turnId)) throw new Error('Codex hat den Gesprächsschritt vor Abschluss eines ADE-Werkzeugs beendet.');
+      this.dynamicTools?.endTurn(this.turnId);
+      if (this.questions.size) {
+        if (this.options.conversation && turn.status === 'interrupted') {
+          for (const question of this.questions.values()) { if (question.ack) { clearTimeout(question.ack.timer); question.ack.reject(new Error('Gesprächsschritt wurde unterbrochen.')); } question.expire(); }
+          this.questions.clear();
+        } else throw new Error('Codex hat den Auftrag mit einer unbestätigten Rückfrage beendet.');
+      }
       if (this.options.resultPath) {
         if (!this.finalMessage) throw new Error('Codex hat kein strukturiertes Ergebnis geliefert.');
         assertNoLinks(this.options.resultPath); writeFileSync(this.options.resultPath, this.finalMessage, 'utf8');
       }
-      this.emit({ type: 'turn.completed', ...(this.usage ? { usage: this.usage } : {}) }); this.finish(0);
+      this.emit({ type: turn.status === 'interrupted' ? 'ade.turn.interrupted' : 'turn.completed', ...(this.usage ? { usage: this.usage } : {}) });
+      if (this.options.conversation) {
+        const result: CodexConversationResult = { threadId: this.threadId, turnId: this.turnId, status: turn.status as 'completed' | 'interrupted', text: this.finalMessage };
+        this.finishedTurns.add(this.turnId); this.turnActive = false;
+        this.options.conversation.completed(result);
+      } else this.finish(0);
     }
     if (method === 'error') this.emit({ type: 'error', message: redactedErrorDetail(text(record(params.error).message, 4000)) });
   }
 
   private item(item: Record<string, unknown>, started: boolean): void {
+    if (this.options.conversation?.coordinator && ['commandExecution', 'fileChange', 'mcpToolCall', 'webSearch', 'imageGeneration', 'computerUse'].includes(String(item.type))) {
+      throw new Error('Codex meldet eine native Werkzeugaktion ausserhalb der geprüften ADE-Koordinatorverbindung. Verbindung beendet; Zustand prüfen.');
+    }
     const id = text(item.id, 128); let projected: Record<string, unknown> | undefined;
     if (item.type === 'agentMessage' && !started) {
       const message = text(item.text, MAX_FRAME);
@@ -209,6 +310,7 @@ export class CodexAppServerProcess implements TaskProcess {
   private finish(exitCode: number): void {
     if (this.ended !== undefined) return;
     this.ended = exitCode;
+    this.dynamicTools?.endTurn();
     for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error('Codex-Verbindung beendet.')); } this.pending.clear();
     for (const question of this.questions.values()) { if (question.ack) { clearTimeout(question.ack.timer); question.ack.reject(new Error('Codex-Verbindung beendet.')); } question.expire(); } this.questions.clear();
     if (this.child.exitCode === null && this.child.pid) {

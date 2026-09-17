@@ -20,6 +20,8 @@ import type { MobileTerminalPrompt } from '../shared/remote';
 import { mobileReplyPort } from './replySpeechPort';
 import { TerminalVoiceStrip } from './TerminalVoiceStrip';
 import { KeyboardIcon } from '../renderer/terminal/VoiceStrip';
+import { SessionSwitchButton } from '../renderer/sessions/SessionSwitcher';
+import { SupervisionButton } from '../renderer/supervision/SupervisionGraph';
 
 interface TerminalDraft { text: string; review: boolean }
 
@@ -291,6 +293,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       const result = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, terminalId: state.selected!.id, usage: true });
       if (!result.subscriptionUsage) throw new Error('Nutzungsdaten fehlen.'); return result.subscriptionUsage;
     }} />}
+    <SessionSwitchButton />
+    <SupervisionButton repositoryId={state?.selected?.projectRepositoryId ?? repositoryId ?? undefined} />
     {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>Sitzung &amp; Workspace</button>}
     {focused && <button onClick={() => setFocused(false)}>Workspace einblenden</button>}
   </div>;

@@ -676,6 +676,8 @@ export interface RunSummaryParticipant {
   id: string;
   /** Stable catalog identity for remote filters; older host versions may omit it. */
   agentId?: string;
+  /** Launch-profile snapshot from the run, not inferred from a mutable name. */
+  runtime?: RuntimeId;
   agentName: string;
   role: RunParticipantRole;
   teamId?: string;

@@ -24,6 +24,7 @@ import {
 import { useAppData } from '../stores/appdata';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
+import { DesktopSupervisionGraph } from '../supervision/SupervisionGraph';
 import { useGraphStore, type GraphSelection, type Pos } from './graphStore';
 import {
   buildClusters,
@@ -1169,6 +1170,7 @@ export function GraphView(): JSX.Element {
 
   return (
     <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
+      <DesktopSupervisionGraph />
       <div className="grunbar">
         <button type="button" className="btn" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
         <select

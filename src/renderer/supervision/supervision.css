@@ -1,0 +1,25 @@
+.supervision-dialog { width: min(900px, calc(100vw - 24px)); }
+.supervision-panel, .supervision-editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.supervision-panel p { margin: 0; }
+.supervision-panel label { display: flex; flex-direction: column; gap: 5px; }
+.supervision-panel select, .supervision-panel button { min-height: 44px; }
+.supervision-panel textarea { resize: vertical; }
+.supervision-editor { border-top: 1px solid var(--line); padding-top: 10px; }
+.supervision-editor li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.supervision-graph { border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow: auto; max-height: 300px; flex: none; }
+.supervision-root { font-weight: bold; padding: 6px; border-bottom: 2px solid var(--accent); }
+.supervision-graph ul { margin: 0; padding: 8px 0 0 12px; list-style: none; display: flex; gap: 12px; }
+.supervision-graph ul ul { flex-direction: column; gap: 6px; }
+.supervision-graph li { min-width: 160px; max-width: 260px; border-left: 1px solid var(--line); padding-left: 8px; }
+.supervision-graph button { min-height: 44px; width: 100%; display: flex; flex-direction: column; align-items: start; gap: 4px; text-align: left; overflow-wrap: anywhere; }
+.supervision-graph button:focus-visible, .supervision-panel :is(button, input, textarea, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.supervision-graph span { font-size: 12px; }
+.supervision-overlay { position: absolute; top: 76px; left: 14px; right: 14px; z-index: 32; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; max-height: calc(100% - 100px); overflow: auto; }
+.supervision-overlay > summary { min-height: 44px; padding: 12px; box-sizing: border-box; cursor: pointer; }
+.supervision-overlay > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.supervision-overlay .supervision-graph { border: 0; }
+.graph-inspecting .supervision-overlay { right: 342px; }
+@media(max-width: 599px) { .supervision-graph > ul { flex-direction: column; } .supervision-graph li { max-width: none; min-width: 0; } }
+.morning-overview, .handoff-composer { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .75rem; }
+.morning-overview article, .handoff-entry { border-left: 2px solid var(--line); margin: .75rem 0; padding-left: .75rem; overflow-wrap: anywhere; }
+.handoff-text { white-space: pre-wrap; overflow-wrap: anywhere; }

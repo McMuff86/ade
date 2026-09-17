@@ -1,5 +1,103 @@
 # ADE — aktuelle Übergabe
 
+## Gewünschter Haltepunkt vom 17. September 2026
+
+Adi hat einen Commit/Push mit wiederaufnehmbarem Zwischenstand innerhalb von
+30 Minuten beauftragt. Keine neue Funktion beginnen. Das
+[Kontexthandoff](CONTEXT_HANDOFF_2026-09-17.md) enthält den Auftrag, die umgesetzten
+Verträge, alle offenen Teile und den nächsten technischen Einstieg. Der globale
+Text-/Diktatdialog besteht **44/0** auf Electron/gekoppeltem Chromium; der gesamte
+Drei-Projekte-Pilot bleibt offen. `pnpm verify` endete mit Exit 1 in der
+Workspace-CLI-Zwischenablageprüfung (12/1); isoliert identisch. Zuvor bestanden
+drei TypeScript-Projekte, 87 Suiten/3.580 Prüfungen, Build und die vorangegangenen
+Bedienprüfungen. Übrige Driver einzeln bestanden: Projekt-Git 22/0, Latenz 6/0,
+Projektveröffentlichung 12/0, Einrichtung 38/0, visuelle Vergleiche 22/0. Keine vollständig
+grüne Gesamtabnahme behaupten. Dieser Commit sichert den gewünschten Checkpoint. Pausieren;
+erster Einstieg ist die offene Clipboard-Prüfung, danach die steuernden Werkzeuge.
+
+## Vorangegangene Umsetzung (17. September 2026)
+
+Aktueller Auftrag: **Vorbereitete Goals implementieren**, ausdrücklich beauftragt.
+Commit und Push sind vom Benutzer nach abgeschlossener Implementierung und
+Abnahme ausdrücklich beauftragt (17. September); keine erneute Freigabe nötig.
+Das lokale ADE-Profil liegt ausserhalb des Git-Repos. Ein Pull ersetzt weder
+die Projektregistrierungen noch die Projektordner zu Hause. Quellcode-Start:
+`pnpm install --frozen-lockfile`, `pnpm build`, danach `pnpm start` im selben
+Benutzerprofil. Eine Verknüpfung auf einen separaten Release-Ordner muss eigens
+aktualisiert werden; Pull alleine ersetzt dessen Build nicht.
+[Laufende Änderungen, Tests und verbleibende Arbeit](MAIN_AGENT_IMPLEMENTATION.md).
+Gemeinsamer Sitzungswechsel, Betreuungszuordnung und Graph auf PC/Tablet sind
+geprüft. Native Codex-Fortsetzung samt dynamischem ADE-Werkzeug: **4/0** mit
+CLI 0.154.0, beobachtetem `gpt-5.6-sol`/`high`. Übergaben/Morgenüberblick sind
+angebunden; Vertragsprüfungen und gemeinsame Bedienabnahme **51/0** bestehen.
+Eingeschränkter Codex-Koordinatormodus **5/0**, native Konfiguration **3/0**;
+feste Windows-Startparameter und Prüfung vor dem ersten Modellturn sind angebunden.
+Native Claude-Fortsetzungsprobe **3/0**, beobachtet `claude-opus-5[1m]`; noch kein
+ADE-Claude-Gesprächsadapter. Erster Textdialog auf PC/Tablet inzwischen angebunden:
+**ADE-Betreuung → Mit ADE sprechen**, eigener Verlauf, Codex-Prozess und fünf
+lesende Projekt-/Übergabewerkzeuge. Service **52/0**, Werkzeuge **15/0**,
+Entwürfe **22/0**, Remote **48/0**, Text-/Diktatdialog Electron/Browser **44/0** mit
+Protokollpeer. Neue Gesprächsaufnahme: Recorder **28/0**, Sicherheitsprüfung **284/0**,
+bestehender Terminal-Diktatweg **47/0**. Sprach-Bedienabnahme **44/0** bestanden. Native Produktionsprobe **4/0**:
+unabhängige Übergabe über ADE-Werkzeuge, beobachtet `gpt-5.6-sol`/`high`,
+dauerhafte Antwort und expliziter Resume mit erhaltenem Kontext.
+Nachweise: `coordinator-conversation-native.json` und `.log`.
+Früherer Gesamtlauf: `verify-dialog.log`, Exit 1 laut `verify-dialog-exit.json`.
+Drei TypeScript-Projekte, **84 Suiten / 3.472 Prüfungen** und Build bestanden;
+Tablet-Terminaldriver **207/1** bei verbleibenden Sitzungen nach Close. Isolierter
+Home-Flow **42/0**; Auswahlbestätigung ergänzt. Zweiter Driverabbruch kam von
+einem aus dem sichtbaren Terminal gescrollten Codex-Fixturemarker; lange private
+Startargumente werden in der Fixture nicht mehr in die Anzeige kopiert.
+Erneuter voller Terminaldriver: `remote-terminal-positive.log`, **208/0**, Exit 0.
+Unit-Lauf `unit-conversation-tablet.log`: **86 Suiten / 3.532 Prüfungen**, Exit 0.
+Textdialog `dialog-tablet-electron-final.log`: **33/0**. Danach terminalunabhängiges
+Diktat im gemeinsamen Dialog ergänzt; bestandene Bedienabnahme unter
+`conversation-voice-fixed.log`, **44/0**, Exit 0. Kein aktiver Gesamtlauf.
+Nächster Schritt nach Sprachabnahme: steuernde Werkzeuge, ereignisgesteuerte
+Mehrprojektkoordination, Sprachausgabe und Aktivierung. Gesamtgoal aktiv.
+
+Früherer Gesamtlauf: `test-results/main-agent-planning/verify-final.log`,
+Exit 1: Alle drei TypeScript-Projekte, **82 Suiten / 3.411 Prüfungen**
+und Build sind grün; Electron-Workflow **196/1** bei der Modell-Auswahl nach
+Katalogwechsel. Der Driver wartet jetzt auf die endgültige Option und das Ende
+des Ladezustands; erneute Prüfung **197/0**. Neue Dialogänderungen brauchen
+einen neuen Gesamtlauf. Bedienwege zuvor einzeln
+bestanden. Vorlesedriver **35/0**, Computer **21/0**, Langzeitdiktat **63/0**,
+Setup **38/0**. Sieben visuell geprüfte Windows-Referenzbilder berücksichtigen
+den höheren Desktop-Kopf. Beim expliziten Projektwechsel kommt das Terminal
+ins Bild; verspätete Antworten nach Schliessen ändern die Auswahl nicht.
+Rechteprüfung **30/0** schliesst Profilwiderruf während Inventur ein, der Store
+verweigert ungültiges UTF-8 und übergrosse Dateien. Noch kein abgeschlossener
+Gesamtnachweis. Keine persönliche Aktivierung/Commit/Push erfolgt.
+
+Historische Vorbereitung vor dem Implementierungsauftrag:
+Ergebnis: [MAIN_AGENT_GOALS](MAIN_AGENT_GOALS.md) mit startbaren Teilzielen,
+Abhängigkeiten, Graph-/Sitzungsverträgen, Pilotfällen und Tablet-Abnahme;
+[MAIN_AGENT_BASELINE](MAIN_AGENT_BASELINE.md) hält Codebefunde und Messungen fest.
+Die Implementierungsziele bleiben offen; keine persönliche Aktivierung oder
+neue native Modellarbeit erfolgte in dieser Vorbereitung.
+
+Ausgangscommit **465b639**, sauberer Checkout. Lokale Abhängigkeit
+`@xterm/addon-search` über `pnpm install --frozen-lockfile` ergänzt, Paket- und
+Lockfile unverändert. Aktueller Produktionsbuild erfolgreich. Acht vollständige
+fokussierte Suiten/Driver bestehen mit **394 Prüfungen**; zusätzlicher
+Workspace-Identitätstest **8/1** wegen `EPERM` beim Erstellen einer Dateisymlink-
+Fixture. Dieser Abbruch ist kein bestandener Negativnachweis. Logs und
+Exit-Metadaten unter `test-results/main-agent-planning/`; genaue Befehle in der
+Baseline. In dieser historischen Vorbereitung wurde `pnpm verify` nicht ausgeführt.
+
+Damals vorbereiteter Arbeitsauftrag: **26.6 und 27.3**. Identitätstest auf einem Windows-
+Testhost mit erlaubter Dateisymlink-Erstellung vervollständigen; native
+CLI-Fähigkeiten für Gespräch/Frage/Fortsetzung prüfen und die bestehenden
+Wege `openCliSession` / `ContinueWork` / `terminalTarget` für einfachen
+Projektwechsel nutzen. Danach 26.2–26.4, 26.7/26.8 und 33.1/33.2 aus dem Plan.
+Managed Leases nicht für direkte Terminalübernahme lockern; mehrere Projekte
+bleiben getrennte Runs/Gespräche. Physisches Samsung-Modell/Browser/Netz und
+Zentralagent-Profil bei der tatsächlichen Pilotkonfiguration erfassen.
+
+Die folgenden Aktivierungsangaben gehören zu früheren Betriebsständen und
+sind kein Nachweis einer laufenden persönlichen Instanz auf diesem Checkout.
+
 ## Antwort anhören aktiviert (16. September 2026)
 
 Der Release **e9e032d** mit Source-ID **e876a22034d56525fe7b** ist seit

@@ -10,7 +10,7 @@ import { RunFilesPanel } from '../renderer/graph/RunFilesPanel';
 import { useRunFilesPort } from './useRunFilesPort';
 import { workspaceError } from './AgentWorkspace';
 
-export function Graph({ run: suppliedRun, host, catalog, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; host: MobileHost; catalog: MobileCatalog | null;
+export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; host: MobileHost; catalog: MobileCatalog | null;
   selectedParticipant: string | null; onSelect: (id: string) => void;
 }): JSX.Element {
   const [filesOpen, setFilesOpen] = useState(false); const filePort = useRunFilesPort(host);
@@ -36,8 +36,7 @@ export function Graph({ run: suppliedRun, host, catalog, selectedParticipant, on
     const latest = [...tasks].sort((a, b) => b.createdAt - a.createdAt)[0];
     const active = tasks.some((task) => task.status === 'running');
     const observation = data?.tasks.find((item) => item.id === (tasks.find((task) => task.status === 'running') ?? latest)?.id);
-    const matches = catalog?.agents.filter((agent) => agent.name === participant.agentName) ?? [];
-    const visual = matches.length === 1 ? runtimeVisual(matches[0]!.runtime) : null;
+    const visual = participant.runtime ? runtimeVisual(participant.runtime) : null;
     const Glyph = visual?.Glyph;
     return <button className="m-graph-node" data-testid="mobile-graph-node" key={participant.id}
       aria-label={`Agent ${participant.agentName} · ${participant.role}`} aria-pressed={selectedParticipant === participant.id}

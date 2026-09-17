@@ -1,5 +1,6 @@
 /** Guided first setup through the production Electron UI and isolated native CLIs. */
 import { execFileSync } from 'node:child_process';
+import { expect } from 'playwright/test';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -77,7 +78,8 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(720, 820); });
   check('setup remains within a narrow desktop viewport', await dialog.evaluate((node) => node.getBoundingClientRect().right <= innerWidth && node.scrollWidth <= node.clientWidth));
   await dialog.getByRole('button', { name: 'Zu den Projekten', exact: true }).click();
-  check('setup exits to Projects with a stable focus target', await page.getByRole('tab', { name: 'Projekte view', exact: true }).evaluate((node) => node === document.activeElement));
+  await expect(page.getByRole('tab', { name: 'Projekte view', exact: true })).toBeFocused();
+  check('setup exits to Projects with a stable focus target', true);
   const directory = page.getByRole('region', { name: 'Projektordner', exact: true });
   check('first project view starts with the personal selection', await directory.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).getAttribute('aria-pressed') === 'true');
   await directory.getByRole('button', { name: 'Alle', exact: true }).click();

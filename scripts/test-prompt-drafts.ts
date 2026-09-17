@@ -19,6 +19,11 @@ try {
   check('recording ticket and uncertain delivery survive reload', new PromptDraftStore(storage).read('mobile/device/session-a').delivery?.commandId === commandId
     && store.read('mobile/device/session-a').recordingJob === recordingJob);
   check('desktop and device drafts never alias', store.read('desktop/session-a').text === 'Task A');
+  store.save('desktop/session-a', { text: 'Task A\nPartial speech', recordingInterrupted: true });
+  check('interrupted speech stays marked on its original target after reload', new PromptDraftStore(storage).read('desktop/session-a').recordingInterrupted === true
+    && store.read('desktop/session-b').text === 'Task B');
+  refuses('interrupted recording flag cannot contain arbitrary data', () => store.save('desktop/session-a', { text: 'x', recordingInterrupted: 'audio' } as never));
+  store.save('desktop/session-a', { text: 'Task A' });
   refuses('oversized prompt is refused', () => store.save('desktop/session-a', { text: 'x'.repeat(12001) }));
   refuses('caller cannot store audio or provider fields', () => store.save('desktop/session-a', { text: 'x', audio: 'forbidden' } as never));
   blocked = true; const previous = raw;

@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Page } from 'playwright';
+import { expect } from 'playwright/test';
 import { exportWorkspaceBundle } from '../../src/main/portability/WorkspaceBundleExporter';
 import { parseSerializedWorkspaceBundle, serializeWorkspaceBundle } from '../../src/shared/workspaceBundle';
 import { MODEL_FIXTURE_CATALOG } from '../fixtures/model-clis';
@@ -27,6 +28,10 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   setState({ codex: [MODEL_FIXTURE_CATALOG.codex[0]] });
   await dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true }).click();
   await dialog.getByText('Die ausgewählte Modell-ID bleibt erhalten.', { exact: false }).waitFor();
+  // The initial fallback can be visible before the refresh effect enters its
+  // loading state. Wait for the final option, not that transient old hint.
+  await expect(dialog.locator('#edit-agent-codex-model option:checked')).toContainText('nicht bestätigt');
+  await expect(dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true })).toBeEnabled();
   check('catalog removal preserves the stored model with an explicit unconfirmed label', await dialog.locator('#edit-agent-codex-model').inputValue() === 'codex-fixture-fast'
     && (await dialog.locator('#edit-agent-codex-model option:checked').textContent())!.includes('nicht bestätigt'));
   setState({ failure: true }); await dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true }).click();

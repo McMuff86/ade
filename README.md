@@ -25,6 +25,17 @@ PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 
 ## A tour
 
+**ADE conversation (first PC/tablet slice)** — **ADE-Betreuung → Mit ADE sprechen**
+opens a saved Codex conversation without a project terminal. It reads supervised
+project states and explicit handoffs, answers questions and resumes its exact
+context after restart. This Windows-native path requires Codex CLI 0.154.0 and
+an explicit model/reasoning profile. Paired tablets use the same conversation
+with full project access and recover lost send receipts using the original key.
+Conversation dictation records directly into a reviewable preview, with no
+terminal prerequisite; switching preserves the partial text on its original
+conversation. Project control, spoken replies and voice activation remain in
+progress. [Scope and evidence](docs/MAIN_AGENT_IMPLEMENTATION.md).
+
 **Project folders** — **Projekte** on desktop and tablet discovers existing folders
 under the configured project root, including unregistered repositories. Open the
 exact checkout without creating an agent; see its actual branch, select an

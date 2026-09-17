@@ -102,6 +102,15 @@ export const IPC = {
   SpeechReply: 'speech:reply',
   SpeechPreferences: 'speech:preferences',
   AgentBehaviorGet: 'agent:behaviorGet',
+  SupervisionGet: 'supervision:get',
+  ConversationGet: 'conversation:get',
+  ConversationDetail: 'conversation:detail',
+  ConversationCommand: 'conversation:command',
+  ConversationDictationPrepare: 'conversation:dictationPrepare',
+  SupervisionDetail: 'supervision:detail',
+  SupervisionCommand: 'supervision:command',
+  SupervisionBriefing: 'supervision:briefing',
+  SupervisionHandoff: 'supervision:handoff',
   AgentBehaviorSet: 'agent:behaviorSet',
   SpeechConfigure: 'speech:configure',
   TerminalPromptQuery: 'terminal:promptQuery',
@@ -197,6 +206,7 @@ export const IPC = {
 /** Event channels (main -> renderer via webContents.send). */
 export const IPC_EVENTS = {
   CatalogChanged: 'catalog:changed',
+  ConversationChanged: 'conversation:changed',
   TerminalControlChanged: 'terminal:controlChanged',
   PtyData: 'pty:data',
   PtyActivity: 'pty:activity',
@@ -710,6 +720,15 @@ export interface IpcInvokeMap {
   'speech:reply': { req: import('./terminalSpeech').DesktopReplyRequest; res: import('./terminalSpeech').ReplyResult };
   'speech:preferences': { req: import('./speech').SpeechTarget; res: import('./speech').SpeechPreference };
   'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
+  'supervision:get': { req: void; res: import('./supervision').SupervisionView };
+  'conversation:get': { req: void; res: import('./conversation').ConversationSummary[] };
+  'conversation:detail': { req: { conversationId: string }; res: import('./conversation').ConversationDetail };
+  'conversation:command': { req: import('./conversation').ConversationCommand; res: import('./conversation').ConversationReceipt };
+  'conversation:dictationPrepare': { req: { conversationId: string }; res: { jobId: string } };
+  'supervision:detail': { req: { projectId: string }; res: { objective: string } };
+  'supervision:command': { req: import('./supervision').SupervisionCommand; res: import('./supervision').SupervisionReceipt };
+  'supervision:briefing': { req: void; res: import('./supervision').MorningBriefing };
+  'supervision:handoff': { req: { projectId: string; handoffId: string }; res: import('./supervision').HandoffDetail };
   'agent:behaviorSet': { req: import('./agentBehavior').AgentBehaviorUpdate; res: { revision: string } };
   'speech:configure': { req: import('./speech').SpeechSelection; res: void };
   'terminal:promptQuery': { req: { sessionId: string }; res: import('./terminalPrompt').TerminalPromptCapability };
@@ -818,6 +837,7 @@ export interface IpcEventMap {
   'pty:data': PtyDataEvent;
   'terminal:controlChanged': TerminalControlState;
   'catalog:changed': { revision: number };
+  'conversation:changed': null;
   'pty:activity': PtyActivityEvent;
   'pty:exit': PtyExitEvent;
   'pty:program': { sessionId: string; program: NonNullable<SessionMeta['program']> };

@@ -1,0 +1,42 @@
+import { CodexDynamicTools, type CodexToolContext } from '../src/main/pty/CodexDynamicTools';
+
+let passed = 0; let failed = 0;
+const check = (label: string, ok: boolean) => { if (!ok) throw new Error(label); passed++; console.log(`  ok  ${label}`); };
+const rejects = async (fn: () => unknown) => { try { await fn(); return false; } catch { return true; } };
+const tool = { name: 'ade_test', description: 'Fixture tool', inputSchema: { type: 'object', additionalProperties: false } };
+const scope = { threadId: 'thread-a', turnId: 'turn-1', active: true };
+const params = { threadId: scope.threadId, turnId: scope.turnId, callId: 'call-1', tool: tool.name, arguments: { project: 'a' } };
+void (async () => {
+  let executions = 0; let context: CodexToolContext | undefined; let release!: (text: string) => void;
+  const tools = new CodexDynamicTools([{ ...tool, invoke: async (_, c) => { executions++; context = c; return new Promise(done => { release = done; }); } }]);
+  check('wire specs have no executable handler', tools.specifications[0].type === 'function' && !JSON.stringify(tools.specifications).includes('invoke'));
+  const first = tools.request('request-1', params, scope); const duplicate = tools.request('request-2', { ...params, arguments: { project: 'a' } }, scope);
+  await Promise.resolve();
+  check('duplicate concurrent delivery shares one domain operation', executions === 1 && first === duplicate && tools.pending(scope.turnId));
+  check('handler receives exact native correlation', context?.threadId === scope.threadId && context?.turnId === scope.turnId && context?.callId === params.callId);
+  check('same call with different arguments fails closed', await rejects(() => tools.request('request-3', { ...params, arguments: { project: 'b' } }, scope)));
+  check('reused RPC identity cannot name another call', await rejects(() => tools.request('request-2', { ...params, callId: 'call-2' }, scope)));
+  release('PROJECT_A_RESULT'); await first;
+  check('completed duplicate returns recorded result without repeating operation', (await tools.request('request-4', params, scope)).contentItems[0].text === 'PROJECT_A_RESULT' && executions === 1);
+  check('foreign thread is refused before domain handler', !(await tools.request('foreign', { ...params, threadId: 'thread-b' }, scope)).success && executions === 1);
+  check('stale turn is refused before domain handler', !(await tools.request('stale', { ...params, turnId: 'turn-0' }, scope)).success && executions === 1);
+  check('namespace and unknown tools cannot select a handler', !(await tools.request('ns', { ...params, namespace: 'shell' }, scope)).success
+    && !(await tools.request('unknown', { ...params, callId: 'unknown', tool: 'exec' }, scope)).success && executions === 1);
+  check('oversized arguments are refused before dispatch', !(await tools.request('big', { ...params, arguments: { text: 'x'.repeat(65537) } }, scope)).success && executions === 1);
+  tools.endTurn(scope.turnId);
+  check('turn end aborts the domain signal', context?.signal.aborted === true);
+  check('inactive turn cannot replay work', !(await tools.request('idle', params, { ...scope, active: false })).success);
+  const throwing = new CodexDynamicTools([{ ...tool, invoke: async () => { throw new Error('Authorization: Bearer secret-tool-token'); } }]);
+  const error = await throwing.request(1, params, scope);
+  check('handler failures return redacted failed result', !error.success && !JSON.stringify(error).includes('secret-tool-token'));
+  const oversized = new CodexDynamicTools([{ ...tool, invoke: async () => 'x'.repeat(16385) }]);
+  check('oversized result reports uncertainty without replay', !(await oversized.request(1, params, scope)).success);
+  const cancelled = new CodexDynamicTools([{ ...tool, invoke: async () => { throw new Error('must not run'); } }]);
+  const waiting = cancelled.request(1, params, scope); cancelled.endTurn();
+  check('queued call is cancelled before handler entry', !(await waiting).success);
+  const bounded = new CodexDynamicTools([{ ...tool, invoke: async () => 'ok' }]);
+  for (let i = 0; i < 128; i++) await bounded.request(i, { ...params, callId: `cap-${i}` }, scope);
+  check('result reservation bounds retained concurrent work', !(await bounded.request(129, { ...params, callId: 'over-cap' }, scope)).success);
+  check('duplicate tool definitions are rejected', await rejects(() => new CodexDynamicTools([tool, tool].map(t => ({ ...t, invoke: async () => '' })))));
+  check('final fresh positive control passes after scope refusals', (await new CodexDynamicTools([{ ...tool, invoke: async () => 'final' }]).request(1, params, scope)).success);
+})().catch(error => { failed++; console.error(error); }).finally(() => { console.log(`Codex dynamic tools: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0; });

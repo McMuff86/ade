@@ -3,6 +3,7 @@ import { DICTATION_MAX_TEXT_CHARS, validDictationJobId } from '../../shared/dict
 export interface PromptDraft {
   text: string;
   recordingJob?: string;
+  recordingInterrupted?: true;
   delivery?: { commandId: string; mode: 'insert' | 'submit' };
 }
 interface DraftEntry { key: string; draft: PromptDraft }
@@ -21,7 +22,7 @@ export class PromptDraftStore {
   save(key: string, draft: PromptDraft): void {
     if (!validKey(key) || !this.valid(draft)) throw new Error('Entwurf ist ungültig oder zu lang.');
     const entries = this.entries().filter(entry => entry.key !== key);
-    if (draft.text || draft.recordingJob || draft.delivery) entries.push({ key, draft });
+    if (draft.text || draft.recordingJob || draft.recordingInterrupted || draft.delivery) entries.push({ key, draft });
     if (entries.length > 16) throw new Error('16 lokale Entwürfe sind gespeichert. Zuerst einen nicht mehr benötigten Entwurf löschen.');
     const value = JSON.stringify({ version: 1, entries });
     if (value.length > MAX_BYTES) throw new Error('Lokaler Entwurfspeicher ist voll.');
@@ -30,8 +31,9 @@ export class PromptDraftStore {
   private valid(value: unknown): value is PromptDraft {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const draft = value as Record<string, unknown>; const delivery = draft.delivery as PromptDraft['delivery'];
-    return Object.keys(draft).every(key => ['text', 'recordingJob', 'delivery'].includes(key))
+    return Object.keys(draft).every(key => ['text', 'recordingJob', 'recordingInterrupted', 'delivery'].includes(key))
       && typeof draft.text === 'string' && draft.text.length <= DICTATION_MAX_TEXT_CHARS
+      && (draft.recordingInterrupted === undefined || draft.recordingInterrupted === true)
       && (draft.recordingJob === undefined || validDictationJobId(draft.recordingJob))
       && (delivery === undefined || !!delivery && typeof delivery === 'object' && Object.keys(delivery).length === 2
         && validDictationJobId(delivery.commandId) && (delivery.mode === 'insert' || delivery.mode === 'submit'));

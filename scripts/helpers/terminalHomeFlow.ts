@@ -151,6 +151,8 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
   const restoredGrok = (await homeSessions()).findLast(item => item.launchChoice?.mode === 'grok')!;
+  // Terminal screen rendering follows its metadata by a frame.
+  await terminal.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_SESSION_GROK_READY', { exact: false }).last().waitFor();
   check('reload restores the most recently launched ended CLI rather than an older shell', !!restoredGrok && restoredGrok.status === 'exited'
     && (await terminal.getByLabel('Terminalanzeige', { exact: true }).innerText()).includes('ADE_SESSION_GROK_READY'));
   await terminalLauncher(terminal);
@@ -169,6 +171,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminalLauncher(terminal);
   const sessionsBefore = await homeSessions(); const count = sessionsBefore.length;
   const runningBefore = sessionsBefore.filter(item => item.status === 'running').map(item => item.id).sort();
+  const previousWireIds = await terminal.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(n => (n as HTMLOptionElement).value));
   await terminal.getByLabel('Sitzung starten mit', { exact: true }).selectOption('shell');
   await terminal.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
@@ -176,6 +179,13 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   const added = afterOpen.find(item => !sessionsBefore.some(previous => previous.id === item.id));
   check('direct phone entry starts an additional free shell', afterOpen.length === count + 1 && !!added);
   if (!added) throw new Error('New free shell was not identified');
+  // The old terminal can remain visible while the open acknowledgement and
+  // selected-session query settle. Do not close until the new view is ready.
+  await page.waitForFunction(previous => {
+    const selected = document.querySelector<HTMLSelectElement>('[aria-label="Terminal-Sitzung"]');
+    return !!selected?.value && !previous.includes(selected.value) && !selected.disabled;
+  }, previousWireIds);
+  await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
   await expandSessionControls(terminal);
   await terminal.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
   const confirmation = page.getByRole('dialog').last();
@@ -186,5 +196,8 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   // Command acknowledgement precedes ConPTY's asynchronous exit. Observe the
   // particular new session ending before comparing the untouched older ones.
   await desktop.waitForFunction(async id => !(await window.ade.invoke('pty:list')).sessions.some(item => item.id === id && item.status === 'running'), added.id, { timeout: 10_000, polling: 100 });
-  check('closing one home terminal retains the other sessions', JSON.stringify((await homeSessions()).filter((item) => item.status === 'running').map(item => item.id).sort()) === JSON.stringify(runningBefore));
+  const remaining = (await homeSessions()).filter(item => item.status === 'running').map(item => item.id).sort();
+  const retained = JSON.stringify(remaining) === JSON.stringify(runningBefore);
+  if (!retained) console.error('Home close identity mismatch', { added: added.id, before: runningBefore, after: remaining });
+  check('closing one home terminal retains the other sessions', retained);
 }

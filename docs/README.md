@@ -1,6 +1,6 @@
 # ADE-Dokumentation
 
-Stand: 2026-09-15. Beginne je nach Anliegen hier:
+Stand: 2026-09-17. Beginne je nach Anliegen hier:
 
 | Anliegen | Dokument |
 |---|---|
@@ -15,6 +15,8 @@ Stand: 2026-09-15. Beginne je nach Anliegen hier:
 | Projekt → Branch → CLI → Git und Ergebnisdateien: Umsetzung und Abnahme | [Projekt-Workflow-Tasks](PROJECT_WORKFLOW_GOALS.md) |
 | Prioritäten und frühere Produktbewertung | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [datierter Review vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md) |
 | Aktuelle Übergabe / Betrieb | [HANDOFF](HANDOFF.md) |
+| ADE-Agent-Entwicklung nach der Pause wieder aufnehmen | [Kontexthandoff 17. September](CONTEXT_HANDOFF_2026-09-17.md), [Goals](MAIN_AGENT_GOALS.md) |
+| Diesen Entwicklungsstand zu Hause laden | [Update und Erhalt des lokalen Profils](HOME_UPDATE.md) |
 | Geplante Tracks und Abnahmekriterien | [ROADMAP](ROADMAP.md) |
 | Welche Dokumente sind noch aktuell? | [Dokumentationsaudit](DOCUMENTATION_AUDIT.md) |
 

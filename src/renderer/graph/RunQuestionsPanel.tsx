@@ -41,9 +41,9 @@ export function RunQuestionsPanel({ runId, port, online, canAnswer, active = tru
   </section>;
 }
 
-function QuestionCard({ question, taskId, runId, label, port, online, canAnswer, onAnswered }: {
+export function QuestionCard({ question, taskId, runId, label, port, online, canAnswer, onAnswered, unavailableReason }: {
   question: RunQuestion; taskId: string; runId: string; label: string; port: RunQuestionsPort;
-  online: boolean; canAnswer: boolean; onAnswered(): void;
+  online: boolean; canAnswer: boolean; onAnswered(): void; unavailableReason?: string;
 }): JSX.Element {
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [free, setFree] = useState<Record<string, string>>({});
@@ -82,7 +82,7 @@ function QuestionCard({ question, taskId, runId, label, port, online, canAnswer,
           : <textarea rows={3} value={free[item.id] ?? ''} maxLength={8000} onChange={(event) => setFree((value) => ({ ...value, [item.id]: event.target.value }))} />}
       </label>}
     </fieldset>)}
-    {!canAnswer && <p>Zum Antworten die Run-Schreibrechte dieses Geräts am PC freigeben.</p>}
+    {!canAnswer && <p>{unavailableReason ?? 'Zum Antworten die Run-Schreibrechte dieses Geräts am PC freigeben.'}</p>}
     {question.status === 'answering' && <p role="status">Codex bestätigt den Empfang deiner Antwort…</p>}
     {error && <p role="alert">{error} Eine erneute Prüfung sendet dieselbe Antwort mit derselben Vorgangs-ID.</p>}
     <button type="submit" disabled={busy || !online || !canAnswer || (!pending && (!complete || question.status !== 'pending'))}>

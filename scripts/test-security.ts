@@ -60,6 +60,15 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'conversation:get': undefined,
+  'conversation:detail': { conversationId: 'conversation' },
+  'conversation:dictationPrepare': { conversationId: '11111111-1111-4111-8111-111111111111' },
+  'conversation:command': { operation: 'create', profileId: 'profile', commandId: 'command' },
+  'supervision:get': undefined,
+  'supervision:detail': { projectId: 'project' },
+  'supervision:command': { operation: 'profile', agentId: null, commandId: 'command', revision: 0 },
+  'supervision:briefing': undefined,
+  'supervision:handoff': { projectId: 'project', handoffId: 'handoff' },
   'terminal:promptQuery': { sessionId: 'sfixture' },
   'terminal:promptSend': { sessionId: 'sfixture', commandId: '11111111-1111-4111-8111-111111111111', text: 'Prüfe den Code.', mode: 'insert' },
   'dictation:prepare': { sessionId: 'sfixture' },

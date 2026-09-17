@@ -28,6 +28,11 @@ import type { Agent, GitStatus } from '../shared/types';
 import { HARNESS_RUNTIMES, LAUNCH_PROFILES } from '../shared/runtimes';
 import { NATIVE_EXECUTION_BACKEND, normalizeExecutionBackendId } from '../shared/executionBackends';
 import type { ConfigStore } from './config/store';
+import { SupervisionStore } from './supervision/SupervisionStore';
+import { SupervisionService } from './supervision/SupervisionService';
+import { createCoordinatorConversation } from './conversation/CoordinatorConversation';
+import type { ConversationService } from './conversation/ConversationService';
+import { CONVERSATION_NOT_ACCEPTED } from '../shared/conversation';
 import { importPhoto } from './photos';
 import {
   createAgent,
@@ -104,6 +109,7 @@ import { serializeWorkspaceBundle } from '../shared/workspaceBundle';
 
 /** Live PTY sessions (Phase B1). Created lazily so tests can import this module. */
 let ptyManager: PtyManager | null = null;
+let conversations: ConversationService | null = null;
 let remoteTerminals: RemoteTerminalService | null = null;
 let dictationJobs: DictationJobs | null = null;
 let nativeUsage: NativeUsageService | null = null;
@@ -328,6 +334,24 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return hostOperations.use(() => replies.speak(owner, input.replyId));
   });
   const agentBehavior = new AgentBehaviorService(store);
+  let supervision: SupervisionService | undefined;
+  const supervisionService = () => supervision ??= new SupervisionService(new SupervisionStore(join(app.getPath('userData'), 'ade', 'supervision.json')),
+    store, id => ptyManager?.getSessionMeta(id));
+  handle(IPC.SupervisionGet, () => supervisionService().query());
+  handle(IPC.SupervisionDetail, ({ projectId }) => supervisionService().detail(projectId));
+  handle(IPC.SupervisionCommand, input => supervisionService().command(input));
+  handle(IPC.SupervisionBriefing, () => supervisionService().briefing());
+  handle(IPC.SupervisionHandoff, ({ projectId, handoffId }) => supervisionService().handoff(projectId, handoffId));
+  const conversationService = () => conversations ??= createCoordinatorConversation({ directory: join(app.getPath('userData'), 'ade'),
+    config: store, supervision: supervisionService(), env: () => ({ ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')), ...harnessCredentials.envFor('codex') }),
+    changed: () => broadcastToRenderers(IPC_EVENTS.ConversationChanged, null) });
+  handle(IPC.ConversationGet, () => conversationService().query());
+  handle(IPC.ConversationDetail, ({ conversationId }) => conversationService().detail(conversationId));
+  handle(IPC.ConversationCommand, input => {
+    const result = conversationService().admit(input);
+    if (!result.accepted) throw new Error(`${result.uncertain ? '' : CONVERSATION_NOT_ACCEPTED}${result.error}`);
+    return result.receipt;
+  });
   handle(IPC.AgentBehaviorGet, ({ agentId }) => agentBehavior.query(agentId));
   handle(IPC.AgentBehaviorSet, (input) => agentBehavior.update(input));
   const runtimeModels = new RuntimeModelService(harnessCredentials);
@@ -414,7 +438,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (id === null) { for (const device of remoteDevices.inventory().devices) replies.revoke(`device:${device.id}`); }
     else replies.revoke(`device:${id}`);
     if (id === null) dictationJobs?.revokeDevices();
-    else dictationJobs?.revokeOwner(`device:${id}`);
+    else { dictationJobs?.revokeOwner(`device:${id}`); dictationJobs?.revokeOwner(`device:${id}:conversation`); }
   });
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
     ? { directory: await projects.directory() }
@@ -453,6 +477,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       replies,
       dictation: dictationJobs!,
       behavior: agentBehavior,
+      supervision: supervisionService,
+      conversations: conversationService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
@@ -962,6 +988,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       checkTarget();
     }, checkTarget.usage);
   });
+  handleWithEvent(IPC.ConversationDictationPrepare, ({ conversationId }, event) => {
+    const checkTarget = conversationService().recordingTarget(conversationId);
+    return recordings.prepare(`desktop:${event.sender.id}`, () => {
+      if (event.sender.isDestroyed()) throw new Error('Das aufnehmende ADE-Fenster wurde geschlossen.');
+      checkTarget();
+    }, checkTarget.usage);
+  });
   handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
     const audio = Buffer.from(audioBase64, 'base64');
     if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
@@ -1212,6 +1245,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export async function disposePtyManager(): Promise<void> {
+  await conversations?.shutdown().catch(error => console.warn('[ade] conversation shutdown incomplete:', redactedErrorDetail(error))); conversations = null;
   const replies = replySpeech; replySpeech = null;
   await replies?.dispose();
   dictationJobs?.dispose(); dictationJobs = null;

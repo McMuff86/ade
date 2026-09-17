@@ -13,15 +13,19 @@
 /* ------------------------------------------------------------- title bar */
 
 .titlebar {
-  height: 38px;
+  height: auto;
+  min-height: 54px;
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  padding: 0 12px 0 14px;
+  padding: 5px 12px 5px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
+
+.titlebar > button, .titlebar > .mode-switch { flex-shrink: 0; }
 
 /* Secondary chrome (setup, settings, diagnostics, theme) is text-only until
    hovered: one visual weight in the title bar, so the mode switch reads as

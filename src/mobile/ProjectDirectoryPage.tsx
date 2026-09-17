@@ -68,7 +68,10 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!intent || !directory) return;
-    if (intent.workspaceId) { saveWorkspaceId(intent.workspaceId); setTerminalId(intent.terminalId); if (intent.terminalId) setSection('terminal'); }
+    if (intent.workspaceId) {
+      if (intent.workspaceId !== workspaceId) setWorkspace(undefined);
+      setError(''); saveWorkspaceId(intent.workspaceId); setTerminalId(intent.terminalId); if (intent.terminalId) setSection('terminal');
+    }
     else if (intent.repositoryId) {
       const entry = directory.entries.find((item) => item.repositoryId === intent.repositoryId);
       if (entry) { setSelected(entry); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); }

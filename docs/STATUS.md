@@ -1,5 +1,66 @@
 # ADE implementation status
 
+## Gewünschter Entwicklungscheckpoint (17. September 2026)
+
+Der globale Text-/Diktatdialog besteht **44/0** in Electron und gekoppeltem
+Chromium. Der Benutzer hat jetzt eine Pause mit Commit/Push und
+[Kontexthandoff](CONTEXT_HANDOFF_2026-09-17.md) beauftragt. Keine weiteren
+Funktionen werden vor dieser Übergabe begonnen. `pnpm verify` endet mit Exit 1
+bei Terminal-Suchtreffer → Zwischenablage: erwarteter Text kommt leer zurück,
+auch in isolierter Wiederholung (12/1). Typecheck, 87 Suiten/3.580 Prüfungen,
+Build und alle davor liegenden Bedienprüfungen bestanden. Ursache und vollständige
+Gesamtabnahme bleiben offen. Übrige Driver einzeln bestanden: Projekt-Git 22/0,
+Latenz 6/0, Projektveröffentlichung 12/0, Einrichtung 38/0, visuelle Vergleiche 22/0.
+Dieser Commit ist der gewünschte Entwicklungscheckpoint; weitere Umsetzung pausiert.
+
+## Zentraler ADE-Agent: Umsetzung läuft (17. September 2026)
+
+Der [Plan für Goals 26/27/33](MAIN_AGENT_GOALS.md) verbindet projektübergreifende
+Betreuung, eigene Codex-/Grok-/Claude-Sitzungen, Graph-Beziehungen, direkte
+Übergabe, PC-/Tablet-Projektwechsel und den globalen Sprachdialog mit dauerhaften
+Abendübergaben. Sitzungswechsler, native Codex-Gesprächsfortsetzung inklusive
+dynamischem ADE-Werkzeug sowie dauerhafte Zuordnung und Graph sind fokussiert
+geprüft. Explizite Übergaben/Morgenüberblick sind auf PC/Tablet angebunden;
+gemeinsame Bedienabnahme besteht **51/0**. Der eingeschränkte native Codex-
+Koordinatorvertrag besteht **5/0**, seine Konfigurationsprobe **3/0**.
+Native Claude-Fortsetzungsprobe **3/0**
+mit beobachtetem `claude-opus-5[1m]`; noch kein ADE-Claude-Gesprächsadapter.
+[Aktuelle Einzelresultate und offene Arbeit](MAIN_AGENT_IMPLEMENTATION.md).
+Der erste globale Textdialog auf PC/Tablet ist unter **ADE-Betreuung → Mit ADE sprechen**
+angebunden: dauerhafter Verlauf, native Codex-Fortsetzung und lesende Werkzeuge
+für Projektstände/Übergaben. Fachtests: Service **52/0**, Werkzeuge **15/0**,
+Entwürfe/Quittungen **22/0**, Remote **48/0**; bisheriger Textdialog
+Electron/gekoppelter Browser **33/0** mit isoliertem Protokollpeer. Terminalunabhängiges
+Gesprächsdiktat ist angebunden: Recorder **28/0**, Sicherheitsprüfung **284/0**,
+bestehender Terminal-Diktatweg **47/0**. Sprach-Bedienabnahme **44/0** bestanden. Automatische
+Betreuung, Sprachausgabe und Aktivierung bleiben offen. Native Produktionsprobe **4/0** bestätigt Übergabe-Werkzeug,
+beobachtetes Modell/Reasoning, dauerhafte Antwort und Kontext nach Resume.
+Früherer Gesamtlauf `verify-dialog.log`: drei TypeScript-Projekte,
+**84 Suiten / 3.472 Prüfungen** und Build bestanden; Exit 1 im Tablet-Terminaldriver
+bei der Sitzungsmenge nach Schliessen (**207/1**). Isolierter Home-Flow **42/0**;
+Driver wartet nun zusätzlich auf die bestätigte neue Auswahl. Eine weitere
+Codex-CLI-Fixture gab ihren langen Profilprompt aus und verdrängte dadurch den
+Startmarker; ihre Anzeige ist wie bei der Qwen-Fixture begrenzt. Voller
+Terminaldriver besteht nach den Korrekturen mit **208/0** (`remote-terminal-positive.log`).
+Weiterer Unit-Lauf: **86 Suiten / 3.532 Prüfungen**, Exit 0. Die danach ergänzte
+Gesprächsaufnahme braucht ihre Bedienabnahme und einen neuen Gesamtlauf.
+Noch kein abgeschlossener Gesamt- oder Mehrprojektpilot.
+
+Der frühere Lauf `verify-final.log` besteht mit allen drei TypeScript-
+Projekten, **82 Suiten / 3.411 Prüfungen** und Build; der Electron-Workflow
+stoppte bei **196/1** an einer Ladezustandsprüfung und besteht nach Driverfix
+erneut **197/0**. Für die hinzugefügten Dialogänderungen ist ein neuer Gesamtlauf nötig.
+Die Bedienwege sind zuvor einzeln bestanden. Reale Browser-/PTY-Proben verwenden
+deterministische CLI-Fixtures; native Codex-/Claude-Proben sind oben separat
+ausgewiesen. Der kompakte Desktop-Kopf und die Sichtbarkeit des ausdrücklich
+gewählten Terminals sind korrigiert, sieben Windows-Bildreferenzen entsprechend
+aktualisiert. Native Drei-Agenten-Koordination und physische Tablet-Abnahme
+stehen aus. Der [Ausgangsaudit auf 465b639](MAIN_AGENT_BASELINE.md) bleibt
+als historischer Vergleich erhalten.
+
+Diese Arbeit aktiviert keinen persönlichen Release. Die folgenden
+Einträge beschreiben frühere Implementierungs- und Betriebsstände.
+
 ## Antwort anhören aktiviert (16. September 2026)
 
 Der Release **e9e032d** mit Source-ID **e876a22034d56525fe7b** ist seit

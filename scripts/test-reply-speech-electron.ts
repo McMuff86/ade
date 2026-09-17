@@ -99,6 +99,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await expect(terminal.locator('.xterm-screen')).toContainText('REPLY_CLI_READY');
+  check('opening a project CLI reveals its output inside the project scroll area', await terminal.locator('.xterm-screen').evaluate(screen => {
+    const box = screen.getBoundingClientRect(); const header = document.querySelector('.titlebar')!.getBoundingClientRect();
+    return box.top >= header.bottom && box.top < window.innerHeight && window.scrollY === 0;
+  }));
   let dialog = await openReply(page, terminal);
   await dialog.getByText('Bereit zum Anhören.', { exact: true }).waitFor();
   check('desktop opens a local preview without a paid synthesis', requests().length === 0 && (await dialog.getByLabel('Text zum Vorlesen', { exact: true }).inputValue()).includes('Bitte pruefe'));
@@ -214,7 +218,11 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   check('tablet replay has no second provider cost', requests().length === 5);
   await dialog.screenshot({ path: join(evidence, 'tablet-reply.png') });
   await tablet.keyboard.press('Escape');
-  check('nested reply Escape leaves the project session open', await project.isVisible() && await strip.getByRole('button', { name: 'Anhören', exact: true }).evaluate(node => node === document.activeElement));
+  // The sheet restores its hidden trigger on the next animation frame, after
+  // the strip row is visible again. Wait for that user-visible focus contract.
+  await expect(project).toBeVisible();
+  await expect(strip.getByRole('button', { name: 'Anhören', exact: true })).toBeFocused();
+  check('nested reply Escape leaves the project session open', true);
   await project.getByRole('button', { name: 'Verlauf', exact: true }).click();
   const history = project.getByLabel('Terminalverlauf lesen', { exact: true });
   await history.evaluate(node => {

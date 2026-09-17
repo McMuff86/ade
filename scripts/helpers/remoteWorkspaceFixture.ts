@@ -28,6 +28,8 @@ import { RunInspectionService } from '../../src/main/application/RunInspectionSe
 import { RunFileStore } from '../../src/main/application/RunFileStore';
 import type { RemoteSpeechService } from '../../src/main/application/RemoteSpeechService';
 import { AgentBehaviorService } from '../../src/main/memory/AgentBehaviorService';
+import { SupervisionService } from '../../src/main/supervision/SupervisionService';
+import { SupervisionStore } from '../../src/main/supervision/SupervisionStore';
 
 /** Real native Git scopes/domain/HTTP; runtime processes alone are deterministic fixtures. */
 export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?: ProjectGhCommand; git?: typeof projectGit } = {}, speechFactory?: (store: ReturnType<typeof createMobileFixture>['store']) => RemoteSpeechService) {
@@ -62,6 +64,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
+    supervision: () => new SupervisionService(new SupervisionStore(join(root, 'supervision.json')), store, id => sessions.find(session => session.id === id)),
     deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },

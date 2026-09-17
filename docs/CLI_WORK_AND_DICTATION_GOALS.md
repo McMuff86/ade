@@ -1,5 +1,18 @@
 # Laufende CLI-Arbeit und Diktat: nächste ADE-Ziele
 
+## Ergänzung Goal 27.3 (17. September 2026)
+
+Die [ADE-Agent-Goals](MAIN_AGENT_GOALS.md#goal-273--projektwechsel-auf-pc-und-tablet)
+bereiten den durchgängigen Projekt-/Sitzungswechsel vor: PC und Tablet,
+Graph und direkter Projekteinstieg, gleiche Sitzung ohne Doppelstart,
+zielgebundene Entwürfe und optionale ADE-Betreuung. Die Desktop-CLI-Liste und
+mobile Weiterarbeiten-/Terminal-Wege sind vorhandene Grundlagen;
+[aktueller Audit](MAIN_AGENT_BASELINE.md) trennt geprüfte Flows von offenen
+Drei-Projekte-Verbindungen. Der gemeinsame Sitzungswechsler und explizite
+Graph-Verbindungen sind jetzt implementiert und in realen Electron-/Browser-
+Flows geprüft. [Laufender Prüfstand](MAIN_AGENT_IMPLEMENTATION.md). Die folgende
+Operatoranweisung und Lieferchronik betreffen den vorherigen Arbeitsstand.
+
 Aktuelle Operatorentscheidung: Checkpoint inklusive Handoff committen/pushen,
 Windows-Build starten, eine ADE-Instanz für seinen Tablet-Test offen lassen und
 danach pausieren. Fortsetzung erst nach Rückmeldung. [Prüfstand und offene Punkte](HANDOFF.md)

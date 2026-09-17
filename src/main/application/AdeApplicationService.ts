@@ -1,4 +1,11 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { conversationId, validConversationCommand } from '../../shared/conversation';
+import type { ConversationService } from '../conversation/ConversationService';
+import { conversationAnswerForWire, conversationDetailForWire, conversationQuestionForWire } from '../conversation/conversationWire';
+import type { MobileConversationResult } from '../../shared/remote';
+import { validSupervisionCommand, supervisionId, type SupervisionCommand } from '../../shared/supervision';
+import type { SupervisionService } from '../supervision/SupervisionService';
+import type { MobileSupervisionView, MobileSupervisionDetail, MobileMorningBriefing, MobileHandoffDetail } from '../../shared/remote';
 import { AgentBehaviorService, validateBehaviorUpdate } from '../memory/AgentBehaviorService';
 import { validSpeechQuery, validSpeechCommand, type RemoteSpeechService } from './RemoteSpeechService';
 import type { SpeechTarget } from '../../shared/speech';
@@ -128,6 +135,8 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  conversations?: () => ConversationService;
+  supervision?: () => SupervisionService;
   dictation?: DictationJobs;
   speech?: RemoteSpeechService;
   replies?: ReplySpeechService;
@@ -351,6 +360,155 @@ export class AdeApplicationService {
       });
       this.resources.assertAgent(context.principal, input.agentId); this.options.catalogChanged?.();
       return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async supervision(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<MobileSupervisionView | MobileSupervisionDetail | MobileMorningBriefing | MobileHandoffDetail | import('../../shared/supervision').SupervisionReceipt> {
+    const factory = this.options.supervision; const ledger = this.options.administration?.ledger;
+    if (!factory || !ledger) throw new RemoteApiError(404, 'not_found');
+    let service: SupervisionService;
+    const read = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    };
+    const projectRepository = (projectId: string) => {
+      const project = service.query().projects.find(p => p.id === projectId); if (!project) throw new RemoteApiError(404, 'not_found');
+      this.resources.assertRepository(context.principal, project.repositoryId); return project.repositoryId;
+    };
+    const sessions = async () => {
+      if (!this.options.terminals || !context.principal.scopes.has('terminal:control')) return [];
+      ledger.permits(context, 'terminal:control'); return this.options.terminals.supervisionSessions(context.principal.id);
+    };
+    try {
+      read(); service = factory(); const input = requireRecord(payload, 'supervision');
+      if (!command) {
+        if (input.operation === 'handoff') {
+          requireKeys(input, ['operation', 'projectId', 'handoffId'], 'supervision');
+          if (!supervisionId(input.projectId) || !supervisionId(input.handoffId)) throw new RemoteApiError(400, 'invalid_payload');
+          projectRepository(input.projectId); const detail = service.handoff(input.projectId, input.handoffId);
+          const text = redactForWire(detail.text, 4000); const nextStep = redactForWire(detail.nextStep, 4000);
+          return { text, nextStep, redacted: text !== detail.text || nextStep !== detail.nextStep };
+        }
+        if (input.operation === 'briefing') {
+          requireKeys(input, ['operation'], 'supervision');
+          const inventory = await sessions(); read();
+          const briefing = service.briefing(); const view = service.query();
+          return { ...briefing, projects: briefing.projects.filter(p => this.resources.repository(context.principal, p.repositoryId)).map(p => {
+            const project = view.projects.find(v => v.id === p.id)!;
+            const work = p.work.filter(w => { const link = project.links.find(l => l.id === w.linkId)!;
+              if (link.target.kind === 'run') return this.resources.run(context.principal, link.target.id);
+              const available = inventory.find(s => s.session.id === link.target.id);
+              if (!available) return false;
+              this.resources.assertSelection(context.principal, { ...available.wire, profileId: available.wire.launchProfileId });
+              return true;
+            }).map(w => ({ ...w, title: redactForWire(w.title, 200) }));
+            const suggestion = work.some(w => w.pendingQuestions) ? 'answer-question' as const : work.some(w => w.status === 'failed') ? 'review-failure' as const
+              : p.handoffs.some(h => h.status === 'open') ? 'resume-handoff' as const : work.some(w => w.status === 'running') ? 'observe-work' as const : 'choose-work' as const;
+            return { ...p, name: redactForWire(p.name, 200), work, suggestion };
+          }) };
+        }
+        if (input.operation === 'detail') {
+          requireKeys(input, ['operation', 'projectId'], 'supervision'); if (!supervisionId(input.projectId)) throw new RemoteApiError(400, 'invalid_payload');
+          projectRepository(input.projectId); const detail = service.detail(input.projectId); const objective = redactForWire(detail.objective, 8000);
+          return { objective, redacted: objective !== detail.objective };
+        }
+        requireKeys(input, ['operation'], 'supervision'); if (input.operation !== 'overview') throw new RemoteApiError(400, 'invalid_payload');
+        const availableSessions = await sessions(); read(); const view = service.query();
+        const profile = view.profile && this.resources.agent(context.principal, view.profile.id) ? { ...view.profile, name: redactForWire(view.profile.name, 200) } : null;
+        return { revision: view.revision, profile, projects: view.projects.filter(p => this.resources.repository(context.principal, p.repositoryId)).map(p => ({
+          ...p, name: redactForWire(p.name, 200), links: p.links.flatMap(link => {
+            if (link.target.kind === 'run') return this.resources.run(context.principal, link.target.id) ? [{ ...link, title: redactForWire(link.title, 200) }] : [];
+            const available = availableSessions.find(s => s.session.id === link.target.id);
+            if (!available) return [];
+            this.resources.assertSelection(context.principal, { ...available.wire, profileId: available.wire.launchProfileId });
+            return [{ ...link, title: redactForWire(link.title, 200), target: { kind: 'session' as const, id: available.wire.id } }];
+          }),
+        })) };
+      }
+      // Device request IDs are derived by main and cannot be chosen in the body.
+      if (Object.hasOwn(input, 'commandId')) throw new RemoteApiError(400, 'invalid_payload');
+      const native: unknown = { ...input, commandId: 'validated-wire-command' };
+      if (!validSupervisionCommand(native)) throw new RemoteApiError(400, 'invalid_payload');
+      ledger.permits(context, 'runs:write');
+      const authorize = () => {
+        read(); ledger.permits(context, 'runs:write');
+        if (native.operation === 'profile') { this.resources.assertAll(context.principal); if (native.agentId) this.resources.assertAgent(context.principal, native.agentId); }
+        else if (native.operation === 'project') this.resources.assertRepository(context.principal, native.repositoryId);
+        else projectRepository(native.projectId);
+        if (native.operation === 'link' && native.target.kind === 'run') this.resources.assertRun(context.principal, native.target.id);
+      };
+      authorize();
+      const receipt = await ledger.execute(context, 'supervision:command', 'runs:write', input, async () => {
+        let resolved: SupervisionCommand = { ...native, commandId: 'device:' + createHash('sha256').update(`${context.principal.id}\n${context.idempotencyKey}`).digest('hex') };
+        if (native.operation === 'link' && native.target.kind === 'session') {
+          const available = (await sessions()).find(s => s.wire.id === native.target.id);
+          if (!available) throw new RemoteApiError(404, 'not_found');
+          this.resources.assertSelection(context.principal, { ...available.wire, profileId: available.wire.launchProfileId });
+          resolved = { ...resolved, target: { kind: 'session', id: available.session.id } } as SupervisionCommand;
+        }
+        authorize(); return service.command(resolved);
+      });
+      authorize(); return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async conversation(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<MobileConversationResult> {
+    const factory = this.options.conversations; const ledger = this.options.administration?.ledger;
+    if (!factory || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      ledger.permits(context, 'workspace:read');
+      // This first global conversation can contain every supervised project.
+      // A selected-project grant never authorizes the accumulated context.
+      this.resources.assertAll(context.principal);
+      if (command) ledger.permits(context, 'runs:write');
+    };
+    try {
+      authorize(); const service = factory(); const input = requireRecord(payload, 'conversation');
+      const available = (id: string) => {
+        const detail = service.detail(id);
+        if (!detail.available) throw new RemoteApiError(403, 'scope_not_granted', 'Projektumfang oder Profil wurde geändert. Am PC den bisherigen Verlauf prüfen und ein neues Gespräch beginnen.');
+        return detail;
+      };
+      if (!command) {
+        if (input.operation === 'overview') {
+          requireKeys(input, ['operation'], 'conversation');
+          let canWrite = false;
+          try { ledger.permits(context, 'runs:write'); canWrite = true; } catch (error) { if (!(error instanceof RemoteApiError) || error.code !== 'scope_not_granted') throw error; }
+          return { conversations: service.query().filter(c => c.available), canWrite };
+        }
+        if (!conversationId(input.conversationId)) throw new RemoteApiError(400, 'invalid_payload');
+        if (input.operation === 'detail') {
+          requireKeys(input, ['operation', 'conversationId'], 'conversation'); return conversationDetailForWire(available(input.conversationId));
+        }
+        if (!conversationId(input.turnId)) throw new RemoteApiError(400, 'invalid_payload');
+        if (input.operation === 'answer') {
+          requireKeys(input, ['operation', 'conversationId', 'turnId', 'offset'], 'conversation');
+          if (!Number.isSafeInteger(input.offset) || (input.offset as number) < 0) throw new RemoteApiError(400, 'invalid_payload');
+          const turn = available(input.conversationId).turns.find(t => t.id === input.turnId);
+          if (!turn) throw new RemoteApiError(404, 'not_found');
+          return conversationAnswerForWire(turn.output, input.offset as number);
+        }
+        requireKeys(input, ['operation', 'conversationId', 'turnId', 'questionId', 'item'], 'conversation');
+        if (input.operation !== 'question' || !supervisionId(input.questionId) || !Number.isSafeInteger(input.item) || (input.item as number) < 0) throw new RemoteApiError(400, 'invalid_payload');
+        return conversationQuestionForWire(available(input.conversationId), input.turnId, input.questionId, input.item as number);
+      }
+      if (Object.hasOwn(input, 'commandId')) throw new RemoteApiError(400, 'invalid_payload');
+      const native = { ...input, commandId: 'device:' + createHash('sha256').update(`${context.principal.id}\n${context.idempotencyKey}`).digest('hex') };
+      if (!validConversationCommand(native)) throw new RemoteApiError(400, 'invalid_payload');
+      const current = () => { authorize(); if (native.operation !== 'create') available(native.conversationId); };
+      current();
+      const receipt = await ledger.execute(context, 'conversation:command', 'runs:write', input, () => {
+        const execute = () => {
+          current(); const result = service.admit(native);
+          if (!result.accepted) throw new RemoteApiError(422, result.uncertain ? 'command_uncertain' : 'conversation_not_accepted', redactedWireMessage(result.error));
+          return result.receipt;
+        };
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      current(); available(receipt.value.conversationId);
+      return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
@@ -581,11 +739,26 @@ export class AdeApplicationService {
   }
 
   async remoteDictation(context: RemoteCommandContext, payload: unknown, upload = false): Promise<MobileDictationResult> {
+    return this.dictationRequest(context, payload, upload, false);
+  }
+
+  async conversationDictation(context: RemoteCommandContext, payload: unknown): Promise<MobileDictationResult> {
+    return this.dictationRequest(context, payload, false, true);
+  }
+
+  private async dictationRequest(context: RemoteCommandContext, payload: unknown, upload: boolean, conversation: boolean): Promise<MobileDictationResult> {
     const ledger = this.options.administration?.ledger; const jobs = this.options.dictation; const terminals = this.options.terminals;
-    if (!ledger || !jobs || !terminals) throw new RemoteApiError(404, 'not_found');
-    const authorize = () => { ledger.permits(context, 'dictation:transcribe'); ledger.permits(context, 'terminal:control'); };
+    if (!ledger || !jobs || (conversation ? !this.options.conversations : !terminals)) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      ledger.permits(context, 'dictation:transcribe');
+      if (!conversation) { ledger.permits(context, 'terminal:control'); return; }
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      ledger.permits(context, 'workspace:read'); this.resources.assertAll(context.principal);
+    };
     authorize();
-    const request = requireRecord(payload, 'request'); const owner = `device:${context.principal.id}`;
+    const request = requireRecord(payload, 'request'); const owner = `device:${context.principal.id}${conversation ? ':conversation' : ''}`;
+    const channel = (name: string) => `${conversation ? 'conversation:' : ''}dictation:${name}`;
     try {
       if (upload) {
         requireKeys(request, ['jobId', 'audioBase64'], 'request');
@@ -601,6 +774,16 @@ export class AdeApplicationService {
         authorize(); jobs.read(owner, jobId); return { jobId, replayed: result.replayed || result.value.replayed };
       }
       if (request.operation === 'prepare') {
+        if (conversation) {
+          requireKeys(request, ['operation', 'conversationId'], 'request');
+          if (!conversationId(request.conversationId)) throw new RemoteApiError(400, 'invalid_payload');
+          const id = request.conversationId;
+          const result = await ledger.execute(context, channel('prepare'), 'dictation:transcribe', request, () => {
+            authorize(); const check = this.options.conversations!().recordingTarget(id);
+            return jobs.prepare(owner, () => { authorize(); check(); }, check.usage);
+          });
+          authorize(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
+        }
         requireKeys(request, ['operation', 'target'], 'request');
         const target = requireRecord(request.target, 'target');
         validateTerminal({ ...target, sequence: 1, data: '', cols: 80, rows: 24 }, 'input');
@@ -608,7 +791,7 @@ export class AdeApplicationService {
         const selection = target as unknown as MobileDictationTarget;
         const check = () => { authorize(); this.resources.assertSelection(context.principal, selection); }; check();
         const result = await ledger.execute(context, 'dictation:prepare', 'dictation:transcribe', request, async () => {
-          const checkTarget = await terminals.recordingTarget(context.principal.id, selection);
+          const checkTarget = await terminals!.recordingTarget(context.principal.id, selection);
           return jobs.prepare(owner, () => { check(); checkTarget(); }, checkTarget.usage);
         });
         check(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
@@ -644,14 +827,14 @@ export class AdeApplicationService {
       }
       if (request.operation === 'stream-start' || request.operation === 'stream-finish') {
         const start = request.operation === 'stream-start';
-        const result = await ledger.execute(context, start ? 'dictation:streamStart' : 'dictation:streamFinish', 'dictation:transcribe', request, async () => {
+        const result = await ledger.execute(context, channel(start ? 'streamStart' : 'streamFinish'), 'dictation:transcribe', request, async () => {
           authorize();
           if (start) await jobs.startLive(owner, jobId); else jobs.finishLive(owner, jobId);
           return { jobId };
         });
         authorize(); jobs.read(owner, jobId); return { ...result.value, replayed: result.replayed };
       }
-      const result = await ledger.execute(context, 'dictation:cancel', 'dictation:transcribe', request, async () => {
+      const result = await ledger.execute(context, channel('cancel'), 'dictation:transcribe', request, async () => {
         authorize(); await jobs.cancelAndWait(owner, jobId); return { cancelled: true as const };
       });
       authorize(); return { ...result.value, replayed: result.replayed };

@@ -1,5 +1,32 @@
 # ADE delivery roadmap
 
+## Nächster Pilot: ein ADE-Agent, drei Projekte (17. September 2026)
+
+[Vorbereitete Goals und Abnahmen](MAIN_AGENT_GOALS.md), auf Basis des
+[aktuellen Audits](MAIN_AGENT_BASELINE.md). [Umsetzung und Einzelprüfungen](MAIN_AGENT_IMPLEMENTATION.md)
+laufen: Sitzungswechsel, native Codex-Fortsetzung, Betreuungsplan und explizite
+Graph-Verbindungen sind vorhanden. Explizite Abendübergaben/Morgenüberblick sind
+angebunden; ein erster Modelldialog auf PC/Tablet mit dauerhaftem Verlauf und lesenden
+Projektwerkzeugen ist verdrahtet. Terminalunabhängiges Gesprächsdiktat ist
+angebunden; steuernde Aktionen, Sprachausgabe und Aktivierung bleiben offen.
+Offene Lieferverträge:
+
+1. **26.6:** Fähigkeiten und Identität je CLI/Sitzungstyp nachweisen;
+   vorhandene Testlücken schliessen.
+2. **27.3:** Projekt-/Sitzungswechsel auf PC und Tablet durchgängig prüfen und
+   vereinfachen, mit stabilen Entwürfen, Eingabebesitz und ohne Doppelstarts.
+3. **26.2–26.4:** dauerhafte Zuständigkeit, getrennte parallele Projektarbeit,
+   eigenständiges Brainstorming sowie Rückfragen und Ergebnisse verbinden.
+4. **26.7/26.8:** gemeinsame Graph-Beziehungen und direkte Übernahme durch den
+   Benutzer; Betreuung pro Projekt optional.
+5. **33.1/33.2:** Abendübergabe, Morgenüberblick und globaler Text-/Sprachdialog
+   ohne Terminalvoraussetzung; **33.3** ergänzt natürliche Unterbrechung.
+6. Durchgängigen nativen Codex-/Grok-/Claude-Pilot, vollständiges `pnpm verify`
+   und physischen Tablet-Test abnehmen. Andere Backends separat belegen.
+
+Die bestehenden Goal-Nummern werden fortgeführt. Die automatische
+Agentenkoordination ist noch nicht geliefert; kein Gesamtgoal abgeschlossen.
+
 ## Antwort anhören aktiviert (16. September 2026)
 
 Der Release **e9e032d** mit Source-ID **e876a22034d56525fe7b** ist seit

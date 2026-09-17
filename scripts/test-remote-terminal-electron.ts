@@ -22,6 +22,7 @@ import { projectGitFlow } from './helpers/projectGitFlow';
 import { terminalHomeFlow } from './helpers/terminalHomeFlow';
 import { workspaceAssignmentFlow } from './helpers/workspaceAssignmentFlow';
 import { ollamaHarnessFlow } from './helpers/ollamaHarnessFlow';
+import { sessionNavigationFlow } from './helpers/sessionNavigationFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 
@@ -57,7 +58,10 @@ void (async () => {
   // A real interactive Qwen CLI remains open and does not echo its entire
   // appended identity prompt. Keep this fixture visible through tablet attach.
   writeFileSync(compile, readFileSync(compile, 'utf8').replace('Console.WriteLine(result);',
-    'if (cli == "QWEN" && Array.IndexOf(args, "--model") >= 0) { Console.WriteLine("ADE_SESSION_QWEN_READY model " + args[Array.IndexOf(args, "--model") + 1]); while (true) System.Threading.Thread.Sleep(100); } Console.WriteLine(result);'));
+    'if (cli == "QWEN" && Array.IndexOf(args, "--model") >= 0) { Console.WriteLine("ADE_SESSION_QWEN_READY model " + args[Array.IndexOf(args, "--model") + 1]); while (true) System.Threading.Thread.Sleep(100); } '
+    // Codex does not print its private identity prompt and telemetry config to
+    // the terminal either. The full argv proof still goes to the fixture file.
+    + 'if (cli == "CODEX" && Array.IndexOf(args, "-c") >= 0) { int model = Array.IndexOf(args, "--model"); Console.WriteLine("ADE_SESSION_CODEX_READY model " + (model >= 0 && model + 1 < args.Length ? args[model + 1] : "default")); } else Console.WriteLine(result);'));
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama', 'qwen']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
   const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
@@ -121,6 +125,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--session-navigation-only')) {
+    await sessionNavigationFlow(desktop, page, root, check); return;
+  }
   if (process.argv.includes('--ollama-harness-only')) {
     await ollamaHarnessFlow(desktop, page, workspace, setup.agent, evidence, check); return;
   }

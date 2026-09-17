@@ -1,4 +1,6 @@
 import { validSpeechTest } from '../shared/speech';
+import { validSupervisionCommand } from '../shared/supervision';
+import { conversationId, validConversationCommand } from '../shared/conversation';
 import { validDesktopReply } from '../shared/terminalSpeech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
@@ -705,6 +707,30 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.SpeechPreferences:
       if (!validSpeechTarget(payload)) invalid(channel, 'invalid speech target');
       return;
+    case IPC.SupervisionGet:
+    case IPC.ConversationGet:
+    case IPC.SupervisionBriefing:
+      if (payload !== undefined) invalid(channel, 'request must be empty');
+      break;
+    case IPC.SupervisionDetail: {
+      const request = record(channel, payload); exactKeys(channel, request, ['projectId']); id(channel, request.projectId, 'projectId'); break;
+    }
+    case IPC.ConversationDictationPrepare: {
+      const request = record(channel, payload); exactKeys(channel, request, ['conversationId']);
+      if (!conversationId(request.conversationId)) invalid(channel, 'invalid conversation identity'); break;
+    }
+    case IPC.ConversationDetail: {
+      const request = record(channel, payload); exactKeys(channel, request, ['conversationId']); id(channel, request.conversationId, 'conversationId'); break;
+    }
+    case IPC.ConversationCommand:
+      if (!validConversationCommand(payload)) invalid(channel, 'invalid conversation command');
+      break;
+    case IPC.SupervisionHandoff: {
+      const request = record(channel, payload); exactKeys(channel, request, ['projectId', 'handoffId']); id(channel, request.projectId, 'projectId'); id(channel, request.handoffId, 'handoffId'); break;
+    }
+    case IPC.SupervisionCommand:
+      if (!validSupervisionCommand(payload)) invalid(channel, 'invalid supervision command');
+      break;
     case IPC.AgentBehaviorGet: {
       const request = record(channel, payload); exactKeys(channel, request, ['agentId']); id(channel, request.agentId, 'agentId'); return;
     }

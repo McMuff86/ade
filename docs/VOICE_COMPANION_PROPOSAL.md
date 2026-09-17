@@ -1,5 +1,26 @@
 # Goal 33 — Persönlicher Sprachdialog auf PC und Tablet
 
+## Vorbereiteter Gesamtplan vom 17. September 2026
+
+Die [ADE-Agent-Goals](MAIN_AGENT_GOALS.md) konkretisieren **33.1** als dauerhafte
+Abendübergabe und belegten Morgenüberblick über mehrere Projekte sowie **33.2**
+als globalen Text-/Sprachdialog mit eigenständigen Projektsitzungen. ADE soll
+Codex- und Claude-Arbeit parallel betreuen, während Adi mit dem Grok-Agenten
+eines dritten Projekts brainstormt. Projektwechsel, direkte Übernahme und
+Graph-Verbindungen werden vorher unter 26/27 geprüft und ergänzt. Der globale
+Einstieg benötigt weder ausgewähltes Repository noch offenes CLI-Terminal.
+
+Die Umsetzung läuft: explizite Übergaben/Morgenüberblick sind angebunden;
+ein erster globaler Textdialog auf PC/Tablet hat eigenen Verlauf, Codex-Fortsetzung
+und lesende Werkzeuge für Projektstände/Übergaben. Native Produktionsprobe
+**4/0**, bisherige Text-Bedienprüfung **33/0** mit Protokollpeer. Terminalunabhängiges
+Gesprächsdiktat ist angebunden, die gemeinsame Bedienabnahme besteht mit **44/0**. Sprachausgabe,
+Aktivierung und automatische Projektsteuerung bleiben offen.
+[Laufende Umsetzung und Prüfstand](MAIN_AGENT_IMPLEMENTATION.md).
+[Codeaudit und aktuelle Teilnachweise](MAIN_AGENT_BASELINE.md). Der folgende
+frühere Vorschlag bleibt Grundlage für Stimme, Aktivierung und Unterbrechung;
+Lieferreihenfolge und der neue Drei-Projekte-Pilot stehen im Gesamtplan.
+
 ## Nächster Vorschlag: globaler Einstieg „Sprachsteuerung“
 
 Adi wünscht den Computer unabhängig von einer Coding-Sitzung. Vorgeschlagen ist

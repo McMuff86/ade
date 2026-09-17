@@ -1,4 +1,5 @@
 import type { Locator, Page } from 'playwright';
+import { expect } from 'playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -21,7 +22,8 @@ export async function commitDetailsFlow(page: Page, workspace: Locator, sha: str
   await detail.getByText(/Binärdatei geändert/).waitFor();
   check('binary commit files explain why no text diff exists', await diff.count() === 0);
   await page.keyboard.press('Escape'); await detail.waitFor({ state: 'hidden' });
-  check('Escape leaves workspace open and restores commit-list focus', await workspace.isVisible() && await opener.evaluate(node => node === document.activeElement));
+  await expect(workspace).toBeVisible(); await expect(opener).toBeFocused();
+  check('Escape leaves workspace open and restores commit-list focus', true);
 
   let failOperation = 'commit';
   await page.route('**/api/v1/workspace/query', async route => {

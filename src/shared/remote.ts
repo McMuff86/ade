@@ -3,6 +3,13 @@ import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
 import type { DictationJobState } from './dictation';
 import type { LiveDictationChunk } from './liveDictation';
+/** Session targets here always carry opaque host-API IDs, never PTY IDs. */
+export type MobileSupervisionView = import('./supervision').SupervisionView;
+export type MobileSupervisionQuery = { operation: 'overview' | 'briefing' } | { operation: 'detail'; projectId: string } | { operation: 'handoff'; projectId: string; handoffId: string };
+export type MobileMorningBriefing = import('./supervision').MorningBriefing;
+export type MobileHandoffDetail = import('./supervision').HandoffDetail;
+export type MobileSupervisionCommand = { revision: number } & import('./supervision').SupervisionAction;
+export interface MobileSupervisionDetail { objective: string; redacted: boolean }
 
 export type MobileDictationTarget = MobileTerminalSelection & { terminalId: string; leaseId: string };
 export type MobileDictationRequest = { operation: 'prepare'; target: MobileDictationTarget }
@@ -237,6 +244,8 @@ export interface MobileTerminalSummary {
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
   /** Safe display name from the currently authorized project workspace. */
   projectName?: string;
+  /** Repository resolved by main, separate from the mutually exclusive selection fields. */
+  projectRepositoryId?: string;
   launchMode?: SessionLaunchChoice['mode'];
   launchProfileId?: string;
   launchProfileName?: string;
@@ -522,6 +531,7 @@ export type MobileErrorCode =
   | 'idempotency_key_invalid'
   | 'idempotency_key_reused'
   | 'command_rejected'
+  | 'conversation_not_accepted'
   | 'command_uncertain'
   | 'host_busy'
   | 'host_changed'
@@ -534,3 +544,31 @@ export interface MobileErrorBody {
   /** Redacted, bounded human-readable detail; present for payload/command rejections only. */
   message?: string;
 }
+/** ADE conversations have their own identity. Native thread IDs and user text
+ * never appear in these wire views. Long answers are explicit paged details. */
+export type MobileConversationCommand = import('./conversation').ConversationCommand extends infer C
+  ? C extends import('./conversation').ConversationCommand ? Omit<C, 'commandId'> : never : never;
+export type MobileConversationQuery = { operation: 'overview' }
+  | { operation: 'detail'; conversationId: string }
+  | { operation: 'answer'; conversationId: string; turnId: string; offset: number }
+  | { operation: 'question'; conversationId: string; turnId: string; questionId: string; item: number };
+export interface MobileConversationDetail extends Omit<import('./conversation').ConversationDetail, 'turns'> {
+  turns: Array<Omit<import('./conversation').ConversationTurnDetail, 'input' | 'output' | 'questions'> & {
+    input: { sha256: string; chars: number }; output: { sha256: string; chars: number };
+    questions: Array<Omit<import('./runQuestions').RunQuestion, 'questions'> & { items: number }>;
+  }>;
+}
+export interface MobileConversationAnswer {
+  text: string; offset: number; nextOffset: number | null; total: number; sha256: string; redacted: boolean;
+}
+export interface MobileConversationQuestion {
+  questionId: string; item: number; total: number;
+  value: import('./runQuestions').RunQuestionItem; redacted: boolean;
+}
+export interface MobileConversationOverview { conversations: import('./conversation').ConversationSummary[]; canWrite: boolean }
+/** Live conversation audio has its own owner namespace; no PTY or lease selector. */
+export type MobileConversationDictationCommand = { operation: 'prepare'; conversationId: string }
+  | { operation: 'query' | 'cancel' | 'stream-start' | 'stream-finish'; jobId: string }
+  | ({ operation: 'stream-chunk' } & import('./liveDictation').LiveDictationChunk);
+export type MobileConversationResult = MobileConversationOverview | MobileConversationDetail
+  | MobileConversationAnswer | MobileConversationQuestion | import('./conversation').ConversationReceipt;

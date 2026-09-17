@@ -26,6 +26,12 @@ import '../renderer/theme/tokens.css';
 import './mobile.css';
 import './tablet.css';
 import './terminals.css';
+import { SessionNavigationContext, SessionSwitchButton } from '../renderer/sessions/SessionSwitcher';
+import { MobileSessionSwitcher } from './SessionSwitcher';
+import { SupervisionButton, SupervisionContext } from '../renderer/supervision/SupervisionGraph';
+import { MobileSupervision, MobileSupervisionGraph } from './Supervision';
+import type { SupervisionTarget } from '../shared/supervision';
+import type { MobileSessionInventory, MobileTerminalState } from '../shared/remote';
 
 function preference(key: string, fallback: string): string { try { return localStorage.getItem(`ade-mobile-${key}`) ?? fallback; } catch { return fallback; } }
 function savePreference(key: string, value: string): void { try { localStorage.setItem(`ade-mobile-${key}`, value); } catch { /* Appearance remains available without storage. */ } }
@@ -40,6 +46,9 @@ function MobileApp(): JSX.Element {
   const fileDrafts = useFileDrafts(host.identityVersion);
   const profileDrafts = useProfileDrafts(host.identityVersion);
   const [management, setManagement] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [supervision, setSupervision] = useState<{ repositoryId?: string } | null>(null);
+  const supervisionNavigation = useRef(0);
   const [terminalSelection, setTerminalSelection] = useDeviceDraft<TerminalTarget>(host.deviceId, 'terminal-target', { terminalHome: true });
   const [terminalLaunchVersion, setTerminalLaunchVersion] = useState(0);
   const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
@@ -91,7 +100,7 @@ function MobileApp(): JSX.Element {
     if (previousIdentity.current === host.identityVersion) return;
     previousIdentity.current = host.identityVersion;
     setDraftState(initialProjectDraft(emptyDraft())); setProjectFilter(''); setAgentFilter('');
-    setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false); setManagement(false);
+    setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false); setManagement(false); setSwitcherOpen(false); setSupervision(null); supervisionNavigation.current++;
   }, [host.identityVersion]);
   useEffect(() => {
     if (!host.catalog) return;
@@ -139,7 +148,23 @@ function MobileApp(): JSX.Element {
   };
   const inspector = selectedRun && <RunInspector run={selectedRun} participantId={selected?.participantId ?? null} host={host} onSend={(command) => void send(command)} focusVersion={focusVersion} />;
 
-  return <TabletKeyboardContext.Provider value={keyboardOpen}><div className="m-app" onKeyDown={(event) => {
+  const openSupervisedWork = async (target: SupervisionTarget) => {
+    const generation = ++supervisionNavigation.current;
+    if (target.kind === 'run') {
+      if (!host.runs.some(run => run.id === target.id)) throw new Error('Arbeit ist nicht mehr verfügbar.');
+      setView('graph'); setGraphRunId(target.id); setSelected(null); setSupervision(null); return;
+    }
+    const inventory = await host.request<MobileSessionInventory>('/api/v1/terminal/sessions');
+    const session = inventory.sessions.find(item => item.id === target.id); if (!session) throw new Error('Sitzung ist nicht mehr verfügbar.');
+    const selection = terminalTarget(session); const { expectedBranch, ...query } = selection;
+    const state = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', query);
+    if (generation !== supervisionNavigation.current) return;
+    if (state.selected?.id !== target.id || expectedBranch !== undefined && state.selected.branch !== expectedBranch) throw new Error('Sitzung wurde geändert. Liste aktualisieren.');
+    setWorkspace(null); setProjectWorkspace(null); setManagement(false); setSelected(null); setSupervision(null);
+    if (selection.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: selection.projectWorkspaceId, terminalId: selection.terminalId }); }
+    else { setView('terminals'); setTerminalSelection(selection); }
+  };
+  return <SupervisionContext.Provider value={repositoryId => setSupervision({ repositoryId })}><SessionNavigationContext.Provider value={() => setSwitcherOpen(true)}><TabletKeyboardContext.Provider value={keyboardOpen}><div className="m-app" onKeyDown={(event) => {
     if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Overview">ade<span>_</span></button>
@@ -179,6 +204,8 @@ function MobileApp(): JSX.Element {
         {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
         <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
           <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Einstellungen</button>
+        <SessionSwitchButton id="mobile-session-switch" />
+        <SupervisionButton id="mobile-supervision" />
           <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
           <button disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}>Terminal öffnen</button>
           <button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
@@ -200,7 +227,7 @@ function MobileApp(): JSX.Element {
             : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
             : view === 'terminals' ? <Terminals host={host} target={terminalSelection} onTarget={setTerminalSelection} launchVersion={terminalLaunchVersion}
               onWorkspace={(agentId, repositoryId) => setWorkspace({ agentId, repositoryId })} />
-            : view === 'graph' ? <Graph run={graphRun} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />
+            : view === 'graph' ? <><MobileSupervisionGraph host={host} onProject={repositoryId => setSupervision({ repositoryId })} onNavigate={openSupervisedWork} /><Graph run={graphRun} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} /></>
               : <div className="m-work"><aside className="m-work-rail" aria-label="Agent-Workspaces"><h2>Agents</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>Runs durchsuchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Projekt oder Agent" /></label>
                   <label>Status<select aria-label="Status" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">Alle Runs</option><option value="open">Offene Runs</option><option value="finished">Beendete Runs</option></select></label></div>
@@ -239,7 +266,15 @@ function MobileApp(): JSX.Element {
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>Dieses Gerät lokal trennen</button><p className="m-field-note">Zum vollständigen Widerruf: Gerät in ADE am PC entfernen.</p></>}</section>
       </SettingsTabs>
     </Dialog>}
-  </div></TabletKeyboardContext.Provider>;
+    {switcherOpen && host.paired && <MobileSessionSwitcher host={host} fallbackId={`view-tab-${view}`} onClose={() => setSwitcherOpen(false)} onSelect={target => {
+      setWorkspace(null); setProjectWorkspace(null); setManagement(false); setSelected(null);
+      if (target.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: target.projectWorkspaceId, terminalId: target.terminalId }); }
+      else { setView('terminals'); setTerminalSelection(target); }
+      setSwitcherOpen(false);
+    }} />}
+    {supervision && host.paired && <MobileSupervision host={host} repositoryId={supervision.repositoryId} fallbackId={`view-tab-${view}`}
+      onClose={() => { supervisionNavigation.current++; setSupervision(null); }} onNavigate={openSupervisedWork} />}
+  </div></TabletKeyboardContext.Provider></SessionNavigationContext.Provider></SupervisionContext.Provider>;
 }
 
 createRoot(document.getElementById('root')!).render(<MobileApp />);

@@ -63,12 +63,15 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(speak).toBeFocused();
   check('tablet: cancelling the call synthesizes nothing and returns focus to the microphone', generations().length === before);
-  writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
+  // Keep the negative phrase until the long press has visibly opened listening.
+  // A fast fixture greeting can otherwise finish during the 900 ms press and
+  // the assertion would wait for an intermediate state that already passed.
   writeFileSync(join(root, 'committed-phrase.txt'), '');
   const box = (await mic.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up();
   await calling.waitFor();
   check('tablet: a long press on the microphone calls the Computer', true);
+  writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
   await strip.getByLabel('Computer Antwort', { exact: true }).waitFor();
   const answer = await strip.getByLabel('Computer Antwort', { exact: true }).innerText();
   check('tablet: live Computer call survives an empty final transcript and plays one greeting', generations().length === before + 1

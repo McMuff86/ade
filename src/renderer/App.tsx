@@ -30,6 +30,10 @@ import { SettingsModal } from './settings/SettingsModal';
 import { SessionLaunchDialog } from './sessions/SessionLaunchDialog';
 import { useSessionShortcuts } from './keyboard/useSessionShortcuts';
 import { ConfigHealthBanner } from './ConfigHealthBanner';
+import { SessionNavigationContext, SessionSwitchButton } from './sessions/SessionSwitcher';
+import { DesktopSessionSwitcher } from './sessions/DesktopSessionSwitcher';
+import { DesktopSupervision } from './supervision/DesktopSupervision';
+import { SupervisionButton, SupervisionContext } from './supervision/SupervisionGraph';
 import './graph/mode-switch.css';
 
 export function App() {
@@ -59,6 +63,8 @@ export function App() {
   const [rightOpen, setRightOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [supervision, setSupervision] = useState<{ repositoryId?: string } | null>(null);
   const openProjects = () => { setSetupOpen(false); setMode('projects');
     requestAnimationFrame(() => document.getElementById('mode-tab-projects')?.focus()); };
 
@@ -70,7 +76,7 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    <SupervisionContext.Provider value={repositoryId => setSupervision({ repositoryId })}><SessionNavigationContext.Provider value={() => setSwitcherOpen(true)}><div className="app">
       <header className="titlebar">
         <span className="logotype">
           ade<span className="logotype-cursor">_</span>
@@ -121,6 +127,8 @@ export function App() {
         </div>
 
         <span className="spacer" />
+        <SessionSwitchButton id="desktop-session-switch" />
+        <SupervisionButton id="desktop-supervision" />
         <button id="ade-setup" className="btn" onClick={() => setSetupOpen(true)}>Einrichtung</button>
         <button
           className="btn"
@@ -172,7 +180,9 @@ export function App() {
       <SessionLaunchDialog />
       {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
       {setupOpen && <SetupModal onClose={() => setSetupOpen(false)} onProjects={openProjects} />}
-    </div>
+      {switcherOpen && <DesktopSessionSwitcher onClose={() => setSwitcherOpen(false)} />}
+      {supervision && <DesktopSupervision repositoryId={supervision.repositoryId} onClose={() => setSupervision(null)} />}
+    </div></SessionNavigationContext.Provider></SupervisionContext.Provider>
   );
 }
 

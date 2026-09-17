@@ -593,6 +593,7 @@ export class OrchestrationService {
           id: participant.id,
           agentName: participant.agentName,
           agentId: participant.agentId,
+          runtime: participant.runtime,
           role: participant.role,
           teamId: participant.teamId,
           teamName: participant.teamName,

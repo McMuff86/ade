@@ -343,8 +343,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   });
   check('closing the recording dock revokes its microphone permission', microphoneAfterClose);
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).click();
-  check('closing during live dictation keeps the old draft and permits a fresh recording', await draft.inputValue() === 'Nur für die Grok-Sitzung.'
-    && !await dialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled());
+  check('closing during live dictation keeps the old draft and visible preview on its original target', (await draft.inputValue()).startsWith('Nur für die Grok-Sitzung.\nBitte prüfe')
+    && !await dialog.getByRole('button', { name: 'Diktieren', exact: true }).isDisabled()
+    && await dialog.getByText('Aufnahme beim Wechsel beendet. Erkannten Text vor dem Senden prüfen.', { exact: true }).isVisible());
   const cancelledUsage = await page.evaluate(async () => {
     const grok = (await window.ade.invoke('pty:list')).sessions.find(item => item.runtime === 'grok')!;
     return (await window.ade.invoke('terminal:usage', { sessionId: grok.id })).consumption?.speech?.[0];

@@ -1,0 +1,142 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { validSupervisionMode, validSupervisionObjective, type SupervisionMode, type SupervisionView, type SupervisionAction, type SupervisionTarget } from '../../shared/supervision';
+import { Modal } from '../onboarding/Modal';
+import { useAppData } from '../stores/appdata';
+import { useSessions } from '../stores/sessions';
+import { useRuns } from '../stores/runs';
+import { useMode } from '../stores/mode';
+import { useSupervision } from './supervisionState';
+import { SupervisionGraph, SUPERVISION_MODE_LABELS } from './SupervisionGraph';
+import { navigateSupervisedWork } from './navigateSupervisedWork';
+import { HandoffComposer, MorningOverview, type HandoffQueries } from './MorningBriefing';
+import { DesktopConversation } from '../conversation/DesktopConversation';
+
+export function DesktopSupervision({ repositoryId, onClose }: { repositoryId?: string; onClose(): void }) {
+  const [conversation, setConversation] = useState(false);
+  const controller = useSupervision(); const { repositories, agents } = useAppData();
+  const live = useRef(true); const navigation = useRef(0);
+  useEffect(() => { live.current = true; return () => { live.current = false; navigation.current++; }; }, []);
+  const sessions = useSessions(s => s.sessions); const runs = useRuns(s => s.runs);
+  useEffect(() => { void useSessions.getState().hydrate(true); void useRuns.getState().refresh(); }, []);
+  const targets = [...Object.values(sessions).filter(s => s.repositoryId && s.kind === 'interactive' && !s.runTaskId && !s.remoteAccessBlocked)
+    .map(s => ({ repositoryId: s.repositoryId!, target: { kind: 'session' as const, id: s.id }, label: `${s.title} · ${s.branch ?? s.runtime}` })),
+    ...runs.filter(r => r.repositoryId).map(r => ({ repositoryId: r.repositoryId!, target: { kind: 'run' as const, id: r.id }, label: `${r.name} · ${r.status}` }))];
+  if (conversation) return <DesktopConversation onClose={onClose} onBack={() => { setConversation(false); requestAnimationFrame(() => document.getElementById('ade-conversation-open')?.focus()); }} />;
+  return <Modal title="ADE-Betreuung" onClose={onClose} className="supervision-dialog" fallbackFocus={() => document.getElementById(`mode-tab-${useMode.getState().mode}`)}>
+    <button id="ade-conversation-open" type="button" onClick={() => setConversation(true)}>Mit ADE sprechen</button>
+    <SupervisionContent repositoryId={repositoryId} controller={controller} repositories={repositories} agents={Object.values(agents)} targets={targets}
+      handoffs={{ briefing: () => window.ade.invoke('supervision:briefing'), handoff: (projectId, handoffId) => window.ade.invoke('supervision:handoff', { projectId, handoffId }) }}
+      detail={projectId => window.ade.invoke('supervision:detail', { projectId })} draftScope="desktop" onClose={onClose}
+      onNavigate={target => {
+        const attempt = ++navigation.current; const current = () => live.current && navigation.current === attempt;
+        void navigateSupervisedWork(target, current).then(() => { if (current()) onClose(); }).catch(reason => { if (current()) useSupervision.setState({ error: String(reason) }); });
+      }} />
+  </Modal>;
+}
+export interface SupervisionController {
+  view: SupervisionView | null; error: string; busy: boolean; refresh(): Promise<void>; command(action: SupervisionAction, revision: number): Promise<number>;
+}
+export interface SupervisionContentProps {
+  repositoryId?: string; controller: SupervisionController;
+  repositories: Array<{ id: string; name: string; verified: boolean }>; agents: Array<{ id: string; name: string; runtime: string }>;
+  targets: Array<{ repositoryId: string; target: SupervisionTarget; label: string }>;
+  detail(projectId: string): Promise<{ objective: string; redacted?: boolean }>;
+  handoffs: HandoffQueries;
+  draftScope: string; onClose(): void; onNavigate(target: SupervisionTarget): void;
+}
+export function SupervisionContent({ repositoryId, controller, repositories, agents, targets, detail, handoffs, draftScope, onClose, onNavigate }: SupervisionContentProps) {
+  const { view, error, busy, refresh, command } = controller;
+  const [selected, setSelected] = useState(repositoryId ?? ''); const [profile, setProfile] = useState('');
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (view) setProfile(view.profile?.id ?? ''); }, [view?.profile?.id]);
+  return <div className="supervision-panel">
+      <p>Betreuungsplan für deine Projekte. Die automatische Ausführung wird separat angebunden.</p>
+      {error && <p role="alert">{error}</p>}{!view && !error && <p role="status">Betreuung wird geladen…</p>}
+      <button type="button" disabled={busy} onClick={() => void refresh()}>Betreuung aktualisieren</button>
+      {view && <>
+        <MorningOverview queries={handoffs} command={command} busy={busy} />
+        <label>Zentrales ADE-Profil<select aria-label="Zentrales ADE-Profil" value={profile} onChange={e => setProfile(e.target.value)}>
+          <option value="">Noch nicht ausgewählt</option>{agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name} · {agent.runtime}</option>)}
+        </select></label>
+        <button type="button" disabled={busy || profile === (view.profile?.id ?? '')} onClick={() => void command({ operation: 'profile', agentId: profile || null }, view.revision).catch(() => undefined)}>ADE-Profil speichern</button>
+        <SupervisionGraph view={view} onProject={setSelected} onWork={onNavigate} />
+        <label>Projekt betreuen<select aria-label="Projekt betreuen" value={selected} onChange={e => setSelected(e.target.value)}>
+          <option value="">Projekt auswählen</option>{repositories.filter(repo => repo.verified).map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}
+        </select></label>
+        {!repositories.length && <p>Zuerst ein Projekt in ADE öffnen.</p>}
+        {selected && <ProjectSupervision key={selected} repositoryId={selected} view={view} controller={controller} detail={detail} targets={targets} draftScope={draftScope} />}
+        {view.projects.find(p => p.repositoryId === selected) && <HandoffComposer key={`handoff-${selected}`} project={view.projects.find(p => p.repositoryId === selected)!}
+          revision={view.revision} busy={busy} draftScope={draftScope} command={command} />}
+      </>}
+      <button type="button" onClick={onClose}>Schliessen</button>
+    </div>
+  ;
+}
+function ProjectSupervision({ repositoryId, view, controller, detail, targets, draftScope }: Pick<SupervisionContentProps, 'controller' | 'detail' | 'targets' | 'draftScope'> & { repositoryId: string; view: SupervisionView }) {
+  const project = view.projects.find(p => p.repositoryId === repositoryId); const { command, busy } = controller;
+  const [objective, setObjective] = useState(''); const [mode, setMode] = useState<SupervisionMode>(project?.mode ?? 'direct');
+  const [revision, setRevision] = useState(view.revision); const [loaded, setLoaded] = useState(false); const [detailError, setDetailError] = useState('');
+  const [draftNotice, setDraftNotice] = useState('');
+  const draftKey = `ade:supervision-draft:${draftScope}:${repositoryId}`;
+  const [redacted, setRedacted] = useState(false);
+  const objectiveInput = useRef<HTMLTextAreaElement>(null); const restoreFocus = useRef(false);
+  useLayoutEffect(() => { if (loaded && restoreFocus.current) { restoreFocus.current = false; objectiveInput.current?.focus(); } }, [loaded]);
+  const live = useRef(true);
+  const load = async (restoreDraft: boolean) => {
+    if (!restoreDraft) restoreFocus.current = true;
+    setLoaded(false); setDetailError('');
+    try {
+      const result = project ? await detail(project.id) : { objective: '' };
+      if (!live.current) return;
+      setObjective(result.objective); setMode(project?.mode ?? 'direct'); setRevision(view.revision); setRedacted(!!result.redacted);
+      try {
+        const raw = restoreDraft ? localStorage.getItem(draftKey) : null;
+        if (raw) { const draft: unknown = JSON.parse(raw);
+          if (draft && typeof draft === 'object' && 'revision' in draft && 'mode' in draft && 'objective' in draft && Number.isSafeInteger(draft.revision)
+            && (draft.revision as number) >= 0 && validSupervisionMode(draft.mode) && validSupervisionObjective(draft.objective)) {
+            setObjective(draft.objective); setMode(draft.mode); setRevision(draft.revision as number); setDraftNotice('Ungespeicherter Projektentwurf wiederhergestellt.');
+          }
+        }
+        if (!restoreDraft) { localStorage.removeItem(draftKey); setDraftNotice('Aktueller Auftrag geladen.'); }
+      } catch { setDraftNotice('Entwurf kann auf diesem Gerät nicht dauerhaft gespeichert werden. Text vor dem Schliessen kopieren.'); }
+      setLoaded(true);
+    } catch (reason) { if (live.current) setDetailError(String(reason)); }
+  };
+  const draft = (text: string, nextMode: SupervisionMode) => {
+    if (text !== objective) setRedacted(false);
+    setObjective(text); setMode(nextMode);
+    try { localStorage.setItem(draftKey, JSON.stringify({ revision, mode: nextMode, objective: text })); setDraftNotice('Entwurf auf diesem Gerät gesichert.'); }
+    catch { setDraftNotice('Entwurf kann auf diesem Gerät nicht dauerhaft gespeichert werden. Text vor dem Schliessen kopieren.'); }
+  };
+  useEffect(() => { live.current = true; void load(true);
+    return () => { live.current = false; };
+  }, []);
+  const candidates = targets.filter(item => item.repositoryId === repositoryId && !project?.links.some(l => l.target.id === item.target.id && l.target.kind === item.target.kind));
+  return <section className="supervision-editor" aria-label="Projektbetreuung bearbeiten">
+    {detailError && <p role="alert">{detailError}</p>}{!loaded && !detailError && <p role="status">Auftrag wird geladen…</p>}
+    {loaded && <>
+      <label>Betreuungsmodus<select aria-label="Betreuungsmodus" value={mode} onChange={e => draft(objective, e.target.value as SupervisionMode)}>
+        {Object.entries(SUPERVISION_MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <label>Auftrag für dieses Projekt<textarea ref={objectiveInput} aria-label="Auftrag für dieses Projekt" rows={4} maxLength={8000} value={objective} onChange={e => draft(e.target.value, mode)} /></label>
+      {draftNotice && <p role="status">{draftNotice}</p>}
+      {redacted && <p role="status">Teile des Auftrags sind auf diesem Gerät ausgeblendet. Zum Ersetzen einen neuen Auftrag eingeben.</p>}
+      {revision !== view.revision && <p role="status">Der Betreuungsstand hat sich geändert. Vor dem Speichern neu laden.</p>}
+      <button type="button" disabled={busy || redacted || revision !== view.revision} onClick={() => {
+        void command({ operation: 'project', repositoryId, mode, objective }, revision).then(savedRevision => {
+          try { const saved = localStorage.getItem(draftKey); if (saved === JSON.stringify({ revision, mode, objective })) localStorage.removeItem(draftKey); } catch { /* Preserve visible state. */ }
+          if (live.current) { setRevision(savedRevision); setDraftNotice('Projektbetreuung gespeichert.'); }
+        }).catch(() => undefined);
+      }}>Projektbetreuung speichern</button>
+      {revision !== view.revision && <button type="button" disabled={busy} onClick={() => void load(false)}>Aktuellen Auftrag laden</button>}
+      {project && <><h3>Verknüpfte Arbeit</h3>{!project.links.length && <p>Noch keine Sitzung oder Arbeit verknüpft.</p>}
+        <ul>{project.links.map(link => <li key={link.id}>{link.title} · {link.status}
+          <button type="button" disabled={busy} aria-label={`Verbindung lösen: ${link.title}`} onClick={() => void command({ operation: 'unlink', projectId: project.id, linkId: link.id }, view.revision).catch(() => undefined)}>Verbindung lösen</button>
+        </li>)}</ul>
+        {candidates.map(item => <button type="button" key={`${item.target.kind}:${item.target.id}`} disabled={busy}
+          data-supervision-target={`${item.target.kind}:${item.target.id}`}
+          onClick={() => void command({ operation: 'link', projectId: project.id, target: item.target }, view.revision).catch(() => undefined)}>Verknüpfen: {item.label}</button>)}
+      </>}
+    </>}
+  </section>;
+}

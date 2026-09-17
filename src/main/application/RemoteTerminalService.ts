@@ -205,6 +205,16 @@ export class RemoteTerminalService {
     return result;
   }
 
+  /** Main-only identity bridge over the same authorized, revalidated inventory.
+   * No new PTY control path and no raw session IDs in the returned wire DTO. */
+  async supervisionSessions(deviceId: string) {
+    const inventory = await this.inventory(deviceId);
+    return inventory.sessions.flatMap(wire => {
+      const entry = this.entries.get(wire.id); const session = this.port.list().find(item => item.id === entry?.sessionId);
+      return session && this.visible(deviceId, session) ? [{ wire, session }] : [];
+    });
+  }
+
   async command(deviceId: string, input: MobileTerminalCommand): Promise<{ terminalId: string }> {
     this.requireGrant(deviceId, input); this.expire();
     const binding = await this.workbench.resolveTerminal(input, false, input.operation === 'open'); this.requireGrant(deviceId, input); let entry: TerminalEntry;
@@ -351,6 +361,7 @@ export class RemoteTerminalService {
   private summary(entry: TerminalEntry, session: SessionMeta, deviceId: string, binding: WorkbenchScope): MobileTerminalSummary {
     return { id: entry.id, title: redactForWire(session.title, 100), status: session.status,
       ...(binding.projectName ? { projectName: redactForWire(binding.projectName, 200) } : {}),
+      ...(binding.repositoryId ? { projectRepositoryId: binding.repositoryId } : {}),
       profileContext: session.profileContext ? { profileId: session.profileContext.profileId,
         profileName: redactForWire(session.profileContext.profileName, 200), digest: session.profileContext.digest,
         profileDigest: session.profileContext.profileDigest,

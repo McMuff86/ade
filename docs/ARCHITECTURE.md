@@ -1,5 +1,132 @@
 # ADE — Architecture (binding decisions)
 
+## Cross-project ADE supervision: implementation underway (17 September 2026)
+
+Conversation dictation has a separate main-owned target. The audited desktop-only
+`conversation:dictationPrepare` takes exactly one ADE conversation UUID; existing
+dictation ticket channels transport PCM and read the result. `recordingTarget`
+rechecks conversation existence, open state, exact profile/project binding and
+unconfirmed-turn state on every packet/result. Usage records the actual profile
+without inventing a terminal or project. Signed `POST /api/v1/conversation/dictation`
+goes only through `AdeApplicationService`, requiring `read`, `workspace:read`,
+`dictation:transcribe`, an active device and all-resource access. Its separate
+`device:<id>:conversation` owner prevents terminal-ticket reuse. Commands use
+the durable ledger, packets use bounded job receipts; device revocation aborts
+both owner namespaces. No terminal scope or generic remote IPC expansion.
+
+The shared conversation recorder asks for microphone access before opening the
+paid stream, persists the host ticket before provider start, and never retries
+an uncertain paid start. Live PCM remains ephemeral. Up to 16 local text previews
+share the existing 1-MiB draft bound; exact version-one recovery migrates to v2.
+Switching or closing cancels capture and preserves the partial preview on its
+original conversation. Applying is explicit and atomically consumes that preview
+into the latest 64-Ki-character message, refusing overflow or changed storage.
+No model message is sent by dictation. Transcript output is redacted before wire
+delivery; existing terminal dictation keeps its own authorization requirements.
+
+Desktop and tablet **ADE-Betreuung → Mit ADE sprechen** now share a separate persistent
+conversation. `conversation:get` returns digests/counts only; `conversation:detail`
+returns complete input, output and questions without native thread/turn IDs.
+`conversation:command` is an audited desktop-only launch channel; no generic
+remote allowlist expansion. Change notifications contain only `null` and use
+`rendererWindows`. Host routes `/api/v1/conversation/query` and `/command` go only
+through `AdeApplicationService`, requiring an active signed device, `read`,
+`workspace:read` and all-resource access. Commands additionally require
+`runs:write`, a durable remote ledger, a main-derived command ID and audit.
+The global history is withheld from selected-project grants and after changes
+to the conversation authority. Grants are rechecked after asynchronous admission.
+Overview returns digest summaries plus the actual device write capability.
+Explicit detail omits user text and carries input/output digests and question
+counts. Answers are redacted in full before 2,000-character Unicode-safe pages;
+question detail loads one item at a time. No native IDs or host paths reach wire DTOs.
+The shared UI loads the current answer automatically and earlier answers on demand.
+Its device-epoch cache is memory-only and is cleared on access failure or close.
+
+Origin-local conversation drafts and pending create/send keys are saved before
+dispatch, bounded to 1 MiB and 64 conversation drafts. Closing/reloading recovers
+the same key; acknowledgement clears only the matching text and request. Device
+forget removes this local recovery data. Question answers and audio are never
+stored there. A confirmed main admission refusal releases the retry key without
+erasing the draft; storage faults and uncertain transport retain it. Admission
+checks a durable receipt after a synchronous exception, so failures after acceptance
+cannot be mistaken for a safe opportunity to send a new message.
+
+`userData/ade/conversations.json` has atomic revisioned writes, an 8 MiB limit,
+64 conversations, 128 turns each and 8,192 command receipts. No silent pruning
+or replacement of corrupt/linked/drifted originals. A turn reserves 1 MiB before
+dispatch for its bounded complete result and questions. Durable receipts precede
+native dispatch; ambiguous delivery remains `uncertain` after process/app exit
+and cannot be replayed into that thread. Question answers retain digests and
+require exact native acknowledgement. Closing the dialog differs from interrupting
+the current turn and ending the conversation. Each conversation binds profile
+instructions/model/reasoning, supervised repository identity/backend/mode and tool
+contract. Changed authority requires a fresh native context; old detail stays
+readable on the desktop. Native workspace directories live outside project repos.
+
+The first production coordinator uses the pinned Codex policy and five read-only
+domain tools for supervised projects, status, instructions and handoffs. Every
+call revalidates authority and exact arguments. Long Unicode texts are chunked;
+they are not silently truncated. Project launch, write tools,
+event-driven wakeups and voice are subsequent contracts, not implied by this UI.
+
+Implementation is underway; [implemented contracts and evidence](MAIN_AGENT_IMPLEMENTATION.md)
+cover the shared session switcher, native Codex continuation and durable supervision metadata.
+`supervision:get`/`detail`/`briefing`/`handoff` are desktop reads; `supervision:command` is an audited
+desktop metadata mutation. No generic remote allowlist expansion. Signed host
+`/api/v1/supervision/query` and `/command` routes use `AdeApplicationService`, the
+existing remote ledger, `runs:write` for mutation, current resource grants and
+redacted wire DTOs. Remote session relations are mapped by the authorized terminal
+inventory, never by names or internal PTY IDs. The separate bounded
+store keeps user objectives outside orchestration summaries and project workspaces;
+only digests/lengths reach its summary DTO. It neither launches nor cancels work.
+Store version 2 adds up to 1,024 explicit project handoffs with immutable text,
+next step and original work target; open/done is a separate status change. Version
+1 migrates in memory and writes only on an explicit command. The existing 2 MiB
+store limit still applies; capacity refuses new writes instead of pruning notes.
+The morning view projects linked work states, pending-question counts and note
+digests. Full handoff text uses a scoped detail query. Suggestions are deterministic
+next-action hints, never evidence of a completed task or a launch authorization.
+
+Codex conversation mode supports bounded dynamic ADE tools via native
+`item/tool/call`. Thread/turn/call identities are checked, duplicates share one
+operation, changed identities fail closed, and abort signals expire with the turn.
+Each result is at most 16 KiB; result reservations cap the process cache at 2 MiB.
+Domain handlers must still validate exact arguments, current authority and durable
+idempotency before side effects. This transport alone does not restrict native
+Codex's other tools or implement the central coordinator. Codex 0.154 restores
+tool specifications from its rollout on resume; the conversation owner must pin
+its tool contract instead of assuming that resume replaces definitions.
+The explicit coordinator mode adds `CoordinatorCodexPolicy`: fixed native-Windows
+launch overrides, exact CLI 0.154.0 identity, effective config inspection before
+the first turn, and a read-only/no-network thread even when the selected coding
+profile allows bypass. Native execution, browser/computer, MCP, plugins and native
+subagents are disabled. `code_mode_host` remains enabled because this CLI also
+uses it to mediate dynamic ADE tools. Policy and native negative/positive probes
+are separate from authorization in future domain handlers. Unexpected native
+tool events close the connection; this does not promise rollback of prior effects.
+The policy is not inherited by ordinary project task mode.
+The [goal plan](MAIN_AGENT_GOALS.md) extends Goals 26/27/33: an ADE supervisor
+links separate project conversations and runs, with explicit session identity,
+observed capabilities, event correlation and per-project control ownership.
+Managed runs retain their single common-Git-directory boundary. An interactive
+conversation is not represented as a synthetic coding run; single-task launch,
+managed integration and persistent conversation are separate execution contracts.
+
+The desktop/tablet graph projects host-owned project/work relationships and
+navigates to the exact linked session/result. Native subagent relationships remain open.
+View selection, terminal input ownership and supervision authorization remain
+separate. Current managed leases can block interactive project launch, so direct
+takeover needs a validated handoff instead of relaxing workspace protections.
+Global voice needs its own session-independent recording contract; current
+dictation remains terminal-bound. Handoffs use the separate bounded supervision
+store, not an orchestration journal extension. New journal records must participate in archive
+and retention together with their owning records; renderer/wire redaction and
+the application-service/IPC boundaries continue to apply.
+
+[Source audit and focused evidence](MAIN_AGENT_BASELINE.md) distinguish existing
+session navigation, adapters and result inspection from the unimplemented
+automatic supervisor and global conversation from the implemented metadata/UI.
+
 ## Reviewed terminal reply speech (16 September 2026)
 
 `ReplySpeechService` owns bounded, expiring, window/device-bound speech receipts.

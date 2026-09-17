@@ -1,5 +1,36 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Zentraler ADE-Agent (Umsetzung läuft, 17. September 2026)
+
+ADE soll morgens den belegten Stand mehrerer Projekte und ausdrücklich
+gespeicherte Abendübergaben zusammenfassen und einen nächsten Schritt vorschlagen.
+Projekt 1 arbeitet in einer eigenen Codex-Sitzung, Projekt 2 brainstormt in
+einer eigenen Grok-Sitzung und Projekt 3 setzt seine Claude-Code-Arbeit fort.
+ADE betreut Projekt 1 und 3 parallel und vermittelt Rückfragen und Ergebnisse.
+Direkte Arbeit im einzelnen Projekt und optionale ADE-Betreuung bleiben möglich.
+
+Der globale Text-/Spracheinstieg benötigt kein zuvor geöffnetes Projekt oder
+Terminal. Graph, Work, Projekte und Terminals sollen auf PC und Tablet dieselben
+zugeordneten Arbeiten öffnen, ohne Doppelstart, Zielwechsel eines Entwurfs oder
+implizite Eingabeübernahme. Einfache Touch-Navigation und sichtbare Kontextwahl
+sind Teil der Abnahme. Unteragenten werden nur bei nachgewiesener Zuordnung
+angezeigt. **Arbeit wechseln** und der dauerhafte Betreuungsplan mit expliziten
+Sitzungs-/Run-Verbindungen sind auf PC/Tablet implementiert und fokussiert geprüft.
+Die gespeicherten Modi starten noch keine automatische Arbeit. Ein erster
+Textdialog auf PC/Tablet liest Projektstände und Übergaben über ADE-Werkzeuge und
+bewahrt seinen Verlauf. Geräte benötigen die vollständige Projektfreigabe;
+verlorene Sendequittungen werden mit derselben Vorgangs-ID geprüft. Gesprächsdiktat
+ohne Terminal ist angebunden: Vorschau prüfen, in die Nachricht übernehmen und
+ausdrücklich senden. Wechsel stoppt die Aufnahme und bewahrt den bisherigen
+Teil beim ursprünglichen Gespräch. Sprachwiedergabe, Aktivierung per Zuruf und
+ereignisgesteuerte Koordination bleiben offen. **Für nächste Session
+merken** speichert eine explizite Projektübergabe samt nächstem Schritt.
+**Morgenüberblick laden** zeigt verknüpfte Arbeitsstände, offene Übergaben und
+einen Vorschlag; vollständige Notizen werden über **Übergabe lesen** geöffnet.
+Diese Aktionen starten keine Projektarbeit. Erledigte Übergaben bleiben lesbar.
+[Umsetzungsstand und Nachweise](MAIN_AGENT_IMPLEMENTATION.md);
+[Goals und Pilot](MAIN_AGENT_GOALS.md), [vorhandene Fähigkeiten](MAIN_AGENT_BASELINE.md).
+
 ## Antwort anhören
 
 PC und Tablet bieten in interaktiven Terminals **Antwort anhören**. Markierung
