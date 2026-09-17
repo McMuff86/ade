@@ -84,3 +84,41 @@ explizite unbestätigte Zustände und positive Kontrollen nach Negativfällen.
 Weitere Verträge: [Implementierung](MAIN_AGENT_IMPLEMENTATION.md),
 [nächste technische Anbindung](MAIN_AGENT_NEXT.md),
 [Gesamtplan](MAIN_AGENT_GOALS.md), [Architektur](ARCHITECTURE.md).
+
+## Persönlicher Testbuild vorbereitet, Aktivierung wartet
+
+Codecommit **`5fd687f`** ist auf `origin/main`. Der unveränderte geprüfte Build
+liegt unter `dist/tablet-codex-b05242ffd1f239a77f72`; isolierter echter Electron-
+Start am 17. September 19:34 CEST bestanden. Alle drei kompilierten Oberflächen
+bestätigen dieselbe Source-ID. Plan, Artefakthashes und Startbeleg liegen unter
+`test-results/tablet-codex-release-plan.json` und
+`test-results/tablet-codex-isolated-release.json`.
+
+Das isolierte Git-Testprojekt ist unter
+`%USERPROFILE%/ADE-Testprojekte/Tablet-Codex-20260917` vorbereitet. Beim geprüften
+persönlichen Start wird es über normale ADE-IPC als **ADE-Tablet-Test** registriert,
+auf **Koordinieren** gestellt und ein frisches Codex-Gespräch ohne Modellaufruf
+angelegt. Die sechs bestehenden Profile, fünf bestehenden Projekte und die
+Samsung-Kopplung werden erhalten; Profilzulassung separat ohne Änderung des
+persönlichen Zustands geprüft. Der private Zielzugang bleibt
+`https://number-cruncher.tailfc0b86.ts.net/`.
+
+Die Aktivierung hat **noch nicht stattgefunden**: Der Vorabcheck erkannte in der
+alten ADE-Instanz (PID 65624) eine interaktive Codex-Sitzung mit Prozessbaum.
+Keine aktiven Run-/Task-Datensätze, aber ein beendeter Run beweist keine freie
+interaktive Sitzung. Deshalb wurde der Neustart vor jeder Beendigung angehalten
+und Adi ausdrücklich gefragt, ob diese Sitzung beendet werden darf. Diese
+Entscheidung steht aus; keine Zustimmung aus Wartezeit ableiten.
+
+Bei bestätigter Freigabe führt
+`test-results/restart-tablet-codex-release.ps1 -RestartInteractiveSessions`
+den vorbereiteten Wechsel durch: Prozessidentität und Artefakte prüfen,
+Profildaten sichern, vorhandene Tray-Beenden-Aktion verwenden, neuen Release
+starten, Originalkatalog/Kopplung und tatsächlich über privates HTTPS geliefertes
+Bundle prüfen und erst dann die Startmenü-Verknüpfung aktualisieren. Danach
+`activation.json`/Neustartbeleg prüfen und diesen Handoff auf den tatsächlichen
+Betriebsstand aktualisieren. Bei erhaltener Sitzung bleibt der neue Release
+vorbereitet; keinen zweiten Host mit demselben persönlichen Profil starten.
+
+Die temporäre Implementierungs-Arbeitskopie wurde nach Inhaltsvergleich entfernt;
+ihre Prüfarbeitsdateien liegen unter `test-results/tablet-codex-work-evidence`.

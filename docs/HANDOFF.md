@@ -15,7 +15,13 @@ Globale MCP-Einträge werden pro Koordinatorprozess deaktiviert; Policy **35/0**
 native Konfiguration **3/0**. Finale Gesamtabnahme **Exit 0**, 19:07–19:32 CEST:
 drei TypeScript-Projekte, **89 Suiten / 3.652 Prüfungen**, Build und alle
 Bedien-/Visualdriver. Source-ID `b05242ffd1f239a77f72`, Log im Hauptcheckout unter
-`test-results/tablet-codex-verify-final.log`. Persönliche Aktivierung steht noch aus.
+`test-results/tablet-codex-verify-final.log`. Codecommit **`5fd687f`** auf
+`origin/main`, separater Release und isolierter Electron-Start geprüft.
+**Aktivierung wartet auf Adis Entscheidung:** In der alten ADE-Instanz läuft
+noch eine interaktive Codex-Sitzung. Vor dem Beenden wurde angehalten und eine
+Neustartfreigabe angefragt. Keine Prozesse beendet, keine Zustimmung unterstellen.
+Konkreter Release, Testprojekt, Wechsel-Script und Belege stehen im
+[Betriebsabschnitt des Lieferplans](TABLET_CODEX_GOAL.md#persönlicher-testbuild-vorbereitet-aktivierung-wartet).
 [Tablet-Bedienanleitung](TABLET_CODEX_TEST.md). Die folgenden Haltepunkte sind historisch.
 
 ## Gewünschter Haltepunkt vom 17. September 2026

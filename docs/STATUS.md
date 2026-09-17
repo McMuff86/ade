@@ -22,8 +22,11 @@ hier nicht reproduzierbar; zusätzliche native Schreib-/OS-Lesenachweise bestehe
 **77/0**, ohne eine historische Ursache zu behaupten. Die finale Gesamtabnahme
 des neuen Codes besteht **Exit 0** (19:07–19:32 CEST): drei TypeScript-Projekte,
 **89 Suiten / 3.652 Prüfungen**, Build und sämtliche Electron-/Browser-/Visualdriver.
-Source-ID `b05242ffd1f239a77f72`. Persönliche Aktivierung und physischer Tablet-Test
-noch offen. [Lieferplan](TABLET_CODEX_GOAL.md), [Testanleitung](TABLET_CODEX_TEST.md).
+Source-ID `b05242ffd1f239a77f72`, Codecommit `5fd687f` gepusht. Separater Release
+und isolierter Electron-Start bestanden. Persönliche Aktivierung wartet auf
+Adis Entscheidung zum Beenden der noch offenen Codex-Sitzung; der Vorabcheck
+hat nichts beendet. Physischer Tablet-Test bleibt offen.
+[Lieferplan](TABLET_CODEX_GOAL.md), [Testanleitung](TABLET_CODEX_TEST.md).
 
 Die folgenden Checkpoints sind historische Zustände vor dieser Wiederaufnahme.
 
