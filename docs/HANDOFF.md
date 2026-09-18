@@ -1,5 +1,19 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Stimmtest mit englisch ausgesprochenem Agent
+
+18. September, **07:00 CEST**: Source **`0ad73a9e9d0db5218f6f`**, PID **4776**,
+Release `dist/voice-copy-0ad73a9e9d0db5218f6f`. Sichtbarer Aussprachehinweis
+entfernt; Stimmtest „Hallo Adi, ich bin dein Agent.“ mit englischer Agent-Phonetik
+nur beim Provider. Adi-Vorgabe bleibt erhalten. Build und fokussierte Sprachtests
+**62/0**, **32/0** bestanden; keine vollständige Prüfung auf ausdrücklichen Wunsch.
+Die aktualisierten Desktop-/Tablet-UI-Assertions wurden dabei nicht erneut ausgeführt.
+Vorherige PID 40124 regulär beendet; sechs Profile, sechs Projekte und eine
+Tablet-Kopplung erhalten. Privates HTTPS liefert bytegleich den neuen Build.
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\VoiceCopy-20260918-070009`.
+Belege: `test-results/voice-copy-build-exit.json`, `voice-copy-restart.json` und
+`activation.json` im Release. Keine neue kostenpflichtige Hörprobe ausgelöst.
+
 ## Aktiviert: nativer Tablet-Auftrag und saubere Projektanweisungen
 
 Anschlussstabilisierung am 18. September: echter Codex mit Produktionsqueue,
@@ -9,7 +23,7 @@ Einzelaufträge schrieben bisher Profil/Memory in `AGENTS.md`; deterministisch
 prüft ihn vor dem Start erneut. Positive Electron-Kontrolle **57/0**, echter
 Codex-/Tablet-Durchlauf **16/0**. Vollständiges `pnpm verify` **Exit 0**,
 90 Suiten / 3.709 Prüfungen plus alle Bedien-/Darstellungstests.
-Aktuelles persönliches ADE seit **04:15 CEST**: Source **`5cf7ef2ca9b2b4a1ad54`**,
+Damals aktiviertes persönliches ADE um **04:15 CEST**: Source **`5cf7ef2ca9b2b4a1ad54`**,
 PID **40124**, Release `dist/tablet-native-5cf7ef2ca9b2b4a1ad54`.
 Vorherige PID 15008 regulär beendet; sechs Profile/sechs Projekte/eine Kopplung
 und aktuelles privates HTTPS-Bundle bestätigt. Sicherung:

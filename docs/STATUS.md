@@ -1,5 +1,14 @@
 # ADE implementation status
 
+## Aktiviert: kurzer Stimmtest-Text (18. September 2026)
+
+Aussprachehinweis aus der gemeinsamen Stimmenansicht entfernt. Der Stimmtest
+stellt sich als „dein Agent“ vor; nur diese Vorlage erhält englische
+Agent-Phonetik. Build und gezielte Sprachprüfungen **62/0** und **32/0** bestanden.
+Auf Benutzerwunsch keine erneute Gesamtabnahme. Persönlich aktiviert um
+**07:00 CEST**, Source **`0ad73a9e9d0db5218f6f`**, PID **4776**; Tablet liefert
+den neuen Build, Profile/Projekte/Kopplung erhalten. [Vertrag](VOICE_SETTINGS.md).
+
 ## Aktiviert: durchgängiger nativer Tablet-Auftrag (18. September 2026)
 
 Echter Codex, signierte Tablet-Oberfläche, Produktionsqueue und Wiederaufnahme

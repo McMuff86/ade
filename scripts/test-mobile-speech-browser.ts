@@ -52,7 +52,7 @@ void (async()=>{
   check('mobile CSP permits actual MP3 playback',await speech.getByLabel('Stimmtest Wiedergabe').evaluate(node=>(node as HTMLAudioElement).ended));
   check('tablet displays the shared stability default',await speech.getByRole('slider',{name:'Stabilität',exact:true}).inputValue()==='0.9');
   await speech.getByRole('slider',{name:'Stabilität',exact:true}).fill('0.65');
-  check('tablet names v3 and hides unsupported provider controls', (await speech.innerText()).includes('Eleven v3') && await speech.getByRole('slider').count() === 1);
+  check('tablet names v3 without pronunciation notes or unsupported controls', (await speech.innerText()).includes('Eleven v3') && !(await speech.innerText()).includes('Aussprachevorgabe') && await speech.getByRole('slider').count() === 1);
   await speech.getByRole('button',{name:'Stimme testen',exact:true}).click();
   await speech.getByText('Stimmtest vollständig abgespielt.',{exact:true}).waitFor();
   check('tablet previews native parameters without saving',lastDelivery.stability===0.65 && Object.keys(lastDelivery).join()==='stability' && !store.get().settings.speechTuning);

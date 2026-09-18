@@ -1,11 +1,14 @@
-import type { SpeechTuning } from '../../shared/speech';
+import { SPEECH_TEST_TEXT, type SpeechTuning } from '../../shared/speech';
 
 export const SPEECH_MODEL = 'eleven_v3';
 export type DialogueConnect = (url: string) => WebSocket;
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 
-/** Provider-only pronunciation: display, prompts and cached previews retain the name. */
-export const speechPronunciation = (text: string): string => text.replace(/(?<![\p{L}\p{N}_])Adi(?![\p{L}\p{N}_])/gu, '"/ˈadi/"');
+/** Provider-only pronunciation: display and previews retain ordinary spelling. */
+export const speechPronunciation = (text: string): string => {
+  const spoken = text === SPEECH_TEST_TEXT ? text.replace('dein Agent', 'dein "/ˈeɪdʒənt/"') : text;
+  return spoken.replace(/(?<![\p{L}\p{N}_])Adi(?![\p{L}\p{N}_])/gu, '"/ˈadi/"');
+};
 
 /** One bounded utterance. Only a final receipt completes it; never replay an interrupted paid request. */
 export function dialogueAudio(input: { key: string; voiceId: string; text: string; tuning: SpeechTuning;

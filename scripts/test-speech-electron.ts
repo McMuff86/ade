@@ -67,7 +67,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await section.getByRole('button', { name: 'Stimmen laden', exact: true }).click();
   check('female voice survives closing settings', await section.getByLabel('Stimme', { exact: true }).inputValue() === female);
   check('computer stability default appears in the settings', await section.getByRole('slider', { name: 'Stabilität', exact: true }).inputValue() === '0.9');
-  check('model and pronunciation are visible without unsupported controls', (await section.innerText()).includes('Eleven v3') && (await section.innerText()).includes('kurzem A') && await section.getByRole('slider').count() === 1);
+  check('model is visible without pronunciation notes or unsupported controls', (await section.innerText()).includes('Eleven v3') && !(await section.innerText()).includes('Aussprachevorgabe') && await section.getByRole('slider').count() === 1);
   await section.getByRole('slider', { name: 'Stabilität', exact: true }).fill('0.6');
 
   await section.getByRole('button', { name: 'Stimme testen', exact: true }).click();

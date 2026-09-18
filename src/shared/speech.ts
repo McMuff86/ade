@@ -20,7 +20,7 @@ export const computerGreeting = (hour: number): string => [
   'Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.',
 ].join(' ');
 export const isComputerCall = (text: string): boolean => /^\s*(?:hey[,\s]+)?computer[.!?,\s]*$/iu.test(text);
-export const SPEECH_TEST_TEXT = 'Hallo Adi, hier spricht ADE. Die Sprachausgabe über ElevenLabs funktioniert. Ich bin bereit für unseren nächsten Schritt.';
+export const SPEECH_TEST_TEXT = 'Hallo Adi, ich bin dein Agent. Die Sprachausgabe über ElevenLabs funktioniert. Ich bin bereit für unseren nächsten Schritt.';
 export const validVoiceId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9]{10,80}$/.test(value);
 
 export type SpeechTarget = { kind: 'default' } | { kind: 'project'; repositoryId: string } | { kind: 'agent'; agentId: string; repositoryId?: string };

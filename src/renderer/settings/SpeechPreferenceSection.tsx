@@ -45,7 +45,7 @@ export function SpeechPreferenceSection({ port, enabled = true, pending = false,
         {state.voices.map(voice => <option key={voice.id} value={voice.id}>{voice.name}{voice.gender === 'female' ? ' · Weiblich' : voice.gender === 'male' ? ' · Männlich' : ''}</option>)}
       </select></label>
       <p>Wirksam: <strong>{effective?.name ?? 'Keine verfügbare Stimme'}</strong> · Quelle: {sources[state.source]}</p>
-      <p>Eleven v3 · Text to Dialogue. Aussprachevorgabe: „Adi“ mit kurzem A.</p>
+      <p>Eleven v3 · Text to Dialogue.</p>
       {!effective && <p role="status">Die gewählte oder geerbte Stimme ist nicht verfügbar. Stimmen neu laden oder eine andere Stimme wählen.</p>}
       {state.target.kind === 'default' ? <>
         <p>Die Stabilität gilt für PC und Tablet, auch für die Computer-Begrüssung. Änderungen zuerst probehören, danach speichern. Tempo, Stimmähnlichkeit, Stil und Speaker Boost werden von dieser v3-Verbindung nicht unterstützt.</p>

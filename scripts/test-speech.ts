@@ -24,6 +24,7 @@ void (async () => {
     generation++;
     const input = JSON.parse(String(init?.body));
     check('generation sends only server-owned German text with pronunciation and v3 model', input.text === speechPronunciation(greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_v3' && input.language_code === 'de');
+    if (!greeting) check('voice check introduces an English-pronounced Agent', input.text.startsWith('Hallo "/ˈadi/", ich bin dein "/ˈeɪdʒənt/".'));
     check('voice preview and greeting use the same even computer delivery at the provider boundary',
       input.voice_settings?.stability === 0.9 && Object.keys(input.voice_settings).join() === 'stability');
     return new Response(new Uint8Array(large ? 2 * 1024 * 1024 + 1 : 512), { headers: { 'content-type': invalidType ? 'text/html' : 'audio/mpeg' } });
@@ -36,6 +37,7 @@ void (async () => {
   await service.select(male); check('explicit voice selection persists', settings.speechVoiceId === male && (await service.catalog()).selectedVoiceId === male);
   await service.select(female);
   const audio = await service.test(female);
+  check('voice check preview keeps ordinary Agent spelling', audio.text.startsWith('Hallo Adi, ich bin dein Agent.') && !audio.text.includes('ADE') && !audio.text.includes('/'));
   check('result contains bounded MP3 and no key', Buffer.from(audio.base64, 'base64').length === 512 && !JSON.stringify(audio).includes('private-secret') && audio.voiceId === female);
   await refuses('unknown voice cannot trigger a paid generation', () => service.test('UnknownVoice12345'));
   check('rejected voice makes no paid request', generation === 1);

@@ -5,6 +5,18 @@ verwendet Text to Dialogue WebSocket. Dort ist nur Stabilität unterstützt; die
 anderen Regler dieses historischen v2-Vertrags sind nicht mehr wirksam.
 Stimmenwahl bleibt erhalten. [Aktueller Vertrag und Nachweise](ELEVEN_V3_RESULTS.md).
 
+**Kurze Textkorrektur (18. September):** Der sichtbare Aussprachehinweis entfällt
+auf PC und Tablet. Der Stimmtest beginnt mit „Hallo Adi, ich bin dein Agent.“.
+Nur in dieser festen Vorlage erhält „Agent“ beim Provider die englische
+Aussprache `/ˈeɪdʒənt/`; der angezeigte Text bleibt normal geschrieben.
+Die bestehende Aussprachevorgabe für Adi bleibt erhalten. Auf ausdrücklichen
+Wunsch erfolgt diese Auslieferung mit Build und gezielter Sprachprüfung,
+ohne erneute vollständige `pnpm verify`-Abnahme.
+Build bestanden, Sprachverträge **62/0**, Dialogue-Verträge **32/0**.
+Persönlich aktiviert um **07:00 CEST**, Source **`0ad73a9e9d0db5218f6f`**;
+aktuelles Tablet-Bundle und erhaltene Profile/Kopplung bestätigt. Die aktualisierten
+UI-Assertions wurden bei dieser kurzen Auslieferung nicht erneut ausgeführt.
+
 **Aktiviert:** Der geprüfte Release **35c3eec** mit Source-ID **71abb464e4bc9b4196cc** ist seit 16. September 2026, 14:48 CEST persönlich aktiv (PID 52412). Stimmen-Tab, Standardtempo 0.85 und passive WSL-Erkennung sind auf Desktop und ausgeliefertem Tablet-Bundle bestätigt. Profile, Projekte und Kopplung erhalten. [Aktivierung, Sicherung und Nachweise](VOICE_SETTINGS_ACTIVATION.md). Die folgenden ausstehenden Aktivierungsangaben sind historisch.
 
 Der Operator wünscht nach der Hörprobe ein langsameres Tempo und einen eigenen

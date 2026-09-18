@@ -65,7 +65,7 @@ void (async () => {
   late.peer.open(); allowed = false; late.peer.message({ audio: audio.toString('base64'), is_final: true });
   await refuses('revocation before the final receipt rejects audio', late);
   check('short-A phonetics target only the whole name', speechPronunciation('Hallo Adi, Adi! Adile Adi2 xAdi _Adi ÄAdi Adié.') === 'Hallo "/ˈadi/", "/ˈadi/"! Adile Adi2 xAdi _Adi ÄAdi Adié.');
-  check('ordinary answer content is unchanged', speechPronunciation('Die Datei ist fertig.') === 'Die Datei ist fertig.');
+  check('ordinary answers do not inherit the voice-check Agent override', speechPronunciation('Dein Agent meldet: Die Datei ist fertig.') === 'Dein Agent meldet: Die Datei ist fertig.');
   const final = start(); final.peer.open(); final.peer.message({ audio: audio.toString('base64'), is_final: true });
   check('final positive control still completes', (await final.promise).length === 256);
   console.log(`Eleven dialogue: ${passed} passed, 0 failed`);
