@@ -3,6 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ElectronApplication, Locator, Page } from 'playwright';
 import { expandSessionControls } from './terminalControls';
+import { terminalInputEchoFlow } from './terminalInputEchoFlow';
+import { terminalRecoveryFlow } from './terminalRecoveryFlow';
 
 async function samples(page: Page, terminal: Locator, burst: number, raw?: { count: number; offset: number }): Promise<number[]> {
   const direct = terminal.getByLabel('Direkte Terminal-Eingabe', { exact: true });
@@ -52,6 +54,8 @@ export async function terminalLatencyFlow(app: ElectronApplication, desktop: Pag
   await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
   await dialog.getByLabel('Direkte Terminal-Eingabe', { exact: true }).waitFor();
   await page.waitForFunction(() => !document.querySelector<HTMLTextAreaElement>('[aria-label="Direkte Terminal-Eingabe"]')?.disabled);
+  await terminalInputEchoFlow(desktop, page, dialog, evidence, check);
+  await terminalRecoveryFlow(desktop, page, dialog, evidence, check);
   await page.evaluate(() => performance.clearResourceTimings());
   const single = await samples(page, dialog, 1);
   writeFileSync(join(evidence, 'terminal-latency-singles.json'), JSON.stringify(single));

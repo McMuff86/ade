@@ -29,6 +29,18 @@ and immediately before native spawn. The separate single-task contract applies;
 this is not an automatically integrated managed multi-agent run. Ending the
 central conversation does not cancel an already accepted project task.
 
+Question-enabled native Codex single-task launches capture bounded profile and
+optional memory through `buildInteractiveProfileSnapshot` and pass that read-only
+context in the main-owned task prompt. They do not use legacy instruction-file
+injection: repository `AGENTS.md` must remain untouched before file tracking and
+execution. Repository instructions and the actual task take precedence over the
+snapshot, which does not authorize writes to external memory files. Main rechecks
+the snapshot immediately before spawn and refuses changed/unreadable context.
+Managed phase launches retain their existing external task context. The native
+tablet driver exercises real Codex, the signed browser, production queue, lost
+receipts, pending questions, file results and a restart after completed work;
+physical Android input remains a separate acceptance step.
+
 Desktop `conversation:actionsQuery` and audited launch
 `conversation:actionsCommand` remain desktop-only. Signed host POST routes
 `/api/v1/conversation/actions/query` and `/command` use only
@@ -203,14 +215,16 @@ and output. The component never changes drafts or dispatches CLI input.
 an optional strict `SpeechPreset`: `voice-check` or `computer-greeting`.
 Main chooses bounded German text from host time. Arbitrary text is rejected.
 Speech delivery uses optional validated `Settings.speechTuning`, with default
-speed 0.85, stability 0.9, similarity 0.75, style 0 and speaker boost on.
+stability 0.9. The legacy speed/similarity/style/boost fields remain validated
+and stored for compatibility, but the v3 dialogue WebSocket supports only stability.
 `speech:configure` may save all five bounded parameters only for the default
 target. `speech:test` accepts a validated unsaved preview only for voice-check;
 the Computer greeting always uses persisted delivery. Main snapshots values and
-explicitly maps them to request-local `voice_settings`. No provider-account
+explicitly maps stability to request-local `voice_settings`. The shared voice
+settings show only supported controls, the v3 model and the short-A name rule. No provider-account
 settings are changed. The shared Settings/Stimme tab uses the existing signed,
 idempotent speech command, global-target authorization and recovery drafts;
-IPC policy and generic remote allowlists stay unchanged. [Contract](VOICE_SETTINGS.md).
+IPC policy and generic remote allowlists stay unchanged. [Current contract](ELEVEN_V3_RESULTS.md).
 The greeting welcomes Adi and explains explicitly choosing Diktieren, reviewing
 the draft and sending it to the selected session. It claims neither an active
 microphone nor knowledge of previous work. Greeting clients cannot override delivery.
@@ -332,6 +346,22 @@ are suppressed centrally, including desktop/mobile handoff. The bounded input
 queue coalesces for 8 ms and keeps ordered single-flight delivery. No speculative
 terminal characters are rendered; the composer is local text.
 
+Explicit mobile terminal form submission can overlap a resize/lease heartbeat
+before React disables its button. It waits at most five seconds for local
+backpressure, rechecks session/lease/connectivity before dispatch and never
+retries a failed or unacknowledged transmission. Its acknowledgement clears
+only the submitted draft version. Special-key buttons use `TerminalInputQueue`
+so a heartbeat cannot silently discard the click. The native `--input-race-only`
+driver holds a heartbeat to exercise this interleaving and disconnect recovery.
+Lifecycle commands reserve their turn before waiting up to five seconds for an
+existing input request. The reservation prevents later heartbeats from overtaking
+the action; duplicate clicks are ignored. A changed connection, selection or active
+workspace cancels an unsent action. A dispatched command retains its durable
+idempotency receipt and is never automatically replayed. Profile launch follows
+the same pre-dispatch wait before its query/open transaction. The same native
+driver covers queued release, duplicate taps, disconnect cancellation and deliberate
+takeover/release afterwards.
+
 ## Managed Work navigation
 
 `shared/appViews.ts` owns navigation identities and order. Desktop `WorkView`
@@ -349,9 +379,20 @@ are unchanged. New Run takes focus, traps Tab and restores its opener on close.
 Desktop speech uses `speech:voices`, `speech:select` and `speech:test`; all are
 desktop-only IPC. Network calls are classified `host`, selection is `mutate`.
 `SpeechService` obtains the scoped ElevenLabs credential in main, uses a fixed
-HTTPS provider with redirects refused, 30-second timeout and bounded 2-MiB
-responses. Only validated voice metadata and MP3 base64 reach the renderer;
-provider error bodies and keys never do. Test text/model are fixed in main.
+HTTPS voice catalog with redirects refused. Synthesis uses the fixed
+`wss://api.elevenlabs.io/v1/text-to-dialogue/stream-input` endpoint and explicit
+`eleven_v3`, German, MP3 output. The first frame registers the voice and supplies
+the credential; `inputs` carries the reviewed utterance, followed by `close_socket`.
+Only `is_final` completes the bounded 2-MiB/30-second stream. A turn-end marker,
+close, error or timeout cannot return partial audio or retry a paid request.
+Abort and repeated authorization checks close the provider socket. Frames and
+base64 are validated; errors contain no upstream payloads. Received chunks are
+assembled for existing owner-bound playback rather than streamed over the host API.
+The provider-only pronunciation pass replaces the whole word Adi with quoted
+IPA `/ˈadi/`; previews retain Adi. Usage records `eleven_v3` and provider-text
+characters; historical v2 records remain valid. Only validated voice metadata
+and MP3 base64 reach the renderer; provider error bodies and keys never do.
+Test text/model are fixed in main.
 One generation may run at a time. `settings.speechVoiceId` stores only the voice
 identifier; older profiles suggest an available female voice. Renderer CSP
 allows `media-src data:` for this playback, with sandbox/context isolation
@@ -663,6 +704,13 @@ local configuration. Fixed argv disables hooks, external diff/text conversion,
 submodule recursion and inherited Git environment overrides. No reset/stash or
 implicit merge commit. Selective commit preserves other staged files. Fetch writes
 only remote-tracking refs; pull uses a reviewed cached SHA and fast-forward only.
+
+The read-only Git overview includes `recentCommits`: at most five commits reachable
+from its pinned HEAD, newest first, with SHA, bounded/redacted subject and author,
+and an ISO author date. Unborn branches return an empty list. The shared PC/tablet
+Git panel exposes it in a keyboard-operable disclosure under the status; reads
+remain available while a live shell blocks Git mutations. Refresh and successful
+Git actions read the history again. No new IPC channel or permission is needed.
 
 Typed `project:query` / `project:command` desktop dispatch and dedicated signed
 project routes call this service through `AdeApplicationService`. Queries require
@@ -997,6 +1045,45 @@ Overview; historical records retain identities and detached-context markers.
 Successful catalog-mutating IPC handlers emit the existing `catalog:changed`
 event through `rendererWindows`. The event contains only a revision; consumers
 re-read their authorized projection. Failed mutations emit no success event.
+
+Redacted terminal lines are laid out with the same headless xterm cell widths as
+the client. The caret is mapped onto the complete redacted text, preserving the
+prompt's input space, wrapped command text, wide/combining characters and the
+visible part of a scrolled prompt. A marker is inserted only into already-safe
+text in a temporary main-only projection, never into raw text before redaction.
+Contextual credentials spanning hard newlines rebuild the safe viewport as well
+as its caret. Untouched lines retain their styled cells. Projection caches use
+the captured output version so output arriving during layout is not lost.
+The mobile IME preview uses that projected caret; it remains unsubmitted until
+xterm commits composition. After a dimension change the browser clears xterm's
+reflowed local buffer before writing the authoritative frame. This removes a
+retained base/viewport offset even with scrollback disabled, while preserving
+keyboard modes and an active composition. Absolute host paths remain masked on
+the wire; history stays in the separate transcript view.
+The terminal footer exposes an end-session action even while the keyboard hides
+the workspace controls. It shares the collapsed text-editor row without a
+keyboard, and stays fixed beside the scrollable special-key row with one,
+uses the existing ownership/online checks and confirmation, and restores focus to
+its opener on cancellation or to a visible launcher/fallback after actual close.
+Closing the containing workspace view continues to leave the PTY running.
+Connection loss and failed display reads leave the last frame visible but pause
+direct keys, special keys and submitted text. Reconnection must complete a fresh
+display read before input resumes; delayed prompt submission also checks current
+connection/display readiness after waiting for the input queue. A failed read
+clears unsent queued keys. Empty resize/lease heartbeats and explicit session
+close remain independent of display readiness. No unacknowledged input is replayed.
+A recovery strip remains visible above the terminal with the software keyboard
+open: explicit reconnect, display reload, or desktop-to-tablet input takeover.
+Reconnection never implicitly takes ownership from the desktop or another device.
+Successful explicit recovery restores terminal focus if the user has not moved it.
+Display readiness blocks prompt delivery without unmounting the voice composer
+or its editor. Local drafts remain editable and the existing connection-loss
+handler can preserve a live dictation preview with its recovery notice.
+The mobile project header exposes a keyboard-accessible Workspace-Info dialog
+using only the existing safe workspace DTO. The trusted desktop alone can expand
+the exact workspace root from its local config catalog, matched by workspace ID
+(including linked worktrees, never substituted with the repository root).
+This root is not presented as the shell's current directory; wire masking remains.
 Mobile shell responses inject a fresh style-only CSP nonce. xterm's scoped
 document override nonces its generated style elements; script policy stays
 `script-src 'self'`, with no unsafe-inline/eval exception.

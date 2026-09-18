@@ -25,6 +25,7 @@ createInterface({ input: process.stdin }).on('line', line => {
   }
   if (m.method === 'turn/start') {
     const id = 'turn-' + ++state.turn; const prompt = m.params.input[0].text;
+    state.lastPrompt = prompt;
     if (prompt.startsWith('remember:')) state.secret = prompt.slice(9);
     writeFileSync(file, JSON.stringify(state));
     ok({ turn: { id } }); event('turn/started', { turn: { id } });

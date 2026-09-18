@@ -28,6 +28,8 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [membershipNotice, setMembershipNotice] = useState('');
   const [workspaceId, saveWorkspaceId] = useDeviceDraft<string | null>(host.deviceId, 'project-selected', null);
   const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
+  const [workspaceInfo, setWorkspaceInfo] = useState(false);
+  const infoButton = useRef<HTMLButtonElement>(null);
   const [terminalId, setTerminalId] = useState<string>();
   const [pendingBranch, savePendingBranch] = useDeviceDraft<PendingBranch | null>(host.deviceId, `project-branch:${workspaceId ?? 'none'}`, null);
   const [pendingGit, savePendingGit] = useDeviceDraft<PendingProjectGit | null>(host.deviceId, `project-git:${workspaceId ?? 'none'}`, null);
@@ -94,7 +96,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     } catch (reason) { if (live.current) setError(reason instanceof Error && !(reason instanceof MobileClientError) ? reason.message : workspaceError(reason)); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
-  const close = () => { setSelected(undefined); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); setError(''); };
+  const close = () => { setWorkspaceInfo(false); setSelected(undefined); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); setError(''); };
   const membership = async (entry: ProjectDirectoryEntry, included: boolean) => {
     if (lock.current || !online) return;
     lock.current = true; setBusy(true); setError(''); setMembershipNotice('');
@@ -127,7 +129,8 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
       opener.current = event.currentTarget; setSelected(directory?.entries.find((entry) => entry.id === opening.entryId)
         ?? { id: opening.entryId, name: opening.name, kind: 'repository', backend: 'native', source: 'root', notice: null });
     }}>Workspace-Öffnung prüfen</button></div>}
-    {show && <Dialog title={`Projekt · ${name}`} onClose={close} fallbackId="view-tab-projects" restoreFocusTo={opener.current} className={`m-independent-project ${workspace ? `m-agent-workspace ${section === 'terminal' ? 'm-terminal-workspace' : 'm-project-git-workspace'}` : ''}`}>
+    {show && <Dialog title={`Projekt · ${name}`} onClose={close} fallbackId="view-tab-projects" restoreFocusTo={opener.current} className={`m-independent-project ${workspace ? `m-agent-workspace ${section === 'terminal' ? 'm-terminal-workspace' : 'm-project-git-workspace'}` : ''}`}
+      headerActions={workspace && canRead && <button ref={infoButton} className="m-workspace-info-button" onClick={(event) => { event.currentTarget.focus(); setWorkspaceInfo(true); }}>Workspace-Info</button>}>
       <div className="m-project-context">
       {workspace && canRead ? <ProjectWorkspaceSummary workspace={workspace} /> : <p>Den vorhandenen Projektordner öffnen. Sein Branch und seine Dateien bleiben erhalten.</p>}
       {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>}
@@ -154,6 +157,12 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
             query={branchQuery} apply={publishApply} errorText={workspaceError} pending={pendingPublish} savePending={savePendingPublish} /></div>)}
       {workspace && <details><summary>Agent-Arbeitskopie</summary><p>Eine bereits eingerichtete Agent-Arbeitskopie über den bisherigen Einstieg verwenden.</p>
         <button onClick={() => { const id = workspace.repositoryId; close(); onAgentWorkspace(id); }}>Agent-Arbeitskopie öffnen</button></details>}
+      {workspaceInfo && workspace && canRead && <Dialog title="Workspace-Info" onClose={() => setWorkspaceInfo(false)} restoreFocusTo={() => infoButton.current} fallbackId="view-tab-projects">
+        <ProjectWorkspaceSummary workspace={workspace} />
+        <p>Der vollständige Workspace-Pfad ist in ADE am PC aufklappbar. Auf dem Tablet werden PC-Pfade als [path] maskiert.</p>
+        <p>Die Shell kann in einen Unterordner gewechselt sein; diese Angaben beschreiben den geöffneten Workspace.</p>
+        {!online && <p role="status">PC nicht verbunden. Die Angaben können veraltet sein.</p>}
+      </Dialog>}
     </Dialog>}
   </>;
 }

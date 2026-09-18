@@ -45,33 +45,29 @@ export function SpeechPreferenceSection({ port, enabled = true, pending = false,
         {state.voices.map(voice => <option key={voice.id} value={voice.id}>{voice.name}{voice.gender === 'female' ? ' · Weiblich' : voice.gender === 'male' ? ' · Männlich' : ''}</option>)}
       </select></label>
       <p>Wirksam: <strong>{effective?.name ?? 'Keine verfügbare Stimme'}</strong> · Quelle: {sources[state.source]}</p>
+      <p>Eleven v3 · Text to Dialogue. Aussprachevorgabe: „Adi“ mit kurzem A.</p>
       {!effective && <p role="status">Die gewählte oder geerbte Stimme ist nicht verfügbar. Stimmen neu laden oder eine andere Stimme wählen.</p>}
       {state.target.kind === 'default' ? <>
-        <p>Diese Stimmparameter gelten für ADE auf PC und Tablet, auch für die Computer-Begrüssung. Änderungen zuerst probehören, danach speichern.</p>
+        <p>Die Stabilität gilt für PC und Tablet, auch für die Computer-Begrüssung. Änderungen zuerst probehören, danach speichern. Tempo, Stimmähnlichkeit, Stil und Speaker Boost werden von dieser v3-Verbindung nicht unterstützt.</p>
         <fieldset className="speech-tuning" disabled={!enabled || busy || pending}>
           <legend>Stimmparameter</legend>
           {([
-            ['speed', 'Tempo', 0.7, 1.2, 'Unter 1,00 spricht die Stimme langsamer.'],
             ['stability', 'Stabilität', 0, 1, 'Höhere Werte sorgen für gleichmässigere Betonung.'],
-            ['similarityBoost', 'Stimmähnlichkeit', 0, 1, 'Wie stark die gewählte Originalstimme erhalten bleibt.'],
-            ['style', 'Stil', 0, 1, 'Höhere Werte betonen den Ausdruck der Stimme stärker.'],
           ] as const).map(([key, label, min, max, help]) => <label key={key}>
             <span>{label} <output>{tuning[key].toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</output></span>
             <input type="range" aria-label={label} min={min} max={max} step={0.01} value={tuning[key]} onChange={event => changeTuning({ ...tuning, [key]: Number(event.target.value) })} />
             <small>{help}</small>
           </label>)}
-          <label className="speech-boost"><input type="checkbox" checked={tuning.speakerBoost} onChange={event => changeTuning({ ...tuning, speakerBoost: event.target.checked })} />Speaker Boost</label>
-          <small>Unterstützt die Ähnlichkeit zur Originalstimme und kann die Erzeugung etwas verlängern.</small>
           <div className="speech-tuning-actions">
             <button type="button" disabled={!dirty} onClick={() => void run(async () => {
               stop(); setSource(''); await port.select(state.selectedVoiceId, tuning); await load(); if (live.current) setNotice('Stimmparameter gespeichert. Gilt auf PC und Tablet.');
             })}>Parameter speichern</button>
             <button type="button" disabled={!dirty} onClick={() => changeTuning({ ...state.tuning })}>Änderungen verwerfen</button>
-            <button type="button" onClick={() => changeTuning({ ...DEFAULT_SPEECH_TUNING })}>Ruhiger Computer</button>
+            <button type="button" onClick={() => changeTuning({ ...tuning, stability: DEFAULT_SPEECH_TUNING.stability })}>Ruhiger Computer</button>
           </div>
         </fieldset>
         {dirty && <p role="status">Ungespeicherte Stimmparameter. „Stimme testen“ verwendet diese Vorschau.</p>}
-      </> : <p>Tempo und Ausdruck folgen den globalen Einstellungen unter Einstellungen → Stimme.</p>}
+      </> : <p>Die Stabilität folgt den globalen Einstellungen unter Einstellungen → Stimme.</p>}
       <button type="button" disabled={!enabled || busy || pending || !effective} onClick={() => { stop(); setSource(''); void run(async () => {
         const result = await port.test(state.effectiveVoiceId!, state.target.kind === 'default' ? tuning : undefined); if (live.current && available.current) { setSource(`data:${result.mimeType};base64,${result.base64}`); setNotice('Stimmtest bereit.'); }
       }); }}>Stimme testen</button>

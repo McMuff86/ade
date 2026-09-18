@@ -1,5 +1,69 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: nativer Tablet-Auftrag und saubere Projektanweisungen
+
+Anschlussstabilisierung am 18. September: echter Codex mit Produktionsqueue,
+signiertem Tablet-Browser, Rückfrage, Ergebnis, Offline/Reload und Host-Neustart.
+Einzelaufträge schrieben bisher Profil/Memory in `AGENTS.md`; deterministisch
+**55/2** reproduziert. Korrektur übergibt den Snapshot im nativen Prompt und
+prüft ihn vor dem Start erneut. Positive Electron-Kontrolle **57/0**, echter
+Codex-/Tablet-Durchlauf **16/0**. Vollständiges `pnpm verify` **Exit 0**,
+90 Suiten / 3.709 Prüfungen plus alle Bedien-/Darstellungstests.
+Aktuelles persönliches ADE seit **04:15 CEST**: Source **`5cf7ef2ca9b2b4a1ad54`**,
+PID **40124**, Release `dist/tablet-native-5cf7ef2ca9b2b4a1ad54`.
+Vorherige PID 15008 regulär beendet; sechs Profile/sechs Projekte/eine Kopplung
+und aktuelles privates HTTPS-Bundle bestätigt. Sicherung:
+`C:\Users\Adi.Muff\ADE-Backups\TabletNative-20260918-041549`.
+Physischer Samsung-Alltag und die Hörabnahme von Adi bleiben offen.
+[Native Abnahme](TABLET_CODEX_NATIVE_RESULTS.md).
+
+## Aktiviert: Eleven v3 und Terminal-Stabilisierung (18. September 2026)
+
+Sarah bleibt ausgewählt. Eleven v3 über Text to Dialogue WebSocket und die
+Aussprachevorgabe für Adi sind vollständig geprüft und um **03:25 CEST** aktiviert.
+Damals aktivierter Source **`5f58bdaefddb8640de7b`**, PID **15008**,
+Release `dist/eleven-v3-5f58bdaefddb8640de7b`. Privates Tablet-Bundle bytegleich
+verifiziert, sechs Profile/sechs Projekte/eine Kopplung erhalten. Sicherung:
+`C:\Users\Adi.Muff\ADE-Backups\ElevenV3-20260918-032513`.
+Keine automatische Wiederholung kostenpflichtiger Anfragen. Stimmparameter nur
+soweit im neuen Protokoll unterstützt. [Nachweise](ELEVEN_V3_RESULTS.md).
+Zwei frühere Gesamtläufe fanden verlorene Terminalaktionen beim Heartbeat.
+Beide Varianten (Text senden und Eingabe freigeben) sind deterministisch
+reproduziert und behoben, nativer Kontrolltest **15/0**. Finale Wiederholung
+`eleven-v3-verify-release.log` / `-exit.json`: **Exit 0**, 90 Suiten / 3.709
+Prüfungen plus alle Bedien-/Darstellungstests. Produktive v3-Probe: Sarah,
+126 Zeichen, 114.565 Bytes, Nutzungsbeleg complete, MP3-Dekodierung bestanden.
+Physischer Samsung-Alltag und Hörabnahme von Adi stehen als nächste Schritte aus.
+
+## Autorisierte Weiterarbeit nach Neustart (18. September 2026)
+
+Nach dem aktivierten Shell-Build folgen Verbindungs-/Anzeige-Wiederaufnahme und
+Workspace-Info. Native Eingabe-/Recoveryprüfung **29/0** und vollständiges
+`pnpm verify` bestanden. Persönlich aktiviert am 18. September um 01:54 CEST:
+Source `45179f3a10f68b7971f8`, PID 45844. Profile, Projekte, Kopplung erhalten;
+aktuelle private Tablet-Seite verifiziert.
+[Verträge, Negativbeleg und Betriebsstand](TABLET_RECOVERY_RESULTS.md).
+
+## Tablet-Shell-Korrektur und Commit-Verlauf (17. September 2026)
+
+Aktueller Auftrag: Cursor/Text nach Pfadmaskierung korrigieren, letzte fünf Commits
+in der Git-Ansicht einblendbar machen, Build prüfen und ADE neu starten. Adi hat
+das Beenden aller offenen Tablet-Sitzungen ausdrücklich erlaubt. Anschliessend
+eine priorisierte Empfehlung zu Stabilisierung und Weiterentwicklung geben.
+Zusätzliche Rückmeldung: Der Sitzungsabschluss war bei offener Bildschirmtastatur
+versteckt. Ein dauerhaft erreichbarer Button wird mit derselben Abnahme geliefert.
+Implementierung und Nachweise: [Tablet-Shell-Ergebnisse](TABLET_SHELL_RESULTS.md).
+Vollständige Abnahme **Exit 0**; persönlich aktiviert am **18. September um
+00:17 CEST**, PID 57592, Source-ID `df7bd102395819bff557`. Sechs Profile,
+sechs Projekte, Kopplung und aktuelles HTTPS-Bundle bestätigt.
+Adi hat ausdrücklich die anschliessende Weiterarbeit beauftragt: zuerst
+Verbindungsabbrüche und Eingabeübernahme, danach Workspace-Orientierung.
+Der erste Shell-Build behält die Pfadmaskierung als Host-Grenze. Im folgenden
+Stabilisierungsblock wird der Vollpfad am PC aufklappbar; auf dem Tablet wird
+die separate Workspace-Info ergänzt. Ein relativer Shell-Unterordner ist noch
+kein vorhandener Vertrag.
+[Priorisierter Vorschlag für die nächsten Schritte](TABLET_STABILITY_NEXT.md).
+
 ## Wiederaufnahme: erster Codex-Ablauf auf dem Tablet (17. September 2026)
 
 Adi hat Planung und Weiterarbeit mit Goals beauftragt und zuerst den Codex-Ablauf

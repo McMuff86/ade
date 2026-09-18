@@ -30,7 +30,7 @@ export interface PromptComposerPort {
 export type PromptPhase = 'idle' | 'permission' | 'recording' | 'transcribing' | 'sending';
 export type PromptNoticeKind = 'info' | 'transcribed' | 'empty' | 'submitted' | 'inserted' | 'cancelled' | 'recovered' | 'pending' | 'copied' | 'cleared';
 
-export interface PromptComposerOptions { draftKey: string; online: boolean; speechAllowed: boolean; port: PromptComposerPort }
+export interface PromptComposerOptions { draftKey: string; online: boolean; speechAllowed: boolean; port: PromptComposerPort; sendBlockedReason?: string }
 
 export interface PromptComposerState {
   draft: PromptDraft; liveText: string; value: string; phase: PromptPhase; seconds: number; maxSeconds: number;
@@ -43,7 +43,7 @@ export interface PromptComposerState {
 
 /** Recording, recovery, delivery and draft persistence shared by every prompt surface.
  * Mount the owning component with a key equal to draftKey. */
-export function usePromptComposer({ draftKey, online, speechAllowed, port }: PromptComposerOptions): PromptComposerState {
+export function usePromptComposer({ draftKey, online, speechAllowed, port, sendBlockedReason }: PromptComposerOptions): PromptComposerState {
   // Access the browser getter inside the store's guarded read/write calls:
   // a disabled storage origin must still show an editable, copyable draft.
   const store = useRef(new PromptDraftStore({ getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) }));
@@ -212,7 +212,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
     }
   };
   const send = async (mode: 'insert' | 'submit') => {
-    if (busy.current || computerBusy || !online || !capability.available || draftRef.current.delivery || !validPromptText(draftRef.current.text)) return;
+    if (busy.current || computerBusy || !online || sendBlockedReason || !capability.available || draftRef.current.delivery || !validPromptText(draftRef.current.text)) return;
     busy.current = true; setError(''); setNotice(''); const commandId = crypto.randomUUID();
     const outgoing = { ...draftRef.current, delivery: { commandId, mode } };
     if (!save(outgoing)) { busy.current = false; return; }
@@ -246,7 +246,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
     if (draft.recordingJob) void portRef.current.cancelRecording(draft.recordingJob).catch(() => undefined);
     save({ text: '' }); setError(''); setNotice('Entwurf gelöscht.', 'cleared');
   };
-  const canSend = !computerBusy && phase === 'idle' && online && capability.available && !draft.delivery && validPromptText(draft.text);
+  const canSend = !computerBusy && phase === 'idle' && online && !sendBlockedReason && capability.available && !draft.delivery && validPromptText(draft.text);
   const canRecord = !computerBusy && phase === 'idle' && online && speechAllowed && !draft.delivery && !draft.recordingJob;
   return {
     draft, liveText, value: [draft.text, liveText].filter(Boolean).join('\n'), phase, seconds, maxSeconds,
@@ -260,10 +260,11 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port }: Pro
 
 /** Mount with a key equal to draftKey. Both surfaces provide an immutable
  * target-bound port and their existing accessible dialog/focus shell. */
-export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, port }: {
+export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, port, sendBlockedReason }: {
   draftKey: string; targetLabel: string; online: boolean; speechAllowed: boolean; port: PromptComposerPort;
+  sendBlockedReason?: string;
 }) {
-  const composer = usePromptComposer({ draftKey, online, speechAllowed, port });
+  const composer = usePromptComposer({ draftKey, online, speechAllowed, port, sendBlockedReason });
   const { draft, liveText, phase, seconds, maxSeconds, error, notice, storageError, capability } = composer;
   return <section className="prompt-composer" aria-label="Promptentwurf">
     <p className="prompt-target"><strong>An: {targetLabel}</strong></p>
@@ -271,6 +272,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
       enabled={online && speechAllowed && port.computerAllowed !== false && phase === 'idle' && !draft.delivery && !draft.recordingJob} />}
     <p>Vor der Übergabe Anmeldung und Projektvertrauen direkt im Terminal abschliessen. Die CLI muss ihren Eingabeprompt anzeigen.</p>
     {!online && <p role="status">Offline. Der Entwurf kann weiter bearbeitet werden.</p>}
+    {sendBlockedReason && <p role="status">{sendBlockedReason}. Der Entwurf bleibt bearbeitbar.</p>}
     {!capability.available && <p role="status">{capability.reason}</p>}
     <label>Prompt prüfen und bearbeiten<textarea ref={composer.input} aria-label="CLI-Promptentwurf" rows={7} maxLength={DICTATION_MAX_TEXT_CHARS}
       readOnly={composer.readOnly} value={composer.value} onChange={event => composer.setText(event.target.value)} /></label>

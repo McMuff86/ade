@@ -11,7 +11,9 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   const gitAt = (path: string, ...args: string[]) => execFileSync('git', ['-C', path, '-c', 'commit.gpgSign=false', ...args], { encoding: 'utf8', windowsHide: true });
   const git = (...args: string[]) => gitAt(cwd, ...args); const write = (name: string, body: string) => writeFileSync(join(cwd, name), body);
   git('init', '--initial-branch=main'); git('config', 'core.autocrlf', 'false'); git('config', 'user.name', 'UI fixture'); git('config', 'user.email', 'fixture@example.invalid');
-  write('a.txt', 'base\n'); write('b.txt', 'base\n'); git('add', '.'); git('commit', '-m', 'base'); write('a.txt', 'selected edit\n'); write('b.txt', 'staged elsewhere\n'); git('add', 'b.txt');
+  write('a.txt', 'base\n'); write('b.txt', 'base\n'); git('add', '.'); git('commit', '-m', 'base');
+  for (let index = 1; index <= 6; index++) git('commit', '--allow-empty', '-m', `History ${index}`);
+  write('a.txt', 'selected edit\n'); write('b.txt', 'staged elsewhere\n'); git('add', 'b.txt');
   await desktop.evaluate((rootPath) => window.ade.invoke('projectDefaults:save', { rootPath, agentId: null }), parent);
   const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find((item) => item.name === 'Terminal tablet')!;
   const grants = [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])];
@@ -20,8 +22,26 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   await desktop.getByRole('button', { name: 'Git', exact: true }).click();
+  const pathToggle = desktop.locator('.project-workspace-path summary');
+  await pathToggle.waitFor();
+  check('desktop workspace path starts collapsed', !await desktop.locator('.project-workspace-path code').isVisible());
+  await pathToggle.focus(); await pathToggle.press('Enter');
+  check('desktop keyboard toggle shows the exact workspace root', await desktop.locator('.project-workspace-path code').textContent() === cwd);
+  await pathToggle.press('Space');
+  check('desktop path toggle closes with focus preserved', !await desktop.locator('.project-workspace-path code').isVisible() && await pathToggle.evaluate(node => node === document.activeElement));
   const desktopGit = desktop.getByRole('region', { name: 'Projekt-Git', exact: true });
   await desktopGit.getByRole('heading', { name: 'Lokale Änderungen sichern', exact: true }).waitFor();
+  const historyToggle = desktopGit.locator('summary').filter({ hasText: 'Letzte 5 Commits' });
+  const history = desktopGit.getByRole('list', { name: 'Letzte Commits', exact: true });
+  check('recent commit history starts collapsed', !await history.isVisible());
+  await historyToggle.focus(); await historyToggle.press('Enter'); await history.waitFor();
+  check('keyboard opens five newest commits with subject, author, date and short SHA', await history.locator('li').count() === 5
+    && (await history.locator('li').first().textContent())?.includes('History 6') === true
+    && (await history.locator('li').last().textContent())?.includes('History 2') === true
+    && await history.getByText('UI fixture', { exact: false }).count() === 5 && await history.locator('time[datetime]').count() === 5
+    && await history.locator('code').first().textContent() === git('rev-parse', '--short=12', 'HEAD').trim());
+  await historyToggle.press('Space');
+  check('keyboard closes commit history without losing focus', !await history.isVisible() && await historyToggle.evaluate((node) => node === document.activeElement));
   await desktopGit.getByRole('button', { name: 'Auswählbare Dateien markieren', exact: true }).click();
   check('Git guide identifies dirty workspace and supports deliberate bulk selection', await desktopGit.getByLabel('a.txt', { exact: true }).isChecked() && await desktopGit.getByLabel('b.txt', { exact: true }).isChecked());
   await desktopGit.getByRole('button', { name: 'Auswahl leeren', exact: true }).click();
@@ -39,11 +59,15 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await review.getByRole('button', { name: 'Git-Aktion ausführen', exact: true }).click();
   await desktopGit.getByText('Git-Aktion bestätigt.', { exact: false }).waitFor();
   check('desktop selective commit preserves unrelated staged changes', git('show', 'HEAD:a.txt') === 'selected edit\n' && git('show', 'HEAD:b.txt') === 'base\n' && git('diff', '--cached', '--name-only').trim() === 'b.txt');
+  await historyToggle.click();
+  check('successful commit refreshes recent history', (await history.locator('li').first().textContent())?.includes('Review selected edit') === true);
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Review project', exact: true }); await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await dialog.getByRole('button', { name: 'Git', exact: true }).click(); const panel = dialog.getByRole('region', { name: 'Projekt-Git', exact: true });
+  await panel.locator('summary').filter({ hasText: 'Letzte 5 Commits' }).click();
+  check('tablet can read recent commits without mutation grant', await panel.getByRole('list', { name: 'Letzte Commits', exact: true }).locator('li').count() === 5);
   await panel.getByLabel('b.txt', { exact: true }).check(); await panel.getByLabel('Commit-Nachricht', { exact: true }).fill('Tablet commit');
   check('tablet Git requires explicit mutation grant', await panel.getByRole('button', { name: 'Commit prüfen', exact: true }).isDisabled());
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }), { deviceId: device.id, scopes: [...grants, 'projectGit:write' as const, 'workspace:write' as const] });
@@ -99,7 +123,11 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   check('native Electron push preview leaves remote unchanged before explicit confirmation', gitAt(remote, 'rev-parse', 'main') !== git('rev-parse', 'HEAD') && await pushPreview.getByText('published.txt', { exact: true }).isVisible());
   await pushPreview.getByRole('button', { name: 'Push ausführen', exact: true }).click(); await publication.getByText('Push bestätigt', { exact: false }).waitFor();
   check('native Electron command publishes reviewed commit to real configured bare remote', gitAt(remote, 'rev-parse', 'main') === git('rev-parse', 'HEAD'));
-  await page.setViewportSize({ width: 390, height: 844 }); check('Git controls fit phone width', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tabletHistory = panel.locator('.project-git-history');
+  if (!await tabletHistory.getAttribute('open').then((value) => value !== null)) await tabletHistory.locator('summary').click();
+  check('expanded commit history fits phone width', await tabletHistory.evaluate((node) => node.scrollWidth <= node.clientWidth + 1));
+  check('Git controls fit phone width', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: join(evidence, 'project-git-phone.png') });
   check('final browser positive control leaves clean main and preserved resolution', !git('status', '--porcelain').trim() && git('branch', '--show-current').trim() === 'main' && git('show', 'HEAD:a.txt') === 'combined from tablet\n');
 }

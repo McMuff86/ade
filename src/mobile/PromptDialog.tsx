@@ -85,15 +85,16 @@ export function useMobilePromptPort(host: MobileHost, target: MobileDictationTar
 }
 
 /** The large editor: the same draft as the strip, for long prompts and careful rework. */
-export function MobilePromptDialog({ host, target, label, send, onClose, fallbackId, restoreFocusTo }: {
+export function MobilePromptDialog({ host, target, label, send, sendBlockedReason, onClose, fallbackId, restoreFocusTo }: {
   host: MobileHost; target: MobileDictationTarget; label: string; fallbackId: string; onClose: () => void;
   restoreFocusTo?: () => HTMLElement | null; send: PromptSender;
+  sendBlockedReason?: string;
 }) {
   const { speechAllowed, computerAllowed } = useMobileSpeechGrants(host);
   const port = useMobilePromptPort(host, target, send, computerAllowed);
   const bound = useRef(target).current;
   return <Dialog title="Prompt und Diktat" onClose={onClose} fallbackId={fallbackId} restoreFocusTo={restoreFocusTo} className="m-prompt-dialog">
     <PromptComposer key={`${host.deviceId}/${bound.terminalId}`} draftKey={`mobile/${host.deviceId}/${bound.terminalId}`}
-      targetLabel={label} online={host.status === 'online'} speechAllowed={speechAllowed} port={port} />
+      targetLabel={label} online={host.status === 'online'} speechAllowed={speechAllowed} sendBlockedReason={sendBlockedReason} port={port} />
   </Dialog>;
 }

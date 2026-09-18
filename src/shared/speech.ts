@@ -1,5 +1,6 @@
 export interface SpeechVoice { id: string; name: string; gender: string; language: string }
 export interface SpeechCatalog { voices: SpeechVoice[]; selectedVoiceId: string | null }
+/** Legacy fields remain readable; Eleven v3 dialogue consumes stability only. */
 export interface SpeechTuning { speed: number; stability: number; similarityBoost: number; style: number; speakerBoost: boolean }
 export const DEFAULT_SPEECH_TUNING: Readonly<SpeechTuning> = Object.freeze({ speed: 0.85, stability: 0.9, similarityBoost: 0.75, style: 0, speakerBoost: true });
 export const validSpeechTuning = (value: unknown): value is SpeechTuning => {

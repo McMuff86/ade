@@ -1,5 +1,5 @@
 import { ReplySpeechService } from '../src/main/settings/ReplySpeechService';
-import { SpeechService } from '../src/main/settings/SpeechService';
+import { FixtureSpeechService as SpeechService } from './helpers/speechSocket';
 import { SpeechPreferences } from '../src/main/settings/SpeechPreferences';
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

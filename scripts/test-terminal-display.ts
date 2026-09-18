@@ -6,6 +6,28 @@ let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
 const wait = (ms = 25) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 void (async () => {
+  const prompt = '(base) PS C:\\Users\\fixture\\repos\\rhino-compute-platform> ';
+  const safePrompt = '(base) PS [path]> ';
+  async function inspectPrompt(label: string, output: string, cols: number, rows: number, expectedLine: string, expectedCursor: { x: number; y: number }) {
+    const display = new RemoteTerminalDisplay(cols, rows); const browser = new Terminal({ cols, rows, allowProposedApi: true });
+    try {
+      display.write(Buffer.from(output)); const result = await display.snapshot();
+      await new Promise<void>((resolve) => browser.write(result.frame.ansi, resolve));
+      const cursor = browser.buffer.active;
+      check(label, cursor.cursorX === expectedCursor.x && cursor.cursorY === expectedCursor.y
+        && cursor.getLine(cursor.baseY + cursor.cursorY)!.translateToString(true).trimEnd() === expectedLine.trimEnd());
+      check(`${label}: frame and transcript retain path/secret redaction`, !JSON.stringify(result).includes('fixture') && !JSON.stringify(result).includes('HIDDEN_SECRET'));
+    } finally { display.dispose(); browser.dispose(); }
+  }
+  await inspectPrompt('redacted prompt keeps its trailing space and cursor together', prompt, 100, 10, safePrompt, { x: safePrompt.length, y: 0 });
+  await inspectPrompt('typed command is visible before Enter at the redacted cursor', prompt + 'git status', 100, 10, safePrompt + 'git status', { x: safePrompt.length + 10, y: 0 });
+  await inspectPrompt('caret inside an edited command follows the displayed text', prompt + 'git status\x1b[3D', 100, 10, safePrompt + 'git status', { x: safePrompt.length + 7, y: 0 });
+  await inspectPrompt('wrapped prompt moves cursor to its compact visible line', prompt + 'git status', 40, 10, safePrompt + 'git status', { x: safePrompt.length + 10, y: 0 });
+  await inspectPrompt('long input wraps instead of being truncated after a redacted path', prompt + 'git status', 20, 10, (safePrompt + 'git status').slice(20), { x: (safePrompt.length + 10) % 20, y: 1 });
+  await inspectPrompt('prompt remains visible when its original start has scrolled out', 'history\r\n'.repeat(8) + prompt + 'git status', 20, 2, (safePrompt + 'git status').slice(20), { x: (safePrompt.length + 10) % 20, y: 1 });
+  await inspectPrompt('wide and combining text retain terminal cell cursor widths', prompt + '界e\u0301', 100, 10, safePrompt + '界e\u0301', { x: safePrompt.length + 3, y: 0 });
+  await inspectPrompt('wrapped spaces in command arguments remain intact', prompt + 'echo a   b', 20, 10, (safePrompt + 'echo a   b').slice(20), { x: (safePrompt.length + 10) % 20, y: 1 });
+  await inspectPrompt('contextual credential redaction preserves the current prompt after scrollback', 'token=\r\nHIDDEN_SECRET\r\n' + 'history\r\n'.repeat(20) + prompt + 'git status', 40, 5, safePrompt + 'git status', { x: safePrompt.length + 10, y: 4 });
   const display = new RemoteTerminalDisplay(40, 10); const browser = new Terminal({ cols: 40, rows: 10, allowProposedApi: true });
   try {
     display.write(Buffer.from('\x1b[?1049h\x1b[2J\x1b[3;5H\x1b[38;2;12;34;56mMENU\x1b[5;7H\x1b[?1h\x1b[?2004h'));

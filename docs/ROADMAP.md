@@ -1,5 +1,47 @@
 # ADE delivery roadmap
 
+## Abgeschlossene Stabilisierung: nativer Tablet-Auftrag
+
+Den bisherigen getrennten Codex-/Oberflächennachweis um einen durchgängigen
+nativen Driver ergänzen. Der Test fand Profil-/Memory-Injektion in Projektdateien
+beim Einzelauftragsstart. Korrigiert über direkten Kontext; Electron-Negativkontrolle
+**55/2**, positive Kontrolle **57/0**, native Wiederholung **16/0** inklusive
+Verbindungswechsel und Host-Neustart. Vollständiges `pnpm verify` bestanden;
+am 18. September um **04:15 CEST** aktiviert, Source `5cf7ef2ca9b2b4a1ad54`.
+Der physische Samsung-Alltag und die Hörabnahme bleiben die nächsten Schritte.
+[Nachweise](TABLET_CODEX_NATIVE_RESULTS.md).
+
+## Aktueller Zusatzauftrag: Eleven v3 und Aussprache
+
+Standardstimme Sarah mit Eleven v3 über Text to Dialogue WebSocket; kurzes A in
+Adi. Vollständiges `pnpm verify` bestanden und am 18. September um **03:25 CEST**
+aktiviert, Source `5f58bdaefddb8640de7b`. Zusätzlich sind verlorene Terminalaktionen
+bei gleichzeitigen Heartbeats behoben. Echte produktive Sarah-Probe bestätigt;
+physische Tablet- und Hörabnahme bleiben die nächsten Schritte.
+[Vertrag und Nachweise](ELEVEN_V3_RESULTS.md).
+
+## Anschlussblock: Wiederaufnahme und Orientierung (18. September 2026)
+
+Explizit beauftragt nach dem aktivierten Shell-Build: sichtbare Wiederaufnahme
+im Tastaturmodus, Eingabepause bei veralteter Anzeige, keine automatische
+Besitzübernahme oder Wiederholung, erreichbare Workspace-Info und exakter
+Stammordner am PC. Fokussiert **29/0**, vollständiges `pnpm verify` bestanden,
+persönlich aktiviert am 18. September um 01:54 CEST.
+[Nachweise und Aktivierung](TABLET_RECOVERY_RESULTS.md). Danach bleibt der
+physische Samsung-Alltagsdurchlauf die wichtigste noch offene Abnahme.
+
+## Aktuell: Rückmeldung aus dem physischen Tablet-Test
+
+Cursor-/Textprojektion der Shell korrigieren und die letzten fünf Commits direkt
+in der PC-/Tablet-Git-Ansicht einblendbar machen. Nach Abnahme den persönlichen
+Build mit ausdrücklicher Neustartfreigabe ersetzen — **abgenommen und am
+18. September um 00:17 CEST aktiviert**. Der physische Samsung-Test
+der Korrektur bleibt separat; Chromium-IME-Automation ersetzt ihn nicht.
+[Nachweise und Betriebsstand](TABLET_SHELL_RESULTS.md).
+Die vorgeschlagene Reihenfolge danach: physischer Tablet-Alltag, vollständiger
+Codex-Auftrag samt Wiederanlauf, bessere Workspace-/Sitzungsorientierung und
+einfachere Updates. [Konkrete Abnahmekriterien](TABLET_STABILITY_NEXT.md).
+
 ## Aktueller Lieferabschnitt: zuerst Codex auf dem Tablet
 
 Adi hat am 17. September die Wiederaufnahme und zuerst den Codex-Ablauf beauftragt.

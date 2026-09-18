@@ -55,6 +55,8 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     await mobile.getByRole('article', { name: 'Übergabe · Codex A', exact: true }).waitFor();
     check('paired tablet sees the same saved handoff action', (await mobile.locator('.conversation-action').count()) === 1);
     const send = async (text: string) => { await mobile.getByLabel('Nachricht an ADE', { exact: true }).fill(text); await mobile.getByRole('button', { name: 'An ADE senden', exact: true }).click(); };
+    const identity = (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.find(agent => agent.id === profileId)!;
+    writeFileSync(join(identity.memoryDir, 'MEMORY.md'), 'COORDINATOR_SINGLE_TASK_MEMORY');
     await send('prepare-task:' + JSON.stringify({ projectId: projects[0].id, agentId: profileId, prompt: 'ADE_TABLET_PROJECT_TASK write the confirmed answer to tablet-result.txt' }));
     let task = mobile.getByRole('article', { name: 'Projektauftrag · Codex A', exact: true }); await task.waitFor();
     check('tablet task proposal preserves private prompt and launches no run yet', !(await mobile.innerText()).includes('ADE_TABLET_PROJECT_TASK') && !(await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length);
@@ -73,6 +75,11 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     await task.getByText('ADE_CODEX_TASK_DONE: TABLET_CONFIRMED_RESULT', { exact: true }).waitFor();
     const config = await desktop.evaluate(() => window.ade.invoke('config:get')); const child = config.runTasks[0];
     const workspace = config.workspaceBindings.find(w => w.id === child.workspaceBindingId)!;
+    check('question-enabled project task keeps repository instructions unchanged', readFileSync(join(workspace.workspaceDir, 'AGENTS.md'), 'utf8').replace(/\r\n/g, '\n')
+      === '# Tablet fixture\nWork only in this workspace. Do not edit Git metadata.\n');
+    const nativePrompt = JSON.parse(readFileSync(join(workspace.workspaceDir, 'fixture-thread.json'), 'utf8')).lastPrompt as string;
+    check('native task receives profile and memory context without instruction-file injection', nativePrompt.includes(identity.name)
+      && nativePrompt.includes('COORDINATOR_SINGLE_TASK_MEMORY') && nativePrompt.includes('ADE_TABLET_PROJECT_TASK'));
     check('tablet answer reaches the exact native task and its actual workspace result', child.questions?.[0]?.status === 'answered' && !!workspace
       && readFileSync(join(workspace.workspaceDir, 'tablet-result.txt'), 'utf8') === 'TABLET_CONFIRMED_RESULT');
     check('graph shows the actual child only under its own project', (await desktop.evaluate(() => window.ade.invoke('supervision:get'))).projects[0].links.some(l => l.target.id === child.runId)

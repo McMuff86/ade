@@ -576,10 +576,15 @@ export class PtyManager {
     if (allowQuestions && (agent.runtime !== 'codex' || agent.customCommand?.trim() || scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !this.questions)) {
       throw new Error('ade: Interaktive Runs benötigen eine native Codex-Laufzeit und den ADE-Rückfragendienst.');
     }
+    // Coordinator single-task runs use the native question transport without a
+    // managed phase launch. Deliver their identity as main-owned prompt context,
+    // too: writing AGENTS.md here would dirty the checkout before task tracking.
+    const questionTaskProfile = allowQuestions && !managedLaunch
+      ? buildInteractiveProfileSnapshot({ ...savedAgent!, ...agent }, this.store.get().settings.memory) : undefined;
     // Managed tasks already receive their complete task/result/mailbox
     // contract in the prompt. Mutating CLAUDE.md/AGENTS.md after a clean
     // workspace lease would contaminate (or alter) the repository itself.
-    if (savedAgent && !project && !managedLaunch && !login && !profileSnapshot && (!launchChoice || launchChoice.mode === 'agent') && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
+    if (savedAgent && !project && !managedLaunch && !questionTaskProfile && !login && !profileSnapshot && (!launchChoice || launchChoice.mode === 'agent') && scope.executionBackend === NATIVE_EXECUTION_BACKEND) {
       try {
         injectMemoryBlock({ ...savedAgent, ...agent }, this.store.get().settings.memory, scope.workspaceDir);
       } catch (error) {
@@ -672,6 +677,10 @@ export class PtyManager {
       if (profileSnapshot && profileIdentity && buildInteractiveProfileSnapshot(this.requireAgent(profileIdentity.id), this.store.get().settings.memory).sha256 !== profileSnapshot.sha256) {
         throw new Error('ade: Profilanweisungen wurden während des Starts geändert. Sitzung erneut öffnen.');
       }
+      if (questionTaskProfile && buildInteractiveProfileSnapshot({ ...this.requireAgent(agentId!), ...this.effectiveTaskAgent(this.requireAgent(agentId!), task!.runTaskId) },
+        this.store.get().settings.memory).sha256 !== questionTaskProfile.sha256) {
+        throw new Error('ade: Profilanweisungen wurden während des Auftragsstarts geändert. Auftrag erneut prüfen.');
+      }
       if (task?.runTaskId && this.taskFileTracker) {
         await this.taskFileTracker.before(task.runTaskId, scope);
         const currentTask = this.store.get().runTasks.find((item) => item.id === task.runTaskId);
@@ -679,7 +688,10 @@ export class PtyManager {
       }
       this.assertScopeAvailable(scope, task?.runTaskId);
       authorize();
-      proc = allowQuestions ? new CodexAppServerProcess({ cwd, env, agent, prompt: managedLaunch?.prompt ?? task!.task,
+      const questionTaskPrompt = questionTaskProfile
+        ? `ADE profile context (read-only snapshot; repository instructions and the task request take precedence). Work only in the assigned workspace; do not edit external profile or memory files.\n\n${questionTaskProfile.content}\n\nTask request:\n${task!.task}`
+        : task?.task;
+      proc = allowQuestions ? new CodexAppServerProcess({ cwd, env, agent, prompt: managedLaunch?.prompt ?? questionTaskPrompt!,
         resultPath: managedLaunch?.env.ADE_TASK_RESULT_PATH, schemaPath: managedLaunch?.env.ADE_TASK_SCHEMA_PATH,
         question: (items, blocking, deliver) => this.questions!.register(task!.runTaskId!, items, blocking, deliver),
       }) : pty.spawn(command.file, command.args, {

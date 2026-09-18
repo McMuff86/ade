@@ -59,12 +59,13 @@ function useScreenAwake(wanted: boolean): void {
 
 /** One voice turn without leaving the terminal: speak, read, send. Mount with a
  * key equal to draftKey; the same draft store backs the large editor. */
-export function VoiceStrip({ draftKey, online, speechAllowed, port, trailing, onOpenEditor, sheetOpen = false, onSheetSlot }: {
+export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedReason, trailing, onOpenEditor, sheetOpen = false, onSheetSlot }: {
   draftKey: string; online: boolean; speechAllowed: boolean; port: PromptComposerPort; trailing?: ReactNode; onOpenEditor?: () => void;
+  sendBlockedReason?: string;
   /** The reply sheet takes the strip's place while open; the slot receives its element. */
   sheetOpen?: boolean; onSheetSlot?: (element: HTMLElement | null) => void;
 }) {
-  const composer = usePromptComposer({ draftKey, online, speechAllowed, port });
+  const composer = usePromptComposer({ draftKey, online, speechAllowed, port, sendBlockedReason });
   const { draft, phase, seconds, maxSeconds, error, notice, noticeKind, storageError, capability, computerBusy } = composer;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null); const menu = useRef<HTMLDivElement>(null);
@@ -105,8 +106,9 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, trailing, on
   const micDisabled = computer.active ? false : phase === 'idle' ? !composer.canRecord : !listening;
   const capabilityReason = capability.available ? '' : capability.reason;
   const checking = capabilityReason.startsWith('Sitzungsziel wird geprüft');
-  const reason = phase !== 'idle' || computer.active ? '' : !online ? 'Offline' : !speechAllowed ? 'Diktat nicht freigegeben' : capability.available ? '' : checking ? 'Sitzung wird geprüft…' : 'Kein CLI-Prompt';
+  const reason = phase !== 'idle' || computer.active ? '' : !online ? 'Offline' : sendBlockedReason || (!speechAllowed ? 'Diktat nicht freigegeben' : capability.available ? '' : checking ? 'Sitzung wird geprüft…' : 'Kein CLI-Prompt');
   const reasonDetail = !online ? 'Der Entwurf kann weiter bearbeitet werden; Sprechen und Senden brauchen die Verbindung zum PC.'
+    : sendBlockedReason ? `${sendBlockedReason}. Der Entwurf bleibt bearbeitbar.`
     : !speechAllowed ? 'ElevenLabs-Diktat braucht die eigene Diktat-Freigabe am PC unter Settings → Verbundene Geräte.'
     : capability.available ? '' : `${capabilityReason} Vor der Übergabe Anmeldung und Projektvertrauen direkt im Terminal abschliessen; die CLI muss ihren Eingabeprompt anzeigen.`;
   const statusVisible = !!notice && (!TRANSIENT.includes(noticeKind) || flash);

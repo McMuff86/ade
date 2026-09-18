@@ -1,3 +1,4 @@
+import { speechPronunciation } from '../../src/main/settings/ElevenDialogue';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Locator, type Page } from 'playwright/test';
@@ -27,11 +28,11 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   await test.getByText('Begrüssung abgespielt. Du kannst jetzt eine Aufgabe diktieren.', { exact: true }).waitFor();
   const answer = await test.getByLabel('Computer Antwort', { exact: true }).innerText();
   check(`${surface}: live Computer call survives an empty final transcript and plays one greeting`, generations().length === before + 1
-    && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
+    && JSON.parse(generations().at(-1)!).text === speechPronunciation(answer) && answer.includes(', Adi.') && !answer.includes('ADE'));
   const delivery = JSON.parse(generations().at(-1)!).voice_settings;
   check(`${surface}: extended greeting explains dictation and review with even, measured delivery`, answer.includes('Wähle nach dieser Begrüssung „Diktieren“')
     && answer.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && answer.length >= 200 && answer.length <= 400
-    && delivery?.stability === 0.9 && delivery.style === 0 && delivery.speed === 0.85);
+    && delivery?.stability === 0.9 && Object.keys(delivery).join() === 'stability');
   check(`${surface}: voice test never alters or submits the draft`, await draft.inputValue() === `Entwurf ${surface}.`
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
   await expect(call).toBeEnabled();
@@ -75,7 +76,7 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   await strip.getByLabel('Computer Antwort', { exact: true }).waitFor();
   const answer = await strip.getByLabel('Computer Antwort', { exact: true }).innerText();
   check('tablet: live Computer call survives an empty final transcript and plays one greeting', generations().length === before + 1
-    && JSON.parse(generations().at(-1)!).text === answer && answer.includes(', Adi.') && !answer.includes('ADE'));
+    && JSON.parse(generations().at(-1)!).text === speechPronunciation(answer) && answer.includes(', Adi.') && !answer.includes('ADE'));
   writeFileSync(join(root, 'live-phrase.txt'), 'Bitte prüfe den Code.');
   writeFileSync(join(root, 'committed-phrase.txt'), 'Bitte prüfe den Code.');
   await listening.waitFor();

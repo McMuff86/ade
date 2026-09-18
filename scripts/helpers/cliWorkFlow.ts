@@ -53,9 +53,15 @@ export async function cliWorkFlow(page: Page, evidence: string, workspaceId: str
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
   await terminal.locator(`#project-session-tab-${parallel.id}[aria-selected="true"]`).waitFor();
   check('keyboard activation opens the exact parallel session', await page.getByRole('heading', { name: /Projekt ·/ }).isVisible() && (await inventory()).length === before.length);
+  await page.locator('.project-workspace-path summary').click();
+  check('desktop path disclosure identifies the selected worktree rather than the original repository', await page.locator('.project-workspace-path code').textContent() === parallel.workspaceDir
+    && parallel.workspaceDir !== original.workspaceDir);
   await work.click(); await row(original.id).getByRole('button', { name: /^Sitzung öffnen:/ }).click();
   await terminal.locator(`#project-session-tab-${original.id}[aria-selected="true"]`).waitFor();
   check('switching to original project selects original CLI without restart', (await inventory()).map(session => session.id).sort().join() === before.map(session => session.id).sort().join());
+  if (!await page.locator('.project-workspace-path code').isVisible()) await page.locator('.project-workspace-path summary').click();
+  check('desktop path follows selection back to the original workspace', await page.locator('.project-workspace-path code').textContent() === original.workspaceDir);
+  await page.locator('.project-workspace-path summary').click();
   await page.getByRole('tab', { name: 'Overview view', exact: true }).click();
   await row(parallel.id).waitFor();
   check('Overview and Work share the same session titles and identifiers', (await row(parallel.id).innerText()).includes('Layout parallel prüfen'));

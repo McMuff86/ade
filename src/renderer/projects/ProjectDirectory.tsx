@@ -48,11 +48,14 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
   </section>;
 }
 
-export function ProjectWorkspaceSummary({ workspace }: { workspace: ProjectWorkspaceView }): JSX.Element {
+export function ProjectWorkspaceSummary({ workspace, workspacePath }: { workspace: ProjectWorkspaceView; workspacePath?: string }): JSX.Element {
   return <section className="project-workspace-summary" aria-label="Geöffneter Projekt-Workspace">
     <dl><div><dt>Projekt</dt><dd>{workspace.name}</dd></div><div><dt>Branch</dt><dd>{workspace.branch}</dd></div>
       <div><dt>Workspace</dt><dd>{workspace.kind === 'worktree' ? 'Vorhandene Git-Arbeitskopie' : 'Vorhandener Projektordner'}</dd></div>
       <div><dt>Agent-Profil</dt><dd>Ohne Agent-Profil</dd></div></dl>
     <p>Dieser Workspace ist unabhängig von deinen Agent-Arbeitskopien.</p>
+    {workspacePath && <details className="project-workspace-path"><summary>Vollständigen Workspace-Pfad anzeigen</summary>
+      <p>Stammordner dieses Workspace. Das aktuelle Shell-Verzeichnis kann davon abweichen.</p>
+      <code>{workspacePath}</code></details>}
   </section>;
 }

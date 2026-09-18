@@ -1,4 +1,5 @@
-import { SpeechService } from '../src/main/settings/SpeechService';
+import { FixtureSpeechService as SpeechService } from './helpers/speechSocket';
+import { speechPronunciation } from '../src/main/settings/ElevenDialogue';
 import { SPEECH_TEST_TEXT, computerGreeting, isComputerCall } from '../src/shared/speech';
 import { validSpeechCommand } from '../src/main/application/RemoteSpeechService';
 import { DEFAULT_CONFIG, type Settings } from '../src/shared/types';
@@ -22,10 +23,9 @@ void (async () => {
     ] });
     generation++;
     const input = JSON.parse(String(init?.body));
-    check('generation sends only server-owned German text and multilingual model', input.text === (greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_multilingual_v2' && input.language_code === 'de');
+    check('generation sends only server-owned German text with pronunciation and v3 model', input.text === speechPronunciation(greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_v3' && input.language_code === 'de');
     check('voice preview and greeting use the same even computer delivery at the provider boundary',
-      input.voice_settings?.stability === 0.9 && input.voice_settings.similarity_boost === 0.75
-      && input.voice_settings.style === 0 && input.voice_settings.use_speaker_boost === true && input.voice_settings.speed === 0.85);
+      input.voice_settings?.stability === 0.9 && Object.keys(input.voice_settings).join() === 'stability');
     return new Response(new Uint8Array(large ? 2 * 1024 * 1024 + 1 : 512), { headers: { 'content-type': invalidType ? 'text/html' : 'audio/mpeg' } });
   };
   const store = { get: () => ({ settings }), save: (value: { settings: Settings }) => { settings = value.settings; } };

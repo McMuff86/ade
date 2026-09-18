@@ -1,9 +1,10 @@
-import type { ProjectWorkspaceView } from './remote';
+import type { ProjectGitCommit, ProjectWorkspaceView } from './remote';
 import { validProjectBranchRef } from './projectBranches';
 
 export interface ProjectGitFile { path: string; index: string; working: string; conflict: boolean; selectable: boolean; notice: string | null }
 export interface ProjectGitOverview {
   workspace: ProjectWorkspaceView; head: string | null; files: ProjectGitFile[]; refs: Array<{ ref: string; head: string }>;
+  recentCommits: ProjectGitCommit[];
   remotes: string[]; merge: boolean; blockedReason: string | null; revision: string; checkedAt: number; fetchedAt: number | null;
 }
 export type ProjectGitAction = { kind: 'commit'; paths: string[]; message: string }

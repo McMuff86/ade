@@ -1,9 +1,10 @@
 import { categoryNavigationFlow } from './helpers/categoryNavigationFlow';
 import { integrationFlow } from './helpers/integrationFlow';
 import { expandSessionControls, terminalComposer, terminalLauncher } from './helpers/terminalControls';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, existsSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
@@ -110,6 +111,13 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   proxy = await mobileTlsProxy(); proxy.target(port); proxy.rewriteOrigin('https://ade-mobile.fixture.ts.net');
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
   page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true, ignoreHTTPSErrors: true }); page.setDefaultTimeout(60_000);
+  if (process.argv.includes('--input-race-only')) await page.addInitScript(() => {
+    const original = window.setInterval.bind(window);
+    window.setInterval = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (delay === 10_000 && typeof handler === 'function') Reflect.set(window, 'terminalHeartbeat', () => handler(...args));
+      return original(handler, delay, ...args);
+    }) as typeof window.setInterval;
+  });
   await page.goto(`${proxy.origin}/#pair=${code}`); await page.getByLabel('Gerätename', { exact: true }).fill('Terminal tablet');
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
@@ -181,10 +189,90 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   }, setup.session.id);
   check('main rejects desktop typing while tablet owns input', blocked);
   await (await terminalComposer(workspace)).fill("Set-Content -LiteralPath 'terminal-proof.txt' -Value 'ADE_TABLET_OK'");
-  await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
+  const inputRace = process.argv.includes('--input-race-only');
+  const explicitPackets: string[] = [];
+  if (inputRace) {
+    // Reproduce a click already dispatched when a heartbeat takes the lock,
+    // before React can paint the disabled button. Do not retry the user action.
+    let release!: () => void; let held!: () => void; let captured = false;
+    const holding = new Promise<void>(resolve => { held = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/v1/terminal/input', async route => {
+      const data = route.request().postDataJSON().data; if (data) explicitPackets.push(data);
+      if (!captured && route.request().postDataJSON().data === '') { captured = true; held(); await gate; }
+      await route.continue();
+    });
+    await page.setViewportSize({ width: 1020, height: 766 }); await holding;
+    await workspace.getByLabel('Terminal-Eingabe', { exact: true }).evaluate(node => node.closest('form')!.requestSubmit());
+    await page.waitForTimeout(100);
+    check('a submitted command retains its draft while a heartbeat holds input', (await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue()).includes('ADE_TABLET_OK'));
+    await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill('Noch nicht gesendeter Folgeentwurf');
+    release();
+  } else await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
   const proof = join(setup.session.workspaceDir!, 'terminal-proof.txt');
-  const deadline = Date.now() + 60_000; while (!existsSync(proof) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 200));
+  const deadline = Date.now() + (inputRace ? 4000 : 60_000); while (!existsSync(proof) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 200));
   check('real tablet input writes in the exact agent workspace', existsSync(proof) && readFileSync(proof, 'utf8').includes('ADE_TABLET_OK') && !existsSync(join(repoPath, 'terminal-proof.txt')));
+  if (inputRace) {
+    check('the raced explicit command is delivered once without replaying the click', explicitPackets.length === 1 && explicitPackets[0]!.includes('ADE_TABLET_OK'));
+    check('an edit made during submission is retained after the earlier command completes', await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue() === 'Noch nicht gesendeter Folgeentwurf');
+    await page.unroute('**/api/v1/terminal/input');
+    const secondText = "Set-Content -LiteralPath 'offline-proof.txt' -Value 'ADE_OFFLINE_OK'";
+    const secondProof = join(setup.session.workspaceDir!, 'offline-proof.txt');
+    let release!: () => void; let held!: () => void; let captured = false; const secondPackets: string[] = [];
+    const holding = new Promise<void>(resolve => { held = resolve; }); const gate = new Promise<void>(resolve => { release = resolve; });
+    await workspace.getByLabel('Terminal-Eingabe', { exact: true }).fill(secondText);
+    await page.route('**/api/v1/terminal/input', async route => {
+      const data = route.request().postDataJSON().data; if (data) secondPackets.push(data);
+      if (!captured && data === '') { captured = true; held(); await gate; }
+      await route.continue().catch(() => undefined);
+    });
+    await page.setViewportSize({ width: 1016, height: 764 }); await holding;
+    await workspace.getByLabel('Terminal-Eingabe', { exact: true }).evaluate(node => node.closest('form')!.requestSubmit());
+    await page.context().setOffline(true);
+    await workspace.getByLabel('Terminalverbindung', { exact: true }).getByText(/PC nicht verbunden/).waitFor();
+    release(); await page.waitForTimeout(100); await page.context().setOffline(false);
+    await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).waitFor();
+    await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Text und Enter senden')?.disabled);
+    check('disconnect while waiting keeps the draft and never sends after reconnect', secondPackets.length === 0 && !existsSync(secondProof)
+      && await workspace.getByLabel('Terminal-Eingabe', { exact: true }).inputValue() === secondText);
+    await workspace.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
+    const until = Date.now() + 4000; while (!existsSync(secondProof) && Date.now() < until) await new Promise(done => setTimeout(done, 50));
+    check('final explicit retry after reconnect executes exactly once', secondPackets.length === 1 && existsSync(secondProof) && readFileSync(secondProof, 'utf8').includes('ADE_OFFLINE_OK'));
+    await page.unroute('**/api/v1/terminal/input');
+    await expandSessionControls(workspace);
+    const releaseButton = workspace.getByRole('button', { name: 'Eingabe freigeben', exact: true });
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Eingabe freigeben' && !button.disabled));
+    let releaseHeartbeat!: () => void; const heartbeatGate = new Promise<void>(resolve => { releaseHeartbeat = resolve; });
+    let lifecycleCount = 0;
+    await page.route('**/api/v1/terminal/input', async route => { await heartbeatGate; await route.continue(); });
+    await page.route('**/api/v1/terminal/command', async route => { lifecycleCount++; await route.continue(); });
+    // Start the existing timer and click in one browser turn, before React paints
+    // the heartbeat's disabled state. This reproduces an already dispatched tap.
+    await releaseButton.evaluate(button => { Reflect.get(window, 'terminalHeartbeat')(); (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await page.waitForTimeout(100);
+    check('a lifecycle click waits for the outstanding heartbeat before dispatch', lifecycleCount === 0 && await releaseButton.isDisabled());
+    releaseHeartbeat();
+    const released = await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor({ timeout: 4000 }).then(() => true, () => false);
+    check('the raced release executes once and changes ownership without a second click', released && lifecycleCount === 1);
+    if (!released) return;
+    await workspace.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
+    await workspace.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
+    check('explicit takeover remains usable after the queued release', lifecycleCount === 2);
+    await page.unroute('**/api/v1/terminal/input');
+    let releaseOfflineHeartbeat!: () => void; const offlineGate = new Promise<void>(resolve => { releaseOfflineHeartbeat = resolve; });
+    await page.route('**/api/v1/terminal/input', async route => { await offlineGate; await route.continue().catch(() => undefined); });
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Eingabe freigeben' && !button.disabled));
+    await releaseButton.evaluate(button => { Reflect.get(window, 'terminalHeartbeat')(); (button as HTMLButtonElement).click(); });
+    await page.context().setOffline(true);
+    await workspace.getByLabel('Terminalverbindung', { exact: true }).getByText(/PC nicht verbunden/).waitFor();
+    releaseOfflineHeartbeat(); await page.waitForTimeout(100); await page.context().setOffline(false);
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Eingabe freigeben' && !button.disabled));
+    check('a lifecycle action waiting at disconnect is cancelled and never replayed after reconnect', lifecycleCount === 2
+      && await workspace.getByText('Eingabe: Du (Tablet)', { exact: true }).isVisible());
+    await releaseButton.click(); await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor();
+    check('a deliberate release after reconnect is sent once', lifecycleCount === 3);
+    return;
+  }
   await desktop.keyboard.press('Escape');
   await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
   await desktop.locator('.agent-row', { hasText: 'Terminal Agent' }).click();
@@ -388,6 +476,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
       }
     }
   }
-  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  if (dirname(root) !== realpathSync.native(tmpdir()) || !basename(root).startsWith('ade-terminal-electron-')) throw new Error('Unexpected fixture cleanup target');
+  // Node 22's synchronous rimraf does not retry an initial EBUSY on an empty
+  // directory. Windows can release directory handles after the app exits.
+  // Async rm applies bounded retries to that error as well and still fails closed.
+  await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   console.log(`Remote terminal Electron: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 });

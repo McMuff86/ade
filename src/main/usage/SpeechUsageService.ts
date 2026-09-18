@@ -17,13 +17,13 @@ export class SpeechUsageService {
 
   async begin(input: ({ product: 'dictation'; model: 'scribe_v2'; audioSeconds: number }
     | { product: 'dictation'; model: 'scribe_v2_realtime'; audioSeconds: null }
-    | { product: 'speech-test' | 'speech-reply'; model: 'eleven_multilingual_v2'; characters: number }) & SpeechUsageAttribution): Promise<SpeechUsageAttempt> {
+    | { product: 'speech-test' | 'speech-reply'; model: 'eleven_multilingual_v2' | 'eleven_v3'; characters: number }) & SpeechUsageAttribution): Promise<SpeechUsageAttempt> {
     input = structuredClone(input);
     const audioSeconds = input.product === 'dictation' ? input.audioSeconds : null;
     const characters = input.product !== 'dictation' ? input.characters : null;
     if (input.product === 'dictation' ? input.model === 'scribe_v2_realtime' ? audioSeconds !== null
       : input.model !== 'scribe_v2' || !Number.isFinite(audioSeconds) || audioSeconds! < 0.1 || audioSeconds! > 60
-      : !['speech-test', 'speech-reply'].includes(input.product) || input.model !== 'eleven_multilingual_v2' || !Number.isSafeInteger(characters) || characters! < 1 || characters! > 12_000) {
+      : !['speech-test', 'speech-reply'].includes(input.product) || !['eleven_multilingual_v2', 'eleven_v3'].includes(input.model) || !Number.isSafeInteger(characters) || characters! < 1 || characters! > 12_000) {
       throw new Error('Ungültige Einheit für die Sprach-Verbrauchserfassung.');
     }
     const at = this.now();

@@ -88,7 +88,7 @@ ${nativeUsageFixtureSource}
   writeFileSync(launcher, `const fs = require('node:fs'); const original = global.fetch;
 global.fetch = async (url, init) => {
   if (String(url) === 'https://api.elevenlabs.io/v1/voices') return Response.json({voices:[{voice_id:'EXAVITQu4vr4xnSDxMaL',name:'Sarah',labels:{gender:'female'}}]});
-  if (String(url).startsWith('https://api.elevenlabs.io/v1/text-to-speech/')) {
+  if (String(url).startsWith('https://api.elevenlabs.io/v1/text-to-dialogue/stream-input')) {
     fs.appendFileSync(${JSON.stringify(join(root, 'greetings.jsonl'))}, init.body + '\\n');
     return new Response(fs.readFileSync(${JSON.stringify(resolve('scripts/fixtures/speech-silence.mp3'))}), {headers:{'content-type':'audio/mpeg'}});
   }
@@ -138,6 +138,7 @@ cp.execFile = function(file,args,options,callback) {
   queueMicrotask(() => callback(null,JSON.stringify(args[0] === 'status' ? {BackendState:'Running',Self:{DNSName:'ade-mobile.fixture.ts.net.',Online:true}} : config))); return {};
 };
 cp.execFile[require('node:util').promisify.custom] = (file,args,options) => new Promise((done,fail) => cp.execFile(file,args,options,(error,stdout,stderr) => error ? fail(error) : done({stdout,stderr})));
+require(${JSON.stringify(resolve('scripts/fixtures/dialogue-speech.cjs'))}).install();
 require(${JSON.stringify(resolve('out/main/index.js'))});`);
   app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], cwd: resolve('.'), env: {
     ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test',
@@ -433,6 +434,21 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await strip.getByText('Übergeben ✓', { exact: true }).waitFor();
   check('tablet prompt reaches the selected real PTY exactly once while the terminal stays visible', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').at(-1) === Buffer.from('\x1b[200~Aufgabe vom Tablet.\x1b[201~\r').toString('base64')
     && await mobileDraft.inputValue() === '' && await project.getByLabel('Terminalanzeige', { exact: true }).isVisible());
+  await mobileDraft.fill('Entwurf bei Anzeigefehler.');
+  await tablet.route('**/api/v1/terminal/query', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'Display unavailable' } }) }));
+  await project.getByRole('button', { name: 'Anzeige erneut laden', exact: true }).waitFor();
+  check('display failure keeps the voice draft mounted and editable while disabling send', await mobileDraft.inputValue() === 'Entwurf bei Anzeigefehler.'
+    && await mobileDraft.getAttribute('readonly') === null && await strip.getByRole('button', { name: 'Senden', exact: true }).isDisabled());
+  await strip.getByRole('button', { name: 'Weitere Optionen', exact: true }).click();
+  await strip.getByRole('menuitem', { name: 'Im Editor öffnen', exact: true }).click();
+  const pausedEditor = tablet.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
+  check('large editor also pauses delivery without discarding its draft', await pausedEditor.getByRole('button', { name: 'In CLI einfügen', exact: true }).isDisabled()
+    && await pausedEditor.getByRole('button', { name: 'An CLI absenden', exact: true }).isDisabled()
+    && await pausedEditor.getByLabel('CLI-Promptentwurf', { exact: true }).inputValue() === 'Entwurf bei Anzeigefehler.');
+  await tablet.keyboard.press('Escape'); await pausedEditor.waitFor({ state: 'hidden' }); await tablet.unroute('**/api/v1/terminal/query');
+  await expect(strip.getByRole('button', { name: 'Senden', exact: true })).toBeEnabled();
+  check('display recovery retains the unsent voice draft without a PTY write', await mobileDraft.inputValue() === 'Entwurf bei Anzeigefehler.'
+    && readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').length === 2);
   await mobileDraft.fill('Entwurf bleibt bei Verbindungsverlust.');
   proxy.losePromptReplies(true);
   await strip.getByRole('button', { name: 'Senden', exact: true }).click();

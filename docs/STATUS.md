@@ -1,5 +1,58 @@
 # ADE implementation status
 
+## Aktiviert: durchgängiger nativer Tablet-Auftrag (18. September 2026)
+
+Echter Codex, signierte Tablet-Oberfläche, Produktionsqueue und Wiederaufnahme
+sind erstmals in einem Driver verbunden. Dabei wurde eine `AGENTS.md`-Änderung
+beim Einzelauftragsstart reproduziert; Profil-/Memory-Kontext wird jetzt ausserhalb
+der Projektdateien übergeben. Electron **57/0**, echter Codex-Durchlauf **16/0**
+einschliesslich Offline und Host-Neustart. Vollständiges `pnpm verify` bestanden.
+Persönlich aktiviert um **04:15 CEST**, Source **`5cf7ef2ca9b2b4a1ad54`**, PID
+40124. Profile, Projekte und Kopplung erhalten, privates Tablet-Bundle verifiziert.
+[Umfang und Nachweise](TABLET_CODEX_NATIVE_RESULTS.md).
+
+## Eleven v3 und kurze Aussprache von Adi (18. September 2026)
+
+Beauftragt nach dem Tablet-Fix: bisher Multilingual v2, persönliche Standardstimme
+Sarah. Umstellung auf Eleven v3 über Text to Dialogue WebSocket implementiert;
+Aussprachevorgabe für Adi, nur wirksame Stabilitätseinstellung sichtbar.
+Vollständiges `pnpm verify` bestanden: 90 Suiten / 3.709 Prüfungen, Build und
+alle Bedien-/Darstellungstests. Persönlich aktiviert um **03:25 CEST**, Source
+`5f58bdaefddb8640de7b`, PID 15008. Echte produktive Sarah-Probe mit v3 und
+vollständigem Nutzungsbeleg bestätigt. Profile, Projekte und Tablet-Kopplung erhalten.
+Zusätzlich sind Überschneidungen von Terminal-Heartbeat mit explizitem Senden
+und Eingabefreigabe korrigiert; nativer Regressionstest **15/0** inklusive
+Offline-Abbruch ohne Replay. Physische Samsung- und Hörabnahme bleiben offen.
+[Vertrag und Betriebsstand](ELEVEN_V3_RESULTS.md).
+
+## Tablet-Wiederaufnahme und Workspace-Info (18. September 2026)
+
+Der autorisierte Folgeblock hält Verbindungshinweise und Eingabeübernahme auch
+mit offener Tastatur sichtbar. Bei Anzeigefehlern und bis zur ersten erfolgreichen
+Abfrage nach Wiederverbindung pausiert die Eingabe ohne automatisches Replay.
+Projekt-/Branch-Info bleibt mobil erreichbar; der exakte Workspace-Stammordner
+ist am PC aufklappbar. Native IME-/Wiederaufnahmeprüfung **29/0**, vollständiges
+`pnpm verify` bestanden; persönlich aktiviert um **01:54 CEST**, Source
+`45179f3a10f68b7971f8`. [Nachweise](TABLET_RECOVERY_RESULTS.md).
+
+## Tablet-Shell und letzte Commits (17. September 2026)
+
+Adis physischer Tablet-Test meldete unsichtbare Eingabe und einen versetzten
+Cursor nach `(base) PS [path]>`. Die gekürzte Pfadanzeige behielt zuvor die
+ursprünglichen Cursor-Koordinaten. Die Projektion berechnet Text und Cursor jetzt
+gemeinsam, einschliesslich Umbrüchen und Unicode; der vollständige Host-Pfad bleibt
+maskiert. Die gemeinsame PC-/Tablet-Git-Ansicht enthält „Letzte 5 Commits“ mit
+Nachricht, Kurz-SHA, Autor und Datum, auch bei aktiver Shell lesbar.
+„Shell beenden“ bleibt direkt unter dem Terminal erreichbar, einschliesslich
+kompakter Tastaturansicht und Bestätigung mit definierter Fokusrückgabe.
+Fokussierte Nachweise und Aktivierungsstand:
+[Tablet-Shell-Ergebnisse](TABLET_SHELL_RESULTS.md). Vollständige Abnahme **Exit 0**,
+89 Suiten / 3.677 Prüfungen und sämtliche Bedien-/Visualdriver. Persönlich
+aktiviert am **18. September, 00:17 CEST**, Source-ID `df7bd102395819bff557`,
+PID 57592; sechs Profile, sechs Projekte und Tablet-Kopplung erhalten.
+Privates HTTPS liefert nachweislich das aktuelle Bundle. Die nächste autorisierte
+Arbeit stabilisiert Verbindungsabbrüche, Eingabebesitz und Workspace-Orientierung.
+
 ## Codex-Tablet-Pilot wieder aufgenommen (17. September 2026)
 
 Adi priorisiert den Codex-Ablauf. Übergaben und bestätigte Projektaufträge aus dem

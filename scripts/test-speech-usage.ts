@@ -5,7 +5,8 @@ import { SpeechUsageService } from '../src/main/usage/SpeechUsageService';
 import { UsageJournal } from '../src/main/usage/UsageJournal';
 import { NativeUsageService } from '../src/main/usage/NativeUsageService';
 import { DictationService } from '../src/main/settings/DictationService';
-import { SpeechService } from '../src/main/settings/SpeechService';
+import { speechPronunciation } from '../src/main/settings/ElevenDialogue';
+import { FixtureSpeechService as SpeechService } from './helpers/speechSocket';
 import { encodeDictationPcm } from '../src/shared/dictationAudio';
 import { DEFAULT_CONFIG } from '../src/shared/types';
 import { SPEECH_TEST_TEXT } from '../src/shared/speech';
@@ -76,7 +77,7 @@ void (async () => {
     if (String(url).endsWith('/voices')) return Response.json({ voices: [{ voice_id: voiceId, name: 'Fixture voice' }] });
     voiceRequests++;
     check('voice generation journals characters before its provider request', journal.view().facts.at(-1)?.requestState === 'pending'
-      && journal.view().facts.at(-1)?.characters === SPEECH_TEST_TEXT.length);
+      && journal.view().facts.at(-1)?.characters === speechPronunciation(SPEECH_TEST_TEXT).length && journal.view().facts.at(-1)?.model === 'eleven_v3');
     return new Response(new Uint8Array(128), { headers: { 'content-type': 'audio/mpeg' } });
   }); speechEngine.setUsage(service);
   const beforeCatalog = journal.view().facts.length; await speechEngine.catalog();

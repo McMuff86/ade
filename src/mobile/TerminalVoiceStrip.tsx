@@ -7,9 +7,10 @@ import type { MobileHost } from './useMobileHost';
 /** Tablet adapter: the strip under the terminal, or its blocked frame when the
  * tablet does not own input. The large editor replaces the strip while open so
  * exactly one composer writes the shared draft. */
-export function TerminalVoiceStrip({ host, target, label, send, fallbackId, trailing, blocked, sheetOpen, onSheetSlot }: {
+export function TerminalVoiceStrip({ host, target, label, send, fallbackId, trailing, blocked, sendBlockedReason, sheetOpen, onSheetSlot }: {
   host: MobileHost; target: MobileDictationTarget; label: string; fallbackId: string; send: PromptSender;
   trailing?: ReactNode; blocked?: { reason: string; action?: ReactNode };
+  sendBlockedReason?: string;
   sheetOpen?: boolean; onSheetSlot?: (element: HTMLElement | null) => void;
 }) {
   const { speechAllowed, computerAllowed } = useMobileSpeechGrants(host);
@@ -21,11 +22,11 @@ export function TerminalVoiceStrip({ host, target, label, send, fallbackId, trai
     <span className="voice-status">{blocked.reason}</span>{blocked.action}</VoiceStripFrame>;
   if (editorOpen) return <>
     <VoiceStripFrame trailing={trailing}><span className="voice-status">Entwurf im Editor geöffnet.</span></VoiceStripFrame>
-    <MobilePromptDialog host={host} target={target} label={label} send={send} fallbackId={fallbackId} restoreFocusTo={() => null}
+    <MobilePromptDialog host={host} target={target} label={label} send={send} sendBlockedReason={sendBlockedReason} fallbackId={fallbackId} restoreFocusTo={() => null}
       onClose={() => { setEditorOpen(false); requestAnimationFrame(() => strip.current?.querySelector<HTMLElement>('[aria-label="Weitere Optionen"]')?.focus()); }} />
   </>;
   return <div ref={strip} style={{ display: 'contents' }}>
     <VoiceStrip draftKey={`mobile/${host.deviceId}/${target.terminalId}`} online={host.status === 'online'} speechAllowed={speechAllowed}
-      port={port} trailing={trailing} onOpenEditor={() => setEditorOpen(true)} sheetOpen={sheetOpen} onSheetSlot={onSheetSlot} />
+      port={port} sendBlockedReason={sendBlockedReason} trailing={trailing} onOpenEditor={() => setEditorOpen(true)} sheetOpen={sheetOpen} onSheetSlot={onSheetSlot} />
   </div>;
 }

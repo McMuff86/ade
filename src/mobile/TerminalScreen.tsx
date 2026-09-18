@@ -73,7 +73,14 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
   useEffect(() => { if (terminal.current) terminal.current.options.disableStdin = !enabled || !active; }, [enabled, active]);
   useEffect(() => {
     const term = terminal.current; if (!term || lastFrame.current === frame.revision) return;
-    term.resize(frame.cols, frame.rows); term.write(frame.ansi); lastFrame.current = frame.revision;
+    if (term.cols !== frame.cols || term.rows !== frame.rows) {
+      term.resize(frame.cols, frame.rows);
+      // xterm reflow can leave a base/viewport offset even with scrollback 0.
+      // Replace that local buffer with the authoritative frame after resizing;
+      // clear() preserves the keyboard modes and in-progress IME composition.
+      term.clear();
+    }
+    term.write(frame.ansi); lastFrame.current = frame.revision;
   }, [frame]);
   return <div className="m-terminal-screen m-terminal-xterm m-terminal-history-host" aria-label="Terminalanzeige"
     onKeyDownCapture={(event) => {

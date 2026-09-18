@@ -13,7 +13,7 @@ let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-reply-electron-')));
 const evidence = resolve('test-results/reply-speech'); mkdirSync(evidence, { recursive: true });
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
-type RequestBody = { text: string; voice_settings: { speed: number; stability: number } };
+type RequestBody = { text: string; voice_settings: { stability: number } };
 const requests = (): RequestBody[] => existsSync(join(root, 'requests.jsonl')) ? readFileSync(join(root, 'requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [];
 const answer = 'Die neue Antwort ist bereit. Ein Test bleibt noch offen.';
 /** The desktop toolbar says "Antwort anhören"; the tablet voice strip shortens it to "Anhören". */
@@ -64,7 +64,7 @@ public class Fixture {
   writeFileSync(launcher, `const fs = require('node:fs'); const original = global.fetch;
 global.fetch = async (url, init) => {
   if (String(url) === 'https://api.elevenlabs.io/v1/voices') return Response.json({voices:[{voice_id:'EXAVITQu4vr4xnSDxMaL',name:'Sarah',labels:{gender:'female'}}]});
-  if (!String(url).startsWith('https://api.elevenlabs.io/v1/text-to-speech/')) return original(url, init);
+  if (!String(url).startsWith('https://api.elevenlabs.io/v1/text-to-dialogue/stream-input')) return original(url, init);
   fs.appendFileSync(${JSON.stringify(join(root, 'requests.jsonl'))}, init.body + '\\n');
   const mode = fs.existsSync(${JSON.stringify(join(root, 'provider-mode'))}) ? fs.readFileSync(${JSON.stringify(join(root, 'provider-mode'))}, 'utf8') : '';
   if (mode === 'wait') await new Promise((_done, fail) => init.signal.addEventListener('abort', () => { fs.writeFileSync(${JSON.stringify(join(root, 'aborted'))}, 'yes'); fail(new Error('aborted')); }, {once:true}));
@@ -83,6 +83,7 @@ cp.execFile = function(file,args,options,callback) {
   queueMicrotask(() => callback(null,JSON.stringify(args[0] === 'status' ? {BackendState:'Running',Self:{DNSName:'ade-mobile.fixture.ts.net.',Online:true}} : config))); return {};
 };
 cp.execFile[require('node:util').promisify.custom] = (file,args,options) => new Promise((done,fail) => cp.execFile(file,args,options,(error,stdout,stderr) => error ? fail(error) : done({stdout,stderr})));
+require(${JSON.stringify(resolve('scripts/fixtures/dialogue-speech.cjs'))}).install();
 require(${JSON.stringify(resolve('out/main/index.js'))});`);
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), env: { ...process.env,
     Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test',
@@ -110,7 +111,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await page.keyboard.press('Shift+Tab');
   check('native modal keeps keyboard focus inside', await dialog.evaluate(node => node.contains(document.activeElement)));
   await editReply(dialog); await listen(dialog);
-  check('explicit playback speaks exactly the reviewed text with saved slower speed', requests().length === 1 && requests()[0]!.text === answer && requests()[0]!.voice_settings.speed === 0.85);
+  check('explicit playback speaks exactly the reviewed text with saved stability', requests().length === 1 && requests()[0]!.text === answer && requests()[0]!.voice_settings.stability === 0.9);
   await dialog.getByRole('button', { name: 'Erneut abspielen', exact: true }).click();
   await dialog.getByText('Fertig. Du kannst die Antwort erneut anhören.', { exact: true }).waitFor();
   check('replay decodes cached audio without a second provider call', requests().length === 1);
@@ -127,10 +128,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   writeFileSync(join(root, 'provider-mode'), 'fail');
   await dialog.getByRole('button', { name: 'Sprechtext prüfen', exact: true }).click();
   await dialog.getByRole('button', { name: 'Anhören', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('HTTP 500');
+  await expect(dialog.getByRole('alert')).toContainText('ElevenLabs-Sprachausgabe unterbrochen');
   check('provider failure exposes neither credentials nor upstream paths', !(await dialog.innerText()).includes('private-fixture-secret') && !(await dialog.innerText()).includes('Users'));
   await dialog.getByRole('button', { name: 'Anhören', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('HTTP 500');
+  await expect(dialog.getByRole('alert')).toContainText('ElevenLabs-Sprachausgabe unterbrochen');
   check('failed receipt cannot silently charge another synthesis', requests().length === 3);
   writeFileSync(join(root, 'provider-mode'), '');
   await page.keyboard.press('Escape');

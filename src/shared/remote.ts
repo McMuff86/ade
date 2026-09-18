@@ -221,6 +221,8 @@ export interface ProjectWorkspaceQueryResult { directory?: ProjectDirectoryView;
   publish?: import('./projectPublish').ProjectPublishStatus; publishPreview?: import('./projectPublish').ProjectPublishPreview }
 export interface ProjectWorkspaceCommandResult { workspace: ProjectWorkspaceView; replayed: boolean; git?: import('./projectGit').ProjectGitOverview; publication?: import('./projectPublish').ProjectPublication }
 export type { ProjectGitAction, ProjectGitOverview, ProjectGitPreview, ProjectGitDiff } from './projectGit';
+/** Five newest commits reachable from the inspected project HEAD; free text is wire-redacted. */
+export interface ProjectGitCommit { sha: string; subject: string; author: string; authoredAt: string }
 export type { ProjectPublishAction, ProjectPublishStatus, ProjectPublishPreview, ProjectPublication } from './projectPublish';
 
 /** null explicitly selects the agent home, regardless of its default project. */

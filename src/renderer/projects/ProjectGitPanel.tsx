@@ -108,6 +108,12 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
         <button disabled={busy} onClick={() => { if (!savePending(null)) return; restore.current = true; setPreview(undefined); setError(''); void load(); }}>{pending ? 'Stand lesen und Vorschau verwerfen' : 'Abbrechen'}</button></div>
     </section> : state && <>
       <p>{state.files.length ? `${state.files.length} geänderte Dateien` : 'Arbeitsverzeichnis sauber'} · HEAD {state.head?.slice(0, 12) ?? 'ohne Commit'}</p>
+      <details className="project-git-history"><summary>Letzte 5 Commits</summary>
+        {state.recentCommits.length ? <ol aria-label="Letzte Commits">{state.recentCommits.map((commit) => <li key={commit.sha}>
+          <strong>{commit.subject || 'Ohne Commit-Nachricht'}</strong>
+          <span><code title={commit.sha}>{commit.sha.slice(0, 12)}</code> · {commit.author || 'Unbekannter Autor'} · <time dateTime={commit.authoredAt}>{new Date(commit.authoredAt).toLocaleString()}</time></span>
+        </li>)}</ol> : <p>Noch keine Commits in diesem Branch.</p>}
+      </details>
       <section aria-label="Nächster Git-Schritt">
         <h3>{state.merge ? 'Zusammenführung abschliessen' : state.files.length ? 'Lokale Änderungen sichern' : 'Projektstand abgleichen'}</h3>
         <p>{state.merge ? 'Konflikte bearbeiten und als aufgelöst markieren. Danach den Merge-Commit prüfen.'

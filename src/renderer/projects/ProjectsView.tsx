@@ -20,6 +20,8 @@ const errorText = (error: unknown) => String(error);
 
 export function ProjectsView(): JSX.Element {
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
+  // Trusted desktop catalog only. A worktree's root can differ from its repository.
+  const workspacePath = useAppData((state) => state.projectWorkspaces.find((item) => item.id === workspace?.id)?.workspaceDir);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [newName, setNewName] = useState('');
   const [createdId, setCreatedId] = useState<string>();
@@ -102,7 +104,7 @@ export function ProjectsView(): JSX.Element {
   };
   return <section className="project-desktop" aria-label="Projekte">
     <h1 ref={heading} tabIndex={-1}>{workspace ? `Projekt · ${workspace.name}` : 'Projekte'}</h1>
-    {workspace ? <><ProjectWorkspaceSummary workspace={workspace} /><SupervisionButton repositoryId={workspace.repositoryId} /><button onClick={() => {
+    {workspace ? <><ProjectWorkspaceSummary workspace={workspace} workspacePath={workspacePath} /><SupervisionButton repositoryId={workspace.repositoryId} /><button onClick={() => {
       setWorkspace(undefined); useSelection.getState().setProjectWorkspace(null);
       const target = opener.current?.isConnected ? opener.current : document.getElementById('mode-tab-projects'); target?.focus();
       void refresh();

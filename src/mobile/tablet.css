@@ -70,10 +70,24 @@
 .m-terminal-tools p { font-size: 11px; margin: 4px 0; }.m-terminal-tools summary { cursor: pointer; padding: 12px 4px; }
 .m-terminal-tools .m-management-actions { margin: 5px 0; }
 .m-terminal-screen { flex: 1 0 220px; min-height: 220px; max-height: none; margin: 8px 0; white-space: pre; }
-.m-terminal-composer { flex: none; background: var(--raised); padding-bottom: env(safe-area-inset-bottom); }
+.m-terminal-composer { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; background: var(--raised); padding-bottom: env(safe-area-inset-bottom); }
+.m-terminal-composer > details { grid-column: 1; grid-row: 1; min-width: 0; }
+.m-terminal-composer > .m-terminal-keybar { grid-column: 2; grid-row: 1; }
+/* Share the collapsed editor row; only visible special keys or an open editor
+   need a separate full-width row. Keep the focused terminal's display space. */
+.m-terminal-composer:has(.m-terminal-keys:not([hidden]), > details[open]) { grid-template-columns: minmax(0, 1fr); }
+.m-terminal-composer:has(.m-terminal-keys:not([hidden]), > details[open]) > .m-terminal-keybar { grid-column: 1; }
+.m-terminal-composer:has(.m-terminal-keys:not([hidden]), > details[open]) > details { grid-column: 1; grid-row: 2; }
 .m-terminal-composer form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
 .m-terminal-composer textarea { min-height: 54px; max-height: 120px; resize: vertical; font-size: 16px; }
-.m-terminal-composer .m-management-actions { margin: 4px 0; gap: 4px; }.m-terminal-composer .m-management-actions button { min-width: 44px; min-height: 40px; }
+.m-terminal-composer .m-management-actions { margin: 4px 0; gap: 4px; }.m-terminal-composer .m-management-actions button { min-width: 44px; min-height: 44px; }
+.m-terminal-keybar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.m-terminal-keybar .m-terminal-keys { flex: 1; flex-wrap: nowrap; min-width: 0; overflow-x: auto; }
+.m-terminal-keybar .m-terminal-keys button { flex: none; }
+.m-terminal-recovery { display: flex; flex: none; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.m-terminal-recovery p { flex: 1; min-width: 0; margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.m-terminal-recovery button { flex: none; min-height: 44px; max-width: 48%; white-space: normal; }
+.m-terminal-end { flex: none; margin-left: auto; min-height: 44px; }
 .m-terminal-composer .m-field-note { font-size: 10px; margin: 2px 0; }
 .m-remote-terminal > .m-field-note { font-size: 10px; margin: 3px 0; flex: none; }
 /* Android Chrome resizes visualViewport, not the layout viewport used by media
@@ -98,8 +112,7 @@
 .m-keyboard-compact .m-field-note { display: none; }
 .m-keyboard-compact .m-terminal-screen { flex: 1 1 0; min-height: 80px; margin: 4px 0; }
 .m-keyboard-compact .m-terminal-composer { padding-bottom: 0; }
-.m-keyboard-compact .m-terminal-composer > .m-management-actions { flex-wrap: nowrap; overflow-x: auto; margin: 0; gap: 4px; }
-.m-keyboard-compact .m-terminal-composer > .m-management-actions button { flex: none; min-height: 44px; }
+.m-keyboard-compact .m-terminal-keybar .m-terminal-keys { margin: 0; gap: 4px; }
 @media (min-width: 1000px) {
   .m-project-rail { display: block; width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 16px; overflow: auto; }
   .m-project-rail button { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
@@ -134,6 +147,8 @@
 .m-dialog-head:has(.m-terminal-status-bar) h2 { margin: 0; }
 @media (max-width: 760px) { .m-dialog-terminal-header:not(:empty) { flex-basis: 100%; order: 3; } }
 .m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { flex-wrap: nowrap; }
+.m-independent-project > .m-dialog-head > h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-workspace-info-button { flex: none; min-height: 44px; font-size: 12px; }
 .m-terminal-workspace:has(.m-keyboard-compact) .m-dialog-terminal-header,
 .m-keyboard-compact > .m-terminal-status-bar { display: none; }
 .m-profile-photo-button { padding: 0; border-radius: 50%; display: inline-flex; }
@@ -150,4 +165,4 @@
 .m-terminal-composer > details > .m-field-note { margin-top: 4px; }
 .m-remote-terminal .voice-strip { padding-top: 8px; }
 .m-keyboard-compact .voice-strip:not(:focus-within):not([data-phase='recording']):not([data-phase='transcribing']):not([data-phase='permission']) { display: none; }
-.m-keyboard-compact .m-terminal-composer > .m-terminal-keys { margin-top: 4px; }
+.m-keyboard-compact .m-terminal-keybar { margin-top: 4px; }

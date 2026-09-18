@@ -5,6 +5,34 @@ import { redactForWire } from '../errors';
 
 const CSI = '\x1b[';
 const safeText = (text: string) => redactForWire(text, 256 * 1024).replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+const safeTranscript = (text: string) => redactForWire(text, 2 * 1024 * 1024).replace(/[\x00-\x09\x0b-\x1f\x7f-\x9f]/g, '');
+
+/** A caret inside hidden text stays at the boundary of the complete redaction.
+ * Never insert a marker into raw text before redaction: that can split a secret. */
+function safeCaret(text: string, prefix: string): number {
+  let offset = 0;
+  while (offset < text.length && offset < prefix.length && text[offset] === prefix[offset]) offset++;
+  if (offset && /[\uD800-\uDBFF]/.test(text[offset - 1]!)) offset--;
+  return offset;
+}
+
+/** Use the same terminal cell widths/wrapping as the browser, including wide and
+ * combining characters. Only already-redacted text enters this temporary screen. */
+async function projectSafeText(text: string, caret: number | undefined, cols: number, rows: number) {
+  const term = new Terminal({ cols, rows, scrollback: 1000, allowProposedApi: true, convertEol: true });
+  let cursor: { row: number; col: number } | undefined;
+  try {
+    term.parser.registerCsiHandler({ prefix: '?', final: 'z' }, () => {
+      cursor = { row: term.buffer.active.baseY + term.buffer.active.cursorY, col: Math.min(cols - 1, term.buffer.active.cursorX) }; return true;
+    });
+    await new Promise<void>((resolve) => term.write(caret === undefined ? text : `${text.slice(0, caret)}${CSI}?7777z${text.slice(caret)}`, resolve));
+    const buffer = term.buffer.active;
+    // Keep the input caret visible even when a prediction extends below it.
+    const start = cursor ? Math.min(buffer.baseY, Math.max(0, cursor.row - rows + 1)) : buffer.baseY;
+    return { lines: Array.from({ length: rows }, (_, row) => buffer.getLine(start + row)?.translateToString(true) ?? ''),
+      cursor: cursor && { row: cursor.row - start, col: cursor.col } };
+  } finally { term.dispose(); }
+}
 function style(cell: IBufferCell): string {
   const codes = [0];
   if (cell.isBold()) codes.push(1); if (cell.isDim()) codes.push(2); if (cell.isItalic()) codes.push(3);
@@ -59,31 +87,46 @@ export class RemoteTerminalDisplay {
     if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
     if (this.cached?.version === this.version && this.pendingBytes === 0) return this.cached.value;
     const term = this.terminal; const buffer = term.buffer.active;
+    const version = this.version; const baseY = buffer.baseY;
     const cols = Math.min(240, term.cols); const rows = Math.min(100, term.rows);
-    const logical: string[] = []; const originals: string[] = []; const safeRows = new Map<number, string>();
+    let cursor = { row: Math.min(rows - 1, buffer.cursorY), col: Math.min(cols - 1, buffer.cursorX) };
+    const cursorLine = baseY + buffer.cursorY;
+    const logical: string[] = []; const originals: string[] = [];
+    const changed: Array<{ start: number; end: number; text: string; caret?: number }> = [];
+    let originalCaret = 0; let originalLength = 0;
     for (let index = 0; index < buffer.length;) {
-      const first = index; let original = buffer.getLine(index)!.translateToString(true); index++;
-      while (index < buffer.length && buffer.getLine(index)!.isWrapped) original += buffer.getLine(index++)!.translateToString(true);
+      const first = index; let original = ''; let caret: number | undefined;
+      do {
+        const line = buffer.getLine(index)!;
+        const wraps = !!buffer.getLine(index + 1)?.isWrapped;
+        let part = line.translateToString(!wraps);
+        if (index === cursorLine) {
+          const before = line.translateToString(false, 0, buffer.cursorX);
+          caret = original.length + before.length;
+          // A shell prompt normally ends in a space; retain it up to the caret.
+          if (before.length > part.length) part = before;
+        }
+        original += part; index++;
+      } while (index < buffer.length && buffer.getLine(index)!.isWrapped);
       const safe = safeText(original); logical.push(safe); originals.push(original);
-      if (safe !== original) {
+      if (caret !== undefined) originalCaret = originalLength + caret;
+      originalLength += original.length + 1;
+      if (safe !== original && index > baseY && first < baseY + rows) {
         // Never reuse cells from a redacted logical line: they may contain secret fragments.
-        for (let at = first; at < index; at++) safeRows.set(at, at === first ? safe.slice(0, cols) : '');
+        changed.push({ start: Math.max(first, baseY), end: Math.min(index, baseY + rows), text: safe,
+          caret: caret === undefined ? undefined : safeCaret(safe, safeText(original.slice(0, caret))) });
       }
     }
     // Credential syntax can span hard newlines too. If contextual redaction changes
     // line boundaries, suppress styled cells and rebuild from the complete safe text.
-    const fullText = redactForWire(originals.join('\n'), 2 * 1024 * 1024).replace(/[\x00-\x09\x0b-\x1f\x7f-\x9f]/g, '');
-    if (fullText !== logical.join('\n')) {
-      const lines = fullText.split('\n');
-      for (let row = 0; row < rows; row++) safeRows.set(buffer.baseY + row, lines[row]?.slice(0, cols) ?? '');
-    }
+    const originalText = originals.join('\n'); const fullText = safeTranscript(originalText);
+    const contextual = fullText !== logical.join('\n');
     const prefix = `${CSI}?25l${CSI}0m${CSI}?7l${CSI}2J`;
-    let ansi = prefix; let plain = prefix;
+    const styledRows: string[] = []; const plainRows: string[] = [];
     for (let row = 0; row < rows; row++) {
-      const index = buffer.baseY + row; const line = buffer.getLine(index);
-      ansi += `${CSI}${row + 1};1H`;
-      plain += `${CSI}${row + 1};1H`;
-      if (safeRows.has(index)) { ansi += `${CSI}0m${safeRows.get(index)}`; plain += safeRows.get(index); continue; }
+      const index = baseY + row; const line = buffer.getLine(index);
+      let ansi = ''; let plain = '';
+      if (contextual || changed.some((group) => index >= group.start && index < group.end)) { styledRows.push(''); plainRows.push(''); continue; }
       let lastStyle = '';
       for (let col = 0; line && col < cols; col++) {
         const cell = line.getCell(col)!; if (cell.getWidth() === 0) continue;
@@ -91,16 +134,35 @@ export class RemoteTerminalDisplay {
         const text = cell.getChars().replace(/[\x00-\x1f\x7f-\x9f]/g, '').slice(0, 16) || ' ';
         ansi += text; plain += text;
       }
+      styledRows.push(ansi); plainRows.push(plain);
     }
-    const modes = term.modes;
+    // Capture live modes/cells before asynchronous projection. New PTY output
+    // invalidates this version and will be projected by the following snapshot.
+    const modes = term.modes; const cursorVisible = this.cursorVisible;
+    if (contextual) {
+      const projected = await projectSafeText(fullText, safeCaret(fullText, safeTranscript(originalText.slice(0, originalCaret))), cols, rows);
+      for (let row = 0; row < rows; row++) { styledRows[row] = `${CSI}0m${projected.lines[row]}`; plainRows[row] = projected.lines[row]!; }
+      if (projected.cursor) cursor = projected.cursor;
+    } else {
+      const projected = await Promise.all(changed.map(async (group) => ({ group, projection: await projectSafeText(group.text, group.caret, cols, group.end - group.start) })));
+      for (const { group, projection } of projected) {
+        for (let row = 0; row < projection.lines.length; row++) {
+          styledRows[group.start - baseY + row] = `${CSI}0m${projection.lines[row]}`; plainRows[group.start - baseY + row] = projection.lines[row]!;
+        }
+        if (projection.cursor) cursor = { row: group.start - baseY + projection.cursor.row, col: projection.cursor.col };
+      }
+    }
+    if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
+    let ansi = prefix + styledRows.map((line, row) => `${CSI}${row + 1};1H${line}`).join('');
+    const plain = prefix + plainRows.map((line, row) => `${CSI}${row + 1};1H${line}`).join('');
     if (Buffer.byteLength(JSON.stringify(ansi)) > 300 * 1024) ansi = plain;
     if (Buffer.byteLength(JSON.stringify(ansi)) > 300 * 1024) throw new Error('Terminalanzeige ist zu umfangreich. Am Desktop weiterarbeiten.');
-    ansi += `${CSI}0m${CSI}?7h${CSI}${Math.min(rows, buffer.cursorY + 1)};${Math.min(cols, buffer.cursorX + 1)}H`;
+    ansi += `${CSI}0m${CSI}?7h${CSI}${cursor.row + 1};${cursor.col + 1}H`;
     for (const [mode, enabled] of [[1, modes.applicationCursorKeysMode], [66, modes.applicationKeypadMode],
-      [2004, modes.bracketedPasteMode], [25, this.cursorVisible]] as const) ansi += `${CSI}?${mode}${enabled ? 'h' : 'l'}`;
+      [2004, modes.bracketedPasteMode], [25, cursorVisible]] as const) ansi += `${CSI}?${mode}${enabled ? 'h' : 'l'}`;
     const revision = createHash('sha256').update(ansi).digest('hex');
     const value = { screen: fullText.slice(-64 * 1024).trimEnd(), frame: { cols, rows, ansi, revision } };
-    this.cached = { version: this.version, value }; return value;
+    this.cached = { version, value }; return value;
   }
 }
 

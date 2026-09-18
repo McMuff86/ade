@@ -1,5 +1,10 @@
 # Goal 33.0b — Stimme und Tempo persönlich einstellen
 
+**Aktueller Folgestand (18. September):** Die beauftragte Umstellung auf Eleven v3
+verwendet Text to Dialogue WebSocket. Dort ist nur Stabilität unterstützt; die
+anderen Regler dieses historischen v2-Vertrags sind nicht mehr wirksam.
+Stimmenwahl bleibt erhalten. [Aktueller Vertrag und Nachweise](ELEVEN_V3_RESULTS.md).
+
 **Aktiviert:** Der geprüfte Release **35c3eec** mit Source-ID **71abb464e4bc9b4196cc** ist seit 16. September 2026, 14:48 CEST persönlich aktiv (PID 52412). Stimmen-Tab, Standardtempo 0.85 und passive WSL-Erkennung sind auf Desktop und ausgeliefertem Tablet-Bundle bestätigt. Profile, Projekte und Kopplung erhalten. [Aktivierung, Sicherung und Nachweise](VOICE_SETTINGS_ACTIVATION.md). Die folgenden ausstehenden Aktivierungsangaben sind historisch.
 
 Der Operator wünscht nach der Hörprobe ein langsameres Tempo und einen eigenen

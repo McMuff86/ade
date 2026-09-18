@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import type { AdeConfig, SessionMeta } from '../../shared/types';
+import type { ProjectGitCommit } from '../../shared/remote';
 import type { ProjectGitAction, ProjectGitDiff, ProjectGitFile, ProjectGitOverview, ProjectGitPreview } from '../../shared/projectGit';
 import { validProjectGitAction, validProjectRemote } from '../../shared/projectGit';
 import { validProjectBranchRef } from '../../shared/projectBranches';
@@ -186,6 +187,18 @@ export class ProjectGitService {
     let head: string | null = null;
     try { head = (await projectGit(path, ['rev-parse', '--verify', 'HEAD'])).trim(); if (!SHA.test(head)) fail('HEAD ist ungültig.'); }
     catch { if (refs.some((ref) => ref.ref === `refs/heads/${scope.branch}`)) fail('HEAD konnte nicht bestätigt werden.'); }
+    const recentCommits: ProjectGitCommit[] = [];
+    if (head) {
+      const history = await projectGit(path, ['log', '-5', '--no-show-signature', '--format=%H%x00%an%x00%aI%x00%s', '-z', head, '--']);
+      const fields = history.split('\0');
+      if (fields.pop() !== '' || fields.length % 4 || fields.length > 20) fail('Commit-Verlauf konnte nicht eindeutig gelesen werden.');
+      for (let at = 0; at < fields.length; at += 4) {
+        const [sha, author, authoredAt, subject] = fields.slice(at, at + 4);
+        if (!SHA.test(sha!) || !Number.isFinite(Date.parse(authoredAt!))) fail('Commit-Metadaten konnten nicht gelesen werden.');
+        recentCommits.push({ sha: sha!, subject: redactForWire(subject!, 500), author: redactForWire(author!, 200), authoredAt: new Date(authoredAt!).toISOString() });
+      }
+      if (recentCommits[0]?.sha !== head) fail('Commit-Verlauf passt nicht zum gelesenen HEAD.');
+    }
     const entries = status.split('\0').filter(Boolean); if (entries.length > 500) fail('Maximal 500 geänderte Dateien in dieser Ansicht.');
     let total = 0; const identities: unknown[] = [];
     const files: ProjectGitFile[] = entries.map((entry) => {
@@ -207,7 +220,7 @@ export class ProjectGitService {
     const remotes = (await projectGit(path, ['remote'])).trim().split(/\r?\n/).filter(validProjectRemote);
     const index = this.optionalFile(join(scope.workspace.gitDirectory, 'index'), 16 * 1024 * 1024);
     const after = await this.projects.resolve(id); if (after.branch !== scope.branch) fail('Branch wurde geändert. Aktualisieren.');
-    const view: ProjectGitOverview = { workspace: await this.projects.overview(id), head, files, refs, remotes, merge: !!mergeHead, blockedReason,
+    const view: ProjectGitOverview = { workspace: await this.projects.overview(id), head, recentCommits, files, refs, remotes, merge: !!mergeHead, blockedReason,
       revision: digest([scope.workspace, scope.branch, head, status, refsRaw, remoteConfig, mergeHead, digest(mergeMessage), digest(index), identities, operation]), checkedAt: this.now(), fetchedAt: this.fetched.get(scope.repository.id) ?? null };
     return { view, scope, status, mergeHead, remoteConfig };
   }

@@ -8,6 +8,7 @@ import { ProjectGitService } from '../src/main/repositories/ProjectGitService';
 import { validProjectGitAction } from '../src/shared/projectGit';
 import { RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { assertIpcPayload } from '../src/main/ipcValidation';
+import { ProjectDefaultsService } from '../src/main/settings/ProjectDefaultsService';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -22,10 +23,22 @@ void (async () => {
   const gitAt = (path: string, ...args: string[]) => execFileSync('git', ['-C', path, '-c', 'commit.gpgSign=false', ...args], { encoding: 'utf8', windowsHide: true });
   const git = (...args: string[]) => gitAt(cwd, ...args); const write = (name: string, value: string) => writeFileSync(join(cwd, name), value);
   git('config', 'user.name', 'ADE fixture'); git('config', 'user.email', 'fixture@example.invalid'); git('config', 'core.autocrlf', 'false');
-  write('a.txt', 'base\n'); write('b.txt', 'base\n'); git('add', '.'); git('commit', '-m', 'base');
   let now = Date.now(); const service = new ProjectGitService(f.store, f.projects, () => f.sessions, () => now);
   const view = () => service.overview(workspace.id);
   const apply = async (action: Parameters<ProjectGitService['preview']>[1]) => service.apply((await service.preview(workspace.id, action, 'desktop')).id, 'desktop');
+  const emptyDir = join(dirname(cwd), 'Empty history'); mkdirSync(emptyDir); gitAt(emptyDir, 'init', '--initial-branch=main');
+  new ProjectDefaultsService(f.store).save({ rootPath: dirname(cwd), agentId: null });
+  const emptyEntry = (await f.projects.directory()).entries.find((item) => item.name === 'Empty history')!;
+  const emptyWorkspace = await f.projects.open(emptyEntry.id); const empty = await service.overview(emptyWorkspace.id);
+  check('unborn branch has an empty readable commit history', empty.head === null && !empty.recentCommits.length);
+  check('root commit appears without requiring five commits', (await view()).recentCommits.length === 1 && (await view()).recentCommits[0]?.sha === git('rev-parse', 'HEAD').trim());
+  write('a.txt', 'base\n'); write('b.txt', 'base\n'); git('add', '.'); git('commit', '-m', 'base');
+  for (let index = 1; index <= 6; index++) git('commit', '--allow-empty', '-m', `History ${index}`);
+  git('-c', 'user.name=Author C:/private/person', 'commit', '--allow-empty', '-m', 'History api_key=history_private C:/private/folder');
+  const history = (await view()).recentCommits;
+  check('history contains exactly the five newest commits of inspected HEAD', history.length === 5 && history.map((item) => item.sha).join('\n') === git('log', '-5', '--format=%H').trim());
+  check('history redacts credentials and host paths in subjects and authors', !JSON.stringify(history).includes('history_private') && !JSON.stringify(history).includes('C:/private') && history[0]?.subject.includes('[credential]') === true && history[0]?.author.includes('[path]') === true);
+  check('history contains parseable author dates and omits commit bodies', history.every((item) => Number.isFinite(Date.parse(item.authoredAt)) && Object.keys(item).length === 4));
   check('initial overview reports actual clean main checkout', (await view()).workspace.branch === 'main' && !(await view()).files.length);
   check('actions reject arbitrary command, host path and duplicate selections', !validProjectGitAction({ kind: 'commit', paths: ['a.txt'], message: 'x', command: 'bad' })
     && !validProjectGitAction({ kind: 'commit', paths: ['C:/bad'], message: 'x' }) && !validProjectGitAction({ kind: 'resolve', paths: ['a', 'a'] }));
@@ -49,6 +62,8 @@ void (async () => {
   await rejects('revocation before mutation prevents commit', () => service.apply(denied.id, 'desktop', () => { throw new Error('revoked'); }));
   f.sessions.push({ id: 'live', projectWorkspaceId: workspace.id, repositoryId: workspace.repositoryId, workspaceDir: cwd, branch: 'main', title: 'Shell', kind: 'interactive', status: 'running', createdAt: 1 });
   check('live terminal is visible as a Git blocker', (await view()).blockedReason?.includes('Terminalsitzung') === true);
+  check('commit history remains readable while a shell blocks Git mutations', (await view()).recentCommits[0]?.sha === git('rev-parse', 'HEAD').trim());
+  check('workspace-read grant can read recent commits without Git mutation rights', (await f.application.queryProjects(context(), { operation: 'git', workspaceId: workspace.id })).git?.recentCommits.length === 5);
   await rejects('live shell blocks commit preparation', () => service.preview(workspace.id, { kind: 'commit', paths: ['a.txt'], message: 'blocked' }, 'desktop'));
   f.sessions.length = 0; await apply({ kind: 'commit', paths: ['a.txt'], message: 'checked draft' });
   write('a.txt', 'index drift test\n'); write('b.txt', 'index drift sibling\n');
