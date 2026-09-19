@@ -1,3 +1,9 @@
+import { localizedState } from '../../shared/i18n/states';
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { intlLocale } from '../../shared/i18n';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
+import { LanguageSetting } from '../i18n/language';
 /**
  * ADE settings — harness management: per-CLI readiness including the CLI's
  * own sign-in state (subscription logins stay with the CLI and simply keep
@@ -51,17 +57,18 @@ function safeMessage(error: unknown): string {
 }
 
 function formatSavedAt(value: number): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
     .format(new Date(value));
 }
 
 function scopeLabel(scope: ServiceKeyScope): string {
   return scope === 'all'
-    ? 'alle Sessions'
+    ? translate("all sessions")
     : scope.map((runtime) => LAUNCH_PROFILES[runtime].label).join(', ');
 }
 
 export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
+  useLocale();
   const selectedAgentId = useSelection((state) => state.selectedAgentId);
   const openHarnessLogin = useSessions((state) => state.openHarnessLogin);
   const setMode = useMode((state) => state.setMode);
@@ -159,7 +166,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
       ? 'all'
       : SCOPE_RUNTIMES.filter((runtime) => newKeyRuntimes[runtime]);
     if (scope !== 'all' && scope.length === 0) {
-      setError('Wähle mindestens ein Harness für den Key aus.');
+      setError(translate("Select at least one harness for the key."));
       return;
     }
     await window.ade.invoke('harness:setServiceKey', { name, value, scope });
@@ -187,8 +194,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     setBundleMessage('');
     const authorization = await window.ade.invoke('workspaceBundle:authorizeMappings', { mappings });
     if (!authorization) {
-      setBundleMessage('Vorschau nicht aktualisiert: Die Ziele wurden nicht autorisiert. '
-        + 'Die angezeigten Status gehören noch zum vorherigen Plan.');
+      setBundleMessage(translate("Preview not updated: The goals have not been authorized. ")
+        + translate("The displayed statuses are still part of the previous plan."));
       return;
     }
     const preview = await window.ade.invoke('workspaceBundle:preview', {
@@ -199,7 +206,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     setBundlePreviewCurrent(true);
     setBundleConfirmed(false);
     setBundlePartialConfirmed(false);
-    setBundleMessage('Vorschau aktualisiert. Noch wurden keine Zielprofile geändert.');
+    setBundleMessage(translate("Preview updated. No target profiles have been changed yet."));
     return preview;
   };
 
@@ -279,7 +286,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     const picked = await window.ade.invoke('dialog:pickFolder');
     if (!picked.path) return;
     if (collection === 'repositories') {
-      if (!picked.isRepo) throw new Error('Der gewählte Ordner ist kein Git-Repository.');
+      if (!picked.isRepo) throw new Error(translate("The selected folder is not a git repository."));
       updateMapping(collection, item.sourceId, 'path', picked.path);
       return;
     }
@@ -343,8 +350,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     const details = receipt.items.map((item) => `${item.kind}: ${item.outcome}`
       + (item.targetId && item.targetId !== item.sourceId ? ' (ID remapped)' : '')
       + (item.reasonCode ? ` (${item.reasonCode})` : '')).join(' · ');
-    setBundleMessage(`Import abgeschlossen: ${imported} importiert, ${skipped} übersprungen. `
-      + `Backup: ${receipt.backupPath} · Receipt: ${receipt.receiptPath}${details ? ` · Ergebnisse: ${details}` : ''}`);
+    setBundleMessage(translate("Import completed: {{value1}} imported, {{value2}} skipped. ", { value1: imported, value2: skipped })
+      + `Backup: ${receipt.backupPath} · Receipt: ${receipt.receiptPath}${details ? translate(" · Results: {{value1}}", { value1: details }) : ''}`);
     setBundlePreview(null);
     setBundleConfirmed(false);
   });
@@ -356,26 +363,26 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     });
     if (result) {
       const warnings = result.notices.map((notice) => notice.message).join(' · ');
-      setBundleMessage(`Bundle exportiert: ${result.path}${warnings ? ` — Hinweise: ${warnings}` : ''}`);
+      setBundleMessage(`Bundle exportiert: ${result.path}${warnings ? translate(" — Notices: {{value1}}", { value1: warnings }) : ''}`);
     }
   });
 
   /** What the plan will actually produce, per collection, as "kept of total". */
   const importTotals = ((): { parts: string[]; skippedAny: boolean } => {
     if (!bundlePreview) return { parts: [], skippedAny: false };
-    const groups: Array<[string, WorkspaceBundlePreviewItem[]]> = [
-      ['Repositories', bundlePreview.repositories],
-      ['Kategorien', bundlePreview.categories],
-      ['Agents', bundlePreview.agents],
-      ['Vorlagen', bundlePreview.agentTemplates],
-    ];
+    const groups: Array<[string, WorkspaceBundlePreviewItem[]]> = ([
+      [translate("Repositories"), bundlePreview.repositories],
+      [translate("Categories"), bundlePreview.categories],
+      [translate("Agents"), bundlePreview.agents],
+      [translate("Templates"), bundlePreview.agentTemplates],
+    ]);
     const parts: string[] = [];
     let skippedAny = false;
     for (const [label, items] of groups) {
       if (items.length === 0) continue;
       const kept = items.filter((item) => item.status !== 'skipped' && item.status !== 'invalid').length;
       if (kept !== items.length) skippedAny = true;
-      parts.push(`${kept} von ${items.length} ${label}`);
+      parts.push(translate('{{kept}} of {{total}} {{label}}', { kept, total: items.length, label }));
     }
     return { parts, skippedAny };
   })();
@@ -390,7 +397,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     return (
       <div key={`${collection}-${item.sourceId}`} className={`st-bundle-item is-${item.status}`}>
         <div className="st-bundle-item-head">
-          <strong>{item.name}</strong><span>{item.status}</span>
+          <strong>{item.name}</strong><span>{localizedState(item.status)}</span>
         </div>
         <div className="st-key-row">
           {/* An agent home is not its own identity: the name and the skip
@@ -401,14 +408,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               imported none. A repository has no identity row, so it keeps them. */}
           {collection === 'repositories' ? (
             <input
-              aria-label={`Importname für ${item.name}`}
+              aria-label={translate("Import name for {{value1}}", { value1: item.name })}
               value={bundleMappings.names?.[skipCollection]?.[item.sourceId] ?? item.name}
               disabled={busy}
               onChange={(event) => updateBundleName(skipCollection, item.sourceId, event.target.value)}
             />
           ) : null}
           <input
-            aria-label={`Backend für ${item.name}`}
+            aria-label={translate("Backend for {{value1}}", { value1: item.name })}
             value={mapping.backend}
             disabled={busy}
             onChange={(event) => updateMapping(collection, item.sourceId, 'backend', event.target.value)}
@@ -420,10 +427,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         <div className="st-key-row">
           <input
             className="st-bundle-target"
-            aria-label={`Zielpfad für ${item.name}`}
+            aria-label={translate("Target path for {{value1}}", { value1: item.name })}
             placeholder={collection === 'repositories'
-              ? 'Pfad zum vorhandenen Git-Clone'
-              : 'Neues Agent-Home (wird beim Import angelegt)'}
+              ? translate("Path to the existing git clone")
+              : translate("New agent home (created upon import)")}
             value={mapping.path}
             title={mapping.path}
             spellCheck={false}
@@ -434,12 +441,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             className="btn"
             disabled={busy}
             title={collection === 'repositories'
-              ? 'Vorhandenen Git-Clone wählen'
-              : 'Übergeordneten Ordner wählen — das Home selbst wird beim Import angelegt'}
+              ? translate("Choose the existing git clone")
+              : translate("Select higher-level folder — the home itself is created when imported")}
             onClick={() => void browseForTarget(collection, item)}
           >
-            Durchsuchen…
-          </button>
+            {translate("Browse…")}</button>
         </div>
         {item.reason ? <div className="st-harness-message">{item.reason}</div> : null}
         {item.remediation ? <div className="st-bundle-remediation">{item.remediation}</div> : null}
@@ -447,13 +453,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           <label className="st-scope-all">
             <input type="checkbox" checked={skipped} disabled={busy}
               onChange={(event) => toggleBundleSkip(skipCollection, item.sourceId, event.target.checked)} />
-            Diesen Eintrag überspringen
-          </label>
+            {translate("Skip this entry")}</label>
         ) : skipped ? (
           <div className="st-bundle-remediation">
-            Der zugehörige Agent ist zum Überspringen markiert, deshalb wird auch dieses Home
-            nicht angelegt.
-          </div>
+            {translate("The associated agent is marked to skip, so this home is not created either.")}</div>
         ) : null}
       </div>
     );
@@ -469,10 +472,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
   ): JSX.Element => (
     <div key={`${collection}-${item.sourceId}`} className={`st-bundle-item is-${item.status}`}>
       <div className="st-bundle-item-head">
-        <strong>{item.name}</strong><span>{item.status}</span>
+        <strong>{item.name}</strong><span>{localizedState(item.status)}</span>
       </div>
       <div className="st-key-row">
-        <input aria-label={`Importname für ${item.name}`}
+        <input aria-label={translate("Import name for {{value1}}", { value1: item.name })}
           value={bundleMappings.names?.[collection]?.[item.sourceId] ?? item.name}
           disabled={busy}
           onChange={(event) => updateBundleName(collection, item.sourceId, event.target.value)} />
@@ -482,8 +485,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         <input type="checkbox" disabled={busy}
           checked={bundleMappings.skip?.[collection]?.[item.sourceId] === true}
           onChange={(event) => toggleBundleSkip(collection, item.sourceId, event.target.checked)} />
-        Diesen Eintrag überspringen
-      </label>
+        {translate("Skip this entry")}</label>
     </div>
   );
 
@@ -495,14 +497,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
 
   return (
     <Modal
-      title="Einstellungen"
-      subtitle="Darstellung, verbundene Geräte, Workspaces und Harness-Verwaltung."
+      title={translate("Settings")}
+      subtitle={translate("Appearance, connected devices, workspaces and harness management.")}
       onClose={onClose}
     >
       <SettingsTabs voice={<div className="st-body"><TargetSpeechSettings target={{ kind: 'default' }} /></div>}><div className="st-body" data-testid="settings-harnesses">
-        {error ? <div className="st-error" role="alert">{error}</div> : null}
-        <div className="st-theme-row" role="group" aria-label="Darstellung">
-          <span className="st-theme-label">Darstellung</span>
+        <LanguageSetting desktop />
+        {error ? <div className="st-error" role="alert">{localizeAppMessage(error)}</div> : null}
+        <div className="st-theme-row" role="group" aria-label={translate("Appearance")}>
+          <span className="st-theme-label">{translate("Appearance")}</span>
           <div className="st-theme-choice">
             <button
               type="button"
@@ -510,20 +513,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               aria-pressed={theme === 'dark'}
               onClick={() => setTheme('dark')}
             >
-              Dunkel
-            </button>
+              {translate("Dark [44756e6b]")}</button>
             <button
               type="button"
               className={`btn${theme === 'light' ? ' st-theme-active' : ''}`}
               aria-pressed={theme === 'light'}
               onClick={() => setTheme('light')}
             >
-              Hell
-            </button>
+              {translate("Light [48656c6c]")}</button>
           </div>
         </div>
-        <div className="st-theme-row" role="group" aria-label="Inspector-Seite" data-testid="settings-inspector-side">
-          <span className="st-theme-label">Inspector</span>
+        <div className="st-theme-row" role="group" aria-label={translate("Inspector position")} data-testid="settings-inspector-side">
+          <span className="st-theme-label">{translate("Inspector")}</span>
           <div className="st-theme-choice">
             <button
               type="button"
@@ -531,16 +532,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               aria-pressed={inspectorSide === 'right'}
               onClick={() => setInspectorSide('right')}
             >
-              Rechts
-            </button>
+              {translate("Right")}</button>
             <button
               type="button"
               className={`btn${inspectorSide === 'left' ? ' st-theme-active' : ''}`}
               aria-pressed={inspectorSide === 'left'}
               onClick={() => setInspectorSide('left')}
             >
-              Links
-            </button>
+              {translate("Links")}</button>
           </div>
         </div>
         <MobileAccessSection />
@@ -548,14 +547,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         <RemoteDevicesSection />
         <section className="st-bundle-section" data-testid="workspace-bundle-settings">
           <div className="st-section-head">
-            <strong>Workspace-Bundles</strong>
-            <span>Agents und Workspace-Zustand portabel exportieren oder mit Preflight importieren.</span>
+            <strong>{translate("Workspace bundles")}</strong>
+            <span>{translate("Export agents and workspace state portable or import with preflight.")}</span>
           </div>
           <div className="st-bundle-actions">
             <label><input type="checkbox" checked={exportMemory} disabled={busy}
-              onChange={(event) => setExportMemory(event.target.checked)} /> Memory einschließen</label>
+              onChange={(event) => setExportMemory(event.target.checked)} /> {" "}{translate("Include memory")}</label>
             <label><input type="checkbox" checked={exportPhotos} disabled={busy}
-              onChange={(event) => setExportPhotos(event.target.checked)} /> Fotos einschließen</label>
+              onChange={(event) => setExportPhotos(event.target.checked)} /> {" "}{translate("Include photos")}</label>
             <label><input type="checkbox" disabled={busy}
               checked={bundleMappings.settings === 'use-bundle'}
               onChange={(event) => {
@@ -564,20 +563,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 setBundleMappings((current) => ({
                   ...current, settings: event.target.checked ? 'use-bundle' : 'keep-target',
                 }));
-              }} /> Bundle-Theme und Memory-Einstellungen übernehmen</label>
+              }} /> {" "}{translate("Adopt Bundle Theme and Memory Settings")}</label>
             <button type="button" className="btn" disabled={busy} onClick={() => void exportBundle()}>
-              Bundle exportieren
-            </button>
+              {translate("Export bundle")}</button>
             <button type="button" className="btn" disabled={busy} onClick={() => void pickBundle()}>
-              Workspace/Profil importieren…
-            </button>
+              {translate("Import workspace/profile…")}</button>
           </div>
           {bundleSelection ? <div className="st-bundle-path">{bundleSelection.name}</div> : null}
           {bundlePreview ? (
             <div className="st-bundle-preview">
               <div className="st-bundle-summary">
-                Preflight: {!bundlePreviewCurrent ? 'veraltet – Vorschau aktualisieren'
-                  : bundlePreview.canApplyFully ? 'bereit' : 'Mappings oder Konfliktlösungen erforderlich'}
+                {translate("Preflight:")}{" "}{!bundlePreviewCurrent ? translate("outdated — refresh preview")
+                  : bundlePreview.canApplyFully ? translate("ready") : translate("Mapping or conflict resolution required")}
               </div>
               {/* The counts the import will actually produce. "bereit" was true
                   for a plan that imported two categories and none of seven
@@ -585,8 +582,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                   nothing ever added them up. */}
               <div className={importTotals.skippedAny ? 'st-warning' : 'st-bundle-summary'}
                 data-testid="bundle-import-totals">
-                Es werden übernommen: {importTotals.parts.join(' · ')}
-                {importTotals.skippedAny ? ' — der Rest ist zum Überspringen markiert.' : ''}
+                {translate("Items to import:")}{" "}{importTotals.parts.join(' · ')}
+                {importTotals.skippedAny ? translate(" — the rest is marked to skip.") : ''}
               </div>
               {bundlePreview.notices.length > 0 ? (
                 <div className="st-warning">
@@ -594,10 +591,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 </div>
               ) : null}
               {bundlePreview.repositories.length > 0 ? (
-                <><h4>Repositories</h4>{bundlePreview.repositories.map((item) => mappingRow(item, 'repositories'))}</>
+                <><h4>{translate("Repositories")}</h4>{bundlePreview.repositories.map((item) => mappingRow(item, 'repositories'))}</>
               ) : null}
               {bundlePreview.agentHomes.length > 0 ? (
-                <><h4>Agent-Homes</h4>{bundlePreview.agentHomes.map((item) => mappingRow(item, 'agentHomes'))}</>
+                <><h4>{translate("Agent Homes")}</h4>{bundlePreview.agentHomes.map((item) => mappingRow(item, 'agentHomes'))}</>
               ) : null}
               {/* Headings, because a repository, a category and an agent can
                   carry the same name — "RhinoClaw" is all three on a real
@@ -605,28 +602,26 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                   the sections above rather than as different objects. */}
               <div className="st-bundle-status-list">
                 {bundlePreview.categories.length > 0 ? (
-                  <><h4>Kategorien</h4>
+                  <><h4>{translate("Categories")}</h4>
                     {bundlePreview.categories.map((item) => identityDecision(item, 'categories'))}</>
                 ) : null}
                 {bundlePreview.agents.length > 0 ? (
-                  <><h4>Agents</h4>
+                  <><h4>{translate("Agents")}</h4>
                     {bundlePreview.agents.map((item) => identityDecision(item, 'agents'))}</>
                 ) : null}
                 {bundlePreview.agentTemplates.length > 0 ? (
-                  <><h4>Agent-Vorlagen</h4>
+                  <><h4>{translate("Agent templates")}</h4>
                     {bundlePreview.agentTemplates.map((item) => identityDecision(item, 'agentTemplates'))}</>
                 ) : null}
               </div>
               <button type="button" className="btn" disabled={busy}
                 onClick={() => void guarded(async () => { await previewBundle(); })}>
-                Vorschau aktualisieren
-              </button>
+                {translate("Update Preview")}</button>
               <label className="st-scope-all">
                 <input type="checkbox" checked={bundleConfirmed}
                   disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully}
                   onChange={(event) => setBundleConfirmed(event.target.checked)} />
-                Geprüften Plan anwenden; ADE legt vorher ein Backup an.
-              </label>
+                {translate("Apply verified plan; ADE creates a backup beforehand.")}</label>
               {[...bundlePreview.repositories, ...bundlePreview.categories, ...bundlePreview.agents,
                 ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
                 .some((item) => item.status === 'skipped') ? (
@@ -634,7 +629,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                     <input type="checkbox" checked={bundlePartialConfirmed}
                       disabled={busy || !bundlePreviewCurrent || !bundlePreview.canApplyFully}
                       onChange={(event) => setBundlePartialConfirmed(event.target.checked)} />
-                    Teilimport bestätigen: {[...bundlePreview.repositories, ...bundlePreview.categories,
+                    {translate("Confirm partial import:")}{" "}{[...bundlePreview.repositories, ...bundlePreview.categories,
                       ...bundlePreview.agents, ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
                       .filter((item) => item.status === 'skipped').slice(0, 12)
                       .map((item) => `${item.name}${item.reason ? ` (${item.reason})` : ''}`).join(', ')}
@@ -645,17 +640,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                   || ([...bundlePreview.repositories, ...bundlePreview.categories, ...bundlePreview.agents,
                     ...bundlePreview.agentTemplates, ...bundlePreview.agentHomes]
                     .some((item) => item.status === 'skipped') && !bundlePartialConfirmed)}
-                onClick={() => void applyBundle()}>Import anwenden</button>
+                onClick={() => void applyBundle()}>{translate("Apply import")}</button>
             </div>
           ) : null}
           {bundleMessage ? <div className="st-bundle-message">{bundleMessage}</div> : null}
         </section>
         {!storageAvailable ? (
           <div className="st-warning">
-            Sichere Schlüsselablage ist auf diesem System nicht verfügbar.
-            Keys können deshalb nicht gespeichert werden; die Anmeldung über
-            das jeweilige CLI funktioniert weiterhin.
-          </div>
+            {translate("Secure key storage is not available on this system. Keys can therefore not be stored; the login via the respective CLI still works.")}</div>
         ) : null}
         <div className="st-list">
           {HARNESS_RUNTIMES.map((runtime) => {
@@ -672,15 +664,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                     <visual.Glyph />
                   </span>
                   <strong>{LAUNCH_PROFILES[runtime].label}</strong>
-                  {authenticated ? <span className="st-badge st-badge-auth">Angemeldet</span> : null}
+                  {authenticated ? <span className="st-badge st-badge-auth">{translate("Signed in")}</span> : null}
                   <span className="st-harness-state">
                     {diagnosing && !probe
-                      ? 'Prüfe…'
+                      ? translate("Checking… [5072c3bc]")
                       : probe
                         ? probe.installed === false
-                          ? 'Nicht installiert'
-                          : probe.version ?? 'Installiert'
-                        : 'Nicht geprüft'}
+                          ? translate("Not installed [4e696368]")
+                          : probe.version ?? translate("Installed")
+                        : translate("Not checked [4e696368]")}
                   </span>
                 </div>
                 {probe ? (
@@ -691,36 +683,32 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                 <div className="st-harness-login">
                   {loginCommand ? (
                     <>
-                      Anmeldung über das CLI: <code>{loginCommand}</code>
+                      {translate("Sign in through the CLI:")}{" "}<code>{loginCommand}</code>
                       <button
                         type="button"
                         className="btn st-login-btn"
                         disabled={busy || !selectedAgentId}
                         title={selectedAgentId
-                          ? 'Öffnet ein Terminal mit dem Anmeldekommando; der Login-Flow gehört dem CLI'
-                          : 'Wähle links zuerst einen Agenten aus'}
+                          ? translate("Opens a terminal with the login command; the login flow belongs to the CLI")
+                          : translate("Select an agent first on the left")}
                         onClick={() => void openLogin(runtime)}
                       >
-                        Anmelden im Terminal
-                      </button>
+                        {translate("Sign in using terminal")}</button>
                     </>
                   ) : (
-                    'Anmeldung erfolgt beim ersten interaktiven Start des CLI.'
+                    translate("Sign-in takes place at the first interactive start of the CLI.")
                   )}
                 </div>
                 {keyEnv ? (
                   <>
                     {authenticated && keyStatus.hasStoredKey ? (
                       <div className="st-warning st-key-warning">
-                        Der gespeicherte API-Key überschreibt die bestehende
-                        Anmeldung in ADE-Sessions — Abrechnung läuft dann über
-                        die API statt über deine Subscription.
-                      </div>
+                        {translate("The saved API key overwrites the existing login in ADE sessions — billing then runs through the API instead of your subscription.")}</div>
                     ) : null}
                     {keyStatus.hasStoredKey ? (
                       <div className="st-key-row">
                         <span className="st-key-saved">
-                          API-Key gespeichert ({keyEnv})
+                          {translate("API key saved (")}{keyEnv})
                           {keyStatus.savedAt ? ` · ${formatSavedAt(keyStatus.savedAt)}` : ''}
                         </span>
                         <button
@@ -729,16 +717,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                           disabled={busy}
                           onClick={() => void clearKey(runtime)}
                         >
-                          Entfernen
-                        </button>
+                          {translate("Remove")}</button>
                       </div>
                     ) : (
                       <div className="st-key-row">
                         <input
                           type="password"
                           autoComplete="off"
-                          aria-label={`API-Key für ${LAUNCH_PROFILES[runtime].label}`}
-                          placeholder={`${keyEnv} (Alternative zur Subscription: API-Abrechnung)`}
+                          aria-label={translate("API Key for {{value1}}", { value1: LAUNCH_PROFILES[runtime].label })}
+                          placeholder={translate("{{value1}} (alternative to subscription: API billing)", { value1: keyEnv })}
                           value={drafts[runtime] ?? ''}
                           disabled={!storageAvailable || busy}
                           onChange={(event) => setDrafts((current) => ({
@@ -758,15 +745,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                           disabled={!storageAvailable || busy || !(drafts[runtime] ?? '').trim()}
                           onClick={() => void saveKey(runtime)}
                         >
-                          Speichern
-                        </button>
+                          {translate("Save [53706569]")}</button>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="st-key-none">
-                    Dieses Harness verwendet keinen von ADE gespeicherten API-Key.
-                  </div>
+                    {translate("This harness does not use an API key stored by ADE.")}</div>
                 )}
               </section>
             );
@@ -774,17 +759,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         </div>
 
         <div className="st-section-head">
-          <strong>Service-Keys</strong>
+          <strong>{translate("Service keys")}</strong>
           <span>
-            Zusatzdienste für Agents (z.&nbsp;B. ELEVENLABS_API_KEY) —
-            verschlüsselt gespeichert und als Umgebungsvariable injiziert.
-          </span>
+            {translate("Additional services for agents (e.g. ELEVENLABS_API_KEY) — stored encrypted and injected as an environment variable.")}</span>
         </div>
         {status?.serviceKeys.length ? (
           <ul className="st-service-list">
             {status.serviceKeys.map((key) => (
               <li key={key.name} className="st-key-row">
-                <span className="st-key-saved" title={`Gespeichert ${formatSavedAt(key.savedAt)}`}>
+                <span className="st-key-saved" title={translate("Saved {{value1}}", { value1: formatSavedAt(key.savedAt) })}>
                   <code>{key.name}</code> · {scopeLabel(key.scope)}
                 </span>
                 <button
@@ -793,20 +776,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                   disabled={busy}
                   onClick={() => void clearServiceKey(key.name)}
                 >
-                  Entfernen
-                </button>
+                  {translate("Remove")}</button>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="st-key-none">Noch keine Service-Keys gespeichert.</div>
+          <div className="st-key-none">{translate("No service keys are stored yet.")}</div>
         )}
         <div className="st-service-add">
           <div className="st-key-row">
             <input
               type="text"
-              aria-label="Name des Service-Keys"
-              placeholder="ELEVENLABS_API_KEY"
+              aria-label={translate("Name of service key")}
+              placeholder={translate("ELEVENLABS_API_KEY")}
               value={newKeyName}
               disabled={!storageAvailable || busy}
               onChange={(event) => setNewKeyName(event.target.value.toUpperCase())}
@@ -814,8 +796,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
             <input
               type="password"
               autoComplete="off"
-              aria-label="Wert des Service-Keys"
-              placeholder="Wert"
+              aria-label={translate("Value of the service key")}
+              placeholder={translate("Value")}
               value={newKeyValue}
               disabled={!storageAvailable || busy}
               onChange={(event) => setNewKeyValue(event.target.value)}
@@ -826,8 +808,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               disabled={!storageAvailable || busy || !newKeyName.trim() || !newKeyValue.trim()}
               onClick={() => void saveServiceKey()}
             >
-              Speichern
-            </button>
+              {translate("Save [53706569]")}</button>
           </div>
           <label className="st-scope-all">
             <input
@@ -836,10 +817,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               disabled={!storageAvailable || busy}
               onChange={(event) => setNewKeyAllSessions(event.target.checked)}
             />
-            In allen Sessions verfügbar
-          </label>
+            {translate("Available in all sessions")}</label>
           {!newKeyAllSessions ? (
-            <div className="st-scope-runtimes" role="group" aria-label="Harnesses für diesen Key">
+            <div className="st-scope-runtimes" role="group" aria-label={translate("Harnesses for this key")}>
               {SCOPE_RUNTIMES.map((runtime) => (
                 <label key={runtime}>
                   <input
@@ -859,18 +839,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         </div>
 
         <div className="st-footnote">
-          Subscription-Anmeldungen (z.&nbsp;B. Claude Pro/Max, ChatGPT für
-          Codex) verwaltet das jeweilige CLI selbst und gelten automatisch
-          auch für ADE-Sessions. Gespeicherte Keys werden mit der sicheren
-          Ablage des Betriebssystems verschlüsselt, nie angezeigt und nur den
-          gewählten Sessions als Umgebungsvariable übergeben.
-        </div>
+          {translate("Subscription logins (e.g. Claude Pro/Max, ChatGPT for Codex) are managed by the respective CLI itself and are also automatically valid for ADE sessions. Stored keys are encrypted with the secure storage of the operating system, are never displayed and are only transferred to the selected sessions as an environment variable.")}</div>
       </div></SettingsTabs>
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => void runDiagnose()} disabled={diagnosing}>
-          {diagnosing ? 'Prüfe…' : 'CLI-Status erneut prüfen'}
+          {diagnosing ? translate("Checking… [5072c3bc]") : translate("Check CLI status again")}
         </button>
-        <button type="button" className="btn primary" onClick={onClose}>Schließen</button>
+        <button type="button" className="btn primary" onClick={onClose}>{translate("Close [5363686c]")}</button>
       </div>
     </Modal>
   );

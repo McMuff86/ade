@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * New-agent modal — name + photo + category + runtime + permission mode.
  * Ollama reveals its installed model catalog; an "Advanced" section (collapsed by
@@ -32,6 +34,7 @@ interface NewAgentModalProps {
 }
 
 export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): React.ReactElement {
+  useLocale();
   const categories = useAppData((s) => s.categories);
   const repositories = useAppData((s) => s.repositories);
   const templates = useAppData((s) => s.agentTemplates);
@@ -123,12 +126,12 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
 
   return (
     <Modal
-      title="New agent"
-      subtitle="An agent gets its own workspace, its own skills and its own memory (MEMORY.md / USER.md)."
+      title={translate("New agent [4e657720]")}
+      subtitle={translate("An agent gets its own workspace, skills and memory (MEMORY.md / USER.md).")}
       onClose={onClose}
     >
       <div className="field">
-        <label htmlFor="agent-cat">Category</label>
+        <label htmlFor="agent-cat">{translate("Category [43617465]")}</label>
         <select
           id="agent-cat"
           value={catId}
@@ -150,9 +153,9 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
 
       {templates.length > 0 ? (
         <div className="field">
-          <label htmlFor="agent-template">TEMPLATE (OPTIONAL)</label>
+          <label htmlFor="agent-template">{translate("TEMPLATE (OPTIONAL)")}</label>
           <select id="agent-template" value={templateId} onChange={(event) => chooseTemplate(event.target.value)}>
-            <option value="">Blank agent</option>
+            <option value="">{translate("Blank agent")}</option>
             {templates.map((template) => (
               <option key={template.id} value={template.id}>{template.name}</option>
             ))}
@@ -161,34 +164,34 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       ) : null}
 
       <div className="field">
-        <label htmlFor="agent-repository">Default repository</label>
+        <label htmlFor="agent-repository">{translate("Default repository")}</label>
         <select
           id="agent-repository"
           value={defaultRepositoryId}
           onChange={(event) => setDefaultRepositoryId(event.target.value)}
         >
-          <option value="">Portable agent (no default)</option>
+          <option value="">{translate("Portable agent (no default)")}</option>
           {repositories.map((repository) => (
             <option key={repository.id} value={repository.id}>{repository.name}</option>
           ))}
         </select>
-        <div className="repo-hint">Future sessions use this repo unless another scope is chosen.</div>
+        <div className="repo-hint">{translate("Future sessions use this repo unless another scope is chosen.")}</div>
       </div>
 
       <div className="field">
-        <label htmlFor="agent-name">Name</label>
+        <label htmlFor="agent-name">{translate("Name")}</label>
         <input
           id="agent-name"
           type="text"
           value={name}
           autoComplete="off"
-          placeholder="e.g. Nova"
+          placeholder={translate("e.g. Nova")}
           onChange={(e) => setName(e.target.value)}
         />
       </div>
 
       <div className="field">
-        <label htmlFor="agent-rt">Runtime</label>
+        <label htmlFor="agent-rt">{translate("Runtime")}</label>
         <select
           id="agent-rt"
           value={runtime}
@@ -205,17 +208,17 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       {runtime === 'ollama' && <OllamaModePicker id="agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} harness={ollamaHarness} onHarnessChange={setOllamaHarness} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
-        id={`agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}
+        id={`agent-${runtime}-model`} label={translate("{{value1}} MODEL", { value1: runtime.toUpperCase() })}
         value={runtime === 'codex' ? codexModel : runtime === 'grok' ? grokModel : runtime === 'claude' ? claudeModel : ollamaModel}
         onChange={runtime === 'codex' ? setCodexModel : runtime === 'grok' ? setGrokModel : runtime === 'claude' ? setClaudeModel : setOllamaModel}
         effort={runtime === 'codex' ? codexReasoningEffort : runtime === 'grok' ? grokReasoningEffort : undefined}
         onEffortChange={runtime === 'codex' ? setCodexReasoningEffort : runtime === 'grok' ? (value) => setGrokReasoningEffort(value as GrokReasoningEffort) : undefined}
         newProfile={!templateId}
       />}
-      {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
+      {customCommand.trim() && <p className="repo-hint">{translate("A separate start command determines the model itself and takes precedence over this selection.")}</p>}
 
       <div className="field">
-        <label htmlFor="agent-perm">Permission mode</label>
+        <label htmlFor="agent-perm">{translate("Permission mode")}</label>
         <select
           id="agent-perm"
           value={permissionMode}
@@ -230,7 +233,7 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
       </div>
 
       <div className="field">
-        <label>Profile photo</label>
+        <label>{translate("Profile photo")}</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} runtime={runtime} />
       </div>
 
@@ -240,30 +243,29 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
         aria-expanded={advancedOpen}
         onClick={() => setAdvancedOpen((v) => !v)}
       >
-        <span className="advanced-chevron">{advancedOpen ? '▾' : '▸'}</span> Advanced
-      </button>
+        <span className="advanced-chevron">{advancedOpen ? '▾' : '▸'}</span> {" "}{translate("Advanced")}</button>
 
       {advancedOpen ? (
         <div className="advanced-body">
           <div className="field">
-            <label htmlFor="agent-role">Role</label>
+            <label htmlFor="agent-role">{translate("Role [526f6c65]")}</label>
             <input
               id="agent-role"
               type="text"
               value={role}
               autoComplete="off"
-              placeholder="e.g. Frontend &amp; theme"
+              placeholder={translate("e.g. Frontend & theme [652e672e]")}
               onChange={(e) => setRole(e.target.value)}
             />
           </div>
           <div className="field">
-            <label htmlFor="agent-cmd">Custom command override</label>
+            <label htmlFor="agent-cmd">{translate("Custom command override")}</label>
             <input
               id="agent-cmd"
               type="text"
               value={customCommand}
               autoComplete="off"
-              placeholder="overrides the runtime launch command"
+              placeholder={translate("overrides the runtime launch command")}
               onChange={(e) => setCustomCommand(e.target.value)}
             />
           </div>
@@ -272,15 +274,14 @@ export function NewAgentModal({ onClose, categoryId }: NewAgentModalProps): Reac
 
       <div className="modal-actions">
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
-        </button>
+          {translate("Cancel [43616e63]")}</button>
         <button
           type="button"
           className="btn primary"
           onClick={() => void submit()}
           disabled={!canCreate}
         >
-          {busy ? 'Creating…' : 'Create agent'}
+          {busy ? translate("Creating…") : translate("Create an agent")}
         </button>
       </div>
     </Modal>

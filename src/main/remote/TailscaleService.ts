@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,7 +37,7 @@ export class TailscaleService {
     try {
       const status = JSON.parse(await this.execute(['status', '--json'])) as { BackendState?: string; Self?: { DNSName?: string; Online?: boolean } };
       if (status.BackendState !== 'Running' || status.Self?.Online !== true) {
-        return { state: 'offline', origin: null, serving: false, message: 'Tailscale ist offline. Auf diesem PC anmelden und verbinden.' };
+        return { state: 'offline', origin: null, serving: false, message: translate("Tailscale is offline. Sign in and connect to this PC.") };
       }
       const origin = parseMobileOrigin(`https://${status.Self?.DNSName?.replace(/\.$/, '')}`);
       const config = JSON.parse(await this.execute(['serve', 'status', '--json'])) as ServeConfig;
@@ -47,13 +48,13 @@ export class TailscaleService {
         && handlers['/']?.Proxy === `http://127.0.0.1:${port}`;
       const foregroundConflict = Object.values(config.Foreground ?? {}).some((item) => item.TCP?.['443'] || item.Web?.[`${host}:443`]);
       if (hasFunnel(config) || foregroundConflict || ((!serving) && (config.TCP?.['443'] || web))) {
-        return { state: 'conflict', origin, serving: false, message: 'Tailscale-Konflikt: Funnel oder eine andere Freigabe nutzt HTTPS. Bestehende Freigaben in Tailscale prüfen.' };
+        return { state: 'conflict', origin, serving: false, message: translate("Tailscale Conflict: Funnel or another share uses HTTPS. Check existing shares in Tailscale.") };
       }
-      return { state: 'ready', origin, serving, message: serving ? 'Private Tailscale-Serve-Freigabe ist eingerichtet.' : 'Tailscale verbunden. Mobiler Zugriff kann aktiviert werden.' };
+      return { state: 'ready', origin, serving, message: serving ? translate("Private Tailscale Serve Sharing is set up.") : translate("Tailscale connected. Mobile access can be activated.") };
     } catch (error) {
       const missing = error instanceof Error && error.message === 'tailscale_missing';
       return { state: missing ? 'missing' : 'unavailable', origin: null, serving: false,
-        message: missing ? 'Tailscale auf diesem PC installieren und anmelden.' : 'Tailscale konnte nicht geprüft werden. Anmeldung, MagicDNS und HTTPS in Tailscale prüfen.' };
+        message: missing ? translate("Install and log in Tailscale on this PC.") : translate("Tailscale could not be verified. Login, MagicDNS and HTTPS in Tailscale check.") };
     }
   }
 
@@ -63,7 +64,7 @@ export class TailscaleService {
     if (before.state !== 'ready') throw new Error(before.message);
     if (!before.serving) await this.execute(['serve', '--bg', '--https=443', `http://127.0.0.1:${port}`]);
     const after = await this.inspect(port);
-    if (after.state !== 'ready' || !after.serving) throw new Error('ade: Tailscale HTTPS konnte nicht bestätigt werden');
+    if (after.state !== 'ready' || !after.serving) throw new Error(translate("ade: Tailscale HTTPS could not be confirmed"));
   }
 
   async disable(port: number): Promise<void> {

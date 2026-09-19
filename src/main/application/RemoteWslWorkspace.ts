@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 import type { MobileWorkspaceEntry } from '../../shared/remote';
 import type { ExecutionBackendService } from '../execution/ExecutionBackendService';
@@ -14,7 +15,7 @@ export async function remoteWslWorkspace(execution: ExecutionBackendService, bac
   const result = await execution.run(backend, 'python3', ['-I', '-c', WORKSPACE_HELPER], {
     input: JSON.stringify({ root, operation, ...payload }), timeoutMs: 15_000, maxBuffer: 512 * 1024,
   });
-  if (result.code !== 0) throw new RemoteApiError(422, 'command_rejected', 'WSL-Workspace nicht verfügbar. Ordner, Python 3 und Zugriffsrechte am PC prüfen. Verknüpfungen sind gesperrt.');
+  if (result.code !== 0) throw new RemoteApiError(422, 'command_rejected', translate("WSL workspace not available. Check folder, Python 3, and access rights on PC. Links are locked."));
   return JSON.parse(result.stdout.toString('utf8')) as WslWorkspaceResult;
 }
 

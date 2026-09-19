@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { localizedLabels } from "../../shared/i18n/labels";
 /**
  * Per-runtime visual identity for Graph mode: a display label, an accent colour
  * (drawn from the Avatar HUES family so the graph matches the rail), and a small
@@ -69,16 +71,16 @@ const gear = (): JSX.Element => (
   </svg>
 );
 
-export const RUNTIME_VISUALS: Record<RuntimeId, RuntimeVisual> = {
-  claude: { label: 'Claude Code', short: 'Claude', color: '#E09A4A', Glyph: starburst },
-  codex: { label: 'Codex', short: 'Codex', color: '#7BC9A0', Glyph: spiral },
-  opencode: { label: 'OpenCode', short: 'OpenCode', color: '#D6C05A', Glyph: brackets },
-  grok: { label: 'Grok Build', short: 'Grok', color: '#7BA9C9', Glyph: spark },
-  gemini: { label: 'Gemini', short: 'Gemini', color: '#C98A7B', Glyph: gem },
-  ollama: { label: 'Ollama', short: 'Ollama', color: '#B99BD6', Glyph: blob },
-  shell: { label: 'Shell', short: 'Shell', color: '#7C838E', Glyph: term },
-  custom: { label: 'Custom', short: 'Custom', color: '#9AA0AA', Glyph: gear },
-};
+export const RUNTIME_VISUALS: Record<RuntimeId, RuntimeVisual> = localizedLabels(() => ({
+  claude: { label: translate("Claude Code"), short: translate("Claude"), color: '#E09A4A', Glyph: starburst },
+  codex: { label: translate("Codex"), short: translate("Codex"), color: '#7BC9A0', Glyph: spiral },
+  opencode: { label: translate("OpenCode"), short: translate("OpenCode"), color: '#D6C05A', Glyph: brackets },
+  grok: { label: translate("Grok Build"), short: translate("Grok"), color: '#7BA9C9', Glyph: spark },
+  gemini: { label: translate("Gemini"), short: translate("Gemini"), color: '#C98A7B', Glyph: gem },
+  ollama: { label: translate("Ollama"), short: translate("Ollama"), color: '#B99BD6', Glyph: blob },
+  shell: { label: translate("Shell"), short: translate("Shell"), color: '#7C838E', Glyph: term },
+  custom: { label: translate("Custom"), short: translate("Custom"), color: '#9AA0AA', Glyph: gear },
+}));
 
 export function runtimeVisual(id: RuntimeId): RuntimeVisual {
   return RUNTIME_VISUALS[id] ?? RUNTIME_VISUALS.shell;

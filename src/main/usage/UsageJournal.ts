@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomUUID } from 'node:crypto';
 import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
 import { closeSync, constants, existsSync, fstatSync, fsync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, write, writeFileSync } from 'node:fs';
@@ -132,7 +133,7 @@ export class UsageJournal {
   record(sessionId: string, source: UsageFact['source'], sourceKey: string, sample: UsageSample, at: number): Promise<'recorded' | 'duplicate' | 'gap'> {
     sample = structuredClone(sample);
     return this.enqueue(async () => {
-      if (!hashId(sourceKey) || !id(sample.key)) throw new Error('Ungültige Verbrauchsquelle.');
+      if (!hashId(sourceKey) || !id(sample.key)) throw new Error(translate("Invalid source of usage."));
       const key = usageDigest(`${source}/${sourceKey}/${sample.key}`);
       const fingerprint = usageDigest(JSON.stringify([source, sourceKey, sample.kind, sample.model, sample.tokens, sample.costUsd, sample.costKind, sample.costComplete]));
       const previousFact = this.facts.get(key);
@@ -161,7 +162,7 @@ export class UsageJournal {
     return this.enqueue(async () => {
       const prior = this.facts.get(fact.id);
       if (prior) {
-        if (JSON.stringify(prior) !== JSON.stringify(fact)) throw new Error('Verbrauchsereignis wurde mit anderen Daten wiederholt.');
+        if (JSON.stringify(prior) !== JSON.stringify(fact)) throw new Error(translate("Usage event was repeated with other data."));
         return 'duplicate';
       }
       await this.append({ type: 'fact', fact }); return 'recorded';
@@ -177,8 +178,8 @@ export class UsageJournal {
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.closing) return Promise.reject(new Error('Verbrauchsjournal ist geschlossen.'));
-    const pending = this.queue.then(async () => { if (this.failure || this.fd === undefined) throw new Error(this.failure ?? 'Verbrauchsjournal ist geschlossen.'); return operation(); });
+    if (this.closing) return Promise.reject(new Error(translate("Usage journal is closed.")));
+    const pending = this.queue.then(async () => { if (this.failure || this.fd === undefined) throw new Error(this.failure ?? translate("Usage journal is closed.")); return operation(); });
     this.queue = pending.catch(() => undefined); return pending;
   }
   private validate(event: Event): void {
@@ -243,5 +244,5 @@ export class UsageJournal {
       this.bytes += bytes.length; this.apply(snapshot);
     } catch { this.fail(); throw new Error(this.failure!); }
   }
-  private fail(): void { this.failure = 'Verbrauchserfassung ist unvollständig: Journal nicht verfügbar, verändert oder voll. Bestehende Daten bleiben erhalten.'; }
+  private fail(): void { this.failure = translate("Usage tracking is incomplete: the journal is unavailable, changed or full. Existing data is preserved."); }
 }

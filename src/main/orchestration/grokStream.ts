@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /**
  * Live activity and trusted telemetry for `grok --output-format streaming-json`.
  *
@@ -51,11 +52,11 @@ export class GrokActivityParser {
     if (type === 'thought') return this.appendPending('thinking', event['data']);
     if (type === 'text') return this.appendPending('text', event['data']);
     const flushed = this.flushPending();
-    if (type === 'plan') return [...flushed, { kind: 'thinking', text: 'Plan aktualisiert' }];
+    if (type === 'plan') return [...flushed, { kind: 'thinking', text: translate("Plan updated") }];
     if (type === 'error') {
       const message = typeof event['message'] === 'string'
         ? condenseActivityText(event['message'])
-        : 'Grok-Laufzeitfehler';
+        : translate("Grok runtime error");
       return [...flushed, { kind: 'error', text: message }];
     }
     if (type === 'end') {
@@ -70,8 +71,8 @@ export class GrokActivityParser {
       return [...flushed, {
         kind: failed ? 'error' : 'result',
         text: failed
-          ? `Abgebrochen${detail ? ` · ${detail}` : ''}`
-          : `Fertig${detail ? ` · ${detail}` : ''}`,
+          ? translate("Cancelled{{value1}}", { value1: detail ? ` · ${detail}` : '' })
+          : translate("Done{{value1}}", { value1: detail ? ` · ${detail}` : '' }),
       }];
     }
     if (type === 'tool_call') {

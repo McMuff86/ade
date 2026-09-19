@@ -1,9 +1,10 @@
+import { t as translate } from "../../shared/i18n";
 import { redactForWire } from '../errors';
 import { MAX_REPLY_SOURCE_CHARS, MAX_REPLY_SPOKEN_CHARS, validReplyInput, type ReplyInput } from '../../shared/terminalSpeech';
 
 /** Local extractive shortening. No model, invented outcome or interpretation of terminal instructions. */
 export function replySpeechText(input: ReplyInput, secrets: readonly string[] = []): { text: string; shortened: boolean } {
-  if (!validReplyInput(input)) throw new Error('Ungültiger Terminaltext. Bitte höchstens 12’000 Zeichen auswählen.');
+  if (!validReplyInput(input)) throw new Error(translate("Invalid terminal text. Please select a maximum of 12,000 characters."));
   let safe = input.text;
   for (const secret of [...secrets].filter(value => value.length >= 6).sort((a, b) => b.length - a.length)) safe = safe.split(secret).join('[credential]');
   safe = safe.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, '');
@@ -16,9 +17,9 @@ export function replySpeechText(input: ReplyInput, secrets: readonly string[] = 
       .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/(?:\*\*|__|`)/g, '').trim()];
   });
   const full = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  if (!full || !/[\p{L}\p{N}]/u.test(full)) throw new Error('Hier ist noch kein vorlesbarer Text. Markiere eine Antwort im Terminal.');
+  if (!full || !/[\p{L}\p{N}]/u.test(full)) throw new Error(translate("There's no readable text here yet. Mark a response in the terminal."));
   if (input.mode === 'full') {
-    if (full.length > MAX_REPLY_SPOKEN_CHARS) throw new Error('Der Text ist zum Vorlesen zu lang. Wähle einen kleineren Ausschnitt oder „Kurz vorlesen“.');
+    if (full.length > MAX_REPLY_SPOKEN_CHARS) throw new Error(translate("The text is too long to read aloud. Choose a smaller excerpt or “Read aloud for short”."));
     return { text: full, shortened: codeOmitted };
   }
   // Keep whole source sentences in order. Never take a sentence fragment that
@@ -29,6 +30,6 @@ export function replySpeechText(input: ReplyInput, secrets: readonly string[] = 
     if (chosen.length >= 4 || [...chosen, sentence].join(' ').length > 900) break;
     chosen.push(sentence);
   }
-  if (!chosen.length) throw new Error('Dieser Abschnitt lässt sich nicht sinnvoll kürzen. Wähle „Alles vorlesen“ oder markiere einen kürzeren Text.');
+  if (!chosen.length) throw new Error(translate("This section cannot be shortened in any meaningful way. Select “Read everything” or mark a shorter text."));
   return { text: chosen.join(' '), shortened: codeOmitted || chosen.length < sentences.length };
 }

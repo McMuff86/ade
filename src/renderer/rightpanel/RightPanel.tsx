@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Right panel: Overview inspects the selected catalog repository; Changes and
  * Files remain bound to the active agent/session workspace. All three use one
@@ -40,6 +42,7 @@ interface OpenItem {
 const TABS: readonly Tab[] = ['overview', 'changes', 'files'];
 
 export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
+  useLocale();
   const agentId = useSelection((s) => s.selectedAgentId);
   const catalogRepositoryId = useSelection((s) => s.selectedRepositoryId);
   const sessionId = useSessions((state) => (
@@ -270,14 +273,14 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
       <div className="rp-inline-head">
         <span className="rp-inline-title" title={open.path}>
           {open.title}
-          {truncated ? <span className="rp-trunc"> (truncated)</span> : null}
+          {truncated ? <span className="rp-trunc"> {" "}{translate("(truncated)")}</span> : null}
         </span>
         <button
           type="button"
           className="rp-inline-close"
           onClick={() => closeInline()}
-          title="Close"
-          aria-label="Close inline preview"
+          title={translate("Close [436c6f73]")}
+          aria-label={translate("Close inline preview")}
         >
           ×
         </button>
@@ -286,20 +289,16 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         {open.kind === 'checks' ? (
           <PullRequestChecksView result={checks} loading={contentLoading} />
         ) : contentLoading ? (
-          <div className="ch-note">Loading…</div>
+          <div className="ch-note">{translate("Loading…")}</div>
         ) : open.kind === 'diff' || open.kind === 'commit' ? (
           <DiffView text={content} />
         ) : content ? (
           <pre className="rp-preview">{content}</pre>
         ) : open.path === 'MEMORY.md' || open.path === 'USER.md' ? (
           <div className="ch-note">
-            No entries yet. The agent maintains this file itself while working:
-            MEMORY.md collects its own durable notes (environment, conventions,
-            lessons), USER.md the user profile. Entries are separated by a
-            &quot;§&quot; line and injected into every new session once saved.
-          </div>
+            {translate("No entries yet. The agent maintains this file itself while working: MEMORY.md collects its own durable notes (environment, conventions, lessons), USER.md the user profile. Entries are separated by a \"§\" line and injected into every new session once saved.")}</div>
         ) : (
-          <pre className="rp-preview">(empty file)</pre>
+          <pre className="rp-preview">{translate("(empty file)")}</pre>
         )}
       </div>
     </>
@@ -315,7 +314,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
         onTargetRepositoryChange={handleTargetRepositoryChange}
       />
       <div className="rp-head">
-        <div className="rp-tabs" role="tablist" aria-label="Repository panel">
+        <div className="rp-tabs" role="tablist" aria-label={translate("Repository panel")}>
           {TABS.map((item) => (
             <button
               key={item}

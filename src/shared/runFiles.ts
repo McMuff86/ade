@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 import { validProjectGitPath } from './projectGit';
 
 /** Main-owned digests, never file contents. Retained/pruned with their task. */
@@ -13,7 +14,7 @@ export interface RunFileChanges { files: RunFileChange[]; source: 'observed' | '
 export function taskFileChanges(tracking: RunFileTracking | undefined, reported: string[] = []): RunFileChanges {
   const before = tracking?.before; const after = tracking?.after;
   if (!before || !after || before.workspaceVersion !== after.workspaceVersion) return { files: reported.slice(0, 100).map((path) => ({ path, change: 'reported' })),
-    source: reported.length ? 'reported' : 'unknown', limited: reported.length > 100, notice: tracking?.notice ?? 'Kein vollständiger Vorher-/Nachher-Vergleich für diese frühere Aufgabe. Gemeldete Dateien sind keine unabhängig geprüfte Zuordnung.' };
+    source: reported.length ? 'reported' : 'unknown', limited: reported.length > 100, notice: tracking?.notice ?? translate("Not a complete before/after comparison for this earlier task. Reported files are not an independently tested assignment.") };
   const old = new Map(before.files.map((file) => [file.path, file])); const current = new Map(after.files.map((file) => [file.path, file]));
   const files: RunFileChange[] = [];
   for (const file of after.files) { const prior = old.get(file.path);
@@ -23,8 +24,8 @@ export function taskFileChanges(tracking: RunFileTracking | undefined, reported:
   if (!after.limited) for (const file of before.files) if (!current.has(file.path)) files.push({ path: file.path, change: 'deleted' });
   return { files, source: 'observed', limited: before.limited || after.limited,
     notice: tracking?.notice ?? (tracking.saved
-      ? 'Änderungen zwischen Aufgabenstart und Prozessende. Parallele Änderungen können enthalten sein; gesicherte Dateien behalten den Abschlussstand.'
-      : 'Änderungen zwischen Aufgabenstart und Prozessende. Parallele Änderungen können enthalten sein; Downloads verwenden die aktuell vorhandene Datei.') };
+      ? translate("Changes between the start of the task and the end of the process. Parallel changes may be included; backed-up files retain the completion status.")
+      : translate("Changes between task start and process end. Parallel changes may be included; downloads use the currently existing file.")) };
 }
 
 export function validRunFileTracking(value: unknown): value is RunFileTracking {

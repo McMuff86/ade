@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { localizedLabels } from "../shared/i18n/labels";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MobileCatalog, MobileCommandResult, MobileRunDeleteResult, MobileHealth, MobileRunSummary, MobileSnapshot } from '../shared/remote';
 import { MobileClient, MobileClientError } from './client';
@@ -6,18 +8,18 @@ import { mergeRunSummaries } from '../shared/runSummaryMerge';
 
 const client = new MobileClient();
 export interface PendingCommand { path: string; payload?: unknown; key: string }
-const messages: Record<string, string> = {
-  pairing_expired: 'Dieser Code ist abgelaufen oder wurde bereits verwendet. In ADE am PC einen neuen Code erstellen.',
-  unknown_device: 'Der Gerätezugriff wurde widerrufen oder ist nicht mehr verfügbar. Am PC erneut koppeln.',
-  storage_unavailable: 'Der Browser kann den Geräteschlüssel nicht speichern. Privaten Modus verlassen und Gerätespeicher erlauben.',
-  rate_limited: 'Zu viele Verbindungsversuche. Bitte eine Minute warten.',
-  stale_timestamp: 'Die Gerätezeit weicht ab. Automatische Uhrzeit auf diesem Gerät aktivieren.',
-  command_rejected: 'ADE hat den Auftrag abgewiesen. Agent, Repository und Run-Status am PC prüfen.',
-  invalid_payload: 'Bitte Eingaben prüfen. ADE konnte diesen Auftrag nicht annehmen.',
-};
+const messages: Record<string, string> = localizedLabels(() => ({
+  pairing_expired: translate("This code has expired or has already been used. Create a new code in ADE on the PC."),
+  unknown_device: translate("Device access has been revoked or is no longer available. Pair again from the PC."),
+  storage_unavailable: translate("The browser cannot store the device key. Leave private mode and allow device storage."),
+  rate_limited: translate("Too many connection attempts. Please wait a minute."),
+  stale_timestamp: translate("The device time is different. Activate automatic time on this device."),
+  command_rejected: translate("ADE rejected the request. Check the agent, repository and run status on the PC."),
+  invalid_payload: translate("Check your input. ADE could not accept this request."),
+}));
 function errorText(error: unknown): string {
-  return error instanceof MobileClientError ? messages[error.code] ?? 'Die Verbindung konnte nicht bestätigt werden. Erneut verbinden.'
-    : 'ADE ist gerade nicht erreichbar. Tailscale, Netzwerk und den eingeschalteten PC prüfen.';
+  return error instanceof MobileClientError ? messages[error.code] ?? translate("The connection could not be confirmed. Connect again.")
+    : translate("ADE is not reachable right now. Check tailscale, network and the PC on.");
 }
 
 /** One connection for all views. Changing navigation, theme or selection never restarts it. */
@@ -45,7 +47,7 @@ export function useMobileHost() {
       const scope = `mobile:${client.deviceId}`; clearDeviceDrafts(client.deviceId);
       void Promise.all([import('../renderer/organizer/organizerStorage'), import('../renderer/organizer/OrganizerEditing')]).then(async ([storage, editing]) => {
         editing.forgetOrganizerEditing(scope); await storage.forgetOrganizerStorage(scope);
-      }).catch(() => setNotice('Lokale Aufgaben und Notizen konnten nicht vollständig entfernt werden. Browser-Gerätespeicher prüfen.'));
+      }).catch(() => setNotice(translate("Local tasks and notes could not be completely removed. Check browser device storage.")));
     }
     setDeviceId(null);
     epoch.current++; setIdentityVersion(epoch.current); cursor.current = null;
@@ -62,7 +64,7 @@ export function useMobileHost() {
     void client.restore().then((value) => { if (mounted.current) { setDeviceId(client.deviceId); setPaired(value); } })
       .catch((reason) => { setPaired(false); setError(errorText(reason)); });
     if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => {
-      setNotice('Offline-Appstart ist in diesem Browser nicht verfügbar. Online-Zugriff bleibt möglich.');
+      setNotice(translate("Offline appstart is not available in this browser. Online access remains possible."));
     });
     return () => { mounted.current = false; };
   }, []);
@@ -132,7 +134,7 @@ export function useMobileHost() {
 
   const send = async (command: PendingCommand): Promise<MobileCommandResult | MobileRunDeleteResult | null> => {
     if (busyRef.current || status !== 'online') return null;
-    if (!setPending(command)) { setError('Browser-Speicher nicht verfügbar. Auftrag wurde nicht gesendet.'); return null; }
+    if (!setPending(command)) { setError(translate("Browser storage not available. Job was not sent.")); return null; }
     busyRef.current = true; setBusy(true); setError(''); setNotice('');
     const ownEpoch = epoch.current;
     try {
@@ -141,10 +143,10 @@ export function useMobileHost() {
       setPending(null);
       if ('deleted' in result) {
         setRuns((current) => current.filter((run) => run.id !== result.runId));
-        setNotice('Run gelöscht. Projektdateien und Workspaces bleiben erhalten.');
+        setNotice(translate("Run deleted. Project files and workspaces are preserved."));
       } else {
         setRuns((current) => [result.run, ...current.filter((run) => run.id !== result.run.id)]);
-        setNotice(result.replayed ? 'Bereits bestätigter Auftrag wiederhergestellt.' : 'ADE hat den Auftrag bestätigt.');
+        setNotice(result.replayed ? translate("Already confirmed job restored.") : translate("ADE has confirmed the job."));
       }
       void refresh().catch(() => undefined); return result;
     } catch (reason) {
@@ -187,7 +189,7 @@ export function useMobileHost() {
     refreshNow: () => { void refresh().then(() => setError('')).catch((reason) => { setError(errorText(reason)); void lostAccess(reason); }); },
     canSubmit: status === 'online' && health?.commands === 'enabled' && !busy && !pending,
     reconnect: () => { setError(''); setGeneration((value) => value + 1); },
-    dismissPending: () => { setPending(null); setNotice('Prüfe die Run-Liste, bevor du einen neuen Auftrag mit demselben Inhalt sendest.'); },
+    dismissPending: () => { setPending(null); setNotice(translate("Check the run list before sending a new job with the same content.")); },
     dismissNotice: () => setNotice(''),
   };
 }

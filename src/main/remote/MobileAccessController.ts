@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomBytes } from 'node:crypto';
 import type { MobileAccessStatus, MobilePairingChallenge } from '../../shared/mobileAccess';
 import type { AdeApplicationService } from '../application/AdeApplicationService';
@@ -42,15 +43,15 @@ export class MobileAccessController {
     const listening = storage.available && this.server !== null && tail.state === 'ready' && tail.serving && tail.origin === this.origin;
     if (listening && tail.origin && this.https === 'unreachable' && Date.now() - this.lastProbeAt > 15_000) this.scheduleProbe(tail.origin);
     const httpsMessage = listening && this.https !== 'verified'
-      ? this.https === 'pending' ? 'HTTPS wird mit Zertifikatsprüfung getestet. Die erste Tailscale-Zertifikatsbereitstellung kann dauern.'
-        : 'HTTPS vom PC ist noch nicht erreichbar. Tailscale-Zertifikatsbereitstellung und Netzwerk prüfen; danach Verbindung erneut prüfen.'
+      ? this.https === 'pending' ? translate("HTTPS is tested with certificate verification. The first tailscale certificate provision may take time.")
+        : translate("HTTPS from the PC is not yet reachable. Check tailscale certificate provisioning and network; then check connection again.")
       : tail.message;
     return { enabled: this.devices.mobilePreferences().enabled, listening, https: storage.available ? this.https : 'pending',
       url: tail.origin, tailscale: tail.state, message: !storage.available ? storage.error! : this.message || httpsMessage };
   }
 
   async setEnabled(enabled: boolean): Promise<MobileAccessStatus> {
-    if (this.busy || this.disposed) throw new Error('ade: mobile Verbindung wird gerade geändert');
+    if (this.busy || this.disposed) throw new Error(translate("ade: Mobile connection is being changed"));
     this.busy = true;
     this.message = '';
     try {
@@ -62,10 +63,10 @@ export class MobileAccessController {
           await this.tailscale.disable(this.port);
           this.devices.setMobilePreferences(false, false);
         }
-        this.message = 'Mobiler Zugriff ist ausgeschaltet.';
+        this.message = translate("Mobile access is turned off.");
       } else {
-        if (this.legacyEnabled) throw new Error('Der alte ADE_HOST_API_ENABLED-Modus ist aktiv. Diesen vor dem mobilen Zugriff ausschalten und ADE neu starten.');
-        if (!this.devices.inventory().available) throw new Error('Sichere Geräteablage ist nicht verfügbar.');
+        if (this.legacyEnabled) throw new Error(translate("The old ADE_HOST_API_ENABLED mode is active, turning it off before mobile access and restarting ADE."));
+        if (!this.devices.inventory().available) throw new Error(translate("Secure device storage is not available."));
         const tail = await this.tailscale.inspect(this.port);
         if (tail.state !== 'ready' || !tail.origin) throw new Error(tail.message);
         // Assets and the listener must work before any network exposure is configured.
@@ -84,7 +85,7 @@ export class MobileAccessController {
       await this.stopListener();
       console.warn('[ade] mobile connection setup failed:', redactedErrorDetail(error));
       this.message = error instanceof Error && error.message.startsWith('tailscale_')
-        ? `Tailscale HTTPS ist noch nicht verfügbar. In einer PC-Konsole „tailscale serve --bg --https=443 http://127.0.0.1:${this.port}“ ausführen und gegebenenfalls HTTPS bestätigen; danach erneut verbinden.`
+        ? translate("Tailscale HTTPS is not yet available. Run tailscale serve --bg --https=443 http://127.0.0.1:{{value1}} in a PC console and, if necessary, confirm HTTPS; then reconnect.", { value1: this.port })
         : redactedErrorDetail(error);
     } finally {
       this.busy = false;
@@ -106,7 +107,7 @@ export class MobileAccessController {
     const storage = this.devices.inventory();
     if (!storage.available) throw new Error(storage.error!);
     const status = await this.status();
-    if (!status.listening || !this.sessions || !this.origin) throw new Error('ade: zuerst die mobile Verbindung aktivieren');
+    if (!status.listening || !this.sessions || !this.origin) throw new Error(translate("ade: first activate the mobile connection"));
     return this.sessions.beginPairing(this.origin);
   }
   cancelPairing(): void { this.sessions?.cancelPairing(); }
@@ -146,12 +147,12 @@ export class MobileAccessController {
       const tail = await this.tailscale.inspect(this.port);
       if (tail.state !== 'ready' || !tail.serving || !tail.origin) {
         await this.stopListener();
-        this.message = tail.state === 'ready' ? 'Tailscale-Freigabe fehlt. Verbindung erneut aktivieren.' : tail.message;
+        this.message = tail.state === 'ready' ? translate("Tailscale sharing is missing. Re-enable connection.") : tail.message;
       } else if (!this.server || tail.origin !== this.origin) {
         await this.stopListener(); await this.startListener(tail.origin); this.message = '';
       }
       if (this.server && tail.origin && Date.now() - this.lastProbeAt > 60_000) this.scheduleProbe(tail.origin);
-    } catch { await this.stopListener(); this.message = 'Mobile Verbindung unterbrochen. Erneut verbinden.'; }
+    } catch { await this.stopListener(); this.message = translate("Mobile connection interrupted. Reconnect."); }
     finally { this.busy = false; }
   }
 

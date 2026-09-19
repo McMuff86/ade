@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { MobileWorkspaceOperation, MobileWorkspaceResult } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -13,11 +16,11 @@ import { useWorkspaceSelection, WorkspaceAssignmentDialog } from './WorkspaceAss
 
 export function workspaceError(error: unknown): string {
   if (error instanceof MobileClientError) {
-    if (error.code === 'scope_not_granted') return 'Für dieses Gerät am PC unter Einstellungen → Verbundene Geräte den Zugriff auf Workspace-Dateien freigeben.';
-    if (error.status === 404) return 'Diese Funktion benötigt die neue ADE-Version auf dem PC.';
+    if (error.code === 'scope_not_granted') return translate("On the PC, open Settings → Connected devices and enable workspace file access for this device.");
+    if (error.status === 404) return translate("This function requires the new ADE version on the PC.");
     if (error.message !== error.code) return error.message;
   }
-  return 'Workspace konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.';
+  return translate("Workspace couldn't load. Check connection and try again.");
 }
 
 export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, projectEntry, profileIntent, onProfileIntentConsumed, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
@@ -30,6 +33,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   fileDrafts: FileDrafts;
   profileDrafts: ProfileDrafts;
 }): JSX.Element {
+  useLocale();
   const [repositoryId, selectRepository] = useState(() => host.catalog?.repositories.some((repo) => repo.id === initialRepositoryId)
     ? initialRepositoryId : '');
   const [tab, selectTab] = useState<'files' | 'git' | 'terminal' | 'profile'>(initialTab ?? 'files');
@@ -97,31 +101,31 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   }); };
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
   const disabled = busy || assigned.loading || !!assigned.error || host.status !== 'online';
-  return <Dialog title={projectEntry ? `Projekt · ${host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace'}` : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}
+  return <Dialog title={projectEntry ? translate("Project · {{value1}}", { value1: host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace' }) : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}
     headerActions={tab === 'terminal' && <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle"
-      aria-label="Terminal-Bedienung" aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls"
-      onPointerDown={(event) => event.preventDefault()} onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? 'Bedienung einklappen' : 'Bedienung'}</button>}>
-    <div className="m-tablet-workbench">{!projectEntry && <aside className="m-project-rail" aria-label="Workspace-Projekte"><h3>Projekte</h3>
-      <button aria-pressed={!repositoryId} onClick={() => setRepositoryId('')}>Eigener Workspace</button>
+      aria-label={translate("Terminal controls")} aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls"
+      onPointerDown={(event) => event.preventDefault()} onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? translate("Collapse controls") : translate("Controls")}</button>}>
+    <div className="m-tablet-workbench">{!projectEntry && <aside className="m-project-rail" aria-label={translate("Workspace projects")}><h3>{translate("Projects")}</h3>
+      <button aria-pressed={!repositoryId} onClick={() => setRepositoryId('')}>{translate("Personal workspace")}</button>
       {host.catalog?.repositories.map((repo) => <button key={repo.id} aria-pressed={repositoryId === repo.id} onClick={() => setRepositoryId(repo.id)}>{repo.name}</button>)}
     </aside>}<div className="m-tablet-workbench-main">
-    <div className="m-workspace-controls">{!projectEntry && <label>Projekt<select aria-label="Workspace-Projekt" value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
-      <option value="">Ohne Projekt · Eigener Workspace</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>}
-      <button id="workspace-refresh" disabled={busy || assigned.loading || host.status !== 'online'} onClick={() => { if (repositoryId) assigned.refresh(); else void refresh(); }}>Workspace aktualisieren</button>
-      <button id="workspace-assignment" disabled={host.status !== 'online'} onClick={() => setAssignmentOpen(true)}>Workspace-Zuweisung prüfen</button>
-      <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>Aufgabe vergeben</button>{agent && <DashboardLink agent={agent} />}</div>
-    {overview?.ready && <p className="m-field-note">Zuordnung: {assigned.view?.label ?? (repositoryId ? 'Eigene ADE-Arbeitskopie' : 'Eigener Agent-Ordner')} · {repositoryId ? `Branch ${overview.branch} · ` : ''}Belegung beim Aktualisieren: {overview.busy ? 'Durch Terminal oder Auftrag belegt' : 'Nicht belegt'}</p>}
-    {assigned.loading && <p role="status">Workspace-Zuordnung wird geladen…</p>}{assigned.error && <p role="alert">{assigned.error}</p>}
-    <nav className="m-management-tabs" aria-label="Workspace-Bereich"><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>Dateien</button>
-      <button disabled={!repositoryId} title={!repositoryId ? 'Für Git ein Projekt auswählen' : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>Git-Änderungen</button>
-      <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>Terminal</button>
-      <button aria-pressed={tab === 'profile'} onClick={() => { setTab('profile'); setDetail(null); }}>Agent-Profil</button></nav>
-    {host.status !== 'online' && <p role="status">Verbindung unterbrochen. Angezeigte Daten können veraltet sein.</p>}
-    {busy && tab !== 'terminal' && <p role="status">Workspace wird geladen…</p>}{error && tab !== 'terminal' && <p role="alert" className="m-alert">{error}</p>}
-    {error && retryDetail && tab !== 'terminal' && <button disabled={disabled} onClick={() => void load(retryDetail.input, retryDetail.title)}>Details erneut laden</button>}
-    {!repositoryId && <p>Dateien und Terminal verwenden den eigenen Agent-Ordner. Für verwaltete Aufgaben und Git ein Projekt auswählen.</p>}
-    {tab !== 'terminal' && overview?.notice && <p>{overview.notice}</p>}
-    {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>Workspaces verwalten</button> : <button onClick={() => setTab('terminal')}>Terminal öffnen</button>)}
+    <div className="m-workspace-controls">{!projectEntry && <label>{translate("Project")}<select aria-label={translate("Workspace project")} value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
+      <option value="">{translate("No project · Personal workspace")}</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>}
+      <button id="workspace-refresh" disabled={busy || assigned.loading || host.status !== 'online'} onClick={() => { if (repositoryId) assigned.refresh(); else void refresh(); }}>{translate("Refresh workspace")}</button>
+      <button id="workspace-assignment" disabled={host.status !== 'online'} onClick={() => setAssignmentOpen(true)}>{translate("Check workspace assignment")}</button>
+      <button disabled={!repositoryId || host.status !== 'online'} onClick={() => onTask(repositoryId)}>{translate("Assign task")}</button>{agent && <DashboardLink agent={agent} />}</div>
+    {overview?.ready && <p className="m-field-note">{translate("Assignment:")}{" "}{assigned.view?.label ?? (repositoryId ? translate("Dedicated ADE working copy") : translate("Dedicated agent folder"))} · {repositoryId ? `Branch ${overview.branch} · ` : ''}{translate("Usage at last refresh:")}{" "}{overview.busy ? translate("In use by a terminal or job") : translate("Not in use")}</p>}
+    {assigned.loading && <p role="status">{translate("Loading workspace assignment…")}</p>}{assigned.error && <p role="alert">{localizeAppMessage(assigned.error)}</p>}
+    <nav className="m-management-tabs" aria-label={translate("Workspace area")}><button aria-pressed={tab === 'files'} onClick={() => { setTab('files'); setDetail(null); }}>{translate("Files")}</button>
+      <button disabled={!repositoryId} title={!repositoryId ? translate("Select a project for Git") : undefined} aria-pressed={tab === 'git'} onClick={() => { setTab('git'); setDetail(null); }}>{translate("Git changes")}</button>
+      <button aria-pressed={tab === 'terminal'} onClick={() => { setTab('terminal'); setDetail(null); }}>{translate("Terminal")}</button>
+      <button aria-pressed={tab === 'profile'} onClick={() => { setTab('profile'); setDetail(null); }}>{translate("Agent Profile")}</button></nav>
+    {host.status !== 'online' && <p role="status">{translate("Connection interrupted. Data displayed may be obsolete.")}</p>}
+    {busy && tab !== 'terminal' && <p role="status">{translate("Loading workspace…")}</p>}{error && tab !== 'terminal' && <p role="alert" className="m-alert">{localizeAppMessage(error)}</p>}
+    {error && retryDetail && tab !== 'terminal' && <button disabled={disabled} onClick={() => void load(retryDetail.input, retryDetail.title)}>{translate("Reload details")}</button>}
+    {!repositoryId && <p>{translate("Files and the terminal use the dedicated agent folder. Select a project for managed tasks and Git.")}</p>}
+    {tab !== 'terminal' && overview?.notice && <p>{localizeAppMessage(overview.notice)}</p>}
+    {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>{translate("Manage workspaces")}</button> : <button onClick={() => setTab('terminal')}>{translate("Open terminal")}</button>)}
     <div className="m-terminal-slot" hidden={tab !== 'terminal'}>{!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${host.identityVersion}`} host={host} {...assigned.selection} active={tab === 'terminal'}
       expectedBranch={assigned.view?.branch} defaultProfileId={assigned.selection.projectWorkspaceId ? agentId : undefined}
       projectEntry={projectEntry}
@@ -130,39 +134,39 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
       profileIntent={!repositoryId ? profileIntent : undefined} onProfileIntentConsumed={onProfileIntentConsumed} />}</div>
     {tab === 'profile' && <AgentProfile host={host} agentId={agentId} repositoryId={repositoryId || undefined} drafts={profileDrafts} />}
     {overview?.ready && (tab === 'files' || tab === 'git') && <div className={`m-workbench-split ${detail ? 'has-detail' : ''}`}>
-      <section className="m-workbench-list" aria-label={tab === 'files' ? 'Workspace-Dateien' : 'Geänderte Dateien'}>
+      <section className="m-workbench-list" aria-label={tab === 'files' ? translate("Workspace files") : translate("Modified files")}>
         {tab === 'files' ? <><form onSubmit={(event) => { event.preventDefault(); void load({ operation: 'search', search: search.trim() }); }}>
-          <label>Dateinamen suchen<input type="search" value={search} maxLength={80} onChange={(event) => setSearch(event.target.value)} /></label>
-          <button disabled={disabled || !search.trim()}>Dateien suchen</button></form>
+          <label>{translate("Search filenames")}<input type="search" value={search} maxLength={80} onChange={(event) => setSearch(event.target.value)} /></label>
+          <button disabled={disabled || !search.trim()}>{translate("Search for files")}</button></form>
           <p className="m-workspace-location">{directory || 'Workspace'}</p>
-          <button disabled={disabled || !directory && !search} onClick={() => folder(directory.split('/').slice(0, -1).join('/'))}>Übergeordneter Ordner</button>
-          {!listing?.entries?.length && !busy && <p>Keine sichtbaren Dateien in dieser Auswahl.</p>}
+          <button disabled={disabled || !directory && !search} onClick={() => folder(directory.split('/').slice(0, -1).join('/'))}>{translate("Parent folder")}</button>
+          {!listing?.entries?.length && !busy && <p>{translate("No visible files in this selection.")}</p>}
           <ul>{listing?.entries?.map((entry) => <li key={entry.path}><button disabled={disabled} title={entry.path}
             onClick={() => entry.kind === 'directory' ? folder(entry.path) : void load({ operation: 'file', path: entry.path }, entry.path)}>
             <span aria-hidden="true">{entry.kind === 'directory' ? '▸ ' : '· '}</span>{search ? entry.path : entry.name}</button></li>)}</ul>
-          {listing?.limited && <p>Auswahl begrenzt. Einen Unterordner öffnen oder gezielter suchen.</p>}</>
-          : <>{!overview.changes.length && <p>Keine sichtbaren uncommitteten Änderungen.</p>}<ul>{overview.changes.map((change) => <li key={change.path}>
+          {listing?.limited && <p>{translate("Selection limited. Open a subfolder or search more specifically.")}</p>}</>
+          : <>{!overview.changes.length && <p>{translate("No visible uncommitted changes.")}</p>}<ul>{overview.changes.map((change) => <li key={change.path}>
             <strong>{change.path}</strong><span className="m-field-note"> {change.state}</span><div className="m-management-actions">
-              {change.unstaged && <button disabled={disabled} onClick={() => void load({ operation: 'diff', path: change.path, staged: false }, `${change.path} · Arbeitsdatei`)}>Arbeitsdatei vergleichen</button>}
-              {change.staged && <button disabled={disabled} onClick={() => void load({ operation: 'diff', path: change.path, staged: true }, `${change.path} · Vorgemerkt`)}>Vorgemerkte Änderung</button>}</div></li>)}</ul>
-            <h3>Letzte Commits</h3>{!overview.commits.length && <p>Keine Commits vorhanden.</p>}<ol className="m-commit-list">{overview.commits.map((commit) => <li key={commit.sha}>
+              {change.unstaged && <button disabled={disabled} onClick={() => void load({ operation: 'diff', path: change.path, staged: false }, translate("{{value1}} · Working file", { value1: change.path }))}>{translate("Compare working file")}</button>}
+              {change.staged && <button disabled={disabled} onClick={() => void load({ operation: 'diff', path: change.path, staged: true }, translate("{{value1}} · Staged", { value1: change.path }))}>{translate("Staged change")}</button>}</div></li>)}</ul>
+            <h3>{translate("Recent commits")}</h3>{!overview.commits.length && <p>{translate("There are no commits.")}</p>}<ol className="m-commit-list">{overview.commits.map((commit) => <li key={commit.sha}>
               <button disabled={disabled} aria-pressed={detail?.commit?.sha === commit.sha}
                 onClick={() => void load({ operation: 'commit', sha: commit.sha }, `Commit ${commit.sha.slice(0, 8)}`)}>
-                <code>{commit.sha.slice(0, 8)}</code> <span>{commit.subject}</span><span className="m-field-note">Details und Änderungen →</span>
+                <code>{commit.sha.slice(0, 8)}</code> <span>{commit.subject}</span><span className="m-field-note">{translate("Details and changes →")}</span>
               </button></li>)}</ol>
-            <button onClick={onManage}>Git-Abgleich öffnen</button></>}
+            <button onClick={onManage}>{translate("Open Git sync")}</button></>}
       </section>
-      <section className="m-workbench-detail" aria-label={detail?.commit ? 'Commit-Details' : 'Dateiinhalt'} onKeyDown={(event) => {
+      <section className="m-workbench-detail" aria-label={detail?.commit ? translate("Commit details") : translate("File content")} onKeyDown={(event) => {
         if (event.key === 'Escape' && detail?.commit) { event.preventDefault(); event.stopPropagation(); closeDetail(); }
-      }}>{detail ? <><button onClick={closeDetail}>Zurück zur Liste</button>
-        <h3 ref={heading} tabIndex={-1}>{title}</h3>{detail.file?.notice && <p>{detail.file.notice}</p>}
-        {detail.limited && <p>Diff ist gekürzt.</p>}
+      }}>{detail ? <><button onClick={closeDetail}>{translate("Back to the list")}</button>
+        <h3 ref={heading} tabIndex={-1}>{title}</h3>{detail.file?.notice && <p>{localizeAppMessage(detail.file.notice)}</p>}
+        {detail.limited && <p>{translate("Diff is shortened.")}</p>}
         {detail.commit ? <CommitDetails key={`${detail.workspaceVersion}:${detail.commit.sha}`} commit={detail.commit} query={query} online={host.status === 'online'} errorText={workspaceError} />
           : detail.file ? <FileEditor key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${detail.file.path}`} host={host} file={detail.file} workspaceVersion={detail.workspaceVersion} selection={assigned.selection}
           agentId={agentId} repositoryId={repositoryId || null} busyWorkspace={overview.busy} drafts={fileDrafts} onSaved={() => { void refresh(); document.getElementById('workspace-refresh')?.focus(); }} />
-          : <pre tabIndex={0} aria-label="Git-Diff">{detail.diff?.split('\n').map((line, index) =>
+          : <pre tabIndex={0} aria-label={translate("Git diff")}>{detail.diff?.split('\n').map((line, index) =>
           <span key={index} className={line.startsWith('+') ? 'm-diff-add' : line.startsWith('-') ? 'm-diff-delete' : undefined}>{line}{'\n'}</span>)}</pre>}</>
-        : <p>Eine Datei, Änderung oder einen Commit auswählen.</p>}</section>
+        : <p>{translate("Select a file, change, or commit.")}</p>}</section>
     </div>}
     </div></div>
     {assignmentOpen && <WorkspaceAssignmentDialog host={host} agentId={agentId} repositoryId={repositoryId || undefined} fallbackId="workspace-assignment"

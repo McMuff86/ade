@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { OrganizerDocument } from '../../shared/organizer';
 import { cachedDocument, type CachedOrganizerEntry, type OrganizerCache } from './OrganizerCache';
 
@@ -40,7 +41,7 @@ export class OrganizerEditing {
         // Subsequent keystrokes belong to the same conflict copy, never the old ID.
         this.value.id = saved.id; this.error = ''; this.notify();
       }
-    }).catch(reason => { this.error = reason instanceof Error ? reason.message : 'Lokales Speichern fehlgeschlagen.'; throw reason; })
+    }).catch(reason => { this.error = reason instanceof Error ? reason.message : translate("Local storage failed."); throw reason; })
       .finally(() => { this.running = null; this.notify(); });
     this.notify(); return this.running;
   }

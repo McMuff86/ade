@@ -1,5 +1,16 @@
 # ADE delivery roadmap
 
+## Implementiert: Deutsch/Englisch, Gespräche und Stimmenstudio
+
+Erweiterbare Sprachkataloge und sofortige Geräte-Sprachwahl sowie die getrennten
+Bereiche Projektbetreuung und Plaudern & Stimme umgesetzt. Freie Gesprächsverläufe,
+Diktat, modellabhängige Stimmregler, lokale Vorlagen und ausdrücklich ausgelöste
+A/B-Hörproben sind im Build enthalten. Eine Laufzeitabnahme dieser Erweiterung ist
+offen: Der Nutzer hat Tests und Typecheck ausdrücklich zurückgestellt.
+Folgearbeit: weitere Sprachen nach redaktioneller Übersetzung, engere reine
+Gesprächsrechte für Tablets und persönliche Hörprobe/UX-Abnahme.
+[Funktions- und Schnittstellenbeschreibung](LANGUAGES_AND_CONVERSATIONS.md).
+
 ## Zusammengeführt und aktiviert: UI Next Level
 
 Drei Bereiche, deutsche Namen, gruppierte Graph-Aktionen, kompakter Terminalkopf

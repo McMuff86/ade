@@ -1,22 +1,27 @@
 import { validQuestionAnswers, type RunQuestion, type RunQuestionAnswers } from './runQuestions';
 import { supervisionId } from './supervision';
 
+export type ConversationMode = 'project' | 'casual';
+export const CASUAL_CONVERSATION_CONTRACT = 'ade-casual-chat-v1';
+
 export type ConversationTurnStatus = 'working' | 'interrupting' | 'completed' | 'interrupted' | 'uncertain';
 export interface ConversationTurnDetail {
   id: string; input: string; output: string; status: ConversationTurnStatus; error: string;
   createdAt: number; updatedAt: number; questions: RunQuestion[];
 }
 export interface ConversationSummary {
+  mode?: ConversationMode;
   id: string; profileId: string; available: boolean; closed: boolean; createdAt: number; updatedAt: number;
   turns: number; lastTurnId: string | null; status: ConversationTurnStatus | 'ready'; pendingQuestions: number;
   lastAnswer: { sha256: string; chars: number };
 }
 export interface ConversationDetail {
+  mode?: ConversationMode;
   id: string; profileId: string; closed: boolean; available: boolean;
   model: string | null; reasoningEffort: string | null; turns: ConversationTurnDetail[];
 }
 export type ConversationCommand = { commandId: string } & (
-  { operation: 'create'; profileId: string }
+  { operation: 'create'; profileId: string; mode?: ConversationMode }
   | { operation: 'send'; conversationId: string; afterTurnId: string | null; text: string }
   | { operation: 'interrupt'; conversationId: string; turnId: string }
   | { operation: 'answer'; conversationId: string; turnId: string; questionId: string; answers: RunQuestionAnswers }
@@ -34,7 +39,8 @@ export function validConversationCommand(v: unknown): v is ConversationCommand {
   const o = v as Record<string, unknown>;
   const exact = (keys: string[]) => Object.keys(o).length === keys.length + 2 && ['commandId', 'operation', ...keys].every(k => Object.hasOwn(o, k));
   if (!supervisionId(o.commandId)) return false;
-  if (o.operation === 'create') return exact(['profileId']) && supervisionId(o.profileId);
+  if (o.operation === 'create') return supervisionId(o.profileId) && (exact(['profileId'])
+    || exact(['profileId', 'mode']) && (o.mode === 'project' || o.mode === 'casual'));
   if (!conversationId(o.conversationId)) return false;
   if (o.operation === 'close') return exact(['conversationId']);
   if (o.operation === 'send') return exact(['conversationId', 'afterTurnId', 'text']) && (o.afterTurnId === null || conversationId(o.afterTurnId)) && conversationText(o.text) && !!o.text.trim();

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { Repository } from '../../shared/types';
@@ -11,7 +12,7 @@ import { assertNoLinks } from './pathDiscipline';
 function metadata(path: string): string {
   assertNoLinks(path);
   const before = lstatSync(path);
-  if (!before.isFile() || before.nlink !== 1 || before.size > 4096) throw new Error('ade: Terminal-Workspace-Metadaten sind ungültig.');
+  if (!before.isFile() || before.nlink !== 1 || before.size > 4096) throw new Error(translate("ade: Terminal workspace metadata is invalid."));
   const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const stat = fstatSync(fd); const bytes = Buffer.alloc(4097);
@@ -23,10 +24,10 @@ function metadata(path: string): string {
     assertNoLinks(path); const after = lstatSync(path);
     if (!stat.isFile() || count !== before.size || count > 4096 || [stat, after].some(value => value.nlink !== 1 || value.dev !== before.dev || value.ino !== before.ino
       || value.birthtimeMs !== before.birthtimeMs || value.size !== before.size || value.mtimeMs !== before.mtimeMs)) {
-      throw new Error('ade: Terminal-Workspace-Metadaten wurden während des Lesens geändert.');
+      throw new Error(translate("ade: Terminal workspace metadata has been changed during reading."));
     }
     const text = bytes.subarray(0, count).toString('utf8');
-    if (text.includes('\0') || !Buffer.from(text, 'utf8').equals(bytes.subarray(0, count))) throw new Error('ade: Terminal-Workspace-Metadaten sind nicht lesbar.');
+    if (text.includes('\0') || !Buffer.from(text, 'utf8').equals(bytes.subarray(0, count))) throw new Error(translate("ade: Terminal workspace metadata is not readable."));
     return text.trim();
   } finally { closeSync(fd); }
 }
@@ -45,10 +46,10 @@ export function terminalWorkspaceBranch(workspace: ProjectWorkspace, repository:
     if (!sameHostPath(workspace.workspaceDir, repository.rootPath) || !sameHostPath(workspace.gitDirectory, mainGit) || !lstatSync(pointer).isDirectory()) return null;
   } else {
     const target = /^gitdir: ([^\r\n\0]+)$/.exec(metadata(pointer))?.[1];
-    if (!target || !sameHostPath(resolve(workspace.workspaceDir, target), workspace.gitDirectory)) throw new Error('ade: Git-Verknüpfung des Terminals wurde geändert.');
+    if (!target || !sameHostPath(resolve(workspace.workspaceDir, target), workspace.gitDirectory)) throw new Error(translate("ade: Git link of the terminal has been changed."));
     if (!sameHostPath(resolve(workspace.gitDirectory, metadata(join(workspace.gitDirectory, 'commondir'))), repository.commonGitDir)
       || !sameHostPath(resolve(workspace.gitDirectory, metadata(join(workspace.gitDirectory, 'gitdir'))), pointer)) {
-      throw new Error('ade: Git-Zuordnung des Terminals wurde geändert.');
+      throw new Error(translate("ade: Git assignment of the terminal has been changed."));
     }
   }
   const head = metadata(join(workspace.gitDirectory, 'HEAD'));

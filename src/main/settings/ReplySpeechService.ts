@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import type { SpeechAudio, SpeechTarget } from '../../shared/speech';
 import type { ReplyInput, ReplyPreview } from '../../shared/terminalSpeech';
@@ -20,7 +21,7 @@ export class ReplySpeechService {
   prepare(owner: string, input: ReplyInput, authorize: ReplyAuthorization): { replyId: string } {
     authorize();
     for (const [id, reply] of this.replies) if (reply.expiresAt <= this.now()) { reply.controller.abort(); this.replies.delete(id); }
-    if (this.replies.size >= 8) throw new Error('Zu viele offene Sprachantworten. Schliesse zuerst einen anderen Vorlesedialog.');
+    if (this.replies.size >= 8) throw new Error(translate("Too many open speech replies. Close another read-aloud dialog first."));
     const content = replySpeechText(input, this.secrets());
     const replyId = randomUUID();
     this.replies.set(replyId, { owner, preview: { replyId, ...content, source: input.source, mode: input.mode }, authorize,
@@ -29,7 +30,7 @@ export class ReplySpeechService {
   }
   private require(owner: string, id: string): ReplyRecord {
     const reply = this.replies.get(id);
-    if (!reply || reply.owner !== owner || reply.expiresAt <= this.now() || reply.controller.signal.aborted) throw new Error('Diese Sprachantwort ist nicht mehr verfügbar. Öffne „Antwort anhören“ erneut.');
+    if (!reply || reply.owner !== owner || reply.expiresAt <= this.now() || reply.controller.signal.aborted) throw new Error(translate("This voice answer is no longer available. Open “listen to answer” again."));
     reply.authorize(); return reply;
   }
   read(owner: string, id: string): { preview: ReplyPreview; audio?: SpeechAudio } {
@@ -45,7 +46,7 @@ export class ReplySpeechService {
         : usage.repositoryId ? { kind: 'project', repositoryId: usage.repositoryId } : { kind: 'default' };
       const preference = await this.preferences.query(target);
       this.require(owner, id);
-      if (!preference.effectiveVoiceId) throw new Error('Bitte unter Einstellungen → Stimme eine verfügbare Stimme wählen.');
+      if (!preference.effectiveVoiceId) throw new Error(translate("Please select an available voice under Settings → Voice."));
       const audio = await this.speech.reply(preference.effectiveVoiceId, reply.preview.text, () => { this.require(owner, id); }, usage, reply.controller.signal);
       this.require(owner, id); reply.audio = audio;
       })();

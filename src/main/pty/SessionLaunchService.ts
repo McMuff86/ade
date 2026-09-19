@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { AdeConfig, Agent } from '../../shared/types';
 import type { MobileTerminalSelection, SessionLaunchChoice, SessionLaunchOptions } from '../../shared/remote';
 import type { ExecutionBackendId } from '../../shared/executionBackends';
@@ -16,22 +17,22 @@ export class SessionLaunchService {
   async options(selection: MobileTerminalSelection): Promise<SessionLaunchOptions> {
     const config = this.store.get(); const agent = config.agents.find((a) => a.id === selection.agentId);
     const workspace = selection.projectWorkspaceId ? config.projectWorkspaces.find((item) => item.id === selection.projectWorkspaceId) : undefined;
-    if (!selection.terminalHome && !selection.projectWorkspaceId && !agent) throw new Error('ade: Agent ist nicht mehr vorhanden.');
-    if (selection.projectWorkspaceId && !workspace) throw new Error('ade: Projekt-Workspace ist nicht mehr vorhanden.');
+    if (!selection.terminalHome && !selection.projectWorkspaceId && !agent) throw new Error(translate("ade: Agent no longer exists."));
+    if (selection.projectWorkspaceId && !workspace) throw new Error(translate("ade: Project workspace is no longer available."));
     const repo = config.repositories.find((r) => r.id === (workspace?.repositoryId ?? selection.repositoryId));
-    if (!selection.terminalHome && (workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error('ade: Projekt ist nicht verfügbar.');
+    if (!selection.terminalHome && (workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error(translate("ade: Project is not available."));
     const backend = selection.terminalHome ? 'native' : repo?.executionBackend ?? agentHomeBackend(agent!);
     const profiles = config.agents.filter((item) => agentHomeBackend(item) === backend).slice(0, 200);
     const [codex, claude, grok, hermes, models] = await Promise.all([
       this.present(backend, 'codex'), this.present(backend, 'claude'), this.present(backend, 'grok'), this.present(backend, 'hermes'), this.models(backend)]);
     return { environment: backend === 'native' ? (process.platform === 'win32' ? 'Windows' : process.platform) : redactForWire(backend, 150),
       ...(workspace ? { profiles: profiles.map((item) => ({ id: item.id, name: redactForWire(item.name, 200), runtime: item.runtime })) } : {}),
-      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: !selection.terminalHome && (workspace ? profiles.length > 0 : true), notice: selection.terminalHome ? 'Freies Terminal ohne Agent-Profil im Benutzerverzeichnis.' : 'Verwendet die Einstellungen des ausdrücklich gewählten Profils in dieser Umgebung, einschliesslich eigener Startbefehle.' },
-        { mode: 'codex', available: codex, notice: codex ? null : 'Codex wurde in dieser Umgebung nicht gefunden.' },
-        { mode: 'claude', available: claude, notice: claude ? null : 'Claude CLI wurde in dieser Umgebung nicht gefunden.' },
-        { mode: 'grok', available: grok, notice: grok ? null : 'Grok CLI wurde in dieser Umgebung nicht gefunden.' },
-        { mode: 'hermes', available: hermes, notice: hermes ? null : 'Hermes wurde nicht gefunden. Für eigene Wrapper das gespeicherte Profil verwenden.' },
-        { mode: 'ollama', available: models.length > 0, notice: models.length ? null : 'Keine Modelle erreichbar. Ollama und vorhandene Modelle in dieser Umgebung am PC prüfen.' }], models };
+      choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: !selection.terminalHome && (workspace ? profiles.length > 0 : true), notice: selection.terminalHome ? translate("Free terminal without an agent profile in the user directory.") : translate("Uses the settings of the explicitly selected profile in this environment, including your own start commands.") },
+        { mode: 'codex', available: codex, notice: codex ? null : translate("Codex was not found in this environment.") },
+        { mode: 'claude', available: claude, notice: claude ? null : translate("Claude CLI was not found in this environment.") },
+        { mode: 'grok', available: grok, notice: grok ? null : translate("Grok CLI was not found in this environment.") },
+        { mode: 'hermes', available: hermes, notice: hermes ? null : translate("Hermes was not found. Use the saved profile for own wrappers.") },
+        { mode: 'ollama', available: models.length > 0, notice: models.length ? null : translate("No models available. Ollama and existing models in this environment on the PC check.") }], models };
   }
 
   async effectiveAgent(agent: Agent, backend: ExecutionBackendId, choice: SessionLaunchChoice): Promise<Agent> {
@@ -39,10 +40,10 @@ export class SessionLaunchService {
   }
 
   async effectiveSettings(settings: InteractiveLaunchSettings, backend: ExecutionBackendId, choice: SessionLaunchChoice): Promise<InteractiveLaunchSettings> {
-    if (!validSessionChoice(choice)) throw new Error('ade: Ungültige Startauswahl.');
+    if (!validSessionChoice(choice)) throw new Error(translate("ade: Invalid start selection."));
     if (choice.mode === 'agent') return { ...settings };
-    if ((choice.mode === 'codex' || choice.mode === 'claude' || choice.mode === 'grok' || choice.mode === 'hermes') && !await this.present(backend, choice.mode)) throw new Error('ade: Gewähltes CLI ist in dieser Umgebung nicht verfügbar.');
-    if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error('ade: Ollama-Modell ist nicht mehr verfügbar. Modellliste aktualisieren.');
+    if ((choice.mode === 'codex' || choice.mode === 'claude' || choice.mode === 'grok' || choice.mode === 'hermes') && !await this.present(backend, choice.mode)) throw new Error(translate("ade: Selected CLI is not available in this environment."));
+    if (choice.mode === 'ollama' && !(await this.models(backend)).includes(choice.model)) throw new Error(translate("ade: Ollama model is no longer available. Update model list."));
     return { ...settings, runtime: choice.mode === 'hermes' ? 'custom' : choice.mode, permissionMode: 'default',
       customCommand: choice.mode === 'hermes' ? 'hermes' : undefined,
       ollamaMode: undefined,
@@ -55,10 +56,10 @@ export class SessionLaunchService {
     if (settings.runtime !== 'ollama' || settings.ollamaMode !== 'coding' || settings.customCommand?.trim()) return;
     const qwen = settings.ollamaHarness === 'qwen-code';
     if (!await this.present(backend, qwen ? 'qwen' : 'codex')) throw new Error(qwen
-      ? 'ade: Qwen Code wurde in dieser Umgebung nicht gefunden. Qwen Code installieren oder Codex CLI als Coding-Harness wählen.'
-      : 'ade: Ollama-Coding benötigt die Codex CLI in dieser Umgebung.');
+      ? translate("ade: Qwen code was not found in this environment. Install Qwen code or choose Codex CLI as the coding harness.")
+      : translate("ade: Ollama-Coding requires the Codex CLI in this environment."));
     if (!settings.ollamaModel || !(await this.models(backend, qwen)).includes(settings.ollamaModel)) {
-      throw new Error('ade: Ollama-Modell ist nicht verfügbar. Ollama starten und die Modellliste aktualisieren.');
+      throw new Error(translate("ade: Ollama model is not available. Ollama start and update the model list."));
     }
   }
 

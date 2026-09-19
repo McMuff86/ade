@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import { workspaceOperations } from '../repositories/WorkspaceOperationGate';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -360,7 +361,7 @@ export class RunCoordinator {
         const { task } = this.orchestration.beginPlanningPhase({
           runId,
           participantId: orchestrator.id,
-          title: 'Plan and decompose the run',
+          title: translate("Plan and decompose the run"),
           phase: 'plan',
           prompt: planningPrompt(run, participants, { brief: this.runContexts.get(runId)?.brief }),
         });
@@ -561,7 +562,7 @@ export class RunCoordinator {
       const snapshot = this.orchestration.snapshot();
       const run = snapshot.runs.find((candidate) => candidate.id === runId);
       if (completedOnly && (!run || !['completed', 'failed', 'cancelled'].includes(run.status))) {
-        throw new Error('ade: Nur abgeschlossene, fehlgeschlagene oder abgebrochene Runs können hier gelöscht werden.');
+        throw new Error(translate("ade: Only completed, failed or aborted runs can be deleted here."));
       }
       if (run?.mode === 'managed' && run.status === 'running') {
         throw new Error('ade: cancel the managed run before deleting it');
@@ -1155,7 +1156,7 @@ export class RunCoordinator {
     const task = this.orchestration.createManagedTask({
       runId,
       participantId: orchestrator.id,
-      title: 'Review and stabilize integrated work',
+      title: translate("Review and stabilize integrated work"),
       phase: 'integrate',
       prompt: integrationPrompt(run, results, applied, integratorLease.isRepo, {
         brief: context?.brief,
@@ -1202,7 +1203,7 @@ export class RunCoordinator {
     const task = this.orchestration.createManagedTask({
       runId,
       participantId: orchestrator.id,
-      title: 'Verify the integrated result',
+      title: translate("Verify the integrated result"),
       phase: 'verify',
       expectedHeadSha,
       prompt: verificationPrompt(run, integration, { brief: context?.brief }),

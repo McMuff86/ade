@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Grouped primary navigation, identical on desktop and tablet.
  * Captions name the group inline ("Organisation  Aufgaben Notizen"), so the
@@ -20,6 +22,7 @@ const ICONS: Record<AppView, ReactNode> = {
 };
 
 export function NavIcon({ view }: { view: AppView }): JSX.Element {
+  useLocale();
   return <svg className="appnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[view]}</svg>;
 }
 
@@ -32,6 +35,7 @@ export function AppNav(props: {
   controls?: string;
   className?: string;
 }): JSX.Element {
+  useLocale();
   const { current, onSelect, idPrefix } = props;
   const key = `ade:nav-collapsed:${idPrefix === 'view-tab' ? 'mobile' : 'desktop'}`;
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(key) === 'true'; } catch { return false; } });
@@ -39,15 +43,15 @@ export function AppNav(props: {
   const collapse = (next: boolean) => { setCollapsed(next); try { localStorage.setItem(key, String(next)); } catch { /* Visual preference only. */ } };
   const focusTab = (view: AppView) => document.getElementById(`${idPrefix}-${view}`)?.focus();
   return (
-    <nav className={`appnav ${props.className ?? ''}`} aria-label="Bereiche" onKeyDown={event => {
+    <nav className={`appnav ${props.className ?? ''}`} aria-label={translate("Areas")} onKeyDown={event => {
       if (event.key === 'Escape' && !collapsed) { event.preventDefault(); event.stopPropagation(); collapse(true); toggle.current?.focus(); }
     }}>
-      <button type="button" ref={toggle} className="appnav-toggle" aria-label={collapsed ? 'Navigation ausklappen' : 'Navigation einklappen'}
+      <button type="button" ref={toggle} className="appnav-toggle" aria-label={collapsed ? translate("Expand navigation") : translate("Collapse navigation")}
         aria-expanded={!collapsed} aria-controls={`${idPrefix}-navigation`} onClick={() => collapse(!collapsed)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={collapsed ? 'M4 6h16M4 12h16M4 18h16' : 'm14 6-6 6 6 6'} /></svg>
         {collapsed && <span>{viewLabel(current)}</span>}
       </button>
-      <div id={`${idPrefix}-navigation`} hidden={collapsed} className="appnav-list" role="tablist" aria-label="Bereiche">
+      <div id={`${idPrefix}-navigation`} hidden={collapsed} className="appnav-list" role="tablist" aria-label={translate("Areas")}>
         {APP_NAV_GROUPS.map((group) => (
           <div key={group.id} className="appnav-group" role="presentation" data-group={group.id}>
             {group.id !== 'home' && <span className="appnav-caption" aria-hidden="true">{group.label}</span>}

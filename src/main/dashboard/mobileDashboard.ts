@@ -1,3 +1,4 @@
+import { t as translate } from '../../shared/i18n';
 import type { Agent } from '../../shared/types';
 import type { MobileAgentSummary } from '../../shared/remote';
 import { redactForWire } from '../errors';
@@ -5,7 +6,7 @@ import { redactForWire } from '../errors';
 /** A fixed private URL only. Dashboard commands may mint credentials and stay desktop-only. */
 export function mobileDashboard(agent: Pick<Agent, 'dashboardUrl' | 'dashboardCommand'>): MobileAgentSummary['dashboard'] {
   if (!agent.dashboardUrl && !agent.dashboardCommand) return undefined;
-  const unavailable = { notice: 'Am PC im Agent-Profil eine private HTTPS-Dashboard-Adresse ohne Zugangsdaten hinterlegen.' };
+  const unavailable = { notice: translate("On the PC, set a private HTTPS dashboard address without credentials in the agent profile.") };
   try {
     const url = new URL(agent.dashboardUrl ?? '');
     if (url.protocol !== 'https:' || !url.hostname.endsWith('.ts.net') || url.username || url.password || url.hash

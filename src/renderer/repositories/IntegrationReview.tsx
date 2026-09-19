@@ -1,3 +1,7 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { localizedLabels } from "../../shared/i18n/labels";
+import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { IntegrationCommand, IntegrationDiff, IntegrationPreview, IntegrationQuery, IntegrationReport, IntegrationResult, IntegrationSource } from '../../shared/remote';
 import './integration-review.css';
@@ -17,10 +21,11 @@ interface Props {
   onWorkspace: (id: string) => void;
   onBack: () => void;
 }
-const phases: Record<IntegrationReport['phase'], string> = { preparing: 'Wird vorbereitet', review: 'In Prüfung', testing: 'Tests laufen', ready: 'Tests bestanden', integrated: 'Übernommen', interrupted: 'Unterbrochen' };
-const checkStatus = { pending: 'Wartet', running: 'Läuft', passed: 'Bestanden', failed: 'Fehlgeschlagen' };
+const phases: Record<IntegrationReport['phase'], string> = localizedLabels(() => ({ preparing: translate("Preparing"), review: translate("Under review"), testing: translate("Tests are ongoing"), ready: translate("Tests passed"), integrated: translate("Taken over"), interrupted: translate("Interrupted") }));
+const checkStatus = localizedLabels(() => ({ pending: translate("Waiting"), running: translate("Running"), passed: translate("Passed"), failed: translate("Failed") }));
 /** Same user-visible workflow for desktop IPC and signed mobile requests. */
 export function IntegrationReview(props: Props): JSX.Element {
+  useLocale();
   const { repositoryId, query, command, online, canChange, canTest, pending, savePending, errorText, certainError, onWorkspace, onBack } = props;
   const [sources, setSources] = useState<IntegrationSource[]>([]); const [reviews, setReviews] = useState<NonNullable<IntegrationResult['reviews']>>([]);
   const [sourceId, setSourceId] = useState(''); const [preview, setPreview] = useState<IntegrationPreview>(); const [report, setReport] = useState<IntegrationReport>();
@@ -38,7 +43,7 @@ export function IntegrationReview(props: Props): JSX.Element {
     if (result.sources) { setSources(result.sources); setLoaded(true); }
     if (result.reviews) setReviews(result.reviews);
     if (result.preview) { setPreview(result.preview); setPaths(result.preview.files.filter((file) => file.suggested).map((file) => file.path)); setReport(undefined); setDiff(undefined); }
-    if (result.report) { setReport(result.report); setPreview(undefined); setDiff(undefined); setMessage((value) => value || `feat: geprüfte Änderungen aus ${result.report!.sourceName}`); }
+    if (result.report) { setReport(result.report); setPreview(undefined); setDiff(undefined); setMessage((value) => value || translate("feat: Checked changes from {{value1}}", { value1: result.report!.sourceName })); }
     if (result.diff) setDiff(result.diff);
   }, []);
   const perform = async (action: () => Promise<IntegrationResult>) => {
@@ -72,69 +77,69 @@ export function IntegrationReview(props: Props): JSX.Element {
     if (pending && !retry) return;
     const selected = retry && pending ? pending : { key: crypto.randomUUID(), command: input };
     await perform(async () => {
-      if (!savePending(selected)) throw new Error('Die Anfrage konnte auf diesem Gerät nicht gesichert werden. Speicher freigeben und erneut versuchen.');
+      if (!savePending(selected)) throw new Error(translate("The request could not be backed up on this device. Release storage and try again."));
       try { const result = await command(selected.command, selected.key); savePending(null); return result; }
       catch (reason) { if (certainError(reason)) savePending(null); throw reason; }
     });
   };
   const disabled = busy || !online || !!pending;
-  return <section className="integration-review" aria-label="Änderungen übernehmen" aria-busy={busy}>
-    <h3 ref={heading} tabIndex={-1}>Änderungen geprüft übernehmen</h3>
-    <p>Ausgewählte Änderungen einer älteren Arbeitskopie auf dem aktuellen Branch des Hauptrepositories vorbereiten. ADE sichert die Auswahl und erstellt eine separate Arbeitskopie.</p>
-    <div className="integration-actions"><button type="button" className="btn" onClick={onBack}>Zum Git-Abgleich</button>
-      <button type="button" className="btn" disabled={busy || !online} onClick={() => void perform(() => query({ operation: 'sources', repositoryId }))}>Quellen und Berichte aktualisieren</button></div>
-    {!online && <p role="status">Keine Verbindung zum ADE-Rechner. Zum Fortsetzen erneut verbinden.</p>}
-    {busy && <p role="status">ADE prüft den aktuellen Stand…</p>}
-    {error && <p className="integration-error" role="alert">{error}</p>}
-    {pending && <div className="integration-notice"><p>Die letzte Anfrage ist noch nicht bestätigt. Dieselbe Anfrage erneut prüfen.</p>
-      <button type="button" className="btn" disabled={busy || !online} onClick={() => void send(pending.command, true)}>Anfrage erneut prüfen</button></div>}
-    {!canChange && <p>Für Vorbereiten und Übernehmen am PC die Git-Verwaltungsrechte und den Zugriff auf alle Projekte freigeben.</p>}
-    <ol aria-label="Schritte der Übernahme" className="integration-steps">{['Quelle wählen', 'Dateien vergleichen', 'Arbeitskopie prüfen', 'Übernahme bestätigen', 'Abgeschlossen'].map((label, index) =>
+  return <section className="integration-review" aria-label={translate("Apply changes")} aria-busy={busy}>
+    <h3 ref={heading} tabIndex={-1}>{translate("Review and apply changes")}</h3>
+    <p>{translate("Prepare selected changes to an older working copy on the current branch of the main repository. ADE secures the selection and creates a separate working copy.")}</p>
+    <div className="integration-actions"><button type="button" className="btn" onClick={onBack}>{translate("Go to Git sync")}</button>
+      <button type="button" className="btn" disabled={busy || !online} onClick={() => void perform(() => query({ operation: 'sources', repositoryId }))}>{translate("Update sources and reports")}</button></div>
+    {!online && <p role="status">{translate("No connection to the ADE computer. Reconnect to continue.")}</p>}
+    {busy && <p role="status">{translate("ADE checks the current status…")}</p>}
+    {error && <p className="integration-error" role="alert">{localizeAppMessage(error)}</p>}
+    {pending && <div className="integration-notice"><p>{translate("The last request is not yet confirmed. Check the same request again.")}</p>
+      <button type="button" className="btn" disabled={busy || !online} onClick={() => void send(pending.command, true)}>{translate("Check request again")}</button></div>}
+    {!canChange && <p>{translate("To prepare and adopt on the PC, release the Git management rights and access to all projects.")}</p>}
+    <ol aria-label={translate("Steps of integration")} className="integration-steps">{[translate("Select the source"), translate("Compare files"), translate("Check working copy"), translate("Confirm integration"), translate("Completed")].map((label, index) =>
       <li key={label} aria-current={index === step ? 'step' : undefined}>{index < step ? '✓ ' : ''}{label}</li>)}</ol>
-    <label>Quell-Workspace<select aria-label="Quell-Workspace" value={sourceId} disabled={disabled} onChange={(event) => { setSourceId(event.target.value); setPreview(undefined); setReport(undefined); setConfirmed(false); setDiff(undefined); }}>
-      <option value="">Arbeitskopie auswählen</option>{sources.map((source) => <option value={source.id} key={source.id}>{source.name} · {source.branch}</option>)}</select></label>
-    <button type="button" className="btn" disabled={disabled || !sourceId} onClick={() => void perform(() => query({ operation: 'preview', repositoryId, sourceId }))}>Änderungen prüfen</button>
-    {loaded && !sources.length && <p>Keine zusätzliche erreichbare Arbeitskopie dieses Projekts gefunden. Einen Agent-Workspace oder Projekt-Worktree anlegen.</p>}
-    {!!reviews.length && <details open={!preview && !report}><summary>Gespeicherte Übernahmen ({reviews.length})</summary><ul className="integration-reviews">{reviews.map((review) => <li key={review.id}>
+    <label>{translate("Source workspace")}<select aria-label={translate("Source workspace")} value={sourceId} disabled={disabled} onChange={(event) => { setSourceId(event.target.value); setPreview(undefined); setReport(undefined); setConfirmed(false); setDiff(undefined); }}>
+      <option value="">{translate("Select working copy")}</option>{sources.map((source) => <option value={source.id} key={source.id}>{source.name} · {source.branch}</option>)}</select></label>
+    <button type="button" className="btn" disabled={disabled || !sourceId} onClick={() => void perform(() => query({ operation: 'preview', repositoryId, sourceId }))}>{translate("Review changes")}</button>
+    {loaded && !sources.length && <p>{translate("No additional reachable working copy of this project found. Create an agent workspace or project worktree.")}</p>}
+    {!!reviews.length && <details open={!preview && !report}><summary>{translate("Saved integrations (")}{reviews.length})</summary><ul className="integration-reviews">{reviews.map((review) => <li key={review.id}>
       <button type="button" className="btn" disabled={disabled} onClick={() => void perform(() => query({ operation: 'report', integrationId: review.id }))}>{review.sourceName} · {phases[review.phase]} · {review.id.slice(0, 8)}</button></li>)}</ul></details>}
     {preview && <div className="integration-preview">
       <h4>{preview.sourceName} → {preview.projectName} · {preview.targetBranch}</h4>
-      <p>Gewählte Dateien werden in einer separaten Arbeitskopie geprüft und danach in <strong>{preview.targetBranch}</strong> übernommen. Push erfolgt anschliessend im Hauptworkspace.</p>
-      <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => setPaths(preview.files.filter((file) => file.selectable && file.suggested).map((file) => file.path))}>Empfohlene Auswahl wiederherstellen</button>
-        <button type="button" className="btn" disabled={disabled || !paths.length} onClick={() => setPaths([])}>Dateiauswahl leeren</button><span>{paths.length} Dateien ausgewählt</span></div>
-      <p>{preview.ownCommits} eigene Commits · {preview.behind} Commits hinter dem Ziel. Der Vergleich beruht auf der gemeinsamen Git-Basis; die fachliche Prüfung bleibt erforderlich.</p>
-      <p>Quelle <code>{preview.sourceHead.slice(0, 12)}</code> · Ziel <code>{preview.targetHead.slice(0, 12)}</code></p>
+      <p>{translate("Selected files are checked in a separate working copy and then in")}{" "}<strong>{preview.targetBranch}</strong> {" "}{translate("applied. Push afterwards from the main workspace.")}</p>
+      <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => setPaths(preview.files.filter((file) => file.selectable && file.suggested).map((file) => file.path))}>{translate("Restore recommended selection")}</button>
+        <button type="button" className="btn" disabled={disabled || !paths.length} onClick={() => setPaths([])}>{translate("Clear file selection")}</button><span>{paths.length} {" "}{translate("Files selected")}</span></div>
+      <p>{preview.ownCommits} {" "}{translate("own commits ·")}{" "}{preview.behind} {" "}{translate("commits behind the target. The comparison uses the common Git base; a functional review is still required.")}</p>
+      <p>{translate("Source")}{" "}<code>{preview.sourceHead.slice(0, 12)}</code> {" "}{translate("· Objective")}{" "}<code>{preview.targetHead.slice(0, 12)}</code></p>
       {!!preview.blockers.length && <ul className="integration-notice">{preview.blockers.map((blocker, index) => <li key={index}>{blocker}</li>)}</ul>}
-      {!preview.files.length && <p>Keine eigenen oder lokalen Änderungen gegenüber der gemeinsamen Basis.</p>}
-      {!!preview.files.length && <fieldset disabled={disabled}><legend>Dateien für die Sicherung auswählen</legend><ul className="integration-files">{preview.files.map((file) => <li key={file.path}>
-        <label><input type="checkbox" aria-label={`Übernehmen: ${file.path}`} disabled={!file.selectable} checked={paths.includes(file.path)}
+      {!preview.files.length && <p>{translate("No own or local changes to the common base.")}</p>}
+      {!!preview.files.length && <fieldset disabled={disabled}><legend>{translate("Select files for backup")}</legend><ul className="integration-files">{preview.files.map((file) => <li key={file.path}>
+        <label><input type="checkbox" aria-label={translate("Apply: {{value1}}", { value1: file.path })} disabled={!file.selectable} checked={paths.includes(file.path)}
           onChange={(event) => setPaths((before) => event.target.checked ? [...before, file.path] : before.filter((path) => path !== file.path))} /><span>{file.path}</span></label>
-        <span>{file.kind === 'new' ? 'Neu' : file.kind === 'deleted' ? 'Gelöscht' : 'Geändert'} · {file.local ? 'Lokal geändert' : 'Committet'}</span>
-        {file.notice && <p>{file.notice}</p>}<button type="button" className="btn" onClick={() => void perform(() => query({ operation: 'diff', previewId: preview.id, path: file.path }))}>Vergleich: {file.path}</button>
+        <span>{file.kind === 'new' ? translate("New") : file.kind === 'deleted' ? translate("Deleted") : translate("Modified")} · {file.local ? translate("Locally modified") : translate("Committed")}</span>
+        {file.notice && <p>{localizeAppMessage(file.notice)}</p>}<button type="button" className="btn" onClick={() => void perform(() => query({ operation: 'diff', previewId: preview.id, path: file.path }))}>{translate("Comparison:")}{" "}{file.path}</button>
       </li>)}</ul></fieldset>}
-      {diff && <section aria-label={`Dateivergleich ${diff.path}`}><h4>{diff.path}</h4>{diff.limited && <p>Vorschau gekürzt. Vollständige Datei in der Arbeitskopie prüfen.</p>}
-        <div className="integration-diff">{[['Gemeinsame Basis', diff.base], ['Ausgewählte Quelle', diff.source], ['Aktuelles Ziel', diff.target]].map(([title, text]) => <div key={title}><strong>{title}</strong><pre tabIndex={0}>{text || '(Datei leer oder nicht vorhanden)'}</pre></div>)}</div></section>}
-      <button type="button" className="btn primary" disabled={disabled || !canChange || !!preview.blockers.length || !paths.length} onClick={() => void send({ operation: 'prepare', previewId: preview.id, paths })}>Auswahl sichern und Arbeitskopie vorbereiten</button>
+      {diff && <section aria-label={translate("File comparison {{value1}}", { value1: diff.path })}><h4>{diff.path}</h4>{diff.limited && <p>{translate("Preview shortened. Check full file in working copy.")}</p>}
+        <div className="integration-diff">{[[translate("Common base"), diff.base], [translate("Selected source"), diff.source], [translate("Current target"), diff.target]].map(([title, text]) => <div key={title}><strong>{title}</strong><pre tabIndex={0}>{text || translate("(file blank or non-existent)")}</pre></div>)}</div></section>}
+      <button type="button" className="btn primary" disabled={disabled || !canChange || !!preview.blockers.length || !paths.length} onClick={() => void send({ operation: 'prepare', previewId: preview.id, paths })}>{translate("Secure selection and prepare working copy")}</button>
     </div>}
-    {report && <section className="integration-report" aria-label="Übernahmebericht"><h4>{report.sourceName} → {report.projectName} · {report.targetBranch}</h4>
+    {report && <section className="integration-report" aria-label={translate("Integration report")}><h4>{report.sourceName} → {report.projectName} · {report.targetBranch}</h4>
       <p role="status">{phases[report.phase]} · {report.branch}</p>
-      <p>Zielbasis <code>{report.targetHead.slice(0, 12)}</code> · Quelle <code>{report.sourceHead.slice(0, 12)}</code></p>
-      <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => void perform(() => query({ operation: 'report', integrationId: report.id }))}>Bericht aktualisieren</button>
-        {report.workspaceId && <button type="button" className="btn" disabled={disabled} onClick={() => onWorkspace(report.workspaceId!)}>Arbeitskopie öffnen</button>}</div>
+      <p>{translate("Target base")}{" "}<code>{report.targetHead.slice(0, 12)}</code> {" "}{translate("· Source")}{" "}<code>{report.sourceHead.slice(0, 12)}</code></p>
+      <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => void perform(() => query({ operation: 'report', integrationId: report.id }))}>{translate("Update report")}</button>
+        {report.workspaceId && <button type="button" className="btn" disabled={disabled} onClick={() => onWorkspace(report.workspaceId!)}>{translate("Open working copy")}</button>}</div>
       {!!report.blockers.length && <ul className="integration-notice">{report.blockers.map((blocker, index) => <li key={index}>{blocker}</li>)}</ul>}
-      <ul className="integration-files">{report.files.map((file) => <li key={file.path}>{file.path}{file.conflict && <strong> · Konflikt</strong>}</li>)}</ul>
-      <p>In der Arbeitskopie kannst du Dateien anpassen und Konflikte im Bereich Git auflösen. Diesen Bericht findest du danach wieder unter „Gespeicherte Übernahmen“.</p>
-      <h4>Projektprüfungen</h4><p>{report.checkNotice}</p>
-      {!canTest && <p>Zum Starten der Prüfungen zusätzlich die Terminal-Steuerung für dieses Gerät freigeben.</p>}
-      {report.checks.map((check, index) => <details key={index} open={check.status === 'failed'}><summary>{check.label} · {checkStatus[check.status]}</summary><pre tabIndex={0}>{check.output || 'Noch keine Ausgabe.'}</pre></details>)}
+      <ul className="integration-files">{report.files.map((file) => <li key={file.path}>{file.path}{file.conflict && <strong> {" "}{translate("· Conflict")}</strong>}</li>)}</ul>
+      <p>{translate("You can edit files and resolve conflicts in the working copy's Git section. Find this report again under “Saved integrations”.")}</p>
+      <h4>{translate("Project checks")}</h4><p>{report.checkNotice}</p>
+      {!canTest && <p>{translate("To start the tests, additionally release the terminal control for this device.")}</p>}
+      {report.checks.map((check, index) => <details key={index} open={check.status === 'failed'}><summary>{check.label} · {checkStatus[check.status]}</summary><pre tabIndex={0}>{check.output || translate("No output yet.")}</pre></details>)}
       {report.phase !== 'integrated' && <><button type="button" className="btn" disabled={disabled || !canTest || report.phase === 'testing' || !!report.blockers.length || !report.workspaceId}
-        onClick={() => void send({ operation: 'test', integrationId: report.id })}>Projektprüfungen starten</button>
-        <label>Commit-Nachricht<input aria-label="Commit-Nachricht für Übernahme" maxLength={2000} value={message} disabled={disabled} onChange={(event) => setMessage(event.target.value)} /></label>
+        onClick={() => void send({ operation: 'test', integrationId: report.id })}>{translate("Start project checks")}</button>
+        <label>{translate("Commit message")}<input aria-label={translate("Commit message for integration")} maxLength={2000} value={message} disabled={disabled} onChange={(event) => setMessage(event.target.value)} /></label>
         <label className="integration-confirm"><input type="checkbox" checked={confirmed} disabled={disabled || !report.tested || !!report.blockers.length}
-          onChange={(event) => setConfirmed(event.target.checked)} />Änderungen und erforderliche manuelle Prüfungen kontrolliert. Diesen Stand in {report.targetBranch} übernehmen.</label>
+          onChange={(event) => setConfirmed(event.target.checked)} />{translate("I have reviewed the changes and required manual checks. Apply this state to")}{" "}{report.targetBranch} {" "}{translate("apply.")}</label>
         <button type="button" className="btn primary" disabled={disabled || !canChange || !report.tested || !!report.blockers.length || !confirmed || !message.trim()}
-          onClick={() => void send({ operation: 'integrate', integrationId: report.id, revision: report.revision, message: message.trim() })}>Geprüften Stand übernehmen</button></>}
-      {report.phase === 'integrated' && <p role="status">Übernommen als <code>{report.integratedCommit?.slice(0, 12)}</code>. Der ursprüngliche Workspace bleibt erhalten. Zum Veröffentlichen den Hauptworkspace im Bereich Projekte öffnen.</p>}
+          onClick={() => void send({ operation: 'integrate', integrationId: report.id, revision: report.revision, message: message.trim() })}>{translate("Apply reviewed state")}</button></>}
+      {report.phase === 'integrated' && <p role="status">{translate("Accepted as")}{" "}<code>{report.integratedCommit?.slice(0, 12)}</code>{translate("The original workspace is preserved. Open the main workspace in the Projects section to publish.")}</p>}
     </section>}
   </section>;
 }

@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * TabStrip — session tabs of the selected agent (Phase B1), per the mockup:
  * rounded top tabs, a copper inset top line on the active tab, a running (●) /
@@ -15,6 +17,7 @@ import { sessionStateLabel } from '../../shared/sessionState';
 import '../terminal/terminal.css';
 
 export function TabStrip(): JSX.Element | null {
+  useLocale();
   const agentId = useSelection((s) => s.selectedAgentId);
   const agent = useAppData((s) => (agentId ? s.agents[agentId] : undefined));
   const sessions = useSessions((s) => s.sessions);
@@ -49,7 +52,7 @@ export function TabStrip(): JSX.Element | null {
   };
 
   return (
-    <div className="tabstrip" role="tablist" aria-label="Terminal sessions">
+    <div className="tabstrip" role="tablist" aria-label={translate("Terminal sessions")}>
       {sessionIds.map((id) => {
         const meta = sessions[id];
         if (!meta) return null;
@@ -93,13 +96,13 @@ export function TabStrip(): JSX.Element | null {
               <span className={running ? 'status running' : 'status exited'} aria-hidden="true">
                 {running ? '●' : '○'}
               </span>
-              <span className="tab-title">{meta.title}{meta.program?.status === 'exited' && meta.status === 'running' ? ' · CLI beendet · Terminal offen' : ''}</span>
+              <span className="tab-title">{meta.title}{meta.program?.status === 'exited' && meta.status === 'running' ? translate(" · CLI ended · Terminal open") : ''}</span>
             </button>
             <button
               type="button"
               className="close"
-              aria-label={`Close ${meta.title}`}
-              title={`Close session (${SHORTCUTS.closeSession})`}
+              aria-label={translate("Close {{value1}} [context 2]", { value1: meta.title })}
+              title={translate("Close session ({{value1}})", { value1: SHORTCUTS.closeSession })}
               tabIndex={isActive ? 0 : -1}
               onClick={(event) => {
                 event.stopPropagation();
@@ -113,8 +116,8 @@ export function TabStrip(): JSX.Element | null {
       })}
       <button
         className="tab-add"
-        title={`New session (${SHORTCUTS.newSession})`}
-        aria-label="New session"
+        title={translate("New session ({{value1}})", { value1: SHORTCUTS.newSession })}
+        aria-label={translate("New session")}
         id="new-session"
         onClick={() => openLaunch(agentId)}
       >
@@ -123,8 +126,7 @@ export function TabStrip(): JSX.Element | null {
       <span className="spacer" />
       {dashboardError ? (
         <span className="tab-dashboard-error" role="alert" title={dashboardError}>
-          Dashboard failed
-        </span>
+          {translate("Dashboard failed")}</span>
       ) : null}
       {hasDashboard ? (
         <button
@@ -132,11 +134,11 @@ export function TabStrip(): JSX.Element | null {
           className="tab-dashboard"
           disabled={dashboardBusy}
           title={agent?.dashboardTarget === 'external'
-            ? 'Open the agent dashboard in the browser'
-            : 'Open the agent dashboard in an ADE window'}
+            ? translate("Open the agent dashboard in the browser")
+            : translate("Open the agent dashboard in an ADE window")}
           onClick={() => void openDashboard()}
         >
-          {dashboardBusy ? 'Dashboard…' : 'Dashboard ↗'}
+          {dashboardBusy ? translate("Dashboard…") : 'Dashboard ↗'}
         </button>
       ) : null}
     </div>

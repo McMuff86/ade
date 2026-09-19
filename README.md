@@ -18,6 +18,11 @@ project work; managed runs use explicit agent roles and leased workspaces.
 
 **New to ADE? [User-Guide mit aktuellen Screenshots](docs/USER_GUIDE.md)** —
 PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
+Choose **Deutsch / English** in Settings → Language independently on desktop and
+tablet. **Conversations** opens Project supervision or **Chat & voice**, with a
+separate casual history and an ElevenLabs voice studio. [Usage and implementation
+limits](docs/LANGUAGES_AND_CONVERSATIONS.md). The latest additions have production
+build evidence; runtime tests were deferred at the operator's explicit request.
 [Documentation index](docs/README.md) · [Current status](docs/STATUS.md) ·
 [Active CLI, dictation and mobile goals](docs/CLI_WORK_AND_DICTATION_GOALS.md).
 
@@ -25,7 +30,7 @@ PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 
 ## A tour
 
-**ADE conversation (first PC/tablet slice)** — **ADE-Betreuung → Mit ADE sprechen**
+**ADE project conversation** — **Gespräche → Projektbetreuung → Mit ADE sprechen**
 opens a saved Codex conversation without a project terminal. It reads supervised
 project states and explicit handoffs, answers questions and resumes its exact
 context after restart. This Windows-native path requires Codex CLI 0.154.0 and

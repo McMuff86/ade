@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { DICTATION_MAX_TEXT_CHARS, validDictationJobId } from '../../shared/dictation';
 
 export interface PromptDraft {
@@ -16,16 +17,16 @@ const validKey = (key: string) => /^[A-Za-z0-9:/.@_-]{1,300}$/.test(key);
 export class PromptDraftStore {
   constructor(private readonly storage: Pick<Storage, 'getItem' | 'setItem'>) {}
   read(key: string): PromptDraft {
-    if (!validKey(key)) throw new Error('Ungültiges Entwurfsziel.');
+    if (!validKey(key)) throw new Error(translate("Invalid draft target."));
     return this.entries().find(entry => entry.key === key)?.draft ?? { text: '' };
   }
   save(key: string, draft: PromptDraft): void {
-    if (!validKey(key) || !this.valid(draft)) throw new Error('Entwurf ist ungültig oder zu lang.');
+    if (!validKey(key) || !this.valid(draft)) throw new Error(translate("The draft is invalid or too long."));
     const entries = this.entries().filter(entry => entry.key !== key);
     if (draft.text || draft.recordingJob || draft.recordingInterrupted || draft.delivery) entries.push({ key, draft });
-    if (entries.length > 16) throw new Error('16 lokale Entwürfe sind gespeichert. Zuerst einen nicht mehr benötigten Entwurf löschen.');
+    if (entries.length > 16) throw new Error(translate("16 local drafts are stored, and first delete a draft that is no longer needed."));
     const value = JSON.stringify({ version: 1, entries });
-    if (value.length > MAX_BYTES) throw new Error('Lokaler Entwurfspeicher ist voll.');
+    if (value.length > MAX_BYTES) throw new Error(translate("Local draft storage is full."));
     this.storage.setItem(STORE, value);
   }
   private valid(value: unknown): value is PromptDraft {
@@ -50,6 +51,6 @@ export class PromptDraftStore {
         keys.add(entry.key);
       }
       return value.entries;
-    } catch { throw new Error('Gespeicherte Entwürfe konnten nicht gelesen werden. Sie bleiben unverändert; neuen Text vor dem Schliessen kopieren.'); }
+    } catch { throw new Error(translate("Saved drafts could not be read. They remain unchanged; copy new text before closing.")); }
   }
 }

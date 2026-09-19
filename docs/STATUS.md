@@ -1,5 +1,30 @@
 # ADE implementation status
 
+## Deutsch/Englisch, Gespräche und Stimmenstudio aktiviert
+
+20. September **01:02:30 CEST**: Desktop und Mobile gemeinsam mit `pnpm build`
+gebaut und persönliche ADE-Instanz neu geöffnet, PID **37788**. Beide Ziele
+haben Quelle **`7ba4a0204db12bf84f68`**. Deutsch/Englisch ist je Gerät unter
+Einstellungen wählbar; Gespräche bietet Projektbetreuung sowie Plaudern & Stimme
+mit getrenntem Verlauf, Diktat und ElevenLabs-Stimmenstudio. Die Stimmregler sind
+modellabhängig, A/B-Hörproben werden ausdrücklich angefordert.
+
+Die private HTTPS-Adresse liefert das neue Mobile-Bundle bytegleich.
+Alle **drei Kopplungen** sowie Projekt-/Profilbestand sind unverändert.
+Vor dem regulären Beenden gab es weder aktive Runs noch interaktive CLI-Kinder.
+Tablet: bestehende Seite neu laden; keine neue Kopplung nötig.
+Sicherung einschliesslich vorheriger Build-Dateien:
+`C:\Users\Adi.Muff\ADE-Backups\LanguagesConversations-20260920-010210`.
+Lokaler Aktivierungsbeleg: `test-results/languages-conversations-activation.json`.
+
+Browser-Einstieg Desktop **450.54 kB**, Mobile **416.49 kB** (**120.84 kB gzip**).
+Sprachkataloge, Bibliotheken und Desktop-Graph sind aufgeteilt; keine 500-kB-
+Chunk-Warnung. Beide Kataloge werden geladen, die Gesamtmenge ist daher grösser
+als der jeweilige Einstieg. **Keine Tests, kein Typecheck, kein `pnpm verify`
+und keine kostenpflichtigen Sprachaufrufe ausgeführt**, gemäss Nutzeranweisung.
+Build/Aktivierung ersetzen keine Laufzeit- oder persönliche Hörabnahme.
+[Vertrag, Bedienung und Grenzen](LANGUAGES_AND_CONVERSATIONS.md).
+
 ## UI-Merge aktiviert: Aufgaben/Notizen und neue Bedienoberfläche
 
 19. September **23:28:52 CEST**: `ui/next-level` (`464b6a5`) mit dem Organizer-

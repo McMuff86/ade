@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import type { MobileHostState, MobileRestartResult } from '../../shared/remote';
 import { HostOperationGate } from './HostOperationGate';
@@ -15,13 +16,13 @@ export class HostRestartController {
   state(canRestart: boolean): MobileHostState {
     return { instanceId: this.instanceId, version: this.version, ...(BUILD_INFO ? { build: { ...BUILD_INFO } } : {}), restart: this.pending ? 'pending' : 'ready',
       canRestart: canRestart && this.supported,
-      blockers: [...(!this.supported ? ['Neustart ist für diesen Startmodus noch nicht verfügbar.'] : []),
-        ...this.blockers(), ...(this.gate.busy() ? ['Eine Host-Aktion läuft.'] : [])] };
+      blockers: [...(!this.supported ? [translate("Restart is not yet available for this start mode.")] : []),
+        ...this.blockers(), ...(this.gate.busy() ? [translate("A host action is running.")] : [])] };
   }
   reserve(instanceId: string): MobileRestartResult {
-    if (instanceId !== this.instanceId) throw new RemoteApiError(409, 'host_changed', 'ADE wurde bereits neu gestartet. Host-Zustand aktualisieren.');
+    if (instanceId !== this.instanceId) throw new RemoteApiError(409, 'host_changed', translate("ADE has already been restarted. Update host state."));
     const state = this.state(true);
-    if (!state.canRestart || state.blockers.length) throw new RemoteApiError(409, 'host_busy', 'Laufende Arbeit abschliessen, bevor ADE neu gestartet wird.');
+    if (!state.canRestart || state.blockers.length) throw new RemoteApiError(409, 'host_busy', translate("Complete ongoing work before restarting ADE."));
     this.gate.reserve(); this.pending = randomUUID();
     return { operationId: this.pending, instanceId: this.instanceId, accepted: true, replayed: false };
   }

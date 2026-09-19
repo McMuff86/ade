@@ -1,3 +1,7 @@
+import { intlLocale } from '../../shared/i18n';
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
 import type {
   RepositoryCommitSummary,
@@ -34,6 +38,7 @@ export function RepositoryInspector({
   onOpenCommit,
   onOpenChecks,
 }: RepositoryInspectorProps): JSX.Element {
+  useLocale();
   const [overview, setOverview] = useState<RepositoryOverview | null>(null);
   const [syncOpen, setSyncOpen] = useState(false);
   const [pullRequests, setPullRequests] = useState<RepositoryPullRequestResult | null>(null);
@@ -87,7 +92,7 @@ export function RepositoryInspector({
         setPullRequests({
           status: 'unavailable',
           pullRequests: [],
-          message: 'GitHub PRs are unavailable. Retry or check Diagnostics.',
+          message: translate("GitHub PRs are unavailable. Retry or check Diagnostics."),
           refreshedAt: Date.now(),
         });
       })
@@ -99,8 +104,8 @@ export function RepositoryInspector({
   if (!repositoryId) {
     return (
       <div className="ri-empty" data-testid="repository-overview-empty">
-        <strong>Select a repository</strong>
-        <span>Choose a repository above to inspect its health, open PRs and recent commits.</span>
+        <strong>{translate("Select a repository")}</strong>
+        <span>{translate("Choose a repository above to inspect its health, open PRs and recent commits.")}</span>
       </div>
     );
   }
@@ -112,15 +117,15 @@ export function RepositoryInspector({
       {syncOpen && repositoryId && <RepositorySyncModal repositoryId={repositoryId} onClose={() => { setSyncOpen(false); refresh(); }} />}
       <div className="ri-toolbar">
         <div>
-          <span className="ri-eyebrow">Selected repository</span>
-          <strong>{overview?.repositoryName ?? (overviewLoading ? 'Loading…' : 'Repository')}</strong>
+          <span className="ri-eyebrow">{translate("Selected repository")}</span>
+          <strong>{overview?.repositoryName ?? (overviewLoading ? translate("Loading…") : translate("Repository"))}</strong>
         </div>
-        <button type="button" className="btn" data-open-git-sync onClick={() => setSyncOpen(true)}>Git-Abgleich</button>
+        <button type="button" className="btn" data-open-git-sync onClick={() => setSyncOpen(true)}>{translate("Git sync")}</button>
         <button
           type="button"
           className="ri-refresh"
-          aria-label="Refresh repository overview"
-          title="Refresh local repository data and open Pull Requests"
+          aria-label={translate("Refresh repository overview")}
+          title={translate("Refresh local repository data and open Pull Requests")}
           disabled={overviewLoading || pullRequestsLoading}
           onClick={refresh}
         >
@@ -130,13 +135,13 @@ export function RepositoryInspector({
 
       {overviewError ? (
         <div className="ri-state ri-state-error" role="alert">
-          <span>Repository overview could not be loaded.</span>
-          <button type="button" onClick={refresh}>Retry</button>
+          <span>{translate("Repository overview could not be loaded.")}</span>
+          <button type="button" onClick={refresh}>{translate("Retry")}</button>
         </div>
       ) : overview ? (
         <RepositoryHealth overview={overview} />
       ) : (
-        <div className="ri-health-skeleton" aria-label="Loading local repository information">
+        <div className="ri-health-skeleton" aria-label={translate("Loading local repository information")}>
           <span /><span /><span /><span />
         </div>
       )}
@@ -151,13 +156,13 @@ export function RepositoryInspector({
       <section className="ri-section" aria-labelledby="ri-commits-title">
         <header className="ri-section-head">
           <div>
-            <h3 id="ri-commits-title">Recent commits</h3>
-            <span>Local history · no fetch</span>
+            <h3 id="ri-commits-title">{translate("Recent commits [52656365]")}</h3>
+            <span>{translate("Local history · no fetch")}</span>
           </div>
           {overview ? <span className="ri-count">{overview.commits.length}</span> : null}
         </header>
         {overviewLoading && !overview ? (
-          <div className="ri-state">Loading commit history…</div>
+          <div className="ri-state">{translate("Loading Commit History…")}</div>
         ) : overview?.commits.length ? (
           <ol className="ri-commit-list">
             {overview.commits.map((commit) => (
@@ -167,7 +172,7 @@ export function RepositoryInspector({
                   className={`ri-commit${openCommitSha === commit.sha ? ' open' : ''}`}
                   data-commit-sha={commit.sha}
                   aria-pressed={openCommitSha === commit.sha}
-                  aria-label={`Inspect commit ${commit.shortSha}: ${commit.subject}`}
+                  aria-label={translate("Inspect commit {{value1}}: {{value2}}", { value1: commit.shortSha, value2: commit.subject })}
                   onClick={(event: MouseEvent<HTMLButtonElement>) => {
                     onOpenCommit(commit, event.currentTarget);
                   }}
@@ -181,14 +186,14 @@ export function RepositoryInspector({
                     <time dateTime={commit.authoredAt} title={formatAbsoluteDate(commit.authoredAt)}>
                       {formatRelativeDate(commit.authoredAt)}
                     </time>
-                    {commit.parentCount > 1 ? <span className="ri-tag">merge</span> : null}
+                    {commit.parentCount > 1 ? <span className="ri-tag">{translate("merge")}</span> : null}
                   </span>
                 </button>
               </li>
             ))}
           </ol>
         ) : overview ? (
-          <div className="ri-state">No commits yet.</div>
+          <div className="ri-state">{translate("No commits yet.")}</div>
         ) : null}
       </section>
     </div>
@@ -196,41 +201,42 @@ export function RepositoryInspector({
 }
 
 function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.Element {
+  useLocale();
   const backend = overview.executionBackend === NATIVE_EXECUTION_BACKEND
-    ? 'Native'
+    ? translate("Native")
     : `WSL · ${overview.executionBackend.slice('wsl:'.length)}`;
   const diverged = Boolean(overview.upstream) && (overview.ahead > 0 || overview.behind > 0);
   const sync = overview.upstream
     ? diverged
       ? `↑${overview.ahead} ↓${overview.behind}`
-      : 'Lokal gleichauf'
-    : 'No upstream';
+      : translate("In sync locally")
+    : translate("No upstream");
   const remote = overview.remote.kind === 'github'
     ? overview.remote.providerRepository
-    : overview.remote.kind === 'other' ? 'Non-GitHub origin' : 'No origin';
+    : overview.remote.kind === 'other' ? translate("Non-GitHub origin") : translate("No origin");
   return (
-    <section className="ri-health" aria-label="Local repository health">
+    <section className="ri-health" aria-label={translate("Local repository health")}>
       <dl className="ri-health-grid">
         <div>
-          <dt>Branch</dt>
+          <dt>{translate("Branch")}</dt>
           <dd title={overview.branch || overview.headSha || ''}>
             {overview.branch || '(detached)'}
           </dd>
         </div>
         <div>
-          <dt>Working tree</dt>
+          <dt>{translate("Working tree")}</dt>
           <dd className={overview.changedFiles ? 'ri-dirty' : 'ri-clean'}>
-            {overview.changedFiles ? `${overview.changedFiles} changed` : 'Clean'}
+            {overview.changedFiles ? `${overview.changedFiles} changed` : translate("Clean")}
           </dd>
         </div>
         <div>
-          <dt>Sync</dt>
-          <dd className={diverged ? 'ri-diverged' : undefined} title={`${overview.upstream ?? 'Kein Upstream'} · Vergleich mit gespeicherten Remote-Refs; kein aktueller Netzwerkabruf`}>
+          <dt>{translate("Sync [53796e63]")}</dt>
+          <dd className={diverged ? 'ri-diverged' : undefined} title={translate("{{value1}} · Comparison with stored remote refs; no current network retrieval", { value1: overview.upstream ?? translate("No upstream [4b65696e]") })}>
             {sync}
           </dd>
         </div>
         <div>
-          <dt>Backend</dt>
+          <dt>{translate("Backend")}</dt>
           <dd>{backend}</dd>
         </div>
       </dl>
@@ -238,7 +244,7 @@ function RepositoryHealth({ overview }: { overview: RepositoryOverview }): JSX.E
         <span title={overview.remote.kind === 'github' ? `GitHub · ${remote}` : remote}>{remote}</span>
         {overview.changedFiles ? (
           <span><b className="plus">+{overview.additions}</b> <b className="minus">−{overview.deletions}</b></span>
-        ) : overview.headSha ? <code>{overview.headSha.slice(0, 10)}</code> : <span>Unborn repository</span>}
+        ) : overview.headSha ? <code>{overview.headSha.slice(0, 10)}</code> : <span>{translate("Unborn repository")}</span>}
       </div>
     </section>
   );
@@ -258,17 +264,18 @@ function PullRequestSection({
     trigger: HTMLButtonElement,
   ) => void;
 }): JSX.Element {
+  useLocale();
   return (
     <section className="ri-section" aria-labelledby="ri-prs-title">
       <header className="ri-section-head">
         <div>
-          <h3 id="ri-prs-title">Open Pull Requests</h3>
-          <span>GitHub · read only</span>
+          <h3 id="ri-prs-title">{translate("Open Pull Requests")}</h3>
+          <span>{translate("GitHub · read only")}</span>
         </div>
         {result?.status === 'ready' ? <span className="ri-count">{result.pullRequests.length}</span> : null}
       </header>
       {loading && !result ? (
-        <div className="ri-state" aria-live="polite">Loading open Pull Requests…</div>
+        <div className="ri-state" aria-live="polite">{translate("Loading open pull requests…")}</div>
       ) : result?.status === 'ready' && result.pullRequests.length ? (
         <ol className="ri-pr-list">
           {result.pullRequests.map((pullRequest) => (
@@ -283,10 +290,10 @@ function PullRequestSection({
           ))}
         </ol>
       ) : result?.status === 'ready' ? (
-        <div className="ri-state ri-state-success">No open Pull Requests.</div>
+        <div className="ri-state ri-state-success">{translate("No open pull requests.")}</div>
       ) : result ? (
         <div className="ri-state">
-          <span>{result.message}</span>
+          <span>{localizeAppMessage(result.message)}</span>
         </div>
       ) : null}
     </section>
@@ -307,6 +314,7 @@ function PullRequestRow({
     trigger: HTMLButtonElement,
   ) => void;
 }): JSX.Element {
+  useLocale();
   const href = safePullRequestUrl(pullRequest, providerRepository);
   const line = (
     <span className="ri-pr-line">
@@ -323,7 +331,7 @@ function PullRequestRow({
           href={href}
           target="_blank"
           rel="noreferrer"
-          aria-label={`Open Pull Request #${pullRequest.number} on GitHub: ${pullRequest.title}`}
+          aria-label={translate("Open Pull Request #{{value1}} on GitHub: {{value2}}", { value1: pullRequest.number, value2: pullRequest.title })}
         >
           {line}
         </a>
@@ -336,7 +344,7 @@ function PullRequestRow({
         </time>
       </span>
       <span className="ri-pr-stats">
-        <span>{pullRequest.changedFiles} files</span>
+        <span>{pullRequest.changedFiles} {" "}{translate("Files [66696c65]")}</span>
         <b className="plus">+{pullRequest.additions}</b>
         <b className="minus">−{pullRequest.deletions}</b>
         {pullRequest.ci.state !== 'none' ? (
@@ -345,8 +353,8 @@ function PullRequestRow({
             className={`ri-tag ri-tag-ci ri-ci-${pullRequest.ci.state}${checksOpen ? ' open' : ''}`}
             data-checks-number={pullRequest.number}
             aria-expanded={checksOpen}
-            aria-label={`Show CI checks for Pull Request #${pullRequest.number}`}
-            title="Individual checks load on demand; logs stay on GitHub"
+            aria-label={translate("Show CI checks for Pull Request #{{value1}}", { value1: pullRequest.number })}
+            title={translate("Individual checks load on demand; logs stay on GitHub")}
             onClick={(event: MouseEvent<HTMLButtonElement>) => {
               onOpenChecks(pullRequest, event.currentTarget);
             }}
@@ -360,8 +368,7 @@ function PullRequestRow({
             title={`Published by ADE run ${pullRequest.adePublication.runId}`
               + ` (${pullRequest.adePublication.status})`}
           >
-            ADE run
-          </span>
+            {translate("ADE run")}</span>
         ) : null}
         <span className={`ri-tag ri-tag-${pullRequest.isDraft ? 'draft' : pullRequest.reviewDecision}`}>
           {pullRequest.isDraft ? 'draft' : reviewLabel(pullRequest.reviewDecision)}
@@ -385,13 +392,14 @@ export function PullRequestChecksView({
   result: RepositoryPullRequestChecksResult | null;
   loading: boolean;
 }): JSX.Element {
-  if (loading && !result) return <div className="ch-note">Loading CI checks…</div>;
-  if (!result) return <div className="ch-note">CI checks are unavailable.</div>;
+  useLocale();
+  if (loading && !result) return <div className="ch-note">{translate("Loading CI checks…")}</div>;
+  if (!result) return <div className="ch-note">{translate("CI checks are unavailable.")}</div>;
   if (result.status !== 'ready') {
     return <div className="ch-note">{result.message ?? 'CI checks are unavailable.'}</div>;
   }
   if (!result.checks.length) {
-    return <div className="ch-note">No CI checks are reported for this Pull Request.</div>;
+    return <div className="ch-note">{translate("No CI checks are reported for this Pull Request.")}</div>;
   }
   return (
     <div className="ri-checks">
@@ -405,7 +413,7 @@ export function PullRequestChecksView({
         ))}
       </ul>
       {result.checksTruncated ? (
-        <div className="ch-note">Further checks exist; open the Pull Request on GitHub.</div>
+        <div className="ch-note">{translate("Further checks exist; open the Pull Request on GitHub.")}</div>
       ) : null}
     </div>
   );
@@ -447,18 +455,18 @@ function reviewLabel(value: RepositoryPullRequest['reviewDecision']): string {
 }
 
 function formatAbsoluteDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
     .format(new Date(value));
 }
 
 function formatRelativeDate(value: string): string {
   const delta = new Date(value).getTime() - Date.now();
   const magnitude = Math.abs(delta);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const formatter = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' });
   if (magnitude < 60 * 60 * 1_000) return formatter.format(Math.round(delta / 60_000), 'minute');
   if (magnitude < 24 * 60 * 60 * 1_000) return formatter.format(Math.round(delta / 3_600_000), 'hour');
   if (magnitude < 30 * 24 * 60 * 60 * 1_000) {
     return formatter.format(Math.round(delta / 86_400_000), 'day');
   }
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
+  return new Intl.DateTimeFormat(intlLocale(), { month: 'short', day: 'numeric' }).format(new Date(value));
 }

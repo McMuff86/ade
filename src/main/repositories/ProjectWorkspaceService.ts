@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { opendir } from 'node:fs/promises';
@@ -40,16 +41,16 @@ export class ProjectWorkspaceService {
     return workspaceOperations.use(async () => {
       authorize();
       const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
-      if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
+      if (!target) throw new Error(translate("ade: Project folder has been changed. Update overview."));
       authorize({ repositoryId: target.entry.repositoryId });
       let repositoryId = target.entry.repositoryId;
       if (!repositoryId) {
-        if (!included) throw new Error('ade: Projekt ist noch nicht in ADE erfasst.');
+        if (!included) throw new Error(translate("ade: Project is not yet covered in ADE."));
         repositoryId = (await this.registerTarget(target, authorize)).repositoryId;
       }
       authorize({ repositoryId });
       const current = this.store.get();
-      if (!current.repositories.some((item) => item.id === repositoryId)) throw new Error('ade: Projekt wurde inzwischen geändert.');
+      if (!current.repositories.some((item) => item.id === repositoryId)) throw new Error(translate("ade: The project has since been changed."));
       this.store.save({ repositories: current.repositories.map((item) => item.id === repositoryId ? { ...item, inMyProjects: included } : item) });
       this.changed();
       return { repositoryId, included, replayed: false };
@@ -59,7 +60,7 @@ export class ProjectWorkspaceService {
   /** Read-only inspection of a main-discovered checkout; no registration or Git writes. */
   async inspectCheckout(path: string, repositoryId: string) {
     const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
-    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Ein geprüftes natives Projekt auswählen.');
+    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error(translate("ade: Select a tested native project."));
     const directoryIdentity = projectRootIdentity(path);
     const identity = await this.gitIdentity(path);
     const workspace = { id: '', repositoryId, workspaceDir: identity.top, directoryIdentity,
@@ -71,22 +72,22 @@ export class ProjectWorkspaceService {
   }
 
   async open(entryId: string, assertAuthorized: ProjectAuthorization = () => undefined): Promise<ProjectWorkspaceView> {
-    if (typeof entryId !== 'string' || !/^p[a-f0-9]{32}$/.test(entryId)) throw new Error('ade: Projekt-Auswahl ist ungültig.');
+    if (typeof entryId !== 'string' || !/^p[a-f0-9]{32}$/.test(entryId)) throw new Error(translate("ade: Project selection is invalid."));
     return workspaceOperations.use(async () => {
       assertAuthorized();
       const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
-      if (!target) throw new Error('ade: Projektordner wurde geändert. Übersicht aktualisieren.');
+      if (!target) throw new Error(translate("ade: Project folder has been changed. Update overview."));
       return this.registerTarget(target, assertAuthorized);
     });
   }
 
   async inspectDirectory(entryId: string, authorize: ProjectAuthorization = () => undefined) {
     const target = (await this.discover()).targets.find((item) => item.entry.id === entryId);
-    if (!target || target.entry.backend !== 'native' || target.entry.kind !== 'repository') throw new Error('ade: Erreichbaren nativen Git-Projektordner auswählen.');
+    if (!target || target.entry.backend !== 'native' || target.entry.kind !== 'repository') throw new Error(translate("ade: Select reachable native Git project folders."));
     authorize({ repositoryId: target.entry.repositoryId });
     this.assertTarget(target); const identity = await this.gitIdentity(target.path); this.assertTarget(target);
     const repository = this.store.get().repositories.find((item) => item.executionBackend === 'native' && sameHostPath(item.commonGitDir, identity.common));
-    if (repository && (!repository.verified || !sameHostPath(repository.rootPath, identity.main))) throw new Error('ade: Projektzuordnung am PC prüfen.');
+    if (repository && (!repository.verified || !sameHostPath(repository.rootPath, identity.main))) throw new Error(translate("ade: Check project assignment on the PC."));
     authorize({ repositoryId: repository?.id });
     return { target, identity, repositoryId: repository?.id, directoryIdentity: projectRootIdentity(target.path),
       gitIdentity: projectRootIdentity(identity.git), commonIdentity: projectRootIdentity(identity.common) };
@@ -104,14 +105,14 @@ export class ProjectWorkspaceService {
   async registerCheckout(path: string, repositoryId: string, assertAuthorized: ProjectAuthorization): Promise<ProjectWorkspaceView> {
     assertAuthorized({ repositoryId });
     const repository = this.store.get().repositories.find((item) => item.id === repositoryId);
-    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt ist nicht verfügbar.');
+    if (!repository?.verified || repository.executionBackend !== 'native') throw new Error(translate("ade: Project is not available."));
     const identity = projectRootIdentity(path);
     return this.registerTarget({ path, identity, entry: { id: '', name: repository.name, repositoryId, kind: 'repository', backend: 'native', source: 'catalog', notice: null } }, assertAuthorized, repositoryId);
   }
 
   private async registerTarget(target: DirectoryTarget, assertAuthorized: ProjectAuthorization, expectedRepositoryId?: string): Promise<ProjectWorkspaceView> {
-      if (target.entry.backend !== 'native') throw new Error('ade: WSL-Projekte im bestehenden Agent-Workspace öffnen.');
-      if (target.entry.kind !== 'repository') throw new Error('ade: Dieser Ordner ist noch kein erreichbares Git-Repository.');
+      if (target.entry.backend !== 'native') throw new Error(translate("ade: Open WSL projects in the existing agent workspace."));
+      if (target.entry.kind !== 'repository') throw new Error(translate("ade: This folder is not yet an accessible Git repository."));
       this.assertTarget(target);
       const identity = await this.gitIdentity(target.path);
       this.assertTarget(target);
@@ -120,11 +121,11 @@ export class ProjectWorkspaceService {
       const current = this.store.get();
       let repository = current.repositories.find((item) => item.executionBackend === 'native' && sameHostPath(item.commonGitDir, identity.common));
       if (repository && (!repository.verified || projectRootIdentity(repository.commonGitDir) !== commonIdentity || !sameHostPath(repository.rootPath, identity.main))) {
-        throw new Error('ade: Repository zuerst am PC erneut prüfen.');
+        throw new Error(translate("ade: Re-check the repository on the PC first."));
       }
       if (!repository) repository = { id: randomUUID(), inMyProjects: false, name: basename(identity.main), rootPath: identity.main, commonGitDir: identity.common,
         executionBackend: 'native', verified: true, createdAt: Date.now() };
-      if (expectedRepositoryId && repository.id !== expectedRepositoryId) throw new Error('ade: Arbeitskopie gehört nicht zum gewählten Projekt.');
+      if (expectedRepositoryId && repository.id !== expectedRepositoryId) throw new Error(translate("ade: Working copy does not belong to the selected project."));
       assertAuthorized({ repositoryId: repository.id });
       const existing = current.projectWorkspaces.find((item) => sameHostPath(item.workspaceDir, target.path));
       if (existing) {
@@ -132,7 +133,7 @@ export class ProjectWorkspaceService {
         assertAuthorized();
         return this.view(existing, repository, identity.branch);
       }
-      if (current.projectWorkspaces.length >= MAX_ENTRIES) throw new Error('ade: Maximal 500 Projekt-Workspaces.');
+      if (current.projectWorkspaces.length >= MAX_ENTRIES) throw new Error(translate("ade: Maximum of 500 project workspaces."));
       const workspace: ProjectWorkspace = { id: randomUUID(), repositoryId: repository.id, workspaceDir: identity.top,
         directoryIdentity: target.identity, gitDirectory: identity.git, gitDirectoryIdentity: gitIdentity,
         gitPointerIdentity: identity.pointer, commonGitIdentity: commonIdentity,
@@ -150,7 +151,7 @@ export class ProjectWorkspaceService {
   async resolve(workspaceId: string): Promise<{ workspace: ProjectWorkspace; repository: Repository; branch: string }> {
     const workspace = this.store.get().projectWorkspaces.find((item) => item.id === workspaceId);
     const repository = workspace && this.store.get().repositories.find((item) => item.id === workspace.repositoryId);
-    if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt-Workspace ist nicht verfügbar.');
+    if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error(translate("ade: Project workspace is not available."));
     this.assertRecordPaths(workspace, repository);
     const identity = await this.gitIdentity(workspace.workspaceDir);
     const currentRepository = this.store.get().repositories.find((item) => item.id === repository.id);
@@ -158,7 +159,7 @@ export class ProjectWorkspaceService {
     // identity. They may change while the read-only Git identity probe runs.
     const identityConfig = ({ speechVoiceId: _voice, inMyProjects: _membership, ...record }: Repository) => JSON.stringify(record);
     if (this.store.get().projectWorkspaces.find((item) => item.id === workspaceId) !== workspace
-      || !currentRepository || identityConfig(currentRepository) !== identityConfig(repository)) throw new Error('ade: Projekt wurde inzwischen geändert.');
+      || !currentRepository || identityConfig(currentRepository) !== identityConfig(repository)) throw new Error(translate("ade: The project has since been changed."));
     this.assertRecord(workspace, currentRepository, identity);
     return { workspace: { ...workspace }, repository: { ...currentRepository }, branch: identity.branch };
   }
@@ -173,7 +174,7 @@ export class ProjectWorkspaceService {
   async resolveTerminal(workspaceId: string): Promise<{ workspace: ProjectWorkspace; repository: Repository; branch: string }> {
     const workspace = this.store.get().projectWorkspaces.find(item => item.id === workspaceId);
     const repository = workspace && this.store.get().repositories.find(item => item.id === workspace.repositoryId);
-    if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error('ade: Projekt-Workspace ist nicht verfügbar.');
+    if (!workspace || !repository?.verified || repository.executionBackend !== 'native') throw new Error(translate("ade: Project workspace is not available."));
     this.assertRecordPaths(workspace, repository);
     const branch = terminalWorkspaceBranch(workspace, repository);
     this.assertRecordPaths(workspace, repository);
@@ -191,7 +192,7 @@ export class ProjectWorkspaceService {
       || projectRootIdentity(workspace.gitDirectory) !== workspace.gitDirectoryIdentity
       || projectRootIdentity(repository.commonGitDir) !== workspace.commonGitIdentity
       || this.pointerIdentity(workspace.workspaceDir) !== workspace.gitPointerIdentity) {
-      throw new Error('ade: Projekt-Workspace wurde verschoben oder ersetzt. Am PC erneut prüfen.');
+      throw new Error(translate("ade: Project workspace was moved or replaced. Check again on the PC."));
     }
     assertNoLinks(join(workspace.workspaceDir, '.git'));
   }
@@ -201,17 +202,17 @@ export class ProjectWorkspaceService {
     if (workspace.repositoryId !== repository.id || !sameHostPath(workspace.workspaceDir, identity.top)
       || !sameHostPath(workspace.gitDirectory, identity.git) || !sameHostPath(repository.commonGitDir, identity.common)
       || !sameHostPath(repository.rootPath, identity.main)) {
-      throw new Error('ade: Git-Zuordnung des Projekt-Workspaces wurde geändert.');
+      throw new Error(translate("ade: Git assignment of the project workspace has been changed."));
     }
   }
 
   private assertTarget(target: DirectoryTarget): void {
-    if (projectRootIdentity(target.path) !== target.identity) throw new Error('ade: Projektordner wurde ersetzt.');
+    if (projectRootIdentity(target.path) !== target.identity) throw new Error(translate("ade: Project folder has been replaced."));
     assertNoLinks(join(target.path, '.git'));
     if (target.rootIdentity) {
       const defaults = this.store.get().settings.projectDefaults;
       if (!defaults || defaults.rootIdentity !== target.rootIdentity || projectRootIdentity(defaults.rootPath) !== target.rootIdentity
-        || !sameHostPath(join(defaults.rootPath, basename(target.path)), target.path)) throw new Error('ade: Projekt-Stammordner wurde geändert.');
+        || !sameHostPath(join(defaults.rootPath, basename(target.path)), target.path)) throw new Error(translate("ade: Project root folder has been changed."));
     }
   }
 
@@ -234,21 +235,21 @@ export class ProjectWorkspaceService {
     if (failed?.status === 'rejected') throw failed.reason;
     const [raw, worktrees, branch] = results.map(result => (result as PromiseFulfilledResult<string>).value) as [string, string, string];
     const parts = raw.split(/\r?\n/);
-    if (parts.length !== 3 || parts.some((part) => !part || /[\0-\x1f]/.test(part))) throw new Error('ade: Git-Workspace konnte nicht eindeutig bestimmt werden.');
+    if (parts.length !== 3 || parts.some((part) => !part || /[\0-\x1f]/.test(part))) throw new Error(translate("ade: Git-Workspace could not be clearly determined."));
     const [top, git, common] = parts.map((part) => { projectRootIdentity(part); return realpathSync.native(part); }) as [string, string, string];
-    if (!sameHostPath(top, path)) throw new Error('ade: Einen Repository-Stamm statt eines Unterordners öffnen.');
+    if (!sameHostPath(top, path)) throw new Error(translate("ade: Open a repository root instead of a subfolder."));
     const mainPath = worktrees.split('\0').find((line) => line.startsWith('worktree '))?.slice(9);
-    if (!mainPath) throw new Error('ade: Git-Hauptworkspace fehlt.');
+    if (!mainPath) throw new Error(translate("ade: Git main workspace is missing."));
     projectRootIdentity(mainPath);
     const main = realpathSync.native(mainPath);
-    if (this.pointerIdentity(path) !== pointer) throw new Error('ade: Git-Zuordnung wurde während des Lesens geändert.');
+    if (this.pointerIdentity(path) !== pointer) throw new Error(translate("ade: Git assignment was changed during reading."));
     return { top, main, git, common, pointer, branch };
   }
 
   private pointerIdentity(path: string): string {
     const file = join(path, '.git'); assertNoLinks(file); const stat = lstatSync(file);
     if (stat.isDirectory()) return projectRootIdentity(file);
-    if (!stat.isFile() || stat.size > 4096) throw new Error('ade: Git-Verknüpfungsdatei ist ungültig.');
+    if (!stat.isFile() || stat.size > 4096) throw new Error(translate("ade: Git link file is invalid."));
     return `${stat.dev}:${stat.ino}:${stat.birthtimeMs}:${stat.size}:${stat.mtimeMs}`;
   }
 
@@ -260,12 +261,12 @@ export class ProjectWorkspaceService {
       if (targets.length >= MAX_ENTRIES) { limited = true; return; }
       const backend = repository?.executionBackend ?? 'native';
       let identity = ''; let kind: ProjectDirectoryEntry['kind'] = 'unavailable'; let entryNotice: string | null = null;
-      if (backend !== 'native') entryNotice = 'Im bestehenden WSL-Agent-Workspace öffnen.';
+      if (backend !== 'native') entryNotice = translate("Open in the existing WSL agent workspace.");
       else try {
         identity = projectRootIdentity(path); assertNoLinks(join(path, '.git'));
         try { const git = lstatSync(join(path, '.git')); kind = git.isDirectory() || git.isFile() ? 'repository' : 'unavailable'; }
         catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') kind = 'folder'; else throw error; }
-      } catch { entryNotice = 'Ordner nicht verfügbar oder verknüpft. Am PC prüfen.'; }
+      } catch { entryNotice = translate("Folder not available or linked. Check on PC."); }
       const id = 'p' + createHash('sha256').update(`${backend}\0${key}\0${identity}\0${rootIdentity ?? ''}`).digest('hex').slice(0, 32);
       paths.add(key);
       targets.push({ path, identity, rootIdentity, entry: { id, name: redactForWire(repository?.name ?? basename(path), 200),
@@ -285,9 +286,9 @@ export class ProjectWorkspaceService {
         }
         if (projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity || this.store.get().settings.projectDefaults !== defaults) throw new Error('changed');
       } catch {
-        targets.length = 0; paths.clear(); notice = 'Projekt-Stammordner nicht erreichbar oder geändert. Am PC unter Einstellungen erneut prüfen.';
+        targets.length = 0; paths.clear(); notice = translate("Project root folder unavailable or modified. Check again on PC under Settings.");
       }
-    } else notice = 'Projekt-Stammordner am PC unter Einstellungen speichern, um weitere Ordner zu sehen.';
+    } else notice = translate("Save project root folders on the PC under Settings to see more folders.");
     for (const repository of config.repositories) add(repository.rootPath, repository);
     targets.sort((left, right) => left.entry.name.localeCompare(right.entry.name));
     return { configured: !!defaults, targets, limited, notice };

@@ -1,3 +1,4 @@
+import { isAppLocale } from '../shared/i18n/locales';
 import { validSpeechTest } from '../shared/speech';
 import { validSupervisionCommand } from '../shared/supervision';
 import { conversationId, validConversationCommand } from '../shared/conversation';
@@ -210,11 +211,12 @@ function validateConfigSave(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, ['settings']);
   const settings = record(channel, request.settings, 'settings');
-  exactKeys(channel, settings, ['theme', 'inspectorSide'], 'settings');
-  if (settings.theme === undefined && settings.inspectorSide === undefined) {
-    invalid(channel, 'settings must include theme or inspectorSide');
+  exactKeys(channel, settings, ['theme', 'language', 'inspectorSide'], 'settings');
+  if (settings.theme === undefined && settings.inspectorSide === undefined && settings.language === undefined) {
+    invalid(channel, 'settings must include theme, language or inspectorSide');
   }
   if (settings.theme !== undefined) enumValue(channel, settings.theme, 'settings.theme', ['dark', 'light']);
+  if (settings.language !== undefined && !isAppLocale(settings.language)) invalid(channel, 'invalid interface language');
   if (settings.inspectorSide !== undefined) {
     enumValue(channel, settings.inspectorSide, 'settings.inspectorSide', ['left', 'right']);
   }

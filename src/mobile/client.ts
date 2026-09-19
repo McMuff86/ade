@@ -1,8 +1,9 @@
 import type { MobileSessionInfo } from '../shared/remote';
+import { localizeAppMessage } from '../shared/i18n/appMessages';
 
 interface Credential { id: string; key: CryptoKey }
 export class MobileClientError extends Error {
-  constructor(readonly code: string, readonly status = 0, detail?: string) { super(detail ?? code); }
+  constructor(readonly code: string, readonly status = 0, detail?: string) { super(localizeAppMessage(detail ?? code)); }
 }
 const encoder = new TextEncoder();
 const hex = (bytes: ArrayBuffer): string => Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');

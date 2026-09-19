@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { closeSync, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,7 +33,7 @@ function inspect(path: string): ReturnType<typeof lstatSync> | undefined {
   try {
     const stat = lstatSync(path);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_MEMORY_FILE_BYTES) {
-      throw new Error('ade: Memory muss eine reguläre, unverknüpfte Datei bis 256 KiB sein.');
+      throw new Error(translate("ade: Memory must be a regular, unlinked file up to 256 KiB."));
     }
     return stat;
   } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
@@ -46,18 +47,18 @@ function readMemory(path: string): string | null {
   try {
     const opened = fstatSync(fd);
     if (!opened.isFile() || opened.nlink !== 1 || opened.size > MAX_MEMORY_FILE_BYTES
-      || opened.dev !== before.dev || opened.ino !== before.ino) throw new Error('ade: Memory wurde beim Lesen geändert.');
+      || opened.dev !== before.dev || opened.ino !== before.ino) throw new Error(translate("ade: Memory has been changed while reading."));
     const bytes = Buffer.alloc(MAX_MEMORY_FILE_BYTES + 1); let length = 0;
     while (length < bytes.length) {
       const count = readSync(fd, bytes, length, bytes.length - length, null); if (!count) break; length += count;
     }
-    if (length > MAX_MEMORY_FILE_BYTES) throw new Error('ade: Memory überschreitet 256 KiB.');
+    if (length > MAX_MEMORY_FILE_BYTES) throw new Error(translate("ade: Memory exceeds 256 KiB."));
     const after = inspect(path);
     if (!after || after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size || after.mtimeMs !== opened.mtimeMs) {
-      throw new Error('ade: Memory wurde beim Lesen geändert.');
+      throw new Error(translate("ade: Memory has been changed while reading."));
     }
     try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)); }
-    catch { throw new Error('ade: Memory enthält ungültige UTF-8-Zeichen.'); }
+    catch { throw new Error(translate("ade: Memory contains invalid UTF-8 characters.")); }
   } finally { closeSync(fd); }
 }
 
@@ -82,6 +83,6 @@ export function buildInteractiveProfileSnapshot(agent: Agent, settings: MemorySe
   }
   const block = buildMemoryBlock(agent, new FrozenMemoryStore(agent.memoryDir, settings, entries), settings);
   const content = `${profile.content}\n\n${block}`;
-  if (content.length > MAX_SNAPSHOT_CHARS) throw new Error('ade: Profil und Memory überschreiten zusammen 32000 Zeichen. Anweisungen oder Memory kürzen.');
+  if (content.length > MAX_SNAPSHOT_CHARS) throw new Error(translate("ade: Profile and memory exceed together 32000 characters. instructions or shorten memory."));
   return { ...profile, profileDigest: profile.sha256, content, sha256: hash(content), chars: content.length, sources };
 }

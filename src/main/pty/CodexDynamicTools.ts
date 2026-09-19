@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { redactedErrorDetail } from '../errors';
 
@@ -31,7 +32,7 @@ export class CodexDynamicTools {
   constructor(tools: CodexDynamicTool[]) {
     if (tools.length > 32 || new Set(tools.map(t => t.name)).size !== tools.length || tools.some(t => !/^ade_[a-z0-9_]{1,60}$/.test(t.name)
       || !t.description || t.description.length > 2000 || !t.inputSchema || Array.isArray(t.inputSchema)
-      || Buffer.byteLength(JSON.stringify(t.inputSchema)) > 64 * 1024)) throw new Error('Ungültige ADE-Werkzeugdefinition.');
+      || Buffer.byteLength(JSON.stringify(t.inputSchema)) > 64 * 1024)) throw new Error(translate("Invalid ADE tool definition."));
     this.handlers = new Map(tools.map(t => [t.name, { ...t }]));
     this.specifications = tools.map(({ name, description, inputSchema }) => ({ type: 'function', name, description, inputSchema: structuredClone(inputSchema) }));
   }
@@ -44,7 +45,7 @@ export class CodexDynamicTools {
     const fingerprint = createHash('sha256').update(canonical(params)).digest('hex');
     const key = `${typeof requestId}:${requestId}`;
     const request = this.requests.get(key); const previous = this.calls.get(params.callId);
-    if (request && request !== fingerprint || previous && previous.fingerprint !== fingerprint) throw new Error('Codex-Werkzeugaufruf wurde mit widersprüchlicher Identität wiederholt.');
+    if (request && request !== fingerprint || previous && previous.fingerprint !== fingerprint) throw new Error(translate("Codex tool call was repeated with conflicting identity."));
     if (this.requests.size >= 2048 && !request) return Promise.resolve(result(false, 'ADE tool request limit reached.'));
     this.requests.set(key, fingerprint);
     if (previous) return previous.result;
@@ -62,7 +63,7 @@ export class CodexDynamicTools {
       context.signal.throwIfAborted();
       return handler.invoke(structuredClone(params.arguments), context);
     }).then(text => {
-      if (typeof text !== 'string' || Buffer.byteLength(text) > 16 * 1024 || text.includes('\0')) throw new Error('ADE-Werkzeugergebnis ist ungültig oder zu gross. Aktion nicht automatisch wiederholen; Status prüfen.');
+      if (typeof text !== 'string' || Buffer.byteLength(text) > 16 * 1024 || text.includes('\0')) throw new Error(translate("ADE tool result is invalid or too large. action not repeat automatically; check status."));
       return result(true, text);
     }).catch(error => result(false, redactedErrorDetail(error).slice(0, 2000)))
       .finally(() => { call.settled = true; });

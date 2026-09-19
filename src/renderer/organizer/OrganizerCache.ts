@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { newOrganizerDocument, ORGANIZER_LIMITS, organizerId, organizerReference, validOrganizerDocument, validOrganizerMutation,
   type OrganizerDocument, type OrganizerEntry, type OrganizerMutation, type OrganizerReceipt, type OrganizerIndex } from '../../shared/organizer';
 
@@ -41,16 +42,16 @@ export class OrganizerCache {
   constructor(readonly storage: OrganizerCacheStorage, private readonly now = Date.now) {}
   snapshot(): Promise<OrganizerCacheState> { return this.storage.transaction(state => structuredClone(state)); }
   async edit(document: OrganizerDocument, expectedVersion: number | null): Promise<CachedOrganizerEntry> {
-    if (!validOrganizerDocument(document) || new TextEncoder().encode(JSON.stringify(document)).byteLength > ORGANIZER_LIMITS.documentBytes) throw new Error('Die Aufgabe oder Notiz ist zu gross oder enthält ungültige Daten.');
+    if (!validOrganizerDocument(document) || new TextEncoder().encode(JSON.stringify(document)).byteLength > ORGANIZER_LIMITS.documentBytes) throw new Error(translate("The task or note is too large or contains invalid data."));
     return this.storage.transaction(state => {
       let entry = state.entries.find(item => item.id === document.id); const data = structuredClone(document);
-      if (entry?.redacted) throw new Error('Ausgeblendete Inhalte am PC bearbeiten oder eine neue Kopie anlegen.');
+      if (entry?.redacted) throw new Error(translate("Edit hidden content on the PC or create a new copy."));
       // Two views may have opened the same local draft. Preserve the second edit as a copy.
       if (entry && expectedVersion !== entry.localVersion && JSON.stringify(cachedDocument(entry)) !== JSON.stringify(data)) {
-        data.id = crypto.randomUUID(); data.title = `${data.title || (data.kind === 'task' ? 'Aufgabe' : 'Notiz')} · lokale Konfliktkopie`.slice(0, 200); entry = undefined;
+        data.id = crypto.randomUUID(); data.title = translate("{{value1}} · local conflict copy", { value1: data.title || (data.kind === 'task' ? translate("Task") : translate("Note")) }).slice(0, 200); entry = undefined;
       }
       if (!entry) {
-        if (state.entries.length >= ORGANIZER_LIMITS.documents) throw new Error('Die lokale Ablage ist voll.');
+        if (state.entries.length >= ORGANIZER_LIMITS.documents) throw new Error(translate("The local storage is full."));
         entry = { id: data.id, base: null, draft: null, deletePending: false, localVersion: 0, editedAt: this.now(), redacted: false }; state.entries.push(entry);
       }
       entry.draft = data; entry.deletePending = false; entry.localVersion++; entry.editedAt = this.now(); return structuredClone(entry);
@@ -59,7 +60,7 @@ export class OrganizerCache {
   remove(id: string, expectedVersion: number): Promise<void> {
     return this.storage.transaction(state => {
       const entry = state.entries.find(item => item.id === id);
-      if (!entry || entry.localVersion !== expectedVersion) throw new Error('Dieser Eintrag wurde inzwischen geändert. Vor dem Löschen neu laden.');
+      if (!entry || entry.localVersion !== expectedVersion) throw new Error(translate("This entry has changed. Reload it before deleting."));
       const pendingId = state.pending?.input.operation === 'put' ? state.pending.input.document.id : state.pending?.input.id;
       if (!entry.base && pendingId !== id) { state.entries = state.entries.filter(item => item !== entry); return; }
       entry.deletePending = true; entry.draft = null; entry.localVersion++; entry.editedAt = this.now();
@@ -70,20 +71,20 @@ export class OrganizerCache {
       if (state.pending) return structuredClone(state.pending);
       const entry = state.entries.filter(item => item.draft || item.deletePending).sort((a, b) => a.editedAt - b.editedAt)[0];
       if (!entry) return null;
-      if (entry.deletePending && !entry.base) throw new Error('Der ursprüngliche Speichervorgang muss zuerst bestätigt werden.');
+      if (entry.deletePending && !entry.base) throw new Error(translate("The original storage process must be confirmed first."));
       const common = { writerId: state.writerId, sequence: state.sequence + 1, baseRevision: entry.base?.revision ?? 0 };
       const input: OrganizerMutation = entry.deletePending ? { ...common, operation: 'delete', id: entry.id } : { ...common, operation: 'put', document: structuredClone(entry.draft!) };
       state.sequence = input.sequence; state.pending = { input, localVersion: entry.localVersion }; return structuredClone(state.pending);
     });
   }
   private acknowledge(pending: PendingSave, receipt: OrganizerReceipt, received: { entry: OrganizerEntry | null; redacted: boolean }): Promise<void> {
-    if (!received.entry || received.entry.document.id !== receipt.id || received.entry.revision < receipt.revision) throw new Error('Der gespeicherte Stand wurde noch nicht bestätigt. Der lokale Entwurf bleibt erhalten.');
+    if (!received.entry || received.entry.document.id !== receipt.id || received.entry.revision < receipt.revision) throw new Error(translate("The stored status has not yet been confirmed, and the local draft remains intact."));
     const confirmed = received.entry;
     return this.storage.transaction(state => {
       if (!state.pending || state.pending.input.sequence !== pending.input.sequence) return;
       const originalId = pending.input.operation === 'put' ? pending.input.document.id : pending.input.id;
       const local = state.entries.find(item => item.id === originalId);
-      if (!local) throw new Error('Der lokale Entwurf fehlt. Die Bestätigung bleibt zur Wiederaufnahme gespeichert.');
+      if (!local) throw new Error(translate("The local draft is missing. The confirmation remains stored for resumption."));
       const newer = local.localVersion !== pending.localVersion;
       const exactBase: OrganizerEntry = { ...structuredClone(confirmed), revision: receipt.revision, createdAt: receipt.createdAt, updatedAt: receipt.updatedAt,
         document: { ...structuredClone(pending.input.operation === 'put' ? pending.input.document : local.base!.document), id: receipt.id }, deleted: receipt.deleted };
@@ -135,7 +136,7 @@ export class OrganizerCache {
   async releaseRejected(port: OrganizerPort): Promise<void> {
     const before = await this.snapshot(); if (!before.pending) return;
     const sequence = await port.sequence(before.writerId);
-    if (sequence >= before.pending.input.sequence) throw new Error('Die Änderung ist bereits gespeichert. Zuerst erneut synchronisieren.');
+    if (sequence >= before.pending.input.sequence) throw new Error(translate("The change is already saved. Synchronize again first."));
     const deletion = before.pending.input.operation === 'delete' ? await port.detail(before.pending.input.id) : null;
     await this.storage.transaction(state => {
       if (state.pending?.input.sequence !== before.pending!.input.sequence) return;
@@ -158,16 +159,16 @@ export class OrganizerCache {
     return this.storage.transaction(state => {
       const current = state.dispatches.find(item => item.documentId === input.documentId); if (current) return structuredClone(current);
       const entry = state.entries.find(item => item.id === input.documentId); const document = entry && cachedDocument(entry);
-      if (!document || document.kind !== 'task' || entry?.redacted || entry?.deletePending) throw new Error('Diese Aufgabe kann nicht übergeben werden.');
+      if (!document || document.kind !== 'task' || entry?.redacted || entry?.deletePending) throw new Error(translate("This task cannot be handed over."));
       const pending = { ...input, key: crypto.randomUUID() }; state.dispatches.push(pending); return structuredClone(pending);
     });
   }
   confirmDispatch(pending: OrganizerDispatch, runId: string): Promise<void> {
-    if (!organizerReference(runId)) return Promise.reject(new Error('Ungültige Auftragsbestätigung.'));
+    if (!organizerReference(runId)) return Promise.reject(new Error(translate("Invalid job confirmation.")));
     return this.storage.transaction(state => {
       if (!state.dispatches.some(item => item.key === pending.key)) return;
       const local = state.entries.find(item => item.id === pending.documentId); const document = local && cachedDocument(local);
-      if (!local || !document) throw new Error('Aufgabe fehlt lokal. Die Auftragsbestätigung bleibt zur Wiederaufnahme offen.');
+      if (!local || !document) throw new Error(translate("Task is missing locally. The job confirmation remains open for resumption."));
       local.draft = { ...structuredClone(document), runIds: [...new Set([...document.runIds, runId])] };
       local.localVersion++; local.editedAt = this.now(); state.dispatches = state.dispatches.filter(item => item.key !== pending.key);
     });

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE, type DictationTranscript } from '../../shared/dictation';
 import { LIVE_DICTATION_AUDIO_START_TIMEOUT_MS, LIVE_DICTATION_CHUNK_BYTES, LIVE_DICTATION_MAX_SECONDS, LIVE_DICTATION_SESSION_TIMEOUT_MS } from '../../shared/liveDictation';
 import { redactedErrorDetail } from '../errors';
@@ -17,7 +18,7 @@ export async function openLiveDictation(options: {
   fetcher?: typeof fetch; connect?: (url: string) => WebSocket;
 }): Promise<LiveDictationSession> {
   const { authorize, signal } = options;
-  const check = () => { authorize(); if (signal.aborted) throw new Error('Live-Diktat abgebrochen.'); };
+  const check = () => { authorize(); if (signal.aborted) throw new Error(translate("Live dictation cancelled.")); };
   check();
   // Native WebSocket has no custom header option. Main obtains a scoped token
   // and keeps it in main as well; no dependency or renderer network exception.
@@ -40,7 +41,7 @@ export async function openLiveDictation(options: {
     if (!data || typeof data !== 'object' || !('token' in data) || typeof data.token !== 'string'
       || !/^[A-Za-z0-9_.-]{8,4096}$/.test(data.token)) throw new Error('token');
     token = data.token;
-  } catch { throw new Error('Live-Diktat konnte nicht verbunden werden. ElevenLabs-Key, Speech-to-Text-Freigabe und Verbindung prüfen.'); }
+  } catch { throw new Error(translate("Live dictation could not be connected. ElevenLabs-Key, Speech-to-Text sharing and connection check.")); }
   check();
   const attempt = await options.usage?.begin({ ...options.attribution, product: 'dictation', model: 'scribe_v2_realtime', audioSeconds: null });
   let socket: WebSocket | undefined; let bytes = 0; let settled = false; let finishing = false; let connected = false;
@@ -67,8 +68,8 @@ export async function openLiveDictation(options: {
       else resolveResult({ text, audioSeconds, model: 'scribe_v2_realtime', language: null });
     })();
   };
-  const abort = () => end(new Error('Live-Diktat abgebrochen.'));
-  const arm = (milliseconds: number) => { clearTimeout(deadline); deadline = setTimeout(() => end(new Error('Live-Diktat hat das Zeitlimit erreicht.')), milliseconds); };
+  const abort = () => end(new Error(translate("Live dictation cancelled.")));
+  const arm = (milliseconds: number) => { clearTimeout(deadline); deadline = setTimeout(() => end(new Error(translate("Live dictation reached its time limit."))), milliseconds); };
   signal.addEventListener('abort', abort, { once: true });
   monitor = setInterval(() => { try { check(); } catch { abort(); } }, 1000);
   arm(10_000);
@@ -76,8 +77,8 @@ export async function openLiveDictation(options: {
     check();
     const query = new URLSearchParams({ model_id: 'scribe_v2_realtime', audio_format: 'pcm_16000', commit_strategy: 'manual', token });
     socket = (options.connect ?? (url => new WebSocket(url)))(`wss://api.elevenlabs.io/v1/speech-to-text/realtime?${query}`);
-    socket.addEventListener('error', () => end(new Error('Verbindung zum Live-Diktat unterbrochen. Keine automatische Wiederholung.')));
-    socket.addEventListener('close', () => end(new Error('Live-Diktat wurde ohne bestätigten Abschluss getrennt.')));
+    socket.addEventListener('error', () => end(new Error(translate("Connection to live dictation interrupted. No automatic repetition."))));
+    socket.addEventListener('close', () => end(new Error(translate("Live dictation was separated without confirmed closure."))));
     socket.addEventListener('message', event => {
       if (settled) return;
       try {
@@ -100,18 +101,18 @@ export async function openLiveDictation(options: {
         }
         // Ignore optional metadata, never expose provider payloads or errors.
         if (data.message_type === 'warning') return;
-        end(new Error('ElevenLabs hat das Live-Diktat beendet. Freigabe, Guthaben und Verbindung prüfen.'));
-      } catch { end(new Error('Live-Diktat lieferte kein gültiges Transkript. Der bisherige Entwurf bleibt erhalten.')); }
+        end(new Error(translate("ElevenLabs has ended the live dictation checking permission, balance and connection.")));
+      } catch { end(new Error(translate("Live dictation did not return a valid transcript. Your existing draft is preserved."))); }
     });
     await ready;
     return {
       result,
       push(audio) {
         check();
-        if (settled || finishing || socket?.readyState !== 1) throw new Error('Live-Diktat ist nicht mehr aufnahmebereit.');
+        if (settled || finishing || socket?.readyState !== 1) throw new Error(translate("Live dictation is no longer receptive."));
         if (!(audio instanceof Uint8Array) || !audio.length || audio.length % 2 || audio.length > LIVE_DICTATION_CHUNK_BYTES
-          || bytes + audio.length > LIVE_DICTATION_MAX_SECONDS * DICTATION_SAMPLE_RATE * 2) throw new Error('Ungültiger oder zu langer Audiostream.');
-        if (socket.bufferedAmount > 64 * 1024) { end(new Error('Live-Diktat ist zu langsam verbunden. Bitte erneut aufnehmen.')); throw new Error('Audiostream gestoppt.'); }
+          || bytes + audio.length > LIVE_DICTATION_MAX_SECONDS * DICTATION_SAMPLE_RATE * 2) throw new Error(translate("Invalid or too long audio stream."));
+        if (socket.bufferedAmount > 64 * 1024) { end(new Error(translate("Live dictation connection is too slow. Record again."))); throw new Error(translate("Audio stream stopped.")); }
         // Commit well before the provider's ~36-second automatic segment boundary.
         // Count acknowledgements so Stop cannot mistake a pending segment for the final one.
         // A bounded setup window must not consume recording time. Later packets
@@ -125,7 +126,7 @@ export async function openLiveDictation(options: {
       },
       finish() {
         check(); if (finishing || settled) return;
-        if (bytes < 3200 || socket?.readyState !== 1) { end(new Error('Aufnahme zu kurz. Bitte mindestens 0,1 Sekunden sprechen.')); return; }
+        if (bytes < 3200 || socket?.readyState !== 1) { end(new Error(translate("Recording too short. Speak for at least 0.1 seconds."))); return; }
         finishing = true; arm(15_000);
         if (segmentBytes) {
           segmentBytes = 0; pendingCommits++;
@@ -134,7 +135,7 @@ export async function openLiveDictation(options: {
       },
     };
   } catch {
-    end(new Error('Live-Diktat konnte nicht gestartet werden. Verbindung und ElevenLabs-Freigabe prüfen.'));
-    await result; throw new Error('Live-Diktat nicht verfügbar.');
+    end(new Error(translate("Live dictation could not be started. Check connection and ElevenLabs permission.")));
+    await result; throw new Error(translate("Live dictation not available."));
   }
 }

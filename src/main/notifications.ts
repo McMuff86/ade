@@ -1,3 +1,4 @@
+import { t as translate } from "../shared/i18n";
 /** Native completion notifications, emitted only while ADE is in the background. */
 
 import { Notification } from 'electron';
@@ -12,7 +13,7 @@ export function showSessionExitNotification(meta: SessionMeta, agentName: string
 
 export function showOrganizerReminderNotification(count: number): void {
   // Titles/text may be private; lock-screen notifications contain only a count.
-  showNotice({ title: 'ADE · Erinnerung', body: `${count} Aufgabe(n) warten auf dich. Unter Tasks die fälligen Erinnerungen öffnen.` });
+  showNotice({ title: translate("ADE · Reminder"), body: translate("{{value1}} task(s) are waiting for you. under Tasks, open the reminders due.", { value1: count }) });
 }
 
 export function showRunApprovalNotification(

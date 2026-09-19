@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { DICTATION_SAMPLE_RATE } from '../../shared/dictation';
 import { LIVE_DICTATION_MAX_SECONDS, LIVE_DICTATION_PACKET_SAMPLES } from '../../shared/liveDictation';
 const workletUrl = new URL('./dictation-worklet.js?no-inline', import.meta.url).href;
@@ -30,7 +31,7 @@ export class LiveDictationRecorder {
       if (this.cancelled) return;
     } catch {
       this.release();
-      if (!this.cancelled) throw new Error('Live-Mikrofon konnte nicht vorbereitet werden. Gerät und Mikrofonfreigabe prüfen.');
+      if (!this.cancelled) throw new Error(translate("Live microphone could not be prepared. Check device and microphone permission."));
     }
   }
   async start(push: (bytes: Uint8Array) => Promise<unknown>, onStop: (done: Promise<void>) => void): Promise<void> {
@@ -47,25 +48,25 @@ export class LiveDictationRecorder {
         if (event.data.type === 'end') { this.complete(); return; }
         const bytes = new Uint8Array(event.data.bytes as ArrayBuffer);
         this.queuedBytes += bytes.length;
-        if (this.queuedBytes > 128 * 1024) { this.fail(new Error('Live-Diktat ist zu langsam verbunden. Aufnahme gestoppt.')); return; }
+        if (this.queuedBytes > 128 * 1024) { this.fail(new Error(translate("Live dictation is too slow. Recording stopped."))); return; }
         this.queue = this.queue.then(async () => { if (!this.cancelled) await push(bytes); this.queuedBytes -= bytes.length; });
-        void this.queue.catch(() => this.fail(new Error('Live-Audio konnte nicht übertragen werden. Keine automatische Wiederholung.')));
+        void this.queue.catch(() => this.fail(new Error(translate("Live audio could not be broadcast. No automatic repetition."))));
       };
-      node.onprocessorerror = () => this.fail(new Error('Live-Mikrofonaufnahme unterbrochen.'));
+      node.onprocessorerror = () => this.fail(new Error(translate("Live microphone recording interrupted.")));
       context.createMediaStreamSource(stream).connect(node); node.connect(context.destination);
       await context.resume();
       if (this.cancelled) return;
       this.timer = setTimeout(() => this.stop(), LIVE_DICTATION_MAX_SECONDS * 1000);
     } catch {
       this.release();
-      if (!this.cancelled) throw new Error('Live-Mikrofon konnte nicht gestartet werden. Gerät und Mikrofonfreigabe prüfen.');
+      if (!this.cancelled) throw new Error(translate("Live microphone could not be started. Check device and microphone sharing."));
     }
   }
   stop(): void {
     if (this.stopping || this.ended) return; this.stopping = true; clearTimeout(this.timer);
     this.stream?.getTracks().forEach(track => track.stop());
     this.node?.port.postMessage('stop');
-    this.watchdog = setTimeout(() => this.fail(new Error('Mikrofonabschluss nicht bestätigt.')), 2000);
+    this.watchdog = setTimeout(() => this.fail(new Error(translate("Recording completion was not confirmed."))), 2000);
   }
   cancel(): void { this.cancelled = true; this.release(); }
   private complete(): void {

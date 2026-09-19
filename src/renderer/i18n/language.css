@@ -1,0 +1,4 @@
+.ade-language-setting { display: grid; gap: 8px; padding: 12px 0; }
+.ade-language-setting label { display: grid; gap: 6px; }
+.ade-language-setting select { min-height: 44px; max-width: 300px; padding: 8px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.ade-language-setting p { color: var(--muted); font-size: 12px; line-height: 1.6; }

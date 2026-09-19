@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /**
  * Read-only Overview projection. Built from the catalog, bindings, run
  * journal and live PTY list. No host paths, prompts or diagnostics.
@@ -197,7 +198,7 @@ export function projectOverview(
         updatedAt: run.updatedAt,
         status: run.status,
         phase: run.phase,
-        repositoryName: run.repositoryId ? (repoName.get(run.repositoryId) ?? 'Entferntes Projekt') : null,
+        repositoryName: run.repositoryId ? (repoName.get(run.repositoryId) ?? translate("Removed project")) : null,
         participantNames: participants.map((participant) => participant.agentName),
         usage: usageByRun.get(run.id) ?? emptyUsageRollup(),
       };

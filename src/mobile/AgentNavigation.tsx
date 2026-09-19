@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useState } from 'react';
 import type { MobileAgentSummary } from '../shared/remote';
 import { groupCategories } from '../shared/categoryNavigation';
@@ -6,6 +8,7 @@ import { MobileAvatar } from './AgentProfile';
 import type { MobileHost } from './useMobileHost';
 
 export function AgentNavigation({ host, selectedId, onSelect }: { host: MobileHost; selectedId?: string; onSelect: (id: string) => void }) {
+  useLocale();
   const [search, setSearch] = useState('');
   const { collapsed, toggle } = useNavigationCollapse('ade:mobile:agent-navigation');
   const query = search.trim().toLocaleLowerCase();
@@ -20,9 +23,9 @@ export function AgentNavigation({ host, selectedId, onSelect }: { host: MobileHo
   const row = (agent: MobileAgentSummary) => <button key={agent.id} aria-label={agent.name} aria-pressed={agent.id === selectedId}
     onClick={() => onSelect(agent.id)}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>;
   return <div className="m-agent-navigation">
-    <label>Agents suchen<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-    {!catalog ? <p role="status">Agents werden geladen…</p> : !catalog.agents.length ? <p>Keine Agent-Profile. Du kannst ein freies Terminal öffnen.</p>
-      : !categories.length && !uncategorized.length ? <p role="status">Keine passenden Kategorien oder Agents.</p> : <>
+    <label>{translate("Search agents")}<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+    {!catalog ? <p role="status">{translate("Loading agents…")}</p> : !catalog.agents.length ? <p>{translate("No agent profiles. You can open a standalone terminal.")}</p>
+      : !categories.length && !uncategorized.length ? <p role="status">{translate("No matching categories or agents.")}</p> : <>
         {groupCategories(categories).map((group) => <section key={group.key} className={group.name ? 'm-navigation-group' : undefined} aria-label={group.name}>
           {group.name && <button className="m-navigation-heading" aria-expanded={!!query || !collapsed[group.key]} onClick={() => toggle(group.key)}>
             <span aria-hidden="true">{!query && collapsed[group.key] ? '▸' : '▾'}</span>{group.name}</button>}

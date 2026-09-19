@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import type { RuntimeDiagnosticsResult } from '../../shared/types';
 import { Modal } from '../onboarding/Modal';
@@ -12,6 +15,7 @@ function safeMessage(error: unknown): string {
 }
 
 export function DiagnosticsModal(): JSX.Element | null {
+  useLocale();
   const open = useDiagnostics((state) => state.open);
   const agentId = useDiagnostics((state) => state.agentId);
   const sessionId = useDiagnostics((state) => state.sessionId);
@@ -45,21 +49,20 @@ export function DiagnosticsModal(): JSX.Element | null {
 
   return (
     <Modal
-      title="Diagnose"
-      subtitle="Nur lesende Prüfung von CLI-Verfügbarkeit, Anmeldung und Auftragsübertragung."
+      title={translate("Diagnostics")}
+      subtitle={translate("Read-only inspection of CLI availability, authentication and task delivery.")}
       onClose={hide}
     >
       <div className="diag-body" aria-live="polite">
-        {loading && !result ? <div className="diag-empty">Checking configured runtimes…</div> : null}
-        {error ? <div className="diag-error">{error}</div> : null}
+        {loading && !result ? <div className="diag-empty">{translate("Checking configured runtimes…")}</div> : null}
+        {error ? <div className="diag-error">{localizeAppMessage(error)}</div> : null}
         {result && result.items.length === 0 ? (
-          <div className="diag-empty">Add an agent before running CLI diagnostics.</div>
+          <div className="diag-empty">{translate("Add an agent before running CLI diagnostics.")}</div>
         ) : null}
         {result && result.items.length > 0 ? (
           <>
             <div className="diag-summary">
-              {ready} of {result.items.length} configured {result.items.length === 1 ? 'runtime is' : 'runtimes are'} ready
-            </div>
+              {ready} {" "}{translate("of")}{" "}{result.items.length} {" "}{translate("configured")}{" "}{result.items.length === 1 ? 'runtime is' : 'runtimes are'} {" "}{translate("Ready [72656164]")}</div>
             <div className="diag-list">
               {result.items.map((item) => (
                 <section className={`diag-item ${item.status}`} key={item.agentId}>
@@ -68,23 +71,23 @@ export function DiagnosticsModal(): JSX.Element | null {
                     <strong>{item.agentName}</strong>
                     <span>{item.label}</span>
                   </div>
-                  <div className="diag-message">{item.message}</div>
+                  <div className="diag-message">{localizeAppMessage(item.message)}</div>
                   <dl>
                     <div>
-                      <dt>Backend</dt>
+                      <dt>{translate("Backend")}</dt>
                       <dd>{item.executionBackend?.startsWith('wsl:')
                         ? `WSL · ${item.executionBackend.slice('wsl:'.length)}`
-                        : 'Native'}</dd>
+                        : translate("Native")}</dd>
                     </div>
-                    <div><dt>Command</dt><dd>{item.command}</dd></div>
+                    <div><dt>{translate("Command")}</dt><dd>{item.command}</dd></div>
                     <div>
-                      <dt>Version</dt>
-                      <dd>{item.version ?? (item.installed === false ? 'Not installed' : 'Not checked')}</dd>
+                      <dt>{translate("Version")}</dt>
+                      <dd>{item.version ?? (item.installed === false ? translate("Not installed") : translate("Not checked"))}</dd>
                     </div>
-                    <div><dt>Authentication</dt><dd>{item.authDetail}</dd></div>
+                    <div><dt>{translate("Authentication")}</dt><dd>{item.authDetail}</dd></div>
                     <div>
-                      <dt>Task mode</dt>
-                      <dd>{item.taskTransport === 'unavailable' ? 'Interactive only' : item.taskTransport}</dd>
+                      <dt>{translate("Task mode")}</dt>
+                      <dd>{item.taskTransport === 'unavailable' ? translate("Interactive only") : item.taskTransport}</dd>
                     </div>
                   </dl>
                 </section>
@@ -95,9 +98,9 @@ export function DiagnosticsModal(): JSX.Element | null {
       </div>
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => void run()} disabled={loading}>
-          {loading ? 'Checking…' : 'Run again'}
+          {loading ? translate("Checking…") : translate("Run again")}
         </button>
-        <button type="button" className="btn primary" onClick={hide}>Close</button>
+        <button type="button" className="btn primary" onClick={hide}>{translate("Close [436c6f73]")}</button>
       </div>
     </Modal>
   );

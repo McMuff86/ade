@@ -1,5 +1,10 @@
 # Goal 33.0b — Stimme und Tempo persönlich einstellen
 
+**20. September:** Unter **Gespräche → Plaudern & Stimme → Stimmenstudio** gibt
+es zusätzlich unabhängige Multilingual-v2-Regler, v3-Stabilität, eigene Hörtexte,
+lokale Vorlagen und A/B-Hörproben. Allgemeine ADE-Stimmen bleiben auf v3.
+[Aktueller Vertrag und Prüfvorbehalt](LANGUAGES_AND_CONVERSATIONS.md).
+
 **Aktueller Folgestand (18. September):** Die beauftragte Umstellung auf Eleven v3
 verwendet Text to Dialogue WebSocket. Dort ist nur Stabilität unterstützt; die
 anderen Regler dieses historischen v2-Vertrags sind nicht mehr wirksam.

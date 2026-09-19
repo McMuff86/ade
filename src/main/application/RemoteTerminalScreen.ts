@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { Terminal, type IBufferCell } from '@xterm/headless';
 import type { MobileTerminalFrame } from '../../shared/remote';
@@ -78,13 +79,13 @@ export class RemoteTerminalDisplay {
     return !this.disposed && !this.overflow && this.pendingBytes === 0 && this.terminal.modes.bracketedPasteMode;
   }
   async snapshot(): Promise<{ screen: string; frame: MobileTerminalFrame }> {
-    if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
-    if (this.overflow) throw new Error('Terminalausgabe ist zu umfangreich. Am Desktop weiterarbeiten oder eine neue Sitzung öffnen.');
+    if (this.disposed) throw new Error(translate("The terminal is no longer available."));
+    if (this.overflow) throw new Error(translate("Terminal output is too large. Continue working on the desktop or open a new session."));
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Terminalanzeige konnte nicht rechtzeitig aktualisiert werden.')), 2500);
+      const timer = setTimeout(() => reject(new Error(translate("Terminal display could not be updated in time."))), 2500);
       this.terminal.write('', () => { clearTimeout(timer); resolve(); });
     });
-    if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
+    if (this.disposed) throw new Error(translate("The terminal is no longer available."));
     if (this.cached?.version === this.version && this.pendingBytes === 0) return this.cached.value;
     const term = this.terminal; const buffer = term.buffer.active;
     const version = this.version; const baseY = buffer.baseY;
@@ -152,11 +153,11 @@ export class RemoteTerminalDisplay {
         if (projection.cursor) cursor = { row: group.start - baseY + projection.cursor.row, col: projection.cursor.col };
       }
     }
-    if (this.disposed) throw new Error('Terminal ist nicht mehr verfügbar.');
+    if (this.disposed) throw new Error(translate("The terminal is no longer available."));
     let ansi = prefix + styledRows.map((line, row) => `${CSI}${row + 1};1H${line}`).join('');
     const plain = prefix + plainRows.map((line, row) => `${CSI}${row + 1};1H${line}`).join('');
     if (Buffer.byteLength(JSON.stringify(ansi)) > 300 * 1024) ansi = plain;
-    if (Buffer.byteLength(JSON.stringify(ansi)) > 300 * 1024) throw new Error('Terminalanzeige ist zu umfangreich. Am Desktop weiterarbeiten.');
+    if (Buffer.byteLength(JSON.stringify(ansi)) > 300 * 1024) throw new Error(translate("Terminal display is too extensive. Continue working on the desktop."));
     ansi += `${CSI}0m${CSI}?7h${CSI}${cursor.row + 1};${cursor.col + 1}H`;
     for (const [mode, enabled] of [[1, modes.applicationCursorKeysMode], [66, modes.applicationKeypadMode],
       [2004, modes.bracketedPasteMode], [25, cursorVisible]] as const) ansi += `${CSI}?${mode}${enabled ? 'h' : 'l'}`;

@@ -1,3 +1,6 @@
+import { t as translate } from "../shared/i18n";
+import { localizedLabels } from '../shared/i18n/labels';
+import { useLocale } from "./i18n/language";
 /**
  * Startup integrity notice for the persisted config.
  *
@@ -11,13 +14,14 @@
 import { useEffect, useState } from 'react';
 import type { ConfigLoadFailure } from '../shared/types';
 
-const REASON: Record<ConfigLoadFailure['reason'], string> = {
-  unreadable: 'ADE could not read its configuration file.',
-  malformed: 'ADE’s configuration file was not valid JSON.',
-  incompatible: 'ADE could not migrate its configuration file.',
-};
+const REASON: Record<ConfigLoadFailure['reason'], string> = localizedLabels(() => ({
+  unreadable: translate('ADE could not read its configuration file.'),
+  malformed: translate('ADE’s configuration file was not valid JSON.'),
+  incompatible: translate('ADE could not migrate its configuration file.'),
+}));
 
 export function ConfigHealthBanner() {
+  useLocale();
   const [failure, setFailure] = useState<ConfigLoadFailure | null>(null);
   const [recoveryFailure, setRecoveryFailure] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -44,13 +48,9 @@ export function ConfigHealthBanner() {
       <div className="config-alert config-alert-blocking" role="alert" data-testid="config-health-alert">
         <div className="config-alert-body">
           <strong className="config-alert-title">
-            An interrupted workspace import could not be finished
-          </strong>
+            {translate("An interrupted workspace import could not be finished")}</strong>
           <span className="config-alert-detail">
-            ADE started normally and your configuration is intact, but the pending import journal
-            in the ADE data directory could not be replayed. Further imports are refused until it
-            is resolved.
-          </span>
+            {translate("ADE started normally and your configuration is intact, but the pending import journal in the ADE data directory could not be replayed. Further imports are refused until it is resolved.")}</span>
           <code className="config-alert-cause">{recoveryFailure}</code>
         </div>
       </div>
@@ -69,24 +69,20 @@ export function ConfigHealthBanner() {
       <div className="config-alert-body">
         <strong className="config-alert-title">
           {failure.readOnly
-            ? 'Configuration unreadable — ADE is running read-only'
-            : 'Configuration recovered — agents and runs were not loaded'}
+            ? translate("Configuration unreadable — ADE is running read only")
+            : translate("Configuration recovered — agents and runs were not loaded")}
         </strong>
         <span className="config-alert-detail">
           {REASON[failure.reason]}{' '}
           {failure.readOnly
-            ? 'The original could not be moved aside, so ADE will not overwrite it and every '
-              + 'change is refused. Repair or move config.json in the ADE data directory, '
-              + 'then restart ADE.'
-            : `The original is preserved at ${failure.quarantinedTo}, next to config.json in `
-              + 'the ADE data directory. This session started from an empty catalog.'}
+            ? translate('The original could not be moved aside. ADE will not overwrite it and refuses changes. Repair or move config.json in the ADE data directory, then restart ADE.')
+            : translate('The original is preserved at {{path}}, next to config.json in the ADE data directory. This session started from an empty catalog.', { path: failure.quarantinedTo })}
         </span>
         <code className="config-alert-cause">{failure.detail}</code>
       </div>
       {failure.readOnly ? null : (
         <button className="btn" onClick={() => setDismissed(true)}>
-          Dismiss
-        </button>
+          {translate("Dismiss")}</button>
       )}
     </div>
   );

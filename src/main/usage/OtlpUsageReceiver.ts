@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 
@@ -52,10 +53,10 @@ export class OtlpUsageReceiver {
   private digest(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
   async register(consume: (logs: UsageLog[]) => Promise<void>): Promise<{ endpoint: string; header: string; release(): void }> {
-    if (this.closing) throw new Error('Verbrauchsempfänger wird geschlossen.');
-    if (this.consumers.size >= 128) throw new Error('Verbrauchsempfänger hat zu viele aktive Sitzungen.');
+    if (this.closing) throw new Error(translate("Usage collector is closing."));
+    if (this.consumers.size >= 128) throw new Error(translate("Usage collector has too many active sessions."));
     await (this.opening ??= this.listen());
-    if (this.closing || this.consumers.size >= 128) throw new Error('Verbrauchsempfänger ist nicht verfügbar.');
+    if (this.closing || this.consumers.size >= 128) throw new Error(translate("Usage collector is unavailable."));
     const token = randomBytes(32).toString('hex'); const key = this.digest(token); this.consumers.set(key, consume);
     return { endpoint: `http://127.0.0.1:${this.port}/v1/logs`, header: `x-ade-usage-token=${token}`,
       release: () => { this.consumers.delete(key); } };
@@ -95,7 +96,7 @@ export class OtlpUsageReceiver {
     this.server.maxConnections = 16;
     await new Promise<void>((resolve, reject) => {
       this.server!.once('error', reject); this.server!.listen(0, '127.0.0.1', () => {
-        const address = this.server!.address(); if (!address || typeof address === 'string') { reject(new Error('Verbrauchsempfänger nicht verfügbar.')); return; }
+        const address = this.server!.address(); if (!address || typeof address === 'string') { reject(new Error(translate("Usage collector unavailable."))); return; }
         this.port = address.port; resolve();
       });
     });

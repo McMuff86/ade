@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -80,11 +81,11 @@ export class RemoteCommandLedger {
       if (running) value = await running.result as T;
       else if (receipt!.state === 'complete') value = structuredClone(receipt!.result) as T;
       else if (receipt!.state === 'rejected') throw new RemoteApiError(receipt!.error!.status, receipt!.error!.code, receipt!.error!.message);
-      else throw new RemoteApiError(409, 'command_uncertain', 'Die vorherige Aktion wurde unterbrochen. Zustand am PC prüfen; sie wird nicht erneut ausgeführt.');
+      else throw new RemoteApiError(409, 'command_uncertain', translate("The previous operation was interrupted. Check its status on the PC; it will not run again automatically."));
       this.permits(context, scope); this.audit({ ...entry, outcome: 'replayed' });
       return { value, replayed: true };
     }
-    if (this.entries.length >= MAX_RECEIPTS) throw new RemoteApiError(503, 'unavailable', 'Remote-Aktionsspeicher ist voll.');
+    if (this.entries.length >= MAX_RECEIPTS) throw new RemoteApiError(503, 'unavailable', translate("Remote action storage is full."));
     const reserved: Receipt = { key: keyHash, fingerprint, state: 'reserved' };
     this.save([...this.entries, reserved]);
     const execution = Promise.resolve().then(async () => {

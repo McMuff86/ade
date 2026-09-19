@@ -1,3 +1,4 @@
+import { t as translate } from "../shared/i18n";
 import type { ConversationDisplayTurn, ConversationPort } from '../renderer/conversation/ConversationPanel';
 import type { MobileConversationAnswer, MobileConversationDetail, MobileConversationQuestion, MobileConversationOverview, MobileSupervisionView } from '../shared/remote';
 import type { RunQuestion } from '../shared/runQuestions';
@@ -11,11 +12,11 @@ import { ConversationNotAcceptedError } from '../shared/conversation';
 export function mobileConversationPort(host: () => MobileHost, access: (canWrite: boolean) => void): ConversationPort {
   const identity = host().identityVersion; const device = host().deviceId;
   const cached = new Map<string, ConversationDisplayTurn>();
-  const current = () => { if (identity !== host().identityVersion || device !== host().deviceId) { cached.clear(); throw new Error('Geräteverbindung wurde geändert.'); } };
+  const current = () => { if (identity !== host().identityVersion || device !== host().deviceId) { cached.clear(); throw new Error(translate("Device connection has been changed.")); } };
   const recordingRequest = async (value: import('../shared/remote').MobileConversationDictationCommand, key?: string) => {
     current();
     try { const result = await host().request<import('../shared/remote').MobileDictationResult>('/api/v1/conversation/dictation', 'POST', value, key); current(); return result; }
-    catch (error) { current(); throw new Error(error instanceof MobileClientError && error.code === 'scope_not_granted' ? 'Für das Diktat am PC die Diktatfreigabe, Workspace lesen und die vollständige Projektfreigabe aktivieren.' : workspaceError(error)); }
+    catch (error) { current(); throw new Error(error instanceof MobileClientError && error.code === 'scope_not_granted' ? translate("On the PC, enable dictation, workspace reading and access to all projects for dictation.") : workspaceError(error)); }
   };
   const request = async <T,>(payload: unknown): Promise<T> => {
     current();
@@ -28,9 +29,9 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
     let offset: number | null = 0; let output = ''; let redacted = false;
     while (offset !== null) {
       const page: MobileConversationAnswer = await request({ operation: 'answer', conversationId: id, turnId: turn.id, offset });
-      if (page.sha256 !== turn.output.sha256 || page.offset !== offset || page.nextOffset !== null && page.nextOffset <= offset || output.length + page.text.length > 64 * 1024) throw new Error('Antwort wurde während des Ladens geändert. Verlauf erneut laden.');
+      if (page.sha256 !== turn.output.sha256 || page.offset !== offset || page.nextOffset !== null && page.nextOffset <= offset || output.length + page.text.length > 64 * 1024) throw new Error(translate("Response changed during loading. Reload history."));
       output += page.text; offset = page.nextOffset; redacted ||= page.redacted;
-      if (offset === null && output.length !== page.total) throw new Error('Antwort wurde nicht vollständig geladen.');
+      if (offset === null && output.length !== page.total) throw new Error(translate("Response was not fully loaded."));
     }
     const questions: RunQuestion[] = [];
     for (const q of turn.questions) {
@@ -39,7 +40,7 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
       const { items, ...summary } = q; const question: RunQuestion = { ...summary, questions: [] };
       for (let item = 0; item < items; item++) {
         const page: MobileConversationQuestion = await request({ operation: 'question', conversationId: id, turnId: turn.id, questionId: q.id, item });
-        if (page.questionId !== q.id || page.item !== item || page.total !== items) throw new Error('Rückfrage wurde während des Ladens geändert.');
+        if (page.questionId !== q.id || page.item !== item || page.total !== items) throw new Error(translate("The question changed while loading."));
         question.questions.push(page.value); redacted ||= page.redacted;
       }
       questions.push(question);
@@ -51,6 +52,20 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
     cached.set(key, value); return value;
   };
   return {
+    speech: {
+      recover: true,
+      load: async () => {
+        current(); const result = await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target: { kind: 'default' } }); current();
+        if (!result.preferences) throw new Error(translate('Voice settings are not available.'));
+        return { voices: result.preferences.voices, selectedVoiceId: result.preferences.effectiveVoiceId };
+      },
+      generate: async (input, key) => {
+        current();
+        const result = await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/command', 'POST', { operation: 'test', target: { kind: 'default' }, ...input }, key); current();
+        const playback = await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'audio', testId: result.testId }); current();
+        if (!playback.audio) throw new Error(translate('Voice test is not available.')); return playback.audio;
+      },
+    },
     actions: {
       list: async conversationId => {
         current(); try { const value = await host().request<import('../shared/coordinatorActions').CoordinatorActionSummary[]>('/api/v1/conversation/actions/query', 'POST', { operation: 'list', conversationId }); current(); return value; }
@@ -75,12 +90,12 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
       microphone: async () => { current(); },
       prepare: async conversationId => {
         const result = await recordingRequest({ operation: 'prepare', conversationId }, crypto.randomUUID());
-        if (!('jobId' in result)) throw new Error('Aufnahmeziel wurde nicht bestätigt.'); return result;
+        if (!('jobId' in result)) throw new Error(translate("Recording target was not confirmed.")); return result;
       },
       start: async jobId => { await recordingRequest({ operation: 'stream-start', jobId }, `${jobId}-start`); },
       chunk: async (jobId, sequence, audioBase64) => { await recordingRequest({ operation: 'stream-chunk', jobId, sequence, audioBase64 }, `${jobId}:${sequence}`); },
       finish: async jobId => { await recordingRequest({ operation: 'stream-finish', jobId }, `${jobId}-finish`); },
-      query: async jobId => { const result = await recordingRequest({ operation: 'query', jobId }); if (!('state' in result)) throw new Error('Diktatstand wurde nicht bestätigt.'); return result.state; },
+      query: async jobId => { const result = await recordingRequest({ operation: 'query', jobId }); if (!('state' in result)) throw new Error(translate("Dictation status was not confirmed.")); return result.state; },
       cancel: async jobId => { await recordingRequest({ operation: 'cancel', jobId }, `${jobId}-cancel`); },
     },
     list: async () => { const view = await request<MobileConversationOverview>({ operation: 'overview' }); access(view.canWrite); return view.conversations; },
@@ -95,7 +110,7 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
     },
     loadTurn: async (id, turnId) => {
       const detail = await request<MobileConversationDetail>({ operation: 'detail', conversationId: id });
-      const turn = detail.turns.find(t => t.id === turnId); if (!turn) throw new Error('Nachricht ist nicht vorhanden.');
+      const turn = detail.turns.find(t => t.id === turnId); if (!turn) throw new Error(translate("The message does not exist."));
       return hydrate(id, turn);
     },
     command: async command => {
@@ -112,7 +127,7 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
     defaultProfile: async () => { current(); const view = await host().request<MobileSupervisionView>('/api/v1/supervision/query', 'POST', { operation: 'overview' }); current(); return view.profile?.id ?? null; },
     subscribe: changed => { const timer = setInterval(() => { if (!document.hidden && host().status === 'online') changed(); }, 1500); return () => { clearInterval(timer); cached.clear(); }; },
     describe: error => error instanceof MobileClientError && error.code === 'scope_not_granted'
-      ? 'Für das globale ADE-Gespräch am PC „Workspace lesen“ und die vollständige Projektfreigabe aktivieren. Zum Senden sind zusätzlich Run-Schreibrechte nötig.'
-      : error instanceof MobileClientError ? workspaceError(error) : error instanceof Error ? error.message : 'Gespräch konnte nicht geladen werden.',
+      ? translate("For the global ADE conversation, enable workspace reading and access to all projects on the PC. Sending messages also requires run write permissions.")
+      : error instanceof MobileClientError ? workspaceError(error) : error instanceof Error ? error.message : translate("Conversation could not be loaded."),
   };
 }

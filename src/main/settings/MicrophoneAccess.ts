@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /** A short, window-bound authorization opened by an explicit recorder action.
  * This never permits cameras, screen capture, dashboard windows or subframes. */
 export class MicrophoneAccess {
@@ -5,7 +6,7 @@ export class MicrophoneAccess {
   constructor(private readonly trusted: (webContentsId: number, url: string) => boolean, private readonly now = Date.now) {}
   grant(webContentsId: number): void {
     for (const [id, expires] of this.permits) if (expires <= this.now()) this.permits.delete(id);
-    if (!Number.isInteger(webContentsId) || webContentsId < 1 || (!this.permits.has(webContentsId) && this.permits.size >= 32)) throw new Error('Mikrofonfreigabe ist nicht verfügbar.');
+    if (!Number.isInteger(webContentsId) || webContentsId < 1 || (!this.permits.has(webContentsId) && this.permits.size >= 32)) throw new Error(translate("Microphone permission is not available."));
     this.permits.set(webContentsId, this.now() + 30_000);
   }
   revoke(webContentsId: number): void { this.permits.delete(webContentsId); }

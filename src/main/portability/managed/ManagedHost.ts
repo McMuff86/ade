@@ -1,3 +1,4 @@
+import { t as translate } from "../../../shared/i18n";
 /**
  * The platform seam under the managed profile reader and writer.
  *
@@ -93,7 +94,7 @@ export function managedProfileSupport(platform: NodeJS.Platform): ManagedProfile
     managedAssets: false,
     notice: {
       code: 'workspace-import-host-unsupported',
-      message: 'Workspace import apply is supported only on Linux and Windows hosts.',
+      message: translate("Workspace import apply is supported only on Linux and Windows hosts."),
     },
   };
 }

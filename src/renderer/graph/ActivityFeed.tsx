@@ -1,3 +1,6 @@
+import { intlLocale } from '../../shared/i18n';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * ActivityFeed — live, readable view of what a managed task is doing.
  *
@@ -21,6 +24,7 @@ const GLYPH: Record<ActivityLine['kind'], string> = {
 };
 
 export function ActivityFeed({ sessionId, taskId }: { sessionId?: string; taskId?: string }): JSX.Element {
+  useLocale();
   const [lines, setLines] = useState<ActivityLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -78,21 +82,21 @@ export function ActivityFeed({ sessionId, taskId }: { sessionId?: string; taskId
   };
 
   return (
-    <div ref={hostRef} className="gactivity" onScroll={onScroll} tabIndex={0} role="log" aria-label="Agent-Aktivität" aria-live="off" aria-busy={loading}>
-      {loading && <p role="status">Aktivität wird geladen…</p>}
-      {error && <p role="alert">Aktivität konnte nicht geladen werden. <button onClick={() => setReload((value) => value + 1)}>Erneut laden</button></p>}
-      {!following && <button onClick={() => { followRef.current = true; setFollowing(true); if (hostRef.current) hostRef.current.scrollTop = hostRef.current.scrollHeight; }}>Zum neuesten Eintrag</button>}
+    <div ref={hostRef} className="gactivity" onScroll={onScroll} tabIndex={0} role="log" aria-label={translate("Agent activity")} aria-live="off" aria-busy={loading}>
+      {loading && <p role="status">{translate("Loading activity…")}</p>}
+      {error && <p role="alert">{translate("Activity could not be loaded.")}{" "}<button onClick={() => setReload((value) => value + 1)}>{translate("Reload")}</button></p>}
+      {!following && <button onClick={() => { followRef.current = true; setFollowing(true); if (hostRef.current) hostRef.current.scrollTop = hostRef.current.scrollHeight; }}>{translate("Go to latest entry")}</button>}
       {lines.length === 0 && !loading && !error && (
         <div className="gactivity-empty">
           {sessionId
-            ? 'Warte auf die erste Aktivität des Agenten…'
-            : 'Keine aufgezeichnete Aktivität für diesen Task.'}
+            ? translate("Wait for the first activity of the agent…")
+            : translate("No recorded activity for this task.")}
         </div>
       )}
       {lines.map((line, index) => (
         <div key={line.sequence ?? index} className={`gactivity-line ${line.kind}`}>
           <span className="gactivity-glyph">{GLYPH[line.kind]}</span>
-          {line.at !== undefined && <span className="gactivity-time">{new Date(line.at).toLocaleTimeString('de-CH')}</span>}
+          {line.at !== undefined && <span className="gactivity-time">{new Date(line.at).toLocaleTimeString(intlLocale())}</span>}
           <span className="gactivity-text">{line.text}</span>
         </div>
       ))}

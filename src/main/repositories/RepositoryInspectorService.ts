@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type {
   AdeConfig,
   GitStatus,
@@ -144,7 +145,7 @@ export class RepositoryInspectorService {
       return {
         status: 'unsupported',
         pullRequests: [],
-        message: 'Open PRs require one unambiguous GitHub origin.',
+        message: translate("Open PRs require one unambiguous GitHub origin."),
         refreshedAt: Date.now(),
       };
     }
@@ -199,7 +200,7 @@ export class RepositoryInspectorService {
         status: 'unavailable',
         providerRepository,
         pullRequests: [],
-        message: 'GitHub returned an invalid Pull Request response.',
+        message: translate("GitHub returned an invalid Pull Request response."),
         refreshedAt: Date.now(),
       };
     }
@@ -228,7 +229,7 @@ export class RepositoryInspectorService {
         pullRequestNumber,
         checks: [],
         checksTruncated: false,
-        message: 'CI checks require one unambiguous GitHub origin.',
+        message: translate("CI checks require one unambiguous GitHub origin."),
         refreshedAt: Date.now(),
       };
     }
@@ -277,7 +278,7 @@ export class RepositoryInspectorService {
         pullRequestNumber,
         checks: [],
         checksTruncated: false,
-        message: 'GitHub returned an invalid check response.',
+        message: translate("GitHub returned an invalid check response."),
         refreshedAt: Date.now(),
       };
     }

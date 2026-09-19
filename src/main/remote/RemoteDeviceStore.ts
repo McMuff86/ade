@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -28,7 +29,7 @@ export interface DeviceAuditEntry {
 }
 
 const MAX_STATE_BYTES = 256 * 1024;
-const UNAVAILABLE = 'Geräteverwaltung ist nicht verfügbar. Sichere Schlüsselablage und Remote-Speicher prüfen.';
+const unavailableMessage = () => translate("Device management is not available. Check for secure key storage and remote storage.");
 
 /** Reject links at every existing component, including the final file. */
 function noLinks(file: string): void {
@@ -105,7 +106,7 @@ export class RemoteDeviceStore {
       devices: this.state.devices.map(({ id, name, createdAt, revokedAt, adminScopes, resourceAccess }) => ({ id, name, createdAt, revokedAt,
         adminScopes: [...adminScopes ?? []], ...(resourceAccess ? { resourceAccess: structuredClone(resourceAccess) } : {}) })),
       available: this.failure === null && this.protection.available(),
-      error: this.failure ?? (this.protection.available() ? null : UNAVAILABLE),
+      error: this.failure ?? (this.protection.available() ? null : unavailableMessage()),
     };
   }
 
@@ -220,7 +221,7 @@ export class RemoteDeviceStore {
       this.auditLog!.append(line);
     } catch {
       this.disable();
-      throw new Error(UNAVAILABLE);
+      throw new Error(unavailableMessage());
     }
   }
 
@@ -242,20 +243,20 @@ export class RemoteDeviceStore {
       this.audit({ ...entry, outcome: 'executed' });
     } catch {
       this.disable();
-      throw new Error(UNAVAILABLE);
+      throw new Error(unavailableMessage());
     } finally {
       try { unlinkSync(temp); } catch { /* renamed or never created */ }
     }
   }
 
   private assertAvailable(): void {
-    if (!this.inventory().available) throw new Error(UNAVAILABLE);
+    if (!this.inventory().available) throw new Error(unavailableMessage());
   }
   private notify(id: string | null): void {
     for (const listener of this.listeners) listener(id);
   }
   private disable(): void {
-    this.failure = UNAVAILABLE;
+    this.failure = unavailableMessage();
     this.secrets.clear();
     this.notify(null);
     console.warn('[ade] remote device storage unavailable; device authorization disabled');

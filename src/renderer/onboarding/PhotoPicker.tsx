@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Profile-photo picker: file input (png/jpg/webp) → photo:import → stores the
  * returned filename. Preview renders through ade-photo:// so alpha is honoured
@@ -40,6 +43,7 @@ export function PhotoPicker({
   name,
   runtime,
 }: PhotoPickerProps): React.ReactElement {
+  useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,12 +81,11 @@ export function PhotoPicker({
       <Avatar name={name || '?'} photo={value} runtime={runtime} shape={shape} size={52} />
       <div className="photo-picker-actions">
         <button type="button" className="btn" onClick={pick} disabled={busy}>
-          {busy ? 'Importing…' : value ? 'Change photo' : 'Upload photo'}
+          {busy ? translate("Importing…") : value ? translate("Change photo") : translate("Upload photo")}
         </button>
         {value ? (
           <button type="button" className="btn" onClick={() => onChange(undefined)} disabled={busy}>
-            Remove
-          </button>
+            {translate("Remove [52656d6f]")}</button>
         ) : null}
         <input
           ref={inputRef}
@@ -94,7 +97,7 @@ export function PhotoPicker({
           tabIndex={-1}
         />
       </div>
-      {error ? <div className="photo-picker-error">{error}</div> : null}
+      {error ? <div className="photo-picker-error">{localizeAppMessage(error)}</div> : null}
     </div>
   );
 }

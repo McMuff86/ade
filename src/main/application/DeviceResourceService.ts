@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { AdeConfig } from '../../shared/types';
 import type { DeviceResourceAccess } from '../../shared/remoteDevices';
 import type { MobileCatalog, MobileTerminalSelection } from '../../shared/remote';
@@ -61,5 +62,5 @@ export class DeviceResourceService {
       projectStart: catalog.projectStart ? { configured: catalog.projectStart.configured,
         ...(catalog.projectStart.agentId && this.agent(principal, catalog.projectStart.agentId) ? { agentId: catalog.projectStart.agentId } : {}) } : undefined };
   }
-  private denied(): never { throw new RemoteApiError(403, 'scope_not_granted', 'Dieses Projekt oder dieser Agent ist für das Gerät nicht freigegeben. Am PC die Projektauswahl prüfen.'); }
+  private denied(): never { throw new RemoteApiError(403, 'scope_not_granted', translate("This project or agent is not approved for the device. Check the project selection on the PC.")); }
 }

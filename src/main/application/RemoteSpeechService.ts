@@ -1,8 +1,11 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import type { MobileSpeechCommand, MobileSpeechQuery } from '../../shared/remote';
 import { validMobileSpeechCommand, validSpeechTarget, type SpeechTuning, type SpeechPreset, type SpeechAudio, type SpeechTarget } from '../../shared/speech';
 import type { SpeechPreferences } from '../settings/SpeechPreferences';
 import type { SpeechService } from '../settings/SpeechService';
+import type { VoiceStudioInput } from '../../shared/speech';
+import { redactForWire } from '../errors';
 
 export const validSpeechQuery = (value: unknown): value is MobileSpeechQuery => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -15,11 +18,11 @@ export const validSpeechCommand: (value: unknown) => value is MobileSpeechComman
 export class RemoteSpeechService {
   private readonly audio = new Map<string, { owner: string; target: SpeechTarget; expiresAt: number; audio: SpeechAudio }>();
   constructor(readonly preferences: SpeechPreferences, private readonly engine: SpeechService, private readonly now = Date.now) {}
-  async test(owner: string, target: SpeechTarget, voiceId: string, authorize: () => void, preset?: SpeechPreset, tuning?: SpeechTuning): Promise<{ testId: string }> {
+  async test(owner: string, target: SpeechTarget, voiceId: string, authorize: () => void, preset?: SpeechPreset, tuning?: SpeechTuning, studio?: VoiceStudioInput): Promise<{ testId: string }> {
     await this.preferences.query(target); authorize();
     const audio = await this.engine.test(voiceId, authorize, target.kind === 'default' ? {} : {
       repositoryId: target.repositoryId, ...(target.kind === 'agent' ? { agentId: target.agentId } : {}),
-    }, preset, tuning); authorize();
+    }, preset, tuning, studio); authorize();
     for (const [id, record] of this.audio) if (record.expiresAt <= this.now()) this.audio.delete(id);
     while (this.audio.size >= 8) this.audio.delete(this.audio.keys().next().value!);
     const testId = randomUUID(); this.audio.set(testId, { owner, target, expiresAt: this.now() + 10 * 60_000, audio });
@@ -27,7 +30,7 @@ export class RemoteSpeechService {
   }
   read(owner: string, testId: string, authorize: (target: SpeechTarget) => void): SpeechAudio {
     const record = this.audio.get(testId);
-    if (!record || record.owner !== owner || record.expiresAt <= this.now()) throw new Error('Stimmtest ist nicht mehr verfügbar. Einen neuen Test ausdrücklich starten.');
-    authorize(record.target); return { ...record.audio };
+    if (!record || record.owner !== owner || record.expiresAt <= this.now()) throw new Error(translate("Voice test is no longer available. Start a new test explicitly."));
+    authorize(record.target); return { ...record.audio, text: redactForWire(record.audio.text, record.audio.text.length) };
   }
 }

@@ -1,5 +1,21 @@
 # ADE — Architecture (binding decisions)
 
+## Language and conversation modes (20 September 2026)
+
+Desktop and mobile use typed German/English i18next catalogs, an extensible locale
+registry, device-local language selection and locale-aware presentation tables.
+Only the desktop saves `settings.language` through the existing strict config
+IPC. Switching does not remount editors/terminals or change personal content.
+Legacy app-owned host notices are translated after redaction at the UI boundary.
+
+The Conversations entry separates project supervision from casual chat. The
+optional create mode selects a main-owned tool contract; casual bindings inherit
+model/reasoning only, expose no project tools and fail project action authority.
+Voice studio extends the existing strict speech-test payload with bounded text,
+allowlisted models and per-request tuning; remote permissions and the durable
+speech ledger stay in place. No generic command channel was added.
+[Contracts, limits and validation status](LANGUAGES_AND_CONVERSATIONS.md).
+
 ## Tablet project context visibility
 
 `ProjectDirectoryPage` owns a local presentation preference for the collapsible

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { assertNoLinks } from '../repositories/pathDiscipline';
@@ -18,7 +19,7 @@ export const COORDINATOR_CODEX_OVERRIDES = [
   'agents.enabled=false', 'tools.view_image=false', 'web_search=disabled', 'mcp_servers={}', 'sandbox_mode=read-only', 'approval_policy=never',
 ] as const;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-const refused = () => new Error('Diese Codex-Verbindung bestätigt die geprüfte ADE-Koordinatorkonfiguration nicht. Es wurde kein Gesprächsschritt gestartet.');
+const refused = () => new Error(translate("This Codex connection does not confirm the pinned ADE coordinator policy. No conversation turn was started."));
 export function assertCoordinatorCodexVersion(initialized: unknown): void {
   if (!record(initialized) || typeof initialized.userAgent !== 'string' || initialized.userAgent.match(/\d+\.\d+\.\d+/)?.[0] !== '0.154.0') throw refused();
 }
@@ -41,7 +42,7 @@ export function assertCoordinatorCodexThread(response: unknown): void {
  * above still refuses drift or any enabled/ambiguous entry before thread/start.
  * No global config writes. User text, tools and model travel over stdio. */
 export function launchCoordinatorCodex(cwd: string, env: Record<string, string>): ChildProcessWithoutNullStreams {
-  if (process.platform !== 'win32' || !isAbsolute(cwd)) throw new Error('Der ADE-Koordinatorstart ist bisher nur unter nativem Windows geprüft.');
+  if (process.platform !== 'win32' || !isAbsolute(cwd)) throw new Error(translate("The ADE coordinator currently requires native Windows."));
   assertNoLinks(cwd);
   const args = COORDINATOR_CODEX_OVERRIDES.flatMap(value => ['-c', value]);
   const literals = args.map(value => `'${value.replace(/'/g, "''")}'`).join(',');

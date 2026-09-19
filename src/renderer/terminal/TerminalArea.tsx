@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * TerminalArea — the panes of the currently selected agent (Phase B1).
  *
@@ -16,6 +19,7 @@ import { TerminalPane } from './TerminalPane';
 import './terminal.css';
 
 export function TerminalArea(): JSX.Element {
+  useLocale();
   const agentId = useSelection((s) => s.selectedAgentId);
   const order = useSessions((s) => s.orderByAgent[agentId ?? TERMINAL_HOME_GROUP]);
   const active = useSessions((s) => s.activeByAgent[agentId ?? TERMINAL_HOME_GROUP]);
@@ -32,37 +36,36 @@ export function TerminalArea(): JSX.Element {
       {error ? (
         <div className="session-notice error">
           <div>
-            <strong>{error.source === 'recovery' ? 'Session recovery failed' : 'Terminal operation failed'}</strong>
+            <strong>{error.source === 'recovery' ? translate("Session recovery failed") : translate("Terminal operation failed")}</strong>
             <span>{error.message}</span>
           </div>
           {error.source === 'recovery' ? (
-            <button type="button" onClick={() => void hydrate(true)}>Retry</button>
+            <button type="button" onClick={() => void hydrate(true)}>{translate("Retry")}</button>
           ) : null}
           <button
             type="button"
             onClick={() => showDiagnostics(error.agentId ?? agentId ?? undefined, error.sessionId)}
           >
-            Diagnostics
-          </button>
-          <button type="button" aria-label="Dismiss terminal error" onClick={clearError}>×</button>
+            {translate("Diagnostics [44696167]")}</button>
+          <button type="button" aria-label={translate("Dismiss terminal error")} onClick={clearError}>×</button>
         </div>
       ) : null}
       {active && sessions[active]?.status === 'exited' ? (() => {
         const meta = sessions[active];
         const failed = meta.exitReason !== 'cancelled' && (meta.exitCode ?? -1) !== 0;
         const heading = meta.exitReason === 'cancelled'
-          ? 'Session cancelled'
+          ? translate("Session cancelled")
           : failed
             ? `Session failed (exit ${meta.exitCode ?? -1})`
-            : (meta.kind === 'task' ? 'Task completed' : 'Session ended');
+            : (meta.kind === 'task' ? translate("Task completed") : translate("Session ended [53657373]"));
         return (
           <div className={`session-notice${failed ? ' error' : ''}`}>
             <div>
               <strong>{heading}</strong>
               <span>
                 {meta.kind === 'task'
-                  ? 'Task output remains available until this tab is closed.'
-                  : 'Terminal output was preserved.'}
+                  ? translate("Task output remains available until this tab is closed.")
+                  : translate("Terminal output was preserved.")}
               </span>
             </div>
             {meta.kind === 'interactive' ? (
@@ -70,13 +73,12 @@ export function TerminalArea(): JSX.Element {
                 type="button"
                 onClick={() => void restartSession(meta.id).catch(() => undefined)}
               >
-                Restart
-              </button>
+                {translate("Restart")}</button>
             ) : null}
             {failed ? (
-              <button type="button" onClick={() => showDiagnostics(meta.agentId, meta.id)}>Diagnostics</button>
+              <button type="button" onClick={() => showDiagnostics(meta.agentId, meta.id)}>{translate("Diagnostics [44696167]")}</button>
             ) : null}
-            <button type="button" onClick={() => void closeSession(meta.id).catch(() => undefined)}>Close</button>
+            <button type="button" onClick={() => void closeSession(meta.id).catch(() => undefined)}>{translate("Close [436c6f73]")}</button>
           </div>
         );
       })() : null}
@@ -86,9 +88,9 @@ export function TerminalArea(): JSX.Element {
   if (!agentId && !order?.length) {
     return (
       <div className="terminal-area terminal-area-empty">
-        <span className="terminal-hint">Terminal ohne Agent und Projekt öffnen oder links einen Agenten auswählen.</span>
-        <button className="btn primary" onClick={() => useSessionLaunch.getState().open(null)}>Terminal öffnen</button>
-        {notice}
+        <span className="terminal-hint">{translate("Open terminal without agent and project or select an agent on the left.")}</span>
+        <button className="btn primary" onClick={() => useSessionLaunch.getState().open(null)}>{translate("Open terminal")}</button>
+        {localizeAppMessage(notice)}
       </div>
     );
   }
@@ -97,8 +99,8 @@ export function TerminalArea(): JSX.Element {
   if (sessionIds.length === 0) {
     return (
       <div className="terminal-area terminal-area-empty">
-        <span className="terminal-hint">No sessions — press +</span>
-        {notice}
+        <span className="terminal-hint">{translate("No sessions — press +")}</span>
+        {localizeAppMessage(notice)}
       </div>
     );
   }
@@ -117,7 +119,7 @@ export function TerminalArea(): JSX.Element {
           <TerminalPane sessionId={sessionId} active={sessionId === active} />
         </div>
       ))}
-      {notice}
+      {localizeAppMessage(notice)}
     </div>
   );
 }

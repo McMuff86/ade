@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /** Derive the multi-run Graph canvas from persisted orchestration runs. */
 
 import type {
@@ -99,12 +100,12 @@ export function failureNoticeFor(
     .sort((a, b) => b.seq - a.seq)[0];
   const eventDetail = failedEvent?.data?.['detail'];
   if (typeof eventDetail === 'string' && eventDetail.trim()) {
-    return { context: 'Orchestrierung', detail: eventDetail.trim(), failedTests };
+    return { context: translate("Orchestration"), detail: eventDetail.trim(), failedTests };
   }
 
   return {
-    context: 'Kein Fehlerdetail gespeichert',
-    detail: 'Der Run ist fehlgeschlagen, enthält aber keinen persistierten Fehlertext.',
+    context: translate("No error detail stored"),
+    detail: translate("The run failed, but does not contain any persistent error text."),
     failedTests,
   };
 }

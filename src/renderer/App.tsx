@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "./i18n/language";
 /**
  * App shell — three-region resizable layout:
  *   rail | center (tab strip + main area) | inspector (collapsible).
@@ -20,7 +22,6 @@ import { FirstRun } from './onboarding/FirstRun';
 import { SetupModal } from './onboarding/SetupModal';
 import { RightPanel } from './rightpanel/RightPanel';
 import { useMode } from './stores/mode';
-import { GraphView } from './graph/GraphView';
 import { OverviewView } from './overview/OverviewView';
 import { ProjectsView } from './projects/ProjectsView';
 import { WorkView } from './work/WorkView';
@@ -40,8 +41,10 @@ import { SupervisionButton, SupervisionContext } from './supervision/Supervision
 import { AppNav } from './nav/AppNav';
 import { DesktopTaskReminders } from './organizer/DesktopTaskReminders';
 const DesktopOrganizer = lazy(() => import('./organizer/DesktopOrganizer').then(module => ({ default: module.DesktopOrganizer })));
+const GraphView = lazy(() => import('./graph/GraphView').then(module => ({ default: module.GraphView })));
 
 export function App() {
+  useLocale();
   useSessionShortcuts();
   const theme = useSettings((s) => s.theme);
   const toggleTheme = useSettings((s) => s.toggleTheme);
@@ -93,30 +96,28 @@ export function App() {
 
         {/* Quick session switching is about the work in flight, not a room: it
             sits apart from the navigation and from administration. */}
-        <div className="titlebar-session" role="group" aria-label="Laufende Arbeit">
+        <div className="titlebar-session" role="group" aria-label={translate("Ongoing work")}>
           <SessionSwitchButton id="desktop-session-switch" />
           <SupervisionButton id="desktop-supervision" />
         </div>
 
-        <div className="titlebar-admin" role="group" aria-label="Verwaltung">
-          <span className="titlebar-caption" aria-hidden="true">Verwaltung</span>
-          <button id="ade-setup" className="btn btn-quiet" onClick={() => setSetupOpen(true)}>Einrichtung</button>
+        <div className="titlebar-admin" role="group" aria-label={translate("Administration")}>
+          <span className="titlebar-caption" aria-hidden="true">{translate("Administration")}</span>
+          <button id="ade-setup" className="btn btn-quiet" onClick={() => setSetupOpen(true)}>{translate("Setup")}</button>
           <button
             className="btn btn-quiet"
             onClick={() => setSettingsOpen(true)}
-            title="Darstellung, verbundene Geräte, Harness-Anmeldung und API-Schlüssel"
+            title={translate("Display, Connected Devices, Harness Login and API Keys")}
           >
-            Einstellungen
-          </button>
-          <button className="btn btn-quiet" onClick={() => showDiagnostics()} title="CLI-Verfügbarkeit und Anmeldung prüfen">
-            Diagnose
-          </button>
+            {translate("Settings")}</button>
+          <button className="btn btn-quiet" onClick={() => showDiagnostics()} title={translate("Check CLI availability and sign-in")}>
+            {translate("Diagnostics")}</button>
           {/* Quick toggle only; the deliberate choice lives in Einstellungen. */}
           <button
             className="btn btn-quiet btn-icon"
             onClick={toggleTheme}
-            title="Darstellung wechseln"
-            aria-label={theme === 'dark' ? 'Zur hellen Darstellung wechseln' : 'Zur dunklen Darstellung wechseln'}
+            title={translate("Switch appearance")}
+            aria-label={theme === 'dark' ? translate("Switch to light theme") : translate("Switch to dark theme")}
           >
             <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
@@ -128,9 +129,9 @@ export function App() {
 
       <div className="shell" style={{ position: 'relative' }} data-inspector-side={inspectorSide}>
         {mode === 'tasks' || mode === 'notes' ? (
-          <Suspense fallback={<p role="status">Aufgaben und Notizen werden geladen…</p>}><DesktopOrganizer kind={mode === 'tasks' ? 'task' : 'note'} /></Suspense>
+          <Suspense fallback={<p role="status">{translate("Loading tasks and notes…")}</p>}><DesktopOrganizer kind={mode === 'tasks' ? 'task' : 'note'} /></Suspense>
         ) : mode === 'graph' ? (
-          <GraphView />
+          <Suspense fallback={<p role="status">{translate('Loading graph…')}</p>}><GraphView /></Suspense>
         ) : mode === 'overview' ? (
           firstRun && repositoryCount === 0 ? <FirstRun onSetup={() => setSetupOpen(true)} onProjects={openProjects} allowCategory={false} /> : <OverviewView />
         ) : mode === 'work' ? (
@@ -172,6 +173,7 @@ function TerminalsLayout(props: {
   onInspectorExpand: () => void;
   onToggleInspector: () => void;
 }): JSX.Element {
+  useLocale();
   const hasHomeSessions = useSessions((state) => !!state.orderByAgent[TERMINAL_HOME_GROUP]?.length);
   const rail = (
     <Panel
@@ -190,14 +192,13 @@ function TerminalsLayout(props: {
       <div className="tabbar">
         <TabStrip />
         <div className="strip-actions">
-          <button className="btn" onClick={() => useSessionLaunch.getState().open(null)}>Terminal öffnen</button>
+          <button className="btn" onClick={() => useSessionLaunch.getState().open(null)}>{translate("Open terminal")}</button>
           <button
             className={props.inspectorOpen ? 'btn btn-toggled' : 'btn'}
             onClick={props.onToggleInspector}
-            title="Repository-Inspector ein- oder ausblenden"
+            title={translate("Repository Inspector on or off")}
           >
-            Inspector
-          </button>
+            {translate("Inspector")}</button>
         </div>
       </div>
       <div className="workarea">

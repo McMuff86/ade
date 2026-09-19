@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useCallback, type JSX } from 'react';
 import { IntegrationReview, type PendingIntegration } from '../renderer/repositories/IntegrationReview';
 import type { IntegrationQuery, IntegrationCommand, IntegrationResult } from '../shared/remote';
@@ -7,15 +9,16 @@ import { Dialog } from './ui';
 import { MobileClientError } from './client';
 
 const errorText = (error: unknown) => error instanceof MobileClientError && error.code === 'scope_not_granted'
-  ? 'Am PC die Freigaben für Workspace-Lesen, Git-Verwaltung und alle Projekte prüfen; Tests benötigen zusätzlich Terminal-Steuerung.'
-  : error instanceof Error ? error.message : 'Übernahme konnte nicht bestätigt werden.';
+  ? translate("On the PC, check the permission for workspace reading, git management and all projects; tests also require terminal control.")
+  : error instanceof Error ? error.message : translate("The integration could not be confirmed.");
 export function IntegrationDialog({ host, repositoryId, canChange, canTest, onClose, onWorkspace }: {
   host: MobileHost; repositoryId: string; canChange: boolean; canTest: boolean; onClose: () => void; onWorkspace: (id: string) => void;
 }): JSX.Element {
+  useLocale();
   const [pending, savePending] = useDeviceDraft<PendingIntegration | null>(host.deviceId, `integration:${repositoryId}`, null);
   const query = useCallback((input: IntegrationQuery) => host.request<IntegrationResult>('/api/v1/integration/query', 'POST', input), [host.request]);
   const command = useCallback((input: IntegrationCommand, key: string) => host.request<IntegrationResult>('/api/v1/integration/command', 'POST', input, key), [host.request]);
-  return <Dialog title="Änderungen übernehmen" onClose={onClose} fallbackId="mobile-title" className="m-integration-dialog">
+  return <Dialog title={translate("Apply changes")} onClose={onClose} fallbackId="mobile-title" className="m-integration-dialog">
     <IntegrationReview key={`${host.identityVersion}:${repositoryId}`} repositoryId={repositoryId} online={host.status === 'online'} canChange={canChange} canTest={canTest}
       query={query} command={command} pending={pending} savePending={savePending} errorText={errorText}
       certainError={(error) => error instanceof MobileClientError && [400, 403, 404, 409, 422].includes(error.status)} onBack={onClose} onWorkspace={onWorkspace} />

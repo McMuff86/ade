@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -63,15 +64,15 @@ export class ConversationStore {
   constructor(private readonly path: string) {
     const raw = this.read(); this.fingerprint = raw === null ? null : conversationDigest(raw);
     const value: unknown = raw === null ? { version: 1, revision: 0, conversations: [], commands: [] } : JSON.parse(raw);
-    if (!validConversationState(value)) throw new Error('ADE-Gesprächsspeicher ist ungültig. Original bleibt erhalten.');
+    if (!validConversationState(value)) throw new Error(translate("Invalid ADE conversation storage. The original is preserved."));
     this.state = value;
   }
   snapshot(): ConversationState { return structuredClone(this.state); }
   save(next: ConversationState): void {
-    if (!validConversationState(next) || next.revision !== this.state.revision + 1) throw new Error('Ungültige Gesprächsrevision.');
+    if (!validConversationState(next) || next.revision !== this.state.revision + 1) throw new Error(translate("Invalid conversation revision."));
     const bytes = JSON.stringify(next);
-    if (Buffer.byteLength(bytes) > CONVERSATION_FILE_LIMIT) throw new Error('ADE-Gesprächsspeicher hat sein Limit erreicht.');
-    const verify = () => { const raw = this.read(); if ((raw === null ? null : conversationDigest(raw)) !== this.fingerprint) throw new Error('ADE-Gespräche wurden ausserhalb dieser Instanz verändert. Neu starten und Stand prüfen.'); };
+    if (Buffer.byteLength(bytes) > CONVERSATION_FILE_LIMIT) throw new Error(translate("ADE conversation storage reached its limit."));
+    const verify = () => { const raw = this.read(); if ((raw === null ? null : conversationDigest(raw)) !== this.fingerprint) throw new Error(translate("ADE conversations have been changed outside of this instance. Restart and check status.")); };
     verify(); assertNoLinks(dirname(this.path)); mkdirSync(dirname(this.path), { recursive: true }); assertNoLinks(dirname(this.path));
     const temp = `${this.path}.${randomUUID()}.tmp`; const fd = openSync(temp, 'wx', 0o600);
     try { writeFileSync(fd, bytes); fsyncSync(fd); verify(); renameSync(temp, this.path); }
@@ -83,11 +84,11 @@ export class ConversationStore {
     const fd = openSync(this.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       const stat = fstatSync(fd);
-      if (!stat.isFile() || stat.nlink !== 1 || stat.size > CONVERSATION_FILE_LIMIT) throw new Error('Unsicherer oder zu grosser ADE-Gesprächsspeicher.');
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > CONVERSATION_FILE_LIMIT) throw new Error(translate("Unsafe or oversized ADE conversation storage."));
       const bytes = Buffer.alloc(stat.size + 1); let length = 0;
       while (length < bytes.length) { const n = readSync(fd, bytes, length, bytes.length - length, null); if (!n) break; length += n; }
       const after = fstatSync(fd); assertNoLinks(this.path); const named = lstatSync(this.path);
-      if (length !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs || named.dev !== stat.dev || named.ino !== stat.ino || named.nlink !== 1) throw new Error('ADE-Gesprächsspeicher wurde beim Lesen verändert.');
+      if (length !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs || named.dev !== stat.dev || named.ino !== stat.ino || named.nlink !== 1) throw new Error(translate("ADE conversation storage has been altered upon reading."));
       return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, length));
     } finally { closeSync(fd); }
   }

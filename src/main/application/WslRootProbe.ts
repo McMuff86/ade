@@ -1,9 +1,10 @@
+import { t as translate } from "../../shared/i18n";
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { ExecutionBackendId } from '../../shared/executionBackends';
 import type { ExecutionBackendService } from '../execution/ExecutionBackendService';
 import { RemoteApiError } from './AdeApplicationService';
 
-const unavailable = () => new RemoteApiError(422, 'command_rejected', 'WSL-Workspace nicht verfügbar. Ordner, Python 3 und Zugriffsrechte am PC prüfen. Verknüpfungen sind gesperrt.');
+const unavailable = () => new RemoteApiError(422, 'command_rejected', translate("WSL workspace not available. Check folder, Python 3, and access rights on PC. Links are locked."));
 interface Pending { resolve: (identity: string | null) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; data: string }
 
 /** One fixed, read-only worker per active distro; identities are checked afresh, never cached. */

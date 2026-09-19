@@ -1,5 +1,25 @@
 # ADE User-Guide
 
+## Sprache und Gespräche
+
+**Einstellungen → Sprache** schaltet zwischen **Deutsch** und **English** um.
+PC und Tablet merken sich ihre Auswahl getrennt; offene Entwürfe und die
+Gerätekopplung bleiben erhalten. **Gespräche** öffnet **Projektbetreuung** oder
+**Plaudern & Stimme**. Im freien Gespräch ein Codex-Profil wählen, ein Gespräch
+anlegen und schreiben oder diktieren.
+
+Im ausklappbaren **Stimmenstudio** Stimmen laden, einen Text eingeben oder die
+letzte Antwort übernehmen. Zwei Varianten mit demselben Text vergleichen,
+Vorlagen anwenden oder eigene Einstellungen speichern. Regler erzeugen kein
+Audio; **A/B vergleichen** fordert ausdrücklich zwei kostenpflichtige Hörproben
+an. Danach mit den Audioreglern anhören. Die Studio-Einstellungen gelten auf
+diesem Gerät und ändern die allgemeinen ADE-Stimmen nicht.
+[Anleitung, Modellunterschiede und Grenzen](LANGUAGES_AND_CONVERSATIONS.md).
+
+Desktop **und** Mobile bauen: ADE über das Infobereich-Menü vollständig beenden,
+im Repository `pnpm build` ausführen, dann mit `pnpm start` öffnen. Auf dem Tablet
+die bestehende HTTPS-Seite neu laden. Eine neue Kopplung ist nicht erforderlich.
+
 ## Eine Sitzungsantwort anhören
 
 Im Terminal **Antwort anhören** wählen. Eine Textmarkierung wird bevorzugt;
@@ -11,14 +31,13 @@ Einstellungen → Stimme gilt auch hier. [Details und Grenzen](REPLY_SPEECH.md).
 
 ## Stimme persönlich einstellen
 
-Auf PC und Tablet **Settings/Einstellungen → Stimme → Stimmen laden** öffnen.
-**Tempo** macht die Stimme langsamer oder schneller; der neue Standard ist 0.85.
-Weitere Regler passen Stabilität, Stimmähnlichkeit und Stil an; Speaker Boost
-lässt sich ein- und ausschalten. **Stimme testen** hört den Entwurf vor, ohne
-ihn zu speichern. **Parameter speichern** übernimmt ihn für PC und Tablet,
-einschliesslich der Computer-Begrüssung. **Änderungen verwerfen** holt den
-gespeicherten Stand zurück. **Ruhiger Computer** lädt ein noch zu speicherndes
-Preset. [Details](VOICE_SETTINGS.md).
+Auf PC und Tablet **Einstellungen → Stimme → Stimmen laden** öffnen.
+Die allgemeine ADE-Ausgabe und Computer-Begrüssung verwenden die bestehende
+v3-Verbindung mit dem Regler **Stabilität**. **Stimme testen** hört den Entwurf
+vor; **Parameter speichern** übernimmt ihn für PC und Tablet. Weitere Regler
+für Tempo, Stimmähnlichkeit, Ausdruck und Stimmverstärkung stehen im neuen
+**Gespräche → Plaudern & Stimme → Stimmenstudio** mit Multilingual v2 bereit.
+[Aktueller Vertrag](LANGUAGES_AND_CONVERSATIONS.md).
 
 Für die tägliche Arbeit mit mehreren Repositories beginne unter **Projekte**.
 Die gemeinsame Sitzungsübersicht steht unter **Aufträge → CLI-Arbeit**; der

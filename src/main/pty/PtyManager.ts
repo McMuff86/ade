@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { CodexAppServerProcess, type TaskProcess } from './CodexAppServerProcess';
 import type { RunQuestionService } from '../orchestration/RunQuestionService';
 /**
@@ -329,7 +330,7 @@ export class PtyManager {
   }
 
   write(sessionId: string, data: Buffer): void {
-    if (this.promptWriter.busy(sessionId)) throw new Error('Promptübergabe läuft. Bitte kurz warten.');
+    if (this.promptWriter.busy(sessionId)) throw new Error(translate("Prompt handover is running. Wait a minute."));
     const session = this.sessions.get(sessionId);
     if (!session || session.meta.status === 'exited') return;
     session.proc.write(data.toString('utf8'));
@@ -338,11 +339,11 @@ export class PtyManager {
   promptCapability(sessionId: string, requirePaste = true): TerminalPromptCapability {
     const session = this.sessions.get(sessionId);
     if (!session || session.meta.status !== 'running' || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) {
-      return { available: false, reason: 'Diese CLI-Sitzung ist beendet oder nicht verfügbar. Der Entwurf bleibt erhalten.' };
+      return { available: false, reason: translate("This CLI session has ended or is unavailable. Your draft is preserved.") };
     }
-    if (!session.promptProtected) return { available: false, reason: 'Für sichere Promptübergabe eine neue native Codex-, Claude-Code- oder Grok-Sitzung öffnen.' };
-    if (session.meta.program?.status !== 'running') return { available: false, reason: 'Die gestartete CLI ist noch nicht verfügbar oder bereits beendet.' };
-    if (requirePaste && !session.display?.acceptsBracketedPaste()) return { available: false, reason: 'Die CLI nimmt gerade keinen mehrzeiligen Paste an. Terminal prüfen und kurz warten.' };
+    if (!session.promptProtected) return { available: false, reason: translate("For secure prompt delivery, open a new native Codex, Claude, or Grok session.") };
+    if (session.meta.program?.status !== 'running') return { available: false, reason: translate("The started CLI is not yet available or has already ended.") };
+    if (requirePaste && !session.display?.acceptsBracketedPaste()) return { available: false, reason: translate("The CLI cannot accept a multiline paste right now. Check the terminal and wait briefly.") };
     return { available: true };
   }
 
@@ -434,20 +435,20 @@ export class PtyManager {
   async createHomeInteractive(choice: SessionLaunchChoice, authorize: () => void = () => undefined): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
       authorize();
-      if (choice.mode === 'agent') throw new Error('ade: Für ein Agent-Profil dessen Workspace auswählen.');
+      if (choice.mode === 'agent') throw new Error(translate("ade: Select the workspace for an agent profile."));
       const home = terminalHome();
       const revalidate = async () => {
-        if (JSON.stringify(terminalHome()) !== JSON.stringify(home)) throw new Error('ade: Benutzerverzeichnis wurde geändert.');
+        if (JSON.stringify(terminalHome()) !== JSON.stringify(home)) throw new Error(translate("ade: User directory has been changed."));
         authorize();
       };
       return this.spawn(undefined, { ...home, source: 'terminal-home', branch: '' }, undefined, undefined, choice,
-        { settings: { name: 'Freies Terminal', runtime: 'shell', permissionMode: 'default' }, revalidate }, authorize);
+        { settings: { name: translate("Standalone terminal"), runtime: 'shell', permissionMode: 'default' }, revalidate }, authorize);
     });
   }
 
   profileContextText(sessionId: string): string | null {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error('ade: Sitzung ist nicht mehr vorhanden.');
+    if (!session) throw new Error(translate("ade: Session no longer exists."));
     return session.profileText ?? null;
   }
 
@@ -455,53 +456,53 @@ export class PtyManager {
     profileId?: string, assertAuthorized: () => void = () => undefined): Promise<SessionMeta> {
     return workspaceOperations.use(async () => {
       assertAuthorized();
-      if (choice.mode === 'agent' ? !profileId : profileId !== undefined) throw new Error('ade: Startprofil ausdrücklich auswählen oder ohne Profil starten.');
+      if (choice.mode === 'agent' ? !profileId : profileId !== undefined) throw new Error(translate("ade: Select start profile explicitly or start without profile."));
       const projects = new ProjectWorkspaceService(this.store);
       const resolved = await projects.resolve(workspaceId);
       const profile = profileId ? this.requireAgent(profileId) : undefined;
-      if (profile?.homeExecutionBackend && profile.homeExecutionBackend !== 'native') throw new Error('ade: Dieses Profil gehört zu einer anderen Umgebung. Ein natives Profil wählen oder dessen eigenen Workspace öffnen.');
+      if (profile?.homeExecutionBackend && profile.homeExecutionBackend !== 'native') throw new Error(translate("ade: This profile belongs to a different environment. Choose a native profile or open its own workspace."));
       const fingerprint = JSON.stringify(profile);
       const revalidate = async () => {
         const current = await projects.resolve(workspaceId);
-        if (current.branch !== expectedBranch || !sameHostPath(current.workspace.workspaceDir, resolved.workspace.workspaceDir)) throw new Error('ade: Projekt-Branch wurde geändert. Workspace aktualisieren und erneut starten.');
-        if (profileId && JSON.stringify(this.requireAgent(profileId)) !== fingerprint) throw new Error('ade: Startprofil wurde inzwischen geändert. Erneut auswählen.');
-        if (this.store.get().runWorkspaceLeases.some((lease) => lease.status === 'active' && sameHostPath(lease.commonGitDir, current.repository.commonGitDir))) throw new Error('ade: Repository ist durch einen verwalteten Auftrag belegt.');
+        if (current.branch !== expectedBranch || !sameHostPath(current.workspace.workspaceDir, resolved.workspace.workspaceDir)) throw new Error(translate("ade: Project branch has been changed. Update workspace and restart it."));
+        if (profileId && JSON.stringify(this.requireAgent(profileId)) !== fingerprint) throw new Error(translate("ade: Start profile has since been changed. Select again."));
+        if (this.store.get().runWorkspaceLeases.some((lease) => lease.status === 'active' && sameHostPath(lease.commonGitDir, current.repository.commonGitDir))) throw new Error(translate("ade: Repository is occupied by a managed job."));
         assertAuthorized();
       };
       await revalidate();
       const scope: ResolvedExecutionScope = { source: 'project-workspace', repositoryId: resolved.repository.id,
         workspaceDir: resolved.workspace.workspaceDir, branch: resolved.branch, executionBackend: 'native' };
       return this.spawn(undefined, scope, undefined, undefined, choice, { workspaceId, profileId, revalidate,
-        settings: profile ?? { name: 'Ohne Agent-Profil', runtime: 'shell', permissionMode: 'default' } });
+        settings: profile ?? { name: translate("Without an agent profile"), runtime: 'shell', permissionMode: 'default' } });
     });
   }
 
   async subscriptionUsage(sessionId: string): Promise<SubscriptionUsage> {
     const session = this.sessions.get(sessionId);
-    if (!session || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) throw new Error('Interaktives Terminal ist nicht verfügbar.');
+    if (!session || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) throw new Error(translate("Interactive terminal is not available."));
     const provider = session.usageProvider ?? 'unknown';
-    const fallback: SubscriptionUsage = { provider, source: 'cli', checkedAt: Date.now(), status: 'unavailable', windows: [],
+    const fallback: SubscriptionUsage = ({ provider, source: 'cli', checkedAt: Date.now(), status: 'unavailable', windows: [],
       consumption: this.nativeUsage?.consumption(sessionId),
-      message: session.meta.runtime === 'ollama' ? 'Diese Sitzung verwendet Ollama. Eine automatische Abo- und Sitzungsverbrauchsanzeige für Ollama ist noch nicht eingerichtet.'
-        : provider === 'unknown' ? 'Für diese Shell oder diesen eigenen Startbefehl ist kein Abo-Anbieter bekannt.'
-        : provider === 'claude' ? 'Claude Code zeigt die aktuellen Abo-Limits mit /usage. Automatische Übernahme in ADE ist noch nicht eingerichtet.'
-          : provider === 'grok' ? 'Grok Build zeigt den aktuellen Verbrauch und Reset mit /usage.'
-            : 'Für diese Umgebung die Abo-Limits mit /status in Codex prüfen.',
-      ...(provider !== 'unknown' ? { command: provider === 'codex' ? '/status' : '/usage' } as const : {}) };
+      message: session.meta.runtime === 'ollama' ? translate("This session uses Ollama. An automatic subscription and session usage indicator for Ollama has not yet been set up.")
+        : provider === 'unknown' ? translate("No subscription provider is known for this shell or this own start command.")
+        : provider === 'claude' ? translate("Claude Code shows the current subscription limits with /usage. Automatic integration in ADE is not yet set up.")
+          : provider === 'grok' ? translate("Grok Build shows the current usage and reset with /usage.")
+            : translate("For this environment, check the subscription limits with /status in Codex."),
+      ...(provider !== 'unknown' ? { command: provider === 'codex' ? '/status' : '/usage' } as const : {}) });
     const launchUsage: SubscriptionUsage = session.usageApiKey && provider !== 'unknown' ? { ...fallback, authentication: 'api-key-present',
-      message: `Für ${provider === 'codex' ? 'Codex' : provider === 'claude' ? 'Claude Code' : 'Grok Build'} wurde beim Start ein eigener API-Zugang übergeben. Das ist kein ElevenLabs-Key. Die tatsächlich verwendete Anmeldung und Abrechnung in der CLI prüfen.` } : fallback;
+      message: translate("For {{value1}}, a separate API access was given at launch, which is not an ElevenLabs key, and check the login and billing actually used in the CLI.", { value1: provider === 'codex' ? 'Codex' : provider === 'claude' ? 'Claude Code' : 'Grok Build' }) } : fallback;
     if (provider !== 'codex' || session.meta.executionBackend !== 'native') return launchUsage;
     // A supplied API key must not hide an independently observable local subscription.
     // This probe observes the host account, not the auth state of the existing TUI.
     const result = await cachedCodexAccountUsage();
-    if (this.sessions.get(sessionId) !== session) throw new Error('Terminalsitzung wurde inzwischen geschlossen.');
+    if (this.sessions.get(sessionId) !== session) throw new Error(translate("Terminal session has since been closed."));
     return { ...result, consumption: this.nativeUsage?.consumption(sessionId), authentication: session.usageApiKey ? 'api-key-present' : result.status === 'available' ? 'subscription-account' : 'unknown',
       message: `${session.usageApiKey ? launchUsage.message + ' ' : ''}${result.message}`, command: '/status' };
   }
 
   async remoteDisplay(sessionId: string): Promise<Awaited<ReturnType<RemoteTerminalDisplay['snapshot']>>> {
     const display = this.sessions.get(sessionId)?.display;
-    if (!display) throw new Error('Interaktives Terminal ist nicht mehr verfügbar.');
+    if (!display) throw new Error(translate("Interactive terminal is no longer available."));
     return display.snapshot();
   }
 
@@ -551,13 +552,13 @@ export class PtyManager {
   ): Promise<SessionMeta> {
     const savedAgent = agentId ? this.requireAgent(agentId) : undefined; const before = JSON.stringify(savedAgent);
     const settings = project?.settings ?? savedAgent;
-    if (!settings || ((task || login) && !savedAgent)) throw new Error('ade: Sitzung hat keinen gültigen Startkontext.');
+    if (!settings || ((task || login) && !savedAgent)) throw new Error(translate("ade: Session does not have a valid starting context."));
     const agent = launchChoice ? await new SessionLaunchService(this.store, this.execution).effectiveSettings(settings, scope.executionBackend, launchChoice)
       : this.effectiveTaskAgent(savedAgent!, task?.runTaskId);
     if (!login) await new SessionLaunchService(this.store, this.execution).validateOllamaCoding(agent, scope.executionBackend);
     const ollamaCoding = agent.runtime === 'ollama' && agent.ollamaMode === 'coding';
     const ollamaCodex = ollamaCoding && agent.ollamaHarness !== 'qwen-code';
-    if (agentId && before !== JSON.stringify(this.requireAgent(agentId))) throw new Error('ade: Agent wurde inzwischen geändert. Sitzung erneut öffnen.');
+    if (agentId && before !== JSON.stringify(this.requireAgent(agentId))) throw new Error(translate("ade: The agent has changed. Reopen the session."));
     this.assertScopeAvailable(scope, task?.runTaskId);
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
@@ -574,7 +575,7 @@ export class PtyManager {
     const profileSnapshot = profileIdentity && (profileIdentity.profile !== undefined || (ollamaCoding && !ollamaCodex))
       ? buildInteractiveProfileSnapshot(profileIdentity, this.store.get().settings.memory) : undefined;
     if (allowQuestions && (agent.runtime !== 'codex' || agent.customCommand?.trim() || scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !this.questions)) {
-      throw new Error('ade: Interaktive Runs benötigen eine native Codex-Laufzeit und den ADE-Rückfragendienst.');
+      throw new Error(translate("ade: Interactive runs require a native Codex runtime and the ADE query service."));
     }
     // Coordinator single-task runs use the native question transport without a
     // managed phase launch. Deliver their identity as main-owned prompt context,
@@ -611,8 +612,8 @@ export class PtyManager {
     }
     const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
     if (profileSnapshot && profileIdentity) {
-      if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error('ade: Interaktive Profilanweisungen benötigen derzeit einen nativen Windows-Start.');
-      if (!spec.initialCommand) throw new Error('ade: Dieser Sitzungsstart kann keine Profilanweisungen übertragen.');
+      if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error(translate("ade: Interactive profile instructions currently require a native Windows startup."));
+      if (!spec.initialCommand) throw new Error(translate("ade: This session start cannot transfer profile instructions."));
       const baseline = agent.runtime === 'codex' || ollamaCodex ? await readCodexProfileConfig({ cwd,
         env: { ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) } }) : undefined;
       if (baseline?.status === 'unavailable') throw new Error(baseline.message);
@@ -675,16 +676,16 @@ export class PtyManager {
     try {
       if (project) await project.revalidate();
       if (profileSnapshot && profileIdentity && buildInteractiveProfileSnapshot(this.requireAgent(profileIdentity.id), this.store.get().settings.memory).sha256 !== profileSnapshot.sha256) {
-        throw new Error('ade: Profilanweisungen wurden während des Starts geändert. Sitzung erneut öffnen.');
+        throw new Error(translate("ade: Profile instructions have been changed during the start. Reopen session."));
       }
       if (questionTaskProfile && buildInteractiveProfileSnapshot({ ...this.requireAgent(agentId!), ...this.effectiveTaskAgent(this.requireAgent(agentId!), task!.runTaskId) },
         this.store.get().settings.memory).sha256 !== questionTaskProfile.sha256) {
-        throw new Error('ade: Profilanweisungen wurden während des Auftragsstarts geändert. Auftrag erneut prüfen.');
+        throw new Error(translate("ade: Profile instructions were changed during the start of the job. Check the job again."));
       }
       if (task?.runTaskId && this.taskFileTracker) {
         await this.taskFileTracker.before(task.runTaskId, scope);
         const currentTask = this.store.get().runTasks.find((item) => item.id === task.runTaskId);
-        if (!currentTask || currentTask.status !== 'queued') throw new Error('ade: Auftrag wurde vor Prozessstart beendet.');
+        if (!currentTask || currentTask.status !== 'queued') throw new Error(translate("ade: Job was terminated before process start."));
       }
       this.assertScopeAvailable(scope, task?.runTaskId);
       authorize();
@@ -836,7 +837,7 @@ export class PtyManager {
             if (feed.persisted >= ACTIVITY_FILE_CAP) {
               appendFileSync(
                 feed.filePath,
-                `${JSON.stringify({ kind: 'error', text: '[ADE: Aktivitätslimit erreicht — weitere Zeilen werden nicht aufgezeichnet]' })}\n`,
+                `${JSON.stringify({ kind: 'error', text: translate("[ADE: Activity Limit Reached — Additional Lines Not Recorded]") })}\n`,
                 'utf8',
               );
             }
@@ -1031,7 +1032,7 @@ export class PtyManager {
       agentId: meta.agentId,
       projectWorkspaceId: meta.projectWorkspaceId,
       branch: meta.branch,
-      agentName: meta.projectWorkspaceId ? `${meta.title} · ${meta.launchProfileName ?? 'Ohne Agent-Profil'}` : agent.name,
+      agentName: meta.projectWorkspaceId ? `${meta.title} · ${meta.launchProfileName ?? translate("Without an agent profile")}` : agent.name,
       runtime: agent.runtime,
       repositoryId: meta.repositoryId ?? null,
       repositoryName,

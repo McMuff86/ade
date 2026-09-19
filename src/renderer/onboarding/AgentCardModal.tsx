@@ -1,3 +1,6 @@
+import { t as translate } from "../../shared/i18n";
+import { localizedLabels } from "../../shared/i18n/labels";
+import { useLocale } from "../i18n/language";
 /**
  * Agent business card — opened by clicking the avatar in the rail. A large
  * portrait plus the identity's operative facts at a glance; editing stays in
@@ -21,11 +24,11 @@ interface AgentCardModalProps {
   onClose: () => void;
 }
 
-const TEAM_ROLE_LABELS: Record<string, string> = {
-  orchestrator: 'Main orchestrator',
-  lead: 'Team lead',
-  worker: 'Worker',
-};
+const TEAM_ROLE_LABELS: Record<string, string> = localizedLabels(() => ({
+  orchestrator: translate("Main orchestrator"),
+  lead: translate("Team lead"),
+  worker: translate("Worker"),
+}));
 
 function runtimeLine(agent: Agent): string {
   const label = LAUNCH_PROFILES[agent.runtime]?.label ?? agent.runtime;
@@ -41,13 +44,14 @@ function runtimeLine(agent: Agent): string {
   }
   if (agent.runtime === 'claude' && agent.claudeModel) return `${label} · ${agent.claudeModel}`;
   if (agent.runtime === 'ollama' && agent.ollamaModel) {
-    const harness = agent.ollamaMode === 'coding' ? (agent.ollamaHarness === 'qwen-code' ? 'Qwen Code' : 'Codex CLI') : 'Chat';
+    const harness = agent.ollamaMode === 'coding' ? (agent.ollamaHarness === 'qwen-code' ? translate("Qwen Code") : translate("Codex CLI")) : translate("Chat");
     return `${label} · ${harness} · ${agent.ollamaModel}`;
   }
   return label;
 }
 
 export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.ReactElement {
+  useLocale();
   const repositories = useAppData((s) => s.repositories);
   const sessions = useSessions((s) => s.sessions);
   const openAgentSettings = useOnboarding((s) => s.openAgentSettings);
@@ -59,7 +63,7 @@ export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.R
   );
   const homeBackendLabel = homeIsWsl
     ? `WSL · ${agent.homeExecutionBackend!.slice('wsl:'.length)}`
-    : 'Native';
+    : translate("Native");
   const defaultRepository = agent.defaultRepositoryId
     ? repositories.find((repository) => repository.id === agent.defaultRepositoryId)
     : undefined;
@@ -68,30 +72,30 @@ export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.R
     .find((mode) => mode.id === agent.permissionMode)?.label ?? agent.permissionMode;
   const dashboard = agent.dashboardCommand?.trim() || agent.dashboardUrl?.trim();
 
-  const specs: Array<{ label: string; value: string; mono?: boolean }> = [
-    { label: 'Runtime', value: runtimeLine(agent) },
-    { label: 'Permissions', value: permission },
-    { label: 'Start command', value: command || 'Default shell', mono: true },
+  const specs: Array<{ label: string; value: string; mono?: boolean }> = ([
+    { label: translate("Runtime"), value: runtimeLine(agent) },
+    { label: translate("Permissions"), value: permission },
+    { label: translate("Start command"), value: command || 'Default shell', mono: true },
     {
-      label: 'Home',
+      label: translate("Home"),
       value: `${homeBackendLabel} · ${agent.homeWorkspaceDir ?? agent.workspaceDir}`,
       mono: true,
     },
     {
-      label: 'Default repository',
+      label: translate("Default repository"),
       value: defaultRepository?.name ?? 'Portable (no default)',
     },
     ...(agent.teamRole
-      ? [{ label: 'Team role', value: TEAM_ROLE_LABELS[agent.teamRole] ?? agent.teamRole }]
+      ? [{ label: translate("Team role"), value: TEAM_ROLE_LABELS[agent.teamRole] ?? agent.teamRole }]
       : []),
     ...(dashboard
       ? [{
-          label: 'Dashboard',
+          label: translate("Dashboard"),
           value: `${dashboard}${agent.dashboardTarget === 'external' ? ' · browser' : ' · ADE window'}`,
           mono: true,
         }]
       : []),
-  ];
+  ]);
 
   return (
     <Modal
@@ -118,16 +122,14 @@ export function AgentCardModal({ agent, onClose }: AgentCardModalProps): React.R
           </div>
         ))}
       </dl>
-      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title="Agent-Stimme" />
+      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title={translate("Agent voice")} />
       <DesktopAgentBehavior agentId={agent.id} />
 
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => openAgentSettings(agent.id)}>
-          Agent settings
-        </button>
+          {translate("Agent settings")}</button>
         <button type="button" className="btn primary" onClick={onClose}>
-          Close
-        </button>
+          {translate("Close [436c6f73]")}</button>
       </div>
     </Modal>
   );

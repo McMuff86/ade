@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -36,35 +37,35 @@ export class OrganizerStore {
     const raw = this.read(); this.fingerprint = raw === null ? null : digest(raw);
     let value: unknown;
     try { value = raw === null ? { version: 1, revision: 0, entries: [], writers: [] } : JSON.parse(raw); }
-    catch { throw new OrganizerError('unavailable', 'Aufgaben und Notizen konnten nicht gelesen werden. Die Originaldatei bleibt erhalten.'); }
-    if (!validState(value)) throw new OrganizerError('unavailable', 'Aufgaben und Notizen haben ein ungültiges Format. Die Originaldatei bleibt erhalten.');
+    catch { throw new OrganizerError('unavailable', translate("Tasks and notes could not be read. The original file remains.")); }
+    if (!validState(value)) throw new OrganizerError('unavailable', translate("Tasks and notes have an invalid format, and the original file remains intact."));
     this.state = value;
   }
   index(): OrganizerIndex { return { revision: this.state.revision, entries: this.state.entries.map(organizerSummary) }; }
   detail(id: string): OrganizerEntry | null { const entry = this.state.entries.find(item => item.document.id === id); return entry ? structuredClone(entry) : null; }
   writerSequence(writerId: string, owner: string): number {
     const writer = this.state.writers.find(item => item.id === writerId);
-    if (writer && writer.owner !== digest(owner)) throw new OrganizerError('writer_owner', 'Dieser Entwurf gehört zu einem anderen Gerätezugang.');
+    if (writer && writer.owner !== digest(owner)) throw new OrganizerError('writer_owner', translate("This draft belongs to a different device access."));
     return writer?.sequence ?? 0;
   }
   mutate(input: OrganizerMutation, owner: string): OrganizerReceipt {
-    if (!validOrganizerMutation(input) || Buffer.byteLength(JSON.stringify(input)) > ORGANIZER_LIMITS.documentBytes) throw new OrganizerError('invalid', 'Aufgabe oder Notiz ist ungültig oder zu gross.');
+    if (!validOrganizerMutation(input) || Buffer.byteLength(JSON.stringify(input)) > ORGANIZER_LIMITS.documentBytes) throw new OrganizerError('invalid', translate("Task or note is invalid or too large."));
     const sequence = this.writerSequence(input.writerId, owner);
     const fingerprint = digest(JSON.stringify(input));
     const previous = this.state.writers.find(writer => writer.id === input.writerId);
     if (input.sequence === sequence && previous) {
-      if (previous.fingerprint !== fingerprint) throw new OrganizerError('key_reused', 'Die wiederholte Änderung hat einen anderen Inhalt.');
+      if (previous.fingerprint !== fingerprint) throw new OrganizerError('key_reused', translate("The repeated change has a different content."));
       return { ...previous.receipt, replayed: true };
     }
-    if (input.sequence < sequence) throw new OrganizerError('sequence_old', 'Diese Änderung wurde bereits durch eine spätere Änderung abgelöst.');
-    if (input.sequence !== sequence + 1) throw new OrganizerError('sequence_gap', 'Eine frühere Änderung muss zuerst synchronisiert werden.');
+    if (input.sequence < sequence) throw new OrganizerError('sequence_old', translate("This change has already been replaced by a later change."));
+    if (input.sequence !== sequence + 1) throw new OrganizerError('sequence_gap', translate("An earlier change must be synchronized first."));
     const id = input.operation === 'put' ? input.document.id : input.id;
     const current = this.state.entries.find(entry => entry.document.id === id);
-    if (!current && input.baseRevision > 0) throw new OrganizerError('missing', 'Der ursprüngliche Eintrag ist nicht mehr vorhanden. Der lokale Entwurf bleibt erhalten.');
-    if (current && input.operation === 'put' && current.document.kind !== input.document.kind) throw new OrganizerError('invalid', 'Aufgaben und Notizen behalten ihren Typ.');
+    if (!current && input.baseRevision > 0) throw new OrganizerError('missing', translate("The original entry no longer exists; the local draft is retained."));
+    if (current && input.operation === 'put' && current.document.kind !== input.document.kind) throw new OrganizerError('invalid', translate("Tasks and notes keep their type."));
     const stale = (current?.revision ?? 0) !== input.baseRevision;
-    if (input.operation === 'delete' && (!current || stale)) throw new OrganizerError('changed', 'Der Eintrag wurde inzwischen geändert. Vor dem Löschen neu laden.');
-    if (this.state.revision === Number.MAX_SAFE_INTEGER) throw new OrganizerError('limit', 'Der Versionsspeicher ist voll.');
+    if (input.operation === 'delete' && (!current || stale)) throw new OrganizerError('changed', translate("This entry has changed. Reload before deleting it."));
+    if (this.state.revision === Number.MAX_SAFE_INTEGER) throw new OrganizerError('limit', translate("The version storage is full."));
     const revision = this.state.revision + 1;
     const at = Math.max(this.now(), current?.updatedAt ?? 0);
     let entry: OrganizerEntry;
@@ -84,14 +85,14 @@ export class OrganizerStore {
     const writer: Writer = { id: input.writerId, owner: digest(owner), sequence: input.sequence, fingerprint, receipt };
     const writerIndex = next.writers.findIndex(item => item.id === writer.id);
     if (writerIndex < 0) next.writers.push(writer); else next.writers[writerIndex] = writer;
-    if (next.entries.length > ORGANIZER_LIMITS.documents || next.writers.length > ORGANIZER_LIMITS.writers) throw new OrganizerError('limit', 'Der Aufgaben- und Notizspeicher ist voll. Bestehende Daten bleiben erhalten.');
+    if (next.entries.length > ORGANIZER_LIMITS.documents || next.writers.length > ORGANIZER_LIMITS.writers) throw new OrganizerError('limit', translate("Task and note storage is full. Existing data is preserved."));
     this.save(next); return structuredClone(receipt);
   }
   private save(next: State): void {
-    if (!validState(next)) throw new OrganizerError('invalid', 'Ungültiger Aufgaben- und Notizstand.');
+    if (!validState(next)) throw new OrganizerError('invalid', translate("Invalid status of tasks and notes."));
     const bytes = JSON.stringify(next);
-    if (Buffer.byteLength(bytes) > ORGANIZER_LIMITS.storeBytes) throw new OrganizerError('limit', 'Der Aufgaben- und Notizspeicher ist voll. Bestehende Daten bleiben erhalten.');
-    const verify = () => { const raw = this.read(); if ((raw === null ? null : digest(raw)) !== this.fingerprint) throw new OrganizerError('changed', 'Die Ablage wurde ausserhalb von ADE verändert. Entwürfe behalten und ADE neu starten.'); };
+    if (Buffer.byteLength(bytes) > ORGANIZER_LIMITS.storeBytes) throw new OrganizerError('limit', translate("Task and note storage is full. Existing data is preserved."));
+    const verify = () => { const raw = this.read(); if ((raw === null ? null : digest(raw)) !== this.fingerprint) throw new OrganizerError('changed', translate("The filing has been changed outside of ADE. Keep drafts and restart ADE.")); };
     verify(); assertNoLinks(dirname(this.path)); mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 }); assertNoLinks(dirname(this.path));
     const temporary = `${this.path}.${randomUUID()}.tmp`; const fd = openSync(temporary, 'wx', 0o600);
     try { writeFileSync(fd, bytes); fsyncSync(fd); closeSync(fd); verify(); renameSync(temporary, this.path);
@@ -105,12 +106,12 @@ export class OrganizerStore {
     const fd = openSync(this.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       const before = fstatSync(fd);
-      if (!before.isFile() || before.nlink !== 1 || before.size > ORGANIZER_LIMITS.storeBytes) throw new OrganizerError('unavailable', 'Unsichere oder zu grosse Aufgaben- und Notizablage.');
+      if (!before.isFile() || before.nlink !== 1 || before.size > ORGANIZER_LIMITS.storeBytes) throw new OrganizerError('unavailable', translate("Insecure or too large task and note storage."));
       const bytes = Buffer.alloc(before.size + 1); let length = 0;
       while (length < bytes.length) { const count = readSync(fd, bytes, length, bytes.length - length, null); if (!count) break; length += count; }
       const after = fstatSync(fd); assertNoLinks(this.path); const named = lstatSync(this.path);
       if (length !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || before.ino !== named.ino || before.dev !== named.dev || named.nlink !== 1)
-        throw new OrganizerError('changed', 'Die Aufgaben- und Notizablage wurde beim Lesen verändert.');
+        throw new OrganizerError('changed', translate("Task and note storage changed while reading."));
       return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, length));
     } finally { closeSync(fd); }
   }

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -53,13 +54,13 @@ export class IntegrationRecords {
       if (bytes) {
         const data = JSON.parse(bytes.toString('utf8')) as { version: number; records: IntegrationRecord[] };
         if (data.version !== 1 || !Array.isArray(data.records) || data.records.length > 50 || !data.records.every(valid)
-          || new Set(data.records.map((record) => record.report.id)).size !== data.records.length) integrationFail('Ungültiger Übernahmespeicher.');
+          || new Set(data.records.map((record) => record.report.id)).size !== data.records.length) integrationFail(translate("Invalid integration storage."));
         this.records = data.records;
         let changed = false;
         for (const record of this.records) if (record.report.phase === 'preparing' || record.report.phase === 'testing') {
           changed = true; record.report.phase = 'interrupted'; record.report.tested = false; record.testedTree = null; record.testedState = null;
-          record.report.blockers = ['Vorbereitung oder Prüfung durch Neustart unterbrochen. Arbeitskopie prüfen und Tests erneut starten.'];
-          for (const check of record.report.checks) if (check.status === 'running' || check.status === 'pending') { check.status = 'failed'; check.output = 'Durch Neustart unterbrochen.'; }
+          record.report.blockers = [translate("Preparation or testing interrupted by restart. Check working copy and restart tests.")];
+          for (const check of record.report.checks) if (check.status === 'running' || check.status === 'pending') { check.status = 'failed'; check.output = translate("Interrupted by restart."); }
         }
         if (changed) this.write(this.records);
       }
@@ -68,19 +69,19 @@ export class IntegrationRecords {
   list(): IntegrationRecord[] { this.assertAvailable(); return structuredClone(this.records); }
   get(id: string): IntegrationRecord {
     this.assertAvailable(); const record = this.records.find((item) => item.report.id === id);
-    if (!record) integrationFail('Übernahmebericht ist nicht vorhanden.');
+    if (!record) integrationFail(translate("There is no integration report."));
     return structuredClone(record!);
   }
   save(record: IntegrationRecord): void {
-    this.assertAvailable(); if (!valid(record)) integrationFail('Übernahmebericht überschreitet seinen Vertrag.');
+    this.assertAvailable(); if (!valid(record)) integrationFail(translate("The integration report exceeds its limits."));
     const next = this.records.filter((item) => item.report.id !== record.report.id).concat(structuredClone(record));
-    if (next.length > 50) integrationFail('Maximal 50 gespeicherte Übernahmen. Speicher am PC verwalten.');
+    if (next.length > 50) integrationFail(translate("Maximum of 50 stored integrations. Manage storage on the PC."));
     this.write(next); this.records = next;
   }
-  private assertAvailable(): void { if (!this.available) integrationFail('Übernahmespeicher ist nicht verfügbar. Originaldatei am PC prüfen.'); }
+  private assertAvailable(): void { if (!this.available) integrationFail(translate("Integration storage is not available. Check original file on PC.")); }
   private write(records: IntegrationRecord[]): void {
     const text = JSON.stringify({ version: 1, records });
-    if (Buffer.byteLength(text) > 8 * 1024 * 1024) integrationFail('Übernahmespeicher ist voll.');
+    if (Buffer.byteLength(text) > 8 * 1024 * 1024) integrationFail(translate("Integration storage is full."));
     assertNoLinks(this.file); readIntegrationFile(this.file, 8 * 1024 * 1024);
     const temporary = `${this.file}.${randomUUID()}.tmp`; const fd = openSync(temporary, 'wx', 0o600);
     try { writeFileSync(fd, text); fsyncSync(fd); } finally { closeSync(fd); }

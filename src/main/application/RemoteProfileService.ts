@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { join } from 'node:path';
@@ -38,34 +39,34 @@ export function validateProfileUpdate(value: unknown): MobileProfileUpdate {
 
 /** Bound PNG dimensions and decompression before handing bytes to the native image decoder. */
 export function validateAvatarPng(bytes: Buffer): void {
-  if (bytes.length < 45 || bytes.length > PHOTO_BYTES || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') fail('Profilbild muss ein PNG bis 32 KiB sein.');
-  if (bytes.readUInt32BE(8) !== 13 || bytes.toString('ascii', 12, 16) !== 'IHDR') fail('Ungültiger PNG-Kopf.');
+  if (bytes.length < 45 || bytes.length > PHOTO_BYTES || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') fail(translate("Profile picture must be a PNG up to 32 KiB."));
+  if (bytes.readUInt32BE(8) !== 13 || bytes.toString('ascii', 12, 16) !== 'IHDR') fail(translate("Invalid PNG header."));
   const width = bytes.readUInt32BE(16); const height = bytes.readUInt32BE(20); const color = bytes[25];
-  if (!width || !height || width > 256 || height > 256 || bytes[24] !== 8 || ![2, 6].includes(color!) || bytes[26] !== 0 || bytes[27] !== 0 || bytes[28] !== 0) fail('Profilbild muss ein einfaches PNG bis 256 × 256 Pixel sein.');
+  if (!width || !height || width > 256 || height > 256 || bytes[24] !== 8 || ![2, 6].includes(color!) || bytes[26] !== 0 || bytes[27] !== 0 || bytes[28] !== 0) fail(translate("Profile picture must be a simple PNG up to 256 × 256 pixels."));
   const compressed: Buffer[] = []; let offset = 8; let ended = false; let chunks = 0;
   while (offset + 12 <= bytes.length && ++chunks <= 64) {
-    const length = bytes.readUInt32BE(offset); if (offset + length + 12 > bytes.length) fail('Ungültige PNG-Länge.');
+    const length = bytes.readUInt32BE(offset); if (offset + length + 12 > bytes.length) fail(translate("Invalid PNG length."));
     const type = bytes.toString('ascii', offset + 4, offset + 8);
     const content = bytes.subarray(offset + 4, offset + 8 + length); let crc = 0xffffffff;
     for (const byte of content) { crc ^= byte; for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); }
-    if (((crc ^ 0xffffffff) >>> 0) !== bytes.readUInt32BE(offset + 8 + length)) fail('PNG-Prüfsumme stimmt nicht.');
+    if (((crc ^ 0xffffffff) >>> 0) !== bytes.readUInt32BE(offset + 8 + length)) fail(translate("PNG checksum is not correct."));
     if (type === 'IDAT') compressed.push(bytes.subarray(offset + 8, offset + 8 + length));
     if (type === 'IEND') { ended = length === 0 && offset + 12 === bytes.length; break; }
-    if (!['IHDR', 'IDAT', 'sRGB', 'gAMA', 'pHYs', 'cHRM'].includes(type) || type === 'IHDR' && offset !== 8) fail('Nicht unterstützte PNG-Daten.');
+    if (!['IHDR', 'IDAT', 'sRGB', 'gAMA', 'pHYs', 'cHRM'].includes(type) || type === 'IHDR' && offset !== 8) fail(translate("Unsupported PNG data."));
     offset += length + 12;
   }
-  if (!ended || !compressed.length) fail('Unvollständiges PNG.');
+  if (!ended || !compressed.length) fail(translate("Incomplete PNG."));
   const expected = height * (1 + width * (color === 6 ? 4 : 3));
   let raw: Buffer;
   try { raw = inflateSync(Buffer.concat(compressed), { maxOutputLength: expected }); }
-  catch { fail('Ungültige komprimierte Bilddaten.'); }
-  if (raw!.length !== expected) fail('Ungültige Bilddatenlänge.');
+  catch { fail(translate("Invalid compressed image data.")); }
+  if (raw!.length !== expected) fail(translate("Invalid image data length."));
 }
 
 export class RemoteProfileService {
   constructor(private readonly store: { get(): AdeConfig; save(partial: Partial<AdeConfig>): AdeConfig }, private readonly directory: string,
     private readonly normalize: (bytes: Buffer) => Buffer, private readonly changed: () => void = () => undefined) {}
-  private agent(id: string): Agent { const agent = this.store.get().agents.find((item) => item.id === id); if (!agent) fail('Agent ist nicht mehr vorhanden.'); return agent!; }
+  private agent(id: string): Agent { const agent = this.store.get().agents.find((item) => item.id === id); if (!agent) fail(translate("Agent no longer exists.")); return agent!; }
   revision(agent: Agent): string { return workbenchDigest(JSON.stringify([agent.id, agent.name, agent.role ?? '', agent.photo ?? ''])); }
   summary(agent: Agent): MobileAgentSummary {
     return { id: agent.id, name: redactForWire(agent.name, 160), role: agent.role ? redactForWire(agent.role, 200) : undefined, runtime: agent.runtime,
@@ -75,25 +76,25 @@ export class RemoteProfileService {
     const agent = this.agent(id); const profile: MobileAgentProfile = { agent: this.summary(agent), revision: this.revision(agent) };
     if (agent.photo) {
       try {
-      if (!/^[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(agent.photo)) fail('Gespeichertes Profilbild ist nicht verfügbar.');
+      if (!/^[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(agent.photo)) fail(translate("Saved profile picture is not available."));
       const path = join(this.directory, agent.photo); assertNoLinks(path); const stat = lstatSync(path);
-      if (!stat.isFile() || stat.nlink > 1 || stat.size > 10 * 1024 * 1024) fail('Gespeichertes Profilbild ist nicht verfügbar.');
+      if (!stat.isFile() || stat.nlink > 1 || stat.size > 10 * 1024 * 1024) fail(translate("Saved profile picture is not available."));
       const bytes = this.normalize(readFileSync(path)); validateAvatarPng(bytes);
       profile.photo = { mime: 'image/png', bytesBase64: bytes.toString('base64') };
-      } catch { profile.photoError = 'Gespeichertes Bild kann nicht angezeigt werden. Ein neues Bild wählen oder das Bild entfernen.'; }
+      } catch { profile.photoError = translate("The saved image cannot be displayed. Choose a new image or remove it."); }
     }
     return profile;
   }
   update(input: MobileProfileUpdate): { revision: string } {
     const agent = this.agent(input.agentId);
-    if (this.store.get().runWorkspaceLeases.some((lease) => lease.agentId === agent.id && lease.status === 'active')) fail('Agent wird durch einen verwalteten Auftrag verwendet. Profil nach dessen Abschluss bearbeiten.');
-    if (this.revision(agent) !== input.revision) throw new RemoteApiError(409, 'command_rejected', 'Agent-Profil wurde inzwischen geändert. Neu laden und Änderungen prüfen.');
+    if (this.store.get().runWorkspaceLeases.some((lease) => lease.agentId === agent.id && lease.status === 'active')) fail(translate("A managed job is using this agent. Edit the profile after the job finishes."));
+    if (this.revision(agent) !== input.revision) throw new RemoteApiError(409, 'command_rejected', translate("Agent profile has since been changed. Reload and review changes."));
     // Match desktop identity updates: keep the durable role block current,
     // outside leased workspaces, without following linked instruction storage.
     const instructions = join(agent.memoryDir, 'AGENTS.md'); assertNoLinks(instructions);
     try {
       const stat = lstatSync(instructions);
-      if (!stat.isFile() || stat.nlink > 1 || stat.size > 256 * 1024) fail('Agent-Anweisungen müssen zuerst am PC geprüft werden.');
+      if (!stat.isFile() || stat.nlink > 1 || stat.size > 256 * 1024) fail(translate("Agent instructions must first be checked on the PC."));
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     let photo = agent.photo;
     if (input.photo === null) photo = undefined;

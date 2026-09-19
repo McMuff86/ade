@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Existing-agent settings: runtime, permission mode and launch command can be
  * changed after creation without touching the agent's workspace or memory.
@@ -40,6 +42,7 @@ interface EditAgentModalProps {
 }
 
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.ReactElement {
+  useLocale();
   const updateAgent = useAppData((s) => s.updateAgent);
   const deleteAgent = useAppData((s) => s.deleteAgent);
   const repositories = useAppData((s) => s.repositories);
@@ -114,8 +117,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   const canSave = name.trim().length > 0 && homeDirValid && !busy
     && (runtime !== 'ollama' || !!customCommand.trim() || !!ollamaModel.trim());
   // A stored distro stays selectable even when `wsl --list` no longer knows it.
-  const homeBackendOptions: Array<{ backend: ExecutionBackendId; label: string }> = [
-    { backend: NATIVE_EXECUTION_BACKEND, label: 'Windows (native)' },
+  const homeBackendOptions: Array<{ backend: ExecutionBackendId; label: string }> = ([
+    { backend: NATIVE_EXECUTION_BACKEND, label: translate("Windows (native)") },
     ...wslDistributions.map((distribution) => ({
       backend: distribution.backend,
       label: `WSL · ${distribution.name}${distribution.available ? '' : ' (unavailable?)'}`,
@@ -123,7 +126,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
     ...(homeIsWsl && !wslDistributions.some((distribution) => distribution.backend === homeBackend)
       ? [{ backend: homeBackend, label: `WSL · ${homeBackend.slice('wsl:'.length)} (not installed)` }]
       : []),
-  ];
+  ]);
 
   const submit = async (): Promise<void> => {
     if (!canSave) return;
@@ -176,14 +179,14 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
   };
 
   return (
-    <Modal title="Agent settings" subtitle="Configure how new terminal sessions start." onClose={onClose}>
+    <Modal title={translate("Agent settings")} subtitle={translate("Configure how new terminal sessions start.")} onClose={onClose}>
       <div className="field">
-        <label>Profile photo</label>
+        <label>{translate("Profile photo")}</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="round" name={name} runtime={runtime} />
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-name">Name</label>
+        <label htmlFor="edit-agent-name">{translate("Name")}</label>
         <input
           id="edit-agent-name"
           type="text"
@@ -194,22 +197,22 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-role">Role</label>
+        <label htmlFor="edit-agent-role">{translate("Role [526f6c65]")}</label>
         <input
           id="edit-agent-role"
           type="text"
           value={role}
           autoComplete="off"
-          placeholder="e.g. Frontend & theme"
+          placeholder={translate("e.g. Frontend & theme")}
           onChange={(e) => setRole(e.target.value)}
         />
       </div>
 
       <DesktopAgentBehavior agentId={agent.id} />
-      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title="Agent-Stimme" />
+      <TargetSpeechSettings target={{ kind: 'agent', agentId: agent.id, ...(agent.defaultRepositoryId ? { repositoryId: agent.defaultRepositoryId } : {}) }} title={translate("Agent voice")} />
 
       <div className="field">
-        <label htmlFor="edit-agent-runtime">Runtime</label>
+        <label htmlFor="edit-agent-runtime">{translate("Runtime")}</label>
         <select
           id="edit-agent-runtime"
           value={runtime}
@@ -226,17 +229,17 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       {runtime === 'ollama' && <OllamaModePicker id="edit-agent-ollama-mode" value={ollamaMode} onChange={setOllamaMode} harness={ollamaHarness} onHarnessChange={setOllamaHarness} />}
       {(runtime === 'codex' || runtime === 'grok' || runtime === 'claude' || runtime === 'ollama') && <RuntimeModelPicker
         key={runtime + ':' + modelBackend} runtime={runtime} backend={modelBackend}
-        id={`edit-agent-${runtime}-model`} label={`${runtime.toUpperCase()} MODEL`}
+        id={`edit-agent-${runtime}-model`} label={translate("{{value1}} MODEL", { value1: runtime.toUpperCase() })}
         value={runtime === 'codex' ? codexModel : runtime === 'grok' ? grokModel : runtime === 'claude' ? claudeModel : ollamaModel}
         onChange={runtime === 'codex' ? setCodexModel : runtime === 'grok' ? setGrokModel : runtime === 'claude' ? setClaudeModel : setOllamaModel}
         effort={runtime === 'codex' ? codexReasoningEffort : runtime === 'grok' ? grokReasoningEffort : undefined}
         onEffortChange={runtime === 'codex' ? setCodexReasoningEffort : runtime === 'grok' ? (value) => setGrokReasoningEffort(value as GrokReasoningEffort) : undefined}
         newProfile={false}
       />}
-      {customCommand.trim() && <p className="repo-hint">Ein eigener Startbefehl bestimmt das Modell selbst und hat Vorrang vor dieser Auswahl.</p>}
+      {customCommand.trim() && <p className="repo-hint">{translate("A separate start command determines the model itself and takes precedence over this selection.")}</p>}
 
       <div className="field">
-        <label htmlFor="edit-agent-perm">Permission mode</label>
+        <label htmlFor="edit-agent-perm">{translate("Permission mode")}</label>
         <select
           id="edit-agent-perm"
           value={permissionMode}
@@ -251,22 +254,22 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-repository">Default repository</label>
+        <label htmlFor="edit-agent-repository">{translate("Default repository")}</label>
         <select
           id="edit-agent-repository"
           value={defaultRepositoryId}
           onChange={(event) => setDefaultRepositoryId(event.target.value)}
         >
-          <option value="">Portable agent (no default)</option>
+          <option value="">{translate("Portable agent (no default)")}</option>
           {repositories.map((repository) => (
             <option key={repository.id} value={repository.id}>{repository.name}</option>
           ))}
         </select>
-        <div className="repo-hint">Changing this affects future sessions only.</div>
+        <div className="repo-hint">{translate("Changing this affects future sessions only.")}</div>
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-home-backend">Home backend</label>
+        <label htmlFor="edit-agent-home-backend">{translate("Home backend")}</label>
         <select
           id="edit-agent-home-backend"
           value={homeBackend}
@@ -284,12 +287,11 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           ))}
         </select>
         <div className="repo-hint">
-          Where sessions without a repository run. WSL launches the start command inside the distribution.
-        </div>
+          {translate("Where sessions without a repository run. WSL launches the start command inside the distribution.")}</div>
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-home-dir">Home directory</label>
+        <label htmlFor="edit-agent-home-dir">{translate("Home directory")}</label>
         <input
           id="edit-agent-home-dir"
           type="text"
@@ -300,12 +302,12 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           onChange={(event) => setHomeDir(event.target.value)}
         />
         {homeIsWsl && !homeDirValid ? (
-          <div className="repo-hint">A WSL home needs an absolute Linux path, e.g. /home/user/project.</div>
+          <div className="repo-hint">{translate("A WSL home needs an absolute Linux path, e.g. /home/user/project.")}</div>
         ) : null}
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-cmd">Start command</label>
+        <label htmlFor="edit-agent-cmd">{translate("Start command")}</label>
         <input
           id="edit-agent-cmd"
           type="text"
@@ -317,49 +319,47 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-cmd">Dashboard command</label>
+        <label htmlFor="edit-agent-dash-cmd">{translate("Dashboard command")}</label>
         <input
           id="edit-agent-dash-cmd"
           type="text"
           value={dashboardCommand}
           autoComplete="off"
           spellCheck={false}
-          placeholder="e.g. openclaw dashboard --no-open"
+          placeholder={translate("e.g. openclaw dashboard --no-open")}
           onChange={(e) => setDashboardCommand(e.target.value)}
         />
         <div className="repo-hint">
-          Runs in the agent&apos;s home backend; its output must contain the dashboard URL.
-          Wins over the fixed URL below.
-        </div>
+          {translate("Runs in the agent's home backend; its output must contain the dashboard URL. Wins over the fixed URL below.")}</div>
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-url">Dashboard URL</label>
+        <label htmlFor="edit-agent-dash-url">{translate("Dashboard URL")}</label>
         <input
           id="edit-agent-dash-url"
           type="text"
           value={dashboardUrl}
           autoComplete="off"
           spellCheck={false}
-          placeholder="https://host.example:8443/"
+          placeholder={translate("https://host.example:8443/")}
           onChange={(e) => setDashboardUrl(e.target.value)}
         />
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-dash-target">Dashboard opens in</label>
+        <label htmlFor="edit-agent-dash-target">{translate("Dashboard opens in")}</label>
         <select
           id="edit-agent-dash-target"
           value={dashboardTarget}
           onChange={(e) => setDashboardTarget(e.target.value as DashboardTarget)}
         >
-          <option value="window">ADE window (origin-locked)</option>
-          <option value="external">External browser</option>
+          <option value="window">{translate("ADE window (origin-locked)")}</option>
+          <option value="external">{translate("External browser")}</option>
         </select>
       </div>
 
       <div className="field">
-        <label htmlFor="edit-agent-template">Reusable template</label>
+        <label htmlFor="edit-agent-template">{translate("Reusable template")}</label>
         <div className="repo-picker">
           <input
             id="edit-agent-template"
@@ -377,19 +377,19 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
             disabled={!templateName.trim() || templateBusy}
             onClick={() => void saveTemplate()}
           >
-            {templateBusy ? 'Saving...' : 'Save template'}
+            {templateBusy ? translate("Saving...") : translate("Save template")}
           </button>
         </div>
-        {templateSaved ? <div className="repo-hint">Template saved with an independent memory seed.</div> : null}
+        {templateSaved ? <div className="repo-hint">{translate("Template saved with an independent memory seed.")}</div> : null}
       </div>
 
       {saveError ? <div className="modal-error" role="alert">{saveError}</div> : null}
 
       <div className="modal-actions">
         <DeleteAction
-          label="Agent löschen"
-          consequence={'Entfernt den Agent aus ADE und beendet seine laufenden Terminals. '
-            + 'Workspace, Memory und Foto bleiben auf der Festplatte erhalten.'}
+          label={translate("Delete the agent")}
+          consequence={translate("Removes the agent from ADE and terminates its current terminals. ")
+            + translate("Workspace, memory and photo remain on the hard drive.")}
           busy={busy}
           onDelete={async () => {
             await deleteAgent(agent.id);
@@ -397,15 +397,14 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps): React.R
           }}
         />
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
-        </button>
+          {translate("Cancel [43616e63]")}</button>
         <button
           type="button"
           className="btn primary"
           onClick={() => void submit()}
           disabled={!canSave}
         >
-          {busy ? 'Saving...' : 'Save'}
+          {busy ? translate("Saving...") : translate("Save")}
         </button>
       </div>
     </Modal>

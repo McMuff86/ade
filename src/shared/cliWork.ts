@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 import type { Agent, Repository, SessionMeta } from './types';
 import { sessionStateLabel } from './sessionState';
 import { LAUNCH_PROFILES } from './runtimes';
@@ -34,10 +35,10 @@ export function cliWorkRows(sessions: readonly SessionMeta[], repositories: read
     const runtime = session.runtime ?? (session.launchChoice?.mode !== 'agent' ? session.launchChoice?.mode : undefined);
     const cli = runtime && runtime in LAUNCH_PROFILES ? LAUNCH_PROFILES[runtime as keyof typeof LAUNCH_PROFILES].label : session.title;
     return { session, title: preference?.title || session.title, cli,
-      project: session.repositoryId ? repositories.find(repo => repo.id === session.repositoryId)?.name ?? 'Entferntes Projekt'
-        : session.scopeSource === 'terminal-home' ? 'Ohne Projekt' : 'Eigener Workspace',
-      profile, workspace: session.workspaceKind === 'checkout' ? 'Originalordner' : session.workspaceKind === 'worktree' || session.workspaceBindingId ? 'Worktree'
-        : session.projectWorkspaceId ? 'Projekt-Workspace' : 'Eigener Workspace',
+      project: session.repositoryId ? repositories.find(repo => repo.id === session.repositoryId)?.name ?? translate("Removed project")
+        : session.scopeSource === 'terminal-home' ? translate("No project") : translate("Personal workspace"),
+      profile, workspace: session.workspaceKind === 'checkout' ? translate("Original folder") : session.workspaceKind === 'worktree' || session.workspaceBindingId ? translate("Worktree")
+        : session.projectWorkspaceId ? translate("Project workspace") : translate("Personal workspace"),
       state: cliWorkStatus(session), status: sessionStateLabel({ ...session, launchMode: session.launchChoice?.mode }),
       updatedAt: Math.max(session.createdAt, session.lastOutputAt ?? 0, session.program?.endedAt ?? 0, session.endedAt ?? 0),
       unread: (session.outputSequence ?? 0) > (preference?.seenSequence ?? 0) };

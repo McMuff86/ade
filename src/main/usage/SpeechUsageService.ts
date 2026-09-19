@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import { unknownTokens } from '../../shared/usage';
 import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
@@ -24,7 +25,7 @@ export class SpeechUsageService {
     if (input.product === 'dictation' ? input.model === 'scribe_v2_realtime' ? audioSeconds !== null
       : input.model !== 'scribe_v2' || !Number.isFinite(audioSeconds) || audioSeconds! < 0.1 || audioSeconds! > 60
       : !['speech-test', 'speech-reply'].includes(input.product) || !['eleven_multilingual_v2', 'eleven_v3'].includes(input.model) || !Number.isSafeInteger(characters) || characters! < 1 || characters! > 12_000) {
-      throw new Error('Ungültige Einheit für die Sprach-Verbrauchserfassung.');
+      throw new Error(translate("Invalid unit for voice usage recording."));
     }
     const at = this.now();
     const sessionId = await this.journal.openSession({ provider: 'elevenlabs', product: input.product, backend: 'native', createdAt: at, coverage: 'waiting',
@@ -37,8 +38,8 @@ export class SpeechUsageService {
     let finalized: { state: string; promise: Promise<void> } | undefined;
     return { finish: (state, measuredSeconds) => {
       const identity = JSON.stringify([state, measuredSeconds]);
-      if (measuredSeconds !== undefined && (input.model !== 'scribe_v2_realtime' || !Number.isFinite(measuredSeconds) || measuredSeconds < 0 || measuredSeconds > LIVE_DICTATION_MAX_SECONDS)) return Promise.reject(new Error('Ungültige Dauer für Live-Diktat.'));
-      if (finalized) return finalized.state === identity ? finalized.promise : Promise.reject(new Error('Sprachversuch hat bereits einen anderen Abschluss.'));
+      if (measuredSeconds !== undefined && (input.model !== 'scribe_v2_realtime' || !Number.isFinite(measuredSeconds) || measuredSeconds < 0 || measuredSeconds > LIVE_DICTATION_MAX_SECONDS)) return Promise.reject(new Error(translate("Invalid duration for live dictation.")));
+      if (finalized) return finalized.state === identity ? finalized.promise : Promise.reject(new Error(translate("This speech attempt already has a different final status.")));
       const promise = (async () => {
         await this.journal.speechOutcome(factId, state, measuredSeconds);
         await this.journal.setCoverage(sessionId, state === 'unconfirmed' ? 'incomplete' : 'recording', Math.max(this.now(), at));

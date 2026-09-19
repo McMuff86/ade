@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { Terminal } from '@xterm/xterm';
 import { MAX_REPLY_SOURCE_CHARS, type ReplySource } from '../../shared/terminalSpeech';
 
@@ -14,6 +15,6 @@ export function terminalReplySource(term: Terminal | null | undefined): ReplySou
     else lines.push(text);
   }
   const text = lines.join('\n').trim();
-  if (text.length > MAX_REPLY_SOURCE_CHARS) throw new Error('Dieser Ausschnitt ist zu lang. Markiere bitte einen kürzeren Text.');
+  if (text.length > MAX_REPLY_SOURCE_CHARS) throw new Error(translate("This clip is too long. Please mark a shorter text."));
   return { source: 'screen', text };
 }

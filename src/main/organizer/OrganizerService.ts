@@ -1,10 +1,11 @@
+import { t as translate } from "../../shared/i18n";
 import { type OrganizerMutation, type OrganizerQuery, type OrganizerQueryResult, type OrganizerReceipt, type OrganizerImage } from '../../shared/organizer';
 import { OrganizerError, OrganizerStore } from './OrganizerStore';
 
 /** Validate encoded dimensions before any image decoder allocates a pixel buffer. */
 export function validateOrganizerImage(image: OrganizerImage): void {
   const bytes = Buffer.from(image.base64, 'base64');
-  if (bytes.toString('base64') !== image.base64) throw new OrganizerError('invalid', 'Ungültige Bildkodierung.');
+  if (bytes.toString('base64') !== image.base64) throw new OrganizerError('invalid', translate("Invalid image coding."));
   let width = 0; let height = 0;
   if (image.mime === 'image/png' && bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
     && bytes.toString('ascii', 12, 16) === 'IHDR') { width = bytes.readUInt32BE(16); height = bytes.readUInt32BE(20); }
@@ -23,7 +24,7 @@ export function validateOrganizerImage(image: OrganizerImage): void {
       offset += length;
     }
   }
-  if (!width || !height || width > 4096 || height > 4096 || width !== image.width || height !== image.height) throw new OrganizerError('invalid', 'Das Bildformat oder die Bildgrösse ist ungültig.');
+  if (!width || !height || width > 4096 || height > 4096 || width !== image.width || height !== image.height) throw new OrganizerError('invalid', translate("The image format or image size is invalid."));
 }
 export class OrganizerService {
   private store_: OrganizerStore | undefined;

@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * SessionTail — a read-only live view of one task session for the Graph
  * inspector and the bottom dock. Same sequence-aware attach as TerminalPane
@@ -46,6 +48,7 @@ export function SessionTail({
   fit?: boolean;
   className?: string;
 }): JSX.Element {
+  useLocale();
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,7 +130,7 @@ export function SessionTail({
         pendingLive.length = 0;
       })
       .catch(() => {
-        if (!disposed) term.write('\r\n[Live-Ansicht nicht verfügbar]\r\n');
+        if (!disposed) term.write(translate("\r\n[Live view not available]\r\n"));
       });
 
     return () => {
@@ -138,5 +141,5 @@ export function SessionTail({
     };
   }, [sessionId, rows, cols, fontSize, scrollback, fit]);
 
-  return <div ref={hostRef} className={className} title="Live-Ausgabe (nur lesen)" />;
+  return <div ref={hostRef} className={className} title={translate("Live output (read only)")} />;
 }

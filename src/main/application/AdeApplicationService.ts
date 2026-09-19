@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { ORGANIZER_LIMITS, organizerCommandKey, organizerId, validOrganizerMutation, validOrganizerQuery, type OrganizerEntry, type OrganizerSummary } from '../../shared/organizer';
 import type { OrganizerService } from '../organizer/OrganizerService';
@@ -305,7 +306,7 @@ export class AdeApplicationService {
         const execute = async (): Promise<MobileSpeechResult> => {
           authorize(payload.target);
           if (payload.operation === 'select') { await speech.preferences.select({ target: payload.target, voiceId: payload.voiceId, ...(payload.tuning ? { tuning: payload.tuning } : {}) }, () => authorize(payload.target)); return {}; }
-          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target), payload.preset, payload.tuning);
+          return speech.test(context.principal.id, payload.target, payload.voiceId, () => authorize(payload.target), payload.preset, payload.tuning, payload.studio);
         };
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
@@ -477,7 +478,7 @@ export class AdeApplicationService {
       authorize(); const service = factory(); const input = requireRecord(payload, 'conversation');
       const available = (id: string) => {
         const detail = service.detail(id);
-        if (!detail.available) throw new RemoteApiError(403, 'scope_not_granted', 'Projektumfang oder Profil wurde geändert. Am PC den bisherigen Verlauf prüfen und ein neues Gespräch beginnen.');
+        if (!detail.available) throw new RemoteApiError(403, 'scope_not_granted', translate("The project scope or profile has changed. Review the previous conversation on the PC and start a new one."));
         return detail;
       };
       if (!command) {
@@ -555,7 +556,7 @@ export class AdeApplicationService {
         if (payload.document.repositoryId) this.resources.assertRepository(context.principal, payload.document.repositoryId);
         for (const id of payload.document.runIds) this.resources.assertRun(context.principal, id);
         // A redacted display is never a complete editing base. Preserve the host original.
-        if (previous && organizerEntryForWire(previous).redacted) throw new RemoteApiError(409, 'command_rejected', 'Diese Notiz enthält ausgeblendete Inhalte. Das Original am PC bearbeiten oder eine neue Kopie anlegen.');
+        if (previous && organizerEntryForWire(previous).redacted) throw new RemoteApiError(409, 'command_rejected', translate("This note contains hidden content: edit the original on the PC or create a new copy."));
       }
       this.audit(context, 'organizer:command', null, 'requested');
       const execute = () => { authorize(); return service.command(payload, owner); };
@@ -732,7 +733,7 @@ export class AdeApplicationService {
       ledger.permits(context, 'workspace:read'); checkResources();
       if (result.directory && this.resources.access(context.principal).mode === 'selected') {
         result.directory.entries = result.directory.entries.filter((entry) => !!entry.repositoryId && this.resources.repository(context.principal, entry.repositoryId));
-        result.directory.notice = 'Es werden nur die am PC für dieses Gerät ausgewählten Projekte angezeigt.';
+        result.directory.notice = translate("Only the projects selected on the PC for this device are displayed.");
       }
       return result;
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
@@ -1082,7 +1083,7 @@ export class AdeApplicationService {
         if (command.operation === 'git-apply') {
           const owner = this.gitPreviewOwners.get(command.input.previewId);
           if (!admin.git || !owner || owner.deviceId !== context.principal.id || owner.expiresAt < Date.now()) {
-            throw new RemoteApiError(409, 'command_rejected', 'Git-Vorschau abgelaufen oder für ein anderes Gerät erstellt. Erneut prüfen.');
+            throw new RemoteApiError(409, 'command_rejected', translate("The Git preview has expired or belongs to another device. Check again."));
           }
           this.gitPreviewOwners.delete(command.input.previewId);
           return { git: projectGit(await admin.git.apply(command.input.previewId)) };
@@ -1128,7 +1129,7 @@ export class AdeApplicationService {
 
   private requireNativeRemoteRepository(repositoryId: string): void {
     if (!this.store.get().repositories.some((repo) => repo.id === repositoryId && repo.executionBackend === 'native')) {
-      throw new RemoteApiError(422, 'command_rejected', 'Dieser Remote-Workflow benötigt ein natives Projekt aus dem Katalog.');
+      throw new RemoteApiError(422, 'command_rejected', translate("This remote workflow requires a native project from the catalog."));
     }
   }
 
@@ -1140,7 +1141,7 @@ export class AdeApplicationService {
       categories: config.categories.map((category) => ({ id: category.id, name: redactForWire(category.name, 160),
         ...(category.navigationGroup ? { navigationGroup: redactForWire(category.navigationGroup, 80) } : {}) })),
       agentSources: [
-        { id: 'codex', kind: 'runtime' as const, name: 'Codex · neues Standardprofil', runtime: 'codex' as const },
+        { id: 'codex', kind: 'runtime' as const, name: translate("Codex · new default profile"), runtime: 'codex' as const },
         ...config.agents.map((agent) => ({ id: agent.id, kind: 'agent' as const, name: redactForWire(agent.name, 160), runtime: agent.runtime })),
         ...config.agentTemplates.map((template) => ({ id: template.id, kind: 'template' as const, name: redactForWire(template.name, 160), runtime: template.runtime })),
       ],

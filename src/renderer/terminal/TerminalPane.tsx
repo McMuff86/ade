@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * TerminalPane — mounts one xterm.js instance for one session (Phase B1).
  *
@@ -62,6 +64,7 @@ export function TerminalPane({
   sessionId: string;
   active: boolean;
 }): JSX.Element {
+  useLocale();
   const hostRef = useRef<HTMLDivElement>(null);
   const session = useSessions(state => state.sessions[sessionId]);
   const repository = useAppData(state => state.repositories.find(item => item.id === session?.repositoryId));
@@ -130,7 +133,7 @@ export function TerminalPane({
     searchRef.current = searchAddon;
 
     term.open(host);
-    term.textarea?.setAttribute('aria-label', 'Terminal-Eingabe');
+    term.textarea?.setAttribute('aria-label', translate("Terminal input"));
     termRef.current = term;
     fitRef.current = fitAddon;
 
@@ -165,7 +168,7 @@ export function TerminalPane({
         term.focus();
         if (text.length > 0) term.paste(text);
         else forwardRawPasteKey();
-      }).catch(() => { if (!disposed) setToolError('Zwischenablage konnte nicht gelesen werden. Erneut versuchen.'); });
+      }).catch(() => { if (!disposed) setToolError(translate("Clipboard could not be read. Try again.")); });
     };
     pasteRef.current = paste;
     term.attachCustomKeyEventHandler((event) => {
@@ -310,7 +313,7 @@ export function TerminalPane({
     // xterm can clear and reselect the same match without a final selection event.
     // Read the completed search so Copy reflects the actual selection.
     setHasSelection(termRef.current?.hasSelection() ?? false);
-    setSearchResult(found ? 'Treffer ausgewählt' : 'Keine Treffer im Terminalverlauf');
+    setSearchResult(found ? translate("matches selected") : translate("No matches in terminal history"));
   };
   const closeSearch = () => {
     setSearchOpen(false); searchRef.current?.clearDecorations(); termRef.current?.clearSelection(); termRef.current?.focus();
@@ -347,55 +350,55 @@ export function TerminalPane({
         event.preventDefault(); event.stopPropagation(); setSearchOpen(true); searchInput.current?.focus();
       }
     }}>
-    <div className="terminal-tools" role="group" aria-label="Terminal-Werkzeuge">
-      <button type="button" disabled={!hasSelection} title="Auswahl kopieren (Ctrl+Shift+C)" onClick={() => {
+    <div className="terminal-tools" role="group" aria-label={translate("Terminal tools")}>
+      <button type="button" disabled={!hasSelection} title={translate("Copy selection (Ctrl+Shift+C)")} onClick={() => {
         const text = termRef.current?.getSelection(); if (!text) return; setToolError('');
-        void window.ade.invoke('clipboard:writeText', { text }).then(() => setToolNotice('Auswahl kopiert.'))
-          .catch(() => setToolError('Auswahl konnte nicht kopiert werden. Erneut versuchen.'));
-      }}>Kopieren</button>
-      <button type="button" disabled={remoteInput || exited} title="Aus Zwischenablage einfügen (Ctrl+Shift+V)" onClick={() => pasteRef.current()}>Einfügen</button>
-      <button type="button" aria-expanded={searchOpen} title="Terminal durchsuchen (Ctrl+Shift+F)" onClick={() => { setSearchOpen(true); searchInput.current?.focus(); }}>Suchen</button>
+        void window.ade.invoke('clipboard:writeText', { text }).then(() => setToolNotice(translate("Selection copied.")))
+          .catch(() => setToolError(translate("Selection could not be copied. Try again.")));
+      }}>{translate("Copy")}</button>
+      <button type="button" disabled={remoteInput || exited} title={translate("Insert from clipboard (Ctrl+Shift+V)")} onClick={() => pasteRef.current()}>{translate("Paste")}</button>
+      <button type="button" aria-expanded={searchOpen} title={translate("Search terminal (Ctrl+Shift+F)")} onClick={() => { setSearchOpen(true); searchInput.current?.focus(); }}>{translate("Search")}</button>
       <button type="button" aria-haspopup="dialog" aria-expanded={promptOpen} aria-controls={promptOpen ? `prompt-panel-${sessionId}` : undefined}
         onClick={() => {
           if (promptOpen) document.getElementById(`prompt-panel-${sessionId}`)?.querySelector('textarea')?.focus();
           else setPromptOpen(true);
-        }}>Prompt / Diktat</button>
-      <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>Verlauf-Anfang</button>
+        }}>{translate("Prompt / dictation")}</button>
+      <button type="button" onClick={() => { termRef.current?.scrollToTop(); }}>{translate("Start of history")}</button>
       {session?.kind === 'interactive' && !session.remoteAccessBlocked && <ReplySpeechButton key={sessionId} port={replyPort}
         active={active} disabled={promptOpen} readSource={() => terminalReplySource(termRef.current)}
         fallbackFocus={() => hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} />}
-      <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>Zur Live-Ausgabe</button>
-      <label>Schrift<select aria-label="Terminal-Schriftgrösse" value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
-        {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size} px</option>)}
+      <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>{translate("Back to live output")}</button>
+      <label>{translate("Font")}<select aria-label={translate("Terminal font size")} value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
+        {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size} {" "}{translate("px")}</option>)}
       </select></label>
     </div>
-    {searchOpen && <form className="terminal-search" role="search" aria-label="Terminalverlauf durchsuchen"
+    {searchOpen && <form className="terminal-search" role="search" aria-label={translate("Search for terminal history")}
       onSubmit={(event) => { event.preventDefault(); find(); }} onKeyDown={(event) => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeSearch(); }
         else if (event.key === 'Enter' && event.shiftKey) { event.preventDefault(); find(query, true); }
       }}>
-      <input ref={searchInput} type="search" aria-label="Im Terminal suchen" maxLength={200} value={query} placeholder="Im Terminalverlauf suchen…"
+      <input ref={searchInput} type="search" aria-label={translate("Search terminal")} maxLength={200} value={query} placeholder={translate("Search terminal history…")}
         onChange={(event) => { setQuery(event.target.value); find(event.target.value, false, true); }} />
-      <button type="button" disabled={!query} onClick={() => find(query, true)} title="Shift+Enter">Vorheriger Treffer</button>
-      <button type="submit" disabled={!query} title="Enter">Nächster Treffer</button>
-      <button type="button" aria-label="Terminalsuchen schliessen" onClick={closeSearch}>×</button>
+      <button type="button" disabled={!query} onClick={() => find(query, true)} title={translate("Shift+Enter")}>{translate("Previous match")}</button>
+      <button type="submit" disabled={!query} title={translate("Enter")}>{translate("Next match")}</button>
+      <button type="button" aria-label={translate("Close terminal search")} onClick={closeSearch}>×</button>
       <span role="status">{searchResult}</span>
     </form>}
-    {toolError && <div className="terminal-tool-error" role="alert">{toolError}<button onClick={() => setToolError('')} aria-label="Terminal-Werkzeugfehler schliessen">×</button></div>}
+    {toolError && <div className="terminal-tool-error" role="alert">{toolError}<button onClick={() => setToolError('')} aria-label={translate("Close terminal tool error")}>×</button></div>}
     <span className="terminal-tool-status" role="status">{toolNotice}</span>
     <SubscriptionUsagePanel key={sessionId} load={() => window.ade.invoke('terminal:usage', { sessionId })} />
     {profileContext && <SessionProfileContext key={sessionId} context={profileContext}
       readText={() => window.ade.invoke('terminal:profileContext', { sessionId })}
       readRevision={async () => (await window.ade.invoke('agent:behaviorGet', { agentId: profileContext.profileId })).revision} />}
     {remoteInput && <div role="status" className="terminal-control-banner" style={{ padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
-      <span>Dieses Terminal wird von einem verbundenen Gerät gesteuert.</span>
+      <span>{translate("This terminal is controlled by a connected device.")}</span>
       <button className="btn" onClick={() => { void window.ade.invoke('terminal:reclaim', { sessionId }).then(() => termRef.current?.focus())
-        .catch(() => setToolError('Eingabe konnte nicht übernommen werden. Erneut versuchen.')); }}>Eingabe am Desktop übernehmen</button>
+        .catch(() => setToolError(translate("Entry could not be accepted. Try again."))); }}>{translate("Take control of input on desktop")}</button>
     </div>}
     <div className={`terminal-prompt-layout${promptOpen ? ' terminal-prompt-layout-open' : ''}`}>
     <div className="terminal-host" ref={hostRef} />
     {promptOpen && <DesktopPromptDialog sessionId={sessionId}
-      label={`${session?.title ?? 'CLI'} · ${repository?.name ?? 'Eigener Workspace'}${session?.branch ? ` · ${session.branch}` : ''}`}
+      label={`${session?.title ?? 'CLI'} · ${repository?.name ?? translate("Personal workspace")}${session?.branch ? ` · ${session.branch}` : ''}`}
       onClose={() => setPromptOpen(false)} focusTerminal={() => termRef.current?.focus()}
       fallbackFocus={() => [...document.querySelectorAll<HTMLElement>('.terminal-host .xterm-helper-textarea, [role="tab"][aria-selected="true"]')]
         .find(element => element.getClientRects().length > 0) ?? null} />}

@@ -77,6 +77,7 @@ function valid(key: string, value: unknown): boolean {
 }
 export function clearDeviceDrafts(deviceId: string): void {
   try { localStorage.removeItem(`ade:conversation-state:mobile:${deviceId}`); } catch { /* Access is still revoked. */ }
+  try { localStorage.removeItem(`ade:conversation-state:mobile:${deviceId}:casual`); localStorage.removeItem(`ade:voice-studio:mobile:${deviceId}:casual`); } catch { /* Access is still revoked. */ }
   try { for (const key of Object.keys(localStorage)) if (key.startsWith(`${PREFIX}${deviceId}:`)) localStorage.removeItem(key); } catch { /* Access is still revoked. */ }
 }
 export function readDeviceDraft<T>(deviceId: string | null, key: string, fallback: T): T {

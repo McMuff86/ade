@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, lstatSync, openSync, opendirSync, readSync } from 'node:fs';
 import { basename, extname } from 'node:path';
@@ -44,7 +45,7 @@ export class RunInspectionService {
       && visible(run.id) && (!cursor || run.createdAt < Number(time) || run.createdAt === Number(time) && run.id.localeCompare(id!) > 0))
       .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
     const last = runs[19];
-    return { runs: runs.slice(0, 20).map((run) => ({ id: run.id, name: this.label(run.name, run.id, 'Einzelaufgabe'), status: this.report(run.id).status, createdAt: run.createdAt,
+    return { runs: runs.slice(0, 20).map((run) => ({ id: run.id, name: this.label(run.name, run.id, translate("Individual task")), status: this.report(run.id).status, createdAt: run.createdAt,
       taskIds: config.runTasks.filter((task) => task.runId === run.id && task.repositoryId === repositoryId).slice(-32).map((task) => task.id) })), limited: runs.length > 20,
       ...(runs.length > 20 && last ? { nextCursor: `${last.createdAt}_${last.id}` } : {}) };
   }
@@ -60,18 +61,18 @@ export class RunInspectionService {
       const candidate = stored.sessionId ? this.pty.getSessionMeta(stored.sessionId) : undefined;
       const session = candidate?.runTaskId === task.id && candidate.kind === 'task' ? candidate : undefined;
       const observation = session ? this.pty.activitySnapshot(session.id) : undefined;
-      const clean = (value: string, max: number) => redactForWire(stored.prompt.trim() ? value.split(stored.prompt.trim()).join('[Auftragstext ausgeblendet]') : value, max);
+      const clean = (value: string, max: number) => redactForWire(stored.prompt.trim() ? value.split(stored.prompt.trim()).join(translate("[Task prompt hidden]")) : value, max);
       // Live tool arguments may contain prompts. Show the operation name only;
       // assistant answers belong in full result detail, not in a truncated teaser.
       const activity = (observation?.lines ?? []).slice(-100).map((line) => ({ kind: line.kind, sequence: line.sequence, at: line.at,
         text: line.mobileText ? clean(line.mobileText, 2000) : line.kind === 'tool' ? clean(line.text.split(':')[0]!.slice(0, 80), 80)
-          : line.kind === 'thinking' ? 'Agent bearbeitet die Aufgabe…' : line.kind === 'text' ? 'Agent-Antwort empfangen'
-            : line.kind === 'error' ? 'CLI meldet einen Fehler; Ergebnis prüfen.' : clean(line.text, 200) }));
+          : line.kind === 'thinking' ? translate("The agent is working on the task…") : line.kind === 'text' ? translate("Agent reply received")
+            : line.kind === 'error' ? translate("CLI reports an error; check the result.") : clean(line.text, 200) }));
       return { id: task.id, participantId: task.participantId, status: task.status, startedAt: task.startedAt, endedAt: task.endedAt, exitCode: task.exitCode,
         fileChanges: { created: count('created'), modified: count('modified'), deleted: count('deleted'), reported: count('reported'), unknown: count('unknown'), source: changes.source },
         process: session?.status ?? 'unavailable', lastOutputAt: observation?.lastOutputAt, outputBytes: observation?.outputBytes, activity,
-        notice: !session && task.status === 'running' ? 'Auftrag ist als laufend erfasst, aber der Prozess ist nicht erreichbar. Status am PC prüfen.'
-          : session && !observation?.structured ? 'Diese Sitzung liefert keine strukturierten Werkzeugmeldungen. Empfangene Ausgabe wird weiterhin gezählt.' : null,
+        notice: !session && task.status === 'running' ? translate("The job is recorded as running, but its process is unreachable. Check its status on the PC.")
+          : session && !observation?.structured ? translate("This session does not provide structured tool messages; received output is still counted.") : null,
         output: taskId && task.output ? { ...task.output, text: clean(task.output.text, 64 * 1024) } : undefined,
         result: taskId && task.result ? { ...task.result, summary: clean(task.result.summary, 64 * 1024), filesChanged: task.result.filesChanged.map((path) => clean(path, 400)),
           risks: task.result.risks.map((risk) => clean(risk, 4000)), tests: task.result.tests.map((test) => ({ ...test, command: clean(test.command, 2000), output: clean(test.output, 64 * 1024) })),
@@ -84,13 +85,13 @@ export class RunInspectionService {
       authorize(); if (taskId) return this.taskFiles(runId, taskId, authorize);
       const config = this.store.get(); if (!config.runs.some((run) => run.id === runId)) return absent();
       const tasks = config.runTasks.filter((task) => task.runId === runId).sort((a, b) => b.createdAt - a.createdAt);
-      const result: MobileRunFiles = { files: [], limited: tasks.length > 32, notice: 'Dateien der Aufgaben dieses Runs. Gesicherte Dateien zeigen den Stand am Aufgabenende; weitere Dateien stammen aus der aktuellen Arbeitskopie.', unavailableTasks: [] };
+      const result: MobileRunFiles = ({ files: [], limited: tasks.length > 32, notice: translate("Files of the tasks of this run. Secured files show the status at the end of the task; other files are from the current working copy."), unavailableTasks: [] });
       const deadline = Date.now() + 8000;
       for (const task of tasks.slice(0, 32)) {
         if (result.files.length >= 100 || Date.now() > deadline) { result.limited = true; break; }
         try { const list = await this.taskFiles(runId, task.id, authorize); const room = 100 - result.files.length;
           result.files.push(...list.files.slice(0, room)); result.limited ||= list.limited || list.files.length > room;
-        } catch (error) { authorize(); result.unavailableTasks!.push({ taskId: task.id, title: this.label(task.title, runId, 'Aufgabe'), notice: redactedWireMessage(error) }); }
+        } catch (error) { authorize(); result.unavailableTasks!.push({ taskId: task.id, title: this.label(task.title, runId, translate("Task")), notice: redactedWireMessage(error) }); }
       }
       authorize(); return result;
     });
@@ -102,14 +103,14 @@ export class RunInspectionService {
     if (!saved || !this.savedFiles) return this.workspaceFiles(runId, taskId, authorize);
     const changes = new Map(taskFileChanges(task.fileTracking).files.map((file) => [file.path, file.change]));
     const files: MobileRunFiles['files'] = saved.files.map((file) => ({ ...file, id: hash([taskId, file.path, file.sha256, 'saved']),
-      taskId, taskTitle: this.label(task.title, runId, 'Aufgabe'), name: basename(file.path), image: fileType(file.path).startsWith('image/'),
+      taskId, taskTitle: this.label(task.title, runId, translate("Task")), name: basename(file.path), image: fileType(file.path).startsWith('image/'),
       change: changes.get(file.path), saved: true, available: true }));
     let current: MobileRunFiles | undefined;
     try { current = await this.workspaceFiles(runId, taskId, authorize); } catch { authorize(); }
     authorize();
     const extra = current?.files.filter((file) => !files.some((saved) => saved.path === file.path)) ?? [];
     return { files: [...files, ...extra].slice(0, 100), limited: saved.limited || !!current?.limited || files.length + extra.length > 100,
-      notice: `Gesicherte Dateien enthalten den Stand am Aufgabenende. Weitere Dateien stammen aus der Arbeitskopie.${saved.limited ? ' Die Ergebnissicherung ist unvollständig (Grössen-, Zeit- oder Speicherlimit).' : ''}${!current ? ' Die ursprüngliche Arbeitskopie ist nicht mehr erreichbar.' : ''}` };
+      notice: translate("Secured files contain the status at the end of the task. Other files are from the working copy.{{value1}}{{value2}}", { value1: saved.limited ? translate(" Result capture is incomplete (size, time or storage limit).") : '', value2: !current ? translate(" The original working copy is no longer reachable.") : '' }) };
   }
 
   private async workspaceFiles(runId: string, taskId: string, authorize: () => void): Promise<MobileRunFiles> {
@@ -122,7 +123,7 @@ export class RunInspectionService {
     const changes = new Map(delta.files.map((file) => [file.path, file])); const latest = new Map(snapshot.files.map((file) => [file.path, file]));
     const after = new Map(task.fileTracking?.after?.files.map((file) => [file.path, file]) ?? []);
     listing.files = listing.files.map((file) => ({ ...file, id: latest.has(file.path) ? hash([file.id, latest.get(file.path)!.sha256]) : file.id,
-      taskId, taskTitle: this.label(task.title, runId, 'Aufgabe'), available: true,
+      taskId, taskTitle: this.label(task.title, runId, translate("Task")), available: true,
       sha256: latest.get(file.path)?.sha256, change: changes.get(file.path)?.change ?? (delta.source === 'observed' && after.has(file.path) ? 'unchanged' : 'unknown'),
       changedSinceRun: !!after.get(file.path) && !!latest.get(file.path) && after.get(file.path)!.sha256 !== latest.get(file.path)!.sha256 }));
     for (const change of delta.files) if (!listing.files.some((file) => file.path === change.path)) {
@@ -132,10 +133,10 @@ export class RunInspectionService {
         if (spare < 0) break; listing.files.splice(spare, 1);
       }
       listing.files.push({ id: hash([taskId, change.path, 'unavailable']), path: change.path, name: basename(change.path), bytes: 0, image: false,
-        taskId, taskTitle: this.label(task.title, runId, 'Aufgabe'), change: change.change, available: false });
+        taskId, taskTitle: this.label(task.title, runId, translate("Task")), change: change.change, available: false });
     }
     listing.files.sort((a, b) => Number(a.change === 'unchanged' || a.change === 'unknown') - Number(b.change === 'unchanged' || b.change === 'unknown') || a.path.localeCompare(b.path));
-    listing.limited ||= snapshot.limited || delta.limited; listing.notice = `${delta.notice ?? ''} Bis 16 MiB pro Datei.`;
+    listing.limited ||= snapshot.limited || delta.limited; listing.notice = translate("{{value1}} Up to 16 MiB per file.", { value1: delta.notice ?? '' });
     await this.workbench.revalidate(scope); authorize(); return listing;
   }
 
@@ -147,24 +148,24 @@ export class RunInspectionService {
       if (saved && this.savedFiles) {
         let bytes: Buffer;
         try { bytes = this.savedFiles.read(saved.sha256, saved.bytes); }
-        catch { throw new RemoteApiError(409, 'command_rejected', 'Gesicherte Ergebnisdatei fehlt oder wurde verändert.'); }
+        catch { throw new RemoteApiError(409, 'command_rejected', translate("Secured result file is missing or has been changed.")); }
         authorize(); return this.download(basename(saved.path), bytes);
       }
       authorize(); const { scope } = await this.scope(runId, taskId);
       const file = (await this.taskFiles(runId, taskId, authorize)).files.find((item) => item.id === fileId && item.available);
-      if (!file) throw new RemoteApiError(409, 'command_rejected', 'Datei ist in diesem Stand nicht mehr verfügbar. Dateien aktualisieren und erneut öffnen.');
+      if (!file) throw new RemoteApiError(409, 'command_rejected', translate("File is no longer available at this stage. Update and reopen files."));
       await this.workbench.revalidate(scope); authorize();
       const path = this.workbench.path(scope, file.path); const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
       try {
         const stat = fstatSync(fd); const metadataId = hash([taskId, this.workbench.version(scope), file.path, stat.dev, stat.ino, stat.size, stat.mtimeMs]);
         const identity = file.sha256 ? hash([metadataId, file.sha256]) : metadataId;
-        if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_FILE || fileId !== identity) throw new RemoteApiError(409, 'command_rejected', 'Datei wurde geändert. Liste aktualisieren.');
+        if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_FILE || fileId !== identity) throw new RemoteApiError(409, 'command_rejected', translate("File has been changed. Update list."));
         const bytes = Buffer.alloc(stat.size); let read = 0;
         while (read < bytes.length) { const count = readSync(fd, bytes, read, bytes.length - read, read); if (!count) break; read += count; }
         const after = fstatSync(fd);
         const named = lstatSync(this.workbench.path(scope, file.path)); authorize();
-        if (read !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || named.ino !== stat.ino || named.dev !== stat.dev || named.size !== stat.size || named.mtimeMs !== stat.mtimeMs) throw new RemoteApiError(409, 'command_rejected', 'Datei wird noch geschrieben. Später erneut öffnen.');
-        if (file.sha256 && createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new RemoteApiError(409, 'command_rejected', 'Datei wurde während des Downloads geändert. Liste aktualisieren.');
+        if (read !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || named.ino !== stat.ino || named.dev !== stat.dev || named.size !== stat.size || named.mtimeMs !== stat.mtimeMs) throw new RemoteApiError(409, 'command_rejected', translate("File is still being written. Reopen later."));
+        if (file.sha256 && createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new RemoteApiError(409, 'command_rejected', translate("File changed during download. Update list."));
         return this.download(file.name, bytes);
       } finally { closeSync(fd); }
     });
@@ -176,7 +177,7 @@ export class RunInspectionService {
       : ext === '.jpg' || ext === '.jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
         : ext === '.webp' ? bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
           : ext === '.xlsx' ? bytes[0] === 80 && bytes[1] === 75 && bytes[2] === 3 && bytes[3] === 4 : true;
-    if (!magic) throw new RemoteApiError(422, 'command_rejected', 'Dateiinhalt passt nicht zum Dateityp.');
+    if (!magic) throw new RemoteApiError(422, 'command_rejected', translate("File content does not match the file type."));
     const type = fileType(name);
     return { bytes: type.startsWith('text/') ? Buffer.from(redactForWire(bytes.toString('utf8'), MAX_FILE)) : bytes, type, name };
   }
@@ -186,12 +187,12 @@ export class RunInspectionService {
     const participant = config.runParticipants.find((item) => item.id === task?.participantId && item.runId === runId);
     if (!task || !participant || !task.repositoryId || !task.workspaceDir || !task.workspaceBindingId) return absent();
     const scope = await this.workbench.resolve({ agentId: participant.agentId, repositoryId: task.repositoryId });
-    if (!scope || scope.executionBackend !== 'native' || scope.id !== task.workspaceBindingId || !sameHostPath(scope.workspaceDir, task.workspaceDir)) throw new RemoteApiError(409, 'command_rejected', 'Der ursprüngliche Auftrags-Workspace ist nicht mehr verfügbar.');
+    if (!scope || scope.executionBackend !== 'native' || scope.id !== task.workspaceBindingId || !sameHostPath(scope.workspaceDir, task.workspaceDir)) throw new RemoteApiError(409, 'command_rejected', translate("The original job workspace is no longer available."));
     return { scope, task };
   }
 
   private list(scope: WorkbenchScope, taskId: string, preferred: string[] = []): MobileRunFiles {
-    const result: MobileRunFiles = { files: [], limited: false, notice: 'Dateien im Auftrags-Workspace; sie können auch von früheren Arbeiten stammen. Bis 16 MiB pro Datei.' };
+    const result: MobileRunFiles = ({ files: [], limited: false, notice: translate("Files in the job workspace; they can also come from previous work up to 16 MiB per file.") });
     let visited = 0;
     const add = (path: string): void => {
       if (result.files.some((file) => file.path === path)) return;

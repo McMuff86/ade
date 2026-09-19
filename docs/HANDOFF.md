@@ -1,5 +1,33 @@
 # ADE — aktuelle Übergabe
 
+## Aktuell aktiv: Sprachen, Gespräche und Stimmenstudio
+
+**20. September 2026, 01:02:30 CEST**, PID **37788**, Source
+**`7ba4a0204db12bf84f68`**. Desktop und Tablet wurden gemeinsam mit `pnpm build`
+gebaut; der Desktop ist wieder geöffnet. Der mobile Einstieg
+`/assets/index-CA6Fi3jC.js` wird über die bestehende private HTTPS-Adresse
+bytegleich ausgeliefert (SHA-256
+`21ADF0061F21627764344EAD23CEDE3B4280333EEAE7920CD4056331568144BC`).
+Gerätespeicher vor/nach Neustart identisch, drei Geräte erhalten; Projekte und
+Profile unverändert. Keine laufende Arbeit musste beendet werden.
+
+Der Nutzer kann das Tablet neu laden, unter **Einstellungen → Sprache** wechseln
+und **Gespräche → Plaudern & Stimme** öffnen. Für die Stimmenregler dort das
+**Stimmenstudio** ausklappen; **Projektbetreuung** bleibt ein eigener Bereich.
+Modelle werden beim ersten Senden gestartet, Hörproben ausschliesslich auf Klick.
+
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\LanguagesConversations-20260920-010210`
+(vorherige Ausgabe `out`, Profil, Gerätekopplungen und Verknüpfung).
+Lokaler Beleg: `test-results/languages-conversations-activation.json`.
+Die bestehende Startmenü-Verknüpfung zeigt auf diesen Repository-Build.
+
+**Auf Nutzerwunsch keine Tests oder Typechecks.** Es wurden Produktionsbuilds,
+Quelltextinventur und die operativen Start-/Auslieferungsprüfungen ausgeführt.
+Die neuen UI-, Codex- und kostenpflichtigen ElevenLabs-Abläufe sind noch nicht
+als Laufzeitabnahme belegt. Historische Prüfzahlen weiter unten gelten nicht
+für diese Erweiterung. Nächster Schritt ist die persönliche Tablet-/Hörabnahme.
+[Bedienung, Schnittstellen und verbleibende Grenzen](LANGUAGES_AND_CONVERSATIONS.md).
+
 ## UI-Merge aktiviert: Aufgaben/Notizen und neue Bedienoberfläche
 
 19. September **23:28:52 CEST**: `ui/next-level` (`464b6a5`) mit dem Organizer-

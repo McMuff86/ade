@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile } from 'node:child_process';
 import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, type Stats } from 'node:fs';
 import { hostNullDevice } from '../platform';
@@ -19,7 +20,7 @@ export function integrationGit(cwd: string, args: string[], options: { input?: B
       const code = !error ? 0 : typeof error.code === 'number' ? error.code : -1;
       if (code !== 0 && !options.accept?.includes(code)) {
         console.warn('[ade] integration Git failed:', redactedErrorDetail(stderr.length ? stderr.toString('utf8') : error));
-        reject(new Error('ade: Git-Prüfung fehlgeschlagen. Quelle und Integrations-Arbeitskopie bleiben zur Prüfung erhalten.')); return;
+        reject(new Error(translate("ade: Git check failed. source and integration working copy remain for checking."))); return;
       }
       resolve({ stdout: Buffer.from(stdout), code });
     });
@@ -31,13 +32,13 @@ export function integrationGit(cwd: string, args: string[], options: { input?: B
 export function readIntegrationFile(path: string, limit = 2 * 1024 * 1024): Buffer | null {
   assertNoLinks(path); if (!existsSync(path)) return null;
   const stat = lstatSync(path);
-  if (!stat.isFile() || stat.nlink !== 1 || stat.size > limit) throw new Error('ade: Datei ist verknüpft, kein regulärer Eintrag oder überschreitet das Prüflimit.');
+  if (!stat.isFile() || stat.nlink !== 1 || stat.size > limit) throw new Error(translate("ade: File is linked, no regular entry or exceeds the check limit."));
   const same = (other: Stats) => stat.ino === other.ino && stat.dev === other.dev && stat.size === other.size && stat.mtimeMs === other.mtimeMs && other.nlink === 1;
   const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
-    if (!same(fstatSync(fd))) throw new Error('ade: Datei vor dem Lesen geändert.');
+    if (!same(fstatSync(fd))) throw new Error(translate("ade: File changed before reading."));
     const body = readFileSync(fd); assertNoLinks(path);
-    if (body.length > limit || !same(fstatSync(fd)) || !same(lstatSync(path))) throw new Error('ade: Datei während der Prüfung geändert.');
+    if (body.length > limit || !same(fstatSync(fd)) || !same(lstatSync(path))) throw new Error(translate("ade: File changed during the check."));
     return body;
   } finally { closeSync(fd); }
 }

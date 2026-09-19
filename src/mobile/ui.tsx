@@ -1,3 +1,6 @@
+import { t as translate } from "../shared/i18n";
+import { localizedState } from '../shared/i18n/states';
+import { useLocale } from "../renderer/i18n/language";
 import { createContext, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import type { RunSummary } from '../shared/types';
 
@@ -6,6 +9,7 @@ import type { AppView as View } from '../shared/appViews';
 export type { AppView as View } from '../shared/appViews';
 export const finalStates = new Set(['completed', 'failed', 'cancelled']);
 export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'project' | 'refresh' | 'sun' | 'moon' }): JSX.Element {
+  useLocale();
   const paths: Record<string, ReactNode> = {
     overview: <path d="M4 7h16M4 12h10M4 17h7" />,
     tasks: <path d="m3 6 2 2 4-4M11 6h10M3 13h6m2 0h10M3 20h6m2 0h10" />,
@@ -23,15 +27,18 @@ export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'p
   return <svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name === 'projects' ? 'project' : name]}</svg>;
 }
 export function Status({ status }: { status: string }): JSX.Element {
-  return <span className="m-status" data-status={status}>{status}</span>;
+  useLocale();
+  return <span className="m-status" data-status={status}>{localizedState(status)}</span>;
 }
 export function runKindLabel(run: RunSummary): string {
-  return run.mode === 'managed' ? 'Managed Run' : run.status === 'draft' ? 'Run-Entwurf' : 'Tasks';
+  return run.mode === 'managed' ? translate("Managed Run") : run.status === 'draft' ? translate("Run draft") : translate("Tasks");
 }
 export function Chrome({ children }: { children: ReactNode }): JSX.Element {
+  useLocale();
   return <div className="m-window-bar"><span className="m-traffic" aria-hidden="true"><i /><i /><i /></span>{children}</div>;
 }
 export function Empty({ children, title }: { children?: ReactNode; title: string }): JSX.Element {
+  useLocale();
   return <div className="m-empty"><Icon name="graph" /><h2>{title}</h2>{children}</div>;
 }
 export function reportedTokens(runs: RunSummary[]): string | null {
@@ -44,6 +51,7 @@ export const DialogHeaderSlot = createContext<HTMLElement | null>(null);
 export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions }: {
   title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null | (() => HTMLElement | null); headerActions?: ReactNode;
 }): JSX.Element {
+  useLocale();
   const ref = useRef<HTMLDialogElement>(null);
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const close = useRef(onClose); close.current = onClose;
@@ -68,7 +76,7 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
       if ((event.target as Element).closest('dialog') !== event.currentTarget) return;
       if (event.key === 'Escape') { event.stopPropagation(); return; }
       if (event.key !== 'Tab') return;
-      const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+      const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('summary,button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
         .filter((node) => !node.matches(':disabled') && node.getClientRects().length > 0);
       const first = controls[0]; const last = controls.at(-1);
       if (event.shiftKey && (!controls.includes(document.activeElement as HTMLElement) || document.activeElement === first)) {
@@ -77,7 +85,7 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
     }}
     onClick={(event) => { if (event.target === ref.current) { const box = ref.current.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close.current(); } }}>
-    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2><div ref={setHeaderSlot} className="m-dialog-terminal-header" />{headerActions}<button className="m-icon-button" aria-label={`${title} schliessen`} onClick={onClose}><Icon name="close" /></button></div>
+    <div className="m-dialog-head"><h2 tabIndex={-1} data-dialog-heading>{title}</h2><div ref={setHeaderSlot} className="m-dialog-terminal-header" />{headerActions}<button className="m-icon-button" aria-label={translate("Close {{value1}}", { value1: title })} onClick={onClose}><Icon name="close" /></button></div>
     <DialogHeaderSlot.Provider value={headerSlot}>{children}</DialogHeaderSlot.Provider>
   </dialog>;
 }

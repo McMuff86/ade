@@ -1,9 +1,12 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useMemo, useRef } from 'react';
 import { PromptComposer, type PromptComposerPort } from './PromptComposer';
 
 export function DesktopPromptDialog({ sessionId, label, onClose, focusTerminal, fallbackFocus }: {
   sessionId: string; label: string; onClose: () => void; focusTerminal: () => void; fallbackFocus: () => HTMLElement | null;
 }) {
+  useLocale();
   const panelRef = useRef<HTMLElement>(null);
   const titleId = `prompt-title-${sessionId}`;
   useEffect(() => {
@@ -35,7 +38,7 @@ export function DesktopPromptDialog({ sessionId, label, onClose, focusTerminal, 
     copyText: text => window.ade.invoke('clipboard:writeText', { text }),
     computerGreeting: async () => {
       const preferences = await window.ade.invoke('speech:preferences', { kind: 'default' });
-      if (!preferences.effectiveVoiceId) throw new Error('Unter Einstellungen → Sprachausgabe zuerst eine Stimme wählen.');
+      if (!preferences.effectiveVoiceId) throw new Error(translate("Under Settings → Voice output, select a voice first."));
       return window.ade.invoke('speech:test', { voiceId: preferences.effectiveVoiceId, preset: 'computer-greeting' });
     },
     liveRecording: {
@@ -52,10 +55,10 @@ export function DesktopPromptDialog({ sessionId, label, onClose, focusTerminal, 
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
     }}>
     <header className="desktop-prompt-header">
-      <h2 id={titleId}>Prompt und Diktat</h2>
+      <h2 id={titleId}>{translate("Prompt and dictation")}</h2>
       <div className="desktop-prompt-tools">
-        <button type="button" onClick={focusTerminal}>Zum Terminal</button>
-        <button type="button" onClick={onClose} title="Escape">Schliessen</button>
+        <button type="button" onClick={focusTerminal}>{translate("To the terminal")}</button>
+        <button type="button" onClick={onClose} title={translate("Escape")}>{translate("Close")}</button>
       </div>
     </header>
     <div className="desktop-prompt-body">

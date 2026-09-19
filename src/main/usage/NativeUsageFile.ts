@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, constants, fstatSync, lstatSync, openSync, opendirSync, readSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { assertNoLinks } from '../repositories/pathDiscipline';
@@ -11,7 +12,7 @@ function names(directory: string, limit: number): string[] {
   assertNoLinks(directory); const result: string[] = []; const handle = opendirSync(directory);
   try {
     for (let next = handle.readSync(); next; next = handle.readSync()) {
-      if (result.length >= limit) throw new Error('Zu viele native Sitzungsdateien für einen eindeutigen Verbrauchsabgleich.');
+      if (result.length >= limit) throw new Error(translate("Too many native session files for unambiguous usage matching."));
       result.push(next.name);
     }
   } finally { handle.closeSync(); }
@@ -25,16 +26,16 @@ function regular(file: string): boolean {
 /** Find an exact native identity, never the latest file or a guessed project.
  * The caller supplies the native provider home from its captured launch env. */
 export function findNativeUsageFile(home: string, provider: 'codex' | 'claude' | 'grok', nativeId: string): string | undefined {
-  if (!isAbsolute(home) || !UUID.test(nativeId)) throw new Error('Ungültige native Verbrauchsidentität.');
+  if (!isAbsolute(home) || !UUID.test(nativeId)) throw new Error(translate("Invalid native usage identity."));
   try {
     const root = join(home, provider === 'claude' ? 'projects' : 'sessions');
     const matches: string[] = [];
     if (provider === 'codex') {
       // Codex 0.154 uses UUIDv7 conversation IDs. Its timestamp selects only
       // candidate date buckets; the full UUID still has to match the file.
-      if (nativeId[14] !== '7') throw new Error('Codex-Sitzungsformat für den Verbrauchsabgleich noch nicht unterstützt.');
+      if (nativeId[14] !== '7') throw new Error(translate("Codex session format for balancing is not yet supported."));
       const epoch = parseInt(nativeId.replace(/-/g, '').slice(0, 12), 16);
-      if (epoch < Date.UTC(2020, 0, 1) || epoch > Date.now() + 86400000) throw new Error('Ungültiger Codex-Sitzungszeitpunkt.');
+      if (epoch < Date.UTC(2020, 0, 1) || epoch > Date.now() + 86400000) throw new Error(translate("Invalid Codex session time."));
       for (const days of [-1, 0, 1]) {
         const date = new Date(epoch + days * 86400000); const directory = join(root, String(date.getUTCFullYear()), String(date.getUTCMonth() + 1).padStart(2, '0'), String(date.getUTCDate()).padStart(2, '0'));
         let entries: string[]; try { entries = names(directory, 4096); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
@@ -47,7 +48,7 @@ export function findNativeUsageFile(home: string, provider: 'codex' | 'claude' |
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOTDIR') throw error; }
       }
     }
-    if (matches.length > 1) throw new Error('Native Sitzung ist mehrdeutig. Verbrauch wird nicht geraten.');
+    if (matches.length > 1) throw new Error(translate("The native session is ambiguous. Usage will not be guessed."));
     return matches[0];
   } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
 }
@@ -62,7 +63,7 @@ export class NativeUsageTail {
   private identity?: { dev: number; ino: number };
   constructor(private readonly home: string, private readonly file: string) {
     const inside = relative(resolve(home), resolve(file));
-    if (!isAbsolute(home) || !isAbsolute(file) || !inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Native Verbrauchsdatei liegt ausserhalb ihres Providerordners.');
+    if (!isAbsolute(home) || !isAbsolute(file) || !inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error(translate("Native usage file is outside its provider directory."));
   }
 
   read(): { lines: JsonLine[]; gap: boolean; more: boolean } {
@@ -71,7 +72,7 @@ export class NativeUsageTail {
     try {
       const stat = fstatSync(fd); const current = lstatSync(this.file);
       if (!stat.isFile() || stat.dev !== current.dev || stat.ino !== current.ino || stat.size < this.offset
-        || this.identity && (this.identity.dev !== stat.dev || this.identity.ino !== stat.ino)) throw new Error('Native Verbrauchsdatei wurde ersetzt oder gekürzt.');
+        || this.identity && (this.identity.dev !== stat.dev || this.identity.ino !== stat.ino)) throw new Error(translate("Native usage file has been replaced or shortened."));
       this.identity ??= { dev: stat.dev, ino: stat.ino };
       if (this.pending.indexOf(10) < 0) {
         const bytes = Buffer.alloc(Math.min(MAX_CHUNK, stat.size - this.offset));
@@ -96,7 +97,7 @@ export class NativeUsageTail {
         this.pendingOffset += this.pending.length; this.pending = Buffer.alloc(0); this.skipping = true; gap = true;
       }
       assertNoLinks(this.file); const after = lstatSync(this.file);
-      if (after.dev !== stat.dev || after.ino !== stat.ino || after.size < this.offset) throw new Error('Native Verbrauchsdatei hat sich während des Lesens geändert.');
+      if (after.dev !== stat.dev || after.ino !== stat.ino || after.size < this.offset) throw new Error(translate("Native usage file has changed during reading."));
       return { lines, gap, more: after.size > this.offset || this.pending.indexOf(10) >= 0 };
     } finally { closeSync(fd); }
   }

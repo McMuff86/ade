@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Renders unified-diff text as coloured lines (add / del / hunk / context),
  * matching the mockup's inline diff. Pure — text is fetched by the parent.
@@ -16,8 +18,9 @@ function classify(line: string): LineKind {
 }
 
 export function DiffView({ text }: { text: string }): JSX.Element {
+  useLocale();
   if (!text.trim()) {
-    return <div className="diff-empty">No differences to show.</div>;
+    return <div className="diff-empty">{translate("No differences to show.")}</div>;
   }
   const lines = text.replace(/\n$/, '').split('\n');
   return (

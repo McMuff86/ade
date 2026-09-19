@@ -1,3 +1,5 @@
+import { t as translate } from "./i18n";
+import { localizedLabels } from "./i18n/labels";
 /**
  * Information architecture shared by desktop and tablet.
  *
@@ -20,11 +22,11 @@ export interface AppNavGroup {
   views: readonly AppView[];
 }
 
-export const APP_NAV_GROUPS: readonly AppNavGroup[] = [
-  { id: 'home', label: 'Übersicht', views: ['overview'] },
-  { id: 'organisation', label: 'Organisation', views: ['tasks', 'notes'] },
-  { id: 'development', label: 'Entwicklung', views: ['projects', 'terminals', 'work', 'graph'] },
-];
+export const APP_NAV_GROUPS: readonly AppNavGroup[] = localizedLabels(() => ([
+  { id: 'home', label: translate("Overview"), views: ['overview'] },
+  { id: 'organisation', label: translate("Organisation"), views: ['tasks', 'notes'] },
+  { id: 'development', label: translate("Development"), views: ['projects', 'terminals', 'work', 'graph'] },
+]));
 
 export function viewLabel(id: AppView): string {
   return APP_VIEWS.find((view) => view.id === id)?.label ?? id;
@@ -50,11 +52,11 @@ export function adjacentView(current: AppView, direction: -1 | 1): AppView {
  *   Run            – the execution of one or many agent orders, visible in Aufträge and Graph.
  *   Sitzung        – a live terminal on the PC.
  */
-export const GLOSSARY = {
-  personalTask: 'Aufgabe',
-  note: 'Notiz',
-  agentOrder: 'Agentenauftrag',
-  delegate: 'Agent beauftragen',
-  run: 'Run',
-  session: 'Sitzung',
-} as const;
+export const GLOSSARY = localizedLabels(() => ({
+  personalTask: translate("Task"),
+  note: translate("Note"),
+  agentOrder: translate("Agent job"),
+  delegate: translate("Assign agent work"),
+  run: translate("Run"),
+  session: translate("Session"),
+} as const));

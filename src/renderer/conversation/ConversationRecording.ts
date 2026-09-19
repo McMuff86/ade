@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { DictationJobState } from '../../shared/dictation';
 import type { ConversationDrafts, ConversationRecordingDraft } from './conversationDrafts';
 
@@ -42,7 +43,7 @@ export class ConversationRecording {
   private notify(): void { if (this.alive) this.changed(this.snapshot()); }
   private store(text: string, complete: boolean): void {
     const jobId = this.jobId ?? this.view.value?.jobId;
-    if (!jobId) throw new Error('Aufnahme hat kein bestätigtes Ziel.');
+    if (!jobId) throw new Error(translate("Recording has no confirmed target."));
     const value = { id: this.id, jobId, text, complete };
     this.view.value = value; // Keep visible text for copying even if storage fails.
     this.drafts.saveRecording(value);
@@ -58,7 +59,7 @@ export class ConversationRecording {
     this.view = { phase: 'preparing', error: '' }; this.notify();
     const capture = this.makeCapture(); this.capture = capture;
     try {
-      if (this.drafts.recording(this.id)) throw new Error('Zuerst das vorhandene Diktat prüfen.');
+      if (this.drafts.recording(this.id)) throw new Error(translate("First check the existing dictation."));
       await this.port.microphone(true);
       if (!this.alive) return;
       try { await capture.prepare(); } finally { await this.port.microphone(false); }
@@ -73,7 +74,7 @@ export class ConversationRecording {
       let sequence = 0;
       this.view.phase = 'recording'; this.notify();
       await capture.start(async bytes => {
-        if (!this.alive || this.view.phase !== 'recording') throw new Error('Aufnahme wurde beendet.');
+        if (!this.alive || this.view.phase !== 'recording') throw new Error(translate("Recording was terminated."));
         let raw = ''; for (const byte of bytes) raw += String.fromCharCode(byte);
         await this.port.chunk(jobId, sequence++, btoa(raw));
       }, flushed => { void this.finish(flushed); });
@@ -98,7 +99,7 @@ export class ConversationRecording {
       const state = await this.port.query(this.jobId); if (!this.alive || !['recording', 'transcribing'].includes(this.view.phase)) return;
       if (state.status === 'recording') this.store(state.text, false);
       else if (state.status === 'complete') { this.store(state.transcript.text, true); this.view.phase = 'preview'; this.capture?.cancel(); }
-      else if (state.status === 'failed' || state.status === 'cancelled') throw new Error(state.status === 'failed' ? state.message : 'Aufnahme wurde beendet. Der bisherige Text bleibt unvollständig.');
+      else if (state.status === 'failed' || state.status === 'cancelled') throw new Error(state.status === 'failed' ? state.message : translate("Recording ended. The text captured so far remains incomplete."));
       this.notify();
     } catch (error) { this.failure(error); }
     finally {
@@ -115,7 +116,7 @@ export class ConversationRecording {
       else {
         if (state.status === 'recording') this.store(state.text, false);
         this.cancelJob(jobId);
-        this.view.error = state.status === 'failed' ? state.message : 'Diese Aufnahme wurde unterbrochen. Den bisherigen Teil vor dem Übernehmen prüfen.';
+        this.view.error = state.status === 'failed' ? state.message : translate("This recording has been interrupted. Check the previous part before the takeover.");
       }
     } catch (error) { if (this.alive) this.view.error = message(error); }
     finally { if (this.alive) { this.view.phase = 'preview'; this.notify(); } }
@@ -123,7 +124,7 @@ export class ConversationRecording {
   apply(): string | undefined {
     if (!this.alive || this.view.phase !== 'preview' || !this.view.value) return;
     try {
-      if (JSON.stringify(this.drafts.recording(this.id)) !== JSON.stringify(this.view.value)) throw new Error('Der angezeigte Diktattext konnte nicht gespeichert werden oder wurde geändert. Text kopieren oder das Diktat erneut prüfen.');
+      if (JSON.stringify(this.drafts.recording(this.id)) !== JSON.stringify(this.view.value)) throw new Error(translate("The displayed dictation text could not be saved or was changed. copy text or check the dictation again."));
       const text = this.drafts.consumeRecording(this.id, this.view.value.jobId);
       this.cancelJob(this.view.value.jobId); this.jobId = undefined; this.view = { phase: 'idle', error: '' }; this.finishing = false; this.notify(); return text;
     } catch (e) { this.view.error = message(e); this.notify(); return; }

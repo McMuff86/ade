@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile } from 'node:child_process';
 import type { ProjectAuthorization } from './ProjectWorkspaceService';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +19,7 @@ const ghCommand: ProjectGhCommand = (cwd, args, input) => new Promise((resolve, 
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_|^GH_(?:HOST|REPO|PAGER|BROWSER|EDITOR|FORCE_TTY|DEBUG)$/i.test(key)));
   const child = execFile('gh', args, { cwd, windowsHide: true, timeout: 60_000, maxBuffer: 256 * 1024, encoding: 'utf8',
     env: { ...env, GH_HOST: 'github.com', GH_PROMPT_DISABLED: '1', GH_PAGER: 'cat', NO_COLOR: '1' } }, (error, stdout, stderr) => {
-    if (error) { console.warn('[ade] project GitHub command failed:', redactedErrorDetail(stderr || error)); reject(new Error('ade: GitHub-Antwort nicht bestätigt. gh-Installation/Anmeldung am PC und Remote-Stand prüfen.')); }
+    if (error) { console.warn('[ade] project GitHub command failed:', redactedErrorDetail(stderr || error)); reject(new Error(translate("ade: GitHub response not confirmed. check gh installation/sign-in on PC and remote state."))); }
     else resolve(stdout);
   });
   child.stdin?.on('error', () => undefined); child.stdin?.end(input ?? '');
@@ -36,38 +37,38 @@ export class ProjectPublishService {
     return workspaceOperations.use(async () => (await this.inspect(id, remote)).status);
   }
   async preview(id: string, action: ProjectPublishAction, owner: string): Promise<ProjectPublishPreview> {
-    if (!validProjectPublishAction(action) || redactForWire(JSON.stringify(action), 32 * 1024) !== JSON.stringify(action)) fail('Ungültige Veröffentlichung.');
+    if (!validProjectPublishAction(action) || redactForWire(JSON.stringify(action), 32 * 1024) !== JSON.stringify(action)) fail(translate("Invalid publication."));
     return workspaceOperations.use(async () => {
       const state = await this.inspect(id, action.remote); const { baseHead, changedFiles, commitCount } = await this.validate(state, action);
       const preview: ProjectPublishPreview = { id: randomUUID(), workspaceId: id, status: state.status, action: structuredClone(action),
         baseHead, changedFiles, commitCount, expiresAt: this.now() + 300_000 };
       for (const [key, saved] of this.previews) if (saved.preview.expiresAt < this.now()) this.previews.delete(key);
-      if (this.previews.size >= 30) fail('Zu viele Veröffentlichungsvorschauen. Später erneut prüfen.');
+      if (this.previews.size >= 30) fail(translate("Too many publication previews. Check again later."));
       this.previews.set(preview.id, { preview, revision: state.local.view.revision, pushUrl: state.pushUrl, owner }); return structuredClone(preview);
     });
   }
   async apply(id: string, owner: string, authorize: ProjectAuthorization = () => undefined) {
     return workspaceOperations.mutate(async () => {
       authorize(); const saved = this.previews.get(id);
-      if (!saved || saved.owner !== owner || saved.preview.expiresAt < this.now()) fail('Veröffentlichungsvorschau abgelaufen. Neu prüfen.');
+      if (!saved || saved.owner !== owner || saved.preview.expiresAt < this.now()) fail(translate("Publication preview expired. Re-check."));
       authorize({ workspaceId: saved.preview.workspaceId });
       this.previews.delete(id); const { action, status: expected } = saved.preview;
       const current = await this.inspect(saved.preview.workspaceId, action.remote); authorize();
       if (current.local.view.revision !== saved.revision || current.pushUrl !== saved.pushUrl || current.status.remoteHead !== expected.remoteHead
-        || current.status.provider !== expected.provider) fail('Lokaler Stand oder Veröffentlichungsziel geändert. Neu prüfen.');
+        || current.status.provider !== expected.provider) fail(translate("Changed local status or publication target. Check again."));
       const checked = await this.validate(current, action);
-      if (checked.baseHead !== saved.preview.baseHead) fail('Remote-Basis wurde geändert. Neu prüfen.');
+      if (checked.baseHead !== saved.preview.baseHead) fail(translate("Remote base has been changed. Check again."));
       const before = await this.git.publicationState(saved.preview.workspaceId); authorize();
-      if (before.view.revision !== saved.revision) fail('Workspace wurde während der Prüfung geändert. Neu prüfen.');
+      if (before.view.revision !== saved.revision) fail(translate("Workspace changed during the check. Check again."));
       let url: string | null = null; const cwd = before.scope.workspace.workspaceDir;
       if (await this.remoteHead(cwd, current.pushUrl, expected.branch) !== expected.remoteHead
-        || action.kind === 'pr' && await this.remoteHead(cwd, current.pushUrl, action.base) !== saved.preview.baseHead) fail('Remote wurde vor Ausführung geändert. Neu prüfen.');
+        || action.kind === 'pr' && await this.remoteHead(cwd, current.pushUrl, action.base) !== saved.preview.baseHead) fail(translate("Remote has been changed before execution. Check again."));
       authorize();
       if (action.kind === 'push') {
         await this.runGit(cwd, ['-c', 'push.followTags=false', '-c', 'push.pushOption=', 'push', '--porcelain', '--no-force', '--no-follow-tags',
           '--recurse-submodules=no', '--signed=false', '--receive-pack=git-receive-pack', '--', current.pushUrl, `${expected.head}:refs/heads/${expected.branch}`], 60_000);
         authorize();
-        if (await this.remoteHead(cwd, current.pushUrl, expected.branch) !== expected.head) fail('Push-Antwort und Remote-Commit stimmen nicht überein. Remote-Stand prüfen.');
+        if (await this.remoteHead(cwd, current.pushUrl, expected.branch) !== expected.head) fail(translate("Push response and remote commit do not match. Check the remote state."));
       } else {
         const existing = current.status.pullRequests.find((pr) => pr.base === action.base && pr.head === expected.head);
         if (existing) url = existing.url;
@@ -77,7 +78,7 @@ export class ProjectPublishService {
             '--title', action.title, '--body-file', '-', ...(action.draft ? ['--draft'] : [])], action.body);
           authorize(); const found = await this.pullRequests(cwd, expected.provider!, expected.branch);
           url = found.find((pr) => pr.base === action.base && pr.head === expected.head)?.url ?? null;
-          if (!url) fail('PR-Erstellung nicht eindeutig bestätigt. Remote-Stand prüfen, keinen zweiten PR blind erstellen.');
+          if (!url) fail(translate("Not clearly confirmed PR creation. Check remote state, do not create a second PR blind."));
         }
       }
       authorize(); const publication: ProjectPublication = { kind: action.kind, branch: expected.branch, head: expected.head,
@@ -86,31 +87,31 @@ export class ProjectPublishService {
     });
   }
   private async remoteHead(cwd: string, url: string, branch: string): Promise<string | null> {
-    if (!validProjectBranchName(branch)) fail('Ungültiger Remote-Branch.');
+    if (!validProjectBranchName(branch)) fail(translate("Invalid remote branch."));
     const value = (await this.runGit(cwd, ['ls-remote', '--heads', '--', url, `refs/heads/${branch}`], 30_000)).trim();
     if (!value) return null;
     const [head, ref, ...extra] = value.split(/\s+/);
-    if (!SHA.test(head ?? '') || ref !== `refs/heads/${branch}` || extra.length) fail('Remote-Branch konnte nicht eindeutig gelesen werden.');
+    if (!SHA.test(head ?? '') || ref !== `refs/heads/${branch}` || extra.length) fail(translate("Remote branch could not be clearly read."));
     return head!;
   }
   private async pullRequests(cwd: string, provider: string, branch: string): Promise<ProjectPullRequest[]> {
     const raw = JSON.parse(await this.gh(cwd, ['pr', 'list', '--repo', githubRepository(provider), '--head', branch, '--state', 'open', '--limit', '20',
       '--json', 'number,url,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository']));
-    if (!Array.isArray(raw) || raw.length >= 20) fail('PR-Liste ist zu gross oder ungültig. GitHub direkt prüfen.');
-    if (raw.some((item) => !item || typeof item.isCrossRepository !== 'boolean')) fail('PR-Herkunft ist nicht eindeutig.');
+    if (!Array.isArray(raw) || raw.length >= 20) fail(translate("PR list is too large or invalid. check GitHub directly."));
+    if (raw.some((item) => !item || typeof item.isCrossRepository !== 'boolean')) fail(translate("PR origin is not clear."));
     return raw.filter((item) => item?.isCrossRepository === false).map((item) => {
       const url = typeof item.url === 'string' ? safeGithubPullRequestUrl(item.url, provider, item.number) : null;
       if (!Number.isInteger(item.number) || item.number <= 0 || !url || item.headRefName !== branch || !SHA.test(item.headRefOid)
-        || !validProjectBranchName(item.baseRefName) || typeof item.isDraft !== 'boolean') fail('GitHub lieferte keine eindeutige PR-Identität.');
+        || !validProjectBranchName(item.baseRefName) || typeof item.isDraft !== 'boolean') fail(translate("GitHub did not provide a clear PR identity."));
       return { number: item.number, url, head: item.headRefOid, base: item.baseRefName, draft: item.isDraft };
     });
   }
   private async inspect(id: string, remote: string): Promise<Inspection> {
-    if (!validProjectRemote(remote)) fail('Ungültiger Remote.');
+    if (!validProjectRemote(remote)) fail(translate("Invalid remote."));
     const local = await this.git.publicationState(id); const cwd = local.scope.workspace.workspaceDir;
-    if (!local.view.remotes.includes(remote)) fail('Remote ist nicht mehr vorhanden.');
+    if (!local.view.remotes.includes(remote)) fail(translate("Remote no longer exists."));
     const urls = (await this.runGit(cwd, ['remote', 'get-url', '--push', '--all', remote])).trim().split(/\r?\n/);
-    if (urls.length !== 1 || !/^(?:https?:\/\/|ssh:\/\/|git:\/\/|file:\/\/|[\w.-]+@[\w.-]+:|[A-Za-z]:[\\/]|\/)/.test(urls[0]!)) fail('Genau ein unterstütztes Push-Ziel erforderlich. Am PC konfigurieren.');
+    if (urls.length !== 1 || !/^(?:https?:\/\/|ssh:\/\/|git:\/\/|file:\/\/|[\w.-]+@[\w.-]+:|[A-Za-z]:[\\/]|\/)/.test(urls[0]!)) fail(translate("Exactly one supported push target required. Configure on PC."));
     const pushUrl = urls[0]!;
     const configured = (await this.runGit(cwd, ['config', '--get-all', `remote.${remote}.url`])).trim().split(/\r?\n/);
     const provider = configured.length === 1 ? parseGithubRepository(configured[0]!) : null;
@@ -120,16 +121,16 @@ export class ProjectPublishService {
     const providerMatches = !!provider && actualProvider === provider
       && (!explicitPush.length || explicitPush.length === 1 && parseGithubRepository(explicitPush[0]!.split('\n').slice(1).join('\n')) === provider);
     const target = actualProvider ? `github.com/${actualProvider}` : (() => {
-      try { const parsed = new URL(pushUrl); return ['http:', 'https:', 'ssh:', 'git:'].includes(parsed.protocol) ? `${parsed.hostname}${parsed.pathname}` : `Lokales Repository · ${remote}`; }
-      catch { return pushUrl.includes('@') ? pushUrl.replace(/^.*@/, '') : `Lokales Repository · ${remote}`; }
+      try { const parsed = new URL(pushUrl); return ['http:', 'https:', 'ssh:', 'git:'].includes(parsed.protocol) ? `${parsed.hostname}${parsed.pathname}` : translate("Local repository · {{value1}}", { value1: remote }); }
+      catch { return pushUrl.includes('@') ? pushUrl.replace(/^.*@/, '') : translate("Local repository · {{value1}}", { value1: remote }); }
     })();
-    if (redactForWire(target, 400) !== target) fail('Remote-Ziel kann nicht sicher angezeigt werden.');
+    if (redactForWire(target, 400) !== target) fail(translate("Remote destination cannot be safely displayed."));
     const remoteHead = await this.remoteHead(cwd, pushUrl, local.view.workspace.branch);
     let pullRequests: ProjectPullRequest[] = []; let providerNotice: string | null = null;
     if (provider && providerMatches) try { pullRequests = await this.pullRequests(cwd, provider, local.view.workspace.branch); }
-    catch { providerNotice = 'GitHub-PRs nicht lesbar. gh-Installation und GitHub-Anmeldung am PC prüfen.'; }
+    catch { providerNotice = translate("GitHub PRs not readable. gh installation and check GitHub login on PC."); }
     const after = await this.git.publicationState(id);
-    if (after.view.revision !== local.view.revision) fail('Workspace wurde während der Remote-Prüfung geändert. Aktualisieren.');
+    if (after.view.revision !== local.view.revision) fail(translate("Workspace was changed during remote check. Update."));
     return { local, pushUrl, status: { workspaceId: id, projectName: local.view.workspace.name, branch: local.view.workspace.branch, head: local.view.head!,
       remote, target, remoteHead, provider: providerMatches ? provider : null, pullRequests, providerNotice, checkedAt: this.now() } };
   }
@@ -137,23 +138,23 @@ export class ProjectPublishService {
     const { status, local, pushUrl } = state; const cwd = local.scope.workspace.workspaceDir;
     let baseHead = status.remoteHead;
     if (action.kind === 'pr') {
-      if (!status.provider || status.providerNotice) fail('Für PRs einen lesbaren GitHub-Remote und angemeldetes gh verwenden.');
-      if (status.remoteHead !== status.head) fail('Diesen genauen Branch-Commit zuerst ausdrücklich pushen.');
-      if (action.base === status.branch) fail('PR-Zielbranch und Arbeitsbranch müssen verschieden sein.');
+      if (!status.provider || status.providerNotice) fail(translate("For PRs, use a readable GitHub remote and logged-in gh."));
+      if (status.remoteHead !== status.head) fail(translate("Explicitly push this exact branch commit first."));
+      if (action.base === status.branch) fail(translate("The target PR branch and the working branch must be different."));
       baseHead = await this.remoteHead(cwd, pushUrl, action.base);
-      if (!baseHead) fail('PR-Zielbranch ist auf dem Remote nicht vorhanden.');
+      if (!baseHead) fail(translate("PR target branch does not exist on the remote."));
     }
     if (baseHead) {
       let base: string;
       try { base = (await this.runGit(cwd, ['merge-base', baseHead, status.head])).trim(); }
-      catch { fail('Remote-Commit ist lokal nicht prüfbar. Zuerst Fetch ausführen.'); }
-      if (action.kind === 'push' && base !== baseHead) fail('Remote und Arbeitsbranch sind auseinander gelaufen. Erst abrufen und zusammenführen; kein Force-Push.');
+      catch { fail(translate("The remote commit cannot be checked locally. Run fetch first.")); }
+      if (action.kind === 'push' && base !== baseHead) fail(translate("Remote and working branches have diverged. Fetch and merge first; no force push."));
     }
     const range = baseHead ? `${baseHead}..${status.head}` : status.head;
     const commitCount = Number((await this.runGit(cwd, ['rev-list', '--count', range])).trim());
     const changedFiles = (await this.runGit(cwd, baseHead ? ['diff', '--name-only', '-z', `${baseHead}...${status.head}`]
       : ['ls-tree', '-r', '--name-only', '-z', status.head])).split('\0').filter(Boolean);
-    if (!Number.isSafeInteger(commitCount) || commitCount < 0 || changedFiles.length > 500) fail('Veröffentlichung überschreitet die Vorschaugrenze.');
+    if (!Number.isSafeInteger(commitCount) || commitCount < 0 || changedFiles.length > 500) fail(translate("Publication exceeds the preview limit."));
     return { baseHead, commitCount, changedFiles: changedFiles.map((path) => redactForWire(path, 400)) };
   }
 }

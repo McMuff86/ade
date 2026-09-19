@@ -1,22 +1,24 @@
+import { t as translate } from "./i18n";
+import { localizedLabels } from "./i18n/labels";
 import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from './remoteDevices';
 
-export const REMOTE_SCOPE_LABELS: Record<RemoteAdminScope, string> = {
-  'host:restart': 'ADE neu starten', 'catalog:write': 'Agents und Projekte erstellen', 'repositories:write': 'Git abrufen und Workspaces aktualisieren',
-  'workspace:read': 'Workspace-Dateien und Git-Diffs lesen', 'workspace:write': 'Kleine Workspace-Textdateien bearbeiten',
-  'profiles:write': 'Agent-Namen, Rollen und Profilbilder bearbeiten', 'projects:write': 'Projekt-Workspaces ohne Agent-Profil öffnen',
-  'speech:control': 'Stimmen wählen und ElevenLabs-Stimmtests ausführen (verbraucht Guthaben)',
-  'dictation:transcribe': 'Mikrofonaufnahmen mit ElevenLabs transkribieren (verbraucht Guthaben)',
-  'organizer:read': 'Persönliche Aufgaben und Notizen lesen',
-  'organizer:write': 'Persönliche Aufgaben und Notizen bearbeiten',
-  'projectGit:write': 'Projekt-Branches und lokale Git-Aktionen ausführen', 'projectGit:publish': 'Projekt-Branches pushen und GitHub-PRs erstellen',
-  'terminal:control': 'Interaktive Terminals steuern (Befehle mit den Rechten meines Windows-Benutzers)',
-};
-export const SETUP_INTENTS = {
-  project: { label: 'An Projekten arbeiten', preset: 'Projektarbeit auswählen', root: true,
+export const REMOTE_SCOPE_LABELS: Record<RemoteAdminScope, string> = localizedLabels(() => ({
+  'host:restart': translate("Restart ADE"), 'catalog:write': translate("Create agents and projects"), 'repositories:write': translate("Get Git and update workspaces"),
+  'workspace:read': translate("Read workspace files and git diffs"), 'workspace:write': translate("Edit small workspace text files"),
+  'profiles:write': translate("Edit agent names, roles and profile pictures"), 'projects:write': translate("Open project workspaces without an agent profile"),
+  'speech:control': translate("Choose voices and run ElevenLabs voice tests (uses credits)"),
+  'dictation:transcribe': translate("Transcribe microphone recordings with ElevenLabs (consumes credit)"),
+  'organizer:read': translate("Read personal tasks and notes"),
+  'organizer:write': translate("Edit personal tasks and notes"),
+  'projectGit:write': translate("Manage project branches and local Git operations"), 'projectGit:publish': translate("Push project branches and create GitHub PRs"),
+  'terminal:control': translate("Control interactive terminals (commands with the rights of my Windows user)"),
+}));
+export const SETUP_INTENTS = localizedLabels(() => ({
+  project: { label: translate("Work on projects"), preset: translate("Select project work"), root: true,
     scopes: ['workspace:read', 'projects:write', 'catalog:write', 'terminal:control', 'projectGit:write', 'workspace:write'] },
-  results: { label: 'Ergebnisdateien ansehen', preset: 'Dateilesen auswählen', root: false, scopes: ['workspace:read'] },
-  publish: { label: 'Push und PR nutzen', preset: 'Push/PR auswählen', root: false, scopes: ['workspace:read', 'projects:write', 'projectGit:publish'] },
-} as const satisfies Record<string, { label: string; preset: string; root: boolean; scopes: readonly RemoteAdminScope[] }>;
+  results: { label: translate("View results files"), preset: translate("Select file reading"), root: false, scopes: ['workspace:read'] },
+  publish: { label: translate("Use push and PR"), preset: translate("Select Push/PR"), root: false, scopes: ['workspace:read', 'projects:write', 'projectGit:publish'] },
+} as const satisfies Record<string, { label: string; preset: string; root: boolean; scopes: readonly RemoteAdminScope[] }>));
 export type SetupIntent = keyof typeof SETUP_INTENTS;
 
 export function setupReadiness(intent: SetupIntent, capabilities: unknown, configured: boolean | undefined, online: boolean) {

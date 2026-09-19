@@ -1,3 +1,6 @@
+import { t as translate } from "../../shared/i18n";
+import { currentLocale } from '../../shared/i18n';
+import type { AppLocale } from '../../shared/i18n/locales';
 import type { SpeechTuning } from '../../shared/speech';
 
 export const SPEECH_MODEL = 'eleven_v3';
@@ -14,25 +17,27 @@ export const speechPronunciation = (text: string): string => {
 
 /** One bounded utterance. Only a final receipt completes it; never replay an interrupted paid request. */
 export function dialogueAudio(input: { key: string; voiceId: string; text: string; tuning: SpeechTuning;
+  language?: AppLocale | 'auto';
   authorize: () => void; dispatched: () => void; signal?: AbortSignal; connect?: DialogueConnect; timeoutMs?: number }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     let socket: WebSocket | undefined; let settled = false; let size = 0;
     const chunks: Buffer[] = [];
-    const failure = 'ElevenLabs-Sprachausgabe unterbrochen. Verbindung, Guthaben und Text-to-Speech-Freigabe prüfen. Keine automatische Wiederholung.';
+    const failure = translate("ElevenLabs voice output interrupted. Check connection, credit and text-to-speech sharing. No automatic repetition.");
     const end = (error?: string) => {
       if (settled) return; settled = true;
       clearTimeout(deadline); clearInterval(monitor); input.signal?.removeEventListener('abort', abort);
       if (socket && socket.readyState < 2) { try { socket.close(); } catch { /* Already disconnected. */ } }
       if (error) reject(new Error(error)); else resolve(Buffer.concat(chunks));
     };
-    const abort = () => end('ElevenLabs-Sprachausgabe abgebrochen.');
+    const abort = () => end(translate("ElevenLabs speech cancelled."));
     const allowed = () => { input.signal?.throwIfAborted(); input.authorize(); };
-    const deadline = setTimeout(() => end('ElevenLabs-Sprachausgabe hat das Zeitlimit erreicht. Keine automatische Wiederholung.'), input.timeoutMs ?? 30_000);
+    const deadline = setTimeout(() => end(translate("ElevenLabs voice output has reached the time limit. No automatic repetition.")), input.timeoutMs ?? 30_000);
     const monitor = setInterval(() => { try { allowed(); } catch { abort(); } }, 1000);
     input.signal?.addEventListener('abort', abort, { once: true });
     try {
       allowed();
-      const query = new URLSearchParams({ model_id: SPEECH_MODEL, output_format: 'mp3_44100_128', language_code: 'de' });
+      const query = new URLSearchParams({ model_id: SPEECH_MODEL, output_format: 'mp3_44100_128' });
+      if (input.language !== 'auto') query.set('language_code', input.language ?? currentLocale());
       socket = (input.connect ?? (url => new WebSocket(url)))(`wss://api.elevenlabs.io/v1/text-to-dialogue/stream-input?${query}`);
       socket.addEventListener('open', () => {
         if (settled) return;
@@ -66,7 +71,7 @@ export function dialogueAudio(input: { key: string; voiceId: string; text: strin
             if (size < 100) throw Error('empty');
             end();
           }
-        } catch { end('ElevenLabs-Audio unvollständig, ungültig oder zu groß. Bitte erneut versuchen.'); }
+        } catch { end(translate("ElevenLabs audio is incomplete, invalid or too large. Please try again.")); }
       });
     } catch { end(failure); }
   });

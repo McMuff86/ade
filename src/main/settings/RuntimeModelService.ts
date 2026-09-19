@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { homedir } from 'node:os';
 import { isAbsolute } from 'node:path';
@@ -206,16 +207,16 @@ export class RuntimeModelService {
       const models = await this.probe.run(runtime, backend, this.credentials.envFor(runtime));
       return { runtime, backend, status: models.length ? 'ready' : 'empty', models, checkedAt: Date.now(),
         message: runtime === 'ollama'
-          ? models.length ? `${models.length} Modelle von deinem Ollama-Dienst gemeldet. Nach dem Hinzufügen oder Entfernen eines Modells die Liste aktualisieren.`
-            : 'Ollama ist erreichbar, hat aber keine Modelle gemeldet. Zuerst ein Modell mit ollama pull <modell> hinzufügen, danach aktualisieren.'
-          : models.length ? 'Von der installierten CLI gemeldete Modelle. Die Liste verwendet deren Anmeldung und Konfiguration.' : 'Die CLI hat keine auswählbaren Modelle gemeldet.' };
+          ? models.length ? translate("{{value1}} models reported by your Ollama service, and after adding or removing a model, update the list.", { value1: models.length })
+            : translate("Ollama is accessible, but has not reported any models. Add a model with ollama pull <model> first, then update it.")
+          : models.length ? translate("Models reported by the installed CLI. The list uses their login and configuration.") : translate("The CLI has not reported any selectable models.") };
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
-      const message = code === 'cli_missing' ? 'CLI in dieser Umgebung nicht gefunden. Installation unter Einstellungen → Harnesses prüfen.'
-        : runtime === 'ollama' ? 'Ollama-Modelle konnten nicht geladen werden. Ollama in dieser Umgebung starten und die Verbindung mit ollama list prüfen, danach aktualisieren.'
-        : code === 'authentication_required' ? 'Anmeldung fehlt. Unter Einstellungen → Harnesses anmelden und die Modelle aktualisieren.'
-          : code === 'cli_timeout' ? 'Modellabfrage hat zu lange gedauert. Verbindung und Anmeldung prüfen, danach aktualisieren.'
-            : 'Modelle konnten nicht bestätigt werden. CLI-Version, Anmeldung und Verbindung unter Einstellungen → Harnesses prüfen.';
+      const message = code === 'cli_missing' ? translate("CLI not found in this environment. Check installation under Settings → Harnesses.")
+        : runtime === 'ollama' ? translate("Ollama models could not be loaded. Ollama start in this environment and check the connection with ollama list, then update.")
+        : code === 'authentication_required' ? translate("Sign-in missing. Under Settings → Sign in Harnesses and update the models.")
+          : code === 'cli_timeout' ? translate("Model query has taken too long to check connection and login, then update.")
+            : translate("Models could not be confirmed. check CLI version, login and connection under Settings → Harnesses.");
       return { runtime, backend, status: 'unavailable', models: [], checkedAt: Date.now(), message };
     }
   }

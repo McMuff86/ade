@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ProjectBranchAction, ProjectBranchOverview, ProjectBranchPreview } from '../../shared/projectBranches';
 import { validProjectBranchName } from '../../shared/projectBranches';
@@ -15,6 +18,7 @@ export interface ProjectBranchesProps {
 
 /** Shared branch UI. The host owns Git commands, previews and checkout identities. */
 export function ProjectBranches({ workspace, online, canChange, query, apply, onWorkspace, pending, savePending, errorText }: ProjectBranchesProps) {
+  useLocale();
   const [opened, setOpened] = useState(!!pending); const [overview, setOverview] = useState<ProjectBranchOverview>();
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [ref, setRef] = useState(''); const [name, setName] = useState(''); const [separate, setSeparate] = useState(true);
@@ -22,8 +26,8 @@ export function ProjectBranches({ workspace, online, canChange, query, apply, on
   const live = useRef(true); const lock = useRef(false); const review = useRef<HTMLHeadingElement>(null); const opener = useRef<HTMLElement | null>(null);
   const summary = useRef<HTMLElement>(null); const restoringFocus = useRef(false);
   const current = pending?.preview ?? preview;
-  const branchNameError = !name.trim() ? '' : !validProjectBranchName(name.trim()) ? 'Branch-Name ist ungültig. Zum Beispiel feature/meine-idee verwenden.'
-    : overview?.branches.some((branch) => branch.kind === 'local' && branch.name === name.trim()) ? 'Dieser lokale Branch existiert bereits. Oben auswählen und wechseln.' : '';
+  const branchNameError = !name.trim() ? '' : !validProjectBranchName(name.trim()) ? translate("Invalid branch name. Use a name such as feature/my-idea.")
+    : overview?.branches.some((branch) => branch.kind === 'local' && branch.name === name.trim()) ? translate("This local branch already exists. Select and switch top.") : '';
   const basis = overview?.branches.find((branch) => branch.ref === ref);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   useLayoutEffect(() => { if (current) review.current?.focus(); else if (restoringFocus.current) {
@@ -48,53 +52,53 @@ export function ProjectBranches({ workspace, online, canChange, query, apply, on
   const execute = async () => {
     if (!current || lock.current || !online || !canChange) return;
     const command = pending ?? { preview: current, key: crypto.randomUUID() };
-    if (!savePending(command)) { setError('Browser-Speicher nicht verfügbar. Branch-Aktion wurde nicht gesendet.'); return; }
+    if (!savePending(command)) { setError(translate("Browser storage not available. Branch action was not sent.")); return; }
     lock.current = true; setBusy(true); setError('');
     try {
       const next = await apply(command.preview.id, command.key);
       if (!live.current) return;
-      if (!savePending(null)) { setError('Branch geändert; Bestätigung konnte nicht gespeichert werden. Mit derselben Aktion erneut prüfen.'); return; }
+      if (!savePending(null)) { setError(translate("Branch changed; confirmation could not be saved. Check again with the same action.")); return; }
       setPreview(undefined); setChecking((value) => value + 1); onWorkspace(next);
     } catch (reason) { if (live.current) setError(errorText(reason)); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const discard = () => { if (!savePending(null)) return; restoringFocus.current = true; setPreview(undefined); setError(''); if (pending) setChecking((value) => value + 1); };
   return <details className="project-branches" open={opened} onToggle={(event) => setOpened(event.currentTarget.open)}>
-    <summary ref={summary}>Branches · {workspace.branch}</summary>
-    {!online && <p role="status">PC nicht verbunden. Branch-Aktionen sind gesperrt.</p>}
-    {online && !canChange && <p role="status">Zum Wechseln am PC die Gerätefreigaben für Projekt-Workspaces und Projekt-Branches aktivieren.</p>}
-    {error && <p role="alert">{error}</p>}{busy && <p role="status">Branch-Zustand wird geprüft…</p>}
-    <button disabled={busy || !online} onClick={() => setChecking((value) => value + 1)}>Branches aktualisieren</button>
-    {current ? <section className="project-branch-review" aria-label="Branch-Vorschau">
-      <h3 ref={review} tabIndex={-1}>Branch-Aktion prüfen</h3>
+    <summary ref={summary}>{translate("Branches ·")}{" "}{workspace.branch}</summary>
+    {!online && <p role="status">{translate("PC not connected. Branch actions are locked.")}</p>}
+    {online && !canChange && <p role="status">{translate("To switch on the PC, activate the device shares for project workspaces and project branches.")}</p>}
+    {error && <p role="alert">{localizeAppMessage(error)}</p>}{busy && <p role="status">{translate("Checking branch status…")}</p>}
+    <button disabled={busy || !online} onClick={() => setChecking((value) => value + 1)}>{translate("Refresh branches")}</button>
+    {current ? <section className="project-branch-review" aria-label={translate("Branch preview")}>
+      <h3 ref={review} tabIndex={-1}>{translate("Examine branch action")}</h3>
       <p>{current.projectName}: <strong>{current.fromBranch}</strong> → <strong>{current.toBranch}</strong></p>
-      <p>{current.action.kind === 'open-worktree' ? 'Die vorhandene Arbeitskopie wird geöffnet.' : current.separate ? 'Eine zusätzliche Arbeitskopie mit neuem Branch wird angelegt.' : 'Der Branch in diesem Workspace wird gewechselt.'}</p>
-      {pending && <p role="status">Antwort noch unklar. Erneut prüfen verwendet denselben Vorgang.</p>}
-      <div className="project-workspace-actions"><button disabled={busy || !online || !canChange} onClick={() => void execute()}>{pending ? 'Branch-Aktion erneut prüfen' : 'Branch-Aktion ausführen'}</button>
-        <button disabled={busy} onClick={discard}>{pending ? 'Stand prüfen und Vorschau verwerfen' : 'Abbrechen'}</button></div>
+      <p>{current.action.kind === 'open-worktree' ? translate("The existing working copy is opened.") : current.separate ? translate("An additional working copy with a new branch is created.") : translate("The branch in this workspace is changed.")}</p>
+      {pending && <p role="status">{translate("Answer still unclear. Check again uses the same process.")}</p>}
+      <div className="project-workspace-actions"><button disabled={busy || !online || !canChange} onClick={() => void execute()}>{pending ? translate("Re-examine Branch Action") : translate("Execute branch operation")}</button>
+        <button disabled={busy} onClick={discard}>{pending ? translate("Check status and discard preview") : translate("Cancel")}</button></div>
     </section> : overview && <>
-      <p>Aktuell: <strong>{overview.workspace.branch}</strong> · {overview.dirty ? 'Lokale Änderungen vorhanden' : 'Arbeitsverzeichnis sauber'}</p>
-      {overview.blockedReason && <p role="status">{overview.blockedReason}</p>}
-      <label>Branch oder Basis<select aria-label="Projekt-Branch" disabled={busy} value={ref} onChange={(event) => setRef(event.target.value)}>
-        {!overview.branches.length && <option value="">Noch kein Commit</option>}
-        {overview.branches.map((branch) => <option key={branch.ref} value={branch.ref}>{branch.name}{branch.kind === 'remote' ? ' · Remote' : ''}{branch.current ? ' · aktuell' : ''}{branch.worktreeId && !branch.current ? ' · in Arbeitskopie' : ''}</option>)}
+      <p>{translate("Current:")}{" "}<strong>{overview.workspace.branch}</strong> · {overview.dirty ? translate("Existing local changes") : translate("Working tree clean")}</p>
+      {overview.blockedReason && <p role="status">{localizeAppMessage(overview.blockedReason)}</p>}
+      <label>{translate("Branch or base")}<select aria-label={translate("Project branch")} disabled={busy} value={ref} onChange={(event) => setRef(event.target.value)}>
+        {!overview.branches.length && <option value="">{translate("No commit yet")}</option>}
+        {overview.branches.map((branch) => <option key={branch.ref} value={branch.ref}>{branch.name}{branch.kind === 'remote' ? ' · Remote' : ''}{branch.current ? translate(" · current") : ''}{branch.worktreeId && !branch.current ? translate(" · in worktree") : ''}</option>)}
       </select></label>
       <button disabled={busy || !online || !canChange || !ref || overview.branches.find((branch) => branch.ref === ref)?.current || !!overview.blockedReason}
-        onClick={() => void prepare({ kind: 'switch', ref })}>Branch wechseln</button>
-      <fieldset disabled={busy || !online || !canChange}><legend>Neuer Branch</legend>
-        <p>Basis: <strong>{basis?.name ?? 'Ohne Commit'}</strong>{basis && <> · <code>{basis.head.slice(0, 12)}</code></>}</p>
-        <label>Branch-Name<input aria-label="Neuer Branch-Name" aria-invalid={!!branchNameError} value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder="feature/meine-idee" /></label>
+        onClick={() => void prepare({ kind: 'switch', ref })}>{translate("Switch branch")}</button>
+      <fieldset disabled={busy || !online || !canChange}><legend>{translate("New branch")}</legend>
+        <p>{translate("Base:")}{" "}<strong>{basis?.name ?? translate("No commit")}</strong>{basis && <> · <code>{basis.head.slice(0, 12)}</code></>}</p>
+        <label>{translate("Branch name")}<input aria-label={translate("New branch name")} aria-invalid={!!branchNameError} value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder={translate("feature/my-idea")} /></label>
         {branchNameError && <p role="status">{branchNameError}</p>}
-        <label className="project-checkbox"><input type="checkbox" checked={separate} onChange={(event) => setSeparate(event.target.checked)} />Zusätzliche Arbeitskopie anlegen</label>
-        <p>Die Basis ist der oben gewählte Commit-Stand. Ungesicherte Änderungen bleiben im bisherigen Workspace.</p>
-        {overview.dirty && <p>Hier liegen uncommittete Änderungen. Erst im Git-Bereich committen, wenn der neue Branch diese enthalten soll.</p>}
-        <button disabled={!name.trim() || !!branchNameError || !separate && !!overview.blockedReason} onClick={() => void prepare({ kind: 'create', name: name.trim(), baseRef: ref || null, separate })}>Branch anlegen</button>
+        <label className="project-checkbox"><input type="checkbox" checked={separate} onChange={(event) => setSeparate(event.target.checked)} />{translate("Create an additional working copy")}</label>
+        <p>{translate("The basis is the commit status selected above. Unsecured changes remain in the previous workspace.")}</p>
+        {overview.dirty && <p>{translate("There are uncommitted changes here. Commit only in the git area, if the new branch should contain them.")}</p>}
+        <button disabled={!name.trim() || !!branchNameError || !separate && !!overview.blockedReason} onClick={() => void prepare({ kind: 'create', name: name.trim(), baseRef: ref || null, separate })}>{translate("Create branch")}</button>
       </fieldset>
-      <details><summary>Vorhandene Arbeitskopien ({overview.worktrees.length})</summary>
-        <ul>{overview.worktrees.map((worktree) => <li key={worktree.id}><span>{worktree.name} · {worktree.branch}{worktree.current ? ' · aktuell' : ''}</span>
-          {worktree.notice && <p>{worktree.notice}</p>}<button disabled={busy || !online || !canChange || worktree.current || !worktree.available}
-            onClick={() => void prepare({ kind: 'open-worktree', worktreeId: worktree.id })}>Arbeitskopie öffnen: {worktree.branch}</button></li>)}</ul>
-      </details><p>Remote-Branches zeigen den zuletzt gefetchten Stand.</p>
+      <details><summary>{translate("Existing working copies (")}{overview.worktrees.length})</summary>
+        <ul>{overview.worktrees.map((worktree) => <li key={worktree.id}><span>{worktree.name} · {worktree.branch}{worktree.current ? translate(" · current") : ''}</span>
+          {worktree.notice && <p>{localizeAppMessage(worktree.notice)}</p>}<button disabled={busy || !online || !canChange || worktree.current || !worktree.available}
+            onClick={() => void prepare({ kind: 'open-worktree', worktreeId: worktree.id })}>{translate("Open working copy:")}{" "}{worktree.branch}</button></li>)}</ul>
+      </details><p>{translate("Remote branches show the last fetched state.")}</p>
     </>}
   </details>;
 }

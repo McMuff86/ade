@@ -306,6 +306,7 @@ export interface PtyActivityEvent {
 /** Renderer config writes are intentionally narrower than the stored model. */
 export interface ConfigSaveRequest {
   settings: {
+    language?: import('./i18n/locales').AppLocale;
     theme?: ThemeName;
     inspectorSide?: InspectorSide;
   };

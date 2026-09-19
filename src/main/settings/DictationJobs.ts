@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash, randomUUID } from 'node:crypto';
 import type { DictationJobState } from '../../shared/dictation';
 import { LIVE_DICTATION_AUDIO_START_TIMEOUT_MS, LIVE_DICTATION_MAX_PACKETS, LIVE_DICTATION_SESSION_TIMEOUT_MS } from '../../shared/liveDictation';
@@ -29,7 +30,7 @@ export class DictationJobs {
     authorize(); this.prune();
     while (this.jobs.size >= 16) {
       const settled = [...this.jobs].find(([, job]) => !['prepared', 'recording', 'transcribing'].includes(job.state.status));
-      if (!settled) throw new Error('Zu viele offene Aufnahmen. Eine Aufnahme beenden oder abbrechen.');
+      if (!settled) throw new Error(translate("Too many open recordings. Stop or cancel one recording."));
       this.jobs.delete(settled[0]);
     }
     const jobId = randomUUID(); this.jobs.set(jobId, { owner, authorize, usage: structuredClone(usage), expiresAt: this.now() + 5 * 60_000,
@@ -40,13 +41,13 @@ export class DictationJobs {
   submit(owner: string, jobId: string, key: string, audio: Uint8Array): { jobId: string; replayed: boolean } {
     const job = this.require(owner, jobId);
     validateDictationAudio(audio);
-    if (!/^[A-Za-z0-9_.:-]{8,128}$/.test(key)) throw new Error('Ungültige Versand-ID.');
+    if (!/^[A-Za-z0-9_.:-]{8,128}$/.test(key)) throw new Error(translate("Invalid delivery ID."));
     const fingerprint = createHash('sha256').update(audio).digest('hex');
     if (job.submission) {
-      if (job.submission.key !== key || job.submission.fingerprint !== fingerprint) throw new Error('Diese Aufnahme wurde bereits mit anderen Daten übergeben.');
+      if (job.submission.key !== key || job.submission.fingerprint !== fingerprint) throw new Error(translate("This recording has already been handed over with other data."));
       return { jobId, replayed: true };
     }
-    if (job.state.status !== 'prepared') throw new Error('Diese Aufnahme wurde bereits beendet.');
+    if (job.state.status !== 'prepared') throw new Error(translate("This recording has already been completed."));
     const recording = new Uint8Array(audio);
     job.authorize(); job.submission = { key, fingerprint }; job.state = { status: 'transcribing' }; job.expiresAt = this.now() + 10 * 60_000;
     // Reserve before scheduling the provider request. Submit acknowledges only
@@ -63,7 +64,7 @@ export class DictationJobs {
 
   async startLive(owner: string, jobId: string): Promise<void> {
     const job = this.require(owner, jobId);
-    if (!this.service.startLive || job.state.status !== 'prepared') throw new Error('Diese Aufnahme kann nicht als Live-Diktat gestartet werden.');
+    if (!this.service.startLive || job.state.status !== 'prepared') throw new Error(translate("This recording cannot be started as a live dictation."));
     job.state = { status: 'recording', text: '' }; job.nextSequence = 0;
     // Include token/socket setup and finalization; do not inherit the preparation expiry.
     job.expiresAt = this.now() + LIVE_DICTATION_AUDIO_START_TIMEOUT_MS + LIVE_DICTATION_SESSION_TIMEOUT_MS + 40_000;
@@ -85,7 +86,7 @@ export class DictationJobs {
 
   pushLive(owner: string, jobId: string, sequence: number, audio: Uint8Array): void {
     const job = this.require(owner, jobId);
-    if (!job.live || job.state.status !== 'recording' || sequence !== job.nextSequence) throw new Error('Audiostream nicht verfügbar oder Reihenfolge geändert. Keine automatische Wiederholung.');
+    if (!job.live || job.state.status !== 'recording' || sequence !== job.nextSequence) throw new Error(translate("Audio stream unavailable or order changed. No automatic repetition."));
     job.live.push(audio); job.nextSequence++;
   }
 
@@ -96,10 +97,10 @@ export class DictationJobs {
     const fingerprint = createHash('sha256').update(audio).digest('hex');
     const previous = job.packets?.get(sequence);
     if (previous) {
-      if (previous.fingerprint !== fingerprint || !previous.complete) throw new Error('Audiopaket geändert oder Übergabe unbestätigt. Keine automatische Wiederholung.');
+      if (previous.fingerprint !== fingerprint || !previous.complete) throw new Error(translate("Audio package modified or unconfirmed. No automatic repetition."));
       return true;
     }
-    if (sequence !== job.nextSequence || !Number.isSafeInteger(sequence) || sequence < 0 || sequence >= LIVE_DICTATION_MAX_PACKETS) throw new Error('Ungültige Audioreihenfolge.');
+    if (sequence !== job.nextSequence || !Number.isSafeInteger(sequence) || sequence < 0 || sequence >= LIVE_DICTATION_MAX_PACKETS) throw new Error(translate("Invalid audio sequence."));
     const receipt = { fingerprint, complete: false };
     (job.packets ??= new Map()).set(sequence, receipt);
     this.pushLive(owner, jobId, sequence, audio); receipt.complete = true;
@@ -109,7 +110,7 @@ export class DictationJobs {
   finishLive(owner: string, jobId: string): void {
     const job = this.require(owner, jobId);
     if (job.live && ['transcribing', 'complete'].includes(job.state.status)) return;
-    if (!job.live || job.state.status !== 'recording') throw new Error('Live-Diktat ist nicht mehr verfügbar.');
+    if (!job.live || job.state.status !== 'recording') throw new Error(translate("Live dictation is no longer available."));
     job.state = { status: 'transcribing' }; job.expiresAt = this.now() + 10 * 60_000; job.live.finish();
   }
 
@@ -133,7 +134,7 @@ export class DictationJobs {
 
   private require(owner: string, jobId: string): Job {
     this.prune(); const job = this.jobs.get(jobId);
-    if (!job || job.owner !== owner) throw new Error('Aufnahme ist nicht mehr verfügbar. Den Entwurf behalten und bei Bedarf neu aufnehmen.');
+    if (!job || job.owner !== owner) throw new Error(translate("Recording is no longer available. Keep the draft and re-record as needed."));
     job.authorize(); return job;
   }
   private prune(): void {

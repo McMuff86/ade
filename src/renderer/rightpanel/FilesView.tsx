@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Files tab: a pinned "Agent files" section (MEMORY/USER/CLAUDE/AGENTS that
  * exist) on top, then the workspace tree with lazy-expanding directories.
@@ -35,6 +37,7 @@ export function FilesView({
   onOpen,
   onMutated,
 }: FilesViewProps): JSX.Element {
+  useLocale();
   const [childrenByPath, setChildrenByPath] = useState<Record<string, FsTreeNode[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<AgentFile[]>([]);
@@ -216,7 +219,7 @@ export function FilesView({
     <div className="fs-view">
       {pinned.length > 0 ? (
         <div className="fs-section">
-          <div className="fs-section-head">Agent files</div>
+          <div className="fs-section-head">{translate("Agent files")}</div>
           {pinned.map((f) => {
             const c = counts.get(f.path);
             return (
@@ -244,9 +247,9 @@ export function FilesView({
       ) : null}
 
       <div className="fs-section">
-        {pinned.length > 0 ? <div className="fs-section-head">Workspace</div> : null}
+        {pinned.length > 0 ? <div className="fs-section-head">{translate("Workspace")}</div> : null}
         {root.length === 0 ? (
-          <div className="ch-note">Empty workspace.</div>
+          <div className="ch-note">{translate("Empty workspace.")}</div>
         ) : (
           renderNodes(root, 0)
         )}

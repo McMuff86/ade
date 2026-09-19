@@ -1,8 +1,12 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { ORGANIZER_LIMITS, type OrganizerDocument, type OrganizerSketch, type SketchPoint, type SketchStroke } from '../../shared/organizer';
 import { drawStroke, renderOrganizerSketch } from './sketchRendering';
 
 export function SketchEditor({ document, disabled, onChange }: { document: OrganizerDocument; disabled: boolean; onChange(sketch: OrganizerSketch): void }) {
+  useLocale();
   const canvas = useRef<HTMLCanvasElement>(null); const stroke = useRef<SketchStroke | null>(null); const pointer = useRef<number | null>(null);
   const current = useRef(document); current.current = document;
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen'); const [color, setColor] = useState('#2155d6'); const [width, setWidth] = useState(5);
@@ -15,7 +19,7 @@ export function SketchEditor({ document, disabled, onChange }: { document: Organ
     void renderOrganizerSketch(document).then(image => { if (version === rendered.current && canvas.current) {
       const context = canvas.current.getContext('2d'); context?.clearRect(0, 0, image.width, image.height); context?.drawImage(image, 0, 0);
       if (context && stroke.current) drawStroke(context, stroke.current);
-    } }).catch(reason => setError(reason instanceof Error ? reason.message : 'Zeichenfläche konnte nicht geladen werden.'));
+    } }).catch(reason => setError(reason instanceof Error ? reason.message : translate("Drawing surface could not be loaded.")));
     return () => { rendered.current++; };
   }, [document]);
   const change = (strokes: SketchStroke[]) => {
@@ -47,7 +51,7 @@ export function SketchEditor({ document, disabled, onChange }: { document: Organ
       }
       if (index >= 0) change(strokes.filter((_item, i) => i !== index)); return;
     }
-    if (current.current.sketch.strokes.length >= ORGANIZER_LIMITS.strokes || current.current.sketch.strokes.reduce((n, item) => n + item.points.length, 0) >= ORGANIZER_LIMITS.points) { setError('Die Skizze ist voll. Eine neue Notiz für weitere Zeichnungen anlegen.'); return; }
+    if (current.current.sketch.strokes.length >= ORGANIZER_LIMITS.strokes || current.current.sketch.strokes.reduce((n, item) => n + item.points.length, 0) >= ORGANIZER_LIMITS.points) { setError(translate("The sketch is full. Create a new note for more drawings.")); return; }
     event.currentTarget.setPointerCapture(event.pointerId); pointer.current = event.pointerId;
     stroke.current = { id: crypto.randomUUID(), color, width, points: [at] };
     const context = canvas.current?.getContext('2d'); if (context) drawStroke(context, stroke.current);
@@ -57,7 +61,7 @@ export function SketchEditor({ document, disabled, onChange }: { document: Organ
     const at = point(event); const previous = stroke.current.points.at(-1)!;
     if (Math.hypot(at.x - previous.x, at.y - previous.y) < 1) return;
     const total = current.current.sketch.strokes.reduce((n, item) => n + item.points.length, 0) + stroke.current.points.length;
-    if (total >= ORGANIZER_LIMITS.points) { finish(); setError('Punktlimit erreicht. Die bisherige Zeichnung ist erhalten.'); return; }
+    if (total >= ORGANIZER_LIMITS.points) { finish(); setError(translate("Point limit reached. The previous drawing has been preserved.")); return; }
     stroke.current.points.push(at); const context = canvas.current?.getContext('2d');
     if (context) drawStroke(context, { ...stroke.current, points: [previous, at] });
   };
@@ -65,21 +69,21 @@ export function SketchEditor({ document, disabled, onChange }: { document: Organ
     const source = direction === 'undo' ? undo.current : redo.current; const destination = direction === 'undo' ? redo.current : undo.current;
     const value = source.pop(); if (!value) return; destination.push(current.current.sketch.strokes); setHistoryVersion(historyVersion + 1); onChange({ ...current.current.sketch, strokes: value });
   };
-  return <section className="organizer-sketch" aria-label="Skizze">
-    <div className="organizer-tools" role="group" aria-label="Zeichenwerkzeuge">
-      <button type="button" aria-pressed={tool === 'pen'} disabled={disabled} onClick={() => setTool('pen')}>Stift</button>
-      <button type="button" aria-pressed={tool === 'eraser'} disabled={disabled} onClick={() => setTool('eraser')}>Radierer</button>
-      <label>Farbe<input type="color" aria-label="Stiftfarbe" value={color} disabled={disabled} onChange={event => setColor(event.target.value)} /></label>
-      <label>Strichstärke<input type="range" aria-label="Strichstärke" min={1} max={30} value={width} disabled={disabled} onChange={event => setWidth(Number(event.target.value))} /></label>
-      <label className="organizer-check"><input type="checkbox" checked={penOnly} onChange={event => setPenOnly(event.target.checked)} />Nur Stift</label>
-      <button type="button" disabled={disabled || !undo.current.length} onClick={() => travel('undo')}>Rückgängig</button>
-      <button type="button" disabled={disabled || !redo.current.length} onClick={() => travel('redo')}>Wiederholen</button>
+  return <section className="organizer-sketch" aria-label={translate("Sketch")}>
+    <div className="organizer-tools" role="group" aria-label={translate("Drawing tools")}>
+      <button type="button" aria-pressed={tool === 'pen'} disabled={disabled} onClick={() => setTool('pen')}>{translate("Pen")}</button>
+      <button type="button" aria-pressed={tool === 'eraser'} disabled={disabled} onClick={() => setTool('eraser')}>{translate("Eraser")}</button>
+      <label>{translate("Colour")}<input type="color" aria-label={translate("Pen colour")} value={color} disabled={disabled} onChange={event => setColor(event.target.value)} /></label>
+      <label>{translate("Line thickness")}<input type="range" aria-label={translate("Line thickness")} min={1} max={30} value={width} disabled={disabled} onChange={event => setWidth(Number(event.target.value))} /></label>
+      <label className="organizer-check"><input type="checkbox" checked={penOnly} onChange={event => setPenOnly(event.target.checked)} />{translate("Pen only")}</label>
+      <button type="button" disabled={disabled || !undo.current.length} onClick={() => travel('undo')}>{translate("Undo")}</button>
+      <button type="button" disabled={disabled || !redo.current.length} onClick={() => travel('redo')}>{translate("Redo")}</button>
     </div>
-    {document.images.length > 0 && <label>Foto zum Markieren<select aria-label="Foto zum Markieren" disabled={disabled} value={document.sketch.backgroundImageId ?? ''} onChange={event => onChange({ ...document.sketch, backgroundImageId: event.target.value || null })}>
-      <option value="">Leere Zeichenfläche</option>{document.images.map(image => <option key={image.id} value={image.id}>{image.name}</option>)}
+    {document.images.length > 0 && <label>{translate("Photo to annotate")}<select aria-label={translate("Photo to annotate")} disabled={disabled} value={document.sketch.backgroundImageId ?? ''} onChange={event => onChange({ ...document.sketch, backgroundImageId: event.target.value || null })}>
+      <option value="">{translate("Empty drawing surface")}</option>{document.images.map(image => <option key={image.id} value={image.id}>{image.name}</option>)}
     </select></label>}
     <canvas ref={canvas} width={document.sketch.width} height={document.sketch.height} tabIndex={0}
-      aria-label="Zeichenfläche. Pfeiltasten bewegen den Zeichenpunkt, Umschalt und Pfeiltaste zeichnen, Leertaste setzt einen Punkt."
+      aria-label={translate("Drawing canvas. Arrow keys move the drawing point, Shift+arrow keys draw, and Space adds a dot.")}
       onPointerDown={start} onPointerMove={move} onPointerUp={event => { if (event.pointerId === pointer.current) finish(); }} onPointerCancel={event => { if (event.pointerId === pointer.current) finish(); }}
       onLostPointerCapture={event => { if (event.pointerId === pointer.current) finish(); }} onKeyDown={event => {
         if (disabled) return;
@@ -89,11 +93,11 @@ export function SketchEditor({ document, disabled, onChange }: { document: Organ
         const from = { ...keyboardPoint.current }; const to = { x: Math.max(0, Math.min(document.sketch.width, from.x + (delta?.[0] ?? 0))), y: Math.max(0, Math.min(document.sketch.height, from.y + (delta?.[1] ?? 0))), pressure: 1 };
         keyboardPoint.current = to;
         if (event.shiftKey || event.key === ' ') {
-          if (document.sketch.strokes.length >= ORGANIZER_LIMITS.strokes || document.sketch.strokes.reduce((n, s) => n + s.points.length, 0) + 2 > ORGANIZER_LIMITS.points) { setError('Die Skizze ist voll.'); return; }
+          if (document.sketch.strokes.length >= ORGANIZER_LIMITS.strokes || document.sketch.strokes.reduce((n, s) => n + s.points.length, 0) + 2 > ORGANIZER_LIMITS.points) { setError(translate("The sketch is full.")); return; }
           change([...document.sketch.strokes, { id: crypto.randomUUID(), color, width, points: delta ? [from, to] : [to] }]);
         }
       }} />
-    <p className="organizer-help">Mit Stift oder Finger zeichnen. Der Radierer entfernt einen Strich. „Nur Stift“ ignoriert Berührungen mit der Hand.</p>
-    {error && <p role="alert">{error}</p>}
+    <p className="organizer-help">{translate("Draw with pen or finger. The eraser removes a line. \"Pen only\" ignores touch with the hand.")}</p>
+    {error && <p role="alert">{localizeAppMessage(error)}</p>}
   </section>;
 }

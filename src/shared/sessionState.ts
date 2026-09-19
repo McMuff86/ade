@@ -1,17 +1,18 @@
+import { t as translate } from "./i18n";
 import type { SessionProgramState } from './types';
 
 interface State { title: string; status: 'running' | 'exited'; program?: SessionProgramState; launchMode?: string }
 
 /** No CLI liveness is inferred from the selected launcher or a surviving shell. */
 export function sessionStateLabel(session: State): string {
-  if (session.status === 'exited') return `${session.title} · Terminal beendet`;
+  if (session.status === 'exited') return translate("{{value1}} · Terminal ended", { value1: session.title });
   const program = session.program;
   if (!program) return session.launchMode === 'shell' || session.title === 'Shell'
-    ? 'Terminal offen' : `${session.title} · Terminal offen · CLI-Status unbekannt`;
-  if (program.status === 'starting') return `${session.title} startet · Terminal offen`;
-  if (program.status === 'running') return `${session.title} läuft · Terminal offen`;
-  if (program.status === 'exited') return `${session.title} beendet · Terminal offen${program.exitCode ? ` · Exit ${program.exitCode}` : ''}`;
-  return `${session.title} · CLI-Status unbekannt · Terminal offen`;
+    ? translate("Terminal open") : translate("{{value1}} · Terminal open · CLI status unknown", { value1: session.title });
+  if (program.status === 'starting') return translate("{{value1}} starting · Terminal open", { value1: session.title });
+  if (program.status === 'running') return translate("{{value1}} running · Terminal open", { value1: session.title });
+  if (program.status === 'exited') return translate("{{value1}} ended · Terminal open{{value2}}", { value1: session.title, value2: program.exitCode ? ` · Exit ${program.exitCode}` : '' });
+  return translate("{{value1}} · CLI status unknown · Terminal open", { value1: session.title });
 }
 
 export function canReuseLaunch(session: State, mode: string): boolean {

@@ -1,0 +1,20 @@
+.voice-studio { border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.voice-studio > summary { cursor: pointer; padding: 14px; font-weight: 600; min-height: 44px; box-sizing: border-box; }
+.voice-studio > summary span { color: var(--muted); font-weight: 400; margin-inline-start: 10px; }
+.voice-studio-body { display: grid; gap: 14px; padding: 0 14px 14px; }
+.voice-studio-body :is(input, select, textarea, button) { font: inherit; }
+.voice-studio-body :is(input, select, textarea) { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-width: 0; }
+.voice-studio-body :is(input, select, button) { min-height: 44px; }
+.voice-studio-body input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); }
+.voice-studio-body small { color: var(--muted); }
+.voice-studio-body output { float: inline-end; font-variant-numeric: tabular-nums; }
+.voice-studio-variants, .voice-studio-samples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.voice-studio-variants fieldset { display: grid; gap: 12px; align-content: start; border: 1px solid var(--line); border-radius: 8px; min-width: 0; padding: 12px; }
+.voice-studio .voice-studio-check { display: flex; align-items: center; gap: 8px; }
+.voice-studio .voice-studio-check input { width: 20px; }
+.voice-studio .voice-studio-primary { background: var(--accent); color: var(--bg); }
+.voice-studio-presets { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.voice-studio-samples figure { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.voice-studio-samples audio { width: 100%; margin-top: 8px; }
+.voice-studio :is(summary, input, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 620px) { .voice-studio-variants, .voice-studio-samples { grid-template-columns: 1fr; } }

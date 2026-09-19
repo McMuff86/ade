@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 import type { MobileCatalog, MobileRecentSession } from './remote';
 import type { Agent, Repository, SessionMeta } from './types';
 import { sessionStateLabel } from './sessionState';
@@ -15,7 +16,7 @@ export function desktopSessionNavigation(sessions: readonly SessionMeta[], repos
   return sorted(sessions.filter(session => session.kind === 'interactive' && !session.runTaskId && !session.remoteAccessBlocked
     && (session.projectWorkspaceId || session.agentId || session.scopeSource === 'terminal-home')).map(session => ({
     id: session.id,
-    project: session.repositoryId ? repositories.find(repo => repo.id === session.repositoryId)?.name ?? 'Entferntes Projekt' : 'Ohne Projekt',
+    project: session.repositoryId ? repositories.find(repo => repo.id === session.repositoryId)?.name ?? translate("Removed project") : translate("No project"),
     title: session.title,
     detail: [session.branch, session.launchChoice ? SESSION_LAUNCH_LABELS[session.launchChoice.mode] : session.runtime,
       session.launchProfileName ?? (session.agentId ? agents[session.agentId]?.name : undefined)].filter(Boolean).join(' · '),
@@ -26,7 +27,7 @@ export function desktopSessionNavigation(sessions: readonly SessionMeta[], repos
 export function mobileSessionNavigation(sessions: readonly MobileRecentSession[], catalog: MobileCatalog | null): SessionNavigationItem[] {
   return sorted(sessions.map(session => ({
     id: session.id,
-    project: session.projectName ?? (session.repositoryId ? catalog?.repositories.find(repo => repo.id === session.repositoryId)?.name ?? 'Entferntes Projekt' : 'Ohne Projekt'),
+    project: session.projectName ?? (session.repositoryId ? catalog?.repositories.find(repo => repo.id === session.repositoryId)?.name ?? translate("Removed project") : translate("No project")),
     title: session.title,
     detail: [session.branch, session.launchMode ? SESSION_LAUNCH_LABELS[session.launchMode] : undefined,
       session.launchProfileName ?? (session.agentId ? catalog?.agents.find(agent => agent.id === session.agentId)?.name : undefined)].filter(Boolean).join(' · '),

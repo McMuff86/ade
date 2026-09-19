@@ -1,3 +1,6 @@
+import { intlLocale } from '../shared/i18n';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useState, type JSX } from 'react';
 import type { MobileHostState } from '../shared/remote';
 import { BUILD_INFO, compareBuilds, isBuildInfo } from '../shared/buildInfo';
@@ -5,38 +8,40 @@ import { REMOTE_SCOPE_LABELS, SETUP_INTENTS, setupReadiness, type SetupIntent } 
 import type { MobileHost } from './useMobileHost';
 
 export function HostBuildStatus({ state, online }: { state: MobileHostState | null; online: boolean }): JSX.Element {
+  useLocale();
   const comparison = compareBuilds(state?.build);
   const hostBuild = isBuildInfo(state?.build) ? state.build : undefined;
-  return <section aria-label="Build-Stand" className="m-build-status"><h4>Build-Stand</h4>
-    <dl><dt>PC</dt><dd>{state ? `Version ${state.version} · ${hostBuild?.sourceId ?? 'Build nicht gemeldet'}` : 'Noch nicht bekannt'}</dd>
-      <dt>Browser</dt><dd>{BUILD_INFO?.sourceId ?? 'Build nicht bekannt'}</dd></dl>
-    {hostBuild && <p className="m-field-note">PC-Build erstellt: {new Date(hostBuild.builtAt).toLocaleString()}</p>}
-    {!online ? <p role="status">PC nicht aktuell bestätigt. Angezeigter PC-Stand stammt aus der letzten Antwort.</p>
-      : state && <p role="status">{comparison === 'same' ? 'Browser und PC verwenden denselben Quellstand.'
-        : comparison === 'different' ? 'Browser und PC verwenden unterschiedliche Builds. Entwürfe zuerst sichern, dann die Seite in Chrome neu laden. Bleibt der Unterschied, ADE am PC aktualisieren und vollständig neu starten.'
-          : 'Build-Vergleich nicht möglich: Eine Seite meldet keine Build-Kennung. Das bestätigt weder einen aktuellen noch einen veralteten Stand.'}</p>}
+  return <section aria-label={translate("Build information")} className="m-build-status"><h4>{translate("Build information")}</h4>
+    <dl><dt>{translate("PC")}</dt><dd>{state ? `Version ${state.version} · ${hostBuild?.sourceId ?? translate("Build not reported")}` : translate("Not yet known")}</dd>
+      <dt>{translate("Browser")}</dt><dd>{BUILD_INFO?.sourceId ?? translate("Build not known")}</dd></dl>
+    {hostBuild && <p className="m-field-note">{translate("PC build created:")}{" "}{new Date(hostBuild.builtAt).toLocaleString(intlLocale())}</p>}
+    {!online ? <p role="status">{translate("PC not currently confirmed. Displayed PC status is from the last response.")}</p>
+      : state && <p role="status">{comparison === 'same' ? translate("Browser and PC use the same source.")
+        : comparison === 'different' ? translate("Browser and PC use different builds. Backup drafts first, then reload the page to Chrome. Remains the difference, update ADE to the PC and restart completely.")
+          : translate("Build comparison not possible: A page does not report a build identifier, which does not confirm a current status or an outdated status.")}</p>}
   </section>;
 }
 
 export function MobileSetupStatus({ host, state, onNavigate }: {
   host: MobileHost; state: MobileHostState | null; onNavigate: (target: 'projects' | 'graph') => void;
 }): JSX.Element {
+  useLocale();
   const [intent, setIntent] = useState<SetupIntent>('project');
   const online = host.status === 'online';
   const readiness = setupReadiness(intent, state?.capabilities, host.catalog?.projectStart?.configured, online);
-  return <section className="m-setup-status" aria-label="Einrichtung auf diesem Gerät"><h3>Einrichtung auf diesem Gerät</h3>
-    <label htmlFor="mobile-setup-intent">Vorhaben auf diesem Gerät</label><select id="mobile-setup-intent" value={intent} onChange={(event) => setIntent(event.target.value as SetupIntent)}>
+  return <section className="m-setup-status" aria-label={translate("Setup on this device")}><h3>{translate("Setup on this device")}</h3>
+    <label htmlFor="mobile-setup-intent">{translate("Activities on this device")}</label><select id="mobile-setup-intent" value={intent} onChange={(event) => setIntent(event.target.value as SetupIntent)}>
       {(Object.keys(SETUP_INTENTS) as SetupIntent[]).map((key) => <option value={key} key={key}>{SETUP_INTENTS[key].label}</option>)}
     </select>
-    <p>Dieses Gerät ist gekoppelt. Freigaben werden in ADE am PC unter <strong>Einrichtung → Freigaben prüfen</strong> oder Einstellungen → Verbundene Geräte verwaltet.</p>
-    {readiness.status === 'offline' ? <p role="status">Verbindung zum PC herstellen, um Einrichtung und Freigaben aktuell zu prüfen.</p>
-      : readiness.status === 'unknown' ? <p role="status">Einrichtungsdaten sind noch nicht vollständig bekannt. Status aktualisieren; bei einem älteren Host ADE am PC aktualisieren.</p>
-        : <><p role="status">{readiness.status === 'ready' ? 'Die nötigen Einstellungen und Gerätefreigaben sind vorhanden.' : 'Für dieses Vorhaben fehlen noch Einstellungen oder Freigaben.'}</p>
-          {readiness.root === 'missing' && <p>Am PC unter Einrichtung → Projektordner den Stammordner speichern. Bereits registrierte Projekte bleiben erreichbar.</p>}
-          {readiness.missing.length > 0 && <><p>Für dieses Gerät fehlen diese Schalter:</p><ul>{readiness.missing.map((scope) => <li key={scope}>{REMOTE_SCOPE_LABELS[scope]}</li>)}</ul>
-            <p>Am PC kannst du „{SETUP_INTENTS[intent].preset}“ verwenden. Auswahl prüfen und anschliessend „Verwaltungsrechte speichern“ wählen.</p></>}
+    <p>{translate("This device is paired. Manage its permissions in ADE on the PC under")}{" "}<strong>{translate("Setup → Check permissions")}</strong> {" "}{translate("or Settings → Connected devices.")}</p>
+    {readiness.status === 'offline' ? <p role="status">{translate("Connect to the PC to check the current setup and permissions.")}</p>
+      : readiness.status === 'unknown' ? <p role="status">{translate("Setup data is not yet fully known. Update status; update ADE on the PC for an older host.")}</p>
+        : <><p role="status">{readiness.status === 'ready' ? translate("The required settings and device permissions are in place.") : translate("Some settings or permissions are still missing for this activity.")}</p>
+          {readiness.root === 'missing' && <p>{translate("Save the root folder on the PC under Setup → Project folder. Already registered projects remain accessible.")}</p>}
+          {readiness.missing.length > 0 && <><p>{translate("Enable these permissions for this device:")}</p><ul>{readiness.missing.map((scope) => <li key={scope}>{REMOTE_SCOPE_LABELS[scope]}</li>)}</ul>
+            <p>{translate("On the PC you can “")}{SETUP_INTENTS[intent].preset}{translate("”. Review the selection and then choose “Save administrative rights”.")}</p></>}
         </>}
-    {intent === 'project' && <p className="m-field-note">CLI-Installation und Anmeldung prüfst du separat in Einrichtung → CLI prüfen am PC. Vorhandene Freigaben bestätigen keine CLI-Anmeldung.</p>}
-    <button disabled={!online} onClick={() => onNavigate(intent === 'results' ? 'graph' : 'projects')}>{intent === 'results' ? 'Zum Graph' : 'Zu den Projekten'}</button>
+    {intent === 'project' && <p className="m-field-note">{translate("Check CLI installation and sign-in separately under Setup → Check CLI on the PC. Existing permissions do not confirm that a CLI is signed in.")}</p>}
+    <button disabled={!online} onClick={() => onNavigate(intent === 'results' ? 'graph' : 'projects')}>{intent === 'results' ? translate("Go to graph") : translate("Go to projects")}</button>
   </section>;
 }

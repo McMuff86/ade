@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
@@ -34,16 +35,16 @@ export class NativeUsageService {
   constructor(readonly journal: UsageJournal) {}
 
   async prepare(input: { provider: Provider; command: string; env: NodeJS.ProcessEnv; terminalSessionId: string; repositoryId?: string | null; agentId?: string; now?: number }): Promise<NativeUsageLaunch> {
-    if (this.closing || this.launches.size >= 64) throw new Error('Verbrauchserfassung ist nicht verfügbar.');
+    if (this.closing || this.launches.size >= 64) throw new Error(translate("Usage measurement is not available."));
     const provider = input.provider; const startedAt = input.now ?? Date.now();
     const variable = provider === 'codex' ? 'CODEX_HOME' : provider === 'claude' ? 'CLAUDE_CONFIG_DIR' : 'GROK_HOME';
     const home = input.env[variable] || join(homedir(), `.${provider}`);
-    if (!isAbsolute(home)) throw new Error('Der native Providerordner ist für die Verbrauchserfassung nicht eindeutig.');
+    if (!isAbsolute(home)) throw new Error(translate("The native provider folder is not unique for usage recording."));
     const id = await this.journal.openSession({ provider, product: 'coding', backend: 'native', terminalSessionId: input.terminalSessionId,
       ...(input.repositoryId ? { repositoryId: input.repositoryId } : {}), ...(input.agentId ? { agentId: input.agentId } : {}), createdAt: startedAt, coverage: 'waiting' });
     if (this.closing || this.launches.size >= 64) {
       await this.journal.setCoverage(id, 'incomplete', Math.max(Date.now(), startedAt));
-      throw new Error('Verbrauchserfassung ist nicht verfügbar.');
+      throw new Error(translate("Usage measurement is not available."));
     }
     const launch: Launch = { id, provider, home, startedAt, model: null, nativeId: provider === 'codex' ? undefined : randomUUID(),
       verified: false, partial: false, stopped: false, queue: Promise.resolve() };
@@ -115,8 +116,8 @@ export class NativeUsageService {
       events: facts.length, tokens, missing, costs, eventsWithoutCost: facts.filter(fact => fact.costUsd === null).length,
       ...(speech.length ? { speech } : {}),
       models: [...new Set(facts.map(fact => fact.model).filter((model): model is string => model !== null))].slice(0, 32),
-      notice: view.error ? redactedErrorMessage(view.error, 1000) : (!sessions.length ? 'Erfassung gilt für neue native Windows-Codex-, Claude-Code- und Grok-Sitzungen.'
-        : 'Native CLI-Zahlen dieser ADE-Sitzung. Fortgesetzte fremde Gespräche, Forks und separate Unteragenten sind noch nicht vollständig abgedeckt.') };
+      notice: view.error ? redactedErrorMessage(view.error, 1000) : (!sessions.length ? translate("Capture applies to new native Windows Codex, Claude Code and Grok sessions.")
+        : translate("Native CLI numbers of this ADE session. Continued third-party conversations, forks and separate sub-agents are not yet fully covered.")) };
   }
 
   private serial<T>(launch: Launch, operation: () => Promise<T>): Promise<T | undefined> {

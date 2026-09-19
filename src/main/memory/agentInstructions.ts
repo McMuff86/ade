@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /**
  * Durable, role-aware AGENTS.md contract for one ADE identity.
  *
@@ -81,7 +82,7 @@ function buildSnapshot(agent: Agent, persisted: string, runRole?: RunParticipant
     sources.push({ kind: 'document', id: document.id, name: document.name, sha256: digest(document.text), chars: document.text.length });
   }
   const content = parts.join('\n\n');
-  if (content.length > MAX_SNAPSHOT_CHARS) throw new Error('ade: Wirksame Agent-Anweisungen überschreiten 32000 Zeichen. Profil oder Identitätsanweisungen kürzen.');
+  if (content.length > MAX_SNAPSHOT_CHARS) throw new Error(translate("ade: Effective agent instructions exceed 32,000 characters. Shorten profile or identity instructions."));
   return {
     file: AGENT_INSTRUCTIONS_FILE,
     content,
@@ -191,7 +192,7 @@ function inspectFile(path: string): ReturnType<typeof lstatSync> | undefined {
   try {
     const stat = lstatSync(path);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_INSTRUCTION_FILE_BYTES) {
-      throw new Error('ade: Identitätsanweisungen müssen eine reguläre, unverknüpfte Datei bis 256 KiB sein.');
+      throw new Error(translate("ade: Identity statements must be a regular, unlinked file up to 256 KiB."));
     }
     return stat;
   } catch (error) {
@@ -207,7 +208,7 @@ function readText(path: string): string {
   try {
     const opened = fstatSync(fd);
     if (!opened.isFile() || opened.nlink !== 1 || opened.size > MAX_INSTRUCTION_FILE_BYTES
-      || opened.dev !== before.dev || opened.ino !== before.ino) throw new Error('ade: Identitätsanweisungen wurden beim Lesen geändert.');
+      || opened.dev !== before.dev || opened.ino !== before.ino) throw new Error(translate("ade: Identity instructions have been changed while reading."));
     // Bound reads even if an external writer grows the file after fstat.
     const bytes = Buffer.alloc(MAX_INSTRUCTION_FILE_BYTES + 1);
     let length = 0;
@@ -216,19 +217,19 @@ function readText(path: string): string {
       if (!count) break;
       length += count;
     }
-    if (length > MAX_INSTRUCTION_FILE_BYTES) throw new Error('ade: Identitätsanweisungen überschreiten 256 KiB.');
+    if (length > MAX_INSTRUCTION_FILE_BYTES) throw new Error(translate("ade: Identity instructions exceed 256 KiB."));
     const content = bytes.subarray(0, length).toString('utf8');
     const after = inspectFile(path);
     if (!after || after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size
       || after.mtimeMs !== opened.mtimeMs || Buffer.byteLength(content, 'utf8') > MAX_INSTRUCTION_FILE_BYTES) {
-      throw new Error('ade: Identitätsanweisungen wurden beim Lesen geändert.');
+      throw new Error(translate("ade: Identity instructions have been changed while reading."));
     }
     return content;
   } finally { closeSync(fd); }
 }
 
 function atomicWrite(path: string, content: string): void {
-  if (Buffer.byteLength(content, 'utf8') > MAX_INSTRUCTION_FILE_BYTES) throw new Error('ade: Identitätsanweisungen überschreiten 256 KiB.');
+  if (Buffer.byteLength(content, 'utf8') > MAX_INSTRUCTION_FILE_BYTES) throw new Error(translate("ade: Identity instructions exceed 256 KiB."));
   inspectFile(path);
   const dir = dirname(path);
   mkdirSync(dir, { recursive: true });

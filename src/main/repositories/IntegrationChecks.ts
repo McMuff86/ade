@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,29 +13,29 @@ export function integrationRecipes(cwd: string): { recipes: IntegrationRecipe[];
     const pkg = JSON.parse(manifest.toString('utf8')) as { scripts?: Record<string, unknown> };
     const script = typeof pkg.scripts?.verify === 'string' ? 'verify' : typeof pkg.scripts?.test === 'string' ? 'test' : null;
     if (script) return { recipes: [{ label: `pnpm run ${script}`, executable: process.platform === 'win32' ? 'cmd.exe' : 'pnpm',
-      args: process.platform === 'win32' ? ['/d', '/s', '/c', `pnpm run ${script}`] : ['run', script] }], notice: 'Führt das Prüfskript dieser Arbeitskopie auf dem ADE-Rechner aus. Projektcode kann dabei Prozesse starten.' };
+      args: process.platform === 'win32' ? ['/d', '/s', '/c', `pnpm run ${script}`] : ['run', script] }], notice: translate("Runs the check script of this working copy on the ADE computer. Project code can start processes.") };
   }
   if (existsSync(join(cwd, 'rhinoclaw-kit.json')) && existsSync(join(cwd, 'scripts', 'fastener', 'catalog.py'))) {
-    const recipes: IntegrationRecipe[] = [
-      { label: 'Python kompilieren', executable: 'python', args: ['-m', 'compileall', '-q', 'scripts', 'tools'] },
-      { label: 'Ruff', executable: 'python', args: ['-m', 'ruff', 'check', 'scripts', 'tools'] },
-      { label: 'Katalog prüfen', executable: 'python', args: ['scripts/fastener/catalog.py'] },
-    ];
+    const recipes: IntegrationRecipe[] = ([
+      { label: translate("Compile Python"), executable: 'python', args: ['-m', 'compileall', '-q', 'scripts', 'tools'] },
+      { label: translate("Ruff"), executable: 'python', args: ['-m', 'ruff', 'check', 'scripts', 'tools'] },
+      { label: translate("Check catalogue"), executable: 'python', args: ['scripts/fastener/catalog.py'] },
+    ]);
     for (const path of ['scripts/fastener/profiles.py', 'scripts/fastener/identity.py', 'scripts/fastener/silhouette.py', 'tools/check_fastener_palette.py',
       'tools/check_drilling.py', 'tools/test_drilling.py', 'tools/check_kit.py', 'tools/test_toolbar.py', 'tools/test_constraints.py', 'tools/test_explosion.py', 'tools/test_gearing.py']) {
       if (existsSync(join(cwd, path))) recipes.push({ label: path, executable: 'python', args: [path] });
     }
-    if (existsSync(join(cwd, 'tools', 'build_toolbar.py'))) recipes.push({ label: 'Toolbar-Assets prüfen', executable: 'python', args: ['tools/build_toolbar.py', '--check'] });
+    if (existsSync(join(cwd, 'tools', 'build_toolbar.py'))) recipes.push({ label: translate("Check toolbar assets"), executable: 'python', args: ['tools/build_toolbar.py', '--check'] });
     for (const pattern of ['test_sketch_*.py', 'test_assembly_*.py']) recipes.push({ label: pattern, executable: 'python', args: ['-m', 'unittest', 'discover', '-s', 'tools', '-p', pattern] });
-    return { recipes, notice: 'Automatisierte Projektprüfungen. Rhino-Dialoge und Platzierung zusätzlich in Rhino prüfen; diese Tests bestätigen keine Live-Abnahme.' };
+    return { recipes, notice: translate("Automated project exams. Check Rhino dialogues and placement in Rhino; these tests do not confirm live acceptance.") };
   }
-  return { recipes: [], notice: 'Kein unterstütztes Projekt-Prüfskript gefunden. Ein pnpm-Skript „verify“ oder „test“ ergänzen, dann erneut prüfen.' };
+  return { recipes: [], notice: translate("No supported project check script found. Complete a pnpm script \"verify\" or \"test\", then check again.") };
 }
 
 /** Bounded output/time; terminate the owned process group on timeout or shutdown. */
 export function runIntegrationCheck(cwd: string, recipe: IntegrationRecipe, signal: AbortSignal): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve) => {
-    if (signal.aborted) { resolve({ output: 'Prüfung unterbrochen.', exitCode: -1 }); return; }
+    if (signal.aborted) { resolve({ output: translate("Test interrupted."), exitCode: -1 }); return; }
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:GIT_|NODE_OPTIONS$|ELECTRON_RUN_AS_NODE$)/i.test(key)));
     const child = spawn(recipe.executable, recipe.args, { cwd, env: { ...env, CI: '1', GIT_TERMINAL_PROMPT: '0' }, windowsHide: true,
       detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -51,7 +52,7 @@ export function runIntegrationCheck(cwd: string, recipe: IntegrationRecipe, sign
     child.on('error', (error) => { output += '\n' + redactedWireMessage(error); });
     child.on('close', (code) => {
       clearTimeout(timer); signal.removeEventListener('abort', stop);
-      resolve({ exitCode: interrupted ? -1 : code ?? -1, output: redactForWire(output + (interrupted ? '\nPrüfung abgebrochen (Zeit-/Ausgabelimit oder Neustart).' : ''), 8192) });
+      resolve({ exitCode: interrupted ? -1 : code ?? -1, output: redactForWire(output + (interrupted ? translate("\nAborted test (time/output limit or restart).") : ''), 8192) });
     });
   });
 }

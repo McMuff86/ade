@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MobileDictationResult, MobileDictationTarget, MobileHostState, MobileTerminalState, MobileSpeechResult } from '../shared/remote';
 import type { TerminalPromptReceipt } from '../shared/terminalPrompt';
@@ -43,13 +45,13 @@ export function useMobilePromptPort(host: MobileHost, target: MobileDictationTar
         const { leaseId: _lease, ...selection } = bound;
         const state = await request<MobileTerminalState>('/api/v1/terminal/query', 'POST', { ...selection, prompt: true });
         return state.leaseId === bound.leaseId && state.promptCapability ? state.promptCapability
-          : { available: false, reason: 'Eingabebesitz geändert. Entwurf behalten und Terminal prüfen.' };
+          : { available: false, reason: translate("Entry ownership changed. Keep draft and check terminal.") };
       },
       send: (text, mode, key) => sender.current(text, mode, key),
       prepareRecording: async () => {
         for (const jobId of pendingCancellations.current) await cancelRecording(jobId);
         const result = await request<MobileDictationResult>('/api/v1/dictation/command', 'POST', { operation: 'prepare', target: bound }, crypto.randomUUID());
-        if (!('jobId' in result)) throw new Error('Aufnahme konnte nicht vorbereitet werden.'); return result;
+        if (!('jobId' in result)) throw new Error(translate("Recording could not be prepared.")); return result;
       },
       uploadRecording: (jobId, key, bytes) => {
         let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -57,7 +59,7 @@ export function useMobilePromptPort(host: MobileHost, target: MobileDictationTar
       },
       readRecording: async jobId => {
         const result = await request<MobileDictationResult>('/api/v1/dictation/command', 'POST', { operation: 'query', jobId });
-        if (!('state' in result)) throw new Error('Aufnahmestatus fehlt.'); return result.state;
+        if (!('state' in result)) throw new Error(translate("Recording status is missing.")); return result.state;
       },
       cancelRecording,
       liveRecording: {
@@ -73,12 +75,12 @@ export function useMobilePromptPort(host: MobileHost, target: MobileDictationTar
       computerGreeting: async () => {
         const target = { kind: 'default' } as const;
         const preferences = (await request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target })).preferences;
-        if (!preferences?.effectiveVoiceId) throw new Error('Unter Sprachausgabe zuerst eine Standardstimme wählen.');
+        if (!preferences?.effectiveVoiceId) throw new Error(translate("Under voice output, select a standard voice first."));
         const result = await request<MobileSpeechResult>('/api/v1/speech/command', 'POST', {
           operation: 'test', target, voiceId: preferences.effectiveVoiceId, preset: 'computer-greeting',
         }, crypto.randomUUID());
         const audio = (await request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'audio', testId: result.testId })).audio;
-        if (!audio) throw new Error('Begrüssung konnte nicht geladen werden.'); return audio;
+        if (!audio) throw new Error(translate("Greetings could not be loaded.")); return audio;
       },
     };
   }, [request, bound, computerAllowed]);
@@ -90,10 +92,11 @@ export function MobilePromptDialog({ host, target, label, send, sendBlockedReaso
   restoreFocusTo?: () => HTMLElement | null; send: PromptSender;
   sendBlockedReason?: string;
 }) {
+  useLocale();
   const { speechAllowed, computerAllowed } = useMobileSpeechGrants(host);
   const port = useMobilePromptPort(host, target, send, computerAllowed);
   const bound = useRef(target).current;
-  return <Dialog title="Prompt und Diktat" onClose={onClose} fallbackId={fallbackId} restoreFocusTo={restoreFocusTo} className="m-prompt-dialog">
+  return <Dialog title={translate("Prompt and dictation")} onClose={onClose} fallbackId={fallbackId} restoreFocusTo={restoreFocusTo} className="m-prompt-dialog">
     <PromptComposer key={`${host.deviceId}/${bound.terminalId}`} draftKey={`mobile/${host.deviceId}/${bound.terminalId}`}
       targetLabel={label} online={host.status === 'online'} speechAllowed={speechAllowed} sendBlockedReason={sendBlockedReason} port={port} />
   </Dialog>;

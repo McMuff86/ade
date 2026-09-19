@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { Modal } from '../onboarding/Modal';
 import { useAppData } from '../stores/appdata';
 import { useMode } from '../stores/mode';
@@ -5,8 +7,10 @@ import { ConversationPanel, type ConversationPort } from './ConversationPanel';
 import { CONVERSATION_NOT_ACCEPTED, ConversationNotAcceptedError } from '../../shared/conversation';
 import { desktopRunQuestions } from '../graph/RunQuestionsPanel';
 import type { CoordinatorActionDetail, CoordinatorActionSummary, CoordinatorActionWork } from '../../shared/coordinatorActions';
+import type { ConversationMode } from '../../shared/conversation';
 
 const port: ConversationPort = {
+  speech: { load: () => window.ade.invoke('speech:voices'), generate: input => window.ade.invoke('speech:test', input) },
   actions: {
     list: async conversationId => await window.ade.invoke('conversation:actionsQuery', { operation: 'list', conversationId }) as CoordinatorActionSummary[],
     detail: async (conversationId, actionId) => await window.ade.invoke('conversation:actionsQuery', { operation: 'detail', conversationId, actionId }) as CoordinatorActionDetail,
@@ -35,10 +39,11 @@ const port: ConversationPort = {
   subscribe: changed => window.ade.on('conversation:changed', changed),
   describe: error => error instanceof Error ? error.message : String(error),
 };
-export function DesktopConversation({ onClose, onBack }: { onClose(): void; onBack(): void }) {
+export function DesktopConversation({ onClose, onBack, mode = 'project' }: { onClose(): void; onBack(): void; mode?: ConversationMode }) {
+  useLocale();
   const agents = useAppData(s => s.agents);
   const profiles = Object.values(agents).filter(a => a.runtime === 'codex' && (!a.homeExecutionBackend || a.homeExecutionBackend === 'native') && !a.customCommand?.trim());
-  return <Modal title="ADE-Gespräch" onClose={onClose} className="conversation-dialog" fallbackFocus={() => document.getElementById(`mode-tab-${useMode.getState().mode}`)}>
-    <ConversationPanel port={port} profiles={profiles} draftScope="desktop" onClose={onClose} onBack={onBack} />
+  return <Modal title={mode === 'casual' ? translate('Chat & voice') : translate("ADE conversation")} onClose={onClose} className="conversation-dialog" fallbackFocus={() => document.getElementById('desktop-supervision') ?? document.getElementById(`mode-tab-${useMode.getState().mode}`)}>
+    <ConversationPanel key={mode} mode={mode} port={port} profiles={profiles} draftScope={mode === 'casual' ? 'desktop:casual' : 'desktop'} onClose={onClose} onBack={onBack} />
   </Modal>;
 }

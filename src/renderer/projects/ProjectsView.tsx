@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceQuery, ProjectWorkspaceView } from '../../shared/remote';
 import { ProjectDirectory, ProjectWorkspaceSummary } from './ProjectDirectory';
@@ -19,6 +22,7 @@ const applyPublish = (previewId: string) => window.ade.invoke('project:command',
 const errorText = (error: unknown) => String(error);
 
 export function ProjectsView(): JSX.Element {
+  useLocale();
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
   // Trusted desktop catalog only. A worktree's root can differ from its repository.
   const workspacePath = useAppData((state) => state.projectWorkspaces.find((item) => item.id === workspace?.id)?.workspaceDir);
@@ -72,7 +76,7 @@ export function ProjectsView(): JSX.Element {
     try {
       await window.ade.invoke('project:membership', { entryId: entry.id, included });
       const result = await query({ operation: 'directory' });
-      if (live.current) { setDirectory(result.directory); setShareNotice(`${entry.name}: ${included ? 'Zu meinen ADE Projekten hinzugefügt.' : 'Aus meiner ADE-Auswahl entfernt. Dateien und Verlauf bleiben erhalten.'}`); }
+      if (live.current) { setDirectory(result.directory); setShareNotice(`${entry.name}: ${included ? translate("Added to my ADE projects.") : translate("Removed from my ADE selection. Files and history remain.")}`); }
     } catch (reason) { if (live.current) setError(String(reason)); throw reason; }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
@@ -83,7 +87,7 @@ export function ProjectsView(): JSX.Element {
       if (!picked.path || !live.current) return;
       const repository = await useAppData.getState().importRepository(picked.path, undefined, 'native');
       if (!live.current) return;
-      setShareNotice(`${repository.name} ist in ADE erfasst. Auf dem Tablet unter Projekte die Projektordner aktualisieren. Es gelten die Freigaben des gekoppelten Geräts unter Einstellungen → Verbundene Geräte.`);
+      setShareNotice(translate("{{value1}} is included in ADE. Update the project folders on the tablet under Projects. The coupled device permission under Settings → Connected devices apply.", { value1: repository.name }));
       const result = await query({ operation: 'directory' });
       if (live.current) setDirectory(result.directory);
     } catch (reason) { if (live.current) setError(String(reason)); }
@@ -96,25 +100,25 @@ export function ProjectsView(): JSX.Element {
       if (live.current) setCreatedId(id);
       const result = await query({ operation: 'directory' });
       const entry = result.directory?.entries.find((item) => item.repositoryId === id);
-      if (!entry) throw new Error('Projekt wurde angelegt. Projektordner aktualisieren und dort öffnen.');
+      if (!entry) throw new Error(translate("Project has been created. Update project folders and open them there."));
       const opened = await window.ade.invoke('project:command', { operation: 'open', entryId: entry.id });
       if (live.current) { setWorkspace(opened.workspace); useSelection.getState().setProjectWorkspace(opened.workspace.id); setCreatedId(undefined); setNewName(''); }
     } catch (reason) { if (live.current) setError(String(reason)); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
-  return <section className="project-desktop" aria-label="Projekte">
-    <h1 ref={heading} tabIndex={-1}>{workspace ? `Projekt · ${workspace.name}` : 'Projekte'}</h1>
+  return <section className="project-desktop" aria-label={translate("Projects")}>
+    <h1 ref={heading} tabIndex={-1}>{workspace ? translate("Project · {{value1}}", { value1: workspace.name }) : translate("Projects")}</h1>
     {workspace ? <><ProjectWorkspaceSummary workspace={workspace} workspacePath={workspacePath} /><SupervisionButton repositoryId={workspace.repositoryId} /><button onClick={() => {
       setWorkspace(undefined); useSelection.getState().setProjectWorkspace(null);
       const target = opener.current?.isConnected ? opener.current : document.getElementById('mode-tab-projects'); target?.focus();
       void refresh();
-    }}>Zur Projektübersicht</button>
+    }}>{translate("Project overview")}</button>
       <ProjectBranches key={workspace.id} workspace={workspace} online canChange query={query} apply={applyBranch} errorText={errorText}
         pending={pending} savePending={(value) => { setPending(value); return true; }} onWorkspace={(value) => { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); }} />
-      <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>
+      <div className="project-workspace-actions" aria-label={translate("Project area")}><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>{translate("Terminal")}</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>{translate("Git")}</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>{translate("Results")}</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>{translate("Project settings")}</button></div>
       {section === 'terminal' ? <ProjectTerminal key={`${workspace.id}:${workspace.branch}`} workspace={workspace} initialSessionId={sessionId ?? undefined} />
         : section === 'results' ? <ProjectRunResults key={workspace.id} workspaceId={workspace.id} query={query} port={desktopRunFiles} online errorText={errorText} />
-        : section === 'settings' ? <TargetSpeechSettings target={{ kind: 'project', repositoryId: workspace.repositoryId }} title="Projekt-Stimme" />
+        : section === 'settings' ? <TargetSpeechSettings target={{ kind: 'project', repositoryId: workspace.repositoryId }} title={translate("Project Voice")} />
         : <><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online canChange canEdit query={query} apply={applyGit} errorText={errorText}
           readFile={(path) => window.ade.invoke('project:fileRead', { projectWorkspaceId: workspace.id, path })}
           saveFile={(input) => window.ade.invoke('project:fileSave', { projectWorkspaceId: workspace.id, path: input.path, text: input.text, revision: input.revision, workspaceVersion: input.workspaceVersion })}
@@ -123,18 +127,18 @@ export function ProjectsView(): JSX.Element {
           onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); } }} />
           <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online canPublish query={query} apply={applyPublish} errorText={errorText}
             pending={publishReceipts[workspace.id] ?? null} savePending={(value) => { setPublishReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }} /></>}
-    </> : <><section aria-label="Einzelnes Projekt freigeben">
-      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>Bestehenden Ordner zu meinen ADE Projekten hinzufügen</button>
-      <p>Wähle einen bestehenden Git-Projektordner auf diesem PC, auch außerhalb deines Repos-Ordners. Der Projekt-Stammordner bleibt unverändert.</p>
-      {busy && <p role="status">Projektaktion läuft…</p>}{shareNotice && <p role="status">{shareNotice}</p>}
-    </section><details><summary>Neues Projekt</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
-      <label>Projektname<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
-      <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? 'Angelegtes Projekt öffnen' : 'Projekt anlegen und öffnen'}</button>
-      <p>Im eingestellten Projekt-Stammordner, mit Branch main. CLI und optionales Profil danach wählen.</p>
-      {!directory?.configured && <p>Unter Einstellungen zuerst den Projekt-Stammordner speichern.</p>}
-    </form></details>{repositoryEntry && <section aria-label="Gewähltes Projekt"><h2>{repositoryEntry.name}</h2>
-      <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>Projekt-Workspace öffnen</button></section>}
-      {repositoryId && directory && !repositoryEntry && <p role="status">Das gewählte Projekt ist gerade nicht erreichbar. Projektordner aktualisieren.</p>}
-      <ProjectDirectory directory={directory} busy={busy} error={error} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} /></>}
+    </> : <><section aria-label={translate("Share individual project")}>
+      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>{translate("Add existing folders to my ADE projects")}</button>
+      <p>{translate("Choose an existing Git project folder on this PC, including outside your repositories folder. The project root folder stays unchanged.")}</p>
+      {busy && <p role="status">{translate("Project action underway…")}</p>}{shareNotice && <p role="status">{shareNotice}</p>}
+    </section><details><summary>{translate("New project")}</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
+      <label>{translate("Project name")}<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
+      <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? translate("Open created project") : translate("Create and Open Project")}</button>
+      <p>{translate("In the set project root folder, with branch main. CLI and optional profile select thereafter.")}</p>
+      {!directory?.configured && <p>{translate("Under Settings, first save the project root folder.")}</p>}
+    </form></details>{repositoryEntry && <section aria-label={translate("Selected project")}><h2>{repositoryEntry.name}</h2>
+      <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>{translate("Open project workspace [50726f6a]")}</button></section>}
+      {repositoryId && directory && !repositoryEntry && <p role="status">{translate("The selected project is currently unreachable. Update project folder.")}</p>}
+      <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} /></>}
   </section>;
 }

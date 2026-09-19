@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Changes tab: branch header (dot + name, +/- totals, file count) then the
  * changed files grouped by directory, each with per-file +N -M. Clicking a file
@@ -24,12 +26,13 @@ function baseOf(path: string): string {
 }
 
 export function ChangesView({ status, loading, openPath, onOpen }: ChangesViewProps): JSX.Element {
+  useLocale();
   if (!status) {
-    return <div className="ch-note">{loading ? 'Loading…' : 'Select an agent.'}</div>;
+    return <div className="ch-note">{loading ? translate("Loading…") : translate("Select an agent.")}</div>;
   }
 
   if (!status.isRepo) {
-    return <div className="ch-note">Not a git repository.</div>;
+    return <div className="ch-note">{translate("Not a git repository.")}</div>;
   }
 
   const { files } = status;
@@ -57,7 +60,7 @@ export function ChangesView({ status, loading, openPath, onOpen }: ChangesViewPr
       </div>
 
       {files.length === 0 ? (
-        <div className="ch-note">No changes yet.</div>
+        <div className="ch-note">{translate("No changes yet.")}</div>
       ) : (
         <div className="ch-scroll">
           {sortedDirs.map((dir) => (
@@ -73,7 +76,7 @@ export function ChangesView({ status, loading, openPath, onOpen }: ChangesViewPr
                   <span className="fname">{baseOf(f.path)}</span>
                   {f.additions ? <span className="plus">+{f.additions}</span> : null}
                   {f.deletions ? <span className="minus">-{f.deletions}</span> : null}
-                  {f.state === 'untracked' ? <span className="tag">new</span> : null}
+                  {f.state === 'untracked' ? <span className="tag">{translate("New [6e6577]")}</span> : null}
                 </button>
               ))}
             </div>

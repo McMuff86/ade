@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 /** Imported Markdown belongs to the ADE identity, never to a leased repository. */
 export interface AgentBehaviorProfile {
   instructions: string;
@@ -38,6 +39,6 @@ export function isValidAgentBehaviorProfile(value: unknown): value is AgentBehav
 
 /** Return a detached, canonical copy, preserving the explicitly assigned order. */
 export function validateAgentBehaviorProfile(value: unknown): AgentBehaviorProfile {
-  if (!isValidAgentBehaviorProfile(value)) throw new Error('ade: Ungültige Profilanweisungen oder Markdown-Dokumente. Grenzen: 8 Dokumente, je 8000 Zeichen, zusammen 24000 Zeichen.');
+  if (!isValidAgentBehaviorProfile(value)) throw new Error(translate("ade: Invalid profile statements or markdown documents. Limits: 8 documents, 8000 characters each, together 24000 characters."));
   return { instructions: value.instructions, documents: value.documents.map(({ id, name, text }) => ({ id, name, text })) };
 }

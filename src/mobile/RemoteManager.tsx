@@ -1,3 +1,7 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { intlLocale } from '../shared/i18n';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileAdminCommand, MobileAdministrationResult, MobileGitResult, MobileHostState } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -7,11 +11,11 @@ import { IntegrationDialog } from './IntegrationDialog';
 
 function detail(reason: unknown): string {
   if (reason instanceof MobileClientError) {
-    if (reason.code === 'scope_not_granted') return 'Dieses Gerät hat dafür noch keine Freigabe. Verwaltungsrechte in ADE am PC unter Einstellungen → Verbundene Geräte freigeben.';
-    if (reason.status === 404) return 'Diese Funktion ist auf dem Host noch nicht verfügbar. ADE am PC aktualisieren.';
+    if (reason.code === 'scope_not_granted') return translate("This device does not have permission yet. Enable administrative rights in ADE on the PC under Settings → Connected devices.");
+    if (reason.status === 404) return translate("This feature is not yet available on the host. update ADE on the PC.");
     if (reason.message !== reason.code) return reason.message;
   }
-  return 'Aktion konnte nicht bestätigt werden. Verbindung und aktuellen Zustand prüfen.';
+  return translate("Action could not be confirmed. check connection and current state.");
 }
 
 /** Keep uncertain command keys in the page, including when the manager closes. */
@@ -36,7 +40,7 @@ export function useRemoteAdministration(host: MobileHost) {
     try {
       const result = await host.request<MobileAdministrationResult>('/api/v1/admin/commands', 'POST', selected.command, selected.key);
       if (ownEpoch !== epoch.current) return null;
-      setPending(null); setNotice(result.replayed ? 'Bereits bestätigte Aktion wiederhergestellt.' : 'ADE hat die Aktion abgeschlossen.');
+      setPending(null); setNotice(result.replayed ? translate("Already confirmed action restored.") : translate("ADE completed the action."));
       await host.refresh().catch(() => undefined); return result;
     } catch (reason) {
       if (ownEpoch !== epoch.current) return null;
@@ -49,6 +53,7 @@ export function useRemoteAdministration(host: MobileHost) {
 type Administration = ReturnType<typeof useRemoteAdministration>;
 
 export function RemoteManager({ host, admin, onClose, onWorkspace }: { host: MobileHost; admin: Administration; onClose: () => void; onWorkspace?: (id: string) => void }): JSX.Element {
+  useLocale();
   const [integrationOpen, setIntegrationOpen] = useState(false);
   const [tab, setTab] = useState<'projects' | 'agents' | 'git'>('projects');
   const [groupCategory, setGroupCategory] = useState('');
@@ -80,77 +85,77 @@ export function RemoteManager({ host, admin, onClose, onWorkspace }: { host: Mob
     finally { if (version === queryVersion.current) setQueryBusy(false); }
   }, [host.request, selectionLimited]);
   const selectRepository = (id: string) => { queryVersion.current++; setRepositoryId(id); setGit(null); setSourceRef(''); setQueryError(''); setQueryBusy(false); };
-  const projectSelect = <label>Projekt<select aria-label="Verwaltetes Projekt" value={repositoryId} onChange={(event) => selectRepository(event.target.value)}>
-    <option value="">Projekt wählen</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>;
+  const projectSelect = <label>{translate("Project")}<select aria-label={translate("Managed project")} value={repositoryId} onChange={(event) => selectRepository(event.target.value)}>
+    <option value="">{translate("Choose project")}</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>;
   const perform = async (command: MobileAdminCommand) => {
     const result = await admin.send(command);
     if (result?.created?.kind === 'repository') { setProjectName(''); selectRepository(result.created.id); }
     if (result?.created?.kind === 'agent') { setAgentName(''); setAgentId(result.created.id); }
     if (result?.git) { setGit({ overview: result.git }); setSourceRef(result.git.sourceRef); }
   };
-  return <Dialog title="Projekte und Agents verwalten" onClose={onClose} fallbackId="mobile-title" className="m-management">
-    <nav className="m-management-tabs" aria-label="Verwaltungsbereich">{[
-      ['projects', 'Projekte & Workspaces'], ['agents', 'Agents'], ['git', 'Git-Abgleich'],
+  return <Dialog title={translate("Manage projects and agents")} onClose={onClose} fallbackId="mobile-title" className="m-management">
+    <nav className="m-management-tabs" aria-label={translate("Management area")}>{[
+      ['projects', translate("Projects & workspaces")], ['agents', translate("Agents")], ['git', translate("Git sync")],
     ].map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id as typeof tab)}>{label}</button>)}</nav>
-    {admin.error && <p role="alert" className="m-alert">{admin.error}</p>}{admin.notice && <p role="status">{admin.notice}</p>}
-    {admin.pending && <div className="m-notice"><p>Diese Aktion ist noch nicht bestätigt. Vor einer neuen Aktion dieselbe Anfrage prüfen.</p>
-      <button disabled={admin.busy || host.status !== 'online'} onClick={() => { if (admin.pending) void admin.send(admin.pending.command, true); }}>Aktion erneut prüfen</button></div>}
-    {!admin.state && <p>Verwaltungsrechte werden beim Verbinden vom Host geladen. Für ältere Hosts ADE zuerst am PC aktualisieren.</p>}
-    {selectionLimited && <p>Dieses Gerät nutzt ausgewählte Projekte und Agenten. Neue Einträge am PC erstellen und freigeben. Commit, Merge und PR findest du beim geöffneten Projekt.</p>}
-    {tab !== 'git' && !canCatalog && <p>Zum Erstellen von Agents und Projekten die Verwaltungsrechte dieses Geräts in ADE am PC freigeben.</p>}
-    {tab === 'projects' && <div className="m-management-grid"><section><h3>Neues Projekt</h3><p>Erstellt ein neues Git-Projekt auf deinem PC. ADE verwaltet den Projektordner.</p>
+    {admin.error && <p role="alert" className="m-alert">{localizeAppMessage(admin.error)}</p>}{admin.notice && <p role="status">{localizeAppMessage(admin.notice)}</p>}
+    {admin.pending && <div className="m-notice"><p>{translate("This operation is not confirmed yet. Check the same request before starting a new operation.")}</p>
+      <button disabled={admin.busy || host.status !== 'online'} onClick={() => { if (admin.pending) void admin.send(admin.pending.command, true); }}>{translate("Re-examine action")}</button></div>}
+    {!admin.state && <p>{translate("Management privileges are loaded from the host when you connect, and for older hosts, update ADE first on the PC.")}</p>}
+    {selectionLimited && <p>{translate("This device uses selected projects and agents. Create and share new entries on the PC. Commit, merge and PR can be found on the open project.")}</p>}
+    {tab !== 'git' && !canCatalog && <p>{translate("To create agents and projects, share the management rights of this device in ADE on the PC.")}</p>}
+    {tab === 'projects' && <div className="m-management-grid"><section><h3>{translate("New project")}</h3><p>{translate("Creates a new Git project on your PC. ADE manages the project folder.")}</p>
       <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'project-create', input: { name: projectName.trim() } }); }}>
-        <label>Projektname<input value={projectName} maxLength={80} required onChange={(event) => setProjectName(event.target.value)} /></label>
-        <button className="m-primary" disabled={disabled || !canCreate || !projectName.trim()}>Projekt erstellen</button></form></section>
-      <section><h3>Agent-Workspace vorbereiten</h3><p>Jeder Agent erhält je Projekt einen eigenen Branch und Arbeitsordner.</p>
+        <label>{translate("Project name")}<input value={projectName} maxLength={80} required onChange={(event) => setProjectName(event.target.value)} /></label>
+        <button className="m-primary" disabled={disabled || !canCreate || !projectName.trim()}>{translate("Create project")}</button></form></section>
+      <section><h3>{translate("Prepare an agent workspace")}</h3><p>{translate("Each agent receives its own branch and work folder for each project.")}</p>
         <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'workspace-prepare', input: { agentId, repositoryId } }); }}>
-          {projectSelect}<label>Agent<select aria-label="Workspace-Agent" value={agentId} onChange={(event) => setAgentId(event.target.value)}><option value="">Agent wählen</option>
+          {projectSelect}<label>{translate("Agent")}<select aria-label={translate("Workspace agent")} value={agentId} onChange={(event) => setAgentId(event.target.value)}><option value="">{translate("Choose agent")}</option>
             {host.catalog?.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
-          <button disabled={disabled || !canCatalog || !repositoryId || !agentId}>Workspace vorbereiten</button></form></section></div>}
-    {tab === 'agents' && <section><h3>Neuer Agent</h3><p>Wähle ein Standardprofil oder die Einstellungen eines vorhandenen Agents. Der neue Agent erhält eine eigene Identität und eigenen Speicher.</p>
+          <button disabled={disabled || !canCatalog || !repositoryId || !agentId}>{translate("Prepare workspace")}</button></form></section></div>}
+    {tab === 'agents' && <section><h3>{translate("New agent")}</h3><p>{translate("Choose a default profile or the settings of an existing agent, and the new agent gets its own identity and storage.")}</p>
       <form onSubmit={(event) => {
         event.preventDefault(); const selected = host.catalog?.agentSources?.find((item) => `${item.kind}:${item.id}` === source);
         if (selected) void perform({ operation: 'agent-create', input: { name: agentName.trim(), source: { kind: selected.kind, id: selected.id }, ...(categoryId ? { categoryId } : {}) } });
-      }}><label>Agentname<input value={agentName} maxLength={80} required onChange={(event) => setAgentName(event.target.value)} /></label>
-        <label>Agent-Vorlage<select aria-label="Agent-Vorlage" value={source} onChange={(event) => setSource(event.target.value)}>{host.catalog?.agentSources?.map((item) =>
+      }}><label>{translate("Agent name")}<input value={agentName} maxLength={80} required onChange={(event) => setAgentName(event.target.value)} /></label>
+        <label>{translate("Agent template")}<select aria-label={translate("Agent template")} value={source} onChange={(event) => setSource(event.target.value)}>{host.catalog?.agentSources?.map((item) =>
           <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>{item.name} · {item.runtime}</option>)}</select></label>
-        <label>Gruppe<select aria-label="Gruppe" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Standardgruppe</option>
+        <label>{translate("Group")}<select aria-label={translate("Group")} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">{translate("Standard group")}</option>
           {host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <button className="m-primary" disabled={disabled || !canCreate || !agentName.trim()}>Agent erstellen</button></form></section>}
-    {tab === 'agents' && <section><h3>Obergruppen</h3><p>Ordne bestehende Kategorien einer gemeinsamen Obergruppe zu.</p>
+        <button className="m-primary" disabled={disabled || !canCreate || !agentName.trim()}>{translate("Create agent")}</button></form></section>}
+    {tab === 'agents' && <section><h3>{translate("Parent groups")}</h3><p>{translate("Assign existing categories to a shared parent group.")}</p>
       <form onSubmit={(event) => { event.preventDefault(); void perform({ operation: 'category-group', input: { categoryId: groupCategory, navigationGroup: groupName.trim() || null } }); }}>
-        <label>Kategorie<select aria-label="Kategorie für Obergruppe" value={groupCategory} onChange={(event) => {
+        <label>{translate("Category")}<select aria-label={translate("Category for parent group")} value={groupCategory} onChange={(event) => {
           setGroupCategory(event.target.value); setGroupName(host.catalog?.categories?.find((item) => item.id === event.target.value)?.navigationGroup ?? '');
-        }}><option value="">Kategorie wählen</option>{host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label>Obergruppe<input value={groupName} maxLength={80} list="mobile-navigation-groups" placeholder="Keine Obergruppe" onChange={(event) => setGroupName(event.target.value)} /></label>
+        }}><option value="">{translate("Choose a category")}</option>{host.catalog?.categories?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>{translate("Parent group")}<input value={groupName} maxLength={80} list="mobile-navigation-groups" placeholder={translate("No parent group")} onChange={(event) => setGroupName(event.target.value)} /></label>
         <datalist id="mobile-navigation-groups">{[...new Set(host.catalog?.categories?.flatMap((item) => item.navigationGroup ? [item.navigationGroup] : []) ?? [])].map((name) => <option key={name} value={name} />)}</datalist>
-        <p>Vorhandenen Namen wählen oder eine neue Obergruppe eingeben. Leer entfernt die Zuordnung.</p>
-        <button disabled={disabled || !canCreate || !groupCategory}>Obergruppe speichern</button>
+        <p>{translate("Choose an existing name or enter a new parent group. Leave empty to remove the assignment.")}</p>
+        <button disabled={disabled || !canCreate || !groupCategory}>{translate("Save parent group")}</button>
       </form></section>}
-    {tab === 'git' && <section><h3>Git-Abgleich</h3><p>Vergleiche den Projekt-Checkout und die Agent-Workspaces mit einer gemeinsamen Basis.</p>
-      <div className="m-management-grid">{projectSelect}{git && <label>Vergleichsbasis<select aria-label="Vergleichsbasis" value={sourceRef} disabled={queryBusy || disabled}
+    {tab === 'git' && <section><h3>{translate("Git sync")}</h3><p>{translate("Compare the project checkout and the agent workspaces with a common basis.")}</p>
+      <div className="m-management-grid">{projectSelect}{git && <label>{translate("Comparison base")}<select aria-label={translate("Comparison base")} value={sourceRef} disabled={queryBusy || disabled}
         onChange={(event) => { setSourceRef(event.target.value); void query(repositoryId, event.target.value); }}>{git.overview.refs.map((item) => <option key={item.ref} value={item.ref}>{item.label}</option>)}</select></label>}</div>
-      <div className="m-management-actions"><button disabled={!repositoryId || queryBusy || disabled} onClick={() => void query(repositoryId, sourceRef)}>Git-Zustand prüfen</button>
-        <button disabled={!repositoryId || disabled || selectionLimited} onClick={(event) => { event.currentTarget.focus(); setIntegrationOpen(true); }}>Änderungen übernehmen…</button>
-        <button disabled={!repositoryId || !canGit || queryBusy || disabled} onClick={() => void perform({ operation: 'git-fetch', input: { repositoryId } })}>Änderungen abrufen</button></div>
-      {!canGit && <p>Zum Abrufen und Aktualisieren Git-Verwaltungsrechte in ADE am PC freigeben.</p>}
-      {queryBusy && <p role="status">Git-Zustand wird geprüft…</p>}{queryError && <p role="alert">{queryError}</p>}
-      {git && <><p className="m-field-note">Origin zuletzt abgerufen: {git.overview.remoteCheckedAt ? new Date(git.overview.remoteCheckedAt).toLocaleString() : 'In dieser ADE-Sitzung noch nicht abgerufen'}</p>
-        <ul className="m-git-targets">{git.overview.targets.map((target) => <li key={target.id}><strong>{target.name}</strong><span>{target.branch || 'Kein Branch'}</span>
-          <p>{target.ahead === null ? 'Vergleich unbekannt' : `${target.ahead} voraus · ${target.behind} zurück · ${target.changedFiles} uncommittete Änderungen`}</p>
-          {target.blockedReason && <p>{target.blockedReason}</p>}<button disabled={disabled || queryBusy || !canGit || !!target.blockedReason || !target.behind}
-            aria-label={`Update für ${target.name} prüfen`} onClick={() => void query(repositoryId, sourceRef, target.id)}>Update prüfen</button></li>)}</ul></>}
+      <div className="m-management-actions"><button disabled={!repositoryId || queryBusy || disabled} onClick={() => void query(repositoryId, sourceRef)}>{translate("Check the git state")}</button>
+        <button disabled={!repositoryId || disabled || selectionLimited} onClick={(event) => { event.currentTarget.focus(); setIntegrationOpen(true); }}>{translate("Apply changes…")}</button>
+        <button disabled={!repositoryId || !canGit || queryBusy || disabled} onClick={() => void perform({ operation: 'git-fetch', input: { repositoryId } })}>{translate("Fetch changes")}</button></div>
+      {!canGit && <p>{translate("Sharing Git management rights in ADE on PC to retrieve and update.")}</p>}
+      {queryBusy && <p role="status">{translate("Checking Git status…")}</p>}{queryError && <p role="alert">{queryError}</p>}
+      {git && <><p className="m-field-note">{translate("Origin last fetched:")}{" "}{git.overview.remoteCheckedAt ? new Date(git.overview.remoteCheckedAt).toLocaleString(intlLocale()) : translate("Not yet retrieved in this ADE session")}</p>
+        <ul className="m-git-targets">{git.overview.targets.map((target) => <li key={target.id}><strong>{target.name}</strong><span>{target.branch || translate("No branch")}</span>
+          <p>{target.ahead === null ? translate("Comparison unknown") : translate("{{value1}} ahead · {{value2}} behind · {{value3}} uncommitted changes", { value1: target.ahead, value2: target.behind, value3: target.changedFiles })}</p>
+          {target.blockedReason && <p>{localizeAppMessage(target.blockedReason)}</p>}<button disabled={disabled || queryBusy || !canGit || !!target.blockedReason || !target.behind}
+            aria-label={translate("Check update for {{value1}}", { value1: target.name })} onClick={() => void query(repositoryId, sourceRef, target.id)}>{translate("Check update")}</button></li>)}</ul></>}
     </section>}
-    {admin.busy && <p role="status">ADE führt die Aktion aus…</p>}
+    {admin.busy && <p role="status">{translate("ADE is performing the operation…")}</p>}
     {integrationOpen && repositoryId && <IntegrationDialog key={repositoryId} host={host} repositoryId={repositoryId} canChange={canGit}
       canTest={canGit && admin.state?.capabilities?.includes('terminal:control') === true} onClose={() => setIntegrationOpen(false)}
       onWorkspace={(id) => { if (onWorkspace) { setIntegrationOpen(false); onClose(); onWorkspace(id); } }} />}
-    {confirmGit && git?.preview && <Dialog title="Git-Update bestätigen" onClose={() => setConfirmGit(false)} fallbackId="mobile-title">
-      <p><strong>{git.preview.target.name}</strong> auf {git.overview.sourceRef} aktualisieren.</p>
+    {confirmGit && git?.preview && <Dialog title={translate("Confirm Git Update")} onClose={() => setConfirmGit(false)} fallbackId="mobile-title">
+      <p><strong>{git.preview.target.name}</strong> {" "}{translate("on")}{" "}{git.overview.sourceRef} {" "}{translate("update.")}</p>
       <p className="m-sha">{git.preview.target.headSha} → {git.overview.sourceSha}</p>
-      <p>{git.preview.target.behind} Commit(s). ADE prüft Branch, Arbeitsordner und Belegung vor dem Update erneut.</p>
-      <button onClick={() => setConfirmGit(false)}>Abbrechen</button><button className="m-primary" disabled={disabled} onClick={() => {
+      <p>{git.preview.target.behind} {" "}{translate("Commit(s).ADE rechecks Branch, work folder and occupancy before the update.")}</p>
+      <button onClick={() => setConfirmGit(false)}>{translate("Cancel")}</button><button className="m-primary" disabled={disabled} onClick={() => {
         const previewId = git.preview!.id; setConfirmGit(false); void perform({ operation: 'git-apply', input: { previewId } });
-      }}>Fast-forward bestätigen</button></Dialog>}
+      }}>{translate("Confirm fast-forward")}</button></Dialog>}
   </Dialog>;
 }

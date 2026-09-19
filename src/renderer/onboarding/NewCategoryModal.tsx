@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { NavigationGroupField } from './NavigationGroupField';
 /**
  * New-category modal — name + optional profile photo. A category groups agents
@@ -16,6 +18,7 @@ interface NewCategoryModalProps {
 }
 
 export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps): React.ReactElement {
+  useLocale();
   const createCategory = useAppData((s) => s.createCategory);
   const [name, setName] = useState('');
   const [group, setGroup] = useState('');
@@ -57,18 +60,18 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
 
   return (
     <Modal
-      title="New category"
-      subtitle="A category groups agents around one thing you work on — a channel, a repo, a book."
+      title={translate("New category")}
+      subtitle={translate("A category groups agents around something you work on: a channel, repository or book.")}
       onClose={onClose}
     >
       <div className="field">
-        <label htmlFor="cat-name">Name</label>
+        <label htmlFor="cat-name">{translate("Name")}</label>
         <input
           id="cat-name"
           type="text"
           value={name}
           autoComplete="off"
-          placeholder="e.g. Podcast"
+          placeholder={translate("e.g. Podcast")}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void submit();
@@ -77,15 +80,15 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
       </div>
 
       <div className="field">
-        <label>Profile photo</label>
+        <label>{translate("Profile photo")}</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
       </div>
 
       <div className="field">
-        <label>LINK A GIT REPOSITORY (OPTIONAL)</label>
+        <label>{translate("LINK A GIT REPOSITORY (OPTIONAL)")}</label>
         <div className="repo-picker">
           <button type="button" className="btn" onClick={() => void pickRepo()} disabled={busy}>
-            {repoPath ? 'Change folder' : 'Choose folder'}
+            {repoPath ? translate("Change folder") : translate("Choose folder")}
           </button>
           {repoPath ? (
             <button
@@ -97,8 +100,7 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
               }}
               disabled={busy}
             >
-              Remove
-            </button>
+              {translate("Remove [52656d6f]")}</button>
           ) : null}
           <span className="repo-path" title={repoPath ?? ''}>
             {repoPath ?? 'No repository — agents get a plain workspace folder.'}
@@ -106,17 +108,16 @@ export function NewCategoryModal({ onClose, onCreated }: NewCategoryModalProps):
         </div>
         {repoError ? <div className="repo-error">{repoError}</div> : null}
         {repoPath ? (
-          <div className="repo-hint">Each agent gets its own worktree + branch under this repo.</div>
+          <div className="repo-hint">{translate("Each agent gets its own worktree + branch under this repo.")}</div>
         ) : null}
       </div>
 
       <NavigationGroupField value={group} onChange={setGroup} disabled={busy} />
       <div className="modal-actions">
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
-        </button>
+          {translate("Cancel [43616e63]")}</button>
         <button type="button" className="btn primary" onClick={() => void submit()} disabled={!canCreate}>
-          {busy ? 'Creating…' : 'Create category'}
+          {busy ? translate("Creating…") : translate("Create category")}
         </button>
       </div>
     </Modal>

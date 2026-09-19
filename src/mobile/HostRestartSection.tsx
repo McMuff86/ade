@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileHostState, MobileRestartResult } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -6,6 +9,7 @@ import { Dialog } from './ui';
 import { HostBuildStatus, MobileSetupStatus } from './SetupStatus';
 
 export function HostRestartSection({ host, onNavigate }: { host: MobileHost; onNavigate: (target: 'projects' | 'graph') => void }): JSX.Element {
+  useLocale();
   const [state, setState] = useState<MobileHostState | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
@@ -28,16 +32,16 @@ export function HostRestartSection({ host, onNavigate }: { host: MobileHost; onN
         setState(next); setConfirmed(true);
         if (!pending || Date.now() - pending.at <= 60_000) setError('');
         if (pending && next.instanceId !== pending.instanceId) {
-          setPending(null); setNotice('ADE wurde neu gestartet und ist wieder erreichbar.'); setError('');
+          setPending(null); setNotice(translate("ADE has been restarted and is reachable again.")); setError('');
         } else if (pending && Date.now() - pending.at > 60_000) {
-          setError('Der Neustart ist noch nicht bestätigt. Host-Zustand prüfen; es wird kein weiterer Neustart automatisch ausgelöst.');
+          setError(translate("The restart is not yet confirmed. Check host state; no further restart is triggered automatically."));
         }
       } catch (reason) {
         if (disposed) return;
         setConfirmed(false);
         if (!pending) setError(reason instanceof MobileClientError && reason.status === 404
-          ? 'Dieser Host bietet den Fernneustart noch nicht an. ADE am PC aktualisieren und einmal normal neu starten.'
-          : 'Host-Zustand konnte nicht geladen werden. Verbindung wird erneut geprüft.');
+          ? translate("This host does not yet offer the remote restart. update ADE on the PC and restart normally once.")
+          : translate("Host state could not be loaded. connection is checked again."));
       } finally { querying = false; }
     };
     void refresh(); const timer = setInterval(() => void refresh(), 3000);
@@ -50,31 +54,31 @@ export function HostRestartSection({ host, onNavigate }: { host: MobileHost; onN
     sending.current = true; setBusy(true); setPending(command); setConfirm(false); setError('');
     try {
       await host.request<MobileRestartResult>('/api/v1/host/restart', 'POST', { instanceId: command.instanceId }, command.key);
-      if (mounted.current) setNotice('ADE hat den Neustart angenommen. Wiederverbindung wird geprüft…');
+      if (mounted.current) setNotice(translate("ADE has accepted the restart. Reconnection is being checked…"));
     } catch (reason) {
       if (!mounted.current) return;
       if (reason instanceof MobileClientError && [400, 403, 404, 409, 422].includes(reason.status)) {
         setPending(null); setError(reason.code === 'scope_not_granted'
-          ? 'Dieses Gerät darf ADE nicht neu starten. Verwaltungsrecht am PC freigeben.' : reason.message);
-      } else setError('Antwort nicht bestätigt. Dieselbe Anfrage kann erneut geprüft werden.');
+          ? translate("This device must not restart ADE. Release administrative right on the PC.") : reason.message);
+      } else setError(translate("Answer not confirmed: the same question can be re-examined."));
     } finally { sending.current = false; if (mounted.current) setBusy(false); }
   };
-  return <section className="m-settings-section" aria-labelledby="host-restart-title"><h3 id="host-restart-title">ADE auf dem PC</h3>
-    <button disabled={host.status !== 'online' || busy} onClick={() => { setRefreshVersion((current) => current + 1); void host.refresh().catch(() => undefined); }}>Einrichtungsstatus aktualisieren</button>
+  return <section className="m-settings-section" aria-labelledby="host-restart-title"><h3 id="host-restart-title">{translate("ADE on PC")}</h3>
+    <button disabled={host.status !== 'online' || busy} onClick={() => { setRefreshVersion((current) => current + 1); void host.refresh().catch(() => undefined); }}>{translate("Refresh setup status")}</button>
     <HostBuildStatus state={state} online={host.status === 'online' && confirmed} />
     <MobileSetupStatus host={host} state={confirmed ? state : null} onNavigate={onNavigate} />
-    {!state && !error && host.status === 'online' && <p role="status">Host-Zustand wird geladen…</p>}
-    {state && <><p>{host.status !== 'online' || !confirmed ? 'PC nicht aktuell bestätigt' : state.restart === 'pending' ? 'Neustart vorbereitet' : 'Erreichbar'}</p>
-      {!state.canRestart && <p>Zum Neustarten dieses Gerät am PC unter Einstellungen → Verbundene Geräte freigeben.</p>}
-      {state.blockers.length > 0 && <ul>{state.blockers.map((item) => <li key={item}>{item}</li>)}</ul>}
+    {!state && !error && host.status === 'online' && <p role="status">{translate("Loading host status…")}</p>}
+    {state && <><p>{host.status !== 'online' || !confirmed ? translate("PC status not yet confirmed") : state.restart === 'pending' ? translate("Restart prepared") : translate("Reachable")}</p>
+      {!state.canRestart && <p>{translate("To allow restarting, enable this device's permission under Settings → Connected devices on the PC.")}</p>}
+      {state.blockers.length > 0 && <ul>{state.blockers.map((item) => <li key={item}>{localizeAppMessage(item)}</li>)}</ul>}
       <button onClick={(event) => { event.currentTarget.focus(); setConfirm(true); }} disabled={!confirmed || !state.canRestart || state.blockers.length > 0
-        || state.restart === 'pending' || !!pending || busy || host.busy || !!host.pending || host.status !== 'online'}>ADE neu starten</button></>}
-    {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
-    {pending && <button disabled={busy || host.status !== 'online'} onClick={() => void restart()}>Neustart-Anfrage erneut prüfen</button>}
-    {confirm && <Dialog title="ADE auf dem PC neu starten?" onClose={() => setConfirm(false)} fallbackId="mobile-title">
-      <p>Die Verbindung wird kurz unterbrochen. ADE startet mit demselben Profil; die Gerätekopplung bleibt erhalten.</p>
-      <p>Laufende Prozesse und Host-Aktionen werden vor dem Neustart erneut geprüft.</p>
-      <button onClick={() => setConfirm(false)}>Abbrechen</button><button className="m-primary" onClick={() => void restart()}>Neustart bestätigen</button>
+        || state.restart === 'pending' || !!pending || busy || host.busy || !!host.pending || host.status !== 'online'}>{translate("Restart ADE")}</button></>}
+    {notice && <p role="status">{localizeAppMessage(notice)}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
+    {pending && <button disabled={busy || host.status !== 'online'} onClick={() => void restart()}>{translate("Check restart request again")}</button>}
+    {confirm && <Dialog title={translate("Restart ADE on the PC?")} onClose={() => setConfirm(false)} fallbackId="mobile-title">
+      <p>{translate("The connection is briefly interrupted. ADE starts with the same profile; the device coupling is maintained.")}</p>
+      <p>{translate("Ongoing processes and host actions are checked again before the restart.")}</p>
+      <button onClick={() => setConfirm(false)}>{translate("Cancel")}</button><button className="m-primary" onClick={() => void restart()}>{translate("Confirm restart")}</button>
     </Dialog>}
   </section>;
 }

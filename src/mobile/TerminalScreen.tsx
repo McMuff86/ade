@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useContext, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { Terminal } from '@xterm/xterm';
@@ -39,6 +41,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
   onReplyOpenChange?: (open: boolean) => void;
   onData: (data: string) => void; onSize: (cols: number, rows: number) => void;
 }): JSX.Element {
+  useLocale();
   const keyboardOpen = useContext(TabletKeyboardContext);
   const container = useRef<HTMLDivElement>(null); const terminal = useRef<Terminal | undefined>(undefined);
   const callbacks = useRef({ onData, onSize }); callbacks.current = { onData, onSize };
@@ -70,7 +73,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     const full = completeTerminalLink(link, screen); if (full) openLink(full); else setLinksOpen(true);
     return true;
   };
-  const showHistory = () => setHistory(screen || 'Noch keine Terminalausgabe vorhanden.');
+  const showHistory = () => setHistory(screen || translate("There is no terminal output yet."));
   const closeHistory = () => { setHistory(null); historyButton.current?.focus(); };
   useEffect(() => {
     if (history === null || !historyRef.current) return;
@@ -96,7 +99,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
         activate: (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); const full = completeTerminalLink(link, transcriptRef.current); if (full) openLinkRef.current(full); },
       })));
     } });
-    term.textarea?.setAttribute('aria-label', 'Direkte Terminal-Eingabe');
+    term.textarea?.setAttribute('aria-label', translate("Direct terminal input"));
     term.textarea?.setAttribute('autocapitalize', 'off');
     term.textarea?.setAttribute('inputmode', 'text');
     const data = term.onData((value) => callbacks.current.onData(value));
@@ -121,7 +124,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     }
     term.write(frame.ansi); lastFrame.current = frame.revision;
   }, [frame]);
-  return <div className={`m-terminal-screen m-terminal-xterm m-terminal-history-host${toolContainer ? ' m-terminal-tools-slotted' : ''}`} aria-label="Terminalanzeige"
+  return <div className={`m-terminal-screen m-terminal-xterm m-terminal-history-host${toolContainer ? ' m-terminal-tools-slotted' : ''}`} aria-label={translate("Terminal display")}
     onKeyDownCapture={(event) => {
       if (event.target instanceof Element && event.target.closest('.reply-speech-dialog, .m-terminal-links-dialog')) return;
       if (event.shiftKey && event.key === 'PageUp') { event.preventDefault(); event.stopPropagation(); showHistory(); }
@@ -164,13 +167,13 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
       // top of the first output line. Without a slot they fall back to the overlay.
       const tools = <>
         <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
-          onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
-        <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); setLinksOpen(true); }}>Links</button>
+          onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? translate("History") : translate("Back to live output")}</button>
+        <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); setLinksOpen(true); }}>{translate("Links")}</button>
       </>;
       return toolContainer ? createPortal(tools, toolContainer) : tools;
     })()}
     {linksOpen && <TerminalLinksDialog text={history ?? screen} onClose={() => setLinksOpen(false)} opener={() => linksButton.current ?? historyButton.current} />}
-    {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? 'Anhören' : 'Antwort anhören'}
+    {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? translate("Listen") : translate("Listen to the reply")}
       sheetContainer={replySheetContainer} onOpenChange={onReplyOpenChange}
       fallbackFocus={() => historyButton.current} readSource={() => {
         if (history !== null) {
@@ -181,8 +184,8 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
         return terminalReplySource(terminal.current);
       }} />}
     {history !== null && <div className="m-terminal-history-panel">
-      <p>Gespeicherter Textverlauf · Anzeige pausiert. Zur Live-Ausgabe zurückkehren, um weiter einzugeben.</p>
-      <pre ref={historyRef} tabIndex={0} aria-label="Terminalverlauf lesen"><LinkedTerminalText text={history} onLocal={() => setLinksOpen(true)} /></pre>
+      <p>{translate("Saved text history · Display paused. Return to live output to continue typing.")}</p>
+      <pre ref={historyRef} tabIndex={0} aria-label={translate("Read the terminal history")}><LinkedTerminalText text={history} onLocal={() => setLinksOpen(true)} /></pre>
     </div>}
   </div>;
 }

@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MobileWorkspaceSelection, ProjectDirectoryView, WorkspaceAssignmentCommand, WorkspaceAssignmentQuery, WorkspaceAssignmentResult, WorkspaceAssignmentView } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -7,10 +10,10 @@ import { useDeviceDraft } from './deviceDrafts';
 
 function assignmentError(error: unknown) {
   if (error instanceof MobileClientError) {
-    if (error.status === 403) return 'Am PC den Zugriff auf Workspace-Dateien und die Projekt-/Agent-Verwaltung freigeben. Für neue Projekte muss die Projektauswahl „Alle“ erlauben.';
+    if (error.status === 403) return translate("Sharing access to workspace files and project/agent management on the PC. For new projects, the project selection must allow \"All\".");
     if (error.message !== error.code) return error.message;
   }
-  return 'Zuweisung konnte nicht geprüft werden. Verbindung prüfen und erneut versuchen.';
+  return translate("Assignment could not be checked. check connection and try again.");
 }
 
 /** Keep the selected UI scope separate from immutable task/lease bindings. */
@@ -37,6 +40,7 @@ export function WorkspaceAssignmentDialog({ host, agentId, repositoryId, browseI
   host: MobileHost; agentId: string; repositoryId?: string; browseInitially?: boolean;
   onAssigned: (view: WorkspaceAssignmentView) => void; onClose: () => void; fallbackId: string;
 }) {
+  useLocale();
   const [browse, setBrowse] = useState(browseInitially || !repositoryId);
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [search, setSearch] = useState('');
   const [result, setResult] = useState<WorkspaceAssignmentResult>();
@@ -77,31 +81,31 @@ export function WorkspaceAssignmentDialog({ host, agentId, repositoryId, browseI
     } finally { locked.current = false; if (live.current) setBusy(false); }
   };
   const disabled = busy || !!pending || host.status !== 'online';
-  return <Dialog title="Workspace-Zuweisung prüfen" onClose={onClose} fallbackId={fallbackId} className="m-assignment-dialog">
-    <p>Wähle den Workspace für Dateien und Terminal dieses Agenten. Verwaltete Aufgaben verwenden weiterhin ihre eigene ADE-Arbeitskopie.</p>
-    <div className="m-management-actions"><button disabled={disabled} onClick={() => { setBrowse(true); reload((value) => value + 1); }}>Projekte durchsuchen</button>
-      {repositoryId && <button disabled={disabled} onClick={() => { setBrowse(false); reload((value) => value + 1); }}>Workspaces des aktuellen Projekts</button>}
-      <button disabled={busy || host.status !== 'online'} onClick={() => reload((value) => value + 1)}>Liste aktualisieren</button></div>
-    {busy && <p role="status">Workspace wird geprüft…</p>}{error && <p role="alert">{error}</p>}
-    {host.status !== 'online' && <p role="status">Verbindung unterbrochen. Erneut verbinden, um zu prüfen oder zuzuweisen.</p>}
-    {pending && <p role="status">Zuweisung noch nicht bestätigt. „Zuweisungsstatus prüfen“ verwendet denselben Auftrag.</p>}
-    {!durable && pending && <p role="alert">Browser konnte die Quittung nicht dauerhaft speichern. Diese Seite bis zur Bestätigung offen lassen.</p>}
-    {browse ? <><label>Projekte suchen<input type="search" value={search} maxLength={100} onChange={(event) => setSearch(event.target.value)} /></label>
-      {directory?.notice && <p>{directory.notice}</p>}
-      <p>Projektordner aus dem am PC festgelegten Stammordner und bereits registrierte Projekte.</p>
+  return <Dialog title={translate("Check workspace assignment")} onClose={onClose} fallbackId={fallbackId} className="m-assignment-dialog">
+    <p>{translate("Select the workspace for this agent's files and terminal. Managed tasks continue to use their own ADE working copy.")}</p>
+    <div className="m-management-actions"><button disabled={disabled} onClick={() => { setBrowse(true); reload((value) => value + 1); }}>{translate("Search for projects")}</button>
+      {repositoryId && <button disabled={disabled} onClick={() => { setBrowse(false); reload((value) => value + 1); }}>{translate("Workspaces of the current project")}</button>}
+      <button disabled={busy || host.status !== 'online'} onClick={() => reload((value) => value + 1)}>{translate("Update list")}</button></div>
+    {busy && <p role="status">{translate("Checking workspace…")}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
+    {host.status !== 'online' && <p role="status">{translate("Connection interrupted. Reconnect to check or assign.")}</p>}
+    {pending && <p role="status">{translate("Assignment not yet confirmed. “Check assignment status” uses the same job.")}</p>}
+    {!durable && pending && <p role="alert">{translate("Browser could not permanently save the receipt. Leave this page open until confirmation.")}</p>}
+    {browse ? <><label>{translate("Search for projects [50726f6a]")}<input type="search" value={search} maxLength={100} onChange={(event) => setSearch(event.target.value)} /></label>
+      {directory?.notice && <p>{localizeAppMessage(directory.notice)}</p>}
+      <p>{translate("Project folder from the root folder set on the PC and already registered projects.")}</p>
       <ul className="m-assignment-candidates">{directory?.entries.filter((item) => item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map((item) => <li key={item.id}>
-        <strong>{item.name}</strong><span>{item.repositoryId ? 'In ADE registriert' : 'Noch nicht registriert'}</span>
-        {item.notice && <span>{item.notice}</span>}<button disabled={disabled || item.kind !== 'repository' || item.backend !== 'native'}
-          onClick={() => void inspect({ operation: 'project-preview', agentId, entryId: item.id })}>Projekt prüfen · {item.name}</button></li>)}</ul>
-      {directory && !directory.entries.some((item) => item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && <p>Keine passenden Projektordner gefunden. Projekt-Stammordner in Einstellungen am PC prüfen.</p>}
-      {directory?.limited && <p>Liste begrenzt. Projekt am PC direkt registrieren, wenn es hier fehlt.</p>}</>
-      : <ul className="m-assignment-candidates">{result?.view.candidates.map((item) => <li key={item.id}><strong>{item.name}{item.current ? ' · Aktuell zugewiesen' : ''}</strong>
-        <span>Branch {item.branch}</span>{item.notice && <span>{item.notice}</span>}<button disabled={disabled} onClick={() => void inspect({ operation: 'preview', agentId, repositoryId: repositoryId!, candidateId: item.id })}>Workspace prüfen · {item.name}</button></li>)}</ul>}
-    {result?.preview && <section aria-label="Ergebnis der Workspace-Prüfung"><h3 ref={proofHeading} tabIndex={-1}>Prüfergebnis · {result.preview.candidate.name}</h3>
+        <strong>{item.name}</strong><span>{item.repositoryId ? translate("Registered in ADE") : translate("Not yet registered")}</span>
+        {item.notice && <span>{localizeAppMessage(item.notice)}</span>}<button disabled={disabled || item.kind !== 'repository' || item.backend !== 'native'}
+          onClick={() => void inspect({ operation: 'project-preview', agentId, entryId: item.id })}>{translate("Check project ·")}{" "}{item.name}</button></li>)}</ul>
+      {directory && !directory.entries.some((item) => item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && <p>{translate("No suitable project folders found. Check project root folders in settings on the PC.")}</p>}
+      {directory?.limited && <p>{translate("Register the project directly on the PC if it is missing here.")}</p>}</>
+      : <ul className="m-assignment-candidates">{result?.view.candidates.map((item) => <li key={item.id}><strong>{item.name}{item.current ? translate(" · Currently assigned") : ''}</strong>
+        <span>{translate("Branch")}{" "}{item.branch}</span>{item.notice && <span>{localizeAppMessage(item.notice)}</span>}<button disabled={disabled} onClick={() => void inspect({ operation: 'preview', agentId, repositoryId: repositoryId!, candidateId: item.id })}>{translate("Check the workspace ·")}{" "}{item.name}</button></li>)}</ul>}
+    {result?.preview && <section aria-label={translate("Workspace check result")}><h3 ref={proofHeading} tabIndex={-1}>{translate("Check result ·")}{" "}{result.preview.candidate.name}</h3>
       <ul>{result.preview.checks.map((check) => <li key={check}>{check}</li>)}</ul>
-      {result.preview.blockers.map((blocker) => <p role="alert" key={blocker}>{blocker}</p>)}
-      {!result.preview.blockers.length && <p>Zuordnung passt. Mit „Workspace zuweisen“ bestätigen.</p>}</section>}
+      {result.preview.blockers.map((blocker) => <p role="alert" key={blocker}>{localizeAppMessage(blocker)}</p>)}
+      {!result.preview.blockers.length && <p>{translate("Assignment fits. Confirm with \"Assign workspace\".")}</p>}</section>}
     <div className="m-management-actions"><button className="m-primary" disabled={busy || host.status !== 'online' || !pending && (!result?.preview || !!result.preview.blockers.length)} onClick={() => void assign()}>
-      {pending ? 'Zuweisungsstatus prüfen' : 'Workspace zuweisen'}</button><button onClick={onClose}>Abbrechen</button></div>
+      {pending ? translate("Check assignment status") : translate("Assign workspace")}</button><button onClick={onClose}>{translate("Cancel")}</button></div>
   </Dialog>;
 }

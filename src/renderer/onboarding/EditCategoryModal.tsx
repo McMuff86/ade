@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { NavigationGroupField } from './NavigationGroupField';
 /**
  * Existing-category settings: display name and profile photo. Structure
@@ -17,6 +19,7 @@ interface EditCategoryModalProps {
 }
 
 export function EditCategoryModal({ category, onClose }: EditCategoryModalProps): React.ReactElement {
+  useLocale();
   const updateCategory = useAppData((s) => s.updateCategory);
   const deleteCategory = useAppData((s) => s.deleteCategory);
   const [name, setName] = useState(category.name);
@@ -47,16 +50,16 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
   };
 
   return (
-    <Modal title="Category settings" subtitle="Rename the category or change its photo." onClose={onClose}
+    <Modal title={translate("Category settings")} subtitle={translate("Rename the category or change its photo.")} onClose={onClose}
       fallbackFocus={() => document.querySelector<HTMLElement>(`[data-category-settings="${CSS.escape(category.id)}"]`)
         ?? document.querySelector<HTMLElement>('.rail-search input')}>
       <div className="field">
-        <label>Profile photo</label>
+        <label>{translate("Profile photo")}</label>
         <PhotoPicker value={photo} onChange={setPhoto} shape="square" name={name} />
       </div>
 
       <div className="field">
-        <label htmlFor="edit-category-name">Name</label>
+        <label htmlFor="edit-category-name">{translate("Name")}</label>
         <input
           id="edit-category-name"
           type="text"
@@ -73,12 +76,12 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
       <NavigationGroupField value={group} onChange={setGroup} disabled={busy} />
       <div className="modal-actions">
         <DeleteAction
-          label="Kategorie löschen"
+          label={translate("Delete category")}
           consequence={category.agents.length > 0
-            ? `Löscht auch ${category.agents.length} ${category.agents.length === 1 ? 'Agent' : 'Agents'} `
-              + 'in dieser Kategorie und beendet deren Terminals. Workspaces, Memory und Fotos '
-              + 'bleiben auf der Festplatte erhalten.'
-            : 'Entfernt die leere Kategorie aus ADE.'}
+            ? translate("Also delete {{value1}} {{value2}} ", { value1: category.agents.length, value2: category.agents.length === 1 ? translate("Agent") : translate("Agents") })
+              + translate("in this category and ends their terminals. Workspaces, memory and photos ")
+              + translate("remain on disk.")
+            : translate("Removes the empty category from ADE.")}
           busy={busy}
           onDelete={async () => {
             await deleteCategory(category.id);
@@ -86,15 +89,14 @@ export function EditCategoryModal({ category, onClose }: EditCategoryModalProps)
           }}
         />
         <button type="button" className="btn" onClick={onClose}>
-          Cancel
-        </button>
+          {translate("Cancel [43616e63]")}</button>
         <button
           type="button"
           className="btn primary"
           onClick={() => void submit()}
           disabled={!canSave}
         >
-          {busy ? 'Saving...' : 'Save'}
+          {busy ? translate("Saving...") : translate("Save")}
         </button>
       </div>
     </Modal>

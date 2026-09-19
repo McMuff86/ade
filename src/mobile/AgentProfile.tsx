@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileAgentProfile, MobileAgentSummary, MobileProfileUpdate } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -21,6 +24,7 @@ function usePhotoUrl(base64: string | undefined): string | null {
   }, [base64]); return url;
 }
 export function MobileAvatar({ host, agent, size = 30 }: { host: MobileHost; agent: MobileAgentSummary; size?: number }): JSX.Element {
+  useLocale();
   const [photo, setPhoto] = useState<string>(); const url = usePhotoUrl(photo);
   useEffect(() => {
     let live = true; setPhoto(undefined);
@@ -47,6 +51,7 @@ export function useProfileDrafts(identity: number) {
 export type ProfileDrafts = ReturnType<typeof useProfileDrafts>;
 
 export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: MobileHost; agentId: string; repositoryId?: string; drafts: ProfileDrafts }): JSX.Element {
+  useLocale();
   const [profile, setProfile] = useState<MobileAgentProfile | null>(null); const [error, setError] = useState('');
   const [busy, setBusy] = useState(false); const [allowed, setAllowed] = useState(false); const [loading, setLoading] = useState(true);
   const lock = useRef(false); const live = useRef(true); const nameInput = useRef<HTMLInputElement>(null);
@@ -69,13 +74,13 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
   useEffect(() => { live.current = true; void refresh(); return () => { live.current = false; }; }, [agentId, host.identityVersion]);
   const update = (patch: Partial<MobileProfileUpdate>) => {
     if (!effective) return;
-    if (!draft && Object.keys(drafts.drafts).length >= 20) { setError('Zuerst einen der offenen Profilentwürfe speichern oder verwerfen.'); return; }
+    if (!draft && Object.keys(drafts.drafts).length >= 20) { setError(translate("First, save or discard one of the open profile drafts.")); return; }
     drafts.change(agentId, (current) => ({ input: { ...(current?.input ?? effective), ...patch } }));
   };
   const pick = async (file?: File) => {
     if (!file) return; setError(''); setBusy(true);
     try {
-      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error('PNG, JPEG oder WebP bis 10 MiB wählen.');
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error(translate("Select PNG, JPEG or WebP up to 10 MiB."));
       const source = await createImageBitmap(file);
       try {
         for (const size of [256, 128, 64]) {
@@ -85,9 +90,9 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
           const bytesBase64 = canvas.toDataURL('image/png').split(',')[1]!;
           if (atob(bytesBase64).length <= 32 * 1024) { if (live.current) update({ photo: { bytesBase64 } }); return; }
         }
-        throw new Error('Bild konnte nicht verkleinert werden.');
+        throw new Error(translate("Could not resize the image."));
       } finally { source.close(); }
-    } catch (reason) { if (live.current) setError(reason instanceof Error ? reason.message : 'Bild konnte nicht gelesen werden.'); }
+    } catch (reason) { if (live.current) setError(reason instanceof Error ? reason.message : translate("Could not read the image.")); }
     finally { if (live.current) setBusy(false); }
   };
   const save = async () => {
@@ -104,38 +109,37 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
     } finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const disabled = busy || !!draft?.pending || !allowed || host.status !== 'online';
-  return <section className="m-agent-profile" aria-label="Agent-Profil">
-    {loading && <p role="status">Agent-Profil wird geladen…</p>}{error && <p role="alert" className="m-alert">{error}</p>}
-    {!allowed && !loading && <p>Am PC unter Einstellungen → Verbundene Geräte „Agent-Namen, Rollen und Profilbilder bearbeiten“ freigeben.</p>}
-    {profile?.photoError && <p>{profile.photoError}</p>}{draft?.notice && <p>{draft.notice}</p>}
+  return <section className="m-agent-profile" aria-label={translate("Agent Profile")}>
+    {loading && <p role="status">{translate("Loading agent profile…")}</p>}{error && <p role="alert" className="m-alert">{localizeAppMessage(error)}</p>}
+    {!allowed && !loading && <p>{translate("On the PC, open Settings → Connected devices and enable “Edit agent names, roles and profile pictures”.")}</p>}
+    {profile?.photoError && <p>{localizeAppMessage(profile.photoError)}</p>}{draft?.notice && <p>{localizeAppMessage(draft.notice)}</p>}
     {effective && <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <div className="m-profile-preview">{imageUrl ? <button ref={photoButton} type="button" className="m-profile-photo-button" aria-label="Profilbild vergrössern" onClick={event => { event.currentTarget.focus(); setPhotoOpen(true); }}><img className="m-profile-photo" src={imageUrl} width={96} height={96} alt="Profilbild-Vorschau" data-runtime-logo={url ? undefined : profile?.agent.runtime} /></button> : <Avatar name={effective.name} size={96} />}</div>
-      <label>Profilbild auswählen<input aria-label="Profilbild auswählen" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled}
+      <div className="m-profile-preview">{imageUrl ? <button ref={photoButton} type="button" className="m-profile-photo-button" aria-label={translate("Enlarge profile image")} onClick={event => { event.currentTarget.focus(); setPhotoOpen(true); }}><img className="m-profile-photo" src={imageUrl} width={96} height={96} alt={translate("Profile image preview")} data-runtime-logo={url ? undefined : profile?.agent.runtime} /></button> : <Avatar name={effective.name} size={96} />}</div>
+      <label>{translate("Select profile picture")}<input aria-label={translate("Select profile picture")} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled}
         onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ''; }} /></label>
-      <button type="button" disabled={disabled || !photo && !profile?.agent.photoVersion} onClick={() => update({ photo: null })}>Profilbild entfernen</button>
-      <label>Agentname<input ref={nameInput} aria-label="Profil-Agentname" value={effective.name} maxLength={80} disabled={disabled} required onChange={(event) => update({ name: event.target.value })} /></label>
-      <label>Rolle<input aria-label="Profil-Rolle" value={effective.role} maxLength={160} disabled={disabled} onChange={(event) => update({ role: event.target.value })} /></label>
-      <button className="m-primary" disabled={busy || !allowed || host.status !== 'online' || !effective.name.trim()}>{draft?.pending ? 'Profilaktion erneut prüfen' : 'Profil speichern'}</button>
-      {draft && !draft.pending && <button type="button" disabled={busy} onClick={() => drafts.change(agentId, () => undefined)}>Profilentwurf verwerfen</button>}
+      <button type="button" disabled={disabled || !photo && !profile?.agent.photoVersion} onClick={() => update({ photo: null })}>{translate("Remove profile picture")}</button>
+      <label>{translate("Agent name")}<input ref={nameInput} aria-label={translate("Profile agent name")} value={effective.name} maxLength={80} disabled={disabled} required onChange={(event) => update({ name: event.target.value })} /></label>
+      <label>{translate("Role")}<input aria-label={translate("Profile role")} value={effective.role} maxLength={160} disabled={disabled} onChange={(event) => update({ role: event.target.value })} /></label>
+      <button className="m-primary" disabled={busy || !allowed || host.status !== 'online' || !effective.name.trim()}>{draft?.pending ? translate("Check profile operation again") : translate("Save profile")}</button>
+      {draft && !draft.pending && <button type="button" disabled={busy} onClick={() => drafts.change(agentId, () => undefined)}>{translate("Discard profile draft")}</button>}
     </form>}
-    {photoOpen && imageUrl && <Dialog title={`Profilbild · ${effective?.name ?? 'Agent'}`} className="m-profile-photo-dialog" restoreFocusTo={photoButton.current} onClose={() => setPhotoOpen(false)}>
-      <img className="m-profile-photo-large" src={imageUrl} alt={`Profilbild von ${effective?.name ?? 'Agent'}`} data-runtime-logo={url ? undefined : profile?.agent.runtime} />
-      <button onClick={() => setPhotoOpen(false)}>Zurück zum Profil</button>
+    {photoOpen && imageUrl && <Dialog title={translate("Profile picture · {{value1}}", { value1: effective?.name ?? 'Agent' })} className="m-profile-photo-dialog" restoreFocusTo={photoButton.current} onClose={() => setPhotoOpen(false)}>
+      <img className="m-profile-photo-large" src={imageUrl} alt={translate("Profile picture of {{value1}}", { value1: effective?.name ?? 'Agent' })} data-runtime-logo={url ? undefined : profile?.agent.runtime} />
+      <button onClick={() => setPhotoOpen(false)}>{translate("Back to Profile")}</button>
     </Dialog>}
-    {profile && <MobileSpeechSettings host={host} target={{ kind: 'agent', agentId, ...(repositoryId ? { repositoryId } : {}) }} title="Agent-Stimme" />}
+    {profile && <MobileSpeechSettings host={host} target={{ kind: 'agent', agentId, ...(repositoryId ? { repositoryId } : {}) }} title={translate("Agent voice")} />}
     {profile && <AgentBehaviorEditor key={`${host.identityVersion}:${agentId}`} agentId={agentId} enabled={host.status === 'online'} canEdit={allowed} port={{
       load: () => host.request<AgentBehaviorView>('/api/v1/profile/behavior/query', 'POST', { agentId }),
       save: (input, key) => host.request('/api/v1/profile/behavior/update', 'POST', input, key),
     }} />}
-    <button disabled={busy} onClick={() => { void refresh(); }}>Profil neu laden</button>
-    {draft && profile && draft.input.revision !== profile.revision && <p>Profil wurde geändert. Entwurf prüfen und erst danach die neue Basis bestätigen.
-      <button disabled={busy || !!draft.pending} onClick={() => update({ revision: profile.revision })}>Neue Profilbasis bestätigen</button></p>}
+    <button disabled={busy} onClick={() => { void refresh(); }}>{translate("Reload profile")}</button>
+    {draft && profile && draft.input.revision !== profile.revision && <p>{translate("Profile has been changed. Check draft and only then confirm the new base.")}<button disabled={busy || !!draft.pending} onClick={() => update({ revision: profile.revision })}>{translate("Confirm new profile baseline")}</button></p>}
   </section>;
 }
 function profileError(reason: unknown): string {
   if (reason instanceof MobileClientError) {
-    if (reason.code === 'scope_not_granted') return 'Die Gerätefreigabe zum Bearbeiten von Agent-Profilen fehlt.';
+    if (reason.code === 'scope_not_granted') return translate("Permission to edit agent profiles is missing for this device.");
     if (reason.message !== reason.code) return reason.message;
   }
-  return 'Profilaktion konnte nicht bestätigt werden. Verbindung prüfen und erneut versuchen.';
+  return translate("Profile action could not be confirmed. check connection and try again.");
 }

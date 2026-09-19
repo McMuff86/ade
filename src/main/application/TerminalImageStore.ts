@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -20,7 +21,7 @@ export class TerminalImageStore {
     private readonly normalize: (bytes: Buffer) => Buffer, private readonly now = () => Date.now()) {}
 
   async put(owner: string, terminalId: string, backend: ExecutionBackendId, bytes: Buffer, authorize: () => void | Promise<void>): Promise<MobileTerminalImage> {
-    if (this.writing) throw new Error('Eine Bildübertragung läuft bereits. Kurz warten und erneut versuchen.');
+    if (this.writing) throw new Error(translate("An image transfer is already running. Wait a minute and try again."));
     this.writing = true;
     try { return await this.store(owner, terminalId, backend, bytes, authorize); }
     finally { this.writing = false; }
@@ -30,19 +31,19 @@ export class TerminalImageStore {
     await authorize(); terminalPngDimensions(bytes);
     const normalized = this.normalize(bytes); const dimensions = terminalPngDimensions(normalized);
     for (const [id, image] of this.records) if (image.createdAt + TERMINAL_IMAGE_TTL_MS < this.now()) this.records.delete(id);
-    if (this.records.size >= 64 || [...this.records.values()].reduce((sum, image) => sum + image.bytes, normalized.length) > LIMIT) throw new Error('Bildspeicher ist voll. Später erneut versuchen.');
+    if (this.records.size >= 64 || [...this.records.values()].reduce((sum, image) => sum + image.bytes, normalized.length) > LIMIT) throw new Error(translate("Image storage is full. Try again later."));
     const id = randomUUID(); const sha256 = digest(normalized); let path: string;
     await authorize();
     if (backend === 'native') {
       assertNoLinks(this.root); mkdirSync(this.root, { recursive: true, mode: 0o700 });
       let total = normalized.length; let count = 0;
       for (const name of readdirSync(this.root)) {
-        if (!/^[a-f0-9-]{36}\.png$/.test(name)) throw new Error('Bildspeicher enthält unbekannte Dateien.');
+        if (!/^[a-f0-9-]{36}\.png$/.test(name)) throw new Error(translate("Image storage contains unknown files."));
         const file = join(this.root, name); assertNoLinks(file); const stat = lstatSync(file);
-        if (!stat.isFile() || stat.nlink !== 1) throw new Error('Bildspeicher enthält eine Verknüpfung.');
+        if (!stat.isFile() || stat.nlink !== 1) throw new Error(translate("Image storage contains a linkage."));
         if (stat.mtimeMs + TERMINAL_IMAGE_TTL_MS < this.now()) unlinkSync(file);
         else { total += stat.size; count++; }
-        if (count >= 64 || total > LIMIT) throw new Error('Bildspeicher ist voll. Später erneut versuchen.');
+        if (count >= 64 || total > LIMIT) throw new Error(translate("Image storage is full. Try again later."));
       }
       path = join(this.root, `${id}.png`); assertNoLinks(path);
       const fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
@@ -55,31 +56,31 @@ export class TerminalImageStore {
 
   async path(owner: string, terminalId: string, backend: ExecutionBackendId, id: string): Promise<string> {
     const image = this.records.get(id);
-    if (!image || image.owner !== owner || image.terminalId !== terminalId || image.backend !== backend || image.createdAt + TERMINAL_IMAGE_TTL_MS < this.now()) throw new Error('Bild gehört nicht zu dieser Sitzung oder ist abgelaufen. Erneut auswählen.');
+    if (!image || image.owner !== owner || image.terminalId !== terminalId || image.backend !== backend || image.createdAt + TERMINAL_IMAGE_TTL_MS < this.now()) throw new Error(translate("This image does not belong to this session or has expired. Select it again."));
     if (backend !== 'native') {
       const path = await this.wsl(backend, { operation: 'verify', id, digest: image.digest });
-      if (path !== image.path) throw new Error('Bildspeicher wurde verändert.');
+      if (path !== image.path) throw new Error(translate("Image storage has been changed."));
     } else {
       assertNoLinks(image.path);
       const fd = openSync(image.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
       try {
         const before = fstatSync(fd);
-        if (!before.isFile() || before.nlink !== 1 || before.size !== image.bytes || before.size > TERMINAL_IMAGE_MAX_BYTES) throw new Error('Bilddatei wurde verändert.');
+        if (!before.isFile() || before.nlink !== 1 || before.size !== image.bytes || before.size > TERMINAL_IMAGE_MAX_BYTES) throw new Error(translate("Image file has been changed."));
         const buffer = Buffer.alloc(image.bytes + 1); let length = 0;
         while (length < buffer.length) { const count = readSync(fd, buffer, length, buffer.length - length, length); if (!count) break; length += count; }
         const bytes = buffer.subarray(0, length); const named = lstatSync(image.path);
-        if (digest(bytes) !== image.digest || named.isSymbolicLink() || named.dev !== before.dev || named.ino !== before.ino || named.nlink !== 1) throw new Error('Bilddatei wurde verändert.');
+        if (digest(bytes) !== image.digest || named.isSymbolicLink() || named.dev !== before.dev || named.ino !== before.ino || named.nlink !== 1) throw new Error(translate("Image file has been changed."));
       } finally { closeSync(fd); }
     }
-    if (/[\x00-\x1f\x7f]/.test(image.path)) throw new Error('Bildpfad kann nicht übergeben werden.');
+    if (/[\x00-\x1f\x7f]/.test(image.path)) throw new Error(translate("Image path cannot be transferred."));
     return image.path;
   }
 
   private async wsl(backend: ExecutionBackendId, payload: Record<string, string>): Promise<string> {
     const result = await this.execution.run(backend, 'python3', ['-I', '-c', IMAGE_WORKER], { input: JSON.stringify(payload), timeoutMs: 15_000, maxBuffer: 4096 });
-    if (result.code !== 0) throw new Error('Bild konnte nicht in der WSL-Umgebung gespeichert oder geprüft werden. Speicherplatz und Python 3 prüfen.');
+    if (result.code !== 0) throw new Error(translate("Image could not be stored or checked in the WSL environment. Check disk space and Python 3."));
     const value = JSON.parse(result.stdout.toString()) as { path: string };
-    if (!/^\/tmp\/ade-terminal-images-\d+\/[a-f0-9-]{36}\.png$/.test(value.path)) throw new Error('Ungültige Antwort des Bildspeichers.');
+    if (!/^\/tmp\/ade-terminal-images-\d+\/[a-f0-9-]{36}\.png$/.test(value.path)) throw new Error(translate("Invalid response of the image storage."));
     return value.path;
   }
 }

@@ -1,3 +1,5 @@
+import { t as translate } from "./i18n";
+import { localizedLabels } from "./i18n/labels";
 /**
  * Launch profiles — per docs/ARCHITECTURE.md "Launch profiles (shared/runtimes.ts)".
  * Command per runtime x permission mode. Every profile is user-overridable via
@@ -23,9 +25,9 @@ export interface TaskLaunchCommand {
   transport: 'argument' | 'stdin';
 }
 
-export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
+export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = localizedLabels(() => ({
   claude: {
-    label: 'Claude Code',
+    label: translate("Claude Code"),
     commands: {
       'default': 'claude',
       'accept-edits': 'claude --permission-mode acceptEdits',
@@ -33,7 +35,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   codex: {
-    label: 'Codex',
+    label: translate("Codex"),
     commands: {
       'default': 'codex',
       'accept-edits': 'codex --sandbox workspace-write --ask-for-approval on-request',
@@ -41,7 +43,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   opencode: {
-    label: 'OpenCode',
+    label: translate("OpenCode"),
     commands: {
       'default': 'opencode',
       'accept-edits': null,
@@ -49,7 +51,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   grok: {
-    label: 'Grok Build',
+    label: translate("Grok Build"),
     commands: {
       'default': 'grok',
       'accept-edits': 'grok --permission-mode acceptEdits',
@@ -57,7 +59,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   gemini: {
-    label: 'Gemini CLI',
+    label: translate("Gemini CLI"),
     commands: {
       'default': 'gemini',
       'accept-edits': 'gemini --approval-mode=auto_edit',
@@ -65,7 +67,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   ollama: {
-    label: 'Ollama',
+    label: translate("Ollama"),
     commands: {
       'default': 'ollama run ${model}',
       'accept-edits': null,
@@ -73,7 +75,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   shell: {
-    label: 'Shell',
+    label: translate("Shell"),
     // empty string = user's default shell (PowerShell on Windows), resolved at spawn
     commands: {
       'default': '',
@@ -82,7 +84,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
     },
   },
   custom: {
-    label: 'Custom',
+    label: translate("Custom"),
     // custom runtime always uses Agent.customCommand
     commands: {
       'default': '',
@@ -90,7 +92,7 @@ export const LAUNCH_PROFILES: Record<RuntimeId, LaunchProfile> = {
       'bypass': null,
     },
   },
-};
+}));
 
 /**
  * Harnesses a run participant may switch to for one run. Deliberately only

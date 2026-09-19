@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { MobileDictationTarget, MobileTerminalImage } from '../shared/remote';
 import type { TerminalPromptCapability } from '../shared/terminalPrompt';
@@ -8,14 +11,14 @@ import { Dialog } from './ui';
 import { MobileClientError } from './client';
 
 async function prepareImage(file: Blob): Promise<Blob> {
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || !file.size || file.size > TERMINAL_IMAGE_MAX_BYTES) throw new Error('Ein PNG-, JPEG- oder WebP-Bild bis 8 MiB auswählen.');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || !file.size || file.size > TERMINAL_IMAGE_MAX_BYTES) throw new Error(translate("Select a PNG, JPEG or WebP image up to 8 MiB."));
   const bitmap = await createImageBitmap(file);
   try {
-    if (!bitmap.width || !bitmap.height || bitmap.width > 16384 || bitmap.height > 16384 || bitmap.width * bitmap.height > TERMINAL_IMAGE_MAX_PIXELS) throw new Error('Das Bild ist zu gross. Höchstens 24 Megapixel auswählen.');
+    if (!bitmap.width || !bitmap.height || bitmap.width > 16384 || bitmap.height > 16384 || bitmap.width * bitmap.height > TERMINAL_IMAGE_MAX_PIXELS) throw new Error(translate("The image is too large. Select at most 24 megapixels."));
     const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
-    const context = canvas.getContext('2d'); if (!context) throw new Error('Bildvorschau ist in diesem Browser nicht verfügbar.');
+    const context = canvas.getContext('2d'); if (!context) throw new Error(translate("Image preview is not available in this browser."));
     context.drawImage(bitmap, 0, 0);
-    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Bild konnte nicht vorbereitet werden.')), 'image/png'));
+    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error(translate("The picture could not be prepared."))), 'image/png'));
     terminalPngDimensions(new Uint8Array(await png.arrayBuffer())); return png;
   } finally { bitmap.close(); }
 }
@@ -24,6 +27,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
   host: MobileHost; target: MobileDictationTarget; capability?: TerminalPromptCapability; enabled: boolean;
   send: PromptSender; eventRoot: RefObject<HTMLElement | null>;
 }) {
+  useLocale();
   const button = useRef<HTMLButtonElement>(null); const picker = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false); const [png, setPng] = useState<Blob>(); const [preview, setPreview] = useState('');
   const [text, setText] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
@@ -40,7 +44,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
     if (locked.current) return;
     const own = ++version.current; setOpen(true); setPhase('preparing'); setError(''); setNotice(''); setPng(undefined); upload.current = undefined;
     try { const result = await prepareImage(file); if (live.current && own === version.current) { setPng(result); upload.current = { key: crypto.randomUUID() }; } }
-    catch (reason) { if (live.current && own === version.current) setError(reason instanceof Error ? reason.message : 'Bild konnte nicht gelesen werden.'); }
+    catch (reason) { if (live.current && own === version.current) setError(reason instanceof Error ? reason.message : translate("Could not read the image.")); }
     finally { if (live.current && own === version.current) setPhase('idle'); }
   };
   const selectRef = useRef(select); selectRef.current = select;
@@ -58,8 +62,8 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
     try {
       const items = await navigator.clipboard.read();
       for (const item of items) { const type = item.types.find(value => ['image/png', 'image/jpeg', 'image/webp'].includes(value)); if (type) { await select(await item.getType(type)); return; } }
-      setError('Kein Bild in der Zwischenablage. Screenshot über „Bild auswählen“ öffnen.');
-    } catch { setError('Bildeinfügen ist hier nicht erlaubt. Screenshot über „Bild auswählen“ öffnen.'); }
+      setError(translate("No image in the clipboard. Open screenshot via \"Select image\"."));
+    } catch { setError(translate("Image insertion is not allowed here. Open screenshot via \"Select image\".")); }
   };
   const deliver = async () => {
     if (locked.current || !allowedRef.current || !png || !upload.current || uncertain) return;
@@ -73,43 +77,43 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
         prepared.image = await host.request<MobileTerminalImage>('/api/v1/terminal/images', 'POST', { ...bound, pngBase64: btoa(binary) }, prepared.key);
       }
       if (!live.current) return;
-      if (!allowedRef.current) throw new Error('Eingabe wurde übernommen oder Verbindung verloren. Bild bleibt zur Prüfung erhalten.');
+      if (!allowedRef.current) throw new Error(translate("Entry has been taken over or connection lost. Image remains for checking."));
       setPhase('sending'); dispatched = true;
-      await send(text.trim() || 'Bitte sieh dir diesen Screenshot an.', 'submit', crypto.randomUUID(), [prepared.image.id]);
-      if (live.current) { setNotice('Bild und Nachricht übergeben.'); setPng(undefined); setText(''); upload.current = undefined; }
+      await send(text.trim() || translate("Please take a look at this screenshot."), 'submit', crypto.randomUUID(), [prepared.image.id]);
+      if (live.current) { setNotice(translate("Passed image and message.")); setPng(undefined); setText(''); upload.current = undefined; }
     } catch (reason) {
       if (live.current) {
         if (dispatched) setUncertain(true);
         // A definitive upload rejection has no replayable success. A lost
         // response keeps its original key so retry cannot duplicate the file.
         else if (reason instanceof MobileClientError && [400, 403, 404, 422].includes(reason.status)) upload.current = { key: crypto.randomUUID() };
-        setError(dispatched ? 'Übergabe nicht bestätigt. Bitte im Terminal prüfen; Bild und Nachricht werden nicht automatisch erneut gesendet.'
-          : reason instanceof Error ? reason.message : 'Bildübertragung fehlgeschlagen. Erneut versuchen.');
+        setError(dispatched ? translate("Delivery has not been confirmed. Check the terminal; the image and message will not be sent again automatically.")
+          : reason instanceof Error ? reason.message : translate("Image transfer failed. Try again."));
       }
     } finally { locked.current = false; if (live.current) setPhase('idle'); }
   };
   return <>
-    <button ref={button} className="voice-icon-button" aria-label="Bild hinzufügen" disabled={!allowed}
-      title={!capability?.available ? capability?.reason ?? 'Bildübergabe wird geprüft.' : !enabled ? 'Zuerst die Terminal-Eingabe übernehmen.' : 'Screenshot oder Bild hinzufügen'}
+    <button ref={button} className="voice-icon-button" aria-label={translate("Add image")} disabled={!allowed}
+      title={!capability?.available ? capability?.reason ?? translate("Checking image handoff.") : !enabled ? translate("Take control of terminal input first.") : translate("Add screenshot or image")}
       onClick={event => { event.currentTarget.focus(); setOpen(true); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg>
     </button>
-    {open && <Dialog title="Bild und Nachricht" className="m-terminal-image-dialog" restoreFocusTo={() => button.current}
+    {open && <Dialog title={translate("Image and message")} className="m-terminal-image-dialog" restoreFocusTo={() => button.current}
       onClose={() => { if (!locked.current) { version.current++; setPhase('idle'); setOpen(false); } }}>
-      <p>Screenshot aus Galerie oder Dateien auswählen. Das Bild wird mit deiner Nachricht an diese Codex-Sitzung übergeben.</p>
-      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" aria-label="Screenshot auswählen" disabled={phase !== 'idle' || uncertain}
+      <p>{translate("Select screenshot from gallery or files, and the image will be sent to this Codex session with your message.")}</p>
+      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" aria-label={translate("Select the screenshot")} disabled={phase !== 'idle' || uncertain}
         onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void select(file); }} />
-      <div className="m-terminal-image-actions"><button disabled={phase !== 'idle' || uncertain} onClick={() => picker.current?.click()}>Bild auswählen</button>
-        <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>Bild einfügen</button></div>
-      {preview && <figure><img src={preview} alt="Vorschau des ausgewählten Screenshots" /><figcaption>Screenshot · {Math.ceil((png?.size ?? 0) / 1024)} KiB</figcaption></figure>}
-      {!png && phase === 'idle' && !notice && <p>Noch kein Bild ausgewählt.</p>}
-      <label>Nachricht zum Bild<textarea aria-label="Nachricht zum Bild" value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder="Was soll ich auf dem Screenshot prüfen oder ändern?" /></label>
-      {phase !== 'idle' && <p role="status">{phase === 'preparing' ? 'Bild wird vorbereitet…' : phase === 'uploading' ? 'Bild wird zum PC übertragen…' : 'Bild und Nachricht werden übergeben…'}</p>}
-      {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-      {!allowed && <p role="status">Verbindung oder Eingabebesitz fehlt. Entwurf bleibt erhalten.</p>}
-      <button className="m-primary" disabled={!allowed || !png || phase !== 'idle' || uncertain} onClick={() => void deliver()}>Bild und Nachricht senden</button>
-      {uncertain && <><button onClick={() => { setOpen(false); }}>Im Terminal prüfen</button>
-        <button onClick={() => { setUncertain(false); setPng(undefined); setText(''); setError(''); upload.current = undefined; }}>Geprüft – neuen Entwurf beginnen</button></>}
+      <div className="m-terminal-image-actions"><button disabled={phase !== 'idle' || uncertain} onClick={() => picker.current?.click()}>{translate("Select the image")}</button>
+        <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button></div>
+      {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)} {" "}{translate("KiB")}</figcaption></figure>}
+      {!png && phase === 'idle' && !notice && <p>{translate("No picture selected yet.")}</p>}
+      <label>{translate("Image message")}<textarea aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
+      {phase !== 'idle' && <p role="status">{phase === 'preparing' ? translate("The picture is being prepared…") : phase === 'uploading' ? translate("Uploading image to the PC…") : translate("Sending image and message…")}</p>}
+      {error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
+      {!allowed && <p role="status">{translate("Connection or input ownership is missing. Draft remains intact.")}</p>}
+      <button className="m-primary" disabled={!allowed || !png || phase !== 'idle' || uncertain} onClick={() => void deliver()}>{translate("Send picture and message")}</button>
+      {uncertain && <><button onClick={() => { setOpen(false); }}>{translate("Check terminal")}</button>
+        <button onClick={() => { setUncertain(false); setPng(undefined); setText(''); setError(''); upload.current = undefined; }}>{translate("Checked – start a new draft")}</button></>}
     </Dialog>}
   </>;
 }

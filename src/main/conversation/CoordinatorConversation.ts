@@ -1,4 +1,6 @@
+import { t as translate } from "../../shared/i18n";
 import { mkdirSync } from 'node:fs';
+import { CASUAL_CONVERSATION_CONTRACT, type ConversationMode } from '../../shared/conversation';
 import { join } from 'node:path';
 import type { AdeConfig } from '../../shared/types';
 import { supervisionId } from '../../shared/supervision';
@@ -14,6 +16,11 @@ import type { CoordinatorActionService } from './CoordinatorActionService';
 import { coordinatorActionTools, COORDINATOR_ACTION_TOOLS } from './CoordinatorActionTools';
 
 export const COORDINATOR_READ_TOOLS = 'ade-project-briefing-v1';
+const CASUAL_INSTRUCTIONS = `You are the user's friendly conversation partner in ADE. Reply in the user's language.
+Discuss everyday life, ideas, interests and any topic the user chooses. Be natural, curious and concise, and distinguish knowledge from uncertainty.
+This is a standalone casual conversation. You have no project context, project tools, filesystem, shell, browser or ability to perform actions.
+Do not claim to read, supervise or change projects. If the user wants project work, explain that Project supervision is a separate area in Conversations.
+Voice playback is controlled explicitly by the user in the voice studio. Do not claim to change voice settings or start audio.`;
 const INSTRUCTIONS = `Du bist der zentrale ADE-Ansprechpartner. Antworte in der Sprache des Benutzers.
 Nutze die ADE-Werkzeuge für aktuelle Projektstände und gespeicherte Übergaben. Erfinde keine Aktivitäten oder Erfolge.
 Eine laufende CLI beweist keinen Arbeitsfortschritt. Nenne offene Rückfragen und mache einen konkreten nächsten Vorschlag.
@@ -27,14 +34,14 @@ export function coordinatorReadTools(supervision: SupervisionService, authorize:
   const make = (name: string, description: string, properties: Record<string, unknown>, read: (args: Record<string, unknown>) => unknown): CodexDynamicTool => ({
     name, description, inputSchema: { type: 'object', properties, required: Object.keys(properties), additionalProperties: false },
     invoke: async (value, context) => {
-      authorize(); if (context.signal.aborted) throw new Error('Gesprächsschritt ist beendet.');
+      authorize(); if (context.signal.aborted) throw new Error(translate("The conversation turn has ended."));
       if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== Object.keys(properties).length
-        || !Object.keys(properties).every(k => Object.hasOwn(value, k))) throw new Error('Ungültige ADE-Werkzeugargumente.');
+        || !Object.keys(properties).every(k => Object.hasOwn(value, k))) throw new Error(translate("Invalid ADE tool arguments."));
       const args = value as Record<string, unknown>;
-      for (const key of Object.keys(properties)) if (key !== 'offset' && !supervisionId(args[key])) throw new Error('Ungültige Projekt- oder Übergabeidentität.');
-      if ('offset' in properties && (typeof args.offset !== 'number' || !Number.isSafeInteger(args.offset) || args.offset < 0 || args.offset > 64 * 1024)) throw new Error('Ungültige Seitenposition.');
+      for (const key of Object.keys(properties)) if (key !== 'offset' && !supervisionId(args[key])) throw new Error(translate("Invalid project or handoff identity."));
+      if ('offset' in properties && (typeof args.offset !== 'number' || !Number.isSafeInteger(args.offset) || args.offset < 0 || args.offset > 64 * 1024)) throw new Error(translate("Invalid page offset."));
       const result = JSON.stringify(read(args)); authorize();
-      if (Buffer.byteLength(result) > 16 * 1024) throw new Error('ADE-Ergebnis ist für diesen Werkzeugaufruf zu gross. Einen einzelnen Eintrag lesen.');
+      if (Buffer.byteLength(result) > 16 * 1024) throw new Error(translate("The ADE result is too large for this tool call. Read a single entry."));
       return result;
     },
   });
@@ -42,7 +49,7 @@ export function coordinatorReadTools(supervision: SupervisionService, authorize:
   const chunk = (text: string, offset: number) => ({ text: text.slice(offset, offset + 2000), totalChars: text.length, nextOffset: offset + 2000 < text.length ? offset + 2000 : null });
   const project = (value: unknown) => {
     const p = supervision.briefing().projects.find(p => p.id === value);
-    if (!p?.available) throw new Error('Projekt gehört nicht zur verfügbaren ADE-Betreuung.'); return p;
+    if (!p?.available) throw new Error(translate("This project is not available in ADE supervision.")); return p;
   };
   return [
     make('ade_projects', 'Aktuell betreute Projekte mit ihren stabilen IDs. Seitenweise zehn Einträge, offset beginnt bei 0.', { offset }, args => {
@@ -73,18 +80,24 @@ export function createCoordinatorConversation(options: {
   directory: string; config: { get(): AdeConfig }; supervision: SupervisionService; env(): Record<string, string>; changed?(): void;
   actions?: () => CoordinatorActionService;
 }): ConversationService {
-  const resolveProfile = (profileId: string) => {
+  const resolveProfile = (profileId: string, mode: ConversationMode = 'project') => {
     const agent = options.config.get().agents.find(a => a.id === profileId);
-    if (!agent || agent.runtime !== 'codex' || agent.customCommand?.trim() || agent.homeExecutionBackend && agent.homeExecutionBackend !== 'native') throw new Error('ADE-Gespräch braucht ein natives Codex-Profil ohne eigenen Startbefehl.');
-    if (process.platform !== 'win32') throw new Error('Der zentrale ADE-Dialog ist bisher nur unter nativem Windows geprüft.');
-    if (!agent.codexModel || !agent.codexReasoningEffort) throw new Error('Im Codex-Profil Modell und Reasoning ausdrücklich auswählen.');
+    if (!agent || agent.runtime !== 'codex' || agent.customCommand?.trim() || agent.homeExecutionBackend && agent.homeExecutionBackend !== 'native') throw new Error(translate("ADE conversations require a native Codex profile without a custom start command."));
+    if (process.platform !== 'win32') throw new Error(translate("ADE conversations currently require native Windows."));
+    if (!agent.codexModel || !agent.codexReasoningEffort) throw new Error(translate("Select a model and reasoning effort explicitly in the Codex profile."));
+    // Casual chat inherits model selection only, never project guidance or memory.
+    if (mode === 'casual') return { agent, content: CASUAL_INSTRUCTIONS };
     const instructions = previewAgentInstructions(agent, 'orchestrator');
     const content = `${instructions.content}\n\n${INSTRUCTIONS}${options.actions ? '' : '\nFür diese Verbindung sind nur lesende Werkzeuge verfügbar. Keine Aktionen vorbereiten oder ausführen.'}`;
-    if (content.length > 32 * 1024) throw new Error('Profilanweisung ist für den zentralen Dialog zu lang.');
+    if (content.length > 32 * 1024) throw new Error(translate("Profile instructions are too long for the central conversation."));
     return { agent, content };
   };
-  const binding = (profileId: string): ConversationBinding => {
-    const { agent, content } = resolveProfile(profileId); const config = options.config.get(); const view = options.supervision.query();
+  const binding = (profileId: string, mode: ConversationMode = 'project'): ConversationBinding => {
+    const { agent, content } = resolveProfile(profileId, mode);
+    if (mode === 'casual') return { profileId, toolContract: CASUAL_CONVERSATION_CONTRACT, authoritySha256: conversationFingerprint({
+      nativeContract: COORDINATOR_CODEX_CONTRACT, content, model: agent.codexModel, reasoning: agent.codexReasoningEffort,
+    }) };
+    const config = options.config.get(); const view = options.supervision.query();
     return { profileId, toolContract: options.actions ? COORDINATOR_ACTION_TOOLS : COORDINATOR_READ_TOOLS, authoritySha256: conversationFingerprint({
       nativeContract: COORDINATOR_CODEX_CONTRACT, content, model: agent.codexModel, reasoning: agent.codexReasoningEffort,
       projects: view.projects.map(p => { const repo = config.repositories.find(r => r.id === p.repositoryId); return {
@@ -94,13 +107,14 @@ export function createCoordinatorConversation(options: {
   };
   const service: ConversationService = new ConversationService(new ConversationStore(join(options.directory, 'conversations.json')), { binding, changed: options.changed,
     launch: input => {
-      const authorize = () => { if (conversationFingerprint(binding(input.binding.profileId)) !== conversationFingerprint(input.binding)) throw new Error('Profil oder Projektumfang hat sich geändert. Neues ADE-Gespräch beginnen.'); };
-      authorize(); const { agent, content } = resolveProfile(input.binding.profileId);
+      const mode = input.binding.toolContract === CASUAL_CONVERSATION_CONTRACT ? 'casual' : 'project';
+      const authorize = () => { if (conversationFingerprint(binding(input.binding.profileId, mode)) !== conversationFingerprint(input.binding)) throw new Error(translate("The profile or project scope has changed. Start a new ADE conversation.")); };
+      authorize(); const { agent, content } = resolveProfile(input.binding.profileId, mode);
       const cwd = join(options.directory, 'conversation-workspaces', input.id);
       assertNoLinks(cwd); mkdirSync(cwd, { recursive: true }); assertNoLinks(cwd);
       return new CodexAppServerProcess({ cwd, env: options.env(), agent, prompt: input.prompt,
         conversation: { coordinator: true, resumeThreadId: input.resumeThreadId, instructions: content,
-          tools: [...coordinatorReadTools(options.supervision, authorize), ...(options.actions ? coordinatorActionTools(options.actions(), options.config, () => service.actionSource(input.id), authorize) : [])],
+          tools: mode === 'casual' ? [] : [...coordinatorReadTools(options.supervision, authorize), ...(options.actions ? coordinatorActionTools(options.actions(), options.config, () => service.actionSource(input.id), authorize) : [])],
           ready: identity => { authorize(); input.ready(identity); }, completed: input.completed },
         question: input.question });
     },

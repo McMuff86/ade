@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { ConversationDetail } from '../../shared/conversation';
 import type { MobileConversationAnswer, MobileConversationDetail, MobileConversationQuestion } from '../../shared/remote';
 import { redactForWire } from '../errors';
@@ -15,16 +16,16 @@ export function conversationDetailForWire(detail: ConversationDetail): MobileCon
  * boundary must not escape as two apparently harmless text fragments. */
 export function conversationAnswerForWire(output: string, offset: number): MobileConversationAnswer {
   const text = redactForWire(output, output.length);
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset > text.length) throw new Error('Ungültige Antwortposition.');
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > text.length) throw new Error(translate("Invalid response position."));
   let end = Math.min(text.length, offset + 2000);
   if (end < text.length && /[\uD800-\uDBFF]/.test(text.charAt(end - 1))) end--;
-  if (offset && /[\uDC00-\uDFFF]/.test(text.charAt(offset))) throw new Error('Ungültige Antwortposition.');
+  if (offset && /[\uDC00-\uDFFF]/.test(text.charAt(offset))) throw new Error(translate("Invalid response position."));
   return { text: text.slice(offset, end), offset, nextOffset: end < text.length ? end : null, total: text.length,
     sha256: conversationDigest(output), redacted: text !== output };
 }
 export function conversationQuestionForWire(detail: ConversationDetail, turnId: string, questionId: string, index: number): MobileConversationQuestion {
   const question = detail.turns.find(t => t.id === turnId)?.questions.find(q => q.id === questionId);
-  if (!question || !Number.isSafeInteger(index) || index < 0 || index >= question.questions.length) throw new Error('Rückfrage ist nicht vorhanden.');
+  if (!question || !Number.isSafeInteger(index) || index < 0 || index >= question.questions.length) throw new Error(translate("The question does not exist."));
   const item = question.questions[index];
   const value = { ...item, header: redactForWire(item.header, 120), question: redactForWire(item.question, 8000),
     options: item.options?.map(o => ({ label: redactForWire(o.label, 300), description: redactForWire(o.description, 2000) })) ?? null };

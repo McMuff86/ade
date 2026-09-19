@@ -1,15 +1,17 @@
+import { t as translate } from "../../shared/i18n";
+import { localizedLabels } from "../../shared/i18n/labels";
 import { useEffect } from 'react';
 import { useMode } from '../stores/mode';
 import { useSelection } from '../stores/selection';
 import { useSessions, TERMINAL_HOME_GROUP } from '../stores/sessions';
 import { useSessionLaunch } from '../stores/sessionLaunch';
 
-export const SHORTCUTS = {
-  newSession: 'Ctrl+Shift+T',
-  closeSession: 'Ctrl+Shift+W',
-  previousSession: 'Ctrl+PageUp',
-  nextSession: 'Ctrl+PageDown',
-} as const;
+export const SHORTCUTS = localizedLabels(() => ({
+  newSession: translate("Ctrl+Shift+T"),
+  closeSession: translate("Ctrl+Shift+W"),
+  previousSession: translate("Ctrl+PageUp"),
+  nextSession: translate("Ctrl+PageDown"),
+} as const));
 
 function isMac(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform);

@@ -1,3 +1,7 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { intlLocale } from '../../shared/i18n';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import type { RemoteDeviceInventory, DeviceResourceAccess } from '../../shared/remoteDevices';
 import { DeviceResourcePicker, resourceKey } from './DeviceResourcePicker';
@@ -5,6 +9,7 @@ import { REMOTE_ADMIN_SCOPES, type RemoteAdminScope } from '../../shared/remoteD
 import { REMOTE_SCOPE_LABELS, SETUP_INTENTS, addSetupScopes, type SetupIntent } from '../../shared/setup';
 
 export function RemoteDevicesSection(): JSX.Element {
+  useLocale();
   const [inventory, setInventory] = useState<RemoteDeviceInventory | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -33,7 +38,7 @@ export function RemoteDevicesSection(): JSX.Element {
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
       setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
       setResourceDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.resourceAccess ?? { mode: 'all' }])));
-    } catch { setError('Geräte konnten nicht geladen werden. Bitte erneut versuchen.'); }
+    } catch { setError(translate("Could not load devices. Please try again.")); }
     finally { setBusy(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -53,10 +58,10 @@ export function RemoteDevicesSection(): JSX.Element {
       setDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.name])));
       setGrantDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.adminScopes ?? []])));
       setResourceDrafts(Object.fromEntries(next.devices.map((device) => [device.id, device.resourceAccess ?? { mode: 'all' }])));
-      setMessage(action === 'rename' ? 'Gerätename gespeichert.' : action === 'permissions'
-        ? 'Verwaltungsrechte gespeichert. Das Gerät verbindet sich erneut.' : 'Gerätezugriff widerrufen. Verbindungen wurden beendet.');
+      setMessage(action === 'rename' ? translate("The device name is stored.") : action === 'permissions'
+        ? translate("Administrative rights stored. The device reconnects.") : translate("Device access revoked. Connections were terminated."));
     } catch {
-      setError('Änderung konnte nicht bestätigt werden. Geräte aktualisieren und erneut prüfen.');
+      setError(translate("Change could not be confirmed. Updating and rechecking devices."));
     } finally {
       pendingFocus.current = { id, action };
       setBusy(false);
@@ -66,43 +71,40 @@ export function RemoteDevicesSection(): JSX.Element {
   return (
     <section className="st-devices" aria-labelledby="remote-devices-title" data-testid="remote-devices">
       <div className="st-device-heading">
-        <h3 id="remote-devices-title">Verbundene Geräte</h3>
+        <h3 id="remote-devices-title">{translate("Connected devices")}</h3>
         <button ref={refreshButton} type="button" className="btn" aria-disabled={busy}
-          onClick={() => { if (!busy) void refresh(); }}>Geräte aktualisieren</button>
+          onClick={() => { if (!busy) void refresh(); }}>{translate("Refresh devices")}</button>
       </div>
-      <p className="st-device-hint">Geräte mit Zugriff auf ADE. Entfernen widerruft den Zugriff sofort und beendet
-        ihre Verbindungen. Bereits gestartete Aufgaben laufen weiter.</p>
-      {busy && <p role="status">Geräteverwaltung wird aktualisiert…</p>}
-      {error && <p className="st-error" role="alert">{error}</p>}
-      {inventory?.error && <p className="st-error" role="alert">{inventory.error}</p>}
+      <p className="st-device-hint">{translate("Devices with access to ADE. Remove immediately revokes access and terminates their connections. Already started tasks continue.")}</p>
+      {busy && <p role="status">{translate("Refreshing device management…")}</p>}
+      {error && <p className="st-error" role="alert">{localizeAppMessage(error)}</p>}
+      {inventory?.error && <p className="st-error" role="alert">{localizeAppMessage(inventory.error)}</p>}
       {message && <p role="status">{message}</p>}
-      {inventory?.devices.length === 0 && <p>Noch keine Geräte verbunden. Unter „Mobiler Zugriff“ ein Tablet oder Smartphone koppeln.</p>}
+      {inventory?.devices.length === 0 && <p>{translate("No devices connected yet. Couple a tablet or smartphone under \"Mobile Access\".")}</p>}
       <ul className="st-device-list">
         {inventory?.devices.map((device) => (
           <li key={device.id} className="st-device" data-device-id={device.id}>
             {device.revokedAt === null ? (
               <form className="st-device-form" onSubmit={(event) => { event.preventDefault(); void change(device.id, 'rename'); }}>
-                <label>Gerätename
-                  <input aria-label={`Gerätename für ${device.id}`} value={drafts[device.id] ?? device.name}
+                <label>{translate("Device name")}<input aria-label={translate("Device name for {{value1}}", { value1: device.id })} value={drafts[device.id] ?? device.name}
                     ref={(node) => { if (node) nameInputs.current.set(device.id, node); else nameInputs.current.delete(device.id); }}
                     maxLength={80} disabled={busy || !inventory.available}
                     onChange={(event) => setDrafts((current) => ({ ...current, [device.id]: event.target.value }))} />
                 </label>
                 <button type="submit" className="btn" disabled={busy || !inventory.available || !drafts[device.id]?.trim()
-                  || drafts[device.id]?.trim() === device.name}>Name speichern</button>
+                  || drafts[device.id]?.trim() === device.name}>{translate("Save name")}</button>
                 <button type="button" className="btn" disabled={busy || !inventory.available}
-                  aria-label={`Zugriff für ${device.name} widerrufen`} onClick={() => void change(device.id, 'revoke')}>Gerät entfernen</button>
+                  aria-label={translate("Revoke access for {{value1}}", { value1: device.name })} onClick={() => void change(device.id, 'revoke')}>{translate("Remove device")}</button>
               </form>
-            ) : <strong>{device.name} · Zugriff widerrufen</strong>}
+            ) : <strong>{device.name} {" "}{translate("· Access revoked")}</strong>}
             {device.revokedAt === null && <fieldset disabled={busy || !inventory.available} className="st-device-grants">
-              <legend>Verwaltungsrechte für {device.name}</legend>
-              <p className="st-device-hint">Terminalzugriff erlaubt Shell-Befehle und Zugriff auf alles, was dein Windows-Benutzer erreichen kann.
-                Der Workspace ist das Startverzeichnis, keine Sandbox. Am Desktop kannst du die Eingabe jederzeit zurückholen.</p>
-              <div className="st-grant-presets" role="group" aria-label={`Freigaben vorauswählen für ${device.name}`}>
+              <legend>{translate("Administrative rights for:")}{" "}{device.name}</legend>
+              <p className="st-device-hint">{translate("Terminal access allows shell commands and access to everything your Windows user can access. The workspace is the starting directory, not a sandbox. You can take back input control on the desktop at any time.")}</p>
+              <div className="st-grant-presets" role="group" aria-label={translate("Preselect permissions for {{value1}}", { value1: device.name })}>
                 {(Object.keys(SETUP_INTENTS) as SetupIntent[]).map((intent) => <button key={intent} type="button" className="btn" onClick={() => {
                   setGrantDrafts((current) => ({ ...current, [device.id]: addSetupScopes(current[device.id] ?? [], intent) }));
                 }}>{SETUP_INTENTS[intent].preset}</button>)}
-              </div><p className="st-device-hint">Die Vorauswahl ergänzt nur die Schalter unten. Prüfen und mit „Verwaltungsrechte speichern“ freigeben. Projektarbeit enthält keinen Push/PR.</p>
+              </div><p className="st-device-hint">{translate("The pre-selection only adds to the buttons below. Check and share with “Save administrative rights.” Project work does not include push/PR.")}</p>
               {REMOTE_ADMIN_SCOPES.map((scope) => <label key={scope}><input type="checkbox"
                 checked={(grantDrafts[device.id] ?? []).includes(scope)} onChange={(event) => {
                   const checked = event.target.checked;
@@ -113,10 +115,10 @@ export function RemoteDevicesSection(): JSX.Element {
                 onChange={(next) => setResourceDrafts((current) => ({ ...current, [device.id]: next }))} />
               <button type="button" className="btn" onClick={() => void change(device.id, 'permissions')}
                 disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())
-                  && resourceKey(resourceDrafts[device.id]) === resourceKey(device.resourceAccess)}>Verwaltungsrechte speichern</button>
+                  && resourceKey(resourceDrafts[device.id]) === resourceKey(device.resourceAccess)}>{translate("Save administrative rights")}</button>
             </fieldset>}
-            <p className="st-device-hint">{device.id} · Hinzugefügt {new Date(device.createdAt).toLocaleDateString()}
-              {device.revokedAt !== null && ` · Widerrufen ${new Date(device.revokedAt).toLocaleDateString()}`}</p>
+            <p className="st-device-hint">{device.id} {" "}{translate("· Added")}{" "}{new Date(device.createdAt).toLocaleDateString(intlLocale())}
+              {device.revokedAt !== null && translate(" · Revoked {{value1}}", { value1: new Date(device.revokedAt).toLocaleDateString(intlLocale()) })}</p>
           </li>
         ))}
       </ul>

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { lstatSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, parse, resolve } from 'node:path';
@@ -8,7 +9,7 @@ import { assertNoLinks } from '../repositories/pathDiscipline';
 export function projectRootIdentity(path: string): string {
   assertNoLinks(path);
   const stat = lstatSync(path);
-  if (!stat.isDirectory()) throw new Error('ade: Der Projekt-Stammordner muss ein vorhandener Ordner sein.');
+  if (!stat.isDirectory()) throw new Error(translate("ade: The project root folder must be an existing folder."));
   return `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
 }
 
@@ -20,16 +21,16 @@ export class ProjectDefaultsService {
   }
   save(input: ProjectDefaultsInput): ProjectDefaultsView {
     if (!isAbsolute(input.rootPath) || input.rootPath.includes('\0') || input.rootPath.length > 4096) {
-      throw new Error('ade: Einen absoluten nativen Projekt-Stammordner wählen.');
+      throw new Error(translate("ade: Choose an absolute native project root folder."));
     }
     const path = resolve(input.rootPath);
-    if (path === parse(path).root) throw new Error('ade: Einen Projektordner statt des Laufwerksstamms wählen.');
+    if (path === parse(path).root) throw new Error(translate("ade: Choose a project folder instead of the drive root."));
     const identity = projectRootIdentity(path);
     const rootPath = realpathSync.native(path);
-    if (projectRootIdentity(rootPath) !== identity) throw new Error('ade: Der Ordner hat sich geändert. Erneut auswählen.');
+    if (projectRootIdentity(rootPath) !== identity) throw new Error(translate("ade: The folder has changed. Select again."));
     if (input.agentId && !this.store.get().agents.some((agent) => agent.id === input.agentId && agent.runtime === 'codex'
       && (!agent.homeExecutionBackend || agent.homeExecutionBackend === 'native'))) {
-      throw new Error('ade: Ein natives Codex-Profil auswählen.');
+      throw new Error(translate("ade: Select a native Codex profile."));
     }
     this.store.save({ settings: { ...this.store.get().settings,
       projectDefaults: { rootPath, rootIdentity: identity, ...(input.agentId ? { agentId: input.agentId } : {}) } } });

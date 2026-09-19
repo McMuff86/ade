@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 import type { ExecutionBackendId } from '../../shared/executionBackends';
@@ -111,7 +112,7 @@ export function exportWorkspaceBundle(
     memoryBudgetExhausted = true;
     warnings.push({
       code: 'memory-budget-exhausted', subjectType: 'bundle',
-      message: 'Additional memory was omitted because the aggregate portable memory budget was exhausted.',
+      message: translate("Additional memory was omitted because the aggregate portable memory budget was exhausted."),
     });
   };
 
@@ -181,7 +182,7 @@ export function exportWorkspaceBundle(
       assetBudgetExhausted = true;
       warnings.push({
         code: 'asset-budget-exhausted', subjectType: 'bundle',
-        message: 'Additional photos were omitted because the aggregate portable asset budget was exhausted.',
+        message: translate("Additional Photos were omitted because the Aggregate Portable Asset Budget was exhausted."),
       });
       return undefined;
     }
@@ -190,7 +191,7 @@ export function exportWorkspaceBundle(
     if (!resource || !Buffer.isBuffer(resource.bytes)) {
       warnings.push({
         code: 'photo-unavailable', subjectType, subjectId,
-        message: 'The selected profile photo was unavailable, unsafe, or exceeded the bundle limit.',
+        message: translate("The selected profile photo was unavailable, unsafe, or exceeded the bundle limit."),
       });
       return undefined;
     }
@@ -198,18 +199,18 @@ export function exportWorkspaceBundle(
       assetBudgetExhausted = true;
       warnings.push({
         code: 'asset-budget-exhausted', subjectType: 'bundle',
-        message: 'Additional photos were omitted because a reader exceeded its bounded resource contract.',
+        message: translate("Additional photos were omitted because a reader exceeded its bounded resource contract."),
       });
       warnings.push({
         code: 'photo-unavailable', subjectType, subjectId,
-        message: 'The selected profile photo was unavailable, unsafe, or exceeded the bundle limit.',
+        message: translate("The selected profile photo was unavailable, unsafe, or exceeded the bundle limit."),
       });
       return undefined;
     }
     if (!validPhoto(resource)) {
       warnings.push({
         code: 'photo-unavailable', subjectType, subjectId,
-        message: 'The selected profile photo was unavailable, unsafe, or exceeded the bundle limit.',
+        message: translate("The selected profile photo was unavailable, unsafe, or exceeded the bundle limit."),
       });
       return undefined;
     }
@@ -297,7 +298,7 @@ export function exportWorkspaceBundle(
     if (agent.customCommand || agent.dashboardCommand || agent.dashboardUrl) {
       warnings.push({
         code: 'agent-settings-omitted', subjectType: 'agent', subjectId: agent.id,
-        message: 'Custom commands and dashboard settings are host-specific and were not exported.',
+        message: translate("Custom commands and dashboard settings are host-specific and were not exported."),
       });
     }
     return {
@@ -376,7 +377,7 @@ export function exportWorkspaceBundle(
       for (const template of bundle.agentTemplates) delete template.photoAssetId;
       warnings.push({
         code: 'serialization-budget-exhausted', subjectType: 'bundle',
-        message: 'Portable photos were omitted so the completed workspace bundle fits its serialized byte limit.',
+        message: translate("Portable photos were omitted so the completed workspace bundle fits its serialized byte limit."),
       });
       bundle.notices = warnings;
       parsed = parseWorkspaceBundle(bundle);
@@ -388,7 +389,7 @@ export function exportWorkspaceBundle(
       for (const template of bundle.agentTemplates) template.memorySeed = { memory: '', user: '' };
       warnings.push({
         code: 'serialization-budget-exhausted', subjectType: 'bundle',
-        message: 'Portable memory was omitted so the completed workspace bundle fits its serialized byte limit.',
+        message: translate("Portable memory was omitted so the completed workspace bundle fits its serialized byte limit."),
       });
       bundle.notices = warnings;
       parsed = parseWorkspaceBundle(bundle);

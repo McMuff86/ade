@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { projectRootIdentity } from '../settings/ProjectDefaultsService';
@@ -22,17 +23,17 @@ export class RemoteWorkspaceService {
     authorize();
     if (command.operation === 'category-group') {
       const category = this.store.get().categories.find((item) => item.id === command.input.categoryId);
-      if (!category) throw new Error('ade: Kategorie ist nicht mehr verfügbar.');
+      if (!category) throw new Error(translate("ade: Category is no longer available."));
       updateCategory(this.store, { id: category.id, name: category.name, navigationGroup: command.input.navigationGroup });
       return {};
     }
     if (command.operation === 'agent-create') {
       const input = command.input; const config = this.store.get();
-      if (config.agents.length >= 200) throw new Error('ade: Maximal 200 Agents. Nicht mehr benötigte Agents am PC verwalten.');
+      if (config.agents.length >= 200) throw new Error(translate("ade: Maximum of 200 agents. Manage no longer needed agents on the PC."));
       const source = input.source.kind === 'agent' ? config.agents.find((item) => item.id === input.source.id)
         : input.source.kind === 'template' ? config.agentTemplates.find((item) => item.id === input.source.id) : undefined;
-      if (!source && !(input.source.kind === 'runtime' && input.source.id === 'codex')) throw new Error('ade: Agent-Vorlage ist nicht mehr verfügbar.');
-      if (input.categoryId && !config.categories.some((item) => item.id === input.categoryId)) throw new Error('ade: Agent-Gruppe ist nicht mehr verfügbar.');
+      if (!source && !(input.source.kind === 'runtime' && input.source.id === 'codex')) throw new Error(translate("ade: Agent template is no longer available."));
+      if (input.categoryId && !config.categories.some((item) => item.id === input.categoryId)) throw new Error(translate("ade: Agent group is no longer available."));
       assertNoLinks(join(this.baseDir, 'agents'));
       const categoryId = input.categoryId ?? config.categories[0]?.id ?? (await createCategory(this.store, { name: 'Remote Agents' }, this.scopes)).id;
       const agent = input.source.kind === 'template'
@@ -49,17 +50,17 @@ export class RemoteWorkspaceService {
       // Git overrides before making a directory rather than importing another repo.
       const checkGitEnvironment = () => {
         if (Object.keys(process.env).some((key) => /^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|CONFIG(?:_.*)?)$/i.test(key))) {
-          throw new Error('ade: Projektstart durch Git-Umgebungsvariablen blockiert. ADE am PC ohne Git-Overrides starten.');
+          throw new Error(translate("ade: Project launch blocked by Git environment variables. Start ADE on the PC without Git overrides."));
         }
       };
       checkGitEnvironment();
-      if (this.store.get().repositories.length >= 100) throw new Error('ade: Maximal 100 Projekte. Projekte am PC verwalten.');
+      if (this.store.get().repositories.length >= 100) throw new Error(translate("ade: Maximum of 100 projects. Manage projects on the PC."));
       const defaults = this.store.get().settings.projectDefaults;
       const checkRoot = () => {
         authorize();
         checkGitEnvironment();
         if (defaults && projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity) {
-          throw new Error('ade: Der Projekt-Stammordner hat sich geändert. In Einstellungen am PC erneut auswählen.');
+          throw new Error(translate("ade: The project root folder has changed. Select again in settings on the PC."));
         }
       };
       checkRoot();
@@ -69,7 +70,7 @@ export class RemoteWorkspaceService {
       assertNoLinks(directory);
       try { mkdirSync(directory, { mode: 0o700 }); }
       catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('ade: Dieser Projektordner existiert bereits. Einen anderen Projektnamen wählen.');
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(translate("ade: This project folder already exists. Choose another project name."));
         throw error;
       }
       checkRoot(); assertNoLinks(directory);
@@ -86,7 +87,7 @@ export class RemoteWorkspaceService {
     const { agentId, repositoryId } = command.input;
     const config = this.store.get();
     const repository = config.repositories.find((item) => item.id === repositoryId);
-    if (!repository || repository.executionBackend !== 'native') throw new Error('ade: Remote-Workspace-Vorbereitung benötigt ein natives Projekt.');
+    if (!repository || repository.executionBackend !== 'native') throw new Error(translate("ade: Remote workspace preparation requires a native project."));
     assertNoLinks(repository.rootPath); assertNoLinks(repository.commonGitDir);
     const existing = config.workspaceBindings.find((item) => item.agentId === agentId && item.repositoryId === repositoryId);
     if (existing) {
@@ -94,20 +95,20 @@ export class RemoteWorkspaceService {
       const same = (path: string | undefined) => !!path && this.execution.samePath('native', path, existing.workspaceDir);
       if (config.runWorkspaceLeases.some((item) => (item.workspaceBindingId === existing.id || same(item.workspaceDir)) && item.status === 'active')
         || this.sessions().some((item) => (item.workspaceBindingId === existing.id || same(item.workspaceDir)) && item.status === 'running')) {
-        throw new Error('ade: Dieser Workspace wird gerade verwendet. Laufende Arbeit zuerst abschliessen.');
+        throw new Error(translate("ade: This workspace is in use right now. Complete ongoing work first."));
       }
     }
     const scope = await this.scopes.resolve(agentId, { repositoryId });
-    if (!scope.workspaceBindingId) throw new Error('ade: Workspace konnte nicht bestätigt werden.');
+    if (!scope.workspaceBindingId) throw new Error(translate("ade: Workspace could not be confirmed."));
     assertNoLinks(scope.workspaceDir);
     return { created: { kind: 'workspace', id: scope.workspaceBindingId, repositoryId, agentId, branch: redactForWire(scope.branch, 300) } };
   }
 }
 
 export function projectDirectoryName(name: string): string {
-  if (/[\\/:\x00-\x1f]/.test(name)) throw new Error('ade: Der Projektname darf keinen Pfad enthalten.');
+  if (/[\\/:\x00-\x1f]/.test(name)) throw new Error(translate("ade: The project name must not contain a path."));
   const slug = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
-  if (!slug || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(slug)) throw new Error('ade: Einen anderen Projektnamen wählen.');
+  if (!slug || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(slug)) throw new Error(translate("ade: Choose another project name."));
   return slug;
 }

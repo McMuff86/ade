@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /**
  * Two-step delete for a modal footer.
  *
@@ -25,6 +28,7 @@ interface DeleteActionProps {
 export function DeleteAction({
   label, consequence, busy, onDelete,
 }: DeleteActionProps): React.ReactElement {
+  useLocale();
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -53,7 +57,7 @@ export function DeleteAction({
         >
           {label}
         </button>
-        {error ? <span className="modal-delete-error" role="alert">{error}</span> : null}
+        {error ? <span className="modal-delete-error" role="alert">{localizeAppMessage(error)}</span> : null}
       </div>
     );
   }
@@ -62,15 +66,14 @@ export function DeleteAction({
     <div className="modal-delete is-armed">
       <span className="modal-delete-consequence">{consequence}</span>
       <button type="button" className="btn" disabled={deleting} onClick={() => setArmed(false)}>
-        Abbrechen
-      </button>
+        {translate("Cancel")}</button>
       <button
         type="button"
         className="btn danger"
         disabled={deleting}
         onClick={() => void run()}
       >
-        {deleting ? 'Löschen…' : 'Endgültig löschen'}
+        {deleting ? translate("Delete …") : translate("Permanently delete")}
       </button>
     </div>
   );

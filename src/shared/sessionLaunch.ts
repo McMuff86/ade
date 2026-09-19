@@ -1,3 +1,5 @@
+import { t as translate } from "./i18n";
+import { localizedLabels } from "./i18n/labels";
 import type { SessionLaunchChoice } from './remote';
 import { OLLAMA_MODEL_PATTERN } from './runtimes';
 import { validWorkspaceSelection } from './projectWorkspaceRequests';
@@ -9,9 +11,9 @@ export function validTerminalSelection(value: Record<string, unknown>): boolean 
     : validWorkspaceSelection(value);
 }
 
-export const SESSION_LAUNCH_LABELS: Record<SessionLaunchChoice['mode'], string> = {
-  shell: 'Leeres Terminal', agent: 'Gespeichertes Agent-Profil', codex: 'Codex', claude: 'Claude CLI', grok: 'Grok CLI', hermes: 'Hermes', ollama: 'Ollama',
-};
+export const SESSION_LAUNCH_LABELS: Record<SessionLaunchChoice['mode'], string> = localizedLabels(() => ({
+  shell: translate("Empty terminal"), agent: translate("Saved agent profile"), codex: translate("Codex"), claude: translate("Claude CLI"), grok: translate("Grok CLI"), hermes: translate("Hermes"), ollama: translate("Ollama"),
+}));
 export function validSessionChoice(value: Record<string, unknown>): boolean {
   return ['shell', 'agent', 'codex', 'claude', 'grok', 'hermes', 'ollama'].includes(String(value.mode))
     && (value.mode === 'ollama' ? typeof value.model === 'string' && OLLAMA_MODEL_PATTERN.test(value.model) : value.model === undefined);

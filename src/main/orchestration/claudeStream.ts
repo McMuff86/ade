@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /**
  * Claude `--output-format stream-json` support.
  *
@@ -78,8 +79,8 @@ export class ClaudeActivityParser {
     const type = event['type'];
 
     if (type === 'system' && typeof event['subtype'] === 'string' && this.initSubtypes.includes(event['subtype'])) {
-      const model = typeof event['model'] === 'string' ? event['model'] : 'unbekannt';
-      return [{ kind: 'init', text: `Session gestartet · ${model}` }];
+      const model = typeof event['model'] === 'string' ? event['model'] : translate("unknown");
+      return [{ kind: 'init', text: translate("Session started · {{value1}}", { value1: model }) }];
     }
 
     if (type === 'assistant') {
@@ -116,8 +117,8 @@ export class ClaudeActivityParser {
       return [{
         kind: failed ? 'error' : 'result',
         text: failed
-          ? `Abgebrochen${detail ? ` · ${detail}` : ''}`
-          : `Fertig${detail ? ` · ${detail}` : ''}`,
+          ? translate("Cancelled{{value1}}", { value1: detail ? ` · ${detail}` : '' })
+          : translate("Done{{value1}}", { value1: detail ? ` · ${detail}` : '' }),
       }];
     }
 

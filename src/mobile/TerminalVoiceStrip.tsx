@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useRef, useState, type ReactNode } from 'react';
 import type { MobileDictationTarget } from '../shared/remote';
 import { VoiceStrip, VoiceStripFrame } from '../renderer/terminal/VoiceStrip';
@@ -13,6 +15,7 @@ export function TerminalVoiceStrip({ host, target, label, send, fallbackId, trai
   sendBlockedReason?: string;
   sheetOpen?: boolean; onSheetSlot?: (element: HTMLElement | null) => void;
 }) {
+  useLocale();
   const { speechAllowed, computerAllowed } = useMobileSpeechGrants(host);
   const port = useMobilePromptPort(host, target, send, computerAllowed);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -21,9 +24,9 @@ export function TerminalVoiceStrip({ host, target, label, send, fallbackId, trai
   if (blocked) return <VoiceStripFrame trailing={trailing} sheetOpen={sheetOpen} above={<div ref={onSheetSlot} className="voice-sheet-slot" />}>
     <span className="voice-status">{blocked.reason}</span>{blocked.action}</VoiceStripFrame>;
   if (editorOpen) return <>
-    <VoiceStripFrame trailing={trailing}><span className="voice-status">Entwurf im Editor geöffnet.</span></VoiceStripFrame>
+    <VoiceStripFrame trailing={trailing}><span className="voice-status">{translate("Draft open in the editor.")}</span></VoiceStripFrame>
     <MobilePromptDialog host={host} target={target} label={label} send={send} sendBlockedReason={sendBlockedReason} fallbackId={fallbackId} restoreFocusTo={() => null}
-      onClose={() => { setEditorOpen(false); requestAnimationFrame(() => strip.current?.querySelector<HTMLElement>('[aria-label="Weitere Optionen"]')?.focus()); }} />
+      onClose={() => { setEditorOpen(false); requestAnimationFrame(() => strip.current?.querySelector<HTMLElement>('[data-voice-more]')?.focus()); }} />
   </>;
   return <div ref={strip} style={{ display: 'contents' }}>
     <VoiceStrip draftKey={`mobile/${host.deviceId}/${target.terminalId}`} online={host.status === 'online'} speechAllowed={speechAllowed}

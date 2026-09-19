@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState } from 'react';
 import { ConversationRecording, type ConversationRecordingPort, type ConversationRecordingView } from './ConversationRecording';
 import type { ConversationDrafts } from './conversationDrafts';
@@ -6,6 +9,7 @@ import { LiveDictationRecorder } from '../terminal/LiveDictationRecorder';
 export function ConversationVoice({ id, drafts, port, enabled, onApply, purpose = 'conversation', maxApplyChars = Infinity }: {
   id: string; drafts: ConversationDrafts; port: ConversationRecordingPort; enabled: boolean; onApply(text: string): void | Promise<void>; purpose?: 'conversation' | 'organizer'; maxApplyChars?: number;
 }) {
+  useLocale();
   const controller = useRef<ConversationRecording | null>(null);
   const [view, setView] = useState<ConversationRecordingView>({ phase: 'idle', error: '' });
   const region = useRef<HTMLDivElement>(null);
@@ -28,27 +32,27 @@ export function ConversationVoice({ id, drafts, port, enabled, onApply, purpose 
       if (purpose === 'organizer') { await onApply(preview.text); recording.discard(); }
       else { const text = recording.apply(); if (text !== undefined) await onApply(text); }
     }
-    catch (reason) { setApplyError(reason instanceof Error ? reason.message : 'Text konnte nicht gespeichert werden. Die Diktatvorschau bleibt erhalten.'); }
+    catch (reason) { setApplyError(reason instanceof Error ? reason.message : translate("Text could not be saved. The dictation preview is preserved.")); }
     finally { applyingRef.current = false; setApplying(false); }
   };
-  return <div className="conversation-voice" role="group" aria-label="Diktat für ADE" ref={region} tabIndex={-1}>
-    <p className="conversation-note">{purpose === 'organizer' ? 'Diktieren über ElevenLabs. Den Text prüfen und in die Aufgabe oder Notiz übernehmen. Beim Wechsel endet die Aufnahme. Bis zu fünf Minuten je Diktat.' : 'Diktieren über ElevenLabs. Der Text bleibt zur Prüfung hier; „An ADE senden“ startet die Nachricht. Beim Wechsel endet die Aufnahme. Bis zu fünf Minuten je Diktat.'}</p>
-    {view.phase === 'idle' && <button type="button" disabled={!enabled} onClick={() => act(() => { void controller.current?.start(); })}>{purpose === 'organizer' ? 'Text diktieren' : 'Nachricht diktieren'}</button>}
-    {view.phase === 'preparing' && <p role="status">Mikrofon und Diktat werden vorbereitet…</p>}
-    {view.phase === 'recording' && <><p role="status">Mikrofon nimmt auf…</p><button type="button" onClick={() => act(() => controller.current?.stop())}>Aufnahme stoppen</button></>}
-    {view.phase === 'transcribing' && <p role="status">Diktat wird abgeschlossen…</p>}
-    {view.phase === 'checking' && <p role="status">Vorheriges Diktat wird geprüft…</p>}
+  return <div className="conversation-voice" role="group" aria-label={translate("Dictation for ADE")} ref={region} tabIndex={-1}>
+    <p className="conversation-note">{purpose === 'organizer' ? translate("Dictation through ElevenLabs. Check the text and take it to the task or note. When you switch, the recording ends. Up to five minutes per dictation.") : translate("Dictation via ElevenLabs. The text remains for review here; Send to ADE starts the message. When you switch, the recording ends. Up to five minutes per dictation.")}</p>
+    {view.phase === 'idle' && <button type="button" disabled={!enabled} onClick={() => act(() => { void controller.current?.start(); })}>{purpose === 'organizer' ? translate("Dictate text") : translate("Dictate the message")}</button>}
+    {view.phase === 'preparing' && <p role="status">{translate("Microphone and dictation are being prepared…")}</p>}
+    {view.phase === 'recording' && <><p role="status">{translate("The microphone is recording…")}</p><button type="button" onClick={() => act(() => controller.current?.stop())}>{translate("Stop recording")}</button></>}
+    {view.phase === 'transcribing' && <p role="status">{translate("Finishing dictation…")}</p>}
+    {view.phase === 'checking' && <p role="status">{translate("Checking previous dictation…")}</p>}
     {view.value && <>
-      <label>Diktatvorschau<textarea aria-label="Diktatvorschau" readOnly rows={3} value={view.value.text} /></label>
-      {!active && <p role="status">{view.value.complete ? 'Diktat abgeschlossen. Text prüfen und übernehmen.' : 'Unvollständiges Diktat. Bisherigen Teil prüfen; fehlende Wörter ergänzen.'}</p>}
+      <label>{translate("Dictation preview")}<textarea aria-label={translate("Dictation preview")} readOnly rows={3} value={view.value.text} /></label>
+      {!active && <p role="status">{view.value.complete ? translate("Dictation completed. Review and insert the text.") : translate("Incomplete dictation. Check previous part; add missing words.")}</p>}
       {!active && <div className="conversation-controls">
-        <button type="button" disabled={!enabled || applying || !view.value.text.trim() || view.value.text.length > maxApplyChars} onClick={() => act(() => { void apply(); })}>{applying ? 'Text wird gespeichert…' : purpose === 'organizer' ? 'Diktat übernehmen' : 'Diktat in Nachricht übernehmen'}</button>
-        <button type="button" disabled={!enabled || applying} onClick={() => act(() => { void controller.current?.recover(); })}>Vorheriges Diktat prüfen</button>
-        <button type="button" disabled={!enabled || applying} onClick={() => act(() => controller.current?.discard())}>Diktat verwerfen</button>
+        <button type="button" disabled={!enabled || applying || !view.value.text.trim() || view.value.text.length > maxApplyChars} onClick={() => act(() => { void apply(); })}>{applying ? translate("Saving text…") : purpose === 'organizer' ? translate("Insert dictation") : translate("Insert dictation into message")}</button>
+        <button type="button" disabled={!enabled || applying} onClick={() => act(() => { void controller.current?.recover(); })}>{translate("Check previous dictation")}</button>
+        <button type="button" disabled={!enabled || applying} onClick={() => act(() => controller.current?.discard())}>{translate("Discard dictation")}</button>
       </div>}
     </>}
-    {view.error && <p role="alert">{view.error}</p>}
-    {view.value && view.value.text.length > maxApplyChars && <p role="status">Für dieses Diktat reicht der Platz im Textfeld nicht. Text kürzen oder die Vorschau in eine neue Notiz kopieren.</p>}
+    {view.error && <p role="alert">{localizeAppMessage(view.error)}</p>}
+    {view.value && view.value.text.length > maxApplyChars && <p role="status">{translate("For this dictation, the space in the text box is not enough: shorten text or copy the preview into a new note.")}</p>}
     {applyError && <p role="alert">{applyError}</p>}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /** Codex's Windows paste detector suppresses Enter for 120 ms after a burst.
  * Keep the submit key separate, holding a per-PTY input lock throughout. This
  * acknowledges transport only; the CLI remains responsible for its input UI. */
@@ -9,7 +10,7 @@ export class ProtectedPromptWriter {
   busy(id: string): boolean { return this.pending.has(id); }
 
   async write(id: string, payload: string | readonly string[], authorize: () => void | Promise<void>): Promise<void> {
-    if (this.pending.has(id)) throw new Error('Promptübergabe läuft. Bitte kurz warten.');
+    if (this.pending.has(id)) throw new Error(translate("Prompt handover is running. Wait a minute."));
     this.pending.add(id);
     try {
       const parts = typeof payload === 'string' ? [payload] : payload;

@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 import { validPromptText } from './dictation';
 
 export interface TerminalPromptRequest {
@@ -10,7 +11,7 @@ export type TerminalPromptCapability = { available: true } | { available: false;
 export interface TerminalPromptReceipt { accepted: true; replayed: boolean }
 
 export function terminalPromptBytes(text: string, mode: 'insert' | 'submit'): string {
-  if (!validPromptText(text) || (mode !== 'insert' && mode !== 'submit')) throw new Error('Ungültiger Prompttext.');
+  if (!validPromptText(text) || (mode !== 'insert' && mode !== 'submit')) throw new Error(translate("Invalid Prompt Text."));
   return `\x1b[200~${text.replace(/\r\n?/g, '\n')}\x1b[201~${mode === 'submit' ? '\r' : ''}`;
 }
 

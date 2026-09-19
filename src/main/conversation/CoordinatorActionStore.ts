@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
@@ -47,15 +48,15 @@ export class CoordinatorActionStore {
   constructor(private readonly path: string) {
     const raw = this.read(); this.fingerprint = raw === null ? null : conversationDigest(raw);
     const value: unknown = raw === null ? { version: 1, revision: 0, actions: [], commands: [] } : JSON.parse(raw);
-    if (!validCoordinatorActionState(value)) throw new Error('ADE-Auftragsspeicher ist ungültig. Original bleibt erhalten.');
+    if (!validCoordinatorActionState(value)) throw new Error(translate("ADE job storage is invalid and the original is retained."));
     this.state = value;
   }
   snapshot(): CoordinatorActionStateFile { return structuredClone(this.state); }
   save(next: CoordinatorActionStateFile): void {
-    if (!validCoordinatorActionState(next) || next.revision !== this.state.revision + 1) throw new Error('Ungültige ADE-Auftragsrevision.');
+    if (!validCoordinatorActionState(next) || next.revision !== this.state.revision + 1) throw new Error(translate("Invalid ADE job revision."));
     const bytes = JSON.stringify(next);
-    if (Buffer.byteLength(bytes) > COORDINATOR_ACTION_LIMIT) throw new Error('ADE-Auftragsspeicher hat sein Limit erreicht. Bestehende Aufträge bleiben erhalten.');
-    const verify = () => { const raw = this.read(); if ((raw === null ? null : conversationDigest(raw)) !== this.fingerprint) throw new Error('ADE-Aufträge wurden ausserhalb dieser Instanz verändert. Neu starten und Stand prüfen.'); };
+    if (Buffer.byteLength(bytes) > COORDINATOR_ACTION_LIMIT) throw new Error(translate("ADE job storage has reached its limit. Existing jobs are retained."));
+    const verify = () => { const raw = this.read(); if ((raw === null ? null : conversationDigest(raw)) !== this.fingerprint) throw new Error(translate("ADE jobs have been changed outside of this instance. Restart and check status.")); };
     verify(); assertNoLinks(dirname(this.path)); mkdirSync(dirname(this.path), { recursive: true }); assertNoLinks(dirname(this.path));
     const temp = `${this.path}.${randomUUID()}.tmp`; const fd = openSync(temp, 'wx', 0o600);
     try { writeFileSync(fd, bytes); fsyncSync(fd); verify(); renameSync(temp, this.path); }
@@ -67,11 +68,11 @@ export class CoordinatorActionStore {
     const fd = openSync(this.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     try {
       const stat = fstatSync(fd);
-      if (!stat.isFile() || stat.nlink !== 1 || stat.size > COORDINATOR_ACTION_LIMIT) throw new Error('Unsicherer oder zu grosser ADE-Auftragsspeicher.');
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > COORDINATOR_ACTION_LIMIT) throw new Error(translate("Insecure or excessively large ADE job storage."));
       const bytes = Buffer.alloc(stat.size + 1); let length = 0;
       while (length < bytes.length) { const n = readSync(fd, bytes, length, bytes.length - length, null); if (!n) break; length += n; }
       const after = fstatSync(fd); assertNoLinks(this.path); const named = lstatSync(this.path);
-      if (length !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs || named.dev !== stat.dev || named.ino !== stat.ino || named.nlink !== 1) throw new Error('ADE-Auftragsspeicher wurde beim Lesen verändert.');
+      if (length !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs || named.dev !== stat.dev || named.ino !== stat.ino || named.nlink !== 1) throw new Error(translate("ADE job storage was changed upon reading."));
       return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, length));
     } finally { closeSync(fd); }
   }

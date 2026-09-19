@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { GitStatus, WorkspaceScopeDescriptor } from '../../shared/types';
 import {
@@ -22,9 +25,9 @@ function shortPath(path: string): string {
 }
 
 function sourceLabel(source: WorkspaceScopeDescriptor['source']): string {
-  if (source === 'explicit') return 'This session';
-  if (source === 'agent-default') return 'Agent default';
-  return 'Portable home';
+  if (source === 'explicit') return translate("This session");
+  if (source === 'agent-default') return translate("Agent default");
+  return translate("Portable home");
 }
 
 export function RepositoryScopeHeader({
@@ -34,6 +37,7 @@ export function RepositoryScopeHeader({
   status,
   onTargetRepositoryChange,
 }: RepositoryScopeHeaderProps): JSX.Element | null {
+  useLocale();
   const repositories = useAppData((state) => state.repositories);
   const agents = useAppData((state) => state.agents);
   const importRepository = useAppData((state) => state.importRepository);
@@ -56,9 +60,9 @@ export function RepositoryScopeHeader({
   const hostPlatform = typeof navigator === 'undefined' ? '' : navigator.platform;
   const windowsHost = /^Win/i.test(hostPlatform);
   const nativeHostLabel = windowsHost
-    ? 'Native Windows'
-    : /^Mac/i.test(hostPlatform) ? 'Native macOS' : 'Native Linux';
-  const nativePathPlaceholder = windowsHost ? 'C:\\repos\\projekt' : '/home/name/projekt';
+    ? translate("Native Windows")
+    : /^Mac/i.test(hostPlatform) ? translate("Native macOS") : translate("Native Linux");
+  const nativePathPlaceholder = windowsHost ? translate("C:\\repos\\project") : translate("/home/name/project");
 
   const agent = agentId ? agents[agentId] : undefined;
   const locked = scope?.activeLease === true;
@@ -136,7 +140,7 @@ export function RepositoryScopeHeader({
       setTargetRepositoryId(repository.id);
       onTargetRepositoryChange(repository.id, true);
       setManualPath(null);
-      setNotice(`Repository "${repository.name}" importiert.`);
+      setNotice(translate("Repository \"{{value1}}\" imported.", { value1: repository.name }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -150,7 +154,7 @@ export function RepositoryScopeHeader({
     try {
       const picked = await window.ade.invoke('dialog:pickFolder');
       if (!picked.path) return;
-      if (!picked.isRepo) throw new Error('The selected folder is not a Git repository.');
+      if (!picked.isRepo) throw new Error(translate("The selected folder is not a Git repository."));
       const repository = await importRepository(picked.path, undefined, NATIVE_EXECUTION_BACKEND);
       setTargetRepositoryId(repository.id);
       onTargetRepositoryChange(repository.id, true);
@@ -229,10 +233,10 @@ export function RepositoryScopeHeader({
     <section className="rp-scope" data-testid="repository-scope">
       <div className="rp-scope-title">
         <div>
-          <span>Active session scope</span>
+          <span>{translate("Active session scope")}</span>
           <strong>{scope?.repositoryName ?? 'No repository'}</strong>
         </div>
-        <span className="rp-scope-source">{scope ? sourceLabel(scope.source) : 'Loading'}</span>
+        <span className="rp-scope-source">{scope ? sourceLabel(scope.source) : translate("Loading")}</span>
       </div>
       {scope ? (
         <div className="rp-scope-meta" title={scope.workspaceDir}>
@@ -240,15 +244,15 @@ export function RepositoryScopeHeader({
           <span>{shortPath(scope.workspaceDir)}</span>
           <span className="rp-scope-backend">
             {scope.executionBackend === NATIVE_EXECUTION_BACKEND
-              ? 'Native'
+              ? translate("Native")
               : `WSL · ${scope.executionBackend.slice('wsl:'.length)}`}
           </span>
           {scope.isRepo && status ? (
             <span className={status.files.length ? 'rp-scope-dirty' : 'rp-scope-clean'}>
-              {status.files.length ? `${status.files.length} changed` : 'Clean'}
+              {status.files.length ? `${status.files.length} changed` : translate("Clean")}
             </span>
           ) : null}
-          {scope.activeLease ? <span className="rp-scope-lease">Run lease</span> : null}
+          {scope.activeLease ? <span className="rp-scope-lease">{translate("Run lease")}</span> : null}
         </div>
       ) : null}
       {scope ? (
@@ -257,23 +261,22 @@ export function RepositoryScopeHeader({
         // agent actually work" deserves the whole path, selectable and
         // copyable, not a tooltip.
         <div className="rp-scope-path">
-          <span className="rp-scope-path-label">Workspace</span>
+          <span className="rp-scope-path-label">{translate("Workspace")}</span>
           <code data-testid="scope-workspace-path">{scope.workspaceDir}</code>
           <button
             className="rp-scope-path-copy"
-            title="Pfad kopieren"
-            aria-label={`Arbeitsverzeichnis kopieren: ${scope.workspaceDir}`}
+            title={translate("Copy path [50666164]")}
+            aria-label={translate("Copy working directory: {{value1}}", { value1: scope.workspaceDir })}
             onClick={() => void window.ade.invoke('clipboard:writeText', { text: scope.workspaceDir })
-              .then(() => setNotice('Arbeitsverzeichnis kopiert.'))
+              .then(() => setNotice(translate("Working directory copied.")))
               .catch(() => undefined)}
           >
-            Kopieren
-          </button>
+            {translate("Copy")}</button>
         </div>
       ) : null}
       <div className="rp-scope-controls">
         <select
-          aria-label="Repository for new session"
+          aria-label={translate("Repository for new session")}
           value={targetRepositoryId}
           disabled={busy || locked}
           onChange={(event) => {
@@ -282,7 +285,7 @@ export function RepositoryScopeHeader({
             onTargetRepositoryChange(repositoryId || null, true);
           }}
         >
-          <option value="">No repository (portable home)</option>
+          <option value="">{translate("No repository (portable home)")}</option>
           {sortedRepositories.map((repository) => (
             <option key={repository.id} value={repository.id}>
               {repository.name}{repository.executionBackend === NATIVE_EXECUTION_BACKEND
@@ -292,15 +295,14 @@ export function RepositoryScopeHeader({
           ))}
         </select>
         <button type="button" className="btn" disabled={busy || locked} onClick={() => void openSession()}>
-          Open new session
-        </button>
+          {translate("Open new session")}</button>
         <button
           type="button"
           className={`btn rp-scope-toggle${actionsOpen ? ' open' : ''}`}
           aria-expanded={actionsOpen}
           aria-controls="rp-scope-manage"
-          aria-label="Scope & session actions"
-          title="Add repositories, set the agent default or remove the worktree"
+          aria-label={translate("Scope and session actions")}
+          title={translate("Add repositories, set the agent default or remove the worktree")}
           onClick={() => {
             setActionsOpen((current) => {
               if (current) {
@@ -318,41 +320,39 @@ export function RepositoryScopeHeader({
         <div className="rp-scope-manage" id="rp-scope-manage">
           <div className="rp-scope-actions">
             <button type="button" className="btn" disabled={busy || locked} onClick={() => void pickRepository()}>
-              Add repo
-            </button>
+              {translate("Add repo")}</button>
             <button
               type="button"
               className="btn"
               disabled={busy || locked}
-              title="Repository-Pfad direkt eingeben und den Ausführungsbackend bewusst auswählen"
+              title={translate("Enter the repository path directly and explicitly choose the execution backend")}
               onClick={() => setManualPath((current) => (current === null ? '' : null))}
             >
-              Pfad…
-            </button>
+              {translate("Path …")}</button>
             <button
               type="button"
               className="btn"
               disabled={busy || locked || (agent.defaultRepositoryId ?? '') === targetRepositoryId}
               onClick={() => void setDefault()}
             >
-              {targetRepositoryId ? 'Set agent default' : 'Clear agent default'}
+              {targetRepositoryId ? translate("Set agent default") : translate("Clear agent default")}
             </button>
             {scope?.workspaceBindingId ? (
               <button
                 type="button"
                 className={`btn${removeArmed ? ' rp-scope-remove-armed' : ''}`}
                 disabled={busy || locked}
-                title="Remove this agent's worktree from disk. Refused while sessions, tasks or uncommitted changes exist; a fresh worktree is created on next use."
+                title={translate("Remove this agent's worktree from disk. Refused while sessions, tasks or uncommitted changes exist; a fresh worktree is created on next use.")}
                 onClick={() => void removeWorktree()}
               >
-                {removeArmed ? 'Really remove?' : 'Remove worktree'}
+                {removeArmed ? translate("Really remove?") : translate("Remove worktree")}
               </button>
             ) : null}
           </div>
           {manualPath !== null && (
             <div className="rp-scope-controls">
               <select
-                aria-label="Execution backend"
+                aria-label={translate("Execution backend")}
                 value={importBackend}
                 disabled={busy}
                 onChange={(event) => setImportBackend(event.target.value as ExecutionBackendId)}
@@ -362,16 +362,16 @@ export function RepositoryScopeHeader({
                   // Availability is advisory only: a cold WSL VM can miss the
                   // probe window, and the import itself reports real failures.
                   <option key={distribution.backend} value={distribution.backend}>
-                    WSL · {distribution.name}{distribution.available ? '' : ' (unavailable?)'}
+                    {translate("WSL ·")}{" "}{distribution.name}{distribution.available ? '' : ' (unavailable?)'}
                   </option>
                 ))}
               </select>
               <input
                 type="text"
-                aria-label="Repository path"
+                aria-label={translate("Repository path")}
                 placeholder={importBackend === NATIVE_EXECUTION_BACKEND
                   ? nativePathPlaceholder
-                  : '/home/name/projekt'}
+                  : translate("/home/name/project")}
                 value={manualPath}
                 disabled={busy}
                 onChange={(event) => setManualPath(event.target.value)}
@@ -383,23 +383,21 @@ export function RepositoryScopeHeader({
                 disabled={busy || manualPath.trim().length === 0}
                 onClick={() => void importManualPath()}
               >
-                Importieren
-              </button>
+                {translate("Import")}</button>
             </div>
           )}
           {manualPath !== null && windowsHost && wslSupported === false ? (
             <div className="rp-scope-notice">
-              WSL is not available. Install/enable WSL2, then reopen ADE to use a Linux backend.
-            </div>
+              {translate("WSL is not available. Install/enable WSL2, then reopen ADE to use a Linux backend.")}</div>
           ) : null}
           {manualPath !== null && windowsHost && wslSupported === true && wslDistributions.length === 0 ? (
-            <div className="rp-scope-notice">No WSL distributions were found.</div>
+            <div className="rp-scope-notice">{translate("No WSL distributions were found.")}</div>
           ) : null}
         </div>
       ) : null}
-      {locked ? <div className="rp-scope-lock">This binding is owned by an active managed run.</div> : null}
-      {notice ? <div className="rp-scope-notice">{notice}</div> : null}
-      {error ? <div className="rp-scope-error">{error}</div> : null}
+      {locked ? <div className="rp-scope-lock">{translate("This binding is owned by an active managed run.")}</div> : null}
+      {notice ? <div className="rp-scope-notice">{localizeAppMessage(notice)}</div> : null}
+      {error ? <div className="rp-scope-error">{localizeAppMessage(error)}</div> : null}
     </section>
   );
 }

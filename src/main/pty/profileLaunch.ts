@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { chmodSync, closeSync, lstatSync, mkdirSync, mkdtempSync, openSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -44,7 +45,7 @@ const hash = (text: string): string => createHash('sha256').update(text, 'utf8')
 /** JSON basic-string escapes are TOML-compatible for valid Unicode strings. */
 function tomlString(text: string): string {
   if (text.includes('\0') || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(text)) {
-    throw new Error('ade: Profiltext enthält ungültige Unicode-Zeichen.');
+    throw new Error(translate("ade: Profile text contains invalid Unicode characters."));
   }
   // JSON permits DEL unescaped, TOML basic strings do not.
   return JSON.stringify(text).replace(/\u007f/g, '\\u007f');
@@ -57,7 +58,7 @@ function windowsArgument(text: string): string {
 function outsideWorkspace(root: string, workspace: string): void {
   const path = relative(resolve(workspace), root);
   if (!path || (!path.startsWith(`..${sep}`) && path !== '..' && !isAbsolute(path))) {
-    throw new Error('ade: Profil-Snapshots müssen ausserhalb des Arbeitsbereichs gespeichert werden.');
+    throw new Error(translate("ade: Profile snapshots must be stored outside the workspace."));
   }
 }
 
@@ -67,18 +68,18 @@ function outsideWorkspace(root: string, workspace: string): void {
 export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfileLaunch {
   const { agent, snapshot, command } = input;
   if (input.executionBackend !== 'native' || (input.platform ?? process.platform) !== 'win32') {
-    throw new Error('ade: Profilanweisungen werden für diesen Start bisher nur nativ unter Windows übertragen.');
+    throw new Error(translate("ade: Profile instructions are only natively transferred under Windows for this start."));
   }
   const qwen = agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && agent.ollamaHarness === 'qwen-code';
   if (agent.customCommand?.trim() || (!['codex', 'claude'].includes(agent.runtime) && !qwen)) {
-    throw new Error('ade: Profilanweisungen benötigen einen unterstützten Codex-, Claude- oder Qwen-Code-Start ohne eigenen Startbefehl.');
+    throw new Error(translate("ade: Profile instructions require a supported Codex, Claude or Qwen code start without their own start command."));
   }
   if (!command.trim() || command.includes('\0') || /developer_instructions|append-system-prompt|model_instructions_file/i.test(command)) {
-    throw new Error('ade: Profilstart benötigt einen unveränderten ADE-Laufzeitbefehl ohne zusätzliche Anweisungsoptionen.');
+    throw new Error(translate("ade: Profilestart requires an unchanged ADE runtime command without additional instruction options."));
   }
   if (typeof snapshot.content !== 'string' || snapshot.content.length > MAX_SNAPSHOT_CHARS
     || snapshot.chars !== snapshot.content.length || hash(snapshot.content) !== snapshot.sha256) {
-    throw new Error('ade: Profil-Snapshot ist ungültig oder wurde inzwischen geändert.');
+    throw new Error(translate("ade: Profile snapshot is invalid or has since been changed."));
   }
   // Validate Unicode for file transport too; never silently replace invalid text.
   tomlString(snapshot.content);
@@ -86,16 +87,16 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
   if (qwen) {
     argument = snapshot.content;
     if (windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
-      throw new Error('ade: Profilanweisungen überschreiten die sichere Windows-Aufrufgrenze von 28000 Zeichen. Profil kürzen.');
+      throw new Error(translate("ade: Profile instructions exceed the safe Windows invocation limit of 28,000 characters. Shorten the profile."));
     }
   }
   if (agent.runtime === 'codex') {
     const baseline = input.codexDeveloperInstructions;
     if (baseline?.mode !== 'append-verified' || typeof baseline.existing !== 'string') {
-      throw new Error('ade: Bestehende Codex-Developer-Anweisungen sind noch nicht geprüft. Profilstart würde sie möglicherweise überschreiben.');
+      throw new Error(translate("ade: Existing Codex Developer statements have not yet been verified. Profilstart might overwrite them."));
     }
     if (baseline.existing.length + snapshot.content.length > MAX_SNAPSHOT_CHARS) {
-      throw new Error('ade: Profilanweisungen überschreiten zusammen mit den bestehenden Anweisungen die sichere Windows-Aufrufgrenze.');
+      throw new Error(translate("ade: Profile statements, along with the existing instructions, exceed the secure Windows call limit."));
     }
     const complete = baseline.existing ? `${baseline.existing}\n\n${snapshot.content}` : snapshot.content;
     // Whitespace before the TOML value is semantically inert and makes the
@@ -103,10 +104,10 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
     // encounters any escaped double quotes within that value.
     argument = `developer_instructions= ${tomlString(complete)}`;
     if (windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
-      throw new Error('ade: Profilanweisungen überschreiten die sichere Windows-Aufrufgrenze von 28000 Zeichen. Profil kürzen.');
+      throw new Error(translate("ade: Profile instructions exceed the safe Windows invocation limit of 28,000 characters. Shorten the profile."));
     }
   }
-  if (!isAbsolute(input.scratchRoot)) throw new Error('ade: Profilablage benötigt einen absoluten ADE-Pfad.');
+  if (!isAbsolute(input.scratchRoot)) throw new Error(translate("ade: Profile storage requires an absolute ADE path."));
   const root = resolve(input.scratchRoot);
   outsideWorkspace(root, input.workspaceDir ?? agent.workspaceDir);
   outsideWorkspace(root, agent.workspaceDir);
@@ -162,7 +163,7 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
     } else {
       prepared = `${command} --append-system-prompt-file ${quotePs(snapshotPath)}`;
     }
-    if (prepared.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) throw new Error('ade: Profilstart überschreitet die sichere Windows-Aufrufgrenze.');
+    if (prepared.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) throw new Error(translate("ade: Profile start exceeds the secure Windows call limit."));
     return { command: prepared, snapshotPath, dispose };
   } catch (error) { dispose(); throw error; }
 }

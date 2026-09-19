@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 
@@ -23,7 +24,7 @@ export interface CodexProfileConfigOptions {
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
 const unavailable = (): CodexProfileConfigResult => ({ status: 'unavailable',
-  message: 'Bestehende Codex-Anweisungen konnten für diesen Arbeitsbereich nicht sicher gelesen werden. Profilstart erneut versuchen.' });
+  message: translate("Could not safely read existing Codex instructions for this workspace. Try starting with the profile again.") });
 
 /** Schema inspected from installed Codex app-server generate-json-schema:
  * v2/ConfigReadResponse requires config + origins; developer_instructions is an
@@ -123,6 +124,6 @@ export function readCodexProfileConfig(options: CodexProfileConfigOptions): Prom
         } else { finish(unavailable()); break; }
       }
     });
-    send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'ade_profile_config', title: 'ADE profile configuration', version: '0.1.0' } } });
+    send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'ade_profile_config', title: translate("ADE profile configuration"), version: '0.1.0' } } });
   });
 }

@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { hostNullDevice } from '../platform';
@@ -19,6 +20,6 @@ export async function projectGit(path: string, args: string[], timeout = 15_000)
     })).stdout;
   } catch (error) {
     console.warn('[ade] project Git action failed:', redactedErrorDetail((error as { stderr?: string }).stderr ?? error));
-    throw new Error('ade: Git-Aktion konnte nicht bestätigt werden. Aktuellen Workspace-Zustand prüfen; es wird nichts automatisch zurückgesetzt.');
+    throw new Error(translate("ade: Git action could not be confirmed. Check current workspace state; nothing is automatically reset."));
   }
 }

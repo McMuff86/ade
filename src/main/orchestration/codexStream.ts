@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /** Live activity and trusted token telemetry for `codex exec --json`. */
 
 import type { ActivityLine } from '../../shared/ipc';
@@ -49,29 +50,29 @@ export class CodexActivityParser implements ActivityParser {
       this.textDeltas.set(id, value); return [];
     }
     if (type === 'ade.plan') return [{ kind: 'tool', text: 'Plan: ' + (typeof event.text === 'string' ? event.text.slice(0, 4000) : '')
-      + (Array.isArray(event.steps) ? event.steps.slice(0, 20).map((step) => { const item = record(step); return `\n${String(item?.status ?? '')}: ${String(item?.step ?? '').slice(0, 500)}`; }).join('') : ''), mobileText: 'Arbeitsplan aktualisiert' }];
+      + (Array.isArray(event.steps) ? event.steps.slice(0, 20).map((step) => { const item = record(step); return `\n${String(item?.status ?? '')}: ${String(item?.step ?? '').slice(0, 500)}`; }).join('') : ''), mobileText: translate("Work plan updated") }];
     if (type === 'thread.started') {
-      return [{ kind: 'init', text: 'Codex-Session gestartet' }];
+      return [{ kind: 'init', text: translate("Codex session started") }];
     }
     if (type === 'turn.started') {
-      return [{ kind: 'thinking', text: 'Bearbeitung gestartet…' }];
+      return [{ kind: 'thinking', text: translate("Processing started…") }];
     }
     if (type === 'turn.completed') {
       const usage = readCodexUsage(event);
       return [{
         kind: 'result',
         text: usage
-          ? `Fertig · ${usage.inputTokens} in / ${usage.outputTokens} out`
-          : 'Fertig',
+          ? translate("Done · {{value1}} in / {{value2}} out", { value1: usage.inputTokens, value2: usage.outputTokens })
+          : translate("Finished"),
       }];
     }
     if (type === 'turn.failed') {
-      return [{ kind: 'error', text: `Abgebrochen${errorDetail(event)}` }];
+      return [{ kind: 'error', text: translate("Cancelled{{value1}}", { value1: errorDetail(event) }) }];
     }
     if (type === 'error') {
       const message = typeof event['message'] === 'string'
         ? condenseActivityText(event['message'])
-        : 'Codex-Laufzeitfehler';
+        : translate("Codex runtime error");
       return [{ kind: 'error', text: message }];
     }
     if (type !== 'item.started' && type !== 'item.completed') return [];
@@ -95,7 +96,7 @@ export class CodexActivityParser implements ActivityParser {
     const key = itemId ? `${itemId}:${started ? 'started' : 'completed'}` : undefined;
     if (key && this.announcedItems.has(key)) return [];
     if (key) { this.announcedItems.add(key); if (this.announcedItems.size > 4000) this.announcedItems.delete(this.announcedItems.values().next().value!); }
-    const status = started ? 'Gestartet' : typeof item.exit_code === 'number' ? `Abgeschlossen · Exit ${item.exit_code}` : item.status === 'failed' ? 'Fehlgeschlagen' : 'Abgeschlossen';
+    const status = started ? translate("Started") : typeof item.exit_code === 'number' ? translate("Completed · Exit {{value1}}", { value1: item.exit_code }) : item.status === 'failed' ? translate("Failed") : translate("Completed");
     const output = !started && typeof item.aggregated_output === 'string' ? item.aggregated_output.trim().slice(0, 8000) : '';
     return [{ kind: 'tool', text: `${status} · ${tool}${output ? `\n${output}` : ''}`,
       ...(typeof item.accessText === 'string' ? { mobileText: `${status} · ${item.accessText.slice(0, 2000)}` } : {}) }];
@@ -130,8 +131,8 @@ function describeCodexTool(item: Record<string, unknown>): string | null {
       .filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
       .slice(0, 3);
     return paths.length > 0
-      ? `Dateien geändert: ${condenseActivityText(paths.join(', '), 120)}`
-      : 'Dateien geändert';
+      ? translate("Files modified: {{value1}}", { value1: condenseActivityText(paths.join(', '), 120) })
+      : translate("Files modified");
   }
   if (type === 'mcp_tool_call') {
     const server = typeof item['server'] === 'string' ? item['server'] : 'MCP';
@@ -144,7 +145,7 @@ function describeCodexTool(item: Record<string, unknown>): string | null {
       : '';
     return query ? `Websuche: ${query}` : 'Websuche';
   }
-  if (type === 'todo_list') return 'Arbeitsplan aktualisiert';
+  if (type === 'todo_list') return translate("Work plan updated");
   return null;
 }
 

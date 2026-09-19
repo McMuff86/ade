@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { terminalPromptBytes, validTerminalPrompt, type TerminalPromptCapability, type TerminalPromptReceipt, type TerminalPromptRequest } from '../../shared/terminalPrompt';
 
@@ -18,20 +19,20 @@ export class TerminalPromptDelivery {
   forget(sessionId: string): void { this.receipts.delete(sessionId); }
 
   async deliver(request: TerminalPromptRequest, authorize: () => void | Promise<void>): Promise<TerminalPromptReceipt> {
-    if (!validTerminalPrompt(request)) throw new Error('Ungültiger Promptauftrag.');
+    if (!validTerminalPrompt(request)) throw new Error(translate("Invalid prompt request."));
     await authorize();
     const fingerprint = createHash('sha256').update(JSON.stringify([request.text, request.mode])).digest('hex');
     const session = this.receipts.get(request.sessionId) ?? new Map<string, Receipt>();
     const previous = session.get(request.commandId);
     if (previous) {
-      if (previous.fingerprint !== fingerprint) throw new Error('Diese Versand-ID gehört zu einem anderen Text.');
-      if (!previous.accepted) throw new Error('Ausgang der vorherigen Übergabe unbekannt. Terminal prüfen; nicht erneut senden.');
+      if (previous.fingerprint !== fingerprint) throw new Error(translate("This delivery ID belongs to different text."));
+      if (!previous.accepted) throw new Error(translate("The previous handoff outcome is unknown. Check the terminal; do not send again."));
       return { accepted: true, replayed: true };
     }
     const capability = this.port.capability(request.sessionId);
     if (!capability.available) throw new Error(capability.reason);
     if (session.size >= 1024 || (!this.receipts.has(request.sessionId) && this.receipts.size >= 128)) {
-      throw new Error('Promptspeicher für diese Sitzung ist voll. Eine neue CLI-Sitzung starten.');
+      throw new Error(translate("Prompt storage for this session is full. Start a new CLI session."));
     }
     // Reserve before the first write. An in-flight or ambiguous delivery cannot
     // be retried while the protected writer settles and submits the paste.

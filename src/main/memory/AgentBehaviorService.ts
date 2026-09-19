@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { AdeConfig } from '../../shared/types';
 import type { AgentBehaviorUpdate, AgentBehaviorView } from '../../shared/agentBehavior';
 import { validateAgentBehaviorProfile } from '../../shared/agentProfile';
@@ -5,11 +6,11 @@ import { previewAgentInstructions } from './agentInstructions';
 import { redactForWire } from '../errors';
 
 export function validateBehaviorUpdate(value: unknown): AgentBehaviorUpdate {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Ungültige Profilanweisungen.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(translate("Invalid profile instructions."));
   const item = value as Record<string, unknown>;
   if (Object.keys(item).length !== 3 || !Object.hasOwn(item, 'agentId') || !Object.hasOwn(item, 'revision') || !Object.hasOwn(item, 'profile')
     || typeof item.agentId !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(item.agentId)
-    || typeof item.revision !== 'string' || !/^[a-f0-9]{64}$/.test(item.revision)) throw new Error('Ungültige Profilanweisungen.');
+    || typeof item.revision !== 'string' || !/^[a-f0-9]{64}$/.test(item.revision)) throw new Error(translate("Invalid profile instructions."));
   return { agentId: item.agentId, revision: item.revision, profile: validateAgentBehaviorProfile(item.profile) };
 }
 
@@ -18,7 +19,7 @@ export class AgentBehaviorService {
   constructor(private readonly store: { get(): AdeConfig; save(partial: Partial<AdeConfig>): unknown }) {}
   private agent(id: string) {
     const agent = this.store.get().agents.find(item => item.id === id);
-    if (!agent) throw new Error('Agent ist nicht mehr vorhanden.');
+    if (!agent) throw new Error(translate("Agent no longer exists."));
     return agent;
   }
   query(id: string, wire = false): AgentBehaviorView {
@@ -33,7 +34,7 @@ export class AgentBehaviorService {
   }
   update(value: unknown): { revision: string } {
     const input = validateBehaviorUpdate(value); const agent = this.agent(input.agentId);
-    if (this.query(agent.id).revision !== input.revision) throw new Error('Profilanweisungen wurden inzwischen geändert. Neu laden und Änderungen prüfen.');
+    if (this.query(agent.id).revision !== input.revision) throw new Error(translate("Profile instructions changed. Reload and review the changes."));
     const updated = { ...agent, profile: structuredClone(input.profile) };
     const snapshot = previewAgentInstructions(updated);
     this.store.save({ agents: this.store.get().agents.map(item => item.id === agent.id ? updated : item) });

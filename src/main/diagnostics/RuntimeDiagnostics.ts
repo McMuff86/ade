@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 /** Non-mutating CLI availability, version, auth and task-transport diagnostics. */
 
 import { execFile, spawn } from 'node:child_process';
@@ -285,7 +286,7 @@ async function diagnoseAgent(
       authDetail: 'Custom commands are never executed by diagnostics.',
       taskTransport: transport,
       status: 'warning',
-      message: 'Launch the session to validate this custom command.',
+      message: translate("Launch the session to validate this custom command."),
     };
   }
 
@@ -301,7 +302,7 @@ async function diagnoseAgent(
       authDetail: 'Authentication is not required.',
       taskTransport: transport,
       status: 'ready',
-      message: 'Interactive shell is ready.',
+      message: translate("Interactive shell is ready."),
     };
   }
 
@@ -318,7 +319,7 @@ async function diagnoseAgent(
       authDetail: 'No command is configured.',
       taskTransport: transport,
       status: 'warning',
-      message: 'Configure a custom command for this agent.',
+      message: translate("Configure a custom command for this agent."),
     };
   }
 
@@ -348,7 +349,7 @@ async function diagnoseAgent(
   if (agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && !await locate(ollamaHarness, backend, execution)) {
     return { agentId: agent.id, agentName: agent.name, runtime: agent.runtime, label, command: binary,
       installed: true, version, authStatus: auth.status, authDetail: auth.detail, taskTransport: transport,
-      status: 'error', message: `Ollama-Coding benötigt zusätzlich ${ollamaHarness === 'qwen' ? 'Qwen Code' : 'die Codex CLI'} in dieser Umgebung.` };
+      status: 'error', message: translate("Ollama coding also requires {{value1}} in this environment.", { value1: ollamaHarness === 'qwen' ? 'Qwen Code' : 'die Codex CLI' }) };
   }
   const versionReady = versionResult.code === 0 && !versionResult.timedOut;
   const ready = versionReady

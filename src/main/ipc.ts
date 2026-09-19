@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { changeLocale } from '../shared/i18n';
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { OrganizerService } from './organizer/OrganizerService';
 import { OrganizerReminders } from './organizer/OrganizerReminders';
@@ -332,7 +334,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       const authorize = () => {
         const current = ptyManager?.getSessionMeta(input.sessionId);
         if (event.sender.isDestroyed() || !session || !current || current.kind !== 'interactive' || current.runTaskId || current.remoteAccessBlocked
-          || current.agentId !== session.agentId || current.repositoryId !== session.repositoryId) throw new Error('Diese Terminalsitzung ist nicht mehr verfügbar.');
+          || current.agentId !== session.agentId || current.repositoryId !== session.repositoryId) throw new Error(translate("This terminal session is no longer available."));
       };
       return replies.prepare(owner, { text: input.text, source: input.source, mode: input.mode }, Object.assign(authorize, {
         usage: { terminalSessionId: session?.id, agentId: session?.agentId, repositoryId: session?.repositoryId ?? undefined },
@@ -347,7 +349,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     revision => broadcastToRenderers(IPC_EVENTS.OrganizerChanged, { revision }), image => {
       const decoded = nativeImage.createFromBuffer(Buffer.from(image.base64, 'base64'));
       const size = decoded.getSize();
-      if (decoded.isEmpty() || size.width !== image.width || size.height !== image.height) throw new Error('Das Bild konnte nicht gelesen werden.');
+      if (decoded.isEmpty() || size.width !== image.width || size.height !== image.height) throw new Error(translate("The picture could not be read."));
     });
   handle(IPC.OrganizerQuery, input => organizer.query(input, 'desktop'));
   handle(IPC.OrganizerCommand, input => {
@@ -423,12 +425,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RemoteDevicesSetAdminScopes, ({ deviceId, scopes: grants, resourceAccess }) => remoteDevices.setAdminScopes(deviceId, grants, resourceAccess));
   const restart = new HostRestartController(hostOperations, () => {
     const reasons: string[] = [];
-    if (ptyManager?.list().some((session) => session.status === 'running')) reasons.push('Ein Terminal oder Agent-Prozess läuft.');
+    if (ptyManager?.list().some((session) => session.status === 'running')) reasons.push(translate("A terminal or agent process is running."));
     const queue = ptyManager?.queueStatus();
-    if (queue && (queue.active > 0 || queue.queued > 0)) reasons.push('Aufgaben laufen oder warten auf einen Task-Slot.');
-    if (store.get().runs.some((run) => run.status === 'running')) reasons.push('Ein Run ist noch aktiv.');
-    if (workspaceOperations.busy()) reasons.push('Ein Workspace wird vorbereitet oder aktualisiert.');
-    if (integrationService?.busy()) reasons.push('Eine Übernahmeprüfung läuft.');
+    if (queue && (queue.active > 0 || queue.queued > 0)) reasons.push(translate("Tasks are running or waiting for a task slot."));
+    if (store.get().runs.some((run) => run.status === 'running')) reasons.push(translate("A run is still active."));
+    if (workspaceOperations.busy()) reasons.push(translate("A workspace is prepared or updated."));
+    if (integrationService?.busy()) reasons.push(translate("An integration review is running."));
     return reasons;
   }, () => {
     // Keep the app's local arguments, without launcher-only instrumentation
@@ -442,7 +444,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
   handle(IPC.ProjectCreate, async (input) => {
-    if (!store.get().settings.projectDefaults) throw new Error('ade: Unter Einstellungen zuerst den Projekt-Stammordner speichern.');
+    if (!store.get().settings.projectDefaults) throw new Error(translate("ade: Under Settings, save the project root folder first."));
     const result = await workspaceProvision.execute({ operation: 'project-create', input });
     broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() });
     return { repositoryId: result.created!.id };
@@ -481,7 +483,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   (id, selection) => deviceResources.assertSelection(id, selection),
   new TerminalImageStore(join(app.getPath('userData'), 'ade', 'terminal-images'), execution, bytes => {
     const image = nativeImage.createFromBuffer(bytes);
-    if (image.isEmpty()) throw new Error('Bild kann nicht gelesen werden. Ein PNG oder JPEG auswählen.');
+    if (image.isEmpty()) throw new Error(translate("You can't read a picture. Select a PNG or JPEG."));
     return image.toPNG();
   }));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => {
@@ -535,12 +537,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
-        if (source.isEmpty()) throw new Error('ade: Profilbild konnte nicht gelesen werden.');
+        if (source.isEmpty()) throw new Error(translate("ade: Profile picture could not be read."));
         for (const size of [256, 128, 64]) {
           const image = source.resize({ width: size, height: size, quality: 'good' }).toPNG();
           if (image.length <= 32 * 1024) return image;
         }
-        throw new Error('ade: Profilbild ist zu gross.');
+        throw new Error(translate("ade: Profile picture is too big."));
       }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() })),
       administration: { ledger, restart, git: repositorySync,
         workspaces: workspaceProvision },
@@ -645,7 +647,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   // Startup integrity of the persisted config. The renderer must be able to
   // tell an empty catalog apart from a quarantined one.
   handle(IPC.ConfigHealth, () => ({ loadFailure: store.getLoadFailure(), importRecoveryFailure }));
-  handle(IPC.ConfigSave, (partial) => store.save(partial));
+  handle(IPC.ConfigSave, (partial) => { const config = store.save(partial); if (config.settings.language) changeLocale(config.settings.language); return config; });
   const projectDefaults = new ProjectDefaultsService(store);
   handle(IPC.ProjectDefaultsGet, () => projectDefaults.get());
   handle(IPC.ProjectDefaultsSave, (input) => projectDefaults.save(input));
@@ -659,9 +661,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     } else {
       const source = await dialog.showMessageBox({
         type: 'question',
-        title: 'Importquelle wählen',
-        message: 'Möchtest du ein Workspace-Bundle oder ein vorhandenes ADE-Profil importieren?',
-        buttons: ['Workspace-Bundle', 'ADE-Profilordner', 'Abbrechen'],
+        title: translate("Choose import source"),
+        message: translate("Do you want to import a workspace bundle or an existing ADE profile?"),
+        buttons: ['Workspace-Bundle', 'ADE-Profilordner', translate("Cancel")],
         defaultId: 0,
         cancelId: 2,
         noLink: true,
@@ -699,10 +701,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (process.env.NODE_ENV !== 'test') {
       const confirmation = await dialog.showMessageBox({
         type: 'warning',
-        title: 'Importziele autorisieren',
-        message: 'ADE darf bei diesem Import ausschließlich die folgenden Ziele verwenden:',
-        detail: targets.length > 0 ? targets.join('\n') : 'Keine Dateisystemziele ausgewählt.',
-        buttons: ['Abbrechen', 'Ziele autorisieren'],
+        title: translate("Authorize import targets"),
+        message: translate("ADE may use only the following destinations for this import:"),
+        detail: targets.length > 0 ? targets.join('\n') : translate("No file system destinations selected."),
+        buttons: [translate("Cancel"), translate("Authorize targets")],
         defaultId: 0,
         cancelId: 0,
         noLink: true,
@@ -914,7 +916,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }));
   handle(IPC.SpeechVoices, () => speech.catalog(true));
   handle(IPC.SpeechSelect, ({ voiceId }) => speech.select(voiceId));
-  handle(IPC.SpeechTest, ({ voiceId, preset, tuning }) => speech.test(voiceId, undefined, undefined, preset, tuning));
+  handle(IPC.SpeechTest, ({ voiceId, preset, tuning, studio }) => speech.test(voiceId, undefined, undefined, preset, tuning, studio));
   handle(IPC.SpeechPreferences, (target) => speechPreferences.query(target, true));
   handle(IPC.SpeechConfigure, (input) => speechPreferences.select(input));
   handle(IPC.HarnessSetKey, ({ runtime, apiKey }) => {
@@ -1014,7 +1016,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   // Forward keystrokes to the session's pty
   handle(IPC.PtyWrite, ({ sessionId, dataBase64 }) => {
-    if (!remoteTerminals!.desktopMayWrite(sessionId)) throw new Error('ade: Terminal wird remote gesteuert. Eingabe zuerst am Desktop übernehmen.');
+    if (!remoteTerminals!.desktopMayWrite(sessionId)) throw new Error(translate("ade: This terminal is controlled remotely. Take control of input on the desktop first."));
     ptyManager!.write(sessionId, Buffer.from(dataBase64, 'base64'));
   });
 
@@ -1038,27 +1040,27 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handleWithEvent(IPC.DictationPrepare, async ({ sessionId }, event) => {
     const checkTarget = await remoteTerminals!.desktopRecordingTarget(sessionId);
     return recordings.prepare(`desktop:${event.sender.id}`, () => {
-      if (event.sender.isDestroyed()) throw new Error('Das aufnehmende ADE-Fenster wurde geschlossen.');
+      if (event.sender.isDestroyed()) throw new Error(translate("The ADE window recording audio was closed."));
       checkTarget();
     }, checkTarget.usage);
   });
   handleWithEvent(IPC.ConversationDictationPrepare, ({ conversationId }, event) => {
     const checkTarget = conversationService().recordingTarget(conversationId);
     return recordings.prepare(`desktop:${event.sender.id}`, () => {
-      if (event.sender.isDestroyed()) throw new Error('Das aufnehmende ADE-Fenster wurde geschlossen.');
+      if (event.sender.isDestroyed()) throw new Error(translate("The ADE window recording audio was closed."));
       checkTarget();
     }, checkTarget.usage);
   });
   handleWithEvent(IPC.OrganizerDictationPrepare, ({ documentId }, event) => {
     const check = () => {
-      if (event.sender.isDestroyed() || !organizer.store.detail(documentId) || organizer.store.detail(documentId)?.deleted) throw new Error('Die Aufgabe oder Notiz ist nicht mehr geöffnet.');
+      if (event.sender.isDestroyed() || !organizer.store.detail(documentId) || organizer.store.detail(documentId)?.deleted) throw new Error(translate("The task or note is no longer open."));
     };
     check(); const repositoryId = organizer.store.detail(documentId)!.document.repositoryId;
     return recordings.prepare(`desktop:${event.sender.id}`, check, repositoryId ? { repositoryId } : {});
   });
   handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
     const audio = Buffer.from(audioBase64, 'base64');
-    if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
+    if (audio.toString('base64') !== audioBase64) throw new Error(translate("Invalid audio data."));
     return recordings.submit(`desktop:${event.sender.id}`, jobId, key, audio);
   });
   handleWithEvent(IPC.DictationQuery, ({ jobId }, event) => recordings.read(`desktop:${event.sender.id}`, jobId));
@@ -1066,7 +1068,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handleWithEvent(IPC.DictationStreamStart, ({ jobId }, event) => recordings.startLive(`desktop:${event.sender.id}`, jobId));
   handleWithEvent(IPC.DictationStreamChunk, ({ jobId, sequence, audioBase64 }, event) => {
     const audio = Buffer.from(audioBase64, 'base64');
-    if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
+    if (audio.toString('base64') !== audioBase64) throw new Error(translate("Invalid audio data."));
     recordings.pushLive(`desktop:${event.sender.id}`, jobId, sequence, audio);
   });
   handleWithEvent(IPC.DictationStreamFinish, ({ jobId }, event) => recordings.finishLive(`desktop:${event.sender.id}`, jobId));
@@ -1171,7 +1173,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
         result.commitSha!,
       );
       entries.push({
-        participantName: participantName.get(result.participantId) ?? 'Unbekannt',
+        participantName: participantName.get(result.participantId) ?? translate("Unknown"),
         branch: lease.branch,
         commitSha: result.commitSha!,
         title: commit.title,

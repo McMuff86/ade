@@ -5,6 +5,7 @@ Stand: 2026-09-17. Beginne je nach Anliegen hier:
 | Anliegen | Dokument |
 |---|---|
 | ADE zum ersten Mal nutzen | **[User-Guide mit Screenshots](USER_GUIDE.md)** |
+| Sprache wechseln, frei plaudern und ElevenLabs-Stimmen vergleichen | [Sprachen, Gespräche und Stimmenstudio](LANGUAGES_AND_CONVERSATIONS.md) |
 | Geführte Einrichtung und Mobile-Status: Umsetzung und Abnahme | [Onboarding-Tasks](ONBOARDING_GOALS.md) |
 | Tablet verbinden / Verbindung untersuchen | [Mobile Connect Guide](goal8/MOBILE_CONNECT_GUIDE.md) |
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |

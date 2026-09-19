@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open, opendir, lstat } from 'node:fs/promises';
@@ -60,7 +61,7 @@ export class RunFileTracker {
       if (!scope || scope.id !== execution.workspaceBindingId || !sameHostPath(scope.workspaceDir, execution.workspaceDir)) throw new Error('workspace changed');
       const before = await snapshotRunFiles(this.workbench, scope); this.save(taskId, { before, notice: null });
     } catch (error) { console.warn('[ade] task file baseline unavailable:', redactedErrorDetail(error));
-      this.save(taskId, { notice: 'Ausgangsstand nicht vollständig verfügbar. Dateizuordnung bleibt unbekannt.' }); }
+      this.save(taskId, { notice: translate("Initial status not fully available. File assignment remains unknown.") }); }
   }
   async after(taskId: string): Promise<void> {
     const config = this.store.get(); const task = config.runTasks.find((item) => item.id === taskId); const previous = task?.fileTracking;
@@ -81,7 +82,7 @@ export class RunFileTracker {
       if (after.workspaceVersion !== previous.before.workspaceVersion) throw new Error('scope version changed');
       this.save(taskId, { ...previous, after, ...(this.files ? { saved: { ...saved, limited: saved.limited || after.limited } } : {}) });
     } catch (error) { console.warn('[ade] task file completion unavailable:', redactedErrorDetail(error));
-      this.save(taskId, { ...previous, notice: 'Kein bestätigter Abschlussvergleich. Aktuelle Dateien sind kein gesicherter Run-Nachweis.' }); }
+      this.save(taskId, { ...previous, notice: translate("No verified final comparison. Current files are not a secured run proof.") }); }
   }
   private save(taskId: string, fileTracking: RunFileTracking) {
     const config = this.store.get(); if (!config.runTasks.some((task) => task.id === taskId)) return;

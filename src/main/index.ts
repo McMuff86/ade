@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { changeLocale, i18n } from '../shared/i18n';
 /**
  * Electron main entry — window + app lifecycle only (no updater, no cloud).
  */
@@ -29,18 +31,24 @@ function showDesktop(): void {
   else { mainWindow.show(); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
 }
 
+function updateTrayLanguage(): void {
+  if (!hostTray) return;
+  hostTray.setToolTip(translate("ADE · Mobile access remains active"));
+  hostTray.setContextMenu(Menu.buildFromTemplate([
+    { label: translate("Open ADE"), click: showDesktop },
+    { type: 'separator' },
+    { label: translate("Quit ADE and mobile access"), click: () => app.quit() },
+  ]));
+}
+i18n.on('languageChanged', updateTrayLanguage);
+
 function ensureHostTray(): boolean {
   if (hostTray) return true;
   try {
     const icon = nativeImage.createFromPath(join(__dirname, 'tray.png'));
     if (icon.isEmpty()) throw new Error('ade: tray icon unavailable');
     hostTray = new Tray(icon.resize({ width: 20, height: 20 }));
-    hostTray.setToolTip('ADE · Mobiler Zugriff bleibt aktiv');
-    hostTray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'ADE öffnen', click: showDesktop },
-      { type: 'separator' },
-      { label: 'ADE und mobilen Zugriff beenden', click: () => app.quit() },
-    ]));
+    updateTrayLanguage();
     hostTray.on('double-click', showDesktop);
     return true;
   } catch (error) { console.warn('[ade] host tray unavailable:', redactedErrorDetail(error)); return false; }
@@ -148,6 +156,7 @@ void app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => desktopMicrophone.allows(contents?.id, permission, details));
   const store = new ConfigStore();
+  if (store.get().settings.language) changeLocale(store.get().settings.language!);
   try {
     await registerIpcHandlers(store);
   } catch (error) {

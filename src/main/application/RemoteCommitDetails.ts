@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { MobileCommitDetail, MobileCommitFile } from '../../shared/remote';
 import { redactForWire } from '../errors';
 import { RemoteApiError } from './AdeApplicationService';
@@ -11,12 +12,12 @@ const comparison = (commit: Pick<MobileCommitDetail, 'sha' | 'parents'>) => comm
 export async function readCommitDetail(git: Git, sha: string, safePath: (path: string) => void): Promise<MobileCommitDetail> {
   if (!validCommitSha(sha)) throw new RemoteApiError(400, 'invalid_payload');
   try { await git(['merge-base', '--is-ancestor', sha, 'HEAD']); }
-  catch { reject('Dieser Commit gehört nicht zum Verlauf des ausgewählten Workspace oder ist nicht mehr verfügbar.'); }
+  catch { reject(translate("This commit does not belong to the history of the selected workspace or is no longer available.")); }
   const metadata = (await git(['show', '--no-patch', '--format=%H%x00%P%x00%an%x00%aI%x00%cI%x00%B', sha, '--'])).split('\0');
   const [id, parentText, author, authoredAt, committedAt, ...body] = metadata;
   const parents = (parentText ?? '').split(' ').filter(Boolean);
   if (id !== sha || parents.some((parent) => !validCommitSha(parent)) || !Number.isFinite(Date.parse(authoredAt ?? ''))
-    || !Number.isFinite(Date.parse(committedAt ?? ''))) reject('Commit-Metadaten konnten nicht gelesen werden.');
+    || !Number.isFinite(Date.parse(committedAt ?? ''))) reject(translate("Commit metadata could not be read."));
   const message = body.join('\0').trimEnd();
   const base = ['diff-tree', '-r', '--no-commit-id', '--no-renames', '--no-ext-diff', '--no-textconv'];
   const revisions = comparison({ sha, parents });
@@ -27,7 +28,7 @@ export async function readCommitDetail(git: Git, sha: string, safePath: (path: s
   const counts = new Map<string, { additions: number | null; deletions: number | null }>();
   for (const record of stats.split('\0').filter(Boolean)) {
     const match = /^(\d+|-)\t(\d+|-)\t([\s\S]+)$/.exec(record);
-    if (!match) reject('Commit-Dateistatistik konnte nicht gelesen werden.');
+    if (!match) reject(translate("Commit file statistics could not be read."));
     counts.set(match[3]!, { additions: match[1] === '-' ? null : Number(match[1]), deletions: match[2] === '-' ? null : Number(match[2]) });
   }
   const files: MobileCommitFile[] = []; let limited = false;
@@ -35,7 +36,7 @@ export async function readCommitDetail(git: Git, sha: string, safePath: (path: s
   for (let index = 0; index < records.length; index += 2) {
     const match = /^:(\d{6}) (\d{6}) [a-f0-9]+ [a-f0-9]+ ([AMDT])$/.exec(records[index]!);
     const path = records[index + 1];
-    if (!match || !path || !counts.has(path)) reject('Commit-Dateiliste konnte nicht gelesen werden.');
+    if (!match || !path || !counts.has(path)) reject(translate("Commit file list could not be read."));
     if (files.length >= 500 || ![match[1], match[2]].every((mode) => ['000000', '100644', '100755'].includes(mode!))) { limited = true; continue; }
     try { safePath(path); } catch { limited = true; continue; }
     const status = ({ A: 'added', M: 'modified', D: 'deleted', T: 'type-changed' } as const)[match[3] as 'A' | 'M' | 'D' | 'T'];
@@ -50,10 +51,10 @@ export async function readCommitDetail(git: Git, sha: string, safePath: (path: s
 
 export async function readCommitPatch(git: Git, commit: MobileCommitDetail, path: string): Promise<{ diff: string; limited: boolean; notice?: string }> {
   const file = commit.files.find((item) => item.path === path);
-  if (!file) reject('Diese Datei ist für die Commit-Ansicht nicht verfügbar.');
-  if (file.additions === null || file.deletions === null) return { diff: '', limited: false, notice: 'Binärdatei geändert. Eine Textdiff-Ansicht und Zeilenzählung sind dafür nicht verfügbar.' };
+  if (!file) reject(translate("This file is not available for commit view."));
+  if (file.additions === null || file.deletions === null) return { diff: '', limited: false, notice: translate("Binary file changed. A text diff and line counts are unavailable for this file.") };
   const raw = await git(['diff-tree', '-r', '--no-commit-id', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color',
     '--src-prefix=a/', '--dst-prefix=b/', '--unified=3', '-p', ...comparison(commit), '--', path]);
   return { diff: redactForWire(raw, 64 * 1024), limited: raw.length > 64 * 1024,
-    ...(!raw ? { notice: 'Keine Textänderung vorhanden.' } : {}) };
+    ...(!raw ? { notice: translate("No text changes.") } : {}) };
 }

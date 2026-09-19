@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type ComponentProps, type JSX } from 'react';
 import type { MobileAdministrationResult, MobileHostState, MobileWorkspaceResult } from '../shared/remote';
 import type { MobileHost } from './useMobileHost';
@@ -7,7 +10,8 @@ import { Dialog } from './ui';
 import { ProjectDirectoryPage, type ProjectOpenIntent } from './ProjectDirectoryPage';
 
 export function Projects({ host, onProject, intent, onIntentConsumed }: { host: MobileHost; onProject: (id: string) => void; intent?: ProjectOpenIntent; onIntentConsumed?: () => void }): JSX.Element {
-  return <section className="m-project-entry" aria-label="Projekte">
+  useLocale();
+  return <section className="m-project-entry" aria-label={translate("Projects")}>
     <ProjectDirectoryPage key={host.identityVersion} host={host} onAgentWorkspace={onProject} intent={intent} onIntentConsumed={onIntentConsumed} />
   </section>;
 }
@@ -18,6 +22,7 @@ type WorkspaceProps = Pick<ComponentProps<typeof AgentWorkspace>, 'fileDrafts' |
 export function ProjectWorkspace({ host, repositoryId, onClose, onTask, ...workspaceProps }: WorkspaceProps & {
   host: MobileHost; repositoryId: string; onClose: () => void; onTask: (agentId: string) => void;
 }): JSX.Element {
+  useLocale();
   const repo = host.catalog?.repositories.find((item) => item.id === repositoryId);
   const agents = host.catalog?.agents.filter((agent) => !agent.homeExecutionBackend || agent.homeExecutionBackend === 'native') ?? [];
   const preferred = agents.find((agent) => agent.defaultRepositoryId === repositoryId)
@@ -37,7 +42,7 @@ export function ProjectWorkspace({ host, repositoryId, onClose, onTask, ...works
     return () => { current = false; };
   }, [host.status, host.request]);
   const checkpoint = (value: Preparation) => {
-    if (!save(value)) throw new Error('Browser-Speicher nicht verfügbar. Workspace wurde nicht weiter vorbereitet.');
+    if (!save(value)) throw new Error(translate("Browser storage not available. Workspace has not been prepared any further."));
   };
   const prepare = async () => {
     if (lock.current || host.status !== 'online' || !canRead) return;
@@ -46,16 +51,16 @@ export function ProjectWorkspace({ host, repositoryId, onClose, onTask, ...works
     try {
       checkpoint(current);
       if (current.phase === 'agent') {
-        if (!canPrepare) { setError('Am PC für dieses Tablet „Agents und Projekte erstellen“ freigeben, um ein Workspace-Profil vorzubereiten.'); return; }
+        if (!canPrepare) { setError(translate("Share on the PC for this tablet “Create Agents and Projects” to prepare a workspace profile.")); return; }
         const result = await host.request<MobileAdministrationResult>('/api/v1/admin/commands', 'POST', {
-          operation: 'agent-create', input: { name: 'Codex', source: { kind: 'runtime', id: 'codex' } },
+          operation: 'agent-create', input: { name: translate("Codex"), source: { kind: 'runtime', id: 'codex' } },
         }, `${current.key}-agent`);
         current = { ...current, agentId: result.created!.id, phase: 'workspace' }; checkpoint(current);
       }
       if (!live.current) return;
       const existing = await host.request<MobileWorkspaceResult>('/api/v1/workspace/query', 'POST', { operation: 'overview', agentId: current.agentId, repositoryId });
       if (!existing.overview?.ready) {
-        if (!canPrepare) { setError('Am PC für dieses Tablet „Agents und Projekte erstellen“ freigeben, um die Arbeitskopie vorzubereiten.'); return; }
+        if (!canPrepare) { setError(translate("Share on the PC for this tablet “Create Agents and Projects” to prepare the working copy.")); return; }
         await host.request('/api/v1/admin/commands', 'POST', {
           operation: 'workspace-prepare', input: { agentId: current.agentId, repositoryId },
         }, `${current.key}-workspace`);
@@ -67,20 +72,20 @@ export function ProjectWorkspace({ host, repositoryId, onClose, onTask, ...works
   };
   if (ready) return <AgentWorkspace {...workspaceProps} host={host} agentId={ready} initialRepositoryId={repositoryId} initialTab="terminal"
     projectEntry onClose={onClose} onTask={() => onTask(ready)} />;
-  return <Dialog title={`Projekt · ${repo?.name ?? 'Nicht verfügbar'}`} onClose={onClose} fallbackId="view-tab-projects">
-    <p>Öffne die ADE-Arbeitskopie dieses Projekts. Anschliessend wählst du das CLI. Beim Öffnen startet noch kein Agent.</p>
-    <details><summary>Workspace-Profil</summary><label>Profil für die Arbeitskopie<select aria-label="Profil für die Arbeitskopie" value={progress?.agentId ?? selected} disabled={busy || !!progress} onChange={(event) => setSelected(event.target.value)}>
-      <option value="" disabled={rights?.resourceSelection === 'selected'}>Neues Standardprofil</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-    </select></label><p>Dieses Profil bestimmt die Arbeitskopie. Das CLI wählst du danach unabhängig davon.</p></details>
-    {repo && (!repo.verified || repo.executionBackend !== 'native') && <p role="alert">Dieser Projekteinstieg benötigt ein am PC verifiziertes natives Repository. WSL-Agenten weiterhin über Overview öffnen.</p>}
-    {!repo && <p role="alert">Das Projekt ist nicht mehr in ADE vorhanden. Projektliste aktualisieren.</p>}
-    {host.status !== 'online' && <p role="status">PC nicht verbunden. Sobald er erreichbar ist, kannst du fortsetzen.</p>}
-    {host.status === 'online' && !rights && <p role="status">Gerätefreigaben werden geprüft…</p>}
-    {rights && !canRead && <p role="alert">Am PC für dieses Tablet „Workspace-Dateien und Git-Diffs lesen“ freigeben.</p>}
-    {error && <p role="alert">{error}</p>}
-    {busy && <p role="status">Workspace wird geöffnet…</p>}
+  return <Dialog title={translate("Project · {{value1}}", { value1: repo?.name ?? translate("Not available") })} onClose={onClose} fallbackId="view-tab-projects">
+    <p>{translate("Open the ADE working copy of this project, then select the CLI, and no agent will start when you open it.")}</p>
+    <details><summary>{translate("Workspace Profile")}</summary><label>{translate("Working copy profile")}<select aria-label={translate("Working copy profile")} value={progress?.agentId ?? selected} disabled={busy || !!progress} onChange={(event) => setSelected(event.target.value)}>
+      <option value="" disabled={rights?.resourceSelection === 'selected'}>{translate("New default profile")}</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+    </select></label><p>{translate("This profile determines the working copy. The CLI you choose afterwards independently.")}</p></details>
+    {repo && (!repo.verified || repo.executionBackend !== 'native') && <p role="alert">{translate("This project entry requires a PC verified native repository. WSL agents continue to open via Overview.")}</p>}
+    {!repo && <p role="alert">{translate("The project is no longer present in ADE. Update project list.")}</p>}
+    {host.status !== 'online' && <p role="status">{translate("PC not connected. Once it's available, you can continue.")}</p>}
+    {host.status === 'online' && !rights && <p role="status">{translate("Checking device permissions…")}</p>}
+    {rights && !canRead && <p role="alert">{translate("Share “Read Workspace Files and Git Diffs” on PC for this tablet.")}</p>}
+    {error && <p role="alert">{localizeAppMessage(error)}</p>}
+    {busy && <p role="status">{translate("Opening workspace…")}</p>}
     <button className="m-primary" disabled={busy || !canRead || host.status !== 'online' || !repo?.verified || repo.executionBackend !== 'native'} onClick={() => void prepare()}>
-      {progress ? 'Workspace öffnen · fortsetzen' : 'Workspace öffnen'}</button>
-    {progress && !busy && <button onClick={() => { save(null); setError(''); }}>Vorbereitung zurücksetzen · Dateien behalten</button>}
+      {progress ? translate("Open workspace · Continue") : translate("Open workspace")}</button>
+    {progress && !busy && <button onClick={() => { save(null); setError(''); }}>{translate("Reset preparation · Keeping files")}</button>}
   </Dialog>;
 }

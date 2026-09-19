@@ -1,3 +1,4 @@
+import { t as translate } from '../../shared/i18n';
 import type { RunTaskOutput } from '../../shared/types';
 import { redactSensitiveText } from '../errors';
 import { extractJsonEventObjects, normalizePtyJsonStream, parseJsonEventObject } from './runtimeEventStream';
@@ -30,7 +31,7 @@ export function taskOutputFromStream(raw: string, prompt: string): RunTaskOutput
   }
   if (!text.trim()) return undefined;
   // The task contract itself is never included in the result projection.
-  if (prompt.trim()) text = text.split(prompt.trim()).join('[Auftragstext ausgeblendet]');
+  if (prompt.trim()) text = text.split(prompt.trim()).join(translate("[Task prompt hidden]"));
   text = redactSensitiveText(text).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
   return { text: text.slice(0, TASK_OUTPUT_LIMIT), limited: text.length > TASK_OUTPUT_LIMIT, source: 'structured-cli' };
 }

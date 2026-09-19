@@ -4,6 +4,8 @@
  */
 
 import { create } from 'zustand';
+import { applyBrowserLocale } from '../i18n/language';
+import { isAppLocale } from '../../shared/i18n/locales';
 import { DEFAULT_INSPECTOR_SIDE, type InspectorSide, type ThemeName } from '../../shared/types';
 
 interface SettingsState {
@@ -25,6 +27,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   hydrate: async () => {
     try {
       const config = await window.ade.invoke('config:get');
+      if (isAppLocale(config.settings.language)) applyBrowserLocale(config.settings.language);
       set({
         theme: config.settings.theme,
         inspectorSide: config.settings.inspectorSide === 'left' ? 'left' : DEFAULT_INSPECTOR_SIDE,

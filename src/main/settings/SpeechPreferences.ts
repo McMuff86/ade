@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { AdeConfig } from '../../shared/types';
 import { DEFAULT_SPEECH_TUNING, validSpeechTarget, validSpeechSelection, type SpeechPreference, type SpeechSelection, type SpeechTarget } from '../../shared/speech';
 import type { SpeechService } from './SpeechService';
@@ -7,12 +8,12 @@ interface Store { get(): AdeConfig; save(value: Partial<AdeConfig>): unknown }
 export class SpeechPreferences {
   constructor(private readonly store: Store, private readonly speech: SpeechService) {}
   private target(target: SpeechTarget) {
-    if (!validSpeechTarget(target)) throw new Error('Ungültiges Sprachziel.');
+    if (!validSpeechTarget(target)) throw new Error(translate("Invalid speech target."));
     const config = this.store.get();
     const agent = target.kind === 'agent' ? config.agents.find(item => item.id === target.agentId) : undefined;
     const repositoryId = target.kind === 'default' ? undefined : target.repositoryId;
     const project = repositoryId ? config.repositories.find(item => item.id === repositoryId) : undefined;
-    if (target.kind === 'agent' && !agent || repositoryId && !project) throw new Error('Agent oder Projekt ist nicht mehr vorhanden.');
+    if (target.kind === 'agent' && !agent || repositoryId && !project) throw new Error(translate("Agent or project no longer exists."));
     return { config, agent, project };
   }
   async query(target: SpeechTarget, refresh = false): Promise<SpeechPreference> {
@@ -28,9 +29,9 @@ export class SpeechPreferences {
     return { voices: catalog.voices, target, selectedVoiceId: selected ?? null, inheritedVoiceId: inherited, effectiveVoiceId: effective, source, tuning: { ...(config.settings.speechTuning ?? DEFAULT_SPEECH_TUNING) } };
   }
   async select(input: SpeechSelection, authorize: () => void = () => undefined): Promise<void> {
-    if (!validSpeechSelection(input)) throw new Error('Ungültige Stimmenauswahl.');
+    if (!validSpeechSelection(input)) throw new Error(translate("Invalid voice selection."));
     this.target(input.target);
-    if (input.voiceId !== null && !(await this.speech.catalog()).voices.some(voice => voice.id === input.voiceId)) throw new Error('Stimme nicht verfügbar. Stimmen neu laden.');
+    if (input.voiceId !== null && !(await this.speech.catalog()).voices.some(voice => voice.id === input.voiceId)) throw new Error(translate("Voice unavailable. Reload voices."));
     authorize(); const { config, agent, project } = this.target(input.target); const speechVoiceId = input.voiceId ?? undefined;
     if (input.target.kind === 'default') this.store.save({ settings: { ...config.settings, speechVoiceId, ...(input.tuning ? { speechTuning: { ...input.tuning } } : {}) } });
     else if (agent) this.store.save({ agents: config.agents.map(item => item.id === agent.id ? { ...item, speechVoiceId } : item) });

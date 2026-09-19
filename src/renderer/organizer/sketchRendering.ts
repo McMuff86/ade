@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import type { OrganizerDocument, OrganizerImage, SketchStroke } from '../../shared/organizer';
 export function organizerImageUrl(image: OrganizerImage): string {
   const binary = atob(image.base64); const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
@@ -17,11 +18,11 @@ export function drawStroke(context: CanvasRenderingContext2D, stroke: SketchStro
   }
 }
 export function loadOrganizerImage(source: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('Bild konnte nicht dargestellt werden.')); image.src = source; });
+  return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(translate("The picture could not be displayed."))); image.src = source; });
 }
 export async function renderOrganizerSketch(document: OrganizerDocument): Promise<HTMLCanvasElement> {
   const canvas = window.document.createElement('canvas'); canvas.width = document.sketch.width; canvas.height = document.sketch.height;
-  const context = canvas.getContext('2d'); if (!context) throw new Error('Zeichenfläche ist auf diesem Gerät nicht verfügbar.');
+  const context = canvas.getContext('2d'); if (!context) throw new Error(translate("Drawing space is not available on this device."));
   context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height);
   const background = document.images.find(image => image.id === document.sketch.backgroundImageId);
   if (background) {

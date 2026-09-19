@@ -1,4 +1,8 @@
 .conversation-dialog { width: min(850px, 96vw); }
+.conversation-modes { display: grid; gap: 14px; }
+.conversation-modes > button { display: grid; gap: 8px; text-align: start; padding: 20px; min-height: 88px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
+.conversation-modes > button span { color: var(--muted); font-weight: 400; }
+.conversation-modes > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .conversation-panel { display: grid; gap: 12px; min-width: 0; }
 .conversation-panel label { display: grid; gap: 6px; min-width: 0; }
 .conversation-panel select, .conversation-panel textarea { width: 100%; min-width: 0; box-sizing: border-box; }

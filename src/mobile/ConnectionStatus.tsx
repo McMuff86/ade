@@ -1,3 +1,7 @@
+import { localizeAppMessage } from '../shared/i18n/appMessages';
+import { intlLocale } from '../shared/i18n';
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 /**
  * One place that answers "is the PC reachable, and what should I do?".
  * The header pill states the situation in one word; the dialog explains it
@@ -20,41 +24,42 @@ export function connectionSituation(host: Pick<MobileHost, 'status' | 'paired'>,
 
 /** Short label; tests and the status bar rely on the exact word "Verbunden". */
 export function connectionLabel(host: Pick<MobileHost, 'status' | 'paired'>): string {
-  if (!host.paired) return 'Privater Zugriff';
-  return host.status === 'online' ? 'Verbunden' : host.status === 'connecting' ? 'Verbinde…' : 'Offline';
+  if (!host.paired) return translate("Private access");
+  return host.status === 'online' ? translate("Connected") : host.status === 'connecting' ? translate("Connecting…") : translate("Offline");
 }
 
 export function ConnectionDialog({ host, build, onClose, onSettings, fallbackId }: {
   host: MobileHost; build: BuildComparison; onClose: () => void; onSettings: () => void; fallbackId: string;
 }): JSX.Element {
+  useLocale();
   const situation = connectionSituation(host, build);
-  const seen = host.lastSeen ? new Date(host.lastSeen).toLocaleTimeString() : null;
-  return <Dialog title="Verbindung zum PC" onClose={onClose} fallbackId={fallbackId} className="m-connection-dialog">
+  const seen = host.lastSeen ? new Date(host.lastSeen).toLocaleTimeString(intlLocale()) : null;
+  return <Dialog title={translate("Connection to PC")} onClose={onClose} fallbackId={fallbackId} className="m-connection-dialog">
     <dl className="m-connection-facts">
-      <div><dt>Zustand</dt><dd data-situation={situation}>
-        {situation === 'online' && 'Verbunden. Daten und Terminals kommen live vom PC.'}
-        {situation === 'build' && 'Verbunden, aber Browser und PC verwenden unterschiedliche Builds.'}
-        {situation === 'reconnecting' && 'Kurz unterbrochen. Die Verbindung wird wiederhergestellt.'}
-        {situation === 'unreachable' && 'PC nicht erreichbar.'}
+      <div><dt>{translate("Status")}</dt><dd data-situation={situation}>
+        {situation === 'online' && translate("Connected. Data and terminals stream live from the PC.")}
+        {situation === 'build' && translate("Connected, but browser and PC use different builds.")}
+        {situation === 'reconnecting' && translate("Shortly interrupted. The connection is restored.")}
+        {situation === 'unreachable' && translate("PC not reachable.")}
       </dd></div>
-      <div><dt>Letzte Bestätigung</dt><dd>{seen ?? 'Noch keine Antwort in dieser Sitzung'}</dd></div>
-      <div><dt>Kopplung</dt><dd>Bleibt bestehen. Ein Netzwerkwechsel braucht keine neue Kopplung; dieses Gerät meldet sich mit seinem gespeicherten Schlüssel wieder an.</dd></div>
+      <div><dt>{translate("Last confirmation")}</dt><dd>{seen ?? translate("No response in this session yet")}</dd></div>
+      <div><dt>{translate("Pairing")}</dt><dd>{translate("Pairing is preserved. Switching networks does not require pairing again; this device signs back in with its saved key.")}</dd></div>
     </dl>
-    {situation === 'reconnecting' && <p>Angezeigte Daten können veraltet sein. Entwürfe bleiben auf diesem Gerät gespeichert und werden nach der Wiederverbindung übertragen.</p>}
+    {situation === 'reconnecting' && <p>{translate("Data displayed may be obsolete. Drafts remain stored on this device and are transferred after reconnection.")}</p>}
     {situation === 'unreachable' && <>
-      <p>Das hilft, in dieser Reihenfolge:</p>
+      <p>{translate("This helps, in this order:")}</p>
       <ol className="m-connection-steps">
-        <li>Tailscale auf diesem Gerät verbunden? Mobilfunk und fremdes WLAN brauchen die aktive Tailscale-Verbindung.</li>
-        <li>PC eingeschaltet und ADE geöffnet? Nach einem PC-Neustart läuft der mobile Zugriff erst, wenn ADE wieder gestartet ist.</li>
-        <li>Erst danach erneut verbinden. Den Browserspeicher nicht löschen; er enthält die Kopplung.</li>
+        <li>{translate("Tailscale connected on this device? Mobile and external Wi-Fi need the active tailscale connection.")}</li>
+        <li>{translate("PC turned on and ADE opened? After a PC restart, mobile access will not start until ADE has restarted.")}</li>
+        <li>{translate("Then reconnect. Do not clear browser storage; it contains the pairing credentials.")}</li>
       </ol>
     </>}
-    {situation === 'build' && <p>Nach einem Neubau am PC muss ADE dort vollständig beendet und neu gestartet werden; das Schliessen des Fensters lässt den alten Stand weiterlaufen. Danach diese Seite neu laden.</p>}
-    {host.error && <p className="m-alert" role="alert">{host.error}</p>}
+    {situation === 'build' && <p>{translate("After building on the PC, fully quit and restart ADE there; closing the window leaves the old build running. Then reload this page.")}</p>}
+    {host.error && <p className="m-alert" role="alert">{localizeAppMessage(host.error)}</p>}
     <div className="m-actions">
-      {situation !== 'online' && situation !== 'build' && <button className="m-primary" onClick={() => { host.reconnect(); onClose(); }}><Icon name="refresh" />Erneut verbinden</button>}
-      {situation === 'build' && <button className="m-primary" onClick={() => { onClose(); onSettings(); }}>Build-Stand ansehen</button>}
-      <button onClick={onClose}>Schliessen</button>
+      {situation !== 'online' && situation !== 'build' && <button className="m-primary" onClick={() => { host.reconnect(); onClose(); }}><Icon name="refresh" />{translate("Reconnect")}</button>}
+      {situation === 'build' && <button className="m-primary" onClick={() => { onClose(); onSettings(); }}>{translate("View build information")}</button>}
+      <button onClick={onClose}>{translate("Close")}</button>
     </div>
   </Dialog>;
 }

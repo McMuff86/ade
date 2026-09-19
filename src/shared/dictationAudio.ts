@@ -1,9 +1,10 @@
+import { t as translate } from "./i18n";
 import { DICTATION_MAX_SECONDS, DICTATION_SAMPLE_RATE } from './dictation';
 
 /** The recorder resamples to mono before encoding; the host rechecks this exact envelope. */
 export function encodeDictationPcm(samples: Float32Array): Uint8Array {
   if (samples.length < DICTATION_SAMPLE_RATE / 10 || samples.length > DICTATION_SAMPLE_RATE * DICTATION_MAX_SECONDS) {
-    throw new Error('Die Aufnahme muss zwischen 0,1 und 60 Sekunden lang sein.');
+    throw new Error(translate("The recording must be between 0.1 and 60 seconds long."));
   }
   const bytes = new Uint8Array(44 + samples.length * 2); const view = new DataView(bytes.buffer);
   const text = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) bytes[offset + i] = value.charCodeAt(i); };
@@ -12,7 +13,7 @@ export function encodeDictationPcm(samples: Float32Array): Uint8Array {
   view.setUint32(24, DICTATION_SAMPLE_RATE, true); view.setUint32(28, DICTATION_SAMPLE_RATE * 2, true);
   view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, 'data'); view.setUint32(40, bytes.length - 44, true);
   for (let i = 0; i < samples.length; i++) {
-    if (!Number.isFinite(samples[i])) throw new Error('Ungültige Audiodaten. Bitte erneut aufnehmen.');
+    if (!Number.isFinite(samples[i])) throw new Error(translate("Invalid audio, please re-record."));
     const sample = Math.max(-1, Math.min(1, samples[i]));
     view.setInt16(44 + i * 2, Math.round(sample < 0 ? sample * 32768 : sample * 32767), true);
   }

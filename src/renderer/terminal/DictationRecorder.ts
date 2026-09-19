@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import { DICTATION_MAX_SECONDS, DICTATION_SAMPLE_RATE } from '../../shared/dictation';
 import { encodeDictationPcm } from '../../shared/dictationAudio';
 
@@ -16,10 +17,10 @@ export class DictationRecorder {
   private started = false;
 
   async start(onStop: (audio: Promise<Uint8Array>) => void): Promise<void> {
-    if (this.started || this.cancelled) throw new Error('Diese Aufnahme ist nicht mehr verfügbar.');
+    if (this.started || this.cancelled) throw new Error(translate("This recording is no longer available."));
     this.started = true;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      throw new Error('Mikrofonaufnahme ist in diesem Browser nicht verfügbar. ADE über HTTPS öffnen.');
+      throw new Error(translate("Microphone recording is not available in this browser. Open ADE over HTTPS."));
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true }, video: false });
@@ -32,10 +33,10 @@ export class DictationRecorder {
       recorder.ondataavailable = event => {
         if (this.cancelled || this.failure || !event.data.size) return;
         this.size += event.data.size;
-        if (this.size > MAX_ENCODED_BYTES) { this.failure = new Error('Die Aufnahme ist zu gross. Bitte kürzer diktieren.'); this.stop(); }
+        if (this.size > MAX_ENCODED_BYTES) { this.failure = new Error(translate("The recording is too large. Please dictate shorter.")); this.stop(); }
         else this.chunks.push(event.data);
       };
-      recorder.onerror = () => { this.failure = new Error('Mikrofonaufnahme fehlgeschlagen. Bitte erneut versuchen.'); this.stop(); };
+      recorder.onerror = () => { this.failure = new Error(translate("Microphone recording failed. Please try again.")); this.stop(); };
       recorder.onstop = () => {
         this.releaseMicrophone();
         const chunks = this.chunks; this.chunks = [];
@@ -52,9 +53,9 @@ export class DictationRecorder {
       this.releaseMicrophone();
       if (this.cancelled) return;
       if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
-        throw new Error('Mikrofonzugriff wurde nicht erlaubt. Die Freigabe in ADE beziehungsweise im Browser prüfen.');
+        throw new Error(translate("Microphone access was not allowed. Check the permission in ADE or in the browser."));
       }
-      throw new Error('Mikrofon konnte nicht gestartet werden. Gerät und Browserfreigabe prüfen.');
+      throw new Error(translate("Microphone could not be started. Check device and browser sharing."));
     }
   }
 
@@ -72,13 +73,13 @@ export class DictationRecorder {
   }
 
   private async decode(blob: Blob): Promise<Uint8Array> {
-    if (!blob.size || blob.size > MAX_ENCODED_BYTES || this.cancelled) throw new Error('Aufnahme leer oder abgebrochen.');
+    if (!blob.size || blob.size > MAX_ENCODED_BYTES || this.cancelled) throw new Error(translate("Recording empty or aborted."));
     const decoder = new AudioContext();
     try {
       const decoded = await decoder.decodeAudioData(await blob.arrayBuffer());
-      if (this.cancelled) throw new Error('Aufnahme abgebrochen.');
+      if (this.cancelled) throw new Error(translate("Recording aborted."));
       if (!Number.isFinite(decoded.duration) || decoded.duration < 0.1 || decoded.duration > DICTATION_MAX_SECONDS + 5) {
-        throw new Error('Die Aufnahme muss zwischen 0,1 und 60 Sekunden lang sein.');
+        throw new Error(translate("The recording must be between 0.1 and 60 seconds long."));
       }
       // Timers may run late in background tabs; the submitted file still has
       // a hard sixty-second sample boundary independently checked by main.
@@ -86,7 +87,7 @@ export class DictationRecorder {
       const resampler = new OfflineAudioContext(1, samples, DICTATION_SAMPLE_RATE);
       const source = resampler.createBufferSource(); source.buffer = decoded; source.connect(resampler.destination); source.start();
       const mono = await resampler.startRendering();
-      if (this.cancelled) throw new Error('Aufnahme abgebrochen.');
+      if (this.cancelled) throw new Error(translate("Recording aborted."));
       return encodeDictationPcm(mono.getChannelData(0));
     } finally { await decoder.close().catch(() => undefined); }
   }

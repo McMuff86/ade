@@ -1,3 +1,4 @@
+import { t as translate } from "../../shared/i18n";
 import {
   DICTATION_MAX_AUDIO_BYTES, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE,
   validPromptText, type DictationTranscript,
@@ -10,7 +11,7 @@ import { openLiveDictation, type LiveDictationSession } from './LiveDictationSer
  * remote URL, filename or client-reported duration is trusted by the host. */
 export function validateDictationAudio(audio: Uint8Array): number {
   if (!(audio instanceof Uint8Array) || audio.byteLength < 44 + 3200 || audio.byteLength > DICTATION_MAX_AUDIO_BYTES) {
-    throw new Error('Die Aufnahme muss zwischen 0,1 und 60 Sekunden lang sein.');
+    throw new Error(translate("The recording must be between 0.1 and 60 seconds long."));
   }
   const bytes = Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength);
   if (bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.readUInt32LE(4) !== bytes.length - 8
@@ -19,7 +20,7 @@ export function validateDictationAudio(audio: Uint8Array): number {
     || bytes.readUInt32LE(24) !== DICTATION_SAMPLE_RATE || bytes.readUInt32LE(28) !== DICTATION_SAMPLE_RATE * 2
     || bytes.readUInt16LE(32) !== 2 || bytes.readUInt16LE(34) !== 16
     || bytes.toString('ascii', 36, 40) !== 'data' || bytes.readUInt32LE(40) !== bytes.length - 44
-    || (bytes.length - 44) % 2 !== 0) throw new Error('Die Aufnahme hat ein ungültiges Audioformat. Bitte erneut aufnehmen.');
+    || (bytes.length - 44) % 2 !== 0) throw new Error(translate("The recording is invalid audio format, please re-record."));
   return (bytes.length - 44) / (DICTATION_SAMPLE_RATE * 2);
 }
 
@@ -33,8 +34,8 @@ export class DictationService {
 
   async startLive(authorize: () => void, signal: AbortSignal, attribution: SpeechUsageAttribution, preview: (text: string) => void): Promise<LiveDictationSession> {
     authorize();
-    if (this.busy) throw new Error('Eine Transkription läuft bereits. Bitte warten.');
-    const key = this.key(); if (!key) throw new Error('ElevenLabs-Key fehlt. Unter Service-Keys ELEVENLABS_API_KEY speichern.');
+    if (this.busy) throw new Error(translate("A transcription is already underway. Please wait."));
+    const key = this.key(); if (!key) throw new Error(translate("ElevenLabs key missing. Save under service keys ELEVENLABS_API_KEY."));
     this.busy = true;
     try {
       const session = await openLiveDictation({ key, authorize, signal, attribution, preview, usage: this.usage, fetcher: this.fetcher });
@@ -46,12 +47,12 @@ export class DictationService {
   async transcribe(audio: Uint8Array, authorize: () => void, signal?: AbortSignal, attribution: SpeechUsageAttribution = {}): Promise<DictationTranscript> {
     authorize();
     const audioSeconds = validateDictationAudio(audio);
-    if (this.busy) throw new Error('Eine Transkription läuft bereits. Bitte warten.');
+    if (this.busy) throw new Error(translate("A transcription is already underway. Please wait."));
     const key = this.key();
-    if (!key) throw new Error('ElevenLabs-Key fehlt. Unter Service-Keys ELEVENLABS_API_KEY speichern.');
+    if (!key) throw new Error(translate("ElevenLabs key missing. Save under service keys ELEVENLABS_API_KEY."));
     const deadline = AbortSignal.timeout(60_000);
     const cancellation = signal ? AbortSignal.any([signal, deadline]) : deadline;
-    if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
+    if (cancellation.aborted) throw new Error(translate("Transcription cancelled."));
     this.busy = true;
     let attempt: SpeechUsageAttempt | undefined; let dispatched = false;
     try {
@@ -63,7 +64,7 @@ export class DictationService {
       form.set('diarize', 'false');
       authorize();
       attempt = await this.usage?.begin({ ...attribution, product: 'dictation', model: 'scribe_v2', audioSeconds });
-      authorize(); if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
+      authorize(); if (cancellation.aborted) throw new Error(translate("Transcription cancelled."));
       let response: Response;
       try {
         dispatched = true;
@@ -71,20 +72,20 @@ export class DictationService {
           method: 'POST', headers: { 'xi-api-key': key }, body: form, redirect: 'error', signal: cancellation,
         });
       } catch {
-        throw new Error(cancellation.aborted ? 'Transkription abgebrochen oder Zeitlimit erreicht.'
-          : 'ElevenLabs ist gerade nicht erreichbar. Der Versandstatus ist unbekannt; keine automatische Wiederholung.');
+        throw new Error(cancellation.aborted ? translate("Transcription aborted or time limit reached.")
+          : translate("ElevenLabs is currently unreachable. The shipping status is unknown; no automatic repetition."));
       }
       if (!response.ok) {
         await response.body?.cancel();
-        throw new Error(response.status === 401 || response.status === 403 ? 'ElevenLabs lehnt Speech to Text ab. Key und Berechtigung prüfen.'
-          : response.status === 429 ? 'ElevenLabs-Limit erreicht. Bitte später erneut versuchen.'
-            : `Transkription fehlgeschlagen (HTTP ${response.status}).`);
+        throw new Error(response.status === 401 || response.status === 403 ? translate("ElevenLabs rejects Speech to Text. Check key and authorization.")
+          : response.status === 429 ? translate("ElevenLabs limit is reached. Please try again later.")
+            : translate("Transcription failed (HTTP {{value1}}).", { value1: response.status }));
       }
       if (!response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
-        await response.body?.cancel(); throw new Error('ElevenLabs hat kein gültiges Transkript geliefert.');
+        await response.body?.cancel(); throw new Error(translate("ElevenLabs did not provide a valid transcript."));
       }
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('ElevenLabs hat kein Transkript geliefert.');
+      if (!reader) throw new Error(translate("ElevenLabs did not provide a transcript."));
       const chunks: Uint8Array[] = []; let size = 0;
       try {
         while (true) {
@@ -95,16 +96,16 @@ export class DictationService {
         }
       } catch {
         await reader.cancel().catch(() => undefined);
-        throw new Error('Transkript unvollständig, zu gross oder abgebrochen.');
+        throw new Error(translate("Transcript incomplete, too large or aborted."));
       } finally { reader.releaseLock(); }
       let body: unknown;
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-      catch { throw new Error('ElevenLabs hat kein gültiges Transkript geliefert.'); }
-      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('ElevenLabs hat kein gültiges Transkript geliefert.');
+      catch { throw new Error(translate("ElevenLabs did not provide a valid transcript.")); }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error(translate("ElevenLabs did not provide a valid transcript."));
       const data = body as Record<string, unknown>;
       if (typeof data.text !== 'string' || data.text.length > DICTATION_MAX_TEXT_CHARS
-        || (data.text.trim() && !validPromptText(data.text))) throw new Error('Das Transkript ist zu lang oder enthält ungültige Steuerzeichen.');
-      if (cancellation.aborted) throw new Error('Transkription abgebrochen.');
+        || (data.text.trim() && !validPromptText(data.text))) throw new Error(translate("The transcript is too long or contains invalid control characters."));
+      if (cancellation.aborted) throw new Error(translate("Transcription cancelled."));
       authorize();
       await attempt?.finish('complete').catch(error => console.warn('[ade] speech usage finalization failed:', redactedErrorDetail(error)));
       return { text: data.text, language: typeof data.language_code === 'string' && /^[a-z]{2,3}$/.test(data.language_code)

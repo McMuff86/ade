@@ -1,3 +1,5 @@
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { groupCategories, shiftNavigationItem } from '../../shared/categoryNavigation';
 import { useNavigationCollapse } from '../../shared/useNavigationCollapse';
 /**
@@ -35,6 +37,7 @@ function edgeOf(event: DragEvent<HTMLElement>): Edge {
 }
 
 export function Rail(): React.ReactElement {
+  useLocale();
   const categories = useAppData((s) => s.categories);
   const agents = useAppData((s) => s.agents);
   const moveAgent = useAppData((s) => s.moveAgent);
@@ -59,15 +62,15 @@ export function Rail(): React.ReactElement {
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true); setOrderError(''); setOrderStatus('');
-    try { await action(); setOrderStatus('Reihenfolge gespeichert.'); }
-    catch { setOrderError('Reihenfolge konnte nicht gespeichert werden. Bitte erneut versuchen.'); }
+    try { await action(); setOrderStatus(translate("Order saved.")); }
+    catch { setOrderError(translate("Order could not be saved. Please try again.")); }
     finally { savingRef.current = false; setSaving(false); }
   };
   const orderControls = (name: string, action: (direction: -1 | 1) => (() => Promise<void>) | null) => (
     <span className="rail-order-controls">
       {([-1, 1] as const).map((direction) => {
         const move = action(direction);
-        const label = `${name} nach ${direction === -1 ? 'oben' : 'unten'}`;
+        const label = translate("Move {{value1}} {{value2}}", { value1: name, value2: direction === -1 ? translate("up") : translate("down") });
         return <button key={direction} type="button" aria-label={label} title={label}
           aria-disabled={!move || saving} onClick={() => { if (move && !savingRef.current) void saveOrder(move); }}>
           {direction === -1 ? '↑' : '↓'}
@@ -151,39 +154,38 @@ export function Rail(): React.ReactElement {
   };
 
   return (
-    <nav className={`rail-inner${arranging ? ' arranging' : ''}`} aria-label="Categories and agents" onKeyDown={(event) => {
+    <nav className={`rail-inner${arranging ? ' arranging' : ''}`} aria-label={translate("Categories and agents")} onKeyDown={(event) => {
       if (event.key === 'Escape' && arranging) {
         event.preventDefault(); event.stopPropagation(); setArranging(false); arrangeButton.current?.focus();
       }
     }}>
       <div className="rail-tools">
         <button type="button" className={`rail-home${selectedAgentId ? '' : ' selected'}`} aria-pressed={!selectedAgentId} onClick={() => setSelectedAgent(null)}>
-          <span className="rail-home-glyph" aria-hidden="true">&gt;_</span>
-          Freie Terminals
-        </button>
+          <span className="rail-home-glyph" aria-hidden="true">{translate(">_")}</span>
+          {translate("Standalone terminals")}</button>
         <div className="rail-search-row">
           <input
             className="rail-search"
             type="search"
-            aria-label="Agents suchen"
-            placeholder="Agents suchen"
+            aria-label={translate("Search agents")}
+            placeholder={translate("Search agents")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
           <button ref={arrangeButton} type="button" className="btn btn-quiet rail-arrange-toggle" aria-pressed={arranging}
             onClick={() => { setArranging(!arranging); setSearch(''); clearDnd(); }}>
-            {arranging ? 'Fertig' : 'Anordnen'}
+            {arranging ? translate("Finished") : translate("Reorder")}
           </button>
         </div>
         <div className="rail-arrange">
-          {arranging && <p>↑ / ↓ verschiebt innerhalb der Gruppe.</p>}
-          {arranging && query && <p>Zum Anordnen die Suche leeren.</p>}
-          <span role="status">{saving ? 'Reihenfolge wird gespeichert…' : orderStatus}</span>
+          {arranging && <p>{translate("↑ / ↓ moves within the group.")}</p>}
+          {arranging && query && <p>{translate("To order, empty the search.")}</p>}
+          <span role="status">{saving ? translate("Saving order…") : orderStatus}</span>
           {orderError && <p role="alert">{orderError}</p>}
         </div>
       </div>
       <div className="rail-scroll">
-        {visible.length === 0 && <p role="status">Keine passenden Kategorien oder Agents.</p>}
+        {visible.length === 0 && <p role="status">{translate("No matching categories or agents.")}</p>}
         {groupCategories(visible).map((group) => <section key={group.key} className={group.name ? 'rail-group' : undefined} aria-label={group.name}>
           {group.name && <div className="rail-group-entry"><button type="button" className="rail-group-heading" aria-expanded={!!query || !collapsed[group.key]} onClick={() => toggle(group.key)}>
             <span aria-hidden="true">{!query && collapsed[group.key] ? '▸' : '▾'}</span> {group.name}
@@ -208,7 +210,7 @@ export function Rail(): React.ReactElement {
                   className="cat-head"
                   aria-expanded={!isCollapsed}
                   onClick={() => toggle(cat.id)}
-                  title="Ziehen zum Verschieben oder Anordnen verwenden"
+                  title={translate("Drag to move or use Reorder")}
                   draggable={!saving && !query}
                   onDragStart={startDrag({ kind: 'category', id: cat.id })}
                   onDragEnd={clearDnd}
@@ -228,8 +230,8 @@ export function Rail(): React.ReactElement {
                   type="button"
                   className="cat-settings"
                   data-category-settings={cat.id}
-                  aria-label={`Category settings for ${cat.name}`}
-                  title="Category settings"
+                  aria-label={translate("Category settings for {{value1}}", { value1: cat.name })}
+                  title={translate("Category settings")}
                   onClick={() => openCategorySettings(cat.id)}
                 >
                   ⚙
@@ -257,8 +259,8 @@ export function Rail(): React.ReactElement {
                       <button
                         type="button"
                         className="agent-avatar-btn"
-                        aria-label={`Agent card for ${agent.name}`}
-                        title="Agent card"
+                        aria-label={translate("Agent card for {{value1}}", { value1: agent.name })}
+                        title={translate("Agent card")}
                         onClick={() => openAgentCard(agent.id)}
                       >
                         <span className="agent-avatar-wrap">
@@ -284,8 +286,8 @@ export function Rail(): React.ReactElement {
                       <button
                         type="button"
                         className="agent-settings"
-                        aria-label={`Agent settings for ${agent.name}`}
-                        title="Agent settings"
+                        aria-label={translate("Agent settings for {{value1}}", { value1: agent.name })}
+                        title={translate("Agent settings")}
                         onClick={() => openAgentSettings(agent.id)}
                       >
                         ⚙
@@ -302,8 +304,7 @@ export function Rail(): React.ReactElement {
                   onDragLeave={leaveDrop(catKey)}
                   onDrop={dropOnCategory(cat.id)}
                 >
-                  <span className="ghost">+</span> Add agent
-                </button>
+                  <span className="ghost">+</span> {" "}{translate("Add agent")}</button>
               </div>
             </div>
           );
@@ -313,8 +314,7 @@ export function Rail(): React.ReactElement {
 
       <div className="rail-foot">
         <button type="button" className="new-cat" onClick={openNewCategory}>
-          <span className="ghost">+</span> New category
-        </button>
+          <span className="ghost">+</span> {" "}{translate("New category")}</button>
       </div>
 
       <OnboardingModals />

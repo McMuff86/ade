@@ -1,3 +1,5 @@
+import { t as translate } from "../shared/i18n";
+import { useLocale } from "../renderer/i18n/language";
 import { useRef, useState, type CSSProperties, type RefObject } from 'react';
 
 const KEY = 'ade-mobile-terminal-panel-widths';
@@ -21,13 +23,14 @@ export function useTerminalPanelWidths() {
 export function TerminalPanelResize({ side, value, onChange, container }: {
   side: 'agents' | 'inspector'; value: number; onChange: (value: number) => void; container: RefObject<HTMLDivElement | null>;
 }) {
+  useLocale();
   const drag = useRef<{ id: number; x: number; value: number; width: number } | null>(null);
   const direction = side === 'agents' ? 1 : -1;
   return <div className={`m-terminal-resize m-terminal-resize-${side}`} role="separator" tabIndex={0}
-    aria-label={side === 'agents' ? 'Breite der Agentenliste' : 'Breite des Inspectors'} aria-orientation="vertical"
+    aria-label={side === 'agents' ? translate("Width of the agent list") : translate("Width of the inspector")} aria-orientation="vertical"
     aria-controls={side === 'agents' ? 'terminal-navigation' : 'terminal-inspector'}
     aria-valuemin={14} aria-valuemax={32} aria-valuenow={Math.round(value)} aria-valuetext={`${Math.round(value)} Prozent`}
-    title="Ziehen oder mit Pfeiltasten verstellen. Home: kleinste Breite, End: größte Breite."
+    title={translate("Drag or adjust with arrow keys. Home: smallest width, end: largest width.")}
     onKeyDown={(event) => {
       let next: number;
       if (event.key === 'ArrowLeft') next = value - direction * 2;

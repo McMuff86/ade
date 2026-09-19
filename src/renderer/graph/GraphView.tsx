@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 /** Graph mode: a multi-run canvas over persisted runs, participants and task events. */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -106,6 +109,7 @@ const I = {
 };
 
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
+  useLocale();
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       {children}
@@ -139,46 +143,46 @@ function activeWorkerCount(cluster: RunClusterModel | null): number {
 
 function statusText(status: NodeStatus): string {
   switch (status) {
-    case 'running': return 'Terminal aktiv';
-    case 'working': return 'arbeitet';
-    case 'done': return 'erledigt';
-    case 'failed': return 'fehlgeschlagen';
+    case 'running': return translate("Terminal active");
+    case 'working': return translate("working");
+    case 'done': return translate("done");
+    case 'failed': return translate("Failed [6665686c]");
     default: return 'idle';
   }
 }
 
 function runStatusText(status: string): string {
   switch (status) {
-    case 'draft': return 'Entwurf';
-    case 'running': return 'Läuft';
-    case 'completed': return 'Abgeschlossen';
-    case 'failed': return 'Fehlgeschlagen';
-    case 'cancelled': return 'Abgebrochen';
+    case 'draft': return translate("Draft");
+    case 'running': return translate("Running");
+    case 'completed': return translate("Completed");
+    case 'failed': return translate("Failed");
+    case 'cancelled': return translate("Aborted");
     default: return status;
   }
 }
 
 function phaseText(phase: string): string {
   switch (phase) {
-    case 'planning': return 'Planung';
-    case 'working': return 'Worker';
-    case 'approval': return 'Freigabe';
-    case 'integrating': return 'Integration';
-    case 'verifying': return 'Verifikation';
-    case 'completed': return 'Fertig';
-    case 'failed': return 'Fehler';
-    case 'cancelled': return 'Abgebrochen';
-    default: return 'Entwurf';
+    case 'planning': return translate("Planning");
+    case 'working': return translate("Worker");
+    case 'approval': return translate("Approval");
+    case 'integrating': return translate("Integration");
+    case 'verifying': return translate("Verification");
+    case 'completed': return translate("Finished");
+    case 'failed': return translate("Error");
+    case 'cancelled': return translate("Aborted");
+    default: return translate("Draft");
   }
 }
 
 function taskStatusText(status: string): string {
   switch (status) {
-    case 'queued': return 'wartet';
-    case 'running': return 'läuft';
-    case 'completed': return 'abgeschlossen';
-    case 'failed': return 'fehlgeschlagen';
-    case 'cancelled': return 'abgebrochen';
+    case 'queued': return translate("waiting");
+    case 'running': return translate("running");
+    case 'completed': return translate("completed");
+    case 'failed': return translate("Failed [6665686c]");
+    case 'cancelled': return translate("cancelled");
     default: return status;
   }
 }
@@ -189,6 +193,7 @@ function edgePath(from: Pos, to: Pos): string {
 }
 
 export function GraphView(): JSX.Element {
+  const locale = useLocale();
   const categories = useAppData((state) => state.categories);
   const agents = useAppData((state) => state.agents);
   const repositories = useAppData((state) => state.repositories);
@@ -256,7 +261,7 @@ export function GraphView(): JSX.Element {
   );
   const activeRunFailure = useMemo(
     () => failureNoticeFor(activeRun, activeRunTasks, events, results),
-    [activeRun, activeRunTasks, events, results],
+    [activeRun, activeRunTasks, events, results, locale],
   );
   const [reportOpen, setReportOpen] = useState(false);
   // Focus lands here when the report closes and its opener is gone (the
@@ -428,7 +433,7 @@ export function GraphView(): JSX.Element {
     void deleteRun(run.id)
       .then(() => {
         clearRunPositions(run.id);
-        flash(`Run "${run.name}" gelöscht`);
+        flash(translate("Run \"{{value1}}\" deleted", { value1: run.name }));
       })
       .catch((error) => flash(errorText(error)));
   }, [deleteArmed, deleteRun, clearRunPositions, flash]);
@@ -858,7 +863,7 @@ export function GraphView(): JSX.Element {
         role="button"
         tabIndex={0}
         aria-pressed={selected}
-        aria-label={`${role === 'lead' ? 'Lead' : 'Worker'} ${member.name} · ${team.name} · ${cluster.run.name} · ${member.available ? statusText(status) : 'nicht im Katalog'}`}
+        aria-label={`${role === 'lead' ? translate("Lead") : translate("Worker")} ${member.name} · ${team.name} · ${cluster.run.name} · ${member.available ? statusText(status) : translate("Not in the catalogue")}`}
         style={{ ['--rt' as string]: runtime.color }}
         onClick={(event) => {
           event.stopPropagation();
@@ -878,9 +883,9 @@ export function GraphView(): JSX.Element {
           <div className="gcard-role">~ {role}</div>
           <div className="gglyph"><runtime.Glyph /></div>
           <div className="gcard-name">{member.name}</div>
-          {branch && <div className="gcard-branch" title={`Worktree-Branch ${branch}`}>⎇ {branch}</div>}
+          {branch && <div className="gcard-branch" title={translate("Worktree branch {{value1}}", { value1: branch })}>⎇ {branch}</div>}
           <div className="gchip" data-s={member.available ? status : 'failed'}>
-            {member.available ? statusText(status) : 'nicht im Katalog'}
+            {member.available ? statusText(status) : translate("Not in the catalogue")}
           </div>
         </div>
         <i className="ganchor top" data-anchor={`${member.id}:top`} />
@@ -931,7 +936,7 @@ export function GraphView(): JSX.Element {
           role="button"
           tabIndex={0}
           aria-pressed={run.id === activeRunId}
-          aria-label={`Run ${run.name} · ${runStatusText(run.status)}${run.id === activeRunId ? ' · ausgewählt' : ''}`}
+          aria-label={`Run ${run.name} · ${runStatusText(run.status)}${run.id === activeRunId ? translate(" · Selected") : ''}`}
           onPointerDown={(event) => startDrag('cluster', run.id, 'cluster', event, () => {
             selectInCluster(run.id, null);
           })}
@@ -943,16 +948,16 @@ export function GraphView(): JSX.Element {
             <span className="gcluster-phase">{phaseText(run.phase)}</span>
           )}
           <span className="gcluster-repo">
-            {repository?.name ?? (run.repositoryId === undefined ? 'Legacy defaults' : 'Portable homes')}
+            {repository?.name ?? (run.repositoryId === undefined ? translate("Legacy default") : translate("Portable homes"))}
           </span>
           <span className="gcluster-grow" />
           {pendingApprovalRunIds.has(run.id) && (
-            <span className="gcluster-approval">Freigabe fällig</span>
+            <span className="gcluster-approval">{translate("Approval required")}</span>
           )}
           <span className="gcluster-counts">
-            {cluster.runningTaskCount > 0 && `${cluster.runningTaskCount} aktiv`}
+            {cluster.runningTaskCount > 0 && translate("{{value1}} active", { value1: cluster.runningTaskCount })}
             {cluster.runningTaskCount > 0 && cluster.queuedTaskCount > 0 && ' · '}
-            {cluster.queuedTaskCount > 0 && `${cluster.queuedTaskCount} wartet`}
+            {cluster.queuedTaskCount > 0 && translate("{{value1}} waiting", { value1: cluster.queuedTaskCount })}
             {cluster.runningTaskCount === 0 && cluster.queuedTaskCount === 0 && usage
               && `Tokens ${usage.inputTokens + usage.outputTokens}`}
           </span>
@@ -965,7 +970,7 @@ export function GraphView(): JSX.Element {
             role="button"
             tabIndex={0}
             aria-pressed={orchestratorSelected}
-            aria-label={`Orchestrator ${orchestrator.name} · ${run.name} · ${orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : 'nicht im Katalog'}`}
+            aria-label={`Orchestrator ${orchestrator.name} · ${run.name} · ${orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : translate("Not in the catalogue")}`}
             style={{
               left: orchestratorPosition.x,
               top: orchestratorPosition.y,
@@ -998,18 +1003,18 @@ export function GraphView(): JSX.Element {
               })}
             >
               <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
-              <div className="gcard-title">ade · orchestrator</div>
+              <div className="gcard-title">{translate("ade · orchestrator")}</div>
             </div>
             <div className="gcard-body">
               <div className="gglyph"><orchestratorRuntime.Glyph /></div>
               <div className="gcard-name">{orchestrator.name}</div>
               {orchestrator.available && branchFor(run, orchestrator.agentId) && (
-                <div className="gcard-branch" title={`Worktree-Branch ${branchFor(run, orchestrator.agentId)}`}>
+                <div className="gcard-branch" title={translate("Worktree branch {{value1}}", { value1: branchFor(run, orchestrator.agentId) })}>
                   ⎇ {branchFor(run, orchestrator.agentId)}
                 </div>
               )}
               <div className="gchip" data-s={orchestrator.available ? nodeStatus(cluster, orchestrator, false) : 'failed'}>
-                {orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : 'nicht im Katalog'}
+                {orchestrator.available ? statusText(nodeStatus(cluster, orchestrator, false)) : translate("Not in the catalogue")}
               </div>
             </div>
             <i className="ganchor top" data-anchor={`${orchestrator.id}:top`} />
@@ -1032,16 +1037,16 @@ export function GraphView(): JSX.Element {
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected}
-                aria-label={`Team ${team.name} · ${run.name} · ${statusText(team.status)}${team.idle ? ' · pausiert' : ''}`}
+                aria-label={`Team ${team.name} · ${run.name} · ${statusText(team.status)}${team.idle ? translate(" · paused") : ''}`}
                 onPointerDown={(event) => startDrag('node', run.id, team.id, event, () => {
                   selectInCluster(run.id, { kind: 'team', id: team.id });
                 })}
                 onKeyDown={nodeKeyHandler(() => selectInCluster(run.id, { kind: 'team', id: team.id }), selected)}
               >
                 <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
-                <div className="gteam-tt">team · <b>{team.name}</b></div>
+                <div className="gteam-tt">{translate("team ·")}{" "}<b>{team.name}</b></div>
                 {team.idle && (
-                  <span className="gteam-paused">{managed ? 'pausiert' : 'manuell pausiert'}</span>
+                  <span className="gteam-paused">{managed ? translate("paused") : translate("paused manually")}</span>
                 )}
                 <div className="gteam-grow" />
                 <div
@@ -1053,15 +1058,15 @@ export function GraphView(): JSX.Element {
                     className="gtbtn"
                     disabled={cluster.terminal}
                     aria-label={managed
-                      ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren')
-                      : (team.idle ? 'Manuellen Dispatch reaktivieren' : 'Manuell pausieren')}
+                      ? (team.idle ? translate("Continue scheduling") : translate("Pause scheduling"))
+                      : (team.idle ? translate("Reactivate manual dispatch") : translate("Pause manually"))}
                     title={managed
-                      ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren (laufende Tasks laufen weiter)')
-                      : (team.idle ? 'Manuellen Dispatch reaktivieren' : 'Manuell pausieren (nur Dispatch)')}
+                      ? (team.idle ? translate("Continue scheduling") : translate("Pause scheduling (running tasks continue)"))
+                      : (team.idle ? translate("Reactivate manual dispatch") : translate("Manually pause (dispatch only)"))}
                     onClick={() => {
                       if (managed) {
                         void setTeamPause(run.id, team.id, !team.idle)
-                          .then(() => flash(team.idle ? 'Team-Scheduling fortgesetzt' : 'Team-Scheduling pausiert'))
+                          .then(() => flash(team.idle ? translate("Team scheduling continues") : translate("Team scheduling paused")))
                           .catch((error) => flash(errorText(error)));
                       } else {
                         setTeamIdle(team.id, !team.idle);
@@ -1072,9 +1077,9 @@ export function GraphView(): JSX.Element {
                   </button>
                   <button
                     className="gtbtn"
-                    title="Laufende Team-Tasks stoppen"
-                    aria-label="Laufende Team-Tasks stoppen"
-                    onClick={() => void cancelTeamTasks(team.id).then(() => flash('Team-Tasks gestoppt'))}
+                    title={translate("Stop ongoing team tasks")}
+                    aria-label={translate("Stop ongoing team tasks")}
+                    onClick={() => void cancelTeamTasks(team.id).then(() => flash(translate("Team tasks stopped")))}
                   >
                     <Ico>{I.stop}</Ico>
                   </button>
@@ -1107,20 +1112,20 @@ export function GraphView(): JSX.Element {
   return (
     <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
       <DesktopSupervisionGraph />
-      <div className="grunbar" aria-label="Run-Leiste">
-        <div className="grun-group grun-run" role="group" aria-label="Run">
+      <div className="grunbar" aria-label={translate("Run bar")}>
+        <div className="grun-group grun-run" role="group" aria-label={translate("Run")}>
         <select
-          aria-label="Aktiver Run"
+          aria-label={translate("Active Run")}
           value={activeRunId ?? ''}
           onChange={(event) => setActiveRun(event.target.value || null)}
           disabled={runs.length === 0}
         >
-          {runs.length === 0 && <option value="">Kein Run</option>}
+          {runs.length === 0 && <option value="">{translate("No run")}</option>}
           {openRuns.length > 0 && endedRuns.length > 0
             ? (
                 <>
-                  <optgroup label="Aktiv">{openRuns.map(runOption)}</optgroup>
-                  <optgroup label="Beendet">{endedRuns.map(runOption)}</optgroup>
+                  <optgroup label={translate("Active")}>{openRuns.map(runOption)}</optgroup>
+                  <optgroup label={translate("Finished [4265656e]")}>{endedRuns.map(runOption)}</optgroup>
                 </>
               )
             : sortedRuns.map(runOption)}
@@ -1132,85 +1137,81 @@ export function GraphView(): JSX.Element {
               <span className="grun-phase">{phaseText(activeRun.phase)}</span>
             )}
             <span className="grun-repo" title={activeRepository?.rootPath}>
-              {activeRepository?.name ?? (activeRun.repositoryId === undefined ? 'Legacy defaults' : 'Portable homes')}
+              {activeRepository?.name ?? (activeRun.repositoryId === undefined ? translate("Legacy default") : translate("Portable homes"))}
             </span>
             <span className="grun-goal" title={activeRun.goal || activeRun.name}>
-              {activeRun.goal || 'Kein Run-Ziel hinterlegt'}
+              {activeRun.goal || translate("No run target stored")}
             </span>
             <span className="grun-counts">
-              {activeRunTasks.length} Tasks
-              {activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
+              {activeRunTasks.length} {" "}{translate("Tasks")}{activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
               {activeRun.mode === 'managed' && ` · Parallel ≤${activeRun.budget.maxConcurrentTasks}`}
               {activeRun.mode === 'managed' && activeRun.budget.maxTaskMinutes !== null &&
                 ` · ≤${activeRun.budget.maxTaskMinutes} min/Task`}
-              {activeUsage && ` · Freigaben ${activeUsage.approvals}/${activeRun.budget.maxApprovals}`}
+              {activeUsage && translate(" · Approvals {{value1}}/{{value2}}", { value1: activeUsage.approvals, value2: activeRun.budget.maxApprovals })}
               {activeRun.budget.maxCostUsd !== null && activeUsage &&
                 ` · $${activeUsage.costUsd.toFixed(2)}/$${activeRun.budget.maxCostUsd.toFixed(2)}`}
             </span>
           </>
         )}
         </div>
-        <div className="grun-group grun-results" role="group" aria-label="Ergebnisse">
-        {activeRun && <span className="grun-caption" aria-hidden="true">Ergebnisse</span>}
+        <div className="grun-group grun-results" role="group" aria-label={translate("Results")}>
+        {activeRun && <span className="grun-caption" aria-hidden="true">{translate("Results")}</span>}
         {activeRun && (
           <button
             ref={reportButtonRef}
             className={`grun-report${reportOpen ? ' active' : ''}`}
             aria-pressed={reportOpen}
-            title="Vollständiger Bericht: Dateien, Tests mit Ausgabe, Risiken, Commits"
+            title={translate("Full report: files, tests with output, risks, commits")}
             onClick={() => setReportOpen((open) => !open)}
           >
-            <Ico>{I.report}</Ico>Bericht
-          </button>
+            <Ico>{I.report}</Ico>{translate("Report")}</button>
         )}
-        {pendingQuestions > 0 && <button className="grun-report" onClick={() => setReportOpen(true)} aria-label={`${pendingQuestions} Rückfragen beantworten`}>Rückfragen ({pendingQuestions})</button>}
+        {pendingQuestions > 0 && <button className="grun-report" onClick={() => setReportOpen(true)} aria-label={translate("Answer {{value1}} questions", { value1: pendingQuestions })}>{translate("Questions (")}{pendingQuestions})</button>}
         {activeRun?.mode === 'managed' && activeRun.status === 'completed' && activeRun.repositoryId && (
           <button
             className="grun-publish"
-            title="Verifizierten ADE-Branch als GitHub Draft Pull Request veröffentlichen"
+            title={translate("Publish Verified ADE Branch as GitHub Draft Pull Request")}
             onClick={() => setPublicationRun(activeRun)}
           >
             <Ico>{I.publish}</Ico>
             {publications.some((publication) =>
               publication.runId === activeRun.id && publication.status === 'draft')
-              ? 'Draft-PR ansehen'
-              : 'Draft-PR'}
+              ? translate("View draft PR")
+              : translate("Draft PR")}
           </button>
         )}
         </div>
-        <div className="grun-group grun-rare" role="group" aria-label="Selten und endgültig">
-        <button type="button" className="btn btn-quiet" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
+        <div className="grun-group grun-rare" role="group" aria-label={translate("Rare and final")}>
+        <button type="button" className="btn btn-quiet" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>{translate("Git sync")}</button>
         {activeRun && (
           <button
             className={`grun-delete${deleteArmed ? ' armed' : ''}`}
             disabled={deleteBlocked}
             title={deleteBlocked
-              ? 'Aktiver oder veröffentlichter Run kann nicht gelöscht werden'
-              : `"${activeRun.name}" mit allen Tasks, Events und Artefakten löschen`}
+              ? translate("Active or published run cannot be deleted")
+              : translate("Delete \"{{value1}}\" with all tasks, events and artifacts", { value1: activeRun.name })}
             onClick={requestDeleteRun}
           >
-            <Ico>{I.trash}</Ico>{deleteArmed ? 'Wirklich löschen?' : 'Run löschen'}
+            <Ico>{I.trash}</Ico>{deleteArmed ? translate("Really delete?") : translate("Delete the run")}
           </button>
         )}
         </div>
         <button className="grun-new" onClick={openNewRun}>
-          <Ico>{I.plus}</Ico>Neuer Run
-        </button>
+          <Ico>{I.plus}</Ico>{translate("New Run")}</button>
       </div>
 
       {activeRunFailure && !reportOpen && (
         <div className="grun-failure" role="alert">
           <div className="grun-failure-head">
-            <b>Run fehlgeschlagen</b>
+            <b>{translate("Run failed")}</b>
             <span title={activeRunFailure.context}>{activeRunFailure.context}</span>
             <button type="button" className="grun-failure-report" onClick={() => setReportOpen(true)}>
-              Bericht öffnen
-            </button>
+              {translate("Open report")}</button>
           </div>
           <div className="grun-failure-body">
             <p>{activeRunFailure.detail}</p>
             {activeRunFailure.failedTests.length > 0 && (
-              <ul className="grun-failure-tests" aria-label="Fehlgeschlagene Tests">
+              <ul className="grun-failure-tests" aria-label={translate("Failed tests")}>
                 {activeRunFailure.failedTests.map((command) => <li key={command}><code>{command}</code></li>)}
               </ul>
             )}
@@ -1225,7 +1226,7 @@ export function GraphView(): JSX.Element {
               role="button"
               tabIndex={0}
               aria-expanded={approvalOpen}
-              title={approvalOpen ? 'Zuklappen' : 'Klicken für Text und Diff der Änderungen'}
+              title={approvalOpen ? translate("Collapse") : translate("Click for text and diff of the changes")}
               onClick={() => setApprovalOpen((open) => !open)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -1234,7 +1235,7 @@ export function GraphView(): JSX.Element {
                 }
               }}
             >
-              <b>Integration wartet auf Freigabe {approvalOpen ? '▾' : '▸'}</b>
+              <b>{translate("Integration is awaiting approval")}{" "}{approvalOpen ? '▾' : '▸'}</b>
               <span>{pendingApproval.reason}</span>
             </div>
             <button
@@ -1243,27 +1244,25 @@ export function GraphView(): JSX.Element {
                 .then(() => flash('Integration abgelehnt'))
                 .catch((error) => flash(errorText(error)))}
             >
-              Ablehnen
-            </button>
+              {translate("Reject")}</button>
             <button
               className="gact primary"
               onClick={() => void resolveApproval(pendingApproval.id, 'approve')
-                .then(() => flash('Integration freigegeben'))
+                .then(() => flash(translate("Integration approved")))
                 .catch((error) => flash(errorText(error)))}
             >
-              Freigeben &amp; integrieren
-            </button>
+              {translate("Approve & integrate")}</button>
           </div>
           {approvalOpen && (
             <div className="gapproval-diff">
-              {!approvalDiff && <span className="gapproval-note">Lade Änderungen…</span>}
+              {!approvalDiff && <span className="gapproval-note">{translate("Loading changes…")}</span>}
               {approvalDiff && approvalDiff.entries.length === 0 && (
-                <span className="gapproval-note">Keine validierten Commits gefunden.</span>
+                <span className="gapproval-note">{translate("No validated commits found.")}</span>
               )}
               {approvalDiff && approvalDiff.entries.length > 0 && (
                 <div className="gapproval-diff-tools">
                   <button type="button" className="gact" onClick={toggleDiffColors}>
-                    Diff-Farben: {diffColors ? 'an' : 'aus'}
+                    {translate("Diff colours:")}{" "}{diffColors ? translate('On') : translate('Off')}
                   </button>
                 </div>
               )}
@@ -1293,7 +1292,7 @@ export function GraphView(): JSX.Element {
                           ))
                         : entry.diff}
                       {lines && lines.length > DIFF_RENDER_LINE_CAP
-                        && `… ${lines.length - DIFF_RENDER_LINE_CAP} weitere Zeilen (monochrom umschalten für alles)`}
+                        && translate("... {{value1}} more lines (switch monochrome for everything)", { value1: lines.length - DIFF_RENDER_LINE_CAP })}
                     </pre>
                   </div>
                 );
@@ -1335,11 +1334,10 @@ export function GraphView(): JSX.Element {
 
       {runsLoaded && runs.length === 0 && (
         <div className="gempty">
-          <h2>Noch kein Run</h2>
-          <p>Stelle für ein konkretes Ziel ein Team aus bestehenden Agenten zusammen.</p>
+          <h2>{translate("No run yet")}</h2>
+          <p>{translate("For a specific goal, put together a team of existing agents.")}</p>
           <button className="gact primary" onClick={openNewRun}>
-            <Ico>{I.plus}</Ico>Ersten Run erstellen
-          </button>
+            <Ico>{I.plus}</Ico>{translate("Create first run")}</button>
         </div>
       )}
 
@@ -1369,21 +1367,21 @@ export function GraphView(): JSX.Element {
             ? { height: dockHeight, left: dockPos.x, top: dockPos.y, width: dockPos.w, right: 'auto', bottom: 'auto' }
             : { height: dockHeight }}
         >
-          <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
-          <div className="gdockpanel-bar" title="Am Balken verschiebbar" onPointerDown={startDockDrag}>
+          <div className="gdockpanel-resize" title={translate("Adjust height")} onPointerDown={startDockResize} />
+          <div className="gdockpanel-bar" title={translate("Drag the bar to move")} onPointerDown={startDockDrag}>
             <Ico>{I.grip}</Ico>
             <b>{dock.title}</b>
             <span>
               {dock.sessionId
-                ? (dockRaw ? 'Rohes Terminal · nur lesen' : 'Live-Aktivität · nur lesen')
-                : 'Aufgezeichnete Aktivität · nur lesen'}
+                ? (dockRaw ? translate("Raw terminal · only read") : translate("Live activity · Read only"))
+                : translate("Recorded Activity · Read only")}
             </span>
             <span className="gdockpanel-grow" />
             {dockPos && (
               <button
                 type="button"
-                aria-label="Wieder unten andocken"
-                title="Wieder unten andocken"
+                aria-label={translate("Dock at the bottom again")}
+                title={translate("Dock at the bottom again")}
                 onClick={() => {
                   setDockPos(null);
                   window.localStorage.removeItem('ade.graph.dockPos');
@@ -1397,13 +1395,13 @@ export function GraphView(): JSX.Element {
                 type="button"
                 className="gdockpanel-text"
                 aria-pressed={dockRaw}
-                title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
+                title={dockRaw ? translate("Show readable activity") : translate("Show raw terminal output")}
                 onClick={() => setDockRaw((raw) => !raw)}
               >
-                {dockRaw ? 'Lesbar' : 'Roh'}
+                {dockRaw ? translate("Readable") : translate("Raw")}
               </button>
             )}
-            <button type="button" aria-label="Panel schliessen" title="Panel schliessen" onClick={() => setDock(null)}><Ico>{I.close}</Ico></button>
+            <button type="button" aria-label={translate("Close panel")} title={translate("Close panel")} onClick={() => setDock(null)}><Ico>{I.close}</Ico></button>
           </div>
           {dockRaw && dock.sessionId ? (
             <SessionTail
@@ -1421,7 +1419,7 @@ export function GraphView(): JSX.Element {
         </div>
       )}
 
-      <div className="gslots" role="status" title="Globale Task-Slots: eine Warteschlange über alle Runs">
+      <div className="gslots" role="status" title={translate("Global task slots: one queue across all runs")}>
         <button
           type="button"
           className="gslots-head"
@@ -1429,42 +1427,40 @@ export function GraphView(): JSX.Element {
           disabled={slotRows.length === 0}
           onClick={() => setSlotsOpen((open) => !open)}
         >
-          Task-Slots {taskQueue.active}/{taskQueue.maxActive}
-          {taskQueue.queued > 0 && ` · ${taskQueue.queued} in Warteschlange`}
+          {translate("Task slots")}{" "}{taskQueue.active}/{taskQueue.maxActive}
+          {taskQueue.queued > 0 && translate(" · {{value1}} queued", { value1: taskQueue.queued })}
         </button>
         {slotsOpen && slotRows.map((cluster) => (
           <div key={cluster.run.id} className="gslots-row">
             <span>{cluster.run.name}</span>
             <span>
-              {cluster.runningTaskCount} aktiv
-              {cluster.queuedTaskCount > 0 && ` · ${cluster.queuedTaskCount} wartet`}
+              {cluster.runningTaskCount} {" "}{translate("Active [616b7469]")}{cluster.queuedTaskCount > 0 && translate(" · {{value1}} waiting", { value1: cluster.queuedTaskCount })}
             </span>
           </div>
         ))}
       </div>
 
-      <div className="gzoom" role="group" aria-label="Ansicht">
-        <button type="button" aria-label="Verkleinern" title="Verkleinern" onClick={() => zoomBy(0.87)}><Ico>{I.minus}</Ico></button>
-        <output className="gzoom-level" aria-label="Zoomstufe">{Math.round(view.scale * 100)}%</output>
-        <button type="button" aria-label="Vergrössern" title="Vergrössern" onClick={() => zoomBy(1.15)}><Ico>{I.plus}</Ico></button>
-        <button type="button" aria-label="Ansicht einpassen" title="Ansicht einpassen" onClick={fitView}><Ico>{I.fit}</Ico></button>
+      <div className="gzoom" role="group" aria-label={translate("View")}>
+        <button type="button" aria-label={translate("Zoom out [5665726b]")} title={translate("Zoom out [5665726b]")} onClick={() => zoomBy(0.87)}><Ico>{I.minus}</Ico></button>
+        <output className="gzoom-level" aria-label={translate("Zoom level")}>{Math.round(view.scale * 100)}%</output>
+        <button type="button" aria-label={translate("Zoom in [56657267]")} title={translate("Zoom in [56657267]")} onClick={() => zoomBy(1.15)}><Ico>{I.plus}</Ico></button>
+        <button type="button" aria-label={translate("Fit view")} title={translate("Fit view")} onClick={fitView}><Ico>{I.fit}</Ico></button>
       </div>
 
       {activeRun && activeCluster && (
-        <div className="gdock" role="group" aria-label={`Run-Steuerung für ${activeRun.name}`}>
-          <span className="gdock-caption" title={activeRun.name}>Run-Steuerung</span>
+        <div className="gdock" role="group" aria-label={translate("Run control for {{value1}}", { value1: activeRun.name })}>
+          <span className="gdock-caption" title={activeRun.name}>{translate("Run control")}</span>
           <div className="sep" />
           {activeRun.mode === 'manual' && activeRun.status === 'draft' && (
             <button
               className="gdbtn accent"
               disabled={!activeRun.goal.trim() || !activeCluster.orchestrator || activeCluster.teams.length === 0}
-              title="Plant getrennte Worker-Aufträge und integriert erst nach Freigabe"
+              title={translate("Plans separate worker jobs and integrates only after approval")}
               onClick={() => void startRun(activeRun.id)
-                .then(() => flash('Orchestrierung gestartet'))
+                .then(() => flash(translate("Orchestration started")))
                 .catch((error) => flash(errorText(error)))}
             >
-              <Ico>{I.play}</Ico>Orchestrierung starten
-            </button>
+              <Ico>{I.play}</Ico>{translate("Start orchestration")}</button>
           )}
           {activeRun.mode === 'manual' && (
             <>
@@ -1473,35 +1469,30 @@ export function GraphView(): JSX.Element {
                 disabled={activeCluster.teams.length === 0}
                 onClick={() => setComposer({ kind: 'all', workerCount: activeWorkerCount(activeCluster) })}
               >
-                <Ico>{I.arrow}</Ico>Direkt an Teams
-              </button>
+                <Ico>{I.arrow}</Ico>{translate("Directly to teams")}</button>
               <button
                 className="gdbtn"
-                title="Manuelle Pause: betrifft nur den Dispatch aus dem Canvas"
+                title={translate("Manual break: affects only the dispatch from the canvas")}
                 onClick={() => activeCluster.teams.forEach((team) => setTeamIdle(team.id, true))}
               >
-                <Ico>{I.pause}</Ico>Alle pausieren
-              </button>
+                <Ico>{I.pause}</Ico>{translate("Pause all")}</button>
               <button className="gdbtn" onClick={() => activeCluster.teams.forEach((team) => setTeamIdle(team.id, false))}>
-                <Ico>{I.play}</Ico>Alle aktivieren
-              </button>
+                <Ico>{I.play}</Ico>{translate("Activate everyone")}</button>
             </>
           )}
           {activeRun.mode === 'managed' && activeRun.status === 'running' && (
             <button
               className="gdbtn danger"
               onClick={() => void cancelRun(activeRun.id)
-                .then(() => flash('Orchestrierung wird gestoppt'))
+                .then(() => flash(translate("Orchestration is stopped")))
                 .catch((error) => flash(errorText(error)))}
             >
-              <Ico>{I.stop}</Ico>Run abbrechen
-            </button>
+              <Ico>{I.stop}</Ico>{translate("Cancel run")}</button>
           )}
           {activeRun.mode === 'manual'
             && activeRunTasks.some((task) => task.status === 'queued' || task.status === 'running') && (
-            <button className="gdbtn danger" onClick={() => void cancelAllTasks().then(() => flash('Run-Tasks gestoppt'))}>
-              <Ico>{I.stop}</Ico>Tasks stoppen
-            </button>
+            <button className="gdbtn danger" onClick={() => void cancelAllTasks().then(() => flash(translate("Run tasks stopped")))}>
+              <Ico>{I.stop}</Ico>{translate("Stop Tasks")}</button>
           )}
         </div>
       )}
@@ -1518,16 +1509,16 @@ export function GraphView(): JSX.Element {
             if (target.kind === 'all') {
               const result = await dispatchAll(text, options);
               flash(result.failed
-                ? `${result.started} gestartet, ${result.failed} fehlgeschlagen`
-                : `${result.started} Task-Sessions gestartet`);
+                ? translate("{{value1}} started, {{value2}} failed", { value1: result.started, value2: result.failed })
+                : translate("{{value1}} task sessions started", { value1: result.started }));
             } else if (target.kind === 'team') {
               const result = await dispatchTeam(target.id, text, options);
               flash(result.failed
-                ? `${result.started} gestartet, ${result.failed} fehlgeschlagen`
-                : `Task an ${target.name} verteilt`);
+                ? translate("{{value1}} started, {{value2}} failed", { value1: result.started, value2: result.failed })
+                : translate('Task distributed to {{name}}', { name: target.name }));
             } else {
               const result = await dispatchAgent(target.id, text);
-              flash(result.failed ? `Task an ${target.name} fehlgeschlagen` : `Task an ${target.name} gesendet`);
+              flash(result.failed ? translate("Task for {{value1}} failed", { value1: target.name }) : translate("Task sent to {{value1}}", { value1: target.name }));
             }
           }}
         />
@@ -1544,7 +1535,7 @@ export function GraphView(): JSX.Element {
           onCreate={async (input) => {
             const run = await createRun(input);
             setShowNewRun(false);
-            flash(`${run.name} erstellt`);
+            flash(translate("{{value1}} created", { value1: run.name }));
           }}
         />
       )}
@@ -1556,7 +1547,7 @@ export function GraphView(): JSX.Element {
           preview={previewPublication}
           publish={publishRun}
           onCancel={() => setPublicationRun(null)}
-          onPublished={(publication) => flash(`Draft-PR #${publication.prNumber ?? ''} angelegt`)}
+          onPublished={(publication) => flash(translate("Draft PR #{{value1}} created", { value1: publication.prNumber ?? '' }))}
         />
       )}
     </div>
@@ -1586,6 +1577,7 @@ interface ParticipantDetails {
 }
 
 function Inspector(props: InspectorProps): JSX.Element | null {
+  useLocale();
   const tasks = useRuns((state) => state.tasks);
   const results = useRuns((state) => state.results);
   const workspaceLeases = useRuns((state) => state.workspaceLeases);
@@ -1648,7 +1640,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
   } => (leaseActiveFor(participantId)
     ? {
         disabled: true,
-        title: 'Worktree ist exklusiv vom laufenden Run geleast — Live-Ansicht nutzen oder Run-Ende abwarten',
+        title: translate("Worktree is exclusively leased from the running run – use live view or wait for run end"),
       }
     : { disabled: !available });
 
@@ -1682,7 +1674,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
       rows.push(<KV
         key="taskStatus"
         k="Task-Status"
-        v={`${taskStatusText(details.taskStatus ?? '')}${details.attempt > 1 ? ` · Versuch ${details.attempt}` : ''}`}
+        v={`${taskStatusText(details.taskStatus ?? '')}${details.attempt > 1 ? translate(" · Attempt {{value1}}", { value1: details.attempt }) : ''}`}
       />);
     }
     const result = details.result;
@@ -1741,38 +1733,33 @@ function Inspector(props: InspectorProps): JSX.Element | null {
               className="gact primary"
               onClick={() => props.onShowInDock({ sessionId: liveSessionId }, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
             >
-              <Ico>{I.term}</Ico>Live zuschauen
-            </button>
+              <Ico>{I.term}</Ico>{translate("Watch live")}</button>
           )}
           {!liveSessionId && details.archivedTaskId && (
             <button
               className="gact"
               onClick={() => props.onShowInDock({ taskId: details.archivedTaskId! }, `${orchestrator.name} · Orchestrator · ${cluster.run.name}`)}
             >
-              <Ico>{I.term}</Ico>Aktivität anzeigen
-            </button>
+              <Ico>{I.term}</Ico>{translate("Show activity")}</button>
           )}
           <button
             className="gact primary"
             disabled={!orchestrator.available || !canDirectDispatch}
             onClick={() => props.onCompose({ kind: 'participant', id: orchestrator.id, name: orchestrator.name })}
           >
-            <Ico>{I.arrow}</Ico>Task zuweisen
-          </button>
+            <Ico>{I.arrow}</Ico>{translate("Assign task [5461736b]")}</button>
           <button
             className="gact"
             disabled={cluster.teams.length === 0 || !canDirectDispatch}
             onClick={() => props.onCompose({ kind: 'all', workerCount: activeWorkerCount(cluster) })}
           >
-            <Ico>{I.arrow}</Ico>Task an alle Teams
-          </button>
+            <Ico>{I.arrow}</Ico>{translate("Task to all teams")}</button>
           <button
             className="gact"
             {...openSessionProps(orchestrator.available, orchestrator.id)}
             onClick={() => void openParticipantTerminal(orchestrator.agentId, orchestrator.id, cluster.run.id)}
           >
-            <Ico>{I.term}</Ico>Session öffnen
-          </button>
+            <Ico>{I.term}</Ico>{translate("Open session")}</button>
         </div>
       </aside>
     );
@@ -1790,14 +1777,14 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           glyph={<runtime.Glyph />}
           color={runtime.color}
           title={`team · ${team.name}`}
-          sub={`${team.workers.length + 1} Teilnehmer · ${cluster.run.name}`}
+          sub={translate("{{value1}} participants · {{value2}}", { value1: team.workers.length + 1, value2: cluster.run.name })}
           onClose={props.onClose}
         />
         <div className="ginsp-body">
           <KV k="Status" v={statusText(team.status)} />
-          <KV k="Teamlead" v={team.lead?.name ?? 'Nicht gesetzt'} />
+          <KV k="Teamlead" v={team.lead?.name ?? translate("Not set")} />
           <KV k="Worker" v={String(team.workers.length)} />
-          {team.idle && <KV k="Pause" v={managed ? 'Scheduling pausiert' : 'Manuell (nur Dispatch)'} />}
+          {team.idle && <KV k="Pause" v={managed ? translate("Scheduling paused") : translate("Manual (dispatch only)")} />}
           {selection.kind === 'lead' && leadDetails && detailRows(leadDetails)}
           {selection.kind === 'lead' && leadDetails?.result && team.lead && (
             <ResultDetails result={leadDetails.result} idPrefix={`ginsp-${team.lead.id}`} />
@@ -1814,8 +1801,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
               workerCount: team.workers.length,
             })}
           >
-            <Ico>{I.arrow}</Ico>Task ans Team
-          </button>
+            <Ico>{I.arrow}</Ico>{translate("Task to the team")}</button>
           {team.lead && liveSessionIdFor(team.lead.id) && (
             <button
               className="gact primary"
@@ -1824,8 +1810,7 @@ function Inspector(props: InspectorProps): JSX.Element | null {
                 if (sessionId) props.onShowInDock({ sessionId }, `${team.lead!.name} · Lead · ${cluster.run.name}`);
               }}
             >
-              <Ico>{I.term}</Ico>Lead live zuschauen
-            </button>
+              <Ico>{I.term}</Ico>{translate("Lead watch live")}</button>
           )}
           {team.lead && !liveSessionIdFor(team.lead.id) && leadDetails?.archivedTaskId && (
             <button
@@ -1835,23 +1820,21 @@ function Inspector(props: InspectorProps): JSX.Element | null {
                 `${team.lead!.name} · Lead · ${cluster.run.name}`,
               )}
             >
-              <Ico>{I.term}</Ico>Lead-Aktivität anzeigen
-            </button>
+              <Ico>{I.term}</Ico>{translate("Show lead activity")}</button>
           )}
           <button
             className="gact"
             {...openSessionProps(Boolean(team.lead?.available), team.lead?.id ?? '')}
             onClick={() => team.lead && void openParticipantTerminal(team.lead.agentId, team.lead.id, cluster.run.id)}
           >
-            <Ico>{I.term}</Ico>Lead-Session öffnen
-          </button>
+            <Ico>{I.term}</Ico>{translate("Open lead session")}</button>
           <button
             className="gact"
             disabled={cluster.terminal}
             onClick={() => {
               if (managed) {
                 void setTeamPause(cluster.run.id, team.id, !team.idle)
-                  .then(() => props.flash(team.idle ? 'Team-Scheduling fortgesetzt' : 'Team-Scheduling pausiert'))
+                  .then(() => props.flash(team.idle ? translate("Team scheduling continues") : translate("Team scheduling paused")))
                   .catch((error) => props.flash(errorText(error)));
               } else {
                 props.setTeamIdle(team.id, !team.idle);
@@ -1860,12 +1843,11 @@ function Inspector(props: InspectorProps): JSX.Element | null {
           >
             <Ico>{team.idle ? I.play : I.pause}</Ico>
             {managed
-              ? (team.idle ? 'Scheduling fortsetzen' : 'Scheduling pausieren')
-              : (team.idle ? 'Team reaktivieren' : 'Team pausieren (manuell)')}
+              ? (team.idle ? translate("Continue scheduling") : translate("Pause scheduling"))
+              : (team.idle ? translate("Reactivate the team") : translate("Pause team (manual)"))}
           </button>
-          <button className="gact" onClick={() => void cancelTeamTasks(team.id).then(() => props.flash('Team-Tasks gestoppt'))}>
-            <Ico>{I.stop}</Ico>Team-Tasks stoppen
-          </button>
+          <button className="gact" onClick={() => void cancelTeamTasks(team.id).then(() => props.flash(translate("Team tasks stopped")))}>
+            <Ico>{I.stop}</Ico>{translate("Stop Team Tasks")}</button>
         </div>
       </aside>
     );
@@ -1883,8 +1865,8 @@ function Inspector(props: InspectorProps): JSX.Element | null {
       <div className="ginsp-body">
         <KV k="Runtime" v={runtime.label} />
         <KV k="Status" v={statusText(memberStatus(worker, team.idle))} />
-        <KV k="Katalog" v={worker.available ? 'Verfügbar' : 'Agent entfernt'} />
-        {team.idle && <KV k="Team" v={managed ? 'Scheduling pausiert' : 'Manuell pausiert'} />}
+        <KV k="Katalog" v={worker.available ? translate("Available") : translate("Agent removed")} />
+        {team.idle && <KV k="Team" v={managed ? translate("Scheduling paused") : translate("Manually paused")} />}
         {detailRows(details)}
         {details.result && <ResultDetails result={details.result} idPrefix={`ginsp-${worker.id}`} />}
         {liveSessionId && <ActivityFeed sessionId={liveSessionId} />}
@@ -1895,31 +1877,27 @@ function Inspector(props: InspectorProps): JSX.Element | null {
             className="gact primary"
             onClick={() => props.onShowInDock({ sessionId: liveSessionId }, `${worker.name} · Worker · ${cluster.run.name}`)}
           >
-            <Ico>{I.term}</Ico>Live zuschauen
-          </button>
+            <Ico>{I.term}</Ico>{translate("Watch live")}</button>
         )}
         {!liveSessionId && details.archivedTaskId && (
           <button
             className="gact"
             onClick={() => props.onShowInDock({ taskId: details.archivedTaskId! }, `${worker.name} · Worker · ${cluster.run.name}`)}
           >
-            <Ico>{I.term}</Ico>Aktivität anzeigen
-          </button>
+            <Ico>{I.term}</Ico>{translate("Show activity")}</button>
         )}
         <button
           className="gact primary"
           disabled={!worker.available || !canDirectDispatch}
           onClick={() => props.onCompose({ kind: 'participant', id: worker.id, name: worker.name })}
         >
-          <Ico>{I.arrow}</Ico>Task zuweisen
-        </button>
+          <Ico>{I.arrow}</Ico>{translate("Assign task [5461736b]")}</button>
         <button
           className="gact"
           {...openSessionProps(worker.available, worker.id)}
           onClick={() => void openParticipantTerminal(worker.agentId, worker.id, cluster.run.id)}
         >
-          <Ico>{I.term}</Ico>Session öffnen
-        </button>
+          <Ico>{I.term}</Ico>{translate("Open session")}</button>
       </div>
     </aside>
   );
@@ -1932,16 +1910,18 @@ function Head(props: {
   sub: string;
   onClose: () => void;
 }): JSX.Element {
+  useLocale();
   return (
     <div className="ginsp-head">
       <div className="gglyph" style={{ ['--rt' as string]: props.color }}>{props.glyph}</div>
       <div className="t"><h3>{props.title}</h3><p>{props.sub}</p></div>
-      <button className="ginsp-close" title="Schließen" onClick={props.onClose}><Ico>{I.close}</Ico></button>
+      <button className="ginsp-close" title={translate("Close [5363686c]")} onClick={props.onClose}><Ico>{I.close}</Ico></button>
     </div>
   );
 }
 
 function KV({ k, v }: { k: string; v: string }): JSX.Element {
+  useLocale();
   return <div className="gkv"><span>{k}</span><span className="val">{v}</span></div>;
 }
 
@@ -1950,13 +1930,14 @@ function Composer(props: {
   onCancel: () => void;
   onSend: (text: string, options: { toWorkers: boolean }) => void;
 }): JSX.Element {
+  useLocale();
   const [text, setText] = useState('');
   const [toWorkers, setToWorkers] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
   const target = props.target;
   const label = target.kind === 'all'
-    ? 'alle Teams'
+    ? translate("all teams")
     : target.kind === 'team' ? `team · ${target.name}` : target.name;
   const canDistribute = target.kind !== 'participant';
   const workerCount = target.kind === 'participant' ? 0 : target.workerCount;
@@ -1967,12 +1948,12 @@ function Composer(props: {
   return (
     <div className="gcomposer-back" onPointerDown={props.onCancel}>
       <div className="gcomposer" onPointerDown={(event) => event.stopPropagation()}>
-        <h3>Task an <b>{label}</b></h3>
+        <h3>{translate("Task for")}{" "}<b>{label}</b></h3>
         <textarea
           ref={inputRef}
           value={text}
           maxLength={8_000}
-          placeholder="Aufgabe beschreiben"
+          placeholder={translate("Describe task")}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
@@ -1990,13 +1971,13 @@ function Composer(props: {
               disabled={workerCount === 0}
               onChange={(event) => setToWorkers(event.target.checked)}
             />
-            <span>Auch an {workerCount} Worker verteilen</span>
+            <span>{translate("Also to")}{" "}{workerCount} {" "}{translate("Distribute workers")}</span>
           </label>
         )}
         <div className="gcomposer-meta">{text.length} / 8000</div>
         <div className="gcomposer-foot">
-          <button className="gact" onClick={props.onCancel}>Abbrechen</button>
-          <button className="gact primary" disabled={!text.trim()} onClick={submit}>Senden</button>
+          <button className="gact" onClick={props.onCancel}>{translate("Cancel")}</button>
+          <button className="gact primary" disabled={!text.trim()} onClick={submit}>{translate("Send")}</button>
         </div>
       </div>
     </div>
@@ -2016,6 +1997,7 @@ function PublicationModal(props: {
   onCancel: () => void;
   onPublished: (publication: RunPublication) => void;
 }): JSX.Element {
+  useLocale();
   const [candidate, setCandidate] = useState<RunPublicationPreview | null>(null);
   const [published, setPublished] = useState<RunPublication | null>(
     props.existing?.status === 'draft' ? props.existing : null,
@@ -2119,10 +2101,10 @@ function PublicationModal(props: {
       >
         <div className="grun-modal-head">
           <div>
-            <h2 id="gpublish-title">Verifizierten Draft-PR veröffentlichen</h2>
-            <p>{props.run.name} · externer GitHub-Schreibvorgang</p>
+            <h2 id="gpublish-title">{translate("Publish Verified Draft PR")}</h2>
+            <p>{props.run.name} {" "}{translate("· External GitHub writing process")}</p>
           </div>
-          <button ref={closeRef} type="button" className="ginsp-close" title="Schließen" disabled={submitting} onClick={props.onCancel}>
+          <button ref={closeRef} type="button" className="ginsp-close" title={translate("Close [5363686c]")} disabled={submitting} onClick={props.onCancel}>
             <Ico>{I.close}</Ico>
           </button>
         </div>
@@ -2131,37 +2113,36 @@ function PublicationModal(props: {
           {!candidate && !error && (
             <div className="gpublish-loading">
               <span className="gpublish-spinner" aria-hidden="true" />
-              Worktree, Remote, GitHub-Zugriff und Verification-Attest werden geprüft…
-            </div>
+              {translate("Worktree, Remote, GitHub Access and Verification Certificate are checked…")}</div>
           )}
 
           {finalPublication && (
             <div className="gpublish-success" role="status">
-              <b>Draft-PR #{finalPublication.prNumber} ist angelegt</b>
+              <b>{translate("Draft PR #")}{finalPublication.prNumber} {" "}{translate("is created")}</b>
               <span>
-                Branch <code>{finalPublication.headBranch}</code> · CI {ciStatusText(candidate?.ciStatus ?? 'none')}
+                {translate("Branch")}{" "}<code>{finalPublication.headBranch}</code> {" "}{translate("· CI")}{" "}{ciStatusText(candidate?.ciStatus ?? 'none')}
               </span>
               {safePrUrl && (
-                <a href={safePrUrl} target="_blank" rel="noreferrer">Auf GitHub öffnen ↗</a>
+                <a href={safePrUrl} target="_blank" rel="noreferrer">{translate("Open on GitHub ↗")}</a>
               )}
-              <p>ADE kann diesen PR weder automatisch mergen noch <code>main</code> direkt aktualisieren.</p>
+              <p>{translate("ADE can neither automatically merge nor")}{" "}<code>main</code> {" "}{translate("Directly update.")}</p>
             </div>
           )}
 
           {candidate && !finalPublication && (
             <>
               <div className="gpublish-summary">
-                <div><span>Repository</span><b>{candidate.providerRepository ?? candidate.repositoryName ?? '—'}</b></div>
-                <div><span>Base</span><b>{candidate.baseBranch ?? '—'} <code>{candidate.baseSha?.slice(0, 10)}</code></b></div>
-                <div><span>Neuer Branch</span><b><code>{candidate.headBranch ?? '—'}</code></b></div>
-                <div><span>Verifiziert</span><b><code>{candidate.headSha?.slice(0, 10) ?? '—'}</code></b></div>
-                <div><span>Umfang</span><b>{candidate.commitCount} Commits · {candidate.changedFiles.length}{candidate.changedFilesTruncated ? '+' : ''} Dateien</b></div>
-                <div><span>Provider</span><b>{candidate.provider === 'github' ? 'GitHub CLI im Repo-Backend' : 'nicht verfügbar'}</b></div>
+                <div><span>{translate("Repository")}</span><b>{candidate.providerRepository ?? candidate.repositoryName ?? '—'}</b></div>
+                <div><span>{translate("Base")}</span><b>{candidate.baseBranch ?? '—'} <code>{candidate.baseSha?.slice(0, 10)}</code></b></div>
+                <div><span>{translate("New branch")}</span><b><code>{candidate.headBranch ?? '—'}</code></b></div>
+                <div><span>{translate("Verified")}</span><b><code>{candidate.headSha?.slice(0, 10) ?? '—'}</code></b></div>
+                <div><span>{translate("Scope")}</span><b>{candidate.commitCount} {" "}{translate("Commits ·")}{" "}{candidate.changedFiles.length}{candidate.changedFilesTruncated ? '+' : ''} {" "}{translate("Files")}</b></div>
+                <div><span>{translate("Provider")}</span><b>{candidate.provider === 'github' ? translate("GitHub CLI in the repo backend") : translate("Not available [6e696368]")}</b></div>
               </div>
 
               {!candidate.eligible && (
                 <div className="gpublish-blocked" role="alert">
-                  <b>Veröffentlichung blockiert</b>
+                  <b>{translate("Publication blocked")}</b>
                   <ul>{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
                 </div>
               )}
@@ -2169,13 +2150,13 @@ function PublicationModal(props: {
               {candidate.eligible && (
                 <>
                   <section className="gpublish-evidence">
-                    <h3>Finale Verification</h3>
+                    <h3>{translate("Final verification")}</h3>
                     <ul>
                       {candidate.verificationCommands.map((command) => <li key={command}><code>{command}</code></li>)}
                     </ul>
                   </section>
                   <section className="gpublish-evidence">
-                    <h3>Geänderte Dateien</h3>
+                    <h3>{translate("Modified files")}</h3>
                     <ul className="gpublish-files">
                       {candidate.changedFiles.map((file) => <li key={file}><code>{file}</code></li>)}
                     </ul>
@@ -2188,9 +2169,7 @@ function PublicationModal(props: {
                       onChange={(event) => setConfirmed(event.target.checked)}
                     />
                     <span>
-                      Ich bestätige den externen Push dieses exakten HEADs auf den neuen <code>ade/**</code>-Branch
-                      und das Anlegen eines Draft-PR. <code>main</code> bleibt unverändert.
-                    </span>
+                      {translate("I confirm the external push of this exact HEAD on the new")}{" "}<code>ade/**</code>{translate("-Branch and creating a draft PR.")}{" "}<code>main</code> {" "}{translate("remains unchanged.")}</span>
                   </label>
                 </>
               )}
@@ -2199,15 +2178,13 @@ function PublicationModal(props: {
 
           {props.existing?.status === 'failed' && !finalPublication && (
             <div className="gpublish-retry">
-              Vorheriger Versuch fehlgeschlagen: {props.existing.error ?? 'unbekannter Fehler'}.
-              Der Retry prüft Remote-Branch und HEAD erneut.
-            </div>
+              {translate("Previous attempt failed:")}{" "}{props.existing.error ?? translate("unknown error")}{translate("The retry checks remote branch and HEAD again.")}</div>
           )}
-          {error && <div className="grun-error" role="alert">{error}</div>}
+          {error && <div className="grun-error" role="alert">{localizeAppMessage(error)}</div>}
         </div>
 
         <div className="gcomposer-foot">
-          <button type="button" className="gact" disabled={submitting} onClick={props.onCancel}>Schließen</button>
+          <button type="button" className="gact" disabled={submitting} onClick={props.onCancel}>{translate("Close [5363686c]")}</button>
           {!finalPublication && (
             <button
               type="button"
@@ -2215,7 +2192,7 @@ function PublicationModal(props: {
               disabled={!candidate?.eligible || !confirmed || submitting}
               onClick={() => void publish()}
             >
-              <Ico>{I.publish}</Ico>{submitting ? 'Wird veröffentlicht…' : 'Branch pushen & Draft-PR anlegen'}
+              <Ico>{I.publish}</Ico>{submitting ? translate("Publishing…") : translate("Push branch & create draft PR")}
             </button>
           )}
         </div>
@@ -2226,10 +2203,10 @@ function PublicationModal(props: {
 
 function ciStatusText(status: RunPublicationPreview['ciStatus']): string {
   switch (status) {
-    case 'pending': return 'läuft';
-    case 'passed': return 'grün';
-    case 'failed': return 'fehlgeschlagen';
-    default: return 'noch ohne Checks';
+    case 'pending': return translate("running");
+    case 'passed': return translate("Green");
+    case 'failed': return translate("Failed [6665686c]");
+    default: return translate("no checks yet");
   }
 }
 
@@ -2259,6 +2236,7 @@ export function NewRunModal(props: {
   onCancel: () => void;
   onCreate: (input: RunCreateInput) => Promise<void>;
 }): JSX.Element {
+  useLocale();
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -2446,16 +2424,16 @@ export function NewRunModal(props: {
         onSubmit={(event) => { event.preventDefault(); void submit(); }}
       >
         <div className="grun-modal-head">
-          <div><h2 id="new-run-title">Neuer Run</h2><p>Bestehende Agenten für ein konkretes Ziel zusammenstellen</p></div>
-          <button type="button" className="ginsp-close" title="Schließen" onClick={props.onCancel}><Ico>{I.close}</Ico></button>
+          <div><h2 id="new-run-title">{translate("New Run")}</h2><p>{translate("Putting together existing agents for a specific goal")}</p></div>
+          <button type="button" className="ginsp-close" title={translate("Close [5363686c]")} onClick={props.onCancel}><Ico>{I.close}</Ico></button>
         </div>
         <div className="grun-modal-body">
           <label className="grun-field">
-            <span>Name</span>
+            <span>{translate("Name")}</span>
             <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
           </label>
           <label className="grun-field">
-            <span>Ziel</span>
+            <span>{translate("Objective")}</span>
             <textarea
               value={goal}
               maxLength={1_000}
@@ -2466,30 +2444,28 @@ export function NewRunModal(props: {
                 const replaced = field.selectionEnd - field.selectionStart;
                 if (goal.length - replaced + pasted.length > 1_000) setGoalPasteOverflow(true);
               }}
-              placeholder="Erwartetes Ergebnis dieses Runs"
+              placeholder={translate("Expected result of this run")}
             />
             <small className="grun-goal-meta">
-              {goal.split('\n').length > 1 ? `${goal.split('\n').length} Zeilen · ` : ''}{goal.length} / 1000
+              {goal.split('\n').length > 1 ? translate("{{value1}} lines · ", { value1: goal.split('\n').length }) : ''}{goal.length} / 1000
             </small>
             {goalPasteOverflow && goal.length >= 1_000 && (
               <small className="grun-goal-warn">
-                Der eingefügte Text war länger als 1000 Zeichen und wurde abgeschnitten.
-                Ziel vor dem Erstellen vollständig prüfen.
-              </small>
+                {translate("The pasted text exceeded 1,000 characters and was truncated. Review the complete goal before creating the run.")}</small>
             )}
           </label>
           <label className="grun-field">
-            <span>Orchestrator</span>
+            <span>{translate("Orchestrator")}</span>
             <select value={orchestratorId} onChange={(event) => chooseOrchestrator(event.target.value)}>
-              <option value="">Keiner</option>
+              <option value="">{translate("None")}</option>
               {allAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </select>
           </label>
           {orchestratorId && props.agents[orchestratorId] ? (
             <label className="grun-field">
-              <span>Harness</span>
+              <span>{translate("Harness")}</span>
               <select
-                aria-label={`Harness für ${props.agents[orchestratorId]!.name}`}
+                aria-label={translate("Harness for {{value1}}", { value1: props.agents[orchestratorId]!.name })}
                 value={harness[orchestratorId] ?? props.agents[orchestratorId]!.runtime}
                 onChange={(event) => setHarness((current) => ({
                   ...current,
@@ -2504,15 +2480,13 @@ export function NewRunModal(props: {
                 ))}
               </select>
               <small className="grun-hint">
-                Gilt nur für diesen Run. Das gewählte CLI muss installiert und
-                angemeldet sein (Diagnostics).
-              </small>
+                {translate("Applies only to this run. The selected CLI must be installed and logged in (Diagnostics).")}</small>
             </label>
           ) : null}
           <label className="grun-field">
-            <span>Repository</span>
+            <span>{translate("Repository")}</span>
             <select value={repositoryId} onChange={(event) => setRepositoryId(event.target.value)}>
-              <option value="">Kein Repository (portable Agent-Homes)</option>
+              <option value="">{translate("No repository (portable agent homes)")}</option>
               {[...props.repositories]
                 .sort((left, right) => left.name.localeCompare(right.name))
                 .map((repository) => (
@@ -2521,17 +2495,17 @@ export function NewRunModal(props: {
             </select>
             <small className="grun-hint">
               {repositoryId
-                ? 'Jeder Teilnehmer arbeitet in einem eigenen ADE-Worktree dieses Repositories; der Scope wird pro Task eingefroren.'
-                : 'Ohne Repository arbeiten alle Teilnehmer in ihren Home-Verzeichnissen (kein gemeinsamer Git-Stand).'}
+                ? translate("Each participant works in their own ADE worktree of this repository; the scope is frozen per task.")
+                : translate("Without a repository, all participants work in their home directories (no shared git state).")}
             </small>
           </label>
           {repositoryId ? (
             <div className="grun-field grun-prepare">
               <details>
-                <summary>Git-Basis vor dem Run prüfen und aktualisieren</summary>
+                <summary>{translate("Check and update git base before the run")}</summary>
                 <RepositorySyncPanel key={repositoryId} repositoryId={repositoryId} />
               </details>
-              <span id="grun-prepare-label">Worktrees</span>
+              <span id="grun-prepare-label">{translate("Worktrees")}</span>
               <label className="grun-prepare-choice">
                 <input
                   type="checkbox"
@@ -2539,12 +2513,12 @@ export function NewRunModal(props: {
                   checked={resetWorktrees}
                   onChange={(event) => setResetWorktrees(event.target.checked)}
                 />
-                <span>Abweichende Teilnehmer-Worktrees auf die Orchestrator-Basis zurücksetzen</span>
+                <span>{translate("Reset diverging participant worktrees to the orchestrator base")}</span>
               </label>
               <small className="grun-hint" id="grun-prepare-hint">
                 {resetWorktrees
-                  ? 'Vor dem Start sichert ADE den bisherigen Stand jedes abweichenden Worktrees unter refs/ade/archive/<run>/<teilnehmer> und setzt ihn dann auf den HEAD des Orchestrator-Worktrees. Dirty Worktrees und Worktrees eines aktiven Runs werden nicht angefasst.'
-                  : 'Ohne Häkchen bricht der Start ab, sobald ein Teilnehmer-Worktree nicht auf dem HEAD des Orchestrator-Worktrees steht, und nennt die betroffenen Worktrees.'}
+                  ? translate("Before starting, ADE archives each diverging worktree under refs/ade/archive/<run>/<participant>, then resets it to the orchestrator worktree HEAD. Dirty worktrees and worktrees used by an active run are left untouched.")
+                  : translate("Without this option, starting stops if a participant worktree differs from the orchestrator worktree HEAD and lists the affected worktrees.")}
               </small>
             </div>
           ) : null}
@@ -2553,33 +2527,32 @@ export function NewRunModal(props: {
                 type="button"
                 className="gact"
                 aria-expanded={manualPath !== null}
-                title="Repository-Pfad direkt eingeben und importieren"
+                title={translate("Enter and import repository path directly")}
                 onClick={toggleManualPath}
               >
-                Pfad…
-              </button>
+                {translate("Path …")}</button>
               {manualPath !== null && (
                 <>
                   <select
-                    aria-label="Execution backend"
+                    aria-label={translate("Execution backend")}
                     value={importBackend}
                     disabled={importBusy}
                     onChange={(event) => setImportBackend(event.target.value as ExecutionBackendId)}
                   >
-                    <option value={NATIVE_EXECUTION_BACKEND}>Native</option>
+                    <option value={NATIVE_EXECUTION_BACKEND}>{translate("Native")}</option>
                     {wslDistributions.map((distribution) => (
                       // Advisory only — a cold WSL VM can miss the probe window.
                       <option key={distribution.backend} value={distribution.backend}>
-                        WSL · {distribution.name}{distribution.available ? '' : ' (unavailable?)'}
+                        {translate("WSL ·")}{" "}{distribution.name}{distribution.available ? '' : ' (unavailable?)'}
                       </option>
                     ))}
                   </select>
                   <input
                     type="text"
-                    aria-label="Repository path"
+                    aria-label={translate("Repository path")}
                     placeholder={importBackend === NATIVE_EXECUTION_BACKEND
-                      ? 'C:\\repos\\projekt'
-                      : '/home/name/projekt'}
+                      ? translate("C:\\repos\\project")
+                      : translate("/home/name/project")}
                     value={manualPath}
                     disabled={importBusy}
                     onChange={(event) => setManualPath(event.target.value)}
@@ -2596,21 +2569,20 @@ export function NewRunModal(props: {
                     disabled={importBusy || manualPath.trim().length === 0}
                     onClick={() => void importManualPath()}
                   >
-                    Importieren
-                  </button>
+                    {translate("Import")}</button>
                 </>
               )}
             </div>
 
-          <label><input type="checkbox" checked={allowQuestions} onChange={(event) => setAllowQuestions(event.target.checked)} />Rückfragen während des Runs erlauben (native Codex-Agenten)</label>
-          {allowQuestions && <p>Codex kann im Graph und am Tablet Fragen stellen. Blockierende Rückfragen pausieren das Zeitlimit der jeweiligen Aufgabe. Alle ausgewählten Laufzeiten müssen native Codex-Agenten sein.</p>}
+          <label><input type="checkbox" checked={allowQuestions} onChange={(event) => setAllowQuestions(event.target.checked)} />{translate("Allow queries during the run (native Codex agents)")}</label>
+          {allowQuestions && <p>{translate("Codex can ask questions in the graph and on the tablet. Blocking queries pause the time limit of the respective task. All selected runtimes must be native Codex agents.")}</p>}
           <div className="grun-budget-title">
-            <span>Run-Budgets</span>
-            <small>Leere Token-/Kosten-/Zeitfelder = kein Limit; Token-/Kostenlimits benötigen Adapter-Telemetrie.</small>
+            <span>{translate("Run budgets")}</span>
+            <small>{translate("Empty token/cost/time fields = no limit; token/cost limits require adapter telemetry.")}</small>
           </div>
           <div className="grun-budget">
             <label>
-              <span>Parallel</span>
+              <span>{translate("Parallel")}</span>
               <input
                 type="number"
                 min={1}
@@ -2620,38 +2592,38 @@ export function NewRunModal(props: {
               />
             </label>
             <label>
-              <span>Input-Tokens</span>
+              <span>{translate("Input tokens")}</span>
               <input
                 type="number"
                 min={1}
-                placeholder="unbegrenzt"
+                placeholder={translate("Unlimited")}
                 value={maxInputTokens}
                 onChange={(event) => setMaxInputTokens(event.target.value)}
               />
             </label>
             <label>
-              <span>Output-Tokens</span>
+              <span>{translate("Output tokens")}</span>
               <input
                 type="number"
                 min={1}
-                placeholder="unbegrenzt"
+                placeholder={translate("Unlimited")}
                 value={maxOutputTokens}
                 onChange={(event) => setMaxOutputTokens(event.target.value)}
               />
             </label>
             <label>
-              <span>Kosten USD</span>
+              <span>{translate("Costs USD")}</span>
               <input
                 type="number"
                 min={0.01}
                 step={0.01}
-                placeholder="unbegrenzt"
+                placeholder={translate("Unlimited")}
                 value={maxCostUsd}
                 onChange={(event) => setMaxCostUsd(event.target.value)}
               />
             </label>
             <label>
-              <span>Freigaben</span>
+              <span>{translate("Approvals")}</span>
               <input
                 type="number"
                 min={1}
@@ -2661,22 +2633,22 @@ export function NewRunModal(props: {
               />
             </label>
             <label>
-              <span>Min. pro Task</span>
+              <span>{translate("Min. per task")}</span>
               <input
                 type="number"
                 min={1}
                 max={MAX_TASK_MINUTES_LIMIT}
                 step={1}
-                placeholder="unbegrenzt"
+                placeholder={translate("Unlimited")}
                 value={maxTaskMinutes}
                 onChange={(event) => setMaxTaskMinutes(event.target.value)}
               />
             </label>
           </div>
 
-          <div className="grun-roster-title"><span>Teams</span><b>{participantCount} Teilnehmer</b></div>
+          <div className="grun-roster-title"><span>{translate("Teams")}</span><b>{participantCount} {" "}{translate("Participants")}</b></div>
           {availableCategories.length === 0 && (
-            <div className="grun-no-agents">Lege im Terminal-Modus zuerst mindestens einen Agenten an.</div>
+            <div className="grun-no-agents">{translate("In terminal mode, create at least one agent first.")}</div>
           )}
           <div className="grun-roster">
             {availableCategories.map((category) => {
@@ -2706,7 +2678,7 @@ export function NewRunModal(props: {
                         {checked && (
                           <select
                             className="grun-agent-harness"
-                            aria-label={`Harness für ${agent.name}`}
+                            aria-label={translate("Harness for {{value1}}", { value1: agent.name })}
                             value={effectiveRuntime}
                             onChange={(event) => setHarness((current) => ({
                               ...current,
@@ -2729,8 +2701,7 @@ export function NewRunModal(props: {
                               checked={leaders[category.id] === agent.id}
                               onChange={() => setLeaders((current) => ({ ...current, [category.id]: agent.id }))}
                             />
-                            Lead
-                          </label>
+                            {translate("Lead")}</label>
                         )}
                       </div>
                     );
@@ -2739,12 +2710,12 @@ export function NewRunModal(props: {
               );
             })}
           </div>
-          {error && <div className="grun-error">{error}</div>}
+          {error && <div className="grun-error">{localizeAppMessage(error)}</div>}
         </div>
         <div className="gcomposer-foot">
-          <button type="button" className="gact" onClick={props.onCancel}>Abbrechen</button>
+          <button type="button" className="gact" onClick={props.onCancel}>{translate("Cancel")}</button>
           <button type="submit" className="gact primary" disabled={!name.trim() || participantCount === 0 || submitting}>
-            {submitting ? 'Wird erstellt' : 'Run erstellen'}
+            {submitting ? translate("Creating") : translate("Create a Run")}
           </button>
         </div>
       </form>

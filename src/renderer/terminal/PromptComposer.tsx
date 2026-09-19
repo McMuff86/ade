@@ -1,3 +1,6 @@
+import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { t as translate } from "../../shared/i18n";
+import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { DICTATION_MAX_SECONDS, DICTATION_MAX_TEXT_CHARS, validPromptText, type DictationJobState } from '../../shared/dictation';
 import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
@@ -52,11 +55,11 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
     try { return store.current.read(draftKey); } catch { return { text: '' }; }
   });
   const draftRef = useRef(draft); draftRef.current = draft;
-  const [capability, setCapability] = useState<TerminalPromptCapability>({ available: false, reason: 'Sitzungsziel wird geprüft…' });
+  const [capability, setCapability] = useState<TerminalPromptCapability>({ available: false, reason: translate("Checking session target…") });
   const [phase, setPhase] = useState<PromptPhase>('idle');
   const [error, setError] = useState(''); const [seconds, setSeconds] = useState(0);
   const [noticeState, setNoticeState] = useState<{ text: string; kind: PromptNoticeKind }>(draft.recordingInterrupted
-    ? { text: 'Aufnahme beim Wechsel beendet. Erkannten Text vor dem Senden prüfen.', kind: 'recovered' } : { text: '', kind: 'info' });
+    ? { text: translate("Stop recording on change. Check recognized text before sending."), kind: 'recovered' } : { text: '', kind: 'info' });
   const setNotice = (text: string, kind: PromptNoticeKind = 'info') => setNoticeState({ text, kind });
   const [liveText, setLiveText] = useState(''); const liveTextRef = useRef('');
   const [computerBusy, setComputerBusyState] = useState(false);
@@ -72,7 +75,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
   const save = (next: PromptDraft): boolean => {
     draftRef.current = next; setDraft(next);
     try { store.current.save(savedKey.current, next); setStorageError(''); return true; }
-    catch (reason) { setStorageError(reason instanceof Error ? reason.message : 'Entwurf ist nur bis zum Schliessen verfügbar.'); return false; }
+    catch (reason) { setStorageError(reason instanceof Error ? reason.message : translate("Draft is only available until closing.")); return false; }
   };
   useEffect(() => {
     mounted.current = true;
@@ -93,7 +96,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
     if (!online) return;
     let stopped = false;
     const refresh = () => { void portRef.current.capability().then(value => { if (!stopped) setCapability(value); })
-      .catch(() => { if (!stopped) setCapability({ available: false, reason: 'Sitzung konnte nicht geprüft werden. Entwurf bleibt erhalten.' }); }); };
+      .catch(() => { if (!stopped) setCapability({ available: false, reason: translate("Could not check the session. Your draft has been preserved.") }); }); };
     refresh(); const timer = window.setInterval(refresh, 2000);
     return () => { stopped = true; clearInterval(timer); };
   }, [online]);
@@ -110,10 +113,10 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
     liveTextRef.current = ''; setLiveText('');
     if (id) void portRef.current.cancelRecording(id).catch(() => undefined);
     void portRef.current.revokeMicrophone?.().catch(() => undefined);
-    setNotice('Aufnahme abgebrochen. Bereits übertragene Audiodaten können beim Anbieter verarbeitet worden sein.', 'cancelled');
+    setNotice(translate("Recording cancelled. Audio already sent may have been processed by the provider."), 'cancelled');
     if (online || preservePreview) save({ ...draftRef.current, recordingJob: undefined,
       ...(preview ? { text: [draftRef.current.text, preview].filter(Boolean).join('\n').slice(0, DICTATION_MAX_TEXT_CHARS) } : {}) });
-    if (preview) setNotice('Verbindung unterbrochen. Der letzte Zwischenstand wurde als Entwurf gesichert. Bitte auf Vollständigkeit prüfen.', 'recovered');
+    if (preview) setNotice(translate("Interrupted. The last intermediary was secured as a draft. Please check for completeness."), 'recovered');
   };
   useEffect(() => { if (!online && recorder.current) cancel(true); }, [online]);
 
@@ -127,16 +130,16 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
       if (state.status === 'complete') {
         const current = draftRef.current;
         const text = [current.text, state.transcript.text.trim()].filter(Boolean).join('\n');
-        if (text.length > DICTATION_MAX_TEXT_CHARS) throw new Error('Transkript und Entwurf sind zusammen zu lang. Entwurf kürzen und Transkript erneut holen.');
+        if (text.length > DICTATION_MAX_TEXT_CHARS) throw new Error(translate("Transcript and draft are too long together, shorten draft and retrieve transcript."));
         save({ ...current, text, recordingJob: undefined }); job.current = null;
         liveTextRef.current = ''; setLiveText('');
-        if (state.transcript.text.trim()) setNotice('Transkript eingefügt. Bitte prüfen, dann gezielt übergeben.', 'transcribed');
-        else setNotice('Keine Sprache erkannt. Der Entwurf ist unverändert.', 'empty');
+        if (state.transcript.text.trim()) setNotice(translate("Inserted transcript. Please check, then handed over specifically."), 'transcribed');
+        else setNotice(translate("No speech detected. Your draft is unchanged."), 'empty');
         input.current?.focus(); return;
       }
       if (state.status === 'failed') throw new Error(state.message);
-      if (state.status === 'cancelled' || state.status === 'prepared') throw new Error('Keine vollständige Aufnahme verfügbar. Bei Bedarf neu aufnehmen.');
-      setNotice('Die Transkription läuft noch. Den Status später erneut prüfen.', 'pending'); return;
+      if (state.status === 'cancelled' || state.status === 'prepared') throw new Error(translate("No full recording available. Re-recorded as needed."));
+      setNotice(translate("The transcription is still ongoing. Check the status again later."), 'pending'); return;
     }
   };
 
@@ -149,7 +152,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
       const prepared = await target.prepareRecording();
       if (!mounted.current || generation.current !== own) { void target.cancelRecording(prepared.jobId).catch(() => undefined); return; }
       job.current = prepared.jobId;
-      if (!save({ ...draftRef.current, recordingJob: prepared.jobId })) { void target.cancelRecording(prepared.jobId).catch(() => undefined); throw new Error('Aufnahme nicht gestartet: Entwurf zuerst sichern.'); }
+      if (!save({ ...draftRef.current, recordingJob: prepared.jobId })) { void target.cancelRecording(prepared.jobId).catch(() => undefined); throw new Error(translate("Recording not started: backup draft first.")); }
       await target.permitMicrophone?.();
       if (!mounted.current || generation.current !== own) return;
       if (target.liveRecording) {
@@ -163,9 +166,9 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
           const combined = [draftRef.current.text, preview].filter(Boolean).join('\n');
           save({ ...draftRef.current, text: combined.slice(0, DICTATION_MAX_TEXT_CHARS), recordingJob: undefined });
           liveTextRef.current = ''; setLiveText(''); job.current = null; busy.current = false; setPhase('idle');
-          setError(reason instanceof Error ? reason.message : 'Live-Diktat unterbrochen.');
-          if (preview) setNotice(combined.length > DICTATION_MAX_TEXT_CHARS ? 'Der Zwischenstand wurde an der maximalen Entwurfslänge gekürzt. Bitte auf Vollständigkeit prüfen.'
-            : 'Der letzte Zwischenstand wurde als Entwurf gesichert. Bitte auf Vollständigkeit prüfen.', 'recovered');
+          setError(reason instanceof Error ? reason.message : translate("Live dictation interrupted."));
+          if (preview) setNotice(combined.length > DICTATION_MAX_TEXT_CHARS ? translate("The partial transcript was truncated at the maximum draft length. Check that it is complete.")
+            : translate("The last interim status has been secured as a draft and please check for completeness."), 'recovered');
         };
         const capture = new LiveDictationRecorder(); recorder.current = capture; let sequence = 0;
         await capture.prepare();
@@ -195,7 +198,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
             if (!mounted.current || generation.current !== own) return;
             await target.uploadRecording(prepared.jobId, crypto.randomUUID(), bytes);
             await recover(prepared.jobId, own, true);
-          } catch (reason) { if (mounted.current && generation.current === own) setError(reason instanceof Error ? reason.message : 'Transkription fehlgeschlagen. Status der Aufnahme prüfen.'); }
+          } catch (reason) { if (mounted.current && generation.current === own) setError(reason instanceof Error ? reason.message : translate("Transcription failed. Check status of recording.")); }
           finally { if (mounted.current && generation.current === own) { busy.current = false; setPhase('idle'); } }
         })();
       });
@@ -206,7 +209,7 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
       if (job.current) void target.cancelRecording(job.current).catch(() => undefined);
       if (mounted.current && generation.current === own) {
         job.current = null; save({ ...draftRef.current, recordingJob: undefined });
-        setError(reason instanceof Error ? reason.message : 'Aufnahme konnte nicht gestartet werden.'); busy.current = false; setPhase('idle');
+        setError(reason instanceof Error ? reason.message : translate("Recording could not be started.")); busy.current = false; setPhase('idle');
       }
       void target.revokeMicrophone?.().catch(() => undefined);
     }
@@ -221,9 +224,9 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
       await portRef.current.send(outgoing.text, mode, commandId);
       if (!mounted.current) return;
       save({ text: '', recordingJob: draftRef.current.recordingJob });
-      if (mode === 'submit') setNotice('An die CLI übergeben. Die Verarbeitung durch das Modell ist damit noch nicht bestätigt.', 'submitted');
-      else setNotice('In die CLI eingefügt. Dort prüfen und mit Enter absenden.', 'inserted');
-    } catch (reason) { if (mounted.current) setError(`${reason instanceof Error ? reason.message : 'Übergabe nicht bestätigt.'} Terminal prüfen; ADE sendet nicht automatisch erneut.`); }
+      if (mode === 'submit') setNotice(translate("Handed over to the CLI. The processing by the model has not yet been confirmed."), 'submitted');
+      else setNotice(translate("Inserted into the CLI. Check there and send with Enter."), 'inserted');
+    } catch (reason) { if (mounted.current) setError(translate("{{value1}} Check the terminal; ADE will not send again automatically.", { value1: reason instanceof Error ? reason.message : translate("Delivery not confirmed.") })); }
     finally { busy.current = false; if (mounted.current) setPhase('idle'); }
   };
   const checkRecording = () => {
@@ -238,13 +241,13 @@ export function usePromptComposer({ draftKey, online, speechAllowed, port, sendB
   };
   const copy = () => {
     if (!portRef.current.copyText) return;
-    void portRef.current.copyText([draftRef.current.text, liveTextRef.current].filter(Boolean).join('\n')).then(() => { if (mounted.current) setNotice('Entwurf kopiert.', 'copied'); })
-      .catch(() => { if (mounted.current) setError('Kopieren fehlgeschlagen. Text markieren und mit der Tastatur kopieren.'); });
+    void portRef.current.copyText([draftRef.current.text, liveTextRef.current].filter(Boolean).join('\n')).then(() => { if (mounted.current) setNotice(translate("Draft copied."), 'copied'); })
+      .catch(() => { if (mounted.current) setError(translate("Copy failed. Mark text and copy it with the keyboard.")); });
   };
   const clear = () => {
     if (phase !== 'idle' || draft.delivery) return;
     if (draft.recordingJob) void portRef.current.cancelRecording(draft.recordingJob).catch(() => undefined);
-    save({ text: '' }); setError(''); setNotice('Entwurf gelöscht.', 'cleared');
+    save({ text: '' }); setError(''); setNotice(translate("Draft deleted."), 'cleared');
   };
   const canSend = !computerBusy && phase === 'idle' && online && !sendBlockedReason && capability.available && !draft.delivery && validPromptText(draft.text);
   const canRecord = !computerBusy && phase === 'idle' && online && speechAllowed && !draft.delivery && !draft.recordingJob;
@@ -264,35 +267,36 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
   draftKey: string; targetLabel: string; online: boolean; speechAllowed: boolean; port: PromptComposerPort;
   sendBlockedReason?: string;
 }) {
+  useLocale();
   const composer = usePromptComposer({ draftKey, online, speechAllowed, port, sendBlockedReason });
   const { draft, liveText, phase, seconds, maxSeconds, error, notice, storageError, capability } = composer;
-  return <section className="prompt-composer" aria-label="Promptentwurf">
-    <p className="prompt-target"><strong>An: {targetLabel}</strong></p>
+  return <section className="prompt-composer" aria-label={translate("Prompt draft")}>
+    <p className="prompt-target"><strong>{translate("To:")}{" "}{targetLabel}</strong></p>
     {port.computerGreeting && <ComputerVoiceTest port={port} onBusy={composer.setComputerBusy}
       enabled={online && speechAllowed && port.computerAllowed !== false && phase === 'idle' && !draft.delivery && !draft.recordingJob} />}
-    <p>Vor der Übergabe Anmeldung und Projektvertrauen direkt im Terminal abschliessen. Die CLI muss ihren Eingabeprompt anzeigen.</p>
-    {!online && <p role="status">Offline. Der Entwurf kann weiter bearbeitet werden.</p>}
-    {sendBlockedReason && <p role="status">{sendBlockedReason}. Der Entwurf bleibt bearbeitbar.</p>}
+    <p>{translate("Before sending, complete sign-in and project trust directly in the terminal. The CLI must show its input prompt.")}</p>
+    {!online && <p role="status">{translate("Offline. The draft can be further edited.")}</p>}
+    {sendBlockedReason && <p role="status">{sendBlockedReason}{translate(". You can still edit the draft.")}</p>}
     {!capability.available && <p role="status">{capability.reason}</p>}
-    <label>Prompt prüfen und bearbeiten<textarea ref={composer.input} aria-label="CLI-Promptentwurf" rows={7} maxLength={DICTATION_MAX_TEXT_CHARS}
+    <label>{translate("Review and edit prompt")}<textarea ref={composer.input} aria-label={translate("CLI-prompt draft")} rows={7} maxLength={DICTATION_MAX_TEXT_CHARS}
       readOnly={composer.readOnly} value={composer.value} onChange={event => composer.setText(event.target.value)} /></label>
-    {port.liveRecording && phase === 'recording' && <p role="status">Live-Transkription · {liveText ? 'Zwischenstand – Wörter können sich noch ändern.' : 'Sprich jetzt. Der Text erscheint hier während der Aufnahme.'}</p>}
-    <p className="prompt-help">Dieser Entwurf bleibt an diese Sitzung gebunden und wird auf diesem Gerät gespeichert. Aufnahmen dauern höchstens {maxSeconds >= 120 ? `${maxSeconds / 60} Minuten` : `${maxSeconds} Sekunden`}. {port.liveRecording ? 'Beim Diktieren wird das Audio laufend an ElevenLabs übertragen.' : 'Beim Transkribieren geht das Audio an ElevenLabs.'}</p>
-    {storageError && <p role="alert">{storageError}</p>}{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {port.liveRecording && phase === 'recording' && <p role="status">{translate("Live transcription ·")}{" "}{liveText ? translate("Intermediate – Words can still change.") : translate("Speak now. The text appears here during the recording.")}</p>}
+    <p className="prompt-help">{translate("This draft stays tied to this session and is saved on this device. Recordings last at most")}{" "}{maxSeconds >= 120 ? translate("{{value1}} minutes", { value1: maxSeconds / 60 }) : translate("{{value1}} seconds", { value1: maxSeconds })}. {port.liveRecording ? translate("When dictating, the audio is continuously transmitted to ElevenLabs.") : translate("When transcribing, the audio goes to ElevenLabs.")}</p>
+    {storageError && <p role="alert">{storageError}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
     <div className="prompt-actions">
-      <button type="button" disabled={!composer.canRecord} onClick={() => void composer.record()}>Diktieren</button>
-      {phase === 'recording' && <button type="button" onClick={composer.stop}>Aufnahme stoppen · {seconds} s</button>}
-      {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={composer.cancel}>Aufnahme abbrechen</button>}
-      {phase === 'permission' && <span role="status">Mikrofon wird angefragt…</span>}{phase === 'transcribing' && <span role="status">Audio wird transkribiert…</span>}
-      <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>In CLI einfügen</button>
-      <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('submit')}>An CLI absenden</button>
+      <button type="button" disabled={!composer.canRecord} onClick={() => void composer.record()}>{translate("Dictate")}</button>
+      {phase === 'recording' && <button type="button" onClick={composer.stop}>{translate("Stop recording ·")}{" "}{seconds} {" "}{translate("s")}</button>}
+      {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={composer.cancel}>{translate("Cancel recording")}</button>}
+      {phase === 'permission' && <span role="status">{translate("Requesting microphone…")}</span>}{phase === 'transcribing' && <span role="status">{translate("Transcribing audio…")}</span>}
+      <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>{translate("Insert to CLI")}</button>
+      <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('submit')}>{translate("Submit to CLI")}</button>
     </div>
-    {!speechAllowed && <p>ElevenLabs-Diktat braucht die eigene Diktat-Freigabe am PC.</p>}
-    {composer.recordingOpen && <div className="prompt-actions"><button type="button" disabled={!online} onClick={composer.checkRecording}>Status der Aufnahme prüfen</button>
-      <button type="button" onClick={composer.discardRecording}>Aufnahme verwerfen</button></div>}
-    {composer.deliveryOpen && <div><p role="alert">Die vorige Übergabe ist nicht bestätigt. Vor erneutem Senden zuerst die CLI prüfen.</p>
-      <button type="button" onClick={composer.acknowledgeDelivery}>Terminal geprüft – Entwurf weiterbearbeiten</button></div>}
-    {port.copyText && <button type="button" disabled={!draft.text && !liveText} onClick={composer.copy}>Entwurf kopieren</button>}
-    <button type="button" disabled={phase !== 'idle' || !!draft.delivery} onClick={composer.clear}>Entwurf löschen</button>
+    {!speechAllowed && <p>{translate("ElevenLabs dictation needs its own dictation permission on the PC.")}</p>}
+    {composer.recordingOpen && <div className="prompt-actions"><button type="button" disabled={!online} onClick={composer.checkRecording}>{translate("Check recording status")}</button>
+      <button type="button" onClick={composer.discardRecording}>{translate("Discard recording")}</button></div>}
+    {composer.deliveryOpen && <div><p role="alert">{translate("The previous handover is not confirmed, and before re-sending, check the CLI first.")}</p>
+      <button type="button" onClick={composer.acknowledgeDelivery}>{translate("Terminal inspected – continue working on the draft")}</button></div>}
+    {port.copyText && <button type="button" disabled={!draft.text && !liveText} onClick={composer.copy}>{translate("Copy draft")}</button>}
+    <button type="button" disabled={phase !== 'idle' || !!draft.delivery} onClick={composer.clear}>{translate("Delete the draft")}</button>
   </section>;
 }

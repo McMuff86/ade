@@ -1,3 +1,4 @@
+import { t as translate } from "./i18n";
 /** A navigation group adds one display level, without inheriting agent or Git policy. */
 export function validNavigationGroup(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 80
@@ -6,7 +7,7 @@ export function validNavigationGroup(value: unknown): value is string {
 
 export function navigationGroup(value: unknown): string | undefined {
   if (value === undefined || value === null || value === '') return undefined;
-  if (!validNavigationGroup(value)) throw new Error('Obergruppe muss 1–80 Zeichen ohne Steuerzeichen enthalten.');
+  if (!validNavigationGroup(value)) throw new Error(translate("Parent group must contain 1–80 characters without control characters."));
   return value;
 }
 
