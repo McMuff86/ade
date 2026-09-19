@@ -2,6 +2,9 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type JSX 
 import { createRoot } from 'react-dom/client';
 import { useMobileHost, type PendingCommand } from './useMobileHost';
 import { Dialog, Empty, finalStates, Icon, Status, type View } from './ui';
+import { AppNav } from '../renderer/nav/AppNav';
+import { viewLabel } from '../shared/appNavigation';
+import { ConnectionDialog, connectionLabel } from './ConnectionStatus';
 import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
@@ -18,7 +21,6 @@ import { useDeviceDraft } from './deviceDrafts';
 import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
-import { ViewNavigation } from '../renderer/navigation/ViewNavigation';
 import { SettingsTabs } from '../renderer/settings/SettingsTabs';
 import { MobileSpeechSettings } from './SpeechSettings';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
@@ -33,6 +35,7 @@ import { SupervisionButton, SupervisionContext } from '../renderer/supervision/S
 import { MobileSupervision, MobileSupervisionGraph } from './Supervision';
 import type { SupervisionTarget } from '../shared/supervision';
 import type { MobileSessionInventory, MobileTerminalState } from '../shared/remote';
+
 const MobileOrganizer = lazy(() => import('./Organizer').then(module => ({ default: module.MobileOrganizer })));
 
 function preference(key: string, fallback: string): string { try { return localStorage.getItem(`ade-mobile-${key}`) ?? fallback; } catch { return fallback; } }
@@ -69,7 +72,7 @@ function MobileApp(): JSX.Element {
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
-  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' || value === 'tasks' || value === 'notes' ? value : 'overview'; });
+  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'tasks' || value === 'notes' || value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' ? value : 'overview'; });
   const [draftState, setDraftState, draftsDurable] = useDeviceDraft(host.deviceId, 'task-drafts', initialProjectDraft(emptyDraft()));
   const draft = draftState.drafts[draftState.active]!;
   const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
@@ -78,6 +81,7 @@ function MobileApp(): JSX.Element {
   const [agentFilter, setAgentFilter] = useState('');
   const [composer, setComposer] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
   const [selected, setSelected] = useState<{ runId: string; participantId: string | null } | null>(null);
   const [graphRunId, setGraphRunId] = useState('');
   const [focusVersion, setFocusVersion] = useState(0);
@@ -102,7 +106,7 @@ function MobileApp(): JSX.Element {
     if (previousIdentity.current === host.identityVersion) return;
     previousIdentity.current = host.identityVersion;
     setDraftState(initialProjectDraft(emptyDraft())); setProjectFilter(''); setAgentFilter('');
-    setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false); setManagement(false); setSwitcherOpen(false); setSupervision(null); supervisionNavigation.current++;
+    setSelected(null); setGraphRunId(''); setSearch(''); setComposer(false); setSettings(false); setConnectionOpen(false); setManagement(false); setSwitcherOpen(false); setSupervision(null); supervisionNavigation.current++;
   }, [host.identityVersion]);
   useEffect(() => {
     if (!host.catalog) return;
@@ -169,15 +173,19 @@ function MobileApp(): JSX.Element {
   return <SupervisionContext.Provider value={repositoryId => setSupervision({ repositoryId })}><SessionNavigationContext.Provider value={() => setSwitcherOpen(true)}><TabletKeyboardContext.Provider value={keyboardOpen}><div className="m-app" onKeyDown={(event) => {
     if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
-    <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Overview">ade<span>_</span></button>
-      <span className="m-titlebar-sub">agentic development environment</span>
-      {host.paired && <ViewNavigation mobile view={view} onSelect={navigate} />}
-      <span className="m-header-spacer" /><span className={`m-connection ${host.status}`} role="status"><span className="m-live-dot" />{host.paired ? host.status === 'online' ? 'Verbunden' : host.status === 'connecting' ? 'Verbinde…' : 'Offline' : 'Privater Zugriff'}</span>
-      <button className="m-icon-button" aria-label="Settings" title="Settings" onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}><Icon name="settings" /></button>
-      <button className="m-icon-button" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
+    <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Übersicht">ade<span>_</span></button>
+      {host.paired && <AppNav className="m-appnav" current={view} onSelect={navigate} idPrefix="view-tab" controls="mobile-view-panel" />}
+      <span className="m-header-spacer" />
+      <button className={`m-connection ${host.status}`} aria-haspopup="dialog" title="Verbindung zum PC" disabled={!host.paired}
+        onClick={(event) => { event.currentTarget.focus(); setConnectionOpen(true); }}><span className="m-live-dot" /><span role="status">{connectionLabel(host)}</span></button>
+      <div className="m-header-admin" role="group" aria-label="Verwaltung">
+        {host.paired && <button className="m-quiet m-manage" aria-label="Verwalten" title="Verwalten" onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}><svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h10m4 0h2M4 12h2m4 0h10M4 17h12m4 0h0" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="18" cy="17" r="2" /></svg><span>Verwalten</span></button>}
+        <button className="m-icon-button" aria-label="Einstellungen" title="Einstellungen" onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}><Icon name="settings" /></button>
+        <button className="m-icon-button" aria-label={theme === 'dark' ? 'Zur hellen Darstellung wechseln' : 'Zur dunklen Darstellung wechseln'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
+      </div>
     </header>
     <div className="m-messages">
-      {host.status === 'online' && compareBuilds(admin.state?.build) === 'different' && <p className="m-notice">Browser und PC verwenden unterschiedliche Builds.
+      {host.status === 'online' && compareBuilds(admin.state?.build) === 'different' && <p className="m-notice">Browser und PC verwenden unterschiedliche Builds. Am PC ADE vollständig beenden und neu starten, dann diese Seite neu laden.
         <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Build-Stand ansehen</button></p>}
       {host.error && !composer && <p className="m-alert" role="alert">{host.error}</p>}
       {host.notice && <p className="m-notice" role="status">{host.notice}<button aria-label="Hinweis schliessen" onClick={host.dismissNotice}><Icon name="close" /></button></p>}
@@ -187,7 +195,7 @@ function MobileApp(): JSX.Element {
     </div>
     {host.paired === null ? <main className="m-pair"><p role="status">Geräteverbindung wird geladen…</p></main> : !host.paired ? <main className="m-pair">
       <div className="m-pair-mark">ade<span>_</span></div><h1>Mit deinem PC verbinden</h1><p>Tailscale auf diesem Gerät verbinden. In ADE am PC unter Einstellungen → Mobiler Zugriff einen Pairing-Code erstellen.</p>
-      <p>Falls die installierte ADE-App diese Seite zeigt: Den Code direkt hier in der App eingeben. Manche Browser führen für die App einen eigenen Gerätespeicher. Die Freigaben dieses Geräts anschließend am PC unter Settings → Verbundene Geräte prüfen.</p>
+      <p>Falls die installierte ADE-App diese Seite zeigt: Den Code direkt hier in der App eingeben. Manche Browser führen für die App einen eigenen Gerätespeicher. Die Freigaben dieses Geräts anschließend am PC unter Einstellungen → Verbundene Geräte prüfen.</p>
       <section><h2>Gerät koppeln</h2><p>QR-Code am PC scannen oder den einmaligen Code hier einfügen. Er gilt fünf Minuten.</p>
         <form onSubmit={(event) => { event.preventDefault(); void host.pair(challenge.trim(), deviceName.trim()).then((ok) => {
           if (ok) { setChallenge(''); document.getElementById('mobile-title')?.focus(); }
@@ -197,18 +205,21 @@ function MobileApp(): JSX.Element {
           <button className="m-primary" disabled={host.busy || !deviceName.trim() || !/^[A-Za-z0-9_-]{43}$/.test(challenge.trim())}>{host.busy ? 'Wird gekoppelt…' : 'Dieses Gerät verbinden'}</button>
         </form></section>
     </main> : <>
-      {view !== 'tasks' && view !== 'notes' && <div className="m-toolbar"><div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
-        {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : view === 'projects' ? 'Projekte' : view === 'terminals' ? 'Terminals' : 'Work'}</h1>}
-        {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
-        <div className="m-toolbar-actions"><div className="ade-action-group" role="group" aria-label="Verwaltung"><span className="ade-action-label">Verwaltung</span><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
-          <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Einstellungen</button>
-        </div><div className="ade-action-group" role="group" aria-label="Laufende Arbeit"><span className="ade-action-label">Arbeit</span><SessionSwitchButton id="mobile-session-switch" />
-        <SupervisionButton id="mobile-supervision" />
-          <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
-          <button disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}>Terminal öffnen</button>
-          </div><div className="ade-action-group" role="group" aria-label="Neue Arbeit erstellen"><span className="ade-action-label">Erstellen</span><button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
-          {view !== 'projects' && view !== 'terminals' && <><button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
-          <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></>}</div></div>
+      {view !== 'tasks' && view !== 'notes' && <div className="m-toolbar">
+        <div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
+          {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{viewLabel(view)}</h1>}
+          {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
+        {/* Work in flight is neither a room nor an action of this view: its own quiet pair. */}
+        <div className="m-toolbar-session" role="group" aria-label="Laufende Arbeit"><SessionSwitchButton id="mobile-session-switch" /><SupervisionButton id="mobile-supervision" /></div>
+        <div className="m-toolbar-actions">
+          {view === 'graph' && graphRun && <button className="m-quiet" aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
+          {view === 'overview' && <button className="m-quiet" onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>}
+          {view === 'projects' && <button className="m-primary" onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}><Icon name="plus" />Neues Projekt</button>}
+          {view === 'terminals' && <button className="m-primary" disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}><Icon name="plus" />Terminal öffnen</button>}
+          {(view === 'overview' || view === 'work' || view === 'graph') && <><button aria-label="Agent beauftragen" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Einen Auftrag an einen Agenten übergeben'}>Agent beauftragen{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
+            <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></>}
+          <button className="m-quiet m-refresh" aria-label="Aktualisieren" title="Aktualisieren" disabled={host.status !== 'online'} onClick={host.refreshNow}><Icon name="refresh" /><span>Aktualisieren</span></button>
+        </div>
       </div>}
       {(view === 'work' || view === 'graph') && <div className="m-project-filters"><label>Projektfilter<select aria-label="Projektfilter" value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value); setSelected(null); }}>
         <option value="">Alle Projekte</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
@@ -255,7 +266,8 @@ function MobileApp(): JSX.Element {
       onNavigate={(repositoryId, tab) => setWorkspace((current) => current ? { agentId: current.agentId, repositoryId: repositoryId || null, tab } : null)}
       onClose={() => setWorkspace(null)} onTask={(repositoryId) => { newWork('task', workspace.agentId, repositoryId); setWorkspace(null); }}
       onManage={() => { setWorkspace(null); setManagement(true); }} />}
-    {settings && <Dialog title="Settings" onClose={() => setSettings(false)} fallbackId="mobile-title">
+    {connectionOpen && host.paired && <ConnectionDialog host={host} build={compareBuilds(admin.state?.build)} fallbackId="mobile-title" onClose={() => setConnectionOpen(false)} onSettings={() => setSettings(true)} />}
+    {settings && <Dialog title="Einstellungen" onClose={() => setSettings(false)} fallbackId="mobile-title">
       <SettingsTabs voice={host.paired ? <MobileSpeechSettings host={host} target={{ kind: 'default' }} /> : <p>Zum Einstellen der Stimme zuerst mit dem PC verbinden.</p>}>
       {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
         requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}

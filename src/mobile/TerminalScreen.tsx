@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef, useState, type JSX } from 'react';
+import { createPortal } from 'react-dom';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { MobileTerminalFrame } from '../shared/remote';
@@ -24,13 +25,15 @@ function terminalDocument(): Document {
   } });
 }
 
-export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort, replyButtonContainer, replySheetContainer, onReplyOpenChange }: {
+export function TerminalScreen({ frame, screen, enabled, active, onData, onSize, fontSize = 14, replyPort, replyButtonContainer, replySheetContainer, onReplyOpenChange, toolContainer }: {
   frame: MobileTerminalFrame; enabled: boolean; active: boolean;
   screen: string;
   fontSize?: number;
   replyPort?: ReplySpeechPort;
   /** The voice strip's slot; "Anhören" renders there instead of floating over the output. */
   replyButtonContainer?: HTMLElement | null;
+  /** Where Verlauf/Links render; without it they overlay the output. */
+  toolContainer?: HTMLElement | null;
   /** The strip's sheet area; the reply opens there as a sheet instead of a modal. */
   replySheetContainer?: HTMLElement | null;
   onReplyOpenChange?: (open: boolean) => void;
@@ -118,7 +121,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     }
     term.write(frame.ansi); lastFrame.current = frame.revision;
   }, [frame]);
-  return <div className="m-terminal-screen m-terminal-xterm m-terminal-history-host" aria-label="Terminalanzeige"
+  return <div className={`m-terminal-screen m-terminal-xterm m-terminal-history-host${toolContainer ? ' m-terminal-tools-slotted' : ''}`} aria-label="Terminalanzeige"
     onKeyDownCapture={(event) => {
       if (event.target instanceof Element && event.target.closest('.reply-speech-dialog, .m-terminal-links-dialog')) return;
       if (event.shiftKey && event.key === 'PageUp') { event.preventDefault(); event.stopPropagation(); showHistory(); }
@@ -156,9 +159,16 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
       if (navigator.maxTouchPoints > 0) openTerminalKeyboard(terminal.current?.textarea, keyboardOpen);
       else terminal.current?.focus();
     }} />
-    <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
-      onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
-    <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); setLinksOpen(true); }}>Links</button>
+    {(() => {
+      // The tools belong next to the other terminal tools (voice strip), not on
+      // top of the first output line. Without a slot they fall back to the overlay.
+      const tools = <>
+        <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
+          onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? 'Verlauf' : 'Zur Live-Ausgabe'}</button>
+        <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); setLinksOpen(true); }}>Links</button>
+      </>;
+      return toolContainer ? createPortal(tools, toolContainer) : tools;
+    })()}
     {linksOpen && <TerminalLinksDialog text={history ?? screen} onClose={() => setLinksOpen(false)} opener={() => linksButton.current ?? historyButton.current} />}
     {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? 'Anhören' : 'Antwort anhören'}
       sheetContainer={replySheetContainer} onOpenChange={onReplyOpenChange}

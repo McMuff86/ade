@@ -13,7 +13,7 @@ import { useWorkspaceSelection, WorkspaceAssignmentDialog } from './WorkspaceAss
 
 export function workspaceError(error: unknown): string {
   if (error instanceof MobileClientError) {
-    if (error.code === 'scope_not_granted') return 'Für dieses Gerät am PC unter Settings → Verbundene Geräte den Zugriff auf Workspace-Dateien freigeben.';
+    if (error.code === 'scope_not_granted') return 'Für dieses Gerät am PC unter Einstellungen → Verbundene Geräte den Zugriff auf Workspace-Dateien freigeben.';
     if (error.status === 404) return 'Diese Funktion benötigt die neue ADE-Version auf dem PC.';
     if (error.message !== error.code) return error.message;
   }

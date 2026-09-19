@@ -8,7 +8,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   for (const dir of [parent, external, ordinary]) mkdirSync(dir);
   execFileSync('git', ['init', '--initial-branch=main', external], { windowsHide: true });
   await desktop.evaluate((rootPath) => window.ade.invoke('projectDefaults:save', { rootPath, agentId: null }), parent);
-  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte', exact: true }).click();
   const share = desktop.getByRole('button', { name: 'Bestehenden Ordner zu meinen ADE Projekten hinzufügen', exact: true });
   await share.waitFor();
   check('desktop directory initially prefers My ADE Projects', await desktop.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).getAttribute('aria-pressed') === 'true');
@@ -50,7 +50,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   await page.getByRole('button', { name: 'Workspace öffnen: External project', exact: true }).waitFor({ state: 'hidden' });
   check('tablet removal leaves files and catalog identity and returns focus to filter', (await desktop.evaluate(() => window.ade.invoke('config:get'))).repositories.find(repo => repo.name === 'External project')?.inMyProjects === false
     && await page.getByRole('button', { name: 'Meine ADE Projekte', exact: true }).evaluate(node => node === document.activeElement));
-  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await page.getByRole('button', { name: 'Projekt öffnen: External project', exact: true }).waitFor({ state: 'hidden' });
   check('removed project disappears from mobile overview', !await page.getByRole('button', { name: 'Projekt öffnen: External project', exact: true }).count());
   await page.getByRole('tab', { name: 'Projekte', exact: true }).click();

@@ -28,7 +28,7 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
       return { repositoryId: repository.repositoryId, agentId: agent.id };
     }, projectRoot);
     await desktop.keyboard.press('Escape');
-    await desktop.getByRole('tab', { name: 'Graph view', exact: true }).click();
+    await desktop.getByRole('tab', { name: 'Graph', exact: true }).click();
     const started = await desktop.evaluate((input) => window.ade.invoke('runTask:submit', { ...input, name: 'Desktop question', prompt: 'Question fixture prompt', allowQuestions: true }), config);
     await desktop.getByLabel('Aktiver Run', { exact: true }).selectOption(started.run.id);
     const opener = desktop.getByRole('button', { name: '1 Rückfragen beantworten', exact: true }); await opener.waitFor();
@@ -52,15 +52,15 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     check('closed answer report restores focus when question opener disappears', await desktop.getByRole('button', { name: 'Bericht', exact: true }).evaluate((node) => node === document.activeElement));
     await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
     await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-    await phone.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
-    const composer = phone.getByRole('dialog', { name: 'Neue Aufgabe', exact: true });
+    await phone.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
+    const composer = phone.getByRole('dialog', { name: 'Agent beauftragen', exact: true });
     await composer.getByLabel('Repository', { exact: true }).selectOption(config.repositoryId);
     await composer.getByLabel('Agent', { exact: true }).selectOption(config.agentId);
     await composer.getByLabel('Name (optional)', { exact: true }).fill('Tablet question');
     await composer.getByLabel('Aufgabe', { exact: true }).fill('Question fixture prompt from tablet');
     await composer.getByRole('checkbox', { name: 'Rückfragen erlauben (native Codex-Agenten)', exact: true }).check();
     await composer.getByRole('button', { name: 'Aufgabe starten', exact: true }).click(); await composer.waitFor({ state: 'hidden' });
-    await phone.keyboard.press('Escape'); await phone.getByRole('tab', { name: 'Work', exact: true }).click();
+    await phone.keyboard.press('Escape'); await phone.getByRole('tab', { name: 'Aufträge', exact: true }).click();
     await phone.getByRole('button', { name: 'Run Tablet question', exact: true }).click();
     const mobilePanel = phone.getByRole('region', { name: 'Rückfragen des Agenten', exact: true });
     await mobilePanel.getByText('Welche Farbe soll verwendet werden?', { exact: true }).waitFor();
@@ -84,8 +84,8 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     check('browser reload cannot answer a resolved question again or relaunch its run', runs.filter((run) => run.name === 'Tablet question').length === 1
       && runs.find((run) => run.name === 'Tablet question')!.tasks[0]!.pendingQuestions === 0);
     await phone.setViewportSize({ width: 390, height: 844 });
-    await phone.getByRole('tab', { name: 'Overview', exact: true }).click();
-    await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+    await phone.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+    await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   } finally {
     await app.evaluate(() => { (globalThis as unknown as { restoreQuestionSpawn?: () => void }).restoreQuestionSpawn?.(); });
   }

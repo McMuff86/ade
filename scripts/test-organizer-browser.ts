@@ -37,19 +37,19 @@ void (async () => {
   await page.goto(sessions.beginPairing(proxy.origin).url);
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-  await page.getByRole('tab', { name: 'Notes', exact: true }).click();
+  await page.getByRole('tab', { name: 'Notizen', exact: true }).click();
   await page.getByText('Am PC unter Einstellungen → Verbundene Geräte', { exact: false }).waitFor();
   check('ungranted device sees a useful personal-data permission state', await page.getByText('Am PC unter Einstellungen → Verbundene Geräte', { exact: false }).isVisible());
   const device = fixture.devices.activeDevices()[0]!.id;
   fixture.devices.setAdminScopes(device, ['organizer:read', 'organizer:write'], { mode: 'all' }); await page.reload();
   await page.getByRole('button', { name: 'Neue Notiz', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Navigation einklappen' }).click();
-  check('navigation collapse retains the current page and removes hidden tabs from focus', !await page.getByRole('tab', { name: 'Notes', exact: true }).isVisible());
+  check('navigation collapse retains the current page and removes hidden tabs from focus', !await page.getByRole('tab', { name: 'Notizen', exact: true }).isVisible());
   await page.reload(); await page.getByRole('button', { name: 'Navigation ausklappen' }).waitFor();
   check('navigation collapse survives reload without forgetting pairing', fixture.devices.activeDevices().length === 1);
   await page.getByRole('button', { name: 'Navigation ausklappen' }).click();
-  await page.getByRole('tab', { name: 'Tasks', exact: true }).focus(); await page.keyboard.press('ArrowRight');
-  check('keyboard navigation moves between organization tabs', await page.getByRole('tab', { name: 'Notes', exact: true }).getAttribute('aria-selected') === 'true');
+  await page.getByRole('tab', { name: 'Aufgaben', exact: true }).focus(); await page.keyboard.press('ArrowRight');
+  check('keyboard navigation moves between organization tabs', await page.getByRole('tab', { name: 'Notizen', exact: true }).getAttribute('aria-selected') === 'true');
   await page.getByRole('button', { name: 'Neue Notiz', exact: true }).click();
   const title = page.getByLabel('Titel', { exact: true }); await title.fill('Idee für morgen');
   const body = page.getByLabel('Notiztext', { exact: true }); await body.fill('Grösse prüfen – mit Stift skizzieren.');
@@ -102,7 +102,7 @@ void (async () => {
   check('reconnection preserves both PC and tablet edits', fixture.organizer.store.detail(noteId)?.document.text === 'Gleichzeitig am PC ergänzt'
     && fixture.organizer.store.index().entries.some(item => fixture.organizer.store.detail(item.id)?.document.text === 'Unterwegs ergänzt'));
   await page.getByRole('button', { name: 'Aufgabe daraus erstellen', exact: true }).click();
-  await page.getByRole('heading', { name: 'Tasks', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Aufgaben', exact: true }).waitFor();
   await page.getByLabel('Titel', { exact: true }).fill('Modell prüfen');
   await page.getByRole('button', { name: 'Checklistenpunkt hinzufügen', exact: true }).click();
   await page.getByRole('textbox', { name: 'Checklistenpunkt', exact: true }).fill('Masse kontrollieren');
@@ -134,7 +134,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Auftrag 1 öffnen', exact: true }).click();
   check('confirmed task link opens the corresponding Graph', await page.getByRole('tab', { name: 'Graph', exact: true }).getAttribute('aria-selected') === 'true');
   const savedDocuments = fixture.organizer.store.index().entries.length;
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   await page.getByRole('button', { name: 'Dieses Gerät lokal trennen', exact: true }).click();
   await page.getByRole('heading', { name: 'Mit deinem PC verbinden', exact: true }).waitFor();
   await page.waitForFunction(async scope => {
@@ -143,7 +143,7 @@ void (async () => {
   }, `mobile:${device}`);
   check('local disconnect removes private drafts while retaining PC documents', fixture.organizer.store.index().entries.length === savedDocuments && fixture.devices.activeDevices().length === 1);
   await page.reload(); await page.getByRole('heading', { name: 'Mit deinem PC verbinden', exact: true }).waitFor();
-  check('reload after disconnect cannot reopen the previous personal collection', !await page.getByRole('tab', { name: 'Notes', exact: true }).count());
+  check('reload after disconnect cannot reopen the previous personal collection', !await page.getByRole('tab', { name: 'Notizen', exact: true }).count());
   check('no renderer exceptions in personal organizer flow', errors.length === 0);
 })().catch(async error => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined); }).finally(async () => {
   await browser?.close(); sessions?.dispose(); await server?.stop(); await proxy?.close();

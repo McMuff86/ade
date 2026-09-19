@@ -6,7 +6,7 @@ export function ProjectDefaultsSection(): JSX.Element {
   const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false); const lock = useRef(false);
   useEffect(() => { void window.ade.invoke('projectDefaults:get').then(setValue)
-    .catch(() => setError('Projekt-Einstellungen konnten nicht geladen werden. Settings erneut öffnen.')); }, []);
+    .catch(() => setError('Projekt-Einstellungen konnten nicht geladen werden. Einstellungen erneut öffnen.')); }, []);
   const action = async (operation: () => Promise<void>) => {
     if (lock.current) return; lock.current = true; setBusy(true); setError(''); setNotice('');
     try { await operation(); } catch (reason) { setError((reason instanceof Error ? reason.message : 'Einstellung konnte nicht gespeichert werden.').replace(/^Error invoking remote method '[^']+':\s*/i, '').slice(0, 500)); }

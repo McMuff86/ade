@@ -9,6 +9,7 @@ Stand: 2026-09-17. Beginne je nach Anliegen hier:
 | Tablet verbinden / Verbindung untersuchen | [Mobile Connect Guide](goal8/MOBILE_CONNECT_GUIDE.md) |
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |
 | Aktueller Funktionsumfang und Grenzen | [STATUS](STATUS.md) |
+| Oberfläche: Räume, Wortschatz, Aktionsinventar und Designregeln | [UI/UX-Analyse und Umsetzung](UI_UX_NEXT_LEVEL.md), [Briefing](UI_UX_REVIEW_BRIEF.md), [Calm Pass](UI_CALM_PASS.md) |
 | Laufende CLI-Aufgaben, Diktat auf PC/Tablet und aktuelle Arbeit | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [CLI-/Latenz-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md) |
 | Verbrauch und Kosten von Coding-CLIs und ElevenLabs | [Verbrauchsvertrag und Umsetzungskriterien](USAGE_AND_COST_GOALS.md), [native Quellen und Integrationsnachweise](USAGE_SOURCE_RESULTS.md) |
 | Eindeutige Zielnummern und historische Zuordnung | [Zielregister](GOAL_REGISTRY.md) |

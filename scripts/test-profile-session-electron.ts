@@ -96,7 +96,7 @@ void (async () => {
     check(`${agent.runtime}: profile files are outside execution workspace`, !proof.sourcePath || !proof.sourcePath.startsWith(agent.workspaceDir));
     if (agent.runtime === 'claude') {
       await page.reload();
-      await page.getByRole('tab', { name: 'Overview view', exact: true }).click();
+      await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
       await page.getByRole('button', { name: `Terminal öffnen: ${agent.name}`, exact: true }).click();
       const context = page.locator('.session-profile-context').filter({ hasText: `Profil beim Start · ${agent.name}` });
       const summary = context.locator('summary'); await summary.focus(); await summary.press('Enter');
@@ -214,7 +214,7 @@ void (async () => {
     const captured = await memoryPage.evaluate((sessionId) => window.ade.invoke('terminal:profileContext', { sessionId }), started.session.id);
     check(`memory enabled, USER ${userProfileEnabled ? 'enabled' : 'disabled'}: explicit captured text includes precisely delivered sources`, captured === proof.profileText);
     await memoryPage.reload();
-    await memoryPage.getByRole('tab', { name: 'Overview view', exact: true }).click();
+    await memoryPage.getByRole('tab', { name: 'Übersicht', exact: true }).click();
     await memoryPage.getByRole('button', { name: `Terminal öffnen: ${agents[0]!.name}`, exact: true }).click();
     const section = memoryPage.locator('.session-profile-context').filter({ hasText: `Profil beim Start · ${agents[0]!.name}` });
     await section.locator('summary').click();

@@ -102,7 +102,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     const session = await window.ade.invoke('pty:create', { agentId: agent.id, repositoryId: repo.id });
     return { agent, repo, session };
   }, { path: repoPath, home: join(root, 'home') });
-  await desktop.reload(); await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desktop.reload(); await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const mobile = desktop.getByTestId('mobile-access');
   await mobile.getByRole('button', { name: 'Mit Tailscale aktivieren' }).click();
   await mobile.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
@@ -274,7 +274,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     return;
   }
   await desktop.keyboard.press('Escape');
-  await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Terminals', exact: true }).click();
   await desktop.locator('.agent-row', { hasText: 'Terminal Agent' }).click();
   await desktop.getByRole('button', { name: 'Eingabe am Desktop übernehmen', exact: true }).click();
   await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor();
@@ -359,7 +359,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     && await workspace.getByRole('button', { name: 'Git-Änderungen', exact: true }).isDisabled());
   await page.screenshot({ path: join(evidence, 'session-launch-phone.png') });
   await page.setViewportSize({ width: 1024, height: 768 });
-  await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
   await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).uncheck(); await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   await workspace.getByRole('region', { name: 'Interaktives Terminal', exact: true }).getByRole('alert').filter({ hasText: 'Terminalzugriff fehlt.' }).waitFor();
@@ -393,7 +393,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   }
   if (process.argv.includes('--wsl') || process.argv.includes('--wsl-only')) {
     wslHome = `/tmp/ade-session-${randomUUID()}`;
-    if (!await grants.isVisible()) await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+    if (!await grants.isVisible()) await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
     await desktop.getByRole('button', { name: 'Geräte aktualisieren', exact: true }).click();
     await grants.getByRole('checkbox', { name: /Interaktive Terminals steuern/ }).check();
     await grants.getByRole('checkbox', { name: 'Kleine Workspace-Textdateien bearbeiten', exact: true }).check();

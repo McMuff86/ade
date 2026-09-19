@@ -4,6 +4,9 @@
  * Inspector side is a Settings choice; default remains rail left / inspector right.
  * Panel sizes persist to localStorage via PanelGroup autoSaveId.
  * Overview, Projects, Terminals and Graph share the persisted workspace/catalog/run state.
+ *
+ * Title bar order (shared with the tablet, see shared/appNavigation.ts):
+ *   logotype · rooms (Übersicht | Organisation | Entwicklung) · laufende Arbeit · Verwaltung
  */
 
 import { lazy, Suspense, useEffect, useRef, useState, type JSX, type RefObject } from 'react';
@@ -34,8 +37,7 @@ import { SessionNavigationContext, SessionSwitchButton } from './sessions/Sessio
 import { DesktopSessionSwitcher } from './sessions/DesktopSessionSwitcher';
 import { DesktopSupervision } from './supervision/DesktopSupervision';
 import { SupervisionButton, SupervisionContext } from './supervision/SupervisionGraph';
-import './graph/mode-switch.css';
-import { ViewNavigation } from './navigation/ViewNavigation';
+import { AppNav } from './nav/AppNav';
 import { DesktopTaskReminders } from './organizer/DesktopTaskReminders';
 const DesktopOrganizer = lazy(() => import('./organizer/DesktopOrganizer').then(module => ({ default: module.DesktopOrganizer })));
 
@@ -84,34 +86,40 @@ export function App() {
         <span className="logotype">
           ade<span className="logotype-cursor">_</span>
         </span>
-        <span className="titlebar-sub">agentic development environment</span>
 
-        <ViewNavigation view={mode} onSelect={setMode} />
+        <AppNav current={mode} onSelect={setMode} idPrefix="mode-tab" />
 
         <span className="spacer" />
-        <div className="ade-action-group" role="group" aria-label="Laufende Arbeit"><SessionSwitchButton id="desktop-session-switch" />
-        <SupervisionButton id="desktop-supervision" /></div>
-        <div className="ade-action-group" role="group" aria-label="Verwaltung">
-        <button id="ade-setup" className="btn" onClick={() => setSetupOpen(true)}>Einrichtung</button>
-        <button
-          className="btn"
-          onClick={() => setSettingsOpen(true)}
-          title="Harness sign-in status and API keys"
-        >
-          Settings
-        </button>
-        <button className="btn" onClick={() => showDiagnostics()} title="Check CLI and authentication">
-          Diagnostics
-        </button>
-        {/* Quick toggle only; the deliberate choice lives in Settings. */}
-        <button
-          className="btn btn-icon"
-          onClick={toggleTheme}
-          title="Switch theme"
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        >
-          <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
-        </button>
+
+        {/* Quick session switching is about the work in flight, not a room: it
+            sits apart from the navigation and from administration. */}
+        <div className="titlebar-session" role="group" aria-label="Laufende Arbeit">
+          <SessionSwitchButton id="desktop-session-switch" />
+          <SupervisionButton id="desktop-supervision" />
+        </div>
+
+        <div className="titlebar-admin" role="group" aria-label="Verwaltung">
+          <span className="titlebar-caption" aria-hidden="true">Verwaltung</span>
+          <button id="ade-setup" className="btn btn-quiet" onClick={() => setSetupOpen(true)}>Einrichtung</button>
+          <button
+            className="btn btn-quiet"
+            onClick={() => setSettingsOpen(true)}
+            title="Darstellung, verbundene Geräte, Harness-Anmeldung und API-Schlüssel"
+          >
+            Einstellungen
+          </button>
+          <button className="btn btn-quiet" onClick={() => showDiagnostics()} title="CLI-Verfügbarkeit und Anmeldung prüfen">
+            Diagnose
+          </button>
+          {/* Quick toggle only; the deliberate choice lives in Einstellungen. */}
+          <button
+            className="btn btn-quiet btn-icon"
+            onClick={toggleTheme}
+            title="Darstellung wechseln"
+            aria-label={theme === 'dark' ? 'Zur hellen Darstellung wechseln' : 'Zur dunklen Darstellung wechseln'}
+          >
+            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+          </button>
         </div>
       </header>
 
@@ -186,7 +194,7 @@ function TerminalsLayout(props: {
           <button
             className={props.inspectorOpen ? 'btn btn-toggled' : 'btn'}
             onClick={props.onToggleInspector}
-            title="Toggle repository inspector"
+            title="Repository-Inspector ein- oder ausblenden"
           >
             Inspector
           </button>
@@ -227,4 +235,3 @@ function TerminalsLayout(props: {
     </PanelGroup>
   );
 }
-

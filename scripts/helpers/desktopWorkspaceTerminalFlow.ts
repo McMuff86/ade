@@ -17,7 +17,7 @@ export async function desktopWorkspaceTerminalFlow(app: ElectronApplication, pag
   const errors: string[] = []; const onError = (error: Error) => errors.push(error.message); page.on('pageerror', onError);
   await page.evaluate((rootPath) => window.ade.invoke('projectDefaults:save', { rootPath, agentId: null }), parent);
   await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
   const launchButton = page.locator('.strip-actions').getByRole('button', { name: 'Terminal öffnen', exact: true });
   await launchButton.click();
   const launch = page.getByRole('dialog', { name: 'Neue Terminalsitzung', exact: true });
@@ -132,7 +132,7 @@ export async function desktopWorkspaceTerminalFlow(app: ElectronApplication, pag
   await expect.poll(async () => Buffer.from((await page.evaluate((sessionId) => window.ade.invoke('pty:attach', { sessionId }), shell.id)).replayBase64, 'base64').toString()).toContain('ADE_TOOLBAR_PASTE');
   check('paste toolbar sends clipboard text to the existing shell', true);
   await page.screenshot({ path: join(evidence, 'desktop-workspace-terminals.png') });
-  await page.reload(); await page.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await page.reload(); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Direct workspace', exact: true }).click();
   await expect(tabs.getByRole('tab')).toHaveCount(4);
@@ -192,7 +192,7 @@ export async function desktopWorkspaceTerminalFlow(app: ElectronApplication, pag
   await page.setViewportSize(viewport);
   for (const session of await sessions()) await page.evaluate((sessionId) => window.ade.invoke('pty:kill', { sessionId }), session.id);
   await page.getByRole('button', { name: 'Zur Projektübersicht', exact: true }).click();
-  await page.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
   check('workspace terminal flow leaves no renderer errors', errors.length === 0);
   page.off('pageerror', onError);
 }

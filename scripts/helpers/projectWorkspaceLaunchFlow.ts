@@ -21,7 +21,7 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   const devices = await desktop.evaluate(() => window.ade.invoke('remoteDevices:list')); const device = devices.devices.find((item) => item.name === 'Terminal tablet')!;
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
     { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const, 'projectGit:write' as const])] });
-  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const terminal = desktop.getByRole('region', { name: 'Projekt-Terminal', exact: true });
@@ -98,7 +98,7 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   await expandSessionControls(dialog);
   await dialog.getByRole('button', { name: 'Terminal vergrössern', exact: true }).click();
   await page.screenshot({ path: join(evidence, 'project-cli-tablet.png') });
-  await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await page.getByRole('button', { name: /Weiterarbeiten in Without profile mit Ohne Agent-Profil/ }).first().waitFor();
   check('Continue Work identifies project and optional profile honestly', await page.getByRole('button', { name: /Weiterarbeiten in Without profile mit Terminal Agent/ }).isVisible());
   await page.getByRole('button', { name: /Weiterarbeiten in Without profile mit Ohne Agent-Profil/ }).first().click();
@@ -166,7 +166,7 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
     && execFileSync('git', ['-C', created.rootPath, 'branch', '--show-current'], { encoding: 'utf8', windowsHide: true }).trim() === 'main'
     && postCreate.agents.length === preCreate.agents.length && postCreate.workspaceBindings.length === preCreate.workspaceBindings.length
     && !(await sessions()).some((item) => item.repositoryId === created.id));
-  await desktop.getByRole('tab', { name: 'Overview view', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await desktop.getByRole('button', { name: /Desktop Garden/ }).click();
   await desktop.getByRole('heading', { name: 'Projekt · Desktop Garden', exact: true }).waitFor();
   check('Overview project card opens the independent workspace entry', await desktop.getByRole('region', { name: 'Projekt-Terminal', exact: true }).isVisible());

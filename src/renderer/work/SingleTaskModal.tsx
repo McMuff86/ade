@@ -24,8 +24,8 @@ export function SingleTaskModal({ initialAgent, initialRepository, onClose, onSu
     catch (reason) { setError(String(reason)); }
     finally { sending.current = false; setBusy(false); }
   };
-  return <Modal title="Neue Aufgabe" onClose={() => { if (!sending.current) onClose(); }} fallbackFocus={() => document.getElementById('mode-tab-work')}>
-    <p>Eine Aufgabe an einen Agenten im ausgewählten Projekt senden.</p>
+  return <Modal title="Agent beauftragen" onClose={() => { if (!sending.current) onClose(); }} fallbackFocus={() => document.getElementById('mode-tab-work')}>
+    <p>Einen Auftrag an einen Agenten im ausgewählten Projekt senden. Der Agent arbeitet auf deinem PC; der Fortschritt erscheint unter Aufträge und im Graph.</p>
     <fieldset disabled={busy || !!pending.current} className="work-task-fields">
       <label>Projekt<select aria-label="Projekt" value={repositoryId} onChange={event => setRepositoryId(event.target.value)}><option value="">Projekt wählen</option>{repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <label>Agent<select aria-label="Agent" value={agentId} onChange={event => setAgentId(event.target.value)}><option value="">Agent wählen</option>{Object.values(agents).map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>

@@ -83,10 +83,10 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
     }
     return { agentId: agent.id, repoId: repo.id };
   }, { repository, root, executable: join(bin, 'fixture.exe') });
-  await desktop.reload(); await desktop.getByRole('tab', { name: 'Overview view', exact: true }).click();
+  await desktop.reload(); await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await desktop.getByRole('button', { name: 'Terminal öffnen: Hermes General', exact: true }).waitFor();
   await capture('01-desktop-overview.png', desktop);
-  await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const defaults = desktop.getByTestId('project-defaults');
   await defaults.getByLabel('Projekt-Stammordner', { exact: true }).fill(repos);
   await defaults.getByRole('button', { name: 'Projektstart speichern', exact: true }).click();
@@ -150,15 +150,15 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   await workspace.getByLabel('Git-Dateiinhalt', { exact: true }).waitFor();
   await capture('11-workspace-files.png', tablet);
   await workspace.getByRole('button', { name: 'Projekt · Gartenplaner schliessen', exact: true }).click();
-  await tablet.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await tablet.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await tablet.getByRole('button', { name: 'Terminal öffnen: Hermes General', exact: true }).click();
   const assistant = tablet.getByRole('dialog', { name: 'Workspace · Hermes General', exact: true });
   await assistant.getByLabel('Terminalanzeige', { exact: true }).getByText('Keine Modellanfrage.', { exact: false }).last().waitFor();
   await assistant.getByRole('link', { name: 'Web-Dashboard für Hermes General', exact: true }).waitFor();
   await capture('12-assistant.png', tablet);
   await assistant.getByRole('button', { name: 'Workspace · Hermes General schliessen', exact: true }).click();
-  await tablet.getByRole('tab', { name: 'Work', exact: true }).click();
-  await tablet.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await tablet.getByRole('tab', { name: 'Aufträge', exact: true }).click();
+  await tablet.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await capture('13-task.png', tablet);
   writeFileSync(join(output, 'capture.json'), JSON.stringify({ capturedAt: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), workingTreeDirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
     platform: process.platform, browser: browser.version(), demo: true, physicalTablet: false, keyboard: 'visualViewport geometry simulated; OS keyboard is not pictured',

@@ -442,7 +442,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
   handle(IPC.ProjectCreate, async (input) => {
-    if (!store.get().settings.projectDefaults) throw new Error('ade: Unter Settings zuerst den Projekt-Stammordner speichern.');
+    if (!store.get().settings.projectDefaults) throw new Error('ade: Unter Einstellungen zuerst den Projekt-Stammordner speichern.');
     const result = await workspaceProvision.execute({ operation: 'project-create', input });
     broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() });
     return { repositoryId: result.created!.id };

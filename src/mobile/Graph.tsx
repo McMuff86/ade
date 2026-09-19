@@ -54,7 +54,7 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
   };
   return <div className="m-graph" data-testid="mobile-graph">
     {filesOpen && <Dialog title="Dateien dieses Runs" onClose={() => setFilesOpen(false)} fallbackId="view-tab-graph"><RunFilesPanel runId={run.id} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} /></Dialog>}
-    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><div className="ade-action-group" role="group" aria-label="Run"><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button></div><div className="ade-action-group" role="group" aria-label="Ergebnisse"><button onClick={() => setFilesOpen(true)}>Dateien dieses Runs</button></div>
+    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><div className="m-graph-action-group" role="group" aria-label="Run"><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button></div><div className="m-graph-action-group" role="group" aria-label="Ergebnisse"><button onClick={() => setFilesOpen(true)}>Dateien dieses Runs</button></div>
       {error && <span role="alert">{error}</span>}</div>
     <div className="m-graph-scroll" tabIndex={0} aria-label="Graph-Canvas, zum Verschieben scrollen" onKeyDown={(event) => {
       if (event.target !== event.currentTarget) return;

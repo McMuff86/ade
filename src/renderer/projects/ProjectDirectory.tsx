@@ -31,7 +31,7 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
     {busy && <p role="status">Projektordner werden geladen…</p>}
     {directory?.notice && <p role="status">{directory.notice}</p>}
     {directory?.limited && <p role="status">Die Liste ist begrenzt. Einen kleineren Projekt-Stamm am PC wählen oder weitere Repositories am PC registrieren.</p>}
-    {entries && !entries.length && <p>{search ? 'Keine passenden Projektordner. Suche ändern.' : filter === 'mine' ? 'Noch keine eigenen Projekte. Unter Alle ein Projekt hinzufügen.' : 'Noch keine Projektordner. Unter Settings den Projekt-Stamm speichern oder ein neues Projekt anlegen.'}</p>}
+    {entries && !entries.length && <p>{search ? 'Keine passenden Projektordner. Suche ändern.' : filter === 'mine' ? 'Noch keine eigenen Projekte. Unter Alle ein Projekt hinzufügen.' : 'Noch keine Projektordner. Unter Einstellungen den Projekt-Stamm speichern oder ein neues Projekt anlegen.'}</p>}
     <ul className="project-directory-grid">{entries?.map((entry) => <li key={entry.id}>
       <button aria-label={`Workspace öffnen: ${entry.name}`} disabled={!online || busy || entry.kind !== 'repository'} onClick={(event) => {
         event.currentTarget.focus(); onOpen(entry, event.currentTarget);

@@ -21,7 +21,7 @@ gespeicherten Stand zurück. **Ruhiger Computer** lädt ein noch zu speicherndes
 Preset. [Details](VOICE_SETTINGS.md).
 
 Für die tägliche Arbeit mit mehreren Repositories beginne unter **Projekte**.
-Die gemeinsame Sitzungsübersicht steht unter **Work → CLI-Arbeit**; der
+Die gemeinsame Sitzungsübersicht steht unter **Aufträge → CLI-Arbeit**; der
 Prompteditor mit Diktat sitzt direkt im gewünschten Terminal.
 
 Stand: 16. September 2026 · Einstieg mit Windows-PC und Samsung-Tablet/Chrome.
@@ -40,7 +40,7 @@ Unter **Branches** den Branch wählen und die Aktion prüfen. Danach unter
 **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
 Profil kannst du ausdrücklich unter den weiteren Startoptionen wählen.
 Für eine neue Idee verwendest du **Neues Projekt**. Für Hermes General oder
-Sentinel ohne Projekt verwendest du **Overview → Terminal öffnen** beim Agenten.
+Sentinel ohne Projekt verwendest du **Übersicht → Terminal öffnen** beim Agenten.
 
 Die Bilder zeigen echte ADE-Oberflächen mit Beispieldaten aus einer isolierten
 Windows-/Chromium-Instanz. Terminalprogramme sind lokale Demos, keine echten
@@ -48,7 +48,7 @@ Modellantworten. Bild 10 simuliert den verfügbaren Platz über einer Bildschirm
 es ist keine Aufnahme einer Samsung-Tastatur. Pairing-Daten und der temporäre
 Projektpfad sind maskiert. [Aufnahmeprotokoll](media/user-guide/capture.json).
 
-Für die neue Ordnerübersicht am Tablet am PC unter **Settings → Verbundene Geräte**
+Für die neue Ordnerübersicht am Tablet am PC unter **Einstellungen → Verbundene Geräte**
 die Rechte **Workspace-Dateien und Git-Diffs lesen** und **Projekt-Workspaces ohne
 Agent-Profil öffnen** freigeben. Für Branch-Aktionen zusätzlich **Projekt-Branches und lokale Git-Aktionen ausführen**, für die CLI **Interaktive Terminals steuern** freigeben.
 Danach **Projektordner aktualisieren** verwenden.
@@ -79,10 +79,10 @@ Zusätzliche Branch-, Git- und Ergebnisbilder stammen aus den jeweiligen Prüfl�
 |---|---|
 | Bestehenden Code bearbeiten | **Projekte → Projekt → Workspace öffnen → Sitzung öffnen mit** |
 | Eine neue Idee ausprobieren | **Neues Projekt → Name → Projekt anlegen und öffnen**, danach CLI wählen |
-| Mit einem persönlichen Assistenten sprechen | **Overview → Terminal öffnen** beim Agenten |
+| Mit einem persönlichen Assistenten sprechen | **Übersicht → Terminal öffnen** beim Agenten |
 | Hermes-/OpenClaw-Weboberfläche verwenden | **Web-Dashboard** beim entsprechend eingerichteten Agenten |
-| Eine abgegrenzte Arbeit delegieren | **Work → Neue Aufgabe** |
-| Mehrere Agents koordiniert arbeiten lassen | **Work → Neuer Run**, danach Fortschritt in **Work/Graph** |
+| Eine abgegrenzte Arbeit delegieren | **Aufträge → Agent beauftragen** |
+| Mehrere Agents koordiniert arbeiten lassen | **Aufträge → Neuer Run**, danach Fortschritt in **Aufträge/Graph** |
 
 Ein **Projekt** ist ein registriertes Git-Repository. Ein **Agent** ist ein
 gespeichertes Profil mit Name, Startprogramm und Einstellungen; eine feste
@@ -101,7 +101,7 @@ Während der Aufnahme erscheinen bestätigte
 Abschnitte zusammen mit dem noch veränderlichen Zwischenstand. Das Ziel bleibt
 sichtbar und gebunden; ein Entwurf wechselt nicht mit einem anderen Projekt.
 
-Am PC einen `ELEVENLABS_API_KEY` unter **Settings → Service-Keys** für alle
+Am PC einen `ELEVENLABS_API_KEY` unter **Einstellungen → Service-Keys** für alle
 Sessions hinterlegen. Auf dem Tablet zusätzlich unter **Verbundene Geräte**
 die separate Diktatfreigabe und Terminalsteuerung einschalten; der HTTPS-Browser
 fragt beim Aufnehmen nach Mikrofonzugriff. Der Schlüssel bleibt auf dem PC.
@@ -117,7 +117,7 @@ persönlich; der Text erscheint daneben. **Computer-Test beenden** stoppt den
 Ablauf. **Begrüssung abspielen** wiederholt das empfangene Audio. Der Test hört
 höchstens 20 Sekunden zu; Fenster und Tablet-Browser im Vordergrund lassen.
 Auf dem Tablet braucht es zusätzlich die Gerätefreigabe **Stimmen wählen und
-ElevenLabs-Stimmtests ausführen**. Stimme unter **Settings → Sprachausgabe**
+ElevenLabs-Stimmtests ausführen**. Stimme unter **Einstellungen → Sprachausgabe**
 wählen. Danach kannst du mit **Diktieren** die nächste Aufgabe vorbereiten.
 Arbeitsrückblick und weitere Sprachbefehle folgen als nächste Ausbaustufe.
 
@@ -130,8 +130,8 @@ physisches Mikrofon und die eigene Mobilverbindung separat ausprobieren.
 
 Du brauchst keinen Run, um interaktiv mit Codex, Claude oder Grok zu arbeiten.
 
-**Am PC zwischen laufenden Arbeiten wechseln:** Unter **Work → CLI-Arbeit**
-stehen deine interaktiven Sitzungen, in **Overview** dieselbe Liste kompakt.
+**Am PC zwischen laufenden Arbeiten wechseln:** Unter **Aufträge → CLI-Arbeit**
+stehen deine interaktiven Sitzungen, in **Übersicht** dieselbe Liste kompakt.
 Eine Zeile öffnet das vorhandene Terminal. Mit **Benennen** gibst du der Sitzung
 einen Arbeitstitel; über Projekt, Profil, CLI, Status oder Suche findest du sie
 wieder. **Originalordner** bedeutet die ursprüngliche Arbeitskopie, **Worktree**
@@ -218,7 +218,7 @@ Im Repository-Bereich **⋯ → Add repo** öffnen und den bestehenden Git-Ordne
 auswählen. **Pfad…** erlaubt die direkte Pfadeingabe und eine ausdrückliche
 Backend-Wahl. Importieren registriert das Repository; es verschiebt den Ordner nicht.
 
-**Speicherort für neue Projekte:** In **Settings → Projekt-Stammordner**
+**Speicherort für neue Projekte:** In **Einstellungen → Projekt-Stammordner**
 den **Projekt-Stammordner** wählen. Für Adis PC ist
 `C:\Users\Adi.Muff\repos` sinnvoll, allgemein `C:\Users\<Name>\repos`.
 **Projektstart speichern** drücken. Ein Profil ist dafür nicht erforderlich.
@@ -233,7 +233,7 @@ Den Unterschied zum unabhängigen Checkout erklären wir in Abschnitt 8.*
 
 1. Tailscale auf PC und Tablet verbinden. Beide Geräte müssen zum selben Tailnet
    gehören und sich erreichen dürfen. MagicDNS und HTTPS müssen verfügbar sein.
-2. Am PC **Settings → Mobiler Zugriff → Mit Tailscale aktivieren** wählen.
+2. Am PC **Einstellungen → Mobiler Zugriff → Mit Tailscale aktivieren** wählen.
 3. **Tablet oder Smartphone koppeln** drücken. Den QR-Code mit dem Tablet scannen
    oder die angezeigte ADE-Adresse in Chrome öffnen und den Pairing-Code eingeben.
 4. Einen Gerätenamen, etwa „Mein Samsung Tablet“, setzen und **Dieses Gerät verbinden** drücken.
@@ -247,7 +247,7 @@ Der Gerätename ist ein Anzeigename in ADE; er ändert nicht die Tailscale-Adres
 des PCs. Eine erfolgreiche Kopplung und die Freigabe zusätzlicher Funktionen
 sind getrennte Schritte.
 
-Am PC **Settings → Verbundene Geräte → Geräte aktualisieren** wählen. Für den
+Am PC **Einstellungen → Verbundene Geräte → Geräte aktualisieren** wählen. Für den
 vollständigen Projekteinstieg die folgenden Rechte setzen und
 **Verwaltungsrechte speichern** drücken:
 
@@ -276,7 +276,7 @@ Terminalzugriff erlaubt Befehle mit den Rechten des PC-Benutzers. Der gewählte
 Workspace ist das Startverzeichnis. Vergib diese Freigabe bewusst an dein eigenes
 Gerät. Tailscale allein ersetzt diese ADE-Freigabe nicht.
 
-Am Tablet unter **Settings → Einrichtung auf diesem Gerät** dein Vorhaben wählen.
+Am Tablet unter **Einstellungen → Einrichtung auf diesem Gerät** dein Vorhaben wählen.
 ADE nennt die fehlenden Schalter genauso wie am PC. Nach dem Speichern verbindet
 sich dasselbe Tablet erneut; **Einrichtungsstatus aktualisieren** prüft zusätzlich
 den aktuellen Stand. Installation und Anmeldung der CLI werden separat am PC
@@ -449,7 +449,7 @@ native oder WSL-Umgebung und der funktionierende TUI-Startbefehl. Ein persönlic
 Wrapper gehört zum **gespeicherten Agent-Profil**; die allgemeine Auswahl „Hermes“
 ist kein Ersatz für dessen eigene Profilparameter.
 
-In **Overview** beim gewünschten Agenten **Terminal öffnen** wählen. ADE öffnet
+In **Übersicht** beim gewünschten Agenten **Terminal öffnen** wählen. ADE öffnet
 das gespeicherte Profil im eigenen Workspace. Ein Repository ist dafür nicht nötig.
 
 ![Hermes General im eigenen Terminalworkspace mit Web-Dashboard-Link; Demoausgabe](media/user-guide/12-assistant.png)
@@ -606,7 +606,7 @@ vor Neuladen sichern. Das unterscheidet sie von Terminal-/Auftragsentwürfen.
 
 ## 9. Aufgaben und Runs
 
-Wenn du nicht selbst im Terminal arbeiten möchtest, öffne **Work → Neue Aufgabe**.
+Wenn du nicht selbst im Terminal arbeiten möchtest, öffne **Aufträge → Agent beauftragen**.
 Wähle Projekt und Agent und beschreibe ein abgegrenztes Ergebnis samt Prüfschritten.
 Eine solche Aufgabe läuft über ADEs verwalteten Ablauf.
 
@@ -614,7 +614,7 @@ Eine solche Aufgabe läuft über ADEs verwalteten Ablauf.
 
 **Neuer Run** ist für koordinierte Arbeit mit mehreren Agents gedacht. Projekt,
 Team, Grenzen und Auftrag festlegen; vorbereiten und ausdrücklich starten.
-**Work** zeigt Fortschritt und Status, **Graph** die Beteiligten und Beziehungen.
+**Aufträge** zeigt Fortschritt und Status, **Graph** die Beteiligten und Beziehungen.
 Die Task-Slots gelten über alle Projekte hinweg.
 
 Beginne mit einer kleinen Einzelaufgabe, bevor du ein Team zusammenstellst.
@@ -624,7 +624,7 @@ Integrationsfreigabe und verifiziertes Publishing bleiben Desktop-Abläufe. Ein 
 
 ### Ergebnis und Bild auf dem Tablet abrufen
 
-1. Unter **Work** den betreffenden Run öffnen, oder in **Graph** den Run auswählen
+1. Unter **Aufträge** den betreffenden Run öffnen, oder in **Graph** den Run auswählen
    und auf seinen Agent-Knoten tippen.
 2. In den Run-Details zu **Aktivität & Ergebnis** gehen. **Aktivität** zeigt den
    bestätigten Prozesszustand und die zuletzt empfangenen CLI-Schritte.
@@ -671,7 +671,7 @@ dauerhaftes Dateiarchiv. Während eine Datei geschrieben wird, später **Dateien
 aktualisieren** wählen. Bei älteren Runs bedeutet „Zuordnung unbekannt“ nicht,
 dass die vorhandenen Dateien verloren sind: Vorschau und Download bleiben möglich.
 
-Falls die Lesefreigabe fehlt: am PC unter **Settings → Geräte** für das gekoppelte
+Falls die Lesefreigabe fehlt: am PC unter **Einstellungen → Geräte** für das gekoppelte
 Tablet **Workspace-Dateien und Git-Diffs lesen** aktivieren. Die Vorschau benötigt
 eine Verbindung zum PC. Bei einem alten Browserstand ADE in Chrome neu laden.
 
@@ -743,7 +743,7 @@ Zugangsdaten. Weitere Details: [Verbindung einrichten](goal8/MOBILE_CONNECT_GUID
 
 ## Projekte und Agenten für ein Tablet auswählen
 
-Am PC unter **Settings → Verbundene Geräte** beim Tablet
+Am PC unter **Einstellungen → Verbundene Geräte** beim Tablet
 **Nur ausgewählte Projekte und Agenten** wählen. Die gewünschten Projekte und
 Agenten ankreuzen oder **Alle derzeitigen auswählen** verwenden. Erst
 **Verwaltungsrechte speichern** übernimmt die Auswahl; das Tablet verbindet
@@ -785,7 +785,7 @@ angezeigt. Die Seitennavigation zeigt die im ADE-Journal behaltenen Runs;
 bereits in JSON ausgelagerte Langzeitarchive bleiben Operator-Dateien.
 
 Abgeschlossene, fehlgeschlagene und abgebrochene Runs kannst du auf Mobile in
-**Work → Run auswählen → Run löschen** aus dem Verlauf entfernen. Bestätige
+**Graph → Run auswählen → Run löschen** aus dem Verlauf entfernen. Bestätige
 die Rückfrage; Projektdateien und Workspaces bleiben erhalten. Runs mit einem
 Veröffentlichungsnachweis lassen sich nicht löschen. Das gekoppelte Gerät
 benötigt vollständige Ressourcenfreigabe. Bei einer verlorenen Antwort bietet
@@ -808,9 +808,9 @@ findet auch Agenten in eingeklappten Gruppen. Der Auf-/Zuklapp-Zustand wird je
 Gerät gespeichert.
 
 
-## Persönliche Tasks und Notes
+## Persönliche Aufgaben und Notizen
 
-Unter **Organisation** findest du **Tasks** für Aufgaben und **Notes** für freie
+Unter **Organisation** findest du **Aufgaben** für Aufgaben und **Notizen** für freie
 Notizen. Die Navigation kannst du mit der Schaltfläche links einklappen; der
 aktuelle Bereich bleibt am Schalter sichtbar. Pfeiltasten wechseln die Seiten,
 Escape klappt die Navigation zu.
@@ -821,7 +821,7 @@ eine Zeichenfläche mit Stift, Radierer, Rückgängig/Wiederholen und Fotohinter
 „Nur Stift“ ignoriert Fingerberührungen. Auf der Zeichenfläche bewegen Pfeiltasten
 den Zeichenpunkt, Umschalt plus Pfeiltaste zeichnet, Leertaste setzt einen Punkt.
 
-Tasks bieten Checkliste, Fälligkeit und Erinnerung. „Heute“ enthält auch überfällige
+Aufgaben bieten Checkliste, Fälligkeit und Erinnerung. „Heute“ enthält auch überfällige
 Aufgaben; „Später“ zeigt offene Aufgaben ohne Fälligkeit. „Erinnerungen“ zeigt fällige,
 noch nicht bestätigte Hinweise. Der PC muss für Desktop-Erinnerungen mit ADE laufen.
 Benachrichtigungen im Hintergrund hängen von den Systemeinstellungen ab. Auf dem
@@ -848,7 +848,7 @@ Speicherfehler bleibt der Entwurf in der geöffneten App: erneut speichern oder
 exportieren, bevor du die App schliesst. Privates Browsen oder das Löschen von
 Browserdaten kann lokale, noch nicht abgeglichene Inhalte entfernen.
 
-Bestehende Tablets benötigen am PC unter **Settings → Verbundene Geräte** die
+Bestehende Tablets benötigen am PC unter **Einstellungen → Verbundene Geräte** die
 Freigaben **Persönliche Aufgaben und Notizen lesen/bearbeiten**. Für Diktat kommt
 die Diktatfreigabe hinzu. Eine neue Kopplung ist dafür nicht nötig. „Dieses Gerät
 lokal trennen“ entfernt auch die auf diesem Gerät gespeicherten Tasks-/Notes-Daten;

@@ -7,7 +7,7 @@ import { IntegrationDialog } from './IntegrationDialog';
 
 function detail(reason: unknown): string {
   if (reason instanceof MobileClientError) {
-    if (reason.code === 'scope_not_granted') return 'Dieses Gerät hat dafür noch keine Freigabe. Verwaltungsrechte in ADE am PC unter Settings → Verbundene Geräte freigeben.';
+    if (reason.code === 'scope_not_granted') return 'Dieses Gerät hat dafür noch keine Freigabe. Verwaltungsrechte in ADE am PC unter Einstellungen → Verbundene Geräte freigeben.';
     if (reason.status === 404) return 'Diese Funktion ist auf dem Host noch nicht verfügbar. ADE am PC aktualisieren.';
     if (reason.message !== reason.code) return reason.message;
   }

@@ -37,8 +37,8 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   writeFileSync(join(initial.workspaceDir, 'tracked-edit.txt'), 'before'); writeFileSync(join(initial.workspaceDir, 'tracked-delete.txt'), 'before');
   await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
-  const composer = page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true });
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
+  const composer = page.getByRole('dialog', { name: 'Agent beauftragen', exact: true });
   await composer.getByLabel('Repository', { exact: true }).selectOption(repositoryId);
   await composer.getByLabel('Agent', { exact: true }).selectOption(agent.id);
   await composer.getByLabel('Name (optional)', { exact: true }).fill('Bild und Ergebnis');
@@ -140,7 +140,7 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   await projectImage.scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(evidence, 'project-run-results.png') });
   await desktop.keyboard.press('Escape');
-  await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Terminal project', exact: true }).click();
   await desktop.getByRole('button', { name: 'Ergebnisse', exact: true }).click();
   await desktop.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).click();

@@ -1,5 +1,33 @@
 # ADE implementation status
 
+## UI-Merge aktiviert: Aufgaben/Notizen und neue Bedienoberfläche
+
+19. September **23:28:52 CEST**: `ui/next-level` (`464b6a5`) mit dem Organizer-
+Stand `9378b8e` zusammengeführt. Platzhalter durch die echten Aufgaben-/Notizen-
+Seiten ersetzt, deutsche Namen und gemeinsame Navigation übernommen. Gespeichertes
+Einklappen, Offline-Entwürfe, Diktat und Erinnerungen bleiben erhalten.
+
+Auf Nutzerwunsch alle laufenden ADE-Instanzen beendet (eine Hauptinstanz vorhanden),
+`pnpm build` für Desktop und Mobile ausgeführt und ADE wieder geöffnet.
+Neue PID **8696**, gemeinsame Quelle **`e2a8e92a2f2fe141e405`**; Desktop gebaut
+**23:28:37**, Mobile **23:28:46 CEST**. Die private HTTPS-Adresse liefert das neue
+Mobile-Bundle bytegleich. Alle drei Kopplungen und der Projekt-/Profilbestand
+blieben erhalten. Auf dem Tablet dieselbe Seite neu laden.
+Keine Tests und kein Typecheck für die Zusammenführung ausgeführt, entsprechend
+der fortgeltenden Nutzeranweisung. Branch-Nachweise sind keine Merge-Abnahme.
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\UiNextLevel-20260919-232827`.
+Lokaler Beleg: `test-results/ui-next-level-activation.json`.
+[Design und Integrationsstand](UI_UX_NEXT_LEVEL.md).
+
+## Zusammengeführt: UI „Räume, Wortschatz, Aktionsinventar“ und Organizer
+
+UI-Branch `464b6a5` mit `9378b8e` verbunden: deutsche Navigation, Graph-Gruppen,
+Verbindungsdialog und kompakteres Terminal zusammen mit den echten Aufgaben- und
+Notizen-Seiten. Platzhalter und doppelte Navigation entfernt; Offline-Speicherung,
+Diktat, Erinnerungen und das Einklappen bleiben erhalten. Kein neuer Testlauf auf
+Nutzeranweisung; Branch-Ergebnisse ersetzen keine integrierte Abnahme.
+[Integration und Herkunft der Nachweise](UI_UX_NEXT_LEVEL.md).
+
 ## Abschlussbuild aktiviert: Tasks, Notes, Bediengruppen und Stimmtext
 
 19. September **23:19:44 CEST**: gemeinsamer `pnpm build` erfolgreich, persönliche

@@ -1,5 +1,12 @@
 # ADE delivery roadmap
 
+## Zusammengeführt und aktiviert: UI Next Level
+
+Drei Bereiche, deutsche Namen, gruppierte Graph-Aktionen, kompakter Terminalkopf
+und Verbindungsdialog mit den echten Aufgaben-/Notizen-Seiten verbunden. Gemeinsamer
+Build am 19. September um **23:28 CEST** aktiviert, Kopplungen erhalten.
+Keine Merge-Tests auf Nutzerwunsch. [Nachweise und Folgearbeit](UI_UX_NEXT_LEVEL.md).
+
 ## Implementiert: persönliche Tasks, Notes und Button-Gruppen
 
 Gemeinsame Desktop-/Tablet-Seiten mit Offline-Erfassung, Konfliktkopien, Diktat,

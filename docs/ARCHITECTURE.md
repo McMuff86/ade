@@ -2948,3 +2948,15 @@ unacknowledged reminders can appear again after restarting ADE.
 Evidence and the explicitly deferred whole-repository verification are recorded in
 [TASKS_NOTES.md](TASKS_NOTES.md). These tests do not establish physical tablet pen
 pressure/palm behavior or guaranteed operating-system notification delivery.
+
+
+## Shared room navigation
+
+`shared/appNavigation.ts` and `appViews.ts` own the room order and German product
+vocabulary. Desktop and mobile render `renderer/nav/AppNav`; personal tasks and
+notes mount the existing lazy organizer routes. The navigation keeps the prior
+per-device collapse preference, arrow/Home/End navigation and Escape focus return.
+Graph actions use the UI branch's fixed control groups. The mobile connection
+dialog explains transport/build states without replacing the paired identity.
+This integration changes presentation; organizer and signed-host boundaries remain
+unchanged. Integration tests were explicitly deferred by the user.

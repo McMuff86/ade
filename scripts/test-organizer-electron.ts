@@ -14,7 +14,7 @@ void (async () => {
   writeFileSync(launcher, `require(${JSON.stringify(resolve('scripts/fixtures/conversation-speech.cjs'))});require(${JSON.stringify(resolve(process.env.ADE_ORGANIZER_MAIN ?? 'out/main/index.js'))});`);
   app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   page = await app.firstWindow(); page.setDefaultTimeout(20_000); const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.getByRole('tab', { name: 'Notes view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Notizen', exact: true }).click();
   await page.getByRole('button', { name: 'Neue Notiz', exact: true }).click();
   await page.getByLabel('Titel', { exact: true }).fill('Desktop-Skizze'); await page.getByLabel('Notiztext', { exact: true }).fill('Gespeichert über IPC');
   await expect.poll(async () => { const result = await page!.evaluate(() => window.ade.invoke('organizer:query', { operation: 'list' })); return 'index' in result && result.index.entries.some(item => item.title === 'Desktop-Skizze'); }).toBe(true);
@@ -46,7 +46,7 @@ void (async () => {
     (window as unknown as { failOrganizerSave: boolean }).failOrganizerSave = true;
   });
   await page.getByLabel('Notiztext', { exact: true }).fill('Nur im offenen Editor erhalten'); await page.getByRole('alert').filter({ hasText: 'Speicher-Test: kein Platz' }).waitFor();
-  await page.getByRole('tab', { name: 'Tasks view', exact: true }).click(); await page.getByRole('tab', { name: 'Notes view', exact: true }).click(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
+  await page.getByRole('tab', { name: 'Aufgaben', exact: true }).click(); await page.getByRole('tab', { name: 'Notizen', exact: true }).click(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
   check('real IndexedDB quota failure preserves the editor across page changes', await page.getByLabel('Notiztext', { exact: true }).inputValue() === 'Nur im offenen Editor erhalten');
   await page.evaluate(() => { (window as unknown as { failOrganizerSave: boolean }).failOrganizerSave = false; });
   await page.getByRole('button', { name: 'Speichern erneut versuchen', exact: true }).click();
@@ -57,7 +57,7 @@ void (async () => {
   await page.evaluate(input => window.ade.invoke('organizer:command', input), { operation: 'put' as const, writerId: randomUUID(), sequence: 1, baseRevision: 0, document });
   await page.getByRole('complementary', { name: 'Fällige Aufgaben', exact: true }).waitFor();
   check('due reminder is visible while another page is open', await page.getByText('1 Erinnerung(en) fällig.', { exact: true }).isVisible());
-  await page.getByRole('button', { name: 'Tasks öffnen', exact: true }).click(); await page.getByRole('button', { name: /Private Erinnerung/ }).click();
+  await page.getByRole('button', { name: 'Aufgaben öffnen', exact: true }).click(); await page.getByRole('button', { name: /Private Erinnerung/ }).click();
   await page.getByRole('button', { name: 'Erinnerung bestätigen', exact: true }).click();
   await expect(page.getByRole('complementary', { name: 'Fällige Aufgaben', exact: true })).toHaveCount(0);
   check('acknowledging a reminder clears the global reminder after durable save', true);
@@ -66,24 +66,24 @@ void (async () => {
   check('destructive-action dialog receives focus', await dialog.evaluate(node => node.contains(window.document.activeElement)));
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
   check('closing the dialog restores its opener', await deleted.evaluate(node => node === window.document.activeElement));
-  await page.getByRole('tab', { name: 'Graph view', exact: true }).click();
-  await page.getByRole('group', { name: 'Run auswählen', exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'Graph', exact: true }).click();
+  await page.getByRole('group', { name: 'Run', exact: true }).waitFor();
   check('empty Graph has grouped controls and one New Run entry', await page.getByRole('button', { name: 'Neuer Run', exact: true }).count() === 1
-    && await page.getByRole('group', { name: 'Graph-Ansicht', exact: true }).isVisible());
+    && await page.getByRole('group', { name: 'Ansicht', exact: true }).isVisible());
   await page.evaluate(async () => {
     const category = await window.ade.invoke('category:create', { name: 'Organizer test' });
     const agent = await window.ade.invoke('agent:create', { name: 'Fixture agent', categoryId: category.id, runtime: 'codex', permissionMode: 'default' });
     await window.ade.invoke('run:create', { name: 'Graph-Gruppen', repositoryId: null, participants: [{ agentId: agent.id, role: 'orchestrator' }] });
   });
-  await page.getByRole('group', { name: 'Run steuern', exact: true }).waitFor();
+  await page.getByRole('group', { name: 'Run-Steuerung für Graph-Gruppen', exact: true }).waitFor();
   check('active graph separates run controls, results and administration without duplicate creation', await page.getByRole('button', { name: 'Neuer Run', exact: true }).count() === 1
-    && await page.getByRole('group', { name: 'Ergebnisse und Rückfragen', exact: true }).isVisible());
+    && await page.getByRole('group', { name: 'Ergebnisse', exact: true }).isVisible());
   await page.screenshot({ path: join(evidence, 'desktop-graph.png') });
   await page.getByRole('button', { name: 'Navigation einklappen', exact: true }).click(); await page.reload();
   await page.getByRole('button', { name: 'Navigation ausklappen', exact: true }).waitFor();
   check('desktop grouped navigation remains collapsed after reload', true);
   await page.getByRole('button', { name: 'Navigation ausklappen', exact: true }).click();
-  await page.getByRole('tab', { name: 'Notes view', exact: true }).click(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
+  await page.getByRole('tab', { name: 'Notizen', exact: true }).click(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
   await page.screenshot({ path: join(evidence, 'desktop-note.png') });
   check('desktop personal workflow has no uncaught renderer errors', errors.length === 0);
 })().catch(async error => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'desktop-failure.png') }).catch(() => undefined); }).finally(async () => {

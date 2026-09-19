@@ -33,9 +33,6 @@
   .m-terminal-context { display: block; }
 }
 @media (max-width: 699px) {
-  .m-titlebar .m-view-switch { overflow-x: auto; }
-  .m-titlebar .m-view-switch button { padding: 6px; font-size: 11px; }
-  .m-titlebar .m-view-switch .m-icon { display: none; }
   .m-terminals-page { display: flex; flex-direction: column; height: auto; min-height: 0; }
   .m-terminal-resize { display: none; }
   .m-terminal-navigation-toggle { display: block; align-self: flex-start; margin: 8px 12px; }

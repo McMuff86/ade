@@ -93,7 +93,7 @@ export function WorkspaceAssignmentDialog({ host, agentId, repositoryId, browseI
         <strong>{item.name}</strong><span>{item.repositoryId ? 'In ADE registriert' : 'Noch nicht registriert'}</span>
         {item.notice && <span>{item.notice}</span>}<button disabled={disabled || item.kind !== 'repository' || item.backend !== 'native'}
           onClick={() => void inspect({ operation: 'project-preview', agentId, entryId: item.id })}>Projekt prüfen · {item.name}</button></li>)}</ul>
-      {directory && !directory.entries.some((item) => item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && <p>Keine passenden Projektordner gefunden. Projekt-Stammordner in Settings am PC prüfen.</p>}
+      {directory && !directory.entries.some((item) => item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) && <p>Keine passenden Projektordner gefunden. Projekt-Stammordner in Einstellungen am PC prüfen.</p>}
       {directory?.limited && <p>Liste begrenzt. Projekt am PC direkt registrieren, wenn es hier fehlt.</p>}</>
       : <ul className="m-assignment-candidates">{result?.view.candidates.map((item) => <li key={item.id}><strong>{item.name}{item.current ? ' · Aktuell zugewiesen' : ''}</strong>
         <span>Branch {item.branch}</span>{item.notice && <span>{item.notice}</span>}<button disabled={disabled} onClick={() => void inspect({ operation: 'preview', agentId, repositoryId: repositoryId!, candidateId: item.id })}>Workspace prüfen · {item.name}</button></li>)}</ul>}

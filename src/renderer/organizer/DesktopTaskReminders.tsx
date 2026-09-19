@@ -16,5 +16,5 @@ export function DesktopTaskReminders() {
   }, []);
   if (!count) return null;
   return <aside className="organizer-global-reminder" aria-label="Fällige Aufgaben"><span role="status">{count} Erinnerung(en) fällig.</span>
-    <button type="button" onClick={() => { useMode.getState().setMode('tasks'); requestAnimationFrame(() => document.getElementById('mode-tab-tasks')?.focus()); }}>Tasks öffnen</button></aside>;
+    <button type="button" onClick={() => { useMode.getState().setMode('tasks'); requestAnimationFrame(() => document.getElementById('mode-tab-tasks')?.focus()); }}>Aufgaben öffnen</button></aside>;
 }

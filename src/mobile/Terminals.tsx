@@ -46,7 +46,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
       try { const result = await host.request<MobileSessionInventory>('/api/v1/terminal/sessions');
         if (!stopped) { setInventory(result); setError(''); }
       } catch (reason) { if (!stopped) { setInventory(undefined); setError(reason instanceof MobileClientError && reason.status === 403
-        ? 'Am PC unter Settings → Verbundene Geräte „Interaktive Terminals steuern“ freigeben. Für freie Terminals muss die Projektauswahl „Alle“ erlauben.'
+        ? 'Am PC unter Einstellungen → Verbundene Geräte „Interaktive Terminals steuern“ freigeben. Für freie Terminals muss die Projektauswahl „Alle“ erlauben.'
         : 'Sitzungen konnten nicht geladen werden. Verbindung prüfen und erneut laden.'); } }
       if (!stopped) timer = setTimeout(() => { void update(); }, 5000);
     };

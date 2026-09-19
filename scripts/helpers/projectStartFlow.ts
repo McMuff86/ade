@@ -16,7 +16,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   const projectRoot = join(root, 'my-repos'); mkdirSync(projectRoot);
   await desktop.evaluate(async (id) => window.ade.invoke('agent:create', {
     categoryId: id, name: 'Tablet Codex', runtime: 'codex', permissionMode: 'default' }), categoryId);
-  await desktop.reload(); await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+  await desktop.reload(); await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const settings = desktop.getByTestId('project-defaults');
   await settings.getByLabel('Projekt-Stammordner', { exact: true }).fill(projectRoot);
   await settings.getByRole('button', { name: 'Projektstart speichern', exact: true }).click();
@@ -101,7 +101,7 @@ export async function projectStartFlow(desktop: Page, page: Page, proxy: Awaited
   }));
   await page.screenshot({ path: join(evidence, 'tablet-project-keyboard.png') });
   await page.setViewportSize({ width: 1280, height: 800 }); await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await page.getByRole('button', { name: /Weiterarbeiten in Tablet Garden mit Ohne Agent-Profil/ }).click();
   await workspace.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   check('Continue working attaches the existing project session', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((session) => session.repositoryId === repo.id).length === 1);

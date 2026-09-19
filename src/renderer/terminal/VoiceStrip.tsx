@@ -109,7 +109,7 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
   const reason = phase !== 'idle' || computer.active ? '' : !online ? 'Offline' : sendBlockedReason || (!speechAllowed ? 'Diktat nicht freigegeben' : capability.available ? '' : checking ? 'Sitzung wird geprüft…' : 'Kein CLI-Prompt');
   const reasonDetail = !online ? 'Der Entwurf kann weiter bearbeitet werden; Sprechen und Senden brauchen die Verbindung zum PC.'
     : sendBlockedReason ? `${sendBlockedReason}. Der Entwurf bleibt bearbeitbar.`
-    : !speechAllowed ? 'ElevenLabs-Diktat braucht die eigene Diktat-Freigabe am PC unter Settings → Verbundene Geräte.'
+    : !speechAllowed ? 'ElevenLabs-Diktat braucht die eigene Diktat-Freigabe am PC unter Einstellungen → Verbundene Geräte.'
     : capability.available ? '' : `${capabilityReason} Vor der Übergabe Anmeldung und Projektvertrauen direkt im Terminal abschliessen; die CLI muss ihren Eingabeprompt anzeigen.`;
   const statusVisible = !!notice && (!TRANSIENT.includes(noticeKind) || flash);
   const duration = maxSeconds >= 120 ? `${maxSeconds / 60} Minuten` : `${maxSeconds} Sekunden`;

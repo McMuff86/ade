@@ -99,6 +99,10 @@ const I = {
   trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M10 11v5M14 11v5" />,
   publish: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 14v5h14v-5" /></>,
   report: <><path d="M6 3h9l4 4v14H6z" /><path d="M9 12h6M9 16h6M15 3v4h4" /></>,
+  minus: <path d="M5 12h14" />,
+  fit: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
+  grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />,
+  dockDown: <path d="M12 4v11m-5-5 5 5 5-5M5 20h14" />,
 };
 
 function Ico({ children }: { children: React.ReactNode }): JSX.Element {
@@ -276,16 +280,10 @@ export function GraphView(): JSX.Element {
   const [approvalDiff, setApprovalDiff] = useState<ApprovalDiffResult | null>(null);
   const [dock, setDock] = useState<{ sessionId?: string; taskId?: string; title: string } | null>(null);
   const [dockRaw, setDockRaw] = useState(false);
+  const [slotsOpen, setSlotsOpen] = useState(false);
   const [dockHeight, setDockHeight] = useState(() => {
     const stored = Number(window.localStorage.getItem('ade.graph.dockHeight'));
     return Number.isFinite(stored) && stored >= 160 ? stored : 360;
-  });
-  const [slotsPos, setSlotsPos] = useState<Pos | null>(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem('ade.graph.slotsPos') ?? 'null') as Pos | null;
-    } catch {
-      return null;
-    }
   });
   // Null = docked full-width at the bottom; set once the user drags the bar.
   const [dockPos, setDockPos] = useState<{ x: number; y: number; w: number } | null>(() => {
@@ -328,42 +326,6 @@ export function GraphView(): JSX.Element {
     window.addEventListener('pointerup', up);
   };
 
-  // Null = centered above the lower edge; set once the user drags the grip.
-  const [actionsPos, setActionsPos] = useState<Pos | null>(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem('ade.graph.actionsPos') ?? 'null') as Pos | null;
-    } catch {
-      return null;
-    }
-  });
-
-  const startActionsDrag = (event: React.PointerEvent): void => {
-    event.preventDefault();
-    const panel = (event.currentTarget as HTMLElement).closest('.gdock') as HTMLElement | null;
-    const parent = panel?.offsetParent as HTMLElement | null;
-    if (!panel || !parent) return;
-    const rect = panel.getBoundingClientRect();
-    const parentRect = parent.getBoundingClientRect();
-    const offsetX = event.clientX - rect.left;
-    const offsetY = event.clientY - rect.top;
-    const move = (nextEvent: PointerEvent): void => {
-      setActionsPos({
-        x: Math.max(0, nextEvent.clientX - parentRect.left - offsetX),
-        y: Math.max(0, nextEvent.clientY - parentRect.top - offsetY),
-      });
-    };
-    const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      setActionsPos((pos) => {
-        if (pos) window.localStorage.setItem('ade.graph.actionsPos', JSON.stringify(pos));
-        return pos;
-      });
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-
   const startDockDrag = (event: React.PointerEvent): void => {
     if ((event.target as HTMLElement).closest('button')) return;
     event.preventDefault();
@@ -394,32 +356,6 @@ export function GraphView(): JSX.Element {
     window.addEventListener('pointerup', up);
   };
 
-  const startSlotsDrag = (event: React.PointerEvent): void => {
-    event.preventDefault();
-    const panel = (event.currentTarget as HTMLElement).closest('.gslots') as HTMLElement | null;
-    const parent = panel?.offsetParent as HTMLElement | null;
-    if (!panel || !parent) return;
-    const rect = panel.getBoundingClientRect();
-    const parentRect = parent.getBoundingClientRect();
-    const offsetX = event.clientX - rect.left;
-    const offsetY = event.clientY - rect.top;
-    const move = (nextEvent: PointerEvent): void => {
-      setSlotsPos({
-        x: Math.max(0, nextEvent.clientX - parentRect.left - offsetX),
-        y: Math.max(0, nextEvent.clientY - parentRect.top - offsetY),
-      });
-    };
-    const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      setSlotsPos((pos) => {
-        if (pos) window.localStorage.setItem('ade.graph.slotsPos', JSON.stringify(pos));
-        return pos;
-      });
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
   // Presentation-only preference: colored vs monochrome approval diffs.
   const [diffColors, setDiffColors] = useState(
     () => window.localStorage.getItem('ade.graph.diffColors') !== 'off',
@@ -1171,8 +1107,8 @@ export function GraphView(): JSX.Element {
   return (
     <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
       <DesktopSupervisionGraph />
-      <div className="grunbar">
-        <div className="graph-action-group graph-run-context" role="group" aria-label="Run auswählen"><span className="graph-action-label">Run</span>
+      <div className="grunbar" aria-label="Run-Leiste">
+        <div className="grun-group grun-run" role="group" aria-label="Run">
         <select
           aria-label="Aktiver Run"
           value={activeRunId ?? ''}
@@ -1214,7 +1150,8 @@ export function GraphView(): JSX.Element {
           </>
         )}
         </div>
-        <div className="graph-action-group" role="group" aria-label="Ergebnisse und Rückfragen"><span className="graph-action-label">Ergebnisse</span>
+        <div className="grun-group grun-results" role="group" aria-label="Ergebnisse">
+        {activeRun && <span className="grun-caption" aria-hidden="true">Ergebnisse</span>}
         {activeRun && (
           <button
             ref={reportButtonRef}
@@ -1241,8 +1178,8 @@ export function GraphView(): JSX.Element {
           </button>
         )}
         </div>
-        <div className="graph-action-group" role="group" aria-label="Run verwalten"><span className="graph-action-label">Verwalten</span>
-        <button type="button" className="btn" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
+        <div className="grun-group grun-rare" role="group" aria-label="Selten und endgültig">
+        <button type="button" className="btn btn-quiet" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
         {activeRun && (
           <button
             className={`grun-delete${deleteArmed ? ' armed' : ''}`}
@@ -1255,10 +1192,10 @@ export function GraphView(): JSX.Element {
             <Ico>{I.trash}</Ico>{deleteArmed ? 'Wirklich löschen?' : 'Run löschen'}
           </button>
         )}
+        </div>
         <button className="grun-new" onClick={openNewRun}>
           <Ico>{I.plus}</Ico>Neuer Run
         </button>
-        </div>
       </div>
 
       {activeRunFailure && !reportOpen && (
@@ -1434,6 +1371,7 @@ export function GraphView(): JSX.Element {
         >
           <div className="gdockpanel-resize" title="Höhe anpassen" onPointerDown={startDockResize} />
           <div className="gdockpanel-bar" title="Am Balken verschiebbar" onPointerDown={startDockDrag}>
+            <Ico>{I.grip}</Ico>
             <b>{dock.title}</b>
             <span>
               {dock.sessionId
@@ -1444,25 +1382,28 @@ export function GraphView(): JSX.Element {
             {dockPos && (
               <button
                 type="button"
+                aria-label="Wieder unten andocken"
                 title="Wieder unten andocken"
                 onClick={() => {
                   setDockPos(null);
                   window.localStorage.removeItem('ade.graph.dockPos');
                 }}
               >
-                ⇲
+                <Ico>{I.dockDown}</Ico>
               </button>
             )}
             {dock.sessionId && (
               <button
                 type="button"
+                className="gdockpanel-text"
+                aria-pressed={dockRaw}
                 title={dockRaw ? 'Lesbare Aktivität zeigen' : 'Rohe Terminal-Ausgabe zeigen'}
                 onClick={() => setDockRaw((raw) => !raw)}
               >
-                {dockRaw ? '☰' : '⌗'}
+                {dockRaw ? 'Lesbar' : 'Roh'}
               </button>
             )}
-            <button type="button" title="Panel schließen" onClick={() => setDock(null)}>✕</button>
+            <button type="button" aria-label="Panel schliessen" title="Panel schliessen" onClick={() => setDock(null)}><Ico>{I.close}</Ico></button>
           </div>
           {dockRaw && dock.sessionId ? (
             <SessionTail
@@ -1480,17 +1421,18 @@ export function GraphView(): JSX.Element {
         </div>
       )}
 
-      <div
-        className="gslots"
-        role="status"
-        title="Globale Task-Slots (FIFO über alle Runs) — am Kopf verschiebbar"
-        style={slotsPos ? { left: slotsPos.x, top: slotsPos.y, right: 'auto', bottom: 'auto' } : undefined}
-      >
-        <div className="gslots-head" onPointerDown={startSlotsDrag}>
+      <div className="gslots" role="status" title="Globale Task-Slots: eine Warteschlange über alle Runs">
+        <button
+          type="button"
+          className="gslots-head"
+          aria-expanded={slotsOpen}
+          disabled={slotRows.length === 0}
+          onClick={() => setSlotsOpen((open) => !open)}
+        >
           Task-Slots {taskQueue.active}/{taskQueue.maxActive}
           {taskQueue.queued > 0 && ` · ${taskQueue.queued} in Warteschlange`}
-        </div>
-        {slotRows.map((cluster) => (
+        </button>
+        {slotsOpen && slotRows.map((cluster) => (
           <div key={cluster.run.id} className="gslots-row">
             <span>{cluster.run.name}</span>
             <span>
@@ -1501,30 +1443,16 @@ export function GraphView(): JSX.Element {
         ))}
       </div>
 
-      <div className="gzoom" role="group" aria-label="Graph-Ansicht">
-        <button aria-label="Graph vergrössern" title="Vergrößern" onClick={() => zoomBy(1.15)}>+</button>
-        <button aria-label="Graph verkleinern" title="Verkleinern" onClick={() => zoomBy(0.87)}>-</button>
-        <button aria-label="Graph einpassen" title="Ansicht einpassen" onClick={fitView}>□</button>
+      <div className="gzoom" role="group" aria-label="Ansicht">
+        <button type="button" aria-label="Verkleinern" title="Verkleinern" onClick={() => zoomBy(0.87)}><Ico>{I.minus}</Ico></button>
+        <output className="gzoom-level" aria-label="Zoomstufe">{Math.round(view.scale * 100)}%</output>
+        <button type="button" aria-label="Vergrössern" title="Vergrössern" onClick={() => zoomBy(1.15)}><Ico>{I.plus}</Ico></button>
+        <button type="button" aria-label="Ansicht einpassen" title="Ansicht einpassen" onClick={fitView}><Ico>{I.fit}</Ico></button>
       </div>
 
       {activeRun && activeCluster && (
-        <div
-          className="gdock" role="group" aria-label="Run steuern"
-          style={actionsPos ? { left: actionsPos.x, top: actionsPos.y, bottom: 'auto', translate: 'none' } : undefined}
-        >
-          <div
-            className="gdock-grip"
-            title="Verschieben · Doppelklick: Position zurücksetzen"
-            onPointerDown={startActionsDrag}
-            onDoubleClick={() => {
-              setActionsPos(null);
-              window.localStorage.removeItem('ade.graph.actionsPos');
-            }}
-          >
-            ⋮⋮
-          </div>
-          <span className="graph-action-label">Run steuern</span>
-          {actionsPos && <button type="button" className="gdbtn" aria-label="Run-Steuerung zurücksetzen" onClick={() => { setActionsPos(null); window.localStorage.removeItem('ade.graph.actionsPos'); }}>Position zurücksetzen</button>}
+        <div className="gdock" role="group" aria-label={`Run-Steuerung für ${activeRun.name}`}>
+          <span className="gdock-caption" title={activeRun.name}>Run-Steuerung</span>
           <div className="sep" />
           {activeRun.mode === 'manual' && activeRun.status === 'draft' && (
             <button
@@ -2335,7 +2263,7 @@ export function NewRunModal(props: {
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     formRef.current?.querySelector<HTMLInputElement>('input')?.focus();
-    return () => { if (opener?.isConnected) opener.focus(); else document.querySelector<HTMLElement>('.mode-switch [aria-selected="true"]')?.focus(); };
+    return () => { if (opener?.isConnected) opener.focus(); else document.querySelector<HTMLElement>('.appnav [aria-selected="true"]')?.focus(); };
   }, []);
   const [name, setName] = useState(props.suggestedName);
   const [goal, setGoal] = useState('');

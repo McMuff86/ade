@@ -68,9 +68,9 @@ export function OrganizerPage(props: OrganizerPageProps) {
     try { const doc = newOrganizerDocument(kind); doc.repositoryId = project || null; const entry = await cache.edit(doc, null); await load(); setSelected(entry.id); setError(''); }
     catch (reason) { setError(port.describe(reason)); }
   };
-  if (!canRead) return <section className="organizer"><h1>{kind === 'task' ? 'Tasks' : 'Notes'}</h1><p role="status">Am PC unter Einstellungen → Verbundene Geräte „Persönliche Aufgaben und Notizen lesen“ und zum Bearbeiten die Schreibfreigabe aktivieren.</p></section>;
+  if (!canRead) return <section className="organizer"><h1>{kind === 'task' ? 'Aufgaben' : 'Notizen'}</h1><p role="status">Am PC unter Einstellungen → Verbundene Geräte „Persönliche Aufgaben und Notizen lesen“ und zum Bearbeiten die Schreibfreigabe aktivieren.</p></section>;
   return <section className={`organizer${selectedEntry ? ' organizer-editing' : ''}`} aria-label={kind === 'task' ? 'Persönliche Aufgaben' : 'Notizen'}>
-    <header className="organizer-header"><div><h1>{kind === 'task' ? 'Tasks' : 'Notes'}</h1><p>{kind === 'task' ? 'Festhalten, planen und erledigen.' : 'Gedanken, Fotos und Skizzen an einem Ort.'}</p></div>
+    <header className="organizer-header"><div><h1>{kind === 'task' ? 'Aufgaben' : 'Notizen'}</h1><p>{kind === 'task' ? 'Festhalten, planen und erledigen.' : 'Gedanken, Fotos und Skizzen an einem Ort.'}</p></div>
       <div className="organizer-tools" role="group" aria-label="Aufgaben und Notizen verwalten"><button type="button" className="organizer-primary" disabled={!state || !canWrite} onClick={() => void create()}>{kind === 'task' ? 'Neue Aufgabe' : 'Neue Notiz'}</button>
         <button type="button" disabled={!online || busy} onClick={() => void sync()}>{busy ? 'Wird abgeglichen…' : 'Synchronisieren'}</button></div>
     </header>

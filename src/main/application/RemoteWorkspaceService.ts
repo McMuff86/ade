@@ -59,7 +59,7 @@ export class RemoteWorkspaceService {
         authorize();
         checkGitEnvironment();
         if (defaults && projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity) {
-          throw new Error('ade: Der Projekt-Stammordner hat sich geändert. In Settings am PC erneut auswählen.');
+          throw new Error('ade: Der Projekt-Stammordner hat sich geändert. In Einstellungen am PC erneut auswählen.');
         }
       };
       checkRoot();

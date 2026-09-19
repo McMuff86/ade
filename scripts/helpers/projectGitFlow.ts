@@ -18,7 +18,7 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find((item) => item.name === 'Terminal tablet')!;
   const grants = [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])];
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }), { deviceId: device.id, scopes: grants });
-  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
   await desktop.getByRole('button', { name: 'Git', exact: true }).click();

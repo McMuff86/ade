@@ -41,7 +41,7 @@ ${nativeUsageFixtureSource}
     const pref = contents.getLastWebPreferences?.(); return !!pref?.sandbox && !!pref.contextIsolation && !pref.nodeIntegration;
   }));
   await page.evaluate(path => window.ade.invoke('projectDefaults:save', { rootPath: path, agentId: null }), projects);
-  await page.getByRole('tab', { name: 'Projekte view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Package review', exact: true }).click();
   const terminal = page.getByRole('region', { name: 'Projekt-Terminal', exact: true });
@@ -73,7 +73,7 @@ ${nativeUsageFixtureSource}
   check('packaged prompt draft survives closing without delivery', await draft.inputValue() === 'Paketprobe\nEntwurf erhalten.');
   await prompt.getByRole('button', { name: 'Entwurf löschen', exact: true }).click();
   await page.keyboard.press('Escape'); await prompt.waitFor({ state: 'hidden' });
-  await page.getByRole('tab', { name: 'Work view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aufträge', exact: true }).click();
   const work = page.getByRole('region', { name: 'CLI-Arbeit', exact: true });
   const row = work.locator(`li[data-session-id="${session.id}"]`); await row.waitFor();
   check('packaged Work shows original workspace and native shell', (await row.innerText()).includes('Originalordner') && (await row.innerText()).includes('Package review'));
@@ -81,7 +81,7 @@ ${nativeUsageFixtureSource}
   await row.getByRole('button', { name: /^Sitzung öffnen:/ }).click(); await terminal.waitFor();
   sessions = (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions;
   check('return from Work reuses exact packaged session without duplicate', sessions.length === 1 && sessions[0]!.id === session.id);
-  await page.getByRole('tab', { name: 'Overview view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   check('packaged Overview contains the same live CLI row', await page.getByRole('region', { name: 'CLI-Arbeit', exact: true }).locator(`li[data-session-id="${session.id}"]`).isVisible());
   const config = await page.evaluate(() => window.ade.invoke('config:get'));
   check('package smoke uses isolated config and creates no agent binding', config.agents.length === 0 && config.workspaceBindings.length === 0 && config.repositories.every(item => item.rootPath === repo));

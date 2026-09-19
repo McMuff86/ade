@@ -26,8 +26,8 @@ export function WorkComposer({ draft, setDraft, catalog, host, onSend, onClose }
   const limit = run ? 1000 : 8000;
   const disabled = !host.canSubmit || !draft.repositoryId || !draft.prompt.trim() || draft.prompt.length > limit
     || (run ? draft.agentIds.length < 2 || !draft.name.trim() : draft.agentIds.length === 0);
-  return <Dialog title={run ? 'Neuer Run' : 'Neue Aufgabe'} onClose={onClose} fallbackId="mobile-title" className="m-composer-dialog">
-    <p className="m-dialog-intro">{run ? 'Agents zusammenstellen, Ziel und Budget festlegen. Danach den vorbereiteten Run starten.' : 'Repository und Agent wählen. Die Aufgabe wird auf deinem PC ausgeführt.'}</p>
+  return <Dialog title={run ? 'Neuer Run' : 'Agent beauftragen'} onClose={onClose} fallbackId="mobile-title" className="m-composer-dialog">
+    <p className="m-dialog-intro">{run ? 'Agents zusammenstellen, Ziel und Budget festlegen. Danach den vorbereiteten Run starten.' : 'Projekt und Agent wählen. Der Auftrag wird auf deinem PC ausgeführt; der Fortschritt erscheint unter Aufträge.'}</p>
     {host.error && <p className="m-alert" role="alert">{host.error}</p>}
     {host.status !== 'online' && <p className="m-notice" role="status">Offline. Dein Entwurf bleibt erhalten; zum Senden wieder verbinden.</p>}
     <PendingNotice host={host} onRetry={onSend} />

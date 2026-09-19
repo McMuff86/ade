@@ -12,7 +12,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
   await desktop.evaluate(({ deviceId, scopes }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes }),
     { deviceId: device.id, scopes: [...new Set([...(device.adminScopes ?? []), 'projects:write' as const])] });
   await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
-  check('Projects entry keeps run controls in Work', !await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).count());
+  check('Projects entry keeps run controls in Work', !await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).count());
   await page.getByLabel('Projekte durchsuchen', { exact: true }).fill('Tablet Garden');
   const openLegacy = async () => {
     await page.getByRole('button', { name: 'Workspace öffnen: Tablet Garden', exact: true }).click();
@@ -75,5 +75,5 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     check('a new project workspace still waits for an explicit CLI start', !await workspace.getByLabel('Terminalanzeige', { exact: true }).count());
     await page.keyboard.press('Escape');
   }
-  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
 }

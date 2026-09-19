@@ -97,7 +97,7 @@ void (async () => {
   rmSync(join(binding.workspaceDir, 'draft.txt'));
   await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
   check('manager close uses the focus fallback after its retry opener unmounts', await page.locator('#mobile-title').evaluate((node) => node === document.activeElement));
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await page.getByLabel('Repository', { exact: true }).selectOption(first.id);
   await page.getByLabel('Agent', { exact: true }).selectOption(agent.id);
   await page.getByLabel('Aufgabe', { exact: true }).fill('Private draft for project one');
@@ -108,15 +108,15 @@ void (async () => {
   check('returning to project restores its own draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Private draft for project one');
   await page.getByLabel('Name (optional)', { exact: true }).fill('Work One');
   await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByRole('dialog', { name: 'Agent beauftragen', exact: true }).waitFor({ state: 'hidden' });
   const inspector = page.getByRole('dialog', { name: 'Run-Details', exact: true }); if (await inspector.count()) await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await page.getByLabel('Repository', { exact: true }).selectOption(second.id);
   check('submitted project does not clear another project draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Private draft for project two');
   await page.getByLabel('Agent', { exact: true }).selectOption('reviewer');
   await page.getByLabel('Name (optional)', { exact: true }).fill('Work Two');
   await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByRole('dialog', { name: 'Agent beauftragen', exact: true }).waitFor({ state: 'hidden' });
   if (await inspector.count()) await page.keyboard.press('Escape');
   for (let attempt = 0; fixture.sessions.length < 2 && attempt < 100; attempt++) await new Promise((done) => setTimeout(done, 50));
   check('two projects launch work for two distinct agents through real domain/HTTP', fixture.sessions.length === 2 && fixture.sessions[0]!.agentId !== fixture.sessions[1]!.agentId
@@ -130,7 +130,7 @@ void (async () => {
     && await manager.getByText(/Laufende Arbeit zuerst abschliessen/).isVisible());
   await page.keyboard.press('Escape'); await manager.waitFor({ state: 'hidden' });
   check('manager close restores its connected opener', await page.getByRole('button', { name: 'Verwalten', exact: true }).evaluate((node) => node === document.activeElement));
-  await page.getByRole('tab', { name: 'Work', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aufträge', exact: true }).click();
   await page.getByLabel('Projektfilter', { exact: true }).selectOption(first.id);
   check('project filter selects the matching run', await page.getByRole('button', { name: /Work One/ }).count() === 1 && await page.getByRole('button', { name: /Work Two/ }).count() === 0);
   await page.getByLabel('Projektfilter', { exact: true }).selectOption('');
@@ -141,10 +141,10 @@ void (async () => {
   await page.screenshot({ path: join(evidence, 'tablet-project-work.png'), fullPage: true });
   await page.setViewportSize({ width: 320, height: 568 });
   check('small phone project view has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await page.getByLabel('Aufgabe', { exact: true }).fill('Persistent project draft');
   await page.reload(); await connected();
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('unsent project draft survives a real browser reload', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Persistent project draft');
   check('draft content stays separate from appearance preferences', await page.evaluate(() => Object.keys(localStorage)
     .filter((key) => key.startsWith('ade-mobile-')).every((key) => !localStorage.getItem(key)?.includes('Persistent project draft'))));

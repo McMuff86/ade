@@ -64,6 +64,22 @@
   --radius-s: 5px;
   --radius-m: 8px;
   --control-h: 28px;
+  /* Touch targets on the tablet; desktop density keeps --control-h. */
+  --touch: 44px;
+
+  /*
+   * State colours are the three existing voices, named by meaning so a
+   * component never has to know that "add" also means "connected".
+   *   --ok    connected, running as expected, saved and confirmed
+   *   --warn  attention that is not yet a failure: reconnecting, awaiting a
+   *           reply, unsaved on the PC, different build
+   *   --bad   unreachable, failed, destructive
+   */
+  --ok: var(--add);
+  --warn: var(--accent);
+  --bad: var(--del);
+  /* Tinted fill for a switched-on control; never a card background. */
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 /* ------------------------------------------------------------- base reset */

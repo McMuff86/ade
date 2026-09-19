@@ -51,8 +51,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
           </button></li>;
         })}</ul>}
       </section>
-      <section className="m-ledger" aria-labelledby="mobile-work-title"><h2 id="mobile-work-title">Work <span>Letzte {recent.length} Runs</span></h2>
-        {!recent.length ? <p className="m-empty-copy">Noch keine Runs. Über „Neue Aufgabe“ oder „Neuer Run“ loslegen.</p> : <ul className="m-work-list">{recent.map((run) => <li key={run.id}><RunRow run={run} selected={selected === run.id} onSelect={() => onRun(run.id)} /></li>)}</ul>}
+      <section className="m-ledger" aria-labelledby="mobile-work-title"><h2 id="mobile-work-title">Aufträge <span>Letzte {recent.length} Runs</span></h2>
+        {!recent.length ? <p className="m-empty-copy">Noch keine Runs. Über „Agent beauftragen“ oder „Neuer Run“ loslegen.</p> : <ul className="m-work-list">{recent.map((run) => <li key={run.id}><RunRow run={run} selected={selected === run.id} onSelect={() => onRun(run.id)} /></li>)}</ul>}
         <p className="m-section-note">{runs.some((run) => run.usage.costUsd > 0) ? `${formatCostUsd(runs.reduce((sum, run) => sum + run.usage.costUsd, 0))} gemeldete Run-Kosten` : 'Kosten noch nicht gemeldet'} · Aktuelle Daten vom PC</p>
       </section>
     </>}
