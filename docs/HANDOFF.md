@@ -1,18 +1,25 @@
 # ADE — aktuelle Übergabe
 
-## Bereit: kompakter Projektkopf, bestehende Tablet-Kopplung behalten
+## Aktiviert: kompakter Projektkopf, bestehende Tablet-Kopplung behalten
 
 19. September, nach Nutzerbestätigung des Tablet-Zugriffs: Projektbereich auf
 Wunsch einklappbar, Refresh und Branches in derselben Aktionszeile. Nutzer nimmt
 das Tablet ausser Haus mit; bestehende Gerätezugänge und laufende Terminals
 bewahren. `pnpm verify` um **14:28 CEST**, Exit **0**, alle 91 Kernsuiten / 3.780
 Prüfungen und 30 Electron-/Browser-Driver; Projekt-/Layoutablauf **92/0**.
-Um **14:29 CEST** Release `dist/tablet-layout-d92d312a262b7a36df9c` und Startmenü-
-Verknüpfung vorbereitet. Persönliche Instanz **PID 47752** bleibt mit altem Build
-aktiv; Geräteablage mit drei Kopplungen bytegleich, private HTTPS-Antwort **200**.
-Später im Tray vollständig beenden und über die ADE-Startmenü-Verknüpfung starten,
-danach auf dem Tablet dieselbe Seite neu laden. Keine erneute Kopplung für dieses
-Update. Zwei Timingfehler im bestehenden Terminaltest korrigiert; keine weiteren
+Um **14:29 CEST** zunächst für den nächsten Start vorbereitet. Um **21:31 CEST**
+auf Nutzermeldung des alten Tablet-Builds aktiviert: PID **47752** lief seit
+09:18 weiter; `pnpm start` fokussierte lediglich diese Instanz. Ohne aktive
+Terminals oder verwaltete Aufgaben sauber über den Tray beendet und den vom
+Nutzer um **21:22 CEST** gebauten Repository-Stand gestartet, neue PID **43796**.
+Desktop/Mobile Source **`d92d312a262b7a36df9c`**, private HTTPS-Antwort **200**,
+ausgeliefertes Mobile-Bundle bytegleich mit dem neuen Build. Alle drei Kopplungen
+bytegleich und Profile/Projekte erhalten; Backup unter
+`C:\Users\Adi.Muff\ADE-Backups\CurrentBuild-20260919-213134`.
+Startmenü-Verknüpfung verwendet jetzt denselben Repository-Build wie `pnpm start`.
+Auf dem Tablet dieselbe Seite neu laden. Keine erneute Kopplung für dieses
+Update. Beleg: `test-results/current-build-activation.json`.
+Zwei Timingfehler im bestehenden Terminaltest korrigiert; keine weiteren
 Produktänderungen dafür. Standby war bereits deaktiviert, Energieplan unverändert.
 [Vertrag und aktueller Stand](TABLET_PROJECT_LAYOUT.md).
 

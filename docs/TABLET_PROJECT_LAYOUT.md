@@ -53,25 +53,41 @@ Mobile-Build sowie alle **30 Electron-/Browser-Driver**. Terminal-Gesamtablauf
 Testinstanz-Neustart **12/0**. Native Windows-/Chromium-Abnahme.
 
 Um **14:29 CEST** als `dist/tablet-layout-d92d312a262b7a36df9c` für den nächsten
-Start vorbereitet. Die ADE-Startmenü-Verknüpfung zeigt auf diesen geprüften
+Start vorbereitet. Die ADE-Startmenü-Verknüpfung zeigte auf diesen geprüften
 gemeinsamen Build. Ihre bisherige Fassung liegt unter
 `C:\Users\Adi.Muff\ADE-Backups\TabletLayout-20260919-142941`.
 
-Für den weiterlaufenden Tablet-Zugriff bleibt die bisherige Instanz **PID 47752**, Source
-`9c76087fb515f3b8c16e`, weiter aktiv. Kein Host- oder Terminal-Neustart durchgeführt;
+Für den weiterlaufenden Tablet-Zugriff blieb zunächst die bisherige Instanz **PID 47752**, Source
+`9c76087fb515f3b8c16e`, weiter aktiv. Um 14:29 kein Host- oder Terminal-Neustart durchgeführt;
 die Geräteablage mit **drei aktiven Kopplungen** ist bytegleich erhalten und
 die private HTTPS-Adresse antwortet mit **200**. Automatischer PC-Standby war
 bereits ausgeschaltet; die Energieeinstellungen wurden nicht geändert.
 
-Für das neue Layout später ADE am PC über den Tray vollständig beenden und
-über die ADE-Startmenü-Verknüpfung starten; danach dieselbe Tablet-Seite neu
-laden. Die Kopplung bleibt im bisherigen Browser-/App-Speicher erhalten.
-Alternativ startet `pnpm start` aus dem Repository den ebenfalls gebauten Stand;
-`pnpm build` erstellt bei Bedarf Desktop und Mobile gemeinsam.
+Um **21:31 CEST** nach Nutzermeldung des weiterhin alten Tablet-Builds aktiviert.
+Diagnose: Die Instanz von 09:18 lieferte weiterhin `/assets/index-D9WTdYdh.js`;
+`pnpm start` öffnete wegen der Profilsperre nur deren Fenster. Der vom Nutzer
+erfolgreich um **21:22 CEST** erstellte Desktop-/Mobile-Build lag bereits vor,
+mit derselben abgenommenen Source-ID **`d92d312a262b7a36df9c`**.
+
+Keine aktiven Terminals oder verwalteten Aufgaben; alte Instanz regulär mit
+**ADE und mobilen Zugriff beenden** geschlossen. Repository-Build im bisherigen
+Profil gestartet, neue **PID 43796**. Private HTTPS-Antwort **200** und
+ausgeliefertes `/assets/index-ByGfs_X1.js` per SHA-256 bytegleich mit dem neuen
+Mobile-Build bestätigt. Alle **drei Kopplungen bytegleich**, Profile und Projekte
+unverändert. Backup: `C:\Users\Adi.Muff\ADE-Backups\CurrentBuild-20260919-213134`.
+Die Startmenü-Verknüpfung verwendet jetzt denselben Repository-Build wie
+`pnpm start`, damit spätere lokale Builds auch dort gestartet werden.
+
+Auf dem Tablet dieselbe Seite neu laden. Für spätere Updates erstellt
+`pnpm build` Desktop und Mobile gemeinsam; eine bereits laufende ADE-Instanz
+vor `pnpm start` vollständig im Tray beenden. Die Kopplung bleibt im bisherigen
+Browser-/App-Speicher erhalten. Keine Produktcodeänderung bei dieser Aktivierung;
+die vollständige Abnahme des identischen Quellstands gilt weiter.
 
 Belege: `test-results/project-context-verify.log`,
 `project-context-verify-exit.json`, `project-context-ready.json` und
-`verification.json` im vorbereiteten Release. Die beiden früheren Gesamtläufe
+`verification.json` im vorbereiteten Release sowie die aktuelle Aktivierung in
+`test-results/current-build-activation.json`. Die beiden früheren Gesamtläufe
 sind als `project-context-verify-first*` und `project-context-verify-second*`
-erhalten. Die neue Oberfläche ist auf dem persönlichen Tablet erst nach dem
-genannten Neustart aktiv.
+erhalten. Der neue Host liefert die Oberfläche aus; die sichtbare Aktualisierung
+auf dem physischen Tablet nach Neuladen ist noch vom Nutzer zu bestätigen.

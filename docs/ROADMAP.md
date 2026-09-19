@@ -4,8 +4,9 @@
 
 Projektbereich einklappen, Aktualisierung und Branches kompakt anordnen.
 Tastaturbedienung, Fokus, Wiederaufnahme und responsive Darstellung abgenommen;
-vollständiges `pnpm verify` am **19. September, 14:28 CEST** bestanden. Neuer Build
-für nächsten Start vorbereitet; laufender Tablet-Zugang und Kopplungen bewahrt.
+vollständiges `pnpm verify` am **19. September, 14:28 CEST** bestanden. Um
+**21:31 CEST** persönlich aktiviert; aktuelles Mobile-Bundle über private HTTPS
+bestätigt, bestehende Kopplungen und persönliche Konfiguration erhalten.
 [Umfang und Prüfstand](TABLET_PROJECT_LAYOUT.md).
 
 ## Abgeschlossen: Pairing wiederherstellen und Tablet-Änderungen abschliessen

@@ -1,13 +1,15 @@
 # ADE implementation status
 
-## Abgenommen, für nächsten Start bereit: kompakter Tablet-Projektbereich (19. September 2026)
+## Abgenommen und aktiviert: kompakter Tablet-Projektbereich (19. September 2026)
 
 Einklappbarer Projektkopf mit gespeicherter Ansicht, gemeinsamer Aktionszeile
 und mehr Terminalfläche implementiert. `pnpm verify` um **14:28 CEST** vollständig
-bestanden; Projekt-/Layoutablauf **92/0**. Neuer gemeinsamer Build
-`d92d312a262b7a36df9c` über die ADE-Startmenü-Verknüpfung vorbereitet. Für den laufenden
-Tablet-Zugriff bleibt die bisherige Instanz aktiv; drei Kopplungen bytegleich erhalten.
-Die neue Oberfläche wird erst beim nächsten Start aktiv.
+bestanden; Projekt-/Layoutablauf **92/0**. Gemeinsamer Quellstand
+`d92d312a262b7a36df9c` um **21:31 CEST** persönlich aktiviert (Build des Nutzers
+von **21:22 CEST**). Morgen-Instanz regulär beendet, neuer Host liefert über die
+private HTTPS-Adresse exakt das aktuelle Mobile-Bundle. Drei Kopplungen bytegleich,
+Profile und Projekte erhalten. Startmenü und `pnpm start` verwenden den Repository-
+Build; eine laufende Instanz muss vor dem Start vollständig im Tray beendet werden.
 [Bedienung und Nachweise](TABLET_PROJECT_LAYOUT.md).
 
 ## Abgeschlossen und aktiviert: Pairing und Browser-Build (19. September 2026)

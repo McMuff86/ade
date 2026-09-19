@@ -188,7 +188,10 @@ pnpm start
 
 `pnpm build` erstellt Desktop und Tablet aus demselben Quellstand. `pnpm start`
 startet genau diesen Build ohne erneutes Bauen. Nach Codeänderungen zuerst wieder
-`pnpm build` ausführen.
+`pnpm build` ausführen. Eine bereits laufende ADE-Instanz vorher vollständig
+beenden: im Windows-Infobereich mit Rechtsklick auf ADE → **ADE und mobilen
+Zugriff beenden**. Das Fensterschliessen lässt den mobilen Host weiterlaufen;
+`pnpm start` öffnet dann nur dessen Fenster und der bisherige Build bleibt aktiv.
 
 **Startprogramm und Anmeldung prüfen:** Installiere die gewünschte CLI nach deren
 Herstelleranleitung auf dem PC und melde dich dort an. In ADE **Settings** öffnen
@@ -702,6 +705,14 @@ Danach Chrome neu laden. Lokale Änderungen bei einem Git-Konflikt zuerst erhalt
 und prüfen. Ein Build allein ersetzt die Mobile-Dateien eines bereits laufenden
 Hosts nicht. Die Gerätekopplung bleibt bei normalem Update mit demselben Profil
 erhalten. Ein automatischer Updater ist noch nicht vorhanden.
+
+**Das Tablet zeigt trotz Build noch den alten Stand:** Bei aktiviertem mobilen
+Zugriff beendet das X am PC nur das Fenster. Auch ein erneutes `pnpm start`
+ersetzt die laufende Instanz nicht. Im Infobereich (gegebenenfalls unter dem
+Pfeil für ausgeblendete Symbole) ADE → **ADE und mobilen Zugriff beenden**
+wählen, dann `pnpm start` und dieselbe Tablet-Seite neu laden. Wenn bereits
+`pnpm build` erfolgreich lief, ist kein weiterer Build nötig. Browserdaten und
+Gerätekopplung dafür nicht löschen.
 
 ## 11. Wenn etwas nicht funktioniert
 
