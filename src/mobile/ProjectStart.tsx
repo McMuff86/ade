@@ -54,7 +54,7 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
     {progress && !open && <p className="m-notice">Projektstart „{progress.name}“ ist noch offen. <button onClick={onOpen}>Projektstart fortsetzen</button></p>}
     {open && <Dialog title="Neues Projekt" onClose={onClose} fallbackId="mobile-title" className="m-project-start">
       <p>Projektordner im eingestellten Stammordner anlegen. Danach Branch und CLI im Projekt wählen. Ein Agent-Profil ist optional.</p>
-      {!host.catalog?.projectStart?.configured && <p role="alert">Am PC zuerst unter Settings den Projekt-Stammordner auswählen und speichern.</p>}
+      {!host.catalog?.projectStart?.configured && <p role="alert">Am PC zuerst unter Einstellungen den Projekt-Stammordner auswählen und speichern.</p>}
       <form onSubmit={(event) => { event.preventDefault(); void start(); }}>
         <label>Projektname (optional)<input value={progress?.name ?? name} maxLength={80} disabled={busy || !!progress}
           placeholder="Zum Beispiel gartenplaner" onChange={(event) => setName(event.target.value)} /></label>

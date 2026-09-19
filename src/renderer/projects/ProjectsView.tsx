@@ -83,7 +83,7 @@ export function ProjectsView(): JSX.Element {
       if (!picked.path || !live.current) return;
       const repository = await useAppData.getState().importRepository(picked.path, undefined, 'native');
       if (!live.current) return;
-      setShareNotice(`${repository.name} ist in ADE erfasst. Auf dem Tablet unter Projekte die Projektordner aktualisieren. Es gelten die Freigaben des gekoppelten Geräts unter Settings → Verbundene Geräte.`);
+      setShareNotice(`${repository.name} ist in ADE erfasst. Auf dem Tablet unter Projekte die Projektordner aktualisieren. Es gelten die Freigaben des gekoppelten Geräts unter Einstellungen → Verbundene Geräte.`);
       const result = await query({ operation: 'directory' });
       if (live.current) setDirectory(result.directory);
     } catch (reason) { if (live.current) setError(String(reason)); }
@@ -131,7 +131,7 @@ export function ProjectsView(): JSX.Element {
       <label>Projektname<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
       <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? 'Angelegtes Projekt öffnen' : 'Projekt anlegen und öffnen'}</button>
       <p>Im eingestellten Projekt-Stammordner, mit Branch main. CLI und optionales Profil danach wählen.</p>
-      {!directory?.configured && <p>Unter Settings zuerst den Projekt-Stammordner speichern.</p>}
+      {!directory?.configured && <p>Unter Einstellungen zuerst den Projekt-Stammordner speichern.</p>}
     </form></details>{repositoryEntry && <section aria-label="Gewähltes Projekt"><h2>{repositoryEntry.name}</h2>
       <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>Projekt-Workspace öffnen</button></section>}
       {repositoryId && directory && !repositoryEntry && <p role="status">Das gewählte Projekt ist gerade nicht erreichbar. Projektordner aktualisieren.</p>}

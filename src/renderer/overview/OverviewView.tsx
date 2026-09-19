@@ -303,7 +303,7 @@ export function OverviewView(): JSX.Element {
 
       <CliWorkPanel compact />
       <section className="ov-section" aria-labelledby="ov-work-h">
-        <div className="ov-work-heading"><h2 id="ov-work-h">Work</h2><label>Anzeige <select aria-label="Overview-Arbeit filtern" value={workFilter} onChange={(event) => setWorkFilter(event.target.value as typeof workFilter)}>
+        <div className="ov-work-heading"><h2 id="ov-work-h">Aufträge</h2><label>Anzeige <select aria-label="Overview-Arbeit filtern" value={workFilter} onChange={(event) => setWorkFilter(event.target.value as typeof workFilter)}>
           <option value="current">Aktuelle Arbeit</option><option value="history">Historie</option><option value="all">Alles</option></select></label></div>
         {workFilter !== 'current' && <p className="ov-muted">Frühere Runs und Sitzungen behalten ihre damaligen Agenten. „Aus ADE entfernt“ bezeichnet frühere Zuordnungen.</p>}
         {visibleWork.length === 0 ? (

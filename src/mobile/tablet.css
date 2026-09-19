@@ -193,3 +193,30 @@
 .m-remote-terminal .voice-strip { padding-top: 8px; }
 .m-keyboard-compact .voice-strip:not(:focus-within):not([data-phase='recording']):not([data-phase='transcribing']):not([data-phase='permission']) { display: none; }
 .m-keyboard-compact .m-terminal-keybar { margin-top: 4px; }
+
+/* ---------------------------------------------- compact work mode (UX-03)
+   The head keeps project, ownership and the way back; everything else is
+   quiet text until needed. Terminal tools sit in the voice strip, never on
+   top of the output. */
+.m-terminal-tool-slot { display: flex; align-items: center; gap: 2px; }
+.m-terminal-tool-slot:empty { display: none; }
+.m-terminal-tool-slot > button { position: static; min-height: 40px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
+.m-terminal-tool-slot > button:hover:not(:disabled) { border-color: transparent; background: var(--raised); color: var(--text); }
+.m-terminal-tool-slot > button[aria-expanded='true'] { color: var(--accent); }
+.m-terminal-tools-slotted .m-terminal-history-panel p { padding-top: 12px; }
+.m-terminal-status-bar button:not(.m-primary) { min-height: 40px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
+.m-terminal-status-bar button:not(.m-primary):hover:not(:disabled) { border-color: transparent; background: var(--raised); color: var(--text); }
+.m-terminal-status-bar button[aria-expanded='true'] { color: var(--accent); background: var(--accent-soft); }
+.m-project-header-actions .m-workspace-info-button, .m-project-context-toggle { border-color: transparent; background: transparent; color: var(--muted); }
+.m-project-header-actions .m-workspace-info-button:hover:not(:disabled), .m-project-context-toggle:hover:not(:disabled) { border-color: transparent; background: var(--raised); color: var(--text); }
+.m-project-context-toggle[aria-expanded='true'] { color: var(--text); }
+.m-terminal-end { border-color: transparent; background: transparent; }
+.m-terminal-end:hover:not(:disabled) { border-color: color-mix(in srgb, var(--del) 45%, var(--line)); background: transparent; }
+/* Diagnostics belong to "Sitzung & Workspace"; the working view keeps only the input. */
+.m-controls-collapsed > .m-field-note { display: none; }
+.m-independent-project > .m-dialog-head > h2 { font-size: 15px; }
+/* The subscription/auth chip is status, not machine text: quiet sans until opened. */
+.m-terminal-status-bar .terminal-usage-compact { border-color: transparent; background: transparent; font: 12px/1.5 var(--sans); color: var(--muted); }
+.m-terminal-status-bar .terminal-usage-compact > summary { min-height: 40px; padding: 0 8px; border-radius: 6px; }
+.m-terminal-status-bar .terminal-usage-compact > summary:hover, .m-terminal-status-bar .terminal-usage-compact[open] > summary { background: var(--raised); color: var(--text); }
+.m-terminal-status-bar .terminal-usage-compact > section { font: 12px/1.5 var(--mono); color: var(--text); }

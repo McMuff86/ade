@@ -285,9 +285,9 @@ export class ProjectWorkspaceService {
         }
         if (projectRootIdentity(defaults.rootPath) !== defaults.rootIdentity || this.store.get().settings.projectDefaults !== defaults) throw new Error('changed');
       } catch {
-        targets.length = 0; paths.clear(); notice = 'Projekt-Stammordner nicht erreichbar oder geändert. Am PC unter Settings erneut prüfen.';
+        targets.length = 0; paths.clear(); notice = 'Projekt-Stammordner nicht erreichbar oder geändert. Am PC unter Einstellungen erneut prüfen.';
       }
-    } else notice = 'Projekt-Stammordner am PC unter Settings speichern, um weitere Ordner zu sehen.';
+    } else notice = 'Projekt-Stammordner am PC unter Einstellungen speichern, um weitere Ordner zu sehen.';
     for (const repository of config.repositories) add(repository.rootPath, repository);
     targets.sort((left, right) => left.entry.name.localeCompare(right.entry.name));
     return { configured: !!defaults, targets, limited, notice };

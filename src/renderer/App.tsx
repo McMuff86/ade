@@ -4,9 +4,12 @@
  * Inspector side is a Settings choice; default remains rail left / inspector right.
  * Panel sizes persist to localStorage via PanelGroup autoSaveId.
  * Overview, Projects, Terminals and Graph share the persisted workspace/catalog/run state.
+ *
+ * Title bar order (shared with the tablet, see shared/appNavigation.ts):
+ *   logotype · rooms (Übersicht | Organisation | Entwicklung) · laufende Arbeit · Verwaltung
  */
 
-import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type JSX, type RefObject } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels';
 import { useSettings } from './stores/settings';
 import { TabStrip } from './tabs/TabStrip';
@@ -16,7 +19,7 @@ import { Rail } from './rail/Rail';
 import { FirstRun } from './onboarding/FirstRun';
 import { SetupModal } from './onboarding/SetupModal';
 import { RightPanel } from './rightpanel/RightPanel';
-import { adjacentMode, useMode, type AppMode } from './stores/mode';
+import { useMode } from './stores/mode';
 import { GraphView } from './graph/GraphView';
 import { OverviewView } from './overview/OverviewView';
 import { ProjectsView } from './projects/ProjectsView';
@@ -34,7 +37,8 @@ import { SessionNavigationContext, SessionSwitchButton } from './sessions/Sessio
 import { DesktopSessionSwitcher } from './sessions/DesktopSessionSwitcher';
 import { DesktopSupervision } from './supervision/DesktopSupervision';
 import { SupervisionButton, SupervisionContext } from './supervision/SupervisionGraph';
-import './graph/mode-switch.css';
+import { AppNav } from './nav/AppNav';
+import { RoomPlaceholder } from './nav/RoomPlaceholder';
 
 export function App() {
   useSessionShortcuts();
@@ -81,80 +85,49 @@ export function App() {
         <span className="logotype">
           ade<span className="logotype-cursor">_</span>
         </span>
-        <span className="titlebar-sub">agentic development environment</span>
 
-        <div className="mode-switch" role="tablist" aria-label="View mode">
-          <ModeTab
-            id="overview"
-            label="Overview"
-            selected={mode === 'overview'}
-            onSelect={setMode}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 7h16M4 12h10M4 17h7" />
-            </svg>
-          </ModeTab>
-          <ModeTab id="projects" label="Projekte" selected={mode === 'projects'} onSelect={setMode}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5h7l2 3h9v11H3z" /></svg>
-          </ModeTab>
-          <ModeTab
-            id="terminals"
-            label="Terminals"
-            selected={mode === 'terminals'}
-            onSelect={setMode}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M7 9l3 3-3 3M13 15h4" />
-            </svg>
-          </ModeTab>
-          <ModeTab id="work" label="Work" selected={mode === 'work'} onSelect={setMode}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="m8 11 2 2 5-5M8 17h8" /></svg>
-          </ModeTab>
-          <ModeTab
-            id="graph"
-            label="Graph"
-            selected={mode === 'graph'}
-            onSelect={setMode}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="5" r="2.4" />
-              <circle cx="5" cy="18" r="2.4" />
-              <circle cx="19" cy="18" r="2.4" />
-              <path d="M12 7.4v4M10.5 13l-4 3M13.5 13l4 3" />
-            </svg>
-          </ModeTab>
-        </div>
+        <AppNav current={mode} onSelect={setMode} idPrefix="mode-tab" />
 
         <span className="spacer" />
-        <SessionSwitchButton id="desktop-session-switch" />
-        <SupervisionButton id="desktop-supervision" />
-        <button id="ade-setup" className="btn" onClick={() => setSetupOpen(true)}>Einrichtung</button>
-        <button
-          className="btn"
-          onClick={() => setSettingsOpen(true)}
-          title="Harness sign-in status and API keys"
-        >
-          Settings
-        </button>
-        <button className="btn" onClick={() => showDiagnostics()} title="Check CLI and authentication">
-          Diagnostics
-        </button>
-        {/* Quick toggle only; the deliberate choice lives in Settings. */}
-        <button
-          className="btn btn-icon"
-          onClick={toggleTheme}
-          title="Switch theme"
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        >
-          <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
-        </button>
+
+        {/* Quick session switching is about the work in flight, not a room: it
+            sits apart from the navigation and from administration. */}
+        <div className="titlebar-session" role="group" aria-label="Laufende Arbeit">
+          <SessionSwitchButton id="desktop-session-switch" />
+          <SupervisionButton id="desktop-supervision" />
+        </div>
+
+        <div className="titlebar-admin" role="group" aria-label="Verwaltung">
+          <span className="titlebar-caption" aria-hidden="true">Verwaltung</span>
+          <button id="ade-setup" className="btn btn-quiet" onClick={() => setSetupOpen(true)}>Einrichtung</button>
+          <button
+            className="btn btn-quiet"
+            onClick={() => setSettingsOpen(true)}
+            title="Darstellung, verbundene Geräte, Harness-Anmeldung und API-Schlüssel"
+          >
+            Einstellungen
+          </button>
+          <button className="btn btn-quiet" onClick={() => showDiagnostics()} title="CLI-Verfügbarkeit und Anmeldung prüfen">
+            Diagnose
+          </button>
+          {/* Quick toggle only; the deliberate choice lives in Einstellungen. */}
+          <button
+            className="btn btn-quiet btn-icon"
+            onClick={toggleTheme}
+            title="Darstellung wechseln"
+            aria-label={theme === 'dark' ? 'Zur hellen Darstellung wechseln' : 'Zur dunklen Darstellung wechseln'}
+          >
+            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+          </button>
+        </div>
       </header>
 
       <ConfigHealthBanner />
 
       <div className="shell" style={{ position: 'relative' }} data-inspector-side={inspectorSide}>
-        {mode === 'graph' ? (
+        {mode === 'tasks' || mode === 'notes' ? (
+          <RoomPlaceholder view={mode} />
+        ) : mode === 'graph' ? (
           <GraphView />
         ) : mode === 'overview' ? (
           firstRun && repositoryCount === 0 ? <FirstRun onSetup={() => setSetupOpen(true)} onProjects={openProjects} allowCategory={false} /> : <OverviewView />
@@ -219,7 +192,7 @@ function TerminalsLayout(props: {
           <button
             className={props.inspectorOpen ? 'btn btn-toggled' : 'btn'}
             onClick={props.onToggleInspector}
-            title="Toggle repository inspector"
+            title="Repository-Inspector ein- oder ausblenden"
           >
             Inspector
           </button>
@@ -258,39 +231,5 @@ function TerminalsLayout(props: {
       <PanelResizeHandle className="resize-handle" />
       {props.inspectorLeft ? rail : inspector}
     </PanelGroup>
-  );
-}
-
-function ModeTab(props: {
-  id: AppMode;
-  label: string;
-  selected: boolean;
-  onSelect: (mode: AppMode) => void;
-  children: ReactNode;
-}): JSX.Element {
-  return (
-    <button
-      id={`mode-tab-${props.id}`}
-      role="tab"
-      aria-label={`${props.label} view`}
-      aria-selected={props.selected}
-      tabIndex={props.selected ? 0 : -1}
-      className={props.selected ? 'on' : ''}
-      onClick={() => props.onSelect(props.id)}
-      onKeyDown={(event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const next = event.key === 'Home'
-          ? 'overview'
-          : event.key === 'End'
-            ? 'graph'
-            : adjacentMode(props.id, event.key === 'ArrowLeft' ? -1 : 1);
-        props.onSelect(next);
-        document.getElementById(`mode-tab-${next}`)?.focus();
-      }}
-    >
-      {props.children}
-      {props.label}
-    </button>
   );
 }

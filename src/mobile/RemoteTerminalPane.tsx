@@ -60,6 +60,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const [composeOpen, setComposeOpen] = useState(!!draft.text || draft.review);
   const [replySlot, setReplySlot] = useState<HTMLElement | null>(null);
   const [replySheetSlot, setReplySheetSlot] = useState<HTMLElement | null>(null);
+  const [toolSlot, setToolSlot] = useState<HTMLElement | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
   const [keysShown, setKeysShown] = useState(false);
   const [focused, setFocused] = useState(!!profileIntent || !!initialTerminalId);
@@ -430,7 +431,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button className="m-danger" disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>Sitzung beenden</button></div></>}
     </div>
     {state.selected && <>{state.frame ? <TerminalScreen key={state.selected.id} frame={state.frame} active={active}
-      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replySlot} replySheetContainer={replySheetSlot} onReplyOpenChange={setReplyOpen}
+      screen={state.screen ?? ''} enabled={inputEnabled} fontSize={fontSize} replyPort={host.status === 'online' && selected ? replyPort : undefined} replyButtonContainer={replySlot} replySheetContainer={replySheetSlot} toolContainer={toolSlot} onReplyOpenChange={setReplyOpen}
       onData={(data) => { typingUntil.current = performance.now() + 500; keyboard.enqueue(data); }} onSize={(cols, rows) => {
         if (dimensions.current.cols !== cols || dimensions.current.rows !== rows) { dimensions.current = { cols, rows }; resizePending.current = true; }
       }} /> : <pre tabIndex={0} className="m-terminal-screen" aria-label="Terminalanzeige">{state.screen || 'Warte auf Terminalausgabe…'}</pre>}
@@ -442,7 +443,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         blocked={state.selected.status !== 'running' ? { reason: 'Sitzung beendet' }
           : !owning || !state.leaseId ? { reason: state.selected.owner === 'other' ? 'Eingabe bei einem anderen Gerät' : 'Eingabe beim PC',
             action: <button className="m-primary" disabled={blocked || state.selected.owner === 'other'} onClick={() => void action('claim')}>Eingabe übernehmen</button> } : undefined}
-        trailing={<><div ref={setReplySlot} className="voice-strip-reply" />
+        trailing={<><div ref={setToolSlot} className="m-terminal-tool-slot" /><div ref={setReplySlot} className="voice-strip-reply" />
           <TerminalImageButton key={`${selected}/${state.leaseId ?? ''}`} host={host} target={{ ...selection, terminalId: selected, leaseId: state.leaseId ?? '' }}
             enabled={inputEnabled} capability={state.imageCapability} send={sendPrompt} eventRoot={screenRoot} />
           <button className="voice-icon-button" aria-label="Tastatur öffnen" aria-pressed={keysShown} disabled={!inputEnabled}
@@ -459,6 +460,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       <details open={composeOpen} onToggle={(event) => setComposeOpen(event.currentTarget.open)}><summary>Text direkt ans Terminal senden</summary>
       <form onSubmit={(event) => { event.preventDefault(); void submitTerminalText(); }}>
         <label>Terminal-Eingabe<textarea ref={input} aria-label="Terminal-Eingabe" value={text} maxLength={2000} disabled={!owning || host.status !== 'online'}
+          onFocus={(event) => { const node = event.currentTarget; requestAnimationFrame(() => node.scrollIntoView({ block: 'nearest' })); }}
           onChange={(event) => setText(event.target.value)} rows={3} spellCheck={false} autoCapitalize="off" autoCorrect="off" /></label>
         <button disabled={blocked || !displayReady || !!readError || draft.review || !owning || !text || state.selected.status !== 'running'}>Text und Enter senden</button></form>
       <p className="m-field-note">{durable ? 'Entwurf auf diesem Gerät gespeichert.' : 'Entwurf nur in dieser geöffneten Seite.'}</p></details></div>
@@ -477,5 +479,5 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
 }
 function terminalError(error: unknown): string {
   return error instanceof MobileClientError && error.code === 'scope_not_granted'
-    ? 'Terminalzugriff fehlt. In ADE am PC unter Settings → Verbundene Geräte „Interaktive Terminals steuern“ für dieses Gerät freigeben.' : workspaceError(error);
+    ? 'Terminalzugriff fehlt. In ADE am PC unter Einstellungen → Verbundene Geräte „Interaktive Terminals steuern“ für dieses Gerät freigeben.' : workspaceError(error);
 }

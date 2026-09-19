@@ -13,12 +13,12 @@ void (async () => {
   execFileSync('git', ['-C', repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { stdio: 'ignore' });
   app = await electron.launch({ args: [resolve('out/main/index.js')], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
-  const work = page.getByRole('tab', { name: 'Work view', exact: true });
+  const work = page.getByRole('tab', { name: 'Aufträge', exact: true });
   await work.click(); await page.getByRole('heading', { name: 'Noch keine Runs' }).waitFor();
   check('Work is a desktop tab with useful empty state', await work.getAttribute('aria-selected') === 'true');
-  check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'View mode' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Overview,Projekte,Terminals,Work,Graph');
+  check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'Bereiche' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Übersicht,Aufgaben,Notizen,Projekte,Terminals,Aufträge,Graph');
   await work.focus(); await page.keyboard.press('ArrowRight');
-  check('keyboard navigation moves Work to Graph', await page.getByRole('tab', { name: 'Graph view', exact: true }).getAttribute('aria-selected') === 'true');
+  check('keyboard navigation moves Work to Graph', await page.getByRole('tab', { name: 'Graph', exact: true }).getAttribute('aria-selected') === 'true');
   await page.keyboard.press('ArrowLeft'); await page.reload(); await work.waitFor();
   check('Work selection survives reload', await work.getAttribute('aria-selected') === 'true');
   const fixture = await page.evaluate(async path => {
@@ -35,7 +35,7 @@ void (async () => {
   const endedFixture = snapshot.runs.find(run => run.id === fixture.ended.id)!;
   endedFixture.status = 'cancelled';
   await app.evaluate(({ ipcMain }, view) => { ipcMain.removeHandler('run:get'); ipcMain.handle('run:get', () => view); }, snapshot);
-  const region = page.getByRole('region', { name: 'Work', exact: true });
+  const region = page.getByRole('region', { name: 'Aufträge', exact: true });
   await region.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
   const rows = region.locator('.work-row'); await rows.filter({ hasText: 'CAD geometry' }).waitFor();
   check('live Work lists newly created and ended runs', await rows.count() === 2);
@@ -73,8 +73,8 @@ void (async () => {
       return { run, task: { id: 'fixture-task' } };
     });
   }, fixture.run);
-  await region.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
-  const task = page.getByRole('dialog', { name: 'Neue Aufgabe', exact: true });
+  await region.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
+  const task = page.getByRole('dialog', { name: 'Agent beauftragen', exact: true });
   await task.getByLabel('Projekt', { exact: true }).selectOption(fixture.repository.id);
   await task.getByLabel('Agent', { exact: true }).selectOption(fixture.first.id);
   await task.getByLabel('Anweisung', { exact: true }).fill('Prüfe die Geometrie.');

@@ -39,8 +39,8 @@ void (async () => {
     }) as typeof cp.execFile;
   }, port);
   desktop = await app.firstWindow(); desktop.setDefaultTimeout(25_000);
-  await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
-  const settings = desktop.getByRole('dialog', { name: 'Settings', exact: true });
+  await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  const settings = desktop.getByRole('dialog', { name: 'Einstellungen', exact: true });
   const mobile = settings.getByTestId('mobile-access');
   await mobile.getByText('Mobiler Zugriff ist ausgeschaltet.', { exact: true }).waitFor();
   check('mobile access is disabled by default in real Electron Settings', await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).isDisabled());
@@ -135,7 +135,7 @@ void (async () => {
   await phone.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
   check('desktop disable stops mobile connectivity and persists opt-out', !(await desktop.evaluate(() => window.ade.invoke('mobileAccess:status'))).enabled);
   await desktop.keyboard.press('Escape'); await settings.waitFor({ state: 'hidden' });
-  check('closing Settings returns focus to its opener', await desktop.getByRole('button', { name: 'Settings', exact: true }).evaluate((node) => node === document.activeElement));
+  check('closing Settings returns focus to its opener', await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).evaluate((node) => node === document.activeElement));
   await context.close();
 })().catch(async (error) => { failed++; console.error(error); await desktop?.screenshot({ path: join(evidence, 'desktop-failure.png') }).catch(() => undefined); })
   .finally(async () => {

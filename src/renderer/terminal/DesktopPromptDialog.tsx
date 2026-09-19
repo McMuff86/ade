@@ -35,7 +35,7 @@ export function DesktopPromptDialog({ sessionId, label, onClose, focusTerminal, 
     copyText: text => window.ade.invoke('clipboard:writeText', { text }),
     computerGreeting: async () => {
       const preferences = await window.ade.invoke('speech:preferences', { kind: 'default' });
-      if (!preferences.effectiveVoiceId) throw new Error('Unter Settings → Sprachausgabe zuerst eine Stimme wählen.');
+      if (!preferences.effectiveVoiceId) throw new Error('Unter Einstellungen → Sprachausgabe zuerst eine Stimme wählen.');
       return window.ade.invoke('speech:test', { voiceId: preferences.effectiveVoiceId, preset: 'computer-greeting' });
     },
     liveRecording: {

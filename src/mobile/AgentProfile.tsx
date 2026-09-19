@@ -106,7 +106,7 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
   const disabled = busy || !!draft?.pending || !allowed || host.status !== 'online';
   return <section className="m-agent-profile" aria-label="Agent-Profil">
     {loading && <p role="status">Agent-Profil wird geladen…</p>}{error && <p role="alert" className="m-alert">{error}</p>}
-    {!allowed && !loading && <p>Am PC unter Settings → Verbundene Geräte „Agent-Namen, Rollen und Profilbilder bearbeiten“ freigeben.</p>}
+    {!allowed && !loading && <p>Am PC unter Einstellungen → Verbundene Geräte „Agent-Namen, Rollen und Profilbilder bearbeiten“ freigeben.</p>}
     {profile?.photoError && <p>{profile.photoError}</p>}{draft?.notice && <p>{draft.notice}</p>}
     {effective && <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <div className="m-profile-preview">{imageUrl ? <button ref={photoButton} type="button" className="m-profile-photo-button" aria-label="Profilbild vergrössern" onClick={event => { event.currentTarget.focus(); setPhotoOpen(true); }}><img className="m-profile-photo" src={imageUrl} width={96} height={96} alt="Profilbild-Vorschau" data-runtime-logo={url ? undefined : profile?.agent.runtime} /></button> : <Avatar name={effective.name} size={96} />}</div>

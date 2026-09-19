@@ -10,35 +10,71 @@
   flex: 1;
 }
 
-/* ------------------------------------------------------------- title bar */
+/* ------------------------------------------------------------- title bar
+   One line that reads left to right: identity · rooms · work in flight ·
+   administration. Only the rooms carry colour (the copper rule under the
+   active tab); everything else is quiet text until hovered. */
 
 .titlebar {
   height: auto;
-  min-height: 54px;
+  min-height: 48px;
   flex: none;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 12px 5px 14px;
+  align-items: stretch;
+  gap: 4px 10px;
+  padding: 0 10px 0 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
-.titlebar > button, .titlebar > .mode-switch { flex-shrink: 0; }
-
-/* Secondary chrome (setup, settings, diagnostics, theme) is text-only until
-   hovered: one visual weight in the title bar, so the mode switch reads as
-   the only "real" control up here. */
-.titlebar > .btn {
-  border-color: transparent;
-  background: transparent;
-  padding: 4px 8px;
+.titlebar > .logotype,
+.titlebar > .titlebar-session,
+.titlebar > .titlebar-admin {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-.titlebar > .btn:hover {
-  background: var(--raised);
+.titlebar > .appnav {
+  min-width: 0;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.titlebar-session {
+  gap: 4px;
+  padding: 6px 0;
+}
+
+/* The shared session/supervision triggers are 44px touch targets on the
+   tablet; in the desktop title bar they take the desktop control height. */
+.titlebar .session-switch-trigger {
+  min-height: var(--control-h);
+  padding: 4px 10px;
   border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  border-radius: 6px;
+}
+
+.titlebar .session-switch-trigger:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.titlebar-admin {
+  gap: 2px;
+  padding: 6px 0 6px 8px;
+  border-left: 1px solid var(--line);
+}
+
+.titlebar-caption {
+  padding: 0 6px 0 2px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 
 .logotype {
@@ -64,18 +100,37 @@
   }
 }
 
-.titlebar-sub {
-  color: var(--faint);
-  font-size: var(--fs-xs);
-}
-
-@media (max-width: 1100px) {
-  .titlebar-sub {
+/* Compact desktop windows: the rooms keep priority, the caption goes first,
+   then the spacer, so every action stays inside the window and the header. */
+@media (max-width: 1180px) {
+  .titlebar-caption {
     display: none;
   }
 }
 
-/* --------------------------------------------------------------- buttons */
+@media (max-width: 900px) {
+  .titlebar .spacer {
+    display: none;
+  }
+  .titlebar > .appnav {
+    flex: 1 1 100%;
+    order: -1;
+  }
+  .titlebar > .logotype {
+    order: -2;
+  }
+  .titlebar-admin {
+    margin-left: auto;
+  }
+}
+
+/* --------------------------------------------------------------- buttons
+   Five weights, nothing else:
+     .btn              normal action (framed)
+     .btn-primary      the one main action of a surface, copper
+     .btn-quiet        reachable but receding, text until hovered
+     .btn-toggled      a switched-on state of .btn
+     .btn-danger       destructive, red text; framed red only when armed */
 
 .btn {
   display: inline-flex;
@@ -91,6 +146,16 @@
   background: var(--panel);
 }
 
+.btn:hover {
+  color: var(--text);
+  border-color: var(--faint);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .btn-icon {
   justify-content: center;
   min-width: var(--control-h);
@@ -99,8 +164,19 @@
   line-height: 1;
 }
 
-/* Quiet variant: no border until hovered. For actions that must be
-   reachable but should not compete with content. */
+.btn-primary {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  filter: brightness(1.06);
+}
+
 .btn-quiet {
   border-color: transparent;
   background: transparent;
@@ -111,14 +187,19 @@
   border-color: transparent;
 }
 
-.btn:hover {
-  color: var(--text);
-  border-color: var(--faint);
-}
-
 .btn-toggled {
   color: var(--accent);
   border-color: var(--accent-dim);
+  background: var(--accent-soft);
+}
+
+.btn-danger {
+  color: var(--del);
+}
+
+.btn-danger:hover {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
 }
 
 /* --------------------------------------------- config integrity notice */
@@ -251,4 +332,31 @@
   color: var(--faint);
   font-size: 11px;
   margin-top: 4px;
+}
+
+/* A room whose content ships separately: same column width as Übersicht. */
+.room-placeholder {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 28px max(28px, calc((100% - 720px) / 2)) 36px;
+  background: var(--bg);
+}
+
+.room-placeholder h1 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.room-placeholder p {
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.6;
+}
+
+.room-placeholder p + p {
+  margin-top: 12px;
+  color: var(--faint);
 }

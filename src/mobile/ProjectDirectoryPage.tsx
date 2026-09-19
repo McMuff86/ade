@@ -129,7 +129,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   // A receipt awaiting recovery must remain visible even with a saved compact layout.
   const contextHidden = !!workspace && canRead && contextCollapsed && !pendingBranch;
   return <>
-    {online && rights && !canRead && <p role="alert">Am PC unter Settings → Verbundene Geräte „Workspace-Dateien und Git-Diffs lesen“ freigeben. Danach Projektordner aktualisieren.</p>}
+    {online && rights && !canRead && <p role="alert">Am PC unter Einstellungen → Verbundene Geräte „Workspace-Dateien und Git-Diffs lesen“ freigeben. Danach Projektordner aktualisieren.</p>}
     {membershipNotice && <p role="status">{membershipNotice}</p>}
     {membershipChange && <p role="status">Projekt-Auswahl für {membershipChange.name} noch nicht bestätigt. <button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>Projekt-Auswahl erneut prüfen</button></p>}
     {canRead && !rights?.capabilities?.includes('catalog:write') && <p>Zum Hinzufügen und Entfernen am PC unter Verbundene Geräte die Projektverwaltung freigeben.</p>}
@@ -153,7 +153,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
       {busy && <p className="m-project-notice" role="status">Workspace wird geprüft…</p>}
       <div id={contextId} className="m-project-context" hidden={contextHidden}>
       {workspace && canRead ? <ProjectWorkspaceSummary workspace={workspace} /> : <p>Den vorhandenen Projektordner öffnen. Sein Branch und seine Dateien bleiben erhalten.</p>}
-      {!workspace && online && rights && !canOpen && <p role="alert">Am PC unter Settings → Verbundene Geräte zusätzlich „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben. Danach Freigaben aktualisieren.</p>}
+      {!workspace && online && rights && !canOpen && <p role="alert">Am PC unter Einstellungen → Verbundene Geräte zusätzlich „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben. Danach Freigaben aktualisieren.</p>}
       <div className="m-project-toolbar">
         {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>}
         {!workspace && <button className="m-primary" disabled={busy || !online || !canOpen} onClick={() => void open()}>{opening ? 'Workspace-Öffnung erneut prüfen' : 'Workspace öffnen'}</button>}

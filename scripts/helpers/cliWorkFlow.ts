@@ -9,7 +9,7 @@ export async function cliWorkFlow(page: Page, evidence: string, workspaceId: str
   const parallel = before.find(session => session.projectWorkspaceId === parallelId && session.launchChoice?.mode === 'grok')!;
   const shell = before.find(session => session.projectWorkspaceId === parallelId && session.launchChoice?.mode === 'shell')!;
   const profile = before.find(session => session.projectWorkspaceId === workspaceId && session.launchProfileId)!;
-  const work = page.getByRole('tab', { name: 'Work view', exact: true });
+  const work = page.getByRole('tab', { name: 'Aufträge', exact: true });
   await work.click();
   const panel = page.getByRole('region', { name: 'CLI-Arbeit', exact: true });
   const row = (id: string) => panel.locator(`li[data-session-id="${id}"]`);
@@ -62,7 +62,7 @@ export async function cliWorkFlow(page: Page, evidence: string, workspaceId: str
   if (!await page.locator('.project-workspace-path code').isVisible()) await page.locator('.project-workspace-path summary').click();
   check('desktop path follows selection back to the original workspace', await page.locator('.project-workspace-path code').textContent() === original.workspaceDir);
   await page.locator('.project-workspace-path summary').click();
-  await page.getByRole('tab', { name: 'Overview view', exact: true }).click();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await row(parallel.id).waitFor();
   check('Overview and Work share the same session titles and identifiers', (await row(parallel.id).innerText()).includes('Layout parallel prüfen'));
   await panel.getByLabel('CLI-Projektfilter', { exact: true }).selectOption(original.repositoryId!);

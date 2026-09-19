@@ -65,7 +65,7 @@ export function HostRestartSection({ host, onNavigate }: { host: MobileHost; onN
     <MobileSetupStatus host={host} state={confirmed ? state : null} onNavigate={onNavigate} />
     {!state && !error && host.status === 'online' && <p role="status">Host-Zustand wird geladen…</p>}
     {state && <><p>{host.status !== 'online' || !confirmed ? 'PC nicht aktuell bestätigt' : state.restart === 'pending' ? 'Neustart vorbereitet' : 'Erreichbar'}</p>
-      {!state.canRestart && <p>Zum Neustarten dieses Gerät am PC unter Settings → Verbundene Geräte freigeben.</p>}
+      {!state.canRestart && <p>Zum Neustarten dieses Gerät am PC unter Einstellungen → Verbundene Geräte freigeben.</p>}
       {state.blockers.length > 0 && <ul>{state.blockers.map((item) => <li key={item}>{item}</li>)}</ul>}
       <button onClick={(event) => { event.currentTarget.focus(); setConfirm(true); }} disabled={!confirmed || !state.canRestart || state.blockers.length > 0
         || state.restart === 'pending' || !!pending || busy || host.busy || !!host.pending || host.status !== 'online'}>ADE neu starten</button></>}

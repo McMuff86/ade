@@ -20,7 +20,7 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Discover me', exact: true });
-  await dialog.getByText('Am PC unter Settings → Verbundene Geräte zusätzlich', { exact: false }).waitFor();
+  await dialog.getByText('Am PC unter Einstellungen → Verbundene Geräte zusätzlich', { exact: false }).waitFor();
   check('project details take focus and explain missing independent workspace grant', await dialog.evaluate((node) => node.contains(document.activeElement))
     && await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).isDisabled());
   check('discovery includes an unregistered Git directory without creating metadata', (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.length === configBefore.projectWorkspaces.length);
@@ -61,10 +61,10 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await page.screenshot({ path: join(evidence, 'project-directory-phone.png') });
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.screenshot({ path: join(evidence, 'project-directory-tablet.png') });
-  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Overview view', exact: true }).click();
+  await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
   await desktop.keyboard.press('ArrowRight');
-  check('keyboard navigation reaches the new desktop Projects tab', await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).getAttribute('aria-selected') === 'true'
-    && await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).evaluate((node) => node === document.activeElement));
+  check('keyboard navigation reaches the new desktop Projects tab', await desktop.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true'
+    && await desktop.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
   await desktop.getByRole('button', { name: 'Alle', exact: true }).click();
   await desktop.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   await desktop.getByRole('region', { name: 'Geöffneter Projekt-Workspace', exact: true }).waitFor();
@@ -73,7 +73,7 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
     && (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.length === openedConfig.projectWorkspaces.length);
   await desktop.screenshot({ path: join(evidence, 'project-directory-desktop.png') });
   await desktop.getByRole('button', { name: 'Zur Projektübersicht', exact: true }).click();
-  check('desktop return focuses Projects when the original directory opener unmounted', await desktop.getByRole('tab', { name: 'Projekte view', exact: true }).evaluate((node) => node === document.activeElement));
+  check('desktop return focuses Projects when the original directory opener unmounted', await desktop.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
   await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   // The local receipt checkpoint is a contract: storage failure must precede the host mutation.
   await page.evaluate(() => { Storage.prototype.setItem = function () { throw new Error('fixture quota'); }; });

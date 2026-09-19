@@ -71,6 +71,12 @@ Agenten geändert sind: `projects/projects.css`, `projects/ProjectsView.tsx`,
 `settings/settings.css`, `settings/SettingsModal.tsx`, alles unter
 `src/mobile/` außer der geteilten `tokens.css`.
 
+## Fortsetzung
+
+Phase 2 und 3 sind am 19. September in [UI_UX_NEXT_LEVEL.md](UI_UX_NEXT_LEVEL.md)
+aufgegangen: gruppierte Navigation, Graph-Gruppen, Tablet-Werkzeugzeile und ein
+Begriffsmodell. Die folgenden Abschnitte bleiben als Herkunft stehen.
+
 ## Phase 2 — Vorschlag (nach Merge des anderen Agenten)
 
 1. **Projekte-Seite** (`projects.css`, `ProjectsView.tsx`, `ProjectDirectory.tsx`):

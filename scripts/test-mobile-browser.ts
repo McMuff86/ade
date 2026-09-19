@@ -88,12 +88,14 @@ void (async () => {
   check('session cookie is invisible to JavaScript', !(await page.evaluate(() => document.cookie)).includes('ade-session'));
   const navigationStreams = streams;
   await page.screenshot({ path: join(evidence, 'phone-overview-dark.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Switch to light theme' }).click();
+  await page.getByRole('button', { name: 'Zur hellen Darstellung wechseln' }).click();
   check('light theme matches the desktop paper palette', await page.evaluate(() => getComputedStyle(document.body).backgroundColor === 'rgb(243, 239, 231)'));
   await page.screenshot({ path: join(evidence, 'phone-overview-light.png'), fullPage: true });
-  await page.getByRole('tab', { name: 'Overview', exact: true }).focus();
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
-  check('mode tabs use roving keyboard focus and select Projects', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-projects'));
+  check('mode tabs use roving keyboard focus across the Organisation group', await page.getByRole('tab', { name: 'Aufgaben', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-tasks'));
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+  check('arrow keys reach Projects in the shared room order', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-projects'));
   // This minimal fixture deliberately has no project/workspace administration;
   // real directory search/open is covered by projectDirectoryFlow.
   await page.getByRole('alert').filter({ hasText: 'Diese Funktion benötigt die neue ADE-Version auf dem PC.' }).waitFor();
@@ -105,8 +107,8 @@ void (async () => {
   await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).tap();
   await page.getByRole('alert').filter({ hasText: 'Diese Funktion benötigt die neue ADE-Version auf dem PC.' }).waitFor();
   check('Overview project selection routes to Projects and explains missing legacy API', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true'
-    && !await page.getByRole('dialog', { name: 'Neue Aufgabe' }).count());
-  await page.getByRole('tab', { name: 'Overview', exact: true }).focus(); await page.keyboard.press('Enter');
+    && !await page.getByRole('dialog', { name: 'Agent beauftragen' }).count());
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).focus(); await page.keyboard.press('Enter');
   check('Overview remains keyboard reachable after unavailable project entry', await page.getByTestId('mobile-overview').isVisible() && await focused('#view-tab-overview'));
   await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).click();
   check('projectless workspace requires an explicit project for managed tasks', await page.getByLabel('Workspace-Projekt', { exact: true }).inputValue() === ''
@@ -117,9 +119,9 @@ void (async () => {
   await page.getByLabel('Name (optional)', { exact: true }).fill('Phone task');
   await page.getByLabel('Aufgabe', { exact: true }).fill('Complete the deterministic mobile fixture task.');
   await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: 'Work', exact: true }).click();
-  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aufträge', exact: true }).click();
+  await page.getByRole('button', { name: 'Zur dunklen Darstellung wechseln' }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('view and theme changes preserve the device draft', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Complete the deterministic mobile fixture task.');
   check('navigation and appearance changes retain the same event stream and identity', streams === navigationStreams && fixture.devices.inventory().devices.length === 1);
   await context.clearCookies();
@@ -127,7 +129,7 @@ void (async () => {
   await appWindow.goto(browserOrigin);
   await appWindow.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   check('cold app window restores saved device proof even without a session cookie', fixture.devices.inventory().devices.length === 1
-    && await appWindow.getByRole('tab', { name: 'Work', exact: true }).getAttribute('aria-selected') === 'true');
+    && await appWindow.getByRole('tab', { name: 'Aufträge', exact: true }).getAttribute('aria-selected') === 'true');
   await appWindow.close();
   proxy.loseTaskReplies(true);
   await page.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
@@ -141,10 +143,10 @@ void (async () => {
   await page.screenshot({ path: join(evidence, 'phone-task.png'), fullPage: true });
   await page.keyboard.press('Escape');
   check('inspector with an unmounted opener restores focus to its active view', await focused('#view-tab-graph'));
-  await page.getByRole('tab', { name: 'Work', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aufträge', exact: true }).click();
   await page.reload(); await connected();
   check('reload restores remembered device, theme and view without pairing', fixture.devices.inventory().devices.length === 1
-    && await page.getByRole('button', { name: 'Run Phone task', exact: true }).isVisible() && await page.getByRole('tab', { name: 'Work', exact: true }).getAttribute('aria-selected') === 'true'
+    && await page.getByRole('button', { name: 'Run Phone task', exact: true }).isVisible() && await page.getByRole('tab', { name: 'Aufträge', exact: true }).getAttribute('aria-selected') === 'true'
     && await page.evaluate(() => document.documentElement.dataset.theme === 'dark'));
   const cookies = await context.cookies();
   // Native Windows WebKit's SameSite introspection is an upstream expected failure.
@@ -157,10 +159,10 @@ void (async () => {
   if (!windowsWebkit) {
     proxy.setShellUnavailable(true);
     await page.reload(); await connected();
-    check('PWA shell survives an HTTP failure using public cache and live signed API', await page.getByRole('tab', { name: 'Work', exact: true }).isVisible());
+    check('PWA shell survives an HTTP failure using public cache and live signed API', await page.getByRole('tab', { name: 'Aufträge', exact: true }).isVisible());
     proxy.setShellUnavailable(false);
   }
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await page.getByLabel('Aufgabe', { exact: true }).fill('Preserve this offline draft.');
   await context.setOffline(true);
   await page.getByText('Offline. Dein Entwurf bleibt erhalten; zum Senden wieder verbinden.', { exact: true }).waitFor();
@@ -168,7 +170,7 @@ void (async () => {
     && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Preserve this offline draft.');
   await page.keyboard.press('Escape');
   if (!windowsWebkit) {
-    await page.reload(); await page.getByRole('tab', { name: 'Work', exact: true }).waitFor();
+    await page.reload(); await page.getByRole('tab', { name: 'Aufträge', exact: true }).waitFor();
     check('cached app shell starts offline without private runs or drafts', !(await page.content()).includes('Phone task') && !(await page.content()).includes('Preserve this offline draft.'));
   } else console.log('UNMEASURED: native Windows WebKit offline navigation fails internally; offline cold start remains a Safari/device acceptance gate.');
   await context.setOffline(false); await connected();
@@ -176,7 +178,7 @@ void (async () => {
   sessions!.dispose(); await server!.stop(); await start();
   await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click(); await connected();
   check('host restart renews session using persisted device proof', fixture.devices.inventory().devices.length === 1);
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('task draft survives offline reload and host reconnection', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Preserve this offline draft.');
   await page.getByLabel('Aufgabe', { exact: true }).fill('Preserve this unsent draft while cancelling a different run.');
   await page.keyboard.press('Escape');
@@ -187,7 +189,7 @@ void (async () => {
   check('phone can cancel accepted work through the real coordinator', fixture.orchestration.snapshot().runs[0]?.status === 'cancelled');
   check('cancellation restores focus to the updated detail', await focused('#run-detail-title'));
   await closeInspector();
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('cancellation preserves unrelated composer input', (await page.getByLabel('Aufgabe', { exact: true }).inputValue()).startsWith('Preserve this'));
   await page.keyboard.press('Escape');
   await page.getByLabel('Runs durchsuchen', { exact: true }).fill('does not exist');
@@ -226,16 +228,16 @@ void (async () => {
   await page.getByRole('button', { name: 'Graph einpassen', exact: true }).click();
   check('graph fit control keeps a bounded readable scale', Number((await page.locator('.m-zoom output').textContent())!.replace('%', '')) <= 100);
   await page.getByRole('button', { name: 'Graph-Zoom zurücksetzen', exact: true }).click();
-  await page.getByRole('button', { name: 'Switch to light theme' }).click();
+  await page.getByRole('button', { name: 'Zur hellen Darstellung wechseln' }).click();
   await page.screenshot({ path: join(evidence, 'tablet-graph-light.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  const settings = page.getByRole('dialog', { name: 'Einstellungen', exact: true });
   await page.keyboard.press('Shift+Tab');
   check('Settings is modal and traps reverse keyboard focus', await settings.evaluate((node) => node.matches(':modal') && node.contains(document.activeElement)));
   await page.keyboard.press('Tab');
-  check('Settings wraps forward focus to its close button', await settings.getByRole('button', { name: 'Settings schliessen', exact: true }).evaluate((node) => node === document.activeElement));
+  check('Settings wraps forward focus to its close button', await settings.getByRole('button', { name: 'Einstellungen schliessen', exact: true }).evaluate((node) => node === document.activeElement));
   await page.keyboard.press('Escape');
-  check('closing Settings restores its opener', await page.getByRole('button', { name: 'Settings', exact: true }).evaluate((node) => node === document.activeElement));
+  check('closing Settings restores its opener', await page.getByRole('button', { name: 'Einstellungen', exact: true }).evaluate((node) => node === document.activeElement));
   for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]) {
     await page.setViewportSize(viewport);
     check(`desktop shell fits ${viewport.width}x${viewport.height} without page overflow`, await noOverflow());
@@ -245,7 +247,7 @@ void (async () => {
   check('phone graph opens an accessible detail dialog', await page.getByRole('dialog', { name: 'Run-Details', exact: true }).isVisible() && await noOverflow());
   await page.keyboard.press('Escape');
   check('closing phone graph detail restores its node', await coordinatorNode.evaluate((node) => node === document.activeElement));
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   await page.getByLabel('Agent', { exact: true }).selectOption('reviewer');
   await page.getByLabel('Aufgabe', { exact: true }).fill('An uncertain request must never cross a revoked device identity.');
   proxy.loseTaskReplies(true);
@@ -259,7 +261,7 @@ void (async () => {
   await page.getByLabel('Pairing-Code', { exact: true }).fill(positive.code);
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click(); await connected();
   check('final positive control re-pairs and reconnects after revocation', fixture.devices.activeDevices().length === 1);
-  await page.getByRole('button', { name: 'Neue Aufgabe', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
   check('browser storage is scoped to the new device and contains no revoked draft', await page.evaluate((id) => Object.keys(localStorage)
     .every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key) || key.startsWith(`ade-work:${id}:`))

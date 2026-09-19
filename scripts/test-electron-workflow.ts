@@ -1153,10 +1153,10 @@ async function run(): Promise<void> {
       (await page!.locator('.grun-repo').textContent()) === 'Managed E2E repository',
     );
 
-    await page.getByRole('tab', { name: 'Overview view' }).click();
+    await page.getByRole('tab', { name: 'Übersicht' }).click();
     await eventually('Overview tab opens the read-only home', async () =>
       await page!.getByTestId('overview').count() === 1
-        && await page!.getByRole('tab', { name: 'Overview view' }).getAttribute('aria-selected') === 'true',
+        && await page!.getByRole('tab', { name: 'Übersicht' }).getAttribute('aria-selected') === 'true',
     );
     await eventually('Overview renders live, open and token figures', async () => {
       const live = await page!.getByTestId('overview-live').textContent();
@@ -1191,7 +1191,7 @@ async function run(): Promise<void> {
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true'
         && await page!.locator('.agent-row[aria-current="true"]', { hasText: 'E2E Shell' }).count() === 1,
     );
-    await page.getByRole('tab', { name: 'Overview view' }).click();
+    await page.getByRole('tab', { name: 'Übersicht' }).click();
     await eventually('Overview tab returns after a session work click', async () =>
       await page!.getByTestId('overview').count() === 1,
     );
@@ -1570,8 +1570,8 @@ async function run(): Promise<void> {
           && scopedDiagnostic.status === 'ready',
         scopedDiagnostic);
 
-      await page.getByRole('button', { name: 'Diagnostics' }).first().click();
-      const wslDiagnostics = page.getByRole('dialog', { name: 'Runtime diagnostics' });
+      await page.getByRole('button', { name: 'Diagnose' }).first().click();
+      const wslDiagnostics = page.getByRole('dialog', { name: 'Diagnose' });
       await wslDiagnostics.waitFor({ state: 'visible' });
       await eventually('runtime diagnostics execute against the selected WSL backend', async () =>
         (await wslDiagnostics.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
@@ -1871,8 +1871,8 @@ async function run(): Promise<void> {
         persistedWslScope);
     }
 
-    await page.getByRole('button', { name: 'Diagnostics' }).first().click();
-    const diagnosticsDialog = page.getByRole('dialog', { name: 'Runtime diagnostics' });
+    await page.getByRole('button', { name: 'Diagnose' }).first().click();
+    const diagnosticsDialog = page.getByRole('dialog', { name: 'Diagnose' });
     await diagnosticsDialog.waitFor({ state: 'visible' });
     await eventually('diagnostics report configured shell readiness without mutation', async () => {
       const diagnosticText = await diagnosticsDialog.textContent();
@@ -1885,8 +1885,8 @@ async function run(): Promise<void> {
     await page.getByRole('button', { name: 'Close' }).last().click();
 
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+    await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+    const settingsDialog = page.getByRole('dialog', { name: 'Einstellungen' });
     await settingsDialog.waitFor({ state: 'visible' });
     await eventually('device settings explain the empty inventory and upcoming pairing', async () =>
       ((await settingsDialog.getByTestId('remote-devices').textContent()) ?? '').includes('Noch keine Geräte verbunden.'));
@@ -2165,7 +2165,7 @@ async function run(): Promise<void> {
       );
     }
 
-    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+    await page.getByRole('button', { name: 'Zur hellen Darstellung wechseln' }).click();
     await eventually('the terminal surface follows the light theme without a dark ring', async () => {
       const surfaces = await page!.evaluate(() => ({
         theme: document.documentElement.dataset['theme'],
@@ -2182,7 +2182,7 @@ async function run(): Promise<void> {
           color === 'rgba(0, 0, 0, 0)' || color === 'transparent'
         ));
     });
-    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+    await page.getByRole('button', { name: 'Zur dunklen Darstellung wechseln' }).click();
     await eventually('the quick toggle returns the app to the dark theme', async () =>
       (await page!.evaluate(() => document.documentElement.dataset['theme'])) === 'dark');
 
@@ -2208,8 +2208,8 @@ async function run(): Promise<void> {
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
     if (keyStorageAvailable) {
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
-      const deviceSettings = page.getByRole('dialog', { name: 'Settings' });
+      await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+      const deviceSettings = page.getByRole('dialog', { name: 'Einstellungen' });
       const deviceSection = deviceSettings.getByTestId('remote-devices');
       const deviceName = deviceSection.getByLabel('Gerätename für e2e-phone');
       await deviceName.waitFor({ state: 'visible' });
@@ -2221,9 +2221,9 @@ async function run(): Promise<void> {
       await eventually('rename returns focus to the name field', async () => deviceName.evaluate((node) => node === document.activeElement));
       await deviceName.press('Escape');
       await deviceSettings.waitFor({ state: 'hidden' });
-      check('closing settings returns focus to its opener', await page.getByRole('button', { name: 'Settings', exact: true })
+      check('closing settings returns focus to its opener', await page.getByRole('button', { name: 'Einstellungen', exact: true })
         .evaluate((node) => node === document.activeElement));
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
       await deviceName.waitFor({ state: 'visible' });
       check('reopened settings retains the saved device name', await deviceName.inputValue() === 'Mein Testtelefon');
       const vault = readFileSync(join(userData, 'ade', 'remote', 'devices.json'), 'utf8');

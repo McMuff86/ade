@@ -951,3 +951,44 @@
   .gcard.gflash-ok, .gcard.gflash-bad { animation: none; }
   .gpublish-spinner { animation: none; }
 }
+
+/* ------------------------------------------------ regrouped chrome (UX-02)
+   Four homes, none of them floating: Run and Ergebnisse in the top bar,
+   Run-Steuerung docked at the bottom, Ansicht (zoom, slots) bottom-left.
+   Rare and destructive actions sit in their own group at the end of the bar. */
+.grunbar { gap: 6px; padding: 6px 8px; }
+.grun-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.grun-run { flex: 1; min-width: 0; }
+.grun-results, .grun-rare { flex: none; padding-left: 8px; border-left: 1px solid var(--line); }
+.grun-results:empty, .grun-rare:empty { display: none; }
+.grun-caption { color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; }
+.grunbar .btn-quiet { min-height: 28px; font-size: 11.5px; color: var(--muted); }
+.grunbar .btn-quiet:hover { color: var(--text); }
+.grun-delete { border-color: transparent; background: transparent; }
+@media (max-width: 1100px) { .grun-caption, .grun-counts { display: none; } }
+
+.gdock { padding: 6px 8px 6px 12px; gap: 4px; }
+.gdock-caption { align-self: center; padding-right: 6px; color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; }
+.gdock .sep { margin: 4px 4px; }
+
+.gzoom { flex-direction: row; align-items: center; }
+.gzoom button { width: 34px; height: 32px; border-bottom: none; border-right: 1px solid var(--line); }
+.gzoom button:last-child { border-right: none; }
+.gzoom button svg { width: 14px; height: 14px; }
+.gzoom-level { min-width: 44px; padding: 0 4px; text-align: center; color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; border-right: 1px solid var(--line); line-height: 32px; }
+
+.gslots { left: 16px; bottom: 60px; padding: 0; overflow: hidden; }
+.gslots-head { cursor: pointer; width: 100%; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 11px; color: var(--text); font-size: 11px; font-weight: 600; text-align: left; }
+.gslots-head::after { content: ''; width: 6px; height: 6px; margin-left: auto; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); rotate: -45deg; transition: rotate 0.15s; }
+.gslots-head[aria-expanded='true']::after { rotate: 45deg; }
+.gslots-head:disabled { cursor: default; }
+.gslots-head:disabled::after { display: none; }
+.gslots-head:hover:not(:disabled) { background: var(--raised); }
+.gslots-head:active { cursor: pointer; }
+.gslots-row { margin: 0; padding: 4px 11px; border-top: 1px solid var(--line); }
+.gslots-row:last-child { padding-bottom: 8px; }
+
+.gdockpanel-bar > svg { width: 14px; height: 14px; color: var(--faint); flex: none; }
+.gdockpanel-bar button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 24px; width: auto; padding: 0 5px; font-size: 10.5px; }
+.gdockpanel-bar button svg { width: 13px; height: 13px; }
+.gdockpanel-bar button[aria-pressed='true'] { color: var(--accent); border-color: var(--accent-dim); }

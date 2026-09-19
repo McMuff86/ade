@@ -1,5 +1,19 @@
 # ADE implementation status
 
+## In Arbeit, nicht aktiviert: Oberfläche „Räume, Wortschatz, Aktionsinventar“ (Branch `ui/next-level`, 19. September 2026)
+
+Antwort auf das UI/UX-Briefing: gemeinsame gruppierte Navigation für PC und
+Tablet (Übersicht · Organisation · Entwicklung, Verwaltung getrennt), deutsches
+Begriffsmodell (Aufträge statt Work, Einstellungen, Diagnose, „Agent
+beauftragen“ statt „Neue Aufgabe“ für Agentenarbeit), Graph-Leiste in Gruppen
+ohne frei schwebende Docks, Tablet-Kopf und Werkzeugzeile mit genau einer
+Hauptaktion je Raum, Verbindungsdialog ohne Neu-Kopplung, Terminalwerkzeuge
+neben dem Voice-Strip statt über der Ausgabe. Liegt im Worktree
+`../ade-ui-next-level`, bis die parallel entstehenden Räume Aufgaben/Notizen
+auf `main` sind; Zusammenführung und Nachweise in
+[UI_UX_NEXT_LEVEL.md](UI_UX_NEXT_LEVEL.md). Kein `pnpm verify` auf `main`;
+keine Aktivierung.
+
 ## Abgenommen und aktiviert: kompakter Tablet-Projektbereich (19. September 2026)
 
 Einklappbarer Projektkopf mit gespeicherter Ansicht, gemeinsamer Aktionszeile

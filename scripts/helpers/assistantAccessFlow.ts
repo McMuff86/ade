@@ -53,7 +53,7 @@ public class Tui { public static void Main(string[] args) {
       return window.ade.invoke('agent:update', { id: a.id, name: a.name, runtime: a.runtime, permissionMode: a.permissionMode,
         customCommand: a.customCommand, dashboardUrl: profile.url, homeWorkspaceDir: home });
     }, { categoryId, profile, executable, home });
-    await tablet.keyboard.press('Escape'); await tablet.getByRole('tab', { name: 'Overview', exact: true }).click();
+    await tablet.keyboard.press('Escape'); await tablet.getByRole('tab', { name: 'Übersicht', exact: true }).click();
     if (profile.name === 'Hermes General Fixture') {
       await tablet.getByRole('button', { name: `Workspace für ${profile.name}`, exact: true }).click();
       const normal = tablet.getByRole('dialog', { name: `Workspace · ${profile.name}`, exact: true });
@@ -90,7 +90,7 @@ public class Tui { public static void Main(string[] args) {
     const rgb = color.match(/\d+/g)?.map(Number) ?? [];
     check(`${profile.name}: ANSI red is visible in browser (${color})`, rgb[0]! > rgb[1]! + 40 && rgb[0]! > rgb[2]! + 40);
     const before = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id);
-    await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Overview view', exact: true }).click();
+    await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
     await desktop.getByRole('button', { name: `Terminal öffnen: ${profile.name}`, exact: true }).click();
     check(`${profile.name}: desktop direct entry reuses the same profile session`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter((s) => s.agentId === agent.id).length === before.length);
     await workspace.getByRole('button', { name: `Workspace · ${profile.name} schliessen`, exact: true }).click();
@@ -112,7 +112,7 @@ public class Tui { public static void Main(string[] args) {
     await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
     const stopped = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.find((s) => s.id === previous.id)!;
     check(`${profile.name}: quitting the CLI records exit zero while the PTY shell survives`, stopped.status === 'running' && stopped.program?.status === 'exited' && stopped.program.exitCode === 0);
-    await desktop.reload(); await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+    await desktop.reload(); await desktop.getByRole('tab', { name: 'Terminals', exact: true }).click();
     await desktop.locator('.agent-row', { hasText: profile.name }).click();
     await desktop.getByRole('tab', { name: /beendet · Terminal offen/ }).last().waitFor();
     check(`${profile.name}: desktop reload reconciles the ended CLI instead of showing it as running`, true);

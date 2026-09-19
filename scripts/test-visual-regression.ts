@@ -393,7 +393,7 @@ async function run(): Promise<void> {
     for (const theme of ['dark', 'light'] as const) {
       const active = await page.evaluate(() => document.documentElement.dataset['theme']);
       if (active !== theme) {
-        await page.locator('button[title="Switch theme"]').click();
+        await page.locator('button[title="Darstellung wechseln"]').click();
         await page.waitForFunction(
           (expected) => document.documentElement.dataset['theme'] === expected,
           theme,

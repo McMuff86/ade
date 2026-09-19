@@ -12,7 +12,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   const before = await desktop.evaluate(() => window.ade.invoke('config:get'));
   const sessions = async () => (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
   const homeSessions = async () => (await sessions()).filter((item) => item.scopeSource === 'terminal-home');
-  await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Terminals', exact: true }).click();
   await desktop.locator('.strip-actions').getByRole('button', { name: 'Terminal öffnen', exact: true }).click();
   const launch = desktop.getByRole('dialog', { name: 'Neue Terminalsitzung', exact: true });
   await launch.getByText('Umgebung: Windows', { exact: true }).waitFor();
@@ -90,7 +90,7 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await history.waitFor(); check('downward touch gesture opens readable history', await history.isVisible());
   await page.screenshot({ path: join(evidence, 'terminal-scroll-history.png') });
   await terminal.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).click();
-  await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await desktop.getByRole('tab', { name: 'Terminals', exact: true }).click();
   await desktop.getByRole('button', { name: 'Freie Terminals', exact: true }).click();
   await desktop.locator(`#session-tab-${shell.id}`).click();
   await desktop.waitForFunction((id) => document.activeElement === document.querySelector(`#session-panel-${id} .xterm-helper-textarea`), shell.id);
@@ -101,14 +101,14 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   check('desktop can reclaim the mobile home terminal', !(await desktop.evaluate((id) => window.ade.invoke('terminal:control', { sessionId: id }), shell.id)).remote);
   await expandSessionControls(terminal);
   await terminal.getByLabel('Terminal-Schriftgrösse', { exact: true }).selectOption('18');
-  await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click();
+  await page.getByRole('button', { name: 'Zur hellen Darstellung wechseln', exact: true }).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
   check('mobile light theme also updates the xterm screen', await terminal.locator('.xterm-viewport').evaluate((node) => getComputedStyle(node).backgroundColor !== 'rgb(14, 15, 18)'));
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   check('mobile reload preserves terminal view, session and font size', await page.getByRole('tab', { name: 'Terminals', exact: true }).getAttribute('aria-selected') === 'true'
     && await terminal.getByLabel('Terminal-Schriftgrösse', { exact: true }).inputValue() === '18' && (await homeSessions()).length === 1);
-  await desktop.reload(); await desktop.getByRole('tab', { name: 'Terminals view', exact: true }).click();
+  await desktop.reload(); await desktop.getByRole('tab', { name: 'Terminals', exact: true }).click();
   await desktop.getByRole('button', { name: 'Freie Terminals', exact: true }).click();
   await desktop.locator('.terminal-host').first().waitFor();
   check('desktop reload restores home terminal tabs from main-owned sessions', await desktop.locator('.tabstrip [role="tab"]').count() === 1

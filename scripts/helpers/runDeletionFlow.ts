@@ -9,7 +9,7 @@ export async function runDeletionFlow(desktop: Page, phone: Page, proxy: Awaited
   const run = before.find((item) => item.name === 'Tablet question');
   if (!run || run.status !== 'completed') throw new Error('Expected completed question fixture');
   await phone.setViewportSize({ width: 390, height: 844 });
-  await phone.getByRole('tab', { name: 'Work', exact: true }).click();
+  await phone.getByRole('tab', { name: 'Aufträge', exact: true }).click();
   await phone.getByRole('button', { name: 'Run Tablet question', exact: true }).click();
   const remove = phone.getByRole('button', { name: 'Run löschen', exact: true }); await remove.waitFor();
   check('completed run exposes deletion on phone without horizontal overflow', await remove.isEnabled()
@@ -42,5 +42,5 @@ export async function runDeletionFlow(desktop: Page, phone: Page, proxy: Awaited
   phone.once('dialog', (dialog) => void dialog.accept()); await phone.getByRole('button', { name: 'Run löschen', exact: true }).click();
   await phone.getByRole('button', { name: 'Run Desktop question', exact: true }).waitFor({ state: 'hidden' });
   check('tablet landscape can delete a second completed run', !(await desktop.evaluate(() => window.ade.invoke('run:getSummary', {}))).some((item) => item.name === 'Desktop question'));
-  await phone.setViewportSize({ width: 390, height: 844 }); await phone.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await phone.setViewportSize({ width: 390, height: 844 }); await phone.getByRole('tab', { name: 'Übersicht', exact: true }).click();
 }

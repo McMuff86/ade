@@ -45,8 +45,8 @@ export function DiagnosticsModal(): JSX.Element | null {
 
   return (
     <Modal
-      title="Runtime diagnostics"
-      subtitle="Read-only checks for CLI availability, sign-in, and task transport."
+      title="Diagnose"
+      subtitle="Nur lesende Prüfung von CLI-Verfügbarkeit, Anmeldung und Auftragsübertragung."
       onClose={hide}
     >
       <div className="diag-body" aria-live="polite">

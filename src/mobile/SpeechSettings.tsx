@@ -35,7 +35,7 @@ function SpeechSettings({ host, target, title }: { host: MobileHost; target: Spe
     <SpeechPreferenceSection title={title} enabled={host.status === 'online'} pending={!!pending || retrying} recoveredAudio={recoveredAudio} port={{
       load: async () => {
         const rights = await host.request<{ capabilities?: string[] }>('/api/v1/host');
-        if (!rights.capabilities?.includes('speech:control')) throw new Error('Am PC unter Settings → Verbundene Geräte die Freigabe „Stimmen wählen und ElevenLabs-Stimmtests ausführen“ aktivieren.');
+        if (!rights.capabilities?.includes('speech:control')) throw new Error('Am PC unter Einstellungen → Verbundene Geräte die Freigabe „Stimmen wählen und ElevenLabs-Stimmtests ausführen“ aktivieren.');
         const result = await host.request<MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target });
         if (!result.preferences) throw new Error('Stimmeneinstellungen sind nicht verfügbar.'); return result.preferences;
       },

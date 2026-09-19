@@ -43,11 +43,11 @@ export function WorkView() {
     && `${row.run.name} ${row.repository} ${row.members.map(member => member.agentName).join(' ')}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
     .sort((a, b) => b.run.updatedAt - a.run.updatedAt);
   const filterChanged = () => setReport(null);
-  return <section className={`work-view${report ? ' work-inspecting' : ''}`} aria-label="Work">
-    <header className="work-toolbar"><h1 ref={fallback} tabIndex={-1}>Work</h1><span>{runs.length} Runs</span>
-      <button disabled={loading} onClick={() => void reload()}>Aktualisieren</button>
-      <button onClick={() => setComposer('task')}>Neue Aufgabe</button>
-      <button onClick={() => setComposer('run')}>Neuer Run</button>
+  return <section className={`work-view${report ? ' work-inspecting' : ''}`} aria-label="Aufträge">
+    <header className="work-toolbar"><h1 ref={fallback} tabIndex={-1}>Aufträge</h1><span>{runs.length} Runs</span>
+      <button className="work-quiet" disabled={loading} onClick={() => void reload()}>Aktualisieren</button>
+      <button onClick={() => setComposer('task')}>Agent beauftragen</button>
+      <button className="work-primary" onClick={() => setComposer('run')}>Neuer Run</button>
     </header>
     {error && <p role="alert">Runs konnten nicht geladen werden: {error}</p>}
     <div className="work-filters">

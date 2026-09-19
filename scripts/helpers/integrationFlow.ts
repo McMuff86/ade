@@ -23,7 +23,7 @@ export async function integrationFlow(desktop: Page, page: Page, root: string, e
   const repo = await desktop.evaluate((path) => window.ade.invoke('repository:import', { path, name: 'Integration UI', executionBackend: 'native' }), target);
   const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find((item) => item.name === 'Terminal tablet')!;
   await desktop.evaluate((deviceId) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes: ['workspace:read', 'workspace:write', 'repositories:write', 'projects:write', 'projectGit:write', 'terminal:control'], resourceAccess: { mode: 'all' } }), device.id);
-  await desktop.reload(); await desktop.getByRole('tab', { name: 'Graph view', exact: true }).click();
+  await desktop.reload(); await desktop.getByRole('tab', { name: 'Graph', exact: true }).click();
   await desktop.locator('button.grun-new', { hasText: 'Neuer Run' }).click();
   const runForm = desktop.locator('form.grun-modal'); await runForm.waitFor();
   await runForm.evaluate((node) => { node.dataset.integrationSubmits = '0'; node.addEventListener('submit', (event) => { event.preventDefault(); event.stopImmediatePropagation(); node.dataset.integrationSubmits = String(Number(node.dataset.integrationSubmits) + 1); }); });

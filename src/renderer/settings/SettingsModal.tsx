@@ -495,7 +495,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
 
   return (
     <Modal
-      title="Settings"
+      title="Einstellungen"
       subtitle="Darstellung, verbundene Geräte, Workspaces und Harness-Verwaltung."
       onClose={onClose}
     >

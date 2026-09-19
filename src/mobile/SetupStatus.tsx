@@ -28,7 +28,7 @@ export function MobileSetupStatus({ host, state, onNavigate }: {
     <label htmlFor="mobile-setup-intent">Vorhaben auf diesem Gerät</label><select id="mobile-setup-intent" value={intent} onChange={(event) => setIntent(event.target.value as SetupIntent)}>
       {(Object.keys(SETUP_INTENTS) as SetupIntent[]).map((key) => <option value={key} key={key}>{SETUP_INTENTS[key].label}</option>)}
     </select>
-    <p>Dieses Gerät ist gekoppelt. Freigaben werden in ADE am PC unter <strong>Einrichtung → Freigaben prüfen</strong> oder Settings → Verbundene Geräte verwaltet.</p>
+    <p>Dieses Gerät ist gekoppelt. Freigaben werden in ADE am PC unter <strong>Einrichtung → Freigaben prüfen</strong> oder Einstellungen → Verbundene Geräte verwaltet.</p>
     {readiness.status === 'offline' ? <p role="status">Verbindung zum PC herstellen, um Einrichtung und Freigaben aktuell zu prüfen.</p>
       : readiness.status === 'unknown' ? <p role="status">Einrichtungsdaten sind noch nicht vollständig bekannt. Status aktualisieren; bei einem älteren Host ADE am PC aktualisieren.</p>
         : <><p role="status">{readiness.status === 'ready' ? 'Die nötigen Einstellungen und Gerätefreigaben sind vorhanden.' : 'Für dieses Vorhaben fehlen noch Einstellungen oder Freigaben.'}</p>

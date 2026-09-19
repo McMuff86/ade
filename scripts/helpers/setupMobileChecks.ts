@@ -40,8 +40,8 @@ export async function checkMobileSetup(app: ElectronApplication, desktop: Page, 
     await page.getByLabel('Gerätename', { exact: true }).fill('Einrichtungs-Tablet');
     await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
     await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Einstellungen', exact: true });
     const builds = settings.getByRole('region', { name: 'Build-Stand', exact: true });
     const readiness = settings.getByRole('region', { name: 'Einrichtung auf diesem Gerät', exact: true });
     const refresh = settings.getByRole('button', { name: 'Einrichtungsstatus aktualisieren', exact: true });
@@ -95,8 +95,8 @@ export async function checkMobileSetup(app: ElectronApplication, desktop: Page, 
     await page.setViewportSize({ width: 390, height: 844 });
     check('build and permission status fit a narrow phone viewport', await settings.evaluate((node) => node.scrollWidth <= node.clientWidth && node.getBoundingClientRect().right <= innerWidth));
     await page.keyboard.press('Escape');
-    check('mobile settings restore opener focus', await page.getByRole('button', { name: 'Settings', exact: true }).evaluate((node) => node === document.activeElement));
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    check('mobile settings restore opener focus', await page.getByRole('button', { name: 'Einstellungen', exact: true }).evaluate((node) => node === document.activeElement));
+    await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
     await readiness.getByRole('button', { name: 'Zu den Projekten', exact: true }).click();
     check('next project step closes settings and focuses destination', !await settings.count() && await page.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
     check('real browser setup has no unhandled renderer errors', errors.length === 0);
