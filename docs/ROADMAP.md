@@ -1,5 +1,22 @@
 # ADE delivery roadmap
 
+## Abgeschlossen: Pairing wiederherstellen und Tablet-Änderungen abschliessen
+
+Volles Zugriffsprotokoll unter Erhalt der Geräte und Idempotenzbarrieren
+archiviert; QR-/Code-Kopplung wiederhergestellt. Links/Bilder und aufgeteilte
+Browser-Builds abgenommen, persönliche Instanz mit erhaltenem Profil aktiviert.
+Vollständiges `pnpm verify` am **19. September, 11:15 CEST** bestanden.
+Die praktische Rückmeldung vom physischen Tablet zu Hause/unterwegs steht noch aus.
+[Bedienung und Nachweise](MOBILE_PAIRING_RECOVERY.md).
+
+## Abgeschlossen: Links und Screenshots im Tablet-Terminal
+
+Links direkt antippen oder über die Linkliste öffnen/kopieren; Screenshots aus
+Galerie oder Zwischenablage mit Vorschau und Nachricht in die laufende Codex-Sitzung
+übergeben. Vollständiges `pnpm verify`, Build und ausdrücklich beauftragter
+ADE-Neustart mit erhaltenen Tablet-Kopplungen am 19. September abgeschlossen.
+[Vertrag und Nachweise](TERMINAL_MEDIA.md).
+
 ## Abgeschlossene Stabilisierung: nativer Tablet-Auftrag
 
 Den bisherigen getrennten Codex-/Oberflächennachweis um einen durchgängigen

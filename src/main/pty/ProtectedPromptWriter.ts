@@ -8,19 +8,23 @@ export class ProtectedPromptWriter {
 
   busy(id: string): boolean { return this.pending.has(id); }
 
-  async write(id: string, bytes: string, authorize: () => void | Promise<void>): Promise<void> {
+  async write(id: string, payload: string | readonly string[], authorize: () => void | Promise<void>): Promise<void> {
     if (this.pending.has(id)) throw new Error('Promptübergabe läuft. Bitte kurz warten.');
     this.pending.add(id);
     try {
-      await authorize(); this.port.check(id);
-      const submit = bytes.endsWith('\x1b[201~\r');
-      this.port.write(id, submit ? bytes.slice(0, -1) : bytes);
-      if (submit) {
-        await this.settle();
-        // Revocation, CLI exit and workspace changes during the pause must not
-        // turn a partial paste into an unexpected Enter in a different target.
+      const parts = typeof payload === 'string' ? [payload] : payload;
+      for (let index = 0; index < parts.length; index++) {
+        const bytes = parts[index]!;
         await authorize(); this.port.check(id);
-        this.port.write(id, '\r');
+        const submit = bytes.endsWith('\x1b[201~\r');
+        this.port.write(id, submit ? bytes.slice(0, -1) : bytes);
+        // Each image path is its own paste, so Codex recognizes it as an image.
+        // Keep the same input lock across attachments, message and final Enter.
+        if (submit || index < parts.length - 1) await this.settle();
+        if (submit) {
+          await authorize(); this.port.check(id);
+          this.port.write(id, '\r');
+        }
       }
     } finally { this.pending.delete(id); }
   }

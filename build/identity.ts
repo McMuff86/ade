@@ -6,7 +6,7 @@ import type { MobileBuildInfo } from '../src/shared/remote';
 /** Same source/dependency fingerprint in Electron and Mobile; never git paths or env values. */
 export function buildIdentity(root = process.cwd(), now = new Date()): MobileBuildInfo {
   const paths = ['package.json', 'pnpm-lock.yaml', 'electron.vite.config.ts', 'vite.mobile.config.ts',
-    'tsconfig.node.json', 'tsconfig.web.json', 'build/identity.ts'];
+    'tsconfig.node.json', 'tsconfig.web.json', 'build/identity.ts', 'build/browserChunks.ts'];
   const walk = (path: string) => {
     for (const entry of readdirSync(join(root, path), { withFileTypes: true })) {
       const child = `${path}/${entry.name}`;

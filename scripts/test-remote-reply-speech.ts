@@ -38,7 +38,7 @@ void (async () => {
       sessions.push(session); return session;
     }, attach: () => ({ replayBase64: '', sequence: 1 }), resize: () => {}, kill: () => {}, write: (_id, data) => writes.push(data.toString()),
     promptCapability: () => available ? { available: true } : { available: false, reason: 'CLI ended' },
-    writePrompt: (_id, text) => { if (!available) throw new Error('CLI ended'); writes.push(text); },
+    writePrompt: (_id, text) => { if (!available) throw new Error('CLI ended'); writes.push(typeof text === 'string' ? text : text.join('')); },
   }, id => devices.activeDevices().some(item => item.id === id && item.scopes.includes('terminal:control')),
   entry => devices.audit(entry), undefined, undefined, (id, target) => resources.assertSelection(id, target));
   const speech = new SpeechService(store, () => 'provider-fixture-secret', async url => {

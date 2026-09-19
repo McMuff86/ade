@@ -23,6 +23,19 @@
 .m-terminal-history-host { position: relative; overflow: hidden; }
 .m-terminal-live { position: absolute; inset: 8px; touch-action: none; }
 .m-terminal-history-button { position: absolute; top: 4px; right: 12px; z-index: 3; min-height: 44px; background: var(--raised); }
+.m-terminal-links-button { position: absolute; top: 4px; right: 104px; z-index: 3; min-height: 44px; background: var(--raised); }
+.m-terminal-history-panel a, .m-terminal-local-link { color: var(--accent); text-decoration: underline; }
+.m-terminal-local-link { border: 0; background: none; font: inherit; padding: 0; white-space: inherit; overflow-wrap: anywhere; }
+.m-terminal-link-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.m-terminal-link-address { overflow-wrap: anywhere; user-select: text; }
+.m-terminal-link-item a, .m-terminal-link-item button { display: inline-flex; align-items: center; min-height: 44px; margin-right: 8px; }
+.m-terminal-image-dialog, .m-terminal-links-dialog { width: min(600px, calc(100vw - 24px)); white-space: normal; }
+.m-terminal-image-dialog figure { margin: 12px 0; }
+.m-terminal-image-dialog img { display: block; max-width: 100%; max-height: 35dvh; object-fit: contain; border-radius: 6px; }
+.m-terminal-image-dialog input[type=file] { max-width: 100%; }
+.m-terminal-image-dialog textarea { display: block; width: 100%; min-height: 100px; box-sizing: border-box; }
+.m-terminal-image-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.m-terminal-links-dialog .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .m-terminal-history-panel { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; background: var(--bg); color: var(--text); white-space: normal; }
 .m-terminal-history-panel p { margin: 0; padding: 52px 12px 8px; font: 12px/1.4 sans-serif; }
 .m-terminal-history-panel pre { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 Consolas, monospace; }

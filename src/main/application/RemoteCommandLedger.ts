@@ -8,6 +8,7 @@ import type { MobileErrorCode } from '../../shared/remote';
 import type { DeviceAuditEntry } from '../remote/RemoteDeviceStore';
 import { RemoteApiError, type RemoteCommandContext } from './AdeApplicationService';
 import { assertNoLinks } from '../repositories/pathDiscipline';
+import { readRemoteAudit } from '../remote/RemoteAuditLog';
 
 interface Receipt {
   key: string; fingerprint: string; state: 'reserved' | 'complete' | 'rejected';
@@ -42,14 +43,7 @@ export class RemoteCommandLedger {
         this.entries = value.entries;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        const auditFile = join(dirname(file), 'audit.jsonl'); assertNoLinks(auditFile);
-        try {
-          if (lstatSync(auditFile).size > 8 * 1024 * 1024) throw new Error('audit too large');
-          for (const line of readFileSync(auditFile, 'utf8').trim().split('\n').filter(Boolean)) {
-            const entry = JSON.parse(line) as DeviceAuditEntry;
-            if (entry.channel === 'run:delete' || entry.channel === 'host:restart' || entry.channel.startsWith('admin:') || entry.channel.startsWith('terminal:') || entry.channel.startsWith('supervision:') || entry.channel.startsWith('conversation:') || entry.channel.startsWith('project:') || entry.channel.startsWith('integration:') || entry.channel === 'workspace:save' || entry.channel === 'profile:update') throw new Error('administration history without its receipts');
-          }
-        } catch (auditError) { if ((auditError as NodeJS.ErrnoException).code !== 'ENOENT') throw auditError; }
+        if (readRemoteAudit(dirname(file)).history.commands) throw new Error('administration history without its receipts');
       }
     } catch { this.available = false; console.warn('[ade] remote command ledger unavailable; administration disabled'); }
   }

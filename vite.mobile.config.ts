@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { createHash } from 'node:crypto';
 import { buildIdentity } from './build/identity';
+import { browserChunks } from './build/browserChunks';
 
 export default defineConfig({
   define: { __ADE_BUILD_INFO__: JSON.stringify(buildIdentity()) },
@@ -33,5 +34,5 @@ self.addEventListener('fetch', event => {
 ` });
     },
   }],
-  build: { outDir: '../../out/mobile', emptyOutDir: true },
+  build: { outDir: '../../out/mobile', emptyOutDir: true, rollupOptions: { output: { manualChunks: browserChunks } } },
 });

@@ -1,5 +1,25 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Tablet verbinden und gemeinsamen Build starten
+
+QR-Link und manueller Code sind alternative Wege für dieselbe fünf Minuten
+gültige Einmalkopplung. Zuhause und unterwegs gilt dieselbe private HTTPS-Adresse,
+mit verbundenem Tailscale auf PC und Tablet. Im bereits gekoppelten Browser ist
+keine neue Kopplung beim Netzwerkwechsel nötig. Sichere Geräteablage muss zusätzlich
+zur HTTPS-Verbindung verfügbar sein; ein volles gültiges Zugriffsprotokoll wird
+begrenzt archiviert, ohne Geräteschlüssel zu verwerfen. `pnpm build` erstellt beide
+Oberflächen; `pnpm start` startet den vorhandenen gemeinsamen Stand.
+[Bedienung und Prüfstand](MOBILE_PAIRING_RECOVERY.md).
+
+## Tablet-Terminal: Links und Bilder
+
+Weblinks aus sichtbarer Terminalausgabe werden per Touch und im Textverlauf
+bedienbar; eine Linkliste bietet Öffnen/Kopieren und Hinweise für lokale
+PC-Adressen. Codex-Sitzungen erhalten einen Bilddialog mit Dateiauswahl,
+Clipboard-Alternative, Vorschau, Nachricht und ausdrücklichem Senden. Rechte,
+Sitzungsbindung, unklare Versandquittungen und Fokuswechsel sind Teil des
+[Vertrags](TERMINAL_MEDIA.md). Der Ablauf wird für jede Plattform getrennt geprüft.
+
 ## Zentraler ADE-Agent (Umsetzung läuft, 17. September 2026)
 
 Der erste Codex-Tablet-Ablauf ist implementiert: Im globalen Gespräch ausdrücklich

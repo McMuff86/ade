@@ -1,0 +1,94 @@
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { PNG } from 'pngjs';
+import { expect, type Locator, type Page } from 'playwright/test';
+import type { mobileTlsProxy } from './mobileBrowser';
+
+export async function terminalMediaFlow(page: Page, project: Locator, repo: string, evidence: string, check: (name: string, ok: boolean) => void, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>) {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
+  await page.bringToFront();
+  await page.context().route('https://example.org/**', route => route.fulfill({ contentType: 'text/plain', body: 'TABLET_LINK_OK' }));
+  const linksButton = project.getByRole('button', { name: 'Links', exact: true });
+  await linksButton.tap(); const links = page.getByRole('dialog', { name: 'Links im Terminal', exact: true });
+  check('link dialog takes focus without opening the keyboard', await links.locator('h2').evaluate(node => node === document.activeElement));
+  await links.getByRole('button', { name: 'Kopieren: https://example.org/tablet', exact: true }).tap();
+  await links.getByRole('status').filter({ hasText: 'Link kopiert.' }).waitFor();
+  check('copy uses the tablet clipboard', await page.evaluate(() => navigator.clipboard.readText()) === 'https://example.org/tablet');
+  check('long wrapped terminal URL remains complete in list', await links.getByRole('link', { name: `Öffnen: https://example.org/${'a'.repeat(180)}`, exact: true }).getAttribute('href') === `https://example.org/${'a'.repeat(180)}`);
+  check('localhost explains the PC address and has no open action', (await links.innerText()).includes('Diese Adresse gehört zum PC') && await links.locator('a[href*="localhost"]').count() === 0);
+  const popupPromise = page.waitForEvent('popup');
+  await links.getByRole('link', { name: 'Öffnen: https://example.org/tablet', exact: true }).tap();
+  const popup = await popupPromise; await popup.waitForLoadState('domcontentloaded');
+  check('web link opens a separate tab with no opener', popup.url() === 'https://example.org/tablet' && await popup.evaluate(() => window.opener === null)); await popup.close();
+  await page.keyboard.press('Escape'); await expect(linksButton).toBeFocused();
+  check('Escape returns focus to Links', true);
+  await project.locator('.xterm-helper-textarea').press('Control+l');
+  const direct = project.locator('.xterm-rows').getByText('https://example.org/tablet', { exact: true });
+  await expect(direct).toBeVisible();
+  // xterm's text spans deliberately have pointer-events:none. A physical touch
+  // hits its screen layer, so drive the touchscreen at the visible URL glyphs.
+  const position = await direct.boundingBox(); if (!position) throw new Error('URL position missing');
+  const [opened] = await Promise.all([page.waitForEvent('popup'), page.touchscreen.tap(position.x + 35, position.y + 7)]);
+  await opened.waitForLoadState('domcontentloaded');
+  check('touch activates the visible terminal URL directly', opened.url() === 'https://example.org/tablet'); await opened.close();
+  await project.getByRole('button', { name: 'Verlauf', exact: true }).tap();
+  check('history has keyboard-accessible links', await project.getByLabel('Terminalverlauf lesen', { exact: true }).getByRole('link', { name: 'https://example.org/tablet', exact: true }).count() >= 1);
+  await project.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).tap();
+  const attach = project.getByRole('button', { name: 'Bild hinzufügen', exact: true }); await expect(attach).toBeEnabled(); await attach.tap();
+  const dialog = page.getByRole('dialog', { name: 'Bild und Nachricht', exact: true });
+  check('image dialog focuses its heading and has an empty state', await dialog.locator('h2').evaluate(node => node === document.activeElement) && (await dialog.innerText()).includes('Noch kein Bild ausgewählt'));
+  await dialog.getByLabel('Screenshot auswählen', { exact: true }).setInputFiles({ name: 'bad.png', mimeType: 'image/png', buffer: Buffer.from('not an image') });
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  check('invalid image is rejected with no terminal input', !existsSync(join(repo, 'prompt-proof.jsonl')));
+  const png = new PNG({ width: 320, height: 180 });
+  for (let i = 0; i < png.data.length; i += 4) { png.data[i] = 230; png.data[i + 1] = 70; png.data[i + 2] = 40; png.data[i + 3] = 255; }
+  const bytes = PNG.sync.write(png);
+  const choose = () => dialog.getByLabel('Screenshot auswählen', { exact: true }).setInputFiles({ name: 'Screenshot.png', mimeType: 'image/png', buffer: bytes });
+  await choose(); await expect(dialog.getByAltText('Vorschau des ausgewählten Screenshots')).toBeVisible();
+  await dialog.getByLabel('Nachricht zum Bild', { exact: true }).fill('Bitte diesen Bereich ändern.');
+  await page.setViewportSize({ width: 390, height: 780 });
+  check('image composer fits a phone viewport without horizontal overflow', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  await dialog.screenshot({ path: join(evidence, 'terminal-image-preview.png') });
+  await page.keyboard.press('Escape'); await expect(attach).toBeFocused(); await attach.tap();
+  check('closing and reopening preserves the image and message', await dialog.getByAltText('Vorschau des ausgewählten Screenshots').isVisible() && await dialog.getByLabel('Nachricht zum Bild').inputValue() === 'Bitte diesen Bereich ändern.');
+  const uploads: unknown[] = []; page.on('response', async response => { if (response.url().endsWith('/api/v1/terminal/images') && response.ok()) uploads.push(await response.json()); });
+  await dialog.getByRole('button', { name: 'Bild und Nachricht senden', exact: true }).tap();
+  await dialog.getByRole('status').filter({ hasText: 'Bild und Nachricht übergeben.' }).waitFor();
+  const records = () => existsSync(join(repo, 'prompt-proof.jsonl')) ? readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n') : [];
+  await expect.poll(() => records().length).toBe(1);
+  const delivered = Buffer.from(records()[0]!, 'base64').toString();
+  check('real ConPTY receives image path and message as separate pastes and one Enter', /^\x1b\[200~[^\x1b]+\.png\x1b\[201~\x1b\[200~Bitte diesen Bereich ändern\.\x1b\[201~\r$/.test(delivered));
+  const path = delivered.slice(6, delivered.indexOf('\x1b[201~'));
+  check('CLI image path names the actual uploaded PNG', PNG.sync.read(readFileSync(path)).width === 320);
+  check('upload response contains no PC path', uploads.length === 1 && !JSON.stringify(uploads).includes('C:'));
+  await page.keyboard.press('Escape');
+  // A real paste event with image data exercises the terminal capture handler.
+  await project.locator('.xterm-helper-textarea').evaluate((node, base64) => {
+    const data = Uint8Array.from(atob(base64), char => char.charCodeAt(0)); const transfer = new DataTransfer();
+    transfer.items.add(new File([data], 'Clipboard.png', { type: 'image/png' }));
+    node.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+  }, bytes.toString('base64'));
+  await expect(dialog.getByAltText('Vorschau des ausgewählten Screenshots')).toBeVisible();
+  check('pasting image data opens the preview without typing binary into terminal', records().length === 1);
+  await dialog.getByLabel('Nachricht zum Bild').fill('Prüfe den zweiten Screenshot.');
+  proxy.losePromptReplies(true);
+  await dialog.getByRole('button', { name: 'Bild und Nachricht senden', exact: true }).tap();
+  await dialog.getByRole('alert').filter({ hasText: 'Übergabe nicht bestätigt' }).waitFor();
+  proxy.losePromptReplies(false);
+  check('lost acknowledgement stays uncertain and never retries the prompt', records().length === 2 && await dialog.getByRole('button', { name: 'Bild und Nachricht senden', exact: true }).isDisabled());
+  await page.screenshot({ path: join(evidence, 'terminal-image-uncertain.png') });
+  await dialog.getByRole('button', { name: 'Geprüft – neuen Entwurf beginnen', exact: true }).tap();
+  await choose(); await expect(dialog.getByAltText('Vorschau des ausgewählten Screenshots')).toBeVisible();
+  await dialog.getByLabel('Nachricht zum Bild').fill('Nach ausdrücklicher Prüfung neuer Auftrag.');
+  proxy.loseImageReplies(true);
+  await dialog.getByRole('button', { name: 'Bild und Nachricht senden', exact: true }).tap();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  proxy.loseImageReplies(false);
+  check('lost upload acknowledgement retains the preview and does not submit', records().length === 2 && await dialog.getByAltText('Vorschau des ausgewählten Screenshots').isVisible());
+  await dialog.getByRole('button', { name: 'Bild und Nachricht senden', exact: true }).tap();
+  await dialog.getByRole('status').filter({ hasText: 'Bild und Nachricht übergeben.' }).waitFor();
+  await expect.poll(() => records().length).toBe(3);
+  check('explicit retry recovers the upload and final positive prompt submits once', Buffer.from(records()[2]!, 'base64').toString().includes('Nach ausdrücklicher Prüfung neuer Auftrag.'));
+  check('media flow has no browser exceptions', errors.length === 0);
+}

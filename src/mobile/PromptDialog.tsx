@@ -5,7 +5,7 @@ import { PromptComposer, type PromptComposerPort } from '../renderer/terminal/Pr
 import type { MobileHost } from './useMobileHost';
 import { Dialog } from './ui';
 
-export type PromptSender = (text: string, mode: 'insert' | 'submit', commandId: string) => Promise<TerminalPromptReceipt>;
+export type PromptSender = (text: string, mode: 'insert' | 'submit', commandId: string, imageIds?: string[]) => Promise<TerminalPromptReceipt>;
 
 /** Device grants decide which voice actions the strip and editor may offer. */
 export function useMobileSpeechGrants(host: MobileHost): { speechAllowed: boolean; computerAllowed: boolean } {

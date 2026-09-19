@@ -348,7 +348,7 @@ export class PtyManager {
 
   deliverPrompt(request: TerminalPromptRequest, authorize: () => void | Promise<void>) { return this.promptDelivery.deliver(request, authorize); }
 
-  writePrompt(sessionId: string, text: string, authorize: () => void | Promise<void>): Promise<void> {
+  writePrompt(sessionId: string, text: string | readonly string[], authorize: () => void | Promise<void>): Promise<void> {
     return this.promptWriter.write(sessionId, text, authorize);
   }
 

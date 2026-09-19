@@ -1,4 +1,4 @@
-import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { RemoteDeviceInfo, RemoteDeviceInventory } from '../../shared/remoteDevices';
@@ -6,6 +6,7 @@ import { isDeviceResourceAccess, type DeviceResourceAccess } from '../../shared/
 import { isRemoteAdminScopes, isValidRemoteDeviceName as validName, type RemoteAdminScope } from '../../shared/remoteDevices';
 import { redactForWire } from '../errors';
 import { isValidDeviceId, isValidDeviceSecret, type RemoteDevice } from './authorization';
+import { RemoteAuditLog } from './RemoteAuditLog';
 
 export interface DeviceSecretProtection {
   available(): boolean;
@@ -27,7 +28,6 @@ export interface DeviceAuditEntry {
 }
 
 const MAX_STATE_BYTES = 256 * 1024;
-const MAX_AUDIT_BYTES = 8 * 1024 * 1024;
 const UNAVAILABLE = 'Geräteverwaltung ist nicht verfügbar. Sichere Schlüsselablage und Remote-Speicher prüfen.';
 
 /** Reject links at every existing component, including the final file. */
@@ -49,7 +49,7 @@ export class RemoteDeviceStore {
   private state: DeviceState = { version: 1, bootstrapImported: false, devices: [] };
   private readonly secrets = new Map<string, string>();
   private failure: string | null = null;
-  private auditBytes: number | null = null;
+  private auditLog?: RemoteAuditLog;
   private readonly listeners = new Set<(id: string | null) => void>();
   private readonly statePath: string;
   readonly auditPath: string;
@@ -60,16 +60,8 @@ export class RemoteDeviceStore {
     try {
       noLinks(dir);
       mkdirSync(dir, { recursive: true, mode: 0o700 });
-      this.auditBytes = this.checkAudit();
-      let hasDeviceHistory = false;
-      if (this.auditBytes > 0) {
-        for (const line of readFileSync(this.auditPath, 'utf8').trimEnd().split('\n')) {
-          const entry = JSON.parse(line) as DeviceAuditEntry;
-          if (!entry || !Number.isSafeInteger(entry.at) || typeof entry.requestId !== 'string'
-            || typeof entry.channel !== 'string' || typeof entry.outcome !== 'string') throw new Error('invalid audit');
-          if (entry.channel.startsWith('device:')) hasDeviceHistory = true;
-        }
-      }
+      this.auditLog = new RemoteAuditLog(dir);
+      const hasDeviceHistory = this.auditLog.history.devices;
       noLinks(this.statePath);
       let raw: string;
       try {
@@ -104,7 +96,7 @@ export class RemoteDeviceStore {
         }
       }
       this.state = state;
-      if (!this.auditBytes) throw new Error('device state requires its audit');
+      if (!lstatSync(this.auditPath).size) throw new Error('device state requires its audit');
     } catch { this.disable(); }
   }
 
@@ -219,41 +211,16 @@ export class RemoteDeviceStore {
   audit(entry: DeviceAuditEntry): void {
     this.assertAvailable();
     try {
-      const bytes = this.checkAudit();
       // Explicit projection: names, payloads, signatures and secrets are never accepted as audit fields.
       const clean = (value: string): string => redactForWire(value).slice(0, 256);
       const line = JSON.stringify({ at: entry.at, principalId: clean(entry.principalId),
         principalKind: clean(entry.principalKind), requestId: clean(entry.requestId),
         channel: clean(entry.channel), target: entry.target === null ? null : clean(entry.target),
         outcome: clean(entry.outcome), ...(entry.reason ? { reason: clean(entry.reason) } : {}) }) + '\n';
-      if (bytes + Buffer.byteLength(line) > MAX_AUDIT_BYTES) throw new Error('audit full');
-      const fd = openSync(this.auditPath, 'a', 0o600);
-      try { writeFileSync(fd, line); fsyncSync(fd); } finally { closeSync(fd); }
-      this.auditBytes = bytes + Buffer.byteLength(line);
+      this.auditLog!.append(line);
     } catch {
       this.disable();
       throw new Error(UNAVAILABLE);
-    }
-  }
-
-  private checkAudit(): number {
-    noLinks(this.auditPath);
-    try {
-      const size = lstatSync(this.auditPath).size;
-      if (size >= MAX_AUDIT_BYTES) throw new Error('audit full');
-      if (this.auditBytes !== null && size !== this.auditBytes) throw new Error('audit changed outside ADE');
-      // Bound reads; a torn append must not be silently accepted on restart.
-      if (size > 0) {
-        const fd = openSync(this.auditPath, 'r');
-        try {
-          const last = Buffer.alloc(1);
-          if (readSync(fd, last, 0, 1, size - 1) !== 1 || last[0] !== 10) throw new Error('incomplete audit');
-        } finally { closeSync(fd); }
-      }
-      return size;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT' && !this.auditBytes) return 0;
-      throw error;
     }
   }
 

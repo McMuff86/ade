@@ -31,6 +31,11 @@ over a short buffer. A missing acknowledgement clears queued unsent keys and
 requires explicit review; it never replays keys after reconnect. The desktop can
 reclaim control at any time. Closing the workspace leaves the process running.
 
+Visible HTTP(S) links support touch, a **Links** list and accessible history
+anchors. **Bild hinzufügen** offers a screenshot preview and message for the
+current Codex session. The signed, bounded image upload is separate from raw
+terminal input; see [terminal media contracts and evidence](TERMINAL_MEDIA.md).
+
 **Web-Dashboard** opens a separate tab on Mobile. Configure a fixed private HTTPS
 Tailscale URL in the existing desktop agent profile (for example the Hermes
 `/login` page or the OpenClaw root page). The dashboard performs its own login.
@@ -62,7 +67,7 @@ terminal follows interactive PTY output from process creation across chunks and
 resizes. Mobile receives a sanitized rendered frame, not raw PTY bytes. Complete
 soft-wrapped logical lines pass through `redactForWire` before projection; unsafe
 lines are rebuilt without their original cells. Known host paths and credentials
-are hidden. OSC/DCS, links, clipboard operations and arbitrary terminal control
+are hidden. OSC/DCS, embedded link targets, clipboard operations and arbitrary terminal control
 sequences never cross this boundary. Main synthesizes only bounded positioning,
 SGR and selected keyboard/cursor modes. Redaction can shorten a displayed line.
 The shell response carries a fresh style-only CSP nonce, applied through xterm's
@@ -79,8 +84,9 @@ WebSocket stream. At most 240 columns × 100 rows are sent; the main display cap
 its buffer at 500 × 200 with 200 history rows. Excessively styled frames fall
 back to plain cells. Oversized frames or output backlog fail closed without
 stopping the desktop process. Transcript is capped at 64 KiB of text; pending
-headless output at 2 MiB. Mouse reporting and terminal file transfers are not
-offered. Only the device with the input lease changes the PTY size.
+headless output at 2 MiB. Mouse reporting and general terminal file transfers are
+not offered; the explicit Codex image-upload endpoint is separate. Only the
+device with the input lease changes the PTY size.
 
 Keyboard buffering is at most 8 KiB; individual signed packets are at most
 2 KiB UTF-8, with a 16 ms coalescing interval and the existing sequence,

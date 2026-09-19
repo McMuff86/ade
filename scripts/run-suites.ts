@@ -38,9 +38,10 @@ const SUITES: Suite[] = [
   { id: 'remote-dictation', script: 'test-remote-dictation.ts', floors: { win32: 47 } },
   { id: 'dictation-jobs', script: 'test-dictation-jobs.ts', floors: { win32: 21 } },
   { id: 'terminal-prompt', script: 'test-terminal-prompt.ts', floors: { win32: 28 } },
+  { id: 'terminal-media', script: 'test-terminal-media.ts', floors: { win32: 48 } },
   { id: 'microphone-access', script: 'test-microphone-access.ts', floors: { win32: 15 } },
   { id: 'prompt-drafts', script: 'test-prompt-drafts.ts', floors: { win32: 18 } },
-  { id: 'speech', script: 'test-speech.ts', floors: { win32: 56 } },
+  { id: 'speech', script: 'test-speech.ts', floors: { win32: 62 } },
   { id: 'eleven-dialogue', script: 'test-eleven-dialogue.ts', floors: { win32: 32 } },
   { id: 'reply-speech', script: 'test-reply-speech.ts', floors: { win32: 28 } },
   { id: 'remote-reply-speech', script: 'test-remote-reply-speech.ts', floors: { win32: 20 } },
@@ -51,7 +52,7 @@ const SUITES: Suite[] = [
   { id: 'config', script: 'test-config-store.ts', floors: { win32: 34 } },
   { id: 'device-drafts', script: 'test-device-drafts.ts', floors: { win32: 51 } },
   { id: 'workspace-assignment', script: 'test-workspace-assignment.ts', floors: { win32: 33 } },
-  { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 26 } },
+  { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 27 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 30 } },
   { id: 'ollama-coding', script: 'test-ollama-coding.ts', floors: { win32: 46 } },
   { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
@@ -97,7 +98,7 @@ const SUITES: Suite[] = [
   { id: 'supervision-navigation', script: 'test-supervision-navigation.ts', floors: { win32: 8 } },
   { id: 'terminal-workspace-identity', script: 'test-terminal-workspace-identity.ts', floors: { win32: 17 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },
-  { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 38 } },
+  { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 51 } },
   { id: 'device-resources', script: 'test-device-resources.ts', floors: { win32: 43 } },
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 55 } },
@@ -113,7 +114,7 @@ const SUITES: Suite[] = [
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 39 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
   { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
-  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 85 } },
+  { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 88 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored
   // profile-lock check. Everything else, including the whole apply

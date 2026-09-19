@@ -1,11 +1,14 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { RemoteDeviceStore, type DeviceAuditEntry, type DeviceSecretProtection } from '../src/main/remote/RemoteDeviceStore';
 import { RemoteAuthorizer, sha256Hex, signRequest, type RemoteDevice } from '../src/main/remote/authorization';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { CHANNEL_POLICY } from '../src/main/ipcPolicy';
+import { RemoteAuditLog, REMOTE_AUDIT_MAX_BYTES, readRemoteAudit } from '../src/main/remote/RemoteAuditLog';
+import { RemoteCommandLedger } from '../src/main/application/RemoteCommandLedger';
+import { BrowserSessions } from '../src/main/remote/BrowserSessions';
 
 let passed = 0;
 let failed = 0;
@@ -119,7 +122,52 @@ try {
   full.importBootstrap([device]);
   writeFileSync(full.auditPath, Buffer.alloc(8 * 1024 * 1024, 10));
   rejects('audit size bound refuses further mutations', () => full.rename(device.id, 'Unsaved'));
-  check('full audit fails closed on restart', !new RemoteDeviceStore(fullDir, protection).inventory().available);
+  check('invalid full audit fails closed on restart', !new RemoteDeviceStore(fullDir, protection).inventory().available);
+
+  const rotateDir = join(root, 'retention');
+  let rotating = new RemoteDeviceStore(rotateDir, protection);
+  rotating.importBootstrap([device]);
+  rotating.audit({ ...audit, channel: 'host:restart' });
+  const prefix = readFileSync(rotating.auditPath, 'utf8');
+  const filler = JSON.stringify({ ...audit, channel: 'catalog:read' }) + '\n';
+  const filled = prefix + filler.repeat(Math.floor((REMOTE_AUDIT_MAX_BYTES - Buffer.byteLength(prefix)) / Buffer.byteLength(filler)));
+  writeFileSync(rotating.auditPath, filled);
+  rotating = new RemoteDeviceStore(rotateDir, protection);
+  const sessions = new BrowserSessions(rotating);
+  check('near-full valid legacy audit restores the existing encrypted identity', rotating.activeDevices()[0]?.secret === device.secret);
+  const pairing = sessions.beginPairing('https://ade.fixture.ts.net');
+  check('pairing at the former audit limit remains available', pairing.code.length === 43 && rotating.inventory().available);
+  check('retention preserves the previous segment byte for byte before replacing current', readFileSync(join(rotateDir, 'audit.previous.jsonl'), 'utf8') === filled);
+  check('retained current segment includes the successful pairing admission', readFileSync(rotating.auditPath, 'utf8').includes('pairing:begin'));
+  sessions.dispose();
+  const log = new RemoteAuditLog(rotateDir);
+  const largeLine = JSON.stringify({ ...audit, channel: 'catalog:read', reason: 'x'.repeat(1024 * 1024) }) + '\n';
+  for (let i = 0; i < 18; i++) log.append(largeLine);
+  const history = readRemoteAudit(rotateDir);
+  check('repeated retention preserves device and command history barriers', history.history.devices && history.history.commands
+    && !history.text.includes('device:import') && !history.text.includes('host:restart'));
+  check('both durable audit segments remain within 8 MiB', lstatSync(rotating.auditPath).size <= REMOTE_AUDIT_MAX_BYTES
+    && lstatSync(join(rotateDir, 'audit.previous.jsonl')).size <= REMOTE_AUDIT_MAX_BYTES);
+  check('restart after repeated retention preserves paired credentials', new RemoteDeviceStore(rotateDir, protection).activeDevices()[0]?.secret === device.secret);
+  const missingLedger = new RemoteCommandLedger(join(rotateDir, 'commands.json'), () => undefined, () => true);
+  rejects('retained history still blocks missing command receipts', () => missingLedger.permits({ principal: { id: device.id, kind: 'device', proof: 'device-signature', scopes: new Set(['host:restart']) }, requestId: 'retention-test', idempotencyKey: 'retention-test' }, 'host:restart'));
+  rmSync(join(rotateDir, 'devices.json'));
+  check('retained history still blocks missing device state', !new RemoteDeviceStore(rotateDir, protection).inventory().available);
+  rmSync(rotating.auditPath);
+  rejects('an archive without its current journal is not a fresh profile', () => new RemoteAuditLog(rotateDir));
+
+  const linkedAuditDir = join(root, 'hardlinked-audit'); mkdirSync(linkedAuditDir);
+  const outsideAudit = join(root, 'outside-audit'); writeFileSync(outsideAudit, filler);
+  linkSync(outsideAudit, join(linkedAuditDir, 'audit.jsonl'));
+  check('audit refuses hardlinks without changing the target', !new RemoteDeviceStore(linkedAuditDir, protection).inventory().available && readFileSync(outsideAudit, 'utf8') === filler);
+
+  const archiveFailDir = join(root, 'archive-failure'); mkdirSync(archiveFailDir);
+  writeFileSync(join(archiveFailDir, 'devices.json'), raw);
+  writeFileSync(join(archiveFailDir, 'audit.jsonl'), filled);
+  const archiveFailure = new RemoteDeviceStore(archiveFailDir, protection);
+  mkdirSync(join(archiveFailDir, 'audit.previous.jsonl'));
+  rejects('failed archive write blocks pairing before success', () => new BrowserSessions(archiveFailure).beginPairing('https://ade.fixture.ts.net'));
+  check('failed retention preserves the complete current journal and disables authorization', readFileSync(archiveFailure.auditPath, 'utf8') === filled && !archiveFailure.inventory().available);
 
   const linkTarget = join(root, 'link-target');
   mkdirSync(linkTarget);

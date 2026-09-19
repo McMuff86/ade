@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { BrowserRequestBudget } from './BrowserRequestBudget';
 import { DICTATION_MAX_BASE64_CHARS } from '../../shared/dictationRequests';
+import { TERMINAL_IMAGE_MAX_BASE64 } from '../../shared/terminalImages';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../application/AdeApplicationService';
@@ -61,7 +62,7 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
-  | { kind: 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' }
+  | { kind: 'terminalPrompt' | 'terminalImage' | 'dictationCommand' | 'dictationUpload' }
   | { kind: 'integrationQuery' | 'integrationCommand' }
   | { kind: 'assignmentQuery' | 'assignmentCommand' }
   | { kind: 'runQuestions' | 'runAnswer'; runId: string }
@@ -76,7 +77,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -156,6 +157,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
     case '/api/v1/terminal/prompt': return { route: { kind: 'terminalPrompt' }, allow: ['POST'] };
+    case '/api/v1/terminal/images': return { route: { kind: 'terminalImage' }, allow: ['POST'] };
     case '/api/v1/dictation/command': return { route: { kind: 'dictationCommand' }, allow: ['POST'] };
     case '/api/v1/dictation/upload': return { route: { kind: 'dictationUpload' }, allow: ['POST'] };
     case '/api/v1/catalog': return { route: { kind: 'catalog' }, allow: ['GET'] };
@@ -504,6 +506,7 @@ export class HostApiServer {
         case 'terminalCommand':
         case 'terminalInput':
         case 'terminalPrompt':
+        case 'terminalImage':
         case 'dictationCommand':
         case 'dictationUpload':
           await this.handleCommand(request, response, requestId, bearer, target.path, matched.route.kind, undefined, browserRequest); return;
@@ -547,7 +550,7 @@ export class HostApiServer {
     request: IncomingMessage, response: ServerResponse, requestId: string, bearer: RemotePrincipal | null,
     path: string, kind: CommandKind, runId?: string, browserRequest = false,
   ): Promise<void> {
-    if (kind !== 'dictationUpload') return this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest);
+    if (kind !== 'dictationUpload' && kind !== 'terminalImage') return this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest);
     if (this.dictationUploads >= 2) {
       writeError(response, 503, 'unavailable', undefined, { connection: 'close' });
       response.once('finish', () => request.destroy()); return;
@@ -568,7 +571,7 @@ export class HostApiServer {
     browserRequest = false,
   ): Promise<void> {
     const expectsJson = kind !== 'startRun' && kind !== 'cancelRun' && kind !== 'deleteRun';
-    const body = await this.readBody(request, response, expectsJson, kind === 'dictationUpload' ? DICTATION_MAX_BASE64_CHARS + 1024 : this.maxBodyBytes);
+    const body = await this.readBody(request, response, expectsJson, kind === 'terminalImage' ? TERMINAL_IMAGE_MAX_BASE64 + 2048 : kind === 'dictationUpload' ? DICTATION_MAX_BASE64_CHARS + 1024 : this.maxBodyBytes);
     if (body === null) return;
     if (kind === 'deleteRun' && body.length !== 0) { writeError(response, 400, 'invalid_payload', 'delete takes no body'); return; }
 
@@ -618,6 +621,7 @@ export class HostApiServer {
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
         : kind === 'terminalPrompt' ? await this.application.remotePrompt(context, payload)
+        : kind === 'terminalImage' ? await this.application.remoteTerminalImage(context, payload)
         : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
         : kind === 'supervisionQuery' || kind === 'supervisionCommand' ? await this.application.supervision(context, payload, kind === 'supervisionCommand')

@@ -1,5 +1,42 @@
 # ADE — aktuelle Übergabe
 
+## Wiederhergestellt: Tablet-Pairing am 19. September
+
+Nutzer beauftragt Verbindung zu Hause/unterwegs, Abschluss der offenen Tablet-
+Links/Bilder, Commit und Push; zusätzlich Build-Optimierung. Aktive Instanz bei
+Diagnose: PID 36692, `pnpm start` aus dem Repository. Das gültige produktive Audit
+hat **8.388.490 Bytes**; der nächste fsynced Eintrag sperrte Geräteverwaltung.
+PC und Samsung-Tablet waren in Tailscale online, private HTTPS-Route intakt.
+Korrektur bewahrt Schlüssel und Quittungen, führt begrenzte Audit-Aufbewahrung ein
+und verhindert irreführende Bereitschaft bei gesperrter Geräteablage.
+Um **09:18 CEST** auf Source **`9c76087fb515f3b8c16e`**, PID **47752**,
+Release `dist/pairing-recovery-9c76087fb515f3b8c16e` gewechselt. Sechs Profile,
+sechs Projekte und beide aktiven Gerätekopplungen einschliesslich Schlüssel/Rechte
+unverändert. Sicherung `C:\Users\Adi.Muff\ADE-Backups\PairingRecovery-20260919-091828`.
+Alte PID regulär per Tray beendet, Startmenü-Verknüpfung aktualisiert.
+Echte private HTTPS-/Link-/Code-Abnahme **9/0**, alle fünf ausgelieferten
+Mobile-JavaScript-Dateien bytegleich geprüft; Tailscale-Serve-Konfiguration
+einschliesslich der anderen Freigabe unverändert. QR/Code am PC sichtbar.
+Aktivierung nach **3.780 Kernprüfungen** und korrigierter fokussierter UI-Abnahme;
+vollständiges `pnpm verify` am **19. September, 11:15 CEST**, Exit **0**:
+**91 Kernsuiten / 3.780 Prüfungen**, beide Produktionsoberflächen und **30
+Electron-/Browser-Driver**. Anwendungsquellstand unverändert; seit der Aktivierung
+wurden nur Test-Synchronisation und Dokumentation angepasst.
+Bedienung: `pnpm build` baut Desktop und Mobile, `pnpm start` verwendet diesen
+Build ohne erneutes Bauen. Bestehende ADE-Instanz vorher im Tray vollständig
+beenden und anschliessend Tablet-Seite neu laden. Physische Tablet-Kopplung und
+Wechsel zwischen Heimnetz und Mobilfunk sind vom Nutzer noch nicht bestätigt.
+[Aktueller Prüf- und Betriebsstand](MOBILE_PAIRING_RECOVERY.md).
+
+## Vorgeschichte: Tablet-Links und Screenshots
+
+18. September: Nutzer beauftragt Implementierung, Build und ADE-Neustart aus
+seinem Tablet-Terminal. Linkliste und sitzungsgebundene Codex-Bildübergabe sind
+damals implementiert, aber noch nicht fertig abgenommen. Persönliche Instanz
+war PID 4776, Source `0ad73a9e9d0db5218f6f`. Die Abnahme und der beauftragte
+Neustart sind am 19. September abgeschlossen; aktueller Stand siehe oben.
+[Vertrag/Nachweise](TERMINAL_MEDIA.md).
+
 ## Aktiviert: Stimmtest mit englisch ausgesprochenem Agent
 
 18. September, **07:00 CEST**: Source **`0ad73a9e9d0db5218f6f`**, PID **4776**,

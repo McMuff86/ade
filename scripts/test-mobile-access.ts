@@ -235,6 +235,16 @@ void (async () => {
     check('startup recovery retains the same paired identity', positive.activeDevices()[0]?.id === 'positive');
     check('disable stops listener and removes only its owned route', !(await controller.setEnabled(false)).enabled && !serving);
     check('opt-out survives vault reload', !new RemoteDeviceStore(join(root, 'positive'), fixtureProtection).mobilePreferences().enabled);
+    await controller.setEnabled(true);
+    appendFileSync(positive.auditPath, '{torn');
+    try { positive.audit({ at: Date.now(), principalId: 'desktop', principalKind: 'desktop', requestId: 'failed-audit', channel: 'pairing:begin', target: null, outcome: 'requested' }); } catch { /* Intended storage failure. */ }
+    const unavailable = await controller.status();
+    check('verified HTTPS cannot mask unavailable device storage', !unavailable.listening && unavailable.https !== 'verified' && unavailable.message.includes('Geräteverwaltung'));
+    let pairingRefused = false;
+    try { await controller.beginPairing(); } catch (error) { pairingRefused = error instanceof Error && error.message.includes('Geräteverwaltung'); }
+    check('pairing explains the storage failure before creating a challenge', pairingRefused);
+    await new Promise(done => setTimeout(done, 100));
+    check('connection monitor does not restart a listener with failed storage', !(await controller.status()).listening);
   } finally { await controller.dispose(); }
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {
   sessions.dispose(); await server.stop();

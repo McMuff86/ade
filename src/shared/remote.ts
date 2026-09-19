@@ -272,6 +272,7 @@ export interface MobileRunFile { id: string; path: string; name: string; bytes: 
 export interface MobileRunFiles { files: MobileRunFile[]; limited: boolean; notice: string | null;
   unavailableTasks?: Array<{ taskId: string; title: string; notice: string }> }
 export interface MobileTerminalState {
+  imageCapability?: import('./terminalPrompt').TerminalPromptCapability;
   promptCapability?: import('./terminalPrompt').TerminalPromptCapability;
   /** Digest of safe frame AND scrollback; unchanged replies omit both bodies. */
   displayRevision?: string;
@@ -302,7 +303,10 @@ export type MobileTerminalInput = MobileTerminalSelection & {
 };
 export type MobileTerminalPrompt = MobileTerminalSelection & {
   terminalId: string; leaseId: string; sequence: number; text: string; mode: 'insert' | 'submit'; cols: number; rows: number;
+  imageIds?: string[];
 };
+export type MobileTerminalImageUpload = MobileDictationTarget & { pngBase64: string };
+export interface MobileTerminalImage { id: string; name: string; bytes: number; width: number; height: number }
 export type MobileWorkspaceOperation =
   | { operation: 'overview' }
   | { operation: 'tree'; path: string }

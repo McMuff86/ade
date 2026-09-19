@@ -1,5 +1,26 @@
 # ADE implementation status
 
+## Abgeschlossen und aktiviert: Pairing und Browser-Build (19. September 2026)
+
+Produktiver Pairing-Ausfall auf ein bis zur 8-MiB-Grenze gefülltes Zugriffsprotokoll
+zurückgeführt. Begrenzte atomare Archivierung mit dauerhaften Historienmarkern,
+wahrheitsgemässe Verbindungsanzeige und kleinere Browser-Chunks implementiert.
+Fokussierte Geräte-/Verbindungsprüfungen **51/0** und **88/0**, Electron-Pairing
+**37/0**, Tastatur/Antworten **35/0**, Links/Bilder **27/0**. Persönlich um
+**09:18 CEST** aktiviert; echte private HTTPS-Abnahme **9/0**, Profile/Projekte/
+zwei Kopplungen erhalten. Vollständiges `pnpm verify` am **19. September,
+11:15 CEST** bestanden: **91 Kernsuiten / 3.780 Prüfungen**, Build und **30
+Electron-/Browser-Driver**. Terminal-Gesamtflow **208/0**, Wiederaufnahme **30/0**.
+Physische Tablet-/Netzwechsel-Rückmeldung steht noch aus.
+[Nachweise](MOBILE_PAIRING_RECOVERY.md).
+
+## Aktiviert: Tablet-Links und Screenshot-Anhänge (18./19. September 2026)
+
+Antippbare HTTP(S)-Links, Linkliste mit Kopieren, Bildvorschau/Dateiauswahl und
+Clipboard-Bilder im Tablet-Terminal implementiert. Sitzungsgebundener Upload und
+echte Codex-Bildannahme und Browser-Abnahme geprüft; persönlicher Neustart am
+19. September erfolgt. Vollständiges `pnpm verify` bestanden. [Vertrag](TERMINAL_MEDIA.md).
+
 ## Aktiviert: kurzer Stimmtest-Text (18. September 2026)
 
 Aussprachehinweis aus der gemeinsamen Stimmenansicht entfernt. Der Stimmtest

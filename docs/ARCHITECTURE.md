@@ -1087,6 +1087,18 @@ This root is not presented as the shell's current directory; wire masking remain
 Mobile shell responses inject a fresh style-only CSP nonce. xterm's scoped
 document override nonces its generated style elements; script policy stays
 `script-src 'self'`, with no unsafe-inline/eval exception.
+
+Tablet terminal media uses visible, already-redacted HTTP(S) link detection;
+OSC links stay stripped. Touch and history links open a separate noopener tab;
+loopback URLs require an explicitly reachable project address. Image input uses
+the signed, leased `POST /api/v1/terminal/images` application-service endpoint
+and opaque IDs in `MobileTerminalPrompt.imageIds`, never client paths. Main
+normalizes bounded PNG input, stages it outside repositories in the selected
+execution backend, and revalidates ownership/workspace/hash/link discipline
+before a protected, serialized sequence of image pastes, text and delayed Enter.
+The verified adapter is Codex. The durable command ledger retains fingerprints
+and safe receipts, not image bodies. No generic remote IPC scope is widened.
+See [limits, lifecycle and executable evidence](TERMINAL_MEDIA.md).
 WSL home checks use `WslRootProbe`: a bounded, read-only worker per active distro
 reopens root components for every validation. Identity results are never cached;
 all existing pre/post-operation checks and grants remain in place. Its fixed
@@ -2301,8 +2313,8 @@ controllable. Rename preserves connections. The UI has loading/error/empty state
 keyboard form submission, wrapped narrow layouts and explicit focus recovery to
 the name field after saving or the refresh button after revocation.
 
-`userData/ade/remote/audit.jsonl` is a separate append-only, fsynced journal, not
-run history or a rotating diagnostic log. A projected entry contains timestamp,
+`userData/ade/remote/audit.jsonl` is a separate fsynced access journal with bounded
+retention, independent of run history and diagnostic logs. A projected entry contains timestamp,
 principal id/kind, request id, channel, target, outcome and optional redacted reason.
 It excludes device names, secrets, signatures and request bodies. Device changes
 record `requested` before the atomic state write and `executed` afterwards; remote
@@ -2312,12 +2324,34 @@ Transport denials (including invalid bearer/proof/body) are recorded too; unveri
 callers are marked anonymous, never attributed from an untrusted device header.
 Successful signed reads record authentication. All text uses `redactForWire`.
 
-The audit has an 8 MiB hard cap. A torn append, external size change, full journal
-or failed append disables authorization and closes active device connections.
-There is no automatic deletion, rotation, viewer or recovery UI yet; an operator
-must preserve and investigate the local files before offline maintenance.
+Each audit segment has an 8 MiB cap. Before an append exceeds it, `RemoteAuditLog`
+atomically saves the complete current segment as `audit.previous.jsonl`, then
+atomically replaces current with its newest complete lines (up to 4 MiB) and a
+checkpoint. The checkpoint permanently carries prior device/command-history
+barriers, so retention cannot turn missing `devices.json` or command receipts
+into a fresh profile. Both startup consumers validate current and previous;
+an archive without current is unavailable. A crash during replacement leaves
+either the old or new complete current segment. Durable storage is at most
+16 MiB, plus bounded temporary writes. Older history is deliberately retired.
+A torn/invalid/oversized segment, external current-size change, links/hardlinks,
+or failed archive/append still disables authorization and closes connections.
+Device secrets and command receipts are not pruned by audit retention.
+`MobileAccessController` includes secure-store availability in readiness and
+pairing checks; its monitor never restarts an unavailable store's listener.
+HTTPS alone must not claim that pairing is ready.
 This journal is deliberately independent of `RunArchive` and run retention.
 General desktop IPC diagnostics still go to the rotating main log.
+
+Desktop and Mobile browser builds separate React and xterm library chunks.
+Desktop production assets use esbuild minification; main/preload remain unchanged.
+Mobile loads `TerminalScreen` on first displayed terminal, with an accessible
+loading state and an explicit page-reload action on module-load failure. Reload
+reattaches to the existing PC session. Desktop loads QR generation on demand.
+The Mobile worker still precaches all public chunks for offline availability;
+lazy loading reduces initial parsing, not the complete precache download size.
+`pnpm build` builds both surfaces; `pnpm start` uses `preview --skipBuild` so
+starting cannot silently rebuild only Desktop. Build fingerprints include the
+shared chunk configuration. [Operator instructions and evidence](MOBILE_PAIRING_RECOVERY.md).
 
 #### Request discipline (fail closed)
 

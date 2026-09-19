@@ -7,7 +7,7 @@ import { MobileClientError } from './client';
 import { workspaceError } from './AgentWorkspace';
 import { Dialog, DialogHeaderSlot } from './ui';
 import { useDeviceDraft } from './deviceDrafts';
-import { TerminalScreen } from './TerminalScreen';
+import { LazyTerminalScreen as TerminalScreen } from './LazyTerminalScreen';
 import { SubscriptionUsagePanel } from '../renderer/terminal/SubscriptionUsagePanel';
 import { SessionProfileContext } from '../renderer/terminal/SessionProfileContext';
 import { TerminalInputQueue } from './TerminalInputQueue';
@@ -19,6 +19,7 @@ import { openTerminalKeyboard } from './terminalKeyboard';
 import type { MobileTerminalPrompt } from '../shared/remote';
 import { mobileReplyPort } from './replySpeechPort';
 import { TerminalVoiceStrip } from './TerminalVoiceStrip';
+import { TerminalImageButton } from './TerminalImageButton';
 import { KeyboardIcon } from '../renderer/terminal/VoiceStrip';
 import { SessionSwitchButton } from '../renderer/sessions/SessionSwitcher';
 import { SupervisionButton } from '../renderer/supervision/SupervisionGraph';
@@ -295,7 +296,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       if (live.current) setError(current => current || 'Terminaleingabe wurde nicht bestätigt. Entwurf behalten und Terminal prüfen.');
     } finally { explicitLock.current = false; if (live.current) setExplicitPending(false); }
   };
-  const sendPrompt = async (text: string, mode: 'insert' | 'submit', key: string) => {
+  const sendPrompt = async (text: string, mode: 'insert' | 'submit', key: string, imageIds?: string[]) => {
     const targetId = selected; const leaseId = stateRef.current.leaseId;
     const deadline = performance.now() + 5000;
     while ((!keyboard.idle || lock.current) && performance.now() < deadline) await new Promise(done => setTimeout(done, 8));
@@ -304,7 +305,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       || current.selected?.id !== targetId || !leaseId || current.leaseId !== leaseId || current.selected.owner !== 'self' || !inputConnection.current.online || !inputConnection.current.ready || inputConnection.current.readError) {
       throw new Error('Terminal ist noch beschäftigt oder die Eingabe wurde übernommen. Entwurf behalten und Terminal prüfen.');
     }
-    const outgoing: MobileTerminalPrompt = { ...selection, terminalId: targetId, leaseId, sequence: (current.lastSequence ?? 0) + 1, text, mode, ...dimensions.current };
+    const outgoing: MobileTerminalPrompt = { ...selection, terminalId: targetId, leaseId, sequence: (current.lastSequence ?? 0) + 1, text, mode, ...(imageIds?.length ? { imageIds } : {}), ...dimensions.current };
     lock.current = true; setBusy(true);
     try {
       const receipt = await host.request<{ sequence: number; replayed: boolean }>('/api/v1/terminal/prompt', 'POST', outgoing, key);
@@ -442,6 +443,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
           : !owning || !state.leaseId ? { reason: state.selected.owner === 'other' ? 'Eingabe bei einem anderen Gerät' : 'Eingabe beim PC',
             action: <button className="m-primary" disabled={blocked || state.selected.owner === 'other'} onClick={() => void action('claim')}>Eingabe übernehmen</button> } : undefined}
         trailing={<><div ref={setReplySlot} className="voice-strip-reply" />
+          <TerminalImageButton key={`${selected}/${state.leaseId ?? ''}`} host={host} target={{ ...selection, terminalId: selected, leaseId: state.leaseId ?? '' }}
+            enabled={inputEnabled} capability={state.imageCapability} send={sendPrompt} eventRoot={screenRoot} />
           <button className="voice-icon-button" aria-label="Tastatur öffnen" aria-pressed={keysShown} disabled={!inputEnabled}
             onClick={() => { setKeysShown((value) => !value); openTerminalKeyboard(screenRoot.current?.querySelector<HTMLTextAreaElement>('.xterm-helper-textarea'), keyboardOpen); }}><KeyboardIcon /></button></>} />
       <div className="m-terminal-composer">

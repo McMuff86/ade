@@ -9,6 +9,9 @@ import { terminalKeyboardActivationFlow } from './terminalKeyboardActivationFlow
 
 export async function assistantAccessFlow(desktop: Page, tablet: Page, root: string, categoryId: string, evidence: string,
   check: (label: string, ok: boolean) => void): Promise<void> {
+  // Use the same landscape size in the isolated driver and the complete flow;
+  // previous project tests must not determine this layout assertion's viewport.
+  await tablet.setViewportSize({ width: 1280, height: 800 });
   const compile = join(root, 'compile-tui.ps1'); const binary = join(root, 'assistant-tui.exe');
   writeFileSync(compile, `param([string]$Target)
 Add-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'
@@ -62,7 +65,11 @@ public class Tui { public static void Main(string[] args) {
       check('ordinary workspace keeps a usable terminal and folds the empty composer', await normal.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height >= 220)
         && !await normal.getByLabel('Terminal-Eingabe', { exact: true }).isVisible());
       await expandSessionControls(normal);
-      await normal.getByRole('button', { name: `${profile.name} öffnen`, exact: true }).focus(); await tablet.keyboard.press('Enter');
+      const openAgent = normal.getByRole('button', { name: `${profile.name} öffnen`, exact: true });
+      // focus() does not wait for enabled controls. The initial terminal resize
+      // can still hold the input lease; wait for actionability before Enter.
+      await openAgent.click({ trial: true });
+      await openAgent.focus(); await tablet.keyboard.press('Enter');
       await normal.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_TUI_READY', { exact: false }).last().waitFor();
       check('visible agent action starts the TUI from a shell and enlarges it', await normal.getByRole('button', { name: 'Workspace einblenden', exact: true }).isVisible());
       await normal.getByRole('button', { name: `Workspace · ${profile.name} schliessen`, exact: true }).click();

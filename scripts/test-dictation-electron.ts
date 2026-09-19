@@ -8,6 +8,7 @@ import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
 import { LIVE_DICTATION_MAX_SECONDS } from '../src/shared/liveDictation';
 import { expect } from 'playwright/test';
+import { terminalMediaFlow } from './helpers/terminalMediaFlow';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
@@ -63,10 +64,14 @@ public class Fixture {
   if (Array.IndexOf(args, "app-server") >= 0) return;
   NativeUsageFixture.Report(args);
   Console.Write("\x1b[?2004hDICTATION_CLI_READY\r\n");
+  if (File.Exists(Path.Combine(Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName), "terminal-media-fixture"))) {
+    Console.Write("https://example.org/tablet\r\nhttp://localhost:5173\r\nhttps://example.org/" + new String('a', 180) + "\r\n");
+  }
   uint mode; var handle = GetStdHandle(-10); GetConsoleMode(handle, out mode); SetConsoleMode(handle, (mode & ~7u) | 0x200u); SetConsoleCP(65001);
   var input = new StringBuilder(); var stdin = Console.OpenStandardInput();
   while (true) {
     int value = stdin.ReadByte(); if (value == -1 || value == 4) return;
+    if (value == 12) { Console.Write("\x1b[2J\x1b[H\r\n\r\n\r\nhttps://example.org/tablet"); input.Clear(); continue; }
     input.Append((char)value);
     if (input.ToString().EndsWith("\x1b[201~\r")) {
       File.AppendAllText("prompt-proof.jsonl", Convert.ToBase64String(Encoding.GetEncoding(28591).GetBytes(input.ToString())) + "\n");
@@ -79,6 +84,7 @@ ${nativeUsageFixtureSource}
 `);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
   copyFileSync(join(bin, 'codex.exe'), join(bin, 'claude.exe')); copyFileSync(join(bin, 'codex.exe'), join(bin, 'grok.exe'));
+  if (process.argv.includes('--terminal-media-only')) writeFileSync(join(bin, 'terminal-media-fixture'), '1');
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { windowsHide: true });
   git('init', '--initial-branch=main'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture');
   const launcher = join(root, 'launch.cjs');
@@ -167,9 +173,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).focus();
   await page.keyboard.press('Enter'); const dialog = page.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
   const draft = dialog.getByLabel('CLI-Promptentwurf', { exact: true });
-  if (process.argv.includes('--computer-only')) {
+  if (process.argv.includes('--computer-only') || process.argv.includes('--terminal-media-only')) {
     const { computerVoiceFlow } = await import('./helpers/computerVoiceFlow');
-    await computerVoiceFlow(page, dialog, root, 'desktop', evidence, check);
+    if (!process.argv.includes('--terminal-media-only')) await computerVoiceFlow(page, dialog, root, 'desktop', evidence, check);
     await page.keyboard.press('Escape');
     const denied = await page.evaluate(async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(track => track.stop()); return false; } catch { return true; } });
     check('Computer releases desktop microphone permission before the next test', denied);
@@ -181,7 +187,14 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     const code = await access.getByLabel('Einmaliger Pairing-Code').inputValue();
     proxy = await mobileTlsProxy(); proxy.target(port); proxy.rewriteOrigin('https://ade-mobile.fixture.ts.net');
     browser = await chromium.launch({ channel: 'chromium', args: ['--ignore-certificate-errors', '--use-fake-device-for-media-stream', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
-    const tablet = await browser.newPage({ viewport: { width: 768, height: 600 }, hasTouch: true, ignoreHTTPSErrors: true }); tablet.setDefaultTimeout(25_000);
+    const mediaOnly = process.argv.includes('--terminal-media-only');
+    const tablet = await browser.newPage({ viewport: { width: 768, height: 600 }, hasTouch: true, ignoreHTTPSErrors: true,
+      ...(mediaOnly ? { serviceWorkers: 'block' as const } : {}) }); tablet.setDefaultTimeout(25_000);
+    let screenRequested = false; let releaseScreen!: () => void;
+    const screenGate = new Promise<void>(done => { releaseScreen = done; });
+    if (mediaOnly) await tablet.route(/\/assets\/TerminalScreen-[^/]+\.js$/, async route => {
+      screenRequested = true; await screenGate; await route.abort('failed');
+    });
     await tablet.context().grantPermissions(['microphone'], { origin: proxy.origin });
     await tablet.goto(`${proxy.origin}/#pair=${code}`);
     await tablet.getByLabel('Gerätename', { exact: true }).fill('Computer tablet');
@@ -192,14 +205,34 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
       await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: ['workspace:read', 'projects:write', 'terminal:control', 'dictation:transcribe', 'speech:control'] });
     });
     await tablet.getByRole('tab', { name: 'Projekte', exact: true }).click();
+    if (mediaOnly) check('pairing and project navigation do not load the terminal module', !screenRequested);
     await tablet.getByRole('button', { name: 'Workspace öffnen: Dictation project', exact: true }).click();
     const project = tablet.getByRole('dialog', { name: 'Projekt · Dictation project', exact: true });
     await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
     await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
     await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
+    if (mediaOnly) {
+      await project.getByRole('status').filter({ hasText: 'Terminalanzeige wird geladen' }).waitFor();
+      check('a delayed terminal module has an accessible loading state', screenRequested);
+      releaseScreen();
+      await project.getByRole('alert').filter({ hasText: 'Terminalanzeige konnte nicht geladen werden' }).waitFor();
+      const running = (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter(item => item.status === 'running').map(item => item.id).sort().join();
+      await tablet.unroute(/\/assets\/TerminalScreen-[^/]+\.js$/);
+      await project.getByRole('button', { name: 'Seite erneut laden', exact: true }).focus(); await tablet.keyboard.press('Enter');
+      await tablet.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+      // The saved workspace restores itself; its title is briefly "Workspace"
+      // while the authorized query is loading. Do not click behind that dialog.
+      await project.waitFor();
+      await project.getByLabel('Terminalanzeige', { exact: true }).waitFor();
+      check('keyboard reload recovers the terminal module without restarting or duplicating the PC session', running === (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.filter(item => item.status === 'running').map(item => item.id).sort().join());
+    }
     const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
     await strip.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
     await strip.getByRole('button', { name: 'Sprechen', exact: true }).waitFor();
+    if (process.argv.includes('--terminal-media-only')) {
+      await terminalMediaFlow(tablet, project, repo, evidence, check, proxy);
+      console.log(`Terminal media Electron: ${passed} passed, 0 failed`); return;
+    }
     check('tablet Computer call lives in the voice strip under the visible terminal', await project.getByLabel('Terminalanzeige', { exact: true }).isVisible()
       && await tablet.locator('dialog.m-prompt-dialog').count() === 0);
     const { computerStripFlow } = await import('./helpers/computerVoiceFlow');

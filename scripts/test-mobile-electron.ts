@@ -49,8 +49,21 @@ void (async () => {
   await mobile.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
   check('desktop enable starts the real loopback host', await mobile.getByLabel('Mobile ADE-Adresse').inputValue() === 'https://ade-mobile.fixture.ts.net');
   check('enable restores focus to the stable status control', await mobile.getByRole('button', { name: 'Verbindung prüfen', exact: true }).evaluate((node) => node === document.activeElement));
+  await app.evaluate(({ safeStorage }) => {
+    const original = safeStorage.isEncryptionAvailable;
+    safeStorage.isEncryptionAvailable = () => false;
+    (globalThis as unknown as { restoreStorage: () => void }).restoreStorage = () => { safeStorage.isEncryptionAvailable = original; };
+  });
+  await mobile.getByRole('button', { name: 'Verbindung prüfen', exact: true }).click();
+  await mobile.getByText('Verbindung noch nicht bereit.', { exact: true }).waitFor();
+  check('desktop reports unavailable storage and disables pairing despite a configured HTTPS route', await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).isDisabled()
+    && (await mobile.innerText()).includes('Geräteverwaltung ist nicht verfügbar'));
+  await app.evaluate(() => { (globalThis as unknown as { restoreStorage: () => void }).restoreStorage(); });
+  await mobile.getByRole('button', { name: 'Verbindung erneut aktivieren' }).click();
+  await mobile.getByText('Private Freigabe eingerichtet.', { exact: true }).waitFor();
   await mobile.getByRole('button', { name: 'Tablet oder Smartphone koppeln' }).click();
   const code = mobile.getByLabel('Einmaliger Pairing-Code'); await code.waitFor();
+  await desktop.waitForFunction(() => document.querySelector<HTMLCanvasElement>('[data-testid="mobile-access"] canvas')?.width === 224);
   check('desktop pairing creates a QR code and focuses the manual alternative', await mobile.locator('canvas').isVisible() && await code.evaluate((node) => node === document.activeElement));
   const pairingCode = await code.inputValue();
   check('desktop pairing link uses one-use fragment material', (await mobile.getByLabel('Einmaliger Pairing-Link').inputValue()).endsWith(`#pair=${pairingCode}`));

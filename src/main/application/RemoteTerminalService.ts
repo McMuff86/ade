@@ -14,6 +14,9 @@ import type { MobileTerminalPrompt, MobileDictationTarget } from '../../shared/r
 import { terminalPromptBytes, validTerminalPrompt, type TerminalPromptCapability, type TerminalPromptRequest, type TerminalPromptReceipt } from '../../shared/terminalPrompt';
 import { validPromptText } from '../../shared/dictation';
 import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
+import type { TerminalImageStore } from './TerminalImageStore';
+import { TERMINAL_IMAGE_MAX_BASE64, validTerminalImageId } from '../../shared/terminalImages';
+import type { MobileTerminalImageUpload } from '../../shared/remote';
 
 type RecordingAuthorization = (() => void) & { usage: Readonly<SpeechUsageAttribution> };
 const recordingAuthorization = (authorize: () => void, session: SessionMeta): RecordingAuthorization => Object.assign(authorize, {
@@ -23,7 +26,7 @@ const recordingAuthorization = (authorize: () => void, session: SessionMeta): Re
 export interface RemoteTerminalPort {
   promptCapability?(sessionId: string, requirePaste?: boolean): TerminalPromptCapability;
   deliverPrompt?(request: TerminalPromptRequest, authorize: () => void | Promise<void>): TerminalPromptReceipt | Promise<TerminalPromptReceipt>;
-  writePrompt?(sessionId: string, text: string, authorize: () => void | Promise<void>): void | Promise<void>;
+  writePrompt?(sessionId: string, text: string | readonly string[], authorize: () => void | Promise<void>): void | Promise<void>;
   profileContext?(sessionId: string): string | null;
   usage?(sessionId: string): Promise<import('../../shared/remote').SubscriptionUsage>;
   display?(sessionId: string): Promise<Pick<MobileTerminalState, 'screen' | 'frame'>>;
@@ -70,10 +73,21 @@ export function validateTerminal(value: unknown, kind: 'query' | 'command' | 'in
 
 export function validateTerminalPrompt(value: unknown): MobileTerminalPrompt {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
-  const { text, mode, ...selection } = value as Record<string, unknown>;
+  const { text, mode, imageIds, ...selection } = value as Record<string, unknown>;
+  if (imageIds !== undefined && (!Array.isArray(imageIds) || imageIds.length < 1 || imageIds.length > 4 || !imageIds.every(validTerminalImageId) || new Set(imageIds).size !== imageIds.length)) throw new RemoteApiError(400, 'invalid_payload');
   if (Object.hasOwn(selection, 'data') || !validPromptText(text) || (mode !== 'insert' && mode !== 'submit')) throw new RemoteApiError(400, 'invalid_payload');
   validateTerminal({ ...selection, data: '' }, 'input');
   return value as MobileTerminalPrompt;
+}
+
+export function validateTerminalImageUpload(value: unknown): MobileTerminalImageUpload {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new RemoteApiError(400, 'invalid_payload');
+  const { pngBase64, ...target } = value as Record<string, unknown>;
+  if (typeof pngBase64 !== 'string' || pngBase64.length < 44 || pngBase64.length > TERMINAL_IMAGE_MAX_BASE64
+    || pngBase64.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(pngBase64)
+    || ['data', 'sequence', 'cols', 'rows'].some(key => Object.hasOwn(target, key))) throw new RemoteApiError(400, 'invalid_payload');
+  validateTerminal({ ...target, data: '', sequence: 1, cols: 80, rows: 24 }, 'input');
+  return value as MobileTerminalImageUpload;
 }
 
 /** Remote identities map to live interactive PTYs only inside main. No raw PTY ids on the wire. */
@@ -83,7 +97,8 @@ export class RemoteTerminalService {
   constructor(private readonly workbench: RemoteWorkbenchService, private readonly port: RemoteTerminalPort,
     private readonly allowed: (deviceId: string) => boolean, private readonly audit: (entry: DeviceAuditEntry) => void,
     private readonly changed: (state: TerminalControlState) => void = () => undefined, private readonly now = () => Date.now(),
-    private readonly authorizeSelection: (deviceId: string, selection: Partial<MobileTerminalSelection> & { profileId?: string }) => void = () => undefined) {
+    private readonly authorizeSelection: (deviceId: string, selection: Partial<MobileTerminalSelection> & { profileId?: string }) => void = () => undefined,
+    private readonly images?: TerminalImageStore) {
     this.timer = setInterval(() => this.expire(), 1000); this.timer.unref();
   }
   dispose(): void { clearInterval(this.timer); this.entries.clear(); }
@@ -170,7 +185,7 @@ export class RemoteTerminalService {
     const displayRevision = workbenchDigest(JSON.stringify([entry!.id, display.frame?.revision, display.screen]));
     const promptCapability: TerminalPromptCapability | undefined = !input.prompt ? undefined : own ? this.port.promptCapability?.(entry!.sessionId)
       ?? { available: false, reason: 'Promptübergabe ist nicht verfügbar.' } : { available: false, reason: 'Zuerst die Terminal-Eingabe übernehmen.' };
-    return { ...current(), subscriptionUsage, displayRevision,
+    return { ...current(), subscriptionUsage, displayRevision, imageCapability: this.imageCapability(session!),
       ...(promptCapability ? { promptCapability: promptCapability.available ? promptCapability : { available: false as const, reason: redactForWire(promptCapability.reason, 1000) } } : {}),
       ...(input.profileContext ? { profileContextText: typeof profileText === 'string' ? redactForWire(profileText, 32_000) : null } : {}),
       selected: this.summary(entry!, session!, deviceId, binding), ...(input.knownDisplayRevision === displayRevision ? { displayUnchanged: true as const } : display),
@@ -252,9 +267,43 @@ export class RemoteTerminalService {
 
   async prompt(context: RemoteCommandContext, input: MobileTerminalPrompt): Promise<{ sequence: number; replayed: boolean }> {
     if (!this.port.writePrompt) failure('Promptübergabe ist nicht verfügbar.');
-    const { text, mode, ...selection } = input;
+    const { text, mode, imageIds, ...selection } = input;
+    let parts: string[] | undefined; let revalidateImages: (() => Promise<void>) | undefined;
+    if (imageIds?.length) {
+      const target = await this.imageTarget(context.principal.id, input);
+      const paths = await Promise.all(imageIds.map(id => this.images!.path(context.principal.id, input.terminalId, target.backend, id)));
+      revalidateImages = async () => {
+        await target.authorize();
+        await Promise.all(imageIds.map(id => this.images!.path(context.principal.id, input.terminalId, target.backend, id)));
+      };
+      parts = [...paths.map(path => `\x1b[200~${path}\x1b[201~`), terminalPromptBytes(text, mode)];
+    }
     // Bind the receipt to the original text/mode as well as to the generated bytes.
-    return this.input(context, { ...selection, data: terminalPromptBytes(text, mode) }, { text, mode });
+    return this.input(context, { ...selection, data: terminalPromptBytes(text, mode) }, { text, mode, imageIds, parts, revalidateImages });
+  }
+
+  private imageCapability(session: SessionMeta): TerminalPromptCapability {
+    if (!this.images || session.runtime !== 'codex') return { available: false, reason: 'Bildanhänge sind für native Codex-Sitzungen verfügbar.' };
+    return this.port.promptCapability?.(session.id, false) ?? { available: false, reason: 'Bildübergabe ist nicht verfügbar.' };
+  }
+
+  async imageTarget(deviceId: string, target: MobileDictationTarget) {
+    // Drop no fields from an untrusted request here: its caller validates the DTO.
+    const authorizeRecording = await this.recordingTarget(deviceId, target);
+    const binding = await this.workbench.resolveTerminal(target);
+    const entry = this.requireEntry(target.terminalId, binding!);
+    const authorize = async () => {
+      await this.workbench.revalidate(binding!); authorizeRecording();
+      const capability = this.imageCapability(this.port.list().find(session => session.id === entry.sessionId)!);
+      if (!capability.available) failure(capability.reason);
+    };
+    await authorize(); return { backend: binding!.executionBackend, authorize };
+  }
+
+  async uploadImage(deviceId: string, input: MobileTerminalImageUpload) {
+    const { pngBase64, ...target } = input;
+    const { backend, authorize } = await this.imageTarget(deviceId, target);
+    return this.images!.put(deviceId, input.terminalId, backend, Buffer.from(pngBase64, 'base64'), authorize);
   }
 
   async recordingTarget(deviceId: string, target: MobileDictationTarget): Promise<RecordingAuthorization> {
@@ -291,7 +340,7 @@ export class RemoteTerminalService {
     authorize(); return recordingAuthorization(authorize, this.port.list().find(item => item.id === entry.sessionId)!);
   }
 
-  async input(context: RemoteCommandContext, input: MobileTerminalInput, prompt?: Pick<MobileTerminalPrompt, 'text' | 'mode'>): Promise<{ sequence: number; replayed: boolean }> {
+  async input(context: RemoteCommandContext, input: MobileTerminalInput, prompt?: Pick<MobileTerminalPrompt, 'text' | 'mode' | 'imageIds'> & { parts?: readonly string[]; revalidateImages?: () => Promise<void> }): Promise<{ sequence: number; replayed: boolean }> {
     const deviceId = context.principal.id; this.requireGrant(deviceId, input); this.expire();
     const binding = await this.workbench.resolveTerminal(input); this.requireGrant(deviceId, input); const entry = this.requireEntry(input.terminalId, binding!);
       if (!this.visible(deviceId, this.port.list().find((session) => session.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
@@ -334,11 +383,12 @@ export class RemoteTerminalService {
     if (control!.receipts.size > 128) control!.receipts.delete(control!.receipts.keys().next().value!);
     entry.cols = input.cols; entry.rows = input.rows;
     this.port.resize(entry.sessionId, input.cols, input.rows);
-    if (prompt) await this.port.writePrompt!(entry.sessionId, input.data, async () => {
+    if (prompt) await this.port.writePrompt!(entry.sessionId, prompt.parts ?? input.data, async () => {
       await this.workbench.revalidate(binding!);
       this.requireGrant(deviceId, input); this.expire();
       if (entry.control !== control || this.requireEntry(input.terminalId, binding!) !== entry || this.workbench.managed(binding!)) failure('Promptziel oder Eingabebesitz hat sich geändert.');
       if (!this.visible(deviceId, this.port.list().find(item => item.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
+      await prompt.revalidateImages?.();
     });
     else this.port.write(entry.sessionId, Buffer.from(input.data, 'utf8'));
     receipt.accepted = true;

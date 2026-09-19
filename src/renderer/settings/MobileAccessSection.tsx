@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
-import QRCode from 'qrcode';
 import type { MobileAccessStatus, MobilePairingChallenge } from '../../shared/mobileAccess';
 
 export function MobileAccessSection(): JSX.Element {
@@ -21,7 +20,7 @@ export function MobileAccessSection(): JSX.Element {
     focusAfter.current = null;
   }, [busy, status, pairing]);
   const refresh = useCallback(async (): Promise<void> => {
-    try { setStatus(await window.ade.invoke('mobileAccess:status')); }
+    try { setStatus(await window.ade.invoke('mobileAccess:status')); setError(''); }
     catch { setError('Verbindungsstatus konnte nicht geladen werden. Erneut prüfen.'); }
   }, []);
   useEffect(() => {
@@ -31,11 +30,13 @@ export function MobileAccessSection(): JSX.Element {
   }, [refresh]);
   useEffect(() => {
     if (!pairing) return;
-    if (canvas.current) void QRCode.toCanvas(canvas.current, pairing.url, { width: 224, margin: 4, errorCorrectionLevel: 'M' })
-      .catch(() => setError('QR-Code konnte nicht angezeigt werden. Den Pairing-Code verwenden.'));
+    let live = true;
+    void import('qrcode').then(QRCode => {
+      if (live && canvas.current) return QRCode.toCanvas(canvas.current, pairing.url, { width: 224, margin: 4, errorCorrectionLevel: 'M' });
+    }).catch(() => { if (live) setError('QR-Code konnte nicht angezeigt werden. Den Pairing-Code verwenden.'); });
     codeInput.current?.focus();
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => { live = false; clearInterval(timer); };
   }, [pairing]);
 
   const enable = async (enabled: boolean): Promise<void> => {
@@ -49,7 +50,7 @@ export function MobileAccessSection(): JSX.Element {
     if (actionBusy.current) return;
     actionBusy.current = true; setBusy(true); setError('');
     try { setPairing(await window.ade.invoke('mobileAccess:pair')); setNow(Date.now()); }
-    catch { setError('Pairing konnte nicht gestartet werden. Verbindung erneut prüfen.'); }
+    catch { await refresh(); setPairing(null); setError('Pairing konnte nicht gestartet werden. Verbindungsstatus oben prüfen.'); }
     finally { actionBusy.current = false; setBusy(false); }
   };
   const expired = pairing !== null && pairing.expiresAt <= now;
@@ -58,7 +59,9 @@ export function MobileAccessSection(): JSX.Element {
       <button type="button" className="btn" ref={refreshButton} disabled={busy} onClick={() => void refresh()}>Verbindung prüfen</button></div>
     <p className="st-device-hint">ADE auf Tablet und Smartphone nutzen. Tailscale auf dem PC und Mobilgerät mit demselben Konto verbinden.
       Der PC muss eingeschaltet und angemeldet bleiben. Bei aktivem mobilen Zugriff läuft ADE nach dem Schliessen des Fensters im Infobereich weiter.
-      Dort lässt sich ADE wieder öffnen oder vollständig beenden.</p>
+      Dort lässt sich ADE wieder öffnen oder vollständig beenden.
+      Zuhause und unterwegs dieselbe Adresse verwenden; Tailscale muss auf beiden Geräten verbunden sein.
+      Bereits gekoppelte Geräte verbinden sich im selben Browser wieder. Ein neuer Code ist nur für eine neue Kopplung nötig.</p>
     {!status && <p role="status">Tailscale-Verbindung wird geprüft…</p>}
     {status && <p role="status"><strong>{status.listening ? status.https === 'verified' ? 'HTTPS-Verbindung bestätigt.' : 'Private Freigabe eingerichtet.' : status.enabled ? 'Verbindung noch nicht bereit.' : 'Mobiler Zugriff ist ausgeschaltet.'}</strong> {status.message}</p>}
     {error && <p className="st-error" role="alert">{error}</p>}

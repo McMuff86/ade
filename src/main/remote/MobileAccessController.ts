@@ -38,14 +38,15 @@ export class MobileAccessController {
 
   async status(): Promise<MobileAccessStatus> {
     const tail = await this.tailscale.inspect(this.port);
-    const listening = this.server !== null && tail.state === 'ready' && tail.serving && tail.origin === this.origin;
+    const storage = this.devices.inventory();
+    const listening = storage.available && this.server !== null && tail.state === 'ready' && tail.serving && tail.origin === this.origin;
     if (listening && tail.origin && this.https === 'unreachable' && Date.now() - this.lastProbeAt > 15_000) this.scheduleProbe(tail.origin);
     const httpsMessage = listening && this.https !== 'verified'
       ? this.https === 'pending' ? 'HTTPS wird mit Zertifikatsprüfung getestet. Die erste Tailscale-Zertifikatsbereitstellung kann dauern.'
         : 'HTTPS vom PC ist noch nicht erreichbar. Tailscale-Zertifikatsbereitstellung und Netzwerk prüfen; danach Verbindung erneut prüfen.'
       : tail.message;
-    return { enabled: this.devices.mobilePreferences().enabled, listening, https: this.https,
-      url: tail.origin, tailscale: tail.state, message: this.message || httpsMessage };
+    return { enabled: this.devices.mobilePreferences().enabled, listening, https: storage.available ? this.https : 'pending',
+      url: tail.origin, tailscale: tail.state, message: !storage.available ? storage.error! : this.message || httpsMessage };
   }
 
   async setEnabled(enabled: boolean): Promise<MobileAccessStatus> {
@@ -102,6 +103,8 @@ export class MobileAccessController {
   }
 
   async beginPairing(): Promise<MobilePairingChallenge> {
+    const storage = this.devices.inventory();
+    if (!storage.available) throw new Error(storage.error!);
     const status = await this.status();
     if (!status.listening || !this.sessions || !this.origin) throw new Error('ade: zuerst die mobile Verbindung aktivieren');
     return this.sessions.beginPairing(this.origin);
@@ -138,6 +141,8 @@ export class MobileAccessController {
     if (this.busy || this.disposed || !this.devices.mobilePreferences().enabled) return;
     this.busy = true;
     try {
+      const storage = this.devices.inventory();
+      if (!storage.available) { await this.stopListener(); this.message = storage.error!; return; }
       const tail = await this.tailscale.inspect(this.port);
       if (tail.state !== 'ready' || !tail.serving || !tail.origin) {
         await this.stopListener();

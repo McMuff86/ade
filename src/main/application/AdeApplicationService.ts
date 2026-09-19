@@ -61,7 +61,7 @@ import type { RemoteCommandLedger } from './RemoteCommandLedger';
 import type { HostOperationGate } from './HostOperationGate';
 import type { RemoteWorkspaceService } from './RemoteWorkspaceService';
 import { validateFileSave, validateWorkbenchQuery, type RemoteWorkbenchService } from './RemoteWorkbenchService';
-import { validateTerminal, validateTerminalPrompt, type RemoteTerminalService } from './RemoteTerminalService';
+import { validateTerminal, validateTerminalPrompt, validateTerminalImageUpload, type RemoteTerminalService } from './RemoteTerminalService';
 import type { DictationJobs } from '../settings/DictationJobs';
 import { validDictationBase64 } from '../../shared/dictationRequests';
 import { validDictationJobId } from '../../shared/dictation';
@@ -773,6 +773,23 @@ export class AdeApplicationService {
     const input = validateTerminalPrompt(payload); this.resources.assertSelection(context.principal, input);
     try { return await terminals.prompt(context, input); }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async remoteTerminalImage(context: RemoteCommandContext, payload: unknown) {
+    const ledger = this.options.administration?.ledger; const terminals = this.options.terminals;
+    if (!ledger || !terminals) throw new RemoteApiError(404, 'not_found');
+    ledger.permits(context, 'terminal:control');
+    const input = validateTerminalImageUpload(payload); this.resources.assertSelection(context.principal, input);
+    try {
+      const { pngBase64: _bytes, ...target } = input;
+      const authorization = await terminals.imageTarget(context.principal.id, target);
+      const receipt = await ledger.execute(context, 'terminal:image-upload', 'terminal:control', input, async () => {
+        ledger.permits(context, 'terminal:control'); this.resources.assertSelection(context.principal, input);
+        return terminals.uploadImage(context.principal.id, input);
+      });
+      await authorization.authorize();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
   async remoteDictation(context: RemoteCommandContext, payload: unknown, upload = false): Promise<MobileDictationResult> {

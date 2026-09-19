@@ -173,8 +173,8 @@ directory, with the right PATH.
 ```bash
 pnpm i
 pnpm dev        # development
-pnpm build      # build to out/
-pnpm start      # run the built app
+pnpm build      # build desktop and mobile to out/
+pnpm start      # run the built app without rebuilding; run pnpm build after source changes
 ```
 
 First session in a fresh agent workspace: your CLI may show its own one-time

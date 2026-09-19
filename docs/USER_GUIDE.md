@@ -186,6 +186,10 @@ pnpm build
 pnpm start
 ```
 
+`pnpm build` erstellt Desktop und Tablet aus demselben Quellstand. `pnpm start`
+startet genau diesen Build ohne erneutes Bauen. Nach Codeänderungen zuerst wieder
+`pnpm build` ausführen.
+
 **Startprogramm und Anmeldung prüfen:** Installiere die gewünschte CLI nach deren
 Herstelleranleitung auf dem PC und melde dich dort an. In ADE **Settings** öffnen
 und beim jeweiligen Harness den Installations-/Anmeldestatus prüfen. Ein vorhandenes

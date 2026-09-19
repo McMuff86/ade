@@ -55,9 +55,16 @@ export async function terminalRecoveryFlow(desktop: Page, page: Page, panel: Loc
     await writable(false);
     const reload = recovery.getByRole('button', { name: 'Anzeige erneut laden', exact: true }); await reload.waitFor();
     page.on('request', record); await direct.focus(); await page.keyboard.type('ADE_BLIND_PROBE'); await page.waitForTimeout(400);
-    check('failed screen queries block direct keys and special keys without blocking shell close', packets.length === 0
-      && await panel.getByRole('button', { name: 'Terminaltaste Enter', exact: true }).isDisabled()
-      && !await panel.getByRole('button', { name: 'Shell beenden', exact: true }).isDisabled() && await reachable(reload));
+    check('failed screen queries block direct keys and special keys with a reachable reload action', packets.length === 0
+      && await panel.getByRole('button', { name: 'Terminaltaste Enter', exact: true }).isDisabled() && await reachable(reload));
+    // A resize/lease heartbeat can briefly disable lifecycle controls. Prove
+    // close is actionable while reads keep failing, instead of sampling busy.
+    await panel.getByRole('button', { name: 'Shell beenden', exact: true }).click();
+    const closeDialog = page.getByRole('dialog', { name: 'Terminalsitzung beenden', exact: true });
+    await closeDialog.waitFor();
+    check('failed screen queries still allow opening the focused shell-close confirmation',
+      await closeDialog.evaluate(node => node.contains(document.activeElement)));
+    await page.keyboard.press('Escape'); await closeDialog.waitFor({ state: 'hidden' });
     await reload.click(); await page.unroute('**/api/v1/terminal/query'); await writable(true);
     await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Direkte Terminal-Eingabe');
     check('display recovery does not replay keys typed while paused', packets.length === 0);

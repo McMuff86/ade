@@ -18,6 +18,7 @@ export async function mobileTlsProxy() {
   let loseTerminalReply = false;
   let loseInputReply = false;
   let losePromptReply = false;
+  let loseImageReply = false;
   let loseConversationReply = false;
   let loseConversationActionReply = false;
   let inputReplyMatch: string | undefined;
@@ -48,6 +49,7 @@ export async function mobileTlsProxy() {
         || (loseAssignmentReply && req.url === '/api/v1/workspace/assignment/command')
         || (loseIntegrationReply && req.url === '/api/v1/integration/command')
         || (loseTerminalReply && req.url === '/api/v1/terminal/command') || (losePromptReply && req.url === '/api/v1/terminal/prompt')
+        || (loseImageReply && req.url === '/api/v1/terminal/images')
         || (loseConversationReply && req.url === '/api/v1/conversation/command')
         || (loseConversationActionReply && req.url === '/api/v1/conversation/actions/command' && reply.statusCode === 200)
         || (loseInputReply && matchingInput && req.url === '/api/v1/terminal/input'))) {
@@ -76,6 +78,7 @@ export async function mobileTlsProxy() {
     loseTerminalReplies: (value: boolean) => { loseTerminalReply = value; },
     loseInputReplies: (value: boolean, match?: string) => { loseInputReply = value; inputReplyMatch = match; },
     losePromptReplies: (value: boolean) => { losePromptReply = value; },
+    loseImageReplies: (value: boolean) => { loseImageReply = value; },
     loseConversationReplies: (value: boolean) => { loseConversationReply = value; },
     loseConversationActionReplies: (value: boolean) => { loseConversationActionReply = value; },
     setApiOffline: (value: boolean) => { rejectApi = value; if (value) for (const socket of sockets) socket.destroy(); },

@@ -1,4 +1,5 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
+import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
 import { ReplySpeechService } from './settings/ReplySpeechService';
 import { isSecretEnvName } from './errors';
@@ -449,7 +450,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     resize: (id, cols, rows) => ptyManager!.resize(id, cols, rows), kill: (id) => ptyManager!.kill(id),
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state), undefined,
-  (id, selection) => deviceResources.assertSelection(id, selection));
+  (id, selection) => deviceResources.assertSelection(id, selection),
+  new TerminalImageStore(join(app.getPath('userData'), 'ade', 'terminal-images'), execution, bytes => {
+    const image = nativeImage.createFromBuffer(bytes);
+    if (image.isEmpty()) throw new Error('Bild kann nicht gelesen werden. Ein PNG oder JPEG auswählen.');
+    return image.toPNG();
+  }));
   stopTerminalRevocation = remoteDevices.onRevoked((id) => {
     remoteTerminals?.revoke(id);
     if (id === null) { for (const device of remoteDevices.inventory().devices) replies.revoke(`device:${device.id}`); }
