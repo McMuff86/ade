@@ -10,6 +10,11 @@ export function showSessionExitNotification(meta: SessionMeta, agentName: string
   if (notice) showNotice(notice);
 }
 
+export function showOrganizerReminderNotification(count: number): void {
+  // Titles/text may be private; lock-screen notifications contain only a count.
+  showNotice({ title: 'ADE · Erinnerung', body: `${count} Aufgabe(n) warten auf dich. Unter Tasks die fälligen Erinnerungen öffnen.` });
+}
+
 export function showRunApprovalNotification(
   runName: string,
   workTaskCount: number,

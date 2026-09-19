@@ -104,6 +104,9 @@ export const IPC = {
   AgentBehaviorGet: 'agent:behaviorGet',
   SupervisionGet: 'supervision:get',
   ConversationGet: 'conversation:get',
+  OrganizerQuery: 'organizer:query',
+  OrganizerCommand: 'organizer:command',
+  OrganizerDictationPrepare: 'organizer:dictationPrepare',
   ConversationDetail: 'conversation:detail',
   ConversationCommand: 'conversation:command',
   ConversationDictationPrepare: 'conversation:dictationPrepare',
@@ -209,6 +212,7 @@ export const IPC = {
 export const IPC_EVENTS = {
   CatalogChanged: 'catalog:changed',
   ConversationChanged: 'conversation:changed',
+  OrganizerChanged: 'organizer:changed',
   TerminalControlChanged: 'terminal:controlChanged',
   PtyData: 'pty:data',
   PtyActivity: 'pty:activity',
@@ -724,6 +728,9 @@ export interface IpcInvokeMap {
   'agent:behaviorGet': { req: { agentId: string }; res: import('./agentBehavior').AgentBehaviorView };
   'supervision:get': { req: void; res: import('./supervision').SupervisionView };
   'conversation:get': { req: void; res: import('./conversation').ConversationSummary[] };
+  'organizer:query': { req: import('./organizer').OrganizerQuery; res: import('./organizer').OrganizerQueryResult };
+  'organizer:command': { req: import('./organizer').OrganizerMutation; res: import('./organizer').OrganizerReceipt };
+  'organizer:dictationPrepare': { req: { documentId: string }; res: { jobId: string } };
   'conversation:detail': { req: { conversationId: string }; res: import('./conversation').ConversationDetail };
   'conversation:command': { req: import('./conversation').ConversationCommand; res: import('./conversation').ConversationReceipt };
   'conversation:dictationPrepare': { req: { conversationId: string }; res: { jobId: string } };
@@ -842,6 +849,7 @@ export interface IpcEventMap {
   'terminal:controlChanged': TerminalControlState;
   'catalog:changed': { revision: number };
   'conversation:changed': null;
+  'organizer:changed': { revision: number };
   'pty:activity': PtyActivityEvent;
   'pty:exit': PtyExitEvent;
   'pty:program': { sessionId: string; program: NonNullable<SessionMeta['program']> };

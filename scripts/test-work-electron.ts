@@ -16,7 +16,7 @@ void (async () => {
   const work = page.getByRole('tab', { name: 'Work view', exact: true });
   await work.click(); await page.getByRole('heading', { name: 'Noch keine Runs' }).waitFor();
   check('Work is a desktop tab with useful empty state', await work.getAttribute('aria-selected') === 'true');
-  check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'View mode' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Overview,Projekte,Terminals,Work,Graph');
+  check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'View mode' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Overview,Tasks,Notes,Projekte,Terminals,Work,Graph');
   await work.focus(); await page.keyboard.press('ArrowRight');
   check('keyboard navigation moves Work to Graph', await page.getByRole('tab', { name: 'Graph view', exact: true }).getAttribute('aria-selected') === 'true');
   await page.keyboard.press('ArrowLeft'); await page.reload(); await work.waitFor();

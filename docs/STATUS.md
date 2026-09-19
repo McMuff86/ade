@@ -1,5 +1,46 @@
 # ADE implementation status
 
+## Abschlussbuild aktiviert: Tasks, Notes, Bediengruppen und Stimmtext
+
+19. September **23:19:44 CEST**: gemeinsamer `pnpm build` erfolgreich, persönliche
+Instanz regulär beendet und neu gestartet (PID **73360**), Quelle
+**`84c3fb056ecdde7aa0f1`**. Desktop gebaut **23:19:31**, Mobile **23:19:39 CEST**.
+Die private HTTPS-Adresse liefert bytegleich das neue Mobile-Bundle. Drei
+Gerätekopplungen sowie Profile/Projekte erhalten; Tablet nur neu laden.
+Die Navigation und Graph-Gruppen sowie Tasks/Notes sind in diesem Build enthalten.
+Stimmtest: „Hallo Adi, ich bin dein Agent. Was kann ich für dich tun?“;
+englische Agent-Aussprachevorgabe überarbeitet, persönliche Hörprobe noch offen.
+
+Auf letzte ausdrückliche Nutzeranweisung keine weiteren Tests, laufenden Typecheck
+abgebrochen und keine Gesamtprüfung ausgeführt. Vorherige fokussierte Ergebnisse
+bleiben dokumentiert; diese Lieferung ist keine repositoryweite Testfreigabe.
+Commit und Push erfolgen für den vollständigen beauftragten Stand.
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\OrganizerFinal-20260919-231923`.
+Lokaler Aktivierungsbeleg: `test-results/organizer-final-activation.json`.
+[Tasks/Notes](TASKS_NOTES.md) · [Stimmtext](VOICE_COPY_UPDATE.md) ·
+[UI/UX-Briefing ohne Designumsetzung](UI_UX_REVIEW_BRIEF.md).
+
+## Tasks/Notes und Bediengruppen gezielt geprüft; Gesamtprüfung ausgesetzt
+
+Gemeinsame Tasks-/Notes-Seiten, Offline-Erfassung mit Konfliktkopien, Diktat,
+Foto/Zeichnung, Exporte, Erinnerungen und explizite Agentenübergabe implementiert.
+Navigation und Graph-Aktionen gruppiert. Store **51/0**, Cache **31/0**, API **35/0**,
+Browser **27/0**, Windows-Electron **15/0**, Gesprächsdiktat **6/0** bestanden.
+Noch keine repositoryweite Freigabe: `pnpm verify` bleibt auf Nutzerwunsch ausgesetzt.
+Der folgende Abschnitt dokumentiert den bereits aktivierten älteren Zwischenstand;
+der neuere Quellstand wird für den nächsten gemeinsamen Build vorbereitet.
+[Vertrag und Nachweise](TASKS_NOTES.md).
+
+## Aktivierter Zwischenstand: Tasks und Notes (19. September 2026, 22:24 CEST)
+
+Desktop-/Mobile-Seiten sind verdrahtet; gemeinsame lokale Ablage, signierte
+Organizer-API, Diktat, Zeichnen, Export und Agentenübergabe sind in Umsetzung.
+`pnpm build` und `pnpm typecheck` bestanden. Auf Nutzerwunsch wurde dieser Build
+vor dem grossen Testlauf aktiviert; bestehende Gerätekopplungen bleiben erhalten.
+Keine vollständige UI-Abnahme für diesen Zwischenstand. Navigation/Graph-Gruppen
+und Desktop-Erinnerungsbenachrichtigungen sind noch offen.
+[Plan, aktivierter Stand und verbleibende Arbeit](TASKS_NOTES.md).
+
 ## Abgenommen und aktiviert: kompakter Tablet-Projektbereich (19. September 2026)
 
 Einklappbarer Projektkopf mit gespeicherter Ansicht, gemeinsamer Aktionszeile

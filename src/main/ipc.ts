@@ -1,4 +1,9 @@
 import { RunQuestionService } from './orchestration/RunQuestionService';
+import { OrganizerService } from './organizer/OrganizerService';
+import { OrganizerReminders } from './organizer/OrganizerReminders';
+import { OrganizerError } from './organizer/OrganizerStore';
+import { ORGANIZER_REJECTED } from '../shared/organizer';
+import { showOrganizerReminderNotification } from './notifications';
 import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
 import { ReplySpeechService } from './settings/ReplySpeechService';
@@ -125,6 +130,7 @@ let mobileAccess: MobileAccessController | null = null;
 let remoteWorkbench: RemoteWorkbenchService | null = null;
 let integrationService: IntegrationService | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
+let organizerReminderTimer: NodeJS.Timeout | null = null;
 const hostOperations = new HostOperationGate();
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
 
@@ -337,6 +343,28 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return hostOperations.use(() => replies.speak(owner, input.replyId));
   });
   const agentBehavior = new AgentBehaviorService(store);
+  const organizer = new OrganizerService(join(app.getPath('userData'), 'ade', 'organizer.json'),
+    revision => broadcastToRenderers(IPC_EVENTS.OrganizerChanged, { revision }), image => {
+      const decoded = nativeImage.createFromBuffer(Buffer.from(image.base64, 'base64'));
+      const size = decoded.getSize();
+      if (decoded.isEmpty() || size.width !== image.width || size.height !== image.height) throw new Error('Das Bild konnte nicht gelesen werden.');
+    });
+  handle(IPC.OrganizerQuery, input => organizer.query(input, 'desktop'));
+  handle(IPC.OrganizerCommand, input => {
+    try { return organizer.command(input, 'desktop'); }
+    catch (error) {
+      if (error instanceof OrganizerError && error.code !== 'unavailable') throw new Error(ORGANIZER_REJECTED + redactedErrorDetail(error));
+      throw error;
+    }
+  });
+  const reminders = new OrganizerReminders(() => organizer.store.index(), showOrganizerReminderNotification);
+  let reminderFailure = false;
+  const checkReminders = () => { try { reminders.check(); reminderFailure = false; } catch (error) {
+    if (!reminderFailure) console.warn('[ade] organizer reminders unavailable:', redactedErrorDetail(error)); reminderFailure = true;
+  } };
+  if (organizerReminderTimer) clearInterval(organizerReminderTimer);
+  organizerReminderTimer = setInterval(checkReminders, 10_000); organizerReminderTimer.unref();
+  checkReminders();
   let supervision: SupervisionService | undefined;
   let coordinatorActions: CoordinatorActionService | undefined;
   const supervisionService = () => supervision ??= new SupervisionService(new SupervisionStore(join(app.getPath('userData'), 'ade', 'supervision.json')),
@@ -461,7 +489,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (id === null) { for (const device of remoteDevices.inventory().devices) replies.revoke(`device:${device.id}`); }
     else replies.revoke(`device:${id}`);
     if (id === null) dictationJobs?.revokeDevices();
-    else { dictationJobs?.revokeOwner(`device:${id}`); dictationJobs?.revokeOwner(`device:${id}:conversation`); }
+    else { dictationJobs?.revokeOwner(`device:${id}`); dictationJobs?.revokeOwner(`device:${id}:conversation`); dictationJobs?.revokeOwner(`device:${id}:organizer`); }
   });
   handle(IPC.ProjectWorkspaceQuery, async (input) => input.operation === 'directory'
     ? { directory: await projects.directory() }
@@ -502,6 +530,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       behavior: agentBehavior,
       supervision: supervisionService,
       conversations: conversationService,
+      organizer,
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -1020,6 +1049,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       checkTarget();
     }, checkTarget.usage);
   });
+  handleWithEvent(IPC.OrganizerDictationPrepare, ({ documentId }, event) => {
+    const check = () => {
+      if (event.sender.isDestroyed() || !organizer.store.detail(documentId) || organizer.store.detail(documentId)?.deleted) throw new Error('Die Aufgabe oder Notiz ist nicht mehr geöffnet.');
+    };
+    check(); const repositoryId = organizer.store.detail(documentId)!.document.repositoryId;
+    return recordings.prepare(`desktop:${event.sender.id}`, check, repositoryId ? { repositoryId } : {});
+  });
   handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
     const audio = Buffer.from(audioBase64, 'base64');
     if (audio.toString('base64') !== audioBase64) throw new Error('Ungültige Audiodaten.');
@@ -1270,6 +1306,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export async function disposePtyManager(): Promise<void> {
+  if (organizerReminderTimer) clearInterval(organizerReminderTimer); organizerReminderTimer = null;
   await conversations?.shutdown().catch(error => console.warn('[ade] conversation shutdown incomplete:', redactedErrorDetail(error))); conversations = null;
   const replies = replySpeech; replySpeech = null;
   await replies?.dispose();

@@ -24,7 +24,7 @@ void (async () => {
     generation++;
     const input = JSON.parse(String(init?.body));
     check('generation sends only server-owned German text with pronunciation and v3 model', input.text === speechPronunciation(greeting ? computerGreeting(new Date().getHours()) : SPEECH_TEST_TEXT) && input.model_id === 'eleven_v3' && input.language_code === 'de');
-    if (!greeting) check('voice check introduces an English-pronounced Agent', input.text.startsWith('Hallo "/ˈadi/", ich bin dein "/ˈeɪdʒənt/".'));
+    if (!greeting) check('voice check introduces an English-pronounced Agent', input.text === 'Hallo "/ˈadi/", ich bin dein "/ˈeɪ.dʒənt/". Was kann ich für dich tun?');
     check('voice preview and greeting use the same even computer delivery at the provider boundary',
       input.voice_settings?.stability === 0.9 && Object.keys(input.voice_settings).join() === 'stability');
     return new Response(new Uint8Array(large ? 2 * 1024 * 1024 + 1 : 512), { headers: { 'content-type': invalidType ? 'text/html' : 'audio/mpeg' } });
@@ -37,6 +37,8 @@ void (async () => {
   await service.select(male); check('explicit voice selection persists', settings.speechVoiceId === male && (await service.catalog()).selectedVoiceId === male);
   await service.select(female);
   const audio = await service.test(female);
+  check('voice check uses the requested concise question', audio.text === 'Hallo Adi, ich bin dein Agent. Was kann ich für dich tun?');
+  check('standalone Agent uses English pronunciation in replies without altering compounds', speechPronunciation('Agent, agent und AGENT: Agenten Agentur myAgent Agent_1.') === '"/ˈeɪ.dʒənt/", "/ˈeɪ.dʒənt/" und "/ˈeɪ.dʒənt/": Agenten Agentur myAgent Agent_1.');
   check('voice check preview keeps ordinary Agent spelling', audio.text.startsWith('Hallo Adi, ich bin dein Agent.') && !audio.text.includes('ADE') && !audio.text.includes('/'));
   check('result contains bounded MP3 and no key', Buffer.from(audio.base64, 'base64').length === 512 && !JSON.stringify(audio).includes('private-secret') && audio.voiceId === female);
   await refuses('unknown voice cannot trigger a paid generation', () => service.test('UnknownVoice12345'));
@@ -51,7 +53,7 @@ void (async () => {
   check('Computer requires an isolated call and does not match arbitrary dictation', isComputerCall('Computer.') && isComputerCall('Hey, Computer!') && !isComputerCall('Computers') && !isComputerCall('Prüfe den Computer'));
   check('greeting follows host time and avoids self-introduction', computerGreeting(8).startsWith('Guten Morgen, Adi.') && computerGreeting(14).startsWith('Guten Tag, Adi.') && computerGreeting(20).startsWith('Guten Abend, Adi.') && !computerGreeting(8).includes('ADE'));
   check('extended greeting explains explicit dictation and review before sending at every time of day', Array.from({ length: 24 }, (_, hour) => computerGreeting(hour))
-    .every(text => text.includes('Schön, dass du da bist.') && text.includes('Wähle nach dieser Begrüssung „Diktieren“')
+      .every(text => text.includes('Schön, dass du da bist. Was kann ich für dich tun?') && !text.includes('nächsten Schritt') && text.includes('Wähle nach dieser Begrüssung „Diktieren“')
       && text.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && text.length >= 200 && text.length <= 400));
   check('greeting switches at the host morning, noon and evening boundaries',
     [[0, 'Abend'], [4, 'Abend'], [5, 'Morgen'], [11, 'Morgen'], [12, 'Tag'], [17, 'Tag'], [18, 'Abend'], [23, 'Abend']]

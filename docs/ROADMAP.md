@@ -1,5 +1,16 @@
 # ADE delivery roadmap
 
+## Implementiert: persönliche Tasks, Notes und Button-Gruppen
+
+Gemeinsame Desktop-/Tablet-Seiten mit Offline-Erfassung, Konfliktkopien, Diktat,
+Foto/Skizze, Export, Erinnerung und ausdrücklicher Agentenübergabe implementiert.
+Navigation und Graph-Aktionen gruppiert. Fokussierte Store-/Cache-, Browser- und
+native Windows-Electron-Prüfungen bestanden; noch keine repositoryweite Abnahme.
+Der Nutzer hat um 22:24 CEST einen Zwischenbuild aktiviert und den grossen
+Testlauf ausdrücklich zurückgestellt. Zum Abschluss wurden auch weitere
+Einzelprüfungen ausdrücklich abbestellt; Build, Aktivierung und Git-Abschluss
+erfolgen mit diesem dokumentierten Prüfvorbehalt. [Vertrag und Nachweise](TASKS_NOTES.md).
+
 ## Abgenommen: mehr Terminalfläche auf dem Tablet
 
 Projektbereich einklappen, Aktualisierung und Branches kompakt anordnen.

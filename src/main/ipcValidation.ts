@@ -1,6 +1,7 @@
 import { validSpeechTest } from '../shared/speech';
 import { validSupervisionCommand } from '../shared/supervision';
 import { conversationId, validConversationCommand } from '../shared/conversation';
+import { organizerId, validOrganizerMutation, validOrganizerQuery } from '../shared/organizer';
 import { validCoordinatorActionCommand, validCoordinatorActionQuery } from '../shared/coordinatorActions';
 import { validDesktopReply } from '../shared/terminalSpeech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
@@ -719,6 +720,14 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ConversationDictationPrepare: {
       const request = record(channel, payload); exactKeys(channel, request, ['conversationId']);
       if (!conversationId(request.conversationId)) invalid(channel, 'invalid conversation identity'); break;
+    }
+    case IPC.OrganizerQuery:
+      if (!validOrganizerQuery(payload)) invalid(channel, 'invalid organizer query'); break;
+    case IPC.OrganizerCommand:
+      if (!validOrganizerMutation(payload)) invalid(channel, 'invalid organizer command'); break;
+    case IPC.OrganizerDictationPrepare: {
+      const request = record(channel, payload); exactKeys(channel, request, ['documentId']);
+      if (!organizerId(request.documentId)) invalid(channel, 'invalid organizer document'); break;
     }
     case IPC.ConversationDetail: {
       const request = record(channel, payload); exactKeys(channel, request, ['conversationId']); id(channel, request.conversationId, 'conversationId'); break;

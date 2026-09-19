@@ -2889,3 +2889,62 @@ Project results page retained runs in batches of 20, ordered by creation time an
 ID. The validated timestamp/ID cursor contains no host paths; resource filtering
 precedes pagination. Shared desktop/mobile controls provide previous/next pages,
 loading/error/offline states and a separate saved-file label.
+
+
+## Personal organizer: Tasks, Notes and offline edits
+
+`shared/organizer.ts` defines exact document/query/mutation shapes and size limits.
+`OrganizerStore` owns a separate `userData/ade/organizer.json`, outside project
+repositories. Its atomic snapshot contains document revisions, deletion tombstones
+and one latest receipt per writer. A writer is bound to a hashed desktop/device
+owner; sequence plus payload digest makes a lost-reply retry idempotent. A stale
+put creates a conflict copy, while stale deletion is rejected. File reads and
+atomic writes enforce the existing no-link discipline and external-change guard.
+Bodies and photos never enter the generic remote command ledger or audit log.
+
+Desktop invokes `organizer:query`, `organizer:command`, and
+`organizer:dictationPrepare`; these channels remain desktop-only in IPC policy.
+The host exposes dedicated signed POST `/api/v1/organizer/query`, `/command` and
+`/dictation` adapters through `AdeApplicationService`. Existing devices gain no
+implicit authority: `organizer:read` and `organizer:write` are separate grants;
+dictation additionally requires `dictation:transcribe`. Mutations require an
+Idempotency-Key matching writer and sequence. Project/run resource restrictions
+remain enforced. Wire text passes through redaction; a redacted document is not
+an editable replacement for the original. The generic remote-command allowlist
+is unchanged. Main events use `rendererWindows` and carry revision metadata only.
+
+The common React organizer uses an IndexedDB profile per desktop/paired identity.
+A local transaction reserves the exact pending command before network submission.
+Web Locks serialize browser-tab flushes where supported; durable writer receipts
+remain the authority. Confirmation clears only the acknowledged generation, so
+later typing retains the original acknowledged base even when another writer
+changes the document between save and read. Confirmed rejection may release an
+unexecuted request after checking the server writer checkpoint; unknown outcomes
+keep their exact key. Rejected stale deletion restores the newer visible entry.
+
+`OrganizerEditing` coalesces typing and retains unsaved buffers across page changes.
+Quota failure is visible and is not reported as saved. The buffer can be retried
+or exported; a reload warning is a last safeguard, not persistent storage. Local
+identity removal clears retained buffers and writes an IndexedDB tombstone that
+also prevents late in-flight operations from recreating the forgotten profile.
+Offline availability is limited to the cached public app shell and local drafts;
+this does not imply offline speech transcription or a running remote agent.
+
+Image imports normalize PNG/JPEG/WebP into bounded JPEG attachments. Main checks
+encoded dimensions before native decode. Views and canvas use temporary Blob URLs
+under the unchanged CSP. Strokes remain structured editable data. PDF is lazily
+loaded and rasterizes Unicode text and images; Markdown is text-only and PNG is
+the sketch/background. Exports do not replace the editable original.
+
+Task dispatch persists its reviewed project, agent, prompt and command key before
+calling the existing `runTask:submit` / `/api/v1/tasks` boundary. Confirmation adds
+one run link; it does not mark the personal task complete. Attachments stay with
+the personal item and are not silently included in a text-only agent submission.
+The main reminder scheduler checks every ten seconds without launching work.
+Foreground reminders use an application banner; background native notices contain
+only a count, and depend on OS support/settings. Acknowledgement is document data;
+unacknowledged reminders can appear again after restarting ADE.
+
+Evidence and the explicitly deferred whole-repository verification are recorded in
+[TASKS_NOTES.md](TASKS_NOTES.md). These tests do not establish physical tablet pen
+pressure/palm behavior or guaranteed operating-system notification delivery.

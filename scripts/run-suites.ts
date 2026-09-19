@@ -27,6 +27,9 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
+  { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 51 } },
+  { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
+  { id: 'organizer-cache', script: 'test-organizer-cache.ts', floors: { win32: 31 } },
   { id: 'usage-normalization', script: 'test-usage-normalization.ts', floors: { win32: 27 } },
   { id: 'usage-journal', script: 'test-usage-journal.ts', floors: { win32: 35 } },
   { id: 'usage-receiver', script: 'test-usage-receiver.ts', floors: { win32: 20 } },
@@ -41,7 +44,7 @@ const SUITES: Suite[] = [
   { id: 'terminal-media', script: 'test-terminal-media.ts', floors: { win32: 48 } },
   { id: 'microphone-access', script: 'test-microphone-access.ts', floors: { win32: 15 } },
   { id: 'prompt-drafts', script: 'test-prompt-drafts.ts', floors: { win32: 18 } },
-  { id: 'speech', script: 'test-speech.ts', floors: { win32: 62 } },
+  { id: 'speech', script: 'test-speech.ts', floors: { win32: 64 } },
   { id: 'eleven-dialogue', script: 'test-eleven-dialogue.ts', floors: { win32: 32 } },
   { id: 'reply-speech', script: 'test-reply-speech.ts', floors: { win32: 28 } },
   { id: 'remote-reply-speech', script: 'test-remote-reply-speech.ts', floors: { win32: 20 } },

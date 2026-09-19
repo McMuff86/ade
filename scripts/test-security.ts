@@ -36,6 +36,7 @@ import { INVOKE_CHANNELS, type InvokeChannel } from '../src/shared/ipc';
 import { resolveLaunchCommand } from '../src/shared/runtimes';
 import { parseWorkspaceBundle } from '../src/shared/workspaceBundle';
 import type { SessionMeta } from '../src/shared/types';
+import { newOrganizerDocument } from '../src/shared/organizer';
 
 let passed = 0;
 let failed = 0;
@@ -60,6 +61,9 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'organizer:query': { operation: 'list' },
+  'organizer:command': { operation: 'put', writerId: '11111111-1111-4111-8111-111111111111', sequence: 1, baseRevision: 0, document: newOrganizerDocument('note') },
+  'organizer:dictationPrepare': { documentId: '11111111-1111-4111-8111-111111111111' },
   'conversation:get': undefined,
   'conversation:detail': { conversationId: 'conversation' },
   'conversation:dictationPrepare': { conversationId: '11111111-1111-4111-8111-111111111111' },

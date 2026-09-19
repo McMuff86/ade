@@ -1,0 +1,152 @@
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { chromium, type Browser, type Page } from 'playwright';
+import { PNG } from 'pngjs';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { BrowserSessions } from '../src/main/remote/BrowserSessions';
+import { HostApiServer } from '../src/main/remote/HostApiServer';
+import { RemoteAuthorizer } from '../src/main/remote/authorization';
+import { loadMobileAssets } from '../src/main/remote/mobileAssets';
+
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-organizer-browser-')));
+const evidence = resolve('test-results/organizer'); mkdirSync(evidence, { recursive: true });
+const fixture = createRemoteWorkspaceFixture(root);
+let browser: Browser | undefined; let page: Page | undefined; let server: HostApiServer | undefined;
+let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined; let sessions: BrowserSessions | undefined;
+let passed = 0; let failed = 0;
+const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
+async function waitFor(condition: () => boolean, label: string) { const limit = Date.now() + 20_000; while (!condition()) { if (Date.now() > limit) throw new Error(`Timed out: ${label}`); await new Promise(resolve => setTimeout(resolve, 100)); } }
+void (async () => {
+  const repository = join(root, 'project'); mkdirSync(repository); execFileSync('git', ['init', repository], { stdio: 'ignore' });
+  writeFileSync(join(repository, 'README.md'), '# Organizer fixture'); execFileSync('git', ['-C', repository, 'add', '.']);
+  execFileSync('git', ['-C', repository, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'Fixture'], { stdio: 'ignore' });
+  fixture.store.save({ repositories: [{ id: 'repo', name: 'Organizer project', rootPath: repository, commonGitDir: join(repository, '.git'), executionBackend: 'native', verified: true, createdAt: Date.now() }] });
+  proxy = await mobileTlsProxy(); sessions = new BrowserSessions(fixture.devices);
+  server = new HostApiServer(fixture.application, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
+    authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, fixture.devices),
+    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_ORGANIZER_ASSETS ?? 'out/mobile')) }, audit: entry => fixture.devices.audit(entry) });
+  proxy.target((await server.start()).port);
+  browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
+  const context = await browser.newContext({ viewport: { width: 1400, height: 900 }, hasTouch: true, ignoreHTTPSErrors: true });
+  page = await context.newPage(); page.setDefaultTimeout(20_000);
+  const errors: string[] = []; page.on('pageerror', error => { errors.push(error.message); console.error('PAGE:', error.message); });
+  await page.goto(sessions.beginPairing(proxy.origin).url);
+  await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  await page.getByRole('tab', { name: 'Notes', exact: true }).click();
+  await page.getByText('Am PC unter Einstellungen → Verbundene Geräte', { exact: false }).waitFor();
+  check('ungranted device sees a useful personal-data permission state', await page.getByText('Am PC unter Einstellungen → Verbundene Geräte', { exact: false }).isVisible());
+  const device = fixture.devices.activeDevices()[0]!.id;
+  fixture.devices.setAdminScopes(device, ['organizer:read', 'organizer:write'], { mode: 'all' }); await page.reload();
+  await page.getByRole('button', { name: 'Neue Notiz', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Navigation einklappen' }).click();
+  check('navigation collapse retains the current page and removes hidden tabs from focus', !await page.getByRole('tab', { name: 'Notes', exact: true }).isVisible());
+  await page.reload(); await page.getByRole('button', { name: 'Navigation ausklappen' }).waitFor();
+  check('navigation collapse survives reload without forgetting pairing', fixture.devices.activeDevices().length === 1);
+  await page.getByRole('button', { name: 'Navigation ausklappen' }).click();
+  await page.getByRole('tab', { name: 'Tasks', exact: true }).focus(); await page.keyboard.press('ArrowRight');
+  check('keyboard navigation moves between organization tabs', await page.getByRole('tab', { name: 'Notes', exact: true }).getAttribute('aria-selected') === 'true');
+  await page.getByRole('button', { name: 'Neue Notiz', exact: true }).click();
+  const title = page.getByLabel('Titel', { exact: true }); await title.fill('Idee für morgen');
+  const body = page.getByLabel('Notiztext', { exact: true }); await body.fill('Grösse prüfen – mit Stift skizzieren.');
+  const canvas = page.getByRole('region', { name: 'Skizze', exact: true }).locator('canvas');
+  await canvas.focus(); await page.keyboard.press('Shift+ArrowRight'); await page.keyboard.press('Shift+ArrowDown');
+  await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
+  await waitFor(() => fixture.organizer.store.index().entries.some(item => item.title === 'Idee für morgen'), 'note synchronized');
+  const noteId = fixture.organizer.store.index().entries.find(item => item.title === 'Idee für morgen')!.id;
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 2, 'drawing synchronized');
+  check('actual IndexedDB, signed API and sketch history preserve editable strokes', fixture.organizer.store.detail(noteId)?.document.text.includes('Grösse') === true);
+  await canvas.scrollIntoViewIfNeeded(); const bounds = (await canvas.boundingBox())!;
+  const pen = await context.newCDPSession(page);
+  const x = bounds.x + bounds.width * .35; const y = bounds.y + bounds.height * .4; const end = bounds.x + bounds.width * .75;
+  await pen.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1, pointerType: 'pen', force: .6 });
+  await pen.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: end, y, button: 'left', buttons: 1, pointerType: 'pen', force: .8 });
+  await pen.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: end, y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' });
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 3, 'pen stroke saved');
+  check('pen pointer draws and persists pressure points', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.some(point => point.pressure > .5 && point.pressure < 1));
+  await page.getByRole('button', { name: 'Radierer', exact: true }).click(); await canvas.scrollIntoViewIfNeeded();
+  const eraseBounds = (await canvas.boundingBox())!;
+  await page.mouse.click(eraseBounds.x + eraseBounds.width * .55, eraseBounds.y + eraseBounds.height * .4);
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 2, 'middle of pen segment erased');
+  check('eraser hits the middle of a fast stroke between recorded points', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.length === 2);
+  await page.getByRole('button', { name: 'Rückgängig', exact: true }).click();
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 3, 'erased pen stroke restored');
+  await page.getByRole('button', { name: 'Stift', exact: true }).click(); await canvas.scrollIntoViewIfNeeded();
+  const touchBounds = (await canvas.boundingBox())!; await page.touchscreen.tap(touchBounds.x + touchBounds.width * .6, touchBounds.y + touchBounds.height * .6);
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 4, 'touch dot saved');
+  check('touch drawing and undo retain editable pen and touch strokes', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.length === 1);
+  await pen.detach();
+  const photo = new PNG({ width: 12, height: 10 }); photo.data.fill(220);
+  await page.getByLabel('Foto auswählen', { exact: true }).setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: PNG.sync.write(photo) });
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.images.length === 1, 'photo saved');
+  check('photo is normalized and remains a selectable sketch background', await page.getByLabel('Foto zum Markieren', { exact: true }).inputValue() === fixture.organizer.store.detail(noteId)?.document.images[0]?.id);
+  for (const [button, extension] of [['Text als Markdown', 'md'], ['Skizze als PNG', 'png'], ['Als PDF speichern', 'pdf']]) {
+    const downloading = page.waitForEvent('download'); await page.getByRole('button', { name: button!, exact: true }).click(); const download = await downloading;
+    const file = join(evidence, `note.${extension}`); await download.saveAs(file); const bytes = readFileSync(file);
+    check(`${extension} export downloads a real standalone artifact`, extension === 'md' ? bytes.toString('utf8').includes('Grösse prüfen') : extension === 'png' ? PNG.sync.read(bytes).width === 1600 : bytes.subarray(0, 5).toString() === '%PDF-' && bytes.length > 1000);
+  }
+  await page.reload(); await page.getByRole('button', { name: /Idee für morgen/ }).click();
+  check('reopened note retains editable text, image and drawing', await body.inputValue() === 'Grösse prüfen – mit Stift skizzieren.' && await page.getByRole('img', { name: 'foto.png' }).isVisible());
+  await context.setOffline(true); await page.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
+  await body.fill('Unterwegs ergänzt'); await page.getByRole('button', { name: 'Zur Liste', exact: true }).click();
+  await page.getByRole('button', { name: /Idee für morgen/ }).click();
+  check('offline edit survives leaving and reopening the editor', await body.inputValue() === 'Unterwegs ergänzt');
+  const hostNote = fixture.organizer.store.detail(noteId)!;
+  fixture.organizer.command({ operation: 'put', writerId: randomUUID(), sequence: 1, baseRevision: hostNote.revision, document: { ...hostNote.document, text: 'Gleichzeitig am PC ergänzt' } }, 'desktop');
+  await context.setOffline(false); await page.getByRole('button', { name: /Erneut verbinden/ }).click();
+  await waitFor(() => fixture.organizer.store.index().entries.some(item => item.conflictOf === noteId), 'offline conflict copy');
+  check('reconnection preserves both PC and tablet edits', fixture.organizer.store.detail(noteId)?.document.text === 'Gleichzeitig am PC ergänzt'
+    && fixture.organizer.store.index().entries.some(item => fixture.organizer.store.detail(item.id)?.document.text === 'Unterwegs ergänzt'));
+  await page.getByRole('button', { name: 'Aufgabe daraus erstellen', exact: true }).click();
+  await page.getByRole('heading', { name: 'Tasks', exact: true }).waitFor();
+  await page.getByLabel('Titel', { exact: true }).fill('Modell prüfen');
+  await page.getByRole('button', { name: 'Checklistenpunkt hinzufügen', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Checklistenpunkt', exact: true }).fill('Masse kontrollieren');
+  await page.getByLabel('Fällig am', { exact: true }).fill('2026-01-01T10:00');
+  await page.getByLabel('Erinnerung', { exact: true }).fill('2026-01-01T09:00');
+  await waitFor(() => fixture.organizer.store.index().entries.some(item => item.title === 'Modell prüfen' && item.reminderAt !== null), 'task saved');
+  check('note converts to a personal task without starting a run', fixture.organizer.store.index().entries.some(item => item.kind === 'task') && fixture.sessions.length === 0 && !!fixture.organizer.store.detail(noteId));
+  await page.getByRole('button', { name: 'Erinnerung bestätigen', exact: true }).click();
+  await page.getByRole('button', { name: 'Als erledigt markieren', exact: true }).click();
+  await page.getByRole('button', { name: 'Zur Liste', exact: true }).click(); await page.getByRole('button', { name: 'Erledigt', exact: true }).click();
+  check('completed tasks remain reachable through the explicit filter', await page.getByRole('button', { name: /Modell prüfen/ }).isVisible());
+  for (const viewport of [{ width: 1400, height: 900 }, { width: 800, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport); await page.screenshot({ path: join(evidence, `tasks-${viewport.width}.png`) });
+    check(`navigation and task list fit viewport ${viewport.width}`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  }
+  await page.setViewportSize({ width: 1400, height: 900 }); await page.getByRole('button', { name: /Modell prüfen/ }).click();
+  await page.getByRole('button', { name: 'An Agenten übergeben', exact: true }).click();
+  const dispatch = page.getByRole('dialog', { name: 'Aufgabe an Agenten übergeben', exact: true }); await dispatch.waitFor();
+  check('agent handoff is an explicit focused review of project, agent and prompt', await dispatch.evaluate(node => node.contains(document.activeElement))
+    && (await dispatch.getByLabel('Auftragstext', { exact: true }).inputValue()).includes('Masse kontrollieren'));
+  proxy.loseTaskReplies(true); await dispatch.getByRole('button', { name: 'Auftrag starten', exact: true }).click(); await dispatch.getByRole('alert').waitFor();
+  await waitFor(() => fixture.sessions.length === 1, 'one admitted task');
+  await dispatch.getByRole('button', { name: 'Schliessen', exact: true }).click(); proxy.loseTaskReplies(false);
+  await page.getByRole('button', { name: 'An Agenten übergeben', exact: true }).click();
+  await dispatch.getByRole('button', { name: 'Übergabe erneut prüfen', exact: true }).click(); await dispatch.waitFor({ state: 'hidden' });
+  check('lost handoff reply reopens and replays exactly one agent run', fixture.sessions.length === 1 && await page.getByRole('button', { name: 'Auftrag 1 öffnen', exact: true }).isVisible());
+  await waitFor(() => fixture.organizer.store.index().entries.some(item => item.title === 'Modell prüfen' && fixture.organizer.store.detail(item.id)!.document.runIds.length === 1), 'durable run link');
+  check('agent handoff keeps task completion independent', fixture.organizer.store.index().entries.find(item => item.title === 'Modell prüfen')?.done === true);
+  await page.getByRole('button', { name: 'Auftrag 1 öffnen', exact: true }).click();
+  check('confirmed task link opens the corresponding Graph', await page.getByRole('tab', { name: 'Graph', exact: true }).getAttribute('aria-selected') === 'true');
+  const savedDocuments = fixture.organizer.store.index().entries.length;
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Dieses Gerät lokal trennen', exact: true }).click();
+  await page.getByRole('heading', { name: 'Mit deinem PC verbinden', exact: true }).waitFor();
+  await page.waitForFunction(async scope => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('ade-organizer-v1', 1); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    try { return await new Promise<boolean>((resolve, reject) => { const request = db.transaction('profiles').objectStore('profiles').get(scope); request.onsuccess = () => resolve(JSON.stringify(request.result) === '{"forgotten":true}'); request.onerror = () => reject(request.error); }); } finally { db.close(); }
+  }, `mobile:${device}`);
+  check('local disconnect removes private drafts while retaining PC documents', fixture.organizer.store.index().entries.length === savedDocuments && fixture.devices.activeDevices().length === 1);
+  await page.reload(); await page.getByRole('heading', { name: 'Mit deinem PC verbinden', exact: true }).waitFor();
+  check('reload after disconnect cannot reopen the previous personal collection', !await page.getByRole('tab', { name: 'Notes', exact: true }).count());
+  check('no renderer exceptions in personal organizer flow', errors.length === 0);
+})().catch(async error => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined); }).finally(async () => {
+  await browser?.close(); sessions?.dispose(); await server?.stop(); await proxy?.close();
+  if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected test root'); rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  console.log(`Organizer browser: ${passed} passed, ${failed} failed`); if (failed) process.exitCode = 1;
+});

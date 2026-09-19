@@ -93,6 +93,8 @@ void (async () => {
   await page.screenshot({ path: join(evidence, 'phone-overview-light.png'), fullPage: true });
   await page.getByRole('tab', { name: 'Overview', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
   check('mode tabs use roving keyboard focus and select Projects', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true' && await focused('#view-tab-projects'));
   // This minimal fixture deliberately has no project/workspace administration;
   // real directory search/open is covered by projectDirectoryFlow.

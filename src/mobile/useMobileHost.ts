@@ -41,7 +41,12 @@ export function useMobileHost() {
   const epoch = useRef(0);
 
   const clearIdentity = useCallback(() => {
-    if (client.deviceId) clearDeviceDrafts(client.deviceId);
+    if (client.deviceId) {
+      const scope = `mobile:${client.deviceId}`; clearDeviceDrafts(client.deviceId);
+      void Promise.all([import('../renderer/organizer/organizerStorage'), import('../renderer/organizer/OrganizerEditing')]).then(async ([storage, editing]) => {
+        editing.forgetOrganizerEditing(scope); await storage.forgetOrganizerStorage(scope);
+      }).catch(() => setNotice('Lokale Aufgaben und Notizen konnten nicht vollständig entfernt werden. Browser-Gerätespeicher prüfen.'));
+    }
     setDeviceId(null);
     epoch.current++; setIdentityVersion(epoch.current); cursor.current = null;
     setPending(null); setPaired(false); setRuns([]); setCatalog(null); setHealth(null); setLastSeen(null); setNotice('');

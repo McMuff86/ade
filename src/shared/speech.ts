@@ -15,12 +15,12 @@ export type SpeechPreset = 'voice-check' | 'computer-greeting';
 export const validSpeechPreset = (value: unknown): value is SpeechPreset => value === 'voice-check' || value === 'computer-greeting';
 export const computerGreeting = (hour: number): string => [
   `${hour >= 5 && hour < 12 ? 'Guten Morgen' : hour >= 12 && hour < 18 ? 'Guten Tag' : 'Guten Abend'}, Adi.`,
-  'Schön, dass du da bist. Ich bin bereit für unseren nächsten Schritt.',
+  'Schön, dass du da bist. Was kann ich für dich tun?',
   'Wähle nach dieser Begrüssung „Diktieren“ und beschreibe, wobei ich dich unterstützen soll.',
   'Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.',
 ].join(' ');
 export const isComputerCall = (text: string): boolean => /^\s*(?:hey[,\s]+)?computer[.!?,\s]*$/iu.test(text);
-export const SPEECH_TEST_TEXT = 'Hallo Adi, ich bin dein Agent. Die Sprachausgabe über ElevenLabs funktioniert. Ich bin bereit für unseren nächsten Schritt.';
+export const SPEECH_TEST_TEXT = 'Hallo Adi, ich bin dein Agent. Was kann ich für dich tun?';
 export const validVoiceId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9]{10,80}$/.test(value);
 
 export type SpeechTarget = { kind: 'default' } | { kind: 'project'; repositoryId: string } | { kind: 'agent'; agentId: string; repositoryId?: string };

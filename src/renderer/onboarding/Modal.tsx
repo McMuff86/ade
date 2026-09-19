@@ -55,9 +55,9 @@ export function Modal({
     }
     if (e.key !== 'Tab') return;
     const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
-    if (!nodes || nodes.length === 0) return;
+    if (!nodes || nodes.length === 0) { e.preventDefault(); dialogRef.current?.focus(); return; }
     const list = Array.from(nodes).filter(node => node.tabIndex >= 0 && node.getClientRects().length > 0);
-    if (!list.length) return;
+    if (!list.length) { e.preventDefault(); dialogRef.current?.focus(); return; }
     const first = list[0];
     const last = list[list.length - 1];
     const active = document.activeElement as HTMLElement | null;

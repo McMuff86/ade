@@ -806,3 +806,52 @@ Mehrere Kategorien mit gleichem Gruppennamen erscheinen zusammen; Agenten und
 ihre Projektzuordnungen bleiben erhalten. Die Suche in der Terminal-Navigation
 findet auch Agenten in eingeklappten Gruppen. Der Auf-/Zuklapp-Zustand wird je
 Gerät gespeichert.
+
+
+## Persönliche Tasks und Notes
+
+Unter **Organisation** findest du **Tasks** für Aufgaben und **Notes** für freie
+Notizen. Die Navigation kannst du mit der Schaltfläche links einklappen; der
+aktuelle Bereich bleibt am Schalter sichtbar. Pfeiltasten wechseln die Seiten,
+Escape klappt die Navigation zu.
+
+**Neue Aufgabe** oder **Neue Notiz** beginnt ohne Projekt und ohne Agent. Schreibe
+oder diktiere deinen Text und ergänze bei Bedarf Fotos. Notizen haben zusätzlich
+eine Zeichenfläche mit Stift, Radierer, Rückgängig/Wiederholen und Fotohintergrund.
+„Nur Stift“ ignoriert Fingerberührungen. Auf der Zeichenfläche bewegen Pfeiltasten
+den Zeichenpunkt, Umschalt plus Pfeiltaste zeichnet, Leertaste setzt einen Punkt.
+
+Tasks bieten Checkliste, Fälligkeit und Erinnerung. „Heute“ enthält auch überfällige
+Aufgaben; „Später“ zeigt offene Aufgaben ohne Fälligkeit. „Erinnerungen“ zeigt fällige,
+noch nicht bestätigte Hinweise. Der PC muss für Desktop-Erinnerungen mit ADE laufen.
+Benachrichtigungen im Hintergrund hängen von den Systemeinstellungen ab. Auf dem
+Tablet siehst du Erinnerungen beim Öffnen; es gibt keine zugesicherte Push-Zustellung
+bei geschlossener App. Eine Erinnerung startet keine Agentenarbeit.
+
+**An Agenten übergeben** zeigt vor dem Start Projekt, Agent und Auftragstext. Titel,
+Text und Checkliste werden übergeben; Fotos/Skizzen bleiben an der persönlichen
+Aufgabe. Nach Bestätigung führt „Auftrag öffnen“ zum Run. Bei verlorener Antwort
+„Übergabe erneut prüfen“ verwenden: Der gespeicherte Vorgang wird wieder aufgenommen.
+Der Erledigt-Status deiner Aufgabe bleibt unabhängig vom Agentenauftrag.
+
+„Aufgabe daraus erstellen“ übernimmt eine Notiz als neue Aufgabe. Markierst du
+vorher Text, wird dieser Ausschnitt übernommen. Das Original bleibt erhalten.
+**Text als Markdown**, **Skizze als PNG** und **Als PDF speichern** laden Dateien
+herunter; die Notiz bleibt weiterhin bearbeitbar. PDF enthält gerasterten Text,
+Zeichnung und Fotos. Markdown exportiert den Text und die Checkliste.
+
+Änderungen werden zuerst auf diesem Gerät gespeichert. „Mit dem PC abgeglichen“
+steht erst nach bestätigter Verbindung da. Offline kannst du Text und Zeichnungen
+weiter erfassen; Diktat benötigt den PC und den eingerichteten ElevenLabs-Zugang.
+Gleichzeitige Änderungen ergeben eine Konfliktkopie mit beiden Fassungen. Bei einem
+Speicherfehler bleibt der Entwurf in der geöffneten App: erneut speichern oder
+exportieren, bevor du die App schliesst. Privates Browsen oder das Löschen von
+Browserdaten kann lokale, noch nicht abgeglichene Inhalte entfernen.
+
+Bestehende Tablets benötigen am PC unter **Settings → Verbundene Geräte** die
+Freigaben **Persönliche Aufgaben und Notizen lesen/bearbeiten**. Für Diktat kommt
+die Diktatfreigabe hinzu. Eine neue Kopplung ist dafür nicht nötig. „Dieses Gerät
+lokal trennen“ entfernt auch die auf diesem Gerät gespeicherten Tasks-/Notes-Daten;
+auf dem PC bestätigte Inhalte bleiben dort erhalten.
+
+Aktueller Ausbau- und Prüfstand: [Tasks und Notes](TASKS_NOTES.md).

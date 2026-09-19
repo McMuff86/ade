@@ -8,6 +8,8 @@ export const finalStates = new Set(['completed', 'failed', 'cancelled']);
 export function Icon({ name }: { name: View | 'plus' | 'close' | 'settings' | 'project' | 'refresh' | 'sun' | 'moon' }): JSX.Element {
   const paths: Record<string, ReactNode> = {
     overview: <path d="M4 7h16M4 12h10M4 17h7" />,
+    tasks: <path d="m3 6 2 2 4-4M11 6h10M3 13h6m2 0h10M3 20h6m2 0h10" />,
+    notes: <path d="M14 3H4v18h16V11M10 14l1-5 8-8 4 4-8 8z" />,
     terminals: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 8 4 4-4 4m7 0h4" /></>,
     work: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m8 9 2 2 4-4M8 16h8" /></>,
     graph: <><circle cx="12" cy="5" r="2.4" /><circle cx="5" cy="18" r="2.4" /><circle cx="19" cy="18" r="2.4" /><path d="M12 7.4v4M10.5 13l-4 3M13.5 13l4 3" /></>,

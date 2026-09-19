@@ -1,5 +1,32 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Persönliche Tasks und Notes
+
+Tasks und Notes sind eigenständige persönliche Seiten, getrennt von ausführbaren
+Agentenaufträgen. Ein Titel genügt zur Erfassung. Projektzuordnung ist optional.
+Tasks können Beschreibung, Checkliste, Fotos, Fälligkeit und Erinnerung besitzen;
+Ansichten zeigen alle, heutige/überfällige, geplante, spätere und erledigte Aufgaben
+sowie fällige Erinnerungen. Eine Fälligkeit startet keinen Agenten. Die ausdrückliche
+Übergabe zeigt Projekt, Agent und Auftragstext; bestätigte Aufträge bleiben verlinkt.
+Erledigt-Status und Run-Ergebnis sind unabhängig.
+
+Notes kombinieren Text, Diktat, Fotos und editierbare Zeichnung. Stift/Finger,
+Radierer für ganze Striche, Rückgängig/Wiederholen, Foto als Hintergrund und
+Tastaturzeichnung sind vorgesehen. PNG gibt die Zeichnung aus, PDF Text/Bilder/
+Zeichnung und Markdown den Text. Eine Notiz oder ein Textausschnitt kann als neue
+Aufgabe übernommen werden; die Notiz bleibt erhalten.
+
+Bearbeitung speichert zuerst auf dem Gerät, anschließend auf dem PC. Offline-
+Erfassung braucht keine neue Kopplung. Gleichzeitige Änderungen bleiben als zwei
+Fassungen erhalten. Fehler dürfen weder erfolgreichen Abgleich behaupten noch
+den sichtbaren Entwurf beim Seitenwechsel verwerfen. Diktat benötigt Verbindung
+und gesonderte Freigabe; Vorschau vor Übernahme, kein automatischer Agentenstart.
+
+Navigation gruppiert Start, Organisation und Entwicklung; die Darstellung lässt
+sich einklappen. Graph unterscheidet Run, Ergebnisse, Verwaltung, Steuerung und
+Ansicht. Der Arbeitsauftrag und Prüfstand stehen in [TASKS_NOTES.md](TASKS_NOTES.md);
+die vollständige Abnahme ist auf Nutzerwunsch noch zurückgestellt.
+
 ## Kompakter Projektbereich auf dem Tablet
 
 Der Projektkopf kann eingeklappt werden und gibt seinen Platz dem Terminal.
@@ -107,7 +134,7 @@ eine spätere Ausbaustufe; [Goal 33](VOICE_COMPANION_PROPOSAL.md).
 
 Die gewünschte Anmutung orientiert sich am Voyager-Computer: ruhig, sachlich,
 gleichmässige Betonung und leicht reduziertes Tempo. Die Begrüssung lautet
-„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Ich bin bereit für unseren nächsten Schritt. Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“ Stimmvorschau
+„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Was kann ich für dich tun? Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“ Stimmvorschau
 und Computer-Test verwenden dieselbe Abstimmung auf der ausgewählten Stimme.
 Die konkrete Klangähnlichkeit wird durch eine persönliche Hörprobe beurteilt.
 

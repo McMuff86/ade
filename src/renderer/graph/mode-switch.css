@@ -1,4 +1,6 @@
 /* Titlebar mode switch (Overview | Terminals | Graph). Colours via theme tokens. */
+.organizer-global-reminder { display: flex; align-items: center; gap: 12px; padding: 6px 16px; color: var(--text); border-bottom: 1px solid var(--accent); background: var(--panel); }
+.organizer-global-reminder button { color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
 
 .mode-switch {
   display: flex;

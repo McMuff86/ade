@@ -3,6 +3,11 @@ import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
 import type { DictationJobState } from './dictation';
 import type { LiveDictationChunk } from './liveDictation';
+export type MobileOrganizerQuery = import('./organizer').OrganizerQuery;
+export type MobileOrganizerMutation = import('./organizer').OrganizerMutation;
+export type MobileOrganizerResult = import('./organizer').OrganizerQueryResult | import('./organizer').OrganizerReceipt;
+export type MobileOrganizerDictation = { operation: 'prepare'; documentId: string }
+  | Exclude<MobileDictationRequest, { operation: 'prepare' }>;
 /** Session targets here always carry opaque host-API IDs, never PTY IDs. */
 export type MobileSupervisionView = import('./supervision').SupervisionView;
 export type MobileSupervisionQuery = { operation: 'overview' | 'briefing' } | { operation: 'detail'; projectId: string } | { operation: 'handoff'; projectId: string; handoffId: string };

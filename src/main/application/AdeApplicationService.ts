@@ -1,4 +1,8 @@
 import { validNavigationGroup } from '../../shared/categoryNavigation';
+import { ORGANIZER_LIMITS, organizerCommandKey, organizerId, validOrganizerMutation, validOrganizerQuery, type OrganizerEntry, type OrganizerSummary } from '../../shared/organizer';
+import type { OrganizerService } from '../organizer/OrganizerService';
+import { OrganizerError } from '../organizer/OrganizerStore';
+import { organizerEntryForWire, organizerSummaryForWire } from '../organizer/organizerWire';
 import { conversationId, validConversationCommand } from '../../shared/conversation';
 import type { ConversationService } from '../conversation/ConversationService';
 import { conversationAnswerForWire, conversationDetailForWire, conversationQuestionForWire } from '../conversation/conversationWire';
@@ -138,6 +142,7 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  organizer?: OrganizerService;
   conversations?: () => ConversationService;
   conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
@@ -516,6 +521,53 @@ export class AdeApplicationService {
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
+  async organizer(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<import('../../shared/remote').MobileOrganizerResult> {
+    const service = this.options.organizer; const ledger = this.options.administration?.ledger;
+    if (!service || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      ledger.permits(context, 'organizer:read'); if (command) ledger.permits(context, 'organizer:write');
+    };
+    const visible = (item: OrganizerSummary | OrganizerEntry): boolean => {
+      const document = 'document' in item ? item.document : service.store.detail(item.id)?.document;
+      return !!document && (document.repositoryId === null || this.resources.repository(context.principal, document.repositoryId))
+        && document.runIds.every(id => this.resources.run(context.principal, id));
+    };
+    const owner = `device:${context.principal.id}`;
+    try {
+      authorize();
+      if (!command) {
+        if (!validOrganizerQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+        if (payload.operation === 'list') { const index = service.store.index(); return { index: { ...index, entries: index.entries.filter(visible).map(organizerSummaryForWire) } }; }
+        if (payload.operation === 'writer') return { sequence: service.store.writerSequence(payload.writerId, owner) };
+        const entry = service.store.detail(payload.id);
+        if (!entry) return { entry: null, redacted: false };
+        if (!visible(entry)) throw new RemoteApiError(403, 'scope_not_granted');
+        return organizerEntryForWire(entry);
+      }
+      if (!validOrganizerMutation(payload) || Buffer.byteLength(JSON.stringify(payload)) > ORGANIZER_LIMITS.documentBytes) throw new RemoteApiError(400, 'invalid_payload');
+      if (!context.idempotencyKey) throw new RemoteApiError(400, 'idempotency_key_required');
+      if (context.idempotencyKey !== organizerCommandKey(payload)) throw new RemoteApiError(400, 'idempotency_key_invalid');
+      const previous = service.store.detail(payload.operation === 'put' ? payload.document.id : payload.id);
+      if (previous && !visible(previous)) throw new RemoteApiError(403, 'scope_not_granted');
+      if (payload.operation === 'put') {
+        if (payload.document.repositoryId) this.resources.assertRepository(context.principal, payload.document.repositoryId);
+        for (const id of payload.document.runIds) this.resources.assertRun(context.principal, id);
+        // A redacted display is never a complete editing base. Preserve the host original.
+        if (previous && organizerEntryForWire(previous).redacted) throw new RemoteApiError(409, 'command_rejected', 'Diese Notiz enthält ausgeblendete Inhalte. Das Original am PC bearbeiten oder eine neue Kopie anlegen.');
+      }
+      this.audit(context, 'organizer:command', null, 'requested');
+      const execute = () => { authorize(); return service.command(payload, owner); };
+      const receipt = this.options.activity ? await this.options.activity.use(execute) : execute();
+      authorize(); this.audit(context, 'organizer:command', null, receipt.replayed ? 'replayed' : 'executed'); return receipt;
+    } catch (error) {
+      if (command) this.audit(context, 'organizer:command', null, 'rejected', redactedWireMessage(error));
+      if (error instanceof RemoteApiError) throw error;
+      throw new RemoteApiError(error instanceof OrganizerError && ['changed', 'sequence_old', 'sequence_gap', 'key_reused'].includes(error.code) ? 409 : 422, 'command_rejected', redactedWireMessage(error));
+    }
+  }
+
   async conversationActions(context: RemoteCommandContext, payload: unknown, command: boolean): Promise<import('../../shared/remote').MobileCoordinatorActionResult> {
     const factory = this.options.conversationActions; const conversations = this.options.conversations; const ledger = this.options.administration?.ledger;
     if (!factory || !conversations || !ledger) throw new RemoteApiError(404, 'not_found');
@@ -793,26 +845,35 @@ export class AdeApplicationService {
   }
 
   async remoteDictation(context: RemoteCommandContext, payload: unknown, upload = false): Promise<MobileDictationResult> {
-    return this.dictationRequest(context, payload, upload, false);
+    return this.dictationRequest(context, payload, upload, 'terminal');
   }
 
   async conversationDictation(context: RemoteCommandContext, payload: unknown): Promise<MobileDictationResult> {
-    return this.dictationRequest(context, payload, false, true);
+    return this.dictationRequest(context, payload, false, 'conversation');
   }
 
-  private async dictationRequest(context: RemoteCommandContext, payload: unknown, upload: boolean, conversation: boolean): Promise<MobileDictationResult> {
+  async organizerDictation(context: RemoteCommandContext, payload: unknown): Promise<MobileDictationResult> {
+    return this.dictationRequest(context, payload, false, 'organizer');
+  }
+
+  private async dictationRequest(context: RemoteCommandContext, payload: unknown, upload: boolean, targetKind: 'terminal' | 'conversation' | 'organizer'): Promise<MobileDictationResult> {
+    const conversation = targetKind === 'conversation'; const organizer = targetKind === 'organizer';
     const ledger = this.options.administration?.ledger; const jobs = this.options.dictation; const terminals = this.options.terminals;
-    if (!ledger || !jobs || (conversation ? !this.options.conversations : !terminals)) throw new RemoteApiError(404, 'not_found');
+    if (!ledger || !jobs || (organizer ? !this.options.organizer : conversation ? !this.options.conversations : !terminals)) throw new RemoteApiError(404, 'not_found');
     const authorize = () => {
       ledger.permits(context, 'dictation:transcribe');
+      if (organizer) {
+        if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+        ledger.permits(context, 'organizer:read'); ledger.permits(context, 'organizer:write'); return;
+      }
       if (!conversation) { ledger.permits(context, 'terminal:control'); return; }
       if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
       if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
       ledger.permits(context, 'workspace:read'); this.resources.assertAll(context.principal);
     };
     authorize();
-    const request = requireRecord(payload, 'request'); const owner = `device:${context.principal.id}${conversation ? ':conversation' : ''}`;
-    const channel = (name: string) => `${conversation ? 'conversation:' : ''}dictation:${name}`;
+    const request = requireRecord(payload, 'request'); const owner = `device:${context.principal.id}${organizer ? ':organizer' : conversation ? ':conversation' : ''}`;
+    const channel = (name: string) => `${organizer ? 'organizer:' : conversation ? 'conversation:' : ''}dictation:${name}`;
     try {
       if (upload) {
         requireKeys(request, ['jobId', 'audioBase64'], 'request');
@@ -828,6 +889,23 @@ export class AdeApplicationService {
         authorize(); jobs.read(owner, jobId); return { jobId, replayed: result.replayed || result.value.replayed };
       }
       if (request.operation === 'prepare') {
+        if (organizer) {
+          requireKeys(request, ['operation', 'documentId'], 'request');
+          if (!organizerId(request.documentId)) throw new RemoteApiError(400, 'invalid_payload');
+          const id = request.documentId;
+          const check = () => {
+            authorize(); const entry = this.options.organizer!.store.detail(id);
+            if (!entry || entry.deleted) throw new RemoteApiError(404, 'not_found');
+            if (entry.document.repositoryId) this.resources.assertRepository(context.principal, entry.document.repositoryId);
+            for (const runId of entry.document.runIds) this.resources.assertRun(context.principal, runId);
+            if (organizerEntryForWire(entry).redacted) throw new RemoteApiError(403, 'scope_not_granted');
+            return entry;
+          };
+          const result = await ledger.execute(context, channel('prepare'), 'dictation:transcribe', request, () => {
+            const entry = check(); return jobs.prepare(owner, check, entry.document.repositoryId ? { repositoryId: entry.document.repositoryId } : {});
+          });
+          check(); jobs.read(owner, result.value.jobId); return { ...result.value, replayed: result.replayed };
+        }
         if (conversation) {
           requireKeys(request, ['operation', 'conversationId'], 'request');
           if (!conversationId(request.conversationId)) throw new RemoteApiError(400, 'invalid_payload');

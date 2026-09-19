@@ -1,0 +1,112 @@
+import { randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
+import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
+import { HostRestartController } from '../src/main/application/HostRestartController';
+import { OrganizerService } from '../src/main/organizer/OrganizerService';
+import { newOrganizerDocument, organizerCommandKey, type OrganizerMutation, type OrganizerQueryResult, type OrganizerReceipt } from '../src/shared/organizer';
+import { DictationJobs } from '../src/main/settings/DictationJobs';
+import type { DictationTranscript } from '../src/shared/dictation';
+import { HostApiServer } from '../src/main/remote/HostApiServer';
+import { RemoteAuthorizer, sha256Hex, signRequest } from '../src/main/remote/authorization';
+import { REMOTE_COMMAND_CHANNELS } from '../src/main/ipcPolicy';
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-remote-organizer-')));
+let passed = 0; let failed = 0; let server: HostApiServer | undefined; let jobs: DictationJobs | undefined;
+const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
+async function refuses(name: string, action: () => unknown, code: string) { try { await action(); check(name, false); } catch (error) { check(name, error instanceof RemoteApiError && error.code === code); } }
+void (async () => {
+  const { devices, store, orchestration, ledger, gate } = createRemoteWorkspaceFixture(root);
+  const secret = 'o'.repeat(40); devices.enroll('tablet', 'Tablet', secret);
+  const context = (key: string = randomUUID()): RemoteCommandContext => ({ principal: { id: 'tablet', kind: 'device', proof: 'device-signature', scopes: new Set(devices.activeDevices().find(d => d.id === 'tablet')!.scopes) }, idempotencyKey: key, requestId: 'organizer-test' });
+  const organizer = new OrganizerService(join(root, 'organizer.json'));
+  let starts = 0; let packets = 0; let attribution = '';
+  jobs = new DictationJobs({ transcribe: async () => { throw new Error('Live only'); }, startLive: async (authorize, signal, usage, preview) => {
+    authorize(); starts++; attribution = JSON.stringify(usage); let complete!: (value: DictationTranscript) => void;
+    const result = new Promise<DictationTranscript>((resolve, reject) => { complete = resolve; signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }); });
+    return { result, push: () => { authorize(); packets++; preview('Skizze vorbereiten'); }, finish: () => { authorize(); complete({ text: 'Modell morgen prüfen', language: 'deu', audioSeconds: 1, model: 'scribe_v2_realtime' }); } };
+  } });
+  const app = new AdeApplicationService(store, orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
+    organizer, dictation: jobs, audit: entry => devices.audit(entry), activity: gate,
+    resourceAccess: id => devices.resourceAccess(id), deviceActive: id => devices.activeDevices().some(d => d.id === id),
+    administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true) },
+  });
+  const query = async (payload: unknown = { operation: 'list' }) => await app.organizer(context(), payload, false) as OrganizerQueryResult;
+  await refuses('personal data needs organizer read grant', () => query(), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['organizer:read'], { mode: 'all' });
+  const empty = await query(); check('read grant opens an empty personal collection', 'index' in empty && !empty.index.entries.length);
+  await refuses('bearer token cannot read personal collection', () => app.organizer({ ...context(), principal: { id: 'bootstrap', kind: 'bootstrap-token', proof: 'bearer', scopes: new Set(['read', 'organizer:read']) } }, { operation: 'list' }, false), 'device_proof_required');
+  const note = newOrganizerDocument('note'); note.title = 'Unterwegs'; note.text = 'Idee am Tablet';
+  const writerId = randomUUID(); const input: OrganizerMutation = { operation: 'put', writerId, sequence: 1, baseRevision: 0, document: note };
+  const command = (value: OrganizerMutation) => app.organizer(context(organizerCommandKey(value)), value, true) as Promise<OrganizerReceipt>;
+  await refuses('read grant cannot edit personal collection', () => command(input), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['organizer:read', 'organizer:write'], { mode: 'all' });
+  await refuses('mutation requires a key', () => app.organizer({ ...context(), idempotencyKey: undefined }, input, true), 'idempotency_key_required');
+  await refuses('key must bind writer sequence', () => app.organizer(context(), input, true), 'idempotency_key_invalid');
+  for (const extra of [{ path: root }, { commandId: 'injected' }, { owner: 'desktop' }]) await refuses('host/authority injection rejected', () => app.organizer(context(organizerCommandKey(input)), { ...input, ...extra }, true), 'invalid_payload');
+  const receipt = await command(input); const replay = await command(input);
+  check('remote save and retry create one document', receipt.id === note.id && replay.replayed && organizer.store.index().entries.length === 1);
+  check('document body never enters generic command ledger or audit', !readFileSync(join(root, 'remote/audit.jsonl'), 'utf8').includes(note.text) && (!(() => { try { return readFileSync(join(root, 'remote/commands.json'), 'utf8').includes(note.text); } catch { return false; } })()));
+  const detail = await query({ operation: 'detail', id: note.id });
+  check('explicit detail returns full task/note content', 'entry' in detail && detail.entry?.document.text === note.text && !detail.redacted);
+  const secretNote = newOrganizerDocument('note'); secretNote.title = 'C:\\Users\\private\\notes.txt'; secretNote.text = 'API_TOKEN=private-secret';
+  organizer.command({ ...input, writerId: randomUUID(), document: secretNote }, 'desktop');
+  const protectedDetail = await query({ operation: 'detail', id: secretNote.id });
+  check('paths and credentials are redacted and flagged as incomplete editing base', 'entry' in protectedDetail && protectedDetail.redacted && !JSON.stringify(protectedDetail).includes('private-secret') && !JSON.stringify(protectedDetail).includes('Users'));
+  await refuses('redacted tablet save cannot overwrite protected host content', () => command({ ...input, sequence: 2, baseRevision: ('entry' in protectedDetail ? protectedDetail.entry!.revision : 0), document: ('entry' in protectedDetail ? protectedDetail.entry!.document : note) }), 'command_rejected');
+  const restricted = newOrganizerDocument('task'); restricted.repositoryId = 'hidden'; restricted.title = 'Private project';
+  organizer.command({ ...input, writerId: randomUUID(), document: restricted }, 'desktop');
+  devices.setAdminScopes('tablet', ['organizer:read', 'organizer:write'], { mode: 'selected', repositoryIds: ['repo'], agentIds: [] });
+  const filtered = await query(); check('project restriction filters organizer index', 'index' in filtered && !filtered.index.entries.some(entry => entry.id === restricted.id));
+  await refuses('project restriction protects direct detail', () => query({ operation: 'detail', id: restricted.id }), 'scope_not_granted');
+  await refuses('project restriction protects replacement', () => command({ ...input, sequence: 2, baseRevision: organizer.store.detail(restricted.id)!.revision, document: restricted }), 'scope_not_granted');
+  await refuses('new note cannot enter forbidden project', () => command({ ...input, sequence: 2, document: { ...newOrganizerDocument('note'), repositoryId: 'hidden' } }), 'scope_not_granted');
+  const linked = newOrganizerDocument('task'); linked.runIds = ['private-run']; linked.title = 'Private run';
+  const linkedReceipt = organizer.command({ ...input, writerId: randomUUID(), document: linked }, 'desktop');
+  const linkedIndex = await query(); check('linked run restriction filters index even without a project', 'index' in linkedIndex && !linkedIndex.index.entries.some(entry => entry.id === linked.id));
+  await refuses('linked run restriction protects detail', () => query({ operation: 'detail', id: linked.id }), 'scope_not_granted');
+  await refuses('linked run restriction protects deletion', () => command({ operation: 'delete', writerId, sequence: 2, baseRevision: linkedReceipt.revision, id: linked.id }), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['organizer:read', 'organizer:write', 'dictation:transcribe'], { mode: 'selected', repositoryIds: ['repo'], agentIds: [] });
+  await refuses('linked run restriction also protects dictation', () => app.organizerDictation(context(), { operation: 'prepare', documentId: linked.id }), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['organizer:read', 'organizer:write'], { mode: 'selected', repositoryIds: ['repo'], agentIds: [] });
+  const preparation = { operation: 'prepare', documentId: note.id };
+  await refuses('dictation needs separate speech grant', () => app.organizerDictation(context(), preparation), 'scope_not_granted');
+  devices.setAdminScopes('tablet', ['organizer:read', 'organizer:write', 'dictation:transcribe'], { mode: 'all' });
+  const voiceKey = context(); const voice = await app.organizerDictation(voiceKey, preparation) as { jobId: string };
+  check('organizer recording does not need terminal permissions and reuses its ticket', (await app.organizerDictation(voiceKey, preparation) as { jobId: string }).jobId === voice.jobId && !starts);
+  const start = context(); await app.organizerDictation(start, { operation: 'stream-start', jobId: voice.jobId }); await app.organizerDictation(start, { operation: 'stream-start', jobId: voice.jobId });
+  check('dictation starts once without inventing an agent attribution', starts === 1 && attribution === '{}');
+  const chunk = { operation: 'stream-chunk', jobId: voice.jobId, sequence: 0, audioBase64: Buffer.alloc(8192).toString('base64') };
+  await app.organizerDictation(context(`${voice.jobId}:0`), chunk); await app.organizerDictation(context(`${voice.jobId}:0`), chunk);
+  check('audio packet replay reaches provider once', packets === 1);
+  const foreign = jobs.prepare('device:tablet:conversation', () => {});
+  await refuses('conversation ticket cannot be read through organizer', () => app.organizerDictation(context(), { operation: 'query', jobId: foreign.jobId }), 'command_rejected');
+  await app.organizerDictation(context(), { operation: 'stream-finish', jobId: voice.jobId });
+  check('completed dictation remains a preview rather than modifying a note', JSON.stringify(await app.organizerDictation(context(), { operation: 'query', jobId: voice.jobId })).includes('Modell morgen prüfen') && organizer.store.detail(note.id)?.document.text === note.text);
+  const authorizer = new RemoteAuthorizer('t'.repeat(32), [], undefined, devices);
+  server = new HostApiServer(app, { port: 0, authorizer, requireDeviceReads: true, audit: entry => devices.audit(entry) });
+  const address = await server.start();
+  const request = async (path: string, payload: unknown, key: string = randomUUID(), unsigned = false) => {
+    const body = JSON.stringify(payload); const timestamp = String(Date.now());
+    return fetch(`http://127.0.0.1:${address.port}${path}`, { method: 'POST', headers: { authorization: `Bearer ${'t'.repeat(32)}`, 'content-type': 'application/json',
+      ...(unsigned ? {} : { 'x-ade-device': 'tablet', 'x-ade-timestamp': timestamp, 'idempotency-key': key, 'x-ade-signature': signRequest(secret, { method: 'POST', path, timestamp, idempotencyKey: key, bodySha256: sha256Hex(Buffer.from(body)) }) }) }, body });
+  };
+  const http = await request('/api/v1/organizer/query', { operation: 'detail', id: note.id });
+  check('signed HTTP query reaches the common service', http.status === 200 && JSON.stringify(await http.json()).includes(note.text));
+  check('unsigned HTTP query cannot use bearer alone', (await request('/api/v1/organizer/query', { operation: 'list' }, randomUUID(), true)).status === 401);
+  const next: OrganizerMutation = { ...input, sequence: 2, baseRevision: receipt.revision, document: { ...note, text: 'a'.repeat(31_000) } };
+  const saved = await request('/api/v1/organizer/command', next, organizerCommandKey(next));
+  check('signed HTTP command uses organizer body limits and updates once', saved.status === 200 && organizer.store.detail(note.id)?.document.text.length === 31_000);
+  const voiceHttp = await request('/api/v1/organizer/dictation', preparation);
+  check('signed HTTP dictation exposes the prepared note target', voiceHttp.status === 200 && !!(await voiceHttp.json() as { jobId?: string }).jobId);
+  check('generic remote command allowlist stays unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
+  const stale = context(); devices.revoke('tablet');
+  await refuses('revocation blocks an old signed principal', () => app.organizer(stale, { operation: 'list' }, false), 'unknown_device');
+  check('final desktop positive control retains all original and accepted content', organizer.store.detail(secretNote.id)?.document.text === secretNote.text && organizer.store.detail(note.id)?.document.text.length === 31_000);
+})().catch(error => { failed++; console.error(error); }).finally(async () => {
+  await server?.stop(); jobs?.dispose();
+  if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected temporary root');
+  rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  console.log(`Remote organizer: ${passed} passed, ${failed} failed`); if (failed) process.exitCode = 1;
+});

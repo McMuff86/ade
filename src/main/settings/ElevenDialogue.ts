@@ -1,4 +1,4 @@
-import { SPEECH_TEST_TEXT, type SpeechTuning } from '../../shared/speech';
+import type { SpeechTuning } from '../../shared/speech';
 
 export const SPEECH_MODEL = 'eleven_v3';
 export type DialogueConnect = (url: string) => WebSocket;
@@ -6,7 +6,9 @@ const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 
 /** Provider-only pronunciation: display and previews retain ordinary spelling. */
 export const speechPronunciation = (text: string): string => {
-  const spoken = text === SPEECH_TEST_TEXT ? text.replace('dein Agent', 'dein "/ˈeɪdʒənt/"') : text;
+  // English “agent”, first-syllable stress and an explicit syllable boundary.
+  // Apply at whole words in read-aloud replies too, without changing visible text.
+  const spoken = text.replace(/(?<![\p{L}\p{N}_])Agent(?![\p{L}\p{N}_])/giu, '"/ˈeɪ.dʒənt/"');
   return spoken.replace(/(?<![\p{L}\p{N}_])Adi(?![\p{L}\p{N}_])/gu, '"/ˈadi/"');
 };
 

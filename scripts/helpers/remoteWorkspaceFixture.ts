@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { OrganizerService } from '../../src/main/organizer/OrganizerService';
 import { createMobileFixture } from './mobileFixture';
 import { AdeApplicationService } from '../../src/main/application/AdeApplicationService';
 import { RemoteWorkspaceService } from '../../src/main/application/RemoteWorkspaceService';
@@ -63,7 +64,9 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const resultFiles = new RunFileStore(join(root, 'result-files'));
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
+  const organizer = new OrganizerService(join(root, 'organizer.json'));
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
+    organizer,
     supervision: () => new SupervisionService(new SupervisionStore(join(root, 'supervision.json')), store, id => sessions.find(session => session.id === id)),
     deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
@@ -82,5 +85,5 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
+  return { ...fixture, application, organizer, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

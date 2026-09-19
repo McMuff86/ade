@@ -54,7 +54,7 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
   };
   return <div className="m-graph" data-testid="mobile-graph">
     {filesOpen && <Dialog title="Dateien dieses Runs" onClose={() => setFilesOpen(false)} fallbackId="view-tab-graph"><RunFilesPanel runId={run.id} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} /></Dialog>}
-    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button><button onClick={() => setFilesOpen(true)}>Dateien dieses Runs</button>
+    <div className="m-graph-activity-bar"><span>{run.name} · {run.status}</span><div className="ade-action-group" role="group" aria-label="Run"><button disabled={host.status !== 'online'} onClick={refresh}>Run aktualisieren</button></div><div className="ade-action-group" role="group" aria-label="Ergebnisse"><button onClick={() => setFilesOpen(true)}>Dateien dieses Runs</button></div>
       {error && <span role="alert">{error}</span>}</div>
     <div className="m-graph-scroll" tabIndex={0} aria-label="Graph-Canvas, zum Verschieben scrollen" onKeyDown={(event) => {
       if (event.target !== event.currentTarget) return;
@@ -74,7 +74,7 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
       </div>
     </div>
     <div className="m-graph-legend"><span className="m-live-dot" />Teamstruktur · {run.participants.length} Agents</div>
-    <div className="m-zoom" aria-label="Graph-Zoom"><button aria-label="Graph vergrössern" disabled={zoom >= 1.5} onClick={() => setZoom((value) => Math.min(1.5, value + .1))}><Icon name="plus" /></button>
+    <div className="m-zoom" role="group" aria-label="Graph-Zoom"><button aria-label="Graph vergrössern" disabled={zoom >= 1.5} onClick={() => setZoom((value) => Math.min(1.5, value + .1))}><Icon name="plus" /></button>
       <output aria-live="polite">{Math.round(zoom * 100)}%</output><button aria-label="Graph verkleinern" disabled={zoom <= .5} onClick={() => setZoom((value) => Math.max(.5, value - .1))}>−</button>
       <button aria-label="Graph einpassen" onClick={fit}>⊡</button><button aria-label="Graph-Zoom zurücksetzen" onClick={() => setZoom(1)}>1:1</button></div>
   </div>;

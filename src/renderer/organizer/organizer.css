@@ -1,0 +1,39 @@
+.organizer { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; color: var(--text); background: var(--bg); overflow: auto; }
+.organizer h1, .organizer h2, .organizer h3, .organizer p { margin: 0; }
+.organizer h1 { font-size: 23px; }.organizer h2 { font-size: 19px; }.organizer h3 { font-size: 14px; }
+.organizer button, .organizer input, .organizer textarea, .organizer select { font: inherit; color: inherit; }
+.organizer button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); cursor: pointer; }
+.organizer button:hover:not(:disabled) { border-color: var(--accent); }.organizer button:disabled { opacity: .5; cursor: default; }
+.organizer :is(button,input,textarea,select,summary,[tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.organizer button[aria-pressed=true] { background: color-mix(in srgb,var(--accent) 14%,var(--panel)); border-color: var(--accent); }
+.organizer .organizer-primary { background: var(--accent); color: var(--accent-contrast, #141414); font-weight: 600; }
+.organizer-header { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 24px 12px; flex-wrap: wrap; }
+.organizer-header p, .organizer-help, .organizer-save-status { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.organizer .organizer-save-status { padding: 0 24px 12px; }.organizer > p:not(.organizer-save-status) { margin: 0 24px 12px; }
+.organizer-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.organizer-body { display: grid; grid-template-columns: minmax(220px, 285px) minmax(0, 1fr); flex: 1; min-height: 0; border-top: 1px solid var(--line); }
+.organizer-list { border-right: 1px solid var(--line); padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 13px; }
+.organizer label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.organizer :is(input:not([type=checkbox]):not([type=range]):not([type=color]),select,textarea) { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 10px; box-sizing: border-box; color: var(--text); }
+.organizer textarea { resize: vertical; line-height: 1.65; min-height: 140px; }.organizer input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+.organizer-filters { display: flex; flex-wrap: wrap; gap: 5px; }.organizer-filters button { padding: 6px 9px; font-size: 12px; }
+.organizer-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.organizer .organizer-list-item { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 6px; text-align: left; overflow-wrap: anywhere; }
+.organizer-list-item span { color: var(--muted); font-size: 12px; }.organizer-list-item small { font-size: 11px; color: var(--muted); }
+.organizer-detail { min-width: 0; overflow: auto; }.organizer-empty { padding: 55px 28px; display: grid; gap: 12px; color: var(--muted); }
+.organizer-editor { max-width: 1150px; margin: 0 auto; padding: 20px 24px 36px; display: flex; flex-direction: column; gap: 16px; }
+.organizer-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 12px; }
+.organizer-error, .organizer-conflict { padding: 12px; border-left: 3px solid var(--accent); background: var(--panel); overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
+.organizer .organizer-danger { color: var(--del, #df7777); }.organizer .organizer-reminder { color: var(--accent); font-size: 12px; line-height: 1.6; }
+.organizer-checklist { display: flex; flex-direction: column; gap: 10px; }.organizer-checklist > div { display: flex; align-items: center; gap: 8px; }.organizer-checklist > div > input[type=checkbox] { flex: none; }
+.organizer-checklist > button { align-self: flex-start; }.organizer-file-input { display: none !important; }
+.organizer-images { display: flex; flex-wrap: wrap; gap: 12px; }.organizer-images figure { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 8px; width: 180px; }
+.organizer-images img { width: 100%; height: 115px; object-fit: contain; }.organizer-images figcaption { font-size: 11px; overflow-wrap: anywhere; }
+.organizer-sketch-disclosure { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }.organizer-sketch-disclosure > summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; }
+.organizer-sketch { display: flex; flex-direction: column; gap: 12px; }.organizer-sketch canvas { display: block; width: 100%; aspect-ratio: 8/5; height: auto; background: white; border: 1px solid var(--line); border-radius: 5px; touch-action: none; }
+.organizer-sketch input[type=color] { width: 44px; height: 32px; padding: 0; border: 0; }.organizer-sketch input[type=range] { max-width: 120px; }.organizer .organizer-check { flex-direction: row; align-items: center; }
+.organizer .conversation-voice { padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }.organizer .conversation-note { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.organizer .conversation-controls { display: flex; flex-wrap: wrap; gap: 8px; }.organizer .overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: #0009; }
+.organizer-dialog { width: min(650px, 100%); max-height: 90dvh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; }
+.organizer-dialog fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }.organizer-dialog p { font-size: 13px; line-height: 1.7; }
+@media(max-width: 760px) { .organizer-body { display: block; }.organizer-list { border-right: 0; }.organizer-detail { display: none; }.organizer-editing .organizer-list { display: none; }.organizer-editing .organizer-detail { display: block; }.organizer-editor { padding: 16px; }.organizer-header { padding: 16px; }.organizer .organizer-save-status { padding: 0 16px 12px; }.organizer-header h1 { font-size: 20px; }.organizer-checklist > div { flex-wrap: wrap; }.organizer-checklist > div > input:not([type=checkbox]) { flex: 1; min-width: 140px; }.organizer .overlay { padding: 10px; }.organizer-dialog { padding: 18px; } }

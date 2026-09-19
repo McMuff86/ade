@@ -1172,7 +1172,7 @@ export function GraphView(): JSX.Element {
     <div className={`graph${selection ? ' graph-inspecting' : ''}`} onKeyDown={onGraphKeyDown}>
       <DesktopSupervisionGraph />
       <div className="grunbar">
-        <button type="button" className="btn" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
+        <div className="graph-action-group graph-run-context" role="group" aria-label="Run auswählen"><span className="graph-action-label">Run</span>
         <select
           aria-label="Aktiver Run"
           value={activeRunId ?? ''}
@@ -1213,6 +1213,8 @@ export function GraphView(): JSX.Element {
             </span>
           </>
         )}
+        </div>
+        <div className="graph-action-group" role="group" aria-label="Ergebnisse und Rückfragen"><span className="graph-action-label">Ergebnisse</span>
         {activeRun && (
           <button
             ref={reportButtonRef}
@@ -1238,6 +1240,9 @@ export function GraphView(): JSX.Element {
               : 'Draft-PR'}
           </button>
         )}
+        </div>
+        <div className="graph-action-group" role="group" aria-label="Run verwalten"><span className="graph-action-label">Verwalten</span>
+        <button type="button" className="btn" data-open-git-sync disabled={repositories.length === 0} onClick={() => setShowGitSync(true)}>Git-Abgleich</button>
         {activeRun && (
           <button
             className={`grun-delete${deleteArmed ? ' armed' : ''}`}
@@ -1253,6 +1258,7 @@ export function GraphView(): JSX.Element {
         <button className="grun-new" onClick={openNewRun}>
           <Ico>{I.plus}</Ico>Neuer Run
         </button>
+        </div>
       </div>
 
       {activeRunFailure && !reportOpen && (
@@ -1495,15 +1501,15 @@ export function GraphView(): JSX.Element {
         ))}
       </div>
 
-      <div className="gzoom">
-        <button title="Vergrößern" onClick={() => zoomBy(1.15)}>+</button>
-        <button title="Verkleinern" onClick={() => zoomBy(0.87)}>-</button>
-        <button title="Ansicht einpassen" onClick={fitView}>□</button>
+      <div className="gzoom" role="group" aria-label="Graph-Ansicht">
+        <button aria-label="Graph vergrössern" title="Vergrößern" onClick={() => zoomBy(1.15)}>+</button>
+        <button aria-label="Graph verkleinern" title="Verkleinern" onClick={() => zoomBy(0.87)}>-</button>
+        <button aria-label="Graph einpassen" title="Ansicht einpassen" onClick={fitView}>□</button>
       </div>
 
       {activeRun && activeCluster && (
         <div
-          className="gdock"
+          className="gdock" role="group" aria-label="Run steuern"
           style={actionsPos ? { left: actionsPos.x, top: actionsPos.y, bottom: 'auto', translate: 'none' } : undefined}
         >
           <div
@@ -1517,9 +1523,8 @@ export function GraphView(): JSX.Element {
           >
             ⋮⋮
           </div>
-          <button className="gdbtn accent" onClick={openNewRun}>
-            <Ico>{I.plus}</Ico>Neuer Run
-          </button>
+          <span className="graph-action-label">Run steuern</span>
+          {actionsPos && <button type="button" className="gdbtn" aria-label="Run-Steuerung zurücksetzen" onClick={() => { setActionsPos(null); window.localStorage.removeItem('ade.graph.actionsPos'); }}>Position zurücksetzen</button>}
           <div className="sep" />
           {activeRun.mode === 'manual' && activeRun.status === 'draft' && (
             <button

@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { BrowserRequestBudget } from './BrowserRequestBudget';
 import { DICTATION_MAX_BASE64_CHARS } from '../../shared/dictationRequests';
+import { ORGANIZER_LIMITS } from '../../shared/organizer';
 import { TERMINAL_IMAGE_MAX_BASE64 } from '../../shared/terminalImages';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -62,6 +63,7 @@ const REQUEST_ID_HEADER = 'x-ade-request-id';
 const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
+  | { kind: 'organizerQuery' | 'organizerCommand' | 'organizerDictation' }
   | { kind: 'terminalPrompt' | 'terminalImage' | 'dictationCommand' | 'dictationUpload' }
   | { kind: 'integrationQuery' | 'integrationCommand' }
   | { kind: 'assignmentQuery' | 'assignmentCommand' }
@@ -77,7 +79,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -144,6 +146,9 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/supervision/query': return { route: { kind: 'supervisionQuery' }, allow: ['POST'] };
     case '/api/v1/supervision/command': return { route: { kind: 'supervisionCommand' }, allow: ['POST'] };
     case '/api/v1/conversation/query': return { route: { kind: 'conversationQuery' }, allow: ['POST'] };
+    case '/api/v1/organizer/query': return { route: { kind: 'organizerQuery' }, allow: ['POST'] };
+    case '/api/v1/organizer/command': return { route: { kind: 'organizerCommand' }, allow: ['POST'] };
+    case '/api/v1/organizer/dictation': return { route: { kind: 'organizerDictation' }, allow: ['POST'] };
     case '/api/v1/conversation/command': return { route: { kind: 'conversationCommand' }, allow: ['POST'] };
     case '/api/v1/conversation/dictation': return { route: { kind: 'conversationDictation' }, allow: ['POST'] };
     case '/api/v1/conversation/actions/query': return { route: { kind: 'conversationActionsQuery' }, allow: ['POST'] };
@@ -494,6 +499,9 @@ export class HostApiServer {
         case 'supervisionQuery':
         case 'supervisionCommand':
         case 'conversationQuery':
+        case 'organizerQuery':
+        case 'organizerCommand':
+        case 'organizerDictation':
         case 'conversationCommand':
         case 'conversationDictation':
         case 'conversationActionsQuery':
@@ -550,7 +558,7 @@ export class HostApiServer {
     request: IncomingMessage, response: ServerResponse, requestId: string, bearer: RemotePrincipal | null,
     path: string, kind: CommandKind, runId?: string, browserRequest = false,
   ): Promise<void> {
-    if (kind !== 'dictationUpload' && kind !== 'terminalImage') return this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest);
+    if (kind !== 'dictationUpload' && kind !== 'terminalImage' && kind !== 'organizerCommand') return this.executeCommand(request, response, requestId, bearer, path, kind, runId, browserRequest);
     if (this.dictationUploads >= 2) {
       writeError(response, 503, 'unavailable', undefined, { connection: 'close' });
       response.once('finish', () => request.destroy()); return;
@@ -571,7 +579,7 @@ export class HostApiServer {
     browserRequest = false,
   ): Promise<void> {
     const expectsJson = kind !== 'startRun' && kind !== 'cancelRun' && kind !== 'deleteRun';
-    const body = await this.readBody(request, response, expectsJson, kind === 'terminalImage' ? TERMINAL_IMAGE_MAX_BASE64 + 2048 : kind === 'dictationUpload' ? DICTATION_MAX_BASE64_CHARS + 1024 : this.maxBodyBytes);
+    const body = await this.readBody(request, response, expectsJson, kind === 'organizerCommand' ? ORGANIZER_LIMITS.documentBytes : kind === 'terminalImage' ? TERMINAL_IMAGE_MAX_BASE64 + 2048 : kind === 'dictationUpload' ? DICTATION_MAX_BASE64_CHARS + 1024 : this.maxBodyBytes);
     if (body === null) return;
     if (kind === 'deleteRun' && body.length !== 0) { writeError(response, 400, 'invalid_payload', 'delete takes no body'); return; }
 
@@ -620,6 +628,8 @@ export class HostApiServer {
 
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
+        : kind === 'organizerQuery' || kind === 'organizerCommand' ? await this.application.organizer(context, payload, kind === 'organizerCommand')
+        : kind === 'organizerDictation' ? await this.application.organizerDictation(context, payload)
         : kind === 'terminalPrompt' ? await this.application.remotePrompt(context, payload)
         : kind === 'terminalImage' ? await this.application.remoteTerminalImage(context, payload)
         : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')

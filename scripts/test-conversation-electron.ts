@@ -34,7 +34,7 @@ const ipc=require('electron').ipcMain;const handle=ipc.handle.bind(ipc);
 ipc.handle=(channel,listener)=>handle(channel,async(event,input)=>{const result=await listener(event,input);
  if(channel==='conversation:command'&&globalThis.adeDelayConversation){globalThis.adeDelayConversation=false;globalThis.adeConversationAdmitted=true;
  await new Promise(done=>{globalThis.adeReleaseConversation=done;});}return result;});
-require(${JSON.stringify(resolve('out/main/index.js'))});`);
+require(${JSON.stringify(resolve(process.env.ADE_CONVERSATION_MAIN ?? 'out/main/index.js'))});`);
   const launch = async () => {
     app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], cwd: resolve('.'), env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
     const page = await app.firstWindow(); page.setDefaultTimeout(20_000); await page.waitForFunction(() => !!window.ade); return page;
@@ -47,6 +47,17 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   });
   const open = async (target: Page) => { await target.locator('#desktop-supervision').click(); await target.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click(); return target.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
   if (process.argv.includes('--actions-only')) { await coordinatorActionsFlow(page, root, port, agent.id, evidence, check); return; }
+  if (process.argv.includes('--voice-only')) {
+    const dialog = await open(page); await dialog.getByLabel('Gesprächsprofil', { exact: true }).selectOption(agent.id);
+    await dialog.getByRole('button', { name: 'Neues ADE-Gespräch', exact: true }).click();
+    await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toBeEnabled();
+    const first = await dialog.getByLabel('Gespräch auswählen', { exact: true }).inputValue();
+    await dialog.getByRole('button', { name: 'Neues ADE-Gespräch', exact: true }).click();
+    await expect(dialog.getByLabel('Gespräch auswählen', { exact: true })).not.toHaveValue(first);
+    await conversationVoiceFlow(page, first, check, 'desktop voice');
+    check('focused voice flow makes two simulated speech calls and starts no PTY', (await app!.evaluate(() => (globalThis as unknown as { adeSpeechStarts: number }).adeSpeechStarts)) === 2 && !(await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.length);
+    return;
+  }
   let dialog = await open(page);
   await dialog.getByText('Noch kein ADE-Gespräch.', { exact: false }).waitFor();
   check('global dialog opens with no project or terminal', (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === 0 && (await page.evaluate(() => window.ade.invoke('config:get'))).repositories.length === 0);

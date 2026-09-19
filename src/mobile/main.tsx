@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useMobileHost, type PendingCommand } from './useMobileHost';
-import { Dialog, Empty, finalStates, Icon, Status, VIEWS, type View } from './ui';
+import { Dialog, Empty, finalStates, Icon, Status, type View } from './ui';
 import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
@@ -18,6 +18,7 @@ import { useDeviceDraft } from './deviceDrafts';
 import { TabletKeyboardContext, useTabletViewport } from './useTabletViewport';
 import { useFileDrafts } from './FileEditor';
 import { MobileAvatar, useProfileDrafts } from './AgentProfile';
+import { ViewNavigation } from '../renderer/navigation/ViewNavigation';
 import { SettingsTabs } from '../renderer/settings/SettingsTabs';
 import { MobileSpeechSettings } from './SpeechSettings';
 import { completeProjectDraft, filterProjectRuns, initialProjectDraft, selectProjectDraft, updateProjectDraft } from './projectDrafts';
@@ -32,6 +33,7 @@ import { SupervisionButton, SupervisionContext } from '../renderer/supervision/S
 import { MobileSupervision, MobileSupervisionGraph } from './Supervision';
 import type { SupervisionTarget } from '../shared/supervision';
 import type { MobileSessionInventory, MobileTerminalState } from '../shared/remote';
+const MobileOrganizer = lazy(() => import('./Organizer').then(module => ({ default: module.MobileOrganizer })));
 
 function preference(key: string, fallback: string): string { try { return localStorage.getItem(`ade-mobile-${key}`) ?? fallback; } catch { return fallback; } }
 function savePreference(key: string, value: string): void { try { localStorage.setItem(`ade-mobile-${key}`, value); } catch { /* Appearance remains available without storage. */ } }
@@ -67,7 +69,7 @@ function MobileApp(): JSX.Element {
   const [challenge, setChallenge] = useState(pairFragment);
   const [deviceName, setDeviceName] = useState('Mein Mobilgerät');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
-  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' ? value : 'overview'; });
+  const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' || value === 'tasks' || value === 'notes' ? value : 'overview'; });
   const [draftState, setDraftState, draftsDurable] = useDeviceDraft(host.deviceId, 'task-drafts', initialProjectDraft(emptyDraft()));
   const draft = draftState.drafts[draftState.active]!;
   const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
@@ -169,11 +171,7 @@ function MobileApp(): JSX.Element {
   }}>
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label="ADE Overview">ade<span>_</span></button>
       <span className="m-titlebar-sub">agentic development environment</span>
-      {host.paired && <div className="m-view-switch" role="tablist" aria-label="View mode">{VIEWS.map((item, index) => <button key={item.id} id={`view-tab-${item.id}`} role="tab"
-        aria-selected={view === item.id} aria-controls="mobile-view-panel" tabIndex={view === item.id ? 0 : -1} onClick={() => navigate(item.id)} onKeyDown={(event) => {
-          const next = event.key === 'ArrowRight' ? (index + 1) % VIEWS.length : event.key === 'ArrowLeft' ? (index + VIEWS.length - 1) % VIEWS.length : event.key === 'Home' ? 0 : event.key === 'End' ? VIEWS.length - 1 : null;
-          if (next !== null) { event.preventDefault(); navigate(VIEWS[next]!.id); document.getElementById(`view-tab-${VIEWS[next]!.id}`)?.focus(); }
-        }}><Icon name={item.id} />{item.label}</button>)}</div>}
+      {host.paired && <ViewNavigation mobile view={view} onSelect={navigate} />}
       <span className="m-header-spacer" /><span className={`m-connection ${host.status}`} role="status"><span className="m-live-dot" />{host.paired ? host.status === 'online' ? 'Verbunden' : host.status === 'connecting' ? 'Verbinde…' : 'Offline' : 'Privater Zugriff'}</span>
       <button className="m-icon-button" aria-label="Settings" title="Settings" onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}><Icon name="settings" /></button>
       <button className="m-icon-button" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
@@ -199,19 +197,19 @@ function MobileApp(): JSX.Element {
           <button className="m-primary" disabled={host.busy || !deviceName.trim() || !/^[A-Za-z0-9_-]{43}$/.test(challenge.trim())}>{host.busy ? 'Wird gekoppelt…' : 'Dieses Gerät verbinden'}</button>
         </form></section>
     </main> : <>
-      <div className="m-toolbar"><div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
+      {view !== 'tasks' && view !== 'notes' && <div className="m-toolbar"><div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">Aktiver Run<select aria-label="Aktiver Run" value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
         {!visibleRuns.length && <option value="">Kein Run</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{view === 'overview' ? 'Overview' : view === 'projects' ? 'Projekte' : view === 'terminals' ? 'Terminals' : 'Work'}</h1>}
         {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? 'Dein Workspace auf einen Blick' : view === 'projects' ? 'Projekt öffnen und loslegen' : view === 'terminals' ? 'Sitzungen auf deinem ADE-Rechner' : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? 'Orchestrierung'}</span></div>
-        <div className="m-toolbar-actions"><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
+        <div className="m-toolbar-actions"><div className="ade-action-group" role="group" aria-label="Verwaltung"><span className="ade-action-label">Verwaltung</span><button onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}>Verwalten</button>{view === 'graph' && graphRun && <button aria-label="Run-Details öffnen" onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>Details</button>}
           <button onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}>Einstellungen</button>
-        <SessionSwitchButton id="mobile-session-switch" />
+        </div><div className="ade-action-group" role="group" aria-label="Laufende Arbeit"><span className="ade-action-label">Arbeit</span><SessionSwitchButton id="mobile-session-switch" />
         <SupervisionButton id="mobile-supervision" />
           <button disabled={host.status !== 'online'} onClick={host.refreshNow}>Aktualisieren</button>
           <button disabled={host.status !== 'online'} onClick={() => { navigate('terminals'); setTerminalSelection({ terminalHome: true }); setTerminalLaunchVersion((n) => n + 1); }}>Terminal öffnen</button>
-          <button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
+          </div><div className="ade-action-group" role="group" aria-label="Neue Arbeit erstellen"><span className="ade-action-label">Erstellen</span><button onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>Neues Projekt</button>
           {view !== 'projects' && view !== 'terminals' && <><button aria-label="Neue Aufgabe" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('task'); }} title={draft.prompt && draft.mode === 'task' ? 'Entwurf fortsetzen' : 'Neue Aufgabe'}><Icon name="plus" />Neue Aufgabe{draft.prompt && draft.mode === 'task' && <span className="m-draft-dot" aria-label="Entwurf vorhanden" />}</button>
-          <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></>}</div>
-      </div>
+          <button className="m-primary" disabled={host.busy || !!host.pending} onClick={(event) => { event.currentTarget.focus(); newWork('run'); }}><Icon name="plus" />Neuer Run</button></>}</div></div>
+      </div>}
       {(view === 'work' || view === 'graph') && <div className="m-project-filters"><label>Projektfilter<select aria-label="Projektfilter" value={projectFilter} onChange={(event) => { setProjectFilter(event.target.value); setSelected(null); }}>
         <option value="">Alle Projekte</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
         <label>Agentfilter<select aria-label="Agentfilter" value={agentFilter} onChange={(event) => { setAgentFilter(event.target.value); setSelected(null); }}><option value="">Alle Agents</option>
@@ -219,7 +217,8 @@ function MobileApp(): JSX.Element {
         <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} offene Runs in dieser Auswahl · Task-Slots gelten für alle Projekte.</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
-          {view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
+          {view === 'tasks' || view === 'notes' ? <Suspense fallback={<p role="status">Aufgaben und Notizen werden geladen…</p>}><MobileOrganizer host={host} access={admin.state} kind={view === 'tasks' ? 'task' : 'note'} onKind={kind => setView(kind === 'task' ? 'tasks' : 'notes')} onRun={id => { setGraphRunId(id); setView('graph'); select(id); }} /></Suspense>
+            : view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
             onSession={(session) => { if (session.terminalHome) { navigate('terminals'); setTerminalSelection(terminalTarget(session)); }
               else if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
               else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />

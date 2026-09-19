@@ -1,5 +1,37 @@
 # ADE — aktuelle Übergabe
 
+## Abschlussbuild aktiviert: Tasks, Notes, Bediengruppen und Stimmtext
+
+19. September **23:19:44 CEST**: gemeinsamer `pnpm build` erfolgreich, persönliche
+Instanz regulär beendet und neu gestartet (PID **73360**), Quelle
+**`84c3fb056ecdde7aa0f1`**. Desktop gebaut **23:19:31**, Mobile **23:19:39 CEST**.
+Die private HTTPS-Adresse liefert bytegleich das neue Mobile-Bundle. Drei
+Gerätekopplungen sowie Profile/Projekte erhalten; Tablet nur neu laden.
+Die Navigation und Graph-Gruppen sowie Tasks/Notes sind in diesem Build enthalten.
+Stimmtest: „Hallo Adi, ich bin dein Agent. Was kann ich für dich tun?“;
+englische Agent-Aussprachevorgabe überarbeitet, persönliche Hörprobe noch offen.
+
+Auf letzte ausdrückliche Nutzeranweisung keine weiteren Tests, laufenden Typecheck
+abgebrochen und keine Gesamtprüfung ausgeführt. Vorherige fokussierte Ergebnisse
+bleiben dokumentiert; diese Lieferung ist keine repositoryweite Testfreigabe.
+Commit und Push erfolgen für den vollständigen beauftragten Stand.
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\OrganizerFinal-20260919-231923`.
+Lokaler Aktivierungsbeleg: `test-results/organizer-final-activation.json`.
+[Tasks/Notes](TASKS_NOTES.md) · [Stimmtext](VOICE_COPY_UPDATE.md) ·
+[UI/UX-Briefing ohne Designumsetzung](UI_UX_REVIEW_BRIEF.md).
+
+## Tasks/Notes-Zwischenstand auf Nutzerwunsch aktiviert, grosser Testlauf ausgesetzt
+
+19. September **22:24:58 CEST**: `pnpm build` (Desktop und Mobile) und
+`pnpm typecheck` bestanden, persönliche ADE-Instanz nach Prüfung auf freie
+Terminals/Agentenaufträge regulär beendet und neu gestartet (PID **71736**).
+Gemeinsame Source **`c9b05c98545b86f2f286`**; private HTTPS-Antwort liefert
+bytegleich das neue Mobile-Bundle. Drei Kopplungen sowie Profile und Projekte
+erhalten. Der Nutzer hat ausdrücklich den schnellen Build/Neustart vorgezogen
+und den vollständigen Testlauf zurückgestellt. Dieser Stand ist noch keine
+abgenommene Fertigstellung von Tasks/Notes und Button-Gruppierung.
+[Umfang, Einschränkungen und Nachweis](TASKS_NOTES.md).
+
 ## Aktiviert: kompakter Projektkopf, bestehende Tablet-Kopplung behalten
 
 19. September, nach Nutzerbestätigung des Tablet-Zugriffs: Projektbereich auf

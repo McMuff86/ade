@@ -720,6 +720,14 @@
 .gdbtn.danger { color: var(--del); }
 .gdbtn svg { width: 15px; height: 15px; }
 .gdock .sep { width: 1px; background: var(--line); margin: 2px 2px; }
+.graph-action-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.graph-action-group + .graph-action-group { padding-left: 10px; border-left: 1px solid var(--line); }
+.graph-action-label { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+.graph-run-context { flex: 1 1 340px; }
+.graph-run-context .graph-action-label { width: 100%; }
+.graph .grunbar { align-items: center; }
+.gdock .graph-action-label { padding: 0 4px; }
+.gdock { width: max-content; }
 .gdock-grip {
   display: flex;
   align-items: center;
