@@ -1,5 +1,13 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Kompakter Projektbereich auf dem Tablet
+
+Der Projektkopf kann eingeklappt werden und gibt seinen Platz dem Terminal.
+Titel, Verbindungsstatus und Workspace-Info bleiben erreichbar. Die lokale
+Ansicht bleibt beim Neuladen erhalten; offene Branch-Quittungen bleiben sichtbar.
+Aktualisierung und Branches teilen sich mit der Bereichswahl eine umbrechende
+Aktionsleiste. [Bedienung und Abnahme](TABLET_PROJECT_LAYOUT.md).
+
 ## Tablet verbinden und gemeinsamen Build starten
 
 QR-Link und manueller Code sind alternative Wege für dieselbe fünf Minuten

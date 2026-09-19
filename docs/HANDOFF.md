@@ -1,5 +1,21 @@
 # ADE — aktuelle Übergabe
 
+## Bereit: kompakter Projektkopf, bestehende Tablet-Kopplung behalten
+
+19. September, nach Nutzerbestätigung des Tablet-Zugriffs: Projektbereich auf
+Wunsch einklappbar, Refresh und Branches in derselben Aktionszeile. Nutzer nimmt
+das Tablet ausser Haus mit; bestehende Gerätezugänge und laufende Terminals
+bewahren. `pnpm verify` um **14:28 CEST**, Exit **0**, alle 91 Kernsuiten / 3.780
+Prüfungen und 30 Electron-/Browser-Driver; Projekt-/Layoutablauf **92/0**.
+Um **14:29 CEST** Release `dist/tablet-layout-d92d312a262b7a36df9c` und Startmenü-
+Verknüpfung vorbereitet. Persönliche Instanz **PID 47752** bleibt mit altem Build
+aktiv; Geräteablage mit drei Kopplungen bytegleich, private HTTPS-Antwort **200**.
+Später im Tray vollständig beenden und über die ADE-Startmenü-Verknüpfung starten,
+danach auf dem Tablet dieselbe Seite neu laden. Keine erneute Kopplung für dieses
+Update. Zwei Timingfehler im bestehenden Terminaltest korrigiert; keine weiteren
+Produktänderungen dafür. Standby war bereits deaktiviert, Energieplan unverändert.
+[Vertrag und aktueller Stand](TABLET_PROJECT_LAYOUT.md).
+
 ## Wiederhergestellt: Tablet-Pairing am 19. September
 
 Nutzer beauftragt Verbindung zu Hause/unterwegs, Abschluss der offenen Tablet-
@@ -24,8 +40,9 @@ Electron-/Browser-Driver**. Anwendungsquellstand unverändert; seit der Aktivier
 wurden nur Test-Synchronisation und Dokumentation angepasst.
 Bedienung: `pnpm build` baut Desktop und Mobile, `pnpm start` verwendet diesen
 Build ohne erneutes Bauen. Bestehende ADE-Instanz vorher im Tray vollständig
-beenden und anschliessend Tablet-Seite neu laden. Physische Tablet-Kopplung und
-Wechsel zwischen Heimnetz und Mobilfunk sind vom Nutzer noch nicht bestätigt.
+beenden und anschliessend Tablet-Seite neu laden. Der Nutzer hat inzwischen
+Projekt-/Linkzugriff vom physischen Tablet bestätigt; der Wechsel zwischen
+Heimnetz und Mobilfunk ist noch nicht separat bestätigt.
 [Aktueller Prüf- und Betriebsstand](MOBILE_PAIRING_RECOVERY.md).
 
 ## Vorgeschichte: Tablet-Links und Screenshots

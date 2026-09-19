@@ -357,6 +357,12 @@ erfolgen in der nativen Umgebung des ADE-Rechners. [Details und Abnahmestand](TE
 
 ## 5. In einem bestehenden Projekt arbeiten
 
+Auf dem Tablet kannst du oben über **Projektbereich** die Projektdetails und
+Aktionen einklappen. Das Terminal erhält den frei werdenden Platz; derselbe
+Schalter blendet den Bereich wieder ein. Die Auswahl bleibt beim Neuladen
+erhalten. **Workspace-Info** ist auch eingeklappt verfügbar. Auf breiten Tablets
+stehen **Workspace aktualisieren** und **Branches** neben den Bereichsschaltern.
+
 1. **Projekte** öffnen und das gewünschte Projekt suchen.
 2. Die Projektkarte und danach **Workspace öffnen** wählen.
 3. **Branches** aufklappen, den gewünschten Branch auswählen und die Vorschau

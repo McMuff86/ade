@@ -1,12 +1,21 @@
 # ADE delivery roadmap
 
+## Abgenommen: mehr Terminalfläche auf dem Tablet
+
+Projektbereich einklappen, Aktualisierung und Branches kompakt anordnen.
+Tastaturbedienung, Fokus, Wiederaufnahme und responsive Darstellung abgenommen;
+vollständiges `pnpm verify` am **19. September, 14:28 CEST** bestanden. Neuer Build
+für nächsten Start vorbereitet; laufender Tablet-Zugang und Kopplungen bewahrt.
+[Umfang und Prüfstand](TABLET_PROJECT_LAYOUT.md).
+
 ## Abgeschlossen: Pairing wiederherstellen und Tablet-Änderungen abschliessen
 
 Volles Zugriffsprotokoll unter Erhalt der Geräte und Idempotenzbarrieren
 archiviert; QR-/Code-Kopplung wiederhergestellt. Links/Bilder und aufgeteilte
 Browser-Builds abgenommen, persönliche Instanz mit erhaltenem Profil aktiviert.
 Vollständiges `pnpm verify` am **19. September, 11:15 CEST** bestanden.
-Die praktische Rückmeldung vom physischen Tablet zu Hause/unterwegs steht noch aus.
+Projekt-/Linkzugriff vom physischen Tablet vom Nutzer bestätigt; die separate
+Netzwechsel-Rückmeldung steht noch aus.
 [Bedienung und Nachweise](MOBILE_PAIRING_RECOVERY.md).
 
 ## Abgeschlossen: Links und Screenshots im Tablet-Terminal

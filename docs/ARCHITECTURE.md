@@ -1,5 +1,14 @@
 # ADE — Architecture (binding decisions)
 
+## Tablet project context visibility
+
+`ProjectDirectoryPage` owns a local presentation preference for the collapsible
+project context. It hides mounted context controls rather than unmounting the
+terminal or branch preview. Pending branch receipts override the preference;
+workspace errors, loading and offline notices remain outside the hidden region.
+The existing terminal focus/keyboard modes still take precedence. This introduces
+no host command or device-authentication change. [Contract and evidence](TABLET_PROJECT_LAYOUT.md).
+
 ## Cross-project ADE supervision: implementation underway (17 September 2026)
 
 The Codex tablet pilot adds five bounded domain tools to the five reads:

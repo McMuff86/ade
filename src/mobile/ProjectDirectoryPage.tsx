@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useContext, useEffect, useId, useRef, useState, type JSX } from 'react';
 import type { MobileFileSaveInput, MobileFileSaveResult, MobileHostState, MobileWorkspaceResult, ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceCommandResult, ProjectWorkspaceQuery, ProjectWorkspaceQueryResult, ProjectWorkspaceView } from '../shared/remote';
 import { ProjectDirectory, ProjectWorkspaceSummary } from '../renderer/projects/ProjectDirectory';
 import { workspaceError } from './AgentWorkspace';
@@ -29,6 +29,15 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [workspaceId, saveWorkspaceId] = useDeviceDraft<string | null>(host.deviceId, 'project-selected', null);
   const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
   const [workspaceInfo, setWorkspaceInfo] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(() => {
+    try { return localStorage.getItem('ade-mobile-project-context-collapsed') === 'true'; } catch { return false; }
+  });
+  const contextId = useId();
+  const toggleContext = (button: HTMLButtonElement) => {
+    button.focus();
+    setContextCollapsed(!contextCollapsed);
+    try { localStorage.setItem('ade-mobile-project-context-collapsed', String(!contextCollapsed)); } catch { /* Layout remains usable without storage. */ }
+  };
   const infoButton = useRef<HTMLButtonElement>(null);
   const [terminalId, setTerminalId] = useState<string>();
   const [pendingBranch, savePendingBranch] = useDeviceDraft<PendingBranch | null>(host.deviceId, `project-branch:${workspaceId ?? 'none'}`, null);
@@ -117,6 +126,8 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   };
   const show = !!selected || !!workspaceId;
   const name = workspace?.name ?? selected?.name ?? opening?.name ?? 'Workspace';
+  // A receipt awaiting recovery must remain visible even with a saved compact layout.
+  const contextHidden = !!workspace && canRead && contextCollapsed && !pendingBranch;
   return <>
     {online && rights && !canRead && <p role="alert">Am PC unter Settings → Verbundene Geräte „Workspace-Dateien und Git-Diffs lesen“ freigeben. Danach Projektordner aktualisieren.</p>}
     {membershipNotice && <p role="status">{membershipNotice}</p>}
@@ -130,21 +141,28 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
         ?? { id: opening.entryId, name: opening.name, kind: 'repository', backend: 'native', source: 'root', notice: null });
     }}>Workspace-Öffnung prüfen</button></div>}
     {show && <Dialog title={`Projekt · ${name}`} onClose={close} fallbackId="view-tab-projects" restoreFocusTo={opener.current} className={`m-independent-project ${workspace ? `m-agent-workspace ${section === 'terminal' ? 'm-terminal-workspace' : 'm-project-git-workspace'}` : ''}`}
-      headerActions={workspace && canRead && <button ref={infoButton} className="m-workspace-info-button" onClick={(event) => { event.currentTarget.focus(); setWorkspaceInfo(true); }}>Workspace-Info</button>}>
-      <div className="m-project-context">
+      headerActions={workspace && canRead && <div className="m-project-header-actions">
+        <button ref={infoButton} className="m-workspace-info-button" onClick={(event) => { event.currentTarget.focus(); setWorkspaceInfo(true); }}>Workspace-Info</button>
+        <button className="m-project-context-toggle" aria-expanded={!contextHidden} aria-controls={contextId} disabled={!!pendingBranch}
+          aria-label={`Projektbereich ${contextHidden ? 'einblenden' : 'einklappen'}`} onClick={(event) => toggleContext(event.currentTarget)}>
+          <svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d={contextHidden ? 'm6 9 6 6 6-6' : 'm6 15 6-6 6 6'} /></svg>
+          Projektbereich
+        </button>
+      </div>}>
+      {error && <p className="m-project-notice" role="alert">{error}</p>}{!online && <p className="m-project-notice" role="status">PC nicht verbunden. Erneut versuchen, sobald die Verbindung steht.</p>}
+      {busy && <p className="m-project-notice" role="status">Workspace wird geprüft…</p>}
+      <div id={contextId} className="m-project-context" hidden={contextHidden}>
       {workspace && canRead ? <ProjectWorkspaceSummary workspace={workspace} /> : <p>Den vorhandenen Projektordner öffnen. Sein Branch und seine Dateien bleiben erhalten.</p>}
-      {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>}
-      {error && <p role="alert">{error}</p>}{!online && <p role="status">PC nicht verbunden. Erneut versuchen, sobald die Verbindung steht.</p>}
-      {busy && <p role="status">Workspace wird geprüft…</p>}
       {!workspace && online && rights && !canOpen && <p role="alert">Am PC unter Settings → Verbundene Geräte zusätzlich „Projekt-Workspaces ohne Agent-Profil öffnen“ freigeben. Danach Freigaben aktualisieren.</p>}
-      <div className="project-workspace-actions">
+      <div className="m-project-toolbar">
+        {workspace && <div className="project-workspace-actions" aria-label="Projektbereich"><button aria-pressed={section === 'terminal'} onClick={() => setSection('terminal')}>Terminal</button><button aria-pressed={section === 'git'} onClick={() => setSection('git')}>Git</button><button aria-pressed={section === 'results'} onClick={() => setSection('results')}>Ergebnisse</button><button aria-pressed={section === 'settings'} onClick={() => setSection('settings')}>Projekt-Einstellungen</button></div>}
         {!workspace && <button className="m-primary" disabled={busy || !online || !canOpen} onClick={() => void open()}>{opening ? 'Workspace-Öffnung erneut prüfen' : 'Workspace öffnen'}</button>}
         <button disabled={busy || !online} onClick={() => void refresh()}>{workspace ? 'Workspace aktualisieren' : 'Freigaben aktualisieren'}</button>
         {opening && <button disabled={busy} onClick={() => { saveOpening(null); close(); }}>Öffnung verwerfen · Workspace behalten</button>}
-      </div>
       {workspace && canRead && <ProjectBranches key={workspace.id} workspace={workspace} online={online} canChange={canOpen && !!rights?.capabilities?.includes('projectGit:write')}
         query={branchQuery} apply={branchApply} errorText={workspaceError} pending={pendingBranch} savePending={savePendingBranch}
         onWorkspace={(value) => { saveWorkspaceId(value.id); setWorkspace(value); setTerminalId(undefined); }} />}
+      </div>
       </div>
       {workspace && canRead && (section === 'terminal' ? <div className="m-terminal-slot"><RemoteTerminalPane key={`${workspace.id}:${workspace.branch}`} host={host} projectWorkspaceId={workspace.id}
         expectedBranch={workspace.branch} active projectEntry initialTerminalId={terminalId} compactControls={keyboardOpen} /></div>
@@ -155,7 +173,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
           filePending={pendingFile} saveFilePending={savePendingFile} onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { saveWorkspaceId(value.id); setWorkspace(value); } }} />
           <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online={online} canPublish={canOpen && !!rights?.capabilities?.includes('projectGit:publish')}
             query={branchQuery} apply={publishApply} errorText={workspaceError} pending={pendingPublish} savePending={savePendingPublish} /></div>)}
-      {workspace && <details><summary>Agent-Arbeitskopie</summary><p>Eine bereits eingerichtete Agent-Arbeitskopie über den bisherigen Einstieg verwenden.</p>
+      {workspace && <details hidden={contextHidden}><summary>Agent-Arbeitskopie</summary><p>Eine bereits eingerichtete Agent-Arbeitskopie über den bisherigen Einstieg verwenden.</p>
         <button onClick={() => { const id = workspace.repositoryId; close(); onAgentWorkspace(id); }}>Agent-Arbeitskopie öffnen</button></details>}
       {workspaceInfo && workspace && canRead && <Dialog title="Workspace-Info" onClose={() => setWorkspaceInfo(false)} restoreFocusTo={() => infoButton.current} fallbackId="view-tab-projects">
         <ProjectWorkspaceSummary workspace={workspace} />

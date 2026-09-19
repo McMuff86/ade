@@ -5,6 +5,7 @@ import type { ElectronApplication, Page } from 'playwright';
 import { expandSessionControls, terminalLauncher } from './terminalControls';
 import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
 import { cliWorkFlow } from './cliWorkFlow';
+import { projectContextLayoutFlow } from './projectContextLayoutFlow';
 import type { mobileTlsProxy } from './mobileBrowser';
 
 export async function projectWorkspaceLaunchFlow(app: ElectronApplication, desktop: Page, page: Page, root: string, evidence: string, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>,
@@ -85,6 +86,7 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   await page.setViewportSize({ width: 1400, height: 900 });
   await compactToggle.click();
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
+  await projectContextLayoutFlow(page, dialog, evidence, check);
   await terminalLauncher(dialog);
   await dialog.getByLabel('Sitzung starten mit', { exact: true }).selectOption('agent');
   await dialog.getByLabel('Startprofil', { exact: true }).selectOption(before.agents.find((agent) => agent.name === 'Terminal Agent')!.id);
@@ -122,8 +124,14 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   await mobilePreview.getByRole('button', { name: 'Branch-Aktion ausführen', exact: true }).click();
   await dialog.locator('.project-branches').getByRole('alert').waitFor(); proxy.loseProjectReplies(false);
   const createdCount = (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.length;
+  // Model a saved compact preference from an earlier visit; the durable receipt takes precedence.
+  await page.evaluate(() => localStorage.setItem('ade-mobile-project-context-collapsed', 'true'));
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  await dialog.getByRole('button', { name: 'Branch-Aktion erneut prüfen', exact: true }).waitFor();
+  check('uncertain branch receipt stays visible despite a saved collapsed project context', await dialog.locator('.m-project-context').isVisible()
+    && await dialog.getByRole('button', { name: 'Projektbereich einklappen', exact: true }).isDisabled());
   await dialog.getByRole('button', { name: 'Branch-Aktion erneut prüfen', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Projektbereich einblenden', exact: true }).click();
   await dialog.locator('.project-branches > summary').filter({ hasText: 'feature/parallel' }).waitFor();
   check('lost branch reply and reload replay one worktree creation', (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.length === createdCount);
   const parallel = (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.find((item) => item.repositoryId === workspace.repositoryId && item.id !== workspace.id)!;

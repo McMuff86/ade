@@ -175,17 +175,17 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminal.getByLabel('Sitzung starten mit', { exact: true }).selectOption('shell');
   await terminal.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
-  const afterOpen = await homeSessions();
-  const added = afterOpen.find(item => !sessionsBefore.some(previous => previous.id === item.id));
-  check('direct phone entry starts an additional free shell', afterOpen.length === count + 1 && !!added);
-  if (!added) throw new Error('New free shell was not identified');
-  // The old terminal can remain visible while the open acknowledgement and
-  // selected-session query settle. Do not close until the new view is ready.
+  // The old screen remains mounted during launch. Wait for the new selected
+  // session acknowledgement before reading host identities, not only before close.
   await page.waitForFunction(previous => {
     const selected = document.querySelector<HTMLSelectElement>('[aria-label="Terminal-Sitzung"]');
     return !!selected?.value && !previous.includes(selected.value) && !selected.disabled;
   }, previousWireIds);
   await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
+  const afterOpen = await homeSessions();
+  const added = afterOpen.find(item => !sessionsBefore.some(previous => previous.id === item.id));
+  check('direct phone entry starts an additional free shell', afterOpen.length === count + 1 && !!added);
+  if (!added) throw new Error('New free shell was not identified');
   await expandSessionControls(terminal);
   await terminal.getByRole('button', { name: 'Sitzung beenden', exact: true }).click();
   const confirmation = page.getByRole('dialog').last();
@@ -195,8 +195,15 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminal.getByText('Sitzung beendet.', { exact: true }).waitFor();
   // Command acknowledgement precedes ConPTY's asynchronous exit. Observe the
   // particular new session ending before comparing the untouched older ones.
-  await desktop.waitForFunction(async id => !(await window.ade.invoke('pty:list')).sessions.some(item => item.id === id && item.status === 'running'), added.id, { timeout: 10_000, polling: 100 });
-  const remaining = (await homeSessions()).filter(item => item.status === 'running').map(item => item.id).sort();
+  // Poll awaited IPC from Node: a Promise-returning browser predicate can
+  // resolve waitForFunction even when its eventual value is false.
+  let afterClose = await homeSessions();
+  const closeDeadline = Date.now() + 10_000;
+  while (afterClose.some(item => item.id === added.id && item.status === 'running') && Date.now() < closeDeadline) {
+    await new Promise(done => setTimeout(done, 100));
+    afterClose = await homeSessions();
+  }
+  const remaining = afterClose.filter(item => item.status === 'running').map(item => item.id).sort();
   const retained = JSON.stringify(remaining) === JSON.stringify(runningBefore);
   if (!retained) console.error('Home close identity mismatch', { added: added.id, before: runningBefore, after: remaining });
   check('closing one home terminal retains the other sessions', retained);

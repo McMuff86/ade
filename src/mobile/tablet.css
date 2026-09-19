@@ -50,6 +50,20 @@
 .m-terminal-workspace:has(.m-terminal-focused) .m-tablet-workbench-main > p { display: none; }
 .m-terminal-focused .m-terminal-tools { flex: none; max-height: none; min-height: 0; }
 .m-independent-project .m-project-context { flex: none; max-height: 45%; overflow: auto; }
+.m-project-context[hidden] { display: none; }
+.m-project-header-actions { display: flex; flex: none; gap: 6px; align-items: center; }
+.m-project-context-toggle { font-size: 12px; min-height: 44px; }
+.m-independent-project > .m-project-notice { flex: none; margin: 4px 0; font-size: 12px; }
+.m-project-context .project-workspace-summary dl { margin: 6px 0; gap: 8px 24px; }
+.m-project-context .project-workspace-summary dt { margin-bottom: 4px; }
+.m-project-context .project-workspace-summary > p { margin: 6px 0; font-size: 12px; }
+.m-project-toolbar { display: flex; flex-wrap: wrap; align-items: start; gap: 8px; margin: 10px 0; }
+.m-project-toolbar > .project-workspace-actions { margin: 0; gap: 8px; }
+.m-project-toolbar > .project-branches { margin: 0; padding: 0 12px; min-width: 0; max-width: 100%; }
+.m-project-toolbar > .project-branches > summary { min-height: 44px; align-content: center; overflow-wrap: anywhere; }
+.m-project-toolbar > .project-branches[open] { flex-basis: 100%; padding-bottom: 12px; }
+.m-independent-project:has(.m-terminal-focused) .m-project-context-toggle,
+.m-independent-project:has(.m-keyboard-compact) .m-project-context-toggle { display: none; }
 .m-independent-project:has(.m-terminal-focused) .m-project-context,
 .m-independent-project:has(.m-keyboard-compact) .m-project-context,
 .m-independent-project:has(.m-terminal-focused) > details,

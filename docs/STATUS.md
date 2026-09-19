@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Abgenommen, für nächsten Start bereit: kompakter Tablet-Projektbereich (19. September 2026)
+
+Einklappbarer Projektkopf mit gespeicherter Ansicht, gemeinsamer Aktionszeile
+und mehr Terminalfläche implementiert. `pnpm verify` um **14:28 CEST** vollständig
+bestanden; Projekt-/Layoutablauf **92/0**. Neuer gemeinsamer Build
+`d92d312a262b7a36df9c` über die ADE-Startmenü-Verknüpfung vorbereitet. Für den laufenden
+Tablet-Zugriff bleibt die bisherige Instanz aktiv; drei Kopplungen bytegleich erhalten.
+Die neue Oberfläche wird erst beim nächsten Start aktiv.
+[Bedienung und Nachweise](TABLET_PROJECT_LAYOUT.md).
+
 ## Abgeschlossen und aktiviert: Pairing und Browser-Build (19. September 2026)
 
 Produktiver Pairing-Ausfall auf ein bis zur 8-MiB-Grenze gefülltes Zugriffsprotokoll
@@ -11,7 +21,8 @@ Fokussierte Geräte-/Verbindungsprüfungen **51/0** und **88/0**, Electron-Pairi
 zwei Kopplungen erhalten. Vollständiges `pnpm verify` am **19. September,
 11:15 CEST** bestanden: **91 Kernsuiten / 3.780 Prüfungen**, Build und **30
 Electron-/Browser-Driver**. Terminal-Gesamtflow **208/0**, Wiederaufnahme **30/0**.
-Physische Tablet-/Netzwechsel-Rückmeldung steht noch aus.
+Projekt-/Linkzugriff vom physischen Tablet inzwischen durch den Nutzer bestätigt;
+die separate Netzwechsel-Rückmeldung steht noch aus.
 [Nachweise](MOBILE_PAIRING_RECOVERY.md).
 
 ## Aktiviert: Tablet-Links und Screenshot-Anhänge (18./19. September 2026)

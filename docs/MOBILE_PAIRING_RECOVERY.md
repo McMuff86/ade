@@ -112,8 +112,9 @@ der grösste Mobile-Chunk bei 385,40 kB. Die 500-kB-Warnschwelle wurde nicht erh
   Wiederaufnahme, Einrichtung und Bildvergleich. Keine Warnschwellen erhöht.
 - Native Windows-Abnahme; Linux/WSLg, Windows→WSL und macOS sind getrennt zu bewerten.
   Ein echter Wechsel des physischen Tablets zwischen Heimnetz und Mobilfunk ist
-  von Browser-/HTTPS-Automation zu unterscheiden; die Rückmeldung vom physischen
-  Tablet und diesem Netzwechsel steht noch aus.
+  von Browser-/HTTPS-Automation zu unterscheiden. Der Nutzer hat den Projekt-
+  und Linkzugriff vom physischen Tablet am 19. September bestätigt; die separate
+  Rückmeldung zum Netzwechsel steht noch aus.
 
 Persönliche Aktivierung am **19. September, 09:18 CEST**: Source
 **`9c76087fb515f3b8c16e`**, PID **47752**, Release
