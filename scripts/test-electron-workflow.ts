@@ -735,7 +735,7 @@ async function run(): Promise<void> {
     // shell agent is restored before PTY checks so the rest of this workflow
     // still exercises the platform shell transport.
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    let agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    let agentDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await agentDialog.waitFor({ state: 'visible' });
     await agentDialog.locator('#edit-agent-runtime').selectOption('codex');
     check('Codex settings reveal pinned model and reasoning controls',
@@ -749,11 +749,11 @@ async function run(): Promise<void> {
         && commandPreview.includes('model_reasoning_effort="xhigh"')
         && commandPreview.includes('dangerously-bypass-approvals-and-sandbox'),
       commandPreview);
-    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await agentDialog.waitFor({ state: 'hidden' });
 
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    agentDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await agentDialog.waitFor({ state: 'visible' });
     check('saved Codex model/reasoning/bypass profile round-trips through Electron IPC',
       await agentDialog.locator('#edit-agent-runtime').inputValue() === 'codex'
@@ -779,7 +779,7 @@ async function run(): Promise<void> {
         .catch(() => null);
       return src?.startsWith('ade-photo://') === true;
     });
-    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await agentDialog.waitFor({ state: 'hidden' });
     await eventually('the saved profile photo reaches the rail avatar', async () => {
       const src = await page!
@@ -790,7 +790,7 @@ async function run(): Promise<void> {
       return src?.startsWith('ade-photo://') === true;
     });
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    agentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    agentDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await agentDialog.waitFor({ state: 'visible' });
     check('a reopened dialog still shows the stored photo and Codex profile',
       (await agentDialog.locator('.photo-picker img').getAttribute('src'))
@@ -803,13 +803,13 @@ async function run(): Promise<void> {
         && durableInstructions.includes('reasoning xhigh'));
     await agentDialog.locator('#edit-agent-runtime').selectOption('shell');
     await agentDialog.locator('#edit-agent-perm').selectOption('default');
-    await agentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await agentDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await agentDialog.waitFor({ state: 'hidden' });
 
     // Categories are editable after creation too: gear on the header row,
     // rename plus a real photo upload, both visible in the rail.
     await page.getByRole('button', { name: 'Category settings for E2E', exact: true }).click({ force: true });
-    let categoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    let categoryDialog = page.getByRole('dialog', { name: 'Kategorie-Einstellungen' });
     await categoryDialog.waitFor({ state: 'visible' });
     await categoryDialog.locator('.photo-picker input[type="file"]').setInputFiles({
       name: 'category.png',
@@ -824,7 +824,7 @@ async function run(): Promise<void> {
       return src?.startsWith('ade-photo://') === true;
     });
     await categoryDialog.locator('#edit-category-name').fill('E2E Crew');
-    await categoryDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await categoryDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await categoryDialog.waitFor({ state: 'hidden' });
     await eventually('the renamed category and its photo reach the rail', async () => {
       const src = await page!
@@ -835,14 +835,14 @@ async function run(): Promise<void> {
       return src?.startsWith('ade-photo://') === true;
     });
     await page.getByRole('button', { name: 'Category settings for E2E Crew', exact: true }).click({ force: true });
-    categoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    categoryDialog = page.getByRole('dialog', { name: 'Kategorie-Einstellungen' });
     await categoryDialog.waitFor({ state: 'visible' });
     check('a reopened category dialog still shows the stored photo',
       (await categoryDialog.locator('.photo-picker img').getAttribute('src'))
         ?.startsWith('ade-photo://') === true);
     // Restore the original name so later locators stay stable.
     await categoryDialog.locator('#edit-category-name').fill('E2E');
-    await categoryDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await categoryDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await categoryDialog.waitFor({ state: 'hidden' });
 
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
@@ -865,12 +865,12 @@ async function run(): Promise<void> {
     check('agents without a dashboard show no dashboard button',
       await page.locator('.tab-dashboard').count() === 0);
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    const dashboardDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    const dashboardDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await dashboardDialog.waitFor({ state: 'visible' });
     await dashboardDialog.locator('#edit-agent-dash-cmd').fill(
       `node -e "console.log('dash: http://127.0.0.1:${dashboardPort}/?token=e2e-secret')"`,
     );
-    await dashboardDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await dashboardDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await dashboardDialog.waitFor({ state: 'hidden' });
     await eventually('a configured dashboard reveals its strip button', async () =>
       await page!.locator('.tab-dashboard').count() === 1);
@@ -904,10 +904,10 @@ async function run(): Promise<void> {
       ((await reopenedDashboard.textContent('#echo')) ?? '').includes('ade_dash_sid=fixture'));
     await reopenedDashboard.close();
     await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-    const dashboardCleanupDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    const dashboardCleanupDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await dashboardCleanupDialog.waitFor({ state: 'visible' });
     await dashboardCleanupDialog.locator('#edit-agent-dash-cmd').fill('');
-    await dashboardCleanupDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await dashboardCleanupDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await dashboardCleanupDialog.waitFor({ state: 'hidden' });
 
     // Agent card: clicking the rail avatar opens the identity at a glance.
@@ -921,12 +921,12 @@ async function run(): Promise<void> {
         && agentCardText.includes('Runtime')
         && agentCardText.includes('Start command')
         && agentCardText.includes('Portable (no default)'));
-    await agentCard.getByRole('button', { name: 'Agent settings' }).click();
-    const cardSettingsDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    await agentCard.getByRole('button', { name: 'Agent-Einstellungen' }).click();
+    const cardSettingsDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await cardSettingsDialog.waitFor({ state: 'visible' });
     check('the agent card hands over to Agent settings in one click',
       await cardSettingsDialog.locator('#edit-agent-name').inputValue() === 'E2E Shell');
-    await cardSettingsDialog.getByRole('button', { name: 'Cancel' }).click();
+    await cardSettingsDialog.getByRole('button', { name: 'Abbrechen' }).click();
     await cardSettingsDialog.waitFor({ state: 'hidden' });
 
     // Deleting had no affordance at all: category:delete and agent:delete were
@@ -935,7 +935,7 @@ async function run(): Promise<void> {
     // channel by hand.
     await page.getByRole('button', { name: 'Agent settings for E2E Disposable Agent' })
       .click({ force: true });
-    const disposableDialog = page.getByRole('dialog', { name: 'Agent settings' });
+    const disposableDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await disposableDialog.waitFor({ state: 'visible' });
     await disposableDialog.getByRole('button', { name: 'Agent löschen' }).click();
     check('deleting an agent states what is lost and what survives on disk',
@@ -946,7 +946,7 @@ async function run(): Promise<void> {
 
     await page.getByRole('button', { name: 'Category settings for E2E Disposable' })
       .click({ force: true });
-    const disposableCategoryDialog = page.getByRole('dialog', { name: 'Category settings' });
+    const disposableCategoryDialog = page.getByRole('dialog', { name: 'Kategorie-Einstellungen' });
     await disposableCategoryDialog.waitFor({ state: 'visible' });
     await disposableCategoryDialog.getByRole('button', { name: 'Kategorie löschen' }).click();
     await disposableCategoryDialog.getByRole('button', { name: 'Endgültig löschen' }).click();
@@ -969,12 +969,12 @@ async function run(): Promise<void> {
 
     check('rare scope actions stay behind the compact Scope & session disclosure',
       await scopeHeader.getByRole('button', { name: 'Pfad…' }).count() === 0
-        && await scopeHeader.getByRole('button', { name: 'Add repo' }).count() === 0
+        && await scopeHeader.getByRole('button', { name: 'Repository hinzufügen' }).count() === 0
         && await scopeHeader.getByRole('button', { name: 'Scope & session actions' })
           .getAttribute('aria-expanded') === 'false');
     await scopeHeader.getByRole('button', { name: 'Scope & session actions' }).click();
     await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
-    const nativeBackendLabel = await scopeHeader.getByLabel('Execution backend')
+    const nativeBackendLabel = await scopeHeader.getByLabel('Ausführungsumgebung')
       .locator('option')
       .first()
       .textContent();
@@ -985,7 +985,7 @@ async function run(): Promise<void> {
       nativeBackendLabel);
     await scopeHeader.getByRole('button', { name: 'Pfad…' }).click();
     await scopeHeader.getByRole('button', { name: 'Scope & session actions' }).click();
-    await scopeHeader.getByLabel('Repository for new session').selectOption({
+    await scopeHeader.getByLabel('Repository für neue Sitzung').selectOption({
       label: 'Managed E2E repository',
     });
     const repositoryOverview = page.getByTestId('repository-overview');
@@ -1050,12 +1050,12 @@ async function run(): Promise<void> {
         fullPage: true,
       });
     }
-    const overviewTab = page.getByRole('tablist', { name: 'Repository panel' })
-      .getByRole('tab', { name: 'Overview', exact: true });
+    const overviewTab = page.getByRole('tablist', { name: 'Repository-Seitenleiste' })
+      .getByRole('tab', { name: 'Repository', exact: true });
     await overviewTab.focus();
     await page.keyboard.press('End');
     check('repository panel tabs support roving End/Home keyboard navigation',
-      await page.getByRole('tab', { name: 'Files', exact: true }).getAttribute('aria-selected') === 'true');
+      await page.getByRole('tab', { name: 'Dateien', exact: true }).getAttribute('aria-selected') === 'true');
     await page.keyboard.press('Home');
     await eventually('Home returns focus and selection to repository overview', async () =>
       await overviewTab.getAttribute('aria-selected') === 'true'
@@ -1076,13 +1076,13 @@ async function run(): Promise<void> {
       await page!.locator('.rp-inline').count() === 0
         && await commitButton.evaluate((element) => element === document.activeElement),
     );
-    await repositoryOverview.getByRole('button', { name: 'Refresh repository overview' }).click();
+    await repositoryOverview.getByRole('button', { name: 'Repository-Übersicht aktualisieren' }).click();
     await eventually('manual repository refresh preserves local and provider information', async () => {
       const text = await repositoryOverview.textContent();
       return text?.includes('managed e2e baseline') === true
         && text.includes('Improve repository inspector fixture');
     });
-    await scopeHeader.getByRole('button', { name: 'Open new session' }).click();
+    await scopeHeader.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
     await eventually('repository chooser opens a second scoped session', async () => await tabs.count() === 2);
     const secondTab = await activeTabId(page);
     check('repository-scoped session receives focus', Boolean(secondTab) && secondTab !== firstTab, { firstTab, secondTab });
@@ -1128,7 +1128,7 @@ async function run(): Promise<void> {
       mkdirSync(resolve(evidenceDir), { recursive: true });
       await page.screenshot({ path: join(resolve(evidenceDir), 'failure-ui.png'), fullPage: true });
     }
-    await page.getByRole('button', { name: 'Restart' }).click();
+    await page.getByRole('button', { name: 'Neu starten' }).click();
     await eventually('restart replaces the failed interactive session', async () => {
       const selected = page!.locator('[role="tab"][id^="session-tab-"][aria-selected="true"]');
       return await selected.count() === 1 && (await selected.getAttribute('aria-label'))?.includes('Terminal offen') === true;
@@ -1235,7 +1235,7 @@ async function run(): Promise<void> {
     check('a participant harness override is selectable per run, not per agent',
       await workerHarness.inputValue() === 'codex');
     await runModal.getByRole('button', { name: 'Pfad…' }).click();
-    await runModal.getByLabel('Repository path').fill(managed.repo);
+    await runModal.getByLabel('Repository-Pfad').fill(managed.repo);
     await runModal.getByRole('button', { name: 'Importieren' }).click();
     await eventually('the run dialog imports a repository from a direct path', async () => {
       const repositorySelect = runModal.locator('label.grun-field', { hasText: 'Repository' })
@@ -1500,7 +1500,7 @@ async function run(): Promise<void> {
       await page!.getByRole('tab', { name: 'Terminals' }).getAttribute('aria-selected') === 'true',
     );
 
-    await scopeHeader.getByLabel('Repository for new session').selectOption({
+    await scopeHeader.getByLabel('Repository für neue Sitzung').selectOption({
       label: 'Managed E2E repository',
     });
     const publishedOverview = page.getByTestId('repository-overview');
@@ -1517,19 +1517,19 @@ async function run(): Promise<void> {
       const scopePanel = page.getByTestId('repository-scope');
       await scopePanel.getByRole('button', { name: 'Scope & session actions' }).click();
       await scopePanel.getByRole('button', { name: 'Pfad…' }).click();
-      const backendSelect = scopePanel.getByLabel('Execution backend');
+      const backendSelect = scopePanel.getByLabel('Ausführungsumgebung');
       await eventually('WSL distribution is discoverable in the repository UI', async () =>
         await backendSelect.locator(`option[value="wsl:${wslDistribution}"]`).count() === 1);
       await backendSelect.selectOption(`wsl:${wslDistribution}`);
-      await scopePanel.getByLabel('Repository path').fill(wslRepository);
+      await scopePanel.getByLabel('Repository-Pfad').fill(wslRepository);
       await scopePanel.getByRole('button', { name: 'Importieren' }).click();
       await eventually('WSL repository import is visibly confirmed', async () =>
         (await scopePanel.textContent())?.includes('importiert') === true,
         45_000,
       );
-      await scopePanel.getByRole('button', { name: 'Set agent default' }).click();
+      await scopePanel.getByRole('button', { name: 'Agent-Standard festlegen' }).click();
       const tabCountBeforeWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
-      await scopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await scopePanel.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
       await eventually('Windows UI opens a WSL-backed terminal session', async () =>
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeWsl + 1,
         20_000,
@@ -1575,7 +1575,7 @@ async function run(): Promise<void> {
       await wslDiagnostics.waitFor({ state: 'visible' });
       await eventually('runtime diagnostics execute against the selected WSL backend', async () =>
         (await wslDiagnostics.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
-      await wslDiagnostics.getByRole('button', { name: 'Close' }).click();
+      await wslDiagnostics.getByRole('button', { name: 'Schliessen' }).click();
 
       // Agent home inside WSL: a portable (repo-less) agent starts its
       // sessions in a Linux directory of the selected distribution.
@@ -1585,7 +1585,7 @@ async function run(): Promise<void> {
       }
       wslAgentHomeDir = wslAgentHome;
       await page.getByRole('button', { name: 'Agent settings for E2E Lead' }).click({ force: true });
-      const homeDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      const homeDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
       await homeDialog.waitFor({ state: 'visible' });
       await homeDialog.locator('#edit-agent-repository').selectOption({ label: 'Portable agent (no default)' });
       const homeBackendSelect = homeDialog.locator('#edit-agent-home-backend');
@@ -1599,16 +1599,16 @@ async function run(): Promise<void> {
       await homeDialog.locator('#edit-agent-home-dir').fill(wslAgentHome);
       await homeDialog.locator('#edit-agent-cmd')
         .fill(`printf 'ADE_WSL_HOME_OK %s\\n' "$PWD"`);
-      await homeDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await homeDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
       await homeDialog.waitFor({ state: 'hidden' });
 
       await page.getByRole('button', { name: 'Agent settings for E2E Lead' }).click({ force: true });
-      const homeDialogReopened = page.getByRole('dialog', { name: 'Agent settings' });
+      const homeDialogReopened = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
       await homeDialogReopened.waitFor({ state: 'visible' });
       check('the WSL agent home round-trips through Electron IPC',
         await homeDialogReopened.locator('#edit-agent-home-backend').inputValue() === `wsl:${wslDistribution}`
           && await homeDialogReopened.locator('#edit-agent-home-dir').inputValue() === wslAgentHome);
-      await homeDialogReopened.getByRole('button', { name: 'Cancel' }).click();
+      await homeDialogReopened.getByRole('button', { name: 'Abbrechen' }).click();
       await homeDialogReopened.waitFor({ state: 'hidden' });
 
       await page.locator('.agent-row', { hasText: 'E2E Lead' }).click();
@@ -1617,7 +1617,7 @@ async function run(): Promise<void> {
         const text = await homeScopePanel.textContent();
         return text?.includes('No repository') === true && text.includes(`WSL · ${wslDistribution}`);
       });
-      await homeScopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await homeScopePanel.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
       await eventually('a repo-less session opens inside the WSL distribution', async () =>
         await page!.evaluate(async () => {
           const api = (window as unknown as {
@@ -1882,7 +1882,7 @@ async function run(): Promise<void> {
     if (evidenceDir) {
       await page.screenshot({ path: join(resolve(evidenceDir), 'diagnostics-ui.png'), fullPage: true });
     }
-    await page.getByRole('button', { name: 'Close' }).last().click();
+    await page.getByRole('button', { name: 'Schliessen' }).last().click();
 
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).click();
     await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
@@ -2115,21 +2115,21 @@ async function run(): Promise<void> {
     );
     if (keyStorageAvailable) {
       await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-      const grokAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      const grokAgentDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
       await grokAgentDialog.waitFor({ state: 'visible' });
       await grokAgentDialog.locator('#edit-agent-runtime').selectOption('grok');
       await grokAgentDialog.locator('#edit-agent-perm').selectOption('bypass');
       check('Grok agent settings expose model and reasoning pins',
         await grokAgentDialog.locator('#edit-agent-grok-model').inputValue() === 'grok-4.6'
           && await grokAgentDialog.locator('#edit-agent-grok-reasoning').inputValue() === 'high');
-      await grokAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await grokAgentDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
       // Saving re-resolves the agent-default scope; over a cold WSL VM the Git
       // inspection can legitimately exceed Playwright's 30s default.
       await grokAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
       const scopeForGrok = page.getByTestId('repository-scope');
-      await scopeForGrok.getByLabel('Repository for new session').selectOption('');
+      await scopeForGrok.getByLabel('Repository für neue Sitzung').selectOption('');
       const tabCountBeforeGrok = await page.locator('[role="tab"][id^="session-tab-"]').count();
-      await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+      await scopeForGrok.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
       await eventually('a Grok session launches with the stored key as its environment', async () =>
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeGrok + 1
           && (await page!.locator('.terminal-pane-wrap:visible .xterm-rows').textContent())
@@ -2143,16 +2143,16 @@ async function run(): Promise<void> {
         20_000,
       );
       await page.getByRole('button', { name: 'Agent settings for E2E Shell' }).click({ force: true });
-      const revertAgentDialog = page.getByRole('dialog', { name: 'Agent settings' });
+      const revertAgentDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
       await revertAgentDialog.waitFor({ state: 'visible' });
       await revertAgentDialog.locator('#edit-agent-runtime').selectOption('shell');
-      await revertAgentDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await revertAgentDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
       await revertAgentDialog.waitFor({ state: 'hidden', timeout: 90_000 });
       // The target select follows the active session context; re-state the
       // plain-home intent explicitly before opening the probe session.
-      await scopeForGrok.getByLabel('Repository for new session').selectOption('');
+      await scopeForGrok.getByLabel('Repository für neue Sitzung').selectOption('');
       const tabCountBeforeService = await page.locator('[role="tab"][id^="session-tab-"]').count();
-      await scopeForGrok.getByRole('button', { name: 'Open new session' }).click();
+      await scopeForGrok.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
       await eventually('an all-sessions service key opens a session', async () =>
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeService + 1);
       await sendCommand(page, isWindows
@@ -2337,7 +2337,7 @@ async function run(): Promise<void> {
       await eventually('restarted UI restores the WSL agent default scope', async () =>
         (await restartedScopePanel.textContent())?.includes(`WSL · ${wslDistribution}`) === true);
       const tabCountBeforeRestartedWsl = await page.locator('[role="tab"][id^="session-tab-"]').count();
-      await restartedScopePanel.getByRole('button', { name: 'Open new session' }).click();
+      await restartedScopePanel.getByRole('button', { name: 'Neue Sitzung öffnen' }).click();
       // First WSL touch after the app restart boots the utility VM again.
       await eventually('restarted Windows UI reopens the persisted WSL binding', async () =>
         await page!.locator('[role="tab"][id^="session-tab-"]').count() === tabCountBeforeRestartedWsl + 1,
@@ -2441,7 +2441,7 @@ async function run(): Promise<void> {
     check('the reseeded config is valid and writable again',
       (JSON.parse(readFileSync(configPath, 'utf8')) as { agents: unknown[] }).agents.length === 0);
 
-    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await page.getByRole('button', { name: 'Schliessen' }).click();
     await eventually('the recovery notice is dismissible once acknowledged', async () =>
       (await page!.getByTestId('config-health-alert').count()) === 0);
   } catch (error) {

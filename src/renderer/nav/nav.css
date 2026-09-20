@@ -22,7 +22,7 @@
 
 .appnav-list[hidden] { display: none; }
 .appnav-toggle { display: inline-flex; align-items: center; justify-content: center; align-self: center; flex: none; gap: 6px; min-width: 28px; min-height: var(--control-h, 28px); padding: 4px 6px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
-.appnav-toggle:hover { color: var(--text); background: var(--hover); }
+.appnav-toggle:hover { color: var(--text); background: var(--raised); }
 .appnav-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .m-appnav .appnav-toggle { min-width: var(--touch, 44px); min-height: var(--touch, 44px); }
 
@@ -52,7 +52,7 @@
   gap: 6px;
   align-self: stretch;
   min-height: 34px;
-  padding: 0 9px;
+  padding: 0 8px;
   border-radius: var(--radius-s);
   color: var(--muted);
   font-size: var(--fs-s);
@@ -94,15 +94,35 @@
   outline-offset: -2px;
 }
 
-/* Compact windows keep every room reachable: captions go first, then icons. */
+/* Compact windows keep every room reachable and the header on one line.
+   Desktop (.titlebar): the group captions go first — they are the most
+   decorative part — then the icons; below 1000px the rooms take a row of
+   their own (app.css). Measured at 1440px the full desktop row is ~1430px
+   wide, so the first step already applies on a common laptop screen. The
+   tablet header has fewer neighbours and keeps its original steps. */
+@media (max-width: 1440px) {
+  .titlebar .appnav-caption {
+    display: none;
+  }
+}
+
+@media (max-width: 1260px) {
+  .titlebar .appnav-icon {
+    display: none;
+  }
+  .titlebar .appnav-group {
+    padding: 0 4px;
+  }
+}
+
 @media (max-width: 1180px) {
-  .appnav-caption {
+  .m-appnav .appnav-caption {
     display: none;
   }
 }
 
 @media (max-width: 760px) {
-  .appnav-icon {
+  .m-appnav .appnav-icon {
     display: none;
   }
 }

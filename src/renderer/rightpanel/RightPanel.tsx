@@ -40,6 +40,9 @@ interface OpenItem {
 }
 
 const TABS: readonly Tab[] = ['overview', 'changes', 'files'];
+/* The first tab is named for what it shows, not 'overview': that name belongs
+   to the room in the title bar, and two tabs called Übersicht would collide. */
+const TAB_LABELS = { overview: 'Repository', changes: 'Changes', files: 'Files' } as const;
 
 export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
   useLocale();
@@ -328,7 +331,7 @@ export function RightPanel({ visible }: { visible: boolean }): JSX.Element {
               onClick={() => selectTab(item)}
               onKeyDown={(event) => handleTabKeyDown(event, item)}
             >
-              {item[0]!.toUpperCase() + item.slice(1)}
+              {translate(TAB_LABELS[item])}
             </button>
           ))}
         </div>

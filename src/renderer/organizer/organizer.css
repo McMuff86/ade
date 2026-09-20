@@ -37,3 +37,47 @@
 .organizer-dialog { width: min(650px, 100%); max-height: 90dvh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; }
 .organizer-dialog fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }.organizer-dialog p { font-size: 13px; line-height: 1.7; }
 @media(max-width: 760px) { .organizer-body { display: block; }.organizer-list { border-right: 0; }.organizer-detail { display: none; }.organizer-editing .organizer-list { display: none; }.organizer-editing .organizer-detail { display: block; }.organizer-editor { padding: 16px; }.organizer-header { padding: 16px; }.organizer .organizer-save-status { padding: 0 16px 12px; }.organizer-header h1 { font-size: 20px; }.organizer-checklist > div { flex-wrap: wrap; }.organizer-checklist > div > input:not([type=checkbox]) { flex: 1; min-width: 140px; }.organizer .overlay { padding: 10px; }.organizer-dialog { padding: 18px; } }
+
+/* ---------------------------------------------------------------- desktop
+   The organizer is shared with the tablet; on the desktop it takes the same
+   type scale and control height as the other rooms. Scoped to the desktop
+   mount so the touch sizes above stay untouched on the tablet. */
+.shell > .organizer h1 { font-size: var(--fs-xl); font-weight: 600; line-height: 1.2; }
+.shell > .organizer h2 { font-size: var(--fs-l); font-weight: 600; }
+.shell > .organizer h3 { font-size: var(--fs-m); }
+.shell > .organizer-header, .shell > .organizer .organizer-header { padding: 20px 28px 8px; gap: 12px; }
+.shell > .organizer .organizer-header p { font-size: var(--fs-s); color: var(--muted); margin-top: 1px; }
+.shell > .organizer .organizer-save-status { padding: 0 28px 12px; font-size: var(--fs-xs); color: var(--faint); }
+.shell > .organizer > p:not(.organizer-save-status) { margin: 0 28px 12px; }
+.shell > .organizer button { min-height: var(--control-h); padding: 4px 10px; font-size: var(--fs-s); border-radius: 6px; color: var(--muted); }
+.shell > .organizer button:hover:not(:disabled) { color: var(--text); border-color: var(--faint); }
+.shell > .organizer .organizer-primary { color: var(--accent-contrast); }
+.shell > .organizer .organizer-primary:hover:not(:disabled) { color: var(--accent-contrast); border-color: var(--accent); filter: brightness(1.06); }
+/* Sync recedes to text; the new entry is the copper action of this surface. */
+.shell > .organizer .organizer-header .organizer-tools > button:not(.organizer-primary) { border-color: transparent; background: transparent; }
+.shell > .organizer .organizer-header .organizer-tools > button:not(.organizer-primary):hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+.shell > .organizer :is(input:not([type=checkbox]):not([type=range]):not([type=color]),select) { min-height: var(--control-h); padding: 4px 9px; font-size: var(--fs-s); }
+.shell > .organizer textarea { padding: 8px 10px; font-size: var(--fs-m); }
+.shell > .organizer label { font-size: var(--fs-xs); gap: 4px; }
+.shell > .organizer :is(button,input,textarea,select,summary,[tabindex]):focus-visible { outline-offset: 2px; }
+.shell > .organizer .organizer-body { grid-template-columns: minmax(220px, 272px) minmax(0, 1fr); }
+.shell > .organizer .organizer-list { padding: 14px 16px; gap: 10px; }
+/* Task views: a quiet chip row that may wrap; the active view is tinted. */
+.shell > .organizer .organizer-filters { gap: 2px 4px; }
+.shell > .organizer .organizer-filters button { min-height: 24px; padding: 2px 8px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: 999px; }
+.shell > .organizer .organizer-filters button:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+.shell > .organizer .organizer-filters button[aria-pressed=true] { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.shell > .organizer .organizer-list > p { color: var(--faint); font-size: var(--fs-s); line-height: 1.5; }
+.shell > .organizer .organizer-list ul { gap: 1px; }
+/* Entries are rows: the selected one carries the copper inset like the rail. */
+.shell > .organizer .organizer-list-item { padding: 6px 8px; gap: 2px; border-color: transparent; background: transparent; color: var(--text); border-radius: var(--radius-s); }
+.shell > .organizer .organizer-list-item:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+.shell > .organizer .organizer-list-item[aria-pressed=true] { background: var(--raised); border-color: transparent; box-shadow: inset 2px 0 0 var(--accent); }
+.shell > .organizer .organizer-list-item span { font-size: var(--fs-xs); }
+.shell > .organizer .organizer-empty { padding: 48px 28px; gap: 6px; }
+.shell > .organizer .organizer-empty h2 { color: var(--text); }
+.shell > .organizer .organizer-empty p { font-size: var(--fs-s); }
+.shell > .organizer .organizer-editor { padding: 18px 28px 32px; gap: 14px; }
+.shell > .organizer .organizer-images figure { padding: 8px; }
+.shell > .organizer .organizer-sketch-disclosure > summary { min-height: 28px; font-size: var(--fs-s); }
+.shell > .organizer .organizer-dialog { padding: 20px; gap: 14px; }

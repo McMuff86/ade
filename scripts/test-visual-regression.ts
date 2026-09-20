@@ -385,7 +385,7 @@ async function run(): Promise<void> {
 
     await page.locator('.agent-row', { hasText: 'Visual Shell' }).click();
     const scopeHeader = page.locator('[data-testid="repository-scope"]');
-    await scopeHeader.getByLabel('Repository for new session').selectOption({
+    await scopeHeader.getByLabel('Repository für neue Sitzung').selectOption({
       label: 'Visual fixture repository',
     });
     await waitForStableOverview(page);
@@ -405,7 +405,7 @@ async function run(): Promise<void> {
           Math.abs(actualWidth - width) <= 2, actualWidth);
         await captureState(page, `${theme}-${label}`);
         if (theme === 'dark' && label === 'medium') {
-          await page.getByRole('button', { name: 'Show CI checks for Pull Request #42' }).click();
+          await page.getByRole('button', { name: 'CI-Prüfungen für Pull Request #42 anzeigen' }).click();
           await page.waitForFunction(() => (
             document.querySelector('.rp-inline')?.textContent?.includes('E2E Lint') ?? false
           ));

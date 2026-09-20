@@ -78,7 +78,7 @@ void (async () => {
     return style.backgroundColor === 'rgb(14, 15, 18)' && style.getPropertyValue('--accent').trim() === '#E09A4A'
       && style.fontFamily.includes('Segoe UI') && machineFont.includes('Cascadia Code');
   }));
-  check('missing token telemetry is shown as unknown', (await page.getByLabel('Overview figures').textContent())!.includes('Noch keine Token-Angabe'));
+  check('missing token telemetry is shown as unknown', (await page.getByLabel('Kennzahlen').textContent())!.includes('Noch keine Token-Angabe'));
   check('signing key is non-exportable in IndexedDB', await page.evaluate(async () => new Promise<boolean>((done) => {
     const req = indexedDB.open('ade-mobile-identity', 1); req.onsuccess = () => {
       const get = req.result.transaction('identity').objectStore('identity').get('current');
@@ -185,7 +185,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Run Phone task', exact: true }).click();
   page.once('dialog', (dialog) => { void dialog.accept(); });
   await page.getByRole('button', { name: 'Run abbrechen', exact: true }).click();
-  await page.locator('.run-detail').getByText('cancelled', { exact: true }).first().waitFor();
+  await page.locator('.run-detail').getByText('Abgebrochen', { exact: true }).first().waitFor();
   check('phone can cancel accepted work through the real coordinator', fixture.orchestration.snapshot().runs[0]?.status === 'cancelled');
   check('cancellation restores focus to the updated detail', await focused('#run-detail-title'));
   await closeInspector();
@@ -195,9 +195,9 @@ void (async () => {
   await page.getByLabel('Runs durchsuchen', { exact: true }).fill('does not exist');
   check('work search has a useful empty result', await page.getByRole('heading', { name: 'Keine passenden Runs' }).isVisible());
   await page.getByLabel('Runs durchsuchen', { exact: true }).fill('');
-  await page.getByLabel('Status', { exact: true }).selectOption('open');
+  await page.getByLabel('Zustand', { exact: true }).selectOption('open');
   check('work status filter excludes finished runs', await page.getByRole('button', { name: 'Run Phone task', exact: true }).count() === 0);
-  await page.getByLabel('Status', { exact: true }).selectOption('all');
+  await page.getByLabel('Zustand', { exact: true }).selectOption('all');
 
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.getByRole('button', { name: 'Neuer Run', exact: true }).click();
@@ -209,7 +209,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Run vorbereiten', exact: true }).click();
   await page.getByRole('heading', { name: 'Tablet managed run', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Run starten', exact: true }).click();
-  await page.locator('.run-detail').getByText('running', { exact: true }).first().waitFor();
+  await page.locator('.run-detail').getByText('Läuft', { exact: true }).first().waitFor();
   check('tablet creates and starts a managed run with explicit agents and budget', fixture.orchestration.snapshot().runs.some((run) => run.name === 'Tablet managed run' && run.mode === 'managed' && run.budget.maxTaskMinutes === 30));
   check('tablet inspector sits beside the graph without making the page modal', await page.getByRole('complementary', { name: 'Run-Details', exact: true }).isVisible() && await page.getByRole('dialog').count() === 0);
   check('tablet layout has no horizontal overflow', await noOverflow());

@@ -62,7 +62,7 @@ export function DiagnosticsModal(): JSX.Element | null {
         {result && result.items.length > 0 ? (
           <>
             <div className="diag-summary">
-              {ready} {" "}{translate("of")}{" "}{result.items.length} {" "}{translate("configured")}{" "}{result.items.length === 1 ? 'runtime is' : 'runtimes are'} {" "}{translate("Ready [72656164]")}</div>
+              {result.items.length === 1 ? translate("{{value1}} of 1 configured runtime is ready", { value1: ready }) : translate("{{value1}} of {{value2}} configured runtimes are ready", { value1: ready, value2: result.items.length })}</div>
             <div className="diag-list">
               {result.items.map((item) => (
                 <section className={`diag-item ${item.status}`} key={item.agentId}>

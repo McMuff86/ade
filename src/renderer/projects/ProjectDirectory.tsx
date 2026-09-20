@@ -25,9 +25,9 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
   const mine = (entry: ProjectDirectoryEntry) => entry.inMyProjects ?? !!entry.repositoryId;
   const entries = directory?.entries.filter((entry) => (filter === 'all' || mine(entry)) && entry.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   return <section className="project-directory" aria-label={translate("Project folder")}>
-    <div className="project-directory-tools"><label>{translate("Search for projects")}<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+    <div className="project-directory-tools"><label><span>{translate("Search for projects")}</span><input type="search" value={search} placeholder={translate("Search for projects")} onChange={(event) => setSearch(event.target.value)} /></label>
       <button disabled={busy || !online} onClick={onRefresh}>{translate("Update project folders")}</button></div>
-    <div className="project-workspace-actions" aria-label={translate("Project filters")}><button aria-pressed={filter === 'all'} onClick={() => chooseFilter('all')}>{translate("All")}</button>
+    <div className="project-workspace-actions project-filter-segment" role="group" aria-label={translate("Project filters")}><button aria-pressed={filter === 'all'} onClick={() => chooseFilter('all')}>{translate("All")}</button>
       <button ref={filterButton} aria-pressed={filter === 'mine'} onClick={() => chooseFilter('mine')}>{translate("My ADE Projects")}</button></div>
     <p>{translate("Add projects to “My ADE Projects” to see them in the overview. Removing a project from the selection preserves its files, terminals and history.")}</p>
     {!online && <p role="status">{translate("PC not connected. Displayed project folders may be obsolete.")}</p>}

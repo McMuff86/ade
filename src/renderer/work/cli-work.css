@@ -1,25 +1,42 @@
-.cli-work { min-width: 0; margin: 18px 0 28px; }
-.cli-work-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.cli-work-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
-.cli-work-heading p, .cli-work-observation, .cli-work-empty { color: var(--muted); font-size: 12px; }
-.cli-work button, .cli-work input, .cli-work select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; min-height: 40px; max-width: 100%; }
-.cli-work button { cursor: pointer; }
+/* CLI work — the list of interactive CLI sessions, embedded in Übersicht and
+   Aufträge. Desktop density: the section heading matches the other overview
+   sections (12px, muted), controls take --control-h, rows are hairline-
+   separated lines rather than framed cards. Colours via tokens only. */
+.cli-work { min-width: 0; margin: 0 0 24px; }
+.cli-work-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.cli-work-heading h2 { margin: 0; font-size: var(--fs-s); font-weight: 600; color: var(--muted); }
+.cli-work-heading p, .cli-work-observation, .cli-work-empty { color: var(--muted); font-size: var(--fs-s); }
+.cli-work-heading p { color: var(--faint); font-size: var(--fs-xs); margin-top: 1px; }
+.cli-work button, .cli-work input, .cli-work select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; min-height: var(--control-h); max-width: 100%; font-size: var(--fs-s); }
+.cli-work input { background: var(--bg); }
+.cli-work button { cursor: pointer; color: var(--muted); }
+.cli-work button:hover:not(:disabled) { color: var(--text); border-color: var(--faint); }
 .cli-work button:disabled { cursor: default; opacity: .65; }
+/* Refresh is maintenance, not work: text until hovered. */
+.cli-work .cli-work-heading > button { border-color: transparent; background: transparent; }
+.cli-work .cli-work-heading > button:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
 .cli-work button:focus-visible, .cli-work input:focus-visible, .cli-work select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.cli-work-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
-.cli-work-filters label { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; }
-.cli-work-filters label:first-child { flex: 1 1 230px; }
-.cli-work-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.cli-work-list li { min-width: 0; display: flex; align-items: center; gap: 8px; }
-.cli-work-list .cli-work-row { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; align-items: stretch; gap: 5px; overflow-wrap: anywhere; }
-.cli-work-row:hover { background: var(--raised); border-color: var(--faint); }
-.cli-work-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.cli-work-unread { color: var(--accent); font-size: 11px; }
-.cli-work-runtime, .cli-work-path { font-size: 12px; color: var(--muted); }
-.cli-work-status { font-size: 12px; }
+.cli-work-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 4px; }
+.cli-work-filters label { display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-s); color: var(--muted); }
+.cli-work-filters label:first-child { flex: 1 1 220px; }
+.cli-work-filters label:first-child input { flex: 1; min-width: 0; }
+.cli-work-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.cli-work-list li { min-width: 0; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); }
+.cli-work-list li:first-child { border-top: 0; }
+.cli-work-list .cli-work-row { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 7px 6px; border: 0; border-radius: var(--radius-s); background: transparent; overflow-wrap: anywhere; }
+.cli-work-row:hover:not(:disabled) { background: var(--raised); }
+.cli-work-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; color: var(--text); font-size: var(--fs-m); }
+.cli-work-unread { color: var(--accent); font-size: var(--fs-xs); }
+.cli-work-runtime, .cli-work-path { font-size: var(--fs-s); color: var(--muted); }
+.cli-work-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--faint); }
+.cli-work-status { font-size: var(--fs-s); }
 .cli-work-status-running { color: var(--accent); }
 .cli-work-status-shell, .cli-work-status-unknown, .cli-work-status-ended { color: var(--muted); }
-.cli-work-empty { padding: 8px 0; }
-.cli-work-compact .cli-work-list { max-height: 420px; overflow: auto; padding: 3px; }
+.cli-work-observation { font-size: var(--fs-xs); color: var(--faint); }
+.cli-work .cli-work-rename { border-color: transparent; background: transparent; }
+.cli-work .cli-work-rename:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+.cli-work-empty { padding: 10px 0 4px; }
+.cli-work-empty h3 { display: block; margin: 0; color: var(--text); font-size: var(--fs-m); font-weight: 600; margin-bottom: 2px; }
+.cli-work-compact .cli-work-list { max-height: 420px; overflow: auto; }
 .cli-work [role=alert] { color: var(--del); }
 @media (max-width: 760px) { .cli-work-list li { align-items: stretch; flex-direction: column; } .cli-work-rename { align-self: flex-end; } }

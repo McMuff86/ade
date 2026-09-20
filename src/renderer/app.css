@@ -22,7 +22,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 4px 10px;
+  gap: 4px 8px;
   padding: 0 10px 0 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
@@ -100,24 +100,31 @@
   }
 }
 
-/* Compact desktop windows: the rooms keep priority, the caption goes first,
-   then the spacer, so every action stays inside the window and the header. */
-@media (max-width: 1180px) {
+/* Compact desktop windows: the rooms keep priority, the captions go first
+   (in step with nav.css), then the spacer, so every action stays inside the
+   window and the header stays one line down to 1000px. */
+@media (max-width: 1440px) {
   .titlebar-caption {
     display: none;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .titlebar .spacer {
     display: none;
   }
+  /* Two rows: logotype + rooms, then work in flight + administration. The
+     session group claims half the width so it always starts the second row. */
   .titlebar > .appnav {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     order: -1;
   }
   .titlebar > .logotype {
     order: -2;
+  }
+  .titlebar-session {
+    flex: 1 0 auto;
+    min-width: 50%;
   }
   .titlebar-admin {
     margin-left: auto;

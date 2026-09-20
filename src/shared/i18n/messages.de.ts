@@ -2364,7 +2364,7 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Tokens Unknown": "Tokens unbekannt",
   "No telemetry": "keine Telemetrie",
   "Loading overview…": "Overview wird geladen…",
-  "Refresh overview": "Overview aktualisieren",
+  "Refresh overview": "Übersicht aktualisieren",
   "Loading …": "Laden…",
   "Live": "Live",
   "No agents yet.": "Noch keine Agenten",
@@ -2843,7 +2843,7 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Pairing could not be started. Check connection status above.": "Pairing konnte nicht gestartet werden. Verbindungsstatus oben prüfen.",
   "Mobile access": "Mobiler Zugriff",
   "Check connection": "Verbindung prüfen",
-  "Use ADE on tablet and smartphone; connect Tailscale on PC and mobile device to the same account; the PC must remain on and logged in; with active mobile access, ADE will continue to run after closing the window in the info area, where ADE can be reopened or completely terminated; use the same address at home and on the go; use Tailscale on both devices; connect already paired devices in the same browser; a new code is required only for a new pairing.": "ADE auf Tablet und Smartphone nutzen. Tailscale auf dem PC und Mobilgerät mit demselben Konto verbinden. Der PC muss eingeschaltet und angemeldet bleiben. Bei aktivem mobilen Zugriff läuft ADE nach dem Schliessen des Fensters im Infobereich weiter. Dort lässt sich ADE wieder öffnen oder vollständig beenden. Zuhause und unterwegs dieselbe Adresse verwenden; Tailscale muss auf beiden Geräten verbunden sein. Bereits gekoppelte Geräte verbinden sich im selben Browser wieder. Ein neuer Code ist nur für eine neue Kopplung nötig.",
+  "Use ADE on tablet and smartphone; connect Tailscale on PC and mobile device to the same account; the PC must remain on and logged in; with active mobile access, ADE will continue to run after closing the window in the info area, where ADE can be reopened or completely terminated; use the same address at home and on the go; use Tailscale on both devices; connect already paired devices in the same browser; a new code is required only for a new pairing.": "ADE auf Tablet und Smartphone nutzen: Tailscale auf PC und Mobilgerät mit demselben Konto verbinden; der PC bleibt eingeschaltet und angemeldet. Bei aktivem mobilem Zugriff läuft ADE nach dem Schliessen des Fensters im Infobereich weiter. Gekoppelte Geräte verbinden sich von selbst wieder; ein neuer Code ist nur für eine neue Kopplung nötig.",
   "Checking Tailscale connection…": "Tailscale-Verbindung wird geprüft…",
   "HTTPS connection confirmed.": "HTTPS-Verbindung bestätigt.",
   "Private access configured.": "Private Freigabe eingerichtet.",
@@ -3781,5 +3781,8 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Publishing": "Veröffentlichung läuft",
   "Pending": "Ausstehend",
   "Succeeded": "Erfolgreich",
-  "Released": "Freigegeben"
+  "Released": "Freigegeben",
+  "{{value1}} of 1 configured runtime is ready": "{{value1}} von 1 konfigurierten Laufzeit bereit",
+  "{{value1}} of {{value2}} configured runtimes are ready": "{{value1}} von {{value2}} konfigurierten Laufzeiten bereit",
+  "Changes": "Änderungen"
 };

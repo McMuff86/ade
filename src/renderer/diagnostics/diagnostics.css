@@ -30,24 +30,21 @@
   font-size: 11px;
 }
 
+/* Flat like the inspector: hairlines between runtimes, the status dot and
+   the message carry the state — no card per runtime, no tinted frame. */
 .diag-list {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .diag-item {
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--bg);
+  padding: 11px 2px;
+  border-top: 1px solid var(--line);
 }
 
-.diag-item.error {
-  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
-}
-
-.diag-item.warning {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+.diag-item:first-child {
+  border-top: 0;
+  padding-top: 4px;
 }
 
 .diag-item-head {

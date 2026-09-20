@@ -7,7 +7,7 @@
 .m-terminal-navigation { overflow: auto; padding: 14px; border-right: 1px solid var(--line); background: var(--panel); }
 .m-terminal-navigation h2, .m-terminal-context h2 { font-size: 13px; margin: 18px 0 10px; }
 .m-terminal-navigation button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; margin: 6px 0; min-height: 44px; overflow-wrap: anywhere; }
-.m-terminal-navigation button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); }
+.m-terminal-navigation button[aria-pressed='true'] { border-color: var(--accent-dim); background: var(--accent-soft); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 .m-terminal-navigation small { display: block; color: var(--muted); margin-top: 4px; }
 .m-agent-navigation label { display: grid; gap: 5px; font-size: 12px; }
 .m-agent-navigation input { min-width: 0; width: 100%; }

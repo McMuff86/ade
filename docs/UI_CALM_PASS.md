@@ -75,7 +75,10 @@ Agenten geändert sind: `projects/projects.css`, `projects/ProjectsView.tsx`,
 
 Phase 2 und 3 sind am 19. September in [UI_UX_NEXT_LEVEL.md](UI_UX_NEXT_LEVEL.md)
 aufgegangen: gruppierte Navigation, Graph-Gruppen, Tablet-Werkzeugzeile und ein
-Begriffsmodell. Die folgenden Abschnitte bleiben als Herkunft stehen.
+Begriffsmodell. Die dort noch offenen Punkte Projekte-Seite, Settings-Tabs und
+PC-Dichte der geteilten Komponenten hat der Dichte-Pass vom 20. September
+(Abschnitt 10 desselben Dokuments) umgesetzt. Die folgenden Abschnitte bleiben
+als Herkunft stehen.
 
 ## Phase 2 — Vorschlag (nach Merge des anderen Agenten)
 

@@ -29,6 +29,7 @@ export function ProjectsView(): JSX.Element {
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [newName, setNewName] = useState('');
   const [createdId, setCreatedId] = useState<string>();
+  const [creating, setCreating] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
   const shareButton = useRef<HTMLButtonElement>(null);
   const restoreShareFocus = useRef(false);
@@ -107,7 +108,11 @@ export function ProjectsView(): JSX.Element {
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
   return <section className="project-desktop" aria-label={translate("Projects")}>
-    <h1 ref={heading} tabIndex={-1}>{workspace ? translate("Project · {{value1}}", { value1: workspace.name }) : translate("Projects")}</h1>
+    <div className="project-head"><h1 ref={heading} tabIndex={-1}>{workspace ? translate("Project · {{value1}}", { value1: workspace.name }) : translate("Projects")}</h1>
+      {!workspace && <div className="project-head-actions" role="group" aria-label={translate("Share individual project")}>
+        <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>{translate("Add existing folders to my ADE projects")}</button>
+        <button type="button" className="btn-primary" aria-expanded={creating} aria-controls="project-new-form" onClick={() => setCreating((open) => !open)}>{translate("New project")}</button></div>}
+    </div>
     {workspace ? <><ProjectWorkspaceSummary workspace={workspace} workspacePath={workspacePath} /><SupervisionButton repositoryId={workspace.repositoryId} /><button onClick={() => {
       setWorkspace(undefined); useSelection.getState().setProjectWorkspace(null);
       const target = opener.current?.isConnected ? opener.current : document.getElementById('mode-tab-projects'); target?.focus();
@@ -127,16 +132,15 @@ export function ProjectsView(): JSX.Element {
           onWorkspace={(value) => { if (value.id !== workspace.id || value.branch !== workspace.branch) { setWorkspace(value); useSelection.getState().setProjectWorkspace(value.id); } }} />
           <ProjectPublishPanel key={`publish:${workspace.id}:${workspace.branch}`} workspace={workspace} online canPublish query={query} apply={applyPublish} errorText={errorText}
             pending={publishReceipts[workspace.id] ?? null} savePending={(value) => { setPublishReceipts((all) => ({ ...all, [workspace.id]: value })); return true; }} /></>}
-    </> : <><section aria-label={translate("Share individual project")}>
-      <button ref={shareButton} disabled={busy} onClick={() => void shareProject()}>{translate("Add existing folders to my ADE projects")}</button>
-      <p>{translate("Choose an existing Git project folder on this PC, including outside your repositories folder. The project root folder stays unchanged.")}</p>
-      {busy && <p role="status">{translate("Project action underway…")}</p>}{shareNotice && <p role="status">{shareNotice}</p>}
-    </section><details><summary>{translate("New project")}</summary><form className="project-workspace-actions" onSubmit={(event) => { event.preventDefault(); void create(); }}>
-      <label>{translate("Project name")}<input value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
-      <button disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? translate("Open created project") : translate("Create and Open Project")}</button>
+    </> : <>{creating && <form id="project-new-form" className="project-new-form" aria-label={translate("New project")} onSubmit={(event) => { event.preventDefault(); void create(); }}>
+      <label>{translate("Project name")}<input autoFocus value={newName} maxLength={80} disabled={busy || !!createdId} onChange={(event) => setNewName(event.target.value)} /></label>
+      <button className="btn-primary" disabled={busy || !directory?.configured || !newName.trim()}>{createdId ? translate("Open created project") : translate("Create and Open Project")}</button>
       <p>{translate("In the set project root folder, with branch main. CLI and optional profile select thereafter.")}</p>
       {!directory?.configured && <p>{translate("Under Settings, first save the project root folder.")}</p>}
-    </form></details>{repositoryEntry && <section aria-label={translate("Selected project")}><h2>{repositoryEntry.name}</h2>
+    </form>}<div className="project-notices">
+      <p className="project-help">{translate("Choose an existing Git project folder on this PC, including outside your repositories folder. The project root folder stays unchanged.")}</p>
+      {busy && <p role="status">{translate("Project action underway…")}</p>}{shareNotice && <p role="status">{shareNotice}</p>}
+    </div>{repositoryEntry && <section aria-label={translate("Selected project")}><h2>{repositoryEntry.name}</h2>
       <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>{translate("Open project workspace [50726f6a]")}</button></section>}
       {repositoryId && directory && !repositoryEntry && <p role="status">{translate("The selected project is currently unreachable. Update project folder.")}</p>}
       <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} /></>}

@@ -2842,7 +2842,7 @@ export const messagesEn = {
   "Pairing could not be started. Check connection status above.": "Pairing could not be started. Check connection status above.",
   "Mobile access": "Mobile access",
   "Check connection": "Check connection",
-  "Use ADE on tablet and smartphone; connect Tailscale on PC and mobile device to the same account; the PC must remain on and logged in; with active mobile access, ADE will continue to run after closing the window in the info area, where ADE can be reopened or completely terminated; use the same address at home and on the go; use Tailscale on both devices; connect already paired devices in the same browser; a new code is required only for a new pairing.": "Use ADE on tablet and smartphone; connect Tailscale on PC and mobile device to the same account; the PC must remain on and logged in; with active mobile access, ADE will continue to run after closing the window in the info area, where ADE can be reopened or completely terminated; use the same address at home and on the go; use Tailscale on both devices; connect already paired devices in the same browser; a new code is required only for a new pairing.",
+  "Use ADE on tablet and smartphone; connect Tailscale on PC and mobile device to the same account; the PC must remain on and logged in; with active mobile access, ADE will continue to run after closing the window in the info area, where ADE can be reopened or completely terminated; use the same address at home and on the go; use Tailscale on both devices; connect already paired devices in the same browser; a new code is required only for a new pairing.": "Use ADE on a tablet or phone: connect Tailscale on the PC and the mobile device with the same account; the PC stays on and signed in. With mobile access on, ADE keeps running in the notification area after the window is closed. Paired devices reconnect on their own; a new code is only needed for a new pairing.",
   "Checking Tailscale connection…": "Checking Tailscale connection…",
   "HTTPS connection confirmed.": "HTTPS connection confirmed.",
   "Private access configured.": "Private access configured.",
@@ -3780,5 +3780,8 @@ export const messagesEn = {
   "Publishing": "Publishing",
   "Pending": "Pending",
   "Succeeded": "Succeeded",
-  "Released": "Released"
+  "Released": "Released",
+  "{{value1}} of 1 configured runtime is ready": "{{value1}} of 1 configured runtime is ready",
+  "{{value1}} of {{value2}} configured runtimes are ready": "{{value1}} of {{value2}} configured runtimes are ready",
+  "Changes": "Changes"
 } as const;

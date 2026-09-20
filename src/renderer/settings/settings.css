@@ -5,9 +5,10 @@
 .st-grant-presets { display: flex; flex-wrap: wrap; gap: 8px; }
 .st-grant-presets .btn { min-height: 38px; white-space: normal; }
 [data-testid='project-defaults'] { border-top: 1px solid var(--line); padding: 14px 0; }
-[data-testid='project-defaults'] form { display: grid; gap: 10px; }
+[data-testid='project-defaults'] form { display: grid; gap: 10px; justify-items: start; }
+[data-testid='project-defaults'] form > label, [data-testid='project-defaults'] form > p { justify-self: stretch; }
 [data-testid='project-defaults'] label { display: grid; gap: 5px; font-size: 12px; }
-[data-testid='project-defaults'] input, [data-testid='project-defaults'] select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; }
+[data-testid='project-defaults'] input, [data-testid='project-defaults'] select { width: 100%; min-width: 0; min-height: 30px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-size: var(--fs-s); }
 [data-testid='project-defaults'] p { color: var(--muted); font-size: 12px; line-height: 1.5; }
 [data-testid='project-defaults'] [role='alert'] { color: var(--del); }
 [data-testid='project-defaults'] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -177,20 +178,30 @@
   font-size: 11.5px;
 }
 
+/* A two-way choice reads as one segmented control, not two buttons. */
 .st-theme-choice {
-  display: flex;
-  gap: 6px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
 }
 
 .st-theme-choice .btn {
-  min-height: 26px;
-  padding: 3px 10px;
-  font-size: 10.5px;
+  min-height: 22px;
+  padding: 2px 10px;
+  border-color: transparent;
+  background: transparent;
+  font-size: var(--fs-xs);
 }
 
-.st-theme-active {
+.st-theme-choice .btn:hover {
+  border-color: transparent;
+}
+
+.st-theme-choice .st-theme-active {
   color: var(--text);
-  border-color: var(--accent-dim);
   background: var(--raised);
 }
 
@@ -348,7 +359,9 @@
   font-size: 11px;
   font-weight: 600;
 }
-.st-mobile { margin: 20px 0; padding: 18px 0; border-top: 1px solid var(--border, #363b43); }
+.st-mobile { margin: 14px 0; padding: 14px 0 0; border-top: 1px solid var(--line); }
+.st-mobile h3 { font-size: var(--fs-l); font-weight: 600; }
+.st-mobile > p { color: var(--muted); font-size: var(--fs-s); line-height: 1.55; max-width: 62ch; }
 .st-mobile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .st-mobile-address, .st-mobile-pair label { display: grid; gap: 6px; margin: 12px 0; }
 .st-mobile input { width: 100%; min-width: 0; }
@@ -364,7 +377,18 @@
 .st-speech { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .st-speech h3, .st-speech p { flex-basis: 100%; margin: 4px 0; }
 .st-speech label { display: grid; gap: 6px; flex: 1 1 260px; min-width: 0; }
-.st-speech select { width: 100%; min-width: 0; padding: 10px; color: var(--text); background: var(--panel); border: 1px solid var(--line); }
-.st-speech button { min-height: 44px; }
+.st-speech select { width: 100%; min-width: 0; min-height: 30px; padding: 5px 10px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.st-speech button { min-height: var(--control-h); }
 .st-speech audio { max-width: 100%; }
 .st-speech :is(button,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Desktop modal density: the language select and any other native control in
+   the settings body take the desktop control height (the tablet keeps 44px). */
+.modal .st-body :where(select, input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'])) {
+  min-height: 30px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: var(--fs-s);
+}
+.modal .st-body > label { display: grid; gap: 5px; font-size: var(--fs-s); color: var(--muted); }
+.modal .st-body > label + p { color: var(--faint); font-size: var(--fs-xs); line-height: 1.5; }

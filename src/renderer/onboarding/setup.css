@@ -1,13 +1,24 @@
+/* Setup modal — four steps in sequence. The steps are a real order, so they
+   read as a numbered row of quiet tabs (current one underlined in copper),
+   not as four framed buttons competing with the step's own actions. */
 .modal.setup-modal { width: 800px; }
 .setup-modal p { font-size: 12px; line-height: 1.6; }
-.setup-steps, .setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-.setup-steps .btn, .setup-actions .btn { min-height: 38px; white-space: normal; }
-.setup-steps [aria-current='step'] { border-color: var(--accent); color: var(--accent); }
-.setup-step-title { margin: 16px 0 8px; }
+.setup-steps { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 14px 0 4px; border-bottom: 1px solid var(--line); }
+.setup-steps .btn { min-height: 30px; padding: 4px 2px 8px; border: 0; border-radius: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: var(--muted); white-space: nowrap; }
+.setup-steps .btn:hover { color: var(--text); border-color: transparent; }
+.setup-steps [aria-current='step'] { color: var(--text); border-bottom-color: var(--accent); }
+.setup-step-title { margin: 14px 0 6px; font-size: var(--fs-l); font-weight: 600; }
+.setup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.setup-actions .btn { min-height: var(--control-h); white-space: normal; }
+/* Back and Close recede; Next and the flow's goal stay framed. The copper
+   action of this surface is the current step's own (e.g. saving the root). */
+.setup-actions .btn:first-child, .setup-actions .btn:last-child { border-color: transparent; background: transparent; }
+.setup-actions .btn:first-child:hover:not(:disabled), .setup-actions .btn:last-child:hover { border-color: transparent; background: var(--raised); }
 .setup-modal :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .setup-modal [role='alert'] { color: var(--del); }
-.setup-cli-list { list-style: none; padding: 0; display: grid; gap: 10px; }
-.setup-cli-list li { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.setup-cli-list { list-style: none; padding: 0; display: grid; gap: 0; }
+.setup-cli-list li { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.setup-cli-list li:first-child { border-top: 0; }
 .setup-note, .setup-cli-list span { color: var(--muted); font-size: 12px; }
 .setup-cli-list p { margin: 0; }
 .firstrun-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

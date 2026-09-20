@@ -1,5 +1,21 @@
 # ADE implementation status
 
+## Dichte-Pass am PC (20. September 2026)
+
+Dritte Design-Runde: Kopfzeile bleibt bis 1000 px einzeilig (Beschriftungen ab
+1440 px, Icons ab 1260 px ausgeblendet), alle PC-Räume in einer Skala (28-px-
+Controls, 20-px-Titel, 12-px-Abschnitte, Haarlinien statt Karten, eine
+Kupfer-Aktion je Fläche); Projekte mit Werkzeugzeile und Inline-Formular,
+Aufträge und Aufgaben/Notizen als Listen, Inspector-Tabs auf Deutsch
+(„Repository · Änderungen · Dateien“), Einstellungen/Einrichtung/Diagnose
+flacher. Typecheck und Build bestanden, `test-setup-electron` **38/0**,
+`test-organizer-electron` **15/0**, `test-work-electron` **20/0**,
+`test-visual-regression` **22/0** mit neu aufgenommenen Inspector-Baselines,
+`test-remote-terminal-electron --tablet-layout-only` **20/0**, `test-mobile-browser`
+**61/0**. Tablet-Terminals mit einer Kupfer-Aktion und gekürzter Hilfetext
+„Mobiler Zugriff“ sind enthalten. `test-electron-workflow` hängt seit dem
+Sprach-Commit an englischen Labels (offen). Kein `pnpm verify`. [Befund, Tabelle und Grenzen](UI_UX_NEXT_LEVEL.md).
+
 ## Installierte Codex-Version für PC-/Tablet-Gespräche aktiviert
 
 20. September 2026, **09:24:16 CEST**: ADE verwendet für Projektbetreuung und

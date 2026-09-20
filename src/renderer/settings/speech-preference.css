@@ -9,9 +9,13 @@
 .speech-preference audio { width: 100%; min-width: 0; }
 .speech-preference [role=alert] { overflow-wrap: anywhere; color: var(--danger, #e0645c); }
 .settings-tabs, .settings-tabs [role=tabpanel] { min-width: 0; }
-.settings-tab-list { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
-.settings-tab-list button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 6px 6px 0 0; color: inherit; background: transparent; }
-.settings-tab-list [aria-selected=true] { border-bottom: 3px solid var(--accent, #c99853); font-weight: 600; }
+/* Same underline grammar as the inspector tabs: text, copper rule when on. */
+.settings-tab-list { display: flex; gap: 16px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.settings-tab-list button { min-height: 30px; padding: 4px 1px 7px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 0; color: var(--muted); background: transparent; font-size: var(--fs-m); }
+.settings-tab-list button:hover { color: var(--text); }
+.settings-tab-list [aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+.modal .speech-preference :is(button, select) { min-height: var(--control-h); padding: 4px 10px; font-size: var(--fs-s); }
+.modal .speech-tuning input[type=range], .modal .speech-tuning .speech-boost { min-height: 28px; }
 .settings-tab-list button:focus-visible, .speech-preference input:focus-visible { outline: 2px solid var(--accent, #c99853); outline-offset: 3px; }
 .speech-tuning { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
 .speech-tuning input[type=range] { width: 100%; min-width: 0; min-height: 44px; accent-color: var(--accent, #c99853); }

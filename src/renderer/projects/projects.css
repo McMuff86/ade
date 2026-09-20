@@ -1,3 +1,5 @@
+/* Projects — shared directory presentation (tablet keeps touch sizes) plus
+   the desktop room. Colours via theme tokens only. */
 .project-directory, .project-desktop { min-width: 0; }
 .project-directory > p, .project-workspace-summary > p { margin: 12px 0; line-height: 1.6; font-weight: 400; color: var(--muted); }
 .project-desktop { flex: 1; overflow: auto; padding: 24px; }
@@ -42,24 +44,24 @@
 .project-terminal-screen:has(.terminal-prompt-layout-open) { height: max(520px, 70vh); }
 .project-terminal p, .project-branches p { line-height: 1.6; }
 .project-git { min-width: 0; padding: 12px 0; }
-.project-git textarea { box-sizing: border-box; width: 100%; background: var(--bg); color: inherit; border: 1px solid var(--border); padding: 10px; }
+.project-git textarea { box-sizing: border-box; width: 100%; background: var(--bg); color: inherit; border: 1px solid var(--line); padding: 10px; }
 .project-git pre { max-height: 48vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .project-git-files { list-style: none; margin: 12px 0; padding: 0; }
-.project-git-files li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.project-git-files li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .project-git-files label { display: flex; flex: 1 1 200px; flex-direction: row; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 .project-git-files input[type=checkbox] { width: 20px; height: 20px; flex: none; }
-.project-git-editor { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.project-git-editor { margin: 16px 0; padding: 12px; border: 1px solid var(--line); }
 .project-git details { margin-top: 16px; }
 .project-git details label { display: block; margin: 8px 0; }
 .project-git select { max-width: 100%; min-width: 0; }
 .project-git-history summary { cursor: pointer; min-height: 44px; align-content: center; }
 .project-git-history summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .project-git-history ol { list-style: none; padding: 0; margin: 4px 0 16px; }
-.project-git-history li { display: grid; gap: 5px; padding: 10px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.project-git-history li { display: grid; gap: 5px; padding: 10px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .project-git-history li span { color: var(--muted); font-size: 12px; }
-.project-publish { margin: 20px 0; padding: 12px; border: 1px solid var(--border); overflow-wrap: anywhere; }
+.project-publish { margin: 20px 0; padding: 12px; border: 1px solid var(--line); overflow-wrap: anywhere; }
 .project-publish label { display: block; margin: 12px 0; }
-.project-publish input:not([type=checkbox]), .project-publish textarea, .project-publish select { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; background: var(--bg); color: inherit; border: 1px solid var(--border); padding: 10px; }
+.project-publish input:not([type=checkbox]), .project-publish textarea, .project-publish select { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; background: var(--bg); color: inherit; border: 1px solid var(--line); padding: 10px; }
 .project-publish button { margin: 4px; }
 .project-publish pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow: auto; }
 
@@ -68,3 +70,58 @@
 .project-workspace-path summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .project-workspace-path code { display: block; overflow-wrap: anywhere; user-select: text; }
 .project-directory-grid li > button + button { border-top: 1px solid var(--line); font-size: 12px; color: var(--accent); border-radius: 0 0 6px 6px; }
+
+/* ------------------------------------------------------------ desktop room
+   Same column, type scale and control height as Übersicht and Aufträge. The
+   directory is a toolbar line (search · filter · refresh), one line of help,
+   then cards — cards are kept here because each one is a choice. */
+.shell > .project-desktop { padding: 20px max(28px, calc((100% - 1120px) / 2)) 36px; }
+.project-desktop h1 { font-size: var(--fs-xl); font-weight: 600; margin: 0; line-height: 1.2; }
+.project-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.project-head h1 { margin-right: auto; }
+.project-head-actions { display: flex; align-items: center; gap: 6px; }
+.project-desktop .project-workspace-summary { margin-top: 14px; }
+.project-desktop button, .project-desktop input:not([type=checkbox]), .project-desktop select, .project-desktop textarea { min-height: var(--control-h); padding: 4px 9px; font-size: var(--fs-s); border-radius: 6px; }
+.project-desktop input:not([type=checkbox]), .project-desktop select { background: var(--bg); }
+.project-desktop button { color: var(--muted); cursor: pointer; }
+.project-desktop button:hover:not(:disabled) { color: var(--text); border-color: var(--faint); }
+.project-desktop button.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600; }
+.project-desktop button.btn-primary:hover:not(:disabled) { color: var(--accent-contrast); border-color: var(--accent); filter: brightness(1.06); }
+.project-desktop button.btn-quiet { border-color: transparent; background: transparent; }
+.project-desktop button.btn-quiet:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+.project-desktop p[role=status], .project-desktop p[role=alert] { font-size: var(--fs-s); color: var(--muted); margin: 8px 0; }
+.project-desktop p[role=alert] { color: var(--del); }
+.project-desktop .project-help { max-width: 72ch; margin: 0 0 12px; color: var(--faint); font-size: var(--fs-s); line-height: 1.55; }
+/* New project: opens inline under the toolbar as one row. */
+.project-new-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--panel); }
+.project-new-form label { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; color: var(--muted); font-size: var(--fs-s); }
+.project-new-form input { flex: 1; min-width: 0; }
+.project-new-form p { flex-basis: 100%; margin: 0; color: var(--faint); font-size: var(--fs-xs); }
+.project-desktop .project-directory > p { margin: 6px 0 12px; max-width: 72ch; color: var(--faint); font-size: var(--fs-s); line-height: 1.55; }
+.project-desktop .project-directory-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.project-desktop .project-directory-tools label { display: flex; align-items: center; flex: 0 1 320px; gap: 0; }
+.project-desktop .project-directory-tools label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.project-desktop .project-directory-tools input { flex: 1; min-width: 0; }
+.project-desktop .project-directory-tools > button { border-color: transparent; background: transparent; margin-left: auto; }
+.project-desktop .project-directory-tools > button:hover:not(:disabled) { border-color: transparent; background: var(--raised); }
+/* Filter as one segmented control in the same toolbar line. */
+.project-desktop .project-filter-segment { display: inline-flex; gap: 2px; margin: 0; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.project-desktop .project-filter-segment button { min-height: 22px; padding: 2px 10px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: 5px; }
+.project-desktop .project-filter-segment button:hover:not(:disabled) { border-color: transparent; }
+.project-desktop .project-filter-segment button[aria-pressed=true] { color: var(--text); background: var(--raised); border-color: transparent; }
+.project-desktop .project-directory-grid { gap: 10px; }
+.project-desktop .project-directory-grid li { border-radius: var(--radius-m); background: transparent; transition: border-color .12s; }
+.project-desktop .project-directory-grid li:hover { border-color: var(--faint); }
+.project-desktop .project-directory-grid li > button:first-child { padding: 12px 12px 10px; gap: 3px; background: transparent; border-radius: var(--radius-m) var(--radius-m) 0 0; }
+.project-desktop .project-directory-grid li > button:first-child:hover:not(:disabled) { background: var(--raised); }
+.project-desktop .project-directory-grid li > button:first-child strong { color: var(--text); font-size: var(--fs-m); }
+.project-desktop .project-directory-grid span { font-size: var(--fs-xs); }
+.project-desktop .project-directory-grid li > button + button { width: 100%; justify-content: flex-start; padding: 6px 12px; font-size: var(--fs-xs); color: var(--muted); background: transparent; border-radius: 0 0 var(--radius-m) var(--radius-m); }
+.project-desktop .project-directory-grid li > button + button:hover:not(:disabled) { color: var(--accent); background: var(--raised); border-color: transparent; border-top-color: var(--line); }
+.project-desktop .project-directory-grid li > p { margin: 6px 12px 10px; font-size: var(--fs-xs); color: var(--faint); }
+/* Inside an open workspace the section switch is a segmented control too. */
+.project-desktop .project-workspace-actions[aria-label] > button[aria-pressed] { border-color: var(--line); }
+.project-desktop .project-workspace-actions button[aria-pressed=true] { border-color: var(--accent-dim); color: var(--accent); background: var(--accent-soft); }
+.project-desktop .project-branches summary, .project-desktop .project-git-history summary, .project-desktop .project-workspace-path summary { min-height: 28px; font-size: var(--fs-s); }
+.project-desktop .project-terminal select, .project-desktop .project-branches select, .project-desktop .project-branches input { min-height: var(--control-h); padding: 4px 9px; font-size: var(--fs-s); }
+@media (max-width: 900px) { .shell > .project-desktop { padding: 16px 16px 28px; } }

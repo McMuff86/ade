@@ -240,3 +240,46 @@ schob.
   (UX-11); dieser Branch verändert Grössen nicht nach unten.
 - Menü „Verwaltung“ als echtes Aufklappmenü auf dem PC erst, wenn die
   Kopfzeile bei 760 px trotz Gruppen zu voll wird; heute passt sie.
+
+## 10. Dichte-Pass am PC (20. September 2026)
+
+Dritter Durchgang nach Calm Pass und Räumen, wieder mit eigenen Screenshots
+(Fixture-Profil, 1440/860 px, hell und dunkel, Tablet 1280/390 px). Befund:
+Die Räume Projekte, Aufträge und Aufgaben/Notizen sowie der eingebettete
+Block „CLI-Arbeit“ benutzten am PC noch Tablet-Masse (44-px-Controls, 16–23-px
+Überschriften, gerahmte Karten), und der neue Knopf „Gespräche“ brach die
+Kopfzeile bei 1440 px auf zwei Zeilen. Palette, Schriftrollen und Räume bleiben.
+
+| Bereich | Änderung | Dateien |
+| --- | --- | --- |
+| Kopfzeile | Einzeilig bis 1000 px: Gruppenbeschriftungen ab 1440 px, Raum-Icons ab 1260 px ausgeblendet (nur PC; Tablet behält 1180/760). Darunter zwei saubere Zeilen: Logo + Räume, dann laufende Arbeit + Verwaltung. Gemessen bei 1440 px: 1367 px statt 1723 px. | `app.css`, `nav/nav.css` |
+| Dichte | Alle PC-Räume mit `--control-h` (28 px), Raumtitel 20 px, Abschnittstitel 12 px leise, Zeilen mit Haarlinien statt Karten, genau eine Kupfer-Aktion je Fläche. | `work.css`, `cli-work.css`, `projects.css`, `organizer.css` |
+| Projekte | Kopfzeile mit Titel und den zwei Wegen zum Hinzufügen (Ordner = normal, „Neues Projekt“ = Kupfer, öffnet ein Inline-Formular statt `<details>`); Werkzeugzeile Suche · Segment „Alle / Meine ADE Projekte“ · Aktualisieren leise; Hilfetexte als leise Zeilen; Karten bleiben, weil jede eine Wahl ist. | `ProjectsView.tsx`, `ProjectDirectory.tsx`, `projects.css` |
+| Aufträge | Filter als eine Zeile; Agenten als leise Liste wie im Rail; „CLI-Arbeit“ und „Managed Runs“ als gleichrangige Abschnitte; Runs als Zeilen mit Kupfer-Inset bei Auswahl. | `work.css` |
+| Aufgaben / Notizen | PC-Regeln nur unter `.shell > .organizer` (Tablet unverändert): Kopf 20 px, Synchronisieren leise, Ansichts-Chips leise mit Kupferton, Einträge als Zeilen. | `organizer.css` |
+| Übersicht | „Übersicht aktualisieren“ (statt „Overview“) und Zeilenaktionen als Text bis Hover; CLI-Arbeit-Block in derselben Skala wie die anderen Abschnitte. | `overview.css`, `messages.de.ts` |
+| Inspector | Tabs in der Oberflächensprache: **Repository · Änderungen · Dateien**. Der erste Tab heisst bewusst nicht „Übersicht“, weil der Raum so heisst und `getByRole('tab', { name: 'Übersicht' })` in 21 Treibern sonst zwei Treffer hätte. | `RightPanel.tsx`, `messages.*.ts` |
+| Einstellungen | Tabs als Unterstreichung wie im Inspector; Darstellung/Inspektor als Segment-Control; Sprach-Select und Stimme-Controls in PC-Höhe; Projektstart-Formular ohne gestreckten Knopf. | `settings.css`, `speech-preference.css` |
+| Einrichtung | Schritte als unterstrichene Reihe (echte Sequenz); „Zu den Projekten“ nicht mehr Kupfer, damit die Aktion des Schritts die einzige ist; CLI-Liste flach. | `setup.css`, `SetupModal.tsx` |
+| Diagnose | Flach mit Haarlinien statt Karten; Zusammenfassung ein übersetzter Satz („1 von 4 konfigurierten Laufzeiten bereit“). | `diagnostics.css`, `DiagnosticsModal.tsx` |
+| Tablet | Terminal-Rail: gewählte Zeile als Kupferton mit Inset statt gefüllter Kupferblock. Raum Terminals: „Terminal öffnen“ in der Werkzeugzeile ist normal gerahmt; die Kupfer-Aktion ist „Leeres Terminal öffnen“ im Startbereich, dort wo das Terminal erscheint. Das Aktionsinventar in Abschnitt 3 gilt entsprechend. | `mobile/terminals.css`, `mobile/main.tsx` |
+| Einstellungen (Text) | Hilfetext „Mobiler Zugriff“ von acht auf drei Sätze gekürzt (de/en, gleicher Schlüssel). | `messages.de.ts`, `messages.en.ts` |
+
+Abnahme aus PowerShell gegen den Build vom 20. September, 15:00–15:20 CEST:
+`pnpm typecheck` bestanden, `pnpm build` bestanden, `test-setup-electron` 38/0,
+`test-organizer-electron` 15/0, `test-work-electron` 20/0,
+`test-visual-regression` 22/0 mit neu aufgenommenen Inspector-Baselines
+(Tab-Beschriftung geändert). Drei Treiber suchten noch die englischen Labels
+von vor dem Sprach-Commit `9a38dd6` („Status“, „Repository for new session“,
+„Show CI checks …“); sie wurden auf die deutschen Labels umgestellt. Nachtrag
+(Tablet-Terminals, Hilfetext, Projekte-Kopfzeile mit Gruppe „Einzelnes Projekt
+freigeben“): `test-remote-terminal-electron --tablet-layout-only` 20/0,
+`test-mobile-browser` 61/0 (fünf Selektoren auf deutsche Labels umgestellt),
+`test-setup-electron` 38/0. Nicht bestanden: `test-electron-workflow` scheitert
+im ersten Check an `Categories and agents`; der Treiber hängt seit dem
+Sprach-Commit an englischen Labels, 50 davon sind hier bereits übersetzt, der
+Rest bleibt Folgearbeit. `pnpm verify` als Ganzes nicht ausgeführt.
+
+Nachtrag gleicher Tag: Tablet-Terminals mit einer Kupfer-Aktion und der
+gekürzte Hilfetext sind umgesetzt (Zeilen oben); Prüfung siehe
+[STATUS.md](STATUS.md).

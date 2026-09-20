@@ -35,7 +35,7 @@ export function SetupModal({ onClose, onProjects }: { onClose: () => void; onPro
     <div className="setup-actions">
       <button type="button" className="btn" disabled={step === 0} onClick={() => setStep((current) => current - 1)}>{translate("Back")}</button>
       {step < STEPS.length - 1 && <button type="button" className="btn" onClick={() => setStep((current) => current + 1)}>{translate("Next")}</button>}
-      <button type="button" className="btn primary" onClick={onProjects}>{translate("Go to projects")}</button>
+      <button type="button" className="btn" onClick={onProjects}>{translate("Go to projects")}</button>
       <button type="button" className="btn" onClick={onClose}>{translate("Close setup")}</button>
     </div>
   </Modal>;

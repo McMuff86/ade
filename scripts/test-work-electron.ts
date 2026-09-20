@@ -45,9 +45,9 @@ void (async () => {
   await region.getByLabel('Agentfilter', { exact: true }).selectOption(fixture.second.id);
   check('agent filter uses participant identity', await rows.count() === 1 && (await rows.innerText()).includes('Earlier review'));
   await region.getByLabel('Agentfilter', { exact: true }).selectOption('');
-  await region.getByLabel('Status', { exact: true }).selectOption('finished');
+  await region.getByLabel('Zustand', { exact: true }).selectOption('finished');
   check('finished status includes cancelled run', await rows.count() === 1 && (await rows.innerText()).includes('Earlier review'));
-  await region.getByLabel('Status', { exact: true }).selectOption('open');
+  await region.getByLabel('Zustand', { exact: true }).selectOption('open');
   check('open status includes draft and excludes cancelled run', await rows.count() === 1 && (await rows.innerText()).includes('CAD geometry'));
   await region.getByLabel('Runs durchsuchen', { exact: true }).fill('missing');
   await region.getByRole('heading', { name: 'Keine passenden Runs' }).waitFor();
