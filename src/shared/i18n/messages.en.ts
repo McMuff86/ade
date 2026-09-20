@@ -3757,6 +3757,8 @@ export const messagesEn = {
   "Profile instructions are too long for the central conversation.": "Profile instructions are too long for the central conversation.",
   "The profile or project scope has changed. Start a new ADE conversation.": "The profile or project scope has changed. Start a new ADE conversation.",
   "This Codex connection does not confirm the pinned ADE coordinator policy. No conversation turn was started.": "This Codex connection does not confirm the pinned ADE coordinator policy. No conversation turn was started.",
+  "The installed Codex version did not confirm ADE's required conversation settings. No conversation turn was started.": "The installed Codex version did not confirm ADE's required conversation settings. No conversation turn was started.",
+  "Codex on the PC must report a stable CLI version {{minimum}} or newer. No conversation turn was started.": "Codex on the PC must report a stable CLI version {{minimum}} or newer. No conversation turn was started.",
   "The ADE coordinator currently requires native Windows.": "The ADE coordinator currently requires native Windows.",
   "Loading graph…": "Loading graph…",
   "Queued": "Queued",

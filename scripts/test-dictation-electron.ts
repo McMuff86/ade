@@ -11,6 +11,8 @@ import { expect } from 'playwright/test';
 import { terminalMediaFlow } from './helpers/terminalMediaFlow';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
+const imageOnly = process.argv.includes('--terminal-image-only');
+const mediaOnly = imageOnly || process.argv.includes('--terminal-media-only');
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-dictation-electron-')));
 const evidence = resolve('test-results/dictation'); mkdirSync(evidence, { recursive: true });
@@ -84,7 +86,7 @@ ${nativeUsageFixtureSource}
 `);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
   copyFileSync(join(bin, 'codex.exe'), join(bin, 'claude.exe')); copyFileSync(join(bin, 'codex.exe'), join(bin, 'grok.exe'));
-  if (process.argv.includes('--terminal-media-only')) writeFileSync(join(bin, 'terminal-media-fixture'), '1');
+  if (mediaOnly) writeFileSync(join(bin, 'terminal-media-fixture'), '1');
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { windowsHide: true });
   git('init', '--initial-branch=main'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture');
   const launcher = join(root, 'launch.cjs');
@@ -151,6 +153,7 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     CODEX_HOME: join(root, 'codex-home'), CLAUDE_CONFIG_DIR: join(root, 'claude-home'), GROK_HOME: join(root, 'grok-home'),
   } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
+  page.on('pageerror', error => console.error('Desktop fixture:', error));
   await page.evaluate(async ({ path, parent }) => {
     await window.ade.invoke('repository:import', { path, name: 'Dictation project', executionBackend: 'native' });
     await window.ade.invoke('projectDefaults:save', { rootPath: parent, agentId: null });
@@ -173,9 +176,9 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).focus();
   await page.keyboard.press('Enter'); const dialog = page.getByRole('dialog', { name: 'Prompt und Diktat', exact: true });
   const draft = dialog.getByLabel('CLI-Promptentwurf', { exact: true });
-  if (process.argv.includes('--computer-only') || process.argv.includes('--terminal-media-only')) {
+  if (process.argv.includes('--computer-only') || mediaOnly) {
     const { computerVoiceFlow } = await import('./helpers/computerVoiceFlow');
-    if (!process.argv.includes('--terminal-media-only')) await computerVoiceFlow(page, dialog, root, 'desktop', evidence, check);
+    if (!mediaOnly) await computerVoiceFlow(page, dialog, root, 'desktop', evidence, check);
     await page.keyboard.press('Escape');
     const denied = await page.evaluate(async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(track => track.stop()); return false; } catch { return true; } });
     check('Computer releases desktop microphone permission before the next test', denied);
@@ -187,7 +190,6 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     const code = await access.getByLabel('Einmaliger Pairing-Code').inputValue();
     proxy = await mobileTlsProxy(); proxy.target(port); proxy.rewriteOrigin('https://ade-mobile.fixture.ts.net');
     browser = await chromium.launch({ channel: 'chromium', args: ['--ignore-certificate-errors', '--use-fake-device-for-media-stream', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
-    const mediaOnly = process.argv.includes('--terminal-media-only');
     const tablet = await browser.newPage({ viewport: { width: 768, height: 600 }, hasTouch: true, ignoreHTTPSErrors: true,
       ...(mediaOnly ? { serviceWorkers: 'block' as const } : {}) }); tablet.setDefaultTimeout(25_000);
     let screenRequested = false; let releaseScreen!: () => void;
@@ -229,8 +231,8 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
     const strip = project.getByRole('region', { name: 'Sprachleiste', exact: true });
     await strip.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
     await strip.getByRole('button', { name: 'Sprechen', exact: true }).waitFor();
-    if (process.argv.includes('--terminal-media-only')) {
-      await terminalMediaFlow(tablet, project, repo, evidence, check, proxy);
+    if (mediaOnly) {
+      await terminalMediaFlow(tablet, project, repo, evidence, check, proxy, imageOnly);
       console.log(`Terminal media Electron: ${passed} passed, 0 failed`); return;
     }
     check('tablet Computer call lives in the voice strip under the visible terminal', await project.getByLabel('Terminalanzeige', { exact: true }).isVisible()

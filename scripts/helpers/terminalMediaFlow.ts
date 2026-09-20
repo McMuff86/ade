@@ -4,37 +4,39 @@ import { PNG } from 'pngjs';
 import { expect, type Locator, type Page } from 'playwright/test';
 import type { mobileTlsProxy } from './mobileBrowser';
 
-export async function terminalMediaFlow(page: Page, project: Locator, repo: string, evidence: string, check: (name: string, ok: boolean) => void, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>) {
+export async function terminalMediaFlow(page: Page, project: Locator, repo: string, evidence: string, check: (name: string, ok: boolean) => void, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>, imageOnly = false) {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
   await page.bringToFront();
-  await page.context().route('https://example.org/**', route => route.fulfill({ contentType: 'text/plain', body: 'TABLET_LINK_OK' }));
-  const linksButton = project.getByRole('button', { name: 'Links', exact: true });
-  await linksButton.tap(); const links = page.getByRole('dialog', { name: 'Links im Terminal', exact: true });
-  check('link dialog takes focus without opening the keyboard', await links.locator('h2').evaluate(node => node === document.activeElement));
-  await links.getByRole('button', { name: 'Kopieren: https://example.org/tablet', exact: true }).tap();
-  await links.getByRole('status').filter({ hasText: 'Link kopiert.' }).waitFor();
-  check('copy uses the tablet clipboard', await page.evaluate(() => navigator.clipboard.readText()) === 'https://example.org/tablet');
-  check('long wrapped terminal URL remains complete in list', await links.getByRole('link', { name: `Öffnen: https://example.org/${'a'.repeat(180)}`, exact: true }).getAttribute('href') === `https://example.org/${'a'.repeat(180)}`);
-  check('localhost explains the PC address and has no open action', (await links.innerText()).includes('Diese Adresse gehört zum PC') && await links.locator('a[href*="localhost"]').count() === 0);
-  const popupPromise = page.waitForEvent('popup');
-  await links.getByRole('link', { name: 'Öffnen: https://example.org/tablet', exact: true }).tap();
-  const popup = await popupPromise; await popup.waitForLoadState('domcontentloaded');
-  check('web link opens a separate tab with no opener', popup.url() === 'https://example.org/tablet' && await popup.evaluate(() => window.opener === null)); await popup.close();
-  await page.keyboard.press('Escape'); await expect(linksButton).toBeFocused();
-  check('Escape returns focus to Links', true);
-  await project.locator('.xterm-helper-textarea').press('Control+l');
-  const direct = project.locator('.xterm-rows').getByText('https://example.org/tablet', { exact: true });
-  await expect(direct).toBeVisible();
-  // xterm's text spans deliberately have pointer-events:none. A physical touch
-  // hits its screen layer, so drive the touchscreen at the visible URL glyphs.
-  const position = await direct.boundingBox(); if (!position) throw new Error('URL position missing');
-  const [opened] = await Promise.all([page.waitForEvent('popup'), page.touchscreen.tap(position.x + 35, position.y + 7)]);
-  await opened.waitForLoadState('domcontentloaded');
-  check('touch activates the visible terminal URL directly', opened.url() === 'https://example.org/tablet'); await opened.close();
-  await project.getByRole('button', { name: 'Verlauf', exact: true }).tap();
-  check('history has keyboard-accessible links', await project.getByLabel('Terminalverlauf lesen', { exact: true }).getByRole('link', { name: 'https://example.org/tablet', exact: true }).count() >= 1);
-  await project.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).tap();
+  if (!imageOnly) {
+    await page.context().route('https://example.org/**', route => route.fulfill({ contentType: 'text/plain', body: 'TABLET_LINK_OK' }));
+    const linksButton = project.getByRole('button', { name: 'Links', exact: true });
+    await linksButton.tap(); const links = page.getByRole('dialog', { name: 'Links im Terminal', exact: true });
+    check('link dialog takes focus without opening the keyboard', await links.locator('h2').evaluate(node => node === document.activeElement));
+    await links.getByRole('button', { name: 'Kopieren: https://example.org/tablet', exact: true }).tap();
+    await links.getByRole('status').filter({ hasText: 'Link kopiert.' }).waitFor();
+    check('copy uses the tablet clipboard', await page.evaluate(() => navigator.clipboard.readText()) === 'https://example.org/tablet');
+    check('long wrapped terminal URL remains complete in list', await links.getByRole('link', { name: `Öffnen: https://example.org/${'a'.repeat(180)}`, exact: true }).getAttribute('href') === `https://example.org/${'a'.repeat(180)}`);
+    check('localhost explains the PC address and has no open action', (await links.innerText()).includes('Diese Adresse gehört zum PC') && await links.locator('a[href*="localhost"]').count() === 0);
+    const popupPromise = page.waitForEvent('popup');
+    await links.getByRole('link', { name: 'Öffnen: https://example.org/tablet', exact: true }).tap();
+    const popup = await popupPromise; await popup.waitForLoadState('domcontentloaded');
+    check('web link opens a separate tab with no opener', popup.url() === 'https://example.org/tablet' && await popup.evaluate(() => window.opener === null)); await popup.close();
+    await page.keyboard.press('Escape'); await expect(linksButton).toBeFocused();
+    check('Escape returns focus to Links', true);
+    await project.locator('.xterm-helper-textarea').press('Control+l');
+    const direct = project.locator('.xterm-rows').getByText('https://example.org/tablet', { exact: true });
+    await expect(direct).toBeVisible();
+    // xterm's text spans deliberately have pointer-events:none. A physical touch
+    // hits its screen layer, so drive the touchscreen at the visible URL glyphs.
+    const position = await direct.boundingBox(); if (!position) throw new Error('URL position missing');
+    const [opened] = await Promise.all([page.waitForEvent('popup'), page.touchscreen.tap(position.x + 35, position.y + 7)]);
+    await opened.waitForLoadState('domcontentloaded');
+    check('touch activates the visible terminal URL directly', opened.url() === 'https://example.org/tablet'); await opened.close();
+    await project.getByRole('button', { name: 'Verlauf', exact: true }).tap();
+    check('history has keyboard-accessible links', await project.getByLabel('Terminalverlauf lesen', { exact: true }).getByRole('link', { name: 'https://example.org/tablet', exact: true }).count() >= 1);
+    await project.getByRole('button', { name: 'Zur Live-Ausgabe', exact: true }).tap();
+  }
   const attach = project.getByRole('button', { name: 'Bild hinzufügen', exact: true }); await expect(attach).toBeEnabled(); await attach.tap();
   const dialog = page.getByRole('dialog', { name: 'Bild und Nachricht', exact: true });
   check('image dialog focuses its heading and has an empty state', await dialog.locator('h2').evaluate(node => node === document.activeElement) && (await dialog.innerText()).includes('Noch kein Bild ausgewählt'));
@@ -46,7 +48,31 @@ export async function terminalMediaFlow(page: Page, project: Locator, repo: stri
   const bytes = PNG.sync.write(png);
   const choose = () => dialog.getByLabel('Screenshot auswählen', { exact: true }).setInputFiles({ name: 'Screenshot.png', mimeType: 'image/png', buffer: bytes });
   await choose(); await expect(dialog.getByAltText('Vorschau des ausgewählten Screenshots')).toBeVisible();
-  await dialog.getByLabel('Nachricht zum Bild', { exact: true }).fill('Bitte diesen Bereich ändern.');
+  const message = dialog.getByLabel('Nachricht zum Bild', { exact: true });
+  await message.tap();
+  await expect(message).toBeFocused();
+  await page.keyboard.type('Bitte diesen Bereich ändern!');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type('.');
+  await expect(message).toHaveValue('Bitte diesen Bereich ändern.');
+  check('touch focuses the image message and keyboard typing edits the draft', true);
+  // Android changes the visual viewport when its keyboard opens, while the
+  // layout viewport and media queries can retain their original height.
+  await page.evaluate(() => {
+    Object.defineProperty(visualViewport!, 'height', { configurable: true, value: 300 });
+    visualViewport!.dispatchEvent(new Event('resize'));
+  });
+  await expect(message).toBeFocused();
+  await expect.poll(() => message.evaluate(node => {
+    const box = node.getBoundingClientRect();
+    return box.top >= visualViewport!.offsetTop && box.bottom <= visualViewport!.offsetTop + visualViewport!.height;
+  })).toBe(true);
+  await page.keyboard.type(' Noch ein Hinweis.');
+  await expect(message).toHaveValue('Bitte diesen Bereich ändern. Noch ein Hinweis.');
+  check('image message stays visible and editable with the tablet keyboard open', true);
+  await dialog.screenshot({ path: join(evidence, 'terminal-image-keyboard.png') });
+  await page.evaluate(() => { Reflect.deleteProperty(visualViewport!, 'height'); visualViewport!.dispatchEvent(new Event('resize')); });
+  await message.tap(); await page.keyboard.press('Control+a'); await page.keyboard.type('Bitte diesen Bereich ändern.');
   await page.setViewportSize({ width: 390, height: 780 });
   check('image composer fits a phone viewport without horizontal overflow', await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await dialog.screenshot({ path: join(evidence, 'terminal-image-preview.png') });

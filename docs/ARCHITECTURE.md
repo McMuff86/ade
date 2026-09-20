@@ -173,14 +173,25 @@ Codex's other tools or implement the central coordinator. Codex 0.154 restores
 tool specifications from its rollout on resume; the conversation owner must pin
 its tool contract instead of assuming that resume replaces definitions.
 The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant native-Windows
-launch overrides, exact CLI 0.154.0 identity, effective config inspection before
+launch overrides, a stable CLI identity of at least 0.154.0, effective config inspection before
 the first turn, and a read-only/no-network thread even when the selected coding
 profile allows bypass. Native execution, browser/computer, MCP, plugins and native
 subagents are disabled. `code_mode_host` remains enabled because this CLI also
 uses it to mediate dynamic ADE tools. Policy and native negative/positive probes
 are separate from authorization in future domain handlers. Unexpected native
 tool events close the connection; this does not promise rollback of prior effects.
-Policy `codex-0.154.0-ade-v2` first inventories configured MCP names with the local
+Policy `ade-coordinator-policy-v3` uses the PC's installed `codex` for both desktop
+and tablet conversations, including casual mode. A newer CLI version alone does
+not reject a connection: each fresh process must confirm the effective config
+and read-only/no-network thread before any prompt is sent. The first user-agent
+product supplies the bounded CLI version; OS/terminal versions cannot satisfy
+the minimum. Missing/malformed, older and prerelease identities are refused.
+This is conditional protocol compatibility, not native evidence for every future
+release. Existing live processes stay on their launched version; explicit resume
+rechecks policy with the then-installed CLI. The ADE policy identity stays stable
+across CLI-only updates; the one-time v2-to-v3 change requires a new conversation.
+[Native evidence and operator instructions](CODEX_VERSION_COMPATIBILITY.md).
+The policy first inventories configured MCP names with the local
 CLI, without connecting, and adds process-local `enabled=false` overrides. Codex
 0.154 merges `mcp_servers={}` with global entries instead of deleting them.
 Names are bounded and restricted to safe TOML bare keys; malformed inventories

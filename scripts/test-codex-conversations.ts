@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { CodexAppServerProcess, type CodexConversationIdentity, type CodexConversationResult } from '../src/main/pty/CodexAppServerProcess';
@@ -13,7 +13,8 @@ const procs: CodexAppServerProcess[] = [];
 const closed = new Set<CodexAppServerProcess>();
 async function until(test: () => boolean) { const end = Date.now() + 6000; while (!test()) { if (Date.now() > end) throw new Error('Fixture protocol did not settle'); await new Promise(done => setTimeout(done, 10)); } }
 const rejected = async (call: () => Promise<unknown>) => { try { await call(); return false; } catch { return true; } };
-function start(prompt: string, resumeThreadId?: string, wrong = false, coordinator?: 'valid' | 'bad-config' | 'bad-sandbox') {
+function start(prompt: string, resumeThreadId?: string, wrong = false, coordinator?: 'valid' | 'bad-config' | 'bad-sandbox', cliVersion = '0.155.1') {
+  const trace = join(root, `protocol-${procs.length}.txt`);
   let identity: CodexConversationIdentity | undefined; let exitCode: number | undefined; let output = '';
   const results: CodexConversationResult[] = [];
   let toolCalls = 0;
@@ -26,14 +27,15 @@ function start(prompt: string, resumeThreadId?: string, wrong = false, coordinat
       } }] },
     question: () => { throw new Error('Unexpected question'); },
     launch: () => spawn(globalThis.process.execPath, [resolve('scripts/fixtures/codex-conversation.cjs')], { cwd: root, windowsHide: true, stdio: 'pipe',
-      env: { ...globalThis.process.env, ...(wrong ? { ADE_WRONG_WORKSPACE: dirname(root) } : {}),
+      env: { ...globalThis.process.env, ADE_PROTOCOL_TRACE: trace, ADE_CODEX_USER_AGENT: `ade/${cliVersion} (Windows 10.0.26100; x86_64)`, ...(wrong ? { ADE_WRONG_WORKSPACE: dirname(root) } : {}),
         ...(coordinator ? { ADE_COORDINATOR_CONFIG: JSON.stringify({ features: { ...Object.fromEntries(COORDINATOR_DISABLED_FEATURES.map(name => [name, false])), code_mode_host: true },
           mcp_servers: coordinator === 'bad-config' ? { unexpected: {} } : {}, agents: { enabled: false }, web_search: 'disabled', sandbox_mode: 'read-only', approval_policy: 'never' }) } : {}),
         ...(coordinator === 'bad-sandbox' ? { ADE_WRONG_SANDBOX: '1' } : {}),
       } }),
   });
   process.onExit(event => { exitCode = event.exitCode; closed.add(process); }); process.onData(data => { output += data; }); procs.push(process);
-  return { process, results, get identity() { return identity; }, get exitCode() { return exitCode; }, get output() { return output; }, get toolCalls() { return toolCalls; } };
+  return { process, results, get identity() { return identity; }, get exitCode() { return exitCode; }, get output() { return output; }, get toolCalls() { return toolCalls; },
+    get requests() { return existsSync(trace) ? readFileSync(trace, 'utf8').trim().split('\n') : []; } };
 }
 void (async () => {
   const first = start('remember:PROJECT_A_ONLY'); await until(() => first.results.length === 1);
@@ -70,12 +72,19 @@ void (async () => {
   await final.process.sendTurn('recall'); await until(() => final.results.length === 4);
   check('late tool reply cannot complete the next turn', final.results[3]?.text === 'PROJECT_A_ONLY');
   final.process.kill(); await until(() => final.exitCode !== undefined);
-  const badConfig = start('tool', undefined, false, 'bad-config'); await until(() => badConfig.exitCode !== undefined);
-  check('coordinator refuses inherited MCP configuration before any turn or tool', badConfig.exitCode === 1 && !badConfig.identity && !badConfig.results.length && !badConfig.toolCalls);
+  const oldVersion = start('tool', undefined, false, 'valid', '0.153.9'); await until(() => oldVersion.exitCode !== undefined);
+  check('old CLI is refused before thread creation or prompt delivery', oldVersion.exitCode === 1 && oldVersion.requests.join(',') === 'initialize');
+  const badConfig = start('tool', undefined, false, 'bad-config', '0.156.0'); await until(() => badConfig.exitCode !== undefined);
+  check('newer coordinator refuses inherited MCP configuration before any turn or tool', badConfig.exitCode === 1 && !badConfig.identity && !badConfig.results.length && !badConfig.toolCalls && !badConfig.requests.includes('thread/start') && !badConfig.requests.includes('turn/start'));
   const badSandbox = start('tool', undefined, false, 'bad-sandbox'); await until(() => badSandbox.exitCode !== undefined);
-  check('coordinator refuses a mismatched native sandbox before sending its prompt', badSandbox.exitCode === 1 && !badSandbox.identity && !badSandbox.results.length && !badSandbox.toolCalls);
+  check('coordinator refuses a mismatched native sandbox before sending its prompt', badSandbox.exitCode === 1 && !badSandbox.identity && !badSandbox.results.length && !badSandbox.toolCalls && !badSandbox.requests.includes('turn/start'));
   const central = start('tool', undefined, false, 'valid'); await until(() => central.results.length === 1 || central.exitCode !== undefined);
   check('verified coordinator runs only after read-only policy overrides a coding bypass profile', central.results[0]?.text === 'ADE_TOOL_RESULT' && central.toolCalls === 1);
+  check('installed CLI confirms version, effective config and thread before receiving a prompt', central.requests.slice(0, 5).join(',') === 'initialize,initialized,config/read,thread/start,turn/start');
+  central.process.kill(); await until(() => central.exitCode !== undefined);
+  const upgraded = start('tool', central.identity!.threadId, false, 'valid', '0.156.0'); await until(() => upgraded.results.length === 1 || upgraded.exitCode !== undefined);
+  check('explicit resume after a CLI upgrade rechecks policy and preserves the native conversation', upgraded.results[0]?.text === 'ADE_TOOL_RESULT' && upgraded.identity?.threadId === central.identity?.threadId
+    && upgraded.requests.slice(0, 6).join(',') === 'initialize,initialized,config/read,thread/read,thread/resume,turn/start');
 })().catch(error => { failed++; console.error(error); }).finally(async () => {
   for (const process of procs) process.kill();
   // taskkill is asynchronous; a live Windows process still owns its cwd.

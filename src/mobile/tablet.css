@@ -30,6 +30,8 @@
 .m-terminal-link-address { overflow-wrap: anywhere; user-select: text; }
 .m-terminal-link-item a, .m-terminal-link-item button { display: inline-flex; align-items: center; min-height: 44px; margin-right: 8px; }
 .m-terminal-image-dialog, .m-terminal-links-dialog { width: min(600px, calc(100vw - 24px)); white-space: normal; }
+.m-terminal-image-dialog { position: fixed; top: var(--tablet-top, 0px); bottom: auto; margin: 8px auto;
+  max-height: calc(var(--tablet-height, 100dvh) - 16px); }
 .m-terminal-image-dialog figure { margin: 12px 0; }
 .m-terminal-image-dialog img { display: block; max-width: 100%; max-height: 35dvh; object-fit: contain; border-radius: 6px; }
 .m-terminal-image-dialog input[type=file] { max-width: 100%; }
@@ -191,7 +193,9 @@
 .m-terminal-composer > details > summary { font-size: 12px; color: var(--muted); }
 .m-terminal-composer > details > .m-field-note { margin-top: 4px; }
 .m-remote-terminal .voice-strip { padding-top: 8px; }
-.m-keyboard-compact .voice-strip:not(:focus-within):not([data-phase='recording']):not([data-phase='transcribing']):not([data-phase='permission']) { display: none; }
+/* A modal in the top layer must stay visible even when its strip does not
+   match :focus-within during the keyboard's viewport/focus transition. */
+.m-keyboard-compact .voice-strip:not(:focus-within):not(:has(dialog[open])):not([data-phase='recording']):not([data-phase='transcribing']):not([data-phase='permission']) { display: none; }
 .m-keyboard-compact .m-terminal-keybar { margin-top: 4px; }
 
 /* ---------------------------------------------- compact work mode (UX-03)

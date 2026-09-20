@@ -26,6 +26,10 @@ ADE-Neustart nach bestandener Prüfung.
   Sitzungswechsel. Upload läuft erst beim Senden. Eine verlorene Versandquittung
   stoppt weitere Versuche bis zur ausdrücklichen Prüfung. **Geprüft – neuen
   Entwurf beginnen** verwirft den unbestätigten Entwurf; es wiederholt ihn nicht.
+- Die kompakte Terminalansicht bei geöffneter Bildschirmtastatur blendet keine
+  Sprachleiste mit offenem Dialog aus. **Bild und Nachricht** passt Höhe und
+  Position an den sichtbaren Browserbereich an und scrollt das bereits fokussierte
+  Nachrichtenfeld bei Tastaturänderungen ins Sichtfeld, ohne den Fokus zu versetzen.
 
 ## Vertrag und Grenzen
 
@@ -67,6 +71,25 @@ aus dem Textverlauf verwendet; mehrdeutige Präfixe öffnen kein gekürztes Ziel
 Linkliste höchstens 100 Einträge; keine automatische Navigation.
 
 ## Prüfstand und Aktivierung
+
+20. September 2026, Korrektur der Nachrichtenbearbeitung: Der neue Touch-Test
+reproduzierte vor der Korrektur den Fokusverlust und das Verschwinden des
+Bilddialogs beim simulierten Öffnen der Android-Tastatur (Verkleinerung von
+`visualViewport.height`, unveränderter Layout-Viewport). Danach besteht
+`node --import tsx scripts/test-dictation-electron.ts --terminal-image-only`
+**21/0** unter nativem Windows mit echtem Electron, Chromium-Touch und ConPTY:
+Antippen, Tippen/Korrigieren, Tastaturansicht, Entwurfserhalt und tatsächlicher
+Bild-/Textversand einschliesslich Quittungsverlust und positiver Endkontrolle.
+Der neue Schalter prüft nur den Bildablauf; der bestehende Medien-Schalter
+enthält weiterhin Links und Bilder. Kein physischer Samsung-Test.
+
+Ein vorhandener Absturz der Desktop-Testoberfläche wurde mitkorrigiert:
+`TerminalArea` rendert sein JSX-Hinweiselement direkt und übersetzt nur den
+Fehlertext. `pnpm run build` erfolgreich. `pnpm run typecheck` scheitert weiterhin
+an TS2742 in `src/shared/i18n/index.ts:7`. Der volle Medienlauf scheiterte zuvor
+am direkten Touch-Link (Popup-Timeout); das ist kein Nachweis für den korrigierten
+Bildablauf. Kein neues `pnpm verify` und keine Gesamtfreigabe. Die laufende
+persönliche ADE-Instanz wurde nicht neu gestartet.
 
 - Vollständiges `pnpm verify` am **19. September 2026, 11:15 CEST**, Exit **0**:
   **91 Kernsuiten / 3.780 Prüfungen**, Produktionsbuild und **30 Electron-/Browser-Driver**.

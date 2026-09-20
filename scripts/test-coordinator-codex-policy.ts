@@ -8,7 +8,13 @@ const config = () => ({ config: { features: { ...Object.fromEntries(COORDINATOR_
 try {
   assertCoordinatorCodexVersion({ userAgent: 'codex_cli_rs/0.154.0' }); assertCoordinatorCodexConfig(config());
   check('verified native version and effective feature configuration pass', true);
-  check('unknown protocol version is refused', rejects(() => assertCoordinatorCodexVersion({ userAgent: 'codex_cli_rs/0.155.0' })));
+  for (const version of ['0.154.1', '0.155.1', '0.200.0', '1.0.0']) {
+    check(`installed CLI ${version} may proceed to effective policy checks`, assertCoordinatorCodexVersion({ userAgent: `ade/${version} (Windows 10.0.26100; x86_64)` }) === version);
+  }
+  for (const userAgent of ['ade/0.153.9', 'ade/0.99.99', 'ade/0.155.1-alpha.1', 'ade/0.155.1garbage', 'ade/unknown Windows/0.155.1', 'prefix ade/0.155.1', 'ade/0.155', 'ade/9999999.0.0', 'ade/0.155.1 ' + 'x'.repeat(1024), '']) {
+    check(`unsupported or malformed identity is refused: ${userAgent.slice(0, 45)}`, rejects(() => assertCoordinatorCodexVersion({ userAgent })));
+  }
+  for (const value of [null, {}, { userAgent: 155 }]) check('missing CLI identity is refused', rejects(() => assertCoordinatorCodexVersion(value)));
   for (const name of COORDINATOR_DISABLED_FEATURES) {
     const changed = config(); changed.config.features[name] = true;
     check(`enabled ${name} fails before a conversation turn`, rejects(() => assertCoordinatorCodexConfig(changed)));

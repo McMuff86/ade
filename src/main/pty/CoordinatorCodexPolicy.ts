@@ -3,9 +3,10 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 
-/** Experimental tool protocol and feature inventory are pinned independently
- * from the operator's model choice. A CLI upgrade needs new native evidence. */
-export const COORDINATOR_CODEX_CONTRACT = 'codex-0.154.0-ade-v2';
+/** ADE owns the conversation contract, not the installed CLI version. Every
+ * newly opened native process must confirm the effective policy before a turn. */
+export const COORDINATOR_CODEX_CONTRACT = 'ade-coordinator-policy-v3';
+export const COORDINATOR_CODEX_MIN_VERSION = '0.154.0';
 export const COORDINATOR_DISABLED_FEATURES = [
   'shell_tool', 'unified_exec', 'shell_snapshot', 'apps', 'hooks', 'plugins', 'remote_plugin', 'multi_agent',
   'image_generation', 'view_image', 'skill_search', 'skill_mcp_dependency_install', 'tool_suggest', 'memories', 'remote_control',
@@ -19,9 +20,19 @@ export const COORDINATOR_CODEX_OVERRIDES = [
   'agents.enabled=false', 'tools.view_image=false', 'web_search=disabled', 'mcp_servers={}', 'sandbox_mode=read-only', 'approval_policy=never',
 ] as const;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-const refused = () => new Error(translate("This Codex connection does not confirm the pinned ADE coordinator policy. No conversation turn was started."));
-export function assertCoordinatorCodexVersion(initialized: unknown): void {
-  if (!record(initialized) || typeof initialized.userAgent !== 'string' || initialized.userAgent.match(/\d+\.\d+\.\d+/)?.[0] !== '0.154.0') throw refused();
+const refused = () => new Error(translate("The installed Codex version did not confirm ADE's required conversation settings. No conversation turn was started."));
+export function assertCoordinatorCodexVersion(initialized: unknown): string {
+  // The first product is the caller's clientInfo.name (e.g. ade), with the CLI
+  // version. Do not mistake a later OS/terminal version for the native version.
+  const version = record(initialized) && typeof initialized.userAgent === 'string' && initialized.userAgent.length <= 1024
+    ? /^[A-Za-z0-9_.-]{1,128}\/(\d{1,6}\.\d{1,6}\.\d{1,6})(?=\s|$)/.exec(initialized.userAgent)?.[1] : undefined;
+  const parts = version?.split('.').map(Number);
+  const minimum = COORDINATOR_CODEX_MIN_VERSION.split('.').map(Number);
+  const difference = parts?.findIndex((part, index) => part !== minimum[index]);
+  if (!version || !parts || difference === undefined || difference >= 0 && parts[difference]! < minimum[difference]!) {
+    throw new Error(translate("Codex on the PC must report a stable CLI version {{minimum}} or newer. No conversation turn was started.", { minimum: COORDINATOR_CODEX_MIN_VERSION }));
+  }
+  return version;
 }
 /** Inspect effective config in this very process and cwd, before thread/start.
  * No sensitive config fields, origins or host paths leave this boundary. */

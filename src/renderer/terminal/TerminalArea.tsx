@@ -37,7 +37,7 @@ export function TerminalArea(): JSX.Element {
         <div className="session-notice error">
           <div>
             <strong>{error.source === 'recovery' ? translate("Session recovery failed") : translate("Terminal operation failed")}</strong>
-            <span>{error.message}</span>
+            <span>{localizeAppMessage(error.message)}</span>
           </div>
           {error.source === 'recovery' ? (
             <button type="button" onClick={() => void hydrate(true)}>{translate("Retry")}</button>
@@ -90,7 +90,7 @@ export function TerminalArea(): JSX.Element {
       <div className="terminal-area terminal-area-empty">
         <span className="terminal-hint">{translate("Open terminal without agent and project or select an agent on the left.")}</span>
         <button className="btn primary" onClick={() => useSessionLaunch.getState().open(null)}>{translate("Open terminal")}</button>
-        {localizeAppMessage(notice)}
+        {notice}
       </div>
     );
   }
@@ -100,7 +100,7 @@ export function TerminalArea(): JSX.Element {
     return (
       <div className="terminal-area terminal-area-empty">
         <span className="terminal-hint">{translate("No sessions — press +")}</span>
-        {localizeAppMessage(notice)}
+        {notice}
       </div>
     );
   }
@@ -119,7 +119,7 @@ export function TerminalArea(): JSX.Element {
           <TerminalPane sessionId={sessionId} active={sessionId === active} />
         </div>
       ))}
-      {localizeAppMessage(notice)}
+      {notice}
     </div>
   );
 }

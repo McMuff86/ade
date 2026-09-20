@@ -29,6 +29,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
 }) {
   useLocale();
   const button = useRef<HTMLButtonElement>(null); const picker = useRef<HTMLInputElement>(null);
+  const message = useRef<HTMLTextAreaElement>(null);
   const [open, setOpen] = useState(false); const [png, setPng] = useState<Blob>(); const [preview, setPreview] = useState('');
   const [text, setText] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [phase, setPhase] = useState<'idle' | 'preparing' | 'uploading' | 'sending'>('idle');
@@ -40,6 +41,23 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
   const allowedRef = useRef(allowed); allowedRef.current = allowed;
   useEffect(() => { live.current = true; return () => { live.current = false; version.current++; }; }, []);
   useEffect(() => { if (!png) { setPreview(''); return; } const url = URL.createObjectURL(png); setPreview(url); return () => URL.revokeObjectURL(url); }, [png]);
+  useEffect(() => {
+    if (!open) return;
+    let frame = 0;
+    const revealMessage = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (document.activeElement === message.current) message.current?.scrollIntoView({ block: 'nearest' });
+      });
+    };
+    window.visualViewport?.addEventListener('resize', revealMessage);
+    window.visualViewport?.addEventListener('scroll', revealMessage);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.visualViewport?.removeEventListener('resize', revealMessage);
+      window.visualViewport?.removeEventListener('scroll', revealMessage);
+    };
+  }, [open]);
   const select = async (file: Blob) => {
     if (locked.current) return;
     const own = ++version.current; setOpen(true); setPhase('preparing'); setError(''); setNotice(''); setPng(undefined); upload.current = undefined;
@@ -107,7 +125,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
         <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button></div>
       {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)} {" "}{translate("KiB")}</figcaption></figure>}
       {!png && phase === 'idle' && !notice && <p>{translate("No picture selected yet.")}</p>}
-      <label>{translate("Image message")}<textarea aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
+      <label>{translate("Image message")}<textarea ref={message} aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
       {phase !== 'idle' && <p role="status">{phase === 'preparing' ? translate("The picture is being prepared…") : phase === 'uploading' ? translate("Uploading image to the PC…") : translate("Sending image and message…")}</p>}
       {error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
       {!allowed && <p role="status">{translate("Connection or input ownership is missing. Draft remains intact.")}</p>}

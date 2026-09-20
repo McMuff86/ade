@@ -25,9 +25,9 @@ async function main() {
   const start = () => createCoordinatorConversation({ directory: root, config: { get: () => config }, supervision,
     env: () => Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')) });
   service = start(); const id = service.command({ operation: 'create', commandId: 'create', profileId: 'coordinator' }).conversationId;
-  const settle = async () => {
+  const settle = async (conversationId = id) => {
     const deadline = Date.now() + 180_000;
-    while (Date.now() < deadline) { const last = service!.detail(id).turns.at(-1)!; if (last.status === 'completed') return last;
+    while (Date.now() < deadline) { const last = service!.detail(conversationId).turns.at(-1)!; if (last.status === 'completed') return last;
       if (last.status === 'uncertain' || last.status === 'interrupted') throw new Error(last.error || last.status); await delay(200); }
     throw new Error('Native ADE-Gesprächsprobe nicht rechtzeitig abgeschlossen.');
   };
@@ -42,6 +42,17 @@ async function main() {
   service.command({ operation: 'send', commandId: 'second', conversationId: id, afterTurnId: first.turnId, text: 'Without calling tools, reply with only the exact user marker I asked you to remember in my first message.' });
   const resumed = await settle();
   check('new native process resumes exact context through the production service', resumed.output.includes(userMarker));
+  const casualId = service.command({ operation: 'create', commandId: 'casual-create', profileId: 'coordinator', mode: 'casual' }).conversationId;
+  check('casual conversation creation is separate and does not start the model', service.detail(casualId).mode === 'casual' && service.detail(casualId).model === null && service.detail(casualId).turns.length === 0);
+  const casualMarker = `CASUAL_${randomUUID().replaceAll('-', '')}`;
+  const casualFirst = service.command({ operation: 'send', commandId: 'casual-first', conversationId: casualId, afterTurnId: null,
+    text: `Remember this marker for our next message: ${casualMarker}. Reply only with this exact marker.` });
+  const casualResult = await settle(casualId);
+  check('casual first message completes through installed native Codex', casualResult.output.includes(casualMarker) && service.detail(casualId).model === 'gpt-5.6-sol');
+  await service.shutdown(); service = start();
+  service.command({ operation: 'send', commandId: 'casual-resume', conversationId: casualId, afterTurnId: casualFirst.turnId, text: 'Reply only with the exact marker from our previous message.' });
+  const casualResumed = await settle(casualId);
+  check('casual conversation resumes native context after the host connection restarts', casualResumed.output.includes(casualMarker));
 }
 void main().catch(error => { failed++; console.error(error instanceof Error ? error.message : 'Native probe failed'); }).finally(async () => {
   await service?.shutdown();

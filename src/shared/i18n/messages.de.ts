@@ -3758,6 +3758,8 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Profile instructions are too long for the central conversation.": "Profilanweisung ist für den zentralen Dialog zu lang.",
   "The profile or project scope has changed. Start a new ADE conversation.": "Profil oder Projektumfang hat sich geändert. Neues ADE-Gespräch beginnen.",
   "This Codex connection does not confirm the pinned ADE coordinator policy. No conversation turn was started.": "Diese Codex-Verbindung bestätigt die geprüfte ADE-Koordinatorkonfiguration nicht. Es wurde kein Gesprächsschritt gestartet.",
+  "The installed Codex version did not confirm ADE's required conversation settings. No conversation turn was started.": "Die installierte Codex-Version bestätigt die benötigten ADE-Gesprächseinstellungen nicht. Es wurde kein Gesprächsschritt gestartet.",
+  "Codex on the PC must report a stable CLI version {{minimum}} or newer. No conversation turn was started.": "Codex auf dem PC muss eine stabile CLI-Version ab {{minimum}} melden. Es wurde kein Gesprächsschritt gestartet.",
   "The ADE coordinator currently requires native Windows.": "Der ADE-Koordinatorstart ist bisher nur unter nativem Windows geprüft.",
   "Loading graph…": "Graph wird geladen…",
   "Queued": "In Warteschlange",

@@ -24,7 +24,7 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     return (await window.ade.invoke('supervision:get')).projects;
   }, repoPaths);
   for (let index = 0; index < 3 && await desktop.getByRole('dialog').count(); index++) await desktop.keyboard.press('Escape');
-  await desktop.locator('#desktop-supervision').click(); await desktop.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click();
+  await desktop.locator('#desktop-supervision').click(); await desktop.locator('#conversation-mode-project').click(); await desktop.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click();
   const dialog = desktop.getByRole('dialog', { name: 'ADE-Gespräch', exact: true });
   await dialog.getByLabel('Gesprächsprofil', { exact: true }).selectOption(profileId); await dialog.getByRole('button', { name: 'Neues ADE-Gespräch', exact: true }).click();
   await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toBeEditable();
@@ -50,7 +50,7 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     const device = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find(d => d.name === 'Codex pilot tablet')!;
     const grants = async (all: boolean) => desktop.evaluate(({ deviceId, all }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes: ['workspace:read'], resourceAccess: all ? { mode: 'all' } : { mode: 'selected', repositoryIds: [], agentIds: [] } }), { deviceId: device.id, all });
     await grants(true);
-    const open = async () => { await page.locator('#mobile-supervision').click(); await page.locator('#mobile-conversation-open').click(); return page.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
+    const open = async () => { await page.locator('#mobile-supervision').click(); await page.locator('#conversation-mode-project').click(); await page.locator('#mobile-conversation-open').click(); return page.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
     let mobile = await open(); await mobile.getByLabel('Gespräch auswählen', { exact: true }).selectOption(id);
     await mobile.getByRole('article', { name: 'Übergabe · Codex A', exact: true }).waitFor();
     check('paired tablet sees the same saved handoff action', (await mobile.locator('.conversation-action').count()) === 1);

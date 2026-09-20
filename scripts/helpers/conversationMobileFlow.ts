@@ -22,7 +22,7 @@ export async function conversationMobileFlow(desktop: Page, port: number, profil
     await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
     const deviceId = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find(d => d.name === 'Conversation tablet')!.id;
     const grant = async (all: boolean) => desktop.evaluate(({ deviceId, all }) => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes: ['workspace:read', 'dictation:transcribe'], resourceAccess: all ? { mode: 'all' } : { mode: 'selected', agentIds: [], repositoryIds: [] } }), { deviceId, all });
-    const open = async () => { await page.locator('#mobile-supervision').click(); await page.locator('#mobile-conversation-open').click(); return page.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
+    const open = async () => { await page.locator('#mobile-supervision').click(); await page.locator('#conversation-mode-project').click(); await page.locator('#mobile-conversation-open').click(); return page.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
     let dialog = await open();
     await dialog.getByRole('alert').filter({ hasText: 'vollständige Projektfreigabe' }).waitFor();
     check('tablet global dialog explains required access before exposing history', !(await dialog.locator('.conversation-turn').count()));
@@ -53,7 +53,7 @@ export async function conversationMobileFlow(desktop: Page, port: number, profil
     await dialog.getByLabel('Deine Antwort', { exact: true }).fill('Tablet briefing'); await dialog.getByRole('button', { name: 'Antwort senden', exact: true }).click();
     await dialog.getByText('Antwort empfangen', { exact: true }).waitFor();
     check('tablet answers the exact central native question', (await desktop.evaluate(id => window.ade.invoke('conversation:detail', { conversationId: id }), id)).turns.at(-1)!.questions[0].status === 'answered');
-    await desktop.locator('#desktop-supervision').click(); await desktop.locator('#ade-conversation-open').click();
+    await desktop.locator('#desktop-supervision').click(); await desktop.locator('#conversation-mode-project').click(); await desktop.locator('#ade-conversation-open').click();
     const desktopDialog = desktop.getByRole('dialog', { name: 'ADE-Gespräch', exact: true });
     await desktopDialog.getByLabel('Gespräch auswählen', { exact: true }).selectOption(id);
     await desktopDialog.getByLabel('Nachricht an ADE', { exact: true }).fill('recall'); await desktopDialog.getByRole('button', { name: 'An ADE senden', exact: true }).click();

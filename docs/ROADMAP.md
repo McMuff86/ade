@@ -1,5 +1,14 @@
 # ADE delivery roadmap
 
+## Aktiviert: Codex-Gespräche folgen der installierten PC-Version
+
+Projektbetreuung und Plaudern & Stimme auf PC/Tablet verwenden die installierte
+stabile Codex-CLI ab 0.154.0 mit erneuter Konfigurationsprüfung je Verbindung.
+0.155.1 ist mit echten Gesprächen und Tablet-/Desktop-Fortsetzung belegt.
+Künftige Versionen bleiben von der Bestätigung des ADE-Vertrags abhängig.
+Gesamtprüfung auf Nutzerwunsch beendet; keine neue Audio-/Samsung-Abnahme.
+[Details und Nachweise](CODEX_VERSION_COMPATIBILITY.md).
+
 ## Implementiert: Deutsch/Englisch, Gespräche und Stimmenstudio
 
 Erweiterbare Sprachkataloge und sofortige Geräte-Sprachwahl sowie die getrennten

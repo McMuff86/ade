@@ -1,5 +1,29 @@
 # ADE implementation status
 
+## Installierte Codex-Version für PC-/Tablet-Gespräche aktiviert
+
+20. September 2026, **09:24:16 CEST**: ADE verwendet für Projektbetreuung und
+Plaudern & Stimme die installierte stabile PC-CLI ab 0.154.0, mit Prüfung der
+effektiven Gesprächskonfiguration statt exakter Versionssperre. Codex **0.155.1**
+ist nativ belegt: Konfiguration **3/0**, Gespräch/Resume **7/0**, kompletter
+Tablet-/Desktop-Plauderablauf **10/0**. Weitere Tests auf Nutzerwunsch beendet;
+`pnpm verify` bleibt unvollständig. Gemeinsamer Produktionsbuild erfolgreich,
+ADE neu gestartet, PID **73904**, Quelle **`96d53585a058af6915a9`**.
+Drei Gerätekopplungen sowie Projekt-/Profilbestand erhalten. Die vorhandene
+Bilddialogkorrektur ist im gemeinsamen Build enthalten; persönliche Samsung-
+und Audio-Abnahme bleiben offen. [Details](CODEX_VERSION_COMPATIBILITY.md).
+
+## Bildnachricht bei Bildschirmtastatur korrigiert (20. September 2026)
+
+Der offene Bilddialog bleibt in der kompakten Terminalansicht sichtbar; sein
+Nachrichtenfeld behält den Fokus und wird in den sichtbaren Browserbereich
+gescrollt. Reproduzierter Negativlauf, danach fokussierte Electron-/Chromium-
+Bildprüfung **21/0**, Produktionsbuild erfolgreich. Ein Desktop-Absturz durch
+Übersetzung eines JSX-Hinweiselements wurde ebenfalls behoben. Typecheck noch
+durch bestehenden TS2742 in `src/shared/i18n/index.ts:7` blockiert; kein neues
+`pnpm verify`, keine persönliche Samsung-Abnahme und kein ADE-Neustart.
+[Nachweise und Grenzen](TERMINAL_MEDIA.md).
+
 ## Deutsch/Englisch, Gespräche und Stimmenstudio aktiviert
 
 20. September **01:02:30 CEST**: Desktop und Mobile gemeinsam mit `pnpm build`

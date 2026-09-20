@@ -1,5 +1,41 @@
 # ADE — aktuelle Übergabe
 
+## Aktuell aktiviert: installierte Codex-Version für Gespräche
+
+**20. September 2026, 09:24:16 CEST**, PID **73904**, Source
+**`96d53585a058af6915a9`**. Auf ausdrücklichen Nutzerwunsch laufende Tests
+beendet, ADE regulär über die Tray-Aktion geschlossen, `pnpm build` ausgeführt
+und ADE neu gestartet. Desktop und Tablet haben dieselbe Quelle; das neue
+Mobile-Bundle wird bytegleich über die bestehende private HTTPS-Adresse geliefert.
+Drei Kopplungen sowie Projekt-/Profilbestand unverändert.
+
+Tablet neu laden und in **Plaudern & Stimme → Neues freies Gespräch** beginnen.
+Der fehlgeschlagene Versuch wird nicht erneut gesendet. Codex **0.155.1** ist
+nativ geprüft; spätere stabile Versionen ab 0.154.0 werden bei neuer Verbindung
+anhand der benötigten Konfiguration geprüft, ohne feste obere Versionssperre.
+Die neue ADE-Policy macht frühere Bindungen einmalig nur noch lesbar.
+
+Sicherung: `C:\Users\Adi.Muff\ADE-Backups\CodexVersion-20260920-092355`.
+Aktivierungsbeleg: `test-results/codex-version-activation.json`.
+Native und fokussierte Prüfungen bestanden vor dem Teststopp; keine vollständige
+Gesamtfreigabe. Der frühere i18n-TS2742 ist durch explizite Typangabe behoben.
+Die unten beschriebene Bildkorrektur ist mitgebaut und mitaktiviert; persönliche
+Samsung-/Audio-Abnahme bleibt offen. [Prüfstand](CODEX_VERSION_COMPATIBILITY.md).
+
+## Neu gebaut, noch nicht persönlich aktiviert: Bildnachricht bearbeiten
+
+20. September 2026: Tastaturbedingtes Ausblenden des Bilddialogs reproduziert
+und korrigiert. Offene Dialoge bleiben in der kompakten Sprachleiste erhalten;
+Bilddialog und fokussiertes Nachrichtenfeld folgen dem sichtbaren Browserbereich.
+Gezielter Electron-/Chromium-/ConPTY-Lauf `--terminal-image-only` **21/0**,
+Produktionsbuild erfolgreich. Der dafür gefundene Desktop-Absturz in
+`TerminalArea` (JSX an Textübersetzung übergeben) ist mitkorrigiert.
+
+Die persönliche laufende Instanz und ihre Terminals wurden nicht beendet.
+Typecheck scheitert am bestehenden i18n-TS2742, der volle Medienlauf am
+direkten Touch-Link; keine Gesamtfreigabe. Samsung-Bedienung noch nicht
+persönlich nachgeprüft. [Prüfstand](TERMINAL_MEDIA.md).
+
 ## Aktuell aktiv: Sprachen, Gespräche und Stimmenstudio
 
 **20. September 2026, 01:02:30 CEST**, PID **37788**, Source

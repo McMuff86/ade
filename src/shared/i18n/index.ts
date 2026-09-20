@@ -1,10 +1,10 @@
-import { createInstance, type TOptions } from 'i18next';
+import { createInstance, type i18n as I18nInstance, type TOptions } from 'i18next';
 import { en } from './en';
 import { de } from './de';
 import { APP_LOCALES, DEFAULT_LOCALE, FALLBACK_LOCALE, isAppLocale, localeDefinition, type AppLocale } from './locales';
 
 export type MessageKey = keyof typeof en;
-export const i18n = createInstance();
+export const i18n: I18nInstance = createInstance();
 void i18n.init({
   lng: DEFAULT_LOCALE, fallbackLng: FALLBACK_LOCALE, supportedLngs: APP_LOCALES.map(locale => locale.id),
   resources: { en: { translation: en }, de: { translation: de } },

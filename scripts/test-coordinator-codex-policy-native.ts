@@ -9,6 +9,7 @@ import { redactedErrorDetail } from '../src/main/errors';
 
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-coordinator-policy-')));
 const evidence = resolve('test-results/main-agent-planning'); mkdirSync(evidence, { recursive: true });
+let cliVersion: string | undefined;
 void new Promise<void>((resolve, reject) => {
   const child = launchCoordinatorCodex(root, process.env as Record<string, string>); let confirmed = false; let failed = false; let failure: unknown; let outputBytes = 0;
   const stop = () => { if (child.pid && child.exitCode === null && child.signalCode === null) execFile('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 5000 }, error => { if (error) child.kill(); }); };
@@ -22,7 +23,7 @@ void new Promise<void>((resolve, reject) => {
     try {
       const message = JSON.parse(line) as { id?: number; error?: unknown; result?: unknown };
       if (message.error) throw new Error('Native Codex policy request was refused');
-      if (message.id === 1) { assertCoordinatorCodexVersion(message.result); child.stdin.write('{"method":"initialized"}\n'); send(2, 'config/read', { includeLayers: false, cwd: root }); }
+      if (message.id === 1) { cliVersion = assertCoordinatorCodexVersion(message.result); console.log(JSON.stringify({ cliVersion })); child.stdin.write('{"method":"initialized"}\n'); send(2, 'config/read', { includeLayers: false, cwd: root }); }
       if (message.id === 2) {
         const config = (message.result as { config?: Record<string, unknown> })?.config;
         // Only policy booleans/counts leave this boundary, never config bodies,
@@ -44,7 +45,7 @@ void new Promise<void>((resolve, reject) => {
   send(1, 'initialize', { clientInfo: { name: 'ade_coordinator_probe', version: '0.1' }, capabilities: { experimentalApi: true } });
 }).then(() => {
   writeFileSync(join(evidence, 'codex-coordinator-policy.json'), JSON.stringify({ at: new Date().toISOString(), platform: process.platform, native: true,
-    contract: COORDINATOR_CODEX_CONTRACT, checks: { version: true, effectiveConfig: true, threadReadOnlyWithoutNetwork: true }, modelTurnStarted: false }, null, 2));
+    contract: COORDINATOR_CODEX_CONTRACT, cliVersion, checks: { version: true, effectiveConfig: true, threadReadOnlyWithoutNetwork: true }, modelTurnStarted: false }, null, 2));
   console.log('Native coordinator Codex policy: 3 passed, 0 failed; no model turn');
 }).catch(error => { console.error(redactedErrorDetail(error)); process.exitCode = 1; }).finally(() => {
   if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected probe workspace');

@@ -5,6 +5,11 @@ for this change. The operator explicitly requested no tests, typecheck or full
 verification.** New conversation and paid audio flows still need operator review;
 earlier coordinator evidence is not evidence for this new casual mode.
 
+Update 20 September, 09:24 CEST: the fixed Codex version rejection is replaced
+by per-process compatibility checks. Native Codex 0.155.1 casual text and
+desktop/tablet continuation are now measured; voice/audio acceptance remains
+separate. [Compatibility, evidence and activation](CODEX_VERSION_COMPATIBILITY.md).
+
 ## Using the feature
 
 On PC and tablet, open **Einstellungen / Settings → Sprache / Language** and choose
@@ -99,7 +104,8 @@ draft keys are separate. Old project drafts retain their original storage keys.
 
 Casual mode inherits the chosen profile's model/reasoning only. It receives no
 project instructions, memory or project tools, runs in its own conversation
-workspace and uses the existing pinned, read-only coordinator runtime policy.
+workspace and uses the read-only coordinator runtime policy, checked against
+the PC's installed stable Codex CLI (minimum 0.154.0) on each fresh connection.
 Both action-source creation and action-authority checks reject casual bindings.
 Changing supervised project scope does not invalidate a casual conversation.
 Profile/model/policy changes still require a new conversation. Limits remain

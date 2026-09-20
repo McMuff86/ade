@@ -9,6 +9,9 @@ import { createServer } from 'node:net';
 import { conversationMobileFlow } from './helpers/conversationMobileFlow';
 import { conversationVoiceFlow } from './helpers/conversationVoiceFlow';
 import { coordinatorActionsFlow } from './helpers/coordinatorActionsFlow';
+import { casualConversationFlow } from './helpers/casualConversationFlow';
+const nativeCasual = process.argv.includes('--run-native');
+if (nativeCasual && !process.argv.includes('--casual-only')) throw new Error('Native UI probe requires --casual-only --run-native.');
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-conversation-electron-')));
 const evidence = resolve('test-results/main-agent-planning'); mkdirSync(evidence, { recursive: true });
 let passed = 0; let failed = 0; let app: ElectronApplication | undefined;
@@ -21,8 +24,8 @@ async function main() {
   const config = { features: { ...Object.fromEntries(COORDINATOR_DISABLED_FEATURES.map(name => [name, false])), code_mode_host: true }, mcp_servers: {}, agents: { enabled: false }, web_search: 'disabled', sandbox_mode: 'read-only', approval_policy: 'never' };
   writeFileSync(launcher, `require(${JSON.stringify(resolve('scripts/fixtures/conversation-speech.cjs'))});
 const cp=require('node:child_process');const spawn=cp.spawn;
-cp.spawn=function(file,args,options){if(file==='powershell.exe'&&args.some(a=>a.startsWith('& codex ')||a.startsWith('# ADE_COORDINATOR_LAUNCH'))){
- return spawn.call(this,${JSON.stringify(process.execPath)},[${JSON.stringify(resolve('scripts/fixtures/codex-conversation.cjs'))}],{...options,env:{...options.env,ADE_COORDINATOR_CONFIG:${JSON.stringify(JSON.stringify(config))}}});}
+cp.spawn=function(file,args,options){if(${!nativeCasual}&&file==='powershell.exe'&&args.some(a=>a.startsWith('& codex ')||a.startsWith('# ADE_COORDINATOR_LAUNCH'))){
+ return spawn.call(this,${JSON.stringify(process.execPath)},[${JSON.stringify(resolve('scripts/fixtures/codex-conversation.cjs'))}],{...options,env:{...options.env,ADE_CODEX_USER_AGENT:'ade/0.155.1 (Windows)',ADE_COORDINATOR_CONFIG:${JSON.stringify(JSON.stringify(config))}}});}
  return spawn.call(this,file,args,options);};
 const original=cp.execFile;
 cp.execFile=function(file,args,options,callback){
@@ -45,7 +48,8 @@ require(${JSON.stringify(resolve(process.env.ADE_CONVERSATION_MAIN ?? 'out/main/
     const category = await window.ade.invoke('category:create', { name: 'Conversation' });
     return window.ade.invoke('agent:create', { categoryId: category.id, name: 'Central Codex', runtime: 'codex', permissionMode: 'bypass', codexModel: 'gpt-5.6-sol', codexReasoningEffort: 'high' });
   });
-  const open = async (target: Page) => { await target.locator('#desktop-supervision').click(); await target.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click(); return target.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
+  const open = async (target: Page) => { await target.locator('#desktop-supervision').click(); await target.locator('#conversation-mode-project').click(); await target.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click(); return target.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
+  if (process.argv.includes('--casual-only')) { await casualConversationFlow(page, port, agent.id, evidence, check, nativeCasual); return; }
   if (process.argv.includes('--actions-only')) { await coordinatorActionsFlow(page, root, port, agent.id, evidence, check); return; }
   if (process.argv.includes('--voice-only')) {
     const dialog = await open(page); await dialog.getByLabel('Gesprächsprofil', { exact: true }).selectOption(agent.id);
@@ -144,6 +148,7 @@ require(${JSON.stringify(resolve(process.env.ADE_CONVERSATION_MAIN ?? 'out/main/
   check('back navigation restores the explicit conversation opener', true);
   await conversationMobileFlow(page, port, agent.id, evidence, check);
   await coordinatorActionsFlow(page, root, port, agent.id, evidence, check);
+  await casualConversationFlow(page, port, agent.id, evidence, check);
 }
 void main().catch(async error => { failed++; console.error(error); if (app) { const page = await app.firstWindow(); console.error(await page.evaluate(() => ({ focus: document.activeElement?.tagName + '#' + document.activeElement?.id, text: document.querySelector('.conversation-panel')?.textContent }))); await page.screenshot({ path: join(evidence, 'conversation-failure.png') }); } }).finally(async () => {
   await app?.close();

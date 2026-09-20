@@ -1,6 +1,6 @@
 // Deterministic multi-turn peer; native CLI evidence has a separate driver.
 const { createInterface } = require('node:readline');
-const { readFileSync, writeFileSync, existsSync } = require('node:fs');
+const { readFileSync, writeFileSync, existsSync, appendFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { createHash } = require('node:crypto');
 const file = join(process.cwd(), 'fixture-thread.json');
@@ -15,7 +15,8 @@ const finish = (id, text, status = 'completed') => {
 };
 createInterface({ input: process.stdin }).on('line', line => {
   const m = JSON.parse(line); const ok = result => send({ id: m.id, result });
-  if (m.method === 'initialize') ok({ userAgent: 'codex_cli_rs/0.154.0' });
+  if (process.env.ADE_PROTOCOL_TRACE && m.method) appendFileSync(process.env.ADE_PROTOCOL_TRACE, m.method + '\n');
+  if (m.method === 'initialize') ok({ userAgent: process.env.ADE_CODEX_USER_AGENT || 'codex_cli_rs/0.154.0' });
   if (m.method === 'config/read') ok({ config: JSON.parse(process.env.ADE_COORDINATOR_CONFIG || '{}') });
   if (m.method === 'thread/read') ok({ thread: { id: state.id, cwd: process.env.ADE_WRONG_WORKSPACE || state.cwd } });
   if (m.method === 'thread/start' || m.method === 'thread/resume') {
