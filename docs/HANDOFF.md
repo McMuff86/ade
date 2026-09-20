@@ -1,5 +1,26 @@
 # ADE — aktuelle Übergabe
 
+## Aktuell aktiviert: Dichte-Pass am PC und Tablet-Nachträge
+
+**20. September 2026, 15:45:42 CEST**, PID **66896**, Source
+**`aaafed86de140f59bcbc`**, Commit `e79e9b2` auf `origin/main`. Die vorherige
+Instanz (PID 73904) wurde regulär beendet: Fenster geschlossen, dann im
+Tray-Menü „ADE und mobilen Zugriff beenden“ per UI-Automation ausgelöst; ihre
+offene Codex-Terminalsitzung von 10:00 Uhr endete damit. Danach `pnpm build`
+und Start aus dem Repository wie die Startmenü-Verknüpfung. Desktop und Tablet
+tragen dieselbe Quelle; die private Adresse
+`https://number-cruncher.tailfc0b86.ts.net/` liefert HTTP 200 mit
+`assets/index-D82oZy8R.js`. Sechs Profile, sieben Projekte und drei
+Kopplungen unverändert. Sicherung: `C:\Users\Adi.Muff\ADE-Backups\UiDensity-20260920-153609`.
+
+Tablet: Seite neu laden (keine neue Kopplung). Sichtbar neu: Raum Terminals
+mit einer Kupfer-Aktion im Startbereich, gewählte Rail-Zeile als Kupferton,
+kürzerer Hilfetext unter Einstellungen → Mobiler Zugriff. Am PC: einzeilige
+Kopfzeile, einheitliche Dichte in Projekte, Aufträge, Aufgaben/Notizen,
+Inspector-Tabs „Repository · Änderungen · Dateien“. Nachweise und Grenzen in
+[UI_UX_NEXT_LEVEL.md](UI_UX_NEXT_LEVEL.md) Abschnitt 10; `pnpm verify` und
+`test-electron-workflow` stehen aus.
+
 ## Aktuell aktiviert: installierte Codex-Version für Gespräche
 
 **20. September 2026, 09:24:16 CEST**, PID **73904**, Source

@@ -1,6 +1,11 @@
 # ADE implementation status
 
-## Dichte-Pass am PC (20. September 2026)
+## Dichte-Pass am PC (20. September 2026, aktiviert 15:45 CEST)
+
+Aktiv seit **15:45:42 CEST**, PID **66896**, Source **`aaafed86de140f59bcbc`**,
+Commit `e79e9b2`. Vorherige Instanz regulär über das Tray-Menü beendet,
+`pnpm build`, Neustart aus dem Repository; Tablet-Adresse HTTP 200 mit dem
+neuen Bundle, drei Kopplungen erhalten. [Übergabe](HANDOFF.md).
 
 Dritte Design-Runde: Kopfzeile bleibt bis 1000 px einzeilig (Beschriftungen ab
 1440 px, Icons ab 1260 px ausgeblendet), alle PC-Räume in einer Skala (28-px-
