@@ -3010,7 +3010,11 @@ the tablet PWA behave alike; the note keeps a read-only preview. Pan/zoom is a
 button zoom), clamped so a quarter of the sheet stays visible and bounded to
 0.5–6× the fitted scale; the canvas is sized to the viewport times
 `devicePixelRatio` and strokes are drawn through the transform, so zoom is
-sharp. One finger pans, two fingers pinch, Ctrl + wheel zooms, the middle mouse
+sharp. The finished sheet (shadow, background photo, grid, committed strokes)
+is cached as a layer keyed by view, size, pixel ratio, grid and stroke list;
+each frame draws that layer plus the stroke in progress, and translucent strokes
+share one scratch canvas, which keeps pen latency independent of the number of
+strokes. One finger pans, two fingers pinch, Ctrl + wheel zooms, the middle mouse
 button or Space + drag pans; a finger that lands beside a drawing finger turns
 the gesture into a pinch and drops the unfinished stroke. View, tool side and
 the first-run hint are view/device state; the document sees only strokes and

@@ -12,6 +12,9 @@ isolierter Build bestanden. Noch nicht aktiviert; kein `pnpm verify`.
 [Details](TASKS_NOTES.md).
 Aktiviert am 23. September **17:42:27 CEST**, PID **78692**, Source
 `df7d1b1d87ca6efff8ad` ([Übergabe](HANDOFF.md)); `pnpm test` 96 Suiten/4010 grün.
+Nachtrag 19:16 CEST: Stiftlatenz behoben (gecachte Blattebene, wiederverwendete
+Scratch-Fläche), aktiviert als PID **78592**, Source `d45a6ac10ff8474b9110`;
+Browser 64/0, Electron 17/0.
 
 
 ## Tablet: Codex-Modell und Denktiefe im Agentenprofil, Standardstimme aus dem Stimmenstudio (23. September 2026)

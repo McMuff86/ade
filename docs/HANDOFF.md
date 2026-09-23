@@ -1,5 +1,20 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Skizze Phase 5b, Stiftlatenz (23. September 2026, 19:16 CEST)
+
+Nutzerrückmeldung: seit Phase 5 eine kleine Verzögerung beim Zeichnen. Ursache:
+pro Frame wurde das ganze Blatt (Schatten, Hintergrund, Raster, alle Striche) neu
+gezeichnet und je halbtransparentem Strich eine neue Offscreen-Fläche angelegt.
+Behoben durch eine gecachte Blattebene (nur laufender Strich pro Frame) und eine
+wiederverwendete Scratch-Fläche ([TASKS_NOTES.md](TASKS_NOTES.md) Phase 5).
+PID 78692 regulär über das Tray-Menü beendet (keine Kindprozesse ausser
+Electron). Profil gesichert nach `ADE-Backups/SketchPerf-20260923-191334`.
+`pnpm build`, Start aus dem Repository: **19:16:16 CEST**, PID **78592**, Source
+**`d45a6ac10ff8474b9110`** (Desktop 17:14:17 UTC, Mobile 17:14:25 UTC). Listener
+nur `127.0.0.1:4317`, HTTPS liefert `assets/index-CKHJUuzE.js`, Geräteablage
+bytegleich. Nachweise: Typecheck, Organizer Browser 64/0, Electron 17/0 gegen
+den isolierten Build, Stiftarten-Vorschaubild unverändert korrekt.
+
 ## Aktiviert: Skizze Phase 5, Radierer-Leistung, Stiftarten, Deckkraft (23. September 2026, 17:42 CEST)
 
 PID 63436 regulär über das Tray-Menü beendet (Kindprozesse nur tailscale/conhost).

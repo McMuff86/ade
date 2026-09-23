@@ -75,23 +75,36 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
   // An erase drag works on this copy and commits once on release: one undo step, no IndexedDB/sync write per sample.
   const erasing = useRef<{ strokes: SketchStroke[]; changed: boolean } | null>(null);
   const frame = useRef(0); const grid = useRef(tools.grid); grid.current = tools.grid; const pending = useRef(handover ?? null);
+  // The finished sheet is cached as a layer; while a stroke is in progress only that stroke is drawn on top each frame.
+  const layer = useRef<{ canvas: HTMLCanvasElement; key: string; strokes: readonly SketchStroke[]; background: HTMLCanvasElement | null } | null>(null);
   const sheet = () => ({ width: current.current.sketch.width, height: current.current.sketch.height });
 
   /* -------------------------------------------------------------- render */
   const paint = useCallback(() => {
     frame.current = 0; const element = canvas.current; const context = element?.getContext('2d'); if (!element || !context) return;
     const dpr = window.devicePixelRatio || 1; const v = view.current; const size = sheet();
-    context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, element.width, element.height);
-    context.setTransform(v.scale * dpr, 0, 0, v.scale * dpr, v.x * dpr, v.y * dpr);
-    context.save(); context.shadowColor = 'rgba(0, 0, 0, .35)'; context.shadowBlur = 18 * dpr; context.shadowOffsetY = 3 * dpr; context.fillStyle = '#ffffff'; context.fillRect(0, 0, size.width, size.height); context.restore();
-    if (background.current) context.drawImage(background.current, 0, 0);
-    if (grid.current) {
-      // A view-only guide: never part of the document, never exported.
-      const step = 50; const radius = 1.2 / v.scale; context.fillStyle = 'rgba(30, 29, 26, .22)'; context.beginPath();
-      for (let gx = step; gx < size.width; gx += step) for (let gy = step; gy < size.height; gy += step) { context.moveTo(gx + radius, gy); context.arc(gx, gy, radius, 0, Math.PI * 2); }
-      context.fill();
+    const strokes = erasing.current?.strokes ?? current.current.sketch.strokes;
+    const key = `${element.width}x${element.height}|${v.x.toFixed(2)},${v.y.toFixed(2)},${v.scale.toFixed(5)}|${dpr}|${grid.current ? 'g' : ''}|${size.width}x${size.height}`;
+    let cached = layer.current;
+    if (!cached || cached.key !== key || cached.strokes !== strokes || cached.background !== background.current) {
+      const base = cached?.canvas ?? window.document.createElement('canvas');
+      if (base.width !== element.width || base.height !== element.height) { base.width = element.width; base.height = element.height; }
+      const layerContext = base.getContext('2d'); if (!layerContext) return;
+      layerContext.setTransform(1, 0, 0, 1, 0, 0); layerContext.clearRect(0, 0, base.width, base.height);
+      layerContext.setTransform(v.scale * dpr, 0, 0, v.scale * dpr, v.x * dpr, v.y * dpr);
+      layerContext.save(); layerContext.shadowColor = 'rgba(0, 0, 0, .35)'; layerContext.shadowBlur = 18 * dpr; layerContext.shadowOffsetY = 3 * dpr; layerContext.fillStyle = '#ffffff'; layerContext.fillRect(0, 0, size.width, size.height); layerContext.restore();
+      if (background.current) layerContext.drawImage(background.current, 0, 0);
+      if (grid.current) {
+        // A view-only guide: never part of the document, never exported.
+        const step = 50; const radius = 1.2 / v.scale; layerContext.fillStyle = 'rgba(30, 29, 26, .22)'; layerContext.beginPath();
+        for (let gx = step; gx < size.width; gx += step) for (let gy = step; gy < size.height; gy += step) { layerContext.moveTo(gx + radius, gy); layerContext.arc(gx, gy, radius, 0, Math.PI * 2); }
+        layerContext.fill();
+      }
+      for (const item of strokes) drawStroke(layerContext, item);
+      cached = layer.current = { canvas: base, key, strokes, background: background.current };
     }
-    for (const item of erasing.current?.strokes ?? current.current.sketch.strokes) drawStroke(context, item);
+    context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, element.width, element.height); context.drawImage(cached.canvas, 0, 0);
+    context.setTransform(v.scale * dpr, 0, 0, v.scale * dpr, v.x * dpr, v.y * dpr);
     if (stroke.current) drawStroke(context, stroke.current);
     if (eraserAt.current && toolsRef.current.tool === 'eraser') {
       context.beginPath(); context.arc(eraserAt.current.x, eraserAt.current.y, toolsRef.current.eraserSize / 2, 0, Math.PI * 2);

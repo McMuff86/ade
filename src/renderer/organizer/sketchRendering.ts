@@ -73,6 +73,8 @@ function nibLine(context: CanvasRenderingContext2D, points: SketchPoint[], width
   }
 }
 /** Draw opaque into a bounded offscreen canvas that shares the target transform, then composite once. */
+/** One reusable scratch surface: translucent strokes are frequent while drawing, and a fresh canvas per stroke per frame costs allocation and GC time. */
+let scratch: HTMLCanvasElement | undefined;
 function withComposite(context: CanvasRenderingContext2D, stroke: SketchStroke, opacity: number, composite: GlobalCompositeOperation, draw: (target: CanvasRenderingContext2D) => void): void {
   if (opacity >= 1 && composite === 'source-over') { draw(context); return; }
   const matrix = context.getTransform(); const pad = stroke.width * 2 + 4;
@@ -83,10 +85,12 @@ function withComposite(context: CanvasRenderingContext2D, stroke: SketchStroke, 
   const x0 = Math.max(0, Math.floor(left)); const y0 = Math.max(0, Math.floor(top));
   const x1 = Math.min(context.canvas.width, Math.ceil(right)); const y1 = Math.min(context.canvas.height, Math.ceil(bottom));
   if (x1 <= x0 || y1 <= y0) return;
-  const offscreen = window.document.createElement('canvas'); offscreen.width = x1 - x0; offscreen.height = y1 - y0;
+  const offscreen = scratch ?? (scratch = window.document.createElement('canvas'));
+  if (offscreen.width < x1 - x0 || offscreen.height < y1 - y0) { offscreen.width = Math.max(offscreen.width, x1 - x0); offscreen.height = Math.max(offscreen.height, y1 - y0); }
   const target = offscreen.getContext('2d'); if (!target) { draw(context); return; }
+  target.setTransform(1, 0, 0, 1, 0, 0); target.clearRect(0, 0, x1 - x0, y1 - y0);
   target.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e - x0, matrix.f - y0); draw(target);
-  context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalAlpha = opacity; context.globalCompositeOperation = composite; context.drawImage(offscreen, x0, y0); context.restore();
+  context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.globalAlpha = opacity; context.globalCompositeOperation = composite; context.drawImage(offscreen, 0, 0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); context.restore();
 }
 export function loadOrganizerImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(translate("The picture could not be displayed."))); image.src = source; });

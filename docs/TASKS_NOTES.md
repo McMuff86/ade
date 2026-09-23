@@ -263,6 +263,17 @@ sollte Deckkraft und mehrere Stiftarten bekommen.
   „Leuchtstift“ wechselt von Tinte auf Gelb und zurück, solange die Farbe nicht
   bewusst geändert wurde. Tastatur `1`–`7` wählt die Tinte.
 
+- Reaktionszeit nach Nutzerrückmeldung: Das Blatt zeichnete pro Frame Schatten,
+  Hintergrund, Raster und alle Striche neu und legte je halbtransparentem
+  Strich eine neue Offscreen-Fläche an. Jetzt liegt das fertige Blatt als
+  gecachte Ebene (Schlüssel: Ansicht, Grösse, DPR, Raster, Strichliste,
+  Hintergrund); pro Frame werden nur diese Ebene und der laufende Strich
+  gezeichnet, und halbtransparente Striche nutzen eine wiederverwendete
+  Scratch-Fläche. Verschieben/Zoomen und Radierzüge erneuern die Ebene je Frame
+  wie zuvor das ganze Bild.
+  Aktiviert am 23. September 2026, 19:16 CEST (PID 78592, Source
+  `d45a6ac10ff8474b9110`, siehe [HANDOFF.md](HANDOFF.md)).
+
 Nachweise: Vertrag **56/0** (`test-organizer.ts`: unbekannte Stiftart,
 Deckkraft ausserhalb 0,05–1 und fremde Strichfelder abgelehnt, alte Striche
 gültig), Eingabe-/Radierlogik **49/0** (`test-sketch-input.ts`: Rahmen-Gate,
