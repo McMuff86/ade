@@ -1,5 +1,21 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Notiz öffnet auf dem Tablet ohne Tastatur (23. September 2026, 20:28 CEST)
+
+Nutzerbefund: beim Öffnen einer Notiz ging auf dem Tablet sofort die
+Bildschirmtastatur auf, weil das Titelfeld fokussiert wurde. Bei grobem
+Primärzeiger (`pointer: coarse`, `renderer/organizer/organizerFocus.ts`)
+erhält jetzt der Editor selbst den Fokus; die Tastatur kommt erst beim Tippen in
+ein Feld. Mit Maus bleibt der Titel fokussiert. PID 46532 regulär über das
+Tray-Menü beendet (keine Kindprozesse). Profil gesichert nach
+`ADE-Backups/NotesFocus-20260923-202754`. `pnpm build`, Start aus dem
+Repository: **20:28:08 CEST**, PID **35028**, Source **`ee50ba41b171ac4bb964`**
+(Desktop 18:27:55 UTC, Mobile 18:28:03 UTC). Listener nur `127.0.0.1:4317`,
+HTTPS liefert `assets/index-D-tUM6Mh.js`, Geräteablage bytegleich. Nachweise:
+Typecheck, Vertrag 70/0, Organizer Browser 70/0 (Touch-Kontext = grober Zeiger),
+Organizer Electron 18/0 (Maus). Chromium-CDP kennt keine Emulation von
+`pointer: fine`, darum liegt die Maus-Prüfung in der Electron-Suite.
+
 ## Aktiviert: Notiz-Blätter, Fotokopien, Tablet-Profil mit Berechtigungsmodus und Claude-Modell, F2 (23. September 2026, 20:03:17 CEST)
 
 Drei Nutzerwünsche aus dem Tablet-Test in einem Neustart:

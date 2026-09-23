@@ -21,6 +21,7 @@ void (async () => {
   check('desktop StrictMode editor persists through the sandboxed preload bridge', true);
   await page.reload(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
   check('desktop document reload retains text', await page.getByLabel('Notiztext', { exact: true }).inputValue() === 'Gespeichert über IPC');
+  check('with a mouse the title takes focus so typing can start at once', await page.getByLabel('Titel', { exact: true }).evaluate((node) => node === window.document.activeElement));
   await page.getByRole('button', { name: 'Zeichnen', exact: true }).click(); const sheet = page.getByRole('dialog', { name: 'Skizze', exact: true }); await sheet.waitFor();
   check('desktop sheet opens full-window with the drawing surface focused', await sheet.locator('canvas').evaluate(node => node === window.document.activeElement) && await sheet.locator('output.sketch-sheet-zoom-level').textContent() === '100 %');
   await page.waitForTimeout(300); await page.screenshot({ path: join(evidence, 'desktop-sheet.png') });

@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { ORGANIZER_LIMITS, legacySketchId, newOrganizerDocument, newOrganizerSketch, organizerCommandKey, organizerId, upgradeOrganizerDocument, validOrganizerDocument, validOrganizerMutation, validOrganizerQuery, type OrganizerDocument, type OrganizerMutation } from '../src/shared/organizer';
 import { OrganizerError, OrganizerStore } from '../src/main/organizer/OrganizerStore';
 import { OrganizerReminders } from '../src/main/organizer/OrganizerReminders';
+import { keyboardOnFocus } from '../src/renderer/organizer/organizerFocus';
 let passed = 0; let failed = 0;
 function check(name: string, ok: boolean): void { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } }
 function refuses(action: () => unknown, code?: OrganizerError['code']): boolean { try { action(); return false; } catch (error) { return !code || error instanceof OrganizerError && error.code === code; } }
@@ -16,6 +17,7 @@ try {
   const writer = randomUUID(); const otherWriter = randomUUID(); const owner = 'desktop';
   const input: OrganizerMutation = { operation: 'put', writerId: writer, sequence: 1, baseRevision: 0, document: note };
   check('new profile reads empty without writing', store.index().revision === 0 && !existsSync(file));
+  check('a coarse primary pointer keeps the keyboard closed until a field is tapped', keyboardOnFocus((query) => ({ matches: query === '(pointer: coarse)' })) && !keyboardOnFocus(() => ({ matches: false })));
   check('valid note and writer command', validOrganizerDocument(note) && validOrganizerMutation(input));
   check('command key binds writer and sequence', organizerCommandKey(input) === `${writer}:1`);
   check('strict query shapes accept only declared operations', validOrganizerQuery({ operation: 'list' }) && validOrganizerQuery({ operation: 'detail', id: note.id }) && !validOrganizerQuery({ operation: 'list', path: 'C:\\secret' }));

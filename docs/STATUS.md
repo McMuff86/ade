@@ -11,8 +11,10 @@ Startbefehl) und für Claude-Code-Profile das Modell setzen. Tablet-Terminal mit
 F2. Nachweise: Vertrag **69/0**, Cache **32/0**, Remote-Profile **42/0**,
 Organizer Browser **69/0**, Organizer Electron **17/0**, Tablet-Workbench
 **52/0**, Mobile-Browser **61/0**, Electron-Workflow **197/0**; `pnpm test` 96 Suiten/4034 Prüfungen grün.
-Aktiviert **20:03:17 CEST**, PID **46532**, Source `f77f22da190a5419ffcd`
-([Übergabe](HANDOFF.md)). Details: [TASKS_NOTES.md](TASKS_NOTES.md) Phase 6,
+Aktiviert **20:03:17 CEST**, PID **46532**, Source `f77f22da190a5419ffcd`;
+Nachtrag 20:28 CEST: Notiz öffnet auf dem Tablet ohne Tastatur (Fokus auf dem
+Editor bei grobem Zeiger), Vertrag **70/0**, Browser **70/0**, Electron **18/0**,
+PID **35028**, Source `ee50ba41b171ac4bb964` ([Übergabe](HANDOFF.md)). Details: [TASKS_NOTES.md](TASKS_NOTES.md) Phase 6,
 [SKETCH_UX_PROPOSAL.md](SKETCH_UX_PROPOSAL.md) §11c.
 
 ## Tablet-Übersicht: „Profil bearbeiten“ pro Agent (23. September 2026)

@@ -3015,6 +3015,9 @@ matches) all agree byte for byte. "Draw on a copy" adds a sheet the size of the
 photo with the photo as background; the attachment itself is never altered, and
 removing a photo only clears the background reference of sheets that used it.
 A sheet opened from the empty state and closed without a mark is dropped again.
+Opening a note focuses the title field only with a fine primary pointer; on a
+coarse-pointer device (`renderer/organizer/organizerFocus.ts`) the editor
+container takes focus so the on-screen keyboard waits for a tap into a field.
 PNG export takes one sheet; PDF gives every non-empty sheet its own titled page
 and appends photos no sheet sits on.
 

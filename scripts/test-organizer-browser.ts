@@ -50,8 +50,11 @@ void (async () => {
   await page.getByRole('button', { name: 'Navigation ausklappen' }).click();
   await page.getByRole('tab', { name: 'Aufgaben', exact: true }).focus(); await page.keyboard.press('ArrowRight');
   check('keyboard navigation moves between organization tabs', await page.getByRole('tab', { name: 'Notizen', exact: true }).getAttribute('aria-selected') === 'true');
+  // This context emulates touch, so its primary pointer is coarse: opening a note must not raise the keyboard, focus lands on the editor.
   await page.getByRole('button', { name: 'Neue Notiz', exact: true }).click();
-  const title = page.getByLabel('Titel', { exact: true }); await title.fill('Idee für morgen');
+  const title = page.getByLabel('Titel', { exact: true }); await title.waitFor();
+  check('a coarse-pointer device opens a note without focusing a text field', await page.evaluate(() => document.activeElement?.classList.contains('organizer-editor') === true));
+  await title.fill('Idee für morgen');
   const body = page.getByLabel('Notiztext', { exact: true }); await body.fill('Grösse prüfen – mit Stift skizzieren.');
   // The sheet: drawing happens full-window, the note keeps a preview (docs/SKETCH_UX_PROPOSAL.md §5–§7).
   const draw = page.getByRole('button', { name: 'Zeichnen', exact: true }); await draw.click();

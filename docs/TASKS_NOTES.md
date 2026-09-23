@@ -307,7 +307,12 @@ Hintergrundreferenz betroffener Blätter. Export: PNG je Blatt, PDF mit einer
 betitelten Seite je nicht leerem Blatt plus Fotos ohne Blatt. Tablet-Terminal:
 Taste F2 (`\x1bOQ`) in der Tastenzeile.
 
-Nachweise: Vertrag **69/0** (sieben Blätter, doppelte Ids, langer Titel,
+Tablet-Rückmeldung: beim Öffnen einer Notiz ging sofort die Bildschirmtastatur auf,
+weil der Titel fokussiert wurde. Bei grobem Primärzeiger (`pointer: coarse`,
+`organizerFocus.ts`) erhält jetzt der Editor selbst den Fokus; die Tastatur
+kommt erst beim Tippen in ein Feld. Mit Maus bleibt der Titel fokussiert.
+
+Nachweise: Vertrag **70/0** (sieben Blätter, doppelte Ids, langer Titel,
 fehlendes Foto, Blatt ohne Id, Altform ohne Upgrade abgewiesen; Upgrade
 deterministisch, gespeicherte Altdatei lädt ohne Umschreiben, Alt-`put` wird
 gespeichert und ist replay-sicher), Cache **32/0** (Alt-Cache wird beim Lesen
@@ -317,3 +322,5 @@ verschwindet) und Electron gegen den isolierten Build; Zahlen in
 [STATUS.md](STATUS.md).
 Aktiviert am 23. September 2026, 20:03:17 CEST (PID 46532, Source `f77f22da190a5419ffcd`, siehe
 [HANDOFF.md](HANDOFF.md)).
+Nachtrag 20:28 CEST: Fokusregel für Tablets aktiviert (PID 35028, Source
+`ee50ba41b171ac4bb964`).

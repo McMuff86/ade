@@ -22,6 +22,7 @@
 .organizer-list-item span { color: var(--muted); font-size: 12px; }.organizer-list-item small { font-size: 11px; color: var(--muted); }
 .organizer-detail { min-width: 0; overflow: auto; }.organizer-empty { padding: 55px 28px; display: grid; gap: 12px; color: var(--muted); }
 .organizer-editor { max-width: 1150px; margin: 0 auto; padding: 20px 24px 36px; display: flex; flex-direction: column; gap: 16px; }
+.organizer-editor:focus { outline: none; }
 .organizer-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 12px; }
 .organizer-error, .organizer-conflict { padding: 12px; border-left: 3px solid var(--accent); background: var(--panel); overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
 .organizer .organizer-danger { color: var(--del, #df7777); }.organizer .organizer-reminder { color: var(--accent); font-size: 12px; line-height: 1.6; }

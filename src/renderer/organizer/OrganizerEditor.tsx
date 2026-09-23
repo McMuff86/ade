@@ -15,6 +15,7 @@ import { Modal } from '../onboarding/Modal';
 import { downloadOrganizerBlob, importOrganizerImage, organizerMarkdown, organizerPdf, organizerPng } from './organizerExports';
 import { readSketchPreferences, sketchPreferenceStorage } from './sketchInput';
 import { exportScalesFor } from './sketchErase';
+import { keyboardOnFocus } from './organizerFocus';
 
 function localTime(value: number | null): string { if (value === null) return ''; const date = new Date(value); return new Date(value - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }
 const parseTime = (text: string): number | null => text && Number.isFinite(new Date(text).getTime()) ? new Date(text).getTime() : null;
@@ -30,9 +31,10 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
   const [saving, setSaving] = useState(editing.saving); const [saveError, setSaveError] = useState(editing.error); const [error, setError] = useState(''); const [exporting, setExporting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false); const [showVoice, setShowVoice] = useState(false); const [selectedText, setSelectedText] = useState('');
   const [sketchIntent, setSketchIntent] = useState<string | null>(null);
-  const title = useRef<HTMLInputElement>(null); const textarea = useRef<HTMLTextAreaElement>(null); const file = useRef<HTMLInputElement>(null);
+  const title = useRef<HTMLInputElement>(null); const textarea = useRef<HTMLTextAreaElement>(null); const file = useRef<HTMLInputElement>(null); const article = useRef<HTMLElement>(null);
   const readOnly = disabled || entry.redacted;
-  useEffect(() => { title.current?.focus(); }, []);
+  // A tablet gets focus on the editor itself so the keyboard waits for a tap into a field (organizerFocus.ts).
+  useEffect(() => { if (keyboardOnFocus()) article.current?.focus({ preventScroll: true }); else title.current?.focus(); }, []);
   useEffect(() => {
     retainOrganizerEditing(scope, cache, entry, editing);
     const stop = editing.subscribe(() => {
@@ -67,7 +69,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
     patch({ sketches: [...current.current.sketches, sketch] }); setSketchIntent(sketch.id);
   };
   const remaining = ORGANIZER_LIMITS.attachments - value.images.length;
-  return <article className="organizer-editor" aria-label={value.kind === 'task' ? translate("Edit task") : translate("Edit note")}>
+  return <article ref={article} tabIndex={-1} className="organizer-editor" aria-label={value.kind === 'task' ? translate("Edit task") : translate("Edit note")}>
     <div className="organizer-tools organizer-editor-top"><button type="button" onClick={() => void safely(async () => onBack())}>{translate("To the list")}</button>
       {value.kind === 'task' ? <><button type="button" disabled={readOnly || saving} aria-pressed={value.done} onClick={() => patch({ done: !value.done })}>{value.done ? translate("Reopen") : translate("Mark as done")}</button>
         <button type="button" disabled={readOnly || saving || value.runIds.length >= 32} onClick={() => void safely(async () => onDispatch())}>{translate("Assign to agent")}</button></>
