@@ -52,8 +52,9 @@ void (async () => {
     connect: (url: string) => { endpoint = url; socket = new Socket(); return socket as unknown as WebSocket; },
   };
   const live = await openLiveDictation(options);
-  check('stream uses fixed model, PCM format and manual finalization', endpoint.startsWith('wss://api.elevenlabs.io/v1/speech-to-text/realtime?')
-    && new URL(endpoint).searchParams.get('model_id') === 'scribe_v2_realtime' && new URL(endpoint).searchParams.get('commit_strategy') === 'manual');
+  check('stream uses fixed model, German, PCM format and manual finalization', endpoint.startsWith('wss://api.elevenlabs.io/v1/speech-to-text/realtime?')
+    && new URL(endpoint).searchParams.get('model_id') === 'scribe_v2_realtime' && new URL(endpoint).searchParams.get('language_code') === 'deu'
+    && new URL(endpoint).searchParams.get('commit_strategy') === 'manual');
   check('stream attempt is durable before audio with unknown duration and price', journal.view().facts[0]?.requestState === 'pending'
     && journal.view().facts[0]?.audioSeconds === null && journal.view().facts[0]?.costUsd === null);
   check('terminal usage marks an unfinished live duration as unknown', new NativeUsageService(journal).consumption('live-target').speech?.[0]?.unknownAmounts?.pending === 1);

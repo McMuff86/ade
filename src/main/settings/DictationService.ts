@@ -1,6 +1,6 @@
 import { t as translate } from "../../shared/i18n";
 import {
-  DICTATION_MAX_AUDIO_BYTES, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE,
+  DICTATION_LANGUAGE, DICTATION_MAX_AUDIO_BYTES, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE,
   validPromptText, type DictationTranscript,
 } from '../../shared/dictation';
 import type { SpeechUsageService, SpeechUsageAttempt, SpeechUsageAttribution } from '../usage/SpeechUsageService';
@@ -59,6 +59,7 @@ export class DictationService {
       const form = new FormData();
       form.set('file', new Blob([new Uint8Array(audio)], { type: 'audio/wav' }), 'dictation.wav');
       form.set('model_id', 'scribe_v2');
+      form.set('language_code', DICTATION_LANGUAGE);
       form.set('timestamps_granularity', 'none');
       form.set('tag_audio_events', 'false');
       form.set('diarize', 'false');

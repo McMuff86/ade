@@ -36,14 +36,14 @@ void (async () => {
     if (String(url) !== 'https://api.elevenlabs.io/v1/speech-to-text' || init?.redirect !== 'error'
       || (init.headers as Record<string, string>)['xi-api-key'] !== 'private-provider-detail') throw new Error('incorrect request');
     const body = init.body as FormData;
-    if (body.get('model_id') !== 'scribe_v2' || body.get('timestamps_granularity') !== 'none'
+    if (body.get('model_id') !== 'scribe_v2' || body.get('language_code') !== 'deu' || body.get('timestamps_granularity') !== 'none'
       || body.get('diarize') !== 'false' || body.get('tag_audio_events') !== 'false'
-      || (body.get('file') as Blob).size !== audio.length || [...body.keys()].length !== 5) throw new Error('incorrect multipart contract');
+      || (body.get('file') as Blob).size !== audio.length || [...body.keys()].length !== 6) throw new Error('incorrect multipart contract');
     return response();
   };
   const service = new DictationService(() => 'private-provider-detail', fetcher);
   const transcript = await service.transcribe(audio, authorize);
-  check('fixed Scribe request returns editable text and measured audio duration', transcript.text === 'Prüfe die Änderung.\nDann teste sie.'
+  check('fixed German Scribe request returns editable text and measured audio duration', transcript.text === 'Prüfe die Änderung.\nDann teste sie.'
     && transcript.language === 'de' && transcript.model === 'scribe_v2' && transcript.audioSeconds === 1 && requests === 1);
   allowed = false;
   await refuses('revoked grant refuses before network', () => service.transcribe(audio, authorize), /revoked/);

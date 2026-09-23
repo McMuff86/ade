@@ -1,5 +1,5 @@
 import { t as translate } from "../../shared/i18n";
-import { DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE, type DictationTranscript } from '../../shared/dictation';
+import { DICTATION_LANGUAGE, DICTATION_MAX_TEXT_CHARS, DICTATION_SAMPLE_RATE, type DictationTranscript } from '../../shared/dictation';
 import { LIVE_DICTATION_AUDIO_START_TIMEOUT_MS, LIVE_DICTATION_CHUNK_BYTES, LIVE_DICTATION_MAX_SECONDS, LIVE_DICTATION_SESSION_TIMEOUT_MS } from '../../shared/liveDictation';
 import { redactedErrorDetail } from '../errors';
 import type { SpeechUsageService, SpeechUsageAttribution } from '../usage/SpeechUsageService';
@@ -75,7 +75,7 @@ export async function openLiveDictation(options: {
   arm(10_000);
   try {
     check();
-    const query = new URLSearchParams({ model_id: 'scribe_v2_realtime', audio_format: 'pcm_16000', commit_strategy: 'manual', token });
+    const query = new URLSearchParams({ model_id: 'scribe_v2_realtime', language_code: DICTATION_LANGUAGE, audio_format: 'pcm_16000', commit_strategy: 'manual', token });
     socket = (options.connect ?? (url => new WebSocket(url)))(`wss://api.elevenlabs.io/v1/speech-to-text/realtime?${query}`);
     socket.addEventListener('error', () => end(new Error(translate("Connection to live dictation interrupted. No automatic repetition."))));
     socket.addEventListener('close', () => end(new Error(translate("Live dictation was separated without confirmed closure."))));

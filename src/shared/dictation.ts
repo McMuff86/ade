@@ -3,6 +3,9 @@ export const DICTATION_SAMPLE_RATE = 16_000;
 export const DICTATION_MAX_SECONDS = 60;
 export const DICTATION_MAX_AUDIO_BYTES = 44 + DICTATION_SAMPLE_RATE * 2 * DICTATION_MAX_SECONDS;
 export const DICTATION_MAX_TEXT_CHARS = 12_000;
+/** Scribe's automatic detection transcribed spoken High German as Dutch, so
+ * batch and live dictation always request German, whatever the interface language. */
+export const DICTATION_LANGUAGE = 'deu';
 
 export interface DictationTranscript {
   text: string;
