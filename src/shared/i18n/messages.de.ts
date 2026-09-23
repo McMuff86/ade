@@ -1141,6 +1141,8 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Workspace for {{value1}}": "Workspace für {{value1}}",
   "Open terminal: {{value1}}": "Terminal öffnen: {{value1}}",
   "Open / resume terminal": "Terminal öffnen / fortsetzen",
+  "Edit profile: {{value1}}": "Profil bearbeiten: {{value1}}",
+  "Edit profile": "Profil bearbeiten",
   "My ADE Projects": "Meine ADE Projekte",
   "No personal projects yet. Add projects under Projects → All.": "Noch keine eigenen Projekte. Unter Projekte → Alle hinzufügen.",
   "Open project: {{value1}}": "Projekt öffnen: {{value1}}",

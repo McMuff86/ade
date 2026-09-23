@@ -19,8 +19,8 @@ export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; sel
   </button>;
 }
 
-export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal }: { host: MobileHost; selected: string | null;
-  onTerminal: (id: string) => void;
+export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal, onProfile }: { host: MobileHost; selected: string | null;
+  onTerminal: (id: string) => void; onProfile: (id: string) => void;
   onRun: (id: string) => void; onAgent: (id: string) => void; onProject: (id: string) => void;
 }): JSX.Element {
   useLocale();
@@ -42,7 +42,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
             <MobileAvatar host={host} agent={agent} size={30} /><span className="m-agent-name"><strong>{agent.name}</strong><small>{runtimeVisual(agent.runtime).label}</small></span>
             <span className="m-agent-role">{agent.role || 'Agent'}</span><span className="m-agent-repo">{repo?.name ?? 'portable'}</span><span className="m-row-action" aria-hidden="true">↗</span>
           </button><div className="m-agent-actions"><button disabled={host.status !== 'online'} aria-label={translate("Open terminal: {{value1}}", { value1: agent.name })}
-            onClick={(event) => { event.currentTarget.focus(); onTerminal(agent.id); }}>{translate("Open / resume terminal")}</button><DashboardLink agent={agent} /></div></li>;
+            onClick={(event) => { event.currentTarget.focus(); onTerminal(agent.id); }}>{translate("Open / resume terminal")}</button><button disabled={host.status !== 'online'} aria-label={translate("Edit profile: {{value1}}", { value1: agent.name })}
+            onClick={(event) => { event.currentTarget.focus(); onProfile(agent.id); }}>{translate("Edit profile")}</button><DashboardLink agent={agent} /></div></li>;
         })}</ul>}
       </section>
       <section className="m-ledger" aria-labelledby="mobile-projects-title"><h2 id="mobile-projects-title">{translate("My ADE Projects")}{" "}<span>{catalog.repositories.filter(repo => repo.inMyProjects !== false).length}</span></h2>

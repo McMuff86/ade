@@ -10,7 +10,10 @@ project required. It reuses the newest running interactive home session launched
 with that profile; otherwise the explicit click starts one. Opening a saved
 Mobile workspace after reload only attaches; it never starts a process. Existing
 sessions require **Eingabe übernehmen** before typing. **Neue Sitzung starten**
-keeps the explicit shell/profile/runtime launcher available.
+keeps the explicit shell/profile/runtime launcher available. Beside it, **Profil
+bearbeiten** opens the same workspace dialog directly on the **Agent-Profil** tab
+(name, role, photo, and for native Codex profiles model and reasoning), because
+the tab row is hidden while a terminal has focus or the on-screen keyboard is up.
 
 For Hermes General, keep the existing WSL home and `general --tui` profile.
 For Sentinel, keep its WSL home and `openclaw tui --session agent:main:tui`

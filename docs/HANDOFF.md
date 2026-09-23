@@ -1,5 +1,23 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Tablet-Übersicht „Profil bearbeiten“ (23. September 2026, 19:28 CEST)
+
+Nutzerbefund: nach „Terminal öffnen / fortsetzen“ ist die Tab-Zeile des
+Workspace-Dialogs (und damit „Agent-Profil“) hinter dem fokussierten Terminal
+bzw. der Bildschirmtastatur verborgen; der Weg über „Workspace einblenden“ war
+nicht auffindbar. Jetzt hat jede Agentenzeile der Tablet-Übersicht den Knopf
+„Profil bearbeiten“, der den Dialog direkt im Tab „Agent-Profil“ öffnet
+(Modell und Denktiefe für native Codex-Profile). Der Profil-Tab wird wie
+Dateien/Terminal als letzter Zustand gemerkt; Escape gibt den Fokus an den
+Knopf zurück ([ASSISTANT_ACCESS.md](ASSISTANT_ACCESS.md)). PID 78592 regulär
+über das Tray-Menü beendet (Kindprozess nur conhost). Profil gesichert nach
+`ADE-Backups/ProfileEntry-20260923-192838`. `pnpm build`, Start aus dem
+Repository: **19:28:52 CEST**, PID **69844**, Source **`19d6b9390cfddb78cdf7`**
+(Desktop 17:28:39 UTC, Mobile 17:28:47 UTC). Listener nur `127.0.0.1:4317`,
+HTTPS liefert `assets/index-4yhbmr1H.js`, Geräteablage bytegleich. Nachweise:
+Typecheck, Tablet-Workbench 50/0, Mobile-Browser 61/0 gegen den isolierten
+Build. Nutzerurteil zum Latenz-Fix der Skizze: wieder so reaktiv wie gewünscht.
+
 ## Aktiviert: Skizze Phase 5b, Stiftlatenz (23. September 2026, 19:16 CEST)
 
 Nutzerrückmeldung: seit Phase 5 eine kleine Verzögerung beim Zeichnen. Ursache:

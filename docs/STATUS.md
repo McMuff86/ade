@@ -1,5 +1,14 @@
 # ADE implementation status
 
+## Tablet-Übersicht: „Profil bearbeiten“ pro Agent (23. September 2026)
+
+Neben „Terminal öffnen / fortsetzen“ öffnet „Profil bearbeiten“ den
+Workspace-Dialog direkt im Tab „Agent-Profil“, weil die Tab-Zeile bei
+fokussiertem Terminal oder offener Bildschirmtastatur ausgeblendet ist. Der
+Profil-Tab wird als letzter Dialogzustand gemerkt. Nachweise: Tablet-Workbench
+**50/0**, Mobile-Browser **61/0**, Typecheck. Aktiviert **19:28:52 CEST**, PID
+**69844**, Source `19d6b9390cfddb78cdf7` ([Übergabe](HANDOFF.md)).
+
 ## Skizze Phase 5: flüssiger Teil-Radierer, Stiftarten, Deckkraft (23. September 2026)
 
 Der Teil-Radierer speichert nicht mehr pro Stiftbewegung, sondern einmal beim

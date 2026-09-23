@@ -190,6 +190,15 @@ void (async () => {
   await workspace.getByRole('button', { name: 'Zurück zur Liste', exact: true }).click();
   await page.keyboard.press('Escape'); await workspace.waitFor({ state: 'hidden' });
   check('workspace dialog returns focus to the selected agent', await page.getByRole('button', { name: 'Workspace für Builder', exact: true }).evaluate((node) => node === document.activeElement));
+  // The overview offers a direct way to the profile so nobody has to find the tab row behind a focused terminal.
+  const profileOpener = page.getByRole('button', { name: 'Profil bearbeiten: Builder', exact: true });
+  await profileOpener.click(); await workspace.waitFor();
+  await workspace.getByLabel('Profil-Agentname', { exact: true }).waitFor();
+  check('overview opens the workspace directly on the profile tab', await workspace.getByRole('button', { name: 'Agent-Profil', exact: true }).getAttribute('aria-pressed') === 'true' && await workspace.getByLabel('Workspace-Projekt', { exact: true }).isVisible());
+  await page.keyboard.press('Escape'); await workspace.waitFor({ state: 'hidden' });
+  check('closing the profile workspace returns focus to its overview button', await profileOpener.evaluate((node) => node === document.activeElement));
+  await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  check('a reloaded tablet does not reopen the profile on its own', await workspace.count() === 0 || !await workspace.isVisible());
   check('workspace flow has no uncaught browser errors', errors.length === 0);
   mkdirSync(resolve('test-results/remote'), { recursive: true }); await page.screenshot({ path: resolve('test-results/remote/workbench-phone.png') });
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {

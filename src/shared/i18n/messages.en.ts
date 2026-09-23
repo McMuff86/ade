@@ -1140,6 +1140,8 @@ export const messagesEn = {
   "Workspace for {{value1}}": "Workspace for {{value1}}",
   "Open terminal: {{value1}}": "Open terminal: {{value1}}",
   "Open / resume terminal": "Open / resume terminal",
+  "Edit profile: {{value1}}": "Edit profile: {{value1}}",
+  "Edit profile": "Edit profile",
   "My ADE Projects": "My ADE Projects",
   "No personal projects yet. Add projects under Projects → All.": "No personal projects yet. Add projects under Projects → All.",
   "Open project: {{value1}}": "Open project: {{value1}}",

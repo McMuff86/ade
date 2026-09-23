@@ -63,7 +63,7 @@ function MobileApp(): JSX.Element {
   const supervisionNavigation = useRef(0);
   const [terminalSelection, setTerminalSelection] = useDeviceDraft<TerminalTarget>(host.deviceId, 'terminal-target', { terminalHome: true });
   const [terminalLaunchVersion, setTerminalLaunchVersion] = useState(0);
-  const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' } | null>(host.deviceId, 'last-workspace', null);
+  const [workspace, setWorkspace] = useDeviceDraft<{ agentId: string; repositoryId: string | null; terminalId?: string; tab?: 'files' | 'terminal' | 'profile' } | null>(host.deviceId, 'last-workspace', null);
   const [projectStart, setProjectStart] = useState(false);
   const [projectIntent, setProjectIntent] = useState<ProjectOpenIntent>();
   const [projectWorkspace, setProjectWorkspace] = useDeviceDraft<string | null>(host.deviceId, 'open-project', null);
@@ -73,6 +73,7 @@ function MobileApp(): JSX.Element {
   };
   const keyboardOpen = useTabletViewport();
   const openAgent = (agentId: string) => setWorkspace({ agentId, repositoryId: projectFilter || host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null });
+  const openProfile = (agentId: string) => setWorkspace({ agentId, repositoryId: host.catalog?.agents.find((agent) => agent.id === agentId)?.defaultRepositoryId || null, tab: 'profile' });
   const openProject = (repositoryId: string) => {
     setWorkspace(null); setProjectWorkspace(null); setView('projects'); setProjectIntent({ key: crypto.randomUUID(), repositoryId });
   };
@@ -239,7 +240,7 @@ function MobileApp(): JSX.Element {
             onSession={(session) => { if (session.terminalHome) { navigate('terminals'); setTerminalSelection(terminalTarget(session)); }
               else if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
               else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />
-            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProject={openProject} /></>
+            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProfile={openProfile} onProject={openProject} /></>
             : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
             : view === 'terminals' ? <Terminals host={host} target={terminalSelection} onTarget={setTerminalSelection} launchVersion={terminalLaunchVersion}
               onWorkspace={(agentId, repositoryId) => setWorkspace({ agentId, repositoryId })} />

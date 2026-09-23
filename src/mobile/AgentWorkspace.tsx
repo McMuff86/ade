@@ -23,12 +23,15 @@ export function workspaceError(error: unknown): string {
   return translate("Workspace couldn't load. Check connection and try again.");
 }
 
+/** Git has no stable start state, so a reopened dialog returns to the file list instead. */
+const rememberedTab = (tab: 'files' | 'git' | 'terminal' | 'profile'): 'files' | 'terminal' | 'profile' => tab === 'git' ? 'files' : tab;
+
 export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab, initialTerminalId, projectEntry, profileIntent, onProfileIntentConsumed, onNavigate, onClose, onTask, onManage, fileDrafts, profileDrafts }: {
   host: MobileHost; agentId: string; initialRepositoryId: string;
-  initialTab?: 'files' | 'terminal'; initialTerminalId?: string;
+  initialTab?: 'files' | 'terminal' | 'profile'; initialTerminalId?: string;
   projectEntry?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
-  onNavigate?: (repositoryId: string, tab: 'files' | 'terminal') => void;
+  onNavigate?: (repositoryId: string, tab: 'files' | 'terminal' | 'profile') => void;
   onClose: () => void; onTask: (repositoryId: string) => void; onManage: () => void;
   fileDrafts: FileDrafts;
   profileDrafts: ProfileDrafts;
@@ -55,9 +58,9 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     if (value !== tab && pendingDetail.current) {
       version.current++; pendingDetail.current = false; setBusy(false); setError(''); setRetryDetail(null);
     }
-    selectTab(value); onNavigate?.(repositoryId, value === 'terminal' ? 'terminal' : 'files');
+    selectTab(value); onNavigate?.(repositoryId, rememberedTab(value));
   };
-  const setRepositoryId = (value: string) => { selectRepository(value); onNavigate?.(value, tab === 'terminal' ? 'terminal' : 'files'); };
+  const setRepositoryId = (value: string) => { selectRepository(value); onNavigate?.(value, rememberedTab(tab)); };
   const [overview, setOverview] = useState<MobileWorkspaceResult['overview']>();
   const [listing, setListing] = useState<MobileWorkspaceResult | null>(null);
   const [detail, setDetail] = useState<MobileWorkspaceResult | null>(null);
