@@ -50,7 +50,8 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   const keyboardToggle = page.getByRole('button', { name: 'Terminal-Bedienung', exact: true });
   check('free-terminal keyboard layout preserves input focus and at least 274px of screen', await keyboardInput.evaluate((node) => node === document.activeElement)
     && await terminal.getByLabel('Terminalanzeige', { exact: true }).evaluate((node) => node.getBoundingClientRect().height >= 274));
-  check('free-terminal keyboard keys stay inside the visible viewport', await terminal.getByRole('button', { name: /^Terminaltaste / }).evaluateAll((nodes) => nodes.length === 8
+  // Nine keys since F2 joined the arrows, Tab, Esc, Ctrl-C and Enter.
+  check('free-terminal keyboard keys stay inside the visible viewport', await terminal.getByRole('button', { name: /^Terminaltaste / }).evaluateAll((nodes) => nodes.length === 9
     && nodes.every((node) => { const rect = node.getBoundingClientRect(); return rect.height >= 44 && rect.bottom <= 400; })));
   check('free-terminal keyboard controls fit the phone width', await keyboardToggle.evaluate((node) => {
     const rect = node.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= 400

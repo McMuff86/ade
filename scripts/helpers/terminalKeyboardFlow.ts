@@ -33,7 +33,8 @@ export async function terminalKeyboardFlow(page: Page, workspace: Locator, evide
     check('keyboard layout retains direct input focus', await input.evaluate((node) => document.activeElement === node));
     check('keyboard terminal keys fit one reachable row with 44 px targets', await workspace.getByRole('button', { name: /^Terminaltaste / }).evaluateAll((nodes) => {
       const boxes = nodes.map((node) => node.getBoundingClientRect());
-      return boxes.length === 8 && boxes.every((box) => box.height >= 44 && box.width >= 44 && box.top === boxes[0]!.top && box.bottom <= 420);
+      // Enter, Tab, Esc, Ctrl+C, four arrows and F2 (added for Codex' "f2 to view" warnings) share one row.
+      return boxes.length === 9 && boxes.every((box) => box.height >= 44 && box.width >= 44 && box.top === boxes[0]!.top && box.bottom <= 420);
     }));
     await workspace.getByRole('button', { name: 'Terminaltaste Tab', exact: true }).click();
     check('tapping a terminal key preserves direct-input focus', await input.evaluate((node) => document.activeElement === node));

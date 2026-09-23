@@ -1,5 +1,43 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: drei rote Verify-Suiten wieder grün, ConPTY-Verlauf bleibt erhalten (24. September 2026, 01:02 CEST)
+
+`pnpm verify` hatte drei rote Suiten (Diktat-Electron `--computer-only` und
+`--terminal-media-only`, Remote-Terminal-Electron). Ursachen und Korrekturen:
+
+- **Sprachleiste** (`renderer/terminal/VoiceStrip.tsx`): nach einem langen Druck
+  blieb das Long-Press-Flag stehen, wenn der Klick danach nicht ausgelöst wurde,
+  und verschluckte den nächsten Tipp. Das Flag fällt jetzt beim Loslassen.
+- **ConPTY ohne eigenen Scrollback** (`main/application/RemoteTerminalScreen.ts`,
+  `renderer/terminal/TerminalPane.tsx`): schrumpft die Pseudokonsole, verwirft
+  conhost die Zeilen ausserhalb seines Fensters; wächst sie, malt er von oben neu
+  und löscht die Zeilen darunter. Plain xterm holte dabei den Verlauf aus dem
+  Scrollback genau in diese Zeilen zurück, der Neuaufbau überschrieb ihn, und
+  der Links-Dialog des Tablets war leer. Host-Anzeige und Desktop-xterm laufen
+  unter Windows mit `windowsPty: conpty` (`CONPTY_TERMINAL_OPTIONS`): Wachstum
+  hängt Leerzeilen an, der Verlauf bleibt. Reproduktion mit echter ConPTY
+  (Sequenz 141x21 → 141x14 → 141x2 → 141x21 → 92x11), Nachstellung im
+  Display-Test mit dem aufgezeichneten conhost-Neuaufbau.
+- **Grössen-Tauziehen**: der Desktop meldete weiter `pty:resize`, während das
+  Tablet die Eingabe hielt; jetzt schweigt er, bis die Eingabe zurückkommt, und
+  misst dann neu. Das Tablet meldet eine Grösse erst nach 300 ms Ruhe
+  (`SIZE_SETTLE_MS`).
+- **Kopfzeile bis 900 px** (`mobile/tablet.css`): die Terminal-Statusleiste
+  bekam neben dem Titel eine Spalte und schob das Terminal unter den Kopf; bis
+  900 px steht sie in einer eigenen Zeile (iPad-Hochformat ist 768 px breit).
+  Der Media-Flow scrollt das Terminal vor dem Fingertipp sichtbar.
+- **Prüfschritte**: F2 zählt in beiden Tastenreihen (9 Tasten), die Projekte-Tab-
+  Navigation läuft über die neuen Gruppen; Hänger-Diagnosen (Dialogtext,
+  Bildschirm, Screenshot) landen unter `test-results/dictation/`.
+
+PID 73424 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/VerifyGreen-20260924-010115`. `pnpm build`, Start aus dem Repository: **01:02
+CEST**, PID **34124**, Source **`8958f411a9345e379b22`** (SHA-256 von `out/main/index.js`, 20 Zeichen; Desktop 23:01 UTC, Mobile
+23:01 UTC). Listener nur `127.0.0.1:4317`, HTTPS liefert `assets/index-BR6omPg2.js`,
+Geräteablage bytegleich. Nachweise gegen den isolierten Build: Remote-Terminal
+Electron **208/0**, Terminal-Media Electron **30/0**, Computer Electron
+**21/0**, Terminal-Display **56/0**; Typecheck aller drei Projekte.
+
 ## Aktiviert: lesbare Nutzungsaufschlüsselung auf den Projektkarten (23. September 2026, 22:49 CEST)
 
 Adis Befund vom Tablet: die Aufschlüsselung wurde in der schmalen Kartenspalte

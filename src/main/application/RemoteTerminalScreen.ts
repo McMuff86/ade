@@ -47,6 +47,15 @@ function style(cell: IBufferCell): string {
   return `${CSI}${codes.join(';')}m`;
 }
 
+/**
+ * Terminal options for output that comes out of a Windows pseudo console. ConPTY keeps no scrollback of
+ * its own: after the pseudo console grows, conhost repaints its viewport from the top and clears the rows
+ * below, while xterm would otherwise pull earlier lines back out of the scrollback into exactly those
+ * rows, where the repaint erases them. With `windowsPty` xterm appends blank rows instead, so a transient
+ * shrink (a collapsed pane, a tablet layout settling) no longer wipes the history.
+ */
+export const CONPTY_TERMINAL_OPTIONS = { windowsPty: { backend: 'conpty' as const } };
+
 /** Stateful main-side display. Raw OSC/DCS/clipboard sequences never reach the browser. */
 export class RemoteTerminalDisplay {
   private readonly terminal: Terminal;
@@ -56,8 +65,8 @@ export class RemoteTerminalDisplay {
   private overflow = false;
   private version = 0;
   private cached?: { version: number; value: { screen: string; frame: MobileTerminalFrame } };
-  constructor(cols: number, rows: number) {
-    this.terminal = new Terminal({ cols, rows, scrollback: 1000, allowProposedApi: true });
+  constructor(cols: number, rows: number, options: { conpty?: boolean } = {}) {
+    this.terminal = new Terminal({ cols, rows, scrollback: 1000, allowProposedApi: true, ...(options.conpty ? CONPTY_TERMINAL_OPTIONS : {}) });
     for (const final of ['h', 'l']) this.terminal.parser.registerCsiHandler({ prefix: '?', final }, (params) => {
       if (params.includes(25)) this.cursorVisible = final === 'h'; return false;
     });

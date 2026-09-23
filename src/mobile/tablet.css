@@ -184,7 +184,9 @@
 .m-controls-collapsed .m-terminal-tools > p:not([role=alert]):not(.m-terminal-notice) { display: none; }
 .m-dialog-head:has(.m-terminal-status-bar) { flex-wrap: wrap; margin-bottom: 8px; }
 .m-dialog-head:has(.m-terminal-status-bar) h2 { margin: 0; }
-@media (max-width: 760px) { .m-dialog-terminal-header:not(:empty) { flex-basis: 100%; order: 3; } }
+/* Up to 900px the status bar takes its own head row: beside the title it would wrap into a column
+   that pushes the terminal under the head (iPad portrait is 768px wide). */
+@media (max-width: 900px) { .m-dialog-terminal-header:not(:empty) { flex-basis: 100%; order: 3; } }
 .m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { flex-wrap: nowrap; }
 .m-independent-project > .m-dialog-head > h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-workspace-info-button { flex: none; min-height: 44px; font-size: 12px; }

@@ -49,6 +49,7 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
 export async function computerStripFlow(page: Page, strip: Locator, root: string, evidence: string, check: (name: string, ok: boolean) => void): Promise<void> {
   const draft = strip.getByLabel('CLI-Promptentwurf', { exact: true });
   const mic = strip.locator('.voice-mic');
+  const consoleLog: string[] = []; page.on('console', message => consoleLog.push(`${message.type()}: ${message.text()}`)); page.on('pageerror', error => consoleLog.push(`pageerror: ${error.message}`));
   const speak = strip.getByRole('button', { name: 'Sprechen', exact: true });
   const calling = strip.getByRole('button', { name: 'Sage „Computer“', exact: true });
   const listening = strip.getByRole('button', { name: /^Hört zu · \d+:\d\d$/ });
@@ -83,7 +84,8 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   check('tablet: the played greeting hands over to dictation without another tap', await draft.getAttribute('readonly') !== null);
   await page.waitForFunction(() => document.querySelector<HTMLTextAreaElement>('[aria-label="CLI-Promptentwurf"]')?.value.includes('Bitte prüfe'));
   await listening.click();
-  await strip.getByText('Erkannt · prüfen, dann senden', { exact: true }).waitFor();
+  try { await strip.getByText('Erkannt · prüfen, dann senden', { exact: true }).waitFor(); }
+  catch (error) { writeFileSync(join(evidence, 'computer-tablet-stuck.txt'), [`mic data-phase=${await mic.getAttribute('data-phase')} disabled=${await mic.isDisabled()}`, await strip.innerText(), '--- console ---', ...consoleLog.slice(-60)].join('\n')); await page.screenshot({ path: join(evidence, 'computer-tablet-stuck.png') }); throw error; }
   check('tablet: the dictated task lands in the draft after the greeting without being sent', await draft.inputValue() === 'Entwurf tablet.\nBitte prüfe den Code.'
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
   await strip.getByRole('button', { name: 'Erneut', exact: true }).click();

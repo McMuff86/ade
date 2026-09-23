@@ -1082,6 +1082,27 @@ Successful catalog-mutating IPC handlers emit the existing `catalog:changed`
 event through `rendererWindows`. The event contains only a revision; consumers
 re-read their authorized projection. Failed mutations emit no success event.
 
+Terminal size under ConPTY (Windows). The pseudo console keeps no scrollback of
+its own: after it shrinks, conhost drops the rows that left its viewport, and
+after it grows it repaints the viewport from the top (`ESC[H`, one `ESC[K` per
+row). Plain xterm would pull earlier lines back out of its scrollback into
+exactly those rows, where the repaint erases them, so a transient shrink (a
+collapsed pane, a tablet layout that has not settled) used to wipe the shared
+history. `RemoteTerminalDisplay` and the desktop xterm therefore run with
+`windowsPty: { backend: 'conpty' }` (`CONPTY_TERMINAL_OPTIONS`) on Windows, which
+makes growth append blank rows instead; the display keeps the scrollback and the
+tablet's link list and history keep the earlier output. Three rules keep the
+size itself stable: the tablet reports a size only after it has stayed unchanged
+for `SIZE_SETTLE_MS` (300 ms) on a container with height; the desktop
+`TerminalPane` sends no `pty:resize` while a tablet holds the input and refits
+once the input returns to it (two terminals dictating different sizes made ConPTY
+repaint the session back and forth); and up to 900 px the terminal status bar
+takes its own row in the dialog head, because beside the title it wraps into a
+column that pushes the terminal under the head (iPad portrait is 768 px wide).
+Evidence: `scripts/test-terminal-display.ts` replays the captured conhost repaint
+across shrink and regrow; the terminal-media Electron flow taps a URL after that
+sequence.
+
 Redacted terminal lines are laid out with the same headless xterm cell widths as
 the client. The caret is mapped onto the complete redacted text, preserving the
 prompt's input space, wrapped command text, wide/combining characters and the

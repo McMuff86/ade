@@ -752,7 +752,7 @@ export class PtyManager {
       usageProvider: !agent.customCommand && (agent.runtime === 'codex' || agent.runtime === 'claude' || agent.runtime === 'grok') ? agent.runtime : undefined,
       usageApiKey: !agent.customCommand && providerApiKeyPresent(agent.runtime, scope.executionBackend === NATIVE_EXECUTION_BACKEND
         ? env : { ...credentialEnv, ...(backendEnv ?? spec.env ?? {}) }),
-      display: meta.kind === 'interactive' ? new RemoteTerminalDisplay(DEFAULT_COLS, DEFAULT_ROWS) : undefined,
+      display: meta.kind === 'interactive' ? new RemoteTerminalDisplay(DEFAULT_COLS, DEFAULT_ROWS, { conpty: process.platform === 'win32' }) : undefined,
       meta,
       proc,
       buffer: [],

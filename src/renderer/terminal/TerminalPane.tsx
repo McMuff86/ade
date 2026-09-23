@@ -93,13 +93,17 @@ export function TerminalPane({
   const fontSize = useTerminalPreferences(state => state.fontSize);
   const [remoteInput, setRemoteInput] = useState(false);
   const remoteInputRef = useRef(false);
+  const reportSizeRef = useRef<() => void>(() => undefined);
   const activeRef = useRef(active); activeRef.current = active;
   useEffect(() => {
     let live = true;
     const update = (state: { sessionId: string; remote: boolean }) => {
       if (!live || state.sessionId !== sessionId) return;
+      const regained = remoteInputRef.current && !state.remote;
       remoteInputRef.current = state.remote; setRemoteInput(state.remote);
       if (termRef.current) termRef.current.options.disableStdin = state.remote;
+      // While a tablet holds the input its layout owns the pty size (see reportSize); take it back with ours.
+      if (regained) reportSizeRef.current();
     };
     const off = window.ade.on('terminal:controlChanged', update);
     void window.ade.invoke('terminal:control', { sessionId }).then(update).catch(() => undefined);
@@ -122,6 +126,8 @@ export function TerminalPane({
       fontSize: useTerminalPreferences.getState().fontSize,
       disableStdin: remoteInputRef.current,
       theme: XTERM_THEMES[theme],
+      // ConPTY repaints from the top after the pane grows; see CONPTY_TERMINAL_OPTIONS in main.
+      ...(navigator.userAgent.includes('Windows') ? { windowsPty: { backend: 'conpty' as const } } : {}),
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
@@ -251,7 +257,9 @@ export function TerminalPane({
         useSessions.getState().reportError(error, { source: 'attach', sessionId });
       });
 
-    // fit + report size to the pty (guard against hidden 0x0 hosts)
+    // fit + report size to the pty (guard against hidden 0x0 hosts). A tablet that holds the input
+    // reports its own layout; two terminals dictating different sizes would make ConPTY repaint the
+    // session back and forth, so the desktop stays quiet until the input returns to it.
     const doFit = (): void => {
       if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
       try {
@@ -259,10 +267,11 @@ export function TerminalPane({
       } catch {
         return;
       }
-      if (term.cols > 0 && term.rows > 0) {
+      if (term.cols > 0 && term.rows > 0 && !remoteInputRef.current) {
         void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
       }
     };
+    reportSizeRef.current = doFit;
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
@@ -304,7 +313,7 @@ export function TerminalPane({
     term.options.fontSize = fontSize;
     if (!host?.clientWidth || !host.clientHeight) return;
     try { fitRef.current?.fit(); } catch { return; }
-    void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
+    if (!remoteInputRef.current) void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
   }, [fontSize, sessionId]);
   useEffect(() => { if (searchOpen && active) searchInput.current?.focus(); }, [searchOpen, active]);
   const find = (text = query, previous = false, incremental = false) => {
@@ -334,7 +343,7 @@ export function TerminalPane({
       } catch {
         return;
       }
-      if (term.cols > 0 && term.rows > 0) {
+      if (term.cols > 0 && term.rows > 0 && !remoteInputRef.current) {
         void window.ade.invoke('pty:resize', { sessionId, cols: term.cols, rows: term.rows }).catch(() => undefined);
       }
       if (!document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')

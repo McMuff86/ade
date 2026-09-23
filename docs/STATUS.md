@@ -1,5 +1,17 @@
 # ADE implementation status
 
+## Verify-Suiten wieder grün, ConPTY-Verlauf (24. September 2026)
+
+Die drei roten Suiten aus `pnpm verify` laufen wieder: Sprachleisten-Long-Press
+gibt den nächsten Tipp frei; Host-Anzeige und Desktop-xterm laufen unter
+Windows als `windowsPty: conpty`, damit ein vorübergehendes Schrumpfen der
+Pseudokonsole den Verlauf nicht löscht; der Desktop meldet keine Grösse, solange
+das Tablet die Eingabe hält; das Tablet meldet nur beruhigte Grössen; die
+Terminal-Statusleiste hat bis 900 px eine eigene Kopfzeile. Nachweise:
+Remote-Terminal Electron **208/0**, Terminal-Media Electron **30/0**,
+Computer Electron **21/0**, Terminal-Display **56/0**. Aktiviert
+**01:02 CEST**, PID **34124**, Source `8958f411a9345e379b22` ([Übergabe](HANDOFF.md)).
+
 ## Stimmenstudio-Politur, Geräteaktivität, Tablet-Einstellungen (23. September 2026)
 
 Stimmenstudio lädt Stimmen und Standardstimme von selbst, Hörprobentext

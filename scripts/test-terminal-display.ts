@@ -19,6 +19,22 @@ void (async () => {
       check(`${label}: frame and transcript retain path/secret redaction`, !JSON.stringify(result).includes('fixture') && !JSON.stringify(result).includes('HIDDEN_SECRET'));
     } finally { display.dispose(); browser.dispose(); }
   }
+  {
+    // Captured from a real ConPTY: after shrinking to two rows and growing back, conhost repaints its
+    // viewport from the top (`ESC[H`, one `ESC[K` per row). The display must keep the earlier lines.
+    const links = 'https://example.org/tablet\r\nhttp://localhost:5173\r\nhttps://example.org/' + 'a'.repeat(180) + '\r\n';
+    const repaint = (rows: number, first: string) => '\x1b[?25l\x1b[H' + first + '\x1b[K' + '\r\n\x1b[K'.repeat(rows - 1) + '\x1b[2;1H\x1b[?25h';
+    for (const conpty of [true, false]) {
+      const display = new RemoteTerminalDisplay(141, 21, { conpty });
+      display.write(Buffer.from(links + 'C:\fixture>')); await wait();
+      display.resize(141, 2); display.write(Buffer.from(repaint(2, ''))); await wait();
+      display.resize(141, 21); display.write(Buffer.from(repaint(21, ''))); await wait();
+      display.resize(92, 11); display.write(Buffer.from(repaint(11, ''))); await wait();
+      const text = (await display.snapshot()).screen;
+      check(`${conpty ? 'ConPTY' : 'posix'} display keeps the history across a shrink and regrow`, conpty === (text.includes('https://example.org/tablet') && text.includes('a'.repeat(180))));
+      display.dispose();
+    }
+  }
   await inspectPrompt('redacted prompt keeps its trailing space and cursor together', prompt, 100, 10, safePrompt, { x: safePrompt.length, y: 0 });
   await inspectPrompt('typed command is visible before Enter at the redacted cursor', prompt + 'git status', 100, 10, safePrompt + 'git status', { x: safePrompt.length + 10, y: 0 });
   await inspectPrompt('caret inside an edited command follows the displayed text', prompt + 'git status\x1b[3D', 100, 10, safePrompt + 'git status', { x: safePrompt.length + 7, y: 0 });

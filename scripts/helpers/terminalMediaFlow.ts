@@ -1,11 +1,11 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
 import { expect, type Locator, type Page } from 'playwright/test';
 import type { mobileTlsProxy } from './mobileBrowser';
 
 export async function terminalMediaFlow(page: Page, project: Locator, repo: string, evidence: string, check: (name: string, ok: boolean) => void, proxy: Awaited<ReturnType<typeof mobileTlsProxy>>, imageOnly = false) {
-  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message)); const consoleLog: string[] = []; page.on('console', message => consoleLog.push(`${message.type()}: ${message.text()}`));
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
   await page.bringToFront();
   if (!imageOnly) {
@@ -13,6 +13,10 @@ export async function terminalMediaFlow(page: Page, project: Locator, repo: stri
     const linksButton = project.getByRole('button', { name: 'Links', exact: true });
     await linksButton.tap(); const links = page.getByRole('dialog', { name: 'Links im Terminal', exact: true });
     check('link dialog takes focus without opening the keyboard', await links.locator('h2').evaluate(node => node === document.activeElement));
+    try { await links.getByRole('button', { name: 'Kopieren: https://example.org/tablet', exact: true }).waitFor(); }
+    catch (error) {
+      writeFileSync(join(evidence, 'links-dialog-stuck.txt'), [await links.innerText(), '--- screen ---', await project.getByLabel('Terminalanzeige', { exact: true }).innerText(), '--- console ---', ...consoleLog.slice(-40)].join('\n'));
+      await page.screenshot({ path: join(evidence, 'links-dialog-stuck.png') }); throw error; }
     await links.getByRole('button', { name: 'Kopieren: https://example.org/tablet', exact: true }).tap();
     await links.getByRole('status').filter({ hasText: 'Link kopiert.' }).waitFor();
     check('copy uses the tablet clipboard', await page.evaluate(() => navigator.clipboard.readText()) === 'https://example.org/tablet');
@@ -29,8 +33,21 @@ export async function terminalMediaFlow(page: Page, project: Locator, repo: stri
     await expect(direct).toBeVisible();
     // xterm's text spans deliberately have pointer-events:none. A physical touch
     // hits its screen layer, so drive the touchscreen at the visible URL glyphs.
+    // Focusing xterm for Ctrl+L scrolls the terminal column so its top rows sit under the dialog head;
+    // a finger would scroll the screen back first, so do the same before measuring where the URL is.
+    await project.locator('.m-terminal-screen').evaluate(node => node.scrollIntoView({ block: 'start' }));
     const position = await direct.boundingBox(); if (!position) throw new Error('URL position missing');
-    const [opened] = await Promise.all([page.waitForEvent('popup'), page.touchscreen.tap(position.x + 35, position.y + 7)]);
+    let opened: Page;
+    try { [opened] = await Promise.all([page.waitForEvent('popup', { timeout: 15_000 }), page.touchscreen.tap(position.x + 35, position.y + 7)]); }
+    catch (error) {
+      const state = await page.evaluate(() => ({ screen: document.querySelector('.xterm-screen')?.getBoundingClientRect().toJSON(), rows: document.querySelector('.xterm-rows')?.textContent,
+        dialogs: [...document.querySelectorAll('[role="dialog"], dialog[open]')].map(node => (node as HTMLElement).getAttribute('aria-label') ?? (node as HTMLElement).innerText.slice(0, 80)), active: document.activeElement?.outerHTML.slice(0, 120),
+        viewport: [window.innerWidth, window.innerHeight, window.devicePixelRatio], workbench: (() => { const node = document.querySelector('.m-tablet-workbench-main'); return node ? { scrollTop: node.scrollTop, ...node.getBoundingClientRect().toJSON() } : null; })(), terminalScreen: document.querySelector('.m-terminal-screen')?.getBoundingClientRect().toJSON(), live: document.querySelector('.m-terminal-live')?.getBoundingClientRect().toJSON(), }));
+      const hit = await page.evaluate(([x, y]) => { const node = document.elementFromPoint(x!, y!); return node ? `${node.tagName}.${node.className} ${getComputedStyle(node).color}` : 'none'; }, [position.x + 35, position.y + 7]);
+      writeFileSync(join(evidence, 'touch-link-hit.txt'), hit);
+      writeFileSync(join(evidence, 'touch-link-stuck.txt'), [JSON.stringify(position), JSON.stringify(state, null, 1), '--- console ---', ...consoleLog.slice(-30)].join('\n'));
+      await page.screenshot({ path: join(evidence, 'touch-link-stuck.png') }); throw error;
+    }
     await opened.waitForLoadState('domcontentloaded');
     check('touch activates the visible terminal URL directly', opened.url() === 'https://example.org/tablet'); await opened.close();
     await project.getByRole('button', { name: 'Verlauf', exact: true }).tap();

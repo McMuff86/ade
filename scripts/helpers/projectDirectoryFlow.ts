@@ -62,7 +62,8 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.screenshot({ path: join(evidence, 'project-directory-tablet.png') });
   await desktop.keyboard.press('Escape'); await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
-  await desktop.keyboard.press('ArrowRight');
+  // Rooms sit in groups (Organisation: Aufgaben, Notizen; Entwicklung: Projekte, …); arrow keys walk them in order.
+  for (let step = 0; step < 8 && await desktop.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') !== 'true'; step++) await desktop.keyboard.press('ArrowRight');
   check('keyboard navigation reaches the new desktop Projects tab', await desktop.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true'
     && await desktop.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
   await desktop.getByRole('button', { name: 'Alle', exact: true }).click();

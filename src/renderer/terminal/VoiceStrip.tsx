@@ -125,6 +125,11 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
   // Long press on the microphone calls the Computer; a tap speaks or stops.
   const press = useRef<{ timer?: number; long: boolean }>({ long: false });
   const clearPress = () => { if (press.current.timer) { clearTimeout(press.current.timer); press.current.timer = undefined; } };
+  // A long press ends with a click that must be swallowed. When the strip re-laid out under the finger
+  // (the call opened its region) that click never arrives; the flag then fell through to the next tap and
+  // swallowed the stop instead. The click, if it comes, fires synchronously after pointerup, so a
+  // zero-delay reset afterwards keeps the flag from outliving the gesture.
+  const releasePress = () => { clearPress(); if (press.current.long) window.setTimeout(() => { press.current.long = false; }, 0); };
   const micClick = () => {
     if (press.current.long) { press.current.long = false; return; }
     if (computer.active) { computer.stop(); return; }
@@ -191,7 +196,7 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
         press.current.long = false; clearPress();
         press.current.timer = window.setTimeout(() => { press.current.timer = undefined; press.current.long = true; vibrate(40); void computer.run(); }, LONG_PRESS_MS);
       }}
-      onPointerUp={clearPress} onPointerCancel={clearPress} onPointerLeave={clearPress}>
+      onPointerUp={releasePress} onPointerCancel={releasePress} onPointerLeave={releasePress}>
       <span className="voice-mic-glyph"><MicIcon /></span><span className="voice-mic-label">{micLabel}</span>
     </button>
     {(computer.active || ['permission', 'recording', 'transcribing'].includes(phase)) && <button type="button" className="voice-quiet"

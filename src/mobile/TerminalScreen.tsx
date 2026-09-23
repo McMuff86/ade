@@ -14,6 +14,9 @@ import { terminalReplySource } from '../renderer/terminal/replySource';
 import { terminalWebLinks, completeTerminalLink, type TerminalWebLink } from '../shared/terminalLinks';
 import { LinkedTerminalText, TerminalLinksDialog } from './TerminalLinks';
 
+/** How long a proposed terminal size must stay unchanged before the tablet reports it to the host. */
+export const SIZE_SETTLE_MS = 300;
+
 /** Only styles created by xterm receive the per-document CSP nonce. */
 function terminalDocument(): Document {
   const nonce = document.querySelector<HTMLMetaElement>('meta[name="ade-style-nonce"]')?.content;
@@ -103,13 +106,23 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     term.textarea?.setAttribute('autocapitalize', 'off');
     term.textarea?.setAttribute('inputmode', 'text');
     const data = term.onData((value) => callbacks.current.onData(value));
+    // ConPTY discards scrollback whenever the pseudo terminal shrinks, so transient layouts (keyboard opening,
+    // tab switch, a dialog covering the pane) must settle before the host hears a new size: report only a size
+    // that is unchanged after the debounce, and never one measured on a collapsed container.
+    let sizeTimer: number | undefined;
     const measure = () => {
       const size = fit.proposeDimensions();
-      if (size && container.current!.clientHeight > 0) callbacks.current.onSize(Math.max(20, Math.min(240, size.cols)), Math.max(5, Math.min(100, size.rows)));
+      if (!size || container.current!.clientHeight === 0) return;
+      window.clearTimeout(sizeTimer);
+      sizeTimer = window.setTimeout(() => {
+        const settled = fit.proposeDimensions();
+        if (!settled || !container.current || container.current.clientHeight === 0 || settled.cols !== size.cols || settled.rows !== size.rows) return;
+        callbacks.current.onSize(Math.max(20, Math.min(240, settled.cols)), Math.max(5, Math.min(100, settled.rows)));
+      }, SIZE_SETTLE_MS);
     };
     measureRef.current = measure;
     const observer = new ResizeObserver(measure); observer.observe(container.current!); measure();
-    return () => { themes.disconnect(); observer.disconnect(); linkProvider.dispose(); data.dispose(); term.dispose(); terminal.current = undefined; lastFrame.current = ''; measureRef.current = () => undefined; };
+    return () => { window.clearTimeout(sizeTimer); themes.disconnect(); observer.disconnect(); linkProvider.dispose(); data.dispose(); term.dispose(); terminal.current = undefined; lastFrame.current = ''; measureRef.current = () => undefined; };
   }, []);
   useEffect(() => { if (terminal.current) { terminal.current.options.fontSize = fontSize; measureRef.current(); } }, [fontSize]);
   useEffect(() => { if (terminal.current) terminal.current.options.disableStdin = !enabled || !active; }, [enabled, active]);
