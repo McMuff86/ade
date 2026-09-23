@@ -3032,6 +3032,12 @@ matches) all agree byte for byte. "Draw on a copy" adds a sheet the size of the
 photo with the photo as background; the attachment itself is never altered, and
 removing a photo only clears the background reference of sheets that used it.
 A sheet opened from the empty state and closed without a mark is dropped again.
+The tablet terminal's image dialog offers "From the notes"
+(`mobile/NoteImagePicker.tsx`): it reads the device's own IndexedDB note cache
+(`renderer/organizer/noteImageSources.ts`, drafts included), lists notes with
+photos or drawn sheets newest first, renders thumbnails only for the opened
+note, and hands the chosen photo (stored bytes) or sheet (PNG render) to the
+existing upload path; the note itself is never changed.
 Opening a note focuses the title field only with a fine primary pointer; on a
 coarse-pointer device (`renderer/organizer/organizerFocus.ts`) the editor
 container takes focus so the on-screen keyboard waits for a tap into a field.

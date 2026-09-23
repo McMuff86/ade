@@ -27,7 +27,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 70 } },
+  { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
   { id: 'remote-diagnostics', script: 'test-remote-diagnostics.ts', floors: { win32: 25 } },
   { id: 'remote-usage', script: 'test-remote-usage.ts', floors: { win32: 7 } },

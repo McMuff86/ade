@@ -37,6 +37,16 @@
 .m-terminal-image-dialog input[type=file] { max-width: 100%; }
 .m-terminal-image-dialog textarea { display: block; width: 100%; min-height: 100px; box-sizing: border-box; }
 .m-terminal-image-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.m-note-image-picker { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.m-note-image-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.m-note-image-picker-head h3 { margin: 0; font-size: 13px; font-weight: 600; outline: none; }
+.m-note-image-notes, .m-note-image-items { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.m-note-image-items { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.m-note-image-notes button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; text-align: left; }
+.m-note-image-notes small { color: var(--muted); font-size: 11px; }
+.m-note-image-items button { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+.m-note-image-items img, .m-note-image-items canvas, .m-note-image-blank { display: block; width: 100%; height: 80px; object-fit: contain; background: white; border-radius: 4px; }
+.m-note-image-items span { font-size: 11px; overflow-wrap: anywhere; }
 .m-terminal-links-dialog .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .m-terminal-history-panel { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; background: var(--bg); color: var(--text); white-space: normal; }
 .m-terminal-history-panel p { margin: 0; padding: 52px 12px 8px; font: 12px/1.4 sans-serif; }

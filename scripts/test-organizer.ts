@@ -6,6 +6,8 @@ import { ORGANIZER_LIMITS, legacySketchId, newOrganizerDocument, newOrganizerSke
 import { OrganizerError, OrganizerStore } from '../src/main/organizer/OrganizerStore';
 import { OrganizerReminders } from '../src/main/organizer/OrganizerReminders';
 import { keyboardOnFocus } from '../src/renderer/organizer/organizerFocus';
+import { noteImageBlob, noteImageSources } from '../src/renderer/organizer/noteImageSources';
+import type { CachedOrganizerEntry } from '../src/renderer/organizer/OrganizerCache';
 let passed = 0; let failed = 0;
 function check(name: string, ok: boolean): void { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } }
 function refuses(action: () => unknown, code?: OrganizerError['code']): boolean { try { action(); return false; } catch (error) { return !code || error instanceof OrganizerError && error.code === code; } }
@@ -17,6 +19,15 @@ try {
   const writer = randomUUID(); const otherWriter = randomUUID(); const owner = 'desktop';
   const input: OrganizerMutation = { operation: 'put', writerId: writer, sequence: 1, baseRevision: 0, document: note };
   check('new profile reads empty without writing', store.index().revision === 0 && !existsSync(file));
+  // The terminal's image dialog lists photos and sheets with content from the device's note cache, newest first.
+  const photo = { id: randomUUID(), name: 'baustelle.jpg', mime: 'image/jpeg' as const, base64: Buffer.from('jpegbytes').toString('base64'), width: 4, height: 3 };
+  const withPhoto = { ...newOrganizerDocument('note'), title: 'Baustelle', images: [photo] };
+  const withSheets = { ...newOrganizerDocument('note'), title: '', sketches: [newOrganizerSketch(), { ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#000000', width: 2, points: [{ x: 1, y: 1, pressure: 1 }] }] }] };
+  const emptyNote = newOrganizerDocument('note'); const deletedNote = { ...newOrganizerDocument('note'), images: [photo] };
+  const cached = (document: typeof emptyNote, editedAt: number, extra: Partial<CachedOrganizerEntry> = {}): CachedOrganizerEntry => ({ id: document.id, localVersion: 1, editedAt, deletePending: false, redacted: false, draft: document, base: null, ...extra } as CachedOrganizerEntry);
+  const sources = noteImageSources([cached(withPhoto, 10), cached(withSheets, 20), cached(emptyNote, 30), cached(deletedNote, 40, { deletePending: true })]);
+  check('note image sources list only notes with photos or drawn sheets, newest first, with a fallback title', sources.length === 2 && sources[0]!.id === withSheets.id && sources[0]!.title !== '' && sources[0]!.sheets.length === 1 && sources[1]!.photos[0]!.name === 'baustelle.jpg');
+  check('a note photo becomes a blob of its stored type without touching the note', noteImageBlob(photo).type === 'image/jpeg' && noteImageBlob(photo).size === 9 && withPhoto.images[0]!.base64 === photo.base64);
   check('a coarse primary pointer keeps the keyboard closed until a field is tapped', keyboardOnFocus((query) => ({ matches: query === '(pointer: coarse)' })) && !keyboardOnFocus(() => ({ matches: false })));
   check('valid note and writer command', validOrganizerDocument(note) && validOrganizerMutation(input));
   check('command key binds writer and sequence', organizerCommandKey(input) === `${writer}:1`);

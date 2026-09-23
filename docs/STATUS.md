@@ -1,5 +1,14 @@
 # ADE implementation status
 
+## Tablet-Terminal: Fotos und Blätter aus den Notizen anhängen (23. September 2026)
+
+Der Bild-Dialog des Tablet-Terminals bietet „Aus den Notizen“: Notizen mit
+Fotos oder gezeichneten Blättern aus dem lokalen Cache, Vorschaubilder je
+Notiz, Übergabe über den bestehenden Bildweg; die Notiz bleibt unverändert.
+Nachweise: Vertrag **72/0**, Terminal-Medien Electron **22/0**
+(`--terminal-image-only`, isolierter Build). Aktiviert **21:30:09 CEST**, PID
+**54776**, Source `a1e0fb58d46c65687dae` ([Übergabe](HANDOFF.md)).
+
 ## Nutzung in der Übersicht, Claude-Kontolimits per Freigabe (23. September 2026)
 
 Übersichtskachel „Nutzung“ auf PC und Tablet mit dem engsten Kontofenster und

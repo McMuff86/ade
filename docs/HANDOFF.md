@@ -1,5 +1,27 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Fotos und Blätter aus den Notizen ins Terminal (23. September 2026, 21:30:09 CEST)
+
+Nutzerwunsch vom Tablet: im Terminal Fotos hochladen und dabei auch Fotos aus
+den ADE-Notizen wählen. Der Bild-Dialog des Tablet-Terminals („Bild
+hinzufügen“) hat neben „Bild auswählen“ und „Bild einfügen“ jetzt „Aus den
+Notizen“ (`src/mobile/NoteImagePicker.tsx`): Liste der Notizen mit Fotos oder
+gezeichneten Blättern (neueste zuerst, aus dem lokalen Notiz-Cache des Geräts,
+Entwürfe inklusive), pro Notiz Vorschaubilder der Fotos und Blätter; die Wahl
+landet als Bild im bestehenden Übergabeweg zur Sitzung, die Notiz bleibt
+unverändert ([Architektur](ARCHITECTURE.md)). Die Diktat-Electron-Suite
+beachtet jetzt `ADE_E2E_MAIN` und kann gegen den isolierten Build laufen.
+
+PID 49848 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/NoteImages-20260923-212954`. `pnpm build`, Start aus dem Repository: **21:30:09
+CEST**, PID **54776**, Source **`a1e0fb58d46c65687dae`** (Desktop 19:29:55 UTC, Mobile
+19:30:04 UTC). Listener nur `127.0.0.1:4317`, HTTPS liefert `assets/index-COKqwkwT.js`,
+Geräteablage bytegleich. Nachweise: Typecheck, Vertrag 72/0 (Quellenprojektion,
+Blob aus Notizfoto), Terminal-Medien Electron `--terminal-image-only` 22/0 gegen
+den isolierten Build (Leerzustand der Notizquelle, Schliessen). Die Auswahl
+eines echten Notizfotos ist nur über die Projektion und den Export-Pfad geprüft,
+nicht als Klickfolge; der Weg vom Blatt zur PNG ist der bestehende PNG-Export.
+
 ## Aktiviert: Nutzung in der Übersicht, Claude-Kontolimits per Freigabe (23. September 2026, 20:59:27 CEST)
 
 Nutzerwunsch: Tokenverbrauch und Abo-Limits für Codex und Claude sichtbar

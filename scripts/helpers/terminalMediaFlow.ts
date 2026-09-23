@@ -40,6 +40,12 @@ export async function terminalMediaFlow(page: Page, project: Locator, repo: stri
   const attach = project.getByRole('button', { name: 'Bild hinzufügen', exact: true }); await expect(attach).toBeEnabled(); await attach.tap();
   const dialog = page.getByRole('dialog', { name: 'Bild und Nachricht', exact: true });
   check('image dialog focuses its heading and has an empty state', await dialog.locator('h2').evaluate(node => node === document.activeElement) && (await dialog.innerText()).includes('Noch kein Bild ausgewählt'));
+  // Photos and sheets from the notes are offered as a source; this fresh device has none yet.
+  await dialog.getByRole('button', { name: 'Aus den Notizen', exact: true }).tap();
+  const notes = dialog.getByRole('region', { name: 'Aus den Notizen', exact: true }); await notes.waitFor();
+  await notes.getByText('Noch keine Fotos oder Blätter', { exact: false }).waitFor();
+  check('the notes source explains its empty state and closes again', (await notes.innerText()).includes('Zuerst in einer Notiz'));
+  await notes.getByRole('button', { name: 'Schliessen', exact: true }).tap(); await notes.waitFor({ state: 'hidden' });
   await dialog.getByLabel('Screenshot auswählen', { exact: true }).setInputFiles({ name: 'bad.png', mimeType: 'image/png', buffer: Buffer.from('not an image') });
   await expect(dialog.getByRole('alert')).toBeVisible();
   check('invalid image is rejected with no terminal input', !existsSync(join(repo, 'prompt-proof.jsonl')));

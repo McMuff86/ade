@@ -9,6 +9,7 @@ import type { MobileHost } from './useMobileHost';
 import type { PromptSender } from './PromptDialog';
 import { Dialog } from './ui';
 import { MobileClientError } from './client';
+import { NoteImagePicker } from './NoteImagePicker';
 
 async function prepareImage(file: Blob): Promise<Blob> {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || !file.size || file.size > TERMINAL_IMAGE_MAX_BYTES) throw new Error(translate("Select a PNG, JPEG or WebP image up to 8 MiB."));
@@ -33,7 +34,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
   const [open, setOpen] = useState(false); const [png, setPng] = useState<Blob>(); const [preview, setPreview] = useState('');
   const [text, setText] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [phase, setPhase] = useState<'idle' | 'preparing' | 'uploading' | 'sending'>('idle');
-  const [uncertain, setUncertain] = useState(false);
+  const [uncertain, setUncertain] = useState(false); const [notesOpen, setNotesOpen] = useState(false);
   const upload = useRef<{ key: string; image?: MobileTerminalImage } | undefined>(undefined);
   const version = useRef(0); const live = useRef(true); const locked = useRef(false);
   const bound = useRef(target).current;
@@ -118,11 +119,13 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
     </button>
     {open && <Dialog title={translate("Image and message")} className="m-terminal-image-dialog" restoreFocusTo={() => button.current}
       onClose={() => { if (!locked.current) { version.current++; setPhase('idle'); setOpen(false); } }}>
-      <p>{translate("Select screenshot from gallery or files, and the image will be sent to this Codex session with your message.")}</p>
+      <p>{translate("Select a screenshot from gallery or files, or a photo or sheet from your notes. The image goes to this session with your message.")}</p>
       <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" aria-label={translate("Select the screenshot")} disabled={phase !== 'idle' || uncertain}
         onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void select(file); }} />
       <div className="m-terminal-image-actions"><button disabled={phase !== 'idle' || uncertain} onClick={() => picker.current?.click()}>{translate("Select the image")}</button>
-        <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button></div>
+        <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button>
+        <button disabled={phase !== 'idle' || uncertain} aria-expanded={notesOpen} onClick={() => setNotesOpen(value => !value)}>{translate("From the notes")}</button></div>
+      {notesOpen && <NoteImagePicker scope={`mobile:${host.deviceId}`} disabled={phase !== 'idle' || uncertain} onPick={(blob) => { setNotesOpen(false); void select(blob); }} onClose={() => setNotesOpen(false)} />}
       {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)}{" "}{translate("KiB")}</figcaption></figure>}
       {!png && phase === 'idle' && !notice && <p>{translate("No picture selected yet.")}</p>}
       <label>{translate("Image message")}<textarea ref={message} aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
