@@ -21,6 +21,11 @@ void (async () => {
   check('desktop StrictMode editor persists through the sandboxed preload bridge', true);
   await page.reload(); await page.getByRole('button', { name: /Desktop-Skizze/ }).click();
   check('desktop document reload retains text', await page.getByLabel('Notiztext', { exact: true }).inputValue() === 'Gespeichert über IPC');
+  await page.getByRole('button', { name: 'Zeichnen', exact: true }).click(); const sheet = page.getByRole('dialog', { name: 'Skizze', exact: true }); await sheet.waitFor();
+  check('desktop sheet opens full-window with the drawing surface focused', await sheet.locator('canvas').evaluate(node => node === window.document.activeElement) && await sheet.locator('output.sketch-sheet-zoom-level').textContent() === '100 %');
+  await page.waitForTimeout(300); await page.screenshot({ path: join(evidence, 'desktop-sheet.png') });
+  await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'hidden' });
+  check('desktop sheet closes with Escape and returns focus to Draw', await page.getByRole('button', { name: 'Zeichnen', exact: true }).evaluate(node => node === window.document.activeElement));
   await page.evaluate(() => window.ade.invoke('harness:setServiceKey', { name: 'ELEVENLABS_API_KEY', value: 'conversation-speech-fixture', scope: 'all' }));
   await page.getByRole('button', { name: 'Diktat', exact: true }).click(); await page.getByRole('button', { name: 'Text diktieren', exact: true }).click();
   await expect(page.getByLabel('Diktatvorschau', { exact: true })).toHaveValue('Wo stehen meine Projekte heute?');

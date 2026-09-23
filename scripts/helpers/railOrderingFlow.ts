@@ -15,7 +15,7 @@ export async function railOrderingFlow(page: Page, check: (label: string, ok: bo
     }));
     return { original, first, second, loose, agents };
   });
-  const rail = page.getByRole('navigation', { name: 'Categories and agents', exact: true });
+  const rail = page.getByRole('navigation', { name: 'Kategorien und Agenten', exact: true });
   const button = (name: string) => rail.getByRole('button', { name, exact: true });
   const settled = () => rail.getByRole('status').filter({ hasText: 'Reihenfolge gespeichert.' }).waitFor();
   await button('Anordnen').click();

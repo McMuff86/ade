@@ -43,7 +43,7 @@ export function MorningOverview({ queries, command, busy }: { queries: HandoffQu
         {!project.work.length && <p>{translate("No work available is linked; no progress can be derived from this.")}</p>}
         <ul>{project.work.map(work => <li key={work.linkId}>{work.title} · {localizedState(work.status)}
           {work.updatedAt !== null && <> {" "}{translate("· Updated")}{" "}{new Date(work.updatedAt).toLocaleString(intlLocale())}</>}
-          {work.pendingQuestions > 0 && <> · {work.pendingQuestions} {" "}{translate("open query(s)")}</>}
+          {work.pendingQuestions > 0 && <> · {work.pendingQuestions}{" "}{translate("open query(s)")}</>}
         </li>)}</ul>
         {!project.handoffs.length && <p>{translate("No handoff saved.")}</p>}
         {project.handoffs.map(handoff => <div className="handoff-entry" key={handoff.id}>

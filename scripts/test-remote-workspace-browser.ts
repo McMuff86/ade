@@ -60,7 +60,7 @@ void (async () => {
     && fixture.store.get().repositories.filter((item) => item.name === 'Browser Two').length === 1);
   await manager.getByLabel('Verwaltetes Projekt').selectOption(second.id);
   check('second project is independent and immediately selectable', !!second && first.id !== second.id && await manager.getByLabel('Verwaltetes Projekt').inputValue() === second.id);
-  await manager.getByRole('button', { name: 'Agents', exact: true }).click();
+  await manager.getByRole('button', { name: 'Agenten', exact: true }).click();
   await manager.getByLabel('Agentname', { exact: true }).fill('Browser Agent');
   await manager.getByLabel('Agent-Vorlage', { exact: true }).selectOption('agent:builder');
   await manager.getByRole('button', { name: 'Agent erstellen', exact: true }).click();

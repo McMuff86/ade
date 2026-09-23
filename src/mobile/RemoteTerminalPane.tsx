@@ -384,10 +384,10 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         {SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? translate(" · Not available") : ''}</option>)}
     </select></label>}
       <button ref={launchButton} className="m-primary" disabled={blocked || !!(projectEntry || terminalHome) && !canLaunchChoice({ mode: projectMode }, options)} onClick={() => void openProfile(projectEntry || terminalHome ? projectMode : 'agent')}>
-        {projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} {" "}{translate("Open [c3b66666]")}</button>
+        {projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'}{" "}{translate("Open [c3b66666]")}</button>
       {!focused && <button onClick={() => { setFocused(true); setComposeOpen(false); }}>{translate("Expand terminal")}</button>}
       <label>{translate("Font size")}<select aria-label={translate("Terminal font size")} value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))}>
-        {[12, 14, 16, 18, 20].map((size) => <option key={size} value={size}>{size} {" "}{translate("px")}</option>)}
+        {[12, 14, 16, 18, 20].map((size) => <option key={size} value={size}>{size}{" "}{translate("px")}</option>)}
       </select></label>
       {terminalHome && <span>{translate("User directory · Without agent and project")}</span>}
       {projectWorkspaceId && <span>{expectedBranch} · {state.selected?.launchProfileName ?? translate("Without an agent profile")}</span>}
@@ -400,7 +400,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         {agent && <DashboardLink agent={agent} />}</>}
     </div>
     <div className="m-terminal-tools">
-    {profileOpening && <p role="status">{projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'} {" "}{translate("opening…")}</p>}
+    {profileOpening && <p role="status">{projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'}{" "}{translate("opening…")}</p>}
     {(projectEntry || terminalHome) && loadingOptions && <p role="status">{translate("Checking installed CLIs…")}</p>}
     {(projectEntry || terminalHome) && !loadingOptions && options?.choices.find((item) => item.mode === projectMode)?.notice && <p role="status">{localizeAppMessage(options.choices.find((item) => item.mode === projectMode)?.notice)}</p>}
     <p>{state.selected ? state.selected.status === 'running'
@@ -468,7 +468,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         <button disabled={blocked || !displayReady || !!readError || draft.review || !owning || !text || state.selected.status !== 'running'}>{translate("Send text and enter")}</button></form>
       <p className="m-field-note">{durable ? translate("Draft saved on this device.") : translate("Draft is only available in this open page.")}</p></details></div>
     </>}
-    <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label={translate("Terminal response time")}>{translate("PC response:")}{" "}{responseMs} {" "}{translate("ms (network and processing).")}{" "}</span>}{translate("Type into the terminal for direct input. Known access data and PC paths are hidden. After 30 seconds without connection, the input goes back to the desktop.")}</p>
+    <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label={translate("Terminal response time")}>{translate("PC response:")}{" "}{responseMs}{" "}{translate("ms (network and processing).")}{" "}</span>}{translate("Type into the terminal for direct input. Known access data and PC paths are hidden. After 30 seconds without connection, the input goes back to the desktop.")}</p>
     {confirmClose && <Dialog title={translate("End terminal session")} onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>{translate("The running process in this session will be terminated.")}</p><button onClick={() => setConfirmClose(false)}>{translate("Cancel")}</button>
       {busy && <p role="status">{translate("Completing the pending terminal operation…")}</p>}

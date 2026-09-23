@@ -165,7 +165,7 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
         {!computer.active && <button type="button" className="voice-quiet" onClick={computer.dismiss}>{translate("Hide")}</button>}
       </div>
     </div>}
-    {!hintSeen && !computerVisible && <p className="voice-hint" role="note"><span>{port.liveRecording ? translate("Audio goes to ElevenLabs on an ongoing basis.") : translate("Audio goes to ElevenLabs when transcribing.")} {" "}{translate("Recordings last at most")}{" "}{duration}{translate(". The draft stays on this device.")}{port.computerGreeting ? translate(" Long press to call the computer.") : ''}</span>
+    {!hintSeen && !computerVisible && <p className="voice-hint" role="note"><span>{port.liveRecording ? translate("Audio goes to ElevenLabs on an ongoing basis.") : translate("Audio goes to ElevenLabs when transcribing.")}{" "}{translate("Recordings last at most")}{" "}{duration}{translate(". The draft stays on this device.")}{port.computerGreeting ? translate(" Long press to call the computer.") : ''}</span>
       <button type="button" className="voice-quiet" onClick={dismissHint}>{translate("Understood")}</button></p>}
     {composer.recordingOpen && <div className="voice-strip-row"><span className="voice-status">{translate("One recording is still open.")}</span>
       <button type="button" className="voice-quiet" disabled={!online} onClick={composer.checkRecording}>{translate("Check recording status")}</button>

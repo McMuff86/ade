@@ -18,7 +18,7 @@ export function SessionProfileContext({ context, readRevision, readText }: {
   return <details className="session-profile-context"><summary>{translate("Profile at start ·")}{" "}{context.profileName}</summary>
     <p>{translate("Pass profile instructions ·")}{" "}{new Date(context.capturedAt).toLocaleString(intlLocale())} · <code>{context.digest.slice(0, 12)}</code></p>
     <p>{translate("This status is maintained for the session. The display confirms the handover, not the observance by the model.")}</p>
-    <ul>{context.sources.map((source, index) => <li key={`${source.kind}:${source.id ?? index}`}>{source.name} · {source.chars} {" "}{translate("characters ·")}{" "}<code>{source.sha256.slice(0, 12)}</code></li>)}</ul>
+    <ul>{context.sources.map((source, index) => <li key={`${source.kind}:${source.id ?? index}`}>{source.name} · {source.chars}{" "}{translate("characters ·")}{" "}<code>{source.sha256.slice(0, 12)}</code></li>)}</ul>
     <button type="button" disabled={busy} onClick={() => {
       setBusy(true); setError(''); void readRevision().then(value => { if (live.current) setRevision(value); })
         .catch(() => { if (live.current) setError(translate("Current profile status could not be checked.")); })

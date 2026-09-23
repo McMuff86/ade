@@ -41,7 +41,7 @@ export function MobileSetupStatus({ host, state, onNavigate }: {
           {readiness.missing.length > 0 && <><p>{translate("Enable these permissions for this device:")}</p><ul>{readiness.missing.map((scope) => <li key={scope}>{REMOTE_SCOPE_LABELS[scope]}</li>)}</ul>
             <p>{translate("On the PC you can “")}{SETUP_INTENTS[intent].preset}{translate("”. Review the selection and then choose “Save administrative rights”.")}</p></>}
         </>}
-    {intent === 'project' && <p className="m-field-note">{translate("Check CLI installation and sign-in separately under Setup → Check CLI on the PC. Existing permissions do not confirm that a CLI is signed in.")}</p>}
+    {intent === 'project' && <p className="m-field-note">{translate("Check CLI installation and sign-in with “Diagnostics” further down in these settings (needs the “Run CLI diagnostics” permission) or on the PC under Setup → Check CLI. Existing permissions do not confirm that a CLI is signed in.")}</p>}
     <button disabled={!online} onClick={() => onNavigate(intent === 'results' ? 'graph' : 'projects')}>{intent === 'results' ? translate("Go to graph") : translate("Go to projects")}</button>
   </section>;
 }

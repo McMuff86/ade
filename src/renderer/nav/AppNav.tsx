@@ -43,9 +43,7 @@ export function AppNav(props: {
   const collapse = (next: boolean) => { setCollapsed(next); try { localStorage.setItem(key, String(next)); } catch { /* Visual preference only. */ } };
   const focusTab = (view: AppView) => document.getElementById(`${idPrefix}-${view}`)?.focus();
   return (
-    <nav className={`appnav ${props.className ?? ''}`} aria-label={translate("Areas")} onKeyDown={event => {
-      if (event.key === 'Escape' && !collapsed) { event.preventDefault(); event.stopPropagation(); collapse(true); toggle.current?.focus(); }
-    }}>
+    <nav className={`appnav ${props.className ?? ''}`} aria-label={translate("Areas")}>
       <button type="button" ref={toggle} className="appnav-toggle" aria-label={collapsed ? translate("Expand navigation") : translate("Collapse navigation")}
         aria-expanded={!collapsed} aria-controls={`${idPrefix}-navigation`} onClick={() => collapse(!collapsed)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={collapsed ? 'M4 6h16M4 12h16M4 18h16' : 'm14 6-6 6 6 6'} /></svg>

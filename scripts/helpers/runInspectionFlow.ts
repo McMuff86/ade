@@ -49,7 +49,7 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   const node = page.getByTestId('mobile-graph-node');
   await node.filter({ hasText: 'Image Agent' }).waitFor();
   await node.getByText(/Letzte Ausgabe vor/).waitFor();
-  check('Graph receives real task CLI output while process runs', await node.innerText().then((text) => text.includes('running')));
+  check('Graph receives real task CLI output while process runs', await node.innerText().then((text) => text.includes('Läuft')));
   await page.screenshot({ path: join(evidence, 'run-activity.png') });
   await node.focus(); await page.keyboard.press('Enter');
   const panel = page.getByRole('region', { name: 'Run-Aktivität und Ergebnis', exact: true });

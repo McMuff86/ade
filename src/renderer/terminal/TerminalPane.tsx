@@ -369,7 +369,7 @@ export function TerminalPane({
         fallbackFocus={() => hostRef.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} />}
       <button type="button" className={scrolledBack ? 'terminal-live-return' : ''} onClick={() => { termRef.current?.scrollToBottom(); termRef.current?.focus(); }}>{translate("Back to live output")}</button>
       <label>{translate("Font")}<select aria-label={translate("Terminal font size")} value={fontSize} onChange={(event) => useTerminalPreferences.getState().setFontSize(Number(event.target.value))}>
-        {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size} {" "}{translate("px")}</option>)}
+        {TERMINAL_FONT_SIZES.map(size => <option key={size} value={size}>{size}{" "}{translate("px")}</option>)}
       </select></label>
     </div>
     {searchOpen && <form className="terminal-search" role="search" aria-label={translate("Search for terminal history")}

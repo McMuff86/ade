@@ -1,4 +1,4 @@
-export const REMOTE_ADMIN_SCOPES = ['host:restart', 'catalog:write', 'repositories:write', 'workspace:read', 'terminal:control', 'workspace:write', 'profiles:write', 'projects:write', 'projectGit:write', 'projectGit:publish', 'speech:control', 'dictation:transcribe', 'organizer:read', 'organizer:write'] as const;
+export const REMOTE_ADMIN_SCOPES = ['host:restart', 'catalog:write', 'repositories:write', 'workspace:read', 'terminal:control', 'workspace:write', 'profiles:write', 'projects:write', 'projectGit:write', 'projectGit:publish', 'speech:control', 'dictation:transcribe', 'organizer:read', 'organizer:write', 'diagnostics:read'] as const;
 export type RemoteAdminScope = typeof REMOTE_ADMIN_SCOPES[number];
 
 /** Omitted on older devices means the existing whole-catalog grant. */

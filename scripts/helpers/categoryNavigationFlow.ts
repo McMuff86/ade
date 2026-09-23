@@ -17,14 +17,14 @@ export async function categoryNavigationFlow(desktop: Page, page: Page, evidence
     return rows;
   });
   await desktop.reload();
-  await desktop.getByRole('button', { name: 'Category settings for Navigation Hermes', exact: true }).click();
-  const edit = desktop.getByRole('dialog', { name: 'Category settings', exact: true });
+  await desktop.getByRole('button', { name: 'Kategorie-Einstellungen für Navigation Hermes', exact: true }).click();
+  const edit = desktop.getByRole('dialog', { name: 'Kategorie-Einstellungen', exact: true });
   await edit.getByLabel('Obergruppe', { exact: true }).fill('Agent-Systeme');
-  await edit.getByRole('button', { name: 'Save', exact: true }).click(); await edit.waitFor({ state: 'hidden' });
+  await edit.getByRole('button', { name: 'Speichern', exact: true }).click(); await edit.waitFor({ state: 'hidden' });
   const group = desktop.getByRole('region', { name: 'Agent-Systeme', exact: true });
-  await group.getByRole('button', { name: 'Category settings for Navigation Hermes', exact: true }).waitFor();
+  await group.getByRole('button', { name: 'Kategorie-Einstellungen für Navigation Hermes', exact: true }).waitFor();
   check('desktop groups existing categories without replacing agent profiles', await group.locator('.agent-row').count() === 3);
-  check('category save returns focus to the moved settings opener', await group.getByRole('button', { name: 'Category settings for Navigation Hermes', exact: true }).evaluate((node) => node === document.activeElement));
+  check('category save returns focus to the moved settings opener', await group.getByRole('button', { name: 'Kategorie-Einstellungen für Navigation Hermes', exact: true }).evaluate((node) => node === document.activeElement));
   const toggle = group.getByRole('button', { name: 'Agent-Systeme', exact: false }).first();
   await toggle.focus(); await desktop.keyboard.press('Enter');
   check('desktop group supports keyboard collapse', await group.locator('.agent-row').count() === 0);
@@ -57,7 +57,7 @@ export async function categoryNavigationFlow(desktop: Page, page: Page, evidence
     const result = await response.json() as { error?: string };
     if (!response.ok()) throw new Error(`Category save failed: HTTP ${response.status()} ${result.error ?? 'unknown'}`);
   };
-  await manager.getByRole('button', { name: 'Agents', exact: true }).click();
+  await manager.getByRole('button', { name: 'Agenten', exact: true }).click();
   await manager.getByLabel('Kategorie für Obergruppe', { exact: true }).selectOption(created[0]!.category.id);
   await manager.getByLabel('Obergruppe', { exact: true }).fill('Remote Agents');
   await saveGroup();

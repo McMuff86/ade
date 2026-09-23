@@ -24,7 +24,7 @@ export function OllamaModePicker({ id, value, onChange, harness, onHarnessChange
       </select>
       <p className="repo-hint" id={`${id}-harness-hint`}>{harness === 'codex'
         ? translate("Requires Codex CLI and Ollama in the selected environment. Existing coding profiles still use Codex CLI.")
-        : translate("Requires Qwen code and Ollama in the selected environment. Connects Qwen code to the local Ollama service (port 11434).")} {" "}{translate("For interactive Ollama sessions, usage recording is not yet connected.")}</p>
+        : translate("Requires Qwen code and Ollama in the selected environment. Connects Qwen code to the local Ollama service (port 11434).")}{" "}{translate("For interactive Ollama sessions, usage recording is not yet connected.")}</p>
     </div>}
   </>;
 }

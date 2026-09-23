@@ -135,7 +135,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   return <>
     {online && rights && !canRead && <p role="alert">{translate("Share \"Read Workspace Files and Git Diffs\" on PC under Settings → Connected Devices, then update project folders.")}</p>}
     {membershipNotice && <p role="status">{membershipNotice}</p>}
-    {membershipChange && <p role="status">{translate("Project selection for:")}{" "}{membershipChange.name} {" "}{translate("not yet confirmed.")}{" "}<button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>{translate("Check project selection again")}</button></p>}
+    {membershipChange && <p role="status">{translate("Project selection for:")}{" "}{membershipChange.name}{" "}{translate("not yet confirmed.")}{" "}<button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>{translate("Check project selection again")}</button></p>}
     {canRead && !rights?.capabilities?.includes('catalog:write') && <p>{translate("To add and remove on PC under Connected Devices, share project management.")}</p>}
     <ProjectDirectory directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
       onMembership={membership} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}

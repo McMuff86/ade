@@ -23,9 +23,9 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   const shell = (await homeSessions()).at(-1)!;
   check('desktop creates a real native home PTY with no agent/project metadata', !!shell && !shell.agentId && !shell.repositoryId
     && shell.executionBackend === 'native' && shell.workspaceDir === join(root, 'terminal-home') && shell.launchChoice?.mode === 'shell');
-  await desktop.getByRole('button', { name: 'New session', exact: true }).focus(); await desktop.keyboard.press('Control+Shift+T');
+  await desktop.getByRole('button', { name: 'Neue Sitzung', exact: true }).focus(); await desktop.keyboard.press('Control+Shift+T');
   await launch.waitFor(); await desktop.keyboard.press('Escape');
-  check('free terminal keyboard launcher restores focus when cancelled', await desktop.getByRole('button', { name: 'New session', exact: true }).evaluate((node) => node === document.activeElement));
+  check('free terminal keyboard launcher restores focus when cancelled', await desktop.getByRole('button', { name: 'Neue Sitzung', exact: true }).evaluate((node) => node === document.activeElement));
   await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
   const navigation = page.getByRole('complementary', { name: 'Agents und Terminals', exact: true });
   await navigation.getByRole('button', { name: /Shell.*Benutzerverzeichnis/ }).last().click();

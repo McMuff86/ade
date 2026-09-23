@@ -2940,6 +2940,25 @@ remain enforced. Wire text passes through redaction; a redacted document is not
 an editable replacement for the original. The generic remote-command allowlist
 is unchanged. Main events use `rendererWindows` and carry revision metadata only.
 
+Diagnostics on the tablet reuse the desktop probes without widening any
+channel: `runtime:diagnose` stays desktop-only (`launch`, audited), and the
+host exposes a dedicated signed POST `/api/v1/diagnostics/query`
+(`AdeApplicationService.diagnostics`) behind the separate grant
+`diagnostics:read` ("Run CLI diagnostics"). The payload is at most one
+`agentId`; session ids never appear on the wire because the tablet only
+holds opaque host-API ids. The composition root passes the same
+`diagnoseConfigured` closure the IPC handler uses (no session, backend from
+the agent's default repository), so the probes are identical: `where`/`which`,
+`--version` and the sign-in status commands, never a credential value and
+never a custom command. Items are filtered to the agents the device may see,
+then every free-text field passes `redactForWire` (`main/diagnostics/
+diagnosticsWire.ts`), so absolute host paths become `[path]`. Each run is
+audited under `runtime:diagnose`; browser sessions get at most twelve runs per
+minute (`BrowserRequestBudget`) because each run spawns CLI processes on the
+PC. The tablet renders the report with the same `DiagnosticsReport` component
+as the desktop modal, inside Settings, and shows where to enable the grant
+when `capabilities` lacks it. The generic remote-command allowlist is unchanged.
+
 The common React organizer uses an IndexedDB profile per desktop/paired identity.
 A local transaction reserves the exact pending command before network submission.
 Web Locks serialize browser-tab flushes where supported; durable writer receipts
@@ -2959,7 +2978,45 @@ this does not imply offline speech transcription or a running remote agent.
 
 Image imports normalize PNG/JPEG/WebP into bounded JPEG attachments. Main checks
 encoded dimensions before native decode. Views and canvas use temporary Blob URLs
-under the unchanged CSP. Strokes remain structured editable data. PDF is lazily
+under the unchanged CSP. Strokes remain structured editable data. Who may draw is
+decided per pointer in `renderer/organizer/sketchInput.ts`: a pen tip draws, its
+barrel button or eraser end erases, a touch contact wider than 24 CSS px is a
+palm and is ignored, and any touch is ignored while a pen is down or was near
+(hover or contact) within the last 1.5 s. Once a device has reported a pen, a
+finger on the sheet scrolls the page instead of drawing (`touch-action` switches
+from `none` to panning); the input mode, "pen seen", colour and width are device
+preferences in `localStorage`, never document data. Rendering smooths recorded
+points with quadratic curves on screen and in exports alike. Drawing happens on
+the sheet (`renderer/organizer/SketchSheet.tsx`): a fixed overlay portalled to
+`<body>` with `role="dialog"`, not the browser Fullscreen API, so Electron and
+the tablet PWA behave alike; the note keeps a read-only preview. Pan/zoom is a
+`ViewTransform` (`renderer/viewTransform.ts`, shared with the graph's wheel and
+button zoom), clamped so a quarter of the sheet stays visible and bounded to
+0.5–6× the fitted scale; the canvas is sized to the viewport times
+`devicePixelRatio` and strokes are drawn through the transform, so zoom is
+sharp. One finger pans, two fingers pinch, Ctrl + wheel zooms, the middle mouse
+button or Space + drag pans; a finger that lands beside a drawing finger turns
+the gesture into a pinch and drops the unfinished stroke. View, tool side and
+the first-run hint are view/device state; the document sees only strokes and
+the background photo id. Focus discipline comes from `useDialogFocus`
+(`renderer/onboarding/Modal.tsx`): focus moves to the canvas on open, Tab cycles
+inside, Escape closes (the options panel first), and focus returns to the
+"Draw" button or falls back to the note's first field. A pen touching the
+preview opens the sheet and hands the active pointer over: the sheet calls
+`setPointerCapture` for that pointer on mount and continues the stroke; when
+the pen has already lifted the capture throws and the sheet merely opens. An
+optional dot grid is drawn on screen only, from a device preference, and
+never reaches the document or an export. Erasing (`renderer/organizer/sketchErase.ts`)
+either removes the topmost whole stroke or cuts a part out of every stroke
+under the eraser: points inside the circle disappear, crossing segments are
+split at the circle's edge, and the pieces become new strokes with fresh ids,
+so strokes stay structured data. The sheet size is editable within the
+contract's 1…4096 bounds (presets and custom width/height); a size smaller
+than the drawing's extent is refused, and the undo history holds whole
+`OrganizerSketch` snapshots so size changes undo too. PNG export takes a
+device-side scale (1–3, capped at 8192 px per side); the document itself
+never changes for it. Line width (1–40), pen pressure, eraser mode and size
+are device preferences. PDF is lazily
 loaded and rasterizes Unicode text and images; Markdown is text-only and PNG is
 the sketch/background. Exports do not replace the editable original.
 
@@ -2982,7 +3039,10 @@ pressure/palm behavior or guaranteed operating-system notification delivery.
 `shared/appNavigation.ts` and `appViews.ts` own the room order and German product
 vocabulary. Desktop and mobile render `renderer/nav/AppNav`; personal tasks and
 notes mount the existing lazy organizer routes. The navigation keeps the prior
-per-device collapse preference, arrow/Home/End navigation and Escape focus return.
+per-device collapse preference and arrow/Home/End navigation. Only the toggle
+button collapses the navigation: an Escape that lands on a tab after a dialog
+closes used to collapse and persist it, which hid every room until the toggle
+was found again (removed 2026-09-23).
 Graph actions use the UI branch's fixed control groups. The mobile connection
 dialog explains transport/build states without replacing the paired identity.
 This integration changes presentation; organizer and signed-host boundaries remain

@@ -207,7 +207,7 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
                   <div className="greport-kv">
                     <span>{translate("Integration")}</span>
                     <span>
-                      {report.integration.commitCount} {" "}{translate("Commit")}{report.integration.commitCount === 1 ? '' : 's'}
+                      {report.integration.commitCount}{" "}{translate("Commit")}{report.integration.commitCount === 1 ? '' : 's'}
                       {report.integration.fromSha && report.integration.toSha && (
                         <>
                           {' · '}

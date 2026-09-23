@@ -45,11 +45,14 @@ export function createMobileFixture(root: string) {
       createdAt: Date.now(), runTaskId: taskId, workspaceDir: join(root, agentId) };
     coordinator.onTaskStarted(taskId, session); return session;
   }, (ids) => { for (const id of ids) coordinator.onTaskFinished(id, 'cancelled', 130, 'Cancelled by fixture'); });
+  // Diagnostics stub: tests set `result` and inspect `calls`; nothing is spawned in fixtures.
+  const diagnostics = { calls: [] as (string | undefined)[], result: { checkedAt: 1, platform: 'fixture', items: [] } as import('../../src/shared/types').RuntimeDiagnosticsResult };
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
+    diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
       cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
     changes, commandsEnabled: () => devices.activeDevices().length > 0, audit: (entry) => devices.audit(entry),
     resourceAccess: (id) => devices.resourceAccess(id),
   });
-  return { store, devices, application, orchestration, coordinator, launched, changes };
+  return { store, devices, application, orchestration, coordinator, launched, changes, diagnostics };
 }

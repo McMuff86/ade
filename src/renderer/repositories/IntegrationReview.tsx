@@ -106,8 +106,8 @@ export function IntegrationReview(props: Props): JSX.Element {
       <h4>{preview.sourceName} → {preview.projectName} · {preview.targetBranch}</h4>
       <p>{translate("Selected files are checked in a separate working copy and then in")}{" "}<strong>{preview.targetBranch}</strong> {" "}{translate("applied. Push afterwards from the main workspace.")}</p>
       <div className="integration-actions"><button type="button" className="btn" disabled={disabled} onClick={() => setPaths(preview.files.filter((file) => file.selectable && file.suggested).map((file) => file.path))}>{translate("Restore recommended selection")}</button>
-        <button type="button" className="btn" disabled={disabled || !paths.length} onClick={() => setPaths([])}>{translate("Clear file selection")}</button><span>{paths.length} {" "}{translate("Files selected")}</span></div>
-      <p>{preview.ownCommits} {" "}{translate("own commits ·")}{" "}{preview.behind} {" "}{translate("commits behind the target. The comparison uses the common Git base; a functional review is still required.")}</p>
+        <button type="button" className="btn" disabled={disabled || !paths.length} onClick={() => setPaths([])}>{translate("Clear file selection")}</button><span>{paths.length}{" "}{translate("Files selected")}</span></div>
+      <p>{preview.ownCommits}{" "}{translate("own commits ·")}{" "}{preview.behind}{" "}{translate("commits behind the target. The comparison uses the common Git base; a functional review is still required.")}</p>
       <p>{translate("Source")}{" "}<code>{preview.sourceHead.slice(0, 12)}</code> {" "}{translate("· Objective")}{" "}<code>{preview.targetHead.slice(0, 12)}</code></p>
       {!!preview.blockers.length && <ul className="integration-notice">{preview.blockers.map((blocker, index) => <li key={index}>{blocker}</li>)}</ul>}
       {!preview.files.length && <p>{translate("No own or local changes to the common base.")}</p>}
@@ -136,7 +136,7 @@ export function IntegrationReview(props: Props): JSX.Element {
         onClick={() => void send({ operation: 'test', integrationId: report.id })}>{translate("Start project checks")}</button>
         <label>{translate("Commit message")}<input aria-label={translate("Commit message for integration")} maxLength={2000} value={message} disabled={disabled} onChange={(event) => setMessage(event.target.value)} /></label>
         <label className="integration-confirm"><input type="checkbox" checked={confirmed} disabled={disabled || !report.tested || !!report.blockers.length}
-          onChange={(event) => setConfirmed(event.target.checked)} />{translate("I have reviewed the changes and required manual checks. Apply this state to")}{" "}{report.targetBranch} {" "}{translate("apply.")}</label>
+          onChange={(event) => setConfirmed(event.target.checked)} />{translate("I have reviewed the changes and required manual checks. Apply this state to")}{" "}{report.targetBranch}{" "}{translate("apply.")}</label>
         <button type="button" className="btn primary" disabled={disabled || !canChange || !report.tested || !!report.blockers.length || !confirmed || !message.trim()}
           onClick={() => void send({ operation: 'integrate', integrationId: report.id, revision: report.revision, message: message.trim() })}>{translate("Apply reviewed state")}</button></>}
       {report.phase === 'integrated' && <p role="status">{translate("Accepted as")}{" "}<code>{report.integratedCommit?.slice(0, 12)}</code>{translate("The original workspace is preserved. Open the main workspace in the Projects section to publish.")}</p>}

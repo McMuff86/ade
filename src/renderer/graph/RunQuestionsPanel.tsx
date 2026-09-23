@@ -38,7 +38,7 @@ export function RunQuestionsPanel({ runId, port, online, canAnswer, active = tru
     {error && <p role="alert">{localizeAppMessage(error)} <button type="button" disabled={!online} onClick={() => setReload((value) => value + 1)}>{translate("Reload questions")}</button></p>}
     {!view && !error && online && <p role="status">{translate("Loading questions…")}</p>}
     {view && !count && <p role="status">{translate("No open questions.")}</p>}
-    {count > 0 && <p role="status">{count} {" "}{translate("Question")}{count === 1 ? '' : 'n'} {" "}{translate("open. Blocking questions pause the task time limit.")}</p>}
+    {count > 0 && <p role="status">{count}{" "}{translate("Question")}{count === 1 ? '' : 'n'}{" "}{translate("open. Blocking questions pause the task time limit.")}</p>}
     {view?.tasks.flatMap((task) => task.questions.map((question) => <QuestionCard key={question.id} question={question}
       taskId={task.taskId} runId={runId} label={`${task.agentName} · ${task.title}`} port={port}
       online={online} canAnswer={canAnswer} onAnswered={() => { heading.current?.focus(); setReload((value) => value + 1); }} />))}
@@ -89,7 +89,7 @@ export function QuestionCard({ question, taskId, runId, label, port, online, can
     </fieldset>)}
     {!canAnswer && <p>{unavailableReason ?? translate("To answer, release the run permissions of this device on the PC.")}</p>}
     {question.status === 'answering' && <p role="status">{translate("Codex is confirming receipt of your answer…")}</p>}
-    {error && <p role="alert">{localizeAppMessage(error)} {" "}{translate("A recheck sends the same response with the same process ID.")}</p>}
+    {error && <p role="alert">{localizeAppMessage(error)}{" "}{translate("A recheck sends the same response with the same process ID.")}</p>}
     <button type="submit" disabled={busy || !online || !canAnswer || (!pending && (!complete || question.status !== 'pending'))}>
       {busy ? translate("Confirming answer…") : pending ? translate("Check answer again") : translate("Send a reply")}</button>
     <p className="run-question-note">{translate("The form input remains only in this window, and your response will be sent to the agent and may appear in its result.")}</p>

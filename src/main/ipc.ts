@@ -533,6 +533,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       supervision: supervisionService,
       conversations: conversationService,
       organizer,
+      diagnostics: (agentId) => diagnoseConfigured(agentId),
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -1094,7 +1095,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.PtyCancelTasks, (request) => ptyManager!.cancelTasks(request));
 
   // Safe readiness checks only: version/auth commands never modify credentials.
-  handle(IPC.RuntimeDiagnose, ({ agentId, sessionId }) => {
+  // Shared by the desktop channel and the tablet route (`AdeApplicationService.diagnostics`, no session there).
+  const diagnoseConfigured = (agentId?: string, sessionId?: string) => {
     const session = sessionId ? ptyManager!.getSessionMeta(sessionId) : undefined;
     if (sessionId && (!session || session.agentId !== agentId)) {
       throw new Error('ade: diagnostic session does not belong to the requested agent');
@@ -1116,7 +1118,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
           .some((item) => item.runtime === runtime && item.hasStoredKey),
       },
     );
-  });
+  };
+  handle(IPC.RuntimeDiagnose, ({ agentId, sessionId }) => diagnoseConfigured(agentId, sessionId));
 
   /* ----------------------------------------------- runs/tasks (Goal 2) */
 

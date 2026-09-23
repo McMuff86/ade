@@ -68,7 +68,7 @@ export function AgentBehaviorEditor({ agentId, port, enabled = true, canEdit = t
       <p>{translate("Up to eight documents, with 8,000 characters each and 24,000 characters in total. ADE stores a copy. Changes to the original file are only applied when you attach it again.")}</p>
       {!draft.documents.length && <p>{translate("No markdown documents assigned yet.")}</p>}
       <ol>{draft.documents.map((document, index) => <li key={document.id}>
-        <span>{document.name} · {document.text.length} {" "}{translate("Characters")}</span>
+        <span>{document.name} · {document.text.length}{" "}{translate("Characters")}</span>
         <button type="button" disabled={disabled || index === 0} aria-label={translate("Move {{value1}} up", { value1: document.name })} onClick={() => {
           const documents = [...draft.documents]; [documents[index - 1], documents[index]] = [documents[index]!, documents[index - 1]!]; setDraft({ ...draft, documents });
         }}>{translate("Up")}</button>
@@ -85,7 +85,7 @@ export function AgentBehaviorEditor({ agentId, port, enabled = true, canEdit = t
     {busy && <p role="status">{translate("Checking profile instructions…")}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
     {view && <details><summary>{translate("View the stored profile context ·")}{" "}{view.revision.slice(0, 12)}</summary>
       <p>{translate("Order and checksums of the profile sources; repository instructions read the CLI additionally.")}</p>
-      <ol>{view.context.sources.map((source, index) => <li key={`${source.kind}:${source.id ?? index}`}>{source.name} · {source.chars} {" "}{translate("characters ·")}{" "}<code>{source.sha256.slice(0, 12)}</code></li>)}</ol>
+      <ol>{view.context.sources.map((source, index) => <li key={`${source.kind}:${source.id ?? index}`}>{source.name} · {source.chars}{" "}{translate("characters ·")}{" "}<code>{source.sha256.slice(0, 12)}</code></li>)}</ol>
       <pre aria-label={translate("Stored profile context")}>{view.context.text}</pre>
     </details>}
   </section>;

@@ -29,8 +29,9 @@ export function downloadOrganizerBlob(blob: Blob, title: string, extension: stri
   link.download = `${(title.trim() || translate("ADE note")).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}.${extension}`;
   document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
-export async function organizerPng(note: OrganizerDocument): Promise<Blob> {
-  const canvas = await renderOrganizerSketch(note);
+/** `scale` multiplies the raster per sheet point (device preference, 1–3); the document itself is unchanged. */
+export async function organizerPng(note: OrganizerDocument, scale = 1): Promise<Blob> {
+  const canvas = await renderOrganizerSketch(note, { scale });
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(translate("PNG could not be created."))), 'image/png'));
 }
 /** Load the PDF engine on explicit export only. All user text is rasterized, never interpreted as HTML or PDF syntax. */

@@ -37,7 +37,7 @@ export function SpeechPreferenceSection({ port, enabled = true, pending = false,
   const effective = state?.voices.find(voice => voice.id === state.effectiveVoiceId);
   const sources = ({ agent: translate("Agent"), project: translate("Project"), default: translate('ADE default'), 'female-default': translate("automatic female voice"), unavailable: translate("No voice") });
   return <section className="speech-preference" aria-label={title}>
-    <h3>{title} {" "}{translate("· ElevenLabs")}</h3>
+    <h3>{title}{" "}{translate("· ElevenLabs")}</h3>
     <p>{translate("The selected voice is used for ADE speech output. Voice tests use ElevenLabs credits.")}</p>
     {!enabled && <p role="status">{translate("PC not connected. Voice actions are not currently available.")}</p>}
     <button type="button" disabled={!enabled || busy || pending} onClick={() => void run(() => load())}>{state ? translate("Reload voices") : translate("Load voices")}</button>

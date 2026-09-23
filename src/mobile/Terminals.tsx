@@ -77,7 +77,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
       {error ? <p role="alert">{localizeAppMessage(error)}</p> : !inventory ? <p role="status">{translate("Loading sessions…")}</p> : !inventory.sessions.length ? <p>{translate("No terminals are open yet.")}</p>
         : inventory.sessions.map((session) => <button key={session.id} aria-pressed={target.terminalId === session.id}
           onClick={() => choose(terminalTarget(session))}><span>{session.title}<small>{session.terminalHome ? translate("User directory") : session.projectName ?? host.catalog?.agents.find((item) => item.id === session.agentId)?.name ?? 'Workspace'}</small><small>{sessionStateLabel(session)}</small></span></button>)}
-      {!!inventory?.omitted && <p>{inventory.omitted} {" "}{translate("other or unavailable sessions.")}</p>}
+      {!!inventory?.omitted && <p>{inventory.omitted}{" "}{translate("other or unavailable sessions.")}</p>}
     </aside>
     <TerminalPanelResize side="agents" value={panelWidths.widths[0]} onChange={(value) => panelWidths.resize(0, value)} container={panels} />
     <section className="m-terminal-main" aria-label={translate("Terminal workspace")}>

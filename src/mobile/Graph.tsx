@@ -49,10 +49,10 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
       <Chrome><span>{translate("ade ·")}{" "}{participant.role}</span></Chrome>
       <span className="m-node-body"><span className="m-node-glyph" style={{ color: visual?.color }}>{Glyph ? <Glyph /> : <Avatar name={participant.agentName} size={38} />}</span>
         <strong>{participant.agentName}</strong><Status status={active ? 'running' : latest?.status ?? translate("ready")} />
-        <small>{tasks.length} {" "}{translate("Tasks ·")}{" "}{visual?.label ?? 'Agent'}</small>
+        <small>{tasks.length}{" "}{translate("Tasks ·")}{" "}{visual?.label ?? 'Agent'}</small>
         {active && <small>{outputAge(observation?.lastOutputAt, data?.checkedAt ?? Date.now())}</small>}
         {observation?.activity.at(-1) && <small>{observation.activity.at(-1)!.text}</small>}
-        {observation?.fileChanges && observation.fileChanges.source === 'observed' && <small>{observation.fileChanges.created} {" "}{translate("new ·")}{" "}{observation.fileChanges.modified} {" "}{translate("modified ·")}{" "}{observation.fileChanges.deleted} {" "}{translate("deleted")}</small>}
+        {observation?.fileChanges && observation.fileChanges.source === 'observed' && <small>{observation.fileChanges.created}{" "}{translate("new ·")}{" "}{observation.fileChanges.modified}{" "}{translate("modified ·")}{" "}{observation.fileChanges.deleted}{" "}{translate("deleted")}</small>}
         <small>{translate("View activity, result & files")}</small>
       </span>
     </button>;
@@ -78,7 +78,7 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
         </div>
       </div>
     </div>
-    <div className="m-graph-legend"><span className="m-live-dot" />{translate("Team structure ·")}{" "}{run.participants.length} {" "}{translate("Agents")}</div>
+    <div className="m-graph-legend"><span className="m-live-dot" />{translate("Team structure ·")}{" "}{run.participants.length}{" "}{translate("Agents")}</div>
     <div className="m-zoom" role="group" aria-label={translate("Graph Zoom")}><button aria-label={translate("Zoom in")} disabled={zoom >= 1.5} onClick={() => setZoom((value) => Math.min(1.5, value + .1))}><Icon name="plus" /></button>
       <output aria-live="polite">{Math.round(zoom * 100)}%</output><button aria-label={translate("Zoom out")} disabled={zoom <= .5} onClick={() => setZoom((value) => Math.max(.5, value - .1))}>−</button>
       <button aria-label={translate("Fit graph to view")} onClick={fit}>⊡</button><button aria-label={translate("Reset graph zoom")} onClick={() => setZoom(1)}>1:1</button></div>

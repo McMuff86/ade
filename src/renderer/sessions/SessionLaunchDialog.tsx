@@ -84,7 +84,7 @@ function LaunchDialog({ agentId }: { agentId: string | null }) {
         {directoryError && <p role="alert">{directoryError}</p>}
         {directory && !directory.entries.length && <p>{translate("Under Projects, add an existing git folder.")}</p>}
         {directory?.notice && <p>{localizeAppMessage(directory.notice)}</p>}
-        {workspace && <p role="status">{workspace.name} {" "}{translate("· Branch")}{" "}{workspace.branch} {" "}{translate("· Existing project workspace")}</p>}
+        {workspace && <p role="status">{workspace.name}{" "}{translate("· Branch")}{" "}{workspace.branch}{" "}{translate("· Existing project workspace")}</p>}
       </div>}
       {agentId && <div className="field"><label>{translate("Project")}<select aria-label={translate("Session project")} value={repositoryId} disabled={busy} onChange={(event) => setRepositoryId(event.target.value)}>
         <option value="">{translate("No project · Personal workspace")}</option>{repos.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label></div>}

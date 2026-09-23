@@ -10,7 +10,7 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   check: (label: string, condition: boolean, detail?: unknown) => void): Promise<void> {
   const setState = (extra: Record<string, unknown> = {}) => writeFileSync(state, JSON.stringify({ ...MODEL_FIXTURE_CATALOG, ...extra }));
   await page.locator('.add-agent').first().click({ force: true });
-  let dialog = page.getByRole('dialog', { name: 'New agent', exact: true }); await dialog.waitFor();
+  let dialog = page.getByRole('dialog', { name: 'Neuer Agent', exact: true }); await dialog.waitFor();
   check('new agent model selector receives dialog focus', await dialog.evaluate((node) => node.contains(document.activeElement)));
   await dialog.locator('#agent-repository').selectOption('');
   await dialog.locator('#agent-name').fill('Model Picker Fixture');
@@ -22,8 +22,8 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   await dialog.getByRole('button', { name: 'Create agent', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
   let config = await page.evaluate(() => window.ade.invoke('config:get')); let agent = config.agents.find((item) => item.name === 'Model Picker Fixture')!;
   check('new model selection persists through real IPC and config writes', agent.codexModel === 'codex-fixture-fast' && agent.codexReasoningEffort === 'low');
-  await page.getByRole('button', { name: 'Agent settings for Model Picker Fixture', exact: true }).click({ force: true });
-  dialog = page.getByRole('dialog', { name: 'Agent settings', exact: true }); await dialog.waitFor();
+  await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).click({ force: true });
+  dialog = page.getByRole('dialog', { name: 'Agent-Einstellungen', exact: true }); await dialog.waitFor();
   check('edit dialog restores the chosen model', await dialog.locator('#edit-agent-codex-model').inputValue() === 'codex-fixture-fast');
   setState({ codex: [MODEL_FIXTURE_CATALOG.codex[0]] });
   await dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true }).click();
@@ -40,10 +40,10 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   setState(); await dialog.locator('#edit-agent-runtime').selectOption('grok');
   await dialog.locator('#edit-agent-grok-model option[value="grok-fixture-two"]').waitFor({ state: 'attached' });
   await dialog.locator('#edit-agent-grok-model').selectOption('grok-fixture-two');
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
   config = await page.evaluate(() => window.ade.invoke('config:get')); agent = config.agents.find((item) => item.id === agent.id)!;
   check('Grok selection is persisted and the old Codex pin is cleared', agent.grokModel === 'grok-fixture-two' && !agent.codexModel);
-  await page.getByRole('button', { name: 'Agent settings for Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
+  await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
   await dialog.locator('#edit-agent-runtime').selectOption('claude');
   await dialog.locator('#edit-agent-claude-model option[value="sonnet"]').waitFor({ state: 'attached' });
   check('Claude choices display resolved provider model names', (await dialog.locator('#edit-agent-claude-model').textContent())!.includes('claude-fixture-sonnet'));
@@ -51,7 +51,7 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   check('Claude model selection reaches the real launch command preview', (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))!.includes("--model 'sonnet'"));
   const evidence = resolve('test-results/models'); mkdirSync(evidence, { recursive: true });
   await page.screenshot({ path: join(evidence, 'claude-model-picker.png') });
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
   const onDisk = JSON.parse(readFileSync(configPath, 'utf8')) as typeof config;
   check('Claude model is durably stored in the user profile', onDisk.agents.find((item) => item.id === agent.id)?.claudeModel === 'sonnet');
   const template = await page.evaluate((id) => window.ade.invoke('agentTemplate:create', { sourceAgentId: id, name: 'Model Picker Template' }), agent.id);
@@ -62,17 +62,17 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   const exported = exportWorkspaceBundle(config, { sourcePlatform: process.platform as 'win32' | 'linux' | 'darwin', includeMemory: false, includePhotos: false });
   const bundle = parseSerializedWorkspaceBundle(serializeWorkspaceBundle(exported.bundle));
   check('portable bundle round-trips Claude models for agents and templates', bundle.agents.some((item) => item.claudeModel === 'sonnet') && bundle.agentTemplates.some((item) => item.claudeModel === 'sonnet'));
-  await page.getByRole('button', { name: 'Agent settings for Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
+  await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
   check('reopened Claude profile retains the chosen alias', await dialog.locator('#edit-agent-claude-model').inputValue() === 'sonnet');
   await dialog.locator('#edit-agent-claude-model').focus(); await page.keyboard.press('Tab');
   check('model picker remains keyboard navigable', await dialog.evaluate((node) => node.contains(document.activeElement)));
   await dialog.locator('#edit-agent-claude-model').selectOption('');
   check('an inherited Claude setting does not add a model override', !(await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))!.includes('--model'));
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
   check('clearing the ADE model pin restores CLI inheritance on disk', !(JSON.parse(readFileSync(configPath, 'utf8')) as typeof config).agents.find((item) => item.id === agent.id)?.claudeModel);
-  await page.getByRole('button', { name: 'Agent settings for Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
+  await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).click({ force: true }); await dialog.waitFor();
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
-  check('closing model settings restores its opener', await page.getByRole('button', { name: 'Agent settings for Model Picker Fixture', exact: true }).evaluate((node) => node === document.activeElement));
+  check('closing model settings restores its opener', await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).evaluate((node) => node === document.activeElement));
   await page.evaluate(async ({ agentId, spawnedId, templateId }) => {
     await window.ade.invoke('agent:delete', { id: spawnedId }); await window.ade.invoke('agent:delete', { id: agentId });
     await window.ade.invoke('agentTemplate:delete', { id: templateId });

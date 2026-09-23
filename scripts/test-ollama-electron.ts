@@ -51,7 +51,7 @@ void (async () => {
     const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await page.locator('.add-agent').first().click();
-    let dialog = page.getByRole('dialog', { name: 'New agent', exact: true }); await dialog.waitFor();
+    let dialog = page.getByRole('dialog', { name: 'Neuer Agent', exact: true }); await dialog.waitFor();
     await dialog.locator('#agent-name').fill('Ollama Fixture'); await dialog.locator('#agent-rt').selectOption('ollama');
     await dialog.locator('#agent-ollama-model option[value="coder:large"]').waitFor({ state: 'attached' });
     check('new Ollama profile offers coding and direct chat modes', await dialog.getByLabel('Ollama verwenden als').inputValue() === 'coding'
@@ -65,8 +65,8 @@ void (async () => {
     const agent = config.agents.find(item => item.name === 'Ollama Fixture')!;
     check('UI creation durably stores the mode and selected model', agent.ollamaMode === 'coding' && agent.ollamaModel === 'coder:large'
       && JSON.parse(readFileSync(configPath, 'utf8')).agents.find((item: { id: string }) => item.id === agent.id).ollamaMode === 'coding');
-    await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).click();
-    dialog = page.getByRole('dialog', { name: 'Agent settings', exact: true }); await dialog.waitFor();
+    await page.getByRole('button', { name: 'Agent-Einstellungen für Ollama Fixture', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Agent-Einstellungen', exact: true }); await dialog.waitFor();
     await dialog.locator('#edit-agent-ollama-model option[value="coder:small"]').waitFor({ state: 'attached' });
     check('reopened settings preserve the coding model and preview the local provider', await dialog.locator('#edit-agent-ollama-model').inputValue() === 'coder:large'
       && (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.includes('--oss --local-provider ollama --model coder:large'));
@@ -88,8 +88,8 @@ void (async () => {
     check('chat hides the coding-only harness selection', await dialog.getByLabel('Coding-Harness', { exact: true }).count() === 0);
     check('direct chat previews the existing Ollama command', await dialog.locator('#edit-agent-cmd').getAttribute('placeholder') === 'ollama run coder:new');
     await dialog.getByLabel('Ollama verwenden als').selectOption('coding');
-    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
-    check('saving settings returns focus to the opener', await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).evaluate(node => node === document.activeElement));
+    await dialog.getByRole('button', { name: 'Speichern', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+    check('saving settings returns focus to the opener', await page.getByRole('button', { name: 'Agent-Einstellungen für Ollama Fixture', exact: true }).evaluate(node => node === document.activeElement));
     const template = await page.evaluate(id => window.ade.invoke('agentTemplate:create', { sourceAgentId: id, name: 'Ollama Template' }), agent.id);
     const copy = await page.evaluate(templateId => window.ade.invoke('agentTemplate:spawn', { templateId, categoryId: 'coding', name: 'Ollama Copy', defaultRepositoryId: null }), template.id);
     check('templates preserve the coding mode and refreshed model', template.ollamaMode === 'coding' && copy.ollamaMode === 'coding' && copy.ollamaModel === 'coder:new');
@@ -109,11 +109,11 @@ void (async () => {
     const positive = await page.evaluate(agentId => window.ade.invoke('session:launch', { agentId, repositoryId: null, mode: 'agent' }), agent.id);
     check('restoring the model permits a new session', positive.launchModel === 'coder:new');
     await page.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), positive.id);
-    await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).click(); await dialog.waitFor();
+    await page.getByRole('button', { name: 'Agent-Einstellungen für Ollama Fixture', exact: true }).click(); await dialog.waitFor();
     await dialog.getByLabel('Coding-Harness', { exact: true }).selectOption('qwen-code');
     check('Qwen selection previews the explicit local endpoint and selected model', (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.startsWith('qwen --auth-type openai')
       && (await dialog.locator('#edit-agent-cmd').getAttribute('placeholder'))?.includes('--model coder:new'));
-    await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
+    await dialog.getByRole('button', { name: 'Speichern', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
     check('Qwen harness is durably persisted', JSON.parse(readFileSync(configPath, 'utf8')).agents.find((item: { id: string }) => item.id === agent.id).ollamaHarness === 'qwen-code');
     const qwenTemplate = await page.evaluate(id => window.ade.invoke('agentTemplate:create', { sourceAgentId: id, name: 'Qwen Template' }), agent.id);
     const qwenCopy = await page.evaluate(templateId => window.ade.invoke('agentTemplate:spawn', { templateId, categoryId: 'coding', name: 'Qwen Copy', defaultRepositoryId: null }), qwenTemplate.id);
@@ -132,12 +132,12 @@ void (async () => {
     check('existing identities are unchanged', config.agents.find(item => item.id === 'shell')?.runtime === 'shell');
     check('Ollama flows have no renderer errors', errors.length === 0);
     mkdirSync(resolve('test-results/ollama'), { recursive: true });
-    await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).click(); await dialog.waitFor();
+    await page.getByRole('button', { name: 'Agent-Einstellungen für Ollama Fixture', exact: true }).click(); await dialog.waitFor();
     check('reopened settings retain the selected Qwen harness', await dialog.getByLabel('Coding-Harness', { exact: true }).inputValue() === 'qwen-code');
     await dialog.getByLabel('Ollama verwenden als').scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve('test-results/ollama/settings.png') });
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
-    check('Escape closes settings and restores keyboard focus', await page.getByRole('button', { name: 'Agent settings for Ollama Fixture', exact: true }).evaluate(node => node === document.activeElement));
+    check('Escape closes settings and restores keyboard focus', await page.getByRole('button', { name: 'Agent-Einstellungen für Ollama Fixture', exact: true }).evaluate(node => node === document.activeElement));
     console.log(`Ollama Electron: ${passed} passed, 0 failed`);
   } finally { await app?.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -18,6 +18,6 @@ export function DesktopTaskReminders() {
     return () => { active = false; stop(); clearInterval(timer); };
   }, []);
   if (!count) return null;
-  return <aside className="organizer-global-reminder" aria-label={translate("Due tasks")}><span role="status">{count} {" "}{translate("Reminder(s) due.")}</span>
+  return <aside className="organizer-global-reminder" aria-label={translate("Due tasks")}><span role="status">{count}{" "}{translate("Reminder(s) due.")}</span>
     <button type="button" onClick={() => { useMode.getState().setMode('tasks'); requestAnimationFrame(() => document.getElementById('mode-tab-tasks')?.focus()); }}>{translate("Open tasks")}</button></aside>;
 }

@@ -73,17 +73,17 @@ export function ProjectPublishPanel({ workspace, online, canPublish, query, appl
       {local && !local.remotes.length && <p>{translate("No remote configured. Add a remote to the PC first.")}</p>}
       <button disabled={busy || !online || !remote} onClick={() => void inspect()}>{translate("Check remote state")}</button>
       {status && <section aria-label={translate("Publication status")}><p>{status.target} · {status.branch}</p>
-        <p>{translate("Local:")}{" "}{status.head.slice(0, 12)} {" "}{translate("· Remotely:")}{" "}{status.remoteHead?.slice(0, 12) ?? translate("Branch not yet available")}</p>
+        <p>{translate("Local:")}{" "}{status.head.slice(0, 12)}{" "}{translate("· Remotely:")}{" "}{status.remoteHead?.slice(0, 12) ?? translate("Branch not yet available")}</p>
         <p>{status.remoteHead === status.head ? translate("This commit is on the remote.") : translate("Local and remote states differ.")}</p>
         {status.providerNotice && <p>{localizeAppMessage(status.providerNotice)}</p>}
         {status.pullRequests.map((pr) => <p key={pr.number}><a href={pr.url} target="_blank" rel="noopener noreferrer">{translate("PR #")}{pr.number}</a> → {pr.base}{pr.draft ? translate(" · Draft") : ''}</p>)}
       </section>}
-      {done && <p role="status">{done.kind === 'push' ? translate("Push confirmed") : translate("Pull request confirmed")} {" "}{translate("For")}{" "}{done.branch} · {done.head.slice(0, 12)} · {new Date(done.confirmedAt).toLocaleString(intlLocale())}.
+      {done && <p role="status">{done.kind === 'push' ? translate("Push confirmed") : translate("Pull request confirmed")}{" "}{translate("For")}{" "}{done.branch} · {done.head.slice(0, 12)} · {new Date(done.confirmedAt).toLocaleString(intlLocale())}.
         {done.url && <> <a href={done.url} target="_blank" rel="noopener noreferrer">{translate("Open PR")}</a></>}</p>}
       {current ? <section className="project-branch-review" aria-label={translate("Publication Preview")}>
-        <h3 ref={focus} tabIndex={-1}>{current.action.kind === 'push' ? translate("Push") : translate("Pull Request")} {" "}{translate("check")}</h3>
+        <h3 ref={focus} tabIndex={-1}>{current.action.kind === 'push' ? translate("Push") : translate("Pull Request")}{" "}{translate("check")}</h3>
         <p>{current.status.target} · {current.status.branch}{current.action.kind === 'pr' ? ` → ${current.action.base}` : ''}</p>
-        <p>{translate("Commit")}{" "}{current.status.head.slice(0, 12)} · {current.commitCount} {" "}{translate("Commits ·")}{" "}{current.changedFiles.length} {" "}{translate("Files")}</p>
+        <p>{translate("Commit")}{" "}{current.status.head.slice(0, 12)} · {current.commitCount}{" "}{translate("Commits ·")}{" "}{current.changedFiles.length}{" "}{translate("Files")}</p>
         <p>{translate("Remote base:")}{" "}{current.baseHead?.slice(0, 12) ?? translate("New remote branch")}</p>
         {current.action.kind === 'pr' ? <><h4>{current.action.title}</h4><pre>{current.action.body}</pre><p>{current.action.draft ? translate("PR as draft") : translate("PR ready for review")}{translate("The branch is not additionally pushed.")}</p></>
           : <p>{translate("This branch will be released. Other branches and tags will remain unchanged; no force push.")}</p>}

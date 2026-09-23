@@ -4,7 +4,7 @@
  * within the dialog, focus restored to the opener on close).
  */
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 
 interface ModalProps {
   title: string;
@@ -22,22 +22,21 @@ interface ModalProps {
 const FOCUSABLE =
   'a[href], summary, button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
-export function Modal({
-  title,
-  subtitle,
-  onClose,
-  children,
-  lead,
-  className,
-  fallbackFocus,
-}: ModalProps): React.ReactElement {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
-
+/**
+ * Dialog focus discipline shared by Modal and full-bleed dialogs such as the
+ * sketch sheet: focus moves in on mount (the first field, else the dialog),
+ * Tab cycles within the dialog, and focus returns to the opener on unmount
+ * or to `fallbackFocus` when the opener disappeared. Returns the Tab handler.
+ */
+export function useDialogFocus(
+  dialogRef: RefObject<HTMLElement | null>,
+  fallbackFocus?: () => HTMLElement | null,
+  initialFocus?: () => HTMLElement | null,
+): (e: React.KeyboardEvent) => void {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // move focus into the dialog (first field, else the dialog itself)
-    const first = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+    const first = initialFocus?.() ?? Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
       .find(node => node.tabIndex >= 0 && node.getClientRects().length > 0);
     (first ?? dialogRef.current)?.focus();
 
@@ -45,14 +44,10 @@ export function Modal({
       if (opener?.isConnected && !opener.matches(':disabled')) opener.focus();
       else fallbackFocus?.()?.focus();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onClose();
-      return;
-    }
+  return (e: React.KeyboardEvent): void => {
     if (e.key !== 'Tab') return;
     const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
     if (!nodes || nodes.length === 0) { e.preventDefault(); dialogRef.current?.focus(); return; }
@@ -68,6 +63,29 @@ export function Modal({
       e.preventDefault();
       first.focus();
     }
+  };
+}
+
+export function Modal({
+  title,
+  subtitle,
+  onClose,
+  children,
+  lead,
+  className,
+  fallbackFocus,
+}: ModalProps): React.ReactElement {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
+  const trapTab = useDialogFocus(dialogRef, fallbackFocus);
+
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onClose();
+      return;
+    }
+    trapTab(e);
   };
 
   return (

@@ -27,7 +27,7 @@ export function ProjectRunResults({ workspaceId, query, port, online, identity, 
     {!online && <p role="status">{translate("PC not connected.")}</p>}{online && !data && !error && <p role="status">{translate("Loading runs…")}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
     {data && !data.runs.length && <p>{cursor ? translate("No more runs on this page.") : translate("No runs for this project yet. Files from an interactive CLI session can be found in the selected checkout under Git.")}</p>}
     <nav aria-label={translate("Result pages")}><button disabled={!online || pages.length === 1} onClick={() => { setPages((value) => value.slice(0, -1)); setChoice(''); heading.current?.focus(); }}>{translate("Newer Runs")}</button>
-      <span role="status">{translate("Page")}{" "}{pages.length} {" "}{translate("· Up to 20 runs")}</span>
+      <span role="status">{translate("Page")}{" "}{pages.length}{" "}{translate("· Up to 20 runs")}</span>
       <button disabled={!online || !data?.nextCursor} onClick={() => { setPages((value) => [...value, data!.nextCursor!]); setChoice(''); heading.current?.focus(); }}>{translate("Older runs")}</button></nav>
     {run && <><label>{translate("Run")}<select aria-label={translate("Run for project results")} value={run.id} onChange={(event) => setChoice(event.target.value)}>
       {data!.runs.map((item) => <option key={item.id} value={item.id}>{item.name} · {localizedState(item.status)} · {new Date(item.createdAt).toLocaleString(intlLocale())}</option>)}</select></label>

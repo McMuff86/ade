@@ -37,7 +37,7 @@ export function SingleTaskModal({ initialAgent, initialRepository, onClose, onSu
       <label><input type="checkbox" checked={allowQuestions} onChange={event => setAllowQuestions(event.target.checked)} /> {" "}{translate("Allow for questions (Codex)")}</label>
     </fieldset>
     {(!repositories.length || !Object.keys(agents).length) && <p>{translate("First, create a project and an agent in ADE.")}</p>}
-    {error && <p role="alert">{localizeAppMessage(error)} {" "}{translate("A re-attempt will use the same job. Check the run list before a new job.")}</p>}
+    {error && <p role="alert">{localizeAppMessage(error)}{" "}{translate("A re-attempt will use the same job. Check the run list before a new job.")}</p>}
     <div className="modal-actions"><button disabled={busy} onClick={onClose}>{translate("Close")}</button><button disabled={busy || !agentId || !repositoryId || !prompt.trim()} onClick={() => void submit()}>{busy ? translate("Sending… [57697264]") : pending.current ? translate("Try again") : translate("Send task")}</button></div>
   </Modal>;
 }

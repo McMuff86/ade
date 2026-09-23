@@ -74,7 +74,7 @@ function ActionCard({ action, port, online, canWrite, canConfirm, changed }: { a
     {action.agentName && <p>{translate("Profile:")}{" "}{action.agentName}</p>}
     <p role="status">{STATES[action.state]}{action.taskStatus ? ` · ${TASKS[action.taskStatus] ?? action.taskStatus}` : ''}</p>
     {action.kind === 'task' && action.state === 'proposed' && <p>{translate("Starts your own Codex task in this project. Results and queries appear in this task.")}</p>}
-    {action.pendingQuestions > 0 && <p role="status">{action.pendingQuestions} {" "}{translate("open question")}{action.pendingQuestions === 1 ? '' : 'n'}.</p>}
+    {action.pendingQuestions > 0 && <p role="status">{action.pendingQuestions}{" "}{translate("open question")}{action.pendingQuestions === 1 ? '' : 'n'}.</p>}
     {action.error && <p role="alert">{localizeAppMessage(action.error)}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
     {(action.kind === 'handoff' || action.runId) && <button type="button" aria-expanded={expanded} disabled={!online} onClick={() => setExpanded(v => !v)}>
       {expanded ? translate("Close details") : action.kind === 'handoff' ? translate("Review handoff") : translate("Open result and questions")}</button>}

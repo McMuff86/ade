@@ -29,7 +29,9 @@ interface Suite {
 const SUITES: Suite[] = [
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 51 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
+  { id: 'remote-diagnostics', script: 'test-remote-diagnostics.ts', floors: { win32: 25 } },
   { id: 'organizer-cache', script: 'test-organizer-cache.ts', floors: { win32: 31 } },
+  { id: 'sketch-input', script: 'test-sketch-input.ts', floors: { win32: 44 } },
   { id: 'usage-normalization', script: 'test-usage-normalization.ts', floors: { win32: 27 } },
   { id: 'usage-journal', script: 'test-usage-journal.ts', floors: { win32: 35 } },
   { id: 'usage-receiver', script: 'test-usage-receiver.ts', floors: { win32: 20 } },
@@ -70,8 +72,8 @@ const SUITES: Suite[] = [
   { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 82 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'run-questions', script: 'test-run-questions.ts', floors: { win32: 26 } },
-  { id: 'codex-conversations', script: 'test-codex-conversations.ts', floors: { win32: 22 } },
-  { id: 'coordinator-codex-policy', script: 'test-coordinator-codex-policy.ts', floors: { win32: 35 } },
+  { id: 'codex-conversations', script: 'test-codex-conversations.ts', floors: { win32: 25 } },
+  { id: 'coordinator-codex-policy', script: 'test-coordinator-codex-policy.ts', floors: { win32: 51 } },
   { id: 'codex-dynamic-tools', script: 'test-codex-dynamic-tools.ts', floors: { win32: 18 } },
   { id: 'supervision', script: 'test-supervision.ts', floors: { win32: 26 } },
   { id: 'conversation-service', script: 'test-conversation-service.ts', floors: { win32: 52 } },
@@ -124,7 +126,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 286 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 289 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

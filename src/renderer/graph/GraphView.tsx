@@ -1,4 +1,5 @@
 import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { zoomViewAt } from '../viewTransform';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 /** Graph mode: a multi-run canvas over persisted runs, participants and task events. */
@@ -90,6 +91,9 @@ function clusterWidth(cluster: RunClusterModel): number {
   ) + Math.max(0, cluster.teams.length - 1) * TEAM_GAP_IN;
   return Math.max(320, ORCH_W + CLUSTER_PAD * 2, teamsWidth + CLUSTER_PAD * 2);
 }
+
+/** Graph zoom range; the same view math drives the sketch sheet (renderer/viewTransform.ts). */
+const GRAPH_SCALE = { min: 0.3, max: 1.6 };
 
 const I = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -680,30 +684,12 @@ export function GraphView(): JSX.Element {
   const onWheel = (event: React.WheelEvent): void => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setView((current) => {
-      const scale = Math.min(1.6, Math.max(0.3, current.scale * (event.deltaY < 0 ? 1.1 : 0.9)));
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
-      const factor = scale / current.scale;
-      return {
-        scale,
-        x: mouseX - (mouseX - current.x) * factor,
-        y: mouseY - (mouseY - current.y) * factor,
-      };
-    });
+    setView((current) => zoomViewAt(current, event.deltaY < 0 ? 1.1 : 0.9, { x: event.clientX - rect.left, y: event.clientY - rect.top }, GRAPH_SCALE));
   };
 
   const zoomBy = (factor: number): void => setView((current) => {
-    const scale = Math.min(1.6, Math.max(0.3, current.scale * factor));
     const rect = canvasRef.current?.getBoundingClientRect();
-    const middleX = (rect?.width ?? 800) / 2;
-    const middleY = (rect?.height ?? 600) / 2;
-    const ratio = scale / current.scale;
-    return {
-      scale,
-      x: middleX - (middleX - current.x) * ratio,
-      y: middleY - (middleY - current.y) * ratio,
-    };
+    return zoomViewAt(current, factor, { x: (rect?.width ?? 800) / 2, y: (rect?.height ?? 600) / 2 }, GRAPH_SCALE);
   });
 
   const fitView = useCallback(() => {
@@ -1143,7 +1129,7 @@ export function GraphView(): JSX.Element {
               {activeRun.goal || translate("No run target stored")}
             </span>
             <span className="grun-counts">
-              {activeRunTasks.length} {" "}{translate("Tasks")}{activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
+              {activeRunTasks.length}{" "}{translate("Tasks")}{activeUsage && ` · Tokens ${activeUsage.inputTokens + activeUsage.outputTokens}`}
               {activeRun.mode === 'managed' && ` · Parallel ≤${activeRun.budget.maxConcurrentTasks}`}
               {activeRun.mode === 'managed' && activeRun.budget.maxTaskMinutes !== null &&
                 ` · ≤${activeRun.budget.maxTaskMinutes} min/Task`}
@@ -1434,7 +1420,7 @@ export function GraphView(): JSX.Element {
           <div key={cluster.run.id} className="gslots-row">
             <span>{cluster.run.name}</span>
             <span>
-              {cluster.runningTaskCount} {" "}{translate("Active [616b7469]")}{cluster.queuedTaskCount > 0 && translate(" · {{value1}} waiting", { value1: cluster.queuedTaskCount })}
+              {cluster.runningTaskCount}{" "}{translate("Active [616b7469]")}{cluster.queuedTaskCount > 0 && translate(" · {{value1}} waiting", { value1: cluster.queuedTaskCount })}
             </span>
           </div>
         ))}
@@ -1971,7 +1957,7 @@ function Composer(props: {
               disabled={workerCount === 0}
               onChange={(event) => setToWorkers(event.target.checked)}
             />
-            <span>{translate("Also to")}{" "}{workerCount} {" "}{translate("Distribute workers")}</span>
+            <span>{translate("Also to")}{" "}{workerCount}{" "}{translate("Distribute workers")}</span>
           </label>
         )}
         <div className="gcomposer-meta">{text.length} / 8000</div>
@@ -2102,7 +2088,7 @@ function PublicationModal(props: {
         <div className="grun-modal-head">
           <div>
             <h2 id="gpublish-title">{translate("Publish Verified Draft PR")}</h2>
-            <p>{props.run.name} {" "}{translate("· External GitHub writing process")}</p>
+            <p>{props.run.name}{" "}{translate("· External GitHub writing process")}</p>
           </div>
           <button ref={closeRef} type="button" className="ginsp-close" title={translate("Close [5363686c]")} disabled={submitting} onClick={props.onCancel}>
             <Ico>{I.close}</Ico>
@@ -2118,7 +2104,7 @@ function PublicationModal(props: {
 
           {finalPublication && (
             <div className="gpublish-success" role="status">
-              <b>{translate("Draft PR #")}{finalPublication.prNumber} {" "}{translate("is created")}</b>
+              <b>{translate("Draft PR #")}{finalPublication.prNumber}{" "}{translate("is created")}</b>
               <span>
                 {translate("Branch")}{" "}<code>{finalPublication.headBranch}</code> {" "}{translate("· CI")}{" "}{ciStatusText(candidate?.ciStatus ?? 'none')}
               </span>
@@ -2136,7 +2122,7 @@ function PublicationModal(props: {
                 <div><span>{translate("Base")}</span><b>{candidate.baseBranch ?? '—'} <code>{candidate.baseSha?.slice(0, 10)}</code></b></div>
                 <div><span>{translate("New branch")}</span><b><code>{candidate.headBranch ?? '—'}</code></b></div>
                 <div><span>{translate("Verified")}</span><b><code>{candidate.headSha?.slice(0, 10) ?? '—'}</code></b></div>
-                <div><span>{translate("Scope")}</span><b>{candidate.commitCount} {" "}{translate("Commits ·")}{" "}{candidate.changedFiles.length}{candidate.changedFilesTruncated ? '+' : ''} {" "}{translate("Files")}</b></div>
+                <div><span>{translate("Scope")}</span><b>{candidate.commitCount}{" "}{translate("Commits ·")}{" "}{candidate.changedFiles.length}{candidate.changedFilesTruncated ? '+' : ''}{" "}{translate("Files")}</b></div>
                 <div><span>{translate("Provider")}</span><b>{candidate.provider === 'github' ? translate("GitHub CLI in the repo backend") : translate("Not available [6e696368]")}</b></div>
               </div>
 
@@ -2646,7 +2632,7 @@ export function NewRunModal(props: {
             </label>
           </div>
 
-          <div className="grun-roster-title"><span>{translate("Teams")}</span><b>{participantCount} {" "}{translate("Participants")}</b></div>
+          <div className="grun-roster-title"><span>{translate("Teams")}</span><b>{participantCount}{" "}{translate("Participants")}</b></div>
           {availableCategories.length === 0 && (
             <div className="grun-no-agents">{translate("In terminal mode, create at least one agent first.")}</div>
           )}

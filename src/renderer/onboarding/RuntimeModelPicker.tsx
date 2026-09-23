@@ -67,7 +67,7 @@ export function RuntimeModelPicker({ id, label, runtime, backend = 'native', val
     {onEffortChange && effort && <div className="field runtime-model-effort">
       <label htmlFor={id.replace(/model$/, 'reasoning')}>{translate("Reasoning effort")}</label>
       <select id={id.replace(/model$/, 'reasoning')} value={effort} onChange={(event) => onEffortChange(event.target.value as CodexReasoningEffort)}>
-        {!availableEfforts.some((item) => item.id === effort) && <option value={effort}>{effort} {" "}{translate("· Not reported by the model")}</option>}
+        {!availableEfforts.some((item) => item.id === effort) && <option value={effort}>{effort}{" "}{translate("· Not reported by the model")}</option>}
         {availableEfforts.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
       </select>
     </div>}

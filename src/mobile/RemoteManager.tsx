@@ -151,9 +151,9 @@ export function RemoteManager({ host, admin, onClose, onWorkspace }: { host: Mob
       canTest={canGit && admin.state?.capabilities?.includes('terminal:control') === true} onClose={() => setIntegrationOpen(false)}
       onWorkspace={(id) => { if (onWorkspace) { setIntegrationOpen(false); onClose(); onWorkspace(id); } }} />}
     {confirmGit && git?.preview && <Dialog title={translate("Confirm Git Update")} onClose={() => setConfirmGit(false)} fallbackId="mobile-title">
-      <p><strong>{git.preview.target.name}</strong> {" "}{translate("on")}{" "}{git.overview.sourceRef} {" "}{translate("update.")}</p>
+      <p><strong>{git.preview.target.name}</strong> {" "}{translate("on")}{" "}{git.overview.sourceRef}{" "}{translate("update.")}</p>
       <p className="m-sha">{git.preview.target.headSha} → {git.overview.sourceSha}</p>
-      <p>{git.preview.target.behind} {" "}{translate("Commit(s).ADE rechecks Branch, work folder and occupancy before the update.")}</p>
+      <p>{git.preview.target.behind}{" "}{translate("Commit(s).ADE rechecks Branch, work folder and occupancy before the update.")}</p>
       <button onClick={() => setConfirmGit(false)}>{translate("Cancel")}</button><button className="m-primary" disabled={disabled} onClick={() => {
         const previewId = git.preview!.id; setConfirmGit(false); void perform({ operation: 'git-apply', input: { previewId } });
       }}>{translate("Confirm fast-forward")}</button></Dialog>}

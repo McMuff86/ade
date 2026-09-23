@@ -135,7 +135,7 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
       </div>
       {active?.status === 'exited' && <button disabled={busy} onClick={() => void restartActive()}>{translate("Restart session")}</button>}
       <button disabled={busy || !active} onClick={() => void closeActive()} title={translate("Ctrl+Shift+W")}>{translate("End session")}</button></div>
-      {active && <p role="status" aria-label={translate("CLI and terminal status")}>{sessionStateLabel({ ...active, launchMode: active.launchChoice?.mode })} {" "}{translate("· Branch")}{" "}{active.branch} · {active.launchProfileName ?? translate("Without an agent profile")}</p>}
+      {active && <p role="status" aria-label={translate("CLI and terminal status")}>{sessionStateLabel({ ...active, launchMode: active.launchChoice?.mode })}{" "}{translate("· Branch")}{" "}{active.branch} · {active.launchProfileName ?? translate("Without an agent profile")}</p>}
       <div className="project-terminal-screen">{available.map((session) => <div key={session.id} id={`project-session-panel-${session.id}`}
         role="tabpanel" aria-labelledby={`project-session-tab-${session.id}`} hidden={active?.id !== session.id} style={{ height: '100%' }}>
         <TerminalPane sessionId={session.id} active={active?.id === session.id} /></div>)}</div>

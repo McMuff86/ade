@@ -40,8 +40,8 @@ export function CommitDetails({ commit, query, online, errorText }: {
       <div><dt>{translate("Commit ID")}</dt><dd><code>{commit.sha}</code></dd></div>
       <div><dt>{translate("Comparison base")}</dt><dd>{commit.parents.length ? <><code>{commit.parents[0]}</code>{commit.parents.length > 1 && translate(" · First parent commit (merge)")}</> : translate("First commit · comparison with empty project")}</dd></div>
     </dl>
-    <p className="m-commit-stats">{commit.files.length} {commit.limited ? translate("visible ") : ''}{translate("Files ·")}{" "}<span className="m-diff-add">+{commit.additions} {" "}{translate("Lines added")}</span> · <span className="m-diff-delete">−{commit.deletions} {" "}{translate("Lines removed")}</span>
-      {commit.binaryFiles > 0 && <> · {commit.binaryFiles} {" "}{translate("Binary files without line counts")}</>}</p>
+    <p className="m-commit-stats">{commit.files.length} {commit.limited ? translate("visible ") : ''}{translate("Files ·")}{" "}<span className="m-diff-add">+{commit.additions}{" "}{translate("Lines added")}</span> · <span className="m-diff-delete">−{commit.deletions}{" "}{translate("Lines removed")}</span>
+      {commit.binaryFiles > 0 && <> · {commit.binaryFiles}{" "}{translate("Binary files without line counts")}</>}</p>
     {commit.limited && <p>{translate("List and sums refer to the displayed files. Protected or linked files are omitted; maximum 500 files.")}</p>}
     <h4>{translate("Modified files")}</h4>
     {!commit.files.length && <p>{commit.limited ? translate("No file changes visible to this device.") : translate("This commit does not contain any file changes.")}</p>}

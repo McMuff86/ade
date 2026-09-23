@@ -29,9 +29,77 @@
 .organizer-checklist > button { align-self: flex-start; }.organizer-file-input { display: none !important; }
 .organizer-images { display: flex; flex-wrap: wrap; gap: 12px; }.organizer-images figure { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 8px; width: 180px; }
 .organizer-images img { width: 100%; height: 115px; object-fit: contain; }.organizer-images figcaption { font-size: 11px; overflow-wrap: anywhere; }
-.organizer-sketch-disclosure { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }.organizer-sketch-disclosure > summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; }
-.organizer-sketch { display: flex; flex-direction: column; gap: 12px; }.organizer-sketch canvas { display: block; width: 100%; aspect-ratio: 8/5; height: auto; background: white; border: 1px solid var(--line); border-radius: 5px; touch-action: none; }
-.organizer-sketch input[type=color] { width: 44px; height: 32px; padding: 0; border: 0; }.organizer-sketch input[type=range] { max-width: 120px; }.organizer .organizer-check { flex-direction: row; align-items: center; }
+.organizer-sketch { display: flex; flex-direction: column; gap: 10px; }
+/* The sketch in the note is a preview and the way onto the sheet (docs/SKETCH_UX_PROPOSAL.md §7). */
+.organizer .organizer-sketch .organizer-sketch-preview { display: block; width: 100%; max-width: 560px; aspect-ratio: 8/5; min-height: 0; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: white; overflow: hidden; cursor: pointer; color: var(--muted); font-size: 12px; }
+.organizer .organizer-sketch .organizer-sketch-preview:hover:not(:disabled) { border-color: var(--accent); }
+.organizer .organizer-sketch .organizer-sketch-preview.organizer-sketch-empty { display: grid; place-items: center; border: 1px dashed var(--faint); background: var(--panel); }
+.organizer-sketch-preview canvas { display: block; width: 100%; height: 100%; }
+.organizer-sketch-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }.organizer-sketch-row label { width: auto; min-width: 200px; }
+
+/* ------------------------------------------------------------ the sheet
+   Full-window drawing surface, mounted on <body> via portal so the note's
+   density rules do not shrink pen targets. Tokens come from :root. */
+.sketch-sheet { position: fixed; inset: 0; z-index: 400; display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 40px minmax(0, 1fr); height: var(--tablet-height, 100dvh); background: var(--bg); color: var(--text); font: 13px/1.4 var(--sans); overscroll-behavior: contain; }
+.sketch-sheet-right { grid-template-columns: minmax(0, 1fr) 48px; }
+.sketch-sheet-right .sketch-sheet-tools { grid-column: 2; grid-row: 2; border-right: 0; border-left: 1px solid var(--line); }
+.sketch-sheet-right .sketch-sheet-canvas { grid-column: 1; grid-row: 2; }
+.sketch-sheet button { font: inherit; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+.sketch-sheet button:hover:not(:disabled) { color: var(--text); background: var(--raised); }.sketch-sheet button:disabled { opacity: .4; cursor: default; }
+.sketch-sheet :is(button, select, input, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sketch-sheet-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 4px; border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
+.sketch-sheet-head button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; white-space: nowrap; }
+.sketch-sheet-head svg { width: 16px; height: 16px; }
+.sketch-sheet-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.sketch-sheet-zoom { display: flex; align-items: center; gap: 0; }
+.sketch-sheet-zoom output { min-width: 48px; text-align: center; font: 12px var(--mono); color: var(--muted); }
+.sketch-sheet-tools { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-right: 1px solid var(--line); background: var(--panel); overflow: auto; scrollbar-width: none; transition: opacity 120ms; }
+.sketch-sheet-tools hr { flex: none; width: 26px; height: 0; border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.sketch-sheet-tools button { flex: none; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 8px; }
+.sketch-sheet-tools button[aria-pressed=true] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+.sketch-sheet-tools svg { width: 20px; height: 20px; }
+.sketch-ink { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+.sketch-sheet-tools button[aria-pressed=true] .sketch-ink { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sketch-width { border-radius: 50%; background: currentColor; }
+.sketch-sheet-drawing .sketch-sheet-tools { opacity: .4; }
+.sketch-sheet-canvas { grid-column: 2; grid-row: 2; position: relative; min-width: 0; min-height: 0; overflow: hidden; touch-action: none; }
+.sketch-sheet-canvas canvas { display: block; width: 100%; height: 100%; cursor: crosshair; outline: none; touch-action: none; }
+.sketch-sheet-canvas canvas:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-dim); }
+.sketch-sheet-hint, .sketch-sheet-alert { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0; padding: 6px 12px; border-radius: 6px; font-size: 12px; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); color: var(--muted); pointer-events: none; }
+.sketch-sheet-alert { color: var(--text); border-left: 3px solid var(--accent); pointer-events: auto; }
+.sketch-sheet-menu { position: absolute; left: 12px; bottom: 12px; z-index: 2; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; display: grid; gap: 12px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 40px #0006; }
+.sketch-sheet-fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px 10px; margin: 0; display: grid; gap: 10px; }.sketch-sheet-fieldset legend { padding: 0 4px; font-size: 12px; color: var(--muted); }
+.sketch-sheet-size { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sketch-sheet-menu input[type=number] { min-height: 36px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: 13px var(--mono); width: 100%; }
+/* Tool options sit at the top of the sheet: width and pressure for the pen, mode and size for the eraser. */
+.sketch-sheet-options { position: absolute; top: 10px; left: 12px; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 10px; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted); transition: opacity 120ms; }
+.sketch-sheet-right .sketch-sheet-options { left: auto; right: 12px; }
+.sketch-sheet-drawing .sketch-sheet-options { opacity: .3; }
+.sketch-sheet-options label { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.sketch-sheet-options input[type=range] { width: 140px; accent-color: var(--accent); margin: 0; }
+.sketch-sheet-options output { min-width: 24px; font: 12px var(--mono); color: var(--text); text-align: right; }
+.sketch-sheet-options input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+.sketch-sheet-segments { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.sketch-sheet-segments button { min-height: 30px; padding: 0 10px; border: 0; border-radius: 0; color: var(--muted); }.sketch-sheet-segments button + button { border-left: 1px solid var(--line); }
+.sketch-sheet-segments button[aria-pressed=true] { color: var(--accent); background: var(--accent-soft); }
+.sketch-sheet-right .sketch-sheet-menu { left: auto; right: 12px; }
+.sketch-sheet-menu label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.sketch-sheet-menu select { min-height: 36px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.sketch-sheet-menu .sketch-sheet-check { flex-direction: row; align-items: center; gap: 8px; min-height: 36px; }.sketch-sheet-menu input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.sketch-sheet-menu button { min-height: 36px; padding: 0 10px; text-align: left; border-color: var(--line); color: var(--text); }
+.sketch-sheet-menu .sketch-sheet-danger { color: var(--del); }
+@media (max-width: 700px) {
+  .sketch-sheet, .sketch-sheet-right { grid-template-columns: minmax(0, 1fr); grid-template-rows: 40px minmax(0, 1fr) auto; }
+  .sketch-sheet .sketch-sheet-tools { grid-column: 1; grid-row: 3; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px 0; padding: 4px 6px; border-right: 0; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .sketch-sheet-tools button { width: 40px; height: 40px; }
+  .sketch-sheet-tools hr { width: 0; height: 24px; border-top: 0; border-left: 1px solid var(--line); margin: 0 3px; align-self: center; }
+  .sketch-sheet .sketch-sheet-canvas { grid-column: 1; grid-row: 2; }
+  .sketch-sheet-head .sketch-sheet-zoom span { display: none; }
+  .sketch-sheet-menu, .sketch-sheet-right .sketch-sheet-menu { left: 12px; right: 12px; width: auto; }
+  .sketch-sheet-options, .sketch-sheet-right .sketch-sheet-options { left: 8px; right: 8px; top: 8px; padding: 4px 8px; gap: 4px 10px; }
+  .sketch-sheet-options input[type=range] { width: 100px; }
+}
+@media (prefers-reduced-motion: no-preference) { .sketch-sheet { animation: sketch-sheet-in 150ms ease-out; } @keyframes sketch-sheet-in { from { opacity: 0; } } }
 .organizer .conversation-voice { padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }.organizer .conversation-note { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .organizer .conversation-controls { display: flex; flex-wrap: wrap; gap: 8px; }.organizer .overlay { position: fixed; z-index: 400; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: #0009; }
 .organizer-dialog { width: min(650px, 100%); max-height: 90dvh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; }
@@ -79,5 +147,4 @@
 .shell > .organizer .organizer-empty p { font-size: var(--fs-s); }
 .shell > .organizer .organizer-editor { padding: 18px 28px 32px; gap: 14px; }
 .shell > .organizer .organizer-images figure { padding: 8px; }
-.shell > .organizer .organizer-sketch-disclosure > summary { min-height: 28px; font-size: var(--fs-s); }
 .shell > .organizer .organizer-dialog { padding: 20px; gap: 14px; }

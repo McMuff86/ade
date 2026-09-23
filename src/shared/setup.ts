@@ -10,6 +10,7 @@ export const REMOTE_SCOPE_LABELS: Record<RemoteAdminScope, string> = localizedLa
   'dictation:transcribe': translate("Transcribe microphone recordings with ElevenLabs (consumes credit)"),
   'organizer:read': translate("Read personal tasks and notes"),
   'organizer:write': translate("Edit personal tasks and notes"),
+  'diagnostics:read': translate("Run CLI diagnostics (starts version and sign-in checks on the PC)"),
   'projectGit:write': translate("Manage project branches and local Git operations"), 'projectGit:publish': translate("Push project branches and create GitHub PRs"),
   'terminal:control': translate("Control interactive terminals (commands with the rights of my Windows user)"),
 }));

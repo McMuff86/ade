@@ -57,7 +57,7 @@ export function RunActivityPanel({ host, run, participantId }: { host: MobileHos
     {!taskId && <p>{translate("There is no task yet.")}</p>}
     {taskId && !task && !error && <p role="status">{translate("Loading activity from the PC…")}</p>}
     {task && <p role="status">{task.status === 'running' ? task.process === 'running' ? translate("Process running") : translate("Run status not confirmed") : translate("Task {{value1}}", { value1: task.status })}
-      {task.exitCode !== undefined ? ` · Exit ${task.exitCode}` : ''} {" "}{translate("· Status")}{" "}{new Date(data!.checkedAt).toLocaleTimeString(intlLocale())}</p>}
+      {task.exitCode !== undefined ? ` · Exit ${task.exitCode}` : ''}{" "}{translate("· Status")}{" "}{new Date(data!.checkedAt).toLocaleTimeString(intlLocale())}</p>}
     {tab === 'activity' && task && <>
       <p>{outputAge(task.lastOutputAt, data!.checkedAt)}{task.outputBytes !== undefined ? translate(" · {{value1}} bytes received", { value1: task.outputBytes.toLocaleString(intlLocale()) }) : ''}</p>
       {task.notice && <p role="status">{localizeAppMessage(task.notice)}</p>}

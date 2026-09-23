@@ -55,7 +55,7 @@ export function ResultDetails(props: { result: ResultLike; idPrefix: string }): 
       )}
       {result.filesChanged.length > 0 && (
         <details className="gresult-block" open={result.filesChanged.length <= 8}>
-          <summary>{result.filesChanged.length} {" "}{translate("Modified file")}{result.filesChanged.length === 1 ? '' : 'en'}</summary>
+          <summary>{result.filesChanged.length}{" "}{translate("Modified file")}{result.filesChanged.length === 1 ? '' : 'en'}</summary>
           <ul className="gresult-files">
             {result.filesChanged.map((path) => <li key={path}><code>{path}</code></li>)}
           </ul>
@@ -64,7 +64,7 @@ export function ResultDetails(props: { result: ResultLike; idPrefix: string }): 
       {result.tests.length > 0 && (
         <details className="gresult-block" open={failedTests.length > 0}>
           <summary>
-            {translate("Tests:")}{" "}{passedTests.length} {" "}{translate("ok")}{failedTests.length > 0 && <b className="gresult-failed"> · {failedTests.length} {" "}{translate("Failed [6665686c]")}</b>}
+            {translate("Tests:")}{" "}{passedTests.length}{" "}{translate("ok")}{failedTests.length > 0 && <b className="gresult-failed"> · {failedTests.length}{" "}{translate("Failed [6665686c]")}</b>}
             {result.tests.length - passedTests.length - failedTests.length > 0
               && translate(" · Skipped {{value1}}", { value1: result.tests.length - passedTests.length - failedTests.length })}
           </summary>
@@ -77,7 +77,7 @@ export function ResultDetails(props: { result: ResultLike; idPrefix: string }): 
                 </div>
                 {test.output.trim() && (
                   <details open={test.status === 'failed'}>
-                    <summary id={`${idPrefix}-test-${index}`}>{translate("Output (")}{test.output.length} {" "}{translate("characters)")}</summary>
+                    <summary id={`${idPrefix}-test-${index}`}>{translate("Output (")}{test.output.length}{" "}{translate("characters)")}</summary>
                     <pre aria-labelledby={`${idPrefix}-test-${index}`}>{test.output}</pre>
                   </details>
                 )}

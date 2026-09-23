@@ -1,5 +1,106 @@
 # ADE implementation status
 
+## Prüfstand wiederhergestellt: Workflow-Suite grün, `pnpm verify` 29 von 32 (23. September 2026)
+
+Seit dem Sprach-Commit vom 20. September blockierte `test-electron-workflow` die
+Gesamtprüfung an englischen Locator-Texten; die Oberfläche ist standardmässig
+Deutsch. Repariert: 7 Helper-Labels, 23 zusammengesetzte Labels
+(„Agent-Einstellungen für …“), 10 Textprüfungen und Regex-Locator, dazu veraltete
+Erwartungen (Betreuungsdialog öffnet über „Gespräche“, Status „Läuft“,
+Eleven-Aussprache von „Agent“ gilt in allen Antworten). Zwei echte Restfehler der
+Sprachumstellung behoben: `} {" "}` erzeugte an 100 Stellen doppelte Leerzeichen
+(47 Dateien), und Escape innerhalb der Navigation klappte sie dauerhaft ein, sobald
+der Fokus nach einem Dialog auf einem Tab lag. Nur noch der Umschalter klappt ein.
+Prüfläufe können gegen isolierte Builds laufen (`ADE_E2E_MAIN`,
+`ADE_MOBILE_ASSETS`, wie zuvor `ADE_ORGANIZER_*`).
+
+Ergebnis: Typecheck, `pnpm test` **96 Suiten, 3990 Prüfungen**, Build, Workflow
+**197/0**, und 29 der 32 Electron-/Browser-Suiten aus `pnpm verify` grün
+(`test-results/verify-tail.log`, `verify-rerun.log`). Drei bleiben rot, alle aus
+der Zeit nach der letzten grünen Gesamtprüfung am 19. September und ohne Bezug zu
+den heutigen Änderungen: `test-remote-terminal-electron` (voll) wartet auf ein
+laufendes Hermes-Fixture, das sich in der PowerShell dieses Rechners mit
+aktivierter conda-`base`-Umgebung sofort beendet (94/1);
+`test-dictation-electron --computer-only` bleibt nach der Begrüssung in
+„Hört zu“ statt „Erkannt“ (17/1); `--terminal-media-only` findet die
+Fixture-Links nicht mehr im sichtbaren Terminalbild (8/1). Der volle Diktatlauf
+(66/0) deckt diese beiden Teilmodi nicht ab. Damit ist keine repositoryweite
+Abnahme behauptet; die Restarbeit ist benannt.
+
+## Diagnose auf dem Tablet (23. September 2026)
+
+Die CLI-Diagnose des PCs (Verfügbarkeit, Version, Anmeldung, Aufgabenübergabe)
+ist jetzt auch in den Tablet-Einstellungen unter „Diagnose“ ausführbar. Neue,
+separate Gerätefreigabe „CLI-Diagnose ausführen“ (Einstellungen → Verbundene
+Geräte am PC); ohne Freigabe erklärt das Tablet, wo sie aktiviert wird. Eigene
+signierte Route `/api/v1/diagnostics/query`, gleiche Prüfbefehle wie am PC,
+nur sichtbare Agenten, Pfade redigiert, jeder Lauf auditiert, höchstens zwölf
+Läufe pro Minute je Browser-Sitzung; `runtime:diagnose` bleibt desktop-only
+und die generische Remote-Allowlist unverändert. Nachweise: Remote-Diagnose
+**25/0** (neu in `pnpm test`), Host-API **184/0**, Sicherheit **289/0**,
+Remote-Organizer **35/0**, Tablet-Browser-Ablauf **57/0** (Hinweis ohne
+Freigabe, redigierter Bericht mit Freigabe, „Erneut ausführen“), Mobile-Browser
+**61/0**, Typecheck bestanden. Aktiviert am 23. September **14:29:56 CEST**, PID **28200**,
+Source `4e04e67647688237be11` ([Übergabe](HANDOFF.md)); kein `pnpm verify`.
+[Architektur](ARCHITECTURE.md).
+
+## Skizze: Teil-Radierer, Slider, Blattformat, PNG-Auflösung (23. September 2026)
+
+Phase 4 nach Nutzerwunsch: Radierer mit „Teil einer Linie“ (Standard) und
+„Ganze Linie“ plus Grössen-Slider und Reichweitenkreis; Strichstärke 1–40 per
+Slider und Schalter „Stiftdruck“; Blattformat mit fünf Vorgaben oder eigener
+Grösse innerhalb des Vertrags (nie kleiner als die Zeichnung, Rückgängig
+inklusive); PNG-Export 1×–3×. Nachweise: **44/0**, Browser **54/0**, Electron
+**17/0**, Typecheck und Build bestanden. Aktiviert am 23. September **13:29:10 CEST**,
+PID **14160**, Source `e2c2870395761d3a32f7` ([Übergabe](HANDOFF.md)); kein `pnpm verify`.
+[Details](TASKS_NOTES.md).
+
+## Skizze: Feinschliff (Phase 3, 23. September 2026)
+
+Stiftkontakt auf der Vorschau öffnet das Blatt und führt denselben Strich dort
+weiter; optionales Punktraster nur am Bildschirm. Nachweise: **31/0**, Browser
+**45/0**, Electron **17/0**, Typecheck und Build bestanden. Aktiviert am
+23. September **13:04:01 CEST**, PID **57088**, Source `489df28138b0b4827a2b`
+([Übergabe](HANDOFF.md)); kein `pnpm verify`. Damit sind alle drei Phasen aus
+[Skizzieren in Notizen](SKETCH_UX_PROPOSAL.md) umgesetzt. [Details](TASKS_NOTES.md).
+
+## Skizze: das Blatt mit Zoom und Gesten (23. September 2026)
+
+Phase 2 aus [Skizzieren in Notizen](SKETCH_UX_PROPOSAL.md): Zeichnen im
+Vollbild-Blatt über der App, Vorschau in der Notiz, Werkzeugleiste links mit
+sechs Tinten und drei Stärken, ein Finger verschiebt, zwei Finger zoomen,
+Ctrl + Rad, Tastatur, scharfe Darstellung in Gerätepixeln; Ansichtsmathematik
+mit dem Graph geteilt. Vertrag und Export unverändert. Nachweise: **31/0**,
+Browser **42/0**, Electron **17/0**, Typecheck und Build bestanden. Aktiviert am
+23. September **12:22:15 CEST**, PID **65532**, Source `86b965d091cc1b7dff6c`
+([Übergabe](HANDOFF.md)); kein `pnpm verify`. [Details](TASKS_NOTES.md).
+
+## Skizze: Hand wird ignoriert, Stift hat Vorrang (23. September 2026)
+
+Phase 1 aus [Skizzieren in Notizen](SKETCH_UX_PROPOSAL.md): Stift in der Nähe
+schaltet Berührungen auf Navigation, Handballenkontakte zeichnen nicht, der
+Finger scrollt auf Stiftgeräten die Seite, Seitentaste radiert, Striche werden
+geglättet. Auswahlfeld „Eingabe“ ersetzt „Nur Stift“; Einstellungen pro Gerät.
+Vertrag, Speicherung und Export unverändert. Nachweise: Eingaberegeln **19/0**,
+Browser **32/0**, Electron **15/0**, Typecheck und Build bestanden. Aktiviert am
+23. September **11:03:49 CEST**, PID **35032**, Source `45bfc1b0fa81ec9c3757`
+([Übergabe](HANDOFF.md)); kein `pnpm verify`. Blatt-Modus mit Zoom/Gesten
+(Phase 2, Leiste links) in Arbeit.
+[Details](TASKS_NOTES.md).
+
+## Betrieb: Neu gebaut und erreichbar (22. September 2026)
+
+Nach gemeldeten Tablet-Verbindungsproblemen war bei der Prüfung kein ADE-Host
+aktiv. Produktionsbuild erfolgreich; persönliches Profil seit **06:14:31 CEST**
+wieder gestartet, PID **65532**. Private Tailscale-Adresse HTTP 200, aktuelles
+Mobile-Bundle bytegleich geprüft, Browserstart ohne JavaScript-Fehler und
+mobile Verbindungstests **88/0**. Konfiguration/Geräteablage unverändert.
+Nach Tablet-Neustart war Tailscale laut Nutzer noch ausgeschaltet. Seit
+**06:20:55 CEST** wieder erfolgreiche Geräteanmeldung und authentifizierte
+Leseanfragen; Tablet direkt im WLAN erreichbar (50 ms). Ursache des
+Vortagsproblems von unterwegs weiterhin offen; kein vollständiges `pnpm verify`.
+[Betriebsnachweis und Sicherung](HANDOFF.md).
+
 ## Dichte-Pass am PC (20. September 2026, aktiviert 15:45 CEST)
 
 Aktiv seit **15:45:42 CEST**, PID **66896**, Source **`aaafed86de140f59bcbc`**,

@@ -14,6 +14,7 @@ import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
 import { HostRestartSection } from './HostRestartSection';
+import { MobileDiagnostics } from './Diagnostics';
 import { compareBuilds } from '../shared/buildInfo';
 import { RemoteManager, useRemoteAdministration } from './RemoteManager';
 import { AgentWorkspace } from './AgentWorkspace';
@@ -230,7 +231,7 @@ function MobileApp(): JSX.Element {
         <option value="">{translate("All projects")}</option>{host.catalog?.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
         <label>{translate("Agent filter")}<select aria-label={translate("Agent filter")} value={agentFilter} onChange={(event) => { setAgentFilter(event.target.value); setSelected(null); }}><option value="">{translate("All agents")}</option>
           {host.catalog?.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
-        <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length} {" "}{translate("Open runs in this selection · Task slots apply to all projects.")}</p></div>}
+        <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length}{" "}{translate("Open runs in this selection · Task slots apply to all projects.")}</p></div>}
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'tasks' || view === 'notes' ? <Suspense fallback={<p role="status">{translate("Loading tasks and notes…")}</p>}><MobileOrganizer host={host} access={admin.state} kind={view === 'tasks' ? 'task' : 'note'} onKind={kind => setView(kind === 'task' ? 'tasks' : 'notes')} onRun={id => { setGraphRunId(id); setView('graph'); select(id); }} /></Suspense>
@@ -276,6 +277,7 @@ function MobileApp(): JSX.Element {
       <SettingsTabs voice={host.paired ? <MobileSpeechSettings host={host} target={{ kind: 'default' }} /> : <p>{translate("To set the voice first connect to the PC.")}</p>}>
       {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
         requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
+      {host.paired && <MobileDiagnostics host={host} />}
       <LanguageSetting />
       <section className="m-settings-section"><h3>{translate("Appearance")}</h3><p>{translate("Theme on this device. Your PC setting remains independent.")}</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />{translate("Dark")}</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />{translate("Light")}</label></div></section>

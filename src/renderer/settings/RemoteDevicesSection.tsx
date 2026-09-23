@@ -96,7 +96,7 @@ export function RemoteDevicesSection(): JSX.Element {
                 <button type="button" className="btn" disabled={busy || !inventory.available}
                   aria-label={translate("Revoke access for {{value1}}", { value1: device.name })} onClick={() => void change(device.id, 'revoke')}>{translate("Remove device")}</button>
               </form>
-            ) : <strong>{device.name} {" "}{translate("· Access revoked")}</strong>}
+            ) : <strong>{device.name}{" "}{translate("· Access revoked")}</strong>}
             {device.revokedAt === null && <fieldset disabled={busy || !inventory.available} className="st-device-grants">
               <legend>{translate("Administrative rights for:")}{" "}{device.name}</legend>
               <p className="st-device-hint">{translate("Terminal access allows shell commands and access to everything your Windows user can access. The workspace is the starting directory, not a sandbox. You can take back input control on the desktop at any time.")}</p>
@@ -117,7 +117,7 @@ export function RemoteDevicesSection(): JSX.Element {
                 disabled={JSON.stringify([...(grantDrafts[device.id] ?? [])].sort()) === JSON.stringify([...(device.adminScopes ?? [])].sort())
                   && resourceKey(resourceDrafts[device.id]) === resourceKey(device.resourceAccess)}>{translate("Save administrative rights")}</button>
             </fieldset>}
-            <p className="st-device-hint">{device.id} {" "}{translate("· Added")}{" "}{new Date(device.createdAt).toLocaleDateString(intlLocale())}
+            <p className="st-device-hint">{device.id}{" "}{translate("· Added")}{" "}{new Date(device.createdAt).toLocaleDateString(intlLocale())}
               {device.revokedAt !== null && translate(" · Revoked {{value1}}", { value1: new Date(device.revokedAt).toLocaleDateString(intlLocale()) })}</p>
           </li>
         ))}

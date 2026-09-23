@@ -46,8 +46,8 @@ export function SubscriptionUsagePanel({ load, online = true, compact = false }:
         {!usage.authentication && <p>{translate("ADE cannot automatically confirm the active sign-in of this CLI. A missing API key does not prove a subscription.")}</p>}
         <p>{usage.message}</p>
         {usage.windows.map((window, index) => <div key={index}>
-          <strong>{window.windowMinutes % 1440 === 0 ? `${window.windowMinutes / 1440} Tage` : window.windowMinutes % 60 === 0 ? `${window.windowMinutes / 60} Stunden` : translate("{{value1}} minutes", { value1: window.windowMinutes })}: {Math.round(window.remainingPercent)} {" "}{translate("% remaining")}</strong>
-          <span>{Math.round(window.usedPercent)} {" "}{translate("% consumed")}</span>
+          <strong>{window.windowMinutes % 1440 === 0 ? `${window.windowMinutes / 1440} Tage` : window.windowMinutes % 60 === 0 ? `${window.windowMinutes / 60} Stunden` : translate("{{value1}} minutes", { value1: window.windowMinutes })}: {Math.round(window.remainingPercent)}{" "}{translate("% remaining")}</strong>
+          <span>{Math.round(window.usedPercent)}{" "}{translate("% consumed")}</span>
           <progress max={100} value={window.usedPercent} aria-label={translate("{{value1}}: used", { value1: window.label })} />
           <span>{translate("Reset:")}{" "}{new Date(window.resetsAt).toLocaleString(intlLocale())} · {window.resetsAt <= now ? translate("Time reached; retrieve usage.") : translate("in {{value1}} h {{value2}} min", { value1: Math.floor((window.resetsAt - now) / 3600000), value2: Math.ceil((window.resetsAt - now) / 60000) % 60 })}</span>
         </div>)}

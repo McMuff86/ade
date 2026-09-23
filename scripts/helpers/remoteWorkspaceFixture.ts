@@ -65,8 +65,10 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const inspection = new RunInspectionService(store, workbench, { getSessionMeta: (id) => sessions.find((item) => item.id === id),
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const organizer = new OrganizerService(join(root, 'organizer.json'));
+  const diagnostics = { calls: [] as (string | undefined)[], result: { checkedAt: 1, platform: 'fixture', items: [] } as import('../../src/shared/types').RuntimeDiagnosticsResult };
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
     organizer,
+    diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
     supervision: () => new SupervisionService(new SupervisionStore(join(root, 'supervision.json')), store, id => sessions.find(session => session.id === id)),
     deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
@@ -85,5 +87,5 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, organizer, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
+  return { ...fixture, application, organizer, diagnostics, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

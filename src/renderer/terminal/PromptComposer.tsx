@@ -285,7 +285,7 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     {storageError && <p role="alert">{storageError}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
     <div className="prompt-actions">
       <button type="button" disabled={!composer.canRecord} onClick={() => void composer.record()}>{translate("Dictate")}</button>
-      {phase === 'recording' && <button type="button" onClick={composer.stop}>{translate("Stop recording ·")}{" "}{seconds} {" "}{translate("s")}</button>}
+      {phase === 'recording' && <button type="button" onClick={composer.stop}>{translate("Stop recording ·")}{" "}{seconds}{" "}{translate("s")}</button>}
       {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={composer.cancel}>{translate("Cancel recording")}</button>}
       {phase === 'permission' && <span role="status">{translate("Requesting microphone…")}</span>}{phase === 'transcribing' && <span role="status">{translate("Transcribing audio…")}</span>}
       <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>{translate("Insert to CLI")}</button>

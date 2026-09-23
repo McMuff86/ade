@@ -14,7 +14,7 @@ export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; sel
   useLocale();
   return <button className="m-run-row" aria-pressed={selected} aria-label={translate("Run {{value1}}", { value1: run.name })} onClick={(event) => { event.currentTarget.focus(); onSelect(); }}>
     <Status status={run.status} /><span className="m-run-name"><strong>{run.name}</strong><small>{localizedState(run.phase)} · {runKindLabel(run)}</small></span>
-    <span className="m-run-project">{run.repositoryName ?? 'Repository'}</span><span className="m-run-tasks">{run.tasks.filter((task) => task.status === 'completed').length}/{run.tasks.length} {" "}{translate("Tasks")}</span>
+    <span className="m-run-project">{run.repositoryName ?? 'Repository'}</span><span className="m-run-tasks">{run.tasks.filter((task) => task.status === 'completed').length}/{run.tasks.length}{" "}{translate("Tasks")}</span>
     <span className="m-run-time">{formatRelativeTime(Date.now(), run.updatedAt)}</span>
   </button>;
 }
@@ -51,14 +51,14 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
           const last = [...projectRuns].sort((a, b) => b.updatedAt - a.updatedAt)[0];
           return <li key={repo.id}><button className="m-project-card" onClick={(event) => { event.currentTarget.focus(); onProject(repo.id); }} aria-label={translate("Open project: {{value1}}", { value1: repo.name })}>
             <span className="m-project-title"><Icon name="project" /><strong>{repo.name}</strong><span>{repo.executionBackend}</span></span>
-            <span>{repo.verified ? translate("Verified") : translate("Not yet verified")} · {projectRuns.length} {" "}{translate("Runs")}</span>
+            <span>{repo.verified ? translate("Verified") : translate("Not yet verified")} · {projectRuns.length}{" "}{translate("Runs")}</span>
             <small>{last ? `${last.name} · ${formatRelativeTime(Date.now(), last.updatedAt)}` : translate("No run activity yet")}</small>
           </button></li>;
         })}</ul>}
       </section>
-      <section className="m-ledger" aria-labelledby="mobile-work-title"><h2 id="mobile-work-title">{translate("Jobs")}{" "}<span>{translate("Latest")}{" "}{recent.length} {" "}{translate("Runs")}</span></h2>
+      <section className="m-ledger" aria-labelledby="mobile-work-title"><h2 id="mobile-work-title">{translate("Jobs")}{" "}<span>{translate("Latest")}{" "}{recent.length}{" "}{translate("Runs")}</span></h2>
         {!recent.length ? <p className="m-empty-copy">{translate("No runs yet. Get started with “Assign agent work” or “New run”.")}</p> : <ul className="m-work-list">{recent.map((run) => <li key={run.id}><RunRow run={run} selected={selected === run.id} onSelect={() => onRun(run.id)} /></li>)}</ul>}
-        <p className="m-section-note">{runs.some((run) => run.usage.costUsd > 0) ? translate("{{value1}} reported run costs", { value1: formatCostUsd(runs.reduce((sum, run) => sum + run.usage.costUsd, 0)) }) : translate("Costs not yet reported")} {" "}{translate("· Current data from the PC")}</p>
+        <p className="m-section-note">{runs.some((run) => run.usage.costUsd > 0) ? translate("{{value1}} reported run costs", { value1: formatCostUsd(runs.reduce((sum, run) => sum + run.usage.costUsd, 0)) }) : translate("Costs not yet reported")}{" "}{translate("· Current data from the PC")}</p>
       </section>
     </>}
   </div>;

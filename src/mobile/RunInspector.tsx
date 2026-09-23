@@ -33,16 +33,16 @@ export function RunInspector({ run, participantId, host, onSend, focusVersion }:
       <div className="m-progress" role="progressbar" aria-label={translate("Completed tasks")} aria-valuemin={0} aria-valuemax={Math.max(1, tasks.length)} aria-valuenow={tasks.filter((task) => task.status === 'completed').length}>
         <span style={{ width: `${tasks.length ? tasks.filter((task) => task.status === 'completed').length / tasks.length * 100 : 0}%` }} /></div>
       {!tasks.length ? <p className="m-empty-copy">{translate("No tasks for this selection yet.")}</p> : <ul className="m-inspector-tasks">{tasks.map((task) => <li key={task.id}>
-        <strong>{task.title}</strong><div><Status status={task.status} /><span>{localizedState(task.phase)} {" "}{translate("· Attempt")}{" "}{task.attempt}</span></div>
+        <strong>{task.title}</strong><div><Status status={task.status} /><span>{localizedState(task.phase)}{" "}{translate("· Attempt")}{" "}{task.attempt}</span></div>
       </li>)}</ul>}
     </section>
     {run.tasks.some((task) => task.pendingQuestions !== undefined) && <RunQuestionsPanel key={`${host.identityVersion}:${run.id}`} runId={run.id} port={questionPort} online={host.status === 'online'} canAnswer={host.canSubmit} active={run.status === 'running'} />}
     <RunActivityPanel key={`${run.id}:${participantId ?? 'run'}`} host={host} run={run} participantId={participantId} />
-    <section><h3>{translate("Budget and use")}</h3><dl><dt>{translate("Parallel")}</dt><dd>{run.budget.maxConcurrentTasks} {" "}{translate("Tasks")}</dd><dt>{translate("Per task")}</dt><dd>{run.budget.maxTaskMinutes} {" "}{translate("min")}</dd>
+    <section><h3>{translate("Budget and use")}</h3><dl><dt>{translate("Parallel")}</dt><dd>{run.budget.maxConcurrentTasks}{" "}{translate("Tasks")}</dd><dt>{translate("Per task")}</dt><dd>{run.budget.maxTaskMinutes}{" "}{translate("min")}</dd>
       <dt>{translate("Cost limit")}</dt><dd>{run.budget.maxCostUsd === null ? translate("No limit") : formatCostUsd(run.budget.maxCostUsd)}</dd>
       <dt>{translate("Reported Tokens")}</dt><dd>{tokens > 0 ? formatTokenCount(tokens) : translate("Not specified")}</dd>
       <dt>{translate("Declared costs")}</dt><dd>{run.usage.costUsd > 0 ? formatCostUsd(run.usage.costUsd) : translate("Not specified")}</dd></dl>
-      {run.usage.unreportedCostTasks > 0 && <p className="m-field-note">{run.usage.unreportedCostTasks} {" "}{translate("Tasks with no reported cost.")}</p>}</section>
+      {run.usage.unreportedCostTasks > 0 && <p className="m-field-note">{run.usage.unreportedCostTasks}{" "}{translate("Tasks with no reported cost.")}</p>}</section>
     {run.pendingApprovalId && <p className="m-notice">{translate("Approval on the PC is required. Review the verification evidence and changes there.")}</p>}
     <div className="m-actions">{run.status === 'draft' && !run.tasks.length && <button className="m-primary" disabled={!host.canSubmit}
       onClick={() => onSend({ path: `/api/v1/runs/${run.id}/start`, key: crypto.randomUUID() })}>{translate("Start run")}</button>}

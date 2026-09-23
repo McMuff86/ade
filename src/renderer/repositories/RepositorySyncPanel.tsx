@@ -80,7 +80,7 @@ export function RepositorySyncPanel({ repositoryId, onOpenWorkspace }: { reposit
     {error && <p className="repo-sync-error" role="alert">{localizeAppMessage(error)}</p>}
     {message && <p role="status">{message}</p>}
     {overview && <>
-      <p className="repo-sync-meta">{overview.repositoryName} · {overview.executionBackend} {" "}{translate("· Remote")}{overview.remoteCheckedAt === null ? translate(": Not yet checked in this app session") : translate(" checked: {{value1}}", { value1: new Date(overview.remoteCheckedAt).toLocaleString(intlLocale()) })}</p>
+      <p className="repo-sync-meta">{overview.repositoryName} · {overview.executionBackend}{" "}{translate("· Remote")}{overview.remoteCheckedAt === null ? translate(": Not yet checked in this app session") : translate(" checked: {{value1}}", { value1: new Date(overview.remoteCheckedAt).toLocaleString(intlLocale()) })}</p>
       <label className="repo-sync-source">{translate("Desired Git base")}<select aria-label={translate("Desired Git base")} disabled={busy} value={overview.sourceRef}
           onChange={(event) => void perform(() => load(event.target.value))}>
           {overview.refs.map((ref) => <option key={ref.ref} value={ref.ref}>{ref.label}</option>)}
@@ -90,7 +90,7 @@ export function RepositorySyncPanel({ repositoryId, onOpenWorkspace }: { reposit
         {overview.targets.map((target) => <li key={target.id} data-sync-target={target.id}>
           <strong>{target.name}</strong> <span>{target.branch || 'Detached HEAD'}</span>
           {target.headSha ? <>
-            <p><code>{target.headSha.slice(0, 12)}</code> · {target.changedFiles} {" "}{translate("Uncommitted files")}</p>
+            <p><code>{target.headSha.slice(0, 12)}</code> · {target.changedFiles}{" "}{translate("Uncommitted files")}</p>
             <p>{target.ahead === 0 && target.behind === 0 ? translate("On the chosen git base") : translate("{{value1}} own commits · {{value2}} commits behind the selected base", { value1: target.ahead, value2: target.behind })}</p>
           </> : <p>{translate("Git state unknown")}</p>}
           {target.blockedReason && <p className="repo-sync-blocked">{localizeAppMessage(target.blockedReason)}</p>}
@@ -106,7 +106,7 @@ export function RepositorySyncPanel({ repositoryId, onOpenWorkspace }: { reposit
     </>}
     {preview && <div className="repo-sync-preview" role="region" aria-label={translate("Confirm Git Update")}>
       <strong>{preview.target.name} · {preview.target.branch}</strong>
-      <p>{preview.target.behind} {" "}{translate("Commits from")}{" "}{preview.overview.sourceRef.replace(/^refs\/(heads|remotes)\//, '')}</p>
+      <p>{preview.target.behind}{" "}{translate("Commits from")}{" "}{preview.overview.sourceRef.replace(/^refs\/(heads|remotes)\//, '')}</p>
       <p><code>{preview.target.headSha?.slice(0, 12)} → {preview.overview.sourceSha.slice(0, 12)}</code></p>
       <label><input ref={confirmation} type="checkbox" checked={confirmed} disabled={busy}
         onChange={(event) => setConfirmed(event.target.checked)} />{translate("Update this worktree to the displayed base")}</label>

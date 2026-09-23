@@ -12,6 +12,8 @@ import { ConversationVoice } from '../conversation/ConversationVoice';
 import type { ConversationDrafts } from '../conversation/conversationDrafts';
 import { Modal } from '../onboarding/Modal';
 import { downloadOrganizerBlob, importOrganizerImage, organizerMarkdown, organizerPdf, organizerPng } from './organizerExports';
+import { readSketchPreferences, sketchPreferenceStorage } from './sketchInput';
+import { exportScalesFor } from './sketchErase';
 
 function localTime(value: number | null): string { if (value === null) return ''; const date = new Date(value); return new Date(value - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }
 const parseTime = (text: string): number | null => text && Number.isFinite(new Date(text).getTime()) ? new Date(text).getTime() : null;
@@ -46,7 +48,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
   const safely = async (action: () => Promise<unknown>) => { try { await editing.flush(); await action(); } catch (reason) { setError(port.describe(reason)); } };
   const exportFile = async (format: 'md' | 'png' | 'pdf') => {
     if (exporting) return; setExporting(true); setError(''); const snapshot = structuredClone(current.current);
-    try { const blob = format === 'md' ? new Blob([organizerMarkdown(snapshot)], { type: 'text/markdown;charset=utf-8' }) : format === 'png' ? await organizerPng(snapshot) : await organizerPdf(snapshot);
+    try { const blob = format === 'md' ? new Blob([organizerMarkdown(snapshot)], { type: 'text/markdown;charset=utf-8' }) : format === 'png' ? await organizerPng(snapshot, exportScalesFor(snapshot.sketch.width, snapshot.sketch.height).includes(readSketchPreferences(sketchPreferenceStorage()).exportScale) ? readSketchPreferences(sketchPreferenceStorage()).exportScale : 1) : await organizerPdf(snapshot);
       downloadOrganizerBlob(blob, snapshot.title, format);
     } catch (reason) { setError(port.describe(reason)); } finally { setExporting(false); }
   };
@@ -61,7 +63,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
     {saveError && <p role="alert" className="organizer-error">{saveError} <button type="button" onClick={() => void editing.flush().catch(() => undefined)}>{translate("Try saving again")}</button></p>}
     {entry.base?.conflictOf && <p className="organizer-conflict">{translate("Conflict copy: The original entry was also retained. Check both versions and merge them if necessary.")}</p>}
     {entry.redacted && <p role="status">{translate("Some content is hidden on the tablet. Edit the original on the PC. The export contains the version visible here.")}</p>}
-    {error && <p role="alert" className="organizer-error">{localizeAppMessage(error)} {" "}{translate("Copy or export the visible text if necessary.")}</p>}
+    {error && <p role="alert" className="organizer-error">{localizeAppMessage(error)}{" "}{translate("Copy or export the visible text if necessary.")}</p>}
     <label>{translate("Title")}<input ref={title} value={value.title} maxLength={ORGANIZER_LIMITS.title} readOnly={readOnly} placeholder={value.kind === 'task' ? translate("What do you want to do?") : translate("Title of the note")} onChange={event => patch({ title: event.target.value })} /></label>
     <div className="organizer-fields"><label>{translate("Project")}<select value={value.repositoryId ?? ''} disabled={readOnly} onChange={event => patch({ repositoryId: event.target.value || null })}>
       <option value="">{translate("No project")}</option>{value.repositoryId && !repositories.some(repo => repo.id === value.repositoryId) && <option value={value.repositoryId}>{translate("Previous project not available")}</option>}{repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
@@ -94,9 +96,8 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
       <button type="button" disabled={readOnly || value.checklist.length >= ORGANIZER_LIMITS.checklist} onClick={() => patch({ checklist: [...current.current.checklist, { id: crypto.randomUUID(), text: '', done: false }] })}>{translate("Add checklist item")}</button></section>}
     {value.images.length > 0 && <div className="organizer-images">{value.images.map(image => <figure key={image.id}><OrganizerPhoto image={image} /><figcaption>{image.name}</figcaption>
       <button type="button" disabled={readOnly} onClick={() => patch({ images: current.current.images.filter(item => item.id !== image.id), sketch: current.current.sketch.backgroundImageId === image.id ? { ...current.current.sketch, backgroundImageId: null } : current.current.sketch })}>{translate("Remove photo")}</button></figure>)}</div>}
-    <details className="organizer-sketch-disclosure" open={value.kind === 'note' || !!value.sketch.strokes.length || undefined}><summary>{translate("Sketch and photo annotations")}</summary>
-      <SketchEditor document={value} disabled={readOnly} onChange={sketch => patch({ sketch })} /></details>
-    {!!value.runIds.length && <section aria-label={translate("Assigned jobs")}><h3>{translate("Jobs and results")}</h3>{value.runIds.map((id, index) => <button type="button" key={id} onClick={() => onRun(id)}>{translate("Job")}{" "}{index + 1} {" "}{translate("Open [c3b66666]")}</button>)}</section>}
+    <SketchEditor document={value} disabled={readOnly} title={value.title} onChange={sketch => patch({ sketch })} onExportPng={() => void exportFile('png')} />
+    {!!value.runIds.length && <section aria-label={translate("Assigned jobs")}><h3>{translate("Jobs and results")}</h3>{value.runIds.map((id, index) => <button type="button" key={id} onClick={() => onRun(id)}>{translate("Job")}{" "}{index + 1}{" "}{translate("Open [c3b66666]")}</button>)}</section>}
     {value.sourceNoteId && <p className="organizer-help">{translate("Created from a note. The original note remains.")}</p>}
     <footer className="organizer-tools" role="group" aria-label={translate("Export and other actions")}><button type="button" disabled={exporting} onClick={() => void exportFile('md')}>{translate("Text as Markdown")}</button>
       <button type="button" disabled={exporting} onClick={() => void exportFile('png')}>{translate("Sketch as PNG")}</button><button type="button" disabled={exporting} onClick={() => void exportFile('pdf')}>{exporting ? translate("Creating export…") : translate("Save as PDF")}</button>

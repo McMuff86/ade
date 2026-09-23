@@ -81,7 +81,7 @@ export function OrganizerPage(props: OrganizerPageProps) {
     </header>
     <p className="organizer-save-status" role="status">{!online ? translate("Offline · Drafts are stored on this device.") : pending ? translate("{{value1}} local change(s) waiting for the PC.", { value1: pending }) : busy ? translate("Syncing… [4162676c]") : state && synced && !error ? translate("Saved on this device · Synced with the PC.") : state ? translate("Saved on this device · PC sync not yet confirmed.") : translate("Loading local storage…")}</p>
     {!canWrite && <p role="status">{translate("Read-only mode. To edit, enable “Edit personal tasks and notes” on the PC.")}</p>}
-    {error && <p className="organizer-error" role="alert">{localizeAppMessage(error)} {" "}{translate("Local drafts are preserved.")}</p>}
+    {error && <p className="organizer-error" role="alert">{localizeAppMessage(error)}{" "}{translate("Local drafts are preserved.")}</p>}
     <div className="organizer-body"><aside className="organizer-list" aria-label={kind === 'task' ? translate("Task list") : translate("Note list")}>
       <label>{translate("Search")}<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={kind === 'task' ? translate("Search for tasks") : translate("Browse notes")} /></label>
       <label>{translate("Project filters")}<select value={project} onChange={event => setProject(event.target.value)}><option value="">{translate("All projects")}</option>{props.repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>

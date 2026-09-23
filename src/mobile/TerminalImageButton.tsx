@@ -123,7 +123,7 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
         onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void select(file); }} />
       <div className="m-terminal-image-actions"><button disabled={phase !== 'idle' || uncertain} onClick={() => picker.current?.click()}>{translate("Select the image")}</button>
         <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button></div>
-      {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)} {" "}{translate("KiB")}</figcaption></figure>}
+      {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)}{" "}{translate("KiB")}</figcaption></figure>}
       {!png && phase === 'idle' && !notice && <p>{translate("No picture selected yet.")}</p>}
       <label>{translate("Image message")}<textarea ref={message} aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
       {phase !== 'idle' && <p role="status">{phase === 'preparing' ? translate("The picture is being prepared…") : phase === 'uploading' ? translate("Uploading image to the PC…") : translate("Sending image and message…")}</p>}

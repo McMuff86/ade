@@ -148,7 +148,7 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
       {!view && !error && <p role="status">{translate("Loading conversations…")}</p>}
       {view?.length === 0 && <p>{translate("No ADE conversation yet. You can start without an open project or terminal.")}</p>}
       {!!view?.length && <label>{translate("Choose a conversation")}<select aria-label={translate("Choose a conversation")} value={selected} disabled={busy} onChange={event => select(event.target.value)}>
-        <option value="">{translate("Choose a conversation")}</option>{view.map((c, index) => <option key={c.id} value={c.id}>{index + 1}. {profiles.find(p => p.id === c.profileId)?.name ?? translate("Removed profile")} · {c.closed ? translate("Closed") : STATUS[c.status]} · {c.turns} {" "}{translate("Messages")}</option>)}
+        <option value="">{translate("Choose a conversation")}</option>{view.map((c, index) => <option key={c.id} value={c.id}>{index + 1}. {profiles.find(p => p.id === c.profileId)?.name ?? translate("Removed profile")} · {c.closed ? translate("Closed") : STATUS[c.status]} · {c.turns}{" "}{translate("Messages")}</option>)}
       </select></label>}
       {selected && !detail && !error && <p role="status">{translate("Loading conversation…")}</p>}
       {detail && <>

@@ -39,7 +39,7 @@ void (async()=>{
   const deviceId=devices.activeDevices()[0]!.id;
   const context=():RemoteCommandContext=>({principal:{id:deviceId,kind:'device',proof:'device-signature',scopes:new Set(devices.activeDevices().find(d=>d.id===deviceId)!.scopes)},idempotencyKey:randomUUID(),requestId:'speech-fixture'});
   await page.getByRole('button',{name:'Einstellungen',exact:true}).click();await page.getByRole('tab',{name:'Stimme',exact:true}).click();
-  const settings=page.getByRole('dialog',{name:'Settings',exact:true}); const speech=settings.getByRole('region',{name:'Sprachausgabe',exact:true});
+  const settings=page.getByRole('dialog',{name:'Einstellungen',exact:true}); const speech=settings.getByRole('region',{name:'Sprachausgabe',exact:true});
   await speech.getByRole('button',{name:'Stimmen laden',exact:true}).click();await speech.getByRole('alert').waitFor();
   check('mobile settings explain the dedicated voice grant', (await speech.getByRole('alert').innerText()).includes('Freigabe'));
   await rejects('missing grant cannot generate speech',()=>app.remoteSpeech(context(),{operation:'test',target:{kind:'default'},voiceId:female},true),'scope_not_granted');

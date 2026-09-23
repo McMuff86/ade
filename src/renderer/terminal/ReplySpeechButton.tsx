@@ -147,7 +147,7 @@ function ReplySpeechDialog({ source, port, context, onClose, restoreFocus }: Rep
     <p className="reply-speech-help">{translate("Keep the desired answer here. The editing does not change anything in the session.")}</p>
     <label>{translate("Scope")}{" "}<select aria-label={translate("Read-aloud scope")} value={mode} disabled={busy} onChange={event => reply.choose(event.target.value as ReplyMode)}>
       <option value="excerpt">{translate("Read brief version")}</option><option value="full">{translate("Read everything")}</option></select></label>
-    <p className="reply-speech-help">{mode === 'excerpt' ? translate("A short excerpt from the first full sentences. No AI summary.") : translate("The selected text with adjusted formatting.")} {" "}{translate("Blocks of code are omitted. The Speech text is sent to ElevenLabs.")}</p>
+    <p className="reply-speech-help">{mode === 'excerpt' ? translate("A short excerpt from the first full sentences. No AI summary.") : translate("The selected text with adjusted formatting.")}{" "}{translate("Blocks of code are omitted. The Speech text is sent to ElevenLabs.")}</p>
     {preview && <><p className="reply-speech-help">{preview.shortened ? translate("Shortened speech text") : translate("Speech text")}</p><p className="reply-speech-text" aria-label={translate("Speech text")}>{preview.text}</p></>}
     {status && <p role="status">{status}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
     <div className="reply-speech-actions">
@@ -200,7 +200,7 @@ function ReplySpeechSheet({ source, port, context, onClose, restoreFocus }: Repl
       <button type="button" className="voice-icon-button" aria-label={translate("Notes for reading aloud")} aria-expanded={help} onClick={() => setHelp(open => !open)}><InfoIcon /></button>
       <button type="button" className="voice-quiet" aria-label={translate("Close read-aloud reply")} onClick={close}>{translate("Close")}</button>
     </div>
-    {help && <p className="reply-speech-help">{translate("Editing does not change anything in the session.")}{" "}{mode === 'excerpt' ? translate("In short: an excerpt from the first complete sentences, not an AI summary.") : translate("Everything: the text with adjusted formatting.")} {" "}{translate("Blocks of code are omitted. The Speech text is sent to ElevenLabs.")}</p>}
+    {help && <p className="reply-speech-help">{translate("Editing does not change anything in the session.")}{" "}{mode === 'excerpt' ? translate("In short: an excerpt from the first complete sentences, not an AI summary.") : translate("Everything: the text with adjusted formatting.")}{" "}{translate("Blocks of code are omitted. The Speech text is sent to ElevenLabs.")}</p>}
     <textarea className="reply-sheet-text" aria-label={translate("Text for reading")} value={draft} maxLength={MAX_REPLY_SOURCE_CHARS} disabled={busy} rows={3} spellCheck={false}
       onChange={event => reply.edit(event.target.value)} />
     {preview && <p className="reply-speech-text" aria-label={translate("Speech text")}>{preview.text}</p>}

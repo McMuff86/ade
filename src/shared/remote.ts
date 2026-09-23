@@ -3,6 +3,14 @@ import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
 import type { DictationJobState } from './dictation';
 import type { LiveDictationChunk } from './liveDictation';
+/** Tablet diagnostics: optionally one agent; sessions never appear on the wire (PTY ids stay on the PC). */
+export interface MobileDiagnosticsQuery { agentId?: string }
+export type MobileDiagnosticsResult = import('./types').RuntimeDiagnosticsResult;
+export function validDiagnosticsQuery(value: unknown): value is MobileDiagnosticsQuery {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return Object.keys(item).every((key) => key === 'agentId') && (item.agentId === undefined || typeof item.agentId === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(item.agentId));
+}
 export type MobileOrganizerQuery = import('./organizer').OrganizerQuery;
 export type MobileOrganizerMutation = import('./organizer').OrganizerMutation;
 export type MobileOrganizerResult = import('./organizer').OrganizerQueryResult | import('./organizer').OrganizerReceipt;

@@ -90,7 +90,7 @@ export function FileEditor({ host, file, workspaceVersion, agentId, repositoryId
     {error && <p role="alert">{localizeAppMessage(error)}</p>}<pre tabIndex={0} aria-label={translate("File Preview")}>{file.text}</pre></>;
   const disabled = saving || !!draft.pending;
   return <div className="m-file-editor">
-    <p>{translate("Draft on this device ·")}{" "}{new TextEncoder().encode(draft.text).length} {" "}{translate("Bytes · Save up to 24 KiB")}</p>
+    <p>{translate("Draft on this device ·")}{" "}{new TextEncoder().encode(draft.text).length}{" "}{translate("Bytes · Save up to 24 KiB")}</p>
     {error && <p role="alert" className="m-alert">{localizeAppMessage(error)}</p>}{draft.notice && <p role="status">{localizeAppMessage(draft.notice)}</p>}
     {draft.base.revision !== file.revision && <p>{translate("This draft is based on an older version of the file, and when it's saved, it checks the current status.")}</p>}
     <div className="m-management-actions"><label>{translate("Search in the text")}<input value={find} onChange={(event) => setFind(event.target.value)} maxLength={100} /></label>

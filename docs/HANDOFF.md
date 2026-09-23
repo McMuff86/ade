@@ -1,5 +1,146 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: geprüfter Gesamtstand des 23. September (16:14 CEST)
+
+Für `pnpm build` und die Electron-/Browser-Suiten wurde die Instanz PID 28200
+regulär über das Tray-Menü beendet. Nach den Läufen Start aus dem Repository:
+**16:14:47 CEST**, PID **60704**, Source **`ba1a5f5c52425a52c3bd`** (Desktop
+13:49:39 UTC, Mobile 13:49:48 UTC). Listener nur `127.0.0.1:4317`; private
+HTTPS-Adresse liefert HTTP 200 mit `assets/index-berWjzc7.js`; Geräteablage
+bytegleich; Sicherung `C:\Users\Adi.Muff\ADE-Backups\VerifyCommit-20260923-161446`.
+Enthalten: Skizze Phasen 1–4, Tablet-Diagnose, Navigations- und
+Leerzeichen-Korrekturen. Testergebnisse und die drei offenen Suiten stehen in
+[STATUS.md](STATUS.md). Alles ist als ein Commit auf `main` festgehalten.
+
+## Aktiviert: Diagnose auf dem Tablet (23. September 2026, 14:29:56 CEST)
+
+PID 14160 (Skizze Phase 4) regulär über das Tray-Menü beendet, keine
+Kindprozesse ausser Electron. Profil gesichert nach `C:\Users\Adi.Muff\ADE-Backups\TabletDiagnostics-20260923-142941`.
+`pnpm build` erfolgreich, Start aus dem Repository: **14:29:56 CEST**, PID **28200**,
+Source **`4e04e67647688237be11`** (Desktop 12:29:42 UTC, Mobile 12:29:51 UTC, Arbeitsbaum
+über `f7144d5`, nicht committet). Listener nur `127.0.0.1:4317`; private
+HTTPS-Adresse liefert HTTP 200 mit `assets/index-Cc9iNECW.js`; Geräteablage vor/nach
+Start bytegleich. Inhalt: Tablet-Einstellungen → „Diagnose“ mit der neuen
+Gerätefreigabe „CLI-Diagnose ausführen“ (bestehende Geräte erhalten sie nicht
+automatisch; am PC unter Einstellungen → Verbundene Geräte setzen), Route
+`/api/v1/diagnostics/query`, redigierter Bericht, Audit, Budget zwölf Läufe pro
+Minute ([STATUS.md](STATUS.md), [ARCHITECTURE.md](ARCHITECTURE.md)). Offen:
+Freigabe für das Tablet setzen und dort prüfen, Commit, `pnpm verify`.
+
+## Aktiviert: Skizze Phase 4, Werkzeuge und Blattformat (23. September 2026, 13:29:10 CEST)
+
+PID 57088 (Phase 3) regulär über das Tray-Menü beendet, keine Kindprozesse
+ausser Electron. Profil gesichert nach `C:\Users\Adi.Muff\ADE-Backups\SketchPhase4-20260923-132856`.
+`pnpm build` erfolgreich, Start aus dem Repository: **13:29:10 CEST**, PID **14160**,
+Source **`e2c2870395761d3a32f7`** (Desktop 11:28:58 UTC, Mobile 11:29:06 UTC, Arbeitsbaum
+über `f7144d5`, nicht committet). Listener nur `127.0.0.1:4317`; private
+HTTPS-Adresse liefert HTTP 200 mit `assets/index-DKLvMSYu.js`; Geräteablage vor/nach
+Start bytegleich. Inhalt: Teil-Radierer mit Modus und Grösse, Stärke-Slider,
+Stiftdruck-Schalter, Blattformat, PNG-Auflösung ([TASKS_NOTES.md](TASKS_NOTES.md)).
+Offen: Tablet-Urteil des Nutzers, Commit, `pnpm verify`.
+
+## Aktiviert: Skizze Phase 3, Feinschliff (23. September 2026, 13:04 CEST)
+
+PID 65532 (Phase 2) regulär über das Tray-Menü beendet, keine Kindprozesse
+ausser Electron. Profil gesichert nach
+`C:\Users\Adi.Muff\ADE-Backups\SketchPhase3-20260923-130347`. `pnpm build`
+erfolgreich, Start aus dem Repository: **13:04:01 CEST**, PID **57088**, Source
+**`489df28138b0b4827a2b`** (Desktop 11:03:48 UTC, Mobile 11:03:56 UTC,
+Arbeitsbaum über `f7144d5`, nicht committet). Listener nur `127.0.0.1:4317`;
+private HTTPS-Adresse liefert HTTP 200 mit `assets/index-_0j9u5Pg.js`;
+Geräteablage vor/nach Start bytegleich. Damit sind alle drei Phasen aus
+[SKETCH_UX_PROPOSAL.md](SKETCH_UX_PROPOSAL.md) aktiv: Handballen-Abweisung,
+Vollbild-Blatt mit Gesten, Stiftkontakt auf der Vorschau mit Strichübergabe,
+Punktraster ([TASKS_NOTES.md](TASKS_NOTES.md)). Offen: Tablet-Urteil des
+Nutzers, Commit, `pnpm verify`.
+
+## Aktiviert: Skizze Phase 2, das Blatt (23. September 2026, 12:22 CEST)
+
+PID 35032 (Phase 1) regulär beendet: Fenster geschlossen, Tray-Overflow
+„Ausgeblendete Symbole einblenden“, Menüpunkt „ADE und mobilen Zugriff
+beenden“; keine Kindprozesse ausser Electron. Profil gesichert nach
+`C:\Users\Adi.Muff\ADE-Backups\SketchPhase2-20260923-122201`. `pnpm build`
+erfolgreich, Start aus dem Repository: **12:22:15 CEST**, PID **65532**, Source
+**`86b965d091cc1b7dff6c`** (Desktop 10:22:02 UTC, Mobile 10:22:10 UTC,
+Arbeitsbaum über `f7144d5`, nicht committet). Listener nur `127.0.0.1:4317`;
+private HTTPS-Adresse liefert HTTP 200 mit `assets/index-DL8OqY5z.js`;
+Geräteablage vor/nach Start bytegleich. Damit ist der in der nächsten Notiz
+beschriebene Zustand von `out/` bereinigt. Inhalt: Vollbild-Blatt mit Pan/Zoom,
+Leiste links, Vorschau in der Notiz ([TASKS_NOTES.md](TASKS_NOTES.md)). Offen:
+Tablet-Test durch den Nutzer; Phase 3 in Arbeit. Kein `pnpm verify`.
+
+## Aktiviert: Skizze Phase 1 (23. September 2026, 11:03 CEST)
+
+Vor dem Build lief keine ADE-Instanz und kein Listener auf Port 4317. Profil
+gesichert nach `C:\Users\Adi.Muff\ADE-Backups\SketchPhase1-20260923-110348`.
+`pnpm build` erfolgreich, Start aus dem Repository wie die Startmenü-Verknüpfung:
+**11:03:49 CEST**, PID **35032**, Source **`45bfc1b0fa81ec9c3757`** (Desktop
+09:03:14 UTC, Mobile 09:03:23 UTC, Arbeitsbaum über `f7144d5`, nicht committet).
+Listener nur `127.0.0.1:4317`; private HTTPS-Adresse liefert HTTP 200 mit dem
+neuen `assets/index-B65WLhwm.js`; Geräteablage vor/nach Start bytegleich.
+Inhalt: Handballen-Abweisung, Eingabemodus, Stift-Seitentaste, Strichglättung in
+den Notizen ([TASKS_NOTES.md](TASKS_NOTES.md), [SKETCH_UX_PROPOSAL.md](SKETCH_UX_PROPOSAL.md)).
+Offen: Handtest mit dem Stift auf dem Tablet durch den Nutzer. Kein
+`pnpm verify`; `pnpm test` 95 Suiten grün bis auf die vorbestehende
+`eleven-dialogue`-Prüfung zur Aussprache von „Agent“.
+
+**Achtung, Zustand von `out/` (23. September, ab 11:20 CEST):** Während PID
+35032 lief, wurde `out/` für die Phase-2-Prüfungen neu gebaut. Die laufende
+Instanz hält Phase 1 im Speicher: Main-Prozess und das an den Tablet-Clients
+ausgelieferte Mobile-Bundle (beim Start in den Speicher geladen) sind davon
+unberührt; der Desktop-Renderer kann Räume, deren Chunk in dieser Sitzung noch
+nicht geladen war (z. B. Notizen, Graph), bis zu einem Neustart nicht mehr
+nachladen. `out/` enthält jetzt den geprüften Phase-2-Stand, Source
+**`86b965d091cc1b7dff6c`** (Desktop und Mobile 09:26 UTC); ein Neustart aus dem
+Repository aktiviert ihn. Weitere Prüf-Builds gehen nach
+`test-results/organizer-build` (`electron-vite build --outDir`, `vite build
+--outDir`; Tests mit `ADE_ORGANIZER_ASSETS` bzw. `ADE_ORGANIZER_MAIN`).
+Der Neustart auf Phase 2 wartet auf die Entscheidung des Nutzers.
+
+## Verbindungsprüfung und Neustart am 22. September 2026
+
+Auf Nutzerwunsch vor dem Build alle ADE-Prozesse geprüft: Es lief keine
+ADE-/Electron-Instanz und kein Listener auf Port 4317. Tailscale war aktiv;
+die bestehende private HTTPS-Route zeigte auf den nicht laufenden ADE-Host.
+Das erklärt die Nichterreichbarkeit zum Prüfzeitpunkt; die Ursache des
+ebenfalls gemeldeten Verbindungsproblems vom Vortag ist damit nicht belegt.
+Das Audit enthält am 21. September um 08:11 und 08:14 CEST je eine Ablehnung
+mit `origin_not_allowed` bzw. `unknown_device`; eine Zuordnung zum Tablet ist
+aus diesen Einträgen nicht möglich. Letzte protokollierte erfolgreiche
+Geräteanmeldung vor dieser Prüfung: 20. September, 12:15 CEST.
+
+`pnpm build` erfolgreich, anschliessend normaler Repository-Start mit dem
+bestehenden persönlichen Profil: **22. September 2026, 06:14:31 CEST**, PID
+**65532**, Commit `f7144d5`, Source **`aaafed86de140f59bcbc`**. Listener nur auf
+`127.0.0.1:4317`; keine Debug-Schnittstelle aktiviert. Konfiguration und
+Geräteablage vor/nach Neustart bytegleich, sechs Profile und sieben Projekte
+erhalten. Sicherung:
+`C:\Users\Adi.Muff\ADE-Backups\ConnectionRestart-20260922-061430`.
+
+`https://number-cruncher.tailfc0b86.ts.net/` liefert HTTP 200 (erste Messung
+0,112 s). Chromium lädt die Kopplungsansicht mit normaler Zertifikatsprüfung
+ohne JavaScript-Fehler; das ausgelieferte `assets/index-CM3eRG0D.js` stimmt
+bytegleich mit dem neuen Build überein. Ein nicht gekoppelter Browser erhält
+für den Katalog erwartungsgemäss HTTP 401. `pnpm test:mobile-access`: **88/0**,
+einschliesslich Wiederanmeldung und Wiederherstellung nach einem Portkonflikt.
+Belege: `test-results/connection-restart-browser.json` und gleichnamiges PNG.
+Kein vollständiges `pnpm verify` und keine Änderung am Anwendungscode.
+
+Zunächst antwortete das Samsung-Tablet über Tailscales Frankfurt-Relay
+(169–470 ms). Nach einem Tablet-Neustart war es um 06:19 CEST im Tailnet
+offline; der Screenshot zeigte entsprechend die gespeicherte ADE-Oberfläche
+mit „Offline“ und „PC nicht verbunden“. Der Nutzer bestätigte anschliessend,
+dass Tailscale nach diesem Neustart noch nicht aktiviert war.
+
+Nach Aktivierung: erfolgreiche ADE-Geräteanmeldung um **06:20:55 CEST**,
+fortlaufende authentifizierte Leseanfragen bis zur Folgeprüfung um 06:21:28;
+Tablet-Ping nun direkt über das lokale WLAN in **50 ms**. Damit ist die
+Wiederverbindung am Host belegt. Die Ursache der ursprünglichen Probleme von
+unterwegs bleibt offen; dies ist keine neue Ausserhaus-Abnahme. Der PC hat
+automatischen Standby derzeit deaktiviert; für Zugriff von unterwegs müssen
+ADE und Tailscale laufen und der PC online bleiben. Der Neustart richtet
+keinen Windows-Autostart ein.
+
 ## Aktuell aktiviert: Dichte-Pass am PC und Tablet-Nachträge
 
 **20. September 2026, 15:45:42 CEST**, PID **66896**, Source

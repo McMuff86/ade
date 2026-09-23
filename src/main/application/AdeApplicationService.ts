@@ -1,4 +1,7 @@
 import { t as translate } from "../../shared/i18n";
+import { diagnosticsForWire } from '../diagnostics/diagnosticsWire';
+import { validDiagnosticsQuery, type MobileDiagnosticsResult } from '../../shared/remote';
+import type { RuntimeDiagnosticsResult } from '../../shared/types';
 import { validNavigationGroup } from '../../shared/categoryNavigation';
 import { ORGANIZER_LIMITS, organizerCommandKey, organizerId, validOrganizerMutation, validOrganizerQuery, type OrganizerEntry, type OrganizerSummary } from '../../shared/organizer';
 import type { OrganizerService } from '../organizer/OrganizerService';
@@ -144,6 +147,8 @@ export interface RemoteAuditEntry {
 
 export interface ApplicationOptions {
   organizer?: OrganizerService;
+  /** Non-mutating CLI/auth probes for the configured agents (the desktop `runtime:diagnose` handler without a session). */
+  diagnostics?: (agentId?: string) => Promise<RuntimeDiagnosticsResult> | RuntimeDiagnosticsResult;
   conversations?: () => ConversationService;
   conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
@@ -566,6 +571,38 @@ export class AdeApplicationService {
       if (command) this.audit(context, 'organizer:command', null, 'rejected', redactedWireMessage(error));
       if (error instanceof RemoteApiError) throw error;
       throw new RemoteApiError(error instanceof OrganizerError && ['changed', 'sequence_old', 'sequence_gap', 'key_reused'].includes(error.code) ? 409 : 422, 'command_rejected', redactedWireMessage(error));
+    }
+  }
+
+  /**
+   * Tablet diagnostics: the same probes as the desktop dialog, behind the
+   * `diagnostics:read` grant, restricted to the agents the device may see
+   * and redacted for the wire. The probes spawn version/sign-in commands on
+   * the PC, so every run is audited like the desktop channel.
+   */
+  async diagnostics(context: RemoteCommandContext, payload: unknown): Promise<MobileDiagnosticsResult> {
+    const probe = this.options.diagnostics; const ledger = this.options.administration?.ledger;
+    if (!probe || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      ledger.permits(context, 'diagnostics:read');
+    };
+    const sees = (agentId: string): boolean => { try { this.resources.assertAgent(context.principal, agentId); return true; } catch { return false; } };
+    try {
+      authorize();
+      if (!validDiagnosticsQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+      if (payload.agentId) this.resources.assertAgent(context.principal, payload.agentId);
+      this.audit(context, 'runtime:diagnose', payload.agentId ?? null, 'requested');
+      const run = async () => { authorize(); return await probe(payload.agentId); };
+      const result = this.options.activity ? await this.options.activity.use(run) : await run();
+      authorize();
+      this.audit(context, 'runtime:diagnose', payload.agentId ?? null, 'executed');
+      return diagnosticsForWire({ ...result, items: result.items.filter((item) => sees(item.agentId)) });
+    } catch (error) {
+      this.audit(context, 'runtime:diagnose', null, 'rejected', redactedWireMessage(error));
+      if (error instanceof RemoteApiError) throw error;
+      throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error));
     }
   }
 

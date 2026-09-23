@@ -24,7 +24,7 @@ export function SessionConsumptionView({ value }: { value: SessionConsumption })
       <p>{translate("Cache tokens are included in input; reasoning tokens are included in output. Do not add these again.")}</p>
       {value.costs.map(cost => <p key={cost.kind}><strong>{costLabels[cost.kind]}: {cost.usd.toLocaleString(intlLocale(), { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong>
         {!cost.complete && translate(" · Completeness unconfirmed")}</p>)}
-      {value.eventsWithoutCost > 0 && <p>{value.eventsWithoutCost} {" "}{translate("Usage reports without cost indication.")}</p>}
+      {value.eventsWithoutCost > 0 && <p>{value.eventsWithoutCost}{" "}{translate("Usage reports without cost indication.")}</p>}
       <p>{translate("An API price is not an invoice for your CLI subscription.")}</p>
       {value.models.length > 0 && <p>{translate("Reported models:")}{" "}{value.models.join(', ')}</p>}
     </>}
@@ -34,7 +34,7 @@ export function SessionConsumptionView({ value }: { value: SessionConsumption })
         <dt>{{ complete: translate("Response received"), pending: translate("Completion pending"), unconfirmed: translate("Reply unconfirmed"), 'not-sent': translate("Ended before sending") }[state]}</dt>
         <dd>{speech.unknownAmounts?.[state] === speech.requests[state] ? translate("Quantity still unknown")
           : <>{speech.amounts[state].toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} {speech.unit === 'audioSeconds' ? translate("Sec. Audio") : translate("Characters")}
-            {!!speech.unknownAmounts?.[state] && translate(" · partially unknown")}</>} · {speech.requests[state]} {" "}{translate("Job(s)")}</dd>
+            {!!speech.unknownAmounts?.[state] && translate(" · partially unknown")}</>} · {speech.requests[state]}{" "}{translate("Job(s)")}</dd>
       </div>)}</dl>
       <p>{translate("Measured input of this session. Credits and costs per job are unknown. Pending or unconfirmed jobs may have caused usage.")}</p>
     </div>)}

@@ -38,7 +38,7 @@ export function DeviceResourcePicker({ deviceId, value, onChange }: {
             {entries.find((entry) => entry.id === id)?.name ?? translate("No longer available ({{value1}})", { value1: id })}</label>)}
         </fieldset>;
       })}
-      <p className="st-device-hint">{value.repositoryIds.length} {" "}{translate("Projects ·")}{" "}{value.agentIds.length} {" "}{translate("Agents selected. New entries remain locked until you release them here. Without selection, no project or agent can be reached.")}</p>
+      <p className="st-device-hint">{value.repositoryIds.length}{" "}{translate("Projects ·")}{" "}{value.agentIds.length}{" "}{translate("Agents selected. New entries remain locked until you release them here. Without selection, no project or agent can be reached.")}</p>
     </>}
     <p className="st-device-hint">{translate("The choice limits ADE views and actions. A shared terminal runs with the rights of your PC user.")}</p>
   </fieldset>;

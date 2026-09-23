@@ -344,7 +344,7 @@ function PullRequestRow({
         </time>
       </span>
       <span className="ri-pr-stats">
-        <span>{pullRequest.changedFiles} {" "}{translate("Files [66696c65]")}</span>
+        <span>{pullRequest.changedFiles}{" "}{translate("Files [66696c65]")}</span>
         <b className="plus">+{pullRequest.additions}</b>
         <b className="minus">−{pullRequest.deletions}</b>
         {pullRequest.ci.state !== 'none' ? (

@@ -50,7 +50,7 @@ export function WorkView() {
     .sort((a, b) => b.run.updatedAt - a.run.updatedAt);
   const filterChanged = () => setReport(null);
   return <section className={`work-view${report ? ' work-inspecting' : ''}`} aria-label={translate("Jobs")}>
-    <header className="work-toolbar"><h1 ref={fallback} tabIndex={-1}>{translate("Jobs")}</h1><span>{runs.length} {" "}{translate("Runs")}</span>
+    <header className="work-toolbar"><h1 ref={fallback} tabIndex={-1}>{translate("Jobs")}</h1><span>{runs.length}{" "}{translate("Runs")}</span>
       <button className="work-quiet" disabled={loading} onClick={() => void reload()}>{translate("Refresh")}</button>
       <button onClick={() => setComposer('task')}>{translate("Assign agent work")}</button>
       <button className="work-primary" onClick={() => setComposer('run')}>{translate("New Run")}</button>
@@ -59,7 +59,7 @@ export function WorkView() {
     <div className="work-filters">
       <label>{translate("Project filters")}<select aria-label={translate("Project filters")} value={project} onChange={event => { setProject(event.target.value); filterChanged(); }}><option value="">{translate("All projects")}</option>{repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <label>{translate("Agent filter")}<select aria-label={translate("Agent filter")} value={agent} onChange={event => { setAgent(event.target.value); filterChanged(); }}><option value="">{translate("All agents")}</option>{Object.values(agents).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <p>{rows.filter(row => !finished.has(row.run.status)).length} {" "}{translate("Open runs in this selection")}</p>
+      <p>{rows.filter(row => !finished.has(row.run.status)).length}{" "}{translate("Open runs in this selection")}</p>
     </div>
     <div className="work-body"><aside aria-label={translate("Agent workspaces")} className="work-agents"><h2>{translate("Agents")}</h2>
       {!Object.keys(agents).length && <p>{translate("No agents yet")}</p>}
@@ -74,7 +74,7 @@ export function WorkView() {
       <ul className="work-list">{visible.map(({ run, repository, members }) => <li key={run.id}>
         <button className="work-row" aria-pressed={report === run.id} onClick={() => { setActiveRun(run.id); setReport(run.id); }}>
           <strong>{run.name}</strong><span>{repository || translate("Personal workspace")}</span><span>{localizedState(run.status)} · {localizedState(run.phase)}</span>
-          <span>{members.map(member => member.agentName).join(', ')}</span><span>{tasks.filter(task => task.runId === run.id).length} {" "}{translate("Tasks ·")}{" "}{new Date(run.updatedAt).toLocaleString(intlLocale())}</span>
+          <span>{members.map(member => member.agentName).join(', ')}</span><span>{tasks.filter(task => task.runId === run.id).length}{" "}{translate("Tasks ·")}{" "}{new Date(run.updatedAt).toLocaleString(intlLocale())}</span>
         </button><button aria-label={translate("Open in the graph: {{value1}}", { value1: run.name })} onClick={() => { setActiveRun(run.id); useMode.getState().setMode('graph'); requestAnimationFrame(() => document.getElementById('mode-tab-graph')?.focus()); }}>{translate("Open the graph")}</button>
       </li>)}</ul>
     </div></div>

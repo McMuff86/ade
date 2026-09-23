@@ -43,7 +43,7 @@ export function CliWorkPanel({ compact = false, project, profile }: { compact?: 
   };
   return <section className={`cli-work${compact ? ' cli-work-compact' : ''}`} aria-label={translate("CLI work")}>
     <header className="cli-work-heading"><div><h2 ref={heading} tabIndex={-1}>{translate("CLI work")}</h2>
-      <p>{rows.filter(row => row.state === 'running').length} {" "}{translate("CLIs started or ongoing ·")}{" "}{rows.filter(row => row.session.status === 'running').length} {" "}{translate("Open terminals")}</p></div>
+      <p>{rows.filter(row => row.state === 'running').length}{" "}{translate("CLIs started or ongoing ·")}{" "}{rows.filter(row => row.session.status === 'running').length}{" "}{translate("Open terminals")}</p></div>
       <button disabled={!hydrated} onClick={() => void useSessions.getState().hydrate(true)}>{translate("Refresh sessions")}</button>
     </header>
     <div className="cli-work-filters">
@@ -74,7 +74,7 @@ export function CliWorkPanel({ compact = false, project, profile }: { compact?: 
           {row.profile && translate(" · Profile: {{value1}}", { value1: row.profile })}{row.session.launchModel && ` · Startmodell: ${row.session.launchModel}`}</span>
         <span className={`cli-work-status cli-work-status-${row.state}`}>{opening === row.session.id ? translate("Opening session…") : row.status}</span>
         {row.session.workspaceDir && <span className="cli-work-path">{row.session.workspaceDir}</span>}
-        <span className="cli-work-observation">{row.session.lastOutputAt ? translate("Last output {{value1}}", { value1: formatRelativeTime(now, row.session.lastOutputAt) }) : translate("No output observed yet")} {" "}{translate("· Branch at start")}</span>
+        <span className="cli-work-observation">{row.session.lastOutputAt ? translate("Last output {{value1}}", { value1: formatRelativeTime(now, row.session.lastOutputAt) }) : translate("No output observed yet")}{" "}{translate("· Branch at start")}</span>
       </button>
       <button className="cli-work-rename" aria-label={translate("Rename work: {{value1}}", { value1: row.title })} onClick={() => setRename({ id: row.session.id, title: row.title })}>{translate("Rename")}</button>
     </li>)}</ul>

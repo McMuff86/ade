@@ -102,7 +102,7 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
     {state?.blockedReason && <p role="status">{localizeAppMessage(state.blockedReason)}</p>}
     {filePending && !file && <button disabled={busy || !online} onClick={() => void openFile(filePending.input.path, true)}>{translate("Check pending file save")}</button>}
     {current ? <section className="project-branch-review" aria-label={translate("Git Preview")}>
-      <h3 ref={focus} tabIndex={-1}>{labels[current.action.kind]} {" "}{translate("check")}</h3><p>{current.projectName} {" "}{translate("· Branch")}{" "}{current.branch}</p>
+      <h3 ref={focus} tabIndex={-1}>{labels[current.action.kind]}{" "}{translate("check")}</h3><p>{current.projectName}{" "}{translate("· Branch")}{" "}{current.branch}</p>
       <p>{translate("HEAD")}{" "}{current.head?.slice(0, 12) ?? translate("no commit")}{current.targetHead ? ` → ${current.targetHead.slice(0, 12)}` : ''}</p>
       {'remote' in current.action && <p>{translate("Remote:")}{" "}{current.action.remote}</p>}{'ref' in current.action && <p>{translate("Source:")}{" "}{current.action.ref}</p>}
       {current.action.kind === 'commit' && <><pre>{current.action.message}</pre><p>{translate("Only the selected files will be staged and committed in their current working state. Other staged files are preserved.")}</p></>}
@@ -113,7 +113,7 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
       <div className="project-workspace-actions"><button disabled={busy || !online || !canChange} onClick={() => void execute()}>{pending ? translate("Check Git action again") : translate("Execute Git operation")}</button>
         <button disabled={busy} onClick={() => { if (!savePending(null)) return; restore.current = true; setPreview(undefined); setError(''); void load(); }}>{pending ? translate("Read status and discard preview") : translate("Cancel")}</button></div>
     </section> : state && <>
-      <p>{state.files.length ? translate("{{value1}} modified files", { value1: state.files.length }) : translate("Working tree clean")} {" "}{translate("· HEAD")}{" "}{state.head?.slice(0, 12) ?? translate("no commit")}</p>
+      <p>{state.files.length ? translate("{{value1}} modified files", { value1: state.files.length }) : translate("Working tree clean")}{" "}{translate("· HEAD")}{" "}{state.head?.slice(0, 12) ?? translate("no commit")}</p>
       <details className="project-git-history"><summary>{translate("Last 5 Commits")}</summary>
         {state.recentCommits.length ? <ol aria-label={translate("Recent commits")}>{state.recentCommits.map((commit) => <li key={commit.sha}>
           <strong>{commit.subject || translate("No commit message")}</strong>
@@ -127,10 +127,10 @@ export function ProjectGitPanel(props: ProjectGitPanelProps) {
             : translate("Run Fetch first, then take the remote branch by fast-forward, and use Merge for separate developments.")}</p>
         <p>{translate("Work objective:")}{" "}<strong>{state.workspace.branch}</strong> · {state.workspace.name}</p>
       </section>
-      {state.merge && <p role="status">{translate("Merge pending ·")}{" "}{state.files.filter((file) => file.conflict).length} {" "}{translate("Conflict files")}</p>}
+      {state.merge && <p role="status">{translate("Merge pending ·")}{" "}{state.files.filter((file) => file.conflict).length}{" "}{translate("Conflict files")}</p>}
       {!!state.files.length && <div className="project-workspace-actions">
         <button disabled={blocked} onClick={() => setSelected(state.files.filter((file) => file.selectable && (!state.merge || file.conflict)).map((file) => file.path))}>{translate("Mark selectable files")}</button>
-        <button disabled={blocked || !selected.length} onClick={() => setSelected([])}>{translate("Clear selection")}</button><span>{selected.length} {" "}{translate("Files selected")}</span>
+        <button disabled={blocked || !selected.length} onClick={() => setSelected([])}>{translate("Clear selection")}</button><span>{selected.length}{" "}{translate("Files selected")}</span>
       </div>}
       <ul className="project-git-files">{state.files.map((file) => <li key={file.path}>
         <label><input type="checkbox" disabled={busy || !file.selectable || !!pending} checked={selected.includes(file.path)} onChange={(event) => setSelected((value) => event.target.checked ? [...value, file.path] : value.filter((path) => path !== file.path))} />{file.path}</label>

@@ -28,7 +28,7 @@ void (async () => {
     sessions = new BrowserSessions(fixture.devices);
     server = new HostApiServer(fixture.application, { port: 0, requireDeviceReads: true, heartbeatMs: 200,
       authorizer: new RemoteAuthorizer('b'.repeat(32), [], undefined, fixture.devices),
-      browser: { origin: proxy!.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
+      browser: { origin: proxy!.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
     proxy!.target((await server.start()).port);
   };
   await start();
@@ -269,7 +269,7 @@ void (async () => {
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
     || /^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}(\/tasks\/[A-Za-z0-9_.:-]{1,128})?\/activity$/.test(path)
-    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions'
+    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query'
     || path === '/api/v1/supervision/query'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();
