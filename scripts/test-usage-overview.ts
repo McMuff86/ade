@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { projectClaudeUsage, readClaudeAccountUsage, readClaudeCredential, cachedClaudeAccountUsage, resetClaudeAccountUsageCache, claudeConfigDir, type UsageFetcher } from '../src/main/settings/ClaudeAccountUsage';
 import { UsageOverviewService } from '../src/main/usage/UsageOverviewService';
 import { tightestUsageWindow } from '../src/shared/usageOverview';
+import { projectTokenTotal, usageRangeSince, validUsageProjectsQuery } from '../src/shared/usageProjects';
 import { unknownTokens } from '../src/shared/usage';
 import type { SubscriptionUsage } from '../src/shared/remote';
 
@@ -65,7 +66,7 @@ void (async () => {
   const codex: SubscriptionUsage = { provider: 'codex', source: 'codex-account', status: 'available', checkedAt: 1, message: 'ok', windows: [{ label: 'Woche', usedPercent: 92, remainingPercent: 8, windowMinutes: 10_080, resetsAt: 2 }, { label: '5 h', usedPercent: 40, remainingPercent: 60, windowMinutes: 300, resetsAt: 3 }] };
   const day = { claude: { status: 'recording' as const, sessions: 2, events: 5, tokens: { ...unknownTokens(), input: 1200, output: 300 }, since: 0 } };
   let enabled = false; let claudeCalls = 0;
-  const service = new UsageOverviewService({ nativeUsage: () => ({ providerConsumption: (provider, since) => provider === 'claude' ? { ...day.claude, since } : { status: 'unsupported', sessions: 0, events: 0, tokens: unknownTokens(), since } }),
+  const service = new UsageOverviewService({ nativeUsage: () => ({ providerConsumption: (provider, since) => provider === 'claude' ? { ...day.claude, since } : { status: 'unsupported', sessions: 0, events: 0, tokens: unknownTokens(), since }, projectConsumption: () => ({ status: 'ok', projects: [] }) }),
     claudeEnabled: () => enabled, codexAccount: async () => codex, claudeAccount: async () => { claudeCalls++; return live; }, now: () => Date.parse('2026-09-23T18:30:00') });
   const off = await service.overview();
   check('with the switch off the Claude account is never asked and the panel explains the switch', claudeCalls === 0 && !off.claudeAccountEnabled && off.providers[1]!.account.status === 'unavailable' && /Settings|Einstellungen/.test(off.providers[1]!.account.message) && off.providers[1]!.account.command === '/usage');
@@ -74,8 +75,14 @@ void (async () => {
   check('the tile picks the window closest to its limit', tightestUsageWindow(off)?.provider === 'codex' && tightestUsageWindow(off)?.window.usedPercent === 92);
   enabled = true; const on = await service.overview();
   check('with the switch on the Claude windows join the overview', claudeCalls === 1 && on.claudeAccountEnabled && on.providers[1]!.account.windows.length === 3);
+  const noon = new Date(2026, 8, 23, 12, 30).getTime();
+  check('usage ranges start at local midnight and cover 7 or 30 whole days', usageRangeSince('today', noon) === new Date(2026, 8, 23).getTime() && usageRangeSince('7d', noon) === new Date(2026, 8, 17).getTime() && usageRangeSince('30d', noon) === new Date(2026, 7, 25).getTime());
+  check('the projects query accepts only a known range and nothing else', validUsageProjectsQuery({ range: '7d' }) && !validUsageProjectsQuery({ range: 'week' }) && !validUsageProjectsQuery({ range: '7d', extra: 1 }) && !validUsageProjectsQuery(null));
+  check('a card total adds input, output and reasoning and stays unknown without figures', projectTokenTotal({ ...unknownTokens(), input: 10, output: 5, reasoning: 1, cacheRead: 999 }) === 16 && projectTokenTotal(unknownTokens()) === null);
+  const withProjects = new UsageOverviewService({ nativeUsage: () => ({ providerConsumption: () => ({ status: 'unsupported', sessions: 0, events: 0, tokens: unknownTokens(), since: 0 }), projectConsumption: (since) => ({ status: 'ok', projects: [{ repositoryId: 'r1', status: 'recording', sessions: 1, events: 1, tokens: { ...unknownTokens(), input: since }, cost: null, providers: [], items: [] }] }) }), claudeEnabled: () => false, now: () => noon });
+  check('the projects read passes the range start to the journal and stamps the result', withProjects.projects('7d').projects[0]!.tokens.input === new Date(2026, 8, 17).getTime() && withProjects.projects('today').range === 'today' && withProjects.projects('today').checkedAt === noon);
   const empty = new UsageOverviewService({ nativeUsage: () => null, claudeEnabled: () => false, codexAccount: async () => ({ ...codex, status: 'unavailable', windows: [] }) });
-  check('without a journal or limits the overview stays honest', tightestUsageWindow(await empty.overview()) === null && (await empty.overview()).providers.every(item => item.today.status === 'unsupported'));
+  check('without a journal or limits the overview stays honest', tightestUsageWindow(await empty.overview()) === null && (await empty.overview()).providers.every(item => item.today.status === 'unsupported') && empty.projects('7d').projects.length === 0);
 })().catch((error) => { failed++; console.error(error); }).finally(() => {
   const absolute = resolve(root); if (dirname(absolute) !== realpathSync.native(tmpdir())) throw new Error('Unsafe cleanup'); rmSync(absolute, { recursive: true, force: true });
   console.log(`Usage overview: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

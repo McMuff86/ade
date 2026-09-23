@@ -210,6 +210,15 @@ void (async () => {
   check('the usage panel lists the Codex windows, today\'s Claude tokens and the consent hint', (await usagePanel.textContent())!.includes('92') && (await usagePanel.getByRole('region', { name: 'Claude Code', exact: true }).textContent())!.includes('1200') && (await usagePanel.textContent())!.includes('Einstellungen → Nutzung'));
   await usagePanel.getByRole('button', { name: 'Nutzung aktualisieren', exact: true }).focus(); await page.keyboard.press('Escape');
   check('Escape closes the usage panel and returns focus to the tile button', await usagePanel.count() === 0 && await page.getByRole('button', { name: 'Nutzung anzeigen', exact: true }).evaluate((node) => node === document.activeElement));
+  // Projects: tokens, sessions and costs on the card from the PC's journal sums; the breakdown lists the session with its agent.
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  const projectUsage = page.getByTestId('project-usage').first(); await projectUsage.waitFor();
+  check('the project card shows tokens, sessions and costs for the default 7-day period', (await projectUsage.textContent())!.includes('7 Tage') && (await projectUsage.textContent())!.includes('1.4M Tokens') && (await projectUsage.textContent())!.includes('2 Sitzung(en)') && (await projectUsage.textContent())!.includes('$3.20'));
+  await projectUsage.getByRole('button', { name: 'Aufschlüsselung', exact: true }).click();
+  const breakdown = page.getByRole('region', { name: 'Aufschlüsselung der Nutzung', exact: true }); await breakdown.waitFor();
+  check('the breakdown names the agent, provider, model and cost of the session', /Builder/.test((await breakdown.textContent())!) && (await breakdown.textContent())!.includes('Claude Code') && (await breakdown.textContent())!.includes('claude-fixture') && (await breakdown.textContent())!.includes('gemeldet'));
+  await breakdown.focus(); await page.keyboard.press('Escape');
+  check('Escape closes the breakdown and returns focus to its button', await breakdown.count() === 0 && await projectUsage.getByRole('button', { name: 'Aufschlüsselung', exact: true }).evaluate((node) => node === document.activeElement));
   check('workspace flow has no uncaught browser errors', errors.length === 0);
   mkdirSync(resolve('test-results/remote'), { recursive: true }); await page.screenshot({ path: resolve('test-results/remote/workbench-phone.png') });
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {

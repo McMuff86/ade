@@ -1066,6 +1066,10 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.PtyCancelTasks:
       validatePtyCancel(channel, payload);
       return;
+    case IPC.UsageProjects: {
+      const request = record(channel, payload); exactKeys(channel, request, ['range']); enumValue(channel, request.range, 'range', ['today', '7d', '30d']);
+      return;
+    }
     case IPC.RuntimeDiagnose: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['agentId', 'sessionId']);

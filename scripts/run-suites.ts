@@ -30,15 +30,15 @@ const SUITES: Suite[] = [
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
   { id: 'remote-diagnostics', script: 'test-remote-diagnostics.ts', floors: { win32: 25 } },
-  { id: 'remote-usage', script: 'test-remote-usage.ts', floors: { win32: 7 } },
-  { id: 'usage-overview', script: 'test-usage-overview.ts', floors: { win32: 30 } },
+  { id: 'remote-usage', script: 'test-remote-usage.ts', floors: { win32: 12 } },
+  { id: 'usage-overview', script: 'test-usage-overview.ts', floors: { win32: 34 } },
   { id: 'organizer-cache', script: 'test-organizer-cache.ts', floors: { win32: 32 } },
   { id: 'sketch-input', script: 'test-sketch-input.ts', floors: { win32: 49 } },
   { id: 'usage-normalization', script: 'test-usage-normalization.ts', floors: { win32: 27 } },
   { id: 'usage-journal', script: 'test-usage-journal.ts', floors: { win32: 35 } },
   { id: 'usage-receiver', script: 'test-usage-receiver.ts', floors: { win32: 20 } },
   { id: 'native-usage-file', script: 'test-native-usage-file.ts', floors: { win32: 23 } },
-  { id: 'native-usage-service', script: 'test-native-usage-service.ts', floors: { win32: 27 } },
+  { id: 'native-usage-service', script: 'test-native-usage-service.ts', floors: { win32: 29 } },
   { id: 'speech-usage', script: 'test-speech-usage.ts', floors: { win32: 36 } },
   { id: 'dictation', script: 'test-dictation.ts', floors: { win32: 35 } },
   { id: 'live-dictation', script: 'test-live-dictation.ts', floors: { win32: 79 } },
@@ -128,7 +128,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
-  { id: 'security', script: 'test-security.ts', floors: { win32: 290 } },
+  { id: 'security', script: 'test-security.ts', floors: { win32: 291 } },
 ];
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

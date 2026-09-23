@@ -539,6 +539,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       organizer,
       diagnostics: (agentId) => diagnoseConfigured(agentId),
       usage: () => usageOverview!.overview(),
+      usageProjects: (range) => usageOverview!.projects(range),
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -1043,6 +1044,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.TerminalControl, ({ sessionId }) => remoteTerminals!.desktopState(sessionId));
   handle(IPC.TerminalUsage, ({ sessionId }) => ptyManager!.subscriptionUsage(sessionId));
   handle(IPC.UsageOverview, () => usageOverview!.overview());
+  handle(IPC.UsageProjects, ({ range }) => usageOverview!.projects(range));
   handle(IPC.TerminalProfileContext, ({ sessionId }) => ptyManager!.profileContextText(sessionId));
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
   handle(IPC.TerminalPromptQuery, ({ sessionId }) => remoteTerminals!.desktopPromptCapability(sessionId));

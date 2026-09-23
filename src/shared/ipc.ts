@@ -165,6 +165,7 @@ export const IPC = {
   TerminalControl: 'terminal:control',
   TerminalUsage: 'terminal:usage',
   UsageOverview: 'usage:overview',
+  UsageProjects: 'usage:projects',
   TerminalProfileContext: 'terminal:profileContext',
   TerminalReclaim: 'terminal:reclaim',
   PtyActivitySnapshot: 'pty:activitySnapshot',
@@ -792,6 +793,7 @@ export interface IpcInvokeMap {
   'terminal:control': { req: PtyAttachRequest; res: TerminalControlState };
   'terminal:usage': { req: PtyAttachRequest; res: import('./remote').SubscriptionUsage };
   'usage:overview': { req: void; res: import('./usageOverview').UsageOverview };
+  'usage:projects': { req: import('./usageProjects').UsageProjectsQuery; res: import('./usageProjects').UsageProjectsResult };
   'terminal:profileContext': { req: PtyAttachRequest; res: string | null };
   'terminal:reclaim': { req: PtyAttachRequest; res: TerminalControlState };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };

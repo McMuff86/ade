@@ -14,7 +14,7 @@ API“ zur Route `/api/v1/usage/overview`).
 | --- | --- | --- |
 | 1 | Übersichtskachel „Nutzung“ auf PC und Tablet: engstes Kontofenster als Zahl, aufklappbares Panel mit Kontofenstern je Anbieter und Tokens des Tages aus nativen ADE-Sitzungen; Terminal-Statusleiste „Nutzung anzeigen · Codex ▾“ | umgesetzt, Commit `d19cfe1` |
 | 2 | Claude-Kontolimits über die Anmeldung der Claude-CLI, nur mit Freigabe unter Einstellungen → Nutzung (Standard aus) | umgesetzt, gleicher Commit; Adi hat zugestimmt |
-| 3 | Tokens je Projekt und je Sitzung in der Projektübersicht | **offen, unten ausgearbeitet** |
+| 3 | Tokens je Projekt und je Sitzung in der Projektübersicht | umgesetzt (Karte, Zeitraum-Umschalter Heute / 7 Tage / 30 Tage mit Standard 7 Tage, Kosten auf der Karte, Aufschlüsselung je Anbieter und Sitzung); offen: Sitzungsliste in „Sitzung & Workspace“ |
 
 ## Punkt 3: Tokens je Projekt und Sitzung
 

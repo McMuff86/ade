@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { redactedErrorDetail, redactedErrorMessage } from '../errors';
 import type { SessionConsumption } from '../../shared/remote';
-import type { TokenCounts } from '../../shared/usage';
+import type { TokenCounts, UsageCostKind } from '../../shared/usage';
+import type { ProjectSessionUsage, ProjectUsage, UsageCostSummary } from '../../shared/usageProjects';
 import { TOKEN_FIELDS, unknownTokens } from '../../shared/usage';
 import { findNativeUsageFile, NativeUsageTail } from './NativeUsageFile';
 import { OtlpUsageReceiver, type UsageLog } from './OtlpUsageReceiver';
@@ -82,6 +83,37 @@ export class NativeUsageService {
     finally { try { await this.receiver.close(); } finally { await this.journal.close(); } }
   }
 
+  /** Tokens per project and session for the Projects room: requests since `since`, grouped by the session's repository. */
+  projectConsumption(since: number): { status: 'ok' | 'incomplete'; projects: ProjectUsage[] } {
+    const view = this.journal.view();
+    const sumTokens = (facts: Array<{ tokens: TokenCounts }>): TokenCounts => { const tokens = unknownTokens();
+      for (const field of TOKEN_FIELDS) { const known = facts.map(fact => fact.tokens[field]).filter((value): value is number => value !== null); const sum = known.reduce((total, value) => total + value, 0); tokens[field] = known.length && Number.isSafeInteger(sum) ? sum : null; }
+      return tokens; };
+    const sumCost = (facts: Array<{ costUsd: number | null; costKind: UsageCostKind; costComplete: boolean | null }>): UsageCostSummary | null => {
+      const priced = facts.filter(fact => fact.costUsd !== null); if (!priced.length) return null;
+      return { usd: priced.reduce((sum, fact) => sum + fact.costUsd!, 0), events: priced.length, eventsWithoutCost: facts.length - priced.length,
+        kinds: [...new Set(priced.map(fact => fact.costKind))].filter((kind): kind is UsageCostKind => kind !== 'unknown'), complete: priced.every(fact => fact.costComplete === true) && priced.length === facts.length };
+    };
+    const groups = new Map<string | null, { sessions: ProjectSessionUsage[]; facts: typeof view.facts; incomplete: boolean }>();
+    for (const session of view.sessions) {
+      if (session.product !== 'coding') continue;
+      const facts = view.facts.filter(fact => fact.sessionId === session.id && fact.at >= since);
+      if (!facts.length && session.createdAt < since) continue;
+      const key = session.repositoryId ?? null; const group = groups.get(key) ?? { sessions: [], facts: [], incomplete: false }; groups.set(key, group);
+      group.facts.push(...facts); if (session.coverage === 'incomplete') group.incomplete = true;
+      group.sessions.push({ id: session.id, ...(session.terminalSessionId ? { terminalSessionId: session.terminalSessionId } : {}), ...(session.agentId ? { agentId: session.agentId } : {}), provider: session.provider,
+        startedAt: session.createdAt, ...(session.endedAt !== undefined ? { endedAt: session.endedAt } : {}), models: [...new Set(facts.map(fact => fact.model).filter((model): model is string => model !== null))].slice(0, 16),
+        events: facts.length, tokens: sumTokens(facts), cost: sumCost(facts) });
+    }
+    const projects: ProjectUsage[] = [...groups.entries()].map(([repositoryId, group]) => {
+      const providers = [...new Set(group.sessions.map(item => item.provider))].map(provider => { const own = group.sessions.filter(item => item.provider === provider); const ids = new Set(own.map(item => item.id));
+        return { provider, sessions: own.length, events: own.reduce((sum, item) => sum + item.events, 0), tokens: sumTokens(group.facts.filter(fact => ids.has(fact.sessionId))) }; });
+      const status: ProjectUsage['status'] = view.error || group.incomplete ? 'incomplete' : group.facts.length ? 'recording' : 'waiting';
+      return { repositoryId, status, sessions: group.sessions.length, events: group.facts.length,
+        tokens: sumTokens(group.facts), cost: sumCost(group.facts), providers, items: group.sessions.sort((a, b) => b.startedAt - a.startedAt).slice(0, 200) };
+    }).sort((a, b) => b.events - a.events);
+    return { status: view.error ? 'incomplete' : 'ok', projects };
+  }
   /** Sums of every native `coding` session of one provider whose facts arrived since `since` (the Overview's "today"). */
   providerConsumption(provider: Provider, since: number): { status: 'recording' | 'waiting' | 'unsupported' | 'incomplete'; sessions: number; events: number; tokens: TokenCounts; since: number } {
     const view = this.journal.view();

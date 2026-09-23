@@ -14,6 +14,16 @@
 .project-directory-grid li { min-width: 0; border: 1px solid var(--line); border-radius: 6px; }
 .project-directory-grid li > button { width: 100%; display: flex; flex-direction: column; align-items: start; gap: 8px; text-align: left; border: 0; overflow-wrap: anywhere; }
 .project-directory-grid li > p { margin: 10px 12px; font-size: 12px; }
+.project-usage { margin: 0 12px 10px; font-size: 12px; }
+.project-usage-line { margin: 4px 0 6px; color: var(--muted); overflow-wrap: anywhere; }
+.project-usage-label { color: var(--text); font-weight: 500; margin-right: 4px; }
+.project-usage-range { margin: 0 0 10px; }
+.project-usage-breakdown { margin: 8px 0 0; padding: 10px 12px; }
+.project-usage-providers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.project-usage-sessions { width: 100%; border-collapse: collapse; font-size: 11px; }
+.project-usage-sessions caption { text-align: left; font-weight: 500; margin-bottom: 4px; }
+.project-usage-sessions th, .project-usage-sessions td { text-align: left; padding: 3px 6px 3px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.project-usage-sessions td:nth-child(5), .project-usage-sessions td:nth-child(6) { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .project-directory-grid span { color: var(--muted); font-size: 12px; }
 .project-workspace-summary dl { display: flex; gap: 24px; flex-wrap: wrap; }
 .project-workspace-summary dt { color: var(--muted); font-size: 12px; margin-bottom: 8px; }

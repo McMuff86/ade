@@ -201,6 +201,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'terminal:control': { sessionId: 'session' },
   'terminal:usage': { sessionId: 'session' },
   'usage:overview': undefined,
+  'usage:projects': { range: '7d' },
   'terminal:profileContext': { sessionId: 'session' },
   'terminal:reclaim': { sessionId: 'session' },
   'pty:list': undefined,

@@ -3,11 +3,14 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useRef, useState, type JSX } from 'react';
 import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceView } from '../../shared/remote';
+import { ProjectUsageLine, ProjectUsageRangeSwitch, type ProjectUsageState } from '../usage/ProjectUsage';
 import './projects.css';
 
 /** Shared presentation; filesystem access and mutations stay in the platform adapters. */
-export function ProjectDirectory({ directory, busy, error, online = true, onRefresh, onOpen, onMembership, canManage = true }: {
+export function ProjectDirectory({ directory, busy, error, online = true, onRefresh, onOpen, onMembership, canManage = true, usage }: {
   directory?: ProjectDirectoryView; busy: boolean; error: string; online?: boolean;
+  /** Tokens per project from the shell's transport; absent shells (e.g. pickers) show no usage. */
+  usage?: ProjectUsageState;
   onRefresh: () => void; onOpen: (entry: ProjectDirectoryEntry, opener: HTMLButtonElement) => void;
   onMembership?: (entry: ProjectDirectoryEntry, included: boolean) => Promise<void>; canManage?: boolean;
 }): JSX.Element {
@@ -29,6 +32,7 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
       <button disabled={busy || !online} onClick={onRefresh}>{translate("Update project folders")}</button></div>
     <div className="project-workspace-actions project-filter-segment" role="group" aria-label={translate("Project filters")}><button aria-pressed={filter === 'all'} onClick={() => chooseFilter('all')}>{translate("All")}</button>
       <button ref={filterButton} aria-pressed={filter === 'mine'} onClick={() => chooseFilter('mine')}>{translate("My ADE Projects")}</button></div>
+    {usage && <ProjectUsageRangeSwitch usage={usage} />}
     <p>{translate("Add projects to “My ADE Projects” to see them in the overview. Removing a project from the selection preserves its files, terminals and history.")}</p>
     {!online && <p role="status">{translate("PC not connected. Displayed project folders may be obsolete.")}</p>}
     {error && <p role="alert">{localizeAppMessage(error)}</p>}
@@ -47,6 +51,7 @@ export function ProjectDirectory({ directory, busy, error, online = true, onRefr
           if (filter === 'mine' && mine(entry)) filterButton.current?.focus();
         }).catch(() => undefined); }}>
         {mine(entry) ? translate("Remove from my ADE projects") : translate("Add to my ADE projects")}</button>}
+      {usage && entry.repositoryId && <ProjectUsageLine usage={usage} repositoryId={entry.repositoryId} />}
       {entry.notice && <p>{localizeAppMessage(entry.notice)}</p>}{entry.kind === 'folder' && <p>{translate("Initialize Git on PC first.")}</p>}
     </li>)}</ul>
   </section>;

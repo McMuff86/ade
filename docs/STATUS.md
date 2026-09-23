@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Tokens je Projekt und Sitzung auf den Projektkarten (23. September 2026)
+
+Projektkarten auf PC und Tablet zeigen Tokens, Sitzungen und Kosten des
+gewählten Zeitraums (Heute / 7 Tage / 30 Tage, Standard 7 Tage) mit
+Aufschlüsselung je Anbieter und Sitzung; Quelle ist das Nutzungsjournal
+nativer ADE-Sitzungen. Nachweise: Nutzung **34/0**, Remote-Nutzung **12/0**,
+Native-Nutzung **29/0**, Sicherheit **291/0**, Tablet-Workbench **58/0**,
+Nutzung Electron **10/0**, `pnpm test` 98 Suiten/4088. Aktiviert **22:00:26
+CEST**, PID **4052**, Source `cd7e3ca46fd381385109` ([Übergabe](HANDOFF.md)).
+
 ## Tablet-Terminal: Fotos und Blätter aus den Notizen anhängen (23. September 2026)
 
 Der Bild-Dialog des Tablet-Terminals bietet „Aus den Notizen“: Notizen mit

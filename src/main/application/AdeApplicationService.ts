@@ -1,5 +1,6 @@
 import { t as translate } from "../../shared/i18n";
 import { diagnosticsForWire } from '../diagnostics/diagnosticsWire';
+import { validUsageProjectsQuery } from '../../shared/usageProjects';
 import { validDiagnosticsQuery, type MobileDiagnosticsResult } from '../../shared/remote';
 import type { RuntimeDiagnosticsResult } from '../../shared/types';
 import { validNavigationGroup } from '../../shared/categoryNavigation';
@@ -151,6 +152,8 @@ export interface ApplicationOptions {
   diagnostics?: (agentId?: string) => Promise<RuntimeDiagnosticsResult> | RuntimeDiagnosticsResult;
   /** The Overview's usage figures (account limits + today's native sums); may start the Codex account probe. */
   usage?: () => Promise<import('../../shared/usageOverview').UsageOverview>;
+  /** Tokens per project from the usage journal; a plain read, filtered to the device's projects. */
+  usageProjects?: (range: import('../../shared/usageProjects').UsageRange) => import('../../shared/usageProjects').UsageProjectsResult;
   conversations?: () => ConversationService;
   conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
@@ -588,6 +591,18 @@ export class AdeApplicationService {
    * usage read (workspace read or terminal control) and audited because the
    * Codex account probe starts a CLI on the PC.
    */
+  /** Tokens per project for a paired device: journal sums only, cut down to the projects the device may see. */
+  usageProjects(context: RemoteCommandContext, payload: unknown): import('../../shared/usageProjects').UsageProjectsResult {
+    const read = this.options.usageProjects; const ledger = this.options.administration?.ledger;
+    if (!read || !ledger) throw new RemoteApiError(404, 'not_found');
+    if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    try { ledger.permits(context, 'workspace:read'); } catch { ledger.permits(context, 'terminal:control'); }
+    if (!validUsageProjectsQuery(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const result = read(payload.range); const all = this.resources.access(context.principal).mode === 'all';
+    return { ...result, projects: result.projects.filter((project) => project.repositoryId === null ? all : this.resources.repository(context.principal, project.repositoryId))
+      .map((project) => ({ ...project, items: project.items.map((item) => ({ ...item, models: item.models.map((model) => redactForWire(model, 80)) })) })) };
+  }
   async usageOverview(context: RemoteCommandContext, payload: unknown): Promise<import('../../shared/usageOverview').UsageOverview> {
     const probe = this.options.usage; const ledger = this.options.administration?.ledger;
     if (!probe || !ledger) throw new RemoteApiError(404, 'not_found');

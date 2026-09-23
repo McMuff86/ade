@@ -36,6 +36,9 @@ void (async () => {
   check('another launch cannot attribute the first native session to its own project', service.consumption('claude-b').events === 0 && service.consumption('claude-b').status === 'incomplete' && service.consumption('claude-a').events === 2);
   check('an untracked terminal never receives another session total', service.consumption('unknown').status === 'unsupported' && service.consumption('unknown').events === 0);
   const claudeToday = service.providerConsumption('claude', 0); const nothingYet = service.providerConsumption('claude', Date.now() + 60_000);
+  const byProject = service.projectConsumption(0).projects; const projectA = byProject.find(project => project.repositoryId === 'project-a')!; const projectB = byProject.find(project => project.repositoryId === 'project-b')!;
+  check('project sums group native sessions by repository with per-session rows, models and cost provenance', projectA.sessions === 1 && projectA.events === 2 && projectA.tokens.output === 36 && projectA.items[0]!.models.length === 2 && projectA.cost?.kinds.join() === 'provider-estimate' && projectA.providers[0]!.provider === 'claude' && projectB.sessions === 1 && projectB.events === 0 && projectB.status === 'incomplete');
+  check('a window that starts after every request keeps only sessions that began inside it', service.projectConsumption(Date.now() + 60_000).projects.length === 0);
   check('the provider day sum joins every native Claude session and respects the since boundary', claudeToday.sessions === 2 && claudeToday.events === service.consumption('claude-a').events + service.consumption('claude-b').events && claudeToday.events === 2 && claudeToday.tokens.output === 36 && claudeToday.status === 'incomplete' && nothingYet.events === 0 && service.providerConsumption('codex', 0).status === 'unsupported');
 
   const grok = await service.prepare({ provider: 'grok', command: 'grok --model configured', env, terminalSessionId: 'grok-a' });

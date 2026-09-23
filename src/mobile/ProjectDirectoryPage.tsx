@@ -4,6 +4,8 @@ import { useLocale } from "../renderer/i18n/language";
 import { useCallback, useContext, useEffect, useId, useRef, useState, type JSX } from 'react';
 import type { MobileFileSaveInput, MobileFileSaveResult, MobileHostState, MobileWorkspaceResult, ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceCommandResult, ProjectWorkspaceQuery, ProjectWorkspaceQueryResult, ProjectWorkspaceView } from '../shared/remote';
 import { ProjectDirectory, ProjectWorkspaceSummary } from '../renderer/projects/ProjectDirectory';
+import { useProjectUsage } from '../renderer/usage/ProjectUsage';
+import type { UsageProjectsResult } from '../shared/usageProjects';
 import { workspaceError } from './AgentWorkspace';
 import { useDeviceDraft } from './deviceDrafts';
 import type { MobileHost } from './useMobileHost';
@@ -26,6 +28,7 @@ export interface ProjectOpenIntent { key: string; workspaceId?: string; reposito
 export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentConsumed }: { host: MobileHost; onAgentWorkspace: (repositoryId: string) => void; intent?: ProjectOpenIntent; onIntentConsumed?: () => void }): JSX.Element {
   useLocale();
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [rights, setRights] = useState<MobileHostState>();
+  const usage = useProjectUsage((range) => host.request<UsageProjectsResult>('/api/v1/usage/projects', 'POST', { range }), host.status === 'online', (id) => host.catalog?.agents.find((agent) => agent.id === id)?.name ?? id);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [selected, setSelected] = useState<ProjectDirectoryEntry>();
   const [opening, saveOpening] = useDeviceDraft<Opening | null>(host.deviceId, 'project-opening', null);
   const [membershipChange, saveMembershipChange] = useDeviceDraft<MembershipChange | null>(host.deviceId, 'project-membership', null);
@@ -137,7 +140,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     {membershipNotice && <p role="status">{membershipNotice}</p>}
     {membershipChange && <p role="status">{translate("Project selection for:")}{" "}{membershipChange.name}{" "}{translate("not yet confirmed.")}{" "}<button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>{translate("Check project selection again")}</button></p>}
     {canRead && !rights?.capabilities?.includes('catalog:write') && <p>{translate("To add and remove on PC under Connected Devices, share project management.")}</p>}
-    <ProjectDirectory directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
+    <ProjectDirectory usage={usage} directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
       onMembership={membership} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}
       onOpen={(entry, button) => { opener.current = button; setSelected(entry); setError(''); }} />
     {opening && !show && <div role="status"><p>{translate("Opening “")}{opening.name}{translate("” has not been confirmed yet.")}</p><button onClick={(event) => {

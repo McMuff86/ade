@@ -71,6 +71,12 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     { provider: 'codex', account: { provider: 'codex', source: 'codex-account', status: 'available', checkedAt: 1, command: '/status', message: 'Fixture limits', windows: [{ label: 'Woche', usedPercent: 92, remainingPercent: 8, windowMinutes: 10080, resetsAt: 4_102_444_800_000 }, { label: '5 h', usedPercent: 40, remainingPercent: 60, windowMinutes: 300, resetsAt: 4_102_444_800_000 }] }, today: { status: 'unsupported', sessions: 0, events: 0, tokens: { input: null, inputUncached: null, output: null, cacheRead: null, cacheWrite: null, reasoning: null }, since: 0 } },
     { provider: 'claude', account: { provider: 'claude', source: 'cli', status: 'unavailable', checkedAt: 1, command: '/usage', message: 'Claude account limits are switched off. Allow them on the PC under Settings → Usage, or run /usage in Claude Code.', windows: [] }, today: { status: 'recording', sessions: 1, events: 3, tokens: { input: 1200, inputUncached: null, output: 300, cacheRead: null, cacheWrite: null, reasoning: null }, since: 0 } },
   ] } as import('../../src/shared/usageOverview').UsageOverview };
+  const usageProjects = { calls: [] as string[], result: (range: string, repositoryId: string) => ({ range, since: 1, checkedAt: 2, projects: [
+    { repositoryId, status: 'recording', sessions: 2, events: 5, tokens: { input: 1_200_000, inputUncached: null, output: 200_000, cacheRead: 3_000_000, cacheWrite: null, reasoning: null }, cost: { usd: 3.2, events: 5, eventsWithoutCost: 0, kinds: ['provider-reported'], complete: true },
+      providers: [{ provider: 'claude', sessions: 2, events: 5, tokens: { input: 1_200_000, inputUncached: null, output: 200_000, cacheRead: 3_000_000, cacheWrite: null, reasoning: null } }],
+      items: [{ id: 'usage-1', terminalSessionId: 't1', agentId: 'builder', provider: 'claude', startedAt: 1_758_600_000_000, models: ['claude-fixture'], events: 5, tokens: { input: 1_200_000, inputUncached: null, output: 200_000, cacheRead: 3_000_000, cacheWrite: null, reasoning: null }, cost: { usd: 3.2, events: 5, eventsWithoutCost: 0, kinds: ['provider-reported'], complete: true } }] },
+    { repositoryId: 'hidden-project', status: 'recording', sessions: 1, events: 1, tokens: { input: 10, inputUncached: null, output: 1, cacheRead: null, cacheWrite: null, reasoning: null }, cost: null, providers: [], items: [] },
+  ] }) as import('../../src/shared/usageProjects').UsageProjectsResult };
   // Model catalog stub for the tablet profile editor; no CLI is spawned in fixtures.
   const models = { calls: [] as string[], result: { runtime: 'codex', backend: 'native', status: 'ready', checkedAt: 1, message: '', models: [
     { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', isDefault: true, reasoningEfforts: ['high', 'xhigh'], defaultReasoningEffort: 'high' },
@@ -79,6 +85,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     organizer,
     diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
     usage: async () => { usage.calls++; return usage.result; },
+    usageProjects: (range) => { usageProjects.calls.push(range); return usageProjects.result(range, store.get().repositories[0]?.id ?? 'repo'); },
     supervision: () => new SupervisionService(new SupervisionStore(join(root, 'supervision.json')), store, id => sessions.find(session => session.id === id)),
     deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
@@ -97,5 +104,5 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, organizer, diagnostics, usage, models, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
+  return { ...fixture, application, organizer, diagnostics, usage, usageProjects, models, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

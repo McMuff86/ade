@@ -1,5 +1,30 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Tokens je Projekt und Sitzung auf den Projektkarten (23. September 2026, 22:00 CEST)
+
+Punkt 3 des [Nutzungsvorschlags](USAGE_OVERVIEW_PROPOSAL.md), nach Adis
+Entscheidung: Standardfenster 7 Tage, umschaltbar auf Heute und 30 Tage, Kosten
+auf der Karte. Jede Projektkarte im Projekte-Raum (PC) und in der
+Projekte-Ansicht (Tablet) trägt „Nutzung · 7 Tage: 1.4M Tokens · 2 Sitzung(en) ·
+$3.20“; „Aufschlüsselung“ öffnet je Anbieter und je Sitzung (Start, Agent,
+Anbieter, Modelle, Eingabe/Ausgabe/Cache, Kosten mit Herkunft). Quelle ist das
+Nutzungsjournal (`NativeUsageService.projectConsumption`, Anfragen zählen nach
+ihrem Zeitpunkt ab lokaler Mitternacht des Fensterbeginns); Desktop-Kanal
+`usage:projects` (Lesekanal), Tablet `POST /api/v1/usage/projects` mit
+`workspace:read`, auf die sichtbaren Projekte des Geräts beschränkt. Der
+Zeitraum ist eine Gerätepräferenz (`ade:usage-range`). Offen: dieselben
+Zahlen in der Sitzungsliste von „Sitzung & Workspace“.
+
+PID 54776 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/ProjectUsage-20260923-220011`. `pnpm build`, Start aus dem
+Repository: **22:00:26 CEST**, PID **4052**, Source **`cd7e3ca46fd381385109`**
+(Desktop 20:00:12 UTC, Mobile 20:00:21 UTC). Listener nur `127.0.0.1:4317`,
+HTTPS liefert `assets/index-DnTqdVus.js`, Geräteablage bytegleich. Nachweise:
+Typecheck; Nutzung 34/0, Remote-Nutzung 12/0, Native-Nutzung 29/0, Sicherheit
+291/0; gegen den isolierten Build Tablet-Workbench 58/0 (Karte, Aufschlüsselung,
+Escape), Nutzung Electron 10/0 (Karte ohne Sitzungen, Standard 7 Tage,
+Umschalten als Gerätepräferenz); `pnpm test` 98 Suiten/4088 Prüfungen grün.
+
 ## Aktiviert: Fotos und Blätter aus den Notizen ins Terminal (23. September 2026, 21:30:09 CEST)
 
 Nutzerwunsch vom Tablet: im Terminal Fotos hochladen und dabei auch Fotos aus

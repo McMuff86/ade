@@ -2973,7 +2973,15 @@ the token never enters a message, a log or the wire, and any failure is an
 unavailable state naming `/usage`. The channel is classified `launch` (it may
 start the Codex probe); the host route is gated like the per-terminal usage
 read (`workspace:read`, else `terminal:control`), budgeted with diagnostics
-(12 per minute) and audited as `usage:overview`. The terminal status bar's
+(12 per minute) and audited as `usage:overview`. Tokens per project
+(`usage:projects` / `POST /api/v1/usage/projects`, `{ range: today | 7d | 30d }`)
+are a plain journal read (`NativeUsageService.projectConsumption`): sessions
+grouped by repository, per-session rows with models and cost provenance,
+requests counted by their own time from local midnight of the range start; the
+host API cuts the list to the projects the device may see and redacts model
+names. The shared `ProjectDirectory` shows a usage line (tokens, sessions,
+costs) with a breakdown per card and one range switch (7 days by default, a
+device preference) on desktop and tablet. The terminal status bar's
 usage area is labelled "Show usage" so it reads as a control.
 
 Agent profiles on the tablet (`/api/v1/profile/query` and `/update`) carry the

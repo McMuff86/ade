@@ -5,6 +5,7 @@ import type { ProviderDayUsage, ProviderUsageOverview, UsageOverview, UsageOverv
 import { cachedCodexAccountUsage } from '../settings/CodexAccountUsage';
 import { cachedClaudeAccountUsage } from '../settings/ClaudeAccountUsage';
 import type { NativeUsageService } from './NativeUsageService';
+import { usageRangeSince, type UsageProjectsResult, type UsageRange } from '../../shared/usageProjects';
 
 /**
  * Builds the Overview's usage figures: the locally observable account limits
@@ -15,7 +16,7 @@ import type { NativeUsageService } from './NativeUsageService';
  */
 export class UsageOverviewService {
   constructor(private readonly deps: {
-    nativeUsage: () => Pick<NativeUsageService, 'providerConsumption'> | null;
+    nativeUsage: () => Pick<NativeUsageService, 'providerConsumption' | 'projectConsumption'> | null;
     claudeEnabled: () => boolean;
     codexAccount?: () => Promise<SubscriptionUsage>;
     claudeAccount?: () => Promise<SubscriptionUsage>;
@@ -23,6 +24,11 @@ export class UsageOverviewService {
   }) {}
   /** Local midnight, so "today" matches what the operator means on this PC. */
   static startOfDay(now: number): number { const at = new Date(now); at.setHours(0, 0, 0, 0); return at.getTime(); }
+  /** Tokens per project for the Projects room; a pure journal read, no CLI or account probe. */
+  projects(range: UsageRange): UsageProjectsResult {
+    const now = (this.deps.now ?? Date.now)(); const since = usageRangeSince(range, now);
+    return { range, since, checkedAt: now, projects: this.deps.nativeUsage()?.projectConsumption(since).projects ?? [] };
+  }
   async overview(): Promise<UsageOverview> {
     const now = (this.deps.now ?? Date.now)(); const since = UsageOverviewService.startOfDay(now); const claudeEnabled = this.deps.claudeEnabled();
     const today = (provider: UsageOverviewProvider): ProviderDayUsage =>

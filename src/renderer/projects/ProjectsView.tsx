@@ -1,4 +1,5 @@
 import { localizeAppMessage } from '../../shared/i18n/appMessages';
+import { useProjectUsage } from '../usage/ProjectUsage';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
@@ -24,6 +25,8 @@ const errorText = (error: unknown) => String(error);
 export function ProjectsView(): JSX.Element {
   useLocale();
   const [directory, setDirectory] = useState<ProjectDirectoryView>(); const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
+  const agents = useAppData((state) => state.agents);
+  const usage = useProjectUsage((range) => window.ade.invoke('usage:projects', { range }), true, (id) => agents[id]?.name ?? id);
   // Trusted desktop catalog only. A worktree's root can differ from its repository.
   const workspacePath = useAppData((state) => state.projectWorkspaces.find((item) => item.id === workspace?.id)?.workspaceDir);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -143,6 +146,6 @@ export function ProjectsView(): JSX.Element {
     </div>{repositoryEntry && <section aria-label={translate("Selected project")}><h2>{repositoryEntry.name}</h2>
       <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>{translate("Open project workspace [50726f6a]")}</button></section>}
       {repositoryId && directory && !repositoryEntry && <p role="status">{translate("The selected project is currently unreachable. Update project folder.")}</p>}
-      <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} /></>}
+      <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} usage={usage} /></>}
   </section>;
 }

@@ -41,6 +41,15 @@ void (async () => {
   await panel.getByRole('button', { name: 'Nutzung aktualisieren', exact: true }).click();
   await claude.getByText(/\/login/).waitFor({ timeout: 45_000 });
   check('with consent but no CLI sign-in the Claude block asks for /login and shows no percentages', (await claude.textContent())!.includes('/login') && await claude.locator('progress').count() === 0);
+  // Projects room: every card carries a usage line; the range switch defaults to 7 days and remembers the choice.
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
+  const card = page.getByTestId('project-usage').first(); await card.waitFor();
+  check('the project card explains that no ADE session ran in the period', (await card.textContent())!.includes('Nutzung') && (await card.textContent())!.includes('Keine ADE-Sitzungen'));
+  const range = page.getByRole('group', { name: 'Zeitraum der Nutzung', exact: true });
+  check('the usage period defaults to 7 days', await range.getByRole('button', { name: '7 Tage', exact: true }).getAttribute('aria-pressed') === 'true');
+  await range.getByRole('button', { name: 'Heute', exact: true }).click();
+  check('switching to today is a device preference', await range.getByRole('button', { name: 'Heute', exact: true }).getAttribute('aria-pressed') === 'true' && await page.evaluate(() => localStorage.getItem('ade:usage-range')) === 'today');
   check('no uncaught renderer errors', errors.length === 0);
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {
   await app?.close();
