@@ -1,5 +1,19 @@
 # ADE implementation status
 
+## Nutzung in der Übersicht, Claude-Kontolimits per Freigabe (23. September 2026)
+
+Übersichtskachel „Nutzung“ auf PC und Tablet mit dem engsten Kontofenster und
+aufklappbarem Detail (Kontofenster je Anbieter, Tokens des Tages aus nativen
+ADE-Sitzungen). Codex-Limits aus der bestehenden Kontoabfrage; Claude-Limits
+nur mit der Freigabe unter Einstellungen → Nutzung über die Anmeldung der
+Claude-CLI (Standard aus, Token bleibt am PC). Tablet-Route
+`/api/v1/usage/overview`, Terminal-Nutzungsbereich als Bedienelement
+beschriftet. Nachweise: Nutzung **30/0**, Remote-Nutzung **7/0**, Native-Nutzung
+**27/0**, Sicherheit **290/0**, Tablet-Workbench **55/0**, Mobile-Browser
+**61/0**, Nutzung Electron **7/0**, Electron-Workflow 197/0; `pnpm test` 98 Suiten/4074 Prüfungen grün.
+Aktiviert **20:59:27 CEST**, PID **49848**, Source `6e9a14c56ded7a397d1a`
+([Übergabe](HANDOFF.md)). Offen: Tokens je Projekt/Sitzung.
+
 ## Notizen mit mehreren Blättern, Fotokopien; Tablet-Profil mit Berechtigungsmodus und Claude-Modell (23. September 2026)
 
 Eine Notiz hält bis zu sechs Blätter mit Titel, Grösse und optionalem

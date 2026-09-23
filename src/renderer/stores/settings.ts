@@ -11,17 +11,21 @@ import { DEFAULT_INSPECTOR_SIDE, type InspectorSide, type ThemeName } from '../.
 interface SettingsState {
   theme: ThemeName;
   inspectorSide: InspectorSide;
+  /** Consent to read Claude account limits through the Claude CLI sign-in (Settings → Usage). */
+  claudeAccountUsage: boolean;
   /** true once the persisted config has been loaded */
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setTheme: (theme: ThemeName) => void;
   toggleTheme: () => void;
   setInspectorSide: (inspectorSide: InspectorSide) => void;
+  setClaudeAccountUsage: (enabled: boolean) => void;
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
   theme: 'dark',
   inspectorSide: DEFAULT_INSPECTOR_SIDE,
+  claudeAccountUsage: false,
   hydrated: false,
 
   hydrate: async () => {
@@ -31,6 +35,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
       set({
         theme: config.settings.theme,
         inspectorSide: config.settings.inspectorSide === 'left' ? 'left' : DEFAULT_INSPECTOR_SIDE,
+        claudeAccountUsage: config.settings.claudeAccountUsage === true,
         hydrated: true,
       });
     } catch (err) {
@@ -54,6 +59,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
     set({ inspectorSide });
     window.ade.invoke('config:save', { settings: { inspectorSide } }).catch((err) => {
       console.error('[ade] failed to persist inspector side:', err);
+    });
+  },
+
+  setClaudeAccountUsage: (claudeAccountUsage) => {
+    set({ claudeAccountUsage });
+    window.ade.invoke('config:save', { settings: { claudeAccountUsage } }).catch((err) => {
+      console.error('[ade] failed to persist usage consent:', err);
     });
   },
 }));

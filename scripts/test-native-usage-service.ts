@@ -35,6 +35,8 @@ void (async () => {
   await logs(other, 'claude_code.api_request', attrs);
   check('another launch cannot attribute the first native session to its own project', service.consumption('claude-b').events === 0 && service.consumption('claude-b').status === 'incomplete' && service.consumption('claude-a').events === 2);
   check('an untracked terminal never receives another session total', service.consumption('unknown').status === 'unsupported' && service.consumption('unknown').events === 0);
+  const claudeToday = service.providerConsumption('claude', 0); const nothingYet = service.providerConsumption('claude', Date.now() + 60_000);
+  check('the provider day sum joins every native Claude session and respects the since boundary', claudeToday.sessions === 2 && claudeToday.events === service.consumption('claude-a').events + service.consumption('claude-b').events && claudeToday.events === 2 && claudeToday.tokens.output === 36 && claudeToday.status === 'incomplete' && nothingYet.events === 0 && service.providerConsumption('codex', 0).status === 'unsupported');
 
   const grok = await service.prepare({ provider: 'grok', command: 'grok --model configured', env, terminalSessionId: 'grok-a' });
   check('Grok uses its explicit session file without an extra telemetry export', Object.keys(grok.env).length === 0 && nativeId(grok).length === 36);

@@ -9,6 +9,8 @@ import { formatRelativeTime, formatTokenCount, formatCostUsd } from '../shared/o
 import { finalStates, Icon, reportedTokens, runKindLabel, Status } from './ui';
 import type { MobileRunSummary } from '../shared/remote';
 import { DashboardLink } from './DashboardLink';
+import { UsageOverviewPanel, UsageOverviewTile, useUsageOverview } from '../renderer/usage/UsageOverviewCard';
+import type { UsageOverview } from '../shared/usageOverview';
 
 export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; selected: boolean; onSelect: () => void }): JSX.Element {
   useLocale();
@@ -26,14 +28,17 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
   useLocale();
   const { catalog, runs, health } = host;
   const tokens = reportedTokens(runs);
+  const usage = useUsageOverview(() => host.request<UsageOverview>('/api/v1/usage/overview', 'POST', {}), host.status === 'online');
   const open = runs.filter((run) => !finalStates.has(run.status));
   const recent = [...runs].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
   return <div className="m-overview" data-testid="mobile-overview">
     <header className="m-hero" aria-label={translate("Overview figures")}>
       <div><span className="m-eyebrow">{translate("Active Tasks")}</span><strong>{health?.queue.active ?? '—'}</strong><small>{health ? translate("{{value1}} queued · {{value2}} slots", { value1: health.queue.queued, value2: health.queue.maxActive }) : translate("Waiting for the PC")}</small></div>
       <div><span className="m-eyebrow">{translate("Open")}</span><strong>{catalog ? open.length : '—'}</strong><small>{catalog ? translate("{{value1}} approvals pending", { value1: open.filter((run) => run.pendingApprovalId).length }) : translate("Waiting for the PC")}</small></div>
-      <div><span className="m-eyebrow">{translate("Tokens")}</span><strong>{tokens ? formatTokenCount(Number(tokens)) : '—'}</strong><small>{tokens ? translate("Reported tokens · Completeness unknown") : translate("No token count yet")}</small></div>
+      <UsageOverviewTile usage={usage} className="m-usage-tile" panelId="mobile-usage-panel" />
     </header>
+    <UsageOverviewPanel usage={usage} id="mobile-usage-panel" online={host.status === 'online'} />
+    {tokens ? <p className="m-field-note">{translate("Reported tokens · Completeness unknown")}: {formatTokenCount(Number(tokens))}</p> : null}
     {!catalog ? <p className="m-loading" role="status">{translate("Loading projects and agents…")}</p> : <>
       <section className="m-ledger" aria-labelledby="mobile-agents-title"><h2 id="mobile-agents-title">{translate("Agents")}{" "}<span>{catalog.agents.length}</span></h2>
         {!catalog.agents.length ? <p className="m-empty-copy">{translate("No agents yet. Set up on PC in ADE.")}</p> : <ul className="m-agent-list">{catalog.agents.map((agent) => {

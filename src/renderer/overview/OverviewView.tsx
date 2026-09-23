@@ -24,6 +24,7 @@ import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
 import { CliWorkPanel } from '../work/CliWorkPanel';
 import { useAppData } from '../stores/appdata';
+import { UsageOverviewPanel, UsageOverviewTile, useUsageOverview } from '../usage/UsageOverviewCard';
 import './overview.css';
 
 function usageCaption(usage: OverviewUsageRollup): string {
@@ -101,6 +102,7 @@ export function OverviewView(): JSX.Element {
   const setActiveRun = useRuns((state) => state.setActiveRun);
   const setActiveSession = useSessions((state) => state.setActive);
   const [snapshot, setSnapshot] = useState<OverviewSnapshot | null>(null);
+  const usage = useUsageOverview(() => window.ade.invoke('usage:overview'));
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [workFilter, setWorkFilter] = useState<'current' | 'history' | 'all'>('current');
@@ -202,19 +204,15 @@ export function OverviewView(): JSX.Element {
           <span className="ov-stat-label">{translate("Open")}</span>
           <span className="ov-stat-value" data-testid="overview-open">{snapshot?.hero.openRuns ?? '—'}</span>
         </div>
-        <div className="ov-stat">
-          <span className="ov-stat-label">{translate("Tokens")}</span>
-          <span className="ov-stat-value" data-testid="overview-tokens">
-            {snapshot ? (snapshot.hero.tokens === null ? '—' : formatTokenCount(snapshot.hero.tokens)) : '—'}
-          </span>
-          {snapshot ? (
-            <span className="ov-stat-note">
-              {usageCaption(snapshot.hero.usage)}
-              {costCaption(snapshot.hero.usage) ? ` · ${costCaption(snapshot.hero.usage)}` : ''}
-            </span>
-          ) : null}
-        </div>
+        <UsageOverviewTile usage={usage} className="ov-stat" panelId="overview-usage-panel" />
       </header>
+      <UsageOverviewPanel usage={usage} id="overview-usage-panel" />
+      {snapshot && (snapshot.hero.tokens !== null || snapshot.hero.usage.tasksWithoutTokens > 0) ? (
+        <p className="ov-stat-note" data-testid="overview-tokens">
+          {translate("Tokens")}: {snapshot.hero.tokens === null ? '—' : formatTokenCount(snapshot.hero.tokens)} · {usageCaption(snapshot.hero.usage)}
+          {costCaption(snapshot.hero.usage) ? ` · ${costCaption(snapshot.hero.usage)}` : ''}
+        </p>
+      ) : null}
 
       {snapshot ? (
       <>

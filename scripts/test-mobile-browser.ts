@@ -78,7 +78,7 @@ void (async () => {
     return style.backgroundColor === 'rgb(14, 15, 18)' && style.getPropertyValue('--accent').trim() === '#E09A4A'
       && style.fontFamily.includes('Segoe UI') && machineFont.includes('Cascadia Code');
   }));
-  check('missing token telemetry is shown as unknown', (await page.getByLabel('Kennzahlen').textContent())!.includes('Noch keine Token-Angabe'));
+  check('the usage tile stays honest when the PC offers no figures', (await page.getByTestId('overview-usage').textContent())!.includes('Nutzung') && await page.getByTestId('overview-usage-value').textContent() === '—' && await page.getByRole('button', { name: 'Nutzung anzeigen', exact: true }).isVisible());
   check('signing key is non-exportable in IndexedDB', await page.evaluate(async () => new Promise<boolean>((done) => {
     const req = indexedDB.open('ade-mobile-identity', 1); req.onsuccess = () => {
       const get = req.result.transaction('identity').objectStore('identity').get('current');
@@ -269,7 +269,7 @@ void (async () => {
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
     || /^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}(\/tasks\/[A-Za-z0-9_.:-]{1,128})?\/activity$/.test(path)
-    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query'
+    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query' || path === '/api/v1/usage/overview'
     || path === '/api/v1/supervision/query'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();

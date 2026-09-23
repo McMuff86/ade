@@ -82,6 +82,15 @@ export class NativeUsageService {
     finally { try { await this.receiver.close(); } finally { await this.journal.close(); } }
   }
 
+  /** Sums of every native `coding` session of one provider whose facts arrived since `since` (the Overview's "today"). */
+  providerConsumption(provider: Provider, since: number): { status: 'recording' | 'waiting' | 'unsupported' | 'incomplete'; sessions: number; events: number; tokens: TokenCounts; since: number } {
+    const view = this.journal.view();
+    const sessions = view.sessions.filter(session => session.provider === provider && session.product === 'coding' && (session.endedAt ?? Number.POSITIVE_INFINITY) >= since);
+    const ids = new Set(sessions.map(session => session.id)); const facts = view.facts.filter(fact => ids.has(fact.sessionId) && fact.at >= since);
+    const tokens = unknownTokens();
+    for (const field of TOKEN_FIELDS) { const known = facts.map(fact => fact.tokens[field]).filter((value): value is number => value !== null); const sum = known.reduce((total, value) => total + value, 0); tokens[field] = known.length && Number.isSafeInteger(sum) ? sum : null; }
+    return { status: view.error || sessions.some(session => session.coverage === 'incomplete') ? 'incomplete' : !sessions.length ? 'unsupported' : facts.length ? 'recording' : 'waiting', sessions: sessions.length, events: facts.length, tokens, since };
+  }
   consumption(terminalSessionId: string): SessionConsumption {
     const view = this.journal.view(); const sessions = view.sessions.filter(session => session.terminalSessionId === terminalSessionId && session.product === 'coding');
     const ids = new Set(sessions.map(session => session.id)); const facts = view.facts.filter(fact => ids.has(fact.sessionId));

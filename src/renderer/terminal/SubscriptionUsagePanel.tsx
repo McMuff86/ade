@@ -34,7 +34,7 @@ export function SubscriptionUsagePanel({ load, online = true, compact = false }:
   }} onToggle={(event) => {
     setOpened(event.currentTarget.open); if (event.currentTarget.open && !usage) void refresh();
   }}>
-    <summary aria-label={translate("Subscription use")}>{compact ? `${provider} · ${usage ? mode : busy ? translate("Checking usage…") : translate("Usage / sign-in")}` : translate("Subscription use")}</summary>
+    <summary aria-label={translate("Subscription use")}>{compact ? `${opened ? translate("Hide usage") : translate("Show usage")} · ${provider}${usage && !opened ? ` · ${mode}` : busy && !opened ? ` · ${translate("Checking usage…")}` : ''}` : translate("Subscription use")}</summary>
     {opened && <section aria-label={translate("Subscription use")} aria-busy={busy}>
       <p>{translate("Subscription limits are separate from the context window and API costs.")}</p>
       {!online && <p role="status">{translate("PC not connected. Values may be obsolete.")}</p>}

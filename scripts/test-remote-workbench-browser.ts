@@ -202,6 +202,14 @@ void (async () => {
   check('closing the profile workspace returns focus to its overview button', await profileOpener.evaluate((node) => node === document.activeElement));
   await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   check('a reloaded tablet does not reopen the profile on its own', await workspace.count() === 0 || !await workspace.isVisible());
+  // Overview usage: the PC's account windows and today's sums, opened from the hero tile; Escape returns to the tile button.
+  await page.getByTestId('overview-usage').waitFor();
+  check('the usage tile shows the window closest to its limit', await page.getByTestId('overview-usage-value').textContent() === '92 %' && (await page.getByTestId('overview-usage').textContent())!.includes('Codex'));
+  const usageToggle = page.getByRole('button', { name: 'Nutzung anzeigen', exact: true }); await usageToggle.click();
+  const usagePanel = page.getByRole('region', { name: 'Nutzung', exact: true }); await usagePanel.waitFor();
+  check('the usage panel lists the Codex windows, today\'s Claude tokens and the consent hint', (await usagePanel.textContent())!.includes('92') && (await usagePanel.getByRole('region', { name: 'Claude Code', exact: true }).textContent())!.includes('1200') && (await usagePanel.textContent())!.includes('Einstellungen → Nutzung'));
+  await usagePanel.getByRole('button', { name: 'Nutzung aktualisieren', exact: true }).focus(); await page.keyboard.press('Escape');
+  check('Escape closes the usage panel and returns focus to the tile button', await usagePanel.count() === 0 && await page.getByRole('button', { name: 'Nutzung anzeigen', exact: true }).evaluate((node) => node === document.activeElement));
   check('workspace flow has no uncaught browser errors', errors.length === 0);
   mkdirSync(resolve('test-results/remote'), { recursive: true }); await page.screenshot({ path: resolve('test-results/remote/workbench-phone.png') });
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {

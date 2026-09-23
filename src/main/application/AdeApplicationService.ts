@@ -149,6 +149,8 @@ export interface ApplicationOptions {
   organizer?: OrganizerService;
   /** Non-mutating CLI/auth probes for the configured agents (the desktop `runtime:diagnose` handler without a session). */
   diagnostics?: (agentId?: string) => Promise<RuntimeDiagnosticsResult> | RuntimeDiagnosticsResult;
+  /** The Overview's usage figures (account limits + today's native sums); may start the Codex account probe. */
+  usage?: () => Promise<import('../../shared/usageOverview').UsageOverview>;
   conversations?: () => ConversationService;
   conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
@@ -580,6 +582,35 @@ export class AdeApplicationService {
    * and redacted for the wire. The probes spawn version/sign-in commands on
    * the PC, so every run is audited like the desktop channel.
    */
+  /**
+   * Overview usage for a paired device: the same figures the desktop hero
+   * shows. Percentages and reset times only; gated like the per-terminal
+   * usage read (workspace read or terminal control) and audited because the
+   * Codex account probe starts a CLI on the PC.
+   */
+  async usageOverview(context: RemoteCommandContext, payload: unknown): Promise<import('../../shared/usageOverview').UsageOverview> {
+    const probe = this.options.usage; const ledger = this.options.administration?.ledger;
+    if (!probe || !ledger) throw new RemoteApiError(404, 'not_found');
+    const authorize = () => {
+      if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
+      try { ledger.permits(context, 'workspace:read'); } catch { ledger.permits(context, 'terminal:control'); }
+    };
+    try {
+      authorize();
+      if (payload !== undefined && (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).length)) throw new RemoteApiError(400, 'invalid_payload');
+      this.audit(context, 'usage:overview', null, 'requested');
+      const run = async () => { authorize(); return await probe(); };
+      const result = this.options.activity ? await this.options.activity.use(run) : await run();
+      authorize();
+      this.audit(context, 'usage:overview', null, 'executed');
+      return { ...result, providers: result.providers.map((item) => ({ ...item, account: { ...item.account, message: redactForWire(item.account.message, 400), windows: item.account.windows.map((window) => ({ ...window, label: redactForWire(window.label, 120) })) } })) };
+    } catch (error) {
+      this.audit(context, 'usage:overview', null, 'rejected', redactedWireMessage(error));
+      if (error instanceof RemoteApiError) throw error;
+      throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error));
+    }
+  }
   async diagnostics(context: RemoteCommandContext, payload: unknown): Promise<MobileDiagnosticsResult> {
     const probe = this.options.diagnostics; const ledger = this.options.administration?.ledger;
     if (!probe || !ledger) throw new RemoteApiError(404, 'not_found');

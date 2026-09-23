@@ -66,6 +66,11 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const organizer = new OrganizerService(join(root, 'organizer.json'));
   const diagnostics = { calls: [] as (string | undefined)[], result: { checkedAt: 1, platform: 'fixture', items: [] } as import('../../src/shared/types').RuntimeDiagnosticsResult };
+  // Overview usage stub: the tablet reads the PC's figures; no account probe runs in fixtures.
+  const usage = { calls: 0, result: { checkedAt: 1, claudeAccountEnabled: false, providers: [
+    { provider: 'codex', account: { provider: 'codex', source: 'codex-account', status: 'available', checkedAt: 1, command: '/status', message: 'Fixture limits', windows: [{ label: 'Woche', usedPercent: 92, remainingPercent: 8, windowMinutes: 10080, resetsAt: 4_102_444_800_000 }, { label: '5 h', usedPercent: 40, remainingPercent: 60, windowMinutes: 300, resetsAt: 4_102_444_800_000 }] }, today: { status: 'unsupported', sessions: 0, events: 0, tokens: { input: null, inputUncached: null, output: null, cacheRead: null, cacheWrite: null, reasoning: null }, since: 0 } },
+    { provider: 'claude', account: { provider: 'claude', source: 'cli', status: 'unavailable', checkedAt: 1, command: '/usage', message: 'Claude account limits are switched off. Allow them on the PC under Settings → Usage, or run /usage in Claude Code.', windows: [] }, today: { status: 'recording', sessions: 1, events: 3, tokens: { input: 1200, inputUncached: null, output: 300, cacheRead: null, cacheWrite: null, reasoning: null }, since: 0 } },
+  ] } as import('../../src/shared/usageOverview').UsageOverview };
   // Model catalog stub for the tablet profile editor; no CLI is spawned in fixtures.
   const models = { calls: [] as string[], result: { runtime: 'codex', backend: 'native', status: 'ready', checkedAt: 1, message: '', models: [
     { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', isDefault: true, reasoningEfforts: ['high', 'xhigh'], defaultReasoningEffort: 'high' },
@@ -73,6 +78,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
     organizer,
     diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
+    usage: async () => { usage.calls++; return usage.result; },
     supervision: () => new SupervisionService(new SupervisionStore(join(root, 'supervision.json')), store, id => sessions.find(session => session.id === id)),
     deleteCompletedRun: (id) => coordinator.deleteRun(id, true),
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
@@ -91,5 +97,5 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, organizer, diagnostics, models, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
+  return { ...fixture, application, organizer, diagnostics, usage, models, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

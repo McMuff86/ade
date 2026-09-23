@@ -64,6 +64,7 @@ const responseErrors = new WeakMap<ServerResponse, MobileErrorCode>();
 
 type Route =
   | { kind: 'diagnosticsQuery' }
+  | { kind: 'usageOverview' }
   | { kind: 'organizerQuery' | 'organizerCommand' | 'organizerDictation' }
   | { kind: 'terminalPrompt' | 'terminalImage' | 'dictationCommand' | 'dictationUpload' }
   | { kind: 'integrationQuery' | 'integrationCommand' }
@@ -80,7 +81,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'diagnosticsQuery' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'diagnosticsQuery' | 'usageOverview' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -148,6 +149,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/supervision/command': return { route: { kind: 'supervisionCommand' }, allow: ['POST'] };
     case '/api/v1/conversation/query': return { route: { kind: 'conversationQuery' }, allow: ['POST'] };
     case '/api/v1/diagnostics/query': return { route: { kind: 'diagnosticsQuery' }, allow: ['POST'] };
+    case '/api/v1/usage/overview': return { route: { kind: 'usageOverview' }, allow: ['POST'] };
     case '/api/v1/organizer/query': return { route: { kind: 'organizerQuery' }, allow: ['POST'] };
     case '/api/v1/organizer/command': return { route: { kind: 'organizerCommand' }, allow: ['POST'] };
     case '/api/v1/organizer/dictation': return { route: { kind: 'organizerDictation' }, allow: ['POST'] };
@@ -502,6 +504,7 @@ export class HostApiServer {
         case 'supervisionCommand':
         case 'conversationQuery':
         case 'diagnosticsQuery':
+        case 'usageOverview':
         case 'organizerQuery':
         case 'organizerCommand':
         case 'organizerDictation':
@@ -632,6 +635,7 @@ export class HostApiServer {
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
         : kind === 'diagnosticsQuery' ? await this.application.diagnostics(context, payload)
+        : kind === 'usageOverview' ? await this.application.usageOverview(context, payload)
         : kind === 'organizerQuery' || kind === 'organizerCommand' ? await this.application.organizer(context, payload, kind === 'organizerCommand')
         : kind === 'organizerDictation' ? await this.application.organizerDictation(context, payload)
         : kind === 'terminalPrompt' ? await this.application.remotePrompt(context, payload)

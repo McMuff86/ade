@@ -14,6 +14,7 @@ import { isSecretEnvName } from './errors';
 import { DictationService } from './settings/DictationService';
 import { DictationJobs } from './settings/DictationJobs';
 import { NativeUsageService } from './usage/NativeUsageService';
+import { UsageOverviewService } from './usage/UsageOverviewService';
 import { SpeechUsageService } from './usage/SpeechUsageService';
 import { UsageJournal } from './usage/UsageJournal';
 import { desktopMicrophone } from './settings/desktopMicrophone';
@@ -124,6 +125,7 @@ let conversations: ConversationService | null = null;
 let remoteTerminals: RemoteTerminalService | null = null;
 let dictationJobs: DictationJobs | null = null;
 let nativeUsage: NativeUsageService | null = null;
+let usageOverview: UsageOverviewService | null = null;
 let stopTerminalRevocation: (() => void) | null = null;
 let replySpeech: ReplySpeechService | null = null;
 let orchestration: OrchestrationService | null = null;
@@ -304,6 +306,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
   const usageJournal = new UsageJournal(join(app.getPath('userData'), 'ade', 'usage', 'events.jsonl'));
   nativeUsage = new NativeUsageService(usageJournal);
+  usageOverview = new UsageOverviewService({ nativeUsage: () => nativeUsage, claudeEnabled: () => store.get().settings.claudeAccountUsage === true });
   const speechUsage = new SpeechUsageService(usageJournal);
   const speech = new SpeechService(store, () => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
   const dictation = new DictationService(() => harnessCredentials.envFor('shell').ELEVENLABS_API_KEY);
@@ -535,6 +538,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       conversations: conversationService,
       organizer,
       diagnostics: (agentId) => diagnoseConfigured(agentId),
+      usage: () => usageOverview!.overview(),
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
       profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
@@ -1038,6 +1042,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.PtyAttach, ({ sessionId }) => ptyManager!.attach(sessionId));
   handle(IPC.TerminalControl, ({ sessionId }) => remoteTerminals!.desktopState(sessionId));
   handle(IPC.TerminalUsage, ({ sessionId }) => ptyManager!.subscriptionUsage(sessionId));
+  handle(IPC.UsageOverview, () => usageOverview!.overview());
   handle(IPC.TerminalProfileContext, ({ sessionId }) => ptyManager!.profileContextText(sessionId));
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
   handle(IPC.TerminalPromptQuery, ({ sessionId }) => remoteTerminals!.desktopPromptCapability(sessionId));

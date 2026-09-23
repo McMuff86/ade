@@ -211,10 +211,11 @@ function validateConfigSave(channel: string, payload: unknown): void {
   const request = record(channel, payload);
   exactKeys(channel, request, ['settings']);
   const settings = record(channel, request.settings, 'settings');
-  exactKeys(channel, settings, ['theme', 'language', 'inspectorSide'], 'settings');
-  if (settings.theme === undefined && settings.inspectorSide === undefined && settings.language === undefined) {
-    invalid(channel, 'settings must include theme, language or inspectorSide');
+  exactKeys(channel, settings, ['theme', 'language', 'inspectorSide', 'claudeAccountUsage'], 'settings');
+  if (settings.theme === undefined && settings.inspectorSide === undefined && settings.language === undefined && settings.claudeAccountUsage === undefined) {
+    invalid(channel, 'settings must include theme, language, inspectorSide or claudeAccountUsage');
   }
+  if (settings.claudeAccountUsage !== undefined && typeof settings.claudeAccountUsage !== 'boolean') invalid(channel, 'settings.claudeAccountUsage must be boolean');
   if (settings.theme !== undefined) enumValue(channel, settings.theme, 'settings.theme', ['dark', 'light']);
   if (settings.language !== undefined && !isAppLocale(settings.language)) invalid(channel, 'invalid interface language');
   if (settings.inspectorSide !== undefined) {
@@ -673,6 +674,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.ConfigHealth:
     case IPC.RemoteDevicesList:
     case IPC.MobileAccessStatus:
+    case IPC.UsageOverview:
     case IPC.MobileAccessPair:
     case IPC.MobileAccessCancelPair:
     case IPC.WorkspaceBundlePickImport:

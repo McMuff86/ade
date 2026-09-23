@@ -1,0 +1,20 @@
+/* Usage tile + panel on the Overview home (desktop `.ov-*` and tablet `.m-hero` both host the tile). */
+.usage-overview-toggle { align-self: flex-start; margin-top: 4px; min-height: 28px; padding: 0 10px; font-size: 11px; }
+@media (pointer: coarse) { .usage-overview-toggle { min-height: 40px; } }
+.usage-overview-panel { display: grid; gap: 14px; margin: -14px 0 28px; padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel, transparent); font-size: 12px; }
+.usage-overview-panel h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.usage-overview-panel h4 { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.usage-overview-provider { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-overview-provider > h3 { grid-column: 1 / -1; margin-bottom: 0; }
+.usage-overview-window { display: grid; gap: 3px; margin: 0 0 8px; }
+.usage-overview-window progress { width: min(100%, 320px); accent-color: var(--accent); }
+.usage-overview-window span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
+.usage-overview-tokens { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px 12px; margin: 0; }
+.usage-overview-tokens > div { display: flex; justify-content: space-between; gap: 8px; }
+.usage-overview-tokens dt { color: var(--muted); }
+.usage-overview-tokens dd { margin: 0; font-variant-numeric: tabular-nums; font-family: var(--mono, monospace); }
+.usage-overview-note { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.usage-overview-note code { font-family: var(--mono, monospace); }
+.usage-overview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.usage-overview-actions button { min-height: 32px; }
+@media (pointer: coarse) { .usage-overview-actions button { min-height: 44px; } }

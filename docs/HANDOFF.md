@@ -1,5 +1,44 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Nutzung in der Übersicht, Claude-Kontolimits per Freigabe (23. September 2026, 20:59:27 CEST)
+
+Nutzerwunsch: Tokenverbrauch und Abo-Limits für Codex und Claude sichtbar
+machen, auf PC und Tablet. Umgesetzt ([Architektur](ARCHITECTURE.md), „ADE host
+API“):
+
+- **Übersichtskachel „Nutzung“** statt „Tokens“ auf PC und Tablet: zeigt das
+  Fenster, das seinem Limit am nächsten ist (z. B. „90 % · Codex · Primäres
+  Limit · Reset Do 10:24“); „Nutzung anzeigen“ öffnet darunter je Anbieter die
+  Kontofenster mit Balken und Reset-Zeit sowie die Tokens des Tages aus nativen
+  ADE-Sitzungen (`NativeUsageService.providerConsumption`). Escape schliesst
+  und gibt den Fokus an den Knopf zurück. Die gemeldeten Auftrags-Tokens stehen
+  weiterhin als Zeile unter der Kachel.
+- **Claude-Kontolimits** (`main/settings/ClaudeAccountUsage.ts`): nur mit der
+  neuen Freigabe „Claude-Kontolimits über die Anmeldung der Claude-CLI abrufen“
+  unter Einstellungen → Nutzung (Standard aus, `settings.claudeAccountUsage`).
+  ADE liest dann die CLI-Anmeldung (`.credentials.json`, Link-Disziplin) und
+  fragt den Anthropic-Nutzungsendpunkt höchstens einmal pro Minute; Ergebnis nur
+  Prozent und Reset-Zeit, Token nie in Meldung, Log oder Wire; jeder Fehler
+  wird ein „nicht verfügbar“ mit `/usage`-Hinweis. Der Endpunkt ist von
+  Anthropic nicht dokumentiert; fällt er weg, bleibt der Hinweis stehen.
+- **Tablet**: `POST /api/v1/usage/overview`, Freigabe wie die Terminal-Nutzung
+  (`workspace:read`, sonst `terminal:control`), Budget 12/min, Audit
+  `usage:overview`. Terminal-Statusleiste: der Nutzungsbereich heisst jetzt
+  „Nutzung anzeigen · Codex“ mit Pfeil, damit er als Bedienelement lesbar ist.
+
+PID 35028 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/UsageOverview-20260923-205911`. `pnpm build`, Start aus dem Repository: **20:59:27
+CEST**, PID **49848**, Source **`6e9a14c56ded7a397d1a`** (Desktop 18:59:13 UTC, Mobile
+18:59:21 UTC). Listener nur `127.0.0.1:4317`, HTTPS liefert `assets/index-DmQm7YFb.js`,
+Geräteablage bytegleich. Nachweise: Typecheck; Nutzung 30/0 (Projektion,
+Anmeldung, Cache, Übersicht), Remote-Nutzung 7/0, Native-Nutzung 27/0,
+Abo-Nutzung 14/0, Sicherheit 290/0; gegen den isolierten Build Tablet-Workbench
+55/0, Mobile-Browser 61/0, Nutzung Electron 7/0 (echte Codex-Kontoabfrage,
+Freigabe persistiert, ohne Anmeldung `/login`-Hinweis), Electron-Workflow
+197/0; `pnpm test` 98 Suiten/4074 Prüfungen grün. Sichtprüfung `test-results/usage/desktop-usage-panel.png`.
+Offen: Tokens je Projekt und Sitzung in der Projektübersicht (Punkt 3 des
+Vorschlags).
+
 ## Aktiviert: Notiz öffnet auf dem Tablet ohne Tastatur (23. September 2026, 20:28 CEST)
 
 Nutzerbefund: beim Öffnen einer Notiz ging auf dem Tablet sofort die

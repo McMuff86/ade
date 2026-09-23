@@ -95,7 +95,7 @@ h1, h2, h3 { line-height: 1.35; }
 .m-overview { max-width: 1600px; padding: 20px 28px 36px; }
 .m-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); margin-bottom: 30px; }
 .m-hero > div { padding: 8px 20px 18px 0; display: flex; flex-direction: column; gap: 6px; }
-.m-hero > div + div { padding-left: 20px; border-left: 1px solid var(--line); }.m-hero strong { font-size: 30px; font-weight: 500; line-height: 1.15; font-variant-numeric: tabular-nums; }.m-hero small { max-width: 28ch; font-size: 10px; }
+.m-hero > div + div { padding-left: 20px; border-left: 1px solid var(--line); }.m-usage-tile .m-eyebrow { display: block; }.m-hero strong { font-size: 30px; font-weight: 500; line-height: 1.15; font-variant-numeric: tabular-nums; }.m-hero small { max-width: 28ch; font-size: 10px; }
 .m-ledger { margin-bottom: 30px; }.m-ledger h2, .m-work-rail h2 { display: flex; align-items: baseline; gap: 10px; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }.m-ledger h2 span { font-size: 11px; font-weight: 400; }
 .m-agent-list, .m-projects, .m-work-list { list-style: none; padding: 0; margin: 0; }
 .m-agent-row { width: 100%; display: grid; grid-template-columns: 30px minmax(130px, 1.3fr) minmax(70px, .6fr) minmax(100px, 1fr) 20px; align-items: center; gap: 14px; text-align: left; padding: 10px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }

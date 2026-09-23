@@ -1106,6 +1106,8 @@ export interface Settings {
    * Existing bindings keep their recorded absolute paths either way.
    */
   worktreeBaseDir?: string;
+  /** Read Claude account limits through the Claude CLI sign-in on this PC (Settings → Usage). Off unless the operator switches it on. */
+  claudeAccountUsage?: boolean;
 }
 
 /** Persisted app config (main/config/store.ts, userData/ade/config.json). */

@@ -2959,6 +2959,23 @@ PC. The tablet renders the report with the same `DiagnosticsReport` component
 as the desktop modal, inside Settings, and shows where to enable the grant
 when `capabilities` lacks it. The generic remote-command allowlist is unchanged.
 
+Usage on the Overview (`usage:overview` on the desktop, `POST
+/api/v1/usage/overview` on the tablet) is built by
+`main/usage/UsageOverviewService`: per provider the account limits ADE can
+observe locally and today's native-session sums from the usage journal
+(`NativeUsageService.providerConsumption`, local midnight). Codex limits come
+from the cached app-server account read; Claude limits come from
+`main/settings/ClaudeAccountUsage` only when `settings.claudeAccountUsage` is
+on (Settings → Usage): it reads the Claude CLI's `.credentials.json` under the
+link discipline, asks the Anthropic account usage endpoint with that sign-in at
+most once per minute and projects the answer to percentages and reset times;
+the token never enters a message, a log or the wire, and any failure is an
+unavailable state naming `/usage`. The channel is classified `launch` (it may
+start the Codex probe); the host route is gated like the per-terminal usage
+read (`workspace:read`, else `terminal:control`), budgeted with diagnostics
+(12 per minute) and audited as `usage:overview`. The terminal status bar's
+usage area is labelled "Show usage" so it reads as a control.
+
 Agent profiles on the tablet (`/api/v1/profile/query` and `/update`) carry the
 Codex model and reasoning effort for native Codex profiles without a custom
 command (`RemoteProfileService.modelEditable`): the summary shows the effective

@@ -42,6 +42,7 @@ import '../onboarding/onboarding.css';
 import './settings.css';
 import { RemoteDevicesSection } from './RemoteDevicesSection';
 import { MobileAccessSection } from './MobileAccessSection';
+import { UsageSettingsSection } from './UsageSettingsSection';
 import { ProjectDefaultsSection } from './ProjectDefaultsSection';
 import { TargetSpeechSettings } from './TargetSpeechSettings';
 import { SettingsTabs } from './SettingsTabs';
@@ -542,6 +543,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               {translate("Links")}</button>
           </div>
         </div>
+        <UsageSettingsSection />
         <MobileAccessSection />
         <ProjectDefaultsSection />
         <RemoteDevicesSection />

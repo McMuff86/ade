@@ -164,6 +164,7 @@ export const IPC = {
   PtyAttach: 'pty:attach',
   TerminalControl: 'terminal:control',
   TerminalUsage: 'terminal:usage',
+  UsageOverview: 'usage:overview',
   TerminalProfileContext: 'terminal:profileContext',
   TerminalReclaim: 'terminal:reclaim',
   PtyActivitySnapshot: 'pty:activitySnapshot',
@@ -309,6 +310,8 @@ export interface ConfigSaveRequest {
     language?: import('./i18n/locales').AppLocale;
     theme?: ThemeName;
     inspectorSide?: InspectorSide;
+    /** Consent to read Claude account limits through the Claude CLI sign-in on this PC. */
+    claudeAccountUsage?: boolean;
   };
 }
 export interface WorkspaceRemoveBindingRequest {
@@ -788,6 +791,7 @@ export interface IpcInvokeMap {
   'pty:attach': { req: PtyAttachRequest; res: PtyAttachResult };
   'terminal:control': { req: PtyAttachRequest; res: TerminalControlState };
   'terminal:usage': { req: PtyAttachRequest; res: import('./remote').SubscriptionUsage };
+  'usage:overview': { req: void; res: import('./usageOverview').UsageOverview };
   'terminal:profileContext': { req: PtyAttachRequest; res: string | null };
   'terminal:reclaim': { req: PtyAttachRequest; res: TerminalControlState };
   'pty:activitySnapshot': { req: PtyAttachRequest; res: PtyActivityResult };
