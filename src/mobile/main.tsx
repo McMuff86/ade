@@ -276,14 +276,16 @@ function MobileApp(): JSX.Element {
     {connectionOpen && host.paired && <ConnectionDialog host={host} build={compareBuilds(admin.state?.build)} fallbackId="mobile-title" onClose={() => setConnectionOpen(false)} onSettings={() => setSettings(true)} />}
     {settings && <Dialog title={translate("Settings")} onClose={() => setSettings(false)} fallbackId="mobile-title">
       <SettingsTabs voice={host.paired ? <MobileSpeechSettings host={host} target={{ kind: 'default' }} /> : <p>{translate("To set the voice first connect to the PC.")}</p>}>
-      {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
-        requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
-      {host.paired && <MobileDiagnostics host={host} />}
-      <LanguageSetting />
+      <p className="m-settings-group">{translate("This device")}</p>
+      <section className="m-settings-section"><LanguageSetting /></section>
       <section className="m-settings-section"><h3>{translate("Appearance")}</h3><p>{translate("Theme on this device. Your PC setting remains independent.")}</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />{translate("Dark")}</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />{translate("Light")}</label></div></section>
       <section className="m-settings-section"><h3>{translate("Connection")}</h3><p>{translate("Private via Tailscale. PC on and leave ADE open.")}</p><p>{translate("Use as an app: Select “To the home screen” or “Install the app” in the browser.")}</p>
         {host.paired && <><button disabled={host.busy} className="m-danger" onClick={() => { void host.disconnect(); setSettings(false); }}>{translate("Disconnect this device locally")}</button><p className="m-field-note">{translate("For complete revocation: Remove device in ADE on PC.")}</p></>}</section>
+      <p className="m-settings-group">{translate("Your PC")}</p>
+      {host.paired && <HostRestartSection host={host} onNavigate={(target) => { setSettings(false); navigate(target);
+        requestAnimationFrame(() => document.getElementById(`view-tab-${target}`)?.focus()); }} />}
+      {host.paired && <MobileDiagnostics host={host} />}
       </SettingsTabs>
     </Dialog>}
     {switcherOpen && host.paired && <MobileSessionSwitcher host={host} fallbackId={`view-tab-${view}`} onClose={() => setSwitcherOpen(false)} onSelect={target => {

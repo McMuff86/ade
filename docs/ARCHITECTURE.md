@@ -3040,6 +3040,18 @@ matches) all agree byte for byte. "Draw on a copy" adds a sheet the size of the
 photo with the photo as background; the attachment itself is never altered, and
 removing a photo only clears the background reference of sheets that used it.
 A sheet opened from the empty state and closed without a mark is dropped again.
+Paired devices carry `lastSeenAt`: the authorizer stamps the device store after a
+verified signature (`RemoteDeviceStore.touch`, written at most every ten minutes,
+audited as `device:seen`), and Settings → Connected devices shows "last active",
+flags devices idle for more than three days and, with several active devices,
+explains that idle ones are usually earlier pairings of the same tablet.
+The voice studio (casual conversation) opens by itself, loads the catalog once
+and seats the PC's default voice in empty variants; the default variant carries a
+badge, an empty sample box falls back to a suggested text, generated samples are
+kept per device (bounded, invalidated when voice, model, tuning or text change),
+and the sample text can be dictated through the open conversation's recording
+port under a studio-specific draft key.
+
 The tablet terminal's image dialog offers "From the notes"
 (`mobile/NoteImagePicker.tsx`): it reads the device's own IndexedDB note cache
 (`renderer/organizer/noteImageSources.ts`, drafts included), lists notes with

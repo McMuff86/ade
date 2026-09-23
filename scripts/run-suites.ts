@@ -105,7 +105,7 @@ const SUITES: Suite[] = [
   { id: 'supervision-navigation', script: 'test-supervision-navigation.ts', floors: { win32: 8 } },
   { id: 'terminal-workspace-identity', script: 'test-terminal-workspace-identity.ts', floors: { win32: 17 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },
-  { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 51 } },
+  { id: 'remote-devices', script: 'test-remote-devices.ts', floors: { win32: 52 } },
   { id: 'device-resources', script: 'test-device-resources.ts', floors: { win32: 43 } },
   { id: 'remote-administration', script: 'test-remote-administration.ts', floors: { win32: 36 } },
   { id: 'remote-workspaces', script: 'test-remote-workspaces.ts', floors: { win32: 55 } },

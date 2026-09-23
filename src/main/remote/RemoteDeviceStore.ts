@@ -84,6 +84,7 @@ export class RemoteDeviceStore {
           || !validName(item.name) || !Number.isSafeInteger(item.createdAt) || item.createdAt < 0
           || (item.adminScopes !== undefined && !isRemoteAdminScopes(item.adminScopes))
           || (item.resourceAccess !== undefined && !isDeviceResourceAccess(item.resourceAccess))
+          || (item.lastSeenAt !== undefined && (!Number.isSafeInteger(item.lastSeenAt) || item.lastSeenAt < 0))
           || (item.revokedAt !== null && (!Number.isSafeInteger(item.revokedAt) || item.revokedAt < 0))
           || (item.revokedAt === null ? typeof item.encryptedSecret !== 'string' : item.encryptedSecret !== null)) {
           throw new Error('invalid device');
@@ -103,8 +104,8 @@ export class RemoteDeviceStore {
 
   inventory(): RemoteDeviceInventory {
     return {
-      devices: this.state.devices.map(({ id, name, createdAt, revokedAt, adminScopes, resourceAccess }) => ({ id, name, createdAt, revokedAt,
-        adminScopes: [...adminScopes ?? []], ...(resourceAccess ? { resourceAccess: structuredClone(resourceAccess) } : {}) })),
+      devices: this.state.devices.map(({ id, name, createdAt, revokedAt, adminScopes, resourceAccess, lastSeenAt }) => ({ id, name, createdAt, revokedAt,
+        adminScopes: [...adminScopes ?? []], ...(resourceAccess ? { resourceAccess: structuredClone(resourceAccess) } : {}), ...(lastSeenAt !== undefined ? { lastSeenAt } : {}) })),
       available: this.failure === null && this.protection.available(),
       error: this.failure ?? (this.protection.available() ? null : unavailableMessage()),
     };
@@ -161,6 +162,14 @@ export class RemoteDeviceStore {
     this.secrets.set(device.id, device.secret);
   }
 
+  /** Remember when a device last authenticated; written at most every ten minutes per device so the audit stays readable. */
+  touch(id: string, at = Date.now()): void {
+    if (this.failure !== null) return;
+    const device = this.state.devices.find((item) => item.id === id);
+    if (!device || device.revokedAt !== null || (device.lastSeenAt !== undefined && at - device.lastSeenAt < 600_000)) return;
+    const next = structuredClone(this.state); next.devices.find((item) => item.id === id)!.lastSeenAt = at;
+    try { this.change(next, 'device:seen', id); } catch { /* activity is a convenience; a failed write must never block the request */ }
+  }
   rename(id: string, name: string): RemoteDeviceInventory {
     this.assertAvailable();
     if (!validName(name)) throw new Error('ade: device name must contain 1-80 printable characters');

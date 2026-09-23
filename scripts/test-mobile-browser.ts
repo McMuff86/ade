@@ -269,7 +269,7 @@ void (async () => {
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
     || /^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}(\/tasks\/[A-Za-z0-9_.:-]{1,128})?\/activity$/.test(path)
-    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query' || path === '/api/v1/usage/overview'
+    || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query' || path === '/api/v1/usage/overview' || path === '/api/v1/usage/projects'
     || path === '/api/v1/supervision/query'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();

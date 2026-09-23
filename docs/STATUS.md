@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Stimmenstudio-Politur, Geräteaktivität, Tablet-Einstellungen (23. September 2026)
+
+Stimmenstudio lädt Stimmen und Standardstimme von selbst, Hörprobentext
+vorbefüllt, Hörproben bleiben auf dem Gerät, Diktat für den Hörprobentext;
+Gespräche-Dialog ruhiger; Verbundene Geräte zeigen „Zuletzt aktiv“ und einen
+Hinweis bei mehreren aktiven Kopplungen; Tablet-Einstellungen in Gruppen „Dieses
+Gerät“ und „Dein PC“. Nachweise: Remote-Geräte **52/0**, Mobile-Sprache **43/0**,
+Gespräche Electron **67/0**, Electron-Workflow 197/0; `pnpm test` 98 Suiten/4089 Prüfungen grün. Aktiviert
+**22:24:13 CEST**, PID **14432**, Source `6d11e2149487a84b5c32` ([Übergabe](HANDOFF.md)).
+
 ## Tokens je Projekt und Sitzung auf den Projektkarten (23. September 2026)
 
 Projektkarten auf PC und Tablet zeigen Tokens, Sitzungen und Kosten des

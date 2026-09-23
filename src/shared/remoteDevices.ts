@@ -27,6 +27,8 @@ export interface RemoteDeviceInfo {
   /** Missing on old stores: no administrative permissions. Granted only at the desktop. */
   adminScopes?: RemoteAdminScope[];
   resourceAccess?: DeviceResourceAccess;
+  /** Last authenticated request (epoch ms), stamped at most every ten minutes; absent before the device's first request on this version. */
+  lastSeenAt?: number;
 }
 
 export interface RemoteDeviceInventory {

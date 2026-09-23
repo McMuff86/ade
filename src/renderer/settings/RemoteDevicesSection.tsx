@@ -81,6 +81,7 @@ export function RemoteDevicesSection(): JSX.Element {
       {inventory?.error && <p className="st-error" role="alert">{localizeAppMessage(inventory.error)}</p>}
       {message && <p role="status">{message}</p>}
       {inventory?.devices.length === 0 && <p>{translate("No devices connected yet. Couple a tablet or smartphone under \"Mobile Access\".")}</p>}
+      {(inventory?.devices.filter((device) => device.revokedAt === null).length ?? 0) > 1 && <p className="st-device-hint" data-testid="remote-devices-multiple">{translate("Several devices are active. One that has not been active for days is usually an earlier pairing of the same tablet: remove it here; the tablet you use keeps working.")}</p>}
       <ul className="st-device-list">
         {inventory?.devices.map((device) => (
           <li key={device.id} className="st-device" data-device-id={device.id}>
@@ -118,6 +119,8 @@ export function RemoteDevicesSection(): JSX.Element {
                   && resourceKey(resourceDrafts[device.id]) === resourceKey(device.resourceAccess)}>{translate("Save administrative rights")}</button>
             </fieldset>}
             <p className="st-device-hint">{device.id}{" "}{translate("· Added")}{" "}{new Date(device.createdAt).toLocaleDateString(intlLocale())}
+              {device.revokedAt === null && (device.lastSeenAt === undefined ? translate(" · Not active since this ADE version") : translate(" · Last active {{value1}}", { value1: new Date(device.lastSeenAt).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }) }))}
+              {device.revokedAt === null && device.lastSeenAt !== undefined && Date.now() - device.lastSeenAt > 3 * 86_400_000 && <strong>{translate(" · inactive for {{value1}} days", { value1: Math.floor((Date.now() - device.lastSeenAt) / 86_400_000) })}</strong>}
               {device.revokedAt !== null && translate(" · Revoked {{value1}}", { value1: new Date(device.revokedAt).toLocaleDateString(intlLocale()) })}</p>
           </li>
         ))}

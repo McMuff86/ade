@@ -122,13 +122,16 @@ void (async()=>{
   // Voice studio (casual conversation): a compared variant can become the ADE default voice from the tablet.
   await page.locator('#mobile-supervision').click();await page.locator('#conversation-mode-casual').click();
   const casual=page.getByRole('dialog',{name:'Plaudern & Stimme',exact:true});await casual.waitFor();
-  const studio=casual.locator('details.voice-studio');await studio.locator('summary').click();
-  await studio.getByRole('button',{name:'Stimmen laden',exact:true}).click();
+  // The studio opens by itself, loads the voices and seats the PC's default voice; the sample text is suggested, not required.
+  const studio=casual.locator('details.voice-studio');await studio.getByTestId('voice-studio-default').getByText('Standardstimme',{exact:false}).waitFor();
+  check('the studio names the current default voice without a click',(await studio.getByTestId('voice-studio-default').textContent())!.includes('Standardstimme'));
+  check('the sample text is suggested as a placeholder and a badge marks the default variant',!!(await studio.getByLabel('Hörprobentext',{exact:true}).getAttribute('placeholder')) && await studio.locator('.voice-studio-badge').first().isVisible());
   await studio.getByLabel('Variante A: Stimme',{exact:true}).selectOption(female);
   check('the studio offers to make a variant the default voice',await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).isEnabled());
   await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).click();
   await studio.getByText('Variante A ist jetzt die Standardstimme',{exact:false}).waitFor();
   check('voice studio variant becomes the ADE default voice on the PC',store.get().settings.speechVoiceId===female);
+  check('the default badge follows the new default and the select button disappears on that variant',(await studio.locator('fieldset').first().textContent())!.includes('Standardstimme') && await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).count()===0);
   await page.keyboard.press('Escape');await casual.waitFor({state:'hidden'});
   check('mobile speech flow has no uncaught browser errors',errors.length===0);
 })().catch(async error=>{failed++;console.error(error); const page=browser?.contexts()[0]?.pages()[0]; if(page) {console.error((await page.locator('body').innerText()).slice(-6000));await page.screenshot({path:resolve('test-results/mobile-speech-failure.png')});}}).finally(async()=>{await browser?.close();await server?.stop();sessions?.dispose();await proxy?.close();rmSync(root,{recursive:true,force:true});console.log(`Mobile speech browser: ${passed} passed, ${failed} failed`);process.exitCode=failed?1:0;});

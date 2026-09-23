@@ -139,7 +139,8 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
       </div>
       {!profiles.length && <p>{translate("First create a native Codex profile with model and reasoning in the Agent settings.")}</p>}
       <p className="conversation-note">{translate('Uses a native Codex profile on the PC. The model starts when you send your first message.')}</p>
-      {mode === 'casual' && port.speech && <VoiceStudio port={port.speech} scope={draftScope} enabled={online} reply={detail?.turns.slice().reverse().find(turn => !!turn.output)?.output ?? ''} />}
+      {mode === 'casual' && port.speech && <VoiceStudio port={port.speech} scope={draftScope} enabled={online} reply={detail?.turns.slice().reverse().find(turn => !!turn.output)?.output ?? ''}
+        dictation={port.recording && detail && detail.available && !detail.closed ? { port: port.recording, drafts, conversationId: detail.id } : undefined} />}
       {!online && <p role="status">{translate("PC not connected. Displayed history may be obsolete.")}</p>}
       {!canWrite && <p>{translate("To send messages, enable run write permissions for this device on the PC.")}</p>}
       {error && <div role="alert"><p>{localizeAppMessage(error)}</p><button type="button" disabled={busy || !online} onClick={() => { setError(''); void reload(); }}>{translate("Update the conversation")}</button></div>}

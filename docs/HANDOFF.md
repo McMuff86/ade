@@ -1,5 +1,41 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Stimmenstudio-Politur, Gespräche-Dialog, Geräteaktivität, Tablet-Einstellungen (23. September 2026, 22:24:13 CEST)
+
+Adis Befunde beim Tablet-Test, Gestaltung nach dem Kalm-Token-Plan
+([VOICE_SEAMLESS_UX_PROPOSAL.md](VOICE_SEAMLESS_UX_PROPOSAL.md) §9):
+
+- **Stimmenstudio** (`renderer/conversation/VoiceStudio.tsx`): öffnet sich in
+  „Plaudern & Stimme“ von selbst, lädt die Stimmen einmal und setzt die
+  Standardstimme des PCs in leere Varianten; Kopfzeile „Standardstimme: Name“,
+  Marke an der Standard-Variante. Hörprobentext als Vorschlag vorbefüllt (leer =
+  Vorschlagstext), „Letzte Antwort übernehmen“, „Zurück zum Vorschlagstext“,
+  Diktat des Hörprobentexts über die Aufnahme der offenen Unterhaltung. Erzeugte
+  Hörproben bleiben auf dem Gerät (begrenzt) und werden ungültig, sobald Stimme,
+  Modell, Regler oder Text abweichen; Spieler direkt unter der Variante. Kupfer
+  nur auf „A/B erzeugen“, Voreinstellungen hinter einem Knopf.
+- **Gespräche-Dialog**: Einleitung als ruhige Notiz, Navigationsknöpfe quiet,
+  Gesprächsbeiträge als Karten mit leisen Rollen-Überschriften.
+- **Verbundene Geräte am PC**: „Zuletzt aktiv“ je Gerät (`RemoteDeviceStore.touch`,
+  höchstens alle zehn Minuten, Audit `device:seen`), „seit n Tagen inaktiv“ ab
+  drei Tagen, Hinweis bei mehreren aktiven Geräten. Adis Ablage hat drei aktive
+  Kopplungen: `3fbd9be5…` (Adi Galaxy S10 Ultra, aktiv heute), `50921596…` (Adi
+  Tablet, zuletzt 18.9.) und `2b15a7b7…` (Samsung Galaxy S10 Ultra, zuletzt
+  18.9.); die beiden letzten kann er unter Einstellungen → Verbundene Geräte
+  entfernen, die Stempel füllen sich ab dieser Version.
+- **Tablet-Einstellungen**: Gruppen „Dieses Gerät“ (Sprache, Darstellung,
+  Verbindung) und „Dein PC“ (ADE am PC, Diagnose), Abschnitte als Karten.
+
+PID 4052 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/StudioPolish-20260923-222356`. `pnpm build`, Start aus dem Repository: **22:24:13
+CEST**, PID **14432**, Source **`6d11e2149487a84b5c32`** (Desktop 20:23:57 UTC, Mobile
+20:24:08 UTC). Listener nur `127.0.0.1:4317`, HTTPS liefert `assets/index-Cq0cK97_.js`,
+Geräteablage bytegleich. Nachweise: Typecheck; Remote-Geräte 52/0 (Stempel,
+Drosselung, Neustart); gegen den isolierten Build Mobile-Sprache 43/0
+(Standardstimme ohne Klick, Platzhalter, Marke folgt der neuen Standardstimme),
+Gespräche Electron 67/0, Electron-Workflow 197/0; `pnpm test` 98 Suiten/4089 Prüfungen grün. Sichtprüfung
+`test-results/organizer/studio-tablet.png`, `settings-tablet*.png`.
+
 ## Aktiviert: Tokens je Projekt und Sitzung auf den Projektkarten (23. September 2026, 22:00 CEST)
 
 Punkt 3 des [Nutzungsvorschlags](USAGE_OVERVIEW_PROPOSAL.md), nach Adis

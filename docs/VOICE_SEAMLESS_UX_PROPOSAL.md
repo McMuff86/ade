@@ -472,3 +472,30 @@ alte Grenze wachsen (33/0, Desktop und Tablet). Commit 6002cd8 auf `main`
 Aktiviert als `dist/voice-strip-d5db34c4`, PID 17632; die vorherige Instanz
 endete diesmal regulär vor dem Helfer-Fallback. Backup
 `ADE-Backups\VoiceStrip-20260916-180656`.
+
+## 9. Stimmenstudio-Politur und Gespräche-Dialog (23. September 2026)
+
+Adis Befunde beim Tablet-Test: Standardstimme und Hörprobe sollten schon da
+sein, der Hörprobentext soll vorbefüllt sein, Diktat für den Hörprobentext,
+Dialog übersichtlicher. Gestaltungsentscheid nach dem Kalm-Token-Plan
+(`docs/UI_CALM_PASS.md`): eine Karte, Kupfer nur auf „A erzeugen“/„B erzeugen“,
+alles andere quiet.
+
+- Das Studio öffnet sich in „Plaudern & Stimme“ von selbst, lädt die Stimmen
+  einmal und setzt die Standardstimme des PCs in leere Varianten; die Kopfzeile
+  nennt „Standardstimme: Name“, die betreffende Variante trägt eine Marke.
+- Hörprobentext als Platzhalter vorgeschlagen; leer heisst Vorschlagstext.
+  „Letzte Antwort übernehmen“, „Zurück zum Vorschlagstext“, Sprache in einer
+  Werkzeugzeile. Diktat des Hörprobentexts über die Aufnahme der offenen
+  Unterhaltung (eigener Entwurfsschlüssel `studio:<id>`).
+- Hörproben bleiben auf dem Gerät (begrenzt) und werden ungültig, sobald Stimme,
+  Modell, Regler oder Text abweichen; der Spieler sitzt direkt unter der Variante.
+- Regler mit Hilfetext als Tooltip und Beschreibung; Voreinstellungen hinter
+  einem Knopf; Fusszeile mit A/B-Vergleich, Kopieren, Stimmen neu laden.
+- Gespräche-Dialog: Einleitung als ruhige Notiz, Navigationsknöpfe quiet,
+  Gesprächsbeiträge als Karten mit leisen Rollen-Überschriften.
+- Tablet-Einstellungen: Gruppen „Dieses Gerät“ (Sprache, Darstellung,
+  Verbindung) und „Dein PC“ (ADE am PC, Diagnose), Abschnitte als Karten.
+- Verbundene Geräte am PC: „Zuletzt aktiv“ je Gerät, Hinweis bei mehreren
+  aktiven Geräten (frühere Kopplungen desselben Tablets entfernen).
+

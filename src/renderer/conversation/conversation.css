@@ -3,7 +3,10 @@
 .conversation-modes > button { display: grid; gap: 8px; text-align: start; padding: 20px; min-height: 88px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
 .conversation-modes > button span { color: var(--muted); font-weight: 400; }
 .conversation-modes > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.conversation-panel { display: grid; gap: 12px; min-width: 0; }
+.conversation-panel { display: grid; gap: 14px; min-width: 0; }
+.conversation-panel > p:first-child { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 72ch; }
+.conversation-panel > .conversation-controls:first-of-type button { border-color: transparent; background: transparent; color: var(--muted); }
+.conversation-panel > .conversation-controls:first-of-type button:hover:not(:disabled) { color: var(--text); background: var(--panel); }
 .conversation-panel label { display: grid; gap: 6px; min-width: 0; }
 .conversation-panel select, .conversation-panel textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 .conversation-panel button, .conversation-panel select { min-height: 44px; }
@@ -16,7 +19,8 @@
 .conversation-controls > label { flex: 1; min-width: min(240px, 100%); }
 .conversation-panel form { display: grid; gap: 8px; }
 .conversation-history { display: grid; gap: 14px; }
-.conversation-turn { border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.conversation-turn { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; background: var(--panel); }
+.conversation-turn h3 { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: .01em; }
 .conversation-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .conversation-note { font-size: 12px; color: var(--muted); }
 .conversation-voice { display: grid; gap: .5rem; margin-block: 1rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; }

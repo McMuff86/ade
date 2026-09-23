@@ -56,6 +56,11 @@ try {
   const authorizer = new RemoteAuthorizer('t'.repeat(32), [], undefined, store);
   const signed = { method: 'GET', path: '/api/v1/catalog', timestamp: String(Date.now()), idempotencyKey: '', bodySha256: sha256Hex('') };
   check('authorizer resolves the durable identity', authorizer.verifyDeviceSignature(device.id, signRequest(device.secret, signed), signed).ok);
+  const seenAt = store.inventory().devices[0]?.lastSeenAt;
+  store.touch(device.id, (seenAt ?? 0) + 60_000); const throttled = store.inventory().devices[0]?.lastSeenAt;
+  store.touch(device.id, (seenAt ?? 0) + 700_000);
+  check('a verified request stamps the device as seen, at most every ten minutes, and the stamp survives restart', seenAt !== undefined && throttled === seenAt && store.inventory().devices[0]?.lastSeenAt === seenAt + 700_000
+    && new RemoteDeviceStore(dir, protection).inventory().devices[0]?.lastSeenAt === seenAt + 700_000 && !JSON.stringify(store.inventory()).includes(device.secret));
   let revoked: string | null | undefined;
   store.onRevoked((id) => { revoked = id; });
   store.revoke(device.id);

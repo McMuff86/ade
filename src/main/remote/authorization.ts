@@ -51,6 +51,8 @@ export interface RemoteDevice {
 export interface RemoteDeviceSource {
   activeDevices(): RemoteDevice[];
   onRevoked(listener: (id: string | null) => void): () => void;
+  /** Optional activity stamp after a verified signature; the desktop shows it as "last active". */
+  touch?(id: string): void;
 }
 
 export interface SignedRequest {
@@ -201,6 +203,7 @@ export class RemoteAuthorizer {
     const expected = signRequest(secret, request);
     if (!constantTimeEquals(signature, expected)) return this.deny(device, 'invalid_signature');
     if (!device) return { ok: false, reason: 'unknown_device' };
+    this.source?.touch?.(device.id);
     return {
       ok: true,
       principal: {
