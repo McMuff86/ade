@@ -1,4 +1,5 @@
 import { t as translate } from "../shared/i18n";
+import type { RuntimeModelRequest } from '../shared/runtimeModels';
 import { changeLocale } from '../shared/i18n';
 import { RunQuestionService } from './orchestration/RunQuestionService';
 import { OrganizerService } from './organizer/OrganizerService';
@@ -544,7 +545,10 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
           if (image.length <= 32 * 1024) return image;
         }
         throw new Error(translate("ade: Profile picture is too big."));
-      }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() })),
+      }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }),
+      // Same catalog the desktop picker reads (`harness:models`): the agent's default repository backend, else its home backend.
+      (agent) => runtimeModels.list({ runtime: agent.runtime as RuntimeModelRequest['runtime'], backend: normalizeExecutionBackendId(agent.defaultRepositoryId
+        ? store.get().repositories.find((repository) => repository.id === agent.defaultRepositoryId)?.executionBackend : agent.homeExecutionBackend) })),
       administration: { ledger, restart, git: repositorySync,
         workspaces: workspaceProvision },
       // The same coordinator/service methods the desktop IPC handlers call

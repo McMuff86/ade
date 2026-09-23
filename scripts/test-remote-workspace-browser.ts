@@ -21,7 +21,7 @@ void (async () => {
   proxy = await mobileTlsProxy(); sessions = new BrowserSessions(fixture.devices);
   server = new HostApiServer(fixture.application, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
     authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, fixture.devices),
-    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
+    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
   proxy.target((await server.start()).port);
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, ignoreHTTPSErrors: true });

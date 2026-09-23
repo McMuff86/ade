@@ -11,6 +11,8 @@ export interface VoiceStudioPort {
   generate(input: SpeechTestInput, key: string): Promise<SpeechAudio>;
   /** Only adapters with durable, same-key receipts can recover a paid request. */
   recover?: boolean;
+  /** Make a variant's voice and tuning the ADE default voice (PC and tablet); absent when the surface cannot save preferences. */
+  select?(voiceId: string, tuning: SpeechTuning, key: string): Promise<void>;
 }
 type Slot = 'a' | 'b';
 interface Setup { voiceId: string; model: StudioModel; tuning: SpeechTuning }
@@ -94,11 +96,11 @@ export function VoiceStudio({ port, scope, enabled, reply = '' }: { port: VoiceS
         </div>
         <div className="voice-studio-variants">{(['a', 'b'] as const).map(slot => <fieldset key={slot} disabled={!fresh}>
           <legend>{t('Variant {{variant}}', { variant: slot.toUpperCase() })}</legend>
-          <label>{t('Voice')}<select value={state[slot].voiceId} onChange={e => change(slot, { ...state[slot], voiceId: e.target.value })}>
+          <label>{t('Voice')}<select aria-label={t('Variant {{variant}}: voice', { variant: slot.toUpperCase() })} value={state[slot].voiceId} onChange={e => change(slot, { ...state[slot], voiceId: e.target.value })}>
             <option value="">{t('Choose voice')}</option>{state[slot].voiceId && !catalog?.voices.some(v => v.id === state[slot].voiceId) && <option value={state[slot].voiceId}>{t('Saved voice — load voices to check availability')}</option>}
             {catalog?.voices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select></label>
-          <label>{t('Voice model')}<select value={state[slot].model} onChange={e => change(slot, { ...state[slot], model: e.target.value as StudioModel })}>
+          <label>{t('Voice model')}<select aria-label={t('Variant {{variant}}: voice model', { variant: slot.toUpperCase() })} value={state[slot].model} onChange={e => change(slot, { ...state[slot], model: e.target.value as StudioModel })}>
             <option value="eleven_multilingual_v2">Eleven Multilingual v2</option><option value="eleven_v3">Eleven v3 · Text to Dialogue</option>
           </select></label>
           <p className="conversation-note">{state[slot].model === 'eleven_v3' ? t('This v3 connection supports stability. Other settings remain saved for Multilingual v2.') : t('Multilingual v2 uses speed, stability, similarity, style and speaker boost. It detects the language from your text.')}</p>
@@ -120,6 +122,12 @@ export function VoiceStudio({ port, scope, enabled, reply = '' }: { port: VoiceS
             else if (presets[e.target.value]) change(slot, { ...state[slot], tuning: presets[e.target.value] });
           }}><option value="">{t('Apply a preset')}</option><option value="neutral">{t('Neutral')}</option><option value="calm">{t('Calm')}</option><option value="expressive">{t('Expressive')}</option>{state.presets.map((p, i) => <option key={i} value={`custom:${i}`}>{p.name}</option>)}</select></label>
           <button type="button" disabled={!ready(slot)} onClick={() => void run(() => generate(slot))}>{t('Generate {{variant}}', { variant: slot.toUpperCase() })}</button>
+          {port.select && <button type="button" disabled={!fresh || !catalog?.voices.some(v => v.id === state[slot].voiceId)} onClick={() => void run(async () => {
+            const setup = stateRef.current?.[slot]; if (!setup) return;
+            await port.select!(setup.voiceId, { ...setup.tuning }, crypto.randomUUID()); if (!live.current) return;
+            setCatalog(existing => existing ? { ...existing, selectedVoiceId: setup.voiceId } : existing);
+            setNotice(t('Variant {{variant}} is now the default voice. Applies to PC and tablet.', { variant: slot.toUpperCase() }));
+          })}>{t('Use {{variant}} as default voice', { variant: slot.toUpperCase() })}</button>}
         </fieldset>)}</div>
         <div className="conversation-controls">
           <button type="button" className="voice-studio-primary" disabled={!ready('a') || !ready('b')} onClick={() => void run(async () => { await generate('a'); if (live.current && available.current && !stateRef.current?.pending) await generate('b'); })}>{t('Compare A/B · generate two samples')}</button>

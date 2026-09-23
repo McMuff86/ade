@@ -3,8 +3,10 @@ import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, wri
 import { inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { AdeConfig, Agent } from '../../shared/types';
-import type { MobileAgentProfile, MobileAgentSummary, MobileProfileUpdate } from '../../shared/remote';
+import { DEFAULT_CODEX_MODEL, DEFAULT_CODEX_REASONING_EFFORT, type AdeConfig, type Agent, type CodexReasoningEffort } from '../../shared/types';
+import type { MobileAgentProfile, MobileAgentSummary, MobileProfileQuery, MobileProfileUpdate } from '../../shared/remote';
+import { CODEX_MODEL_PATTERN } from '../../shared/runtimes';
+import type { RuntimeModelCatalog } from '../../shared/runtimeModels';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 import { redactForWire } from '../errors';
 import { RemoteApiError } from './AdeApplicationService';
@@ -14,6 +16,14 @@ import { syncAgentInstructions } from '../memory/agentInstructions';
 const PHOTO_BYTES = 32 * 1024;
 const fail = (message: string): never => { throw new RemoteApiError(422, 'command_rejected', message); };
 const invalid = (): never => { throw new RemoteApiError(400, 'invalid_payload'); };
+const REASONING_EFFORTS: ReadonlySet<string> = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+/** Tablet profile read: the agent id plus an optional request for the PC's model catalog. */
+export function validateProfileRequest(value: unknown): MobileProfileQuery {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some((key) => key !== 'agentId' && key !== 'models')) invalid();
+  const input = value as Record<string, unknown>; const agentId = validateProfileQuery({ agentId: input.agentId });
+  if (input.models !== undefined && input.models !== true) invalid();
+  return input.models === true ? { agentId, models: true } : { agentId };
+}
 export function validateProfileQuery(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some((key) => key !== 'agentId')) invalid();
   const id = (value as { agentId: unknown }).agentId;
@@ -23,7 +33,7 @@ export function validateProfileUpdate(value: unknown): MobileProfileUpdate {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid();
   const input = value as Record<string, unknown>;
   validateProfileQuery({ agentId: input.agentId });
-  if (Object.keys(input).some((key) => !['agentId', 'revision', 'name', 'role', 'photo'].includes(key))
+  if (Object.keys(input).some((key) => !['agentId', 'revision', 'name', 'role', 'photo', 'codexModel', 'codexReasoningEffort'].includes(key))
     || typeof input.revision !== 'string' || !/^[a-f0-9]{64}$/.test(input.revision)
     || typeof input.name !== 'string' || !input.name.trim() || input.name.length > 80 || typeof input.role !== 'string' || input.role.length > 160
     || [input.name, input.role].some((text) => /[\x00-\x1f\x7f]/.test(text as string) || redactForWire(text as string, 200) !== text)) invalid();
@@ -34,6 +44,8 @@ export function validateProfileUpdate(value: unknown): MobileProfileUpdate {
     const bytes = Buffer.from(photo.bytesBase64 as string, 'base64');
     if (bytes.toString('base64') !== photo.bytesBase64) invalid(); validateAvatarPng(bytes);
   }
+  if (input.codexModel !== undefined && (typeof input.codexModel !== 'string' || !CODEX_MODEL_PATTERN.test(input.codexModel) || redactForWire(input.codexModel, 120) !== input.codexModel)) invalid();
+  if (input.codexReasoningEffort !== undefined && (typeof input.codexReasoningEffort !== 'string' || !REASONING_EFFORTS.has(input.codexReasoningEffort))) invalid();
   return input as unknown as MobileProfileUpdate;
 }
 
@@ -65,15 +77,26 @@ export function validateAvatarPng(bytes: Buffer): void {
 
 export class RemoteProfileService {
   constructor(private readonly store: { get(): AdeConfig; save(partial: Partial<AdeConfig>): AdeConfig }, private readonly directory: string,
-    private readonly normalize: (bytes: Buffer) => Buffer, private readonly changed: () => void = () => undefined) {}
+    private readonly normalize: (bytes: Buffer) => Buffer, private readonly changed: () => void = () => undefined,
+    /** The PC's model catalog for an agent's runtime and backend; absent when this host cannot probe CLIs. */
+    private readonly models?: (agent: Agent) => Promise<RuntimeModelCatalog>) {}
+  /** Native Codex profiles without a custom command carry the model the desktop picker edits. */
+  private modelEditable(agent: Agent): boolean { return agent.runtime === 'codex' && !agent.customCommand?.trim(); }
   private agent(id: string): Agent { const agent = this.store.get().agents.find((item) => item.id === id); if (!agent) fail(translate("Agent no longer exists.")); return agent!; }
-  revision(agent: Agent): string { return workbenchDigest(JSON.stringify([agent.id, agent.name, agent.role ?? '', agent.photo ?? ''])); }
+  revision(agent: Agent): string { return workbenchDigest(JSON.stringify([agent.id, agent.name, agent.role ?? '', agent.photo ?? '', agent.codexModel ?? '', agent.codexReasoningEffort ?? ''])); }
   summary(agent: Agent): MobileAgentSummary {
     return { id: agent.id, name: redactForWire(agent.name, 160), role: agent.role ? redactForWire(agent.role, 200) : undefined, runtime: agent.runtime,
-      ...(agent.photo ? { photoVersion: workbenchDigest(agent.photo) } : {}) };
+      ...(agent.photo ? { photoVersion: workbenchDigest(agent.photo) } : {}),
+      ...(this.modelEditable(agent) ? { codexModel: redactForWire(agent.codexModel ?? DEFAULT_CODEX_MODEL, 120), codexReasoningEffort: (agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT) as CodexReasoningEffort } : {}) };
   }
-  query(id: string): MobileAgentProfile {
+  async query(id: string, options: { models?: boolean } = {}): Promise<MobileAgentProfile> {
     const agent = this.agent(id); const profile: MobileAgentProfile = { agent: this.summary(agent), revision: this.revision(agent) };
+    if (options.models && this.modelEditable(agent) && this.models) {
+      const catalog = await this.models(agent);
+      profile.models = { ...catalog, message: redactForWire(catalog.message ?? '', 300),
+        models: catalog.models.slice(0, 200).map((model) => ({ ...model, id: redactForWire(model.id, 120), name: redactForWire(model.name, 160), ...(model.description === undefined ? {} : { description: redactForWire(model.description, 300) }),
+          ...(model.resolvedModel === undefined ? {} : { resolvedModel: redactForWire(model.resolvedModel, 120) }) })) };
+    }
     if (agent.photo) {
       try {
       if (!/^[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(agent.photo)) fail(translate("Saved profile picture is not available."));
@@ -104,7 +127,9 @@ export class RemoteProfileService {
       photo = `${randomUUID()}.png`; const path = join(this.directory, photo); assertNoLinks(path);
       const fd = openSync(path, 'wx', 0o600); try { writeFileSync(fd, bytes); fsyncSync(fd); } finally { closeSync(fd); }
     }
-    const updated: Agent = { ...agent, name: input.name.trim(), role: input.role.trim() || undefined, photo };
+    if ((input.codexModel !== undefined || input.codexReasoningEffort !== undefined) && !this.modelEditable(agent)) fail(translate("Model and reasoning apply to native Codex profiles without a custom command."));
+    const updated: Agent = { ...agent, name: input.name.trim(), role: input.role.trim() || undefined, photo,
+      ...(input.codexModel !== undefined ? { codexModel: input.codexModel } : {}), ...(input.codexReasoningEffort !== undefined ? { codexReasoningEffort: input.codexReasoningEffort } : {}) };
     syncAgentInstructions(updated);
     this.store.save({ agents: this.store.get().agents.map((item) => item.id === agent.id ? updated : item) });
     this.changed(); return { revision: this.revision(updated) };

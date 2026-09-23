@@ -2959,6 +2959,22 @@ PC. The tablet renders the report with the same `DiagnosticsReport` component
 as the desktop modal, inside Settings, and shows where to enable the grant
 when `capabilities` lacks it. The generic remote-command allowlist is unchanged.
 
+Agent profiles on the tablet (`/api/v1/profile/query` and `/update`) carry the
+Codex model and reasoning effort for native Codex profiles without a custom
+command (`RemoteProfileService.modelEditable`): the summary shows the effective
+values (defaults filled in), the update accepts `codexModel` (Codex model id
+pattern) and `codexReasoningEffort` (the store's reasoning set) and refuses them
+for other profiles, and the profile revision now covers both fields so a stale
+tablet draft is detected. `models: true` on the query returns the PC's model
+catalog for that agent — the same `RuntimeModelService` probe the desktop picker
+uses, with the agent's default-repository or home backend — behind
+`profiles:write` (the PC starts its CLI for it) and audited under
+`harness:models`; catalog text is redacted for the wire. `harness:models` itself
+stays desktop-only. The voice studio in casual conversations can make a
+compared variant the ADE default voice: desktop through `speech:configure`,
+tablet through `/api/v1/speech/command` `select` on the default target, both
+with the variant's tuning.
+
 The common React organizer uses an IndexedDB profile per desktop/paired identity.
 A local transaction reserves the exact pending command before network submission.
 Web Locks serialize browser-tab flushes where supported; durable writer receipts

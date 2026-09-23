@@ -65,6 +65,9 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
         const playback = await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'audio', testId: result.testId }); current();
         if (!playback.audio) throw new Error(translate('Voice test is not available.')); return playback.audio;
       },
+      select: async (voiceId, tuning, key) => {
+        current(); await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/command', 'POST', { operation: 'select', target: { kind: 'default' }, voiceId, tuning }, key); current();
+      },
     },
     actions: {
       list: async conversationId => {

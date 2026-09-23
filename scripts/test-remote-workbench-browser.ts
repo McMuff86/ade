@@ -44,7 +44,7 @@ void (async () => {
   proxy = await mobileTlsProxy(); sessions = new BrowserSessions(devices);
   server = new HostApiServer(app, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
     authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, devices),
-    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: (entry) => devices.audit(entry) });
+    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => devices.audit(entry) });
   proxy.target((await server.start()).port);
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
   const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true, ignoreHTTPSErrors: true }); page.setDefaultTimeout(25_000);
@@ -153,6 +153,22 @@ void (async () => {
   check('browser normalizes and stores a tablet profile image', !!store.get().agents.find((agent) => agent.id === 'builder')!.photo
     && store.get().agents.find((agent) => agent.id === 'builder')!.role === 'Tablet reviewer');
   check('authenticated image is displayed under mobile CSP', await workspace.getByRole('img', { name: 'Profilbild-Vorschau', exact: true }).evaluate((node) => (node as HTMLImageElement).naturalWidth > 0));
+  // Model and reasoning are editable from the tablet for a native Codex profile; the catalog comes from the PC.
+  const builderBefore = store.get().agents.find((agent) => agent.id === 'builder')!;
+  store.save({ agents: store.get().agents.map((agent) => agent.id === 'builder' ? { ...agent, runtime: 'codex', customCommand: undefined, codexModel: 'gpt-5.6-sol', codexReasoningEffort: 'high' } : agent) });
+  await workspace.getByRole('button', { name: 'Profil neu laden', exact: true }).click();
+  const modelSelect = workspace.getByLabel('Codex-Modell', { exact: true }); await modelSelect.waitFor();
+  await workspace.getByRole('option', { name: /Codex fixture fast/ }).waitFor({ state: 'attached' });
+  check('the PC model catalog fills the tablet model choice with the default marked', (await modelSelect.locator('option').allTextContents()).join('|') === 'GPT-5.6 Sol · gpt-5.6-sol · Standard|Codex fixture fast · codex-fixture-fast');
+  await modelSelect.selectOption('codex-fixture-fast');
+  check('choosing a model narrows the reasoning choices to what the model reports', await workspace.getByLabel('Denktiefe', { exact: true }).inputValue() === 'low' && await workspace.getByLabel('Denktiefe', { exact: true }).locator('option').count() === 1);
+  await workspace.getByRole('button', { name: 'Profil speichern', exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector('.m-agent-profile button')?.hasAttribute('disabled'));
+  check('tablet saves model and reasoning into the Codex profile', store.get().agents.find((agent) => agent.id === 'builder')!.codexModel === 'codex-fixture-fast' && store.get().agents.find((agent) => agent.id === 'builder')!.codexReasoningEffort === 'low');
+  store.save({ agents: store.get().agents.map((agent) => agent.id === 'builder' ? { ...agent, runtime: builderBefore.runtime, customCommand: builderBefore.customCommand, codexModel: undefined, codexReasoningEffort: undefined } : agent) });
+  await workspace.getByRole('button', { name: 'Profil neu laden', exact: true }).click();
+  await workspace.getByLabel('Profil-Rolle', { exact: true }).waitFor();
+  check('custom-command profiles show no model controls', await workspace.getByLabel('Codex-Modell', { exact: true }).count() === 0);
   const photoOpener = workspace.getByRole('button', { name: 'Profilbild vergrössern', exact: true });
   await photoOpener.focus(); await photoOpener.press('Enter');
   const photoDialog = page.getByRole('dialog', { name: 'Profilbild · Builder', exact: true }); await photoDialog.waitFor();

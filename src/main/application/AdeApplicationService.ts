@@ -76,7 +76,7 @@ import { validDictationJobId } from '../../shared/dictation';
 import { LIVE_DICTATION_CHUNK_BYTES, validLiveDictationChunk } from '../../shared/liveDictation';
 import type { MobileDictationTarget, MobileDictationResult } from '../../shared/remote';
 import type { MobileTerminalQuery, MobileTerminalCommand, MobileTerminalInput } from '../../shared/remote';
-import { validateProfileQuery, validateProfileUpdate, type RemoteProfileService } from './RemoteProfileService';
+import { validateProfileRequest, validateProfileQuery, validateProfileUpdate, type RemoteProfileService } from './RemoteProfileService';
 import type { RepositorySyncService } from '../repositories/RepositorySyncService';
 import { REMOTE_ADMIN_SCOPES } from '../../shared/remoteDevices';
 import { validSyncRef, type GitSyncOverview, type GitSyncPreview } from '../../shared/gitSync';
@@ -639,11 +639,21 @@ export class AdeApplicationService {
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 
-  queryProfile(context: RemoteCommandContext, payload: unknown) {
+  /** Profile read; with `models: true` the PC probes its Codex CLI for the catalog, which needs `profiles:write` and is audited like the desktop channel. */
+  async queryProfile(context: RemoteCommandContext, payload: unknown) {
     if (!this.options.profiles) throw new RemoteApiError(404, 'not_found');
     if (context.principal.kind !== 'device' || context.principal.proof !== 'device-signature' || !context.principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
     if (!this.options.deviceActive?.(context.principal.id)) throw new RemoteApiError(401, 'unknown_device');
-    try { const id = validateProfileQuery(payload); this.resources.assertAgent(context.principal, id); return this.options.profiles.query(id); }
+    try {
+      const request = validateProfileRequest(payload); this.resources.assertAgent(context.principal, request.agentId);
+      if (request.models) {
+        const ledger = this.options.administration?.ledger; if (!ledger) throw new RemoteApiError(404, 'not_found');
+        ledger.permits(context, 'profiles:write'); this.audit(context, 'harness:models', request.agentId, 'requested');
+      }
+      const profile = await this.options.profiles.query(request.agentId, { models: request.models === true });
+      if (request.models) this.audit(context, 'harness:models', request.agentId, 'executed');
+      return profile;
+    }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 

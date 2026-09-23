@@ -107,12 +107,17 @@ export interface MobileAgentSummary {
   homeExecutionBackend?: ExecutionBackendId;
   photoVersion?: string;
   dashboard?: { url?: string; notice?: string };
+  /** Present only for native Codex profiles without a custom command: the fields the tablet may edit. */
+  codexModel?: string;
+  codexReasoningEffort?: import('./types').CodexReasoningEffort;
 }
-export interface MobileAgentProfile { agent: MobileAgentSummary; revision: string; photo?: { mime: 'image/png'; bytesBase64: string }; photoError?: string }
+/** `models: true` asks for the PC's model catalog; it needs `profiles:write` because the PC starts the CLI for it. */
+export interface MobileProfileQuery { agentId: string; models?: true }
+export interface MobileAgentProfile { agent: MobileAgentSummary; revision: string; photo?: { mime: 'image/png'; bytesBase64: string }; photoError?: string; models?: import('./runtimeModels').RuntimeModelCatalog }
 export type MobileAgentBehaviorQuery = { agentId: string };
 export type MobileAgentBehaviorView = import('./agentBehavior').AgentBehaviorView;
 export type MobileAgentBehaviorUpdate = import('./agentBehavior').AgentBehaviorUpdate;
-export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null }
+export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null; codexModel?: string; codexReasoningEffort?: import('./types').CodexReasoningEffort }
 
 export interface MobileCatalog {
   projectStart?: { configured: boolean; agentId?: string };

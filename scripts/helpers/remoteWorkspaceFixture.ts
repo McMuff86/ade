@@ -66,6 +66,10 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     activitySnapshot: (id) => observations.get(id) ?? { lines: [], outputBytes: 0, structured: false } }, (id) => orchestration.report(id), resultFiles);
   const organizer = new OrganizerService(join(root, 'organizer.json'));
   const diagnostics = { calls: [] as (string | undefined)[], result: { checkedAt: 1, platform: 'fixture', items: [] } as import('../../src/shared/types').RuntimeDiagnosticsResult };
+  // Model catalog stub for the tablet profile editor; no CLI is spawned in fixtures.
+  const models = { calls: [] as string[], result: { runtime: 'codex', backend: 'native', status: 'ready', checkedAt: 1, message: '', models: [
+    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', isDefault: true, reasoningEfforts: ['high', 'xhigh'], defaultReasoningEffort: 'high' },
+    { id: 'codex-fixture-fast', name: 'Codex fixture fast', isDefault: false, reasoningEfforts: ['low'], defaultReasoningEffort: 'low' }] } as import('../../src/shared/runtimeModels').RuntimeModelCatalog };
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: sessions.filter((item) => item.status === 'running').length, queued: 0, maxActive: 4 }) }, {
     organizer,
     diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
@@ -82,10 +86,10 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
     resourceAccess: (id) => devices.resourceAccess(id),
     questions,
     deviceActive: (id) => devices.activeDevices().some((device) => device.id === id),
-    profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes))),
+    profiles: new RemoteProfileService(store, join(root, 'photos'), (bytes) => PNG.sync.write(PNG.sync.read(bytes)), undefined, async (agent) => { models.calls.push(agent.id); return models.result; }),
     administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true),
       workspaces: new RemoteWorkspaceService(store, scopes, join(root, 'managed'), () => sessions, execution),
       git: new RepositorySyncService(store, () => sessions, execution) },
   });
-  return { ...fixture, application, organizer, diagnostics, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
+  return { ...fixture, application, organizer, diagnostics, models, sessions, coordinator, workbench, ledger, gate, observations, inspection, projects, projectBranches, projectGit, projectPublish, questions, resultFiles };
 }

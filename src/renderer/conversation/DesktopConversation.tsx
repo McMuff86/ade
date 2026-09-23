@@ -10,7 +10,8 @@ import type { CoordinatorActionDetail, CoordinatorActionSummary, CoordinatorActi
 import type { ConversationMode } from '../../shared/conversation';
 
 const port: ConversationPort = {
-  speech: { load: () => window.ade.invoke('speech:voices'), generate: input => window.ade.invoke('speech:test', input) },
+  speech: { load: () => window.ade.invoke('speech:voices'), generate: input => window.ade.invoke('speech:test', input),
+    select: async (voiceId, tuning) => { await window.ade.invoke('speech:configure', { target: { kind: 'default' }, voiceId, tuning }); } },
   actions: {
     list: async conversationId => await window.ade.invoke('conversation:actionsQuery', { operation: 'list', conversationId }) as CoordinatorActionSummary[],
     detail: async (conversationId, actionId) => await window.ade.invoke('conversation:actionsQuery', { operation: 'detail', conversationId, actionId }) as CoordinatorActionDetail,

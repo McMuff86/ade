@@ -3,6 +3,8 @@ import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileAgentProfile, MobileAgentSummary, MobileProfileUpdate } from '../shared/remote';
+import type { CodexReasoningEffort } from '../shared/types';
+import { CODEX_REASONING_EFFORTS } from '../renderer/onboarding/agentOptions';
 import type { MobileHost } from './useMobileHost';
 import { Avatar } from '../renderer/rail/Avatar';
 import { runtimeLogo } from '../renderer/rail/runtimeLogos';
@@ -56,7 +58,10 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
   const [busy, setBusy] = useState(false); const [allowed, setAllowed] = useState(false); const [loading, setLoading] = useState(true);
   const lock = useRef(false); const live = useRef(true); const nameInput = useRef<HTMLInputElement>(null);
   const draft = drafts.drafts[agentId];
-  const effective = draft?.input ?? (profile ? { agentId, revision: profile.revision, name: profile.agent.name, role: profile.agent.role ?? '' } : null);
+  const modelEditable = profile?.agent.codexModel !== undefined;
+  const effective = draft?.input ?? (profile ? { agentId, revision: profile.revision, name: profile.agent.name, role: profile.agent.role ?? '',
+    ...(modelEditable ? { codexModel: profile.agent.codexModel, codexReasoningEffort: profile.agent.codexReasoningEffort } : {}) } : null);
+  const [modelsBusy, setModelsBusy] = useState(false);
   const photo = draft?.input.photo === null ? undefined : draft?.input.photo?.bytesBase64 ?? profile?.photo?.bytesBase64;
   const url = usePhotoUrl(photo);
   const logo = runtimeLogo(profile?.agent.runtime); const imageUrl = url ?? logo;
@@ -72,6 +77,14 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
     finally { if (live.current) setLoading(false); }
   };
   useEffect(() => { live.current = true; void refresh(); return () => { live.current = false; }; }, [agentId, host.identityVersion]);
+  /** The PC starts its Codex CLI for the catalog, so this is explicit: on first edit access and on "Refresh models". */
+  const loadModels = async () => {
+    if (modelsBusy || host.status !== 'online') return; setModelsBusy(true); setError('');
+    try { const value = await host.request<MobileAgentProfile>('/api/v1/profile/query', 'POST', { agentId, models: true }); if (live.current) setProfile(value); }
+    catch (reason) { if (live.current) setError(profileError(reason)); }
+    finally { if (live.current) setModelsBusy(false); }
+  };
+  useEffect(() => { if (allowed && modelEditable && profile && !profile.models) void loadModels(); }, [allowed, modelEditable, profile?.agent.id]);
   const update = (patch: Partial<MobileProfileUpdate>) => {
     if (!effective) return;
     if (!draft && Object.keys(drafts.drafts).length >= 20) { setError(translate("First, save or discard one of the open profile drafts.")); return; }
@@ -120,6 +133,22 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
       <button type="button" disabled={disabled || !photo && !profile?.agent.photoVersion} onClick={() => update({ photo: null })}>{translate("Remove profile picture")}</button>
       <label>{translate("Agent name")}<input ref={nameInput} aria-label={translate("Profile agent name")} value={effective.name} maxLength={80} disabled={disabled} required onChange={(event) => update({ name: event.target.value })} /></label>
       <label>{translate("Role")}<input aria-label={translate("Profile role")} value={effective.role} maxLength={160} disabled={disabled} onChange={(event) => update({ role: event.target.value })} /></label>
+      {modelEditable && <fieldset className="m-profile-model"><legend>{translate("Model and reasoning")}</legend>
+        <p className="m-field-note">{translate("The model list comes from the Codex CLI on the PC. Refresh it to see current models.")}</p>
+        <label>{translate("Codex model")}<select aria-label={translate("Codex model")} value={effective.codexModel ?? ''} disabled={disabled} onChange={(event) => {
+          const option = profile?.models?.models.find((model) => model.id === event.target.value); const efforts = option?.reasoningEfforts;
+          update({ codexModel: event.target.value, ...(efforts && effective.codexReasoningEffort && !efforts.includes(effective.codexReasoningEffort) ? { codexReasoningEffort: option?.defaultReasoningEffort ?? efforts[0] } : {}) });
+        }}>
+          {effective.codexModel && !profile?.models?.models.some((model) => model.id === effective.codexModel) && <option value={effective.codexModel}>{effective.codexModel} · {profile?.models ? translate("Not confirmed") : translate("checking")}</option>}
+          {profile?.models?.models.map((model) => <option key={model.id} value={model.id}>{model.name}{model.resolvedModel && model.resolvedModel !== model.id ? ` · ${model.resolvedModel}` : model.name !== model.id ? ` · ${model.id}` : ''}{model.isDefault ? translate(" · default") : ''}</option>)}
+        </select></label>
+        <label>{translate("Reasoning effort")}<select aria-label={translate("Reasoning effort")} value={effective.codexReasoningEffort ?? ''} disabled={disabled} onChange={(event) => update({ codexReasoningEffort: event.target.value as CodexReasoningEffort })}>
+          {CODEX_REASONING_EFFORTS.filter((effort) => { const supported = profile?.models?.models.find((model) => model.id === effective.codexModel)?.reasoningEfforts; return !supported || supported.includes(effort.id) || effort.id === effective.codexReasoningEffort; })
+            .map((effort) => <option key={effort.id} value={effort.id}>{effort.label}</option>)}
+        </select></label>
+        {profile?.models?.status === 'unavailable' && <p className="m-field-note">{localizeAppMessage(profile.models.message ?? translate("Could not load the model list. Refresh again."))}</p>}
+        <button type="button" disabled={disabled || modelsBusy} onClick={() => void loadModels()}>{modelsBusy ? translate("Loading models…") : translate("Refresh models")}</button>
+      </fieldset>}
       <button className="m-primary" disabled={busy || !allowed || host.status !== 'online' || !effective.name.trim()}>{draft?.pending ? translate("Check profile operation again") : translate("Save profile")}</button>
       {draft && !draft.pending && <button type="button" disabled={busy} onClick={() => drafts.change(agentId, () => undefined)}>{translate("Discard profile draft")}</button>}
     </form>}

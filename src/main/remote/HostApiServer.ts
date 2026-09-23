@@ -643,7 +643,7 @@ export class HostApiServer {
         : kind === 'conversationDictation' ? await this.application.conversationDictation(context, payload)
         : kind === 'conversationActionsQuery' || kind === 'conversationActionsCommand' ? await this.application.conversationActions(context, payload, kind === 'conversationActionsCommand')
         : kind === 'queryBehavior' || kind === 'updateBehavior' ? await this.application.agentBehavior(context, payload, kind === 'updateBehavior')
-        : kind === 'queryProfile' ? this.application.queryProfile(context, payload)
+        : kind === 'queryProfile' ? await this.application.queryProfile(context, payload)
         : kind === 'assignmentQuery' || kind === 'assignmentCommand' ? await this.application.workspaceAssignment(context, payload, kind === 'assignmentCommand')
         : kind === 'integrationQuery' || kind === 'integrationCommand' ? await this.application.integration(context, payload, kind === 'integrationCommand')
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)

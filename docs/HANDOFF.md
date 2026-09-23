@@ -1,5 +1,21 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Tablet-Modellwahl und Studio-Standardstimme (23. September 2026, 17:17 CEST)
+
+PID 60704 regulär über das Tray-Menü beendet; dabei endete eine laufende
+Codex-Gesprächssitzung des Nutzers (Kindprozesse powershell/conhost/node/codex),
+der Gesprächsverlauf bleibt auf dem PC. Profil gesichert nach
+`ADE-Backups/TabletModelVoice-20260923-171620`. `pnpm build`, dann Start aus dem
+Repository: **17:17:27 CEST**, PID **63436**, Source **`9ff0002b91f769fce467`**
+(Desktop 15:16:22 UTC, Mobile 15:16:30 UTC). Listener nur `127.0.0.1:4317`,
+HTTPS liefert `assets/index-D1_4eY3o.js`, Geräteablage bytegleich. Inhalt: im
+Tablet-Agentenprofil Codex-Modell und Denktiefe (Katalog vom PC, Freigabe
+„Agent-Namen, Rollen und Profilbilder bearbeiten“), im Stimmenstudio „A/B als
+Standardstimme übernehmen“. Nachweise: Remote-Profile 32/0, Tablet-Workbench
+47/0, Mobile-Sprache 40/0, Gespräche Electron 67/0, Host-API 184/0, Sicherheit
+289/0. Offen: Zeichenverbesserungen der Notizen (Teil-Radierer-Leistung,
+Stiftarten, Deckkraft) in Arbeit.
+
 ## Aktiviert: geprüfter Gesamtstand des 23. September (16:14 CEST)
 
 Für `pnpm build` und die Electron-/Browser-Suiten wurde die Instanz PID 28200

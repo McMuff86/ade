@@ -118,7 +118,7 @@ const SUITES: Suite[] = [
   { id: 'home-workspace', script: 'test-home-workspace.ts', floors: { win32: 22 } },
   { id: 'session-launch', script: 'test-session-launch.ts', floors: { win32: 39 } },
   { id: 'interactive-program', script: 'test-interactive-program.ts', floors: { win32: 17 } },
-  { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 22 } },
+  { id: 'remote-profiles', script: 'test-remote-profiles.ts', floors: { win32: 32 } },
   { id: 'mobile-access', script: 'test-mobile-access.ts', floors: { win32: 88 } },
   // win32 runs two groups fewer than Linux: the root-swap test, which the
   // verified-path host honestly cannot pass, and the descriptor-anchored

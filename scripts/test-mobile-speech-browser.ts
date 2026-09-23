@@ -29,7 +29,7 @@ void (async()=>{
   });
   const {application:app,store,devices}=fixture;
   proxy=await mobileTlsProxy();sessions=new BrowserSessions(devices);
-  server=new HostApiServer(app,{port:0,heartbeatMs:200,requireDeviceReads:true,authorizer:new RemoteAuthorizer('t'.repeat(32),[],undefined,devices),browser:{origin:proxy.origin,sessions,assets:loadMobileAssets(resolve('out/mobile'))},audit:entry=>devices.audit(entry)});
+  server=new HostApiServer(app,{port:0,heartbeatMs:200,requireDeviceReads:true,authorizer:new RemoteAuthorizer('t'.repeat(32),[],undefined,devices),browser:{origin:proxy.origin,sessions,assets:loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile'))},audit:entry=>devices.audit(entry)});
   proxy.target((await server.start()).port);
   browser=await chromium.launch({args:['--ignore-certificate-errors','--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1']});
   const page=await browser.newPage({viewport:{width:1024,height:768},hasTouch:true,ignoreHTTPSErrors:true});page.setDefaultTimeout(25_000);
@@ -119,5 +119,16 @@ void (async()=>{
   await projectSpeech.getByText('Stimmenauswahl gespeichert.',{exact:true}).waitFor();
   check('tablet project can inherit the global voice again',store.get().repositories.find(r=>r.id===projectId)!.speechVoiceId===undefined && (await projectSpeech.innerText()).includes('Roger Fixture'));
   await page.keyboard.press('Escape');await project.waitFor({state:'hidden'});
+  // Voice studio (casual conversation): a compared variant can become the ADE default voice from the tablet.
+  await page.locator('#mobile-supervision').click();await page.locator('#conversation-mode-casual').click();
+  const casual=page.getByRole('dialog',{name:'Plaudern & Stimme',exact:true});await casual.waitFor();
+  const studio=casual.locator('details.voice-studio');await studio.locator('summary').click();
+  await studio.getByRole('button',{name:'Stimmen laden',exact:true}).click();
+  await studio.getByLabel('Variante A: Stimme',{exact:true}).selectOption(female);
+  check('the studio offers to make a variant the default voice',await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).isEnabled());
+  await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).click();
+  await studio.getByText('Variante A ist jetzt die Standardstimme',{exact:false}).waitFor();
+  check('voice studio variant becomes the ADE default voice on the PC',store.get().settings.speechVoiceId===female);
+  await page.keyboard.press('Escape');await casual.waitFor({state:'hidden'});
   check('mobile speech flow has no uncaught browser errors',errors.length===0);
 })().catch(async error=>{failed++;console.error(error); const page=browser?.contexts()[0]?.pages()[0]; if(page) {console.error((await page.locator('body').innerText()).slice(-6000));await page.screenshot({path:resolve('test-results/mobile-speech-failure.png')});}}).finally(async()=>{await browser?.close();await server?.stop();sessions?.dispose();await proxy?.close();rmSync(root,{recursive:true,force:true});console.log(`Mobile speech browser: ${passed} passed, ${failed} failed`);process.exitCode=failed?1:0;});

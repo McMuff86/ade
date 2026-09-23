@@ -1,5 +1,22 @@
 # ADE implementation status
 
+## Tablet: Codex-Modell und Denktiefe im Agentenprofil, Standardstimme aus dem Stimmenstudio (23. September 2026)
+
+Auf Nutzerwunsch beim Tablet-Test: Im Agentenprofil auf dem Tablet lassen sich für
+native Codex-Profile Modell und Denktiefe wählen; die Modellliste kommt von der
+Codex-CLI am PC (gleicher Katalog wie der PC-Dialog, Backend aus Projekt- oder
+Heimatverzeichnis), braucht die bestehende Freigabe „Agent-Namen, Rollen und
+Profilbilder bearbeiten“ und wird auditiert. Profile mit eigenem Startbefehl
+zeigen die Felder nicht. Im Stimmenstudio (Plaudern & Stimme) übernimmt „A/B als
+Standardstimme übernehmen“ Stimme und Feineinstellung der Variante als
+ADE-Standardstimme, auf PC und Tablet. Nachweise: Remote-Profile **32/0**,
+Tablet-Workbench **47/0** (Katalog, Denktiefe folgt dem Modell, Speichern,
+Profile mit eigenem Befehl ohne Modellfelder), Mobile-Sprache **40/0** (Studio
+setzt die Standardstimme), Gespräche Electron **67/0**, Host-API **184/0**,
+Sicherheit **289/0**, Typecheck bestanden. Aktiviert 17:17 CEST als PID 63436,
+Source `9ff0002b91f769fce467` ([Übergabe](HANDOFF.md)). Browser-Suiten laden das Tablet-Bundle wahlweise über
+`ADE_MOBILE_ASSETS` aus einem isolierten Build. [Architektur](ARCHITECTURE.md).
+
 ## Prüfstand wiederhergestellt: Workflow-Suite grün, `pnpm verify` 29 von 32 (23. September 2026)
 
 Seit dem Sprach-Commit vom 20. September blockierte `test-electron-workflow` die

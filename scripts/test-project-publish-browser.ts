@@ -16,7 +16,7 @@ void (async () => {
   const f = projectPublishFixture(root); const setup = await f.setup();
   proxy = await mobileTlsProxy(); sessions = new BrowserSessions(f.devices);
   server = new HostApiServer(f.application, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
-    authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, f.devices), browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve('out/mobile')) }, audit: (entry) => f.devices.audit(entry) });
+    authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, f.devices), browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => f.devices.audit(entry) });
   proxy.target((await server.start()).port);
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
   const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true, ignoreHTTPSErrors: true }); page.setDefaultTimeout(45_000);
