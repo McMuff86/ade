@@ -283,3 +283,37 @@ brush-abhängige Reichweite, Teilstücke erben Felder, 60 Radier-Abtastungen üb
 Gerätepräferenz, deckender Stift behält die alte Strichform, Radierzug speichert
 erst beim Loslassen und ist ein Rückgängig-Schritt), Electron **17/0**.
 Typecheck und isolierter Build bestanden. Noch nicht aktiviert.
+
+## Skizze: mehrere Blätter und Zeichnen auf Fotokopien (Phase 6, 23. September 2026)
+
+Nutzerwunsch nach dem Tablet-Test: Fotos zeichnend bearbeiten, Original
+behalten, zweite und dritte Zeichnung je Notiz. Vertrag: `sketches` ersetzt
+`sketch` (`src/shared/organizer.ts`), Blatt = `{ id, title, width, height,
+backgroundImageId, strokes }`, höchstens sechs Blätter, Titel bis 120 Zeichen,
+Strich- und Punktgrenzen je Blatt. Migration deterministisch über
+`upgradeOrganizerDocument`/`legacySketchId` im PC-Speicher (beim Laden, Datei
+erst beim nächsten regulären Speichern neu geschrieben), im Tablet-Cache (beim
+Lesen) und für `put`-Mutationen älterer Builds (vor Validierung und
+Fingerabdruck, Replays bleiben gleich). Leeres Altblatt → leere Liste.
+
+Oberfläche (`SketchEditor.tsx`): Abschnitt „Skizzen“ mit Vorschau, Blatt-Titel,
+„Zeichnen“, „Foto zum Markieren“, „Skizze als PNG“ und zweistufigem „Blatt
+entfernen“ je Blatt, „Neue Zeichnung“ bis zur Grenze; Undo/Redo-Historie je
+Blatt; ein aus dem Leerzustand geöffnetes Blatt ohne Strich wird beim Schliessen
+verworfen. Am Foto „Auf Kopie zeichnen“: neues Blatt in Fotogrösse (mindestens
+200 pt), Foto als Hintergrund, Dateiname als Titel, öffnet sofort; Fotos werden
+nicht mehr automatisch Hintergrund; „Foto entfernen“ löscht nur die
+Hintergrundreferenz betroffener Blätter. Export: PNG je Blatt, PDF mit einer
+betitelten Seite je nicht leerem Blatt plus Fotos ohne Blatt. Tablet-Terminal:
+Taste F2 (`\x1bOQ`) in der Tastenzeile.
+
+Nachweise: Vertrag **69/0** (sieben Blätter, doppelte Ids, langer Titel,
+fehlendes Foto, Blatt ohne Id, Altform ohne Upgrade abgewiesen; Upgrade
+deterministisch, gespeicherte Altdatei lädt ohne Umschreiben, Alt-`put` wird
+gespeichert und ist replay-sicher), Cache **32/0** (Alt-Cache wird beim Lesen
+gültig), Remote-Organizer, Browser-Ablauf (Foto bleibt Anhang, Kopie-Blatt
+200×200 mit Titel „foto“, Umbenennen, zweistufiges Entfernen, leeres neues Blatt
+verschwindet) und Electron gegen den isolierten Build; Zahlen in
+[STATUS.md](STATUS.md).
+Aktiviert am 23. September 2026, 20:03:17 CEST (PID 46532, Source `f77f22da190a5419ffcd`, siehe
+[HANDOFF.md](HANDOFF.md)).

@@ -55,6 +55,29 @@ void (async () => {
   check('tablet saves model and reasoning into the agent profile and the revision follows', codexAgent.codexModel === 'codex-fixture-fast' && codexAgent.codexReasoningEffort === 'low' && (await app.queryProfile(context(), { agentId: 'codexer' })).revision !== codexProfile.revision);
   for (const bad of [{ codexModel: 'bad model id' }, { codexReasoningEffort: 'turbo' }, { codexModel: 'C:\\Users\\x' }]) await refuses('model and reasoning are validated', () => app.updateProfile(context(), { ...modelInput, revision: '0'.repeat(64), ...bad }), 'invalid_payload');
   await refuses('a custom-command profile cannot take a model', async () => app.updateProfile(context(), { ...input, revision: (await app.queryProfile(context(), { agentId: 'builder' })).revision, codexModel: 'gpt-5.6-sol' }), 'command_rejected');
+  // Claude model and permission mode: the tablet sets what the PC's agent editor sets; a custom command wins and offers neither.
+  store.save({ agents: [...store.get().agents, { ...original, id: 'clauder', name: 'Clauder', runtime: 'claude', customCommand: undefined, photo: undefined, permissionMode: 'default' }] });
+  const claudeProfile = await app.queryProfile(context(), { agentId: 'clauder' });
+  check('a native Claude profile exposes its model slot and the launch modes its profile distinguishes', claudeProfile.agent.claudeModel === '' && claudeProfile.agent.permissionMode === 'default'
+    && claudeProfile.agent.permissionModes?.join() === 'default,accept-edits,bypass' && claudeProfile.agent.codexModel === undefined && codexProfile.agent.permissionModes?.length === 3);
+  const codexCatalog = models.result;
+  models.result = { ...codexCatalog, runtime: 'claude', models: [{ id: 'default', name: 'Default', isDefault: true }, { id: 'opus', name: 'Opus', isDefault: false }] };
+  const claudeModels = await app.queryProfile(context(), { agentId: 'clauder', models: true });
+  check('the Claude catalog is probed for the Claude agent', claudeModels.models?.models.some((model) => model.id === 'opus') === true && models.calls.at(-1) === 'clauder');
+  models.result = codexCatalog;
+  const claudeInput = { agentId: 'clauder', revision: claudeProfile.revision, name: 'Clauder', role: '', claudeModel: 'opus', permissionMode: 'bypass' as const };
+  await app.updateProfile(context(), claudeInput);
+  const clauder = () => store.get().agents.find((agent) => agent.id === 'clauder')!;
+  check('tablet saves the Claude model and bypass mode and the revision follows', clauder().claudeModel === 'opus' && clauder().permissionMode === 'bypass' && (await app.queryProfile(context(), { agentId: 'clauder' })).revision !== claudeProfile.revision);
+  await app.updateProfile(context(), { ...claudeInput, revision: (await app.queryProfile(context(), { agentId: 'clauder' })).revision, claudeModel: '' });
+  check('an empty Claude model returns the profile to the CLI default', clauder().claudeModel === undefined && clauder().permissionMode === 'bypass');
+  for (const bad of [{ claudeModel: 'bad model' }, { permissionMode: 'yolo' }, { claudeModel: 'C:\\Users\\x' }]) await refuses('Claude model and permission mode are validated', () => app.updateProfile(context(), { ...claudeInput, revision: '0'.repeat(64), ...bad }), 'invalid_payload');
+  const builderRevision = (await app.queryProfile(context(), { agentId: 'builder' })).revision;
+  await refuses('a custom-command profile cannot take a permission mode', () => app.updateProfile(context(), { ...input, revision: builderRevision, permissionMode: 'bypass' }), 'command_rejected');
+  store.save({ agents: [...store.get().agents, { ...original, id: 'opencoder', name: 'Opencoder', runtime: 'opencode', customCommand: undefined, photo: undefined, permissionMode: 'default' }] });
+  const opencodeProfile = await app.queryProfile(context(), { agentId: 'opencoder' });
+  check('a runtime with a single launch command offers no permission modes', opencodeProfile.agent.permissionModes === undefined && opencodeProfile.agent.claudeModel === undefined);
+  await refuses('a runtime without distinct modes refuses a permission mode', () => app.updateProfile(context(), { agentId: 'opencoder', revision: opencodeProfile.revision, name: 'Opencoder', role: '', permissionMode: 'bypass' }), 'command_rejected');
   devices.setAdminScopes('tablet', []);
   await refuses('the model catalog needs the profile write grant', () => app.queryProfile(context(), { agentId: 'codexer', models: true }), 'scope_not_granted');
   check('a plain profile read still works without the write grant', (await app.queryProfile(context(), { agentId: 'codexer' })).agent.codexModel === 'codex-fixture-fast');

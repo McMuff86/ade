@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { ORGANIZER_LIMITS, newOrganizerDocument, organizerCommandKey, validOrganizerDocument, validOrganizerMutation, validOrganizerQuery, type OrganizerMutation } from '../src/shared/organizer';
+import { ORGANIZER_LIMITS, legacySketchId, newOrganizerDocument, newOrganizerSketch, organizerCommandKey, organizerId, upgradeOrganizerDocument, validOrganizerDocument, validOrganizerMutation, validOrganizerQuery, type OrganizerDocument, type OrganizerMutation } from '../src/shared/organizer';
 import { OrganizerError, OrganizerStore } from '../src/main/organizer/OrganizerStore';
 import { OrganizerReminders } from '../src/main/organizer/OrganizerReminders';
 let passed = 0; let failed = 0;
@@ -60,19 +60,48 @@ try {
     ['duplicate checklist IDs', { ...task, checklist: [task.checklist[0], task.checklist[0]] }],
     ['oversized text', { ...task, text: 'a'.repeat(ORGANIZER_LIMITS.text + 1) }],
     ['unknown image type', { ...task, images: [{ id: randomUUID(), name: 'svg', mime: 'image/svg+xml', base64: 'AAAA', width: 10, height: 10 }] }],
-    ['script color', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: 'url(http://evil)', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] }] } }],
-    ['out of canvas point', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 2000, y: 1, pressure: .5 }] }] } }],
+    ['script color', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: 'url(http://evil)', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] }] }] }],
+    ['out of canvas point', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 2000, y: 1, pressure: .5 }] }] }] }],
     ['note cannot hide task fields', { ...note, done: true }],
-    ['unknown brush', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'spray' }] } }],
-    ['opacity above one', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 1.5 }] } }],
-    ['opacity below the floor', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 0.01 }] } }],
-    ['stroke with a foreign key', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], texture: 'x' }] } }],
+    ['unknown brush', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'spray' }] }] }],
+    ['opacity above one', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 1.5 }] }] }],
+    ['opacity below the floor', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 0.01 }] }] }],
+    ['stroke with a foreign key', { ...note, sketches: [{ ...newOrganizerSketch(), strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], texture: 'x' }] }] }],
   ];
   for (const [name, bad] of invalids) check(`validation rejects ${name}`, !validOrganizerDocument(bad));
-  check('strokes may carry a known brush and a bounded opacity, and older strokes without them stay valid', validOrganizerDocument({ ...note, sketch: { ...note.sketch, strokes: [
+  check('strokes may carry a known brush and a bounded opacity, and older strokes without them stay valid', validOrganizerDocument({ ...note, sketches: [{ ...newOrganizerSketch(), strokes: [
     { id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] },
     { id: randomUUID(), color: '#abcdef', width: 6, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'highlighter', opacity: .35 },
-    { id: randomUUID(), color: '#abcdef', width: 6, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'pen' }] } }));
+    { id: randomUUID(), color: '#abcdef', width: 6, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'pen' }] }] }));
+  // Sheets are a bounded list; notes from before the list migrate deterministically on PC, tablet and wire.
+  const sheet = (strokes: unknown[] = []) => ({ ...newOrganizerSketch(), strokes });
+  const sameId = randomUUID();
+  const moreInvalids: Array<[string, unknown]> = [
+    ['seven sheets', { ...note, sketches: Array.from({ length: 7 }, () => sheet()) }],
+    ['duplicate sheet ids', { ...note, sketches: [{ ...sheet(), id: sameId }, { ...sheet(), id: sameId }] }],
+    ['overlong sheet title', { ...note, sketches: [{ ...sheet(), title: 'x'.repeat(ORGANIZER_LIMITS.sketchTitle + 1) }] }],
+    ['sheet on a missing photo', { ...note, sketches: [{ ...sheet(), backgroundImageId: randomUUID() }] }],
+    ['sheet without an id', { ...note, sketches: [(({ id: _id, ...rest }) => rest)(sheet())] }],
+    ['legacy single sketch field without upgrade', (({ sketches: _sketches, ...rest }) => ({ ...rest, sketch: { width: 1600, height: 1000, backgroundImageId: null, strokes: [] } }))(note)],
+  ];
+  for (const [name, bad] of moreInvalids) check(`validation rejects ${name}`, !validOrganizerDocument(bad));
+  check('six titled sheets with distinct ids are valid', validOrganizerDocument({ ...note, sketches: Array.from({ length: 6 }, (_item, index) => ({ ...sheet(), title: `Blatt ${index + 1}` })) }));
+  const legacy = (({ sketches: _sketches, ...rest }) => ({ ...rest, sketch: { width: 1600, height: 1000, backgroundImageId: null, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] }] } }))(note);
+  const upgraded = upgradeOrganizerDocument(legacy) as OrganizerDocument;
+  check('a legacy note upgrades to one untitled sheet with a deterministic id', validOrganizerDocument(upgraded) && upgraded.sketches.length === 1 && upgraded.sketches[0]!.id === legacySketchId(note.id)
+    && upgraded.sketches[0]!.strokes.length === 1 && upgraded.sketches[0]!.title === '' && !('sketch' in upgraded) && JSON.stringify(upgradeOrganizerDocument(legacy)) === JSON.stringify(upgraded));
+  check('a legacy note without marks upgrades to an empty sheet list', (upgradeOrganizerDocument({ ...legacy, sketch: { ...legacy.sketch, strokes: [] } }) as OrganizerDocument).sketches.length === 0);
+  check('the legacy sheet id is well formed and distinct from the note id', organizerId(legacySketchId(note.id)) && legacySketchId(note.id) !== note.id && legacySketchId(note.id) !== legacySketchId(task.id));
+  check('the upgrade leaves current documents alone and malformed ones invalid', upgradeOrganizerDocument(note) === note && !validOrganizerDocument(upgradeOrganizerDocument({ ...legacy, sketch: 'nope' })) && !validOrganizerDocument(upgradeOrganizerDocument({ ...legacy, sketches: [] })));
+  const legacyFile = join(root, 'legacy', 'organizer.json'); mkdirSync(dirname(legacyFile), { recursive: true });
+  const legacyState = { version: 1, revision: 1, entries: [{ document: legacy, revision: 1, createdAt: 1, updatedAt: 1, deleted: false, conflictOf: null }], writers: [] };
+  writeFileSync(legacyFile, JSON.stringify(legacyState));
+  const legacyStore = new OrganizerStore(legacyFile, () => now);
+  check('a stored legacy note opens as a sheet list without rewriting the file', legacyStore.detail(note.id)?.document.sketches[0]?.id === legacySketchId(note.id) && readFileSync(legacyFile, 'utf8') === JSON.stringify(legacyState));
+  const legacyPut = { operation: 'put', writerId: randomUUID(), sequence: 1, baseRevision: 1, document: { ...legacy, text: 'from an old tablet build' } } as unknown as OrganizerMutation;
+  const legacyReceipt = legacyStore.mutate(legacyPut, 'tablet');
+  check('a put from a build before sheet lists is upgraded, saved and replay-safe', !legacyReceipt.conflict && legacyStore.detail(note.id)?.document.text === 'from an old tablet build' && legacyStore.detail(note.id)?.document.sketches.length === 1
+    && legacyStore.mutate(legacyPut, 'tablet').replayed && (JSON.parse(readFileSync(legacyFile, 'utf8')) as { entries: Array<{ document: OrganizerDocument }> }).entries[0]!.document.sketches.length === 1);
   check('mutation rejects unknown operation and extra authority fields', !validOrganizerMutation({ ...input, operation: 'run' }) && !validOrganizerMutation({ ...input, owner: 'desktop' }));
   let revision = taskResult.revision;
   for (let sequence = 5; sequence <= 610; sequence++) revision = store.mutate({ ...input, sequence, baseRevision: revision, document: { ...task, text: `Edit ${sequence}` } }, owner).revision;

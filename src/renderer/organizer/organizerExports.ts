@@ -2,6 +2,7 @@ import { intlLocale } from '../../shared/i18n';
 import { t as translate } from "../../shared/i18n";
 import { ORGANIZER_LIMITS, type OrganizerDocument, type OrganizerImage } from '../../shared/organizer';
 import { loadOrganizerAttachment, loadOrganizerImage, renderOrganizerSketch } from './sketchRendering';
+import { sheetLabel } from './SketchEditor';
 
 export async function importOrganizerImage(file: File): Promise<OrganizerImage> {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) throw new Error(translate("Please select a PNG, JPEG or WebP photo up to 20 MB."));
@@ -29,9 +30,10 @@ export function downloadOrganizerBlob(blob: Blob, title: string, extension: stri
   link.download = `${(title.trim() || translate("ADE note")).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}.${extension}`;
   document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
-/** `scale` multiplies the raster per sheet point (device preference, 1–3); the document itself is unchanged. */
-export async function organizerPng(note: OrganizerDocument, scale = 1): Promise<Blob> {
-  const canvas = await renderOrganizerSketch(note, { scale });
+/** One sheet as PNG. `scale` multiplies the raster per sheet point (device preference, 1–3); the document itself is unchanged. */
+export async function organizerPng(note: OrganizerDocument, sketchId: string, scale = 1): Promise<Blob> {
+  const sketch = note.sketches.find(item => item.id === sketchId); if (!sketch) throw new Error(translate("This sheet no longer exists."));
+  const canvas = await renderOrganizerSketch({ images: note.images, sketch }, { scale });
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(translate("PNG could not be created."))), 'image/png'));
 }
 /** Load the PDF engine on explicit export only. All user text is rasterized, never interpreted as HTML or PDF syntax. */
@@ -57,11 +59,13 @@ export async function organizerPdf(note: OrganizerDocument): Promise<Blob> {
   wrap(note.title || (note.kind === 'task' ? translate("Task") : translate("Note")), true); line(''); wrap(note.text);
   for (const item of note.checklist) wrap(`${item.done ? '☑' : '☐'} ${item.text}`);
   if (note.dueAt !== null) { line(''); wrap(translate("Due: {{value1}}", { value1: new Date(note.dueAt).toLocaleString(intlLocale()) })); }
-  if (note.sketch.strokes.length || note.sketch.backgroundImageId) {
-    next(); const sketch = await renderOrganizerSketch(note); const scale = Math.min(1088 / sketch.width, 1540 / sketch.height);
-    context.drawImage(sketch, 76, 92, sketch.width * scale, sketch.height * scale);
+  // Every sheet with marks or a photo copy gets its own page, titled; photos no sheet sits on follow as attachments.
+  for (const [index, sketch] of note.sketches.entries()) {
+    if (!sketch.strokes.length && !sketch.backgroundImageId) continue;
+    next(); wrap(sheetLabel(sketch, index)); const image = await renderOrganizerSketch({ images: note.images, sketch }); const scale = Math.min(1088 / image.width, (1630 - y) / image.height);
+    context.drawImage(image, 76, y, image.width * scale, image.height * scale);
   }
-  for (const image of note.images.filter(image => image.id !== note.sketch.backgroundImageId)) {
+  for (const image of note.images.filter(image => !note.sketches.some(sketch => sketch.backgroundImageId === image.id))) {
     next(); const source = await loadOrganizerAttachment(image); wrap(image.name);
     const scale = Math.min(1088 / source.naturalWidth, (1630 - y) / source.naturalHeight); context.drawImage(source, 76, y, source.naturalWidth * scale, source.naturalHeight * scale);
   }

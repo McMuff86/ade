@@ -2970,7 +2970,16 @@ catalog for that agent — the same `RuntimeModelService` probe the desktop pick
 uses, with the agent's default-repository or home backend — behind
 `profiles:write` (the PC starts its CLI for it) and audited under
 `harness:models`; catalog text is redacted for the wire. `harness:models` itself
-stays desktop-only. The voice studio in casual conversations can make a
+stays desktop-only. Native Claude Code profiles without a custom command carry
+`claudeModel` the same way ('' = the CLI default; the catalog probe runs for
+the Claude runtime), and every profile whose launch profile distinguishes more
+than one mode (`LAUNCH_PROFILES[runtime].commands`, i.e. not opencode, ollama,
+shell or a custom command) carries `permissionMode` plus the list of
+`permissionModes` it may take; the update refuses a mode the runtime does not
+distinguish and any of these fields for a custom-command profile. The tablet
+shows the resulting start command next to the choice, e.g.
+`claude --dangerously-skip-permissions` or
+`codex --dangerously-bypass-approvals-and-sandbox` for bypass. The voice studio in casual conversations can make a
 compared variant the ADE default voice: desktop through `speech:configure`,
 tablet through `/api/v1/speech/command` `select` on the default target, both
 with the variant's tuning.
@@ -2991,6 +3000,23 @@ identity removal clears retained buffers and writes an IndexedDB tombstone that
 also prevents late in-flight operations from recreating the forgotten profile.
 Offline availability is limited to the cached public app shell and local drafts;
 this does not imply offline speech transcription or a running remote agent.
+
+A note holds a list of sheets (`OrganizerDocument.sketches`, at most
+`ORGANIZER_LIMITS.sketches` = 6), each an `OrganizerSketch` with its own id,
+title (≤ 120 chars), size, optional photo background and strokes; stroke and
+point limits apply per sheet, the document byte limit to the whole note.
+Documents saved before the list carried one `sketch`: `upgradeOrganizerDocument`
+turns it into a one-sheet list (or an empty list when it held nothing) with a
+sheet id derived deterministically from the note id (`legacySketchId`), so the
+PC store (on load, in memory until the next regular save), the tablet's
+IndexedDB cache (on read) and a `put` from an older build (in
+`OrganizerStore.mutate`, before validation and fingerprinting, so a replay still
+matches) all agree byte for byte. "Draw on a copy" adds a sheet the size of the
+photo with the photo as background; the attachment itself is never altered, and
+removing a photo only clears the background reference of sheets that used it.
+A sheet opened from the empty state and closed without a mark is dropped again.
+PNG export takes one sheet; PDF gives every non-empty sheet its own titled page
+and appends photos no sheet sits on.
 
 Image imports normalize PNG/JPEG/WebP into bounded JPEG attachments. Main checks
 encoded dimensions before native decode. Views and canvas use temporary Blob URLs
@@ -3050,7 +3076,7 @@ gate before segment geometry, brush-aware reach) and commits a single sketch
 snapshot on release, so no IndexedDB or host write happens per pointer sample
 and one Undo reverts the whole drag. PDF is lazily
 loaded and rasterizes Unicode text and images; Markdown is text-only and PNG is
-the sketch/background. Exports do not replace the editable original.
+one sheet with its background. Exports do not replace the editable original.
 
 Task dispatch persists its reviewed project, agent, prompt and command key before
 calling the existing `runTask:submit` / `/api/v1/tasks` boundary. Confirmation adds

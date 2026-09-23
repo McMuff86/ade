@@ -1,5 +1,5 @@
 import { t as translate } from "../../shared/i18n";
-import { emptyOrganizerCache, validOrganizerCache, type OrganizerCacheState, type OrganizerCacheStorage } from './OrganizerCache';
+import { emptyOrganizerCache, upgradeOrganizerCache, validOrganizerCache, type OrganizerCacheState, type OrganizerCacheStorage } from './OrganizerCache';
 const databaseName = 'ade-organizer-v1';
 let database: Promise<IDBDatabase> | undefined;
 function openDatabase(): Promise<IDBDatabase> {
@@ -22,7 +22,7 @@ export class IndexedOrganizerStorage implements OrganizerCacheStorage {
       const request = store.get(this.scope);
       request.onsuccess = () => {
         try {
-          const previous: unknown = request.result;
+          const previous: unknown = request.result === undefined ? undefined : upgradeOrganizerCache(structuredClone(request.result));
           if (previous && typeof previous === 'object' && 'forgotten' in previous) throw new Error(translate("This device access has been removed."));
           if (previous !== undefined && !validOrganizerCache(previous)) throw new Error(translate("The local repository is damaged and existing data is not overwritten."));
           const state = previous === undefined ? emptyOrganizerCache() : structuredClone(previous as OrganizerCacheState);

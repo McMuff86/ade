@@ -110,6 +110,11 @@ export interface MobileAgentSummary {
   /** Present only for native Codex profiles without a custom command: the fields the tablet may edit. */
   codexModel?: string;
   codexReasoningEffort?: import('./types').CodexReasoningEffort;
+  /** Present only for native Claude Code profiles without a custom command; '' means the CLI's own default. */
+  claudeModel?: string;
+  /** Present when the runtime has more than one launch command and no custom command overrides them. */
+  permissionMode?: import('./types').PermissionMode;
+  permissionModes?: import('./types').PermissionMode[];
 }
 /** `models: true` asks for the PC's model catalog; it needs `profiles:write` because the PC starts the CLI for it. */
 export interface MobileProfileQuery { agentId: string; models?: true }
@@ -117,7 +122,7 @@ export interface MobileAgentProfile { agent: MobileAgentSummary; revision: strin
 export type MobileAgentBehaviorQuery = { agentId: string };
 export type MobileAgentBehaviorView = import('./agentBehavior').AgentBehaviorView;
 export type MobileAgentBehaviorUpdate = import('./agentBehavior').AgentBehaviorUpdate;
-export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null; codexModel?: string; codexReasoningEffort?: import('./types').CodexReasoningEffort }
+export interface MobileProfileUpdate { agentId: string; revision: string; name: string; role: string; photo?: { bytesBase64: string } | null; codexModel?: string; codexReasoningEffort?: import('./types').CodexReasoningEffort; claudeModel?: string; permissionMode?: import('./types').PermissionMode }
 
 export interface MobileCatalog {
   projectStart?: { configured: boolean; agentId?: string };

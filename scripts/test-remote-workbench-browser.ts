@@ -162,13 +162,16 @@ void (async () => {
   check('the PC model catalog fills the tablet model choice with the default marked', (await modelSelect.locator('option').allTextContents()).join('|') === 'GPT-5.6 Sol · gpt-5.6-sol · Standard|Codex fixture fast · codex-fixture-fast');
   await modelSelect.selectOption('codex-fixture-fast');
   check('choosing a model narrows the reasoning choices to what the model reports', await workspace.getByLabel('Denktiefe', { exact: true }).inputValue() === 'low' && await workspace.getByLabel('Denktiefe', { exact: true }).locator('option').count() === 1);
+  await workspace.getByLabel('Berechtigungsmodus', { exact: true }).selectOption('bypass');
+  check('the permission mode shows the exact start command it produces', (await workspace.locator('.m-profile-model code').last().textContent()) === 'codex --dangerously-bypass-approvals-and-sandbox');
   await workspace.getByRole('button', { name: 'Profil speichern', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('.m-agent-profile button')?.hasAttribute('disabled'));
+  check('tablet saves the permission mode into the profile', store.get().agents.find((agent) => agent.id === 'builder')!.permissionMode === 'bypass');
   check('tablet saves model and reasoning into the Codex profile', store.get().agents.find((agent) => agent.id === 'builder')!.codexModel === 'codex-fixture-fast' && store.get().agents.find((agent) => agent.id === 'builder')!.codexReasoningEffort === 'low');
-  store.save({ agents: store.get().agents.map((agent) => agent.id === 'builder' ? { ...agent, runtime: builderBefore.runtime, customCommand: builderBefore.customCommand, codexModel: undefined, codexReasoningEffort: undefined } : agent) });
+  store.save({ agents: store.get().agents.map((agent) => agent.id === 'builder' ? { ...agent, runtime: builderBefore.runtime, customCommand: builderBefore.customCommand, permissionMode: builderBefore.permissionMode, codexModel: undefined, codexReasoningEffort: undefined } : agent) });
   await workspace.getByRole('button', { name: 'Profil neu laden', exact: true }).click();
   await workspace.getByLabel('Profil-Rolle', { exact: true }).waitFor();
-  check('custom-command profiles show no model controls', await workspace.getByLabel('Codex-Modell', { exact: true }).count() === 0);
+  check('custom-command profiles show no model or permission controls', await workspace.getByLabel('Codex-Modell', { exact: true }).count() === 0 && await workspace.getByLabel('Berechtigungsmodus', { exact: true }).count() === 0);
   const photoOpener = workspace.getByRole('button', { name: 'Profilbild vergrössern', exact: true });
   await photoOpener.focus(); await photoOpener.press('Enter');
   const photoDialog = page.getByRole('dialog', { name: 'Profilbild · Builder', exact: true }); await photoDialog.waitFor();

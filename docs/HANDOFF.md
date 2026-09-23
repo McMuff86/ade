@@ -1,5 +1,34 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Notiz-Blätter, Fotokopien, Tablet-Profil mit Berechtigungsmodus und Claude-Modell, F2 (23. September 2026, 20:03:17 CEST)
+
+Drei Nutzerwünsche aus dem Tablet-Test in einem Neustart:
+
+- **Notizen, Phase 6** ([TASKS_NOTES.md](TASKS_NOTES.md)): eine Notiz trägt bis
+  zu sechs Blätter (`sketches` ersetzt `sketch`, deterministische Migration alter
+  Notizen im PC-Speicher, Tablet-Cache und für `put` älterer Builds). „Auf Kopie
+  zeichnen“ am Foto legt ein Blatt in Fotogrösse mit dem Foto als Hintergrund an;
+  das Foto bleibt unverändert. PNG je Blatt, PDF mit einer Seite je Blatt.
+- **Tablet-Agentenprofil**: neben Codex-Modell/Denktiefe jetzt „Berechtigungsmodus“
+  für jede Runtime mit unterscheidbaren Startbefehlen (Standard, Änderungen
+  erlauben, Freigaben überspringen; der resultierende Startbefehl wird angezeigt,
+  z. B. `claude --dangerously-skip-permissions`,
+  `codex --dangerously-bypass-approvals-and-sandbox`) und „Claude-Modell“ für
+  native Claude-Code-Profile (Katalog vom PC, leer = Standard der CLI). Profile
+  mit eigenem Startbefehl zeigen keines dieser Felder.
+- **Tablet-Terminal**: Taste F2 in der Tastenzeile.
+
+PID 69844 regulär über das Tray-Menü beendet. Profil gesichert nach
+`ADE-Backups/SketchSheets-20260923-200302`. `pnpm build`, Start aus dem Repository:
+**20:03:17 CEST**, PID **46532**, Source **`f77f22da190a5419ffcd`** (Desktop 18:03:04 UTC,
+Mobile 18:03:12 UTC). Listener nur `127.0.0.1:4317`, HTTPS liefert
+`assets/index--2pt6JBK.js`, Geräteablage bytegleich. Nachweise: Typecheck; Vertrag 69/0, Cache
+32/0, Remote-Organizer 35/0, Skizze 49/0, Remote-Profile 42/0; gegen den
+isolierten Build Organizer Browser 69/0, Organizer Electron 17/0, Mobile-Browser
+61/0, Tablet-Workbench 52/0, Electron-Workflow 197/0 (Fokusrückgabe der Dialoge
+nach der Änderung in `useDialogFocus`); `pnpm test` 96 Suiten/4034 Prüfungen grün. Sichtprüfung
+`test-results/organizer/note-sheets*.png`, `photo-sheet.png`.
+
 ## Aktiviert: Tablet-Übersicht „Profil bearbeiten“ (23. September 2026, 19:28 CEST)
 
 Nutzerbefund: nach „Terminal öffnen / fortsetzen“ ist die Tab-Zeile des

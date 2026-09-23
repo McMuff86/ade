@@ -3,8 +3,9 @@ import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { MobileAgentProfile, MobileAgentSummary, MobileProfileUpdate } from '../shared/remote';
-import type { CodexReasoningEffort } from '../shared/types';
-import { CODEX_REASONING_EFFORTS } from '../renderer/onboarding/agentOptions';
+import type { CodexReasoningEffort, PermissionMode } from '../shared/types';
+import { AGENT_PERMISSION_MODES, CODEX_REASONING_EFFORTS } from '../renderer/onboarding/agentOptions';
+import { LAUNCH_PROFILES } from '../shared/runtimes';
 import type { MobileHost } from './useMobileHost';
 import { Avatar } from '../renderer/rail/Avatar';
 import { runtimeLogo } from '../renderer/rail/runtimeLogos';
@@ -58,9 +59,13 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
   const [busy, setBusy] = useState(false); const [allowed, setAllowed] = useState(false); const [loading, setLoading] = useState(true);
   const lock = useRef(false); const live = useRef(true); const nameInput = useRef<HTMLInputElement>(null);
   const draft = drafts.drafts[agentId];
-  const modelEditable = profile?.agent.codexModel !== undefined;
+  const modelEditable = profile?.agent.codexModel !== undefined; const claudeEditable = profile?.agent.claudeModel !== undefined;
+  const permissionModes = profile?.agent.permissionModes ?? [];
   const effective = draft?.input ?? (profile ? { agentId, revision: profile.revision, name: profile.agent.name, role: profile.agent.role ?? '',
-    ...(modelEditable ? { codexModel: profile.agent.codexModel, codexReasoningEffort: profile.agent.codexReasoningEffort } : {}) } : null);
+    ...(modelEditable ? { codexModel: profile.agent.codexModel, codexReasoningEffort: profile.agent.codexReasoningEffort } : {}),
+    ...(claudeEditable ? { claudeModel: profile.agent.claudeModel } : {}), ...(permissionModes.length ? { permissionMode: profile.agent.permissionMode } : {}) } : null);
+  const permissionMode = effective?.permissionMode ?? profile?.agent.permissionMode ?? 'default';
+  const launchCommand = profile ? LAUNCH_PROFILES[profile.agent.runtime]?.commands[permissionMode] ?? '' : '';
   const [modelsBusy, setModelsBusy] = useState(false);
   const photo = draft?.input.photo === null ? undefined : draft?.input.photo?.bytesBase64 ?? profile?.photo?.bytesBase64;
   const url = usePhotoUrl(photo);
@@ -84,7 +89,7 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
     catch (reason) { if (live.current) setError(profileError(reason)); }
     finally { if (live.current) setModelsBusy(false); }
   };
-  useEffect(() => { if (allowed && modelEditable && profile && !profile.models) void loadModels(); }, [allowed, modelEditable, profile?.agent.id]);
+  useEffect(() => { if (allowed && (modelEditable || claudeEditable) && profile && !profile.models) void loadModels(); }, [allowed, modelEditable, claudeEditable, profile?.agent.id]);
   const update = (patch: Partial<MobileProfileUpdate>) => {
     if (!effective) return;
     if (!draft && Object.keys(drafts.drafts).length >= 20) { setError(translate("First, save or discard one of the open profile drafts.")); return; }
@@ -148,6 +153,23 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
         </select></label>
         {profile?.models?.status === 'unavailable' && <p className="m-field-note">{localizeAppMessage(profile.models.message ?? translate("Could not load the model list. Refresh again."))}</p>}
         <button type="button" disabled={disabled || modelsBusy} onClick={() => void loadModels()}>{modelsBusy ? translate("Loading models…") : translate("Refresh models")}</button>
+      </fieldset>}
+      {claudeEditable && <fieldset className="m-profile-model"><legend>{translate("Model")}</legend>
+        <p className="m-field-note">{translate("The model list comes from the Claude Code CLI on the PC. Empty keeps the CLI's own default; Claude Code has no separate reasoning setting in ADE.")}</p>
+        <label>{translate("Claude model")}<select aria-label={translate("Claude model")} value={effective.claudeModel ?? ''} disabled={disabled} onChange={(event) => update({ claudeModel: event.target.value })}>
+          <option value="">{translate("CLI default")}</option>
+          {effective.claudeModel && !profile?.models?.models.some((model) => model.id === effective.claudeModel) && <option value={effective.claudeModel}>{effective.claudeModel} · {profile?.models ? translate("Not confirmed") : translate("checking")}</option>}
+          {profile?.models?.models.filter((model) => model.id !== 'default').map((model) => <option key={model.id} value={model.id}>{model.name}{model.name !== model.id ? ` · ${model.id}` : ''}</option>)}
+        </select></label>
+        {profile?.models?.status === 'unavailable' && <p className="m-field-note">{localizeAppMessage(profile.models.message ?? translate("Could not load the model list. Refresh again."))}</p>}
+        <button type="button" disabled={disabled || modelsBusy} onClick={() => void loadModels()}>{modelsBusy ? translate("Loading models…") : translate("Refresh models")}</button>
+      </fieldset>}
+      {permissionModes.length > 0 && <fieldset className="m-profile-model"><legend>{translate("Permission mode")}</legend>
+        <label>{translate("Permission mode")}<select aria-label={translate("Permission mode")} value={permissionMode} disabled={disabled} onChange={(event) => update({ permissionMode: event.target.value as PermissionMode })}>
+          {AGENT_PERMISSION_MODES.filter((mode) => permissionModes.includes(mode.id)).map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
+        </select></label>
+        <p className="m-field-note">{translate("New sessions of this agent start with:")}{' '}<code>{launchCommand || translate("the default shell")}</code></p>
+        {permissionMode === 'bypass' && <p className="m-field-note">{translate("Bypass skips every approval and sandbox. Use it only in workspaces you can restore.")}</p>}
       </fieldset>}
       <button className="m-primary" disabled={busy || !allowed || host.status !== 'online' || !effective.name.trim()}>{draft?.pending ? translate("Check profile operation again") : translate("Save profile")}</button>
       {draft && !draft.pending && <button type="button" disabled={busy} onClick={() => drafts.change(agentId, () => undefined)}>{translate("Discard profile draft")}</button>}

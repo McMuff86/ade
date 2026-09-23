@@ -2,11 +2,11 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ORGANIZER_LIMITS, SKETCH_BRUSHES, type OrganizerDocument, type OrganizerSketch, type SketchBrush, type SketchPoint, type SketchStroke } from '../../shared/organizer';
+import { ORGANIZER_LIMITS, SKETCH_BRUSHES, type OrganizerSketch, type SketchBrush, type SketchPoint, type SketchStroke } from '../../shared/organizer';
 import { ERASER_SIZE, LINE_WIDTH, SHEET_FORMATS, SHEET_SIZE, erasePartial, eraseStroke, exportScalesFor, sheetFormatFor, sheetSizeVerdict, type EraserMode, type SheetFormatId } from './sketchErase';
 import { useDialogFocus } from '../onboarding/Modal';
 import { clampView, fitView, pinchView, panView, toContentPoint, zoomViewAt, type ScaleBounds, type ViewTransform } from '../viewTransform';
-import { drawStroke, renderOrganizerSketch } from './sketchRendering';
+import { drawStroke, renderOrganizerSketch, type SketchScene } from './sketchRendering';
 import { SKETCH_INKS, SKETCH_INPUT_MODES, SKETCH_WIDTHS, fingerNavigates, sheetPointerRole, type SheetPointerRole, type SketchInkId, type SketchInputMode, type SketchInputState, type SketchPreferences } from './sketchInput';
 
 /**
@@ -23,7 +23,7 @@ export interface SketchTools extends Omit<SketchPreferences, 'penSeen'> { tool: 
 export interface SketchHandover { pointerId: number; point: SketchPoint; clientX: number; clientY: number }
 export interface SketchHistory { canUndo: boolean; canRedo: boolean; undo(): void; redo(): void }
 interface Props {
-  document: OrganizerDocument; title: string; disabled: boolean;
+  document: SketchScene; title: string; disabled: boolean;
   tools: SketchTools; setTools(change: Partial<SketchTools>): void;
   input: MutableRefObject<SketchInputState>; onPenSeen(): void;
   history: SketchHistory; commit(change: Partial<OrganizerSketch>): void;

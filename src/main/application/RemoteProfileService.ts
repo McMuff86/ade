@@ -3,9 +3,9 @@ import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, wri
 import { inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_CODEX_MODEL, DEFAULT_CODEX_REASONING_EFFORT, type AdeConfig, type Agent, type CodexReasoningEffort } from '../../shared/types';
+import { DEFAULT_CODEX_MODEL, DEFAULT_CODEX_REASONING_EFFORT, type AdeConfig, type Agent, type CodexReasoningEffort, type PermissionMode } from '../../shared/types';
 import type { MobileAgentProfile, MobileAgentSummary, MobileProfileQuery, MobileProfileUpdate } from '../../shared/remote';
-import { CODEX_MODEL_PATTERN } from '../../shared/runtimes';
+import { CLAUDE_MODEL_PATTERN, CODEX_MODEL_PATTERN, LAUNCH_PROFILES } from '../../shared/runtimes';
 import type { RuntimeModelCatalog } from '../../shared/runtimeModels';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 import { redactForWire } from '../errors';
@@ -17,6 +17,7 @@ const PHOTO_BYTES = 32 * 1024;
 const fail = (message: string): never => { throw new RemoteApiError(422, 'command_rejected', message); };
 const invalid = (): never => { throw new RemoteApiError(400, 'invalid_payload'); };
 const REASONING_EFFORTS: ReadonlySet<string> = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+const PERMISSION_MODES: readonly PermissionMode[] = ['default', 'accept-edits', 'bypass'];
 /** Tablet profile read: the agent id plus an optional request for the PC's model catalog. */
 export function validateProfileRequest(value: unknown): MobileProfileQuery {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some((key) => key !== 'agentId' && key !== 'models')) invalid();
@@ -33,7 +34,7 @@ export function validateProfileUpdate(value: unknown): MobileProfileUpdate {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid();
   const input = value as Record<string, unknown>;
   validateProfileQuery({ agentId: input.agentId });
-  if (Object.keys(input).some((key) => !['agentId', 'revision', 'name', 'role', 'photo', 'codexModel', 'codexReasoningEffort'].includes(key))
+  if (Object.keys(input).some((key) => !['agentId', 'revision', 'name', 'role', 'photo', 'codexModel', 'codexReasoningEffort', 'claudeModel', 'permissionMode'].includes(key))
     || typeof input.revision !== 'string' || !/^[a-f0-9]{64}$/.test(input.revision)
     || typeof input.name !== 'string' || !input.name.trim() || input.name.length > 80 || typeof input.role !== 'string' || input.role.length > 160
     || [input.name, input.role].some((text) => /[\x00-\x1f\x7f]/.test(text as string) || redactForWire(text as string, 200) !== text)) invalid();
@@ -46,6 +47,8 @@ export function validateProfileUpdate(value: unknown): MobileProfileUpdate {
   }
   if (input.codexModel !== undefined && (typeof input.codexModel !== 'string' || !CODEX_MODEL_PATTERN.test(input.codexModel) || redactForWire(input.codexModel, 120) !== input.codexModel)) invalid();
   if (input.codexReasoningEffort !== undefined && (typeof input.codexReasoningEffort !== 'string' || !REASONING_EFFORTS.has(input.codexReasoningEffort))) invalid();
+  if (input.claudeModel !== undefined && (typeof input.claudeModel !== 'string' || input.claudeModel !== '' && (!CLAUDE_MODEL_PATTERN.test(input.claudeModel) || redactForWire(input.claudeModel, 120) !== input.claudeModel))) invalid();
+  if (input.permissionMode !== undefined && !(PERMISSION_MODES as readonly unknown[]).includes(input.permissionMode)) invalid();
   return input as unknown as MobileProfileUpdate;
 }
 
@@ -82,16 +85,26 @@ export class RemoteProfileService {
     private readonly models?: (agent: Agent) => Promise<RuntimeModelCatalog>) {}
   /** Native Codex profiles without a custom command carry the model the desktop picker edits. */
   private modelEditable(agent: Agent): boolean { return agent.runtime === 'codex' && !agent.customCommand?.trim(); }
+  /** Native Claude Code profiles without a custom command carry the model the desktop editor sets; '' means the CLI default. */
+  private claudeEditable(agent: Agent): boolean { return agent.runtime === 'claude' && !agent.customCommand?.trim(); }
+  /** The launch modes the runtime distinguishes (`LAUNCH_PROFILES`); a custom command always wins, so it offers none. */
+  private permissionModes(agent: Agent): PermissionMode[] {
+    if (agent.customCommand?.trim()) return [];
+    const modes = PERMISSION_MODES.filter((mode) => LAUNCH_PROFILES[agent.runtime]?.commands[mode] !== null && LAUNCH_PROFILES[agent.runtime]?.commands[mode] !== undefined);
+    return modes.length > 1 ? modes : [];
+  }
   private agent(id: string): Agent { const agent = this.store.get().agents.find((item) => item.id === id); if (!agent) fail(translate("Agent no longer exists.")); return agent!; }
-  revision(agent: Agent): string { return workbenchDigest(JSON.stringify([agent.id, agent.name, agent.role ?? '', agent.photo ?? '', agent.codexModel ?? '', agent.codexReasoningEffort ?? ''])); }
+  revision(agent: Agent): string { return workbenchDigest(JSON.stringify([agent.id, agent.name, agent.role ?? '', agent.photo ?? '', agent.codexModel ?? '', agent.codexReasoningEffort ?? '', agent.claudeModel ?? '', agent.permissionMode])); }
   summary(agent: Agent): MobileAgentSummary {
     return { id: agent.id, name: redactForWire(agent.name, 160), role: agent.role ? redactForWire(agent.role, 200) : undefined, runtime: agent.runtime,
       ...(agent.photo ? { photoVersion: workbenchDigest(agent.photo) } : {}),
-      ...(this.modelEditable(agent) ? { codexModel: redactForWire(agent.codexModel ?? DEFAULT_CODEX_MODEL, 120), codexReasoningEffort: (agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT) as CodexReasoningEffort } : {}) };
+      ...(this.modelEditable(agent) ? { codexModel: redactForWire(agent.codexModel ?? DEFAULT_CODEX_MODEL, 120), codexReasoningEffort: (agent.codexReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT) as CodexReasoningEffort } : {}),
+      ...(this.claudeEditable(agent) ? { claudeModel: redactForWire(agent.claudeModel ?? '', 120) } : {}),
+      ...(this.permissionModes(agent).length ? { permissionMode: agent.permissionMode, permissionModes: this.permissionModes(agent) } : {}) };
   }
   async query(id: string, options: { models?: boolean } = {}): Promise<MobileAgentProfile> {
     const agent = this.agent(id); const profile: MobileAgentProfile = { agent: this.summary(agent), revision: this.revision(agent) };
-    if (options.models && this.modelEditable(agent) && this.models) {
+    if (options.models && (this.modelEditable(agent) || this.claudeEditable(agent)) && this.models) {
       const catalog = await this.models(agent);
       profile.models = { ...catalog, message: redactForWire(catalog.message ?? '', 300),
         models: catalog.models.slice(0, 200).map((model) => ({ ...model, id: redactForWire(model.id, 120), name: redactForWire(model.name, 160), ...(model.description === undefined ? {} : { description: redactForWire(model.description, 300) }),
@@ -128,8 +141,11 @@ export class RemoteProfileService {
       const fd = openSync(path, 'wx', 0o600); try { writeFileSync(fd, bytes); fsyncSync(fd); } finally { closeSync(fd); }
     }
     if ((input.codexModel !== undefined || input.codexReasoningEffort !== undefined) && !this.modelEditable(agent)) fail(translate("Model and reasoning apply to native Codex profiles without a custom command."));
+    if (input.claudeModel !== undefined && !this.claudeEditable(agent)) fail(translate("The Claude model applies to native Claude Code profiles without a custom command."));
+    if (input.permissionMode !== undefined && !this.permissionModes(agent).includes(input.permissionMode)) fail(translate("This agent's launch command does not distinguish that permission mode."));
     const updated: Agent = { ...agent, name: input.name.trim(), role: input.role.trim() || undefined, photo,
-      ...(input.codexModel !== undefined ? { codexModel: input.codexModel } : {}), ...(input.codexReasoningEffort !== undefined ? { codexReasoningEffort: input.codexReasoningEffort } : {}) };
+      ...(input.codexModel !== undefined ? { codexModel: input.codexModel } : {}), ...(input.codexReasoningEffort !== undefined ? { codexReasoningEffort: input.codexReasoningEffort } : {}),
+      ...(input.claudeModel !== undefined ? { claudeModel: input.claudeModel.trim() || undefined } : {}), ...(input.permissionMode !== undefined ? { permissionMode: input.permissionMode } : {}) };
     syncAgentInstructions(updated);
     this.store.save({ agents: this.store.get().agents.map((item) => item.id === agent.id ? updated : item) });
     this.changed(); return { revision: this.revision(updated) };

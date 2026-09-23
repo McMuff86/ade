@@ -1,5 +1,7 @@
 import { t as translate } from "../../shared/i18n";
-import type { OrganizerDocument, OrganizerImage, SketchBrush, SketchPoint, SketchStroke } from '../../shared/organizer';
+import type { OrganizerImage, OrganizerSketch, SketchBrush, SketchPoint, SketchStroke } from '../../shared/organizer';
+/** What the sheet, preview and exports draw: one sheet plus the note's photos it may sit on. */
+export interface SketchScene { images: OrganizerImage[]; sketch: OrganizerSketch }
 export function organizerImageUrl(image: OrganizerImage): string {
   const binary = atob(image.base64); const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
   return URL.createObjectURL(new Blob([bytes], { type: image.mime }));
@@ -96,7 +98,7 @@ export function loadOrganizerImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(translate("The picture could not be displayed."))); image.src = source; });
 }
 /** White sheet with the optional background photo and, unless `strokes` is false, every stroke; the sheet draws strokes live instead. */
-export async function renderOrganizerSketch(document: OrganizerDocument, options: { strokes?: boolean; scale?: number } = {}): Promise<HTMLCanvasElement> {
+export async function renderOrganizerSketch(document: SketchScene, options: { strokes?: boolean; scale?: number } = {}): Promise<HTMLCanvasElement> {
   const scale = options.scale ?? 1; const canvas = window.document.createElement('canvas'); canvas.width = document.sketch.width * scale; canvas.height = document.sketch.height * scale;
   const context = canvas.getContext('2d'); if (!context) throw new Error(translate("Drawing space is not available on this device."));
   context.scale(scale, scale); context.fillStyle = '#ffffff'; context.fillRect(0, 0, document.sketch.width, document.sketch.height);

@@ -1,5 +1,5 @@
 import { t as translate } from "../../shared/i18n";
-import { newOrganizerDocument, ORGANIZER_LIMITS, organizerId, organizerReference, validOrganizerDocument, validOrganizerMutation,
+import { newOrganizerDocument, ORGANIZER_LIMITS, organizerId, organizerReference, upgradeOrganizerDocument, upgradeOrganizerMutation, validOrganizerDocument, validOrganizerMutation,
   type OrganizerDocument, type OrganizerEntry, type OrganizerMutation, type OrganizerReceipt, type OrganizerIndex } from '../../shared/organizer';
 
 export interface CachedOrganizerEntry {
@@ -21,6 +21,16 @@ export interface OrganizerPort {
   wasRejected?(error: unknown): boolean;
 }
 export function emptyOrganizerCache(): OrganizerCacheState { return { version: 1, writerId: crypto.randomUUID(), sequence: 0, entries: [], pending: null, dispatches: [] }; }
+/** Cached drafts and bases from before sheets became a list; see `upgradeOrganizerDocument`. Mutates and returns the given object. */
+export function upgradeOrganizerCache(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || !Array.isArray((value as { entries?: unknown }).entries)) return value;
+  const state = value as { entries: Array<{ draft?: unknown; base?: { document?: unknown } | null }>; pending?: { input?: unknown } | null };
+  for (const item of state.entries) {
+    if (item && typeof item === 'object') { if (item.draft) item.draft = upgradeOrganizerDocument(item.draft); if (item.base && typeof item.base === 'object') item.base.document = upgradeOrganizerDocument(item.base.document); }
+  }
+  if (state.pending && typeof state.pending === 'object') state.pending.input = upgradeOrganizerMutation(state.pending.input);
+  return value;
+}
 export function validOrganizerCache(value: unknown): value is OrganizerCacheState {
   if (!value || typeof value !== 'object') return false;
   const state = value as OrganizerCacheState;
@@ -152,7 +162,7 @@ export class OrganizerCache {
   }
   async taskFromNote(note: OrganizerDocument, selectedText?: string): Promise<CachedOrganizerEntry> {
     const task = newOrganizerDocument('task'); task.title = note.title; task.text = selectedText ?? note.text;
-    task.repositoryId = note.repositoryId; task.sourceNoteId = note.id; task.images = structuredClone(note.images); task.sketch = structuredClone(note.sketch);
+    task.repositoryId = note.repositoryId; task.sourceNoteId = note.id; task.images = structuredClone(note.images); task.sketches = structuredClone(note.sketches);
     return this.edit(task, null);
   }
   reserveDispatch(input: Omit<OrganizerDispatch, 'key'>): Promise<OrganizerDispatch> {

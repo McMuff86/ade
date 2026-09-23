@@ -400,6 +400,30 @@ bestehende Skizzen unverändert gültig bleiben. Der Vertrag wächst damit erstm
 Sheetgrösse, Punkte und Farben bleiben wie zuvor. Details in
 [TASKS_NOTES.md](TASKS_NOTES.md).
 
+## 11c. Nachtrag Phase 6: mehrere Blätter, Zeichnen auf Fotokopien (23. September 2026)
+
+Adis Wünsche nach dem Tablet-Test: ein eingefügtes Foto soll sich zeichnend
+bearbeiten lassen, ohne das Original zu verändern, und eine Notiz soll eine
+zweite oder dritte Zeichnung tragen können.
+
+- **Blätter statt einem Blatt.** Die Notiz hält eine Liste von bis zu sechs
+  Blättern mit eigenem Titel, eigener Grösse und optionalem Hintergrundfoto.
+  Alte Notizen werden beim Laden unverändert übernommen; ihr Blatt wird Blatt 1.
+  Jedes Blatt zeigt eine Vorschau, eine Titelzeile, „Zeichnen“, „Foto zum
+  Markieren“, „Skizze als PNG“ und „Blatt entfernen“ (zweistufig). „Neue
+  Zeichnung“ legt ein weiteres Blatt an; ein neues Blatt, das ohne Strich
+  geschlossen wird, verschwindet wieder.
+- **Auf Kopie zeichnen.** Am Foto steht der Knopf „Auf Kopie zeichnen“: ein
+  neues Blatt in Fotogrösse (mindestens 200 pt Kante) mit dem Foto als
+  Hintergrund und dem Dateinamen als Titel öffnet sich sofort. Das Foto bleibt
+  als Anhang unverändert; die Striche liegen als Daten auf dem Blatt. Fotos
+  werden nicht mehr automatisch zum Hintergrund.
+- **Export.** PNG je Blatt (bei mehreren Blättern mit Blattname im Dateinamen),
+  PDF mit einer betitelten Seite je nicht leerem Blatt und den Fotos, auf denen
+  kein Blatt liegt, als Anhang.
+- **Tablet-Terminal.** Auf Wunsch zusätzlich die Taste F2 in der Tastenzeile
+  (Codex zeigt Warnungen mit „f2 to view“).
+
 ## 11. Offene Entscheidungen
 
 1. **Leiste links oder rechts als Standard?** Entschieden am 23. September 2026:

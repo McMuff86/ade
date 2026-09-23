@@ -454,7 +454,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       <div className="m-terminal-composer">
       <div className="m-terminal-keybar">
       <div className="m-management-actions m-terminal-keys" hidden={!(keyboardOpen || keysShown)}>
-      {[[translate("Enter"), '\r'], [translate("Tab"), '\t'], [translate("Esc"), '\x1b'], [translate("Ctrl+C"), '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C']].map(([label, data]) =>
+      {[[translate("Enter"), '\r'], [translate("Tab"), '\t'], [translate("Esc"), '\x1b'], [translate("Ctrl+C"), '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C'], ['F2', '\x1bOQ']].map(([label, data]) =>
         <button key={label} aria-label={translate("Terminal key {{value1}}", { value1: label })} disabled={blocked || !displayReady || !!readError || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => keyboard.enqueue(data!)}>{label}</button>)}</div>
       <button className="m-terminal-end m-danger" disabled={blocked || !owning}
         onClick={(event) => { event.currentTarget.focus(); setConfirmClose(true); }}>

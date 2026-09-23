@@ -63,9 +63,9 @@ void (async () => {
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
   await waitFor(() => fixture.organizer.store.index().entries.some(item => item.title === 'Idee für morgen'), 'note synchronized');
   const noteId = fixture.organizer.store.index().entries.find(item => item.title === 'Idee für morgen')!.id;
-  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length === 2, 'drawing synchronized');
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches[0]!.strokes.length === 2, 'drawing synchronized');
   check('actual IndexedDB, signed API and sketch history preserve editable strokes', fixture.organizer.store.detail(noteId)?.document.text.includes('Grösse') === true);
-  const strokes = () => fixture.organizer.store.detail(noteId)?.document.sketch.strokes.length ?? -1;
+  const strokes = () => fixture.organizer.store.detail(noteId)?.document.sketches[0]!.strokes.length ?? -1;
   const bounds = (await canvas.boundingBox())!;
   const pen = await context.newCDPSession(page);
   const x = bounds.x + bounds.width * .35; const y = bounds.y + bounds.height * .4; const end = bounds.x + bounds.width * .75;
@@ -73,12 +73,12 @@ void (async () => {
   await pen.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: end, y, button: 'left', buttons: 1, pointerType: 'pen', force: .8 });
   await pen.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: end, y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' });
   await waitFor(() => strokes() === 3, 'pen stroke saved');
-  check('pen pointer draws and persists pressure points', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.some(point => point.pressure > .5 && point.pressure < 1));
+  check('pen pointer draws and persists pressure points', fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!.points.some(point => point.pressure > .5 && point.pressure < 1));
   await page.getByRole('button', { name: 'Radierer', exact: true }).click();
   check('the eraser shows its options with the partial mode preselected', await page.getByRole('button', { name: 'Teil einer Linie', exact: true }).getAttribute('aria-pressed') === 'true');
   await page.mouse.click(bounds.x + bounds.width * .55, bounds.y + bounds.height * .4);
   await waitFor(() => strokes() === 4, 'pen stroke split in two');
-  const pieces = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.slice(2);
+  const pieces = fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.slice(2);
   check('the partial eraser cuts a gap out of the line and keeps both ends editable', pieces.length === 2 && pieces.every(piece => piece.points.length >= 2) && Math.max(...pieces[0]!.points.map(point => point.x)) < Math.min(...pieces[1]!.points.map(point => point.x)));
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'partial erase undone');
   await page.getByRole('button', { name: 'Ganze Linie', exact: true }).click();
@@ -91,7 +91,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Stift', exact: true }).click();
   await page.getByLabel('Strichstärke', { exact: true }).fill('30'); await canvas.focus(); await page.keyboard.press('Shift+ArrowLeft');
   await waitFor(() => strokes() === 4, 'wide keyboard stroke saved');
-  check('the width slider sets any line width and the value is a device preference', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.width === 30 && JSON.parse(await page.evaluate(() => localStorage.getItem('ade.sketch.preferences') ?? '{}')).width === 30);
+  check('the width slider sets any line width and the value is a device preference', fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!.width === 30 && JSON.parse(await page.evaluate(() => localStorage.getItem('ade.sketch.preferences') ?? '{}')).width === 30);
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'wide stroke undone');
   await page.getByLabel('Strichstärke', { exact: true }).fill('5'); await page.getByLabel('Stiftdruck', { exact: true }).uncheck();
   const flat = { x: bounds.x + bounds.width * .3, y: bounds.y + bounds.height * .7 };
@@ -99,21 +99,21 @@ void (async () => {
   await pen.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: flat.x + 80, y: flat.y, button: 'left', buttons: 1, pointerType: 'pen', force: .9 });
   await pen.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: flat.x + 80, y: flat.y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' });
   await waitFor(() => strokes() === 4, 'pressure-free pen stroke saved');
-  check('with pen pressure off every point is recorded at full pressure', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.every(point => point.pressure === 1));
+  check('with pen pressure off every point is recorded at full pressure', fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!.points.every(point => point.pressure === 1));
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'pressure-free stroke undone'); await page.getByLabel('Stiftdruck', { exact: true }).check();
   // Brushes and opacity travel with the stroke (contract fields), the highlighter starts translucent.
   await page.getByLabel('Stiftart', { exact: true }).selectOption('highlighter');
   check('choosing the highlighter presets a translucent band', await page.getByLabel('Deckkraft', { exact: true }).inputValue() === '35');
   await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 4, 'highlighter stroke saved');
-  const marker = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!;
+  const marker = fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!;
   check('the saved stroke names its brush and opacity', marker.brush === 'highlighter' && marker.opacity === .35);
   await page.getByLabel('Stiftart', { exact: true }).selectOption('pencil'); await page.getByLabel('Deckkraft', { exact: true }).fill('60');
   await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 5, 'pencil stroke saved');
-  const pencil = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!;
+  const pencil = fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!;
   check('opacity is a per-stroke value and a device preference', pencil.brush === 'pencil' && pencil.opacity === .6 && JSON.parse(await page.evaluate(() => localStorage.getItem('ade.sketch.preferences') ?? '{}')).opacity === 60);
   await page.getByLabel('Stiftart', { exact: true }).selectOption('pen'); await page.getByLabel('Deckkraft', { exact: true }).fill('100');
   await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 6, 'plain pen stroke saved');
-  check('a plain opaque pen stroke keeps the original stroke shape', !('brush' in fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!) && !('opacity' in fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!));
+  check('a plain opaque pen stroke keeps the original stroke shape', !('brush' in fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!) && !('opacity' in fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!));
   for (let i = 0; i < 3; i++) { await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); }
   await waitFor(() => strokes() === 3, 'brush strokes undone');
   // An erase drag works on a copy and commits once on release: no save per sample, one undo step.
@@ -127,7 +127,7 @@ void (async () => {
   await waitFor(() => strokes() === 4, 'drag erase committed on release');
   check('the pen stroke is cut once where the drag crossed it', strokes() === 4);
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'single undo restores the whole drag');
-  check('one release is one undo step', strokes() === 3 && fixture.organizer.store.detail(noteId)!.document.sketch.strokes.length === 3);
+  check('one release is one undo step', strokes() === 3 && fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.length === 3);
   await page.getByRole('button', { name: 'Ganze Linie', exact: true }).click(); await page.getByRole('button', { name: 'Stift', exact: true }).click();
   // The pen's side button erases without leaving the pen tool (§4).
   await page.getByRole('button', { name: 'Stift', exact: true }).click();
@@ -173,7 +173,7 @@ void (async () => {
   check('the dot grid shows on the sheet only while switched on', plain === 765 && dotted < 740 && await gridPixel() === 765);
   check('the grid is a device preference and never document data', JSON.parse(await page.evaluate(() => localStorage.getItem('ade.sketch.preferences') ?? '{}')).grid === false && !JSON.stringify(fixture.organizer.store.detail(noteId)!.document).includes('grid'));
   // Sheet format: never smaller than the drawing, larger sheets apply and refit, undo restores the size.
-  const sheetSize = () => { const sketch = fixture.organizer.store.detail(noteId)!.document.sketch; return `${sketch.width}x${sketch.height}`; };
+  const sheetSize = () => { const sketch = fixture.organizer.store.detail(noteId)!.document.sketches[0]!; return `${sketch.width}x${sketch.height}`; };
   await page.getByLabel('Blattformat', { exact: true }).selectOption('portrait'); await page.getByRole('button', { name: 'Blattgrösse übernehmen', exact: true }).click(); await page.waitForTimeout(200);
   check('a sheet smaller than the drawing is refused and names the needed size', /mindestens \d+ × \d+ Punkte/.test(await sheetDialog.getByRole('alert').textContent() ?? '') && sheetSize() === '1600x1000');
   await page.getByLabel('Blattformat', { exact: true }).selectOption('large'); await page.getByRole('button', { name: 'Blattgrösse übernehmen', exact: true }).click();
@@ -195,7 +195,7 @@ void (async () => {
   check('a palm-sized contact never draws, even when finger drawing is on', strokes() === 3);
   await page.touchscreen.tap(dot.x, dot.y);
   await waitFor(() => strokes() === 4, 'touch dot saved');
-  check('touch drawing and undo retain editable pen and touch strokes', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.length === 1);
+  check('touch drawing and undo retain editable pen and touch strokes', fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!.points.length === 1);
   await pen.detach();
   // Portrait and tablet layouts: the tool strip moves below the sheet on narrow screens.
   await page.setViewportSize({ width: 600, height: 900 }); await page.waitForTimeout(300); await page.screenshot({ path: join(evidence, 'sheet-portrait.png') });
@@ -206,9 +206,9 @@ void (async () => {
   await page.setViewportSize({ width: 1400, height: 900 }); await page.waitForTimeout(300);
   await canvas.focus(); await page.keyboard.press('Escape'); await sheetDialog.waitFor({ state: 'hidden' });
   check('Escape closes the sheet and returns focus to Draw', await draw.evaluate(node => node === document.activeElement));
-  check('the note shows the sketch as a preview', await page.getByRole('button', { name: /^Skizze öffnen: 4 Linien$/ }).isVisible());
+  check('the note shows the sketch as a preview', await page.getByRole('button', { name: /^Skizze Blatt 1 öffnen: 4 Linien$/ }).isVisible());
   // A pen touching the preview opens the sheet and that same stroke continues on it (§7, Phase 3).
-  const preview = page.getByRole('button', { name: /^Skizze öffnen/ }); await preview.scrollIntoViewIfNeeded(); const previewBox = (await preview.boundingBox())!;
+  const preview = page.getByRole('button', { name: /^Skizze Blatt 1 öffnen/ }); await preview.scrollIntoViewIfNeeded(); const previewBox = (await preview.boundingBox())!;
   const pen2 = await context.newCDPSession(page); const start = { x: previewBox.x + previewBox.width * .3, y: previewBox.y + previewBox.height * .3 };
   await pen2.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1, pointerType: 'pen', force: .5 });
   await sheetDialog.waitFor(); await page.waitForTimeout(150);
@@ -216,7 +216,7 @@ void (async () => {
   await pen2.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: start.x + 260, y: start.y + 60, button: 'left', buttons: 1, pointerType: 'pen', force: .7 });
   await pen2.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: start.x + 260, y: start.y + 60, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' });
   await waitFor(() => strokes() === 5, 'handed-over stroke saved');
-  const carried = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!;
+  const carried = fixture.organizer.store.detail(noteId)!.document.sketches[0]!.strokes.at(-1)!;
   check('a pen touching the preview opens the sheet and keeps drawing the same stroke', await sheetDialog.isVisible() && carried.points.length >= 2 && carried.points[0]!.x < carried.points.at(-1)!.x);
   await pen2.detach(); await page.keyboard.press('Escape'); await sheetDialog.waitFor({ state: 'hidden' });
   const photo = new PNG({ width: 12, height: 10 }); photo.data.fill(220);
@@ -239,7 +239,29 @@ void (async () => {
   check('the run-again control replaces the first-run label', await diagnostics.getByRole('button', { name: 'Erneut ausführen', exact: true }).isVisible());
   await diagnostics.scrollIntoViewIfNeeded(); await page.screenshot({ path: join(evidence, 'tablet-diagnostics.png') });
   await page.keyboard.press('Escape'); await settingsDialog.waitFor({ state: 'hidden' });
-  check('photo is normalized and remains a selectable sketch background', await page.getByLabel('Foto zum Markieren', { exact: true }).inputValue() === fixture.organizer.store.detail(noteId)?.document.images[0]?.id);
+  check('a photo is an attachment first and not silently made a sheet background', await page.getByLabel('Foto zum Markieren', { exact: true }).inputValue() === '' && fixture.organizer.store.detail(noteId)!.document.sketches.length === 1);
+  // Draw on a copy: the photo stays an attachment, a new sheet the size of the photo opens on it (docs/SKETCH_UX_PROPOSAL.md §11c).
+  await page.getByRole('button', { name: 'Auf Kopie von foto.png zeichnen', exact: true }).click(); await sheetDialog.waitFor();
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches.length === 2, 'photo sheet synchronized');
+  const photoSheet = fixture.organizer.store.detail(noteId)!.document.sketches[1]!;
+  check('the copy sheet sits on the photo, takes its size and name, and leaves the photo attachment untouched', photoSheet.backgroundImageId === fixture.organizer.store.detail(noteId)!.document.images[0]!.id
+    && photoSheet.width === 200 && photoSheet.height === 200 && photoSheet.title === 'foto' && fixture.organizer.store.detail(noteId)!.document.images.length === 1
+    && (await sheetDialog.locator('.sketch-sheet-title').textContent())?.startsWith('foto') === true);
+  await page.keyboard.press('Escape'); await sheetDialog.waitFor({ state: 'hidden' });
+  check('a photo sheet stays without marks and shows as a second preview', await page.getByRole('button', { name: 'Skizze foto öffnen', exact: true }).isVisible() && fixture.organizer.store.detail(noteId)!.document.sketches.length === 2);
+  await page.getByLabel('Blatt-Titel', { exact: true }).nth(1).fill('Foto-Notizen');
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches[1]?.title === 'Foto-Notizen', 'sheet title synchronized');
+  await page.getByRole('button', { name: 'Blatt Foto-Notizen entfernen', exact: true }).click();
+  check('removing a sheet asks once before it goes', await page.getByRole('button', { name: 'Blatt Foto-Notizen wirklich entfernen?', exact: true }).isVisible() && fixture.organizer.store.detail(noteId)!.document.sketches.length === 2);
+  await page.getByRole('button', { name: 'Blatt Foto-Notizen wirklich entfernen?', exact: true }).click();
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches.length === 1, 'sheet removal synchronized');
+  check('the photo attachment survives removing its sheet', fixture.organizer.store.detail(noteId)!.document.images.length === 1 && await page.getByRole('img', { name: 'foto.png' }).isVisible());
+  // A new sheet opened for a look and closed without a mark disappears again.
+  await page.getByRole('button', { name: 'Neue Zeichnung', exact: true }).click(); await sheetDialog.waitFor();
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches.length === 2, 'new sheet synchronized');
+  await page.keyboard.press('Escape'); await sheetDialog.waitFor({ state: 'hidden' });
+  await waitFor(() => fixture.organizer.store.detail(noteId)?.document.sketches.length === 1, 'untouched sheet dropped');
+  check('an untouched new sheet is dropped on close and focus stays in the sketches section', await page.evaluate(() => !!document.activeElement?.closest('.organizer-sketch')));
   for (const [button, extension] of [['Text als Markdown', 'md'], ['Skizze als PNG', 'png'], ['Als PDF speichern', 'pdf']]) {
     const downloading = page.waitForEvent('download'); await page.getByRole('button', { name: button!, exact: true }).click(); const download = await downloading;
     const file = join(evidence, `note.${extension}`); await download.saveAs(file); const bytes = readFileSync(file);
@@ -251,7 +273,7 @@ void (async () => {
   await page.keyboard.press('Escape'); await page.waitForTimeout(100); await page.keyboard.press('Escape'); await sheetDialog.waitFor({ state: 'hidden' });
   const downloadingLarge = page.waitForEvent('download'); await page.getByRole('button', { name: 'Skizze als PNG', exact: true }).click(); const largeDownload = await downloadingLarge;
   const largeFile = join(evidence, 'note-2x.png'); await largeDownload.saveAs(largeFile);
-  check('PNG export follows the chosen resolution without changing the sheet', PNG.sync.read(readFileSync(largeFile)).width === 3200 && fixture.organizer.store.detail(noteId)!.document.sketch.width === 1600);
+  check('PNG export follows the chosen resolution without changing the sheet', PNG.sync.read(readFileSync(largeFile)).width === 3200 && fixture.organizer.store.detail(noteId)!.document.sketches[0]!.width === 1600);
   await page.reload(); await page.getByRole('button', { name: /Idee für morgen/ }).click(); await page.getByRole('img', { name: 'foto.png' }).waitFor();
   check('reopened note retains editable text, image and drawing', await body.inputValue() === 'Grösse prüfen – mit Stift skizzieren.' && await page.getByRole('img', { name: 'foto.png' }).isVisible());
   await context.setOffline(true); await page.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();

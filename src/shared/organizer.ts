@@ -3,6 +3,7 @@ export const ORGANIZER_LIMITS = {
   documents: 1000, writers: 256, title: 200, text: 32_000, checklist: 100,
   attachments: 4, imageBase64: 700_000, documentBytes: 3_000_000,
   strokes: 500, points: 20_000, storeBytes: 48 * 1024 * 1024,
+  sketches: 6, sketchTitle: 120,
 } as const;
 export type OrganizerKind = 'task' | 'note';
 export const ORGANIZER_REJECTED = '[ADE_ORGANIZER_REJECTED]';
@@ -14,12 +15,14 @@ export type SketchBrush = typeof SKETCH_BRUSHES[number];
 export const SKETCH_OPACITY = { min: 0.05, max: 1 } as const;
 /** `brush` and `opacity` are optional so strokes saved before Phase 5 stay valid unchanged. */
 export interface SketchStroke { id: string; color: string; width: number; points: SketchPoint[]; brush?: SketchBrush; opacity?: number }
-export interface OrganizerSketch { width: number; height: number; backgroundImageId: string | null; strokes: SketchStroke[] }
+/** One sheet of a note. A sheet may sit on a photo copy (`backgroundImageId`); the photo attachment itself never changes. */
+export interface OrganizerSketch { id: string; title: string; width: number; height: number; backgroundImageId: string | null; strokes: SketchStroke[] }
+export const SKETCH_DEFAULT_SIZE = { width: 1600, height: 1000 } as const;
 export interface OrganizerDocument {
   id: string; kind: OrganizerKind; title: string; text: string; repositoryId: string | null;
   done: boolean; checklist: Array<{ id: string; text: string; done: boolean }>;
   dueAt: number | null; reminderAt: number | null; reminderSeenAt: number | null;
-  images: OrganizerImage[]; sketch: OrganizerSketch; sourceNoteId: string | null; runIds: string[];
+  images: OrganizerImage[]; sketches: OrganizerSketch[]; sourceNoteId: string | null; runIds: string[];
 }
 export interface OrganizerEntry {
   document: OrganizerDocument; revision: number; createdAt: number; updatedAt: number;
@@ -54,7 +57,7 @@ const text = (value: unknown, limit: number): value is string => typeof value ==
 const unique = (values: { id: string }[]): boolean => new Set(values.map(value => value.id)).size === values.length;
 const dimension = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0 && (value as number) <= 4096;
 export function validOrganizerDocument(value: unknown): value is OrganizerDocument {
-  if (!organizerRecord(value) || !organizerKeys(value, ['id', 'kind', 'title', 'text', 'repositoryId', 'done', 'checklist', 'dueAt', 'reminderAt', 'reminderSeenAt', 'images', 'sketch', 'sourceNoteId', 'runIds'])
+  if (!organizerRecord(value) || !organizerKeys(value, ['id', 'kind', 'title', 'text', 'repositoryId', 'done', 'checklist', 'dueAt', 'reminderAt', 'reminderSeenAt', 'images', 'sketches', 'sourceNoteId', 'runIds'])
     || !organizerId(value.id) || !['task', 'note'].includes(String(value.kind)) || !text(value.title, ORGANIZER_LIMITS.title) || !text(value.text, ORGANIZER_LIMITS.text)
     || !(value.repositoryId === null || organizerReference(value.repositoryId)) || typeof value.done !== 'boolean'
     || !time(value.dueAt) || !time(value.reminderAt) || !time(value.reminderSeenAt) || !(value.sourceNoteId === null || organizerId(value.sourceNoteId))
@@ -65,9 +68,15 @@ export function validOrganizerDocument(value: unknown): value is OrganizerDocume
     || !value.images.every(item => organizerRecord(item) && organizerKeys(item, ['id', 'name', 'mime', 'base64', 'width', 'height']) && organizerId(item.id) && text(item.name, 120)
       && ['image/png', 'image/jpeg'].includes(String(item.mime)) && typeof item.base64 === 'string' && item.base64.length > 0 && item.base64.length <= ORGANIZER_LIMITS.imageBase64
       && item.base64.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(item.base64) && dimension(item.width) && dimension(item.height)) || !unique(value.images)) return false;
-  const sketch = value.sketch;
-  if (!organizerRecord(sketch) || !organizerKeys(sketch, ['width', 'height', 'backgroundImageId', 'strokes']) || !dimension(sketch.width) || !dimension(sketch.height)
-    || !(sketch.backgroundImageId === null || organizerId(sketch.backgroundImageId) && value.images.some(image => image.id === sketch.backgroundImageId))
+  const images = value.images as OrganizerImage[];
+  if (!Array.isArray(value.sketches) || value.sketches.length > ORGANIZER_LIMITS.sketches || !value.sketches.every(sketch => validSketch(sketch, images)) || !unique(value.sketches)) return false;
+  return value.kind === 'task' || !value.done && value.dueAt === null && value.reminderAt === null && value.reminderSeenAt === null && value.checklist.length === 0;
+}
+/** Stroke and point limits apply per sheet; the document byte limit bounds the whole note. */
+function validSketch(sketch: unknown, images: OrganizerImage[]): sketch is OrganizerSketch {
+  if (!organizerRecord(sketch) || !organizerKeys(sketch, ['id', 'title', 'width', 'height', 'backgroundImageId', 'strokes']) || !organizerId(sketch.id) || !text(sketch.title, ORGANIZER_LIMITS.sketchTitle)
+    || !dimension(sketch.width) || !dimension(sketch.height)
+    || !(sketch.backgroundImageId === null || organizerId(sketch.backgroundImageId) && images.some(image => image.id === sketch.backgroundImageId))
     || !Array.isArray(sketch.strokes) || sketch.strokes.length > ORGANIZER_LIMITS.strokes) return false;
   let points = 0;
   for (const stroke of sketch.strokes) {
@@ -83,8 +92,28 @@ export function validOrganizerDocument(value: unknown): value is OrganizerDocume
       && typeof point.y === 'number' && Number.isFinite(point.y) && point.y >= 0 && point.y <= (sketch.height as number)
       && typeof point.pressure === 'number' && Number.isFinite(point.pressure) && point.pressure >= 0 && point.pressure <= 1)) return false;
   }
-  return unique(sketch.strokes) && (value.kind === 'task' || !value.done && value.dueAt === null && value.reminderAt === null && value.reminderSeenAt === null && value.checklist.length === 0);
+  return unique(sketch.strokes);
 }
+/**
+ * Notes saved before sheets became a list carried one `sketch`. The upgrade
+ * is deterministic (the sheet id derives from the note id) so the PC store,
+ * the tablet cache and a replayed mutation all agree byte for byte; an empty
+ * legacy sheet becomes an empty list. Anything else passes through unchanged
+ * and is judged by `validOrganizerDocument`.
+ */
+export function legacySketchId(documentId: string): string {
+  let hash = 0x811c9dc5;
+  for (const char of `${documentId}:sketch`) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 0x01000193) >>> 0; }
+  return hash.toString(16).padStart(8, '0') + documentId.slice(8);
+}
+export function upgradeOrganizerDocument(value: unknown): unknown {
+  if (!organizerRecord(value) || !Object.hasOwn(value, 'sketch') || Object.hasOwn(value, 'sketches')) return value;
+  const { sketch, ...rest } = value; if (!organizerRecord(sketch) || !organizerId(rest.id)) return value;
+  const filled = Array.isArray(sketch.strokes) && sketch.strokes.length > 0 || sketch.backgroundImageId !== null;
+  return { ...rest, sketches: filled ? [{ id: legacySketchId(rest.id), title: '', ...sketch }] : [] };
+}
+export const upgradeOrganizerMutation = (value: unknown): unknown =>
+  organizerRecord(value) && value.operation === 'put' ? { ...value, document: upgradeOrganizerDocument(value.document) } : value;
 export function validOrganizerMutation(value: unknown): value is OrganizerMutation {
   if (!organizerRecord(value) || !organizerId(value.writerId) || !organizerCount(value.sequence) || !value.sequence || !organizerCount(value.baseRevision)) return false;
   const keys = ['writerId', 'sequence', 'baseRevision', 'operation'];
@@ -99,7 +128,10 @@ export function validOrganizerQuery(value: unknown): value is OrganizerQuery {
 export const organizerCommandKey = (input: Pick<OrganizerMutation, 'writerId' | 'sequence'>): string => `${input.writerId}:${input.sequence}`;
 export function newOrganizerDocument(kind: OrganizerKind, id = crypto.randomUUID()): OrganizerDocument {
   return { id, kind, title: '', text: '', repositoryId: null, done: false, checklist: [], dueAt: null, reminderAt: null, reminderSeenAt: null,
-    images: [], sketch: { width: 1600, height: 1000, backgroundImageId: null, strokes: [] }, sourceNoteId: null, runIds: [] };
+    images: [], sketches: [], sourceNoteId: null, runIds: [] };
+}
+export function newOrganizerSketch(overrides: Partial<Omit<OrganizerSketch, 'id'>> = {}, id = crypto.randomUUID()): OrganizerSketch {
+  return { id, title: '', width: SKETCH_DEFAULT_SIZE.width, height: SKETCH_DEFAULT_SIZE.height, backgroundImageId: null, strokes: [], ...overrides };
 }
 export function organizerSummary(entry: OrganizerEntry): OrganizerSummary {
   const { id, kind, title, repositoryId, done, dueAt, reminderAt, reminderSeenAt } = entry.document;

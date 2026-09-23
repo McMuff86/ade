@@ -2,12 +2,13 @@ import { localizeAppMessage } from '../../shared/i18n/appMessages';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState } from 'react';
-import { ORGANIZER_LIMITS, type OrganizerDocument, type OrganizerImage } from '../../shared/organizer';
+import { newOrganizerSketch, ORGANIZER_LIMITS, type OrganizerDocument, type OrganizerImage } from '../../shared/organizer';
+import { SHEET_SIZE } from './sketchErase';
 import { organizerImageUrl } from './sketchRendering';
 import { type CachedOrganizerEntry, type OrganizerCache } from './OrganizerCache';
 import { organizerEditing, retainOrganizerEditing, releaseOrganizerEditing } from './OrganizerEditing';
 import type { OrganizerPagePort, OrganizerPageProps } from './OrganizerPage';
-import { SketchEditor } from './SketchEditor';
+import { SketchEditor, sheetLabel } from './SketchEditor';
 import { ConversationVoice } from '../conversation/ConversationVoice';
 import type { ConversationDrafts } from '../conversation/conversationDrafts';
 import { Modal } from '../onboarding/Modal';
@@ -28,6 +29,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
   const latestSaved = useRef(onSaved); latestSaved.current = onSaved;
   const [saving, setSaving] = useState(editing.saving); const [saveError, setSaveError] = useState(editing.error); const [error, setError] = useState(''); const [exporting, setExporting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false); const [showVoice, setShowVoice] = useState(false); const [selectedText, setSelectedText] = useState('');
+  const [sketchIntent, setSketchIntent] = useState<string | null>(null);
   const title = useRef<HTMLInputElement>(null); const textarea = useRef<HTMLTextAreaElement>(null); const file = useRef<HTMLInputElement>(null);
   const readOnly = disabled || entry.redacted;
   useEffect(() => { title.current?.focus(); }, []);
@@ -46,11 +48,23 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
     void editing.edit(next).catch(() => undefined);
   };
   const safely = async (action: () => Promise<unknown>) => { try { await editing.flush(); await action(); } catch (reason) { setError(port.describe(reason)); } };
-  const exportFile = async (format: 'md' | 'png' | 'pdf') => {
+  /** PNG exports one sheet (named after it); Markdown and PDF take the whole note. */
+  const exportFile = async (format: 'md' | 'png' | 'pdf', sketchId?: string) => {
     if (exporting) return; setExporting(true); setError(''); const snapshot = structuredClone(current.current);
-    try { const blob = format === 'md' ? new Blob([organizerMarkdown(snapshot)], { type: 'text/markdown;charset=utf-8' }) : format === 'png' ? await organizerPng(snapshot, exportScalesFor(snapshot.sketch.width, snapshot.sketch.height).includes(readSketchPreferences(sketchPreferenceStorage()).exportScale) ? readSketchPreferences(sketchPreferenceStorage()).exportScale : 1) : await organizerPdf(snapshot);
-      downloadOrganizerBlob(blob, snapshot.title, format);
+    try {
+      const index = snapshot.sketches.findIndex(sketch => sketch.id === sketchId); const sketch = snapshot.sketches[index];
+      if (format === 'png' && !sketch) throw new Error(translate("This sheet no longer exists."));
+      const scale = sketch && exportScalesFor(sketch.width, sketch.height).includes(readSketchPreferences(sketchPreferenceStorage()).exportScale) ? readSketchPreferences(sketchPreferenceStorage()).exportScale : 1;
+      const blob = format === 'md' ? new Blob([organizerMarkdown(snapshot)], { type: 'text/markdown;charset=utf-8' }) : format === 'png' ? await organizerPng(snapshot, sketch!.id, scale) : await organizerPdf(snapshot);
+      downloadOrganizerBlob(blob, format === 'png' && snapshot.sketches.length > 1 ? `${snapshot.title} ${sheetLabel(sketch!, index)}` : snapshot.title, format);
     } catch (reason) { setError(port.describe(reason)); } finally { setExporting(false); }
+  };
+  /** The photo stays as it is; the strokes go on a new sheet the size of the photo (docs/SKETCH_UX_PROPOSAL.md §11c). */
+  const drawOnCopy = (image: OrganizerImage) => {
+    if (readOnly || current.current.sketches.length >= ORGANIZER_LIMITS.sketches) return;
+    const size = { width: Math.max(SHEET_SIZE.min, image.width), height: Math.max(SHEET_SIZE.min, image.height) };
+    const sketch = newOrganizerSketch({ title: image.name.replace(/\.[a-z0-9]+$/i, '').slice(0, ORGANIZER_LIMITS.sketchTitle), ...size, backgroundImageId: image.id });
+    patch({ sketches: [...current.current.sketches, sketch] }); setSketchIntent(sketch.id);
   };
   const remaining = ORGANIZER_LIMITS.attachments - value.images.length;
   return <article className="organizer-editor" aria-label={value.kind === 'task' ? translate("Edit task") : translate("Edit note")}>
@@ -81,7 +95,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
         void safely(async () => {
           if (chosen.length > ORGANIZER_LIMITS.attachments - current.current.images.length) throw new Error(translate("Select up to four photos per entry."));
           const images = await Promise.all(chosen.map(importOrganizerImage));
-          patch({ images: [...current.current.images, ...images], sketch: current.current.images.length === 0 && images[0] ? { ...current.current.sketch, backgroundImageId: images[0].id } : current.current.sketch });
+          patch({ images: [...current.current.images, ...images] });
         });
       }} /></div>
     {showVoice && <ConversationVoice key={`${value.id}:${canDictate}`} id={value.id} drafts={voiceDrafts} port={port.recording} purpose="organizer" enabled={canDictate && !readOnly}
@@ -95,12 +109,13 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
       <button type="button" aria-label={translate("Remove checklist item: {{value1}}", { value1: item.text || translate("no text") })} disabled={readOnly} onClick={() => patch({ checklist: current.current.checklist.filter(line => line.id !== item.id) })}>{translate("Remove")}</button></div>)}
       <button type="button" disabled={readOnly || value.checklist.length >= ORGANIZER_LIMITS.checklist} onClick={() => patch({ checklist: [...current.current.checklist, { id: crypto.randomUUID(), text: '', done: false }] })}>{translate("Add checklist item")}</button></section>}
     {value.images.length > 0 && <div className="organizer-images">{value.images.map(image => <figure key={image.id}><OrganizerPhoto image={image} /><figcaption>{image.name}</figcaption>
-      <button type="button" disabled={readOnly} onClick={() => patch({ images: current.current.images.filter(item => item.id !== image.id), sketch: current.current.sketch.backgroundImageId === image.id ? { ...current.current.sketch, backgroundImageId: null } : current.current.sketch })}>{translate("Remove photo")}</button></figure>)}</div>}
-    <SketchEditor document={value} disabled={readOnly} title={value.title} onChange={sketch => patch({ sketch })} onExportPng={() => void exportFile('png')} />
+      <div className="organizer-tools"><button type="button" disabled={readOnly || value.sketches.length >= ORGANIZER_LIMITS.sketches} aria-label={translate("Draw on a copy of {{value1}}", { value1: image.name })} onClick={() => drawOnCopy(image)}>{translate("Draw on a copy")}</button>
+      <button type="button" disabled={readOnly} aria-label={translate("Remove photo {{value1}}", { value1: image.name })} onClick={() => patch({ images: current.current.images.filter(item => item.id !== image.id), sketches: current.current.sketches.map(sketch => sketch.backgroundImageId === image.id ? { ...sketch, backgroundImageId: null } : sketch) })}>{translate("Remove photo")}</button></div></figure>)}</div>}
+    <SketchEditor document={value} disabled={readOnly} title={value.title} onChange={sketches => patch({ sketches })} onExportPng={id => void exportFile('png', id)} intent={sketchIntent} onIntentConsumed={() => setSketchIntent(null)} />
     {!!value.runIds.length && <section aria-label={translate("Assigned jobs")}><h3>{translate("Jobs and results")}</h3>{value.runIds.map((id, index) => <button type="button" key={id} onClick={() => onRun(id)}>{translate("Job")}{" "}{index + 1}{" "}{translate("Open [c3b66666]")}</button>)}</section>}
     {value.sourceNoteId && <p className="organizer-help">{translate("Created from a note. The original note remains.")}</p>}
     <footer className="organizer-tools" role="group" aria-label={translate("Export and other actions")}><button type="button" disabled={exporting} onClick={() => void exportFile('md')}>{translate("Text as Markdown")}</button>
-      <button type="button" disabled={exporting} onClick={() => void exportFile('png')}>{translate("Sketch as PNG")}</button><button type="button" disabled={exporting} onClick={() => void exportFile('pdf')}>{exporting ? translate("Creating export…") : translate("Save as PDF")}</button>
+      <button type="button" disabled={exporting} onClick={() => void exportFile('pdf')}>{exporting ? translate("Creating export…") : translate("Save as PDF")}</button>
       <button type="button" className="organizer-danger" disabled={readOnly || saving} onClick={() => setDeleteOpen(true)}>{translate("Delete entry")}</button></footer>
     {deleteOpen && <Modal title={translate("Delete entry")} className="organizer-dialog" onClose={() => setDeleteOpen(false)} fallbackFocus={() => window.document.querySelector('.organizer-header button')}>
       <p>„{value.title || translate("Untitled entry")}{translate("” from the list? Other versions being edited at the same time will be preserved.")}</p><div className="organizer-tools"><button type="button" onClick={() => setDeleteOpen(false)}>{translate("Keep")}</button>

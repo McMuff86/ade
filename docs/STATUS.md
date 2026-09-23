@@ -1,5 +1,20 @@
 # ADE implementation status
 
+## Notizen mit mehreren Blättern, Fotokopien; Tablet-Profil mit Berechtigungsmodus und Claude-Modell (23. September 2026)
+
+Eine Notiz hält bis zu sechs Blätter mit Titel, Grösse und optionalem
+Hintergrundfoto (`OrganizerDocument.sketches`); alte Notizen migrieren
+deterministisch auf PC, Tablet und Wire. „Auf Kopie zeichnen“ am Foto öffnet ein
+Blatt in Fotogrösse, das Foto bleibt Anhang. PNG je Blatt, PDF je Blatt eine
+Seite. Im Tablet-Agentenprofil lassen sich Berechtigungsmodus (mit angezeigtem
+Startbefehl) und für Claude-Code-Profile das Modell setzen. Tablet-Terminal mit
+F2. Nachweise: Vertrag **69/0**, Cache **32/0**, Remote-Profile **42/0**,
+Organizer Browser **69/0**, Organizer Electron **17/0**, Tablet-Workbench
+**52/0**, Mobile-Browser **61/0**, Electron-Workflow **197/0**; `pnpm test` 96 Suiten/4034 Prüfungen grün.
+Aktiviert **20:03:17 CEST**, PID **46532**, Source `f77f22da190a5419ffcd`
+([Übergabe](HANDOFF.md)). Details: [TASKS_NOTES.md](TASKS_NOTES.md) Phase 6,
+[SKETCH_UX_PROPOSAL.md](SKETCH_UX_PROPOSAL.md) §11c.
+
 ## Tablet-Übersicht: „Profil bearbeiten“ pro Agent (23. September 2026)
 
 Neben „Terminal öffnen / fortsetzen“ öffnet „Profil bearbeiten“ den

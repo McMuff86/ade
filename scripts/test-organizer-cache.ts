@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { OrganizerCache, cachedDocument, emptyOrganizerCache, validOrganizerCache, type OrganizerCacheState, type OrganizerCacheStorage, type OrganizerPort } from '../src/renderer/organizer/OrganizerCache';
+import { OrganizerCache, cachedDocument, emptyOrganizerCache, upgradeOrganizerCache, validOrganizerCache, type OrganizerCacheState, type OrganizerCacheStorage, type OrganizerPort } from '../src/renderer/organizer/OrganizerCache';
 import { OrganizerService } from '../src/main/organizer/OrganizerService';
 import { OrganizerEditing, retainOrganizerEditing, releaseOrganizerEditing, hasUnsavedOrganizerEditing, forgetOrganizerEditing } from '../src/renderer/organizer/OrganizerEditing';
-import { newOrganizerDocument } from '../src/shared/organizer';
+import { legacySketchId, newOrganizerDocument } from '../src/shared/organizer';
 let passed = 0; let failed = 0;
 function check(name: string, ok: boolean) { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } }
 async function refuses(action: () => unknown) { try { await action(); return false; } catch { return true; } }
@@ -76,7 +76,13 @@ void (async () => {
   storage.denied = true; const bytes = JSON.stringify(storage.state);
   check('quota failure never pretends a draft is saved or changes previous state', await refuses(() => cache.edit(newOrganizerDocument('note'), null)) && JSON.stringify(storage.state) === bytes);
   storage.denied = false;
-  const converted = await cache.taskFromNote({ ...document, text: 'Full note', images: [], sketch: document.sketch }, 'Selected paragraph');
+  const converted = await cache.taskFromNote({ ...document, text: 'Full note', images: [], sketches: document.sketches }, 'Selected paragraph');
+  // A cache written before sheets became a list is upgraded on read, so unsynced drafts are not thrown away.
+  const legacyCache = structuredClone(await cache.snapshot()) as unknown as { entries: Array<{ id: string; draft: Record<string, unknown> | null; base: { document: Record<string, unknown> } | null }> };
+  const legacyShape = (doc: Record<string, unknown>) => { const { sketches: _sketches, ...rest } = doc; return { ...rest, sketch: { width: 1600, height: 1000, backgroundImageId: null, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] }] } }; };
+  const first = legacyCache.entries.find(item => item.draft || item.base)!; if (first.draft) first.draft = legacyShape(first.draft); if (first.base) first.base.document = legacyShape(first.base.document);
+  check('a legacy cache is invalid as stored but upgrades to a valid sheet list', !validOrganizerCache(structuredClone(legacyCache)) && validOrganizerCache(upgradeOrganizerCache(legacyCache))
+    && ((first.draft ?? first.base!.document) as { sketches: Array<{ id: string }> }).sketches[0]!.id === legacySketchId(first.id));
   check('note conversion keeps provenance and only requested text', converted.draft?.kind === 'task' && converted.draft.sourceNoteId === document.id && converted.draft.text === 'Selected paragraph' && converted.id !== document.id);
   check('invalid restored queue cannot execute arbitrary operations', !validOrganizerCache({ ...storage.state, pending: { input: { operation: 'shell', writerId: storage.state.writerId }, localVersion: 0 } }));
   let calls = 0; await cache.flush({ ...port, save: async input => { calls++; return port.save(input); } }, () => false);

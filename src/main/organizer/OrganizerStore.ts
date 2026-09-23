@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { assertNoLinks } from '../repositories/pathDiscipline';
-import { ORGANIZER_LIMITS, organizerCount, organizerId, organizerKeys, organizerRecord, organizerSummary, validOrganizerDocument, validOrganizerMutation,
+import { ORGANIZER_LIMITS, organizerCount, organizerId, organizerKeys, organizerRecord, organizerSummary, upgradeOrganizerDocument, upgradeOrganizerMutation, validOrganizerDocument, validOrganizerMutation,
   type OrganizerEntry, type OrganizerIndex, type OrganizerMutation, type OrganizerReceipt } from '../../shared/organizer';
 
 interface Writer { id: string; owner: string; sequence: number; fingerprint: string; receipt: OrganizerReceipt }
@@ -38,6 +38,8 @@ export class OrganizerStore {
     let value: unknown;
     try { value = raw === null ? { version: 1, revision: 0, entries: [], writers: [] } : JSON.parse(raw); }
     catch { throw new OrganizerError('unavailable', translate("Tasks and notes could not be read. The original file remains.")); }
+    // Notes from before sheets became a list are upgraded in memory; the file is rewritten by the next regular save.
+    if (organizerRecord(value) && Array.isArray(value.entries)) for (const entry of value.entries) if (organizerRecord(entry)) entry.document = upgradeOrganizerDocument(entry.document);
     if (!validState(value)) throw new OrganizerError('unavailable', translate("Tasks and notes have an invalid format, and the original file remains intact."));
     this.state = value;
   }
@@ -48,7 +50,8 @@ export class OrganizerStore {
     if (writer && writer.owner !== digest(owner)) throw new OrganizerError('writer_owner', translate("This draft belongs to a different device access."));
     return writer?.sequence ?? 0;
   }
-  mutate(input: OrganizerMutation, owner: string): OrganizerReceipt {
+  mutate(incoming: OrganizerMutation, owner: string): OrganizerReceipt {
+    const input = upgradeOrganizerMutation(incoming) as OrganizerMutation;
     if (!validOrganizerMutation(input) || Buffer.byteLength(JSON.stringify(input)) > ORGANIZER_LIMITS.documentBytes) throw new OrganizerError('invalid', translate("Task or note is invalid or too large."));
     const sequence = this.writerSequence(input.writerId, owner);
     const fingerprint = digest(JSON.stringify(input));

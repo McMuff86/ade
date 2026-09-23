@@ -29,7 +29,10 @@
 .organizer-checklist > button { align-self: flex-start; }.organizer-file-input { display: none !important; }
 .organizer-images { display: flex; flex-wrap: wrap; gap: 12px; }.organizer-images figure { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 8px; width: 180px; }
 .organizer-images img { width: 100%; height: 115px; object-fit: contain; }.organizer-images figcaption { font-size: 11px; overflow-wrap: anywhere; }
-.organizer-sketch { display: flex; flex-direction: column; gap: 10px; }
+.organizer-sketch { display: flex; flex-direction: column; gap: 14px; }
+.organizer-sketch-item { display: flex; flex-direction: column; gap: 8px; }
+.organizer-sketch-item + .organizer-sketch-item { padding-top: 12px; border-top: 1px solid var(--line); }
+.organizer-images figure .organizer-tools { gap: 6px; }
 /* The sketch in the note is a preview and the way onto the sheet (docs/SKETCH_UX_PROPOSAL.md §7). */
 .organizer .organizer-sketch .organizer-sketch-preview { display: block; width: 100%; max-width: 560px; aspect-ratio: 8/5; min-height: 0; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: white; overflow: hidden; cursor: pointer; color: var(--muted); font-size: 12px; }
 .organizer .organizer-sketch .organizer-sketch-preview:hover:not(:disabled) { border-color: var(--accent); }

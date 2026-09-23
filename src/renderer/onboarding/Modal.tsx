@@ -41,7 +41,8 @@ export function useDialogFocus(
     (first ?? dialogRef.current)?.focus();
 
     return () => {
-      if (opener?.isConnected && !opener.matches(':disabled')) opener.focus();
+      // A dialog opened while focus sat on <body> (its opener re-rendered away) has no opener worth returning to.
+      if (opener && opener !== document.body && opener.isConnected && !opener.matches(':disabled')) opener.focus();
       else fallbackFocus?.()?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

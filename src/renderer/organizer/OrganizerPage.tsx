@@ -91,7 +91,7 @@ export function OrganizerPage(props: OrganizerPageProps) {
       <ul>{visible.map(entry => { const doc = cachedDocument(entry)!; const reminder = !doc.done && doc.reminderAt !== null && doc.reminderAt <= now && (doc.reminderSeenAt === null || doc.reminderSeenAt < doc.reminderAt);
         return <li key={entry.id}><button type="button" id={`organizer-entry-${entry.id}`} className="organizer-list-item" aria-pressed={selected === entry.id} onClick={() => setSelected(entry.id)}>
           <strong>{doc.done ? '✓ ' : ''}{doc.title || (kind === 'task' ? translate("Unnamed task") : translate("Unnamed note"))}</strong>
-          <span>{doc.text.slice(0, 110) || (doc.sketch.strokes.length ? translate("Sketch") : doc.images.length ? translate("Photo") : translate("No content yet"))}</span>
+          <span>{doc.text.slice(0, 110) || (doc.sketches.some(sketch => sketch.strokes.length) ? translate("Sketch") : doc.images.length ? translate("Photo") : translate("No content yet"))}</span>
           {doc.dueAt !== null && <small>{doc.dueAt < now && !doc.done ? translate("Overdue · ") : translate("Due · ")}{new Date(doc.dueAt).toLocaleString(intlLocale())}</small>}
           {reminder && <small className="organizer-reminder">{translate("Reminder due")}</small>}{entry.base?.conflictOf && <small>{translate("Conflict copy · Both versions preserved")}</small>}
           {entry.draft && <small>{translate("Locally stored")}</small>}
