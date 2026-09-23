@@ -1,5 +1,21 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: lesbare Nutzungsaufschlüsselung auf den Projektkarten (23. September 2026, 22:49 CEST)
+
+Adis Befund vom Tablet: die Aufschlüsselung wurde in der schmalen Kartenspalte
+zerquetscht (Tabelle, buchstabenweise umbrochen). Jetzt nimmt die geöffnete
+Karte die ganze Rasterzeile ein (`li:has(.project-usage-breakdown)`), und die
+Sitzungen stehen als Zeilen mit Kopf (Start, Anbieter, Agent, Kosten rechts)
+und Faktenzeile (Eingabe, Ausgabe, Cache gelesen, Denken, Modell) statt in
+einer Tabelle; Anbieterzeilen ebenso. PID 14432 regulär über das Tray-Menü
+beendet (Kindprozesse wsl/conhost). Profil gesichert nach
+`ADE-Backups/UsageBreakdown-20260923-224911`. `pnpm build`, Start aus dem
+Repository: **22:49:28 CEST**, PID **73424**, Source **`078f01cc656b5621ac7e`**
+(Desktop 20:49:13 UTC, Mobile 20:49:22 UTC). Listener nur `127.0.0.1:4317`,
+HTTPS liefert `assets/index-ROaVD1a6.js`, Geräteablage bytegleich. Nachweise:
+Typecheck, Tablet-Workbench 58/0 gegen den isolierten Build, Sichtprüfung
+`test-results/remote/project-usage-breakdown.png`.
+
 ## Aktiviert: Stimmenstudio-Politur, Gespräche-Dialog, Geräteaktivität, Tablet-Einstellungen (23. September 2026, 22:24:13 CEST)
 
 Adis Befunde beim Tablet-Test, Gestaltung nach dem Kalm-Token-Plan

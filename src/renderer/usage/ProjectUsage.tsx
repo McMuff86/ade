@@ -80,17 +80,20 @@ function ProjectUsageBreakdown({ id, project, usage }: { id: string; project: Pr
     <dl className="usage-overview-tokens">{TOKEN_FIELDS.filter(field => project.tokens[field] !== null).map(field => <div key={field}><dt>{field === 'input' ? translate("Input") : field === 'inputUncached' ? translate("Input (uncached)") : field === 'output' ? translate("Output") : field === 'cacheRead' ? translate("Cache read") : field === 'cacheWrite' ? translate("Cache write") : translate("Reasoning")}</dt><dd>{formatTokenCount(project.tokens[field]!)}</dd></div>)}
       {project.cost && <div><dt>{translate("Costs")}</dt><dd>{formatCostUsd(project.cost.usd)} · {project.cost.kinds.map(kind => kind === 'provider-reported' ? translate("reported") : kind === 'provider-estimate' ? translate("provider estimate") : translate("configured estimate")).join(', ')}{project.cost.eventsWithoutCost ? ` · ${translate("{{count}} request(s) without cost", { count: project.cost.eventsWithoutCost })}` : ''}</dd></div>}
     </dl>
-    <ul className="project-usage-providers">{project.providers.map(item => <li key={item.provider}><strong>{USAGE_PROVIDER_LABELS[item.provider as keyof typeof USAGE_PROVIDER_LABELS] ?? item.provider}</strong> · {translate("{{count}} session(s)", { count: item.sessions })} · {tokenCells(item.tokens)}</li>)}</ul>
-    <table className="project-usage-sessions"><caption>{translate("Sessions")}</caption>
-      <thead><tr><th>{translate("Start")}</th><th>{translate("Agent")}</th><th>{translate("Provider")}</th><th>{translate("Model")}</th><th>{translate("Tokens")}</th><th>{translate("Costs")}</th></tr></thead>
-      <tbody>{project.items.map(item => <tr key={item.id}>
-        <td>{new Date(item.startedAt).toLocaleString(intlLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-        <td>{item.agentId ? usage.agentName?.(item.agentId) ?? item.agentId : translate("no agent profile")}</td>
-        <td>{USAGE_PROVIDER_LABELS[item.provider as keyof typeof USAGE_PROVIDER_LABELS] ?? item.provider}</td>
-        <td>{item.models.join(', ') || '—'}</td>
-        <td>{tokenCells(item.tokens)}</td>
-        <td>{item.cost ? formatCostUsd(item.cost.usd) : '—'}</td>
-      </tr>)}</tbody>
-    </table>
+    <ul className="project-usage-providers">{project.providers.map(item => <li key={item.provider}><strong>{USAGE_PROVIDER_LABELS[item.provider as keyof typeof USAGE_PROVIDER_LABELS] ?? item.provider}</strong><span>{translate("{{count}} session(s)", { count: item.sessions })}</span><span>{translate("Input")} / {translate("Output")} / {translate("Cache read")}: {tokenCells(item.tokens)}</span></li>)}</ul>
+    <h4 className="project-usage-sessions-title">{translate("Sessions")}</h4>
+    <ul className="project-usage-sessions">{project.items.map(item => <li key={item.id}>
+      <div className="project-usage-session-head"><strong>{new Date(item.startedAt).toLocaleString(intlLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</strong>
+        <span>{USAGE_PROVIDER_LABELS[item.provider as keyof typeof USAGE_PROVIDER_LABELS] ?? item.provider}</span>
+        <span>{item.agentId ? usage.agentName?.(item.agentId) ?? item.agentId : translate("no agent profile")}</span>
+        {item.cost && <span className="project-usage-session-cost">{formatCostUsd(item.cost.usd)}</span>}</div>
+      <dl className="project-usage-session-facts">
+        <div><dt>{translate("Input")}</dt><dd>{item.tokens.input === null ? '—' : formatTokenCount(item.tokens.input)}</dd></div>
+        <div><dt>{translate("Output")}</dt><dd>{item.tokens.output === null ? '—' : formatTokenCount(item.tokens.output)}</dd></div>
+        <div><dt>{translate("Cache read")}</dt><dd>{item.tokens.cacheRead === null ? '—' : formatTokenCount(item.tokens.cacheRead)}</dd></div>
+        {item.tokens.reasoning !== null && <div><dt>{translate("Reasoning")}</dt><dd>{formatTokenCount(item.tokens.reasoning)}</dd></div>}
+        <div><dt>{translate("Model")}</dt><dd>{item.models.join(', ') || '—'}</dd></div>
+      </dl>
+    </li>)}</ul>
   </section>;
 }

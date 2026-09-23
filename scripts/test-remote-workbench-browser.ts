@@ -217,6 +217,7 @@ void (async () => {
   await projectUsage.getByRole('button', { name: 'Aufschlüsselung', exact: true }).click();
   const breakdown = page.getByRole('region', { name: 'Aufschlüsselung der Nutzung', exact: true }); await breakdown.waitFor();
   check('the breakdown names the agent, provider, model and cost of the session', /Builder/.test((await breakdown.textContent())!) && (await breakdown.textContent())!.includes('Claude Code') && (await breakdown.textContent())!.includes('claude-fixture') && (await breakdown.textContent())!.includes('gemeldet'));
+  await page.waitForTimeout(300); await page.screenshot({ path: resolve('test-results/remote/project-usage-breakdown.png') });
   await breakdown.focus(); await page.keyboard.press('Escape');
   check('Escape closes the breakdown and returns focus to its button', await breakdown.count() === 0 && await projectUsage.getByRole('button', { name: 'Aufschlüsselung', exact: true }).evaluate((node) => node === document.activeElement));
   check('workspace flow has no uncaught browser errors', errors.length === 0);
