@@ -63,8 +63,16 @@ try {
     ['script color', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: 'url(http://evil)', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] }] } }],
     ['out of canvas point', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 2000, y: 1, pressure: .5 }] }] } }],
     ['note cannot hide task fields', { ...note, done: true }],
+    ['unknown brush', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'spray' }] } }],
+    ['opacity above one', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 1.5 }] } }],
+    ['opacity below the floor', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], opacity: 0.01 }] } }],
+    ['stroke with a foreign key', { ...note, sketch: { ...note.sketch, strokes: [{ id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }], texture: 'x' }] } }],
   ];
   for (const [name, bad] of invalids) check(`validation rejects ${name}`, !validOrganizerDocument(bad));
+  check('strokes may carry a known brush and a bounded opacity, and older strokes without them stay valid', validOrganizerDocument({ ...note, sketch: { ...note.sketch, strokes: [
+    { id: randomUUID(), color: '#abcdef', width: 2, points: [{ x: 1, y: 1, pressure: .5 }] },
+    { id: randomUUID(), color: '#abcdef', width: 6, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'highlighter', opacity: .35 },
+    { id: randomUUID(), color: '#abcdef', width: 6, points: [{ x: 1, y: 1, pressure: .5 }], brush: 'pen' }] } }));
   check('mutation rejects unknown operation and extra authority fields', !validOrganizerMutation({ ...input, operation: 'run' }) && !validOrganizerMutation({ ...input, owner: 'desktop' }));
   let revision = taskResult.revision;
   for (let sequence = 5; sequence <= 610; sequence++) revision = store.mutate({ ...input, sequence, baseRevision: revision, document: { ...task, text: `Edit ${sequence}` } }, owner).revision;

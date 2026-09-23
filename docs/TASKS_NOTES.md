@@ -229,3 +229,46 @@ unverändertem Blatt), Electron **17/0**. Typecheck und Build bestanden;
 Prüfungen gegen den isolierten Build unter `test-results/organizer-build`.
 Aktiviert am 23. September 13:29:10 CEST (PID 14160, Source `e2c2870395761d3a32f7`, siehe
 [HANDOFF.md](HANDOFF.md)).
+
+## Skizze: Radierer-Leistung, Stiftarten und Deckkraft (Phase 5, 23. September 2026)
+
+Nach Adis Tablet-Test: Der Teil-Radierer hakte (2–3 s Stillstand), und der Stift
+sollte Deckkraft und mehrere Stiftarten bekommen.
+
+- **Radierer.** Bisher schrieb jede Stiftbewegung sofort ins Dokument
+  (IndexedDB und Sync je Abtastpunkt). Jetzt arbeitet der Radierer während des
+  Ziehens auf einer Arbeitskopie, zeichnet über den vorhandenen Frame-Takt und
+  speichert beim Loslassen genau einen Schnappschuss; ein Ziehen ohne Treffer
+  speichert nichts, ein Rückgängig nimmt den ganzen Zug zurück. Vor jeder
+  Segmentgeometrie sortiert ein Begrenzungsrahmen entfernte Linien aus.
+- **Stiftarten** (Vertrag `shared/organizer.ts`, optionale Felder `brush` und
+  `opacity`, alte Striche bleiben gültig): Stift (bisherige Drucklinie),
+  Bleistift (dünner, leicht körnig, Standard 100 % einstellbar), Kugelschreiber
+  (konstante Breite, ignoriert Druck, immer deckend), Kohle (breit, weiche Kante
+  aus drei Durchgängen), Kalligrafie (Feder in 45°, Breite folgt der
+  Strichrichtung), Leuchtstift (flaches Band, Multiplizieren, startet mit 35 %).
+  Deckkraft 5–100 % per Slider in der Stift-Optionsleiste; beide Werte sind
+  Gerätepräferenzen und wandern mit jedem neuen Strich. Halbtransparente Striche
+  werden deckend in einen begrenzten Offscreen-Canvas gezeichnet und einmal
+  komponiert, daher keine dunkleren Nahtstellen; Vorschau, PNG und PDF nutzen
+  dieselbe Zeichenfunktion.
+- Radier-Reichweite folgt der sichtbaren Breite (Leuchtstift, Kohle breiter);
+  Teilstücke erben Stiftart und Deckkraft.
+
+- Nachschärfung nach Sichtprüfung (`test-results/organizer/sheet-brushes.png`,
+  erzeugt mit `scripts/preview-sketch-brushes.ts` gegen einen Mobile-Build):
+  Bleistift zeichnet ohne eigene Deckkraft mit 80 % und schmalerem Kern plus
+  körnigem Rand, Kalligraphie mit grösserem Breitenbereich (10–100 % der
+  Nibbreite), und die Palette erhält als siebte Tinte Markergelb; die Wahl
+  „Leuchtstift“ wechselt von Tinte auf Gelb und zurück, solange die Farbe nicht
+  bewusst geändert wurde. Tastatur `1`–`7` wählt die Tinte.
+
+Nachweise: Vertrag **56/0** (`test-organizer.ts`: unbekannte Stiftart,
+Deckkraft ausserhalb 0,05–1 und fremde Strichfelder abgelehnt, alte Striche
+gültig), Eingabe-/Radierlogik **49/0** (`test-sketch-input.ts`: Rahmen-Gate,
+brush-abhängige Reichweite, Teilstücke erben Felder, 60 Radier-Abtastungen über
+500 Linien / 20 000 Punkte in ~33 ms), Browser-Ablauf **64/0**
+(Leuchtstift setzt 35 %, Strich speichert `brush`/`opacity`, Deckkraft ist
+Gerätepräferenz, deckender Stift behält die alte Strichform, Radierzug speichert
+erst beim Loslassen und ist ein Rückgängig-Schritt), Electron **17/0**.
+Typecheck und isolierter Build bestanden. Noch nicht aktiviert.

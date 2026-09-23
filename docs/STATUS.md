@@ -1,5 +1,19 @@
 # ADE implementation status
 
+## Skizze Phase 5: flüssiger Teil-Radierer, Stiftarten, Deckkraft (23. September 2026)
+
+Der Teil-Radierer speichert nicht mehr pro Stiftbewegung, sondern einmal beim
+Loslassen (Arbeitskopie, Rahmen-Gate, ein Rückgängig-Schritt). Neue Stiftarten
+Bleistift, Kugelschreiber, Kohle, Kalligrafie und Leuchtstift plus Deckkraft
+5–100 % als optionale Strichfelder im Vertrag; alte Striche bleiben gültig,
+Vorschau und PNG/PDF zeichnen identisch. Nachweise: Vertrag **56/0**,
+Radierlogik **49/0**, Browser **64/0**, Electron **17/0**, Typecheck und
+isolierter Build bestanden. Noch nicht aktiviert; kein `pnpm verify`.
+[Details](TASKS_NOTES.md).
+Aktiviert am 23. September **17:42:27 CEST**, PID **78692**, Source
+`df7d1b1d87ca6efff8ad` ([Übergabe](HANDOFF.md)); `pnpm test` 96 Suiten/4010 grün.
+
+
 ## Tablet: Codex-Modell und Denktiefe im Agentenprofil, Standardstimme aus dem Stimmenstudio (23. September 2026)
 
 Auf Nutzerwunsch beim Tablet-Test: Im Agentenprofil auf dem Tablet lassen sich für

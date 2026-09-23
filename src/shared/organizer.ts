@@ -8,7 +8,12 @@ export type OrganizerKind = 'task' | 'note';
 export const ORGANIZER_REJECTED = '[ADE_ORGANIZER_REJECTED]';
 export interface OrganizerImage { id: string; name: string; mime: 'image/png' | 'image/jpeg'; base64: string; width: number; height: number }
 export interface SketchPoint { x: number; y: number; pressure: number }
-export interface SketchStroke { id: string; color: string; width: number; points: SketchPoint[] }
+/** Brush families; `pen` (or absent) is the original pressure line. Rendering lives in the renderer, the document only names the brush. */
+export const SKETCH_BRUSHES = ['pen', 'pencil', 'ballpoint', 'charcoal', 'calligraphy', 'highlighter'] as const;
+export type SketchBrush = typeof SKETCH_BRUSHES[number];
+export const SKETCH_OPACITY = { min: 0.05, max: 1 } as const;
+/** `brush` and `opacity` are optional so strokes saved before Phase 5 stay valid unchanged. */
+export interface SketchStroke { id: string; color: string; width: number; points: SketchPoint[]; brush?: SketchBrush; opacity?: number }
 export interface OrganizerSketch { width: number; height: number; backgroundImageId: string | null; strokes: SketchStroke[] }
 export interface OrganizerDocument {
   id: string; kind: OrganizerKind; title: string; text: string; repositoryId: string | null;
@@ -66,7 +71,10 @@ export function validOrganizerDocument(value: unknown): value is OrganizerDocume
     || !Array.isArray(sketch.strokes) || sketch.strokes.length > ORGANIZER_LIMITS.strokes) return false;
   let points = 0;
   for (const stroke of sketch.strokes) {
-    if (!organizerRecord(stroke) || !organizerKeys(stroke, ['id', 'color', 'width', 'points']) || !organizerId(stroke.id)
+    if (!organizerRecord(stroke) || !Object.keys(stroke).every(key => ['id', 'color', 'width', 'points', 'brush', 'opacity'].includes(key))
+      || !['id', 'color', 'width', 'points'].every(key => Object.hasOwn(stroke, key)) || !organizerId(stroke.id)
+      || !(stroke.brush === undefined || (SKETCH_BRUSHES as readonly unknown[]).includes(stroke.brush))
+      || !(stroke.opacity === undefined || typeof stroke.opacity === 'number' && Number.isFinite(stroke.opacity) && stroke.opacity >= SKETCH_OPACITY.min && stroke.opacity <= SKETCH_OPACITY.max)
       || typeof stroke.color !== 'string' || !/^#[a-f0-9]{6}$/i.test(stroke.color) || typeof stroke.width !== 'number' || !Number.isFinite(stroke.width) || stroke.width < 1 || stroke.width > 40
       || !Array.isArray(stroke.points) || !stroke.points.length) return false;
     points += stroke.points.length; if (points > ORGANIZER_LIMITS.points) return false;

@@ -1,5 +1,18 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Skizze Phase 5, Radierer-Leistung, Stiftarten, Deckkraft (23. September 2026, 17:42 CEST)
+
+PID 63436 regulär über das Tray-Menü beendet (Kindprozesse nur tailscale/conhost).
+Profil gesichert nach `ADE-Backups/SketchPhase5-20260923-174212`. `pnpm build`,
+Start aus dem Repository: **17:42:27 CEST**, PID **78692**, Source
+**`df7d1b1d87ca6efff8ad`** (Desktop 15:42:13 UTC, Mobile 15:42:22 UTC). Listener
+nur `127.0.0.1:4317`, HTTPS liefert `assets/index-DDYcfoMl.js`, Geräteablage
+bytegleich. Inhalt: Teil-Radierer speichert einmal beim Absetzen, sechs
+Stiftarten mit Deckkraft, Markergelb in der Palette, rückwärtskompatible
+Stroke-Felder `brush`/`opacity` ([TASKS_NOTES.md](TASKS_NOTES.md) Phase 5).
+Nachweise: `pnpm test` 96 Suiten/4010 Prüfungen, Skizze 49/0 und Vertrag 56/0,
+Organizer Browser 64/0, Electron 17/0, Remote-Organizer 35/0, Sicherheit 289/0.
+
 ## Aktiviert: Tablet-Modellwahl und Studio-Standardstimme (23. September 2026, 17:17 CEST)
 
 PID 60704 regulär über das Tray-Menü beendet; dabei endete eine laufende

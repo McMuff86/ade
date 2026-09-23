@@ -15,6 +15,7 @@
  */
 
 export type SketchInputMode = 'auto' | 'pen-draws' | 'finger-draws';
+import { SKETCH_BRUSHES, type SketchBrush } from '../../shared/organizer';
 export const SKETCH_INPUT_MODES: readonly SketchInputMode[] = ['auto', 'pen-draws', 'finger-draws'];
 export type SheetPointerRole = 'draw' | 'erase' | 'pan' | 'ignore';
 export type SketchPointerRole = Exclude<SheetPointerRole, 'pan'>;
@@ -26,6 +27,8 @@ export const PALM_CONTACT_PX = 24;
 export const SKETCH_INKS = [
   { id: 'ink', value: '#1F1D1A' }, { id: 'blue', value: '#2155D6' }, { id: 'copper', value: '#A96B22' },
   { id: 'red', value: '#C14B42' }, { id: 'green', value: '#2F8A5D' }, { id: 'grey', value: '#7C838E' },
+  /** Marker yellow: the natural highlighter colour; reads as a translucent band over ink. */
+  { id: 'yellow', value: '#F2C200' },
 ] as const;
 export type SketchInkId = typeof SKETCH_INKS[number]['id'];
 export const SKETCH_WIDTHS = [2, 5, 11] as const;
@@ -79,9 +82,11 @@ export interface SketchPreferences {
   eraserMode: 'stroke' | 'partial'; eraserSize: number;
   /** PNG export raster per sheet point. */
   exportScale: number;
+  /** Brush family for new strokes and their opacity in percent (5–100). */
+  brush: import('../../shared/organizer').SketchBrush; opacity: number;
 }
 export const SKETCH_PREFERENCES_KEY = 'ade.sketch.preferences';
-export const DEFAULT_SKETCH_PREFERENCES: SketchPreferences = { mode: 'auto', penSeen: false, color: SKETCH_INKS[0].value, width: 5, toolsSide: 'left', hintSeen: false, grid: false, pressure: true, eraserMode: 'partial', eraserSize: 36, exportScale: 1 };
+export const DEFAULT_SKETCH_PREFERENCES: SketchPreferences = { mode: 'auto', penSeen: false, color: SKETCH_INKS[0].value, width: 5, toolsSide: 'left', hintSeen: false, grid: false, pressure: true, eraserMode: 'partial', eraserSize: 36, exportScale: 1, brush: 'pen', opacity: 100 };
 /** Storage for device preferences; a blocked or missing store only loses the convenience. */
 export const sketchPreferenceStorage = (): SketchPreferenceStorage | undefined => { try { return typeof window === 'undefined' ? undefined : window.localStorage; } catch { return undefined; } };
 export interface SketchPreferenceStorage { getItem(key: string): string | null; setItem(key: string, value: string): void }
@@ -103,6 +108,8 @@ export function readSketchPreferences(storage: SketchPreferenceStorage | undefin
       eraserMode: value.eraserMode === 'stroke' ? 'stroke' : 'partial',
       eraserSize: integerIn(value.eraserSize, 8, 120) ? value.eraserSize : DEFAULT_SKETCH_PREFERENCES.eraserSize,
       exportScale: integerIn(value.exportScale, 1, 3) ? value.exportScale : 1,
+      brush: (SKETCH_BRUSHES as readonly unknown[]).includes(value.brush) ? value.brush as SketchBrush : 'pen',
+      opacity: integerIn(value.opacity, 5, 100) ? value.opacity : 100,
     };
   } catch { return { ...DEFAULT_SKETCH_PREFERENCES }; }
 }

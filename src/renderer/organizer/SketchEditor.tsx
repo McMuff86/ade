@@ -20,7 +20,7 @@ export function SketchEditor({ document, disabled, title, onChange, onExportPng 
   const current = useRef(document); current.current = document;
   const [prefs] = useState(() => readSketchPreferences(sketchPreferenceStorage()));
   const [tools, setToolsState] = useState<SketchTools>({ tool: 'pen', color: prefs.color, width: prefs.width, mode: prefs.mode, toolsSide: prefs.toolsSide, hintSeen: prefs.hintSeen, grid: prefs.grid,
-    pressure: prefs.pressure, eraserMode: prefs.eraserMode, eraserSize: prefs.eraserSize, exportScale: prefs.exportScale });
+    pressure: prefs.pressure, eraserMode: prefs.eraserMode, eraserSize: prefs.eraserSize, exportScale: prefs.exportScale, brush: prefs.brush, opacity: prefs.opacity });
   const [handover, setHandover] = useState<SketchHandover | null>(null);
   const [penSeen, setPenSeen] = useState(prefs.penSeen); const [error, setError] = useState(''); const [open, setOpen] = useState(false);
   const input = useRef<SketchInputState>({ mode: prefs.mode, penSeen: prefs.penSeen, lastPenAt: Number.NEGATIVE_INFINITY, penDown: false });

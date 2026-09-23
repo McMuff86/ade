@@ -101,6 +101,34 @@ void (async () => {
   await waitFor(() => strokes() === 4, 'pressure-free pen stroke saved');
   check('with pen pressure off every point is recorded at full pressure', fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!.points.every(point => point.pressure === 1));
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'pressure-free stroke undone'); await page.getByLabel('Stiftdruck', { exact: true }).check();
+  // Brushes and opacity travel with the stroke (contract fields), the highlighter starts translucent.
+  await page.getByLabel('Stiftart', { exact: true }).selectOption('highlighter');
+  check('choosing the highlighter presets a translucent band', await page.getByLabel('Deckkraft', { exact: true }).inputValue() === '35');
+  await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 4, 'highlighter stroke saved');
+  const marker = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!;
+  check('the saved stroke names its brush and opacity', marker.brush === 'highlighter' && marker.opacity === .35);
+  await page.getByLabel('Stiftart', { exact: true }).selectOption('pencil'); await page.getByLabel('Deckkraft', { exact: true }).fill('60');
+  await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 5, 'pencil stroke saved');
+  const pencil = fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!;
+  check('opacity is a per-stroke value and a device preference', pencil.brush === 'pencil' && pencil.opacity === .6 && JSON.parse(await page.evaluate(() => localStorage.getItem('ade.sketch.preferences') ?? '{}')).opacity === 60);
+  await page.getByLabel('Stiftart', { exact: true }).selectOption('pen'); await page.getByLabel('Deckkraft', { exact: true }).fill('100');
+  await canvas.focus(); await page.keyboard.press('Shift+ArrowDown'); await waitFor(() => strokes() === 6, 'plain pen stroke saved');
+  check('a plain opaque pen stroke keeps the original stroke shape', !('brush' in fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!) && !('opacity' in fixture.organizer.store.detail(noteId)!.document.sketch.strokes.at(-1)!));
+  for (let i = 0; i < 3; i++) { await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); }
+  await waitFor(() => strokes() === 3, 'brush strokes undone');
+  // An erase drag works on a copy and commits once on release: no save per sample, one undo step.
+  await page.getByRole('button', { name: 'Radierer', exact: true }).click(); await page.getByRole('button', { name: 'Teil einer Linie', exact: true }).click();
+  const dragStart = { x: bounds.x + bounds.width * .45, y: bounds.y + bounds.height * .3 }; const revisionBefore = fixture.organizer.store.detail(noteId)!.revision;
+  await pen.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...dragStart, button: 'left', buttons: 1, clickCount: 1, pointerType: 'pen', force: .6 });
+  for (let step = 1; step <= 6; step++) await pen.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: dragStart.x + step * 20, y: dragStart.y + step * (bounds.height * .2 / 6), button: 'left', buttons: 1, pointerType: 'pen', force: .6 });
+  await page.waitForTimeout(400);
+  check('an erase drag saves nothing while the pen is down', fixture.organizer.store.detail(noteId)!.revision === revisionBefore && strokes() === 3);
+  await pen.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: dragStart.x + 120, y: dragStart.y + bounds.height * .2, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' });
+  await waitFor(() => strokes() === 4, 'drag erase committed on release');
+  check('the pen stroke is cut once where the drag crossed it', strokes() === 4);
+  await page.getByRole('button', { name: 'Rückgängig', exact: true }).click(); await waitFor(() => strokes() === 3, 'single undo restores the whole drag');
+  check('one release is one undo step', strokes() === 3 && fixture.organizer.store.detail(noteId)!.document.sketch.strokes.length === 3);
+  await page.getByRole('button', { name: 'Ganze Linie', exact: true }).click(); await page.getByRole('button', { name: 'Stift', exact: true }).click();
   // The pen's side button erases without leaving the pen tool (§4).
   await page.getByRole('button', { name: 'Stift', exact: true }).click();
   const onStroke = { x: bounds.x + bounds.width * .55, y: bounds.y + bounds.height * .4 }; const free = { x: bounds.x + bounds.width * .6, y: bounds.y + bounds.height * .6 };

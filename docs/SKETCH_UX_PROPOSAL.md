@@ -390,6 +390,16 @@ sowie „PNG-Auflösung“ 1×–3×. Der Teil-Radierer schneidet an der Radierk
 erzeugt neue Linien mit eigenen Ids; der Vertrag bleibt unverändert. Details in
 [TASKS_NOTES.md](TASKS_NOTES.md).
 
+## 11b. Nachtrag Phase 5: Radierer-Leistung, Stiftarten, Deckkraft (23. September 2026)
+
+Der Teil-Radierer speicherte pro Abtastpunkt und blockierte dadurch spürbar;
+jetzt arbeitet er auf einer Arbeitskopie und speichert einmal beim Loslassen.
+Auf Wunsch kamen Stiftarten (Bleistift, Kugelschreiber, Kohle, Kalligrafie,
+Leuchtstift) und eine Deckkraft dazu, als optionale Felder am Strich, damit
+bestehende Skizzen unverändert gültig bleiben. Der Vertrag wächst damit erstmals;
+Sheetgrösse, Punkte und Farben bleiben wie zuvor. Details in
+[TASKS_NOTES.md](TASKS_NOTES.md).
+
 ## 11. Offene Entscheidungen
 
 1. **Leiste links oder rechts als Standard?** Entschieden am 23. September 2026:

@@ -27,11 +27,11 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 51 } },
+  { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 56 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
   { id: 'remote-diagnostics', script: 'test-remote-diagnostics.ts', floors: { win32: 25 } },
   { id: 'organizer-cache', script: 'test-organizer-cache.ts', floors: { win32: 31 } },
-  { id: 'sketch-input', script: 'test-sketch-input.ts', floors: { win32: 44 } },
+  { id: 'sketch-input', script: 'test-sketch-input.ts', floors: { win32: 49 } },
   { id: 'usage-normalization', script: 'test-usage-normalization.ts', floors: { win32: 27 } },
   { id: 'usage-journal', script: 'test-usage-journal.ts', floors: { win32: 35 } },
   { id: 'usage-receiver', script: 'test-usage-receiver.ts', floors: { win32: 20 } },

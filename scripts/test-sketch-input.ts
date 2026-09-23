@@ -1,6 +1,7 @@
 import { DEFAULT_SKETCH_PREFERENCES, PALM_CONTACT_PX, PEN_NEAR_MS, SKETCH_INKS, SKETCH_PREFERENCES_KEY, SKETCH_WIDTHS, fingerNavigates, inkFor, nearestWidth, readSketchPreferences, sheetPointerRole, sketchPointerRole, writeSketchPreferences, type SketchInputState, type SketchPointerFacts } from '../src/renderer/organizer/sketchInput';
 import { clampView, fitView, pinchView, toContentPoint, zoomViewAt } from '../src/renderer/viewTransform';
-import { contentExtent, erasePartial, eraseStroke, exportScalesFor, sheetFormatFor, sheetSizeVerdict } from '../src/renderer/organizer/sketchErase';
+import { contentExtent, erasePartial, eraseStroke, exportScalesFor, nearStroke, sheetFormatFor, sheetSizeVerdict, strokeReach } from '../src/renderer/organizer/sketchErase';
+import { brushWidthFactor } from '../src/renderer/organizer/sketchRendering';
 import type { SketchStroke } from '../src/shared/organizer';
 let passed = 0; let failed = 0;
 function check(name: string, ok: boolean): void { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } }
@@ -26,7 +27,7 @@ check('touch without a button value still draws', sketchPointerRole(state({ mode
 
 const memory = new Map<string, string>(); const store = { getItem: (key: string) => memory.get(key) ?? null, setItem: (key: string, value: string) => { memory.set(key, value); } };
 check('missing preferences fall back to defaults', JSON.stringify(readSketchPreferences(store)) === JSON.stringify(DEFAULT_SKETCH_PREFERENCES) && JSON.stringify(readSketchPreferences(undefined)) === JSON.stringify(DEFAULT_SKETCH_PREFERENCES));
-const full = { mode: 'pen-draws' as const, penSeen: true, color: '#2155d6', width: 11, toolsSide: 'right' as const, hintSeen: true, grid: true, pressure: false, eraserMode: 'stroke' as const, eraserSize: 40, exportScale: 2 };
+const full = { mode: 'pen-draws' as const, penSeen: true, color: '#2155d6', width: 11, toolsSide: 'right' as const, hintSeen: true, grid: true, pressure: false, eraserMode: 'stroke' as const, eraserSize: 40, exportScale: 2, brush: 'charcoal' as const, opacity: 40 };
 writeSketchPreferences(store, full);
 check('preferences round-trip through storage', JSON.stringify(readSketchPreferences(store)) === JSON.stringify({ ...full, color: '#2155D6' }));
 memory.set(SKETCH_PREFERENCES_KEY, JSON.stringify({ color: '#123456', width: 7 }));
@@ -86,6 +87,15 @@ check('the whole-line tolerance never falls below the line width', eraseStroke([
 check('content extent includes half the line width', JSON.stringify(contentExtent([line([[0, 0], [100, 40]], 10)])) === JSON.stringify({ width: 105, height: 45 }) && JSON.stringify(contentExtent([])) === JSON.stringify({ width: 0, height: 0 }));
 check('sheet size verdict: range, content, ok', sheetSizeVerdict(100, 1000, []).ok === false && sheetSizeVerdict(1600.5, 1000, []).ok === false
   && JSON.stringify(sheetSizeVerdict(1000, 1600, [line([[0, 0], [1200, 100]])])) === JSON.stringify({ ok: false, reason: 'content', width: 1202, height: 102 }) && sheetSizeVerdict(4096, 4096, [line([[0, 0], [1200, 100]])]).ok === true);
+check('the bounding-box gate rejects far strokes and keeps near ones', !nearStroke(line([[0, 0], [100, 0]]), { x: 50, y: 80 }, 10) && nearStroke(line([[0, 0], [100, 0]]), { x: 50, y: 8 }, 10) && nearStroke(line([[0, 0], [100, 0]]), { x: 108, y: 0 }, 10));
+check('erase reach follows the drawn brush width', strokeReach({ ...line([[0, 0], [10, 0]], 10), brush: 'highlighter' }) === 5 * brushWidthFactor('highlighter') && strokeReach(line([[0, 0], [10, 0]], 10)) === 5 && brushWidthFactor(undefined) === 1);
+check('partial erase keeps brush and opacity on the pieces', erasePartial([{ ...line([[0, 0], [100, 0]]), brush: 'pencil', opacity: .6 }], { x: 50, y: 0 }, 10, nextId).every(piece => piece.brush === 'pencil' && piece.opacity === .6));
+const crowd: SketchStroke[] = Array.from({ length: 500 }, (_, i) => line(Array.from({ length: 40 }, (_v, j) => [j * 40, (i * 7) % 1000] as [number, number]), 4, `crowd-${i}`));
+const started = performance.now(); let touched = 0; for (let i = 0; i < 60; i++) touched += 500 - erasePartial(crowd, { x: 800, y: (i * 17) % 1000 }, 18, nextId).filter(s => s.id.startsWith('crowd-')).length;
+const elapsed = performance.now() - started;
+check(`sixty erase samples over 500 strokes / 20k points stay interactive (${Math.round(elapsed)} ms)`, elapsed < 400 && touched > 0);
+check('preferences carry brush and opacity with fallbacks', (() => { memory.set(SKETCH_PREFERENCES_KEY, JSON.stringify({ brush: 'charcoal', opacity: 40 })); const ok = readSketchPreferences(store).brush === 'charcoal' && readSketchPreferences(store).opacity === 40;
+  memory.set(SKETCH_PREFERENCES_KEY, JSON.stringify({ brush: 'spray', opacity: 250 })); return ok && readSketchPreferences(store).brush === 'pen' && readSketchPreferences(store).opacity === 100; })());
 check('sheet formats resolve by exact size and export scales stay below 8192 px', sheetFormatFor(1600, 1000) === 'landscape' && sheetFormatFor(1601, 1000) === 'custom' && JSON.stringify(exportScalesFor(1600, 1000)) === '[1,2,3]' && JSON.stringify(exportScalesFor(3200, 2000)) === '[1,2]' && JSON.stringify(exportScalesFor(4096, 4096)) === '[1,2]' && JSON.stringify(exportScalesFor(4097, 100)) === '[1]');
 
 console.log(`\n${passed} passed, ${failed} failed`);

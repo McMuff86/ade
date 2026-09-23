@@ -2,7 +2,7 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ORGANIZER_LIMITS, type OrganizerDocument, type OrganizerSketch, type SketchPoint, type SketchStroke } from '../../shared/organizer';
+import { ORGANIZER_LIMITS, SKETCH_BRUSHES, type OrganizerDocument, type OrganizerSketch, type SketchBrush, type SketchPoint, type SketchStroke } from '../../shared/organizer';
 import { ERASER_SIZE, LINE_WIDTH, SHEET_FORMATS, SHEET_SIZE, erasePartial, eraseStroke, exportScalesFor, sheetFormatFor, sheetSizeVerdict, type EraserMode, type SheetFormatId } from './sketchErase';
 import { useDialogFocus } from '../onboarding/Modal';
 import { clampView, fitView, pinchView, panView, toContentPoint, zoomViewAt, type ScaleBounds, type ViewTransform } from '../viewTransform';
@@ -33,7 +33,7 @@ interface Props {
 }
 interface PointerSample { clientX: number; clientY: number; pressure: number; pointerType: string }
 const INK_LABELS: Record<SketchInkId, () => string> = {
-  ink: () => translate("Ink"), blue: () => translate("Blue ink"), copper: () => translate("Copper ink"), red: () => translate("Red ink"), green: () => translate("Green ink"), grey: () => translate("Grey ink"),
+  ink: () => translate("Ink"), blue: () => translate("Blue ink"), copper: () => translate("Copper ink"), red: () => translate("Red ink"), green: () => translate("Green ink"), grey: () => translate("Grey ink"), yellow: () => translate("Yellow ink"),
 };
 const WIDTH_LABELS: Record<number, () => string> = { 2: () => translate("Fine line"), 5: () => translate("Medium line"), 11: () => translate("Broad line") };
 const FORMAT_LABELS: Record<SheetFormatId, () => string> = {
@@ -53,6 +53,11 @@ const I = {
   minus: <path d="M5 12h14" />, plus: <path d="M12 5v14M5 12h14" />,
 };
 const PADDING = 24; const FIT_RANGE = { min: .5, max: 6 };
+const BRUSH_LABELS: Record<SketchBrush, () => string> = {
+  pen: () => translate("Pen"), pencil: () => translate("Pencil"), ballpoint: () => translate("Ballpoint"), charcoal: () => translate("Charcoal"), calligraphy: () => translate("Calligraphy"), highlighter: () => translate("Highlighter"),
+};
+/** New strokes only carry brush/opacity when they differ from the original pen, so older documents keep their shape. */
+const strokeStyle = (tools: SketchTools): Pick<SketchStroke, 'brush' | 'opacity'> => ({ ...(tools.brush !== 'pen' ? { brush: tools.brush } : {}), ...(tools.opacity < 100 ? { opacity: tools.opacity / 100 } : {}) });
 
 export function SketchSheet({ document, title, disabled, tools, setTools, input, onPenSeen, history, commit, error, setError, onExportPng, onClose, fallbackFocus, handover, onHandover }: Props) {
   useLocale();
@@ -67,6 +72,8 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
   const [readout, setReadout] = useState(''); const [drawing, setDrawing] = useState(false); const [menu, setMenu] = useState(false); const [clearArmed, setClearArmed] = useState(false);
   const [sheetDraft, setSheetDraft] = useState({ width: document.sketch.width, height: document.sketch.height });
   const eraserAt = useRef<SketchPoint | null>(null); const toolsRef = useRef(tools); toolsRef.current = tools;
+  // An erase drag works on this copy and commits once on release: one undo step, no IndexedDB/sync write per sample.
+  const erasing = useRef<{ strokes: SketchStroke[]; changed: boolean } | null>(null);
   const frame = useRef(0); const grid = useRef(tools.grid); grid.current = tools.grid; const pending = useRef(handover ?? null);
   const sheet = () => ({ width: current.current.sketch.width, height: current.current.sketch.height });
 
@@ -84,7 +91,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
       for (let gx = step; gx < size.width; gx += step) for (let gy = step; gy < size.height; gy += step) { context.moveTo(gx + radius, gy); context.arc(gx, gy, radius, 0, Math.PI * 2); }
       context.fill();
     }
-    for (const item of current.current.sketch.strokes) drawStroke(context, item);
+    for (const item of erasing.current?.strokes ?? current.current.sketch.strokes) drawStroke(context, item);
     if (stroke.current) drawStroke(context, stroke.current);
     if (eraserAt.current && toolsRef.current.tool === 'eraser') {
       context.beginPath(); context.arc(eraserAt.current.x, eraserAt.current.y, toolsRef.current.eraserSize / 2, 0, Math.PI * 2);
@@ -114,7 +121,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
       try {
         element.setPointerCapture(carried.pointerId);
         active.current = { id: carried.pointerId, role: 'draw', pointerType: 'pen', last: { x: carried.clientX, y: carried.clientY } };
-        stroke.current = { id: crypto.randomUUID(), color: tools.color, width: tools.width, points: [carried.point] };
+        stroke.current = { id: crypto.randomUUID(), color: tools.color, width: tools.width, points: [carried.point], ...strokeStyle(tools) };
         input.current.penDown = true; setDrawing(true); schedule();
       } catch { /* pointer already lifted */ }
       onHandover?.();
@@ -146,14 +153,17 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
   };
   const finish = () => {
     const value = stroke.current; stroke.current = null; active.current = null; input.current.penDown = false; setDrawing(false);
+    const erased = erasing.current; erasing.current = null;
+    if (erased) { if (erased.changed) commit({ strokes: erased.strokes }); else schedule(); return; }
     if (value?.points.length) { commit({ strokes: [...current.current.sketch.strokes, value] }); if (!tools.hintSeen) setTools({ hintSeen: true }); } else schedule();
   };
-  const cancelStroke = () => { stroke.current = null; active.current = null; input.current.penDown = false; setDrawing(false); schedule(); };
-  /** Erase under `at`: a part of every line it touches, or the topmost whole line (tools.eraserMode). */
+  const cancelStroke = () => { stroke.current = null; active.current = null; input.current.penDown = false; erasing.current = null; setDrawing(false); schedule(); };
+  /** Erase under `at` on the working copy: a part of every line it touches, or the topmost whole line (tools.eraserMode). */
   const eraseAt = (at: SketchPoint) => {
-    const strokes = current.current.sketch.strokes; const radius = tools.eraserSize / 2;
-    const next = tools.eraserMode === 'partial' ? erasePartial(strokes, at, radius, () => crypto.randomUUID()) : eraseStroke(strokes, at, radius);
-    if (next.length !== strokes.length || next.some((item, i) => item !== strokes[i])) commit({ strokes: next });
+    const work = erasing.current ?? (erasing.current = { strokes: current.current.sketch.strokes, changed: false });
+    const radius = tools.eraserSize / 2;
+    const next = tools.eraserMode === 'partial' ? erasePartial(work.strokes, at, radius, () => crypto.randomUUID()) : eraseStroke(work.strokes, at, radius);
+    if (next.length !== work.strokes.length || next.some((item, i) => item !== work.strokes[i])) { work.strokes = next; work.changed = true; schedule(); }
   };
   const full = () => current.current.sketch.strokes.length >= ORGANIZER_LIMITS.strokes || current.current.sketch.strokes.reduce((n, item) => n + item.points.length, 0) >= ORGANIZER_LIMITS.points;
   const down = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -178,7 +188,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
     if (role === 'erase' || tools.tool === 'eraser') { active.current = { id: event.pointerId, role: 'erase', pointerType: event.pointerType, last }; event.currentTarget.setPointerCapture(event.pointerId); eraseAt(at); return; }
     if (full()) { input.current.penDown = false; setError(translate("The sketch is full. Create a new note for more drawings.")); return; }
     event.currentTarget.setPointerCapture(event.pointerId); active.current = { id: event.pointerId, role: 'draw', pointerType: event.pointerType, last }; setDrawing(true);
-    stroke.current = { id: crypto.randomUUID(), color: tools.color, width: tools.width, points: [at] }; schedule();
+    stroke.current = { id: crypto.randomUUID(), color: tools.color, width: tools.width, points: [at], ...strokeStyle(tools) }; schedule();
   };
   const move = (event: PointerEvent<HTMLCanvasElement>) => {
     markPen(event);
@@ -194,7 +204,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
     active.current.last = { x: event.clientX, y: event.clientY };
     const native = event.nativeEvent; const coalesced = typeof native.getCoalescedEvents === 'function' ? native.getCoalescedEvents() : [];
     const samples: PointerSample[] = coalesced.length ? coalesced : [native];
-    if (active.current.role === 'erase') { for (const sample of samples) eraseAt(point(sample)); return; }
+    if (active.current.role === 'erase') { for (const sample of samples) eraseAt(point(sample)); schedule(); return; }
     if (!stroke.current) return;
     const minimum = 1 / Math.max(.25, view.current.scale / (bounds.current.min / FIT_RANGE.min));
     for (const sample of samples) {
@@ -223,7 +233,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
   const keyboardStroke = (points: SketchPoint[]) => {
     if (disabled) return;
     if (full() || current.current.sketch.strokes.reduce((n, s) => n + s.points.length, 0) + points.length > ORGANIZER_LIMITS.points) { setError(translate("The sketch is full.")); return; }
-    commit({ strokes: [...current.current.sketch.strokes, { id: crypto.randomUUID(), color: tools.color, width: tools.width, points }] });
+    commit({ strokes: [...current.current.sketch.strokes, { id: crypto.randomUUID(), color: tools.color, width: tools.width, points, ...strokeStyle(tools) }] });
   };
   const onCanvasKey = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) history.redo(); else history.undo(); return; }
@@ -232,7 +242,7 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
     if (event.key === '0') { event.preventDefault(); fit(); return; }
     if (event.key.toLowerCase() === 'e') { setTools({ tool: 'eraser' }); return; }
     if (event.key.toLowerCase() === 'p') { setTools({ tool: 'pen' }); return; }
-    const ink = SKETCH_INKS[Number(event.key) - 1]; if (/^[1-6]$/.test(event.key) && ink) { setTools({ color: ink.value }); return; }
+    const ink = SKETCH_INKS[Number(event.key) - 1]; if (/^[1-7]$/.test(event.key) && ink) { setTools({ color: ink.value }); return; }
     if (event.key === ' ') { event.preventDefault(); if (!spaceHeld.current) { spaceHeld.current = true; spacePanned.current = false; } return; }
     const directions: Record<string, [number, number]> = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] };
     const delta = directions[event.key]; if (!delta) return; event.preventDefault();
@@ -287,10 +297,16 @@ export function SketchSheet({ document, title, disabled, tools, setTools, input,
     </div>
     <div ref={surface} className="sketch-sheet-canvas">
       <canvas ref={canvas} tabIndex={0}
-        aria-label={translate("Drawing canvas. Arrow keys move the drawing point, Shift+arrow keys draw, Space adds a dot, + and - zoom, 0 fits the sheet, E and P switch eraser and pen, 1 to 6 pick an ink.")}
+        aria-label={translate("Drawing canvas. Arrow keys move the drawing point, Shift+arrow keys draw, Space adds a dot, + and - zoom, 0 fits the sheet, E and P switch eraser and pen, 1 to 7 pick an ink.")}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up} onPointerLeave={leave} onContextMenu={event => event.preventDefault()} onKeyDown={onCanvasKey} onKeyUp={onCanvasKeyUp} />
       {!disabled && <div className="sketch-sheet-options" role="group" aria-label={tools.tool === 'pen' ? translate("Pen settings") : translate("Eraser settings")}>
         {tools.tool === 'pen' ? <>
+          <label>{translate("Brush")}<select aria-label={translate("Brush")} value={tools.brush} onChange={event => { const brush = event.target.value as SketchBrush;
+            // A highlighter starts translucent; leaving it restores full opacity unless the person chose another value.
+            setTools({ brush, tool: 'pen', ...(brush === 'highlighter' && tools.color.toLowerCase() === SKETCH_INKS[0].value.toLowerCase() ? { color: SKETCH_INKS[6].value } : brush !== 'highlighter' && tools.brush === 'highlighter' && tools.color.toLowerCase() === SKETCH_INKS[6].value.toLowerCase() ? { color: SKETCH_INKS[0].value } : {}), ...(brush === 'highlighter' && tools.opacity === 100 ? { opacity: 35 } : brush !== 'highlighter' && tools.brush === 'highlighter' && tools.opacity === 35 ? { opacity: 100 } : {}) }); }}>
+            {SKETCH_BRUSHES.map(brush => <option key={brush} value={brush}>{BRUSH_LABELS[brush]()}</option>)}
+          </select></label>
+          <label>{translate("Opacity")}<input type="range" aria-label={translate("Opacity")} min={5} max={100} step={5} value={tools.opacity} disabled={tools.brush === 'ballpoint'} onChange={event => setTools({ opacity: Number(event.target.value) })} /><output>{tools.opacity} %</output></label>
           <label>{translate("Line width")}<input type="range" aria-label={translate("Line width")} min={LINE_WIDTH.min} max={LINE_WIDTH.max} step={1} value={tools.width} onChange={event => setTools({ width: Number(event.target.value) })} /><output>{tools.width}</output></label>
           <label className="sketch-sheet-check"><input type="checkbox" checked={tools.pressure} onChange={event => setTools({ pressure: event.target.checked })} />{translate("Pen pressure")}</label>
         </> : <>

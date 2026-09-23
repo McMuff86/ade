@@ -3031,8 +3031,20 @@ contract's 1…4096 bounds (presets and custom width/height); a size smaller
 than the drawing's extent is refused, and the undo history holds whole
 `OrganizerSketch` snapshots so size changes undo too. PNG export takes a
 device-side scale (1–3, capped at 8192 px per side); the document itself
-never changes for it. Line width (1–40), pen pressure, eraser mode and size
-are device preferences. PDF is lazily
+never changes for it. Line width (1–40), pen pressure, eraser mode and size,
+brush and opacity are device preferences. A stroke may carry two optional
+contract fields since Phase 5: `brush` (one of `SKETCH_BRUSHES`: pen, pencil,
+ballpoint, charcoal, calligraphy, highlighter) and `opacity` (0.05–1);
+`validOrganizerDocument` rejects unknown brushes, out-of-range opacity and any
+other stroke key, and strokes saved before the fields exist stay valid. New
+strokes only record the fields when they differ from the original opaque pen.
+The brush look is rendered in `sketchRendering.ts` for sheet, preview and
+PNG/PDF alike; translucent or multiply-blended strokes are drawn opaque into a
+bounded offscreen canvas and composited once, so segment joints never
+double-darken. Erasing works on a working copy for the whole drag (bounding-box
+gate before segment geometry, brush-aware reach) and commits a single sketch
+snapshot on release, so no IndexedDB or host write happens per pointer sample
+and one Undo reverts the whole drag. PDF is lazily
 loaded and rasterizes Unicode text and images; Markdown is text-only and PNG is
 the sketch/background. Exports do not replace the editable original.
 

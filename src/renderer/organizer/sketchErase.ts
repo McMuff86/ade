@@ -6,6 +6,7 @@
  * 1…4096 point bounds and every point stays inside the sheet.
  */
 import type { SketchPoint, SketchStroke } from '../../shared/organizer';
+import { brushWidthFactor } from './sketchRendering';
 
 export type EraserMode = 'stroke' | 'partial';
 export const ERASER_SIZE = { min: 8, max: 120, default: 36 } as const;
@@ -18,13 +19,21 @@ export function segmentDistance(a: SketchPoint, b: SketchPoint, at: { x: number;
   const t = dx || dy ? Math.max(0, Math.min(1, ((at.x - a.x) * dx + (at.y - a.y) * dy) / (dx * dx + dy * dy))) : 0;
   return Math.hypot(a.x + t * dx - at.x, a.y + t * dy - at.y);
 }
+/** Half the drawn width of a stroke, brush-aware, so a highlighter band is erased where it is visible. */
+export const strokeReach = (stroke: SketchStroke): number => stroke.width * brushWidthFactor(stroke.brush) / 2;
+/** Cheap bounding-box gate before any segment geometry runs; a full erase drag calls this for every stroke per sample. */
+export function nearStroke(stroke: SketchStroke, at: { x: number; y: number }, radius: number): boolean {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const point of stroke.points) { if (point.x < minX) minX = point.x; if (point.x > maxX) maxX = point.x; if (point.y < minY) minY = point.y; if (point.y > maxY) maxY = point.y; }
+  return at.x >= minX - radius && at.x <= maxX + radius && at.y >= minY - radius && at.y <= maxY + radius;
+}
 const touches = (stroke: SketchStroke, at: { x: number; y: number }, radius: number): boolean =>
-  stroke.points.some((p, i) => segmentDistance(p, stroke.points[i + 1] ?? p, at) <= radius);
+  nearStroke(stroke, at, radius) && stroke.points.some((p, i) => segmentDistance(p, stroke.points[i + 1] ?? p, at) <= radius);
 
 /** Remove the topmost whole stroke under `at`; the hit tolerance never falls below the stroke's own width. */
 export function eraseStroke(strokes: readonly SketchStroke[], at: { x: number; y: number }, radius: number): SketchStroke[] {
   for (let i = strokes.length - 1; i >= 0; i--) {
-    if (touches(strokes[i]!, at, Math.max(radius, strokes[i]!.width))) return strokes.filter((_item, index) => index !== i);
+    if (touches(strokes[i]!, at, Math.max(radius, strokeReach(strokes[i]!) * 2))) return strokes.filter((_item, index) => index !== i);
   }
   return [...strokes];
 }
@@ -47,11 +56,11 @@ const lerp = (a: SketchPoint, b: SketchPoint, t: number): SketchPoint => ({ x: a
 export function erasePartial(strokes: readonly SketchStroke[], at: { x: number; y: number }, radius: number, id: () => string): SketchStroke[] {
   const out: SketchStroke[] = [];
   for (const stroke of strokes) {
-    const reach = radius + stroke.width / 2;
+    const reach = radius + strokeReach(stroke);
     if (!touches(stroke, at, reach)) { out.push(stroke); continue; }
     const points = stroke.points; if (points.length === 1) continue;
     let piece: SketchPoint[] = [];
-    const flush = () => { if (piece.length >= 2) out.push({ id: id(), color: stroke.color, width: stroke.width, points: piece }); piece = []; };
+    const flush = () => { if (piece.length >= 2) out.push({ ...stroke, id: id(), points: piece }); piece = []; };
     for (let i = 0; i < points.length; i++) {
       const p = points[i]!; const insideP = distance(p, at) <= reach;
       if (i === 0) { if (!insideP) piece.push(p); continue; }
