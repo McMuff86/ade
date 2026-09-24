@@ -1,5 +1,20 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: zusammengeführter Stand `fe739b4` (24. September 2026, 22:53 CEST)
+
+main enthält beide Stände: `e5946b6` (Stimmenstudio-Kopf, Beispielsätze,
+Gespräche in der Navigation) und `fe739b4` (Stabilisierung: isolierter
+Gesamtlauf, Schnelltor, `--ade-quit`, Fehlererfassung). PID 65788 regulär über
+das Tray-Menü beendet (dieser Build kannte `--ade-quit` noch nicht). Profil
+gesichert nach `ADE-Backups/merge-20260924-225242`. `out/` aus dem sauberen
+main gebaut, Start aus dem Repository: **22:53 CEST**, PID **67936**, Source
+**`0eb2723b4ffe68ee47ea`** (SHA-256 von `out/main/index.js`, 20 Zeichen).
+Listener nur `127.0.0.1:4317`, HTTPS liefert `assets/index-xt81EaDd.js`;
+`main.log` ohne Absturzeinträge. Ab diesem Build beendet
+`electron.exe "<repo>" --ade-quit` ADE regulär; `pnpm activate` ist noch nicht
+am echten Profil geprobt. Der eine Gesamtlauf `pnpm verify` auf diesem main
+folgt als Nachweis.
+
 ## Stabilisierung von Prüfung und Aktivierung (24. September 2026)
 
 - **Gesamtlauf isoliert:** `pnpm verify` baut nie mehr nach `out/`; er darf
