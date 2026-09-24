@@ -2679,7 +2679,38 @@ than they appear to.
   platforms whose counts were actually observed are enforced, and the runner
   names any platform it has no measurement for instead of guessing. A suite
   that grows past its floor is reported so the floor gets raised.
-  `pnpm test -- --record` prints a paste-ready manifest.
+  `pnpm test -- --record` prints a paste-ready manifest. Suites run as parallel
+  processes (`--jobs N`, `ADE_SUITE_JOBS`, default a quarter of the logical
+  CPUs, at most 8; `--jobs 1` is the old sequential, streamed run). Each suite
+  owns its temp directories and process environment; output is printed as one
+  block per suite and the report keeps the declared order.
+- **The full run never touches the live build.** `pnpm verify` is
+  `scripts/verify.ts`: three typechecks, the focused suites, a production
+  build into `test-results/verify-build` and every Electron/browser driver
+  against that build. Drivers locate the build only through
+  `scripts/helpers/buildOutput.ts` (`ADE_BUILD_DIR`, default `out/`; the older
+  per-suite overrides still win), so the personal instance keeps running from
+  `out/` during verification. Every step runs even after a failure, is bounded
+  (a stuck driver is killed with its process tree), and writes its own log;
+  `test-results/verify/report.json` and `history.jsonl` keep the timings.
+  Scheduling: the typechecks at once, then the build, then the suites, a pool
+  of drivers (`--driver-jobs`, default 4, longest measured first) and a
+  clipboard lane side by side, and last the solo drivers alone. Drivers that
+  drive the real system clipboard share one serial lane; latency, input-race
+  and pixel drivers are solo. A lock file admits one run at a time, so an
+  activation cannot delete the build a background run still uses.
+  `pnpm verify:gate` is the fast subset for activations: typechecks, suites,
+  build and the core desktop/tablet drivers (`GATE_DRIVERS`).
+- **Activation is scripted.** `pnpm activate -- -Label <name>` runs the gate,
+  refuses to end running terminals or agents without `-Force`, backs up the
+  profile, quits ADE through `--ade-quit`, keeps the running build as
+  `out.prev`, installs the checked build and waits for the desktop (and the
+  mobile listener, when it was active). `-SkipGate` still requires typecheck
+  and build, records the activation as unverified in
+  `test-results/activations.jsonl` and starts the full run in the background;
+  `-Rollback` swaps back to `out.prev`. `ADE_USER_DATA_DIR`/`ADE_BACKUP_DIR`
+  run the same script against a throwaway profile in another checkout, which
+  is how it is rehearsed without touching the personal instance.
 
 ## CI and packaging
 
@@ -2891,7 +2922,11 @@ the `all` policy; selected projects retain their per-workspace Git/publish APIs.
 `MobileHostState.resourceSelection` explains this in the mobile management flow.
 
 Electron owns one process per user-data profile via `requestSingleInstanceLock`;
-a subsequent launch activates the initialized owner. A persisted mobile opt-in
+a subsequent launch activates the initialized owner. A launch with `--ade-quit`
+instead asks the owner to quit through the tray's graceful path (PTY and usage
+shutdown) and starts nothing when no owner runs; `scripts/activate.ps1` uses it
+so restarts need no UI automation. Only a process of the same user and profile
+reaches the owner, which could already end it outright. A persisted mobile opt-in
 starts connection monitoring even after an initial listener failure. Retry never
 enables a device/profile that the operator has disabled.
 

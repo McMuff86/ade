@@ -165,7 +165,7 @@ export class ProjectBranchService {
     const interrupted = operationFiles.some((name) => { const target = join(scope.workspace.gitDirectory, name); assertNoLinks(target); return existsSync(target); });
     const after = await this.projects.resolve(workspaceId);
     if (after.branch !== scope.branch) throw new Error(translate("ade: Branch was changed during reading. Check again."));
-    const value: ProjectBranchOverview = ({ workspace: await this.projects.overview(workspaceId), head, branches, worktrees: worktrees.map((item) => item.view),
+    const value: ProjectBranchOverview = ({ workspace: this.projects.describe(after), head, branches, worktrees: worktrees.map((item) => item.view),
       dirty: status.length > 0, blockedReason: interrupted ? translate("A git operation is running or must be completed.") : null,
       revision: digest([scope.workspace, scope.branch, head, refsRaw, worktreesRaw, worktrees.map((item) => item.identity), status, interrupted]), checkedAt: this.now() });
     const inspected = { scope, value, worktrees, operationInProgress: interrupted };

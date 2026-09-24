@@ -15,6 +15,7 @@ import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './pho
 import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
 import { registerRendererWindow, rendererWindows } from './rendererWindows';
 import { MainLogSink } from './logging/mainLog';
+import { captureMainProcessFailures, captureProcessCrashes, captureRendererConsoleErrors } from './logging/crashCapture';
 import { desktopMicrophone } from './settings/desktopMicrophone';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
@@ -67,12 +68,25 @@ if (userDataOverride) {
   app.setPath('userData', userDataOverride);
 }
 
+// `<electron> <app> --ade-quit` asks the running owner of this profile to quit
+// through the same graceful path as the tray's Quit item (PTY and usage
+// shutdown), so scripts/activate.ps1 can restart ADE without UI automation.
+// Without a running owner it starts nothing. Only a process of the same user
+// and the same user-data directory reaches the owner.
+const QUIT_SWITCH = '--ade-quit';
+const quitOnly = process.argv.includes(QUIT_SWITCH);
+
 // One owner per user-data directory: two windows must not race the same
 // journal, encrypted device store or mobile listener. Isolated test profiles
 // have their own lock. A second launch only raises the existing desktop.
 const ownsProfile = app.requestSingleInstanceLock();
-if (!ownsProfile) app.quit();
-else app.on('second-instance', () => {
+if (!ownsProfile || quitOnly) app.quit();
+else app.on('second-instance', (_event, argv) => {
+  if (argv.includes(QUIT_SWITCH)) {
+    console.log('[ade] quit requested by a second launch');
+    app.quit();
+    return;
+  }
   // Startup already opens a window. Never create one before IPC/recovery is ready.
   if (initialized) showDesktop();
 });
@@ -81,7 +95,11 @@ else app.on('second-instance', () => {
 // userData/ade/logs/main.log. Installed after the userData override so tests
 // and throwaway profiles log into their own directory.
 const mainLog = new MainLogSink({ dir: join(app.getPath('userData'), 'ade', 'logs') });
-if (ownsProfile) mainLog.install();
+if (ownsProfile && !quitOnly) {
+  mainLog.install();
+  captureMainProcessFailures();
+  captureProcessCrashes(app);
+}
 
 function createWindow(): void {
   const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
@@ -109,6 +127,7 @@ function createWindow(): void {
   });
   // The only window that may send or receive ADE IPC (see rendererWindows.ts).
   registerRendererWindow(mainWindow);
+  captureRendererConsoleErrors(mainWindow.webContents);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -149,7 +168,7 @@ function createWindow(): void {
 Menu.setApplicationMenu(null);
 
 void app.whenReady().then(async () => {
-  if (!ownsProfile) return;
+  if (!ownsProfile || quitOnly) return;
   app.setAppUserModelId('com.adimuff.ade');
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     callback(desktopMicrophone.allows(contents.id, permission, details));

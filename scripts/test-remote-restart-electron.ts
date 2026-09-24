@@ -6,6 +6,7 @@ import { createServer } from 'node:net';
 import { execFileSync, spawn } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -33,22 +34,35 @@ cp.execFile = function(file, args, options, callback) {
   const output = args[0] === 'status' ? {BackendState: 'Running', Self: {DNSName: 'ade-mobile.fixture.ts.net.', Online: true}} : config;
   queueMicrotask(() => callback(null, JSON.stringify(output))); return {};
 };
-require(${JSON.stringify(resolve('out/main/index.js'))});
+require(${JSON.stringify(mainEntry())});
 `);
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   originalPid = await app.evaluate(() => process.pid);
+  // The real binary: Playwright starts Electron through cmd.exe on Windows, so
+  // app.process().spawnfile is cmd.exe and never launched a second ADE.
+  const electronBinary = require('electron') as string;
   const desktop = await app.firstWindow(); desktop.setDefaultTimeout(25_000);
-  const duplicateLauncher = join(root, 'duplicate.cjs');
-  writeFileSync(duplicateLauncher, `require(${JSON.stringify(resolve('out/main/index.js'))});`);
-  const duplicate = spawn(app.process().spawnfile, [duplicateLauncher], { cwd: resolve('.'), windowsHide: true, stdio: 'ignore',
+  // Second launches record whether they obtained the profile lock.
+  const duplicateLauncher = join(root, 'duplicate.cjs'); const lockProbe = join(root, 'second-launches.jsonl');
+  writeFileSync(duplicateLauncher, `
+const fs = require('node:fs'); const { app } = require('electron'); const lock = app.requestSingleInstanceLock.bind(app);
+app.requestSingleInstanceLock = (...args) => { const own = lock(...args);
+  fs.appendFileSync(${JSON.stringify(lockProbe)}, JSON.stringify({ pid: process.pid, own, quit: process.argv.includes('--ade-quit') }) + '\\n'); return own; };
+require(${JSON.stringify(mainEntry())});
+`);
+  const secondLaunches = (): Array<{ pid: number; own: boolean; quit: boolean }> => {
+    try { return readFileSync(lockProbe, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)); } catch { return []; }
+  };
+  const duplicate = spawn(electronBinary, [duplicateLauncher], { cwd: resolve('.'), windowsHide: true, stdio: 'ignore',
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   const duplicateExit = await new Promise<number | null>((done, reject) => {
     const timeout = setTimeout(() => { duplicate.kill(); reject(new Error('duplicate ADE did not relinquish the profile')); }, 15_000);
     duplicate.once('error', (error) => { clearTimeout(timeout); reject(error); });
     duplicate.once('exit', (code) => { clearTimeout(timeout); done(code); });
   });
-  check('second Electron launch relinquishes an already-owned profile', duplicateExit === 0);
+  check('second Electron launch relinquishes an already-owned profile',
+    duplicateExit === 0 && secondLaunches().length === 1 && secondLaunches()[0]!.own === false);
   check('original owner retains one desktop and its process', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length === 1 && process.pid) === originalPid);
   await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const mobile = desktop.getByTestId('mobile-access');
@@ -95,6 +109,20 @@ require(${JSON.stringify(resolve('out/main/index.js'))});
   const vault = JSON.parse(readFileSync(join(root, 'profile', 'ade', 'remote', 'devices.json'), 'utf8')) as { devices: Array<{ adminScopes?: string[] }> };
   check('same profile keeps one device and its granted permission', vault.devices.length === 1 && vault.devices[0]!.adminScopes?.includes('host:restart') === true);
   await page.screenshot({ path: join(evidence, 'restart-reconnected.png'), fullPage: true });
+
+  // scripts/activate.ps1 quits the owner through a second launch with --ade-quit.
+  const relaunchedPid = processes[1]!.pid;
+  const quitter = spawn(electronBinary, [duplicateLauncher, '--ade-quit'], { cwd: resolve('.'), windowsHide: true, stdio: 'ignore',
+    env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
+  const quitterExit = await new Promise<number | null>((done) => quitter.once('exit', done));
+  const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  for (const started = Date.now(); alive(relaunchedPid) && Date.now() - started < 20_000;) await new Promise((done) => setTimeout(done, 200));
+  const quitLog = readFileSync(join(root, 'profile', 'ade', 'logs', 'main.log'), 'utf8');
+  check('a second launch with --ade-quit ends the running owner through its graceful quit',
+    quitterExit === 0 && secondLaunches().some((launch) => launch.quit) && !alive(relaunchedPid)
+      && quitLog.includes('[ade] quit requested by a second launch'));
+  // The owner releases the lock while quitting, so the quit launch may obtain it: it must still start nothing.
+  check('the --ade-quit launch itself starts no ADE', quitLog.split('app ready').length - 1 === 2);
 })().catch(async (error) => {
   failed++; console.error(error);
   for (const file of ['pids.jsonl', 'launcher-error.txt', 'profile/ade/logs/main.log']) {

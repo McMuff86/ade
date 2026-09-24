@@ -8,6 +8,7 @@ import { RemoteAuthorizer } from '../src/main/remote/authorization';
 import { loadMobileAssets } from '../src/main/remote/mobileAssets';
 import { createMobileFixture } from './helpers/mobileFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { mobileAssetsDir } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (label: string, condition: boolean): void => { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -28,7 +29,7 @@ void (async () => {
     sessions = new BrowserSessions(fixture.devices);
     server = new HostApiServer(fixture.application, { port: 0, requireDeviceReads: true, heartbeatMs: 200,
       authorizer: new RemoteAuthorizer('b'.repeat(32), [], undefined, fixture.devices),
-      browser: { origin: proxy!.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => fixture.devices.audit(entry) });
+      browser: { origin: proxy!.origin, sessions, assets: loadMobileAssets(mobileAssetsDir(process.env.ADE_MOBILE_ASSETS)) }, audit: (entry) => fixture.devices.audit(entry) });
     proxy!.target((await server.start()).port);
   };
   await start();

@@ -221,7 +221,7 @@ export class ProjectGitService {
     const remotes = (await projectGit(path, ['remote'])).trim().split(/\r?\n/).filter(validProjectRemote);
     const index = this.optionalFile(join(scope.workspace.gitDirectory, 'index'), 16 * 1024 * 1024);
     const after = await this.projects.resolve(id); if (after.branch !== scope.branch) fail(translate("Branch has been changed. Update."));
-    const view: ProjectGitOverview = { workspace: await this.projects.overview(id), head, recentCommits, files, refs, remotes, merge: !!mergeHead, blockedReason,
+    const view: ProjectGitOverview = { workspace: this.projects.describe(after), head, recentCommits, files, refs, remotes, merge: !!mergeHead, blockedReason,
       revision: digest([scope.workspace, scope.branch, head, status, refsRaw, remoteConfig, mergeHead, digest(mergeMessage), digest(index), identities, operation]), checkedAt: this.now(), fetchedAt: this.fetched.get(scope.repository.id) ?? null };
     return { view, scope, status, mergeHead, remoteConfig };
   }

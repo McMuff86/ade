@@ -13,6 +13,7 @@ import { loadMobileAssets } from '../src/main/remote/mobileAssets';
 import type { RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { PNG } from 'pngjs';
 import { commitDetailsFlow } from './helpers/commitDetailsFlow';
+import { mobileAssetsDir } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -44,7 +45,7 @@ void (async () => {
   proxy = await mobileTlsProxy(); sessions = new BrowserSessions(devices);
   server = new HostApiServer(app, { port: 0, heartbeatMs: 200, requireDeviceReads: true,
     authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, devices),
-    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(resolve(process.env.ADE_MOBILE_ASSETS ?? 'out/mobile')) }, audit: (entry) => devices.audit(entry) });
+    browser: { origin: proxy.origin, sessions, assets: loadMobileAssets(mobileAssetsDir(process.env.ADE_MOBILE_ASSETS)) }, audit: (entry) => devices.audit(entry) });
   proxy.target((await server.start()).port);
   browser = await chromium.launch({ args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP ade-mobile.fixture.ts.net 127.0.0.1'] });
   const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true, ignoreHTTPSErrors: true }); page.setDefaultTimeout(25_000);

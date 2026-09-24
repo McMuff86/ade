@@ -5,13 +5,14 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 import { expect } from 'playwright/test';
 import { newOrganizerDocument } from '../src/shared/organizer';
 import { randomUUID } from 'node:crypto';
+import { mainEntry } from './helpers/buildOutput';
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-organizer-electron-')));
 const evidence = resolve('test-results/organizer'); mkdirSync(evidence, { recursive: true });
 let app: ElectronApplication | undefined; let page: Page | undefined; let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
 void (async () => {
   const launcher = join(root, 'launch.cjs');
-  writeFileSync(launcher, `require(${JSON.stringify(resolve('scripts/fixtures/conversation-speech.cjs'))});require(${JSON.stringify(resolve(process.env.ADE_ORGANIZER_MAIN ?? 'out/main/index.js'))});`);
+  writeFileSync(launcher, `require(${JSON.stringify(resolve('scripts/fixtures/conversation-speech.cjs'))});require(${JSON.stringify(mainEntry(process.env.ADE_ORGANIZER_MAIN))});`);
   app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   page = await app.firstWindow(); page.setDefaultTimeout(20_000); const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.getByRole('tab', { name: 'Notizen', exact: true }).click();

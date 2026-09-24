@@ -9,6 +9,7 @@ import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
 import { LIVE_DICTATION_MAX_SECONDS } from '../src/shared/liveDictation';
 import { expect } from 'playwright/test';
 import { terminalMediaFlow } from './helpers/terminalMediaFlow';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const imageOnly = process.argv.includes('--terminal-image-only');
@@ -147,7 +148,7 @@ cp.execFile = function(file,args,options,callback) {
 };
 cp.execFile[require('node:util').promisify.custom] = (file,args,options) => new Promise((done,fail) => cp.execFile(file,args,options,(error,stdout,stderr) => error ? fail(error) : done({stdout,stderr})));
 require(${JSON.stringify(resolve('scripts/fixtures/dialogue-speech.cjs'))}).install();
-require(${JSON.stringify(resolve(process.env.ADE_E2E_MAIN ?? 'out/main/index.js'))});`);
+require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
   app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], cwd: resolve('.'), env: {
     ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test',
     CODEX_HOME: join(root, 'codex-home'), CLAUDE_CONFIG_DIR: join(root, 'claude-home'), GROK_HOME: join(root, 'grok-home'),

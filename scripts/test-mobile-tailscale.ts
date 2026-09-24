@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { _electron as electron, chromium, type Browser, type ElectronApplication, type Page } from 'playwright';
+import { mainEntry } from './helpers/buildOutput';
 
 if (!process.argv.includes('--enable-private-serve')) {
   throw new Error('This operator test changes private Tailscale Serve state. Pass --enable-private-serve explicitly. It is excluded from pnpm verify.');
@@ -12,7 +13,7 @@ const check = (label: string, condition: boolean): void => { if (condition) { pa
 const root = mkdtempSync(join(tmpdir(), 'ade-tailscale-acceptance-'));
 let app: ElectronApplication | undefined; let desktop: Page | undefined; let browser: Browser | undefined;
 void (async () => {
-  app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+  app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: '4317' } });
   desktop = await app.firstWindow();
   const status = await desktop.evaluate(() => window.ade.invoke('mobileAccess:setEnabled', { enabled: true }));

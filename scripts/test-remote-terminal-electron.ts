@@ -26,6 +26,7 @@ import { ollamaHarnessFlow } from './helpers/ollamaHarnessFlow';
 import { sessionNavigationFlow } from './helpers/sessionNavigationFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -88,7 +89,7 @@ cp.execFile = function(file, args, options, callback) {
 };
 cp.execFile[require('node:util').promisify.custom] = (file, args, options) => new Promise((done, fail) =>
   cp.execFile(file, args, options, (error, stdout, stderr) => error ? fail(error) : done({stdout, stderr})));
-require(${JSON.stringify(resolve('out/main/index.js'))});
+require(${JSON.stringify(mainEntry())});
 `);
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });

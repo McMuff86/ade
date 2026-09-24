@@ -10,6 +10,7 @@ import { conversationMobileFlow } from './helpers/conversationMobileFlow';
 import { conversationVoiceFlow } from './helpers/conversationVoiceFlow';
 import { coordinatorActionsFlow } from './helpers/coordinatorActionsFlow';
 import { casualConversationFlow } from './helpers/casualConversationFlow';
+import { mainEntry } from './helpers/buildOutput';
 const nativeCasual = process.argv.includes('--run-native');
 if (nativeCasual && !process.argv.includes('--casual-only')) throw new Error('Native UI probe requires --casual-only --run-native.');
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-conversation-electron-')));
@@ -37,7 +38,7 @@ const ipc=require('electron').ipcMain;const handle=ipc.handle.bind(ipc);
 ipc.handle=(channel,listener)=>handle(channel,async(event,input)=>{const result=await listener(event,input);
  if(channel==='conversation:command'&&globalThis.adeDelayConversation){globalThis.adeDelayConversation=false;globalThis.adeConversationAdmitted=true;
  await new Promise(done=>{globalThis.adeReleaseConversation=done;});}return result;});
-require(${JSON.stringify(resolve(process.env.ADE_CONVERSATION_MAIN ?? 'out/main/index.js'))});`);
+require(${JSON.stringify(mainEntry(process.env.ADE_CONVERSATION_MAIN))});`);
   const launch = async () => {
     app = await electron.launch({ args: [launcher, '--use-fake-device-for-media-stream'], cwd: resolve('.'), env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
     const page = await app.firstWindow(); page.setDefaultTimeout(20_000); await page.waitForFunction(() => !!window.ade); return page;

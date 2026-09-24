@@ -1,5 +1,31 @@
 # ADE — aktuelle Übergabe
 
+## Stabilisierung von Prüfung und Aktivierung (24. September 2026)
+
+- **Gesamtlauf isoliert:** `pnpm verify` baut nie mehr nach `out/`; er darf
+  laufen, während ADE aus `out/` läuft. Logs und Zeiten unter
+  `test-results/verify/`. `pnpm verify:gate` ist das Schnelltor.
+- **Aktivierung:** `pnpm activate -- -Label <Name>` statt Handarbeit
+  (Tor, Sicherung nach `ADE-Backups/Activate-<Name>-<Zeit>`, Beenden über
+  `--ade-quit`, `out.prev` als Rückweg). Quickfix: `-SkipGate` (Typecheck und
+  Build bleiben Pflicht, Gesamtlauf startet danach im Hintergrund, Eintrag in
+  `test-results/activations.jsonl` als unverifiziert). Rückweg:
+  `pnpm activate -- -Rollback`. Laufende Terminals/Agenten beendet das Skript
+  nur mit `-Force`. Nie ohne Tor: Änderungen an gespeicherten Daten
+  (Migrationen), Gerätekopplung oder Freigaben.
+- **Erster Wechsel:** Builds vor diesem Commit (bis einschliesslich PID 65788,
+  Source `b76ac725d143dc31c845`) kennen `--ade-quit` nicht. Eine solche
+  Instanz einmal über das Tray-Menü beenden, dann `pnpm activate` (ohne
+  laufende Instanz überspringt es das Beenden); ab dann ohne Tray. Das Skript
+  ist mit Wegwerfprofil noch nicht geprobt und am echten Profil noch nicht
+  gelaufen.
+- **Fehlerspur:** Abstürze und unbehandelte Fehler stehen ab dieser Version in
+  `%APPDATA%\ade\ade\logs\main.log` (`[ade] renderer error`, `uncaught exception
+  in main`, `… process gone`).
+
+Details und Nachweise: [Status](STATUS.md), [Architektur](ARCHITECTURE.md)
+(„How the evidence is kept honest“).
+
 ## Aktiviert: Stimmenstudio-Kopf mit Standardstimme, Beispielsätze, Gespräche in der Navigation (24. September 2026, 22:33 CEST)
 
 - **Stimmenstudio** (`renderer/conversation/VoiceStudio.tsx`): Kopf statt

@@ -1,5 +1,37 @@
 # ADE implementation status
 
+## Stabilisierung: isolierter Gesamtlauf, Schnelltor, geskriptete Aktivierung, Fehlererfassung (24. September 2026)
+
+`pnpm verify` (`scripts/verify.ts`) baut nach `test-results/verify-build` und
+prüft jeden Treiber gegen diesen Build (`scripts/helpers/buildOutput.ts`,
+`ADE_BUILD_DIR`); `out/` und die laufende Instanz bleiben unberührt. Jeder
+Schritt läuft auch nach einem Fehler, ist zeitbegrenzt, hat ein eigenes Log und
+eine Zeitmessung (`test-results/verify/report.json`, `history.jsonl`); eine
+Sperre lässt nur einen Lauf zu. Die schnellen Suiten laufen parallel (bis 8
+Prozesse, gemessen 3–4 min statt rund 13 min), die Treiber in Bahnen: Pool (4
+gleichzeitig), Zwischenablage (seriell), allein (Latenz, Eingabe-Wettlauf,
+Bildvergleich). `pnpm verify:gate` ist das Schnelltor vor Aktivierungen.
+`pnpm activate` (`scripts/activate.ps1`): Tor (mit `-SkipGate` nur Typecheck und
+Build, danach Gesamtlauf im Hintergrund), Schutz laufender Terminals und Agenten
+(`-Force`), Profilsicherung, sauberes Beenden über `--ade-quit`, der bisherige
+Build bleibt als `out.prev` (`-Rollback`). Hauptprozess: unbehandelte Fehler,
+abgestürzte Fenster-, GPU- und Utility-Prozesse sowie Konsolenfehler des
+Fensters landen begrenzt und redigiert in `main.log` (vorher ohne Spur; der
+modale Electron-Fehlerdialog entfällt). Git- und Branch-Ansicht sparen je eine
+doppelte Identitätsprüfung (rund 28 % weniger Git-Prozesse).
+
+Nachweise: erster voller isolierter Lauf 39 Schritte in 30 min, 37 grün; die
+zwei roten (zu knappes Warten in `orchestration-beta`, neuer Quit-Nachweis)
+behoben und einzeln grün: Suiten 98/98, Remote-Neustart **14/0**, Hauptlog
+**22/0**, Work Electron **23/0** (Fensterfehler, Hauptprozessfehler, Absturz im
+echten Electron), Projekt-Git **54/0**, Branches **40/0**. Gefunden: der
+Remote-Neustart-Schritt „zweiter Start gibt das Profil frei“ startete `cmd.exe`
+statt Electron (Playwrights `spawnfile`) und bewies nichts; jetzt mit
+Sperrnachweis. Offen: voller Lauf auf dem zusammengeführten Stand; ob vier
+parallele Treiber die Remote-Terminal-Familie zu stark belasten (unter
+zusätzlicher Fremdlast rot an wechselnden Stellen); `pnpm activate` am echten
+Profil noch nicht ausgeführt ([Übergabe](HANDOFF.md)).
+
 ## Stimmenstudio: Standardstimme oben wählbar, Beispielsätze; Gespräche in der Navigation (24. September 2026)
 
 Im Stimmenstudio (Plaudern & Stimme) ist die **Standardstimme** im Kopf eine

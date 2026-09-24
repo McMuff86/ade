@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync,
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let app: ElectronApplication | undefined;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
@@ -18,7 +19,7 @@ global.fetch = async (url, init) => {
   return new Response(fs.readFileSync(${JSON.stringify(resolve('scripts/fixtures/speech-silence.mp3'))}), {headers:{'content-type':'audio/mpeg'}});
 };
 require(${JSON.stringify(resolve('scripts/fixtures/dialogue-speech.cjs'))}).install();
-require(${JSON.stringify(resolve('out/main/index.js'))});`);
+require(${JSON.stringify(mainEntry())});`);
   app = await electron.launch({ executablePath: require('electron') as string, args: [launcher], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20000);
   await page.getByRole('button', { name: 'Einstellungen', exact: true }).focus();

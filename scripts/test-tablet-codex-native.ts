@@ -14,6 +14,7 @@ import { buildIdentity } from '../build/identity';
 import type { CoordinatorActionSummary } from '../src/shared/coordinatorActions';
 import { redactedErrorDetail } from '../src/main/errors';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { mainEntry } from './helpers/buildOutput';
 
 if (!process.argv.includes('--run-native')) throw new Error('Native Modellprobe nur ausdrücklich mit --run-native ausführen.');
 if (process.platform !== 'win32') throw new Error('This acceptance measures native Windows only.');
@@ -30,7 +31,7 @@ const check = (name: string, ok: boolean) => {
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, ...args], { windowsHide: true, encoding: 'utf8', timeout: 15_000 }).trim();
 
 async function main() {
-  check('production build matches the source under test', readFileSync(resolve('out/main/index.js'), 'utf8').includes(sourceId));
+  check('production build matches the source under test', readFileSync(mainEntry(), 'utf8').includes(sourceId));
   const version = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '& codex --version'], { windowsHide: true, encoding: 'utf8', timeout: 15_000 }).trim();
   check('installed native Codex has the accepted protocol version', version === 'codex-cli 0.154.0');
   const repository = join(root, 'project'); mkdirSync(repository);
@@ -49,7 +50,7 @@ cp.execFile=function(file,args,options,callback){
  const config={TCP:{'443':{HTTPS:true}},Web:{'ade-mobile.fixture.ts.net:443':{Handlers:{'/':{Proxy:'http://127.0.0.1:${port}'}}}}};
  queueMicrotask(()=>callback(null,JSON.stringify(args[0]==='status'?{BackendState:'Running',Self:{DNSName:'ade-mobile.fixture.ts.net.',Online:true}}:config)));return {};};
 cp.execFile[require('node:util').promisify.custom]=(file,args,options)=>new Promise((done,fail)=>cp.execFile(file,args,options,(error,stdout,stderr)=>error?fail(error):done({stdout,stderr})));
-require(${JSON.stringify(resolve('out/main/index.js'))});`);
+require(${JSON.stringify(mainEntry())});`);
   const launch = async () => {
     app = await electron.launch({ args: [launcher], cwd: resolve('.'), timeout: 30_000,
       env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });

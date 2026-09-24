@@ -39,6 +39,7 @@ import {
   type RunPublication,
 } from '../src/shared/types';
 import { writeFakeGithubCli } from './fixtures/fake-gh';
+import { mainEntry } from './helpers/buildOutput';
 
 const FIXED_NOW = Date.parse('2026-07-19T12:00:00Z');
 const WINDOW = { width: 1400, height: 900 };
@@ -350,7 +351,7 @@ async function run(): Promise<void> {
   try {
     app = await electron.launch({
       args: [
-        join(root, 'out/main/index.js'),
+        mainEntry(),
         '--force-device-scale-factor=1',
         '--lang=en-US',
       ],

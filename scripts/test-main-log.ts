@@ -3,9 +3,12 @@
  * the run archive that history retention writes before pruning.
  */
 
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { App, WebContents } from 'electron';
+import { captureMainProcessFailures, captureProcessCrashes, captureRendererConsoleErrors, LogGate } from '../src/main/logging/crashCapture';
 import { MainLogSink } from '../src/main/logging/mainLog';
 import { RunArchiveStore } from '../src/main/orchestration/RunArchiveStore';
 import type { RunArchive } from '../src/main/orchestration/OrchestrationService';
@@ -82,6 +85,60 @@ function testMainLog(scratch: string): void {
     !threw && blocked.disabledReason() !== null);
 }
 
+function testCrashCapture(): void {
+  const lines: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => { lines.push(args.map(String).join(' ')); };
+  try {
+    let clock = 0;
+    const gate = new LogGate('probe', 2, 1_000, () => clock);
+    const admitted = [gate.admit(), gate.admit(), gate.admit(), gate.admit()];
+    check('a failure gate admits its limit per window and drops the rest',
+      admitted.join() === 'true,true,false,false' && lines.length === 0, admitted);
+    clock = 1_000;
+    check('the next window reopens the gate and reports how many failures it dropped',
+      gate.admit() && lines.at(-1) === '[ade] probe: 2 further failure(s) not logged in the previous minute', lines);
+
+    lines.length = 0;
+    const mainProcess = new EventEmitter();
+    captureMainProcessFailures(mainProcess as unknown as NodeJS.Process);
+    mainProcess.emit('uncaughtException', new Error('main boom token=verysecret1234'));
+    mainProcess.emit('unhandledRejection', 'rejected without an Error');
+    check('uncaught exceptions and unhandled rejections in main reach the log',
+      lines[0]?.startsWith('[ade] uncaught exception in main: Error: main boom') === true
+        && lines[1] === '[ade] unhandled rejection in main: rejected without an Error', lines);
+    check('crash lines are redacted before they reach the log', !lines.join('\n').includes('verysecret1234'));
+
+    lines.length = 0;
+    const app = new EventEmitter();
+    captureProcessCrashes(app as unknown as App);
+    app.emit('render-process-gone', {}, {}, { reason: 'clean-exit', exitCode: 0 });
+    app.emit('render-process-gone', {}, {}, { reason: 'crashed', exitCode: -1073741819 });
+    app.emit('child-process-gone', {}, { type: 'GPU', reason: 'oom', exitCode: 1 });
+    app.emit('child-process-gone', {}, { type: 'Utility', serviceName: 'network.mojom.NetworkService', reason: 'killed', exitCode: 9 });
+    check('crashed renderer, GPU and utility processes are logged, clean exits are not',
+      lines.join('|') === '[ade] renderer process gone: crashed, exit code -1073741819'
+        + '|[ade] GPU process gone: oom, exit code 1'
+        + '|[ade] Utility process gone (network.mojom.NetworkService): killed, exit code 9', lines);
+
+    lines.length = 0;
+    const contents = new EventEmitter();
+    captureRendererConsoleErrors(contents as unknown as WebContents, new LogGate('renderer', 3, 60_000, () => 0));
+    contents.emit('console-message', { level: 'warning', message: 'just a warning', lineNumber: 1, sourceId: '' });
+    contents.emit('console-message', { level: 'error', message: 'Uncaught TypeError: x is undefined password=hunter22',
+      lineNumber: 42, sourceId: 'file:///C:/Users/someone/ade/out/renderer/assets/index-abc.js?v=1' });
+    contents.emit('console-message', { level: 'error', message: 'x'.repeat(5_000), lineNumber: 0, sourceId: '' });
+    check('renderer console errors are logged with file and line but no host path',
+      lines[0] === '[ade] renderer error: Uncaught TypeError: x is undefined password=[credential] (index-abc.js:42)', lines);
+    check('renderer warnings are ignored and a long message is bounded',
+      lines.length === 2 && lines[1]!.length < 2_100);
+    for (let index = 0; index < 5; index += 1) contents.emit('console-message', { level: 'error', message: `loop ${index}`, lineNumber: 1, sourceId: '' });
+    check('a renderer error loop is cut off by its gate', lines.length === 3 && lines[2] === '[ade] renderer error: loop 0', lines);
+  } finally {
+    console.error = original;
+  }
+}
+
 function testRunArchive(scratch: string): void {
   const dir = join(scratch, 'archive', 'runs');
   const store = new RunArchiveStore(dir);
@@ -123,6 +180,7 @@ function testRunArchive(scratch: string): void {
 const scratch = mkdtempSync(join(tmpdir(), 'ade-main-log-'));
 try {
   testMainLog(scratch);
+  testCrashCapture();
   testRunArchive(scratch);
 } finally {
   rmSync(scratch, { recursive: true, force: true });

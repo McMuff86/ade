@@ -7,6 +7,7 @@ import { _electron as electron, chromium, type ElectronApplication, type Browser
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
 import { runDeletionFlow } from './helpers/runDeletionFlow';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (label: string, condition: boolean): void => { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -20,7 +21,7 @@ void (async () => {
   await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
   const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('no fixture port');
   const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
-  app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+  app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   // Patch the built-in dependency used by the bundled production controller. No production test hook.
   await app.evaluate((_electron, fixturePort) => {

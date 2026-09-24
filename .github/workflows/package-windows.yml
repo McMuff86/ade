@@ -38,6 +38,10 @@ jobs:
       - name: Verify source and Electron workflow
         run: pnpm run verify
 
+      # verify builds into an isolated directory; the installer packages out/.
+      - name: Build production bundle
+        run: pnpm run build
+
       - name: Build NSIS installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
 

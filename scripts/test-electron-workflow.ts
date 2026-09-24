@@ -33,6 +33,7 @@ import { writeFakeGithubCli } from './fixtures/fake-gh';
 import { MODEL_FIXTURE_CATALOG, writeModelCliFixtures } from './fixtures/model-clis';
 import { exerciseModelPicker } from './helpers/modelPickerFlow';
 import { railOrderingFlow } from './helpers/railOrderingFlow';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0;
 let failed = 0;
@@ -629,7 +630,7 @@ async function run(): Promise<void> {
     const launchOptions = {
       ...(packagedExecutable
         ? { executablePath: resolve(packagedExecutable), args: [] }
-        : { args: [process.env['ADE_E2E_MAIN'] ? resolve(process.env['ADE_E2E_MAIN']) : join(root, 'out/main/index.js')] }),
+        : { args: [mainEntry(process.env['ADE_E2E_MAIN'])] }),
       cwd: root,
       env: {
         ...process.env,
@@ -1332,7 +1333,8 @@ async function run(): Promise<void> {
     await eventually('managed run reaches its real approval gate', async () =>
       await page!.locator('.gapproval').count() === 1 &&
       (await page!.locator('.grun-phase').textContent()) === 'Freigabe',
-      20_000,
+      // Real worktrees and fixture agents; slower while other drivers share the machine.
+      60_000,
     );
     const approvalSnapshot = await page.evaluate(async () => {
       const api = (window as unknown as { ade: { invoke: (channel: string, payload?: unknown) => Promise<unknown> } }).ade;

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { DEFAULT_CONFIG, type AdeConfig } from '../src/shared/types';
+import { mainEntry } from './helpers/buildOutput';
 
 const root = mkdtempSync(join(tmpdir(), 'ade-sync-electron-'));
 const evidence = resolve('test-results/git-sync');
@@ -46,7 +47,7 @@ void (async () => {
       branch: 'ade/agent', status: 'ready', executionBackend: 'native', createdAt: 1, lastUsedAt: 1 }],
   };
   writeFileSync(join(userData, 'ade', 'config.json'), JSON.stringify(config));
-  const launch = { args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+  const launch = { args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', ADE_HOST_API_TOKEN: '',
       ADE_HOST_API_COMMAND_DEVICE: '', ADE_HOST_API_PORT: '', NODE_ENV: 'test' } };
   app = await electron.launch(launch); page = await app.firstWindow(); page.setDefaultTimeout(20_000);

@@ -2,12 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0; let app: ElectronApplication | undefined;
 const root = mkdtempSync(join(tmpdir(), 'ade-settings-profile-'));
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
 void (async () => {
-  app = await electron.launch({ args: [resolve('out/main/index.js')], env: { ...process.env, ADE_USER_DATA_DIR: root, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
+  app = await electron.launch({ args: [mainEntry()], env: { ...process.env, ADE_USER_DATA_DIR: root, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
   const agent = await page.evaluate(async () => {
     const category = await window.ade.invoke('category:create', { name: 'Profile test' });

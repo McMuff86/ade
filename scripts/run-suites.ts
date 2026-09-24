@@ -13,9 +13,16 @@
  * enforced; anything else is reported as unmeasured rather than guessed.
  *
  * `--record` prints a manifest with the counts from this run, ready to paste.
+ *
+ * Suites run in parallel processes (`--jobs N` or ADE_SUITE_JOBS; `--jobs 1`
+ * restores the old sequential, streamed output). Each suite already works in
+ * its own temp directories and its own process environment, so the only shared
+ * resource is the machine. Output is printed per suite as one block when it
+ * finishes, and the report keeps the declared order.
  */
 
 import { spawn } from 'node:child_process';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -62,7 +69,7 @@ const SUITES: Suite[] = [
   { id: 'setup-state', script: 'test-setup-state.ts', floors: { win32: 27 } },
   { id: 'runtime-models', script: 'test-runtime-models.ts', floors: { win32: 30 } },
   { id: 'ollama-coding', script: 'test-ollama-coding.ts', floors: { win32: 46 } },
-  { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 14 } },
+  { id: 'main-log', script: 'test-main-log.ts', floors: { win32: 22 } },
   { id: 'memory', script: 'test-memory.ts', floors: { win32: 45 } },
   { id: 'agent-behavior', script: 'test-agent-behavior.ts', floors: { win32: 18 } },
   { id: 'profile-launch', script: 'test-profile-launch.ts', floors: { win32: 14 } },
@@ -135,6 +142,22 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const RECORD = process.argv.includes('--record');
 const PLATFORM = process.platform;
 
+function jobCount(): number {
+  const index = process.argv.indexOf('--jobs');
+  const requested = Number(index >= 0 ? process.argv[index + 1] : process.env.ADE_SUITE_JOBS);
+  if (Number.isInteger(requested) && requested >= 1) return requested;
+  return Math.min(8, Math.max(1, Math.floor(availableParallelism() / 4)));
+}
+const JOBS = jobCount();
+
+/**
+ * Measured at 40–100 s each on win32 (Git-heavy); everything else takes
+ * seconds. Starting them first keeps a parallel run as short as its longest
+ * suite instead of ending on a late slow one.
+ */
+const SLOW_FIRST = new Set(['integration-workflow', 'project-publish', 'project-git', 'orchestration-beta',
+  'repository-sync', 'publication', 'project-branches']);
+
 /** Every driver ends with "<n> passed, <m> failed"; the last one wins. */
 const SUMMARY = /(\d+) passed, (\d+) failed/g;
 
@@ -155,7 +178,9 @@ function parseSummary(output: string): { passed: number; failed: number } | null
   return { passed: Number(last[1]), failed: Number(last[2]) };
 }
 
-async function runSuite(suite: Suite): Promise<Outcome> {
+async function runSuite(suite: Suite, stream: boolean): Promise<Outcome> {
+  const header = `\n=== ${suite.id} (${suite.script}) ===\n`;
+  if (stream) process.stdout.write(header);
   const started = Date.now();
   // `node --import tsx` avoids depending on how the tsx shim resolves on the
   // host; this is the same interpreter that runs this file.
@@ -166,11 +191,11 @@ async function runSuite(suite: Suite): Promise<Outcome> {
   let output = '';
   child.stdout.on('data', (chunk: Buffer) => {
     output += chunk.toString();
-    process.stdout.write(chunk);
+    if (stream) process.stdout.write(chunk);
   });
   child.stderr.on('data', (chunk: Buffer) => {
     output += chunk.toString();
-    process.stderr.write(chunk);
+    if (stream) process.stderr.write(chunk);
   });
   const code = await new Promise<number | null>((resolve) => {
     child.on('error', (error) => {
@@ -194,18 +219,24 @@ async function runSuite(suite: Suite): Promise<Outcome> {
     problem = `only ${summary.passed} checks, floor for ${PLATFORM} is ${floor}`;
   }
 
+  if (!stream) process.stdout.write(header + output);
   console.log(`  -> ${suite.id}: ${summary?.passed ?? '?'} passed in ${seconds}s`
     + (problem ? `  [${problem}]` : ''));
   return { suite, code, passed: summary?.passed ?? null, failed: summary?.failed ?? null, problem };
 }
 
 async function main(): Promise<void> {
-  const outcomes: Outcome[] = [];
-  for (const suite of SUITES) {
-    console.log(`\n=== ${suite.id} (${suite.script}) ===`);
-    // Deliberately no early exit: one broken suite must not hide the rest.
-    outcomes.push(await runSuite(suite));
-  }
+  const started = Date.now();
+  const queue = JOBS === 1 ? [...SUITES]
+    : [...SUITES.filter((suite) => SLOW_FIRST.has(suite.id)), ...SUITES.filter((suite) => !SLOW_FIRST.has(suite.id))];
+  console.log(`Running ${SUITES.length} suites with ${JOBS} parallel job(s).`);
+  const results = new Map<string, Outcome>();
+  // Deliberately no early exit: one broken suite must not hide the rest.
+  const worker = async (): Promise<void> => {
+    for (let suite = queue.shift(); suite; suite = queue.shift()) results.set(suite.id, await runSuite(suite, JOBS === 1));
+  };
+  await Promise.all(Array.from({ length: Math.min(JOBS, SUITES.length) }, worker));
+  const outcomes = SUITES.map((suite) => results.get(suite.id)!);
 
   if (RECORD) {
     console.log(`\nMeasured floors for ${PLATFORM}:`);
@@ -226,7 +257,8 @@ async function main(): Promise<void> {
   });
 
   console.log(`\n${'-'.repeat(64)}`);
-  console.log(`${SUITES.length} suites, ${totalPassed} checks passed on ${PLATFORM}`);
+  console.log(`${SUITES.length} suites, ${totalPassed} checks passed on ${PLATFORM}`
+    + ` in ${((Date.now() - started) / 1000).toFixed(1)}s with ${JOBS} job(s)`);
 
   if (unmeasured.length > 0) {
     // Stated, never silent: an unenforced floor is a gap in the evidence.

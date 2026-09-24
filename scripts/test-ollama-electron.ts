@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
 import { DEFAULT_CONFIG } from '../src/shared/types';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0;
 const check = (label: string, condition: unknown): void => { assert.ok(condition, label); passed++; console.log(`  ok  ${label}`); };
@@ -46,7 +47,7 @@ void (async () => {
     execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'codex.exe')], { windowsHide: true, timeout: 30_000 });
     copyFileSync(join(bin, 'codex.exe'), join(bin, 'ollama.exe'));
     copyFileSync(join(bin, 'codex.exe'), join(bin, 'qwen.exe'));
-    app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), env: { ...process.env,
+    app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), env: { ...process.env,
       Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_OLLAMA_PROOF: proof, ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
     const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

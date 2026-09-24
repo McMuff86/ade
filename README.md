@@ -233,9 +233,11 @@ evidence including the hosted 47-check packaged workflow is linked from
 ## Testing
 
 ```bash
-pnpm verify           # typecheck + all focused suites + build + Electron E2E
-pnpm test             # focused suites only (every suite runs; each has a floor)
+pnpm verify           # typecheck + all focused suites + isolated build + Electron E2E
+pnpm verify:gate      # fast subset before an activation (core desktop/tablet drivers)
+pnpm test             # focused suites only, in parallel (every suite runs; each has a floor)
 pnpm test -- --record # print the check floors measured on this platform
+pnpm activate -- -Label <name> [-SkipGate] [-Rollback] [-Force]  # restart the personal instance
 pnpm test:electron    # build + real Electron/ConPTY workflow (isolated profile)
 pnpm test:wsl-backend # real WSL distro/Git/PTY integration (Windows + WSL)
 ```

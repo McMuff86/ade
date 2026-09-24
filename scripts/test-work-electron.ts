@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0; let app: ElectronApplication | undefined;
 const root = mkdtempSync(join(tmpdir(), 'ade-work-view-'));
@@ -11,7 +12,7 @@ void (async () => {
   const repo = join(root, 'Design'); mkdirSync(repo); execFileSync('git', ['init', repo], { stdio: 'ignore' });
   writeFileSync(join(repo, 'README.md'), '# Design'); execFileSync('git', ['-C', repo, 'add', '.']);
   execFileSync('git', ['-C', repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { stdio: 'ignore' });
-  app = await electron.launch({ args: [resolve('out/main/index.js')], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
+  app = await electron.launch({ args: [mainEntry()], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
   const work = page.getByRole('tab', { name: 'Aufträge', exact: true });
   await work.click(); await page.getByRole('heading', { name: 'Noch keine Runs' }).waitFor();
@@ -90,6 +91,23 @@ void (async () => {
   await page.screenshot({ path: resolve('test-results/work-desktop-compact.png') });
   await region.getByRole('button', { name: 'Im Graph öffnen: CAD geometry', exact: true }).click();
   check('graph handoff selects the same run', await page.getByLabel('Aktiver Run', { exact: true }).inputValue() === fixture.run.id);
+
+  // Failures that used to vanish reach the profile's main.log and do not stop ADE.
+  const mainLog = join(root, 'profile', 'ade', 'logs', 'main.log');
+  const logged = async (text: string): Promise<boolean> => {
+    for (const started = Date.now(); Date.now() - started < 10_000; await new Promise(done => setTimeout(done, 100))) {
+      if (readFileSync(mainLog, 'utf8').includes(text)) return true;
+    }
+    return false;
+  };
+  await page.evaluate(() => { setTimeout(() => { throw new Error('ade-renderer-probe'); }, 0); });
+  check('an uncaught renderer error is written to main.log', await logged('[ade] renderer error: Uncaught Error: ade-renderer-probe'));
+  await app.evaluate(() => { setTimeout(() => { throw new Error('ade-main-probe'); }, 0); });
+  check('an uncaught main-process error is logged without a modal box and ADE keeps serving IPC',
+    await logged('[ade] uncaught exception in main: Error: ade-main-probe')
+      && (await page.evaluate(() => window.ade.invoke('run:get'))).runs.length > 0);
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.forcefullyCrashRenderer());
+  check('a crashed renderer process is written to main.log', await logged('[ade] renderer process gone:'));
 })().catch(error => { failed++; console.error(error); }).finally(async () => {
   await app?.close(); rmSync(root, { recursive: true, force: true });
   console.log(`Desktop Work Electron: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

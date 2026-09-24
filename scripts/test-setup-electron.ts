@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { writeModelCliFixtures, MODEL_FIXTURE_CATALOG } from './fixtures/model-clis';
 import { checkMobileSetup } from './helpers/setupMobileChecks';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -36,7 +37,7 @@ cp.execFile=function(file,args,options,callback){
 };
 cp.execFile[require('node:util').promisify.custom]=(file,args,options)=>new Promise((done,fail)=>
   cp.execFile(file,args,options,(error,stdout,stderr)=>error?fail(error):done({stdout,stderr})));
-require(${JSON.stringify(resolve('out/main/index.js'))});`);
+require(${JSON.stringify(mainEntry())});`);
   const env = { ...process.env, Path: `${cli.bin};${process.env.Path ?? process.env.PATH}`, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' };
   for (const key of ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'XAI_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY']) delete (env as Record<string, string | undefined>)[key];
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), env });

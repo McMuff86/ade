@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
 import { DEFAULT_CONFIG, type SessionMeta } from '../src/shared/types';
+import { mainEntry } from './helpers/buildOutput';
 
 let passed = 0;
 const check = (label: string, condition: unknown): void => { assert.ok(condition, label); passed++; console.log(`ok ${label}`); };
@@ -43,7 +44,7 @@ void (async () => {
   if (process.platform !== 'win32') throw new Error('Native profile session integration requires Windows.');
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['codex', 'claude']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
-  app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+  app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs,
       ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
@@ -191,7 +192,7 @@ void (async () => {
     const persisted = JSON.parse(readFileSync(configPath, 'utf8'));
     persisted.settings.memory = { enabled: true, userProfileEnabled, memoryCharLimit: 2200, userCharLimit: 1375 };
     writeFileSync(configPath, JSON.stringify(persisted));
-    app = await electron.launch({ args: [resolve('out/main/index.js')], cwd: resolve('.'), timeout: 30_000,
+    app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
       env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs,
         ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
     const memoryPage = await app.firstWindow(); memoryPage.setDefaultTimeout(20_000);

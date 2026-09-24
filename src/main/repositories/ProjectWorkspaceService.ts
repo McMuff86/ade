@@ -165,7 +165,11 @@ export class ProjectWorkspaceService {
   }
 
   async overview(workspaceId: string): Promise<ProjectWorkspaceView> {
-    const state = await this.resolve(workspaceId);
+    return this.describe(await this.resolve(workspaceId));
+  }
+
+  /** View of a state `resolve` just returned, without probing Git a second time. */
+  describe(state: { workspace: ProjectWorkspace; repository: Repository; branch: string }): ProjectWorkspaceView {
     return this.view(state.workspace, state.repository, state.branch);
   }
 

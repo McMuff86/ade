@@ -57,7 +57,9 @@ function rejects(label: string, operation: () => unknown, message: RegExp): void
   }
 }
 
-async function waitFor(predicate: () => boolean, label: string, timeout = 4_000): Promise<void> {
+// Generous: the conditions wait on real sockets and services, and the suites
+// run in parallel. A green run returns as soon as the condition holds.
+async function waitFor(predicate: () => boolean, label: string, timeout = 30_000): Promise<void> {
   const started = Date.now();
   while (!predicate()) {
     if (Date.now() - started > timeout) throw new Error(`timed out waiting for ${label}`);

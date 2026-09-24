@@ -4,13 +4,14 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import { mainEntry } from './helpers/buildOutput';
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-usage-electron-')));
 const evidence = resolve('test-results/usage'); mkdirSync(evidence, { recursive: true });
 let app: ElectronApplication | undefined; let page: Page | undefined; let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
 void (async () => {
   const launcher = join(root, 'launch.cjs');
-  writeFileSync(launcher, `require(${JSON.stringify(resolve(process.env.ADE_ORGANIZER_MAIN ?? 'out/main/index.js'))});`);
+  writeFileSync(launcher, `require(${JSON.stringify(mainEntry(process.env.ADE_ORGANIZER_MAIN))});`);
   // CLAUDE_CONFIG_DIR points at an empty folder: the consent switch must never make ADE read the operator's real sign-in in a test.
   const claudeDir = join(root, 'claude'); mkdirSync(claudeDir);
   app = await electron.launch({ args: [launcher], env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test', CLAUDE_CONFIG_DIR: claudeDir } });
