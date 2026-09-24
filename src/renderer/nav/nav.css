@@ -33,6 +33,15 @@
   padding: 0 6px;
 }
 
+/* Conversations: a dialog entry after the rooms, separated by the same hairline. */
+.appnav-extra {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border-left: 1px solid var(--line);
+}
+
 .appnav-group + .appnav-group {
   border-left: 1px solid var(--line);
 }
@@ -99,7 +108,9 @@
    decorative part — then the icons; below 1000px the rooms take a row of
    their own (app.css). Measured at 1440px the full desktop row is ~1430px
    wide, so the first step already applies on a common laptop screen. The
-   tablet header has fewer neighbours and keeps its original steps. */
+   tablet header has fewer neighbours; with the conversations entry its full
+   row needs ~1366px (captions go below that) and the rooms without captions
+   need their icons gone below ~1180px (measured 2026-09-24). */
 @media (max-width: 1440px) {
   .titlebar .appnav-caption {
     display: none;
@@ -115,13 +126,13 @@
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1365px) {
   .m-appnav .appnav-caption {
     display: none;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1180px) {
   .m-appnav .appnav-icon {
     display: none;
   }

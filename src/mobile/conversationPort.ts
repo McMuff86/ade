@@ -57,7 +57,7 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
       load: async () => {
         current(); const result = await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/query', 'POST', { operation: 'voices', target: { kind: 'default' } }); current();
         if (!result.preferences) throw new Error(translate('Voice settings are not available.'));
-        return { voices: result.preferences.voices, selectedVoiceId: result.preferences.effectiveVoiceId };
+        return { voices: result.preferences.voices, selectedVoiceId: result.preferences.effectiveVoiceId, tuning: result.preferences.tuning };
       },
       generate: async (input, key) => {
         current();
@@ -66,7 +66,7 @@ export function mobileConversationPort(host: () => MobileHost, access: (canWrite
         if (!playback.audio) throw new Error(translate('Voice test is not available.')); return playback.audio;
       },
       select: async (voiceId, tuning, key) => {
-        current(); await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/command', 'POST', { operation: 'select', target: { kind: 'default' }, voiceId, tuning }, key); current();
+        current(); await host().request<import('../shared/remote').MobileSpeechResult>('/api/v1/speech/command', 'POST', { operation: 'select', target: { kind: 'default' }, voiceId, ...(tuning ? { tuning } : {}) }, key); current();
       },
     },
     actions: {

@@ -3072,6 +3072,24 @@ badge, an empty sample box falls back to a suggested text, generated samples are
 kept per device (bounded, invalidated when voice, model, tuning or text change),
 and the sample text can be dictated through the open conversation's recording
 port under a studio-specific draft key.
+The studio head is a live setting, not a summary: its default-voice select saves
+the voice through the same `select` path without tuning (the saved delivery
+stays) and then requests one studio sample for the new voice with ADE's reply
+model (`eleven_v3`) and the saved tuning, which plays by itself. Both ports load
+the catalog as the default `SpeechPreference` (desktop `speech:preferences`,
+tablet `voices` query) so the preview knows that tuning. "Listen" replays the
+stored default sample while voice, tuning and text are unchanged and requests a
+new one otherwise; the pending-receipt recovery covers this `default` slot like
+A and B. Five ready-made sample sentences (greeting, status, story, excited,
+calm) and "own text" fill the same sample box; no new wire contract was added.
+
+Conversations are reachable from every room: `AppNav` takes an optional
+`conversations` entry and renders it after the room tablist as a plain button
+(`aria-haspopup="dialog"`, not a tab, so room order and arrow-key roving are
+unchanged). It keeps the ids `desktop-supervision` / `mobile-supervision`, stays
+visible when the room list is collapsed, and replaces the former
+"Conversations" button in the desktop "ongoing work" group and the tablet page
+toolbar; project-scoped supervision buttons stay where they were.
 
 The tablet terminal's image dialog offers "From the notes"
 (`mobile/NoteImagePicker.tsx`): it reads the device's own IndexedDB note cache

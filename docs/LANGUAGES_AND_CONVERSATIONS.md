@@ -18,7 +18,8 @@ Open editors, terminal sessions, notes and task drafts retain their contents.
 The desktop preference is saved with the PC configuration; each browser/device
 keeps its own preference. Device pairing is independent of this setting.
 
-The main **Gespräche / Conversations** button opens two choices:
+The **Gespräche / Conversations** entry at the end of the top navigation (after
+**Graph**, on PC and tablet, in every room) opens two choices:
 
 - **Projektbetreuung / Project supervision**: existing project overview,
   handoffs and confirmed Codex project actions. A project-specific entry opens
@@ -29,8 +30,18 @@ The main **Gespräche / Conversations** button opens two choices:
   Sending the first message starts the model. Closing the dialog preserves the
   conversation; ending it disconnects that model session.
 
-Expand **Stimmenstudio / Voice studio**, load voices, and enter sample text or use
-the latest conversation reply. Review that text before generating audio. Up to
+The **Stimmenstudio / Voice studio** opens expanded and loads the voices by
+itself. Its head shows the **Standardstimme / Default voice** as a choice:
+picking another voice saves it as ADE's default voice for PC and tablet (the saved
+stability stays) and immediately speaks the current sample text once with that
+voice, using the v3 connection ADE replies with (one paid generation). **Anhören /
+Listen** next to the sample text plays it again with the default voice; replaying
+unchanged text is free, changed text generates once more.
+
+Pick one of five ready-made sample sentences (**Begrüssung, Statusmeldung,
+Geschichte, Begeistert, Ruhig**) or **Eigener Text / Own text** to type or
+dictate your own; the latest conversation reply can also be copied in. Review
+that text before generating audio. Up to
 1,200 characters are accepted; longer replies are visibly truncated in the sample
 editor. Two independent variants share the same sample text. Generate either one
 or explicitly generate both, then use their audio controls to compare. Replaying
@@ -41,13 +52,15 @@ the already generated audio does not create another provider request.
 | Eleven Multilingual v2, text-to-speech | Speed (0.7–1.2), stability, similarity, style, speaker boost |
 | Eleven v3, existing text-to-dialogue connection | Stability only; other settings remain stored for v2 |
 
-The voice studio does not overwrite ADE's global/project/agent voice preferences
-or ElevenLabs' saved voice settings. Neutral, calm and expressive presets are
+Only the head's default-voice choice and **A/B als Standardstimme übernehmen**
+change ADE's default voice (the latter also its tuning); project and agent voices
+and ElevenLabs' saved voice settings are never changed. Neutral, calm and expressive presets are
 available; up to 12 custom presets are stored on the current device. Changing
 controls does not generate audio. Generating A/B is two explicitly requested,
 sequential paid generations, each with its own receipt. A disconnect stops the
-remaining sequence; it does not silently retry either sample. Samples stay in
-memory; settings, text and a pending request survive closing the dialog.
+remaining sequence; it does not silently retry either sample. Generated samples,
+settings, text and a pending request are kept on this device and survive closing
+the dialog.
 
 The spoken-language choice applies to v3. Multilingual v2 detects language from
 the text and does not support a forced language code. Interface language,

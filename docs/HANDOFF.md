@@ -1,5 +1,33 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Stimmenstudio-Kopf mit Standardstimme, Beispielsätze, Gespräche in der Navigation (24. September 2026, 22:33 CEST)
+
+- **Stimmenstudio** (`renderer/conversation/VoiceStudio.tsx`): Kopf statt
+  `<details>`-Zusammenfassung; Auswahl „Standardstimme“ speichert über den
+  bestehenden `select`-Weg ohne Tuning und erzeugt danach genau eine Hörprobe
+  (`eleven_v3`, gespeichertes Tuning), die selbst abspielt. „Anhören“ nutzt die
+  gespeicherte Probe (Slot `default`, auch in der Beleg-Wiederherstellung).
+  Beide Ports laden den Katalog als Standard-`SpeechPreference` (Desktop
+  `speech:preferences`). Fünf Beispielsätze + „Eigener Text“.
+- **Navigation** (`renderer/nav/AppNav.tsx`): Eintrag „Gespräche“ nach den
+  Räumen, Ids `desktop-supervision` / `mobile-supervision` unverändert; der
+  frühere Knopf in „Laufende Arbeit“ (PC) bzw. der Tablet-Werkzeugzeile ist weg.
+  Tablet-Umbrüche gemessen: ohne Anpassung lief die Raumzeile bei 1280 px über.
+
+Adis Wunsch für die nächste Runde: Ollama-Agent wahlweise im nativen
+Ollama-Terminal statt über Codex starten (Codex mit `qwen3-coder:30b` bricht
+bei `xhigh` mit „does not support thinking“ ab).
+
+PID 34124 regulär über das Tray-Menü beendet (die laufende Ollama/Codex-Sitzung
+endete damit). Profil gesichert nach `ADE-Backups/voice-nav-20260924-223216`.
+Gebaut aus einem sauberen Worktree (HEAD `903ac7a` + nur diese Änderung, ohne
+die parallel offenen Main-Änderungen) nach `out/`, Start aus dem Repository:
+**22:33 CEST**, PID **65788**, Source **`b76ac725d143dc31c845`** (SHA-256 von
+`out/main/index.js`, 20 Zeichen). Listener nur `127.0.0.1:4317`, HTTPS liefert
+`assets/index-BZYkjD-i.js` mit der neuen Oberfläche. Nachweise siehe
+[Status](STATUS.md); der volle Remote-Terminal-Lauf ist noch offen (unter
+paralleler Last rot an wechselnden Stellen, fairer Vergleich läuft).
+
 ## Aktiviert: drei rote Verify-Suiten wieder grün, ConPTY-Verlauf bleibt erhalten (24. September 2026, 01:02 CEST)
 
 `pnpm verify` hatte drei rote Suiten (Diktat-Electron `--computer-only` und

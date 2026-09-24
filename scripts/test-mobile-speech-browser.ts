@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser } from 'playwright';
+import { expect } from 'playwright/test';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { BrowserSessions } from '../src/main/remote/BrowserSessions';
@@ -19,12 +20,12 @@ const check=(name:string,ok:boolean)=>{if(!ok)throw new Error(name);passed++;con
 async function rejects(name:string, action:()=>unknown, code:string) {try{await action();}catch(error){check(name,error instanceof RemoteApiError && error.code===code);return;}throw new Error(name);}
 const root=mkdtempSync(join(tmpdir(),'ade-mobile-speech-')); let browser:Browser|undefined; let server:HostApiServer|undefined; let sessions:BrowserSessions|undefined; let proxy:Awaited<ReturnType<typeof mobileTlsProxy>>|undefined;
 void (async()=>{
-  const female='femaleVoice0000000001'; const male='maleVoice000000000001'; let generations=0; let lastDelivery: Record<string, unknown> = {};
+  const female='femaleVoice0000000001'; const male='maleVoice000000000001'; let generations=0; let lastDelivery: Record<string, unknown> = {}; let lastModel=''; let lastText='';
   const fixture=createRemoteWorkspaceFixture(root,{},store=>{
     const engine=new SpeechService(store,()=> 'fixture-provider-secret',async (url,init)=>{
       check('provider key stays in main and provider URL is fixed',String(url).startsWith('https://api.elevenlabs.io/') && (init?.headers as Record<string,string>)['xi-api-key']==='fixture-provider-secret');
       if(String(url).endsWith('/voices'))return Response.json({voices:[{voice_id:female,name:'Sarah Fixture',labels:{gender:'female'}},{voice_id:male,name:'Roger Fixture',labels:{gender:'male'}}]});
-      lastDelivery=JSON.parse(String(init?.body)).voice_settings; generations++;return new Response(readFileSync(resolve('scripts/fixtures/speech-silence.mp3')),{headers:{'content-type':'audio/mpeg'}});
+      const body=JSON.parse(String(init?.body)); lastDelivery=body.voice_settings; lastModel=String(body.model_id??''); lastText=String(body.text??''); generations++;return new Response(readFileSync(resolve('scripts/fixtures/speech-silence.mp3')),{headers:{'content-type':'audio/mpeg'}});
     });return new RemoteSpeechService(new SpeechPreferences(store,engine),engine);
   });
   const {application:app,store,devices}=fixture;
@@ -119,19 +120,78 @@ void (async()=>{
   await projectSpeech.getByText('Stimmenauswahl gespeichert.',{exact:true}).waitFor();
   check('tablet project can inherit the global voice again',store.get().repositories.find(r=>r.id===projectId)!.speechVoiceId===undefined && (await projectSpeech.innerText()).includes('Roger Fixture'));
   await page.keyboard.press('Escape');await project.waitFor({state:'hidden'});
+  // Conversations are one tap away from every room: an entry in the navigation row, beside the rooms, not in the page toolbar.
+  const navFits:number[]=[];
+  for(const width of [1480,1280,1180]){await page.setViewportSize({width,height:800});if(await page.locator('.m-appnav .appnav-list').evaluate(list=>list.scrollWidth<=list.clientWidth+1))navFits.push(width);}
+  check('the tablet room row keeps every room visible next to the conversations entry at 1480, 1280 and 1180px',navFits.join()==='1480,1280,1180');
+  await page.setViewportSize({width:1280,height:800});
+  const navEntry=page.locator('#mobile-supervision');
+  const graphTab=page.getByRole('tab',{name:'Graph',exact:true});
+  const [entryBox,graphBox]=[await navEntry.boundingBox(),await graphTab.boundingBox()];
+  check('conversations sit in the tablet navigation row right after the rooms',await page.locator('.m-appnav #mobile-supervision').count()===1 && await page.locator('.m-toolbar #mobile-supervision').count()===0
+    && !!entryBox && !!graphBox && Math.abs(entryBox.y-graphBox.y)<4 && entryBox.x>graphBox.x && await navEntry.getAttribute('aria-haspopup')==='dialog' && (await navEntry.innerText()).trim()==='Gespräche');
+  check('the conversations entry is not a tab, so the room order stays unchanged',(await page.getByRole('tablist',{name:'Bereiche'}).getByRole('tab').allTextContents()).map(text=>text.trim()).join(',')==='Übersicht,Aufgaben,Notizen,Projekte,Terminals,Aufträge,Graph');
+  await page.getByRole('tab',{name:'Notizen',exact:true}).click();
+  check('conversations stay reachable from rooms without the page toolbar',await navEntry.isVisible());
   // Voice studio (casual conversation): a compared variant can become the ADE default voice from the tablet.
-  await page.locator('#mobile-supervision').click();await page.locator('#conversation-mode-casual').click();
+  await navEntry.click();await page.locator('#conversation-mode-casual').click();
   const casual=page.getByRole('dialog',{name:'Plaudern & Stimme',exact:true});await casual.waitFor();
   // The studio opens by itself, loads the voices and seats the PC's default voice; the sample text is suggested, not required.
-  const studio=casual.locator('details.voice-studio');await studio.getByTestId('voice-studio-default').getByText('Standardstimme',{exact:false}).waitFor();
-  check('the studio names the current default voice without a click',(await studio.getByTestId('voice-studio-default').textContent())!.includes('Standardstimme'));
-  check('the sample text is suggested as a placeholder and a badge marks the default variant',!!(await studio.getByLabel('Hörprobentext',{exact:true}).getAttribute('placeholder')) && await studio.locator('.voice-studio-badge').first().isVisible());
+  const studio=casual.getByRole('region',{name:'Stimmenstudio',exact:true});
+  const defaultPicker=studio.getByTestId('voice-studio-default').getByLabel('Standardstimme',{exact:true});await defaultPicker.waitFor();
+  check('the studio head offers the current default voice as a choice without a click',await defaultPicker.inputValue()===male && (await studio.getByTestId('voice-studio-default').textContent())!.includes('Standardstimme'));
+  const sampleBox=studio.getByLabel('Hörprobentext',{exact:true});
+  check('the sample text is suggested as a placeholder and a badge marks the default variant',!!(await sampleBox.getAttribute('placeholder')) && await studio.locator('.voice-studio-badge').first().isVisible());
+  // Ready-made sentences: five of them plus "own text"; an empty box speaks the greeting.
+  const sentences=studio.getByRole('group',{name:'Beispielsätze',exact:true});
+  const chip=(label:string)=>sentences.getByRole('button',{name:label,exact:true});
+  check('five ready-made sample sentences and an own-text choice are offered',(await sentences.getByRole('button').allTextContents()).join(',')==='Begrüssung,Statusmeldung,Geschichte,Begeistert,Ruhig,Eigener Text'
+    && await chip('Begrüssung').getAttribute('aria-pressed')==='true');
+  await chip('Geschichte').click();
+  check('choosing a sentence puts it into the sample text and marks it',(await sampleBox.inputValue()).startsWith('Es war einmal ein kleiner Roboter') && await chip('Geschichte').getAttribute('aria-pressed')==='true' && await chip('Begrüssung').getAttribute('aria-pressed')==='false');
+  await chip('Eigener Text').click();
+  await expect(sampleBox).toBeFocused();
+  check('own text clears a ready-made sentence and focuses the box for typing',await sampleBox.inputValue()==='' && await chip('Eigener Text').getAttribute('aria-pressed')==='true' && (await sampleBox.getAttribute('placeholder'))!.includes('Eigenen Text'));
+  await sampleBox.fill('Das ist mein eigener Satz für die Hörprobe.');
+  check('typed text stays own text',await chip('Eigener Text').getAttribute('aria-pressed')==='true' && await chip('Begrüssung').getAttribute('aria-pressed')==='false');
   await studio.getByLabel('Variante A: Stimme',{exact:true}).selectOption(female);
   check('the studio offers to make a variant the default voice',await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).isEnabled());
   await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).click();
   await studio.getByText('Variante A ist jetzt die Standardstimme',{exact:false}).waitFor();
-  check('voice studio variant becomes the ADE default voice on the PC',store.get().settings.speechVoiceId===female);
+  check('voice studio variant becomes the ADE default voice on the PC',store.get().settings.speechVoiceId===female && await defaultPicker.inputValue()===female);
   check('the default badge follows the new default and the select button disappears on that variant',(await studio.locator('fieldset').first().textContent())!.includes('Standardstimme') && await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).count()===0);
+  // Switching the default voice in the studio head saves it and speaks the sample text with it right away.
+  await page.evaluate(()=>{(window as unknown as {plays:number}).plays=0;document.addEventListener('play',event=>{if((event.target as HTMLElement).getAttribute('aria-label')==='Hörprobe der Standardstimme')(window as unknown as {plays:number}).plays++;},true);});
+  const plays=()=>page.evaluate(()=>(window as unknown as {plays:number}).plays);
+  await chip('Statusmeldung').click();
+  const tuningBefore=JSON.stringify(store.get().settings.speechTuning); const beforeSwitch=generations;
+  await defaultPicker.selectOption(male);
+  await studio.getByText('Roger Fixture ist jetzt die Standardstimme',{exact:false}).waitFor();
+  await expect.poll(plays).toBe(1);
+  check('the head switch saves the default voice and keeps the saved delivery',store.get().settings.speechVoiceId===male && JSON.stringify(store.get().settings.speechTuning)===tuningBefore);
+  check('the new default voice speaks the chosen sentence once with the reply model and saved stability',generations===beforeSwitch+1 && lastModel==='eleven_v3' && lastText.startsWith('Der Build ist grün') && lastDelivery.stability===store.get().settings.speechTuning?.stability);
+  check('the default preview names voice and text',(await studio.locator('figure').first().textContent())!.includes('Standardstimme · Roger Fixture · Der Build ist grün'));
+  check('the default badge moves with the head switch',await studio.locator('fieldset').first().locator('.voice-studio-badge').count()===0 && await studio.locator('fieldset').nth(1).locator('.voice-studio-badge').count()===1
+    && await studio.getByRole('button',{name:'A als Standardstimme übernehmen',exact:true}).isVisible());
+  const listen=studio.getByRole('button',{name:'Anhören',exact:true});
+  const defaultAudio=studio.getByLabel('Hörprobe der Standardstimme',{exact:true});
+  const finished=()=>expect.poll(()=>defaultAudio.evaluate(node=>(node as HTMLAudioElement).ended),{timeout:20_000}).toBe(true);
+  await finished();
+  await listen.click();await expect.poll(plays).toBe(2);
+  check('listening again with unchanged text replays without a new generation',generations===beforeSwitch+1);
+  await finished();await chip('Ruhig').click();await listen.click();await expect.poll(plays).toBe(3);
+  check('a new sentence is generated once for the default voice',generations===beforeSwitch+2 && lastText.startsWith('Kein Stress'));
+  await page.screenshot({path:resolve('test-results/mobile-speech-studio.png')});
+  // The disclosure collapses the body; the default voice stays in reach.
+  const toggle=studio.getByRole('button',{name:'Stimmenstudio ElevenLabs',exact:true});
+  await toggle.click();
+  check('collapsing hides the studio body but keeps the default voice choice',await toggle.getAttribute('aria-expanded')==='false' && !await sampleBox.isVisible() && await defaultPicker.isVisible());
+  await toggle.press('Enter');
+  check('the studio reopens from the keyboard',await toggle.getAttribute('aria-expanded')==='true' && await sampleBox.isVisible());
+  await page.setViewportSize({width:390,height:844});
+  check('the studio head and sentences fit a phone',await casual.evaluate(node=>node.scrollWidth<=node.clientWidth+1) && await defaultPicker.isVisible() && await page.locator('#mobile-supervision').isVisible());
   await page.keyboard.press('Escape');await casual.waitFor({state:'hidden'});
+  await expect(page.locator('#mobile-supervision')).toBeFocused();
+  check('closing the conversation returns focus to the navigation entry',true);
   check('mobile speech flow has no uncaught browser errors',errors.length===0);
 })().catch(async error=>{failed++;console.error(error); const page=browser?.contexts()[0]?.pages()[0]; if(page) {console.error((await page.locator('body').innerText()).slice(-6000));await page.screenshot({path:resolve('test-results/mobile-speech-failure.png')});}}).finally(async()=>{await browser?.close();await server?.stop();sessions?.dispose();await proxy?.close();rmSync(root,{recursive:true,force:true});console.log(`Mobile speech browser: ${passed} passed, ${failed} failed`);process.exitCode=failed?1:0;});

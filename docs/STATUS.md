@@ -1,5 +1,26 @@
 # ADE implementation status
 
+## Stimmenstudio: Standardstimme oben wählbar, Beispielsätze; Gespräche in der Navigation (24. September 2026)
+
+Im Stimmenstudio (Plaudern & Stimme) ist die **Standardstimme** im Kopf eine
+Auswahl: Wechseln speichert sie für PC und Tablet (gespeicherte Stabilität
+bleibt) und spricht sofort den Hörprobentext mit ihr (v3 wie ADE-Antworten,
+eine Erzeugung). **Anhören** spielt ihn erneut, unveränderter Text ohne neue
+Erzeugung. Fünf Beispielsätze (Begrüssung, Statusmeldung, Geschichte,
+Begeistert, Ruhig) plus **Eigener Text**. **Gespräche** steht auf PC und Tablet
+in jedem Raum oben nach **Graph** (Dialog-Knopf, kein Tab); Tablet-Kopf blendet
+Gruppenbeschriftungen bis 1365 px und Icons bis 1180 px aus, damit alle Räume
+sichtbar bleiben. Nachweise gegen den isolierten Build (HEAD + Änderung):
+Mobile-Sprache **63/0**, Sprache Electron **28/0**, Gespräche Electron **67/0**,
+Work Electron **23/0**, Mobile Browser **61/0**, Mobile Electron **37/0**,
+Electron-Workflow **197/0**, Remote-Terminal Sitzungsnavigation **51/0**,
+Tablet-Layout **20/0**, Workspace-Zuweisung **18/0**, Visual **22/0** (Baselines
+unverändert); Typecheck aller drei Projekte. Offen: der volle
+Remote-Terminal-Lauf war unter paralleler Verify-Last dreimal an drei
+verschiedenen Stellen rot (reiner HEAD im ruhigen Fenster 208/0); fairer
+Vergleich läuft. Aktiviert **22:33 CEST**, PID **65788**, Source
+`b76ac725d143dc31c845` ([Übergabe](HANDOFF.md)).
+
 ## Verify-Suiten wieder grün, ConPTY-Verlauf (24. September 2026)
 
 Die drei roten Suiten aus `pnpm verify` laufen wieder: Sprachleisten-Long-Press

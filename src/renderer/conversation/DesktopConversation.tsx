@@ -10,8 +10,11 @@ import type { CoordinatorActionDetail, CoordinatorActionSummary, CoordinatorActi
 import type { ConversationMode } from '../../shared/conversation';
 
 const port: ConversationPort = {
-  speech: { load: () => window.ade.invoke('speech:voices'), generate: input => window.ade.invoke('speech:test', input),
-    select: async (voiceId, tuning) => { await window.ade.invoke('speech:configure', { target: { kind: 'default' }, voiceId, tuning }); } },
+  speech: {
+    // The default preference carries the saved delivery, so the studio's default-voice preview sounds like ADE's replies.
+    load: async () => { const preference = await window.ade.invoke('speech:preferences', { kind: 'default' }); return { voices: preference.voices, selectedVoiceId: preference.effectiveVoiceId, tuning: preference.tuning }; },
+    generate: input => window.ade.invoke('speech:test', input),
+    select: async (voiceId, tuning) => { await window.ade.invoke('speech:configure', { target: { kind: 'default' }, voiceId, ...(tuning ? { tuning } : {}) }); } },
   actions: {
     list: async conversationId => await window.ade.invoke('conversation:actionsQuery', { operation: 'list', conversationId }) as CoordinatorActionSummary[],
     detail: async (conversationId, actionId) => await window.ade.invoke('conversation:actionsQuery', { operation: 'detail', conversationId, actionId }) as CoordinatorActionDetail,

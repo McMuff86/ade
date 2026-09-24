@@ -88,7 +88,7 @@ Das Modell steht maschinenlesbar in `src/shared/appNavigation.ts` (`GLOSSARY`,
 | Graph, unten | – | Orchestrierung starten | Direkt an Teams, Alle pausieren/aktivieren (Gruppe „Run-Steuerung“) | Run abbrechen, Tasks stoppen |
 | Graph, links unten | – | – | Ansicht: −, Zoomstufe, +, Einpassen; Task-Slots aufklappbar | – |
 | Projekt-Terminal (Tablet) | Sprechen / Senden (Voice-Strip) | Sitzung & Workspace, Projektbereich | Verlauf, Links (im Voice-Strip, nicht über der Ausgabe) | Terminal beenden (leise, rot) |
-| Kopfzeile PC/Tablet | – | Arbeit wechseln, ADE-Betreuung (Gruppe „Laufende Arbeit“) | Verbindung (Tablet, öffnet Erklärung) | Einrichtung, Einstellungen, Diagnose, Verwalten |
+| Kopfzeile PC/Tablet | – | Gespräche (Navigation, nach Graph; öffnet Dialog), Arbeit wechseln (Gruppe „Laufende Arbeit“) | Verbindung (Tablet, öffnet Erklärung) | Einrichtung, Einstellungen, Diagnose, Verwalten |
 
 Bewusst behandelte Duplikate: „Neuer Run“ nur noch in der oberen Run-Leiste
 des Graphs (unten entfernt). „Einstellungen“ auf dem Tablet nur noch im Kopf
@@ -100,8 +100,8 @@ noch dort, wo ihr Ergebnis erscheint.
 PC, breit (≥ 1180 px):
 
 ```
-ade_  Übersicht │ Organisation  Aufgaben  Notizen │ Entwicklung  Projekte  Terminals  Aufträge  Graph
-                                                  Arbeit wechseln  ADE-Betreuung │ Verwaltung  Einrichtung  Einstellungen  Diagnose  ☀
+ade_  Übersicht │ Organisation  Aufgaben  Notizen │ Entwicklung  Projekte  Terminals  Aufträge  Graph │ Gespräche
+                                                  Arbeit wechseln │ Verwaltung  Einrichtung  Einstellungen  Diagnose  ☀
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -111,8 +111,8 @@ zuerst weg, dann die Icons; keine Aktion verlässt die Kopfzeile.
 Tablet quer:
 
 ```
-ade_  Übersicht │ Aufgaben Notizen │ Projekte Terminals Aufträge Graph      ● Verbunden  Verwalten  ⚙  ☀
-Übersicht  Dein Workspace auf einen Blick        Arbeit wechseln  ADE-Betreuung   Neues Projekt  Agent beauftragen  [Neuer Run]  ↻
+ade_  Übersicht │ Aufgaben Notizen │ Projekte Terminals Aufträge Graph │ Gespräche      ● Verbunden  Verwalten  ⚙  ☀
+Übersicht  Dein Workspace auf einen Blick        Arbeit wechseln   Neues Projekt  Agent beauftragen  [Neuer Run]  ↻
 ```
 
 Telefon: Zeile 1 `ade_ … ● Verbunden ⚙ ☀`, Zeile 2 die Räume (scrollbar,

@@ -4,16 +4,23 @@
 
 **Einstellungen → Sprache** schaltet zwischen **Deutsch** und **English** um.
 PC und Tablet merken sich ihre Auswahl getrennt; offene Entwürfe und die
-Gerätekopplung bleiben erhalten. **Gespräche** öffnet **Projektbetreuung** oder
-**Plaudern & Stimme**. Im freien Gespräch ein Codex-Profil wählen, ein Gespräch
-anlegen und schreiben oder diktieren.
+Gerätekopplung bleiben erhalten. **Gespräche** steht oben in der Navigation
+direkt nach **Graph** (PC und Tablet, in jedem Raum) und öffnet
+**Projektbetreuung** oder **Plaudern & Stimme**. Im freien Gespräch ein
+Codex-Profil wählen, ein Gespräch anlegen und schreiben oder diktieren.
 
-Im ausklappbaren **Stimmenstudio** Stimmen laden, einen Text eingeben oder die
-letzte Antwort übernehmen. Zwei Varianten mit demselben Text vergleichen,
+Das **Stimmenstudio** lädt die Stimmen selbst. Oben rechts die
+**Standardstimme** wechseln: ADE speichert sie für PC und Tablet und spricht
+sofort den Hörprobentext damit. **Anhören** spielt ihn erneut mit der
+Standardstimme (unveränderter Text kostet nichts). Als Hörprobentext einen von
+fünf Beispielsätzen wählen (Begrüssung, Statusmeldung, Geschichte, Begeistert,
+Ruhig), **Eigener Text** eingeben oder diktieren oder die letzte Antwort
+übernehmen. Zwei Varianten mit demselben Text vergleichen,
 Vorlagen anwenden oder eigene Einstellungen speichern. Regler erzeugen kein
 Audio; **A/B vergleichen** fordert ausdrücklich zwei kostenpflichtige Hörproben
 an. Danach mit den Audioreglern anhören. Die Studio-Einstellungen gelten auf
-diesem Gerät und ändern die allgemeinen ADE-Stimmen nicht.
+diesem Gerät; nur die Standardstimme oben und „A/B als Standardstimme
+übernehmen“ ändern die ADE-Stimme.
 [Anleitung, Modellunterschiede und Grenzen](LANGUAGES_AND_CONVERSATIONS.md).
 
 Desktop **und** Mobile bauen: ADE über das Infobereich-Menü vollständig beenden,

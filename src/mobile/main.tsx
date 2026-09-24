@@ -37,7 +37,7 @@ import './tablet.css';
 import './terminals.css';
 import { SessionNavigationContext, SessionSwitchButton } from '../renderer/sessions/SessionSwitcher';
 import { MobileSessionSwitcher } from './SessionSwitcher';
-import { SupervisionButton, SupervisionContext } from '../renderer/supervision/SupervisionGraph';
+import { SupervisionContext } from '../renderer/supervision/SupervisionGraph';
 import { MobileSupervision, MobileSupervisionGraph } from './Supervision';
 import type { SupervisionTarget } from '../shared/supervision';
 import type { MobileSessionInventory, MobileTerminalState } from '../shared/remote';
@@ -182,7 +182,7 @@ function MobileApp(): JSX.Element {
     if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label={translate("ADE Overview")}>ade<span>_</span></button>
-      {host.paired && <AppNav className="m-appnav" current={view} onSelect={navigate} idPrefix="view-tab" controls="mobile-view-panel" />}
+      {host.paired && <AppNav className="m-appnav" current={view} onSelect={navigate} idPrefix="view-tab" controls="mobile-view-panel" conversations={{ id: 'mobile-supervision', onOpen: () => setSupervision({}) }} />}
       <span className="m-header-spacer" />
       <button className={`m-connection ${host.status}`} aria-haspopup="dialog" title={translate("Connection to PC")} disabled={!host.paired}
         onClick={(event) => { event.currentTarget.focus(); setConnectionOpen(true); }}><span className="m-live-dot" /><span role="status">{connectionLabel(host)}</span></button>
@@ -216,8 +216,8 @@ function MobileApp(): JSX.Element {
         <div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">{translate("Active Run")}<select aria-label={translate("Active Run")} value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
           {!visibleRuns.length && <option value="">{translate("No run")}</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{viewLabel(view)}</h1>}
           {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? translate("Your workspace at a glance") : view === 'projects' ? translate("Open a project and get started") : view === 'terminals' ? translate("Sessions on your ADE computer") : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? translate("Orchestration")}</span></div>
-        {/* Work in flight is neither a room nor an action of this view: its own quiet pair. */}
-        <div className="m-toolbar-session" role="group" aria-label={translate("Ongoing work")}><SessionSwitchButton id="mobile-session-switch" /><SupervisionButton id="mobile-supervision" /></div>
+        {/* Work in flight is neither a room nor an action of this view: its own quiet group. Conversations sit in the navigation. */}
+        <div className="m-toolbar-session" role="group" aria-label={translate("Ongoing work")}><SessionSwitchButton id="mobile-session-switch" /></div>
         <div className="m-toolbar-actions">
           {view === 'graph' && graphRun && <button className="m-quiet" aria-label={translate("Open Run Details")} onClick={(event) => { event.currentTarget.focus(); select(graphRun.id); }}>{translate("Details")}</button>}
           {view === 'overview' && <button className="m-quiet" onClick={(event) => { event.currentTarget.focus(); setProjectStart(true); }}>{translate("New project")}</button>}

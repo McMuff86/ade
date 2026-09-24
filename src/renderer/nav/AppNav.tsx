@@ -21,6 +21,9 @@ const ICONS: Record<AppView, ReactNode> = {
   graph: <><circle cx="12" cy="5" r="2.4" /><circle cx="5" cy="18" r="2.4" /><circle cx="19" cy="18" r="2.4" /><path d="M12 7.4v4M10.5 13l-4 3M13.5 13l4 3" /></>,
 };
 
+/** Speech bubble for the conversations entry, drawn on the same grid as the room icons. */
+const CONVERSATIONS_ICON = <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 9.5h8M8 12.5h5" />;
+
 export function NavIcon({ view }: { view: AppView }): JSX.Element {
   useLocale();
   return <svg className="appnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[view]}</svg>;
@@ -34,6 +37,12 @@ export function AppNav(props: {
   /** id of the panel the tabs control (tablet). */
   controls?: string;
   className?: string;
+  /**
+   * Conversations (project supervision, chat & voice) open as a dialog over the
+   * current room, so they are a button after the tabs rather than a tab. It
+   * stays visible when the room list is collapsed.
+   */
+  conversations?: { id: string; onOpen: () => void };
 }): JSX.Element {
   useLocale();
   const { current, onSelect, idPrefix } = props;
@@ -82,6 +91,13 @@ export function AppNav(props: {
           </div>
         ))}
       </div>
+      {props.conversations && <div className="appnav-extra">
+        <button id={props.conversations.id} type="button" className="appnav-tab" aria-haspopup="dialog"
+          onClick={(event) => { event.currentTarget.focus(); props.conversations!.onOpen(); }}>
+          <svg className="appnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{CONVERSATIONS_ICON}</svg>
+          <span className="appnav-label">{translate('Conversations')}</span>
+        </button>
+      </div>}
     </nav>
   );
 }

@@ -37,7 +37,7 @@ import { ConfigHealthBanner } from './ConfigHealthBanner';
 import { SessionNavigationContext, SessionSwitchButton } from './sessions/SessionSwitcher';
 import { DesktopSessionSwitcher } from './sessions/DesktopSessionSwitcher';
 import { DesktopSupervision } from './supervision/DesktopSupervision';
-import { SupervisionButton, SupervisionContext } from './supervision/SupervisionGraph';
+import { SupervisionContext } from './supervision/SupervisionGraph';
 import { AppNav } from './nav/AppNav';
 import { DesktopTaskReminders } from './organizer/DesktopTaskReminders';
 const DesktopOrganizer = lazy(() => import('./organizer/DesktopOrganizer').then(module => ({ default: module.DesktopOrganizer })));
@@ -90,7 +90,7 @@ export function App() {
           ade<span className="logotype-cursor">_</span>
         </span>
 
-        <AppNav current={mode} onSelect={setMode} idPrefix="mode-tab" />
+        <AppNav current={mode} onSelect={setMode} idPrefix="mode-tab" conversations={{ id: 'desktop-supervision', onOpen: () => setSupervision({}) }} />
 
         <span className="spacer" />
 
@@ -98,7 +98,6 @@ export function App() {
             sits apart from the navigation and from administration. */}
         <div className="titlebar-session" role="group" aria-label={translate("Ongoing work")}>
           <SessionSwitchButton id="desktop-session-switch" />
-          <SupervisionButton id="desktop-supervision" />
         </div>
 
         <div className="titlebar-admin" role="group" aria-label={translate("Administration")}>

@@ -90,6 +90,33 @@ require(${JSON.stringify(resolve('out/main/index.js'))});`);
   await page.setViewportSize({ width: 960, height: 650 });
   check('voice tab with tuning fits narrow desktop', await section.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await page.screenshot({ path: resolve('test-results/speech/voice-tab.png') });
+
+  // Conversations sit in the title bar navigation, after the rooms; the studio head switches the default voice and speaks it.
+  await page.getByRole('button', { name: 'Schließen', exact: true }).click(); await section.waitFor({ state: 'hidden' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const conversations = page.locator('#desktop-supervision');
+  const [entryBox, graphBox] = [await conversations.boundingBox(), await page.getByRole('tab', { name: 'Graph', exact: true }).boundingBox()];
+  check('desktop conversations entry sits in the title bar navigation after the rooms', await page.locator('.titlebar .appnav #desktop-supervision').count() === 1
+    && !!entryBox && !!graphBox && Math.abs(entryBox.y - graphBox.y) < 4 && entryBox.x > graphBox.x && await conversations.getAttribute('aria-haspopup') === 'dialog'
+    && await page.locator('.titlebar-session #desktop-supervision').count() === 0);
+  await conversations.click(); await page.locator('#conversation-mode-casual').click();
+  const casual = page.getByRole('dialog', { name: 'Plaudern & Stimme', exact: true });
+  const studio = casual.getByRole('region', { name: 'Stimmenstudio', exact: true });
+  const picker = studio.getByLabel('Standardstimme', { exact: true }); await picker.waitFor();
+  check('desktop studio head shows the saved default voice', await picker.inputValue() === female);
+  await studio.getByRole('group', { name: 'Beispielsätze', exact: true }).getByRole('button', { name: 'Geschichte', exact: true }).click();
+  await picker.selectOption(male);
+  await studio.getByText('Roger ist jetzt die Standardstimme', { exact: false }).waitFor();
+  const defaultPreview = studio.getByLabel('Hörprobe der Standardstimme', { exact: true });
+  const played = await defaultPreview.evaluate(node => new Promise<boolean>(done => { const audio = node as HTMLAudioElement; if (audio.ended || !audio.paused) done(true); else { audio.addEventListener('play', () => done(true), { once: true }); setTimeout(() => done(false), 15_000); } }));
+  check('the new default voice plays by itself', played);
+  const spoken = JSON.parse(readFileSync(join(root, 'request.json'), 'utf8'));
+  const saved = (await page.evaluate(() => window.ade.invoke('config:get'))).settings;
+  check('desktop head switch saves the default and keeps the saved delivery', saved.speechVoiceId === male && saved.speechTuning?.stability === 0.6);
+  check('desktop default preview speaks the chosen sentence with v3 and the saved stability', spoken.model_id === 'eleven_v3' && String(spoken.text).startsWith('Es war einmal') && spoken.voice_settings.stability === 0.6);
+  await page.screenshot({ path: resolve('test-results/speech/voice-studio.png') });
+  await page.keyboard.press('Escape'); await casual.waitFor({ state: 'hidden' });
+  check('closing the studio returns focus to the conversations entry', await conversations.evaluate(node => node === document.activeElement));
   console.log(`Speech Electron: ${passed} passed, 0 failed`);
 })().catch(error => { console.error(error); console.log(`Speech Electron: ${passed} passed, 1 failed`); process.exitCode = 1; })
   .finally(async () => { await app?.close(); if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected speech fixture path'); rmSync(root, { recursive: true, force: true }); });

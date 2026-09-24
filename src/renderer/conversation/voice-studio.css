@@ -1,13 +1,20 @@
 /* Voice studio: one calm card. Copper is spent on the sample buttons only; everything else is quiet. */
 .voice-studio { border: 1px solid var(--line); border-radius: var(--radius-m, 8px); min-width: 0; background: var(--panel); }
-.voice-studio > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; cursor: pointer; padding: 12px 14px; min-height: 44px; box-sizing: border-box; list-style: none; }
-.voice-studio > summary::-webkit-details-marker { display: none; }
-.voice-studio > summary::before { content: '▸'; color: var(--muted); margin-right: 8px; font-size: 12px; }
-.voice-studio[open] > summary::before { content: '▾'; }
+/* Head: disclosure on the left, the default voice (a live setting, not a summary) on the right. */
+.voice-studio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 6px 14px 6px 6px; min-height: 44px; box-sizing: border-box; }
+.voice-studio .voice-studio-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; border: 0; border-radius: var(--radius-s, 5px); background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.voice-studio .voice-studio-toggle:hover { background: var(--raised, var(--bg)); }
+.voice-studio-caret { color: var(--muted); font-size: 12px; }
 .voice-studio-title { font-weight: 600; font-size: 13px; }
 .voice-studio-title span { color: var(--muted); font-weight: 400; margin-inline-start: 8px; }
-.voice-studio-default { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.voice-studio-default { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.voice-studio-default > label { flex: none; white-space: nowrap; }
+.voice-studio-default select { min-width: 0; max-width: min(340px, 60vw); min-height: 32px; padding: 4px 8px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-s, 5px); }
+.voice-studio-status { display: grid; gap: 6px; min-width: 0; }
+.voice-studio > .voice-studio-status { padding: 0 14px 10px; }
+.voice-studio-status p { margin: 0; }
 .voice-studio-body { display: grid; gap: 14px; padding: 0 14px 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.voice-studio-body[hidden] { display: none; }
 .voice-studio-body :is(input, select, textarea, button) { font: inherit; }
 .voice-studio-body :is(input:not([type=range]):not([type=checkbox]), select, textarea) { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-s, 5px); padding: 7px 9px; min-width: 0; }
 .voice-studio-body :is(input:not([type=range]):not([type=checkbox]), select, button) { min-height: 36px; }
@@ -21,6 +28,15 @@
 .voice-studio-body output { float: inline-end; font-variant-numeric: tabular-nums; font-family: var(--mono, monospace); font-size: 12px; }
 .voice-studio-body label { display: grid; gap: 5px; font-size: 12px; min-width: 0; }
 .voice-studio-text { display: grid; gap: 8px; }
+.voice-studio-text-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.voice-studio-text-head > label { display: inline; }
+/* Ready-made sentences: quiet pills; the chosen one carries the accent rule, never a fill. */
+.voice-studio-sentences { display: flex; flex-wrap: wrap; gap: 6px; }
+.voice-studio-body .voice-studio-chip { padding: 0 11px; border-radius: 999px; font-size: 12px; color: var(--muted); background: transparent; }
+.voice-studio-body .voice-studio-chip:hover:not(:disabled) { color: var(--text); background: var(--raised, var(--bg)); }
+.voice-studio-body .voice-studio-chip[aria-pressed=true] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.voice-studio-body .voice-studio-play { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.voice-studio-play svg { width: 11px; height: 11px; flex: none; color: var(--accent); }
 .voice-studio-text textarea { width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.45; }
 .voice-studio-text-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .voice-studio-text-tools .conversation-note { margin-right: auto; }
@@ -40,6 +56,10 @@
 .voice-studio-sample audio { width: 100%; }
 .voice-studio-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; gap: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: var(--radius-m, 8px); }
 .voice-studio-pending { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-m, 8px); }
-.voice-studio :is(summary, input, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 620px) { .voice-studio-variants { grid-template-columns: 1fr; } .voice-studio-default { margin-left: 0; } }
-@media (pointer: coarse) { .voice-studio-body :is(input:not([type=range]):not([type=checkbox]), select, button) { min-height: 44px; } }
+.voice-studio :is(input, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 620px) {
+  .voice-studio-variants { grid-template-columns: 1fr; }
+  .voice-studio-default { margin-left: 0; flex: 1 1 100%; padding-inline-start: 8px; }
+  .voice-studio-default select { flex: 1; max-width: none; }
+}
+@media (pointer: coarse) { .voice-studio :is(.voice-studio-toggle, .voice-studio-default select), .voice-studio-body :is(input:not([type=range]):not([type=checkbox]), select, button) { min-height: 44px; } }
