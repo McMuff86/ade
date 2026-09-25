@@ -1,5 +1,22 @@
 # ADE — aktuelle Übergabe
 
+## Aktiviert: Stimmenstudio-Hinweis oben, gemeinsamer Stand `711e8a9` (25. September 2026, 06:15 CEST)
+
+PID 67936 (Source `0eb2723b4ffe68ee47ea`) mit `--ade-quit` beendet: erster
+Live-Einsatz, nach 1,6 s beendet, `main.log` meldet „quit requested by a second
+launch“; eine offene WSL-Sitzung (`/home/mcmuff/clawd`) endete mit Adis
+Zustimmung. Profil gesichert nach `ADE-Backups/StudioPendingFix-20260925-061412`.
+`pnpm build` aus `711e8a9`, Start aus dem Repository wie die
+Startmenü-Verknüpfung: **06:15 CEST**, PID **43664**, Source
+**`091b23f1d1c0d1856a67`**. Listener nur `127.0.0.1:4317`, HTTPS liefert
+`assets/index-BFq6yEg3.js` wie `out/mobile`. Inhalt: Hinweis auf eine
+unbestätigte Erzeugung steht oben im Stimmenstudio, dazu `fe739b4` (Fehlerspur
+im `main.log`, `--ade-quit`) und `e5946b6`. Nachweise in [Status](STATUS.md):
+voller isolierter Lauf 38/39; offen ist `terminal-latency` (Anzeige im
+Tablet-Terminal nach dem Tastatur-Resize, zeitweise). Tablet-Seite neu laden;
+hängt das Studio noch an einer alten unbestätigten Erzeugung, oben
+„Unbestätigte Erzeugung verwerfen“ wählen.
+
 ## Aktiviert: zusammengeführter Stand `fe739b4` (24. September 2026, 22:53 CEST)
 
 main enthält beide Stände: `e5946b6` (Stimmenstudio-Kopf, Beispielsätze,
