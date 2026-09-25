@@ -1,5 +1,25 @@
 # ADE implementation status
 
+## Tablet-Recovery und Gespräch → Arbeitsstart (25. September 2026)
+
+Der volle Remote-Belegspeicher (500 Einträge) blockierte die Terminalübernahme.
+Grenze auf 10.000 / 8 MiB erhöht, alte Belege bleiben erhalten. Projekt-Shortcuts
+nutzen jetzt das gespeicherte passende Profil einschliesslich Bypass, Modell und
+Reasoning. Übernahmefehler sind auch bei eingeklappten Bedienelementen sichtbar.
+Gesprächsvorschläge können Projektanlage und Erstauftrag kombinieren und bei
+bestehenden Projekten Koordinieren mit der Auftragsbestätigung einschalten.
+Knuckles/Rhino-Tablet-Arbeit ist separat auf main/master committet.
+[Belege, Grenzen und aktueller Betriebsstand](TABLET_RECOVERY_2026-09-25.md).
+
+## Manueller Testbuild: Projekt aus Gespräch anlegen (25. September 2026)
+
+Vorschlag mit PROJECT.md/AGENTS.md und Button auf PC/Tablet implementiert;
+optional privates GitHub-Repository, Verlaufssuche und Kontextfortsetzung.
+Alle drei Typprüfungen und beide Produktionsbuilds bestanden; persönlich um
+21:34 CEST aktiviert, Source `ad52ed19f44b0e39f7a8`. Funktions- und Playwright-Tests auf ausdrücklichen Wunsch
+bis nach dem persönlichen Test aufgeschoben. Noch keine vollständige Abnahme.
+[Vertrag, Aktivierung und offene Prüfungen](CONVERSATION_PROJECT_CREATION.md).
+
 ## Stimmenstudio: unbestätigte Erzeugung sichtbar oben; voller Lauf auf dem gemeinsamen Stand (25. September 2026)
 
 Adi fand das Stimmenstudio auf dem Tablet komplett ausgegraut: Eine Erzeugung
@@ -1271,3 +1291,8 @@ fixture repositories rather than depending on any personal checkout.
   API with explicit device grants. Terminal, file and profile access also use
   dedicated APIs and desktop grants. Direct LAN binds, router forwarding,
   Tailscale Funnel and public tunnels are unsupported.
+
+
+## Conversation project follow-up, 2026-09-25
+
+Conversation project creation follow-up: added real local Git/file contract checks and a paired tablet browser flow (preview, permissions, lost reply, recovery, Coordinate mode and context continuation). Verification results will be recorded in CONVERSATION_PROJECT_CREATION.md after execution.

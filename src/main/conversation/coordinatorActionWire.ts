@@ -5,7 +5,9 @@ export function coordinatorActionForWire(a: CoordinatorActionSummary): Coordinat
   return { ...a, projectName: redactForWire(a.projectName, 200), agentName: a.agentName === null ? null : redactForWire(a.agentName, 200), error: redactForWire(a.error, 2000) };
 }
 export function coordinatorActionDetailForWire(d: CoordinatorActionDetail): CoordinatorActionDetail {
-  return { action: coordinatorActionForWire(d.action), text: d.text === null ? null : redactForWire(d.text, 4000), nextStep: d.nextStep === null ? null : redactForWire(d.nextStep, 4000) };
+  return { action: coordinatorActionForWire(d.action), text: d.text === null ? null : redactForWire(d.text, 4000), nextStep: d.nextStep === null ? null : redactForWire(d.nextStep, 4000),
+    ...(d.project ? { project: { kind: 'project' as const, name: redactForWire(d.project.name, 80), context: redactForWire(d.project.context, 8000),
+      agentsMd: redactForWire(d.project.agentsMd, 16_000), githubRepo: redactForWire(d.project.githubRepo, 100) } } : {}) };
 }
 export function coordinatorActionWorkForWire(work: CoordinatorActionWork): CoordinatorActionWork {
   const task = work.task;

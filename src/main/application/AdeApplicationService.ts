@@ -488,7 +488,10 @@ export class AdeApplicationService {
       authorize(); const service = factory(); const input = requireRecord(payload, 'conversation');
       const available = (id: string) => {
         const detail = service.detail(id);
-        if (!detail.available) throw new RemoteApiError(403, 'scope_not_granted', translate("The project scope or profile has changed. Review the previous conversation on the PC and start a new one."));
+        // Historical context is readable with current global grants. Mutating
+        // a native thread still requires its exact original authority below.
+        this.resources.assertAgent(context.principal, detail.profileId);
+        if (command && !detail.available) throw new RemoteApiError(403, 'scope_not_granted', translate("The project scope or profile has changed. Review the previous conversation on the PC and start a new one."));
         return detail;
       };
       if (!command) {
@@ -496,7 +499,7 @@ export class AdeApplicationService {
           requireKeys(input, ['operation'], 'conversation');
           let canWrite = false;
           try { ledger.permits(context, 'runs:write'); canWrite = true; } catch (error) { if (!(error instanceof RemoteApiError) || error.code !== 'scope_not_granted') throw error; }
-          return { conversations: service.query().filter(c => c.available), canWrite };
+          return { conversations: service.query().filter(c => this.resources.agent(context.principal, c.profileId)), canWrite };
         }
         if (!conversationId(input.conversationId)) throw new RemoteApiError(400, 'invalid_payload');
         if (input.operation === 'detail') {
@@ -665,7 +668,7 @@ export class AdeApplicationService {
       authorize(); const input = requireRecord(payload, 'conversation action');
       if (!conversationId(input.conversationId)) throw new RemoteApiError(400, 'invalid_payload');
       const conversationId_ = input.conversationId;
-      const current = () => { authorize(); if (!conversations().detail(conversationId_).available) throw new RemoteApiError(403, 'scope_not_granted'); };
+      const current = () => { authorize(); this.resources.assertAgent(context.principal, conversations().detail(conversationId_).profileId); };
       current(); const service = factory();
       if (!command) {
         if (!validCoordinatorActionQuery(input)) throw new RemoteApiError(400, 'invalid_payload');
@@ -677,11 +680,20 @@ export class AdeApplicationService {
       if (Object.hasOwn(input, 'commandId')) throw new RemoteApiError(400, 'invalid_payload');
       const native = { ...input, commandId: 'device:' + createHash('sha256').update(`${context.principal.id}\n${context.idempotencyKey}`).digest('hex') };
       if (!validCoordinatorActionCommand(native)) throw new RemoteApiError(400, 'invalid_payload');
+      const actionAccess = () => {
+        current();
+        const detail = service.detail(conversationId_, native.actionId);
+        if (detail.project && native.operation === 'confirm') {
+          ledger.permits(context, 'catalog:write'); ledger.permits(context, 'workspace:write');
+          if (detail.project.githubRepo) ledger.permits(context, 'projectGit:publish');
+        }
+      };
+      actionAccess();
       const receipt = await ledger.execute(context, 'conversation:actionsCommand', 'runs:write', input, () => {
-        const execute = () => { current(); return service.command(native, current); };
+        const execute = () => { actionAccess(); return service.command(native, actionAccess); };
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
-      current(); return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
+      actionAccess(); return { ...receipt.value, replayed: receipt.replayed || receipt.value.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
   }
 

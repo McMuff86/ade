@@ -3,7 +3,7 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectWorkspaceView, SessionLaunchChoice, SessionLaunchOptions } from '../../shared/remote';
-import { SESSION_LAUNCH_LABELS } from '../../shared/sessionLaunch';
+import { SESSION_LAUNCH_LABELS, projectLaunchSelection, projectLaunchLabel } from '../../shared/sessionLaunch';
 import { sessionStateLabel } from '../../shared/sessionState';
 import { useSessions } from '../stores/sessions';
 import { TerminalPane } from '../terminal/TerminalPane';
@@ -53,10 +53,11 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
   const open = async (fresh = false, value = choice) => {
     if (lock.current || launchDisabled(value)) return;
     setChoice(value);
-    const existing = !fresh && reusableProjectSession(available, workspace.id, workspace.branch, value, profileId);
+    const launch = projectLaunchSelection(value, options, profileId);
+    const existing = !fresh && reusableProjectSession(available, workspace.id, workspace.branch, launch.choice, launch.profileId);
     if (existing) { setSelected(existing.id); focusTerminal(); return; }
     lock.current = true; setBusy(true); setError('');
-    try { const session = await useSessions.getState().createProjectSession(workspace.id, workspace.branch, value, value.mode === 'agent' ? profileId : undefined); if (live.current) { setSelected(session.id); focusTerminal(); } }
+    try { const session = await useSessions.getState().createProjectSession(workspace.id, workspace.branch, launch.choice, launch.profileId); if (live.current) { setSelected(session.id); focusTerminal(); } }
     catch (reason) { if (live.current) setError(String(reason)); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
@@ -96,10 +97,10 @@ export function ProjectTerminal({ workspace, initialSessionId }: { workspace: Pr
     <div className="project-quick-start" role="group" aria-label={translate("Open CLI directly in the workspace")}>
       {([{ mode: 'codex', label: translate("Open Codex") }, { mode: 'claude', label: translate("Open the Claude Code") }, { mode: 'shell', label: translate("Open empty terminal") }] as const)
         .map(({ mode, label }) => <button key={mode} ref={mode === 'shell' ? launcher : undefined} disabled={launchDisabled({ mode })}
-          title={options?.choices.find((item) => item.mode === mode)?.notice ?? `${workspace.name} · ${workspace.branch}`}
-          onClick={() => void open(false, { mode })}>{label}</button>)}
+          title={`${workspace.name} · ${workspace.branch} · ${projectLaunchLabel({ mode }, options)}`}
+          onClick={() => void open(false, { mode })}>{label}{mode !== 'shell' && options?.profiles?.some(p => p.defaultForCli && p.runtime === mode) ? ` · ${projectLaunchLabel({ mode }, options)}` : ''}</button>)}
     </div>
-    <p className="project-launch-context">{translate("Directly to")}{" "}{workspace.name} · {workspace.branch}{translate("An agent profile is optional.")}</p>
+    <p className="project-launch-context">{translate("Directly to")}{" "}{workspace.name} · {workspace.branch} · {projectLaunchLabel(choice, options, profileId)}</p>
     <div className="project-workspace-actions"><label>{translate("Working with:")}<select aria-label={translate("Project CLI")} value={choice.mode} disabled={busy}
       onChange={(event) => { const mode = event.target.value as SessionLaunchChoice['mode']; setChoice(mode === 'ollama' ? { mode, model: options?.models[0] ?? '' } : { mode }); }}>
       {Object.entries(SESSION_LAUNCH_LABELS).map(([mode, label]) => <option key={mode} value={mode}>{label}</option>)}

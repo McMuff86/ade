@@ -3,8 +3,8 @@ import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdi
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { conversationId } from '../../shared/conversation';
-import { exactActionKeys, validCoordinatorActionInput, type CoordinatorActionInput, type CoordinatorActionState } from '../../shared/coordinatorActions';
-import { supervisionId, type SupervisionCommand } from '../../shared/supervision';
+import { coordinatorFirstTask, exactActionKeys, validCoordinatorActionInput, type CoordinatorActionInput, type CoordinatorActionState } from '../../shared/coordinatorActions';
+import { supervisionId, validSupervisionCommand, type SupervisionCommand } from '../../shared/supervision';
 import { assertNoLinks } from '../repositories/pathDiscipline';
 import { conversationDigest, type ConversationBinding } from './ConversationStore';
 
@@ -26,16 +26,23 @@ export function validCoordinatorActionState(v: unknown): v is CoordinatorActionS
     && conversationId(a.id) && conversationId(a.conversationId) && conversationId(a.turnId)
     && record(a.binding) && exactActionKeys(a.binding, ['profileId', 'authoritySha256', 'toolContract']) && supervisionId(a.binding.profileId) && supervisionId(a.binding.toolContract) && digest(a.binding.authoritySha256)
     && digest(a.sourceKey) && digest(a.sourceDigest) && validCoordinatorActionInput(a.input) && supervisionId(a.repositoryId)
-    && (a.input.kind === 'task' ? digest(a.workerDigest) : a.workerDigest === null)
+    && (coordinatorFirstTask(a.input) ? digest(a.workerDigest) : a.workerDigest === null)
     && ['proposed', 'dismissed', 'dispatching', 'applied', 'uncertain'].includes(String(a.state)) && count(a.createdAt) && count(a.updatedAt)
     && a.commandId === `coordinator:${a.id}` && (a.runId === null || conversationId(a.runId)) && (a.taskId === null || conversationId(a.taskId))
     && (a.runId === null) === (a.taskId === null) && typeof a.error === 'string' && a.error.length <= 2000
-    && (a.input.kind === 'task' ? a.handoffCommand === null : a.runId === null && (a.handoffCommand === null || record(a.handoffCommand)
+    && (a.input.kind === 'project' ? (a.input.start || a.runId === null) && (a.handoffCommand === null || validSupervisionCommand(a.handoffCommand)
+      && a.handoffCommand.operation === 'project' && a.handoffCommand.commandId === a.commandId && a.handoffCommand.repositoryId === a.repositoryId
+      && a.handoffCommand.mode === 'coordinate' && a.handoffCommand.objective === a.input.context)
+      : a.input.kind === 'task' ? (a.handoffCommand === null || a.input.coordinate === true && validSupervisionCommand(a.handoffCommand)
+        && a.handoffCommand.operation === 'project' && a.handoffCommand.commandId === a.commandId
+        && a.handoffCommand.repositoryId === a.repositoryId && a.handoffCommand.mode === 'coordinate')
+      : a.runId === null && (a.handoffCommand === null || record(a.handoffCommand)
       && exactActionKeys(a.handoffCommand, ['operation', 'commandId', 'revision', 'projectId', 'text', 'nextStep', 'linkId'])
       && a.handoffCommand.operation === 'remember' && a.handoffCommand.commandId === a.commandId && count(a.handoffCommand.revision)
       && a.handoffCommand.projectId === a.input.projectId && a.handoffCommand.text === a.input.text && a.handoffCommand.nextStep === a.input.nextStep && a.handoffCommand.linkId === null))
     && (!['proposed', 'dismissed'].includes(String(a.state)) || a.runId === null && a.handoffCommand === null)
-    && (a.state !== 'applied' || (a.input.kind === 'task' ? a.runId !== null : a.handoffCommand !== null)))) return false;
+    && (a.state !== 'applied' || (!coordinatorFirstTask(a.input) || a.runId !== null)
+      && (a.input.kind === 'task' || a.handoffCommand !== null)))) return false;
   const actions = v.actions as StoredCoordinatorAction[];
   return new Set(actions.map(a => a.id)).size === actions.length && new Set(actions.map(a => a.sourceKey)).size === actions.length
     && v.commands.every(c => record(c) && exactActionKeys(c, ['id', 'digest', 'actionId']) && supervisionId(c.id) && digest(c.digest) && actions.some(a => a.id === c.actionId))

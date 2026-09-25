@@ -19,6 +19,7 @@ import { terminalLatencyFlow } from './helpers/terminalLatencyFlow';
 import { PNG } from 'pngjs';
 import { inspectionFixtureCode, runInspectionFlow } from './helpers/runInspectionFlow';
 import { projectWorkspaceLaunchFlow } from './helpers/projectWorkspaceLaunchFlow';
+import { projectDefaultProfileFlow } from './helpers/projectDefaultProfileFlow';
 import { projectGitFlow } from './helpers/projectGitFlow';
 import { terminalHomeFlow } from './helpers/terminalHomeFlow';
 import { workspaceAssignmentFlow } from './helpers/workspaceAssignmentFlow';
@@ -134,6 +135,9 @@ require(${JSON.stringify(mainEntry())});
   check('desktop grant explains actual Windows-user authority', (await grants.innerText()).includes('keine Sandbox'));
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   if (!process.argv.includes('--wsl-only')) {
+  if (process.argv.includes('--project-profile-only')) {
+    await projectDefaultProfileFlow(desktop, page, root, evidence, check); return;
+  }
   if (process.argv.includes('--session-navigation-only')) {
     await sessionNavigationFlow(desktop, page, root, check); return;
   }

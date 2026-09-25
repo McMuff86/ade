@@ -43,6 +43,7 @@ import { SupervisionService } from './supervision/SupervisionService';
 import { createCoordinatorConversation } from './conversation/CoordinatorConversation';
 import { CoordinatorActionService } from './conversation/CoordinatorActionService';
 import { CoordinatorActionStore } from './conversation/CoordinatorActionStore';
+import { ConversationProjectService } from './conversation/ConversationProjectService';
 import type { ConversationService } from './conversation/ConversationService';
 import { CONVERSATION_NOT_ACCEPTED } from '../shared/conversation';
 import { importPhoto } from './photos';
@@ -387,7 +388,9 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const actionService = (): CoordinatorActionService => coordinatorActions ??= new CoordinatorActionService(new CoordinatorActionStore(join(app.getPath('userData'), 'ade', 'conversation-actions.json')), {
     config: store, supervision: supervisionService(),
     authorize: (id, binding, requireOpen) => conversationService().assertActionAuthority(id, binding, requireOpen),
+    afterProjectChange: (id, binding) => conversationService().continuationAuthority(id, binding),
     submit: (input, authorize, reserved) => runCoordinator!.submitSingleTask(input, authorize, reserved),
+    createProject: (input, authorize, reserved) => conversationProjects.create(input, authorize, reserved),
     report: id => orchestration!.report(id), questions: id => runQuestions.view(id),
     changed: () => broadcastToRenderers(IPC_EVENTS.ConversationChanged, null),
   });
@@ -447,6 +450,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
   const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
+  const conversationProjects = new ConversationProjectService(store, workspaceProvision, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   handle(IPC.ProjectCreate, async (input) => {
     if (!store.get().settings.projectDefaults) throw new Error(translate("ade: Under Settings, save the project root folder first."));
     const result = await workspaceProvision.execute({ operation: 'project-create', input });

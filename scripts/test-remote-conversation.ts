@@ -120,8 +120,9 @@ void (async () => {
   await refuses('selected-project grant cannot replay a previous global command', () => app.conversation(sendKey, send, true), 'scope_not_granted');
   devices.setAdminScopes('tablet', ['workspace:read'], { mode: 'all' });
   authority = 'changed';
-  check('changed project authority removes old history from remote inventory', !(await query()).length && service.detail(id).turns.length === 1);
-  await refuses('old context is not readable through a remembered ADE ID', () => app.conversation(context(), { operation: 'detail', conversationId: id }, false), 'scope_not_granted');
+  check('changed project authority retains readable history without execution authority', (await query()).some(item => item.id === id && !item.available) && service.detail(id).turns.length === 1);
+  check('global reader can recover the old context after project creation', !!(await app.conversation(context(), { operation: 'detail', conversationId: id }, false)));
+  await refuses('old native context cannot send after project authority changes', () => app.conversation(context(), { ...send, text: 'stale new turn' }, true), 'scope_not_granted');
   authority = 'original';
   // An asynchronous ledger admission is a real revocation boundary.
   const racing = app.conversation(context(), { operation: 'create', profileId: 'profile' }, true);

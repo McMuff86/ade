@@ -36,7 +36,7 @@ export function CoordinatorActions({ conversationId, port, online, canWrite, can
     {!online && <p role="status">{translate("PC not connected. Check jobs after reconnection.")}</p>}
     {error && <p role="alert">{localizeAppMessage(error)} <button type="button" disabled={!online} onClick={() => setReload(n => n + 1)}>{translate("Reload jobs")}</button></p>}
     {!actions && !error && online && <p role="status">{translate("Loading jobs…")}</p>}
-    {actions?.length === 0 && <p>{translate("No suggestions yet. Ask ADE for a handover or Codex project assignment. You'll decide whether to save or start here.")}</p>}
+    {actions?.length === 0 && <p>{translate('Ask ADE to create a project from this conversation, save a handoff or prepare a project job. Your proposal will appear here.')}</p>}
     {actions?.map(action => <ActionCard key={action.id} action={action} port={port} online={online} canWrite={canWrite} canConfirm={canConfirm}
       changed={() => { heading.current?.focus(); setReload(n => n + 1); }} />)}
   </section>;
@@ -44,7 +44,7 @@ export function CoordinatorActions({ conversationId, port, online, canWrite, can
 function ActionCard({ action, port, online, canWrite, canConfirm, changed }: { action: CoordinatorActionSummary; port: CoordinatorActionsPort; online: boolean; canWrite: boolean; canConfirm: boolean; changed(): void }) {
   useLocale();
   const [detail, setDetail] = useState<CoordinatorActionDetail | null>(null); const [work, setWork] = useState<CoordinatorActionWork | null>(null);
-  const [expanded, setExpanded] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [expanded, setExpanded] = useState(action.kind === 'project'); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const live = useRef(true); const lock = useRef(false); const header = useRef<HTMLHeadingElement>(null);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   useEffect(() => {
@@ -52,8 +52,8 @@ function ActionCard({ action, port, online, canWrite, canConfirm, changed }: { a
     const refresh = async () => {
       if (!online || !expanded) return;
       try {
-        if (action.kind === 'handoff') { const value = await port.detail(action.conversationId, action.id); if (active) setDetail(value); }
-        else if (action.runId) { const value = await port.work(action.conversationId, action.id); if (active) setWork(value); }
+        if (action.kind === 'handoff' || action.kind === 'project') { const value = await port.detail(action.conversationId, action.id); if (active) setDetail(value); }
+        if (action.runId) { const value = await port.work(action.conversationId, action.id); if (active) setWork(value); }
         if (active) setError('');
       } catch (reason) { if (active) { setDetail(null); setWork(null); setError(reason instanceof Error ? reason.message : translate("Job details could not be loaded.")); } }
       finally { if (active && action.runId && ['queued', 'running'].includes(action.taskStatus ?? '')) timer = setTimeout(() => { void refresh(); }, 2000); }
@@ -69,17 +69,29 @@ function ActionCard({ action, port, online, canWrite, canConfirm, changed }: { a
     catch (reason) { if (live.current) setError(reason instanceof Error ? reason.message : translate("The decision could not be confirmed. Check the job status again.")); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
-  return <article className="conversation-action" aria-label={`${action.kind === 'handoff' ? translate("Handoff") : translate("Project job")} · ${action.projectName}`}>
-    <h4 ref={header} tabIndex={-1}>{action.kind === 'handoff' ? translate("Handoff") : translate("Codex project job")} · {action.projectName}</h4>
+  const title = action.kind === 'project' ? translate('Project from conversation') : action.kind === 'handoff' ? translate('Handoff') : translate('Codex project job');
+  return <article className="conversation-action" aria-label={`${title} · ${action.projectName}`} aria-busy={busy}>
+    <h4 ref={header} tabIndex={-1}>{title} · {action.projectName}</h4>
     {action.agentName && <p>{translate("Profile:")}{" "}{action.agentName}</p>}
+    {action.permissionMode && <p>{translate('Permission mode: {{mode}}', { mode: action.permissionMode === 'bypass' ? 'Bypass' : action.permissionMode })}</p>}
     <p role="status">{STATES[action.state]}{action.taskStatus ? ` · ${TASKS[action.taskStatus] ?? action.taskStatus}` : ''}</p>
     {action.kind === 'task' && action.state === 'proposed' && <p>{translate("Starts your own Codex task in this project. Results and queries appear in this task.")}</p>}
+    {action.kind === 'project' && <p>{translate('Creates a new project with PROJECT.md and AGENTS.md, ready for coordinated project work.')}</p>}
+    {action.startsWork && action.kind === 'project' && <p>{translate('Also starts the first task described in PROJECT.md with this profile. Results and questions appear here.')}</p>}
+    {action.kind === 'task' && action.coordinatesProject && <p>{translate('Confirmation also sets this project to Coordinate. The existing checkout and branch are preserved; the job uses its own workspace.')}</p>}
+    {action.kind === 'project' && action.state === 'applied' && <p role="status">{translate('Project created. You can open it under Projects or continue this context in a new conversation.')}</p>}
+    {busy && <p role="status">{translate('Applying proposal…')}</p>}
     {action.pendingQuestions > 0 && <p role="status">{action.pendingQuestions}{" "}{translate("open question")}{action.pendingQuestions === 1 ? '' : 'n'}.</p>}
     {action.error && <p role="alert">{localizeAppMessage(action.error)}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}
-    {(action.kind === 'handoff' || action.runId) && <button type="button" aria-expanded={expanded} disabled={!online} onClick={() => setExpanded(v => !v)}>
-      {expanded ? translate("Close details") : action.kind === 'handoff' ? translate("Review handoff") : translate("Open result and questions")}</button>}
-    {expanded && action.kind === 'handoff' && !detail && !error && <p role="status">{translate("Loading handoff…")}</p>}
-    {expanded && detail && <div className="conversation-text"><p>{detail.text}</p><p>{translate("Next step:")}{" "}{detail.nextStep || translate("Not yet established")}</p></div>}
+    {(action.kind !== 'task' || action.runId) && <button type="button" aria-expanded={expanded} disabled={!online} onClick={() => setExpanded(v => !v)}>
+      {expanded ? translate("Close details") : action.kind === 'project' ? translate('Review project files') : action.kind === 'handoff' ? translate("Review handoff") : translate("Open result and questions")}</button>}
+    {expanded && action.kind !== 'task' && !detail && !error && <p role="status">{translate('Loading proposal…')}</p>}
+    {expanded && detail && action.kind === 'handoff' && <div className="conversation-text"><p>{detail.text}</p><p>{translate("Next step:")}{" "}{detail.nextStep || translate("Not yet established")}</p></div>}
+    {expanded && detail?.project && <div className="conversation-project-preview">
+      <p>{detail.project.githubRepo ? translate('Private GitHub repository in your signed-in account: {{name}}. The two files are committed and pushed.', { name: detail.project.githubRepo }) : translate('Local Git repository. No GitHub repository requested.')}</p>
+      <details open><summary>PROJECT.md</summary><pre>{detail.project.context}</pre></details>
+      <details><summary>AGENTS.md</summary><pre>{detail.project.agentsMd}</pre></details>
+    </div>}
     {expanded && action.runId && !work && !error && <p role="status">{translate("Loading result and questions…")}</p>}
     {expanded && work && <>
       {work.task?.error && <p role="alert">{localizeAppMessage(work.task.error)}</p>}
@@ -91,8 +103,8 @@ function ActionCard({ action, port, online, canWrite, canConfirm, changed }: { a
         online={online} canAnswer={canWrite} onAnswered={changed} />))}
     </>}
     {action.state === 'proposed' && <div className="conversation-controls">
-      <button type="button" disabled={busy || !online || !canWrite || !canConfirm || action.kind === 'handoff' && !detail}
-        onClick={() => void command('confirm')}>{action.kind === 'handoff' ? translate("Save handoff") : translate("Start job")}</button>
+      <button type="button" disabled={busy || !online || !canWrite || !canConfirm || action.kind !== 'task' && !detail}
+        onClick={() => void command('confirm')}>{action.kind === 'project' ? action.startsWork ? translate('Create project and start work') : translate('Create project from context') : action.kind === 'handoff' ? translate("Save handoff") : translate("Start job")}</button>
       <button type="button" disabled={busy || !online || !canWrite || !canConfirm} onClick={() => void command('dismiss')}>{translate("Discard proposal")}</button>
     </div>}
     {action.state === 'uncertain' && <p>{translate("The job is not restarted. Check the run status on the PC.")}</p>}

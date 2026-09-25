@@ -5,7 +5,7 @@ import { conversationId } from '../../shared/conversation';
 import type { CodexDynamicTool, CodexToolContext } from '../pty/CodexDynamicTools';
 import type { CoordinatorActionService, CoordinatorActionSource } from './CoordinatorActionService';
 
-export const COORDINATOR_ACTION_TOOLS = 'ade-project-actions-v1';
+export const COORDINATOR_ACTION_TOOLS = 'ade-project-actions-v3';
 export function coordinatorActionTools(actions: CoordinatorActionService, config: { get(): AdeConfig }, source: () => CoordinatorActionSource, authorize: () => void): CodexDynamicTool[] {
   const tool = (name: string, description: string, properties: Record<string, unknown>, invoke: (args: Record<string, unknown>, context: CodexToolContext) => unknown): CodexDynamicTool => ({
     name, description, inputSchema: { type: 'object', properties, required: Object.keys(properties), additionalProperties: false },
@@ -25,13 +25,18 @@ export function coordinatorActionTools(actions: CoordinatorActionService, config
     return { text: full.slice(start, end), totalChars: full.length, nextOffset: end < full.length ? end : null };
   };
   return [
+    tool('ade_prepare_project', 'Auf ausdrücklichen Wunsch ein neues Projekt aus diesem Gespräch vorschlagen. Erst der Button erstellt das lokale Git-Repository mit PROJECT.md und AGENTS.md und Modus Koordinieren. context: vollständige Projektbeschreibung, Entscheidungen, offene Fragen und nächster Schritt. agentsMd: konkrete Arbeitsanweisungen inklusive Verweis auf PROJECT.md. githubRepo: leer für lokal, oder gewünschter Repository-Name im angemeldeten GitHub-Konto; wird privat angelegt und initial gepusht. start: null wenn nur Anlage gewünscht; bei ausdrücklich gewünschtem Arbeitsbeginn {agentId, prompt} mit einem Profil aus ade_codex_profiles. Beschreibe den ersten Arbeitsauftrag vollständig auch in context. Eine Bestätigung erstellt dann das Projekt und übergibt genau diesen Auftrag. Keine vorhandenen Projekte überschreiben. Noch keinen Arbeitsstart behaupten.',
+      { name: { type: 'string', maxLength: 80 }, context: { type: 'string', maxLength: 8000 }, agentsMd: { type: 'string', maxLength: 16_000 }, githubRepo: { type: 'string', maxLength: 100 },
+        start: { anyOf: [{ type: 'null' }, { type: 'object', properties: { agentId: id, prompt: { type: 'string', maxLength: 32_000 } }, required: ['agentId', 'prompt'], additionalProperties: false }] } },
+      (args, context) => actions.propose({ ...args, kind: 'project' }, source(), context)),
     tool('ade_codex_profiles', translate("Native Codex profiles for an explicitly desired project assignment. offset starts at 0."), { offset }, args => {
       const profiles = config.get().agents.filter(a => a.runtime === 'codex' && !a.customCommand?.trim() && (!a.homeExecutionBackend || a.homeExecutionBackend === 'native') && a.codexModel && a.codexReasoningEffort);
       const start = pageOffset(args.offset);
-      return { profiles: profiles.slice(start, start + 10).map(a => ({ id: a.id, name: a.name, model: a.codexModel, reasoning: a.codexReasoningEffort })), nextOffset: start + 10 < profiles.length ? start + 10 : null };
+      return { profiles: profiles.slice(start, start + 10).map(a => ({ id: a.id, name: a.name, model: a.codexModel, reasoning: a.codexReasoningEffort, permissionMode: a.permissionMode,
+        preferred: config.get().settings.projectDefaults?.agentId === a.id })), nextOffset: start + 10 < profiles.length ? start + 10 : null };
     }),
     tool('ade_prepare_handoff', translate("Prepare a persistent project handoff only on explicit request. The user must save the proposal in the dialog. This does not start project work."), { projectId: id, text, nextStep: text }, (args, context) => actions.propose({ ...args, kind: 'handoff' }, source(), context)),
-    tool('ade_prepare_task', translate("Prepare only an explicitly requested Codex project job. The project must allow Coordinate mode. The user must start the proposal in the dialog. Brainstorming and ideas saved for later are not work orders."), { projectId: id, agentId: id, prompt: { type: 'string', maxLength: 32_000 } }, (args, context) => actions.propose({ ...args, kind: 'task' }, source(), context)),
+    tool('ade_prepare_task', 'Nur ausdrücklich gewünschten Codex-Projektauftrag vorbereiten. Bei Direct/Observe coordinate:true setzen: Die Bestätigung startet den Auftrag und setzt das bestehende Projekt auf Koordinieren. Kein neues Gespräch oder manueller Moduswechsel nötig. coordinate:false für bereits koordinierte Projekte. Brainstorming ist kein Arbeitsauftrag.', { projectId: id, agentId: id, prompt: { type: 'string', maxLength: 32_000 }, coordinate: { type: 'boolean' } }, (args, context) => actions.propose({ ...args, kind: 'task' }, source(), context)),
     tool('ade_actions', translate("Saved proposals and observed job states for this conversation. Do not claim a confirmed start without an applied receipt."), { offset }, args => {
       const all = actions.list(source().conversationId); const start = pageOffset(args.offset);
       return { actions: all.slice(start, start + 10), nextOffset: start + 10 < all.length ? start + 10 : null };

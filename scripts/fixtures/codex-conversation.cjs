@@ -20,6 +20,7 @@ createInterface({ input: process.stdin }).on('line', line => {
   if (m.method === 'config/read') ok({ config: JSON.parse(process.env.ADE_COORDINATOR_CONFIG || '{}') });
   if (m.method === 'thread/read') ok({ thread: { id: state.id, cwd: process.env.ADE_WRONG_WORKSPACE || state.cwd } });
   if (m.method === 'thread/start' || m.method === 'thread/resume') {
+    state.threadStart = m.params;
     writeFileSync(file, JSON.stringify(state));
     ok({ thread: { id: state.id, cwd: state.cwd, sessionId: 'live-' + process.pid }, model: 'fixture-observed', reasoningEffort: 'high',
       sandbox: { type: m.params.sandbox === 'read-only' && !process.env.ADE_WRONG_SANDBOX ? 'readOnly' : 'dangerFullAccess', networkAccess: false }, approvalPolicy: 'never' });
@@ -34,10 +35,14 @@ createInterface({ input: process.stdin }).on('line', line => {
       finish('turn-' + (state.turn - 1), 'STALE_MUST_NOT_ENTER_NEXT_ANSWER');
       send({ method: 'item/completed', params: { threadId: 'wrong-thread', turnId: id, item: { type: 'agentMessage', text: 'WRONG_PROJECT' } } });
     }
-    if (prompt.startsWith('prepare-handoff:') || prompt.startsWith('prepare-task:')) {
+    if (prompt.startsWith('prepare-project:') || prompt.startsWith('prepare-handoff:') || prompt.startsWith('prepare-task:')) {
+      const project = prompt.startsWith('prepare-project:');
       const handoff = prompt.startsWith('prepare-handoff:');
+      const args = JSON.parse(prompt.slice(project || handoff ? 16 : 13));
+      if (project && !Object.hasOwn(args, 'start')) args.start = null;
+      if (!project && !handoff && !Object.hasOwn(args, 'coordinate')) args.coordinate = false;
       const request = { id: 'tool-request-' + id, method: 'item/tool/call', params: { threadId: state.id, turnId: id, callId: 'call-' + id,
-        tool: handoff ? 'ade_prepare_handoff' : 'ade_prepare_task', arguments: JSON.parse(prompt.slice(handoff ? 16 : 13)) } };
+        tool: project ? 'ade_prepare_project' : handoff ? 'ade_prepare_handoff' : 'ade_prepare_task', arguments: args } };
       tools.set(request.id, id); send(request);
     } else if (prompt.includes('ADE_TABLET_PROJECT_TASK')) {
       const requestId = 'task-question-' + id; questions.set(requestId, id);

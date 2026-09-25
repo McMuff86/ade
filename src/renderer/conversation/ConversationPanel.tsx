@@ -106,6 +106,7 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
       if (attempt.operation === 'send') { setPending(null); setDraft(drafts.text(attempt.conversationId)); input.current?.focus(); }
       await reload();
       if (value.operation === 'close') input.current?.focus();
+      return receipt;
     } catch (reason) {
       if (reason instanceof ConversationNotAcceptedError && (attempt.operation === 'create' || attempt.operation === 'send')) {
         try { drafts.rejected(attempt); if (live.current) { if (attempt.operation === 'create') setCreation(null); else setPending(null); } }
@@ -114,6 +115,18 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
       if (live.current) { setError(port.describe(reason)); await reload(); }
     }
     finally { locked.current = false; if (live.current) setBusy(false); }
+  };
+  const continuationProfileId = profiles.some(p => p.id === profileId) ? profileId
+    : profiles.some(p => p.id === detail?.profileId) ? detail!.profileId : '';
+  const continueContext = async () => {
+    if (!detail || !continuationProfileId) return;
+    const sourceId = detail.id;
+    setProfileId(continuationProfileId);
+    const receipt = await command({ operation: 'create', profileId: continuationProfileId });
+    if (!receipt || !live.current) return;
+    const text = translate('Continue the project context from ADE conversation {{id}}. Read its saved history and check the current project state before suggesting the next step.', { id: sourceId });
+    try { drafts.edit(receipt.conversationId, text); setDraft(text); requestAnimationFrame(() => input.current?.focus()); }
+    catch (reason) { setDraftError(describe(reason)); }
   };
   const questionPort: RunQuestionsPort = {
     read: async () => { throw new Error(translate("Conversation questions are loaded with the history.")); },
@@ -153,7 +166,9 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
       </select></label>}
       {selected && !detail && !error && <p role="status">{translate("Loading conversation…")}</p>}
       {detail && <>
-        {!detail.available && <p role="status">{translate("Profile or project scope has changed. The history remains legible; to continue, start a new conversation.")}</p>}
+        {!detail.available && <div role="status"><p>{translate("Profile or project scope has changed. The history remains legible; to continue, start a new conversation.")}</p>
+          {mode === 'project' && <button type="button" disabled={busy || !online || !canWrite || !!creation || !continuationProfileId} onClick={() => void continueContext()}>{translate('Continue with this context')}</button>}
+        </div>}
         {detail.model && <p className="conversation-note">{translate("Connected model:")}{" "}{detail.model}{detail.reasoningEffort ? ` · ${detail.reasoningEffort}` : ''}</p>}
         <div className="conversation-history" aria-label={translate("Conversation history")}>
           {!detail.turns.length && <p>{mode === 'casual' ? translate('What would you like to talk about?') : translate("What do you want to start with? For example, \"Where are my projects today?\"")}</p>}
@@ -170,8 +185,8 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
           </article>)}
         </div>
         {last?.status === 'uncertain' && <p>{translate("The last step is unconfirmed. It's not re-sent. Check the status and start a new conversation if necessary.")}</p>}
-        {mode === 'project' && port.actions && <CoordinatorActions key={detail.id} conversationId={detail.id} port={port.actions} online={online && detail.available}
-          canWrite={canWrite && detail.available} canConfirm={detail.available && !detail.closed && !running} />}
+        {mode === 'project' && port.actions && <CoordinatorActions key={detail.id} conversationId={detail.id} port={port.actions} online={online}
+          canWrite={canWrite} canConfirm={detail.available && !detail.closed && !running} />}
         <form onSubmit={event => { event.preventDefault(); if (canSend && draft.trim()) void command({ operation: 'send', conversationId: detail.id, afterTurnId: last?.id ?? null, text: draft }); }}>
           <label>{translate("Message to ADE")}<textarea ref={input} aria-label={translate("Message to ADE")} rows={4} maxLength={64 * 1024} value={draft} onChange={event => edit(event.target.value)} readOnly={busy || !!pending || detail.closed || !detail.available} /></label>
           <button type="submit" disabled={busy || !canSend || !draft.trim()}>{translate("Send to ADE")}</button>

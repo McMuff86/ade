@@ -1,5 +1,31 @@
 # ADE — aktuelle Übergabe
 
+## Tablet-Recovery und Stabilisierung (25. September 2026)
+
+Aktueller Einstieg: [Tablet-Recovery](TABLET_RECOVERY_2026-09-25.md). Darin stehen
+Ursache der Terminalblockade, die gesicherten Knuckles/Rhino-Commits, ADE-Verträge,
+Prüfbelege, Grenzen und konkrete nächste Schritte. Die älteren Aktivierungsangaben
+darunter beschreiben historische Builds. Den neuen Aktivierungsbeleg vor einer
+Fortsetzung im Recovery-Dokument beziehungsweise `test-results/activations.jsonl`
+prüfen. Keine uncommittete Tablet-Arbeit aus verlorenen Terminals rekonstruieren:
+Knuckles `f65f3fe` und Rhino `f125f20` enthalten den gesicherten Zwischenstand.
+
+## Projektanlage aus Gespräch: persönlich aktiviert (25. September 2026, 21:34 CEST)
+
+Adi will sofort am Tablet testen und hat Tests ausdrücklich auf später
+verschoben. Alle drei Typprüfungen sowie Desktop-/Mobile-Build bestanden. Aktiviert über
+`pnpm activate -Label ConversationProjects -SkipGate -DeferVerification -Force`;
+kein Hintergrund-Testlauf. Neues Projektgespräch starten oder in einem alten
+„Mit diesem Kontext weiterreden“ wählen. Im Projektgespräch um einen Vorschlag
+mit AGENTS.md bitten und „Projekt aus Kontext anlegen“ klicken.
+[Vertrag und anschließend offene Tests](CONVERSATION_PROJECT_CREATION.md).
+
+ADE läuft als PID `41220`, Source `ad52ed19f44b0e39f7a8`; vorher PID `43664`.
+`app ready` und der mobile Listener wurden beim Neustart bestätigt. Backup:
+`C:\Users\Adi.Muff\ADE-Backups\Activate-ConversationProjects-20260925-213403`.
+Vorheriger Build bleibt in `out.prev`. Aktivierungsbeleg:
+`test-results/activations.jsonl`, `verificationDeferred: true`.
+
 ## Aktiviert: Stimmenstudio-Hinweis oben, gemeinsamer Stand `711e8a9` (25. September 2026, 06:15 CEST)
 
 PID 67936 (Source `0eb2723b4ffe68ee47ea`) mit `--ade-quit` beendet: erster
@@ -2007,3 +2033,8 @@ Nach diesem Neustart wurden PNG (2.261.193 Bytes), XLSX (5.626 Bytes) und Markdo
 
 Historische Goal-6-Messungen bleiben unverändert. Tests verwenden isolierte
 Repositories und verändern weder die persönlichen Hauptcheckouts noch fremde Dienste.
+
+
+## Conversation project follow-up, 2026-09-25
+
+Knuckles Pi follow-up: the project now contains its own AGENTS.md, PROJECT.md and a native audio prototype in C:\Users\Adi.Muff\repos\knuckles-pi. ADE changes preserve the pre-existing conversation-project implementation and add context-link normalization, stronger GitHub identity validation, recovery safeguards and unit/browser regression coverage. No personal conversation data is rewritten.

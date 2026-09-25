@@ -29,3 +29,7 @@
 .conversation-action { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 12px; overflow-wrap: anywhere; }
 .conversation-action button { min-height: 44px; white-space: normal; }
 .conversation-action .gresult pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.conversation-project-preview { display: grid; gap: 10px; min-width: 0; margin-block: 12px; }
+.conversation-project-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; padding: 10px; background: var(--panel); font-size: 13px; }
+.conversation-project-preview summary { cursor: pointer; min-height: 44px; display: list-item; padding-top: 10px; }
+.conversation-project-preview summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

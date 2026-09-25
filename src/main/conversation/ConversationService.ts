@@ -81,6 +81,21 @@ export class ConversationService {
     if (modeOf(c) !== 'project') throw new Error(translate('Project actions are unavailable in casual conversations.'));
     if (!this.current(c) || conversationFingerprint(c.binding) !== conversationFingerprint(binding) || requireOpen && c.closed) throw new Error(translate("ADE talk or project scope is no longer valid for this job."));
   }
+  /** Main-only: immediately after a confirmed action changes project supervision,
+   * retain authority for its already reserved worker without reusing the stale
+   * native conversation. Any subsequent scope/profile change still revokes it. */
+  continuationAuthority(id: string, original: ConversationBinding): () => void {
+    const c = this.find(this.store.snapshot(), id);
+    const expected = conversationFingerprint(this.deps.binding(c.binding.profileId, 'project'));
+    const check = () => {
+      this.assertHealthy(); const current = this.find(this.store.snapshot(), id);
+      if (modeOf(current) !== 'project' || conversationFingerprint(current.binding) !== conversationFingerprint(original)
+        || conversationFingerprint(this.deps.binding(current.binding.profileId, 'project')) !== expected) {
+        throw new Error(translate("ADE talk or project scope is no longer valid for this job."));
+      }
+    };
+    check(); return check;
+  }
   query(): ConversationSummary[] {
     this.assertHealthy(); return this.store.snapshot().conversations.map(c => {
       const t = c.turns.at(-1); const answer = t?.output ?? '';
@@ -94,6 +109,25 @@ export class ConversationService {
     this.assertHealthy(); const c = this.find(this.store.snapshot(), id);
     return { id: c.id, mode: modeOf(c), profileId: c.binding.profileId, closed: c.closed, available: this.current(c), model: c.model, reasoningEffort: c.reasoningEffort,
       turns: c.turns.map(({ nativeTurnId: _private, ...t }) => t) };
+  }
+  /** Project history is context data only. Callers must hold global read access;
+   * a stale native binding never gains authority to execute another turn. */
+  searchHistory(query: string, offset: number) {
+    this.assertHealthy();
+    const needle = query.toLocaleLowerCase();
+    const matches = this.store.snapshot().conversations.filter(c => modeOf(c) === 'project'
+      && (!needle || c.turns.some(t => `${t.input}\n${t.output}`.toLocaleLowerCase().includes(needle))))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    return { conversations: matches.slice(offset, offset + 10).map(c => ({ id: c.id, createdAt: c.createdAt, updatedAt: c.updatedAt,
+      turns: c.turns.length, firstMessage: c.turns[0]?.input.slice(0, 300) ?? '' })), nextOffset: offset + 10 < matches.length ? offset + 10 : null };
+  }
+  readHistory(id: string, offset: number) {
+    this.assertHealthy(); const c = this.find(this.store.snapshot(), id);
+    if (modeOf(c) !== 'project') throw new Error(translate('Only project conversations can be used as project context.'));
+    const text = JSON.stringify({ id: c.id, turns: c.turns.map(t => ({ at: t.createdAt, input: t.input, output: t.output, status: t.status })) });
+    if (offset > text.length || offset > 0 && /[\uDC00-\uDFFF]/.test(text[offset]!)) throw new Error(translate('Invalid page offset.'));
+    let end = Math.min(text.length, offset + 3000); if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1]!)) end--;
+    return { text: text.slice(offset, end), totalChars: text.length, nextOffset: end < text.length ? end : null };
   }
   /** A recording belongs to this exact conversation authority, never a PTY.
    * Recheck the saved binding before every packet and private result read. */

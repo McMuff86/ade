@@ -91,6 +91,7 @@ const SUITES: Suite[] = [
   { id: 'conversation-recording', script: 'test-conversation-recording.ts', floors: { win32: 28 } },
   { id: 'coordinator-read-tools', script: 'test-coordinator-read-tools.ts', floors: { win32: 15 } },
   { id: 'coordinator-actions', script: 'test-coordinator-actions.ts', floors: { win32: 46 } },
+  { id: 'conversation-projects', script: 'test-conversation-projects.ts', floors: { win32: 29 } },
   { id: 'remote-coordinator-actions', script: 'test-remote-coordinator-actions.ts', floors: { win32: 22 } },
   { id: 'handoffs', script: 'test-handoffs.ts', floors: { win32: 20 } },
   { id: 'remote-supervision', script: 'test-remote-supervision.ts', floors: { win32: 30 } },

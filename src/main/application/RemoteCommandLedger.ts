@@ -15,8 +15,12 @@ interface Receipt {
   key: string; fingerprint: string; state: 'reserved' | 'complete' | 'rejected';
   result?: unknown; error?: { status: number; code: MobileErrorCode; message: string };
 }
-const MAX_BYTES = 1024 * 1024;
-const MAX_RECEIPTS = 500;
+// Keep every old receipt: dropping them could replay a paid or destructive action.
+// The former 500-command lifetime limit also blocked terminal lease recovery.
+// A larger bounded store is the immediate compatibility fix; safe epoch-based
+// retention is a separate protocol change, not silent receipt deletion.
+const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_RECEIPTS = 10_000;
 export type RemoteLedgerScope = RemoteAdminScope | 'runs:write';
 
 /** Durable at-most-once administration. Interrupted reservations never execute again. */

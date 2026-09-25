@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { AdeApplicationService, RemoteApiError, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { HostRestartController } from '../src/main/application/HostRestartController';
 import { HostOperationGate } from '../src/main/application/HostOperationGate';
@@ -118,6 +119,24 @@ void (async () => {
   check('interrupted and missing receipts cannot cause another relaunch', restarted === 1);
   const positive = new RemoteCommandLedger(join(root, 'final-positive', 'commands.json'), () => undefined, authorized);
   check('fresh positive ledger still executes after negative controls', (await positive.execute(context(), 'host:restart', 'host:restart', input, () => ({ accepted: true }))).value.accepted);
+  // Reproduce the personal tablet failure: exactly 500 durable receipts, then
+  // attempt to regain terminal control without removing any previous keys.
+  const fullFile = join(root, 'capacity', 'commands.json');
+  const seed = new RemoteCommandLedger(fullFile, () => undefined, authorized);
+  let effects = 0;
+  await seed.execute(context('capacity-first'), 'host:restart', 'host:restart', input, () => ({ number: ++effects }));
+  const capacityState = JSON.parse(readFileSync(fullFile, 'utf8'));
+  for (let n = 1; n < 500; n++) capacityState.entries.push({ key: createHash('sha256').update(`old-${n}`).digest('hex'),
+    fingerprint: createHash('sha256').update(`payload-${n}`).digest('hex'), state: 'complete', result: { number: n } });
+  writeFileSync(fullFile, JSON.stringify(capacityState));
+  const expanded = new RemoteCommandLedger(fullFile, () => undefined, authorized);
+  check('501st remote action succeeds instead of locking tablet control', (await expanded.execute(context('capacity-next'), 'host:restart', 'host:restart', input,
+    () => ({ number: ++effects }))).value.number === 2);
+  const recoveredCapacity = new RemoteCommandLedger(fullFile, () => undefined, authorized);
+  const originalReceipt = await recoveredCapacity.execute(context('capacity-first'), 'host:restart', 'host:restart', input, () => ({ number: ++effects }));
+  check('all 501 receipts survive restart and the oldest action never repeats', originalReceipt.replayed && originalReceipt.value.number === 1 && effects === 2
+    && JSON.parse(readFileSync(fullFile, 'utf8')).entries.length === 501);
+  await refuses('expanded ledger still rejects old keys with different payloads', () => recoveredCapacity.execute(context('capacity-first'), 'host:restart', 'host:restart', { changed: true }, () => ({ number: ++effects })), 'idempotency_key_reused');
 })().catch((error) => { failed++; console.error(error); }).finally(async () => {
   await server?.stop();
   if (dirname(resolve(root)) !== resolve(tmpdir())) throw new Error('unexpected fixture root');

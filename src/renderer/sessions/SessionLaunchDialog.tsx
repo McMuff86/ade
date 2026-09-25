@@ -10,6 +10,7 @@ import { useSessionLaunch } from '../stores/sessionLaunch';
 import { canLaunchChoice, SessionLaunchFields } from './SessionLaunchFields';
 import { useSelection } from '../stores/selection';
 import { useMode } from '../stores/mode';
+import { projectLaunchSelection, projectLaunchLabel } from '../../shared/sessionLaunch';
 
 export function SessionLaunchDialog() {
   useLocale();
@@ -63,7 +64,8 @@ function LaunchDialog({ agentId }: { agentId: string | null }) {
     lock.current = true; setBusy(true); setError('');
     try {
       if (workspace) {
-        const session = await useSessions.getState().createProjectSession(workspace.id, workspace.branch, choice, choice.mode === 'agent' ? profileId : undefined);
+        const launch = projectLaunchSelection(choice, options, profileId);
+        const session = await useSessions.getState().createProjectSession(workspace.id, workspace.branch, launch.choice, launch.profileId);
         useSelection.getState().openProjectSession(workspace.id, session.id);
         useMode.getState().setMode('projects');
       } else if (agentId) await useSessions.getState().createSession(agentId, undefined, undefined, undefined, repositoryId || null, undefined, choice);
@@ -89,6 +91,7 @@ function LaunchDialog({ agentId }: { agentId: string | null }) {
       {agentId && <div className="field"><label>{translate("Project")}<select aria-label={translate("Session project")} value={repositoryId} disabled={busy} onChange={(event) => setRepositoryId(event.target.value)}>
         <option value="">{translate("No project · Personal workspace")}</option>{repos.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label></div>}
       <SessionLaunchFields choice={choice} onChange={setChoice} options={options} disabled={busy} loading={loading} />
+      {workspace && options && <p role="status">{translate('Starting profile')}: {projectLaunchLabel(choice, options, profileId)}</p>}
       {workspace && choice.mode === 'agent' && <div className="session-launch-fields"><label>{translate("Starting profile")}<select aria-label={translate("Starting profile")} value={profileId} disabled={busy} onChange={(event) => setProfileId(event.target.value)}>
         <option value="">{translate("Select profile [50726f66]")}</option>{options?.profiles?.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.runtime}</option>)}
       </select></label><p>{translate("The profile provides the start settings for the workspace selected above.")}</p></div>}

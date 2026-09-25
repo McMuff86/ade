@@ -9,6 +9,7 @@ import { createServer } from 'node:net';
 import { conversationMobileFlow } from './helpers/conversationMobileFlow';
 import { conversationVoiceFlow } from './helpers/conversationVoiceFlow';
 import { coordinatorActionsFlow } from './helpers/coordinatorActionsFlow';
+import { conversationProjectFlow } from './helpers/conversationProjectFlow';
 import { casualConversationFlow } from './helpers/casualConversationFlow';
 import { mainEntry } from './helpers/buildOutput';
 const nativeCasual = process.argv.includes('--run-native');
@@ -52,6 +53,7 @@ require(${JSON.stringify(mainEntry(process.env.ADE_CONVERSATION_MAIN))});`);
   const open = async (target: Page) => { await target.locator('#desktop-supervision').click(); await target.locator('#conversation-mode-project').click(); await target.getByRole('button', { name: 'Mit ADE sprechen', exact: true }).click(); return target.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }); };
   if (process.argv.includes('--casual-only')) { await casualConversationFlow(page, port, agent.id, evidence, check, nativeCasual); return; }
   if (process.argv.includes('--actions-only')) { await coordinatorActionsFlow(page, root, port, agent.id, evidence, check); return; }
+  if (process.argv.includes('--projects-only')) { await conversationProjectFlow(page, port, agent.id, evidence, check); return; }
   if (process.argv.includes('--voice-only')) {
     const dialog = await open(page); await dialog.getByLabel('Gesprächsprofil', { exact: true }).selectOption(agent.id);
     await dialog.getByRole('button', { name: 'Neues ADE-Gespräch', exact: true }).click();
@@ -150,6 +152,7 @@ require(${JSON.stringify(mainEntry(process.env.ADE_CONVERSATION_MAIN))});`);
   check('back navigation restores the explicit conversation opener', true);
   await conversationMobileFlow(page, port, agent.id, evidence, check);
   await coordinatorActionsFlow(page, root, port, agent.id, evidence, check);
+  await conversationProjectFlow(page, port, agent.id, evidence, check);
   await casualConversationFlow(page, port, agent.id, evidence, check);
 }
 void main().catch(async error => { failed++; console.error(error); if (app) { const page = await app.firstWindow(); console.error(await page.evaluate(() => ({ focus: document.activeElement?.tagName + '#' + document.activeElement?.id, text: document.querySelector('.conversation-panel')?.textContent }))); await page.screenshot({ path: join(evidence, 'conversation-failure.png') }); } }).finally(async () => {

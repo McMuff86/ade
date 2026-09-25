@@ -35,6 +35,10 @@ export class SupervisionService {
     const project = this.store.snapshot().projects.find(p => p.id === projectId); if (!project) throw new Error(translate("The supervised project no longer exists."));
     return { objective: project.objective };
   }
+  /** Main-only lookup without projecting child links (avoids recursive queries). */
+  repositoryIdFor(projectId: string): string | undefined {
+    return this.store.snapshot().projects.find(p => p.id === projectId)?.repositoryId;
+  }
   handoff(projectId: string, handoffId: string): HandoffDetail {
     const h = this.store.snapshot().handoffs.find(h => h.projectId === projectId && h.id === handoffId);
     if (!h) throw new Error(translate("This handoff does not belong to this project."));

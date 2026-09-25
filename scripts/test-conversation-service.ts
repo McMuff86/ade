@@ -93,6 +93,27 @@ async function main() {
   scope = 'changed-authority';
   check('previously acquired recording target rejects changed project authority', throws(recordingTarget));
   check('changed project authority preserves readable history but refuses continuation', !service.query()[0]!.available && service.detail(id).turns.length === 3 && throws(() => service.command({ ...input, commandId: 'rights-change', afterTurnId: third })));
+  const originalBinding = new ConversationStore(path).snapshot().conversations.find(conversation => conversation.id === id)!.binding;
+  const launchesBeforeGuard = launched.length;
+  const continuationGuard = service.continuationAuthority(id, originalBinding);
+  check('confirmed project binding change retains authority for its already reserved worker', !throws(continuationGuard)
+    && launched.length === launchesBeforeGuard && new ConversationStore(path).snapshot().conversations.find(conversation => conversation.id === id)!.binding.authoritySha256 === originalBinding.authoritySha256);
+  check('worker continuation authority never makes the old native conversation current or editable', !service.detail(id).available
+    && throws(() => service.assertActionAuthority(id, originalBinding, false))
+    && throws(() => service.command({ ...input, commandId: 'guard-cannot-resume-old-thread', afterTurnId: third }))
+    && launched.length === launchesBeforeGuard);
+  check('a false original binding cannot acquire a worker continuation guard',
+    throws(() => service.continuationAuthority(id, { ...originalBinding, authoritySha256: conversationDigest('forged-original') }))
+    && throws(() => service.continuationAuthority(id, { ...originalBinding, profileId: 'different-profile' }))
+    && throws(() => service.continuationAuthority(id, { ...originalBinding, toolContract: 'different-contract' })));
+  for (const laterBinding of ['another-project-change', 'changed-profile-permissions']) {
+    scope = laterBinding;
+    check(`subsequent binding change revokes reserved-worker authority (${laterBinding})`, throws(continuationGuard)
+      && !service.detail(id).available && launched.length === launchesBeforeGuard);
+  }
+  scope = 'changed-authority';
+  check('exact confirmed binding remains the only accepted worker continuation after negative controls', !throws(continuationGuard)
+    && !service.detail(id).available && launched.length === launchesBeforeGuard);
   const fresh = command({ operation: 'create', profileId: 'profile' });
   service.command({ ...input, commandId: 'fresh-send', conversationId: fresh.conversationId }); const freshProcess = launched.at(-1)!; freshProcess.ready();
   check('new explicitly created context can use the new project authority', service.query().find(c => c.id === fresh.conversationId)!.available && !freshProcess.callbacks.resumeThreadId);

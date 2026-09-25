@@ -15,7 +15,7 @@ import { workspaceOperations } from './WorkspaceOperationGate';
 const SHA = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 function fail(message: string): never { throw new Error(`ade: ${message}`); }
 export type ProjectGhCommand = (cwd: string, args: string[], input?: string) => Promise<string>;
-const ghCommand: ProjectGhCommand = (cwd, args, input) => new Promise((resolve, reject) => {
+export const ghCommand: ProjectGhCommand = (cwd, args, input) => new Promise((resolve, reject) => {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_|^GH_(?:HOST|REPO|PAGER|BROWSER|EDITOR|FORCE_TTY|DEBUG)$/i.test(key)));
   const child = execFile('gh', args, { cwd, windowsHide: true, timeout: 60_000, maxBuffer: 256 * 1024, encoding: 'utf8',
     env: { ...env, GH_HOST: 'github.com', GH_PROMPT_DISABLED: '1', GH_PAGER: 'cat', NO_COLOR: '1' } }, (error, stdout, stderr) => {

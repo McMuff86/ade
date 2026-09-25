@@ -261,7 +261,8 @@ export interface SessionLaunchOptions {
   environment: string;
   choices: Array<{ mode: SessionLaunchChoice['mode']; available: boolean; notice: string | null }>;
   models: string[];
-  profiles?: Array<{ id: string; name: string; runtime: import('./types').RuntimeId }>;
+  profiles?: Array<{ id: string; name: string; runtime: import('./types').RuntimeId;
+    permissionMode?: import('./types').Agent['permissionMode']; defaultForCli?: boolean }>;
 }
 export interface MobileTerminalSummary {
   profileContext?: import('./agentBehavior').SessionProfileContext;

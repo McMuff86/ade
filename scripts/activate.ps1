@@ -6,7 +6,8 @@
   1. Gate: `scripts/verify.ts --gate` (typecheck, focused suites, isolated
      build, core Electron/browser drivers). With -SkipGate only typecheck and
      the isolated build run; the activation is recorded as unverified and the
-     full `pnpm verify` starts in the background afterwards.
+     full `pnpm verify` starts in the background afterwards, unless the operator
+     explicitly uses -DeferVerification to perform manual testing first.
   2. Refuses to quit while ADE owns terminal or agent processes, unless -Force.
   3. Backs up the profile to ~/ADE-Backups/Activate-<Label>-<timestamp>.
   4. Quits the running instance gracefully (`electron <repo> --ade-quit`).
@@ -24,6 +25,7 @@
 param(
   [string]$Label = 'Update',
   [switch]$SkipGate,
+  [switch]$DeferVerification,
   [switch]$Rollback,
   [switch]$Force
 )
@@ -42,6 +44,14 @@ $keepBackups = 15
 Set-Location $repo
 $electron = (& node -p "require('electron')").Trim()
 if ($Label -notmatch '^[A-Za-z0-9-]{1,40}$') { throw 'Label: 1-40 letters, digits or dashes.' }
+if ($DeferVerification -and !$SkipGate) { throw '-DeferVerification requires -SkipGate.' }
+
+function Assert-ChildPath([string]$target, [string]$root) {
+  $absolute = [IO.Path]::GetFullPath($target)
+  $prefix = [IO.Path]::GetFullPath($root).TrimEnd([char[]]'\/') + [IO.Path]::DirectorySeparatorChar
+  if (!$absolute.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Path leaves intended directory: $absolute" }
+}
+foreach ($target in @($out, $previous, $staged, (Join-Path $repo 'out.swap'))) { Assert-ChildPath $target $repo }
 
 function Step([string]$text) { Write-Host "==> $text" }
 
@@ -108,7 +118,7 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $backup = Join-Path $backupRoot "Activate-$Label-$stamp"
 Step "Backup to $backup"
 New-Item -ItemType Directory -Force $backup | Out-Null
-foreach ($item in @('config.json', 'conversations.json', 'harness-credentials.json', 'organizer.json', 'supervision.json', 'remote', 'usage', 'agents', 'photos')) {
+foreach ($item in @('config.json', 'conversations.json', 'conversation-actions.json', 'harness-credentials.json', 'organizer.json', 'supervision.json', 'remote', 'usage', 'agents', 'photos')) {
   $source = Join-Path $userData "ade\$item"
   if (Test-Path $source) { Copy-Item $source (Join-Path $backup $item) -Recurse -Force }
 }
@@ -119,7 +129,7 @@ foreach ($item in @('Local State', 'IndexedDB', 'Local Storage')) {
 }
 # Only this script's own backups are pruned; hand-made ones stay.
 Get-ChildItem $backupRoot -Directory -Filter 'Activate-*' | Sort-Object CreationTime -Descending |
-  Select-Object -Skip $keepBackups | Remove-Item -Recurse -Force
+  Select-Object -Skip $keepBackups | ForEach-Object { Assert-ChildPath $_.FullName $backupRoot; Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 
 # 4. Graceful quit through the owner's own shutdown path.
 if ($owner) {
@@ -180,14 +190,16 @@ $record = [ordered]@{
   at = (Get-Date).ToString('o'); label = $Label; gate = $gate
   head = (git rev-parse --short HEAD).Trim(); dirtyFiles = @(git status --porcelain).Count
   sourceId = $sourceId; pid = $current.ProcessId; previousPid = $owner.ProcessId; listener = $wasListening; backup = $backup
+  verificationDeferred = [bool]$DeferVerification
 }
 Add-Content -Path $records -Value ($record | ConvertTo-Json -Compress)
 Step "ADE runs as PID $($current.ProcessId), source $sourceId, gate $gate"
 
-if ($gate -eq 'skipped') {
+if ($gate -eq 'skipped' -and !$DeferVerification) {
   # The skipped proof is owed: run the full isolated verification now.
   $console = Join-Path $repo 'test-results\verify-console.log'
   Start-Process -FilePath pwsh -WindowStyle Hidden -WorkingDirectory $repo `
     -ArgumentList '-NoProfile', '-Command', "pnpm verify *> '$console'"
   Step "Unverified activation: full verify started in the background ($console)"
 }
+if ($gate -eq 'skipped' -and $DeferVerification) { Step 'Unverified activation: tests explicitly deferred; no background verification started.' }

@@ -1,5 +1,22 @@
 # ADE delivery roadmap
 
+## Tablet-Stabilisierung und bestätigter Arbeitsstart
+
+Umgesetzt: grösserer dauerhafter Aktionsspeicher, gespeicherte Projektprofile bei
+CLI-Shortcuts, sichtbare Übernahmefehler und Gesprächsvorschlag mit Projektanlage
+plus Erstauftrag. Direct/Observe kann mit der Auftragsbestätigung auf Koordinieren
+wechseln. Details und Nachweise: [Tablet-Recovery](TABLET_RECOVERY_2026-09-25.md).
+Offen bleiben die physische Tablet-Abnahme, der vollständige aktuelle `pnpm verify`
+sowie ein gesonderter Aufbewahrungsvertrag für dauerhaft wachsende Belegspeicher.
+10.000 Belege sind ein höheres endliches Limit; keine unbegrenzte Autonomie.
+
+## Persönlicher Test zuerst: Projektanlage im Gespräch
+
+Der Ablauf Agentenvorschlag → „Projekt aus Kontext anlegen“ mit PROJECT.md und
+AGENTS.md ist für den sofortigen manuellen Test umgesetzt. Danach sind gezielte
+Vertrags-/Browserprüfungen und `pnpm verify` offen; keine automatische weitere
+Arbeitsausführung. [Details](CONVERSATION_PROJECT_CREATION.md).
+
 ## Aktiviert: Codex-Gespräche folgen der installierten PC-Version
 
 Projektbetreuung und Plaudern & Stimme auf PC/Tablet verwenden die installierte
@@ -1032,3 +1049,8 @@ exposed through these remote goals.
 Detailed scope, trust boundaries and endpoint exclusions live in
 `docs/REMOTE_CONTROL_PLAN.md`; repository-binding behavior and migration live
 in `docs/REPOSITORY_SCOPES_PLAN.md`.
+
+
+## Conversation project follow-up, 2026-09-25
+
+Conversation-to-project setup: complete the automated regression evidence for the existing preview/confirm flow, including PROJECT.md, AGENTS.md, explicitly private GitHub publication and continuation into a fresh conversation. Keep implementation launch as a separate concrete job.

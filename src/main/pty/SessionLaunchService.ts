@@ -23,10 +23,17 @@ export class SessionLaunchService {
     if (!selection.terminalHome && (workspace || selection.repositoryId !== null) && !repo?.verified) throw new Error(translate("ade: Project is not available."));
     const backend = selection.terminalHome ? 'native' : repo?.executionBackend ?? agentHomeBackend(agent!);
     const profiles = config.agents.filter((item) => agentHomeBackend(item) === backend).slice(0, 200);
+    const preferred = config.settings.projectDefaults?.agentId;
+    const defaults = new Set(['codex', 'claude', 'grok'].flatMap(runtime => {
+      const matching = profiles.filter(p => p.runtime === runtime && !p.customCommand?.trim());
+      const chosen = matching.find(p => p.id === preferred) ?? (matching.length === 1 ? matching[0] : undefined);
+      return chosen ? [chosen.id] : [];
+    }));
     const [codex, claude, grok, hermes, models] = await Promise.all([
       this.present(backend, 'codex'), this.present(backend, 'claude'), this.present(backend, 'grok'), this.present(backend, 'hermes'), this.models(backend)]);
     return { environment: backend === 'native' ? (process.platform === 'win32' ? 'Windows' : process.platform) : redactForWire(backend, 150),
-      ...(workspace ? { profiles: profiles.map((item) => ({ id: item.id, name: redactForWire(item.name, 200), runtime: item.runtime })) } : {}),
+      ...(workspace ? { profiles: profiles.map((item) => ({ id: item.id, name: redactForWire(item.name, 200), runtime: item.runtime,
+        permissionMode: item.permissionMode, defaultForCli: defaults.has(item.id) })) } : {}),
       choices: [{ mode: 'shell', available: true, notice: null }, { mode: 'agent', available: !selection.terminalHome && (workspace ? profiles.length > 0 : true), notice: selection.terminalHome ? translate("Free terminal without an agent profile in the user directory.") : translate("Uses the settings of the explicitly selected profile in this environment, including your own start commands.") },
         { mode: 'codex', available: codex, notice: codex ? null : translate("Codex was not found in this environment.") },
         { mode: 'claude', available: claude, notice: claude ? null : translate("Claude CLI was not found in this environment.") },

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +15,7 @@ import { coordinatorActionTools } from '../src/main/conversation/CoordinatorActi
 import { coordinatorActionDetailForWire, coordinatorActionForWire } from '../src/main/conversation/coordinatorActionWire';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { CHANNEL_POLICY, REMOTE_COMMAND_CHANNELS } from '../src/main/ipcPolicy';
+import { projectGit } from '../src/main/repositories/ProjectGitBoundary';
 
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-coordinator-actions-')));
 let passed = 0; let failed = 0;
@@ -33,10 +34,11 @@ async function main() {
   const orchestration = new OrchestrationService(port);
   const coordinator = new RunCoordinator(port, orchestration, undefined, new WorkspaceService());
   let launches = 0; let queueGuard: (() => void) | undefined; let releaseQueue: (() => void) | undefined; let queue = false;
+  const launchedRepositories: Array<string | null | undefined> = [];
   coordinator.connect(async (_agent, _prompt, _dispatch, taskId, _repo, _workspace, authorize) => {
     check('child is durably linked to its parent before queue admission', new CoordinatorActionStore(join(root, 'actions.json')).snapshot().actions.some(a => a.taskId === taskId));
     if (queue) { queueGuard = authorize; await new Promise<void>(resolve => { releaseQueue = resolve; }); }
-    authorize?.(); launches++; return { id: 'fixture-session', runTaskId: taskId } as SessionMeta;
+    authorize?.(); launchedRepositories.push(_repo); launches++; return { id: 'fixture-session', runTaskId: taskId } as SessionMeta;
   }, () => undefined);
   let allowed = true; let open = true;
   const binding = { profileId: 'central', authoritySha256: 'a'.repeat(64), toolContract: 'ade-project-actions-v1' };
@@ -130,6 +132,53 @@ async function main() {
   check('restart recovers a committed handoff without saving it twice', (await confirm(recoveredHandoff.id)).replayed && supervision.briefing().projects[0].handoffs.length === countBeforeRecovery);
   const positiveAfterCrash = actions.propose(task, source, context()); await confirm(positiveAfterCrash.id);
   check('new explicit action succeeds after crash and disk negative controls', launches === 4);
+  const directRoot = join(root, 'direct-project'); mkdirSync(directRoot);
+  await projectGit(directRoot, ['init', '--initial-branch=master']);
+  writeFileSync(join(directRoot, 'existing.txt'), 'already committed tablet work\n');
+  await projectGit(directRoot, ['add', '--', 'existing.txt']);
+  await projectGit(directRoot, ['-c', 'user.name=ADE fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '-m', 'Existing tablet work']);
+  writeFileSync(join(directRoot, 'existing.txt'), 'uncommitted tablet continuation\n');
+  writeFileSync(join(directRoot, 'new-note.txt'), 'unsaved next step\n');
+  config.repositories.push({ id: 'direct-repo', name: 'Existing tablet project', rootPath: directRoot, commonGitDir: join(directRoot, '.git'),
+    verified: true, executionBackend: 'native', createdAt: 1 });
+  supervision.command({ operation: 'project', repositoryId: 'direct-repo', mode: 'direct', objective: 'Continue the existing master project',
+    commandId: 'direct-project', revision: supervision.query().revision });
+  const directProject = supervision.query().projects.find(project => project.repositoryId === 'direct-repo')!;
+  const projectMode = (id: string) => supervision.query().projects.find(project => project.id === id)?.mode;
+  const directTask = { ...task, projectId: directProject.id };
+  const originalCheckout = { branch: await projectGit(directRoot, ['branch', '--show-current']), head: await projectGit(directRoot, ['rev-parse', 'HEAD']),
+    status: await projectGit(directRoot, ['status', '--porcelain']), tracked: readFileSync(join(directRoot, 'existing.txt'), 'utf8'),
+    untracked: readFileSync(join(directRoot, 'new-note.txt'), 'utf8') };
+  check('legacy task and explicit false cannot silently change Direct mode',
+    await rejects(() => actions.propose(directTask, source, context()), /Koordinieren|Coordinate/)
+    && await rejects(() => actions.propose({ ...directTask, coordinate: false }, source, context()), /Koordinieren|Coordinate/));
+  const beforeCoordinate = { runs: config.runs.length, launches };
+  const coordinate = actions.propose({ ...directTask, coordinate: true }, source, context());
+  check('Direct to Coordinate proposal is explicit and has no launch or mode effects', coordinate.coordinatesProject === true && coordinate.startsWork === true
+    && projectMode(directProject.id) === 'direct' && config.runs.length === beforeCoordinate.runs && launches === beforeCoordinate.launches);
+  config.agents[0].permissionMode = 'default';
+  check('changed worker blocks Direct to Coordinate before mode or run changes', await rejects(() => confirm(coordinate.id), /Profil wurde geändert|profile has been changed/i)
+    && projectMode(directProject.id) === 'direct' && config.runs.length === beforeCoordinate.runs);
+  config.agents[0].permissionMode = 'bypass';
+  const [coordinated, coordinateReplay] = await Promise.all([confirm(coordinate.id, 'direct-coordinate'), confirm(coordinate.id, 'direct-coordinate')]);
+  check('confirmed Direct task enters the existing submission launcher exactly once', coordinated.state === 'applied' && coordinateReplay.replayed
+    && launches === beforeCoordinate.launches + 1 && config.runs.length === beforeCoordinate.runs + 1 && launchedRepositories.at(-1) === 'direct-repo');
+  check('confirmation coordinates the same project and retains its objective', projectMode(directProject.id) === 'coordinate'
+    && supervision.detail(directProject.id).objective === 'Continue the existing master project');
+  check('coordination preserves the existing master checkout and all dirty tablet files',
+    (await projectGit(directRoot, ['branch', '--show-current'])) === originalCheckout.branch && originalCheckout.branch.trim() === 'master'
+    && (await projectGit(directRoot, ['rev-parse', 'HEAD'])) === originalCheckout.head
+    && (await projectGit(directRoot, ['status', '--porcelain'])) === originalCheckout.status
+    && readFileSync(join(directRoot, 'existing.txt'), 'utf8') === originalCheckout.tracked
+    && readFileSync(join(directRoot, 'new-note.txt'), 'utf8') === originalCheckout.untracked);
+  actions = make(new CoordinatorActionStore(join(root, 'actions.json')));
+  check('reloaded mode-change confirmation cannot submit its task twice', (await confirm(coordinate.id, 'direct-coordinate')).replayed
+    && launches === beforeCoordinate.launches + 1 && config.runs.length === beforeCoordinate.runs + 1);
+  const observeTask = actions.propose({ ...task, projectId: b.id, coordinate: true }, source, context());
+  check('Observe can prepare the same explicit transition without an early mode change', projectMode(b.id) === 'observe' && observeTask.coordinatesProject === true);
+  await confirm(observeTask.id);
+  check('confirmed Observe transition also submits one task and becomes Coordinate', projectMode(b.id) === 'coordinate'
+    && launchedRepositories.at(-1) === 'b' && launches === beforeCoordinate.launches + 2);
   const tools = coordinatorActionTools(actions, port, () => source, () => { if (!allowed) throw new Error('Authority revoked'); });
   const profiles = await tools.find(t => t.name === 'ade_codex_profiles')!.invoke({ offset: 0 }, context());
   check('tool catalog exposes actual eligible native Codex profiles', profiles.includes('worker') && !profiles.includes(root));

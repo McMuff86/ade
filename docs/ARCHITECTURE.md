@@ -1,5 +1,56 @@
 # ADE — Architecture (binding decisions)
 
+## Tablet recovery, project profiles and combined conversation actions (25 September 2026)
+
+The durable remote administration ledger accepts 10,000 receipts / 8 MiB
+(previously 500 / 1 MiB). Existing receipts retain their keys and replay behavior;
+there is no silent eviction. Terminal input/heartbeats retain their separate
+bounded protocol. Takeover errors remain visible with session controls collapsed.
+
+Project launch options expose safe permission-mode metadata and `defaultForCli`
+on accessible profiles. A provider shortcut resolves to the configured project
+default for that provider, otherwise its unique compatible native/backend profile.
+Ambiguous matches require explicit selection. Desktop and tablet submit the
+exact profile ID and `mode:agent`; main still validates current resource grants
+and profile/backend compatibility. Bypass, model and reasoning therefore come
+from the saved profile. Free shells and unmatched providers retain bare launches.
+Existing running CLIs cannot change permission mode in place.
+
+`ade-project-actions-v3` supports optional `project.start` (profile and private
+first-task prompt), plus explicit `task.coordinate` consent in the confirmed
+proposal. The preview names the worker and permission mode; PROJECT.md describes
+the first task. Task prompts remain main-only, including explicit action detail.
+New context files are committed before single-task reservation; the child is
+durably linked before queue admission. Coordinate supervision is the final
+synchronous domain effect. Main captures continuation authority immediately after
+that effect so the reserved worker is not invalidated by its own mode change;
+later authority/profile changes still revoke queue admission. Native conversation
+continuation remains stale and uses the existing fresh-context flow.
+
+Recovery requires both the exact child receipt and any planned supervision
+receipt. Partial creation or submitted work without confirmed coordination stays
+uncertain and never triggers another launch. Results/questions and derived graph
+links work for project-plus-task proposals as well as existing-project tasks.
+[Recovery and current evidence](TABLET_RECOVERY_2026-09-25.md).
+
+## Conversation project creation and history (25 September 2026)
+
+The v2 contract added project proposals and main-only paginated project
+history tools. Confirmation creates a native repository containing committed
+PROJECT.md and AGENTS.md, optionally a verified private GitHub repository in the
+signed-in personal account, and Coordinate supervision. The existing action
+ledger records dispatch before effects; uncertain creation is not replayed.
+Remote confirmation adds catalog/workspace write and optional publication grants
+to the existing signed, audited, idempotent action route. Explicit detail carries
+the bounded file preview through wire redaction, never raw config or host paths.
+
+This supersedes the historical restriction below that withheld old conversation
+details on binding drift: current all-resource readers with access to the profile
+can read history and receipts. Native continuation and new effects still require
+the exact binding. Project creation changes that binding; the UI offers a fresh
+conversation with a history reference. Casual conversation history stays outside
+the project tools. [Contract and deferred validation](CONVERSATION_PROJECT_CREATION.md).
+
 ## Language and conversation modes (20 September 2026)
 
 Desktop and mobile use typed German/English i18next catalogs, an extensible locale
@@ -47,7 +98,8 @@ Recovery reads an existing child/command receipt and never dispatches again;
 missing, pruned or conflicting evidence remains explicitly uncertain/unavailable.
 Ordinary run archive/retention continues to own the child's journal and results.
 
-Project tasks require available native repositories, mode `coordinate`, an
+Project tasks require available native repositories, mode `coordinate` (or an
+explicitly confirmed proposal that enables it), an
 explicit native Codex profile with model/reasoning and unchanged authority.
 The caller, project and worker are revalidated on admission, after the queue wait
 and immediately before native spawn. The separate single-task contract applies;
@@ -972,7 +1024,7 @@ Chunk keys must equal `jobId:sequence`; job-local in-memory digest receipts
 acknowledge identical duplicates without forwarding audio and reject changed
 payloads, sequence gaps and uncertain sends. Receipts are bounded to 1,172 per
 ticket, disappear with the ticket and cannot restart after host restart. Audio
-packets do not consume the 500-entry durable administration ledger. Audit records
+packets do not consume the 10,000-entry durable administration ledger. Audit records
 contain metadata only. Both partial and final text pass through wire redaction;
 neither enters SSE, summaries or durable command receipts.
 After a connection failure, the open mobile composer retains failed cancellation
@@ -2845,7 +2897,8 @@ existing browser session/CSRF gate. `RemoteCommandLedger` binds the hashed
 device/key to operation/payload, fsyncs a reservation and records the outcome
 before scheduling relaunch. Same-key requests coalesce/replay across restart;
 interrupted reservations never rerun. Storage is link-checked, bounded to
-500 receipts/1 MiB and unavailable on corruption/write failure.
+10,000 receipts/8 MiB and unavailable on corruption/write failure. Receipt keys
+are never silently evicted; old actions retain at-most-once replay protection.
 
 `HostOperationGate` counts desktop mutations and remote run commands, refuses
 restart during in-flight operations and fences new mutations once accepted.
@@ -3225,3 +3278,8 @@ Graph actions use the UI branch's fixed control groups. The mobile connection
 dialog explains transport/build states without replacing the paired identity.
 This integration changes presentation; organizer and signed-host boundaries remain
 unchanged. Integration tests were explicitly deferred by the user.
+
+
+## Conversation project follow-up, 2026-09-25
+
+Conversation project creation now normalizes the reviewed AGENTS.md with a PROJECT.md pointer. The project service retains the reserved local identity before a post-provision authorization check, validates GitHub numeric identity and full name twice, and treats notification failures separately from project effects. GitHub/Git adapters are injectable for offline contract tests.

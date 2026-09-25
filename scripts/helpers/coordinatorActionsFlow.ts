@@ -57,7 +57,7 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     const send = async (text: string) => { await mobile.getByLabel('Nachricht an ADE', { exact: true }).fill(text); await mobile.getByRole('button', { name: 'An ADE senden', exact: true }).click(); };
     const identity = (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.find(agent => agent.id === profileId)!;
     writeFileSync(join(identity.memoryDir, 'MEMORY.md'), 'COORDINATOR_SINGLE_TASK_MEMORY');
-    await send('prepare-task:' + JSON.stringify({ projectId: projects[0].id, agentId: profileId, prompt: 'ADE_TABLET_PROJECT_TASK write the confirmed answer to tablet-result.txt' }));
+    await send('prepare-task:' + JSON.stringify({ projectId: projects[0].id, agentId: profileId, prompt: 'ADE_TABLET_PROJECT_TASK write the confirmed answer to tablet-result.txt', coordinate: false }));
     let task = mobile.getByRole('article', { name: 'Projektauftrag · Codex A', exact: true }); await task.waitFor();
     check('tablet task proposal preserves private prompt and launches no run yet', !(await mobile.innerText()).includes('ADE_TABLET_PROJECT_TASK') && !(await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length);
     proxy.loseConversationActionReplies(true);

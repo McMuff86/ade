@@ -15,7 +15,7 @@ import { SubscriptionUsagePanel } from '../renderer/terminal/SubscriptionUsagePa
 import { SessionProfileContext } from '../renderer/terminal/SessionProfileContext';
 import { TerminalInputQueue } from './TerminalInputQueue';
 import { DashboardLink } from './DashboardLink';
-import { SESSION_LAUNCH_LABELS } from '../shared/sessionLaunch';
+import { SESSION_LAUNCH_LABELS, projectLaunchSelection, projectLaunchLabel } from '../shared/sessionLaunch';
 import { canReuseLaunch, sessionStateLabel } from '../shared/sessionState';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
@@ -50,8 +50,11 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const scopeKey = terminalHome ? 'terminal-home' : projectWorkspaceId ? `project/${projectWorkspaceId}` : `${agentId}:${repositoryId ?? 'home'}`;
   const [fontSize, setFontSize] = useDeviceDraft(host.deviceId, 'terminal-font-size', 14);
   const [profileId, setProfileId] = useState(defaultProfileId ?? '');
-  const launch = (selectedChoice: SessionLaunchChoice): MobileTerminalCommand => ({ ...selection, operation: 'open', ...selectedChoice,
-    ...(projectWorkspaceId ? { expectedBranch, ...(selectedChoice.mode === 'agent' ? { profileId } : {}) } : {}) });
+  const launch = (selectedChoice: SessionLaunchChoice): MobileTerminalCommand => {
+    const resolved = projectWorkspaceId ? projectLaunchSelection(selectedChoice, options, profileId) : { choice: selectedChoice, profileId: undefined };
+    return { ...selection, operation: 'open', ...resolved.choice,
+      ...(projectWorkspaceId ? { expectedBranch, ...(resolved.choice.mode === 'agent' ? { profileId: resolved.profileId } : {}) } : {}) };
+  };
   const [state, setState] = useState<MobileTerminalState>({ terminals: [] });
   const [remembered, remember] = useDeviceDraft(host.deviceId, `terminal-selection:${scopeKey}`, '');
   const [selected, select] = useState(initialTerminalId ?? remembered);
@@ -251,7 +254,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       if (lock.current || context !== commandContextRef.current || !context.active || !context.online) throw new Error(translate("Terminal action was not sent. check connection and session and try again."));
       const result = await query('');
       if (!live.current) return;
-      const existing = result.terminals.filter((item) => canReuseLaunch(item, mode) && (!projectWorkspaceId || item.launchProfileId === (mode === 'agent' ? profileId : undefined))).at(-1);
+      const resolved = projectWorkspaceId ? projectLaunchSelection({ mode }, options, profileId) : { choice: { mode }, profileId: undefined };
+      const existing = result.terminals.filter((item) => canReuseLaunch(item, resolved.choice.mode) && (!projectWorkspaceId || item.launchProfileId === resolved.profileId)).at(-1);
       if (existing) { setSelected(existing.id); await query(existing.id); }
       else await command(launch({ mode }));
       if (live.current) setLaunchOpen(false);
@@ -370,6 +374,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   </div>;
   return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label={translate("Interactive terminal")}>
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
+    {error && !controlsVisible && <p role="alert" className="m-alert">{error}</p>}
     {state.selected && (host.status !== 'online' || !displayReady || readError || compactOwnership) && <div className="m-terminal-recovery" aria-label={translate("Terminal connection")}>
       <p role="status">{host.status !== 'online' ? translate("PC not connected. The last display remains visible; input pauses.")
         : readError ? translate("Terminal display not current. Input pauses until the display is loaded again.")
@@ -381,7 +386,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     </div>}
     <div className="m-terminal-focus-bar" id={controlsId} hidden={!controlsVisible}>{(projectEntry || terminalHome) && <label>{translate("Open session with")}<select aria-label={terminalHome ? translate("Terminal CLI") : translate("Project CLI")} disabled={blocked} value={projectMode} onChange={(event) => setProjectMode(event.target.value as typeof projectMode)}>
       {(['codex', 'claude', 'grok', 'shell'] as const).map((mode) => <option key={mode} value={mode} disabled={!canLaunchChoice({ mode }, options)}>
-        {SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? translate(" · Not available") : ''}</option>)}
+        {projectWorkspaceId && options ? projectLaunchLabel({ mode }, options) : SESSION_LAUNCH_LABELS[mode]}{!canLaunchChoice({ mode }, options) ? translate(" · Not available") : ''}</option>)}
     </select></label>}
       <button ref={launchButton} className="m-primary" disabled={blocked || !!(projectEntry || terminalHome) && !canLaunchChoice({ mode: projectMode }, options)} onClick={() => void openProfile(projectEntry || terminalHome ? projectMode : 'agent')}>
         {projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'}{" "}{translate("Open [c3b66666]")}</button>
@@ -401,6 +406,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     </div>
     <div className="m-terminal-tools">
     {profileOpening && <p role="status">{projectEntry || terminalHome ? SESSION_LAUNCH_LABELS[projectMode] : agent?.name ?? 'Agent'}{" "}{translate("opening…")}</p>}
+    {projectWorkspaceId && options && <p role="status">{translate('Starting profile')}: {projectLaunchLabel({ mode: projectMode }, options, profileId)}</p>}
     {(projectEntry || terminalHome) && loadingOptions && <p role="status">{translate("Checking installed CLIs…")}</p>}
     {(projectEntry || terminalHome) && !loadingOptions && options?.choices.find((item) => item.mode === projectMode)?.notice && <p role="status">{localizeAppMessage(options.choices.find((item) => item.mode === projectMode)?.notice)}</p>}
     <p>{state.selected ? state.selected.status === 'running'
@@ -420,7 +426,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     <label>{translate("Session")}<select aria-label={translate("Terminal session")} disabled={blocked} value={selected} onChange={(event) => { setSelected(event.target.value); setError(''); setState({ terminals: state.terminals }); }}>
       <option value="">{translate("Choose session")}</option>{state.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{sessionStateLabel(terminal)}</option>)}</select></label>
     {!state.terminals.length && !error && <p>{translate("No interactive sessions available. Managed tasks appear under Jobs.")}</p>}
-    {(error || readError) && <p role="alert" className="m-alert">{error || readError}</p>}{notice && notice !== translate("The terminal is connected.") && <p role="status" className="m-terminal-notice">{localizeAppMessage(notice)}</p>}
+    {(controlsVisible && error || readError) && <p role="alert" className="m-alert">{controlsVisible && error || readError}</p>}{notice && notice !== translate("The terminal is connected.") && <p role="status" className="m-terminal-notice">{localizeAppMessage(notice)}</p>}
     {pending && <button disabled={busy || commandPending || host.status !== 'online'} onClick={() => void command(pending.command, true)}>{translate("Check terminal operation again")}</button>}
     {uncertain && <div className="m-notice"><p>{translate("The last input is not confirmed; it is not automatically repeated.")}</p>
       <button disabled={busy || host.status !== 'online'} onClick={() => { void query().then((result) => {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { SessionLaunchService } from '../src/main/pty/SessionLaunchService';
+import { projectLaunchSelection, projectLaunchLabel } from '../src/shared/sessionLaunch';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import { validateTerminal } from '../src/main/application/RemoteTerminalService';
 import { assertIpcPayload as validateInvoke } from '../src/main/ipcValidation';
@@ -42,6 +43,28 @@ void (async () => {
   check('empty terminal drops configured command and bypass', shell.runtime === 'shell' && shell.permissionMode === 'default' && resolveLaunchCommand(shell) === '');
   const profile = await service.effectiveAgent(original, 'native', { mode: 'agent' });
   check('configured profile preserves Hermes wrapper and permissions', resolveLaunchCommand(profile) === 'general --tui' && profile.permissionMode === 'bypass');
+  const projectOptions = { ...options, profiles: [{ id: 'codex-default', name: 'Codex', runtime: 'codex' as const, permissionMode: 'bypass' as const, defaultForCli: true }] };
+  const recommended = projectLaunchSelection({ mode: 'codex' }, projectOptions);
+  check('project Codex shortcut resolves to the exact saved bypass profile', recommended.choice.mode === 'agent' && recommended.profileId === 'codex-default'
+    && projectLaunchLabel({ mode: 'codex' }, projectOptions).includes('Bypass'));
+  const bypass = await service.effectiveSettings({ name: 'Codex', runtime: 'codex', permissionMode: 'bypass', codexModel: 'pinned', codexReasoningEffort: 'high' }, 'native', recommended.choice);
+  check('resolved project launch actually keeps bypass model and reasoning in CLI argv', resolveLaunchCommand(bypass).includes('--dangerously-bypass-approvals-and-sandbox')
+    && bypass.codexModel === 'pinned' && bypass.codexReasoningEffort === 'high');
+  check('project shell and unmatched providers do not inherit bypass', projectLaunchSelection({ mode: 'shell' }, projectOptions).choice.mode === 'shell'
+    && projectLaunchSelection({ mode: 'claude' }, projectOptions).choice.mode === 'claude');
+  check('missing or unauthorized recommendation cannot invent a profile', projectLaunchSelection({ mode: 'codex' }, { ...projectOptions, profiles: [] }).profileId === undefined);
+  check('explicit profile selection stays explicit', projectLaunchSelection({ mode: 'agent' }, projectOptions, 'chosen-profile').profileId === 'chosen-profile');
+  const projectConfig: import('../src/shared/types').AdeConfig = { ...store.get(), agents: [{ ...original, id: 'codex-default', runtime: 'codex', customCommand: undefined }],
+    repositories: [{ id: 'repo-default', name: 'Default test', rootPath: root, commonGitDir: root, executionBackend: 'native', verified: true, createdAt: 1 }],
+    projectWorkspaces: [{ id: 'workspace-default', repositoryId: 'repo-default', workspaceDir: root, directoryIdentity: 'fixture', gitDirectory: root,
+      gitDirectoryIdentity: 'fixture', gitPointerIdentity: 'fixture', commonGitIdentity: 'fixture', kind: 'checkout', createdAt: 1 }] };
+  const projectService = new SessionLaunchService({ get: () => projectConfig }, execution);
+  const actualOptions = await projectService.options({ projectWorkspaceId: 'workspace-default' });
+  check('host recommends the unique native Codex profile with its actual permission mode', actualOptions.profiles?.[0]?.defaultForCli === true && actualOptions.profiles[0].permissionMode === 'bypass');
+  projectConfig.agents.push({ ...projectConfig.agents[0]!, id: 'codex-second', permissionMode: 'default' });
+  check('multiple same-provider profiles require a choice instead of silently choosing bypass', !(await projectService.options({ projectWorkspaceId: 'workspace-default' })).profiles?.some(p => p.defaultForCli));
+  projectConfig.settings = { ...projectConfig.settings, projectDefaults: { rootPath: root, rootIdentity: 'fixture', agentId: 'codex-default' } };
+  check('configured project default resolves ambiguity', (await projectService.options({ projectWorkspaceId: 'workspace-default' })).profiles?.find(p => p.defaultForCli)?.id === 'codex-default');
   const codex = await service.effectiveAgent(original, 'native', { mode: 'codex' });
   check('fresh Codex uses its defaults without foreign model pins', resolveLaunchCommand(codex) === 'codex' && codex.runtime === 'codex');
   for (const mode of ['claude', 'grok'] as const) {
