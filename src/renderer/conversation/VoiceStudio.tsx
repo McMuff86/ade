@@ -194,6 +194,11 @@ export function VoiceStudio({ port, scope, enabled, reply = '', dictation }: { p
       {catalog && !catalog.voices.length && <p>{t('No voices available. Check the ElevenLabs key and voice access.')}</p>}
       {!state && open && status}
       {state && <>
+        {/* An unconfirmed generation locks every control below; announce it first, where the locked controls are. */}
+        {state.pending && <section role="status" className="voice-studio-pending"><p>{t('The last generation is unconfirmed. It will not be repeated automatically.')}</p>
+          {port.recover && <button type="button" disabled={!enabled || busy} onClick={() => void run(() => generate(state.pending!.slot, state.pending!), 'top')}>{t('Check the same request again')}</button>}
+          <button type="button" disabled={busy} onClick={() => save({ ...state, pending: null })}>{t('Dismiss pending generation')}</button><p className="conversation-note">{t('Starting a new sample after dismissing may use credits again.')}</p>
+        </section>}
         <div className="voice-studio-text">
           <div className="voice-studio-text-head">
             <label htmlFor={textId}>{t('Sample text')}</label>
@@ -277,10 +282,6 @@ export function VoiceStudio({ port, scope, enabled, reply = '', dictation }: { p
           <button type="button" disabled={!fresh || !name.trim() || state.presets.length >= 12} onClick={() => { if (save({ ...state, presets: [...state.presets, { name: name.trim(), setup: structuredClone(state.a) }] })) { setName(''); setNotice(t('Preset saved on this device.')); } }}>{t('Save A as preset')}</button>
           {state.presets.length > 0 && <label>{t('Remove saved preset')}<select disabled={!fresh} value="" onChange={e => save({ ...state, presets: state.presets.filter((_, i) => i !== Number(e.target.value)) })}><option value="">{t('Choose a preset')}</option>{state.presets.map((p, i) => <option key={i} value={i}>{p.name}</option>)}</select></label>}
         </div>}
-        {state.pending && <section role="status" className="voice-studio-pending"><p>{t('The last generation is unconfirmed. It will not be repeated automatically.')}</p>
-          {port.recover && <button type="button" disabled={!enabled || busy} onClick={() => void run(() => generate(state.pending!.slot, state.pending!))}>{t('Check the same request again')}</button>}
-          <button type="button" disabled={busy} onClick={() => save({ ...state, pending: null })}>{t('Dismiss pending generation')}</button><p className="conversation-note">{t('Starting a new sample after dismissing may use credits again.')}</p>
-        </section>}
       </>}
       {open && place === 'bottom' && status}
       <p className="conversation-note">{t('Each generated sample uses ElevenLabs credits; changing sliders is free.')}</p>

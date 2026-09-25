@@ -43,7 +43,15 @@ export async function terminalInputEchoFlow(desktop: Page, page: Page, panel: Lo
     }));
     await page.screenshot({ path: join(evidence, 'terminal-shell-ime-preview.png') });
     await cdp.send('Input.insertText', { text: 'git status' });
-    await rows.getByText(/\[path\]> git status/).first().waitFor();
+    await rows.getByText(/\[path\]> git status/).first().waitFor({ timeout: 20_000 }).catch(async (error: unknown) => {
+      // Intermittent since 2026-09-24: show what the tablet and the PC terminal hold when the echo never arrives.
+      console.error('terminal rows at timeout:', JSON.stringify(await rows.textContent()));
+      console.error('before cursor:', JSON.stringify(await beforeCursor()));
+      console.error('input value:', JSON.stringify(await input.inputValue()), 'focused:', await input.evaluate((node) => document.activeElement === node));
+      const live = (await sessions()).sessions.find((session) => session.id === shell?.id);
+      console.error('pc session:', JSON.stringify({ status: live?.status, cols: (live as { cols?: number } | undefined)?.cols, rows: (live as { rows?: number } | undefined)?.rows }));
+      throw error;
+    });
     await composition.waitFor({ state: 'hidden' });
     check('committed touchscreen text reaches the native shell once before Enter', /\[path\]> git status$/.test(await beforeCursor()));
     await page.keyboard.press('Enter');

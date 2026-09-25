@@ -48,8 +48,10 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
       && session.repositoryId === repo.id && session.workspaceDir === binding.workspaceDir));
     await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
     await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).click();
-    await workspace.getByText('wird geöffnet…', { exact: false }).waitFor({ state: 'hidden' });
-    check(`${label} starts again after the short-lived fixture exits instead of reusing its empty shell`, (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === sessions.length + 1);
+    // "wird geöffnet…" may not have appeared yet under load, so wait for the new session itself.
+    const relaunched = async (): Promise<boolean> => (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === sessions.length + 1;
+    for (const deadline = Date.now() + 30_000; !(await relaunched()) && Date.now() < deadline;) await new Promise((done) => setTimeout(done, 100));
+    check(`${label} starts again after the short-lived fixture exits instead of reusing its empty shell`, await relaunched());
   }
   await page.screenshot({ path: join(evidence, 'project-cli-tablet.png') });
   await workspace.getByRole('button', { name: 'Projekt · Tablet Garden schliessen', exact: true }).click();

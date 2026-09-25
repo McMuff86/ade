@@ -1,5 +1,23 @@
 # ADE implementation status
 
+## Stimmenstudio: unbestätigte Erzeugung sichtbar oben; voller Lauf auf dem gemeinsamen Stand (25. September 2026)
+
+Adi fand das Stimmenstudio auf dem Tablet komplett ausgegraut: Eine Erzeugung
+blieb während eines Neustarts unbestätigt (`pending`, die Anfrage kam nie am PC
+an), sperrt absichtlich alle Regler, und ihr Hinweis mit „Unbestätigte Erzeugung
+verwerfen“ stand unter allen gesperrten Reglern. Er steht jetzt direkt unter dem
+Studio-Kopf; die Wiederholung meldet sich oben. Regressionstest mit gespeichertem
+`pending`: Gegenprobe gegen den alten Build rot an der Positionsprüfung, mit
+Korrektur Mobile-Sprache **66/0**. Voller isolierter Lauf auf `65fb57a`:
+39 Schritte in **7 min 37 s**; nach Korrektur zweier Lastwackler
+(Gesprächs-Wiederaufnahme, Neustart-Zählung im Projektterminal) und dem vollen
+Remote-Terminal-Lauf in der Solo-Bahn **38/39** in 10 min 57 s. Offen:
+`terminal-latency` zeitweise rot (etwa jeder dritte Lauf): nach dem
+Tastatur-Resize steht per IME übernommener Text im Tablet-xterm am Zeilenanfang
+über dem Prompt, die PTY-Eingabe selbst ist korrekt; Diagnose im Treiber
+(`terminalInputEchoFlow`), Ursache vermutlich ConPTY-Neuaufbau nach der
+verzögerten Grössenmeldung (seit `903ac7a`).
+
 ## Stabilisierung: isolierter Gesamtlauf, Schnelltor, geskriptete Aktivierung, Fehlererfassung (24. September 2026)
 
 `pnpm verify` (`scripts/verify.ts`) baut nach `test-results/verify-build` und

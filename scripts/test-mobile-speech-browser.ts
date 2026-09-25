@@ -194,5 +194,24 @@ void (async()=>{
   await page.keyboard.press('Escape');await casual.waitFor({state:'hidden'});
   await expect(page.locator('#mobile-supervision')).toBeFocused();
   check('closing the conversation returns focus to the navigation entry',true);
+  // A generation left unconfirmed (e.g. a tap while the PC restarts) locks every studio control; the notice with
+  // its way out must sit above the locked controls, not below them where it went unseen on the tablet.
+  await page.setViewportSize({width:1280,height:800});
+  const beforePending=generations;
+  await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(name=>name.startsWith('ade:voice-studio:')&&!name.endsWith(':samples'))!;
+    const state=JSON.parse(localStorage.getItem(key)!);
+    state.pending={key:crypto.randomUUID(),slot:'default',input:{voiceId:state.a.voiceId,tuning:state.a.tuning,studio:{model:state.a.model,text:'Unterbrochene Hörprobe',language:state.language}}};
+    localStorage.setItem(key,JSON.stringify(state));
+  });
+  await navEntry.click();await page.locator('#conversation-mode-casual').click();await casual.waitFor();
+  const pendingBox=studio.locator('.voice-studio-pending');await pendingBox.waitFor();
+  const [pendingAt,textAt]=[await pendingBox.boundingBox(),await sampleBox.boundingBox()];
+  check('an unconfirmed generation is announced above the locked studio controls',!!pendingAt && !!textAt && pendingAt.y+pendingAt.height<=textAt.y
+    && await sampleBox.isDisabled() && await defaultPicker.isDisabled() && (await pendingBox.innerText()).includes('Die letzte Erzeugung ist unbestätigt'));
+  await pendingBox.getByRole('button',{name:'Unbestätigte Erzeugung verwerfen',exact:true}).click();
+  await pendingBox.waitFor({state:'hidden'});
+  check('dismissing the unconfirmed generation unlocks the studio without a new generation',await sampleBox.isEnabled() && await defaultPicker.isEnabled() && generations===beforePending);
+  await page.keyboard.press('Escape');await casual.waitFor({state:'hidden'});
   check('mobile speech flow has no uncaught browser errors',errors.length===0);
 })().catch(async error=>{failed++;console.error(error); const page=browser?.contexts()[0]?.pages()[0]; if(page) {console.error((await page.locator('body').innerText()).slice(-6000));await page.screenshot({path:resolve('test-results/mobile-speech-failure.png')});}}).finally(async()=>{await browser?.close();await server?.stop();sessions?.dispose();await proxy?.close();rmSync(root,{recursive:true,force:true});console.log(`Mobile speech browser: ${passed} passed, ${failed} failed`);process.exitCode=failed?1:0;});

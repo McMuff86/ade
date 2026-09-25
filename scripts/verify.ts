@@ -34,7 +34,7 @@ type Kind = 'typecheck' | 'suites' | 'build' | 'driver';
  * How a driver may share the machine. Every driver has its own profile, ports
  * and temp directories, so most run in the pool. Two drive the real system
  * clipboard and must not overlap each other; the solo drivers measure latency,
- * races or pixels and run alone at the end.
+ * races or pixels, or restart fixture CLIs back to back, and run alone at the end.
  */
 type Lane = 'pool' | 'clipboard' | 'solo';
 
@@ -150,7 +150,8 @@ const STEPS: Step[] = [
   driver('remote-workbench-browser', 'test-remote-workbench-browser.ts'),
   driver('remote-terminal-electron:session-navigation', 'test-remote-terminal-electron.ts', only('session-navigation')),
   driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', only('tablet-layout')),
-  driver('remote-terminal-electron', 'test-remote-terminal-electron.ts'),
+  // Restarts short-lived fixture CLIs back to back; beside the pool it failed at changing spots.
+  driver('remote-terminal-electron', 'test-remote-terminal-electron.ts', { lane: 'solo' }),
   driver('remote-terminal-electron:run-inspection', 'test-remote-terminal-electron.ts', only('run-inspection')),
   driver('remote-terminal-electron:workspace-cli', 'test-remote-terminal-electron.ts', only('workspace-cli', 'clipboard')),
   driver('remote-terminal-electron:project-git', 'test-remote-terminal-electron.ts', only('project-git')),

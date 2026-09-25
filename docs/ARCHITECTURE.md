@@ -2696,8 +2696,8 @@ than they appear to.
   Scheduling: the typechecks at once, then the build, then the suites, a pool
   of drivers (`--driver-jobs`, default 4, longest measured first) and a
   clipboard lane side by side, and last the solo drivers alone. Drivers that
-  drive the real system clipboard share one serial lane; latency, input-race
-  and pixel drivers are solo. A lock file admits one run at a time, so an
+  drive the real system clipboard share one serial lane; latency, input-race,
+  pixel and the full remote-terminal drivers are solo. A lock file admits one run at a time, so an
   activation cannot delete the build a background run still uses.
   `pnpm verify:gate` is the fast subset for activations: typechecks, suites,
   build and the core desktop/tablet drivers (`GATE_DRIVERS`).

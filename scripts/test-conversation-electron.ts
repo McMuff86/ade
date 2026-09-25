@@ -133,7 +133,8 @@ require(${JSON.stringify(mainEntry(process.env.ADE_CONVERSATION_MAIN))});`);
   await app!.close(); app = undefined; page = await launch(); dialog = await open(page);
   await dialog.getByLabel('Gespräch auswählen', { exact: true }).selectOption(id);
   await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toBeEnabled(); await send('recall');
-  await expect(dialog.getByText('MORNING_CONTEXT', { exact: true })).toHaveCount(2);
+  // The resumed fixture CLI starts after an app restart; beside the parallel verify pool that can exceed 5 s.
+  await expect(dialog.getByText('MORNING_CONTEXT', { exact: true })).toHaveCount(2, { timeout: 30_000 });
   check('app restart resumes only the exact stored native conversation', (await page.evaluate(id => window.ade.invoke('conversation:detail', { conversationId: id }), id)).turns.at(-1)!.output === 'MORNING_CONTEXT');
   for (const width of [800, 390]) {
     await app!.evaluate(({ BrowserWindow }, width) => { const w = BrowserWindow.getAllWindows()[0]!; w.setMinimumSize(320, 400); w.setSize(width, 850); }, width);
