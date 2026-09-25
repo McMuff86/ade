@@ -9,6 +9,9 @@ Reasoning. Übernahmefehler sind auch bei eingeklappten Bedienelementen sichtbar
 Gesprächsvorschläge können Projektanlage und Erstauftrag kombinieren und bei
 bestehenden Projekten Koordinieren mit der Auftragsbestätigung einschalten.
 Knuckles/Rhino-Tablet-Arbeit ist separat auf main/master committet.
+Code `d24bd2b` um 23:51 CEST aktiviert, Source `3af05ee33f39748e1815`, PID 64576.
+Alle fokussierten Prüfungen und beide Builds bestanden; volle Suite und
+persönlicher Tablet-Test bleiben offen.
 [Belege, Grenzen und aktueller Betriebsstand](TABLET_RECOVERY_2026-09-25.md).
 
 ## Manueller Testbuild: Projekt aus Gespräch anlegen (25. September 2026)

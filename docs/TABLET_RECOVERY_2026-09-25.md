@@ -88,9 +88,24 @@ Kein bezahlter Modellaufruf; native Protokollpartner waren lokale Fixtures.
 Screenshot-Evidenz: `test-results/main-agent-planning/conversation-project-start-390.png`
 und `test-results/remote/project-collapsed-takeover-error.png`.
 
-Die Aktivierung erfolgt nach diesen Prüfungen über `pnpm activate`, mit eigener
-Profilsicherung, geordnetem Beenden und `out.prev`. Der finale Beleg wird nach
-dem Neustart ergänzt.
+ADE-Codecommit: `d24bd2b` auf `main`, bei Aktivierung sauberer Arbeitsbaum.
+Aktiviert am **25.09.2026, 23:51 CEST** über
+`pnpm activate -Label TabletRecovery -SkipGate -DeferVerification -Force`.
+Die Aktivierung führte erneut alle drei Typprüfungen und beide isolierten Builds
+erfolgreich aus. Der vollständige Gate-/Hintergrundlauf wurde bewusst aufgeschoben.
+
+- Neuer Prozess **64576**, Source **`3af05ee33f39748e1815`**; `app ready`
+  um 21:51:11 UTC und Listener **127.0.0.1:4317** im selben Prozess bestätigt.
+- Alter ADE-Prozess 41220 und die beiden vorherigen Codex-Prozesse 86148/75068
+  sind beendet. Die Quellarbeit bleibt in den oben genannten Commits erhalten.
+- Profilsicherung:
+  `C:\Users\Adi.Muff\ADE-Backups\Activate-TabletRecovery-20260925-235103`.
+  Vorheriger Build in `out.prev`; Rückfall über `pnpm activate -Rollback`.
+- Die ursprünglichen **500** Aktionsbelege wurden beim Neustart bytegenau
+  erhalten (Hashvergleich mit Backup). Die erhöhte Kapazität benötigt keinen
+  Reset oder Verlust alter Wiederholungsschlüssel.
+- Aktivierungsbeleg: `test-results/activations.jsonl`, Label `TabletRecovery`,
+  `head:d24bd2b`, `dirtyFiles:0`, `verificationDeferred:true`.
 Der vollständige aktuelle `pnpm verify` und der persönliche Tablet-Test sind
 weiterhin offen; kein unbelegtes Versprechen vollständiger Produktabnahme.
 

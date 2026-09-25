@@ -2,6 +2,12 @@
 
 ## Tablet-Recovery und Stabilisierung (25. September 2026)
 
+**Aktiviert 23:51 CEST:** Code `d24bd2b`, PID **64576**, Source
+`3af05ee33f39748e1815`, mobiler Listener `127.0.0.1:4317`. Fokussierte Prüfungen
+und Builds grün; vollständiger aktueller Verify-Lauf und physischer Tablet-Test
+offen. Tablet neu laden und neue Projektstarts mit dem sichtbaren Bypass-Profil
+öffnen. Alte Terminalprozesse sind beendet, Projektarbeit ist committet.
+
 Aktueller Einstieg: [Tablet-Recovery](TABLET_RECOVERY_2026-09-25.md). Darin stehen
 Ursache der Terminalblockade, die gesicherten Knuckles/Rhino-Commits, ADE-Verträge,
 Prüfbelege, Grenzen und konkrete nächste Schritte. Die älteren Aktivierungsangaben
