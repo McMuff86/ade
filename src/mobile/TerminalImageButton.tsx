@@ -40,6 +40,12 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
   const bound = useRef(target).current;
   const allowed = enabled && capability?.available === true;
   const allowedRef = useRef(allowed); allowedRef.current = allowed;
+  // A greyed icon cannot explain itself on a touch screen. The button stays tappable and
+  // the dialog says why sending is unavailable; choosing waits only for an unsupported CLI.
+  const supported = capability?.available === true;
+  const reason = !capability ? translate("Checking image handoff.") : !capability.available ? capability.reason
+    : !enabled ? translate("Connection or input ownership is missing. Draft remains intact.") : '';
+  const choosing = phase === 'idle' && !uncertain && supported;
   useEffect(() => { live.current = true; return () => { live.current = false; version.current++; }; }, []);
   useEffect(() => { if (!png) { setPreview(''); return; } const url = URL.createObjectURL(png); setPreview(url); return () => URL.revokeObjectURL(url); }, [png]);
   useEffect(() => {
@@ -112,26 +118,26 @@ export function TerminalImageButton({ host, target, capability, enabled, send, e
     } finally { locked.current = false; if (live.current) setPhase('idle'); }
   };
   return <>
-    <button ref={button} className="voice-icon-button" aria-label={translate("Add image")} disabled={!allowed}
-      title={!capability?.available ? capability?.reason ?? translate("Checking image handoff.") : !enabled ? translate("Take control of terminal input first.") : translate("Add screenshot or image")}
+    <button ref={button} className="voice-icon-button" aria-label={translate("Add image")} aria-disabled={!allowed || undefined}
+      title={reason || translate("Add screenshot or image")}
       onClick={event => { event.currentTarget.focus(); setOpen(true); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg>
     </button>
     {open && <Dialog title={translate("Image and message")} className="m-terminal-image-dialog" restoreFocusTo={() => button.current}
       onClose={() => { if (!locked.current) { version.current++; setPhase('idle'); setOpen(false); } }}>
       <p>{translate("Select a screenshot from gallery or files, or a photo or sheet from your notes. The image goes to this session with your message.")}</p>
-      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" aria-label={translate("Select the screenshot")} disabled={phase !== 'idle' || uncertain}
+      {reason && <p role="status" className="m-terminal-image-reason">{localizeAppMessage(reason)}</p>}
+      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" aria-label={translate("Select the screenshot")} disabled={!choosing}
         onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void select(file); }} />
-      <div className="m-terminal-image-actions"><button disabled={phase !== 'idle' || uncertain} onClick={() => picker.current?.click()}>{translate("Select the image")}</button>
-        <button disabled={phase !== 'idle' || uncertain} onClick={() => void clipboard()}>{translate("Insert picture")}</button>
-        <button disabled={phase !== 'idle' || uncertain} aria-expanded={notesOpen} onClick={() => setNotesOpen(value => !value)}>{translate("From the notes")}</button></div>
-      {notesOpen && <NoteImagePicker scope={`mobile:${host.deviceId}`} disabled={phase !== 'idle' || uncertain} onPick={(blob) => { setNotesOpen(false); void select(blob); }} onClose={() => setNotesOpen(false)} />}
+      <div className="m-terminal-image-actions"><button disabled={!choosing} onClick={() => picker.current?.click()}>{translate("Select the image")}</button>
+        <button disabled={!choosing} onClick={() => void clipboard()}>{translate("Insert picture")}</button>
+        <button disabled={!choosing} aria-expanded={notesOpen} onClick={() => setNotesOpen(value => !value)}>{translate("From the notes")}</button></div>
+      {notesOpen && <NoteImagePicker scope={`mobile:${host.deviceId}`} disabled={!choosing} onPick={(blob) => { setNotesOpen(false); void select(blob); }} onClose={() => setNotesOpen(false)} />}
       {preview && <figure><img src={preview} alt={translate("Preview of the selected screenshot")} /><figcaption>{translate("Screenshot ·")}{" "}{Math.ceil((png?.size ?? 0) / 1024)}{" "}{translate("KiB")}</figcaption></figure>}
       {!png && phase === 'idle' && !notice && <p>{translate("No picture selected yet.")}</p>}
       <label>{translate("Image message")}<textarea ref={message} aria-label={translate("Image message")} value={text} maxLength={12000} disabled={phase !== 'idle' || uncertain} onChange={event => setText(event.target.value)} placeholder={translate("What should I check or change on the screenshot?")} /></label>
       {phase !== 'idle' && <p role="status">{phase === 'preparing' ? translate("The picture is being prepared…") : phase === 'uploading' ? translate("Uploading image to the PC…") : translate("Sending image and message…")}</p>}
       {error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
-      {!allowed && <p role="status">{translate("Connection or input ownership is missing. Draft remains intact.")}</p>}
       <button className="m-primary" disabled={!allowed || !png || phase !== 'idle' || uncertain} onClick={() => void deliver()}>{translate("Send picture and message")}</button>
       {uncertain && <><button onClick={() => { setOpen(false); }}>{translate("Check terminal")}</button>
         <button onClick={() => { setUncertain(false); setPng(undefined); setText(''); setError(''); upload.current = undefined; }}>{translate("Checked – start a new draft")}</button></>}

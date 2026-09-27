@@ -58,13 +58,13 @@ export async function coordinatorActionsFlow(desktop: Page, root: string, port: 
     const identity = (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.find(agent => agent.id === profileId)!;
     writeFileSync(join(identity.memoryDir, 'MEMORY.md'), 'COORDINATOR_SINGLE_TASK_MEMORY');
     await send('prepare-task:' + JSON.stringify({ projectId: projects[0].id, agentId: profileId, prompt: 'ADE_TABLET_PROJECT_TASK write the confirmed answer to tablet-result.txt', coordinate: false }));
-    let task = mobile.getByRole('article', { name: 'Projektauftrag · Codex A', exact: true }); await task.waitFor();
+    let task = mobile.getByRole('article', { name: 'Codex-Projektauftrag · Codex A', exact: true }); await task.waitFor();
     check('tablet task proposal preserves private prompt and launches no run yet', !(await mobile.innerText()).includes('ADE_TABLET_PROJECT_TASK') && !(await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length);
     proxy.loseConversationActionReplies(true);
     await task.getByRole('button', { name: 'Auftrag starten', exact: true }).click();
     await expect.poll(async () => (await desktop.evaluate(() => window.ade.invoke('config:get'))).runTasks.length).toBe(1);
     await page.reload(); proxy.loseConversationActionReplies(false); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
-    mobile = await open(); task = mobile.getByRole('article', { name: 'Projektauftrag · Codex A', exact: true });
+    mobile = await open(); task = mobile.getByRole('article', { name: 'Codex-Projektauftrag · Codex A', exact: true });
     await task.getByText(/In ADE erfasst/).waitFor();
     check('lost tablet acknowledgement and reload retain one task and its durable parent', (await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length === 1 && !(await task.getByRole('button', { name: 'Auftrag starten', exact: true }).count()));
     await task.getByRole('button', { name: 'Ergebnis und Rückfragen öffnen', exact: true }).click();

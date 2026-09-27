@@ -45,8 +45,14 @@ das Bild nochmals mit Electron. Der Browser erhält nur eine undurchsichtige ID,
 Dimensionen, Grösse und einen festen Dateinamen. Keine absoluten Hostpfade,
 Bildbytes oder Prompttexte in Antworten, Audit oder dauerhaften Quittungen.
 Der bestehende Promptvertrag erlaubt bis zu vier eindeutige `imageIds`; nur
-Main löst diese auf. Der aktuelle Transport ist für ADE-gestarteten Codex mit
-geschütztem Prompt verfügbar. Andere CLIs zeigen eine nicht verfügbare Bildaktion.
+Main löst diese auf. Der Transport ist für ADE-gestartete Sitzungen mit geschütztem
+Prompt verfügbar, deren Bildannahme gemessen ist (`imageAttachmentMeasured`): Codex
+nativ und in WSL, seit 27. September 2026 auch Claude Code nativ unter Windows.
+Claude Code in WSL, Grok und andere CLIs bleiben ohne Bildaktion, bis eine Messung
+vorliegt. Der Knopf **Bild hinzufügen** bleibt in diesem Fall antippbar
+(`aria-disabled`). Der Dialog nennt den Grund, statt stumm ausgegraut zu sein.
+Bildauswahl und Senden bleiben dann gesperrt. Fehlt nur der Eingabebesitz, lässt sich
+das Bild schon wählen.
 
 `TerminalImageStore` speichert ausserhalb von Git-Workspaces: nativ unter dem
 ADE-Profil, bei Windows→WSL über einen festen Python-Worker unter einem privaten
@@ -58,7 +64,7 @@ Maximal 64 Bilder/64 MiB pro Speicher und zusätzlich im laufenden ID-Verzeichni
 Bild- und Audio-Uploads teilen eine Grenze von zwei HTTP-Anfragen gleichzeitig;
 gewöhnliche JSON-Anfragen bleiben auf 64 KiB begrenzt.
 
-Codex erhält jeden Bildpfad als eigenen bracketed paste, danach die Nachricht.
+Codex und Claude Code erhalten jeden Bildpfad als eigenen bracketed paste, danach die Nachricht.
 `ProtectedPromptWriter` hält die Eingabesynchronisierung über alle Teile, wartet
 zwischen Bild/Text/Enter und prüft vor jedem Teil erneut Ziel, Rechte und Dateien.
 Die native Probe prüft `[Image #1]` in einer echten separaten CLI und sendet
@@ -98,6 +104,11 @@ persönliche ADE-Instanz wurde nicht neu gestartet.
   einschliesslich WSL, signiertem HTTP, Negativkontrollen und positiver Endkontrolle.
 - Echte native Codex-Bildannahme: `node --import tsx scripts/test-terminal-image-native.ts`,
   **3/0** unter Windows. Beleg `test-results/terminal-media/windows-codex.json`.
+- Echte native Claude-Code-Bildannahme (27. September 2026): dieselbe Probe mit
+  `--claude`, **3/0** mit Claude Code v2.1.283 unter Windows. Der eingefügte
+  PNG-Pfad erscheint als `[Image #1]`; kein Enter, kein Modellauftrag. Beleg
+  `test-results/terminal-media/windows-claude.json`. Die node-pty-Meldung
+  `AttachConsole failed` beim Aufräumen ist bekanntes Teardown-Rauschen (Exit 0).
 - Browser-/Electron-Driver: `node --import tsx scripts/test-dictation-electron.ts --terminal-media-only`.
   **27/0** einschliesslich verzögertem/fehlgeschlagenem Modulimport, Wiederaufnahme
   ohne neue Sitzung, tatsächlichem Touch-Link, Bildpasten und verlorenen Quittungen.

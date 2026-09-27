@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ElectronApplication, Page } from 'playwright';
-import { expandSessionControls, terminalLauncher } from './terminalControls';
+import { expandSessionControls, launchTile, terminalLauncher } from './terminalControls';
 import { desktopWorkspaceTerminalFlow } from './desktopWorkspaceTerminalFlow';
 import { cliWorkFlow } from './cliWorkFlow';
 import { projectContextLayoutFlow } from './projectContextLayoutFlow';
@@ -58,9 +58,8 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Without profile', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Without profile', exact: true });
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
-  await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('claude');
-  await dialog.getByRole('button', { name: 'Claude CLI öffnen', exact: true }).click();
+  // The card already opened the existing folder; one tile starts the CLI.
+  await (await launchTile(dialog, 'Claude Code')).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
   const claude = (await sessions()).find((item) => item.projectWorkspaceId === workspace.id && item.launchChoice?.mode === 'claude')!;
   check('tablet Claude uses chosen branch and no saved profile', claude.workspaceDir === repo && claude.branch === 'feature/tablet' && !claude.agentId && !claude.launchProfileId);
@@ -68,11 +67,11 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   // Earlier flows in the same run may have expanded the per-device preference; start from the default.
   if (await compactToggle.getAttribute('aria-expanded') === 'true') { await compactToggle.focus(); await compactToggle.press('Enter'); }
   check('a running session starts with collapsed controls while ownership stays in project header', await compactToggle.getAttribute('aria-expanded') === 'false'
-    && !await dialog.getByLabel('Projekt-CLI', { exact: true }).isVisible()
+    && !await dialog.locator('.m-launcher').isVisible()
     && await dialog.locator('.m-dialog-head').getByText('Eingabe: Du (Tablet)', { exact: true }).isVisible());
   const screenCollapsed = (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!;
   await compactToggle.focus(); await compactToggle.press('Enter');
-  check('session controls expand through keyboard', await compactToggle.getAttribute('aria-expanded') === 'true' && await dialog.getByLabel('Projekt-CLI', { exact: true }).isVisible());
+  check('session controls expand through keyboard', await compactToggle.getAttribute('aria-expanded') === 'true' && await dialog.locator('.m-launcher').isVisible());
   check('collapsed controls give actual space to the terminal', screenCollapsed.height > (await dialog.getByLabel('Terminalanzeige', { exact: true }).boundingBox())!.height);
   await compactToggle.press('Enter');
   check('session controls collapse again through keyboard', await compactToggle.getAttribute('aria-expanded') === 'false');
@@ -137,16 +136,12 @@ export async function projectWorkspaceLaunchFlow(app: ElectronApplication, deskt
   const parallel = (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.find((item) => item.repositoryId === workspace.repositoryId && item.id !== workspace.id)!;
   check('tablet creates separate branch while original terminal stays alive', !!parallel && parallel.workspaceDir !== repo
     && git('branch', '--show-current').trim() === 'feature/tablet' && (await sessions()).some((item) => item.id === profile.id && item.status === 'running'));
-  await expandSessionControls(dialog);
-  await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('grok');
-  await dialog.getByRole('button', { name: 'Grok CLI öffnen', exact: true }).click();
+  await (await launchTile(dialog, 'Grok Build')).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'läuft · Terminal offen' }).waitFor();
   check('tablet Grok starts in selected parallel checkout without profile', (await sessions()).some((item) => item.projectWorkspaceId === parallel.id
     && item.workspaceDir === parallel.workspaceDir && item.branch === 'feature/parallel' && item.launchChoice?.mode === 'grok' && !item.agentId && !item.launchProfileId));
   await dialog.getByRole('button', { name: 'Workspace einblenden', exact: true }).click();
-  await expandSessionControls(dialog);
-  await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('shell');
-  await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
+  await (await launchTile(dialog, 'Leeres Terminal')).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
   check('tablet empty terminal uses the same selected branch', (await sessions()).some((item) => item.projectWorkspaceId === parallel.id && item.launchChoice?.mode === 'shell' && item.branch === 'feature/parallel'));
   await cliWorkFlow(desktop, evidence, workspace.id, parallel.id, check);

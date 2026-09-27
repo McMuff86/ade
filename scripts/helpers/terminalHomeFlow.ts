@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
-import { expandSessionControls, terminalLauncher } from './terminalControls';
+import { expandSessionControls, terminalLauncher, launchTile } from './terminalControls';
 
 export async function terminalHomeFlow(desktop: Page, page: Page, root: string, evidence: string,
   check: (name: string, ok: boolean) => void): Promise<void> {
@@ -114,10 +114,8 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await desktop.locator('.terminal-host').first().waitFor();
   check('desktop reload restores home terminal tabs from main-owned sessions', await desktop.locator('.tabstrip [role="tab"]').count() === 1
     && await desktop.locator('.tabstrip .tab-title').innerText() === 'Shell' && (await homeSessions())[0]!.id === shell.id);
-  for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude CLI'], ['grok', 'Grok CLI']] as const) {
-    await expandSessionControls(terminal);
-    await terminal.getByLabel('Terminal-CLI', { exact: true }).selectOption(mode);
-    await terminal.getByRole('button', { name: `${label} öffnen`, exact: true }).click();
+  for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude Code'], ['grok', 'Grok Build']] as const) {
+    await (await launchTile(terminal, label)).click();
     const deadline = Date.now() + 30_000;
     while (!(await homeSessions()).some((item) => item.launchChoice?.mode === mode && item.program?.status === 'exited')) {
       if (Date.now() >= deadline) throw new Error(`${mode} home CLI did not finish`);
@@ -172,15 +170,15 @@ export async function terminalHomeFlow(desktop: Page, page: Page, root: string, 
   await terminalLauncher(terminal);
   const sessionsBefore = await homeSessions(); const count = sessionsBefore.length;
   const runningBefore = sessionsBefore.filter(item => item.status === 'running').map(item => item.id).sort();
-  const previousWireIds = await terminal.getByLabel('Terminal-Sitzung', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(n => (n as HTMLOptionElement).value));
+  const previousWireIds = await terminal.locator('[data-terminal-id]').evaluateAll(nodes => nodes.map(n => (n as HTMLElement).dataset.terminalId!));
   await terminal.getByLabel('Sitzung starten mit', { exact: true }).selectOption('shell');
   await terminal.getByRole('button', { name: 'Sitzung starten', exact: true }).click();
   await terminal.getByLabel('Terminalanzeige', { exact: true }).waitFor();
   // The old screen remains mounted during launch. Wait for the new selected
   // session acknowledgement before reading host identities, not only before close.
   await page.waitForFunction(previous => {
-    const selected = document.querySelector<HTMLSelectElement>('[aria-label="Terminal-Sitzung"]');
-    return !!selected?.value && !previous.includes(selected.value) && !selected.disabled;
+    const selected = document.querySelector<HTMLButtonElement>('[data-terminal-id][aria-pressed="true"]');
+    return !!selected?.dataset.terminalId && !previous.includes(selected.dataset.terminalId) && !selected.disabled;
   }, previousWireIds);
   await terminal.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
   const afterOpen = await homeSessions();

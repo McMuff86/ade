@@ -45,7 +45,15 @@ interface Control {
   deviceId: string; leaseId: string; expiresAt: number; sequence: number;
   receipts: Map<number, { key: string; fingerprint: string; accepted: boolean }>;
 }
-interface TerminalEntry { id: string; sessionId: string; cols: number; rows: number; workspaceVersion: string; control?: Control }
+/** A lease that merely lapsed (the device looked elsewhere or slept) stays resumable by that
+ * device alone; any claim, an explicit release, a desktop reclaim or revocation ends the offer. */
+interface Resume { deviceId: string; until: number }
+interface TerminalEntry { id: string; sessionId: string; cols: number; rows: number; workspaceVersion: string; control?: Control; resume?: Resume }
+export const INPUT_RESUME_MS = 10 * 60_000;
+/** Only CLIs whose attachment of a pasted image path was observed (scripts/test-terminal-image-native.ts):
+ * Codex natively and in WSL, Claude Code natively on Windows. */
+export const imageAttachmentMeasured = (session: Pick<SessionMeta, 'runtime' | 'executionBackend'>): boolean =>
+  session.runtime === 'codex' || session.runtime === 'claude' && session.executionBackend === 'native';
 const failure = (message: string): never => { throw new RemoteApiError(409, 'command_rejected', message); };
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 
@@ -104,7 +112,10 @@ export class RemoteTerminalService {
   }
   dispose(): void { clearInterval(this.timer); this.entries.clear(); }
   revoke(deviceId: string | null): void {
-    for (const entry of this.entries.values()) if (entry.control && (deviceId === null || entry.control.deviceId === deviceId)) this.release(entry);
+    for (const entry of this.entries.values()) {
+      if (entry.control && (deviceId === null || entry.control.deviceId === deviceId)) this.release(entry);
+      if (entry.resume && (deviceId === null || entry.resume.deviceId === deviceId)) entry.resume = undefined;
+    }
   }
   desktopState(sessionId: string): TerminalControlState {
     this.expire(); const entry = [...this.entries.values()].find((item) => item.sessionId === sessionId);
@@ -253,7 +264,9 @@ export class RemoteTerminalService {
       entry = this.requireEntry(input.terminalId, binding!);
       if (!this.visible(deviceId, this.port.list().find((session) => session.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
       if (input.operation === 'release') {
-        if (entry.control?.deviceId === deviceId) this.release(entry); return { terminalId: entry.id };
+        if (entry.control?.deviceId === deviceId) this.release(entry);
+        else if (entry.resume?.deviceId === deviceId) entry.resume = undefined;
+        return { terminalId: entry.id };
       }
       if (input.operation === 'close') {
         if (entry.control?.deviceId !== deviceId) failure(translate("Take over the terminal input before terminating."));
@@ -261,7 +274,7 @@ export class RemoteTerminalService {
       }
       if (entry.control && entry.control.deviceId !== deviceId) failure(translate("Another device controls this terminal. Release it on the desktop."));
     }
-    entry.control = { deviceId, leaseId: randomUUID(), expiresAt: this.now() + 30_000, sequence: 0, receipts: new Map() };
+    entry.control = { deviceId, leaseId: randomUUID(), expiresAt: this.now() + 30_000, sequence: 0, receipts: new Map() }; entry.resume = undefined;
     this.changed({ sessionId: entry.sessionId, remote: true });
     return { terminalId: entry.id };
   }
@@ -284,7 +297,7 @@ export class RemoteTerminalService {
   }
 
   private imageCapability(session: SessionMeta): TerminalPromptCapability {
-    if (!this.images || session.runtime !== 'codex') return { available: false, reason: translate("Image attachments are available for native Codex sessions.") };
+    if (!this.images || !imageAttachmentMeasured(session)) return { available: false, reason: translate("Images can be attached to Codex and Claude Code sessions started by ADE.") };
     return this.port.promptCapability?.(session.id, false) ?? { available: false, reason: translate("Image handoff is not available.") };
   }
 
@@ -424,7 +437,8 @@ export class RemoteTerminalService {
       launchProfileId: session.launchProfileId,
       launchProfileName: session.launchProfileName ? redactForWire(session.launchProfileName, 200) : undefined,
       branch: session.branch ? redactForWire(session.branch, 200) : undefined,
-      owner: !entry.control ? 'desktop' : entry.control.deviceId === deviceId ? 'self' : 'other' };
+      owner: !entry.control ? 'desktop' : entry.control.deviceId === deviceId ? 'self' : 'other',
+      ...(!entry.control && entry.resume?.deviceId === deviceId && entry.resume.until > this.now() ? { resumable: true as const } : {}) };
   }
   private visible(deviceId: string, session: SessionMeta): boolean {
     if (!session) return false;
@@ -439,11 +453,18 @@ export class RemoteTerminalService {
     if (!this.allowed(id)) throw new RemoteApiError(403, 'scope_not_granted');
     if (selection) this.authorizeSelection(id, selection);
   }
-  private release(entry: TerminalEntry): void { if (!entry.control) return; entry.control = undefined; this.changed({ sessionId: entry.sessionId, remote: false }); }
+  private release(entry: TerminalEntry, resume?: Resume): void {
+    entry.resume = resume;
+    if (!entry.control) return; entry.control = undefined; this.changed({ sessionId: entry.sessionId, remote: false });
+  }
   private expire(): void {
-    const sessions = this.port.list();
+    const sessions = this.port.list(); const now = this.now();
     for (const [id, entry] of this.entries) {
-      if (entry.control && (entry.control.expiresAt <= this.now() || !this.allowed(entry.control.deviceId))) this.release(entry);
+      const control = entry.control;
+      if (control && (control.expiresAt <= now || !this.allowed(control.deviceId))) {
+        this.release(entry, this.allowed(control.deviceId) ? { deviceId: control.deviceId, until: now + INPUT_RESUME_MS } : undefined);
+      }
+      if (entry.resume && entry.resume.until <= now) entry.resume = undefined;
       if (!sessions.some((session) => session.id === entry.sessionId)) { this.release(entry); this.entries.delete(id); }
     }
   }

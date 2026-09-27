@@ -9,7 +9,7 @@ import { terminalWebLinks, completeTerminalLink } from '../src/shared/terminalLi
 import { terminalPngDimensions } from '../src/shared/terminalImages';
 import { ProtectedPromptWriter } from '../src/main/pty/ProtectedPromptWriter';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
-import { RemoteTerminalService } from '../src/main/application/RemoteTerminalService';
+import { imageAttachmentMeasured, RemoteTerminalService } from '../src/main/application/RemoteTerminalService';
 import { AdeApplicationService, type RemoteCommandContext } from '../src/main/application/AdeApplicationService';
 import { HostRestartController } from '../src/main/application/HostRestartController';
 import type { MobileTerminalState } from '../src/shared/remote';
@@ -113,6 +113,11 @@ void (async () => {
   await refuses('changed attachment cannot reuse prompt receipt', () => application.remotePrompt(promptContext, { ...prompt, imageIds: [image.id] }));
   await refuses('unknown attachment cannot submit', () => application.remotePrompt(context(), { ...prompt, sequence: 2, imageIds: [randomUUID()] }));
   sessions[0]!.runtime = 'claude';
+  check('native Claude Code offers image attachments', (await application.remoteTerminal(context(), { ...selection, terminalId: opened.terminalId }, 'query') as MobileTerminalState).imageCapability?.available === true);
+  check('image attachments follow measured CLIs only', imageAttachmentMeasured({ runtime: 'codex', executionBackend: 'wsl:Ubuntu' })
+    && imageAttachmentMeasured({ runtime: 'claude', executionBackend: 'native' }) && !imageAttachmentMeasured({ runtime: 'claude', executionBackend: 'wsl:Ubuntu' })
+    && !imageAttachmentMeasured({ runtime: 'grok', executionBackend: 'native' }) && !imageAttachmentMeasured({ runtime: 'shell', executionBackend: 'native' }));
+  sessions[0]!.runtime = 'grok';
   await refuses('unverified runtime image delivery fails closed', () => application.remoteTerminalImage(context(), payload)); sessions[0]!.runtime = 'codex';
   await application.remotePrompt(context(), { ...prompt, sequence: 2 });
   check('final authorized positive image prompt succeeds', writes.length === 2);

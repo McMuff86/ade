@@ -4,7 +4,10 @@
 
 **Projekte** on desktop and tablet now lists configured-root folders together with
 registered repositories. **Workspace öffnen** registers the exact existing native
-checkout and shows its branch without creating an agent or worktree. Ordinary
+checkout and shows its branch without creating an agent or worktree. On the tablet
+the project card ("Workspace öffnen: <name>") and Overview's "Projekt öffnen" run
+that same open command at once (2026-09-27); the dialog's button remains for
+missing grants, errors and replay. Ordinary
 folders without Git and unavailable directories remain visible with an explanation.
 The tablet requires `workspace:read` plus the explicit `projects:write` grant to
 open. Its durable `project-opening` receipt supports explicit replay after a lost
@@ -15,11 +18,22 @@ its own checkout but a separate worktree permits parallel work. Mobile requires
 the additional `projectGit:write` grant for branch actions. Uncertain responses
 retain the receipt across reload and are resolved by explicit replay.
 
-Choose **Sitzung öffnen mit** on Mobile (**Arbeiten mit** on desktop) →
-**Codex / Claude CLI / Grok CLI / Leeres Terminal**, then
-**… öffnen**. No profile, agent binding or instruction injection is created.
-**Neue Sitzung starten → Gespeichertes Agent-Profil → Startprofil** explicitly
-reuses saved launch settings in this checkout. Session labels show the selected
+On Mobile, project and free terminals show one tile per CLI under **Sitzung
+starten** (`SessionLauncher`, 2026-09-27): Codex, Claude Code, Grok Build and Leeres
+Terminal (**Arbeiten mit** on desktop). A tile resolves exactly like the launch:
+in a project workspace the host's `defaultForCli` profile for that CLI, otherwise
+the plain CLI. It shows the profile, the permission in plain words and the literal
+`LAUNCH_PROFILES` command, for example `claude --dangerously-skip-permissions`.
+A tap runs `openProfile` (reuse a running session of that mode and profile,
+otherwise launch). The former CLI select, "Startprofil:" line and session select
+are gone. Open sessions are rows under **Sitzungen hier** (`data-terminal-id`,
+`aria-pressed` for the shown one). Other CLIs, other profiles and a deliberate
+additional session stay under **Weitere Startoptionen** (`SessionLaunchFields`,
+**Gespeichertes Agent-Profil → Startprofil**, **Sitzung starten**). No profile,
+agent binding or instruction injection is created. A pending terminal command whose
+reply was lost is named in a notice with **Terminalaktion erneut prüfen** (same key,
+at most once) and **Verwerfen** (drops the local receipt, starts nothing). Agent
+workspaces keep their **Agent name öffnen** action. Session labels show the selected
 session's real branch, optional profile and separate CLI/terminal state.
 
 **Neues Projekt → Name → Projekt anlegen und öffnen** uses the configured native
@@ -73,8 +87,9 @@ In an agent workspace the primary action is **Agent name öffnen**. It opens or
 reuses the latest running saved-profile terminal and expands the terminal view.
 This also works when a blank shell was previously selected. For Hermes this
 preserves `general --tui`; for OpenClaw it preserves the configured TUI command.
-Project CLI Open actions reuse a running session with the selected launch mode
-in the same workspace. **Neue Sitzung starten** explicitly creates another one.
+Project CLI tiles reuse a running session with the same launch mode and profile
+in the same workspace. **Weitere Startoptionen → Sitzung starten** explicitly
+creates another one.
 
 The empty composer and advanced launcher start folded. Direct typing leaves them
 folded. Uncertain composed input stays reviewable, and an unsent draft survives

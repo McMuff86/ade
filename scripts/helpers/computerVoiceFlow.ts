@@ -30,8 +30,7 @@ export async function computerVoiceFlow(page: Page, dialog: Locator, root: strin
   check(`${surface}: live Computer call survives an empty final transcript and plays one greeting`, generations().length === before + 1
     && JSON.parse(generations().at(-1)!).text === speechPronunciation(answer) && answer.includes(', Adi.') && !answer.includes('ADE'));
   const delivery = JSON.parse(generations().at(-1)!).voice_settings;
-  check(`${surface}: extended greeting explains dictation and review with even, measured delivery`, answer.includes('Wähle nach dieser Begrüssung „Diktieren“')
-    && answer.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && answer.length >= 200 && answer.length <= 400
+  check(`${surface}: short greeting by time of day with even, measured delivery`, /^Guten (Morgen|Tag|Abend), Adi\. Was kann ich für dich tun\?$/.test(answer)
     && delivery?.stability === 0.9 && Object.keys(delivery).join() === 'stability');
   check(`${surface}: voice test never alters or submits the draft`, await draft.inputValue() === `Entwurf ${surface}.`
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
@@ -76,8 +75,11 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
   await strip.getByLabel('Computer Antwort', { exact: true }).waitFor();
   const answer = await strip.getByLabel('Computer Antwort', { exact: true }).innerText();
-  check('tablet: live Computer call survives an empty final transcript and plays one greeting', generations().length === before + 1
-    && JSON.parse(generations().at(-1)!).text === speechPronunciation(answer) && answer.includes(', Adi.') && !answer.includes('ADE'));
+  // The desktop flow ran first: an identical greeting (same voice, delivery and time of day)
+  // must come from the host's memory, so every distinct greeting is synthesized exactly once.
+  const greeted = generations().length;
+  check('tablet: live Computer call survives an empty final transcript and plays a greeting synthesized at most once per text', greeted <= before + 1
+    && generations().filter(line => JSON.parse(line).text === speechPronunciation(answer)).length === 1 && answer.includes(', Adi.') && !answer.includes('ADE'));
   writeFileSync(join(root, 'live-phrase.txt'), 'Bitte prüfe den Code.');
   writeFileSync(join(root, 'committed-phrase.txt'), 'Bitte prüfe den Code.');
   await listening.waitFor();
@@ -90,7 +92,7 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
     && !existsSync(join(root, 'Dictation project', 'prompt-proof.jsonl')));
   await strip.getByRole('button', { name: 'Erneut', exact: true }).click();
   await listening.waitFor();
-  check('tablet: replaying the greeting uses the existing audio and listens again', generations().length === before + 1);
+  check('tablet: replaying the greeting uses the existing audio and listens again', generations().length === greeted);
   await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(speak).toBeEnabled();
   check('tablet: cancelling the follow-up dictation keeps the draft', await draft.inputValue() === 'Entwurf tablet.\nBitte prüfe den Code.');

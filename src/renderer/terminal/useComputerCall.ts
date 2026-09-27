@@ -84,9 +84,12 @@ export function useComputerCall(port: PromptComposerPort, { enabled, onBusy, onS
           await new Promise(done => setTimeout(done, 250));
         }
         if (!valid()) return;
+        // Only a heard call may cost a synthesis. Request it now so it overlaps
+        // stopping and finalizing the recording instead of following them.
+        const greeting = heard ? target.computerGreeting() : undefined; void greeting?.catch(() => undefined);
         clearTimeout(listenTimer.current); recorder.stop(); await stopped; if (!valid()) return;
         capture.current = undefined; await target.revokeMicrophone?.();
-        if (!heard) throw new Error(translate("\"Computer\" was not detected. You can start the test again."));
+        if (!greeting) throw new Error(translate("\"Computer\" was not detected. You can start the test again."));
         setPhase('finishing'); setStatus(translate("“Computer” is heard. Greetings are being prepared…"));
         await target.liveRecording.finish(prepared.jobId); if (!valid()) return;
         const finalDeadline = Date.now() + 16_000; let finalized = false;
@@ -103,7 +106,7 @@ export function useComputerCall(port: PromptComposerPort, { enabled, onBusy, onS
         if (!finalized) throw new Error(translate("Recording completion could not be confirmed. Please try again."));
         job.current = undefined;
         setPhase('greeting');
-        audio = await target.computerGreeting(); if (!valid()) return;
+        audio = await greeting; if (!valid()) return;
         setReply(audio);
       }
       const bytes = Uint8Array.from(atob(audio.base64), char => char.charCodeAt(0));

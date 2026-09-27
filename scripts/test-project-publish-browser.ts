@@ -29,7 +29,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Publication demo', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Publication demo', exact: true });
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click(); await dialog.getByRole('button', { name: 'Git', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Git', exact: true }).click();
   await dialog.getByText('Push und Pull Request', { exact: true }).click(); const panel = dialog.getByRole('region', { name: 'Projekt veröffentlichen', exact: true });
   await panel.getByRole('button', { name: 'Remote-Stand prüfen', exact: true }).click();
   await panel.getByText('Branch noch nicht vorhanden', { exact: false }).waitFor();

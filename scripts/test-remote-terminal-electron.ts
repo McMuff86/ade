@@ -8,6 +8,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
+import { expect } from 'playwright/test';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { projectStartFlow } from './helpers/projectStartFlow';
 import { projectEntryFlow } from './helpers/projectEntryFlow';
@@ -25,6 +26,7 @@ import { terminalHomeFlow } from './helpers/terminalHomeFlow';
 import { workspaceAssignmentFlow } from './helpers/workspaceAssignmentFlow';
 import { ollamaHarnessFlow } from './helpers/ollamaHarnessFlow';
 import { sessionNavigationFlow } from './helpers/sessionNavigationFlow';
+import { projectLauncherFlow } from './helpers/projectLauncherFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import { mainEntry } from './helpers/buildOutput';
@@ -138,6 +140,9 @@ require(${JSON.stringify(mainEntry())});
   if (process.argv.includes('--project-profile-only')) {
     await projectDefaultProfileFlow(desktop, page, root, evidence, check); return;
   }
+  if (process.argv.includes('--project-launcher-only')) {
+    await projectLauncherFlow(desktop, page, root, evidence, check); return;
+  }
   if (process.argv.includes('--session-navigation-only')) {
     await sessionNavigationFlow(desktop, page, root, check); return;
   }
@@ -248,16 +253,27 @@ require(${JSON.stringify(mainEntry())});
     const releaseButton = workspace.getByRole('button', { name: 'Eingabe freigeben', exact: true });
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Eingabe freigeben' && !button.disabled));
     let releaseHeartbeat!: () => void; const heartbeatGate = new Promise<void>(resolve => { releaseHeartbeat = resolve; });
+    let heartbeatHeld!: () => void; const holdingHeartbeat = new Promise<void>(resolve => { heartbeatHeld = resolve; });
     let lifecycleCount = 0;
-    await page.route('**/api/v1/terminal/input', async route => { await heartbeatGate; await route.continue(); });
+    await page.route('**/api/v1/terminal/input', async route => { heartbeatHeld(); await heartbeatGate; await route.continue(); });
     await page.route('**/api/v1/terminal/command', async route => { lifecycleCount++; await route.continue(); });
-    // Start the existing timer and click in one browser turn, before React paints
-    // the heartbeat's disabled state. This reproduces an already dispatched tap.
-    await releaseButton.evaluate(button => { Reflect.get(window, 'terminalHeartbeat')(); (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    // Hold a real heartbeat through the disabled-state paint, then operate the
+    // controls through the keyboard. Never retry a dispatched user action.
+    await page.evaluate(() => Reflect.get(window, 'terminalHeartbeat')()); await holdingHeartbeat;
+    await expect(releaseButton).toBeEnabled();
+    await expect(workspace.locator('.m-terminal-focus-bar .m-primary')).toBeEnabled();
+    check('release and quick launch stay keyboard reachable during a heartbeat', true);
+    await releaseButton.focus(); await releaseButton.press('Enter'); await page.keyboard.press('Enter');
     await page.waitForTimeout(100);
     check('a lifecycle click waits for the outstanding heartbeat before dispatch', lifecycleCount === 0 && await releaseButton.isDisabled());
     releaseHeartbeat();
-    const released = await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor({ timeout: 4000 }).then(() => true, () => false);
+    const released = await workspace.getByText('Eingabe: Desktop', { exact: true }).waitFor({ timeout: 4000 }).then(() => true, error => {
+      console.error('Release ownership wait:', String(error)); return false;
+    });
+    if (!released || lifecycleCount !== 1) {
+      console.error('Release diagnostics:', JSON.stringify({ lifecycleCount, statuses: await workspace.getByRole('status').allTextContents(), alerts: await workspace.getByRole('alert').allTextContents() }));
+      await page.screenshot({ path: join(evidence, 'terminal-release-race-failure.png') });
+    }
     check('the raced release executes once and changes ownership without a second click', released && lifecycleCount === 1);
     if (!released) return;
     await workspace.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
@@ -265,9 +281,11 @@ require(${JSON.stringify(mainEntry())});
     check('explicit takeover remains usable after the queued release', lifecycleCount === 2);
     await page.unroute('**/api/v1/terminal/input');
     let releaseOfflineHeartbeat!: () => void; const offlineGate = new Promise<void>(resolve => { releaseOfflineHeartbeat = resolve; });
-    await page.route('**/api/v1/terminal/input', async route => { await offlineGate; await route.continue().catch(() => undefined); });
+    let offlineHeartbeatHeld!: () => void; const holdingOfflineHeartbeat = new Promise<void>(resolve => { offlineHeartbeatHeld = resolve; });
+    await page.route('**/api/v1/terminal/input', async route => { offlineHeartbeatHeld(); await offlineGate; await route.continue().catch(() => undefined); });
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Eingabe freigeben' && !button.disabled));
-    await releaseButton.evaluate(button => { Reflect.get(window, 'terminalHeartbeat')(); (button as HTMLButtonElement).click(); });
+    await page.evaluate(() => Reflect.get(window, 'terminalHeartbeat')()); await holdingOfflineHeartbeat;
+    await releaseButton.focus(); await releaseButton.press('Enter');
     await page.context().setOffline(true);
     await workspace.getByLabel('Terminalverbindung', { exact: true }).getByText(/PC nicht verbunden/).waitFor();
     releaseOfflineHeartbeat(); await page.waitForTimeout(100); await page.context().setOffline(false);

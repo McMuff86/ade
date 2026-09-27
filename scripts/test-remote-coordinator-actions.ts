@@ -21,7 +21,10 @@ import type { SessionMeta } from '../src/shared/types';
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-remote-actions-')));
 let passed = 0; let failed = 0; let server: HostApiServer | undefined;
 const check = (label: string, ok: boolean) => { if (!ok) throw new Error(label); passed++; console.log(`  ok  ${label}`); };
-const rejects = async (label: string, fn: () => unknown, code: string) => { try { await fn(); check(label, false); } catch (error) { check(label, error instanceof RemoteApiError && error.code === code); } };
+const rejects = async (label: string, fn: () => unknown, code: string, message?: RegExp) => {
+  let caught: unknown; try { await fn(); } catch (error) { caught = error; }
+  check(label, caught instanceof RemoteApiError && caught.code === code && (!message || message.test(caught.message)));
+};
 async function main() {
   const { store, devices, orchestration, coordinator } = createMobileFixture(root);
   const worker = { ...store.get().agents[1], runtime: 'codex' as const, customCommand: undefined, codexModel: 'gpt-5.6-sol', codexReasoningEffort: 'high' as const };
@@ -79,7 +82,10 @@ async function main() {
   await rejects('selected-resource device cannot query global action history', () => app.conversationActions(context(), read, false), 'scope_not_granted');
   devices.setAdminScopes('tablet', ['workspace:read'], { mode: 'all' });
   currentBinding = { ...binding, authoritySha256: conversationDigest('changed') };
-  await rejects('changed conversation authority prevents old proposal confirmation', () => app.conversationActions(context(), taskConfirm, true), 'scope_not_granted'); currentBinding = binding;
+  await rejects('changed conversation authority prevents old proposal confirmation', () => app.conversationActions(context(), taskConfirm, true), 'command_rejected', /scope is no longer valid|Projektumfang.*nicht mehr gültig/);
+  check('stale proposal rejection preserves the pending action without launching work', !launched && !store.get().runs.length && actions.list(id).find(a => a.id === task.id)?.state === 'proposed');
+  check('current global grants still read historical actions after conversation authority changes', (await app.conversationActions(context(), read, false) as CoordinatorActionSummary[]).length === 2);
+  check('an applied handoff receipt replays after authority changes without another effect', (await app.conversationActions(key, confirm, true) as CoordinatorActionReceipt).replayed && supervision.briefing().projects[0].handoffs.length === 1);
   server = new HostApiServer(app, { port: 0, authorizer: new RemoteAuthorizer('t'.repeat(32), [], undefined, devices), requireDeviceReads: true });
   const address = await server.start();
   const request = (path: string, payload: unknown, key: string = randomUUID()) => {
@@ -90,6 +96,10 @@ async function main() {
   };
   const httpList = await request('/api/v1/conversation/actions/query', read);
   check('signed HTTP action query reaches the same real service', httpList.status === 200 && (await httpList.json() as CoordinatorActionSummary[]).length === 2);
+  const staleCommand = await request('/api/v1/conversation/actions/command', taskConfirm);
+  check('signed HTTP rejects stale pending work with the domain refusal and no child', staleCommand.status === 422
+    && (await staleCommand.json() as { error: string }).error === 'command_rejected' && !launched && !store.get().runs.length);
+  currentBinding = binding;
   const taskKey = `action-confirm-${task.id}`;
   const httpCommand = await request('/api/v1/conversation/actions/command', taskConfirm, taskKey);
   const httpReplay = await request('/api/v1/conversation/actions/command', taskConfirm, taskKey);

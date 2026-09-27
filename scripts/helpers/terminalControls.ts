@@ -10,6 +10,12 @@ export async function expandSessionControls(workspace: Locator): Promise<void> {
   const toggle = workspace.getByRole('button', { name: 'Sitzung & Workspace', exact: true });
   if (await toggle.count() && await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
 }
+/** Project and free terminals start a CLI with one tile; with a session selected the tiles
+ * sit behind "Sitzung & Workspace". Names are the tile titles ("Claude Code", "Grok Build"). */
+export async function launchTile(workspace: Locator, name: 'Codex' | 'Claude Code' | 'Grok Build' | 'Leeres Terminal'): Promise<Locator> {
+  await expandSessionControls(workspace);
+  return workspace.locator('.m-launcher').getByRole('button', { name: `${name} öffnen`, exact: true });
+}
 export async function terminalLauncher(workspace: Locator): Promise<void> {
   const back = workspace.getByRole('button', { name: 'Workspace einblenden', exact: true });
   if (await back.isVisible()) await back.click();

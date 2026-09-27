@@ -869,7 +869,8 @@ async function run(): Promise<void> {
     const dashboardDialog = page.getByRole('dialog', { name: 'Agent-Einstellungen' });
     await dashboardDialog.waitFor({ state: 'visible' });
     await dashboardDialog.locator('#edit-agent-dash-cmd').fill(
-      `node -e "console.log('dash: http://127.0.0.1:${dashboardPort}/?token=e2e-secret')"`,
+      isWindows ? `Write-Output 'dash: http://127.0.0.1:${dashboardPort}/?token=e2e-secret'`
+        : `printf '%s\\n' 'dash: http://127.0.0.1:${dashboardPort}/?token=e2e-secret'`,
     );
     await dashboardDialog.getByRole('button', { name: 'Speichern', exact: true }).click();
     await dashboardDialog.waitFor({ state: 'hidden' });
@@ -2450,6 +2451,8 @@ async function run(): Promise<void> {
     console.error('Electron workflow threw:', error);
     failed += 1;
     if (page) {
+      const dashboardError = await page.locator('.tab-dashboard-error').getAttribute('title', { timeout: 1000 }).catch(() => null);
+      if (dashboardError) console.error('Dashboard command failed:', dashboardError);
       const resultDir = join(root, 'test-results');
       mkdirSync(resultDir, { recursive: true });
       await page.screenshot({ path: join(resultDir, 'electron-workflow-failure.png'), fullPage: true }).catch(() => undefined);

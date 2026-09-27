@@ -499,3 +499,56 @@ alles andere quiet.
 - Verbundene Geräte am PC: „Zuletzt aktiv“ je Gerät, Hinweis bei mehreren
   aktiven Geräten (frühere Kopplungen desselben Tablets entfernen).
 
+
+## 10. Sprachübergabe glätten (27. September 2026)
+
+Adi wollte die nächsten Verbesserungen an der Sprachübergabe, „damit alles noch
+etwas smoother wird“. Grundlage waren seine echten Tablet-Durchgänge vom 19. bis
+26. September aus dem Host-Audit (`remote/audit*.jsonl`: Kanal, Zeit, Ergebnis;
+keine Inhalte).
+
+**Befund 1: Computer-Begrüssung.** Bei allen sieben beobachteten Computer-Aufrufen
+lief derselbe Ablauf ab. Die Erkennung des Aufrufs dauerte 4–6 s, danach wurde die
+Begrüssung erzeugt (`speech:test` 0,6 s nach `streamFinish`). Das eigentliche Diktat
+begann erst **22–26 s** später. Die vierteilige Begrüssung wurde jedes Mal neu
+synthetisiert und dauerte beim Abspielen rund 16 s. Sie forderte noch zu „Wähle
+Diktieren“ auf, obwohl die Leiste seit Phase 3 selbst ins Diktat wechselt.
+
+**Befund 2: Wechsel zwischen Sitzungen.** Am 25. September zwischen 22:29 und
+22:49 wechselte Adi zwischen zwei Sitzungen und tippte dabei acht Mal auf
+„Eingabe übernehmen“, jeweils auf der Sitzung, zu der er zurückkehrte. Nur die
+sichtbare Sitzung sendet Heartbeats, deshalb fällt die zurückgelassene nach 30 s an
+den PC zurück.
+
+**Entscheidungen (Adi):** kurze Begrüssung mit Tageszeit. Die Gesten bleiben wie
+sie sind: kurzer Tipp diktiert ohne Begrüssung, ab 0,55 s Halten ruft er den
+Computer. Beim Zurückwechseln holt das Tablet die Eingabe automatisch zurück.
+Das gilt nur für Sitzungen, die es in den letzten 10 Minuten selbst hatte und die
+kein anderes Gerät hält. Der PC kann jederzeit übernehmen, und das erste
+Übernehmen bleibt ein Tipp.
+
+**Umsetzung.**
+
+- Begrüssung: „Guten Morgen/Tag/Abend, Adi. Was kann ich für dich tun?“ (≤ 60 Zeichen).
+- Der Host (`SpeechService`) hält synthetisierte Begrüssungen im Speicher: höchstens
+  sechs, je Stimme, Modell, Text und Abstimmung. Ein Wiederholungsaufruf braucht
+  weder ElevenLabs noch Zeichen noch einen Nutzungsbeleg, wird aber weiterhin
+  autorisiert.
+- `useComputerCall` fordert die Begrüssung an, sobald der Aufruf im Live-Text
+  erkannt ist, also parallel zum Stoppen und Abschliessen der Aufnahme. Ein nicht
+  erkannter oder abgebrochener Aufruf erzeugt weiterhin nichts.
+- Eingabe-Rückholung: Der Host merkt sich einen abgelaufenen Lease 10 Minuten lang
+  für dasselbe Gerät (`resumable` im Terminal-Summary). Das Tablet sendet einmal je
+  Verlust den normalen Claim und fokussiert dabei nicht das Terminal, damit keine
+  Bildschirmtastatur aufgeht. Freigabe, Desktop-Übernahme, jeder andere Claim und
+  der Entzug der Berechtigung beenden das Angebot. Vertrag: ARCHITECTURE.md, „Input resume“.
+
+**Erwartete Wirkung.** Zwischen „Computer“ und „Hört zu“ bleiben rund 3–4 s
+Begrüssung statt 22–26 s. Ab dem zweiten Aufruf je Tageszeit entfällt die
+Synthese ganz. Beim Hin- und Herwechseln entfällt der Übernehmen-Tipp. Gemessen
+wird das erst an Adis nächsten echten Durchgängen; bis dahin ist es eine
+Erwartung.
+
+**Nachweise.** Die Tabelle in STATUS.md wird mit diesem Stand fortgeschrieben.
+Negativkontrollen: ohne Speicher wird „repeated greeting answers from memory“ rot,
+ohne Rückhol-Angebot „a lapsed lease is offered back“. Beide sind danach wieder grün.

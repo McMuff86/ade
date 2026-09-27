@@ -165,7 +165,6 @@ require(${JSON.stringify(mainEntry())});`);
   await tablet.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await tablet.getByRole('button', { name: 'Workspace öffnen: Reply project', exact: true }).click();
   const project = tablet.getByRole('dialog', { name: 'Projekt · Reply project', exact: true });
-  await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await expect(project.locator('.xterm-screen')).toContainText('REPLY_CLI_READY');
   await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();

@@ -1,5 +1,113 @@
 # ADE implementation status
 
+## Projekt starten am Tablet, Bilder für Claude Code (27. September 2026, Nachmittag)
+
+Auslöser waren Adis Tablet-Screenshots von Knuckles Pi und Rhino-compute-platform. Um
+ein Projekt mit Claude Code zu starten, musste er über Verwalten und Terminal gehen.
+Im Projekt waren alle Start-Knöpfe grau, weil eine unbestätigte Terminalaktion hing.
+Der Bild-Knopf blieb in Claude-Code-Sitzungen ohne Begründung grau.
+
+- **Starter-Kacheln** (`src/mobile/SessionLauncher.tsx`, Design im bestehenden Token-Set).
+  Projekt- und freie Terminals zeigen unter **Sitzung starten** je eine Kachel für
+  Codex, Claude Code, Grok Build und Leeres Terminal. Jede Kachel nennt ihr Profil, die
+  Berechtigung in Klartext („Ohne Rückfragen“) und den wörtlichen Startbefehl, z. B.
+  `claude --dangerously-skip-permissions`. Ein Tipp startet die Sitzung oder nimmt eine
+  laufende wieder auf. Entfallen sind die CLI-Auswahl samt Extra-Knopf, die Zeile
+  „Startprofil:“, die Sitzungsauswahl und die doppelte Box „Neue Sitzung starten“.
+  Offene Sitzungen erscheinen als Zeilen unter **Sitzungen hier**, Seltenes unter
+  **Weitere Startoptionen**.
+- **Ein Tipp weniger:** Die Projektkarte und „Projekt öffnen“ öffnen den vorhandenen
+  Ordner direkt. Der Dialog-Knopf „Workspace öffnen“ bleibt für fehlende Rechte,
+  Fehler und Wiederholung.
+- **Hängende Terminalaktion:** statt stummem Grau die Meldung „Unbestätigt: „Codex
+  öffnen“…“ mit **Terminalaktion erneut prüfen** (höchstens einmal) und **Verwerfen**.
+- **Bilder in Claude Code:** Die native Probe mit echtem Claude Code v2.1.283 zeigt
+  `[Image #1]` ohne Modellauftrag. Freigegeben ist darum Claude Code nativ unter
+  Windows; Claude Code in WSL und Grok bleiben ohne Messung gesperrt. Der Bild-Knopf
+  ist immer antippbar (`aria-disabled`) und nennt im Dialog den Grund.
+
+Belege:
+- Neuer Treiberschritt `remote-terminal-electron:project-launcher`: **18/0** mit Adis
+  Profil-Setup, Screenshots bei 1480/800/390 px (`test-results/remote/launcher-*.png`)
+  und echtem Argv-Nachweis `--dangerously-skip-permissions`.
+- Terminal Media **50/0** (neu: Claude nativ erlaubt, WSL-Claude und Grok gesperrt).
+- Native Claude-Probe **3/0** (`test-results/terminal-media/windows-claude.json`).
+- Migriert wurden 13 Testabläufe (Kacheln, Sitzungszeilen, automatisches Öffnen). Der
+  erste Volllauf fand drei übersehene Stellen; sie sind korrigiert und danach grün:
+  `mobile-speech-browser` 66/0, `remote-terminal-electron` 209/0, Latenz 30/0.
+- Abschliessender vollständiger `pnpm verify`: **41/41** Schritte grün, **4.196** Suite-Checks,
+  9:34 min. Danach aktiviert (`pnpm activate -Label ProjektStarter -Force`, Gate 12/12,
+  PID 68004). Das umfasst auch die Sprachübergabe-Runde unten.
+
+## Sprachübergabe geglättet (27. September 2026)
+
+Grundlage sind Adis echte Tablet-Durchgänge vom 19. bis 26. September laut
+Host-Audit. Zwischen „Computer“ und dem Diktat lagen jeweils 22–26 s. Beim
+Wechsel zwischen zwei Sitzungen waren acht manuelle „Eingabe übernehmen“ in
+19 Minuten nötig. Details und Entscheidungen:
+[VOICE_SEAMLESS_UX_PROPOSAL.md §10](VOICE_SEAMLESS_UX_PROPOSAL.md).
+
+- Die Computer-Begrüssung ist kurz („Guten Abend, Adi. Was kann ich für dich
+  tun?“). Der Host hält sie je Stimme, Abstimmung und Tageszeit im Speicher; ein
+  Wiederholungsaufruf braucht weder Synthese noch Nutzungsbeleg. Die Begrüssung
+  wird angefordert, sobald der Aufruf erkannt ist.
+- Ein Tablet-Lease, der nur abgelaufen ist, bleibt 10 Minuten für dasselbe Gerät
+  `resumable`. Beim Zurückkehren holt das Tablet die Eingabe ohne Tipp und ohne
+  Tastatur zurück. Freigabe, Desktop-Übernahme, Claim eines anderen Geräts und
+  Entzug der Berechtigung beenden das Angebot.
+- Die Gesten sind unverändert und von Adi bestätigt: kurzer Tipp = Diktat, ab
+  0,55 s Halten = Computer.
+
+Gezielt grün: Speech **71/0** (neu: Speicher, Autorisierung, andere Stimme),
+Remote Terminal **82/0** (neu: acht Rückhol-Regeln), neun weitere
+Terminal-/Diktat-Suiten, Computer Electron **21/0**, Sitzungsnavigation Electron
+**56/0** mit echtem 30-s-Ablauf und Rückweg. Beleg-Screenshot:
+`test-results/main-agent-planning/input-resume.png`. Negativkontrollen ohne
+Speicher bzw. ohne Rückhol-Angebot schlagen gezielt fehl.
+
+Zwei vollständige `pnpm verify`-Läufe mit identischem Code ergaben je
+**39/40**. Einmal war `dictation-electron` rot (Desktop-Promptübergabe, 20-s-Wartezeit),
+einmal `conversation-electron` (Fokusprüfung nach „Mit diesem Kontext weiterreden“).
+Beide Pfade sind unverändert, jeder Schritt ist in einem der beiden Läufe grün, und
+die Einzelwiederholungen ergaben 66/0 bzw. 89/0. Logs:
+`test-results/voice-handover-*.log`. Aktivierungs-Gate **12/12** (4.194 Suite-Checks).
+Die Aktivierung selbst hat `activate.ps1` verweigert, weil in der laufenden
+Instanz (PID 63196) noch Claude-/Shell-Sitzungen liefen; sie steht aus.
+
+## Aktivierungsprüfungen und erster Tablet-Tastendruck (26. September 2026)
+
+Die Tablet-Eingabe behält bis zur ersten stabilen Messung die vom Host gemeldete
+Terminalgröße; Sitzungswechsel verwerfen alte Messwerte. Dadurch entfällt der
+kurze Sprung auf erfundene 100 × 30 Zeichen, der den Windows-Shell-Prompt beim
+ersten Tastendruck beschädigte. Derselbe Pfad gilt für Prompt-/Sprachübergaben.
+Gezielte Gegenprobe vorher zweimal rot, korrigierter Tastatur-/IME-/Resize-Lauf
+**30/0** einschließlich echtem Git-Befehl und nativem Raw-Key-Fixture.
+
+Veraltete Prüfannahmen korrigiert: Ablehnung offener Gesprächsvorschläge mit
+`command_rejected` samt Nachweis fehlender Effekte (**26/0**), aktuelle
+Codex-Auftragsbeschriftung und Profilwahl beim Projektstart. Dashboard-Fixture
+verwendet einen Shell-Ausgabebefehl; der zuvor verwendete `node -e`-Aufruf
+scheiterte unter Windows bereits mit „Zugriff verweigert“. Workspace-Prüfung
+wartet auf den echten PowerShell-Prompt. Gezielt grün: Desktop **197/0**,
+Gespräche **89/0**, Profilstart **12/0**, Workspace-CLI **92/0**.
+Wiederholungen deckten verschluckte Klicks beim Terminalstart und bei der Freigabe
+auf: Die Bedienelemente wurden trotz vorhandener Wartelogik während Heartbeats
+kurz deaktiviert. Start,
+Übernahme und Freigabe bleiben jetzt erreichbar und nutzen die bestehende
+Serialisierung; ausstehende Aktionen und unklare Eingaben behalten ihre Sperren.
+Der verschärfte Test hält einen echten Heartbeat bis nach dem Rendern fest und
+bedient die Freigabe per Tastatur. Gegenprobe auf dem alten Build scheitert gezielt
+am deaktivierten Knopf (`test-results/terminal-heartbeat-negative.log`), korrigierter
+Treiber **16/0** einschließlich Offline-Abbruch und anschließendem positiven Retry.
+
+Vollständiges `pnpm verify` auf dem korrigierten Stand: **40/40 Schritte grün** in
+9:04 Minuten, darunter **99 Suiten mit 4.179 Checks**, alle drei Typprüfungen,
+beide isolierten Builds sowie echte Electron-/Browser-Prüfungen. Belege:
+`test-results/tablet-fixes-full-20260926-085936/`. Regulär mit
+`pnpm activate -Label TabletFixes` um 09:01 CEST aktiviert, Gate **12/12**, PID
+**63196**, Source `9ccf7931e1078b6f532d`. HTTPS-Seite und neues Mobile-JavaScript
+liefern HTTP 200; der physische Tablet-Test bleibt durch Adi zu bestätigen.
+
 ## Tablet-Recovery und Gespräch → Arbeitsstart (25. September 2026)
 
 Der volle Remote-Belegspeicher (500 Einträge) blockierte die Terminalübernahme.

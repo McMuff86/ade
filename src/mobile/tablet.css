@@ -108,6 +108,33 @@
 .m-terminal-tools { flex: none; min-height: 0; }
 .m-terminal-tools p { font-size: 11px; margin: 4px 0; }.m-terminal-tools summary { cursor: pointer; padding: 12px 4px; }
 .m-terminal-tools .m-management-actions { margin: 5px 0; }
+/* Session launcher: one tile per CLI. The literal start command is machine text and
+   the only mono element; copper marks focus and hover, green marks a running session. */
+.m-launcher { padding: 12px 0 4px; }
+.m-launcher h3, .m-launch-sessions h3 { font-size: var(--fs-l); font-weight: 600; margin: 0 0 12px; }
+.m-launch-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+button.m-launch-tile { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-content: start; justify-items: start; gap: 10px; min-height: 124px; padding: 16px; text-align: left; border-radius: var(--radius-m); background: var(--panel); }
+button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { border-color: var(--accent); background: var(--raised); }
+.m-launch-title { font-size: var(--fs-xl); font-weight: 600; }
+.m-launch-detail { display: grid; gap: 6px; }
+.m-launch-permission { font-size: var(--fs-m); }
+.m-launch-command { font-family: var(--mono); font-size: var(--fs-s); color: var(--muted); overflow-wrap: anywhere; }
+.m-launch-state { font-size: var(--fs-s); color: var(--muted); }
+.m-launch-tile[data-running] .m-launch-state { color: var(--ok); }
+.m-launch-sessions { padding: 14px 0 0; }
+.m-launch-sessions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.m-launch-sessions button { width: 100%; justify-content: flex-start; gap: 10px; text-align: left; overflow-wrap: anywhere; }
+.m-launch-sessions button[aria-pressed='true'] { border-color: var(--accent-dim); background: var(--raised); }
+.m-launch-owner { margin-left: auto; font-size: var(--fs-s); color: var(--muted); }
+.m-launch-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.m-launch-dot[data-state='running'] { background: var(--ok); }
+.m-terminal-tools .m-launch-note { color: var(--muted); font-size: var(--fs-s); }
+.m-launch-pending { flex-wrap: wrap; margin: 0 0 12px; border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); border-radius: var(--radius-m); }
+.m-terminal-tools .m-launch-pending p { flex: 1 1 280px; margin: 0; font-size: var(--fs-m); }
+.m-launch-pending-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.m-notice .m-launch-pending-actions button { margin: 0; padding: 8px 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+.m-controls-collapsed .m-terminal-tools > :is(.m-launcher, .m-launch-sessions),
+.m-keyboard-compact .m-terminal-tools > :is(.m-launcher, .m-launch-sessions) { display: none; }
 .m-terminal-screen { flex: 1 0 220px; min-height: 220px; max-height: none; margin: 8px 0; white-space: pre; }
 .m-terminal-composer { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; background: var(--raised); padding-bottom: env(safe-area-inset-bottom); }
 .m-terminal-composer > details { grid-column: 1; grid-row: 1; min-width: 0; }

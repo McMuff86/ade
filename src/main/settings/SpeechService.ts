@@ -8,11 +8,14 @@ import { dialogueAudio, speechPronunciation, SPEECH_MODEL, type DialogueConnect 
 import { validVoiceStudioInput, type VoiceStudioInput } from '../../shared/speech';
 
 interface Port { get(): { settings: Settings }; save(value: { settings: Settings }): unknown }
+/** Three times of day for one or two voices; each entry is a few kilobytes of MP3. */
+const GREETING_CACHE_ENTRIES = 6;
 
 /** Fixed provider and bounded server-owned presets. Credentials and upstream error bodies never leave main. */
 export class SpeechService {
   private busy = false;
   private cached?: { at: number; voices: SpeechVoice[] };
+  private readonly greetings = new Map<string, string>();
   private usage?: SpeechUsageService;
   setUsage(usage: SpeechUsageService): void { this.usage = usage; }
   constructor(private readonly store: Port, private readonly key: () => string | undefined, private readonly fetcher: typeof fetch = fetch, private readonly connect?: DialogueConnect) {}
@@ -77,7 +80,19 @@ export class SpeechService {
     const delivery = { ...(tuning ?? this.store.get().settings.speechTuning ?? DEFAULT_SPEECH_TUNING) };
     if (!validSpeechTuning(delivery)) throw new Error(translate("Invalid stored voice parameters."));
     const text = studio?.text ?? (preset === 'computer-greeting' ? computerGreeting(new Date().getHours()) : speechTestText());
-    return this.synthesize(voiceId, text, delivery, 'speech-test', authorize, attribution, undefined, studio);
+    if (preset !== 'computer-greeting') return this.synthesize(voiceId, text, delivery, 'speech-test', authorize, attribution, undefined, studio);
+    // The greeting is fixed per voice, delivery and time of day. A repeat call answers from
+    // memory: no provider round trip, no characters, no usage record.
+    const key = JSON.stringify([voiceId, SPEECH_MODEL, text, delivery]);
+    const cached = this.greetings.get(key);
+    if (cached) {
+      authorize(); this.greetings.delete(key); this.greetings.set(key, cached);
+      return { base64: cached, mimeType: 'audio/mpeg', text, voiceId };
+    }
+    const audio = await this.synthesize(voiceId, text, delivery, 'speech-test', authorize, attribution);
+    this.greetings.set(key, audio.base64);
+    while (this.greetings.size > GREETING_CACHE_ENTRIES) this.greetings.delete(this.greetings.keys().next().value!);
+    return audio;
   }
 
   /** Only called with the already redacted, bounded preview owned by ReplySpeechService. */

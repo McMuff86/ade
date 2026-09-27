@@ -15,11 +15,10 @@ export const validSpeechTuning = (value: unknown): value is SpeechTuning => {
 export interface SpeechAudio { base64: string; mimeType: 'audio/mpeg'; text: string; voiceId: string }
 export type SpeechPreset = 'voice-check' | 'computer-greeting';
 export const validSpeechPreset = (value: unknown): value is SpeechPreset => value === 'voice-check' || value === 'computer-greeting';
+/** Short on purpose: the strip starts dictation itself once the greeting has played. */
 export const computerGreeting = (hour: number): string => [
   `${hour >= 5 && hour < 12 ? translate("Good morning") : hour >= 12 && hour < 18 ? translate("Hello") : translate("Good evening")}, Adi.`,
-  translate("I'm glad you're here. What can I do for you?"),
-  translate("After this greeting, choose “Dictate” and describe what you need help with."),
-  translate("You can then check your text and send it to the selected session."),
+  translate("What can I do for you?"),
 ].join(' ');
 export const isComputerCall = (text: string): boolean => /^\s*(?:hey[,\s]+)?computer[.!?,\s]*$/iu.test(text);
 /** Fixed legacy fixture; interactive tests resolve the current language below. */

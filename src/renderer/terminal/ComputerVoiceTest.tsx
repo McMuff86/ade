@@ -19,7 +19,7 @@ export function ComputerVoiceTest({ port, enabled, onBusy }: {
       {active && <button type="button" onClick={computer.stop}>{translate("End computer voice test")}</button>}
       {reply && !active && <button type="button" disabled={!enabled} onClick={() => void computer.run(reply)}>{translate("Play greeting")}</button>}
     </div>
-    <p className="prompt-help">{translate("Activate, then say \"computer.\" Personal greeting with the default ADE voice and a hint about the next dictation. The test listens for up to 20 seconds; leave this window open. Uses ElevenLabs for recognition and voice.")}</p>
+    <p className="prompt-help">{translate("Activate, then say \"computer.\" Short personal greeting with the default ADE voice. The test listens for up to 20 seconds; leave this window open. Uses ElevenLabs for recognition and voice.")}</p>
     {!enabled && <p className="prompt-help">{translate("Requires a free dictation function and on the tablet also the permission for voices.")}</p>}
     {status && <p role="status">{status}</p>}{reply && <p aria-label={translate("Computer response")}>{reply.text}</p>}
     {error && <p role="alert">{localizeAppMessage(error)}</p>}

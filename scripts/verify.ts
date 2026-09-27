@@ -150,6 +150,7 @@ const STEPS: Step[] = [
   driver('remote-workspace-browser', 'test-remote-workspace-browser.ts'),
   driver('remote-workbench-browser', 'test-remote-workbench-browser.ts'),
   driver('remote-terminal-electron:session-navigation', 'test-remote-terminal-electron.ts', only('session-navigation')),
+  driver('remote-terminal-electron:project-launcher', 'test-remote-terminal-electron.ts', only('project-launcher')),
   driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', only('tablet-layout')),
   // Restarts short-lived fixture CLIs back to back; beside the pool it failed at changing spots.
   driver('remote-terminal-electron', 'test-remote-terminal-electron.ts', { lane: 'solo' }),

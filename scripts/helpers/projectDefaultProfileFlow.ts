@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Page } from 'playwright/test';
-import { expandSessionControls } from './terminalControls';
+import { expandSessionControls, launchTile } from './terminalControls';
 
 /** Real desktop/tablet requests and native PTYs; the driver puts deterministic
  * local Codex executables first on PATH, so these assertions never call a model. */
@@ -56,12 +56,13 @@ export async function projectDefaultProfileFlow(desktop: Page, tablet: Page, roo
   await tablet.getByRole('button', { name: 'Alle', exact: true }).click();
   await tablet.getByRole('button', { name: 'Workspace öffnen: Saved profile', exact: true }).click();
   const dialog = tablet.getByRole('dialog', { name: 'Projekt · Saved profile', exact: true });
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
-  const picker = dialog.getByLabel('Projekt-CLI', { exact: true });
-  await expect(picker.locator('option[value="codex"]')).toHaveText('Project Bypass · Bypass');
-  await picker.selectOption('codex');
-  const tabletOpen = dialog.getByRole('button', { name: 'Codex öffnen', exact: true });
-  await expect(tabletOpen).toBeEnabled(); await tabletOpen.focus(); await tabletOpen.press('Enter');
+  // The card opens the folder; the Codex tile names the saved default profile and its permission.
+  const tabletOpen = await launchTile(dialog, 'Codex');
+  await expect(tabletOpen).toBeEnabled();
+  const tileText = await tablet.locator(`[id="${await tabletOpen.getAttribute('aria-describedby')}"]`).innerText();
+  check('tablet Codex tile shows the saved default among two Codex profiles with its bypass command', tileText.includes('Profil Project Bypass')
+    && tileText.includes('Ohne Rückfragen') && tileText.includes('codex --dangerously-bypass-approvals-and-sandbox'));
+  await tabletOpen.focus(); await tabletOpen.press('Enter');
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Terminal beendet' }).waitFor();
   const second = (await sessions()).find(item => item.id !== first.id)!;
   check('tablet Codex picker launches the exact saved default profile in the original checkout', second.launchChoice?.mode === 'agent'
@@ -71,8 +72,7 @@ export async function projectDefaultProfileFlow(desktop: Page, tablet: Page, roo
 
   // A real shell remains alive, allowing the collapsed-control failure from the
   // tablet incident to be exercised independently of the short-lived Codex fixture.
-  await expandSessionControls(dialog); await picker.selectOption('shell');
-  await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
+  await (await launchTile(dialog, 'Leeres Terminal')).click();
   await dialog.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: /^Terminal offen$/ }).waitFor();
   await dialog.locator('.m-dialog-head').getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
   const shell = (await sessions()).find(item => item.launchChoice?.mode === 'shell')!;
@@ -83,7 +83,7 @@ export async function projectDefaultProfileFlow(desktop: Page, tablet: Page, roo
   const toggle = dialog.getByRole('button', { name: 'Sitzung & Workspace', exact: true });
   if (await toggle.getAttribute('aria-expanded') === 'true') { await toggle.focus(); await toggle.press('Enter'); }
   check('session controls collapse with the keyboard while the shell stays live', await toggle.getAttribute('aria-expanded') === 'false'
-    && !await picker.isVisible());
+    && !await dialog.locator('.m-launcher').isVisible());
   const failure = 'Fixture: Aktionsspeicher voll, Eingabe konnte nicht übernommen werden.';
   let failedClaims = 0;
   await tablet.route('**/api/v1/terminal/command', async route => {
@@ -95,7 +95,7 @@ export async function projectDefaultProfileFlow(desktop: Page, tablet: Page, roo
     await claim.focus(); await claim.press('Enter');
     await expect(dialog.getByRole('alert').filter({ hasText: failure }).first()).toBeVisible();
     check('failed takeover is visible with controls collapsed and is not silently repeated', failedClaims === 1
-      && await toggle.getAttribute('aria-expanded') === 'false' && !await picker.isVisible());
+      && await toggle.getAttribute('aria-expanded') === 'false' && !await dialog.locator('.m-launcher').isVisible());
     await tablet.screenshot({ path: join(evidence, 'project-collapsed-takeover-error.png') });
   } finally { await tablet.unroute('**/api/v1/terminal/command'); }
   await toggle.focus(); await toggle.press('Enter');

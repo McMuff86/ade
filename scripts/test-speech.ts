@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG, type Settings } from '../src/shared/types';
 import { providerApiKeyPresent } from '../src/shared/sessionAuthentication';
 import { assertIpcPayload } from '../src/main/ipcValidation';
 import { validateCompleteConfig } from '../src/main/config/store';
+import type { SpeechUsageService } from '../src/main/usage/SpeechUsageService';
 
 let passed = 0;
 const check = (name: string, ok: boolean) => { if (!ok) throw new Error(name); passed++; console.log(`  ok ${name}`); };
@@ -52,14 +53,25 @@ void (async () => {
   check('remote caller cannot override the server-owned delivery', !validSpeechCommand({ ...remoteGreeting, voice_settings: { speed: 1.2 } }));
   check('Computer requires an isolated call and does not match arbitrary dictation', isComputerCall('Computer.') && isComputerCall('Hey, Computer!') && !isComputerCall('Computers') && !isComputerCall('Prüfe den Computer'));
   check('greeting follows host time and avoids self-introduction', computerGreeting(8).startsWith('Guten Morgen, Adi.') && computerGreeting(14).startsWith('Guten Tag, Adi.') && computerGreeting(20).startsWith('Guten Abend, Adi.') && !computerGreeting(8).includes('ADE'));
-  check('extended greeting explains explicit dictation and review before sending at every time of day', Array.from({ length: 24 }, (_, hour) => computerGreeting(hour))
-      .every(text => text.includes('Schön, dass du da bist. Was kann ich für dich tun?') && !text.includes('nächsten Schritt') && text.includes('Wähle nach dieser Begrüssung „Diktieren“')
-      && text.endsWith('Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.') && text.length >= 200 && text.length <= 400));
+  check('greeting is one short question without the obsolete dictation instruction at every time of day', Array.from({ length: 24 }, (_, hour) => computerGreeting(hour))
+      .every(text => /^Guten (Morgen|Tag|Abend), Adi\. Was kann ich für dich tun\?$/.test(text) && !text.includes('Diktieren') && text.length <= 60));
   check('greeting switches at the host morning, noon and evening boundaries',
     [[0, 'Abend'], [4, 'Abend'], [5, 'Morgen'], [11, 'Morgen'], [12, 'Tag'], [17, 'Tag'], [18, 'Abend'], [23, 'Abend']]
       .every(([hour, label]) => computerGreeting(Number(hour)).startsWith(`Guten ${label}, Adi.`)));
   greeting = true;
-  check('personal greeting returns exactly the spoken text', (await service.test(female, undefined, undefined, 'computer-greeting')).text === computerGreeting(new Date().getHours()));
+  const usage = { begun: 0, async begin() { this.begun++; return { finish: async () => undefined }; } };
+  service.setUsage(usage as unknown as SpeechUsageService);
+  const paidBefore = generation;
+  const spoken = await service.test(female, undefined, undefined, 'computer-greeting');
+  check('personal greeting returns exactly the spoken text', spoken.text === computerGreeting(new Date().getHours()) && generation === paidBefore + 1 && usage.begun === 1);
+  let authorized = 0;
+  const repeated = await service.test(female, () => { authorized++; }, undefined, 'computer-greeting');
+  check('repeated greeting answers from memory without a provider request or usage record', generation === paidBefore + 1 && usage.begun === 1
+    && repeated.base64 === spoken.base64 && repeated.text === spoken.text && repeated.voiceId === female);
+  check('a remembered greeting is still authorized for its caller', authorized === 1);
+  await refuses('a remembered greeting still refuses a caller whose permission ended', () => service.test(female, () => { throw new Error('revoked'); }, undefined, 'computer-greeting'));
+  await service.test(male, undefined, undefined, 'computer-greeting');
+  check('another voice synthesizes its own greeting', generation === paidBefore + 2 && usage.begun === 2);
   greeting = false;
   large = true; await refuses('oversized audio is rejected', () => service.test(female)); large = false;
   invalidType = true; await refuses('non-audio response is rejected', () => service.test(female)); invalidType = false;

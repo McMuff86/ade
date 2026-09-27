@@ -134,7 +134,11 @@ eine spätere Ausbaustufe; [Goal 33](VOICE_COMPANION_PROPOSAL.md).
 
 Die gewünschte Anmutung orientiert sich am Voyager-Computer: ruhig, sachlich,
 gleichmässige Betonung und leicht reduziertes Tempo. Die Begrüssung lautet
-„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Was kann ich für dich tun? Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“ Stimmvorschau
+„Guten Morgen/Tag/Abend, Adi. Was kann ich für dich tun?“ (seit 27. September
+2026; danach hört die Tablet-Leiste von selbst zu). Ein wiederholter Aufruf mit
+derselben Stimme, Abstimmung und Tageszeit kommt ohne neue Synthese aus dem
+Speicher des Hosts. Kurzer Tipp auf „Sprechen“ diktiert ohne Begrüssung, ab
+0,55 s Halten ruft er den Computer. Stimmvorschau
 und Computer-Test verwenden dieselbe Abstimmung auf der ausgewählten Stimme.
 Die konkrete Klangähnlichkeit wird durch eine persönliche Hörprobe beurteilt.
 
@@ -441,8 +445,13 @@ previous layout. Behavior: `PROJECT_ENTRY.md`; evidence: `TERMINAL_KEYBOARD_RESU
 
 Keyboard activation follow-up: tap the CLI or press **Tastatur** to request the
 software keyboard, including after dismissal while input stays focused. An
-existing PC input lease still requires **Eingabe übernehmen**. No automatic
-takeover is added. Evidence: `TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`.
+existing PC input lease still requires **Eingabe übernehmen**. Evidence:
+`TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md`. Since 2026-09-27 one automatic case
+exists: returning within 10 minutes to a session whose tablet lease merely lapsed
+(another session, another screen, a dark tablet) takes the input back without a
+tap and without opening the keyboard. An explicit release, a desktop reclaim or a
+session the tablet never held still needs the tap. Contract: ARCHITECTURE.md,
+„Input resume“.
 
 Assistant access (2026-09-09): explicit home-terminal open/resume on desktop and
 Mobile; Mobile xterm display/direct keyboard input and separate private dashboard

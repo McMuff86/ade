@@ -296,7 +296,8 @@ only an isolated Computer/Hey Computer call in the live transcript triggers one
 greeting. Main still finalizes the audio, but a revised or empty final segment
 does not discard an already recognized call. This allowance applies only to the
 fixed greeting, never task submission or consequential actions.
-Capture ends before synthesis/playback. Closing, hiding,
+Capture ends before playback; the fixed-text synthesis may start as soon as the
+call is heard (see below). Closing, hiding,
 disconnecting or cancelling invalidates pending replies and releases microphone
 and output. The component never changes drafts or dispatches CLI input.
 `speech:test` and the existing signed, idempotent remote speech command accept
@@ -313,9 +314,16 @@ settings show only supported controls, the v3 model and the short-A name rule. N
 settings are changed. The shared Settings/Stimme tab uses the existing signed,
 idempotent speech command, global-target authorization and recovery drafts;
 IPC policy and generic remote allowlists stay unchanged. [Current contract](ELEVEN_V3_RESULTS.md).
-The greeting welcomes Adi and explains explicitly choosing Diktieren, reviewing
-the draft and sending it to the selected session. It claims neither an active
-microphone nor knowledge of previous work. Greeting clients cannot override delivery.
+The greeting is one short question by host time of day („Guten Abend, Adi. Was
+kann ich für dich tun?“, 2026-09-27); the earlier four-sentence version told the
+user to choose Diktieren, which the tablet strip has done by itself since phase 3.
+It claims neither an active microphone nor knowledge of previous work. Greeting
+clients cannot override delivery. `SpeechService` keeps the synthesized greeting
+in memory (at most six entries, keyed by voice, model, text and delivery) and
+answers a repeated call without a provider request or usage record; each call is
+still authorized. `useComputerCall` requests the greeting as soon as the live
+transcript contains the call, so synthesis overlaps stopping and finalizing the
+recording. A call that is never heard still synthesizes nothing.
 Existing speech:control/default-target access and owner-bound expiring audio
 receipts remain enforced; no new channel or generic remote-write permission.
 Usage remains speech-test with actual text length. Both clients select the
@@ -443,12 +451,29 @@ so a heartbeat cannot silently discard the click. The native `--input-race-only`
 driver holds a heartbeat to exercise this interleaving and disconnect recovery.
 Lifecycle commands reserve their turn before waiting up to five seconds for an
 existing input request. The reservation prevents later heartbeats from overtaking
-the action; duplicate clicks are ignored. A changed connection, selection or active
+the action. Launch, takeover and release controls stay keyboard reachable during
+a heartbeat; only an explicit pending action or unavailable/uncertain state blocks
+the relevant command, so a background request cannot swallow a tap. Once an action
+is reserved, duplicate clicks are ignored. A changed connection, selection or active
 workspace cancels an unsent action. A dispatched command retains its durable
 idempotency receipt and is never automatically replayed. Profile launch follows
 the same pre-dispatch wait before its query/open transaction. The same native
 driver covers queued release, duplicate taps, disconnect cancellation and deliberate
 takeover/release afterwards.
+
+Input resume (2026-09-27). A tablet lease lasts 30 seconds past the last accepted
+input or heartbeat, and only the visible, active pane heartbeats, so switching to
+another session or letting the tablet sleep hands the input to the desktop.
+`RemoteTerminalService` remembers such a lapse for that device for
+`INPUT_RESUME_MS` (10 minutes). While the desktop holds input, the terminal
+summary for that device alone carries `resumable: true`. Any claim or open, an
+explicit release, a desktop reclaim, revocation or the deadline withdraws it.
+A lease that ends because the grant was removed is never resumable. The
+tablet pane sends the ordinary claim command once per loss when it sees the flag
+on an active, visible, online and idle terminal; it does not focus the xterm, so
+no software keyboard opens, and it leaves „Eingabe übernehmen“ in place if the
+attempt fails. No new channel, scope or wire command is involved; the first
+takeover of a session the tablet never held stays an explicit tap.
 
 ## Managed Work navigation
 
@@ -1145,7 +1170,12 @@ history. `RemoteTerminalDisplay` and the desktop xterm therefore run with
 makes growth append blank rows instead; the display keeps the scrollback and the
 tablet's link list and history keep the earlier output. Three rules keep the
 size itself stable: the tablet reports a size only after it has stayed unchanged
-for `SIZE_SETTLE_MS` (300 ms) on a container with height; the desktop
+for `SIZE_SETTLE_MS` (300 ms) on a container with height. Until that first
+measurement, keyboard input, prompt handoff and lease heartbeats preserve the
+dimensions returned by the host; changing sessions discards the previous
+measurement. Missing host dimensions block input. A guessed 100 × 30 fallback
+had briefly rewrapped the PowerShell prompt before the first key and caused
+native cursor corruption during the tablet keyboard resize. The desktop
 `TerminalPane` sends no `pty:resize` while a tablet holds the input and refits
 once the input returns to it (two terminals dictating different sizes made ConPTY
 repaint the session back and forth); and up to 900 px the terminal status bar

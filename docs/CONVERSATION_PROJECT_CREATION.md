@@ -54,7 +54,13 @@ Historischer Inhalt ist Kontext, niemals eine neue Ausführungsfreigabe.
 Aktuelle globale Leserechte erlauben am Tablet auch alte Verläufe und
 Aktionsbelege, wenn die native Projektbindung inzwischen veraltet ist. Das
 Profil muss weiterhin zugänglich sein. Schreibzugriff auf den alten nativen
-Thread bleibt gesperrt. Nach einer Projektanlage bietet „Mit diesem Kontext
+Thread und die Bestätigung eines noch offenen Vorschlags bleiben gesperrt.
+Die Action-Domain meldet dafür `422 command_rejected`; fehlende Gerätefreigaben
+bleiben `403 scope_not_granted`. Lesen und Wiederholen eines bereits angewandten
+Aktionsbelegs bleiben mit aktuellen Freigaben möglich und erzeugen keinen neuen
+Effekt. Die HTTP-Gegenprobe prüft sowohl die Ablehnung als auch den unveränderten
+Vorschlag ohne Kindauftrag, danach einen ausdrücklich autorisierten Start.
+Nach einer Projektanlage bietet „Mit diesem Kontext
 weiterreden“ einen neuen nativen Kontext mit einem vorbereiteten Verweis auf
 den vorherigen Verlauf; der Benutzer sendet diesen Text ausdrücklich ab.
 Bestehende Gespräche brauchen wegen des neuen Werkzeugvertrags ebenfalls einen

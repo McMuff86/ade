@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ElectronApplication, Locator, Page } from 'playwright';
-import { expandSessionControls } from './terminalControls';
+import { launchTile } from './terminalControls';
 import { terminalInputEchoFlow } from './terminalInputEchoFlow';
 import { terminalRecoveryFlow } from './terminalRecoveryFlow';
 
@@ -49,9 +49,7 @@ export async function terminalLatencyFlow(app: ElectronApplication, desktop: Pag
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Latency', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Projekt · Latency', exact: true });
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
-  await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('shell');
-  await dialog.getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click();
+  await (await launchTile(dialog, 'Leeres Terminal')).click();
   await dialog.getByLabel('Direkte Terminal-Eingabe', { exact: true }).waitFor();
   await page.waitForFunction(() => !document.querySelector<HTMLTextAreaElement>('[aria-label="Direkte Terminal-Eingabe"]')?.disabled);
   await terminalInputEchoFlow(desktop, page, dialog, evidence, check);
@@ -73,9 +71,7 @@ export async function terminalLatencyFlow(app: ElectronApplication, desktop: Pag
   check('latency report includes positive rendered-echo samples', single.every(ms => ms > 0) && bursts.every(ms => ms > 0));
   console.log(`  latency single p50=${report.single.p50} p95=${report.single.p95} ms; bursts p50=${report.bursts.p50} p95=${report.bursts.p95} ms`);
   writeFileSync(join(repo, 'terminal-latency-fixture'), 'Local raw-key fixture only; no provider request.');
-  await expandSessionControls(dialog);
-  await dialog.getByLabel('Projekt-CLI', { exact: true }).selectOption('codex');
-  await dialog.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
+  await (await launchTile(dialog, 'Codex')).click();
   await dialog.getByLabel('Terminalanzeige', { exact: true }).getByText('ADE_LATENCY_READY', { exact: false }).waitFor();
   await app.evaluate(() => { (globalThis as unknown as { adeGitMeasurements: number[] }).adeGitMeasurements = []; });
   await page.evaluate(() => performance.clearResourceTimings());

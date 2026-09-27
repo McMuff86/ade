@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import type { Locator, Page } from 'playwright';
+import { writeFileSync } from 'node:fs';
+import type { Locator, Page, Request } from 'playwright';
 
 /** Chromium's actual IME event path against a native shell and signed host API.
  * A physical Samsung keyboard remains a separate device check. */
@@ -24,6 +25,13 @@ export async function terminalInputEchoFlow(desktop: Page, page: Page, panel: Lo
   }));
   const cdp = await page.context().newCDPSession(page);
   const viewport = page.viewportSize()!;
+  const packets: Array<{ at: number; data: string; cols: number; rows: number }> = [];
+  const record = (request: Request) => {
+    if (!request.url().endsWith('/api/v1/terminal/input')) return;
+    const { data, cols, rows } = request.postDataJSON();
+    if (packets.length < 100) packets.push({ at: Date.now(), data, cols, rows });
+  };
+  page.on('request', record);
   try {
     await page.evaluate(() => {
       Object.defineProperty(window.visualViewport!, 'height', { configurable: true, value: 420 });
@@ -50,6 +58,9 @@ export async function terminalInputEchoFlow(desktop: Page, page: Page, panel: Lo
       console.error('input value:', JSON.stringify(await input.inputValue()), 'focused:', await input.evaluate((node) => document.activeElement === node));
       const live = (await sessions()).sessions.find((session) => session.id === shell?.id);
       console.error('pc session:', JSON.stringify({ status: live?.status, cols: (live as { cols?: number } | undefined)?.cols, rows: (live as { rows?: number } | undefined)?.rows }));
+      const replay = await desktop.evaluate(sessionId => window.ade.invoke('pty:attach', { sessionId }), shell.id);
+      writeFileSync(join(evidence, 'terminal-ime-failure-replay.txt'), Buffer.from(replay.replayBase64, 'base64'));
+      writeFileSync(join(evidence, 'terminal-ime-failure-input.json'), JSON.stringify(packets, null, 2));
       throw error;
     });
     await composition.waitFor({ state: 'hidden' });
@@ -95,18 +106,19 @@ export async function terminalInputEchoFlow(desktop: Page, page: Page, panel: Lo
       && (await sessions()).sessions.some((session) => session.id === shell.id && session.status === 'running'));
     await end.press('Enter'); await confirmation.getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
     await screen.waitFor({ state: 'hidden' });
-    const launch = panel.locator('.m-terminal-focus-bar .m-primary'); await launch.waitFor();
+    const launch = panel.locator('.m-launch-tile:not(:disabled)').first(); await launch.waitFor();
     // The close receipt removes the screen before the scheduled focus handoff.
-    await page.waitForFunction(() => document.activeElement?.matches('.m-terminal-focus-bar .m-primary'), undefined, { timeout: 5000 }).catch(async (error) => {
-      console.log('Close focus diagnostics', await page.evaluate(() => ({ active: document.activeElement?.outerHTML.slice(0, 700), launchers: [...document.querySelectorAll('.m-terminal-focus-bar .m-primary')].map((node) => ({ html: node.outerHTML, rect: node.getBoundingClientRect().toJSON(), inert: !!node.closest('[inert]') })) })));
+    await page.waitForFunction(() => document.activeElement?.matches('.m-launch-tile'), undefined, { timeout: 5000 }).catch(async (error) => {
+      console.log('Close focus diagnostics', await page.evaluate(() => ({ active: document.activeElement?.outerHTML.slice(0, 700), launchers: [...document.querySelectorAll('.m-launch-tile')].map((node) => ({ html: node.outerHTML, rect: node.getBoundingClientRect().toJSON(), inert: !!node.closest('[inert]') })) })));
       await page.screenshot({ path: join(evidence, 'terminal-close-focus.png') }); throw error;
     });
     check('confirmed close stops the native shell and focuses the available launcher', !(await sessions()).sessions.some((session) => session.id === shell.id && session.status === 'running')
       && await launch.evaluate((node) => node === document.activeElement));
-    await launch.click(); await input.waitFor(); await input.focus();
+    await panel.locator('.m-launcher').getByRole('button', { name: 'Leeres Terminal öffnen', exact: true }).click(); await input.waitFor(); await input.focus();
     await rows.getByText('[path]>', { exact: false }).first().waitFor();
     check('fresh shell can be opened after confirmed close', (await sessions()).sessions.some((session) => session.id !== shell.id && session.projectWorkspaceId === shell.projectWorkspaceId && session.status === 'running'));
   } finally {
+    page.off('request', record);
     await page.evaluate(() => { Reflect.deleteProperty(window.visualViewport!, 'height'); window.visualViewport!.dispatchEvent(new Event('resize')); });
     await page.setViewportSize(viewport); await cdp.detach();
   }

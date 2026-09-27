@@ -268,6 +268,10 @@ export interface MobileTerminalSummary {
   profileContext?: import('./agentBehavior').SessionProfileContext;
   program?: import('./types').SessionProgramState;
   id: string; title: string; status: 'running' | 'exited'; owner: 'desktop' | 'self' | 'other';
+  /** Only for the requesting device, only while the desktop owns input: this device's lease
+   * lapsed within the last 10 minutes, and since then no device claimed the terminal, this
+   * device did not release it and the desktop did not reclaim it. */
+  resumable?: true;
   /** Safe display name from the currently authorized project workspace. */
   projectName?: string;
   /** Repository resolved by main, separate from the mutually exclusive selection fields. */

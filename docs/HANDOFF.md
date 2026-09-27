@@ -1,5 +1,99 @@
 # ADE — aktuelle Übergabe
 
+## Projektstart-Kacheln, Claude-Code-Bilder und Sprachübergabe aktiviert (27. September 2026, 15:48 CEST)
+
+`pnpm activate -Label ProjektStarter -Force` lief mit Adis ausdrücklicher Freigabe,
+laufende ADE-Sitzungen zu beenden. Ergebnis:
+- Gate **12/12** (4.196 Suite-Checks), PID **68004**, Source `1dd95bd3c231cf86ed1b`.
+- Profilbackup `C:\Users\Adi.Muff\ADE-Backups\Activate-ProjektStarter-20260927-154831`,
+  vorheriger Build in `out.prev`. Die alte Instanz 63196 wurde regulär beendet, dabei
+  auch ihre Claude-/Shell-Sitzungen (Claude-Sitzungen lassen sich in der CLI mit
+  `claude --continue` fortsetzen).
+- Mobiler Listener `127.0.0.1:4317`. Die Tailnet-Seite und das Asset
+  `/assets/index-D7aHPzAi.js` liefern HTTP 200; das Asset enthält den neuen Starter.
+
+Vor der Aktivierung lief ein vollständiger `pnpm verify` mit **41/41** Schritten grün,
+darunter der neue `remote-terminal-electron:project-launcher` mit **18/0**. Details:
+[STATUS.md](STATUS.md). Enthalten sind beide Runden von heute: die Sprachübergabe
+(kurze Begrüssung, Eingabe-Rückholung) und der Projektstart (Kacheln, direktes Öffnen,
+hängende Aktion verwerfbar, Bilder für Claude Code nativ).
+
+Nicht committet: Arbeitsbaum auf `7488b6c` mit den Patches vom 26.09. und von heute.
+Offen ist Adis Urteil am echten Tablet: Tablet-Seite neu laden, Knuckles Pi über die
+Projektkarte öffnen, „Claude Code“ antippen und ein Bild anhängen.
+
+## Sprachübergabe geglättet, Aktivierung ausstehend (27. September 2026)
+
+Umgesetzt und geprüft (siehe [STATUS.md](STATUS.md) und
+[VOICE_SEAMLESS_UX_PROPOSAL.md §10](VOICE_SEAMLESS_UX_PROPOSAL.md)):
+
+- kurze Computer-Begrüssung mit Host-Speicher
+- Begrüssung wird schon bei erkanntem Aufruf angefordert
+- automatisches Zurückholen der Tablet-Eingabe beim Zurückwechseln innerhalb von 10 Minuten
+
+**Nicht aktiviert.** `pnpm activate -Label SprachUebergabe` bestand das Gate
+(12/12). Danach hat es das Beenden verweigert, weil ADE PID 63196 noch
+`claude.exe`/`powershell.exe`-Sitzungen führt. Nächster Schritt: Sitzungen beenden,
+dann `pnpm activate -Label SprachUebergabe` erneut ausführen. Alternativ mit Adis
+Freigabe `-Force`. Danach die Tablet-Seite neu laden.
+
+Nicht committet: der Patch vom 26.09. (14 Dateien) und diese Runde liegen
+gemeinsam im Arbeitsbaum auf `7488b6c`. Zwei Volläufe waren je 39/40, mit
+wechselnden, einzeln grünen Schritten in unveränderten Pfaden
+(`dictation-electron`, `conversation-electron`). Das ist beobachtete Last-Flakiness,
+die noch nicht behoben ist.
+
+Beobachten nach der Aktivierung: Zeit von „Computer“ bis „Hört zu“ im Host-Audit
+(`speech:test` → nächstes `dictation:prepare`), erwartet rund 3–4 s. Ausserdem
+die Zahl der `terminal:claim`-Einträge beim Sitzungswechsel.
+
+## Fehler gepatcht und regulär aktiviert (26. September 2026, 09:01 CEST)
+
+Persönliche ADE-Instanz über `pnpm activate -Label TabletFixes` aktualisiert:
+Gate **12/12 grün**, PID **63196**, Source `9ccf7931e1078b6f532d`, Arbeitsstand
+auf `7488b6c` mit uncommittetem Patch. Vorheriger Prozess **53624** wurde regulär
+beendet; keine erzwungene Beendigung. Profilbackup:
+`C:\Users\Adi.Muff\ADE-Backups\Activate-TabletFixes-20260926-090137`,
+vorheriger Build in `out.prev`. Beleg: `test-results/activations.jsonl`.
+
+Vollständiges `pnpm verify` vor Aktivierung: **40/40 Schritte**, darunter
+**99 Suiten / 4.179 Checks**, in 9:04 Minuten. Vollständige Protokolle sind unter
+`test-results/tablet-fixes-full-20260926-085936/` erhalten; der aktuelle
+`test-results/verify/report.json` dokumentiert den anschließenden Aktivierungsgate.
+Details der Fehler und gezielten Gegenproben stehen oben in [STATUS.md](STATUS.md).
+
+Tablet-Eingaben behalten bis zur stabilen Größenmessung die Host-Abmessungen.
+Start-/Übernahme-/Freigabeknöpfe bleiben während Heartbeats erreichbar und warten
+auf die bestehende Serialisierung. Veraltete Gesprächs-/Profil-Prüfannahmen und
+das Windows-Dashboard-Fixture sind korrigiert.
+
+Mobiler Listener bestätigt auf `127.0.0.1:4317`, PID **63196**. Private Adresse
+`https://number-cruncher.tailfc0b86.ts.net/` und ausgeliefertes neues Asset
+`/assets/index-BIC1MvXf.js` liefern mit normaler TLS-Prüfung HTTP 200.
+Tablet neu laden; physische Tastatur-/Mikrofonbedienung durch Adi bleibt offen.
+Als Nächstes Adis konkrete Verbesserung über die Sprachübergabe aufnehmen.
+Der optionale native Codex-Tablet-Treiber wurde in diesem Patch angepasst,
+aber nicht als kostenpflichtiger Modelllauf ausgeführt.
+
+## Tablet-Zugang wieder gestartet (26. September 2026, 08:06 CEST)
+
+ADE über `pnpm activate -Label TabletStart -SkipGate` gestartet: PID **53624**,
+Code `7488b6c`, Source `b8fc3d45fa1f99d06d9b`. Profil gesichert unter
+`ADE-Backups/Activate-TabletStart-20260926-080636`; vorheriger Build in `out.prev`.
+Tailscale online; die private HTTPS-Adresse liefert die mobile Seite und ihr
+JavaScript jeweils mit HTTP 200 und normaler Zertifikatsprüfung. Mobiler Zugriff
+ist aktiviert, eine bestehende Gerätekopplung ist gespeichert. Der tatsächliche
+Zugriff vom Tablet bleibt durch Adi zu bestätigen.
+
+Der erste reguläre Aktivierungsversuch scheiterte an `electron-workflow`
+(Timeout beim zusätzlichen Fenster) und `remote-coordinator-actions`
+(`changed conversation authority prevents old proposal confirmation`). Belege:
+`test-results/tablet-start-gate-20260926-080604/`. Die drei Typprüfungen, beide
+Builds und die Tablet-Treiber bestanden. Die Schnellaktivierung ist ausdrücklich
+**unverifiziert**; der vollständige Lauf wurde automatisch im Hintergrund
+gestartet (`test-results/verify-console.log`, Ergebnis `test-results/verify/report.json`).
+Diese beiden Fehler vor weiteren Freigaben untersuchen.
+
 ## Tablet-Recovery und Stabilisierung (25. September 2026)
 
 **Aktiviert 23:51 CEST:** Code `d24bd2b`, PID **64576**, Source

@@ -131,7 +131,6 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Terminal project', exact: true }).click();
   const project = page.getByRole('dialog', { name: 'Projekt · Terminal project', exact: true });
-  await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await project.getByRole('button', { name: 'Ergebnisse', exact: true }).click();
   await project.getByRole('button', { name: 'Bild ansehen: image.png', exact: true }).click();
   const projectImage = project.getByRole('img', { name: 'Ergebnisdatei image.png', exact: true });

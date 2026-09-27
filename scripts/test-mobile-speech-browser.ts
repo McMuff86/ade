@@ -110,7 +110,6 @@ void (async()=>{
   await page.getByRole('button',{name:'Projektordner aktualisieren',exact:true}).click();
   await page.getByRole('button',{name:'Workspace öffnen: Voice project',exact:true}).click();
   const project=page.getByRole('dialog',{name:'Projekt · Voice project',exact:true});
-  await project.getByRole('button',{name:'Workspace öffnen',exact:true}).click();
   await project.getByRole('button',{name:'Projekt-Einstellungen',exact:true}).click();
   const projectSpeech=project.getByRole('region',{name:'Projekt-Stimme',exact:true});
   await projectSpeech.getByRole('button',{name:'Stimmen laden',exact:true}).click();

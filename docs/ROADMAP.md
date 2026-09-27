@@ -224,6 +224,10 @@ nach Diktatdialogschluss; persönliche Klangbeurteilung und Aktivierung stehen a
 Danach persönliche Begrüssung und belegter Arbeitsrückblick, begrenzte
 Bedienabsichten und schliesslich Unterbrechen/Gerätewechsel. Gemeinsamer
 Dialog auf PC und Tablet; [Vorschlag und Abnahmekriterien](VOICE_COMPANION_PROPOSAL.md).
+Stand 27. September 2026: kurze Begrüssung mit Host-Speicher und automatisches
+Zurückholen der Tablet-Eingabe beim Sitzungswechsel sind implementiert und
+geprüft; die Aktivierung und Adis Tablet-Urteil stehen aus
+([§10](VOICE_SEAMLESS_UX_PROPOSAL.md)).
 
 ## Ollama-Profillogo abgeschlossen
 

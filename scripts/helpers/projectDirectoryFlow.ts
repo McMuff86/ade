@@ -39,7 +39,7 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await dialog.getByRole('button', { name: 'Workspace-Öffnung erneut prüfen', exact: true }).click();
   await dialog.getByRole('region', { name: 'Geöffneter Projekt-Workspace', exact: true }).waitFor(); page.off('request', record);
   check('reload replays the durable same-key receipt and displays exact checkout branch', keys.length === 2 && !!keys[0] && keys[0] === keys[1]
-    && await dialog.getByText('feature/tablet', { exact: true }).isVisible() && await dialog.getByText('Ohne Agent-Profil', { exact: true }).isVisible());
+    && await dialog.getByText('feature/tablet', { exact: true }).isVisible() && await dialog.getByRole('region', { name: 'Geöffneter Projekt-Workspace', exact: true }).getByText('Ohne Agent-Profil', { exact: true }).isVisible());
   const openedConfig = await desktop.evaluate(() => window.ade.invoke('config:get'));
   check('tablet open creates no agent, no binding and no CLI', openedConfig.agents.length === configBefore.agents.length
     && openedConfig.workspaceBindings.length === configBefore.workspaceBindings.length
@@ -75,17 +75,17 @@ export async function projectDirectoryFlow(desktop: Page, page: Page, proxy: Awa
   await desktop.screenshot({ path: join(evidence, 'project-directory-desktop.png') });
   await desktop.getByRole('button', { name: 'Zur Projektübersicht', exact: true }).click();
   check('desktop return focuses Projects when the original directory opener unmounted', await desktop.getByRole('tab', { name: 'Projekte', exact: true }).evaluate((node) => node === document.activeElement));
-  await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
-  // The local receipt checkpoint is a contract: storage failure must precede the host mutation.
+  // The local receipt checkpoint is a contract: storage failure must precede the host mutation,
+  // also when the card opens the folder by itself.
   await page.evaluate(() => { Storage.prototype.setItem = function () { throw new Error('fixture quota'); }; });
   const countBefore = keys.length; page.on('request', record);
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+  await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
   await dialog.getByRole('alert').filter({ hasText: 'Browser-Speicher nicht verfügbar' }).waitFor();
   check('disabled browser storage rejects open before sending any command', keys.length === countBefore);
   page.off('request', record); await page.reload();
   await page.getByRole('button', { name: 'Workspace öffnen: Discover me', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await dialog.getByText('feature/tablet', { exact: true }).waitFor();
+  check('the project card alone opens the existing folder', await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).count() === 0);
   check('final positive browser control opens one unchanged checkout after failures', (await desktop.evaluate(() => window.ade.invoke('config:get'))).projectWorkspaces.length === openedConfig.projectWorkspaces.length);
   await page.keyboard.press('Escape');
 }

@@ -58,7 +58,9 @@ der weitergehende Dialog bleibt ein Vorschlag. Parallel läuft [Goal 32](LONG_DI
 PC und Tablet: Im aktiven CLI-Terminal **Prompt / Diktat → Computer testen**
 wählen, Mikrofon erlauben und **Computer** sagen. Nach der isolierten Live-Erkennung
 stoppt die Aufnahme, dann antwortet die gewählte ADE-Standardstimme:
-„Guten Morgen/Tag/Abend, Adi. Schön, dass du da bist. Was kann ich für dich tun? Wähle nach dieser Begrüssung ‚Diktieren‘ und beschreibe, wobei ich dich unterstützen soll. Deinen Text kannst du anschliessend prüfen und an die ausgewählte Sitzung senden.“
+„Guten Morgen/Tag/Abend, Adi. Was kann ich für dich tun?“ (seit 27. September 2026;
+die frühere vierteilige Fassung mit „Wähle Diktieren“ ist entfallen, siehe
+[VOICE_SEAMLESS_UX_PROPOSAL.md §10](VOICE_SEAMLESS_UX_PROPOSAL.md)).
 Massgeblich ist die Tageszeit des Hosts. Derselbe Text steht im Fenster.
 **Computer-Test beenden** stoppt Aufnahme/Wiedergabe; **Begrüssung abspielen**
 verwendet bereits empfangenes Audio ohne weitere Synthese. Die nächste Aufgabe

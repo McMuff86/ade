@@ -69,6 +69,8 @@ export async function desktopWorkspaceTerminalFlow(app: ElectronApplication, pag
   check('Ctrl+PageDown switches project terminal without typing into its shell', await page.locator(`#project-session-tab-${shell.id}`).getAttribute('aria-selected') === 'false');
   await page.keyboard.press('Control+PageUp');
   await expect(input).toBeFocused();
+  // A real PowerShell profile may still be starting after the terminal mounts.
+  await panel.locator('.xterm-rows').getByText(/PS .*?>/).first().waitFor({ timeout: 60_000 });
   await page.keyboard.type('1..100 | ForEach-Object { Write-Output ("ADE_HISTORY_" + $_) }', { delay: 1 }); await page.keyboard.press('Enter');
   await expect.poll(async () => Buffer.from((await page.evaluate((sessionId) => window.ade.invoke('pty:attach', { sessionId }), shell.id)).replayBase64, 'base64').toString()).toContain('ADE_HISTORY_100');
   await panel.getByLabel('Terminal-Schriftgrösse', { exact: true }).selectOption('17');

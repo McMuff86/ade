@@ -211,7 +211,6 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
     if (mediaOnly) check('pairing and project navigation do not load the terminal module', !screenRequested);
     await tablet.getByRole('button', { name: 'Workspace öffnen: Dictation project', exact: true }).click();
     const project = tablet.getByRole('dialog', { name: 'Projekt · Dictation project', exact: true });
-    await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
     await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
     await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
     if (mediaOnly) {
@@ -413,7 +412,6 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
   await tablet.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await tablet.getByRole('button', { name: 'Workspace öffnen: Dictation project', exact: true }).click();
   const project = tablet.getByRole('dialog', { name: 'Projekt · Dictation project', exact: true });
-  await project.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
   await project.getByRole('button', { name: 'Codex öffnen', exact: true }).click();
   await project.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'Codex läuft' }).waitFor();
   await project.locator('summary[aria-label="Abo-Nutzung"]:visible').click();

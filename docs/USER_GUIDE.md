@@ -62,9 +62,12 @@ die Entwicklungswerkzeuge nicht selbst installieren.
 Projekt-Stamm, die noch nicht in ADE erfasst sind. ADE merkt sich deine ausdrücklich
 gewählte Filteransicht auf diesem Gerät. Der geöffnete
 Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
-Unter **Branches** den Branch wählen und die Aktion prüfen. Danach unter
-**Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex, Claude CLI, Grok CLI oder die Shell öffnen. Ein gespeichertes
-Profil kannst du ausdrücklich unter den weiteren Startoptionen wählen.
+Unter **Branches** den Branch wählen und die Aktion prüfen. Auf dem Tablet
+startest du danach mit einer Kachel unter **Sitzung starten**: Codex, Claude Code,
+Grok oder Leeres Terminal (Desktop: **Arbeiten mit**). Jede Kachel nennt ihr Profil,
+in Klartext, was die CLI ohne Rückfrage darf, und den wörtlichen Startbefehl,
+etwa `claude --dangerously-skip-permissions`. Andere Profile und CLIs findest du
+unter **Weitere Startoptionen**.
 Für eine neue Idee verwendest du **Neues Projekt**. Für Hermes General oder
 Sentinel ohne Projekt verwendest du **Übersicht → Terminal öffnen** beim Agenten.
 
@@ -103,7 +106,7 @@ Zusätzliche Branch-, Git- und Ergebnisbilder stammen aus den jeweiligen Prüfl�
 
 | Dein Vorhaben | Dein Weg in ADE Mobile |
 |---|---|
-| Bestehenden Code bearbeiten | **Projekte → Projekt → Workspace öffnen → Sitzung öffnen mit** |
+| Bestehenden Code bearbeiten | **Projekte → Projektkarte → Kachel unter „Sitzung starten“** |
 | Eine neue Idee ausprobieren | **Neues Projekt → Name → Projekt anlegen und öffnen**, danach CLI wählen |
 | Mit einem persönlichen Assistenten sprechen | **Übersicht → Terminal öffnen** beim Agenten |
 | Hermes-/OpenClaw-Weboberfläche verwenden | **Web-Dashboard** beim entsprechend eingerichteten Agenten |
@@ -139,7 +142,11 @@ zweiten Versand.
 
 **Computer live testen:** Im selben Fenster **Computer testen** wählen. Sobald
 „Ich höre zu“ erscheint, **Computer** sagen. Die Standardstimme begrüsst dich
-persönlich; der Text erscheint daneben. **Computer-Test beenden** stoppt den
+kurz („Guten Abend, Adi. Was kann ich für dich tun?“); der Text erscheint daneben.
+Auf dem Tablet startest du den Computer mit langem Drücken auf **Sprechen**; nach
+der Begrüssung hört die Leiste von selbst zu. Ein kurzer Tipp diktiert direkt ohne
+Begrüssung. Ab dem zweiten Aufruf kommt die Begrüssung ohne Wartezeit aus dem
+Speicher des PCs. **Computer-Test beenden** stoppt den
 Ablauf. **Begrüssung abspielen** wiederholt das empfangene Audio. Der Test hört
 höchstens 20 Sekunden zu; Fenster und Tablet-Browser im Vordergrund lassen.
 Auf dem Tablet braucht es zusätzlich die Gerätefreigabe **Stimmen wählen und
@@ -326,8 +333,9 @@ benötigen. Der PC muss eingeschaltet, angemeldet und erreichbar bleiben.
 2. Einen Namen eingeben, etwa „Mein Notizbuch“. Ohne Namen erzeugt ADE einen.
 3. **Projekt anlegen und öffnen** drücken. ADE legt den dauerhaften Projektordner
    mit einem Git-Repository und Branch **main** an.
-4. Im Projekt bei Bedarf einen Branch anlegen und unter **Sitzung öffnen mit** (Desktop: **Arbeiten mit**) Codex,
-   Claude CLI, Grok CLI oder die Shell wählen. **… öffnen** startet die Sitzung.
+4. Im Projekt bei Bedarf einen Branch anlegen und unter **Sitzung starten** die
+   Kachel für Codex, Claude Code, Grok oder Leeres Terminal antippen (Desktop:
+   **Arbeiten mit**).
 
 Dabei entsteht kein Agent-Profil. Auf dem Desktop findest du **Neues Projekt**
 im Reiter **Projekte**. Es wird kein GitHub-Repository automatisch veröffentlicht.
@@ -376,7 +384,8 @@ Shell starten; ADE zeigt den CLI-Status nur für den von ADE gestarteten Aufruf.
 Auf Mobile **Terminals** oder **Terminal öffnen** wählen. Die linke Navigation zeigt
 Agents und bestehende Sitzungen; auf dem Telefon erreichst du sie über
 **Agents und Sitzungen**. Mit **Eingabe übernehmen** bedienst du eine vorhandene
-Desktop-Sitzung. **Neue Sitzung starten** öffnet eine weitere Sitzung.
+Desktop-Sitzung. Unter **Sitzung & Workspace** startest du mit einer Kachel eine
+weitere Sitzung oder wechselst unter **Sitzungen hier** zu einer offenen.
 **Schriftgrösse**, **Terminal vergrössern**, Theme und Tastaturhilfen passen die
 Ansicht an dein Gerät an. Das Terminal läuft auf dem ADE-Rechner.
 
@@ -393,27 +402,33 @@ erhalten. **Workspace-Info** ist auch eingeklappt verfügbar. Auf breiten Tablet
 stehen **Workspace aktualisieren** und **Branches** neben den Bereichsschaltern.
 
 1. **Projekte** öffnen und das gewünschte Projekt suchen.
-2. Die Projektkarte und danach **Workspace öffnen** wählen.
+2. Die Projektkarte antippen. Sie öffnet den vorhandenen Projektordner direkt.
 3. **Branches** aufklappen, den gewünschten Branch auswählen und die Vorschau
    prüfen. Für parallele Arbeit einen neuen Branch mit **Zusätzliche Arbeitskopie
    anlegen** verwenden. Ungesicherte Dateien bleiben im bisherigen Workspace.
 4. Am Desktop direkt **Codex öffnen**, **Claude Code öffnen** oder **Leeres Terminal öffnen**
    wählen. Weitere CLIs und Profile unter **Arbeiten mit → Auswahl öffnen / fortsetzen**.
-   Auf Mobile unter **Sitzung öffnen mit** auswählen und **… öffnen** drücken.
+   Auf dem Tablet die passende Kachel unter **Sitzung starten** antippen.
 
 ![Projekteinstieg mit Suchfeld und Projektkarte](media/user-guide/06-projects.png)
 
 ![Vorbereiteter Projektworkspace mit CLI-Auswahl](media/user-guide/08-workspace-cli.png)
 
-**Workspace öffnen** startet noch keine CLI. Es öffnet den vorhandenen Checkout
+Das Öffnen des Projekts startet noch keine CLI. Es öffnet den vorhandenen Checkout
 ohne Agent-Bindung. Ein gespeichertes **Startprofil** verwendet seine Einstellungen
 im gewählten Checkout; es wechselt nicht in dessen Agent-Ordner. Fehlt die CLI,
 am PC Installation und Anmeldung in der angezeigten Umgebung prüfen.
 
-Existiert bereits eine passende laufende Sitzung, öffnet **… öffnen** diese wieder.
-Ist deren CLI bereits beendet und nur das Terminal noch offen, startet **… öffnen**
-eine neue CLI. Das alte Terminal bleibt zum Nachlesen oder für Shell-Befehle erhalten.
-Eine weitere Sitzung wird über **Neue Sitzung starten** ausdrücklich angelegt.
+Läuft bereits eine passende Sitzung, zeigt die Kachel **Läuft · antippen zum
+Weiterarbeiten** und öffnet diese wieder. Ist deren CLI beendet und nur das Terminal
+noch offen, startet die Kachel eine neue CLI. Das alte Terminal bleibt zum Nachlesen
+oder für Shell-Befehle erhalten. Eine zusätzliche Sitzung neben einer laufenden legst
+du unter **Weitere Startoptionen → Sitzung starten** ausdrücklich an.
+
+Ging die Antwort auf einen Start verloren, etwa während ADE neu startete, erscheint
+**Unbestätigt: „… öffnen“** mit **Terminalaktion erneut prüfen** und **Verwerfen**.
+Das erneute Prüfen führt die Aktion höchstens einmal aus. Verwerfen gibt die Kacheln
+wieder frei, ohne etwas zu starten.
 Mehrere CLIs können dieselben Dateien sehen; vermeide unkoordinierte gleichzeitige
 Änderungen an denselben Dateien.
 
@@ -438,12 +453,16 @@ weiterhin ihren eigenen Desktop-/Backend-Ablauf.
 
 Zum Schreiben ins Terminal tippen oder **Tastatur** drücken. Falls der PC die
 Sitzung steuert, zuerst **Eingabe übernehmen** wählen. **Du steuerst die Eingabe**
-bestätigt, dass Tasteneingaben vom Tablet angenommen werden.
+bestätigt, dass Tasteneingaben vom Tablet angenommen werden. Wechselst du zu einer
+anderen Sitzung oder schläft das Tablet, geht die Eingabe nach 30 Sekunden an den
+PC zurück. Kommst du innerhalb von 10 Minuten zurück, holt das Tablet sie ohne
+Tippen zurück („Die Eingabe ist wieder bei diesem Tablet.“), ausser du hast sie
+selbst freigegeben oder am PC übernommen.
 
 Der Sitzungsstatus unterscheidet beispielsweise **Claude Code läuft · Terminal
 offen** und **Claude Code beendet · Terminal offen**. Im zweiten Fall ist Claude
-beendet; Eingaben gehen an die Shell. Die Auswahl **Sitzung öffnen mit** bestimmt
-den nächsten Start und ändert die laufende Sitzung nicht. **CLI-Status unbekannt**
+beendet; Eingaben gehen an die Shell. Eine Kachel unter **Sitzung & Workspace**
+startet die nächste Sitzung und ändert die laufende nicht. **CLI-Status unbekannt**
 bedeutet, dass ADE den Start/Abschluss nicht zuverlässig bestätigen kann.
 Manuell in der Shell gestartete Programme werden dabei nicht neu erkannt.
 Die vorhandenen Bilder zeigen noch den vorherigen Textstand; der abschliessende

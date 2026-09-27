@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Page } from 'playwright';
 import { supervisionFlow } from './supervisionFlow';
+import { inputResumeFlow } from './inputResumeFlow';
 
 export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: string, check: (name: string, ok: boolean) => void): Promise<void> {
   const evidence = resolve('test-results/main-agent-planning'); mkdirSync(evidence, { recursive: true });
@@ -81,8 +82,8 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
     await chooser.locator(`[data-session-id="${remoteIds[index]}"]`).click();
     const next = tablet.getByRole('dialog', { name: `Projekt · ${target.name}`, exact: true });
     await next.waitFor();
-    await next.getByLabel('Terminal-Sitzung', { exact: true }).waitFor({ state: 'attached' });
-    await tablet.waitForFunction(id => document.querySelector<HTMLSelectElement>('dialog[open].m-independent-project [aria-label="Terminal-Sitzung"]')?.value === id, remoteIds[index]);
+    await next.locator('[data-terminal-id]').first().waitFor({ state: 'attached' });
+    await tablet.waitForFunction(id => document.querySelector('dialog[open].m-independent-project [data-terminal-id][aria-pressed="true"]')?.getAttribute('data-terminal-id') === id, remoteIds[index]);
   };
   await tablet.setViewportSize({ width: 1280, height: 800 });
   await pickTablet(0);
@@ -93,8 +94,10 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
   await project.getByLabel('CLI-Promptentwurf', { exact: true }).fill('Tablet draft A');
   for (let round = 0; round < 10; round++) for (const index of [1, 2, 0]) await pickTablet(index);
   check('tablet switches three projects ten times without another process', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === count);
-  if (await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).count()) await project.getByRole('button', { name: 'Eingabe übernehmen', exact: true }).click();
+  // Whether or not the lease lapsed during the rounds, the session this tablet held comes back owned.
+  const ownA = project.getByText('Eingabe: Du (Tablet)', { exact: true }); await ownA.waitFor();
   check('tablet draft returns only to its original session', await project.getByLabel('CLI-Promptentwurf', { exact: true }).inputValue() === 'Tablet draft A');
+  await inputResumeFlow(tablet, desktop, project, sessions[0]!.id, pickTablet, check, evidence);
   await pickTablet(3); await pickTablet(0);
   check('tablet also selects the exact sibling session', true);
   for (const viewport of [{ width: 800, height: 1280 }, { width: 390, height: 844 }]) {

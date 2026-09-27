@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import type { Page } from 'playwright';
 import type { mobileTlsProxy } from './mobileBrowser';
-import { expandSessionControls } from './terminalControls';
+import { launchTile } from './terminalControls';
 
 /** Uses deterministic native CLI executables supplied by the terminal Electron fixture. */
 export async function projectEntryFlow(desktop: Page, page: Page, evidence: string, check: (label: string, ok: boolean) => void,
@@ -17,7 +17,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
   const openLegacy = async () => {
     await page.getByRole('button', { name: 'Workspace öffnen: Tablet Garden', exact: true }).click();
     const selection = page.getByRole('dialog', { name: 'Projekt · Tablet Garden', exact: true });
-    await selection.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+    // The card opens the existing folder by itself; the agent working copy stays one fold below.
     await selection.getByText('Agent-Arbeitskopie', { exact: true }).click();
     await selection.getByRole('button', { name: 'Agent-Arbeitskopie öffnen', exact: true }).click();
   };
@@ -25,7 +25,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
   const workspace = page.getByRole('dialog', { name: 'Projekt · Tablet Garden', exact: true });
   const before = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
   await workspace.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
-  await workspace.getByLabel('Projekt-CLI', { exact: true }).waitFor();
+  await workspace.locator('.m-launcher').waitFor();
   check('project workspace opens without starting a CLI or requiring an agent selection', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === before
     && !await workspace.getByLabel('Workspace-Projekt', { exact: true }).count());
   await workspace.getByRole('button', { name: 'Dateien', exact: true }).click();
@@ -34,11 +34,9 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
   check('legacy agent copy stays separate from uncommitted files in original project', !await workspace.getByRole('button', { name: 'scaffold.txt', exact: true }).count()
     && readFileSync(join(original.rootPath, 'scaffold.txt'), 'utf8').includes('TABLET_SCAFFOLD'));
   await workspace.getByRole('button', { name: 'Terminal', exact: true }).click();
-  for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude CLI'], ['grok', 'Grok CLI']] as const) {
-    await expandSessionControls(workspace);
-    await workspace.getByLabel('Projekt-CLI', { exact: true }).selectOption(mode);
-    await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).click({ trial: true });
-    await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).press('Enter');
+  for (const [mode, label] of [['codex', 'Codex'], ['claude', 'Claude Code'], ['grok', 'Grok Build']] as const) {
+    const tile = await launchTile(workspace, label);
+    await tile.click({ trial: true }); await tile.press('Enter');
     await workspace.getByLabel('Terminalanzeige', { exact: true }).getByText(`ADE_SESSION_${mode.toUpperCase()}_READY`, { exact: false }).last().waitFor();
     const sessions = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions;
     const config = await desktop.evaluate(() => window.ade.invoke('config:get'));
@@ -47,7 +45,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     check(`Projects launches ${label} in the same bound project workspace`, sessions.some((session) => session.launchChoice?.mode === mode
       && session.repositoryId === repo.id && session.workspaceDir === binding.workspaceDir));
     await workspace.getByLabel('CLI- und Terminalstatus', { exact: true }).filter({ hasText: 'beendet · Terminal offen' }).waitFor();
-    await workspace.getByRole('button', { name: `${label} öffnen`, exact: true }).click();
+    await (await launchTile(workspace, label)).click();
     // "wird geöffnet…" may not have appeared yet under load, so wait for the new session itself.
     const relaunched = async (): Promise<boolean> => (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === sessions.length + 1;
     for (const deadline = Date.now() + 30_000; !(await relaunched()) && Date.now() < deadline;) await new Promise((done) => setTimeout(done, 100));
@@ -71,7 +69,7 @@ export async function projectEntryFlow(desktop: Page, page: Page, evidence: stri
     await workspace.getByRole('alert').waitFor(); proxy.loseAdminReplies(false);
     check('new workspace profile is created despite a deliberately lost reply', (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.length === agentsBefore + 1);
     await page.reload(); await workspace.getByRole('button', { name: 'Workspace öffnen · fortsetzen', exact: true }).click();
-    await workspace.getByLabel('Projekt-CLI', { exact: true }).waitFor(); page.off('request', record);
+    await workspace.locator('.m-launcher').waitFor(); page.off('request', record);
     check('project preparation resumes after reload with one profile and the same receipt', (await desktop.evaluate(() => window.ade.invoke('config:get'))).agents.length === agentsBefore + 1
       && keys.length === 2 && !!keys[0] && keys[0] === keys[1]);
     check('a new project workspace still waits for an explicit CLI start', !await workspace.getByLabel('Terminalanzeige', { exact: true }).count());

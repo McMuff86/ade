@@ -64,7 +64,7 @@ export async function projectGitFlow(desktop: Page, page: Page, root: string, ev
   await page.keyboard.press('Escape'); await page.getByRole('tab', { name: 'Projekte', exact: true }).click();
   await page.getByRole('button', { name: 'Alle', exact: true }).click();
   await page.getByRole('button', { name: 'Workspace öffnen: Review project', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Projekt · Review project', exact: true }); await dialog.getByRole('button', { name: 'Workspace öffnen', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Projekt · Review project', exact: true });
   await dialog.getByRole('button', { name: 'Git', exact: true }).click(); const panel = dialog.getByRole('region', { name: 'Projekt-Git', exact: true });
   await panel.locator('summary').filter({ hasText: 'Letzte 5 Commits' }).click();
   check('tablet can read recent commits without mutation grant', await panel.getByRole('list', { name: 'Letzte Commits', exact: true }).locator('li').count() === 5);

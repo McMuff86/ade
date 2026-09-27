@@ -61,8 +61,9 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
 2. Beim eigenen Tablet **Interaktive Terminals steuern** aktivieren und
    **Verwaltungsrechte speichern** wählen. Für Dateien/Diffs zusätzlich
    **Workspace-Dateien und Git-Diffs lesen** freigeben.
-3. Für Projektarbeit **Projekte → Projekt → Workspace öffnen** wählen und danach
-   unter **Arbeiten mit** die CLI auswählen. Für den persönlichen Assistenten ohne
+3. Für Projektarbeit unter **Projekte** die Projektkarte antippen. Das Projekt
+   öffnet sich direkt, und eine Kachel unter **Sitzung starten** startet Codex,
+   Claude Code, Grok oder ein leeres Terminal. Für den persönlichen Assistenten ohne
    Projekt in **Overview** dessen **Terminal öffnen** verwenden.
 4. Eine vorhandene Sitzung auswählen und **Eingabe übernehmen** drücken oder
    **Shell öffnen** / **[Agentname] öffnen** wählen. Der Agent verwendet sein am PC
@@ -72,7 +73,10 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
 5. **Eingabe freigeben** übergibt die Steuerung an den Desktop. **Sitzung beenden**
    beendet nach Bestätigung den Prozess. Das Schliessen der Tablet-Ansicht
    beendet die Sitzung nicht. Ohne Lebenszeichen läuft die Freigabe nach
-   30 Sekunden aus. Am Desktop ist eine sofortige Übernahme möglich.
+   30 Sekunden aus. Am Desktop ist eine sofortige Übernahme möglich. Kehrt das
+   Tablet innerhalb von 10 Minuten zu dieser Sitzung zurück und hat weder der
+   Desktop übernommen noch das Tablet freigegeben, holt es die Eingabe von selbst
+   zurück.
 
 Die native Shell läuft mit den Rechten des angemeldeten Windows-Benutzers;
 in WSL läuft sie als Benutzer der konfigurierten Linux-Distribution. Der
@@ -103,7 +107,8 @@ in `SESSION_WORKSPACE_RESULTS.md`.
 Am Desktop den Agenten wählen und oben **+** drücken (oder **Ctrl+Shift+T**).
 Im Dialog ein Projekt oder **Ohne Projekt · Eigener Workspace** wählen. Unter
 **Sitzung starten mit** die gewünschte Auswahl treffen und **Sitzung starten**
-drücken. Am Tablet gibt es dieselbe Auswahl im Reiter **Terminal**.
+drücken. Am Tablet stehen in Projekten und freien Terminals die Kacheln unter
+**Sitzung starten** bereit; seltenere Auswahlen liegen unter **Weitere Startoptionen**.
 
 | Auswahl | Verhalten |
 |---|---|

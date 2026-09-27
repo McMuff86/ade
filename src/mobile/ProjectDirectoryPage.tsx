@@ -64,6 +64,9 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const live = useRef(true); const lock = useRef(false); const epoch = useRef(0); const opener = useRef<HTMLButtonElement | null>(null);
   const online = host.status === 'online'; const canRead = !!rights?.capabilities?.includes('workspace:read');
   const canOpen = canRead && !!rights?.capabilities?.includes('projects:write');
+  // A card or "Projekt öffnen" already says what to do: open that folder. Do it at once instead of
+  // asking again in the dialog; the manual button stays for retries, errors and missing rights.
+  const autoOpen = useRef(false);
   useEffect(() => { live.current = true; return () => { live.current = false; epoch.current++; }; }, []);
   const refresh = useCallback(async () => {
     const version = ++epoch.current; if (!online) return;
@@ -92,7 +95,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     }
     else if (intent.repositoryId) {
       const entry = directory.entries.find((item) => item.repositoryId === intent.repositoryId);
-      if (entry) { setSelected(entry); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); }
+      if (entry) { autoOpen.current = true; setSelected(entry); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); }
       else setError(translate("Project is not available in the current overview. Update project folder."));
     }
     onIntentConsumed?.();
@@ -112,7 +115,12 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     } catch (reason) { if (live.current) setError(reason instanceof Error && !(reason instanceof MobileClientError) ? reason.message : workspaceError(reason)); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
-  const close = () => { setWorkspaceInfo(false); setSelected(undefined); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); setError(''); };
+  useEffect(() => {
+    if (!autoOpen.current || !selected || workspace || opening || !rights) return;
+    autoOpen.current = false;
+    if (online && canOpen) void open();
+  }, [selected, workspace, opening, rights, online, canOpen]);
+  const close = () => { autoOpen.current = false; setWorkspaceInfo(false); setSelected(undefined); saveWorkspaceId(null); setWorkspace(undefined); setTerminalId(undefined); setError(''); };
   const membership = async (entry: ProjectDirectoryEntry, included: boolean) => {
     if (lock.current || !online) return;
     lock.current = true; setBusy(true); setError(''); setMembershipNotice('');
@@ -142,7 +150,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     {canRead && !rights?.capabilities?.includes('catalog:write') && <p>{translate("To add and remove on PC under Connected Devices, share project management.")}</p>}
     <ProjectDirectory usage={usage} directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
       onMembership={membership} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}
-      onOpen={(entry, button) => { opener.current = button; setSelected(entry); setError(''); }} />
+      onOpen={(entry, button) => { opener.current = button; autoOpen.current = true; setSelected(entry); setError(''); }} />
     {opening && !show && <div role="status"><p>{translate("Opening “")}{opening.name}{translate("” has not been confirmed yet.")}</p><button onClick={(event) => {
       opener.current = event.currentTarget; setSelected(directory?.entries.find((entry) => entry.id === opening.entryId)
         ?? { id: opening.entryId, name: opening.name, kind: 'repository', backend: 'native', source: 'root', notice: null });
