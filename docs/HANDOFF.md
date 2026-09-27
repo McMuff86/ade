@@ -1,5 +1,12 @@
 # ADE — aktuelle Übergabe
 
+## Gespräche-Auswahl aktiviert (27. September 2026, 16:26 CEST)
+
+`pnpm activate -Label GespraecheSymbole` ohne `-Force` (keine laufenden Sitzungen):
+Gate **12/12**, PID **54800**, Source `91bcb0c3a1217429bf1e`, Code `312e025`. Backup
+`C:UsersAdi.MuffADE-BackupsActivate-GespraecheSymbole-20260927-162621`, vorheriger Build
+in `out.prev`. Die Gespräche-Auswahl hat jetzt Symbole und bündige Texte; Tablet-Seite neu laden.
+
 ## Projektstart-Kacheln, Claude-Code-Bilder und Sprachübergabe aktiviert (27. September 2026, 15:48 CEST)
 
 `pnpm activate -Label ProjektStarter -Force` lief mit Adis ausdrücklicher Freigabe,
