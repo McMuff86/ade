@@ -18,7 +18,8 @@ darunter der neue `remote-terminal-electron:project-launcher` mit **18/0**. Deta
 (kurze Begrüssung, Eingabe-Rückholung) und der Projektstart (Kacheln, direktes Öffnen,
 hängende Aktion verwerfbar, Bilder für Claude Code nativ).
 
-Nicht committet: Arbeitsbaum auf `7488b6c` mit den Patches vom 26.09. und von heute.
+Committet und gepusht als `4fb23ca` (Patches vom 26.09. und von heute, zusammen mit den
+sieben zuvor nur lokalen Commits ab `e5946b6`); `main` entspricht `origin/main`.
 Offen ist Adis Urteil am echten Tablet: Tablet-Seite neu laden, Knuckles Pi über die
 Projektkarte öffnen, „Claude Code“ antippen und ein Bild anhängen.
 
