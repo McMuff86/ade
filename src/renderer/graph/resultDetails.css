@@ -1,0 +1,39 @@
+/* Structured task result (ResultDetails.tsx): summary, changed files, tests, risks. */
+
+.gresult { margin-top: 9px; display: flex; flex-direction: column; gap: 7px; font-size: 11px; }
+.gresult-summary { margin: 0; color: var(--text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gresult-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
+.gresult-row code { color: var(--text); font-family: var(--mono); font-size: 10.5px; }
+.gresult-block { border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--raised) 60%, transparent); }
+.gresult-block > summary { padding: 6px 9px; color: var(--muted); cursor: pointer; user-select: none; list-style: none; }
+.gresult-block > summary::before { content: '▸ '; color: var(--faint); }
+.gresult-block[open] > summary::before { content: '▾ '; }
+.gresult-block > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.gresult-failed { color: var(--del); font-weight: 600; }
+.gresult-files, .gresult-tests, .gresult-risks { margin: 0; padding: 0 9px 8px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.gresult-files code, .gresult-test-head code { font-family: var(--mono); font-size: 10.5px; color: var(--text); overflow-wrap: anywhere; }
+.gresult-risks li { color: var(--text); line-height: 1.45; padding-left: 12px; position: relative; }
+.gresult-risks li::before { content: '⚠'; position: absolute; left: 0; color: var(--del); font-size: 9px; top: 1px; }
+.gresult-tests li { border-top: 1px dashed var(--line); padding-top: 5px; }
+.gresult-tests li:first-child { border-top: none; padding-top: 0; }
+.gresult-test-head { display: flex; align-items: baseline; gap: 7px; }
+.gresult-test-status { flex: none; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 9.5px; }
+.gresult-tests li[data-s='passed'] .gresult-test-status { color: var(--add); border-color: color-mix(in srgb, var(--add) 50%, var(--line)); }
+.gresult-tests li[data-s='failed'] .gresult-test-status { color: var(--del); border-color: color-mix(in srgb, var(--del) 50%, var(--line)); font-weight: 600; }
+.gresult-tests details { margin-top: 4px; }
+.gresult-tests details > summary { color: var(--muted); font-size: 10px; cursor: pointer; }
+.gresult-tests details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.gresult-tests pre {
+  margin: 4px 0 0;
+  max-height: 220px;
+  padding: 6px 8px;
+  overflow: auto;
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

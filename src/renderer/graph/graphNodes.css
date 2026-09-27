@@ -1,0 +1,163 @@
+/* Canvas nodes (GraphNodes.tsx): run cluster frame, terminal cards, team frames. */
+
+/* ------------------------------------------------------------ run cluster */
+.gcluster {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 46%, transparent);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.18s, opacity 0.25s;
+}
+.gcluster.active { border-color: var(--accent-dim); }
+.gcluster.terminal { opacity: 0.55; }
+/* The selected finished run is being read, not skimmed. */
+.gcluster.terminal.active { opacity: 0.92; }
+.gcluster-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+}
+.gcluster-bar:active { cursor: grabbing; }
+.gcluster-bar b { color: var(--text); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.gcluster-chip { flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; }
+.gcluster-chip[data-s='running'] { color: var(--accent); border-color: var(--accent-dim); }
+.gcluster-chip[data-s='completed'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 42%, var(--line)); }
+.gcluster-chip[data-s='failed'] { color: var(--del); border-color: color-mix(in srgb, var(--del) 42%, var(--line)); }
+.gcluster-phase { flex: none; color: var(--accent); font-size: 10px; font-weight: 600; }
+.gcluster-repo { flex: none; max-width: 130px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.gcluster-grow { flex: 1; }
+.gcluster-approval { flex: none; padding: 2px 7px; border: 1px solid var(--accent-dim); border-radius: 999px; color: var(--accent); font-size: 10px; font-weight: 600; }
+.gcluster-counts { flex: none; color: var(--faint); font-size: 10px; white-space: nowrap; }
+
+/* short real-event pulses on task completion/failure */
+.gcard.gflash-ok { animation: gflashok 0.75s ease-out; }
+.gcard.gflash-bad { animation: gflashbad 0.75s ease-out; }
+@keyframes gflashok {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--add) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+@keyframes gflashbad {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--del) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+
+.gteam-paused {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- terminal card */
+.gcard {
+  position: absolute;
+  width: 168px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--raised) 97%, transparent);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  transition: box-shadow 0.18s, border-color 0.18s;
+}
+.gcard-static { position: relative; width: 150px; }
+
+.gcard-bar { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; border-bottom: 1px solid var(--line); cursor: grab; }
+.gcard-bar.nograb { cursor: default; }
+.gcard-bar:active { cursor: grabbing; }
+
+.glights { display: flex; gap: 5px; }
+.glights i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: block; }
+.glights i.r { background: color-mix(in srgb, var(--del) 45%, transparent); }
+.glights i.y { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.glights i.g { background: color-mix(in srgb, var(--add) 40%, transparent); }
+.gcard[data-status='running'] .glights i.g,
+.gcard[data-status='working'] .glights i.g { background: var(--add); box-shadow: 0 0 7px var(--add); }
+
+.gcard-title { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.gcard-body { padding: 15px 12px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
+.gcard-role { position: absolute; top: 8px; left: 10px; font-size: 10px; color: var(--faint); }
+.gglyph { width: 32px; height: 32px; color: var(--rt, var(--accent)); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rt, var(--accent)) 40%, transparent)); }
+.gcard-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+.gcard-branch {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.gchip { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-transform: none; }
+.gchip[data-s='running'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 40%, var(--line)); }
+.gchip[data-s='working'] { color: var(--accent); border-color: var(--accent-dim); }
+.gchip[data-s='done'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 40%, var(--line)); }
+.gchip[data-s='failed'] { color: var(--del); border-color: color-mix(in srgb, var(--del) 40%, var(--line)); }
+.gchip[data-s='idle'] { color: var(--faint); }
+
+.gcard.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 24px color-mix(in srgb, var(--accent) 22%, transparent); }
+.gcard[data-status='working'] { border-color: var(--accent-dim); }
+.gcard[data-status='working']::after {
+  content: ''; position: absolute; inset: -2px; border-radius: 8px;
+  border: 1px solid var(--accent); opacity: 0.5; animation: gpulse 1.4s ease-in-out infinite; pointer-events: none;
+}
+.gcard.unavailable { opacity: 0.62; border-style: dashed; }
+@keyframes gpulse { 0%, 100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.012); } }
+
+.ganchor { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); left: 50%; translate: -50% 0; }
+.ganchor.top { top: -4px; }
+.ganchor.bot { bottom: -4px; }
+.gcard[data-status='running'] .ganchor, .gcard[data-status='working'] .ganchor { background: var(--cable); box-shadow: 0 0 6px var(--cable); }
+
+/* orchestrator */
+.gcard.orch { width: 224px; }
+.gcard.orch .gcard-body { padding: 20px 14px 18px; }
+.gcard.orch .gglyph { width: 42px; height: 42px; }
+.gcard.orch .gcard-name { font-size: 15px; }
+
+/* ----------------------------------------------------------- team frame */
+.gteam {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.25s, border-color 0.18s;
+}
+.gteam.idle { opacity: 0.5; }
+.gteam.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 20px 50px rgba(0, 0, 0, 0.45); }
+.gteam-bar { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 12px; border-bottom: 1px solid var(--line); cursor: grab; }
+.gteam-bar:active { cursor: grabbing; }
+.gteam-tt { font-size: 11px; color: var(--muted); }
+.gteam-tt b { color: var(--text); }
+.gteam-grow { flex: 1; }
+.gteam-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.gteam:hover .gteam-actions, .gteam.sel .gteam-actions, .gteam:focus-within .gteam-actions { opacity: 1; }
+
+/* Keyboard path: every canvas node is focusable and shows a visible ring. */
+.gcard:focus-visible, .gcluster-bar:focus-visible, .gteam-bar:focus-visible, .gtbtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gcard:focus-visible { border-color: var(--accent); }
+.gcluster-bar:focus-visible, .gteam-bar:focus-visible { outline-offset: -2px; border-radius: 8px 8px 0 0; }
+.gcluster.terminal .gcard:focus-visible, .gcluster.terminal .gcluster-bar:focus-visible { opacity: 1; }
+.gtbtn { width: 24px; height: 22px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; background: var(--raised); }
+.gtbtn:hover { color: var(--text); border-color: var(--faint); }
+.gtbtn svg { width: 13px; height: 13px; }
+.gteam-members { display: flex; gap: 14px; padding: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gcard[data-status='working']::after { animation: none; }
+  .gcard.gflash-ok, .gcard.gflash-bad { animation: none; }
+}

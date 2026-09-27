@@ -125,6 +125,13 @@ export function hasRunningSession(agentId: string, sessions: SessionsSlice): boo
   return ids.some((id) => sessions.sessions[id]?.status === 'running');
 }
 
+/** Workers of the cluster's unpaused teams: the reach of a "to all teams" task. */
+export function activeWorkerCount(cluster: RunClusterModel | null): number {
+  if (!cluster) return 0;
+  return cluster.teams.filter((team) => !team.idle)
+    .reduce((count, team) => count + team.workers.length, 0);
+}
+
 const TERMINAL_RUN_STATUS = new Set(['completed', 'failed', 'cancelled']);
 
 export function isTerminalRunStatus(status: string): boolean {

@@ -1,0 +1,145 @@
+/* Banners under the run bar (RunBanners.tsx): failed run, pending integration approval. */
+
+/* ----------------------------------------------------------- failed run */
+.grun-failure-report {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--del) 40%, var(--line));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+}
+.grun-failure-report:hover { background: color-mix(in srgb, var(--del) 12%, var(--raised)); }
+.grun-failure-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; max-height: 28vh; overflow-y: auto; }
+/* Has no effect today: `.grun-failure p` below has the same specificity and
+   comes later, so the paragraph keeps its own 24vh scroll inside the body. */
+.grun-failure-body p { max-height: none; overflow: visible; }
+.grun-failure-tests { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.grun-failure-tests li::before { content: '✕ '; color: var(--del); }
+.grun-failure-tests code { color: var(--text); font-family: var(--mono); font-size: 10.5px; overflow-wrap: anywhere; }
+.grun-failure {
+  position: absolute;
+  top: 64px;
+  left: 14px;
+  right: 14px;
+  z-index: 32;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--del) 48%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--del) 8%, var(--panel));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(10px);
+}
+.graph-inspecting .grun-failure { right: 328px; }
+.grun-failure-head {
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.grun-failure b { color: var(--del); font-size: 12px; }
+.grun-failure-head span {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grun-failure p {
+  flex: 1;
+  max-height: 24vh;
+  margin: 0;
+  overflow-y: auto;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------- approval */
+.gapproval {
+  position: absolute;
+  top: 64px;
+  left: 14px;
+  right: 14px;
+  z-index: 32;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(10px);
+}
+.graph-inspecting .gapproval { right: 328px; }
+.gapproval-row { display: flex; align-items: center; gap: 9px; }
+.gapproval-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.gapproval b { color: var(--text); font-size: 12px; }
+.gapproval-row span { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.gapproval .gact { width: auto; flex: none; padding: 7px 10px; }
+/* Click-to-expand: the full approval reason and its diff must be readable
+ * before deciding. */
+.gapproval.open .gapproval-row { align-items: flex-start; }
+.gapproval.open .gapproval-row span {
+  overflow-y: auto;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  max-height: 26vh;
+  line-height: 1.5;
+}
+.gapproval-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  cursor: default;
+}
+.gapproval-note { color: var(--muted); font-size: 10.5px; }
+.gapproval-commit-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
+.gapproval-commit-head b { font-size: 11.5px; }
+.gapproval-commit-head code { color: var(--accent); font-family: var(--mono); font-size: 10.5px; }
+.gapproval-files { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 10.5px; }
+.gapproval-files li { display: flex; gap: 8px; align-items: baseline; }
+.gapproval-files code { color: var(--text); font-family: var(--mono); }
+.gapproval-files .add { color: #4cc38a; }
+.gapproval-files .del { color: #e5484d; }
+.gapproval-patch {
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+  max-height: 32vh;
+  color: var(--muted);
+}
+.gapproval-diff-tools { display: flex; justify-content: flex-end; }
+.gapproval-diff-tools .gact { padding: 4px 8px; font-size: 10px; }
+.gapproval-patch.colored .add { color: #4cc38a; }
+.gapproval-patch.colored .del { color: #e5484d; }
+.gapproval-patch.colored .hunk { color: var(--accent); }
+.gapproval-patch.colored .meta { opacity: 0.7; }
+
+@media (max-width: 900px) {
+  .graph-inspecting .gapproval { right: 14px; }
+  .graph-inspecting .grun-failure { right: 14px; }
+  .grun-failure { flex-direction: column; gap: 6px; }
+  .grun-failure-head { min-width: 0; }
+}

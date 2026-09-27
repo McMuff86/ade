@@ -1,0 +1,32 @@
+/* Graph canvas — the mode frame, the pannable world and its edges (GraphCanvas.tsx). */
+
+.graph {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  --cable: var(--add);
+}
+
+.graph-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 0);
+  background-size: 26px 26px;
+}
+.graph-canvas.panning { cursor: grabbing; }
+.graph-inspecting .graph-canvas { right: 328px; }
+
+.graph-world { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; transform-origin: 0 0; }
+.graph-edges { position: absolute; top: 0; left: 0; width: 6000px; height: 4000px; pointer-events: none; overflow: visible; }
+
+/* Edges carry structure; short activity states come from journaled events. */
+.gedge { transition: opacity 0.12s; }
+.gedge.hot { opacity: 1; }
+.gdot { fill: var(--accent); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.gdot.cable { fill: var(--cable); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--cable) 60%, transparent)); }
+
+@media (max-width: 900px) {
+  .graph-inspecting .graph-canvas { right: 0; }
+}

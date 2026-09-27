@@ -1,0 +1,465 @@
+/* Repository inspector (RepositoryInspector.tsx), the "Repository" tab.
+   Flat sections separated by hairlines, not cards inside a card: the panel
+   itself is already the frame, so a second border per section only adds
+   edges without adding information. */
+
+.ri {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0 16px;
+}
+
+.ri > * + * {
+  border-top: 1px solid var(--line);
+}
+
+.ri-toolbar,
+.ri-section-head,
+.ri-health-foot,
+.ri-commit-line,
+.ri-commit-meta,
+.ri-pr-line,
+.ri-pr-meta,
+.ri-pr-stats {
+  display: flex;
+  align-items: center;
+}
+
+.ri-toolbar {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 10px;
+}
+
+.ri-toolbar > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ri-eyebrow {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-toolbar strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-m);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-toolbar .btn {
+  flex: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ri-toolbar .btn:hover {
+  background: var(--raised);
+}
+
+.ri-refresh {
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ri-refresh:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  color: var(--text);
+  background: var(--raised);
+}
+
+.ri-refresh:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ri-health,
+.ri-section {
+  overflow: hidden;
+}
+
+.ri-health {
+  padding: 4px 0 6px;
+}
+
+.ri-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 12px;
+  padding: 4px 14px;
+}
+
+.ri-health-grid > div {
+  min-width: 0;
+  padding: 5px 0;
+}
+
+.ri-health-grid dt {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-health-grid dd {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-s);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Highlight only states that require a decision; neutral facts stay quiet. */
+.ri-health-grid .ri-clean {
+  color: var(--muted);
+}
+
+.ri-health-grid .ri-dirty {
+  color: var(--del);
+}
+
+.ri-health-grid .ri-diverged {
+  color: var(--accent);
+}
+
+.ri-health-foot {
+  justify-content: space-between;
+  min-width: 0;
+  gap: 10px;
+  padding: 2px 14px 0;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-health-foot > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-health-foot code,
+.ri-commit code,
+.ri-pr code {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.ri-health-skeleton {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+  padding: 10px 14px;
+}
+
+.ri-health-skeleton span {
+  height: 34px;
+  border-radius: 4px;
+  background: var(--raised);
+}
+
+.ri-section-head {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 6px;
+}
+
+.ri-section-head > div {
+  min-width: 0;
+}
+
+.ri-section-head h3 {
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+
+.ri-section-head div > span {
+  display: block;
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-count {
+  flex: none;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.ri-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 14px 10px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.ri-state button {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.ri-state-error {
+  margin: 4px 14px 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--del) 45%, var(--line));
+  border-radius: 8px;
+  color: var(--del);
+}
+
+.ri-state-success {
+  color: var(--add);
+}
+
+.ri-empty {
+  flex: 1;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 24px;
+  color: var(--faint);
+  text-align: center;
+}
+
+.ri-empty strong {
+  color: var(--muted);
+  font-size: var(--fs-m);
+  font-weight: 600;
+}
+
+.ri-empty span {
+  max-width: 280px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+
+.ri-pr-list,
+.ri-commit-list {
+  list-style: none;
+}
+
+.ri-pr-list li + li,
+.ri-commit-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.ri-pr,
+.ri-commit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 14px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+}
+
+.ri-pr:hover,
+.ri-commit:hover,
+.ri-commit.open {
+  background: var(--raised);
+}
+
+.ri-commit.open {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.ri-pr-link {
+  min-width: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ri-pr-link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ri-pr-line,
+.ri-commit-line {
+  min-width: 0;
+  gap: 7px;
+}
+
+.ri-pr-line code,
+.ri-commit-line code {
+  flex: none;
+  font-size: 10.5px;
+}
+
+.ri-pr-line strong,
+.ri-commit-line strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-s);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-pr-line > span:last-child {
+  flex: none;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-pr-meta,
+.ri-commit-meta,
+.ri-pr-stats {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ri-pr-meta span,
+.ri-commit-meta span,
+.ri-pr-meta time,
+.ri-commit-meta time {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-pr-stats b,
+.ri-health-foot b {
+  font-weight: 600;
+}
+
+.ri-tag {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Decision-relevant states only: review needed and requested changes speak
+   up; draft, approved, passing CI and the ADE provenance tag stay quiet. */
+.ri-tag-review-required {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.ri-tag-changes-requested {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+button.ri-tag-ci {
+  cursor: pointer;
+}
+
+button.ri-tag-ci:hover,
+button.ri-tag-ci.open {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.ri-ci-failed {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+button.ri-ci-failed:hover,
+button.ri-ci-failed.open {
+  color: var(--del);
+}
+
+.ri-pr-invalid {
+  opacity: 0.7;
+}
+
+/* --------------------------------------------------- on-demand CI checks */
+
+.ri-check-list {
+  list-style: none;
+  padding: 6px 0;
+}
+
+.ri-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 14px;
+  font-size: 11px;
+}
+
+.ri-check-glyph {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.ri-check-failed .ri-check-glyph,
+.ri-check-failed .ri-check-state {
+  color: var(--del);
+}
+
+.ri-check-passed .ri-check-glyph {
+  color: var(--add);
+}
+
+.ri-check-pending .ri-check-glyph {
+  color: var(--accent);
+}
+
+.ri-check-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-check-state {
+  flex: none;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+@container (max-width: 330px) {
+  .ri-health-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .ri-pr-meta span:nth-child(2) {
+    width: 100%;
+  }
+}

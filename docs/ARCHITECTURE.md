@@ -1639,9 +1639,12 @@ src/
     diagnostics/           # CLI/auth readiness modal
     keyboard/              # view/session shortcut routing
     overview/              # read-only home over catalog, bindings and runs
-    rightpanel/            # catalog Overview + binding-aware Changes/Files
+    rightpanel/            # catalog Overview + binding-aware Changes/Files;
+                           #   rightpanel.css = ordered @import entry, one part per surface
     onboarding/            # first-run + new category/agent modals
-    graph/                 # run-scoped control-plane canvas and dispatch
+    graph/                 # run-scoped control-plane canvas and dispatch; GraphView.tsx
+                           #   composes canvas/nodes/chrome/inspector/dialogs, graph.css
+                           #   = ordered @import entry (import order is cascade order)
     stores/                # Zustand catalog, session, run, and UI mirrors
   shared/
     types.ts               # catalog, session, run/task/event, runtime contracts

@@ -1,0 +1,98 @@
+/* File context menu (FileContextMenu.tsx): backdrop, items, rename row. */
+
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 91;
+  min-width: 190px;
+  max-width: 280px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.ctx-item {
+  padding: 6px 10px;
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.ctx-item:hover:not(:disabled) {
+  background: var(--panel);
+}
+
+.ctx-item:disabled {
+  color: var(--faint);
+}
+
+.ctx-item.danger {
+  color: var(--del);
+}
+
+.ctx-item.danger.armed {
+  background: color-mix(in srgb, var(--del) 14%, transparent);
+}
+
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+.ctx-note {
+  padding: 6px 10px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.ctx-error {
+  padding: 6px 10px;
+  color: var(--del);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.ctx-rename {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+}
+
+.ctx-rename input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.ctx-rename button {
+  flex: none;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ctx-rename button:hover {
+  color: var(--text);
+  border-color: var(--faint);
+}

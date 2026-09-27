@@ -1,5 +1,16 @@
 # ADE — aktuelle Übergabe
 
+## Graph und rechte Leiste modularisiert, nicht aktiviert (27. September 2026, Abend)
+
+Vorarbeit für den Frontend-Design-Durchgang: `GraphView.tsx`, `graph.css` und
+`rightpanel.css` sind in Komponenten und Stylesheets je Fläche aufgeteilt, ohne
+Verhaltens- oder Darstellungsänderung (Details und Nachweise: [STATUS.md](STATUS.md),
+Modulkarte im [Verbesserungsplan §4 B5](UI_UX_IMPROVEMENT_PLAN.md)). Neue Suite
+`style-entries`. Die laufende Instanz (PID 54800, `312e025`) ist unverändert; aktivieren
+mit `pnpm activate` ist optional, weil sich an der Oberfläche nichts ändert.
+Nächster Schritt laut Adi: den Plan mit dem Frontend-Design-Skill ausarbeiten
+(offene Entscheide in §6 des Plans).
+
 ## Gespräche-Auswahl aktiviert (27. September 2026, 16:26 CEST)
 
 `pnpm activate -Label GespraecheSymbole` ohne `-Force` (keine laufenden Sitzungen):

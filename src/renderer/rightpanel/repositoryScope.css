@@ -1,0 +1,234 @@
+/* Repository scope header (RepositoryScopeHeader.tsx): which repository and
+   working directory the panel shows, plus the management disclosure. */
+
+.rp-scope {
+  flex: none;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rp-scope-title,
+.rp-scope-meta,
+.rp-scope-controls,
+.rp-scope-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-scope-title {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.rp-scope-title > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-scope-title span {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.rp-scope-title strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-l);
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-scope-title .rp-scope-source {
+  flex: none;
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* The full working directory. Wraps rather than truncates: an abbreviated
+   worktree path answers nothing, and this is the field users check when they
+   want to know where an agent is really operating. */
+.rp-scope-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.rp-scope-path-label {
+  flex: none;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  padding-top: 1px;
+}
+
+.rp-scope-path code {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+  word-break: break-all;
+  user-select: text;
+  cursor: text;
+}
+
+.rp-scope-path-copy {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.rp-scope-path-copy:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.rp-scope-meta {
+  min-width: 0;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.rp-scope-meta > span:first-child {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.rp-scope-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-scope-meta > span:nth-child(2) {
+  flex: 1;
+  text-align: right;
+}
+
+.rp-scope-meta .rp-scope-lease {
+  flex: none;
+  color: var(--accent);
+}
+
+/* Clean is the neutral expectation; only dirty state earns attention. */
+.rp-scope-meta .rp-scope-clean {
+  flex: none;
+  color: var(--muted);
+}
+
+.rp-scope-meta .rp-scope-dirty {
+  flex: none;
+  color: var(--del);
+}
+
+.rp-scope-controls {
+  margin-top: 10px;
+}
+
+.rp-scope-controls select {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  /* Room for the native dropdown arrow so long names ellipsize before it. */
+  padding: 0 20px 0 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-s);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-scope-controls .btn,
+.rp-scope-actions .btn {
+  min-height: var(--control-h);
+  padding: 4px 9px;
+  font-size: var(--fs-xs);
+}
+
+.rp-scope-actions {
+  margin-top: 7px;
+}
+
+.rp-scope-error,
+.rp-scope-lock,
+.rp-scope-notice {
+  margin-top: 7px;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.rp-scope-error {
+  color: var(--del);
+}
+
+.rp-scope-lock {
+  color: var(--accent);
+}
+
+.rp-scope-notice {
+  color: var(--muted);
+}
+
+.rp-scope-remove-armed {
+  color: var(--del);
+  border-color: color-mix(in srgb, var(--del) 45%, var(--line));
+}
+
+.rp-scope-toggle {
+  flex: none;
+  min-width: 28px;
+  letter-spacing: 1px;
+}
+
+.rp-scope-toggle.open {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: var(--raised);
+}
+
+.rp-scope-manage {
+  margin-top: 7px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 65%, var(--raised));
+}
+
+.rp-scope-manage .rp-scope-actions {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.rp-scope-manage .rp-scope-controls {
+  margin-top: 7px;
+}
+
+.rp-scope-manage input {
+  min-width: 0;
+  flex: 1;
+  height: var(--control-h);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-s);
+}

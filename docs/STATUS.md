@@ -1,5 +1,38 @@
 # ADE implementation status
 
+## Graph und rechte Leiste modularisiert (27. September 2026, Abend)
+
+Vorarbeit für den Frontend-Design-Durchgang ([Verbesserungsplan §4 B5](UI_UX_IMPROVEMENT_PLAN.md)).
+Verhalten und Darstellung bleiben gleich; nicht aktiviert.
+
+- `GraphView.tsx` (2 710 → 242 Zeilen) setzt nur noch die Flächen in fester DOM-Reihenfolge
+  zusammen: `GraphCanvas`, `GraphNodes`, `RunBar`, `RunBanners`, `GraphChrome`,
+  `GraphDockPanel`, `GraphInspector`, `Composer`, `PublicationModal`, `NewRunModal`, dazu
+  `graphLayout`, `useGraphViewport`, `graphText`, `graphIcons`. `NewRunModal` bleibt über
+  `GraphView` erreichbar, der Arbeitsbereich lädt also denselben Chunk wie vorher.
+- `graph.css` (994 Zeilen) und `rightpanel.css` (1 161 Zeilen) sind Einstiege mit geordneten
+  `@import`s, eine Datei je Fläche (12 bzw. 7 Teile); die Importreihenfolge ist die Kaskade.
+  Der UX-02-Override-Block ist eingefaltet, sieben tote Regelgruppen sind entfernt, die einzige
+  echte Doppelregel der rechten Leiste ist zusammengeführt.
+- Nachweis: Kaskadenvergleich vorher/nachher je Selektor und Eigenschaft auf Quelle und
+  ausgeliefertem CSS; Reihenfolgewechsel nur zwischen Selektoren, die laut JSX-Struktur kein
+  gemeinsames Element treffen (Negativkontrolle: eine vertauschte Regel wird gemeldet). Die
+  übrigen CSS-Chunks sind bytegleich. Einziger Grenzfall: `.gslots-head:active` bleibt, weil
+  Chromium `:active` auch auf deaktivierte Knöpfe anwendet (gemessen).
+- Neue Suite `style-entries` **18/0**: Einstieg nur mit `@import`, jeder Teil genau einmal und
+  nur vom Einstieg importiert, kein verwaister Teil, kein Selektor doppelt im selben Kontext;
+  vier Negativkontrollen scheitern je am erwarteten Check.
+- `pnpm verify` (isolierter Build, 10 min 22 s): **40/41** grün, darunter `electron-workflow`
+  197/0 (Graph, Run-Report, Inspector, Neuer Run), `git-sync-electron` 20/0, `work-electron`
+  23/0 und `visual-regression` 22/0 (Inspector-Pixel unverändert). Rot war nur der bekannte,
+  zeitweise rote `remote-terminal-electron:terminal-latency` (Tablet-Eingabe nach
+  Tastatur-Resize, berührt keine geänderte Datei); die Wiederholung auf demselben Build mit
+  `--only typecheck:scripts,suites,remote-terminal-electron:terminal-latency --reuse-build`
+  lief grün: 30/0, Suiten 4 214 Checks.
+- Beim Aufteilen gefunden und bewusst nicht geändert: `.grun-failure-body p` ist wirkungslos
+  (der Fehlertext scrollt doppelt), und der Run-Report in **Aufträge** erhält seine Grundstile
+  erst, wenn der Graph-Chunk geladen wurde. Beides steht im Plan für C/D.
+
 ## Gespräche-Auswahl mit Symbolen (27. September 2026, 16:30)
 
 Im Dialog **Gespräche** begannen „Projektbetreuung“ und „Plaudern & Stimme“ an

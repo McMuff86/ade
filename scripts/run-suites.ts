@@ -136,6 +136,7 @@ const SUITES: Suite[] = [
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
+  { id: 'style-entries', script: 'test-style-entries.ts', floors: { win32: 18 } },
   { id: 'security', script: 'test-security.ts', floors: { win32: 291 } },
 ];
 

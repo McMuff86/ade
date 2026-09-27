@@ -1,0 +1,90 @@
+/* Anchored graph chrome (GraphChrome.tsx): task slots and view controls
+   bottom-left, run control dock bottom-centre, empty state and toast. */
+
+/* --------------------------------------------------- global task slots */
+.gslots {
+  position: absolute;
+  left: 16px;
+  bottom: 60px;
+  z-index: 30;
+  min-width: 168px;
+  max-width: 250px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+.gslots-head {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 11px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+.gslots-head::after { content: ''; width: 6px; height: 6px; margin-left: auto; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); rotate: -45deg; transition: rotate 0.15s; }
+.gslots-head[aria-expanded='true']::after { rotate: 45deg; }
+.gslots-head:disabled { cursor: default; }
+.gslots-head:disabled::after { display: none; }
+.gslots-head:hover:not(:disabled) { background: var(--raised); }
+/* Chromium applies :active to disabled buttons as well; pressing the disabled
+   head keeps the pointer, as it did before the stylesheet was split. */
+.gslots-head:active { cursor: pointer; }
+.gslots-row { display: flex; justify-content: space-between; gap: 10px; margin: 0; padding: 4px 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10.5px; }
+.gslots-row:last-child { padding-bottom: 8px; }
+.gslots-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gslots-row span:last-child { flex: none; }
+
+/* ---------------------------------------------------------- view controls */
+.gzoom { position: absolute; left: 16px; bottom: 16px; display: flex; flex-direction: row; align-items: center; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; z-index: 30; }
+.gzoom button { width: 34px; height: 32px; color: var(--muted); display: grid; place-items: center; border-bottom: none; border-right: 1px solid var(--line); }
+.gzoom button:last-child { border-right: none; }
+.gzoom button:hover { color: var(--text); background: var(--raised); }
+.gzoom button svg { width: 14px; height: 14px; }
+.gzoom-level { min-width: 44px; padding: 0 4px; text-align: center; color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; border-right: 1px solid var(--line); line-height: 32px; }
+
+/* ---------------------------------------------------- run control dock */
+.gdock {
+  position: absolute; left: 50%; bottom: 16px; translate: -50% 0; display: flex; gap: 4px;
+  max-width: calc(100% - 110px); flex-wrap: wrap; justify-content: center;
+  background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 6px 12px; z-index: 30;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); backdrop-filter: blur(10px);
+}
+.gdock-caption { align-self: center; padding-right: 6px; color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; }
+.gdock .sep { width: 1px; background: var(--line); margin: 4px 4px; }
+.gdbtn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 9px; border: 1px solid transparent; color: var(--muted); font-size: 12px; }
+.gdbtn:hover { color: var(--text); background: var(--raised); }
+.gdbtn.accent { color: var(--accent-contrast); background: var(--accent); font-weight: 600; }
+.gdbtn.accent:hover { filter: brightness(1.06); }
+.gdbtn.danger { color: var(--del); }
+.gdbtn svg { width: 15px; height: 15px; }
+.gdbtn:disabled { opacity: 0.42; cursor: default; filter: none; }
+
+/* ------------------------------------------------------------- empty / hint */
+.gempty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 20;
+  width: min(420px, calc(100% - 48px));
+  translate: -50% -50%;
+  text-align: center;
+}
+.gempty h2 { color: var(--text); font-size: 18px; }
+.gempty p { margin: 8px 0 18px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.gempty .gact { width: auto; margin: 0 auto; }
+
+.gtoast { position: absolute; left: 50%; bottom: 78px; translate: -50% 0; background: var(--raised); border: 1px solid var(--line); color: var(--text); font-size: 12px; padding: 8px 14px; border-radius: 9px; z-index: 50; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+
+@media (max-width: 900px) {
+  .gdock { max-width: calc(100% - 84px); }
+}

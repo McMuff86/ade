@@ -1,0 +1,33 @@
+/* Graph inspector (GraphInspector.tsx): floating details of the selected node. */
+
+.ginspector {
+  position: absolute; top: 64px; right: 14px; width: 300px; max-height: calc(100% - 80px);
+  background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); backdrop-filter: blur(10px); z-index: 30;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.ginsp-head { display: flex; align-items: center; gap: 11px; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); }
+.ginsp-head .gglyph { width: 30px; height: 30px; flex: none; }
+.ginsp-head .t { flex: 1; min-width: 0; }
+.ginsp-head .t h3 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ginsp-head .t p { font-size: 11px; color: var(--muted); }
+.ginsp-tail {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 4px;
+}
+.ginsp-body { padding: 12px 14px; overflow: auto; }
+.gkv { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.gkv:last-child { border-bottom: none; }
+.gkv span:first-child { color: var(--muted); }
+.gkv .val { color: var(--text); text-align: right; word-break: break-word; }
+.ginsp-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+
+@media (max-width: 900px) {
+  .ginspector { width: min(300px, calc(100% - 28px)); }
+  .graph:has(.gapproval) .ginspector { top: 126px; max-height: calc(100% - 142px); }
+  .graph:has(.grun-failure) .ginspector { top: 146px; max-height: calc(100% - 162px); }
+}

@@ -1,0 +1,88 @@
+/* Right panel shell (RightPanel.tsx): frame, tabs, content host and the
+   list/preview splitter. Layout mirrors mockup/index.html .changes. */
+
+.rp {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  container-type: inline-size;
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.rp-head {
+  flex: none;
+  padding: 6px 14px 0;
+}
+
+.rp-tabs {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rp-tab {
+  padding: 6px 1px 7px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.rp-tab:hover {
+  color: var(--text);
+}
+
+.rp-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* --------------------------------------------------------------- content */
+
+/* Hosts either the plain list or the vertical list/preview PanelGroup. */
+.rp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Panel shell: the library owns its inline overflow, so it only lays out. */
+.rp-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rp-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Horizontal splitter between file list and inline preview. */
+.resize-handle-h {
+  flex: none;
+  height: 7px;
+  background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
+  cursor: row-resize;
+}
+
+.resize-handle-h:hover,
+.resize-handle-h[data-resize-handle-state='hover'],
+.resize-handle-h[data-resize-handle-state='drag'] {
+  background: linear-gradient(var(--accent-dim), var(--accent-dim)) center / 100% 3px no-repeat;
+}
+
+/* Quiet one-line note for loading, empty and unavailable lists (all tabs). */
+.ch-note {
+  color: var(--faint);
+  font-size: var(--fs-s);
+  padding: 14px;
+}

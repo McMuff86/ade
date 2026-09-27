@@ -1,0 +1,67 @@
+/* Files tab (FilesView.tsx): sectioned file tree. */
+
+.fs-view {
+  padding: 6px 6px 10px;
+}
+
+.fs-section + .fs-section {
+  margin-top: 6px;
+}
+
+.fs-section-head {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  padding: 8px 8px 4px;
+}
+
+.fs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-s);
+  text-align: left;
+  color: var(--text);
+}
+
+.fs-row:hover {
+  background: var(--raised);
+}
+
+.fs-file.open {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.fs-caret {
+  color: var(--faint);
+  font-size: 9px;
+  width: 10px;
+  flex: none;
+}
+
+.fs-dir .fs-name {
+  color: var(--muted);
+}
+
+.fs-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fs-location {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 10px;
+}
+
+.fs-row .plus,
+.fs-row .minus {
+  font-size: 11px;
+}

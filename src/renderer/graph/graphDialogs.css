@@ -1,0 +1,187 @@
+/* Graph dialogs: the shared modal frame, the direct-task composer (Composer.tsx),
+   verified publishing (PublicationModal.tsx) and the new-run form (NewRunModal.tsx). */
+
+/* ------------------------------------------------------------ composer */
+.gcomposer-back { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); }
+.gcomposer { width: min(520px, 90%); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5); overflow: hidden; }
+.gcomposer h3 { font-size: 13px; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.gcomposer h3 b { color: var(--accent); }
+.gcomposer textarea { width: 100%; min-height: 96px; resize: vertical; border: none; background: var(--bg); color: var(--text); padding: 14px 16px; font: inherit; outline: none; }
+.gcomposer-dist { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 12px; color: var(--text); cursor: pointer; user-select: none; border-top: 1px solid var(--line); }
+.gcomposer-dist input { cursor: pointer; accent-color: var(--accent); }
+.gcomposer-dist input:disabled { cursor: default; }
+.gcomposer-dist input:disabled + span { opacity: 0.5; cursor: default; }
+.gcomposer-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.gcomposer-foot .gact { width: auto; }
+.gcomposer-meta { padding: 0 16px 8px; color: var(--faint); font-size: 10px; text-align: right; }
+
+/* ------------------------------------------------------ verified publishing */
+.gpublish-modal {
+  width: min(760px, calc(100% - 40px));
+  max-height: min(780px, calc(100% - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+}
+.gpublish-body { min-height: 180px; overflow: auto; padding: 16px; }
+.gpublish-loading { min-height: 150px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.gpublish-spinner { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: gpublish-spin 0.9s linear infinite; }
+@keyframes gpublish-spin { to { transform: rotate(360deg); } }
+.gpublish-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--line); }
+.gpublish-summary > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 11px; background: var(--raised); }
+.gpublish-summary span { color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.gpublish-summary b { min-width: 0; overflow: hidden; color: var(--text); font-size: 11.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.gpublish-summary code, .gpublish-success code, .gpublish-confirm code { color: var(--accent); font-family: var(--mono); font-size: 0.95em; }
+.gpublish-blocked, .gpublish-retry { margin-top: 14px; padding: 10px 12px; border-left: 2px solid var(--del); background: color-mix(in srgb, var(--del) 8%, transparent); color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.gpublish-blocked b { color: var(--del); }
+.gpublish-blocked ul { margin: 6px 0 0 18px; }
+.gpublish-evidence { margin-top: 16px; }
+.gpublish-evidence h3 { margin-bottom: 7px; color: var(--text); font-size: 11.5px; }
+.gpublish-evidence ul { max-height: 130px; overflow: auto; margin: 0; padding: 8px 10px 8px 28px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--muted); font-size: 10.5px; line-height: 1.6; }
+.gpublish-evidence code { color: var(--text); font-family: var(--mono); overflow-wrap: anywhere; }
+.gpublish-files { columns: 2; column-gap: 24px; }
+.gpublish-files li { break-inside: avoid; }
+.gpublish-confirm { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--text); font-size: 11.5px; line-height: 1.5; cursor: pointer; }
+.gpublish-confirm input { flex: none; margin-top: 2px; accent-color: var(--accent); }
+.gpublish-success { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; padding: 14px; border: 1px solid color-mix(in srgb, var(--add) 38%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--add) 8%, transparent); color: var(--muted); font-size: 11.5px; }
+.gpublish-success b { color: var(--add); font-size: 13px; }
+.gpublish-success a { padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--add) 42%, var(--line)); border-radius: 6px; color: var(--add); font-weight: 600; text-decoration: none; }
+.gpublish-success a:hover { background: color-mix(in srgb, var(--add) 12%, transparent); }
+.gpublish-success p { line-height: 1.45; }
+
+/* ---------------------------------------------------------- new run modal */
+.grun-modal {
+  width: min(720px, calc(100% - 40px));
+  max-height: min(780px, calc(100% - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+}
+/* The modal head is shared with the publication dialog. */
+.grun-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.grun-modal-head > div { flex: 1; min-width: 0; }
+.grun-modal-head h2 { color: var(--text); font-size: 15px; }
+.grun-modal-head p { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.grun-modal-body { overflow: auto; padding: 14px 16px 0; }
+.grun-field { display: grid; grid-template-columns: 105px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 10px; }
+.grun-field > span { color: var(--muted); font-size: 11.5px; }
+.grun-field input, .grun-field textarea, .grun-field select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.grun-field input, .grun-field select { height: 32px; padding: 0 9px; }
+.grun-field textarea {
+  min-height: 66px;
+  resize: vertical;
+  padding: 8px 9px;
+  field-sizing: content;
+  overflow-y: auto;
+}
+.grun-goal-meta { grid-column: 2; margin-top: -6px; color: var(--faint); font-size: 10px; text-align: right; }
+.grun-goal-warn {
+  grid-column: 2;
+  padding: 6px 9px;
+  border-left: 2px solid var(--del);
+  background: color-mix(in srgb, var(--del) 8%, transparent);
+  color: var(--del);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.grun-field input:focus, .grun-field textarea:focus, .grun-field select:focus { border-color: var(--accent); }
+.grun-hint { grid-column: 2; color: var(--faint); font-size: 10px; line-height: 1.45; }
+/* Explicit worktree-preparation opt-in: a checkbox row inside the field grid. */
+.grun-prepare { align-items: start; }
+.grun-prepare > span { padding-top: 2px; }
+.grun-prepare-choice { display: flex; align-items: flex-start; gap: 8px; color: var(--text); font-size: 11.5px; line-height: 1.4; cursor: pointer; }
+.grun-prepare-choice input[type='checkbox'] { flex: none; width: 14px; height: 14px; margin: 2px 0 0; accent-color: var(--accent); }
+.grun-prepare-choice input[type='checkbox']:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grun-budget-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 11.5px; }
+.grun-budget-title small { color: var(--faint); font-size: 10px; text-align: right; }
+.grun-budget { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.grun-budget label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 10.5px; }
+.grun-budget input { width: 100%; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.grun-budget input:focus { outline: none; border-color: var(--accent); }
+.grun-roster-title { display: flex; justify-content: space-between; margin-top: 18px; padding: 0 0 8px; color: var(--muted); font-size: 11.5px; }
+.grun-roster-title b { color: var(--text); font-weight: 500; }
+.grun-roster { border-top: 1px solid var(--line); }
+.grun-team { padding: 11px 0 7px; border-bottom: 1px solid var(--line); }
+.grun-team h3 { margin-bottom: 5px; color: var(--text); font-size: 11.5px; font-weight: 600; }
+.grun-agent { min-height: 34px; display: flex; align-items: center; gap: 10px; }
+.grun-agent > label:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; color: var(--text); font-size: 12px; }
+.grun-agent input { accent-color: var(--accent); }
+.grun-agent-glyph { width: 18px; height: 18px; flex: none; color: var(--rt); }
+.grun-agent-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grun-agent-runtime { margin-left: auto; color: var(--faint); font-size: 10.5px; }
+.grun-lead { flex: none; display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10.5px; }
+/* Direct repository path import row, aligned under the field column. */
+.grun-repo-import {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 10px 117px;
+}
+.grun-repo-import .gact { width: auto; flex: none; padding: 5px 9px; font-size: 11px; }
+.grun-repo-import select,
+.grun-repo-import input {
+  height: 28px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+}
+.grun-repo-import select { flex: none; max-width: 150px; }
+.grun-repo-import input { flex: 1; }
+.grun-agent-harness {
+  flex: none;
+  max-width: 150px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.grun-agent-harness:hover,
+.grun-agent-harness:focus-visible { color: var(--text); border-color: var(--accent-dim); }
+.grun-no-agents { padding: 18px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+/* Shared with the publication dialog. */
+.grun-error { margin: 12px 0; padding: 8px 10px; border-left: 2px solid var(--del); background: color-mix(in srgb, var(--del) 8%, transparent); color: var(--del); font-size: 11.5px; }
+
+@media (max-width: 900px) {
+  .grun-field { grid-template-columns: 1fr; gap: 5px; }
+  .grun-hint { grid-column: auto; }
+  .grun-goal-meta, .grun-goal-warn { grid-column: auto; }
+  .grun-budget { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gpublish-summary { grid-template-columns: 1fr; }
+  .gpublish-files { columns: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gpublish-spinner { animation: none; }
+}

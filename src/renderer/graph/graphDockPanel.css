@@ -1,0 +1,70 @@
+/* Bottom dock panel (GraphDockPanel.tsx): a large scrollable read-only view of
+   one task session; draggable bar, resizable top edge. */
+
+.gdockpanel {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 64px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 97%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+.graph-inspecting .gdockpanel { right: 328px; }
+.gdockpanel-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+}
+.gdockpanel-bar:active { cursor: grabbing; }
+.gdockpanel-bar b { color: var(--text); font-size: 12px; }
+.gdockpanel-bar span { color: var(--muted); font-size: 10.5px; }
+.gdockpanel-bar > svg { width: 14px; height: 14px; color: var(--faint); flex: none; }
+.gdockpanel-grow { flex: 1; }
+.gdockpanel-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 24px;
+  width: auto;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.gdockpanel-bar button:hover { color: var(--text); }
+.gdockpanel-bar button svg { width: 13px; height: 13px; }
+.gdockpanel-bar button[aria-pressed='true'] { color: var(--accent); border-color: var(--accent-dim); }
+.gdockpanel-term {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+.gdockpanel-term .xterm { height: 100%; }
+/* Same cascade fix as terminal.css: xterm.css's #000 viewport must not
+   bleed through as a dark ring in the light theme. */
+.gdockpanel-term .xterm .xterm-viewport { background-color: transparent; }
+.gdockpanel-resize {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 9px;
+  cursor: ns-resize;
+}

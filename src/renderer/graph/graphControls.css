@@ -1,0 +1,15 @@
+/* Shared graph controls: the action button (inspector, banners, dialogs, empty
+   state) and the icon close button (inspector head and graph dialogs). */
+
+.gact { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font-size: 12.5px; text-align: left; width: 100%; }
+.gact:hover { border-color: var(--faint); }
+.gact.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
+.gact.primary:hover { filter: brightness(1.06); }
+.gact.danger { color: var(--del); }
+.gact.danger:hover { border-color: color-mix(in srgb, var(--del) 40%, var(--line)); background: color-mix(in srgb, var(--del) 12%, var(--raised)); }
+.gact svg { width: 14px; height: 14px; flex: none; }
+.gact:disabled { opacity: 0.42; cursor: default; filter: none; }
+
+.ginsp-close { width: 24px; height: 24px; border-radius: 6px; color: var(--muted); }
+.ginsp-close:hover { color: var(--text); background: var(--raised); }
+.ginsp-close svg { width: 14px; height: 14px; }

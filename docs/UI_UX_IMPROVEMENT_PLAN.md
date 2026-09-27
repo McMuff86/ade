@@ -134,6 +134,47 @@ fünf Doppelregeln mergen; `SettingsModal.tsx` → Panels je Thema; `TerminalPan
 `src/mobile/test-results/` aus dem Quellbaum entfernen. Belege: G1, G3, RP-7,
 SET-7, T7, F6, M-07.
 
+**B5 umgesetzt für die drei grössten Flächen (27. September 2026).** Verhalten
+und Darstellung unverändert; Zeilenangaben dieses Plans zu `GraphView.tsx`,
+`graph.css` und `rightpanel.css` gelten nur noch für `b1174c4`.
+
+- `GraphView.tsx` (2 710 → 242 Zeilen) ist nur noch Container: Zustand über
+  mehrere Flächen und die feste DOM-Reihenfolge (= Tab- und Stapelreihenfolge).
+  Teile: `GraphCanvas.tsx` (Welt, Kanten, Journal-Pulse, Ziehen),
+  `GraphNodes.tsx` (Cluster, Orchestrator-/Mitgliedskarte, Team-Rahmen),
+  `RunBar.tsx`, `RunBanners.tsx` (Fehler, Freigabe mit Diff),
+  `GraphChrome.tsx` (Task-Slots, Ansicht, Run-Steuerung, Leerzustand),
+  `GraphDockPanel.tsx`, `GraphInspector.tsx`, `Composer.tsx`,
+  `PublicationModal.tsx`, `NewRunModal.tsx`; Helfer `graphLayout.ts`,
+  `useGraphViewport.ts`, `graphText.ts`, `graphIcons.tsx`.
+- `graph.css` ist Einstieg mit geordneten `@import`s (Reihenfolge =
+  Kaskade): `graphCanvas`, `runBar`, `runBanners`, `graphNodes`,
+  `graphChrome`, `graphInspector`, `graphDockPanel`, `activityFeed`,
+  `resultDetails`, `runReport`, `graphControls` (`.gact`, `.ginsp-close`),
+  `graphDialogs`. Der UX-02-Override-Block ist eingefaltet; sieben tote
+  Regelgruppen sind entfernt (`.grt-pick`, `.gdock-grip`, `.gcomposer-warn`,
+  `.ginsp-summary`, `.gcard.ghost`, `.gtbtn.danger`).
+- `rightpanel.css` ist Einstieg für `panelShell` (Rahmen, Tabs, Splitter),
+  `repositoryScope`, `repositoryInspector`, `changesView`, `filesView`,
+  `inlinePreview` (Diff und Dateivorschau), `fileContextMenu`. Die einzige
+  echte Doppelregel (`.ri-pr-line strong`) ist zusammengeführt; gleiche
+  Regelkörper über Ansichten hinweg (ausgewählte Zeile in Änderungen und
+  Dateien, Zählerschrift) bleiben getrennt und werden in B1/B3 zu Token bzw.
+  Primitiv.
+- Nachweis: Kaskadenvergleich vorher/nachher auf Quelle und ausgeliefertem
+  CSS (gleiche Werte je Selektor und Eigenschaft; kein Reihenfolgewechsel
+  zwischen gleich spezifischen Selektoren, die dasselbe Element treffen
+  können), übrige CSS-Chunks bytegleich; `scripts/test-style-entries.ts`
+  hält die Einstiegsregel fest.
+- Beim Aufteilen gefunden, bewusst **nicht** geändert (für C/D):
+  `.grun-failure-body p` ist wirkungslos, weil `.grun-failure p` gleich
+  spezifisch und später ist; der Fehlertext scrollt darum doppelt. Der
+  Run-Report in **Aufträge** (`WorkView`) bekommt seine Grundstile nur aus
+  `graph.css`, das erst mit dem Graph-Chunk (Graph besucht oder „Neuer Run“
+  geöffnet) geladen wird.
+- Offen aus B5: `SettingsModal`, `TerminalPane`, `OverviewView`,
+  `SketchSheet`, `mobile/main.tsx`, `mobile.css`, `src/mobile/test-results/`.
+
 ### C. Desktop-Shell und Terminal (erster Design-Durchgang)
 
 Hier entsteht der Eindruck der App; hier soll der Design-Skill die eine

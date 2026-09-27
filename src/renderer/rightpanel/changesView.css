@@ -1,0 +1,100 @@
+/* Changes tab (ChangesView.tsx): branch summary and grouped changed files.
+   `.plus`/`.minus` colour the line counts in every tab. */
+
+.ch-changes {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ch-branch {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ch-branch .name {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-s);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ch-branch .name::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+.ch-branch .stats {
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.plus {
+  color: var(--add);
+}
+.minus {
+  color: var(--del);
+}
+
+.ch-scroll {
+  padding: 8px 6px;
+}
+
+.ch-group {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  padding: 10px 8px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-s);
+  text-align: left;
+  color: var(--text);
+}
+
+.ch-file:hover {
+  background: var(--raised);
+}
+
+.ch-file.open {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.ch-file .fname {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-file .plus,
+.ch-file .minus {
+  font-size: 11px;
+}
+
+.ch-file .tag {
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  padding: 0 5px;
+}
