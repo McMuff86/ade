@@ -26,6 +26,15 @@ export async function casualConversationFlow(desktop: Page, port: number, profil
       await target.locator(opener).click(); await target.locator('#conversation-mode-casual').click();
       return target.getByRole('dialog', { name: 'Plaudern & Stimme', exact: true });
     };
+    await page.locator('#mobile-supervision').click();
+    const modes = page.getByRole('dialog', { name: 'Gespräche', exact: true });
+    const layout = await modes.locator('.conversation-modes > button').evaluateAll(buttons => buttons.map(button => ({
+      text: Math.round(button.querySelector('.conversation-mode-text')!.getBoundingClientRect().left),
+      icon: !!button.querySelector('.conversation-mode-icon svg'), name: button.textContent ?? '' })));
+    check('conversation modes start their texts on one vertical line, each after an icon', layout.length === 2
+      && layout[0]!.text === layout[1]!.text && layout.every(mode => mode.icon) && layout[0]!.name.startsWith('Projektbetreuung'));
+    await modes.screenshot({ path: join(evidence, 'conversation-modes-tablet.png') });
+    await page.keyboard.press('Escape'); await modes.waitFor({ state: 'hidden' });
     let dialog = await open(page, '#mobile-supervision');
     await dialog.getByText('Noch kein ADE-Gespräch.', { exact: false }).waitFor();
     check('tablet casual dialog receives focus and has its own empty history', await dialog.evaluate(node => node.contains(document.activeElement))

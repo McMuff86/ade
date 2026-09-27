@@ -1,5 +1,14 @@
 # ADE implementation status
 
+## Gespräche-Auswahl mit Symbolen (27. September 2026, 16:30)
+
+Im Dialog **Gespräche** begannen „Projektbetreuung“ und „Plaudern & Stimme“ an
+verschiedenen Stellen, weil die Knopf-Grundregel das Raster zentrierte. Jetzt hat jede
+Auswahl vorne ein Symbol (Projektordner mit Haken bzw. Sprechblase mit Schallwelle, im
+Strichstil der Navigation), und der Text steht in einer festen zweiten Spalte.
+`conversation-electron` **90/0** mit neuer Prüfung auf gleiche Textstartposition und
+Symbol je Auswahl; Beleg `test-results/main-agent-planning/conversation-modes-tablet.png`.
+
 ## Projekt starten am Tablet, Bilder für Claude Code (27. September 2026, Nachmittag)
 
 Auslöser waren Adis Tablet-Screenshots von Knuckles Pi und Rhino-compute-platform. Um

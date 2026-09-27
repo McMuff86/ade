@@ -1,7 +1,14 @@
 .conversation-dialog { width: min(850px, 96vw); }
 .conversation-modes { display: grid; gap: 14px; }
-.conversation-modes > button { display: grid; gap: 8px; text-align: start; padding: 20px; min-height: 88px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
-.conversation-modes > button span { color: var(--muted); font-weight: 400; }
+/* Icon column plus text column: explicit tracks and stretch keep every title on the same
+   vertical line (a centred button grid otherwise shifts shorter text to the right). */
+.conversation-modes > button { display: grid; grid-template-columns: 44px minmax(0, 1fr); justify-content: stretch; justify-items: start; align-items: center;
+  column-gap: 16px; text-align: start; padding: 20px; min-height: 88px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
+.conversation-mode-icon { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--muted); }
+.conversation-mode-icon svg { width: 22px; height: 22px; }
+.conversation-modes > button:hover .conversation-mode-icon, .conversation-modes > button:focus-visible .conversation-mode-icon { color: var(--text); }
+.conversation-mode-text { display: grid; gap: 8px; min-width: 0; }
+.conversation-mode-text > span { color: var(--muted); font-weight: 400; }
 .conversation-modes > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .conversation-panel { display: grid; gap: 14px; min-width: 0; }
 .conversation-panel > p:first-child { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 72ch; }
