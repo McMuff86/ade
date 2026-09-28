@@ -187,6 +187,23 @@ trust/login prompt — answer it in the terminal like in any shell. Stored API
 keys and CLI sign-ins are per execution backend; authenticate WSL runtimes
 inside the distribution.
 
+### Native Windows and native Linux checkouts
+
+Dual-boot development uses one checkout per OS, never a shared folder:
+`node_modules` holds OS-specific Electron and node-pty binaries. Both checkouts
+sync through `origin`; `.gitattributes` keeps text at LF on both sides.
+
+```bash
+scripts/ade-sync.sh save ["message"]   # before leaving the OS: commit all, push the branch
+scripts/ade-sync.sh load               # after booting: fast-forward pull, reinstall if deps changed
+scripts/ade-sync.sh status             # fetch, then local changes and ahead/behind
+```
+
+On Windows use `powershell -ExecutionPolicy Bypass -File scripts\ade-sync.ps1 <command>`.
+`load` refuses local changes and diverged branches instead of merging. On
+Linux it also downloads a missing Electron binary and runs `pnpm rebuild:pty`;
+afterwards `pnpm build && pnpm start`. On Windows restart with `pnpm activate`.
+
 ### Keyboard
 
 | Action | Shortcut |
