@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { PNG } from 'pngjs';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { reconnectTablet } from './helpers/tabletConnection';
 import { BrowserSessions } from '../src/main/remote/BrowserSessions';
 import { HostApiServer } from '../src/main/remote/HostApiServer';
 import { RemoteAuthorizer } from '../src/main/remote/authorization';
@@ -286,7 +287,7 @@ void (async () => {
   check('offline edit survives leaving and reopening the editor', await body.inputValue() === 'Unterwegs ergänzt');
   const hostNote = fixture.organizer.store.detail(noteId)!;
   fixture.organizer.command({ operation: 'put', writerId: randomUUID(), sequence: 1, baseRevision: hostNote.revision, document: { ...hostNote.document, text: 'Gleichzeitig am PC ergänzt' } }, 'desktop');
-  await context.setOffline(false); await page.getByRole('button', { name: /Erneut verbinden/ }).click();
+  await context.setOffline(false); await reconnectTablet(page);
   await waitFor(() => fixture.organizer.store.index().entries.some(item => item.conflictOf === noteId), 'offline conflict copy');
   check('reconnection preserves both PC and tablet edits', fixture.organizer.store.detail(noteId)?.document.text === 'Gleichzeitig am PC ergänzt'
     && fixture.organizer.store.index().entries.some(item => fixture.organizer.store.detail(item.id)?.document.text === 'Unterwegs ergänzt'));

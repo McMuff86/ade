@@ -4,9 +4,9 @@
 .session-switcher p { margin: 0; }
 .session-switcher label { display: flex; flex-direction: column; gap: 6px; }
 .session-switcher input { min-height: 44px; width: 100%; box-sizing: border-box; }
-.session-switcher ul { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; max-height: 52dvh; overflow: auto; }
-.session-switcher li > button { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; min-height: 64px; margin: 0; padding: 10px 12px; text-align: left; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; overflow-wrap: anywhere; cursor: pointer; }
-.session-switcher li > button:hover:not(:disabled) { border-color: var(--accent); }
+.session-switcher ul { display: flex; flex-direction: column; gap: 0; list-style: none; padding: 0; margin: 0; max-height: 52dvh; overflow: auto; border-top: 1px solid var(--line); }
+.session-switcher li > button { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; min-height: 56px; margin: 0; padding: 10px 12px; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--text); font: inherit; overflow-wrap: anywhere; cursor: pointer; }
+.session-switcher li > button:hover:not(:disabled) { background: var(--raised); box-shadow: inset 2px 0 0 var(--accent); }
 .session-switcher small { color: var(--muted); font-size: 12px; }
 .session-switcher button:disabled { opacity: .55; cursor: default; }
 .session-switch-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

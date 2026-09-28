@@ -26,8 +26,13 @@ export async function terminalKeyboardFlow(page: Page, workspace: Locator, evide
     await compact.waitFor();
     check('keyboard compacts a visual-only resize without changing layout height', await page.evaluate(() => window.innerHeight) === viewport.height
       && await toggle.getAttribute('aria-expanded') === 'false');
-    check('keyboard hides launch chrome, transcript and idle composer', !await workspace.getByRole('button', { name: 'Workspace einblenden', exact: true }).isVisible()
+    check('keyboard hides launch chrome, transcript and idle composer', !await workspace.locator('.m-terminal-owner').isVisible()
       && !await workspace.locator('.m-terminal-transcript').isVisible() && !await workspace.locator('.m-terminal-composer summary').isVisible());
+    const [backBox, headingBox] = [await workspace.getByRole('button', { name: 'Workspace einblenden', exact: true }).boundingBox(),
+      await workspace.locator('[data-dialog-heading]').boundingBox()];
+    check('with the keyboard up the way back to the workspace stays visible, 44 px tall, in the title row', Boolean(backBox && headingBox
+      && backBox.height >= 44 && backBox.y < headingBox.y + headingBox.height && headingBox.y < backBox.y + backBox.height)
+      && await workspace.getAttribute('data-focus-mode') === 'keyboard');
     const height = await screen.evaluate((node) => node.getBoundingClientRect().height);
     check(`keyboard leaves at least 70% of 420 px for the TUI (${height} px)`, height >= 294);
     check('keyboard layout retains direct input focus', await input.evaluate((node) => document.activeElement === node));

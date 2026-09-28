@@ -1,33 +1,37 @@
 import { localizedState } from '../../shared/i18n/states';
 import { localizeAppMessage } from '../../shared/i18n/appMessages';
 import { t as translate } from "../../shared/i18n";
-import { localizedLabels } from "../../shared/i18n/labels";
 import { useLocale } from "../i18n/language";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { DICTATION_MAX_TEXT_CHARS } from '../../shared/dictation';
 import { usePromptComposer, type PromptComposerPort, type PromptNoticeKind, type PromptPhase } from './PromptComposer';
-import { useComputerCall, type ComputerPhase } from './useComputerCall';
+import { useComputerCall } from './useComputerCall';
+import { COMPUTER_LABEL, MicGestureDescription, MicIcon, MicRing, useHandoverState, useMicGesture, type HandoverState } from './micGesture';
 import './voice-strip.css';
+
+export { MicIcon } from './micGesture';
 
 const HINT_KEY = 'ade-voice-strip-hint-seen';
 const TRANSIENT: PromptNoticeKind[] = ['submitted', 'inserted', 'copied', 'cleared'];
-const LONG_PRESS_MS = 550;
 const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 const vibrate = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern); } catch { /* No haptics on this device. */ } };
 
-export const MicIcon = () => { useLocale(); return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-  <rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>); };
 export const KeyboardIcon = () => { useLocale(); return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
   <rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" /></svg>); };
 const SendIcon = () => { useLocale(); return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>); };
 const MoreIcon = () => { useLocale(); return (<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="18" cy="12" r="1.8" /></svg>); };
 
 /** Shared frame so a blocked or empty strip keeps the same footprint as the live one. */
-export function VoiceStripFrame({ above, below, children, trailing, phase = 'idle', className = '', sheetOpen = false }: {
+export function VoiceStripFrame({ above, below, children, trailing, phase = 'idle', className = '', sheetOpen = false, state, compact = false }: {
   above?: ReactNode; below?: ReactNode; children: ReactNode; trailing?: ReactNode; phase?: PromptPhase; className?: string; sheetOpen?: boolean;
+  /** Handover state of the gesture ring (micGesture.tsx). */
+  state?: HandoverState;
+  /** Idle and empty: one row — microphone, the draft as a single line, tools. */
+  compact?: boolean;
 }) {
   useLocale();
-  return <section className={`voice-strip ${className}`} aria-label={translate("Voice bar")} data-phase={phase} data-sheet-open={sheetOpen}>
+  return <section className={`voice-strip mic-surface ${className}`} aria-label={translate("Voice bar")} data-phase={phase} data-sheet-open={sheetOpen}
+    data-state={state} data-compact={compact || undefined}>
     <div className="voice-strip-above">{above}</div>
     <div className="voice-strip-row">{children}<div className="voice-trailing">{trailing}</div></div>
     <div className="voice-strip-below">{below}</div>
@@ -48,10 +52,6 @@ function shortNotice(text: string, kind: PromptNoticeKind): string {
     default: return text;
   }
 }
-
-const COMPUTER_LABEL: Record<ComputerPhase, string> = localizedLabels(() => ({
-  idle: '', preparing: translate("Microphone …"), listening: translate("Say “Computer”"), finishing: translate("“Computer” detected…"), greeting: translate("Greeting…"), speaking: translate("Computer is replying…"),
-}));
 
 /** Keep the screen on while the tablet listens or speaks; nothing to release when unsupported. */
 function useScreenAwake(wanted: boolean): void {
@@ -121,23 +121,22 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
   const statusVisible = !!notice && (!TRANSIENT.includes(noticeKind) || flash);
   const duration = maxSeconds >= 120 ? translate("{{value1}} minutes", { value1: maxSeconds / 60 }) : translate("{{value1}} seconds", { value1: maxSeconds });
   const computerVisible = computer.active || !!computer.reply || !!computer.error || !!computer.status;
+  const handover = useHandoverState({ online, phase, notice, noticeKind, error, deliveryOpen: composer.deliveryOpen, recordingOpen: composer.recordingOpen });
+  const gestureId = useId();
+  // Tap speaks or stops; holding calls the Computer (micGesture.tsx).
+  const gesture = useMicGesture({
+    holdEnabled: computerEnabled && !computer.active && phase === 'idle',
+    onTap: () => {
+      if (computer.active) { computer.stop(); return; }
+      if (listening) { vibrate([20, 40, 20]); composer.stop(); return; }
+      if (phase === 'idle') { vibrate(30); void composer.record(); }
+    },
+    onHold: () => { vibrate(40); void computer.run(); },
+  });
+  const compact = phase === 'idle' && !computer.active && !composer.value && hintSeen && !computerVisible && !composer.recordingOpen
+    && !composer.deliveryOpen && !(reasonOpen && !!reasonDetail) && !storageError && !error && !sheetOpen;
 
-  // Long press on the microphone calls the Computer; a tap speaks or stops.
-  const press = useRef<{ timer?: number; long: boolean }>({ long: false });
-  const clearPress = () => { if (press.current.timer) { clearTimeout(press.current.timer); press.current.timer = undefined; } };
-  // A long press ends with a click that must be swallowed. When the strip re-laid out under the finger
-  // (the call opened its region) that click never arrives; the flag then fell through to the next tap and
-  // swallowed the stop instead. The click, if it comes, fires synchronously after pointerup, so a
-  // zero-delay reset afterwards keeps the flag from outliving the gesture.
-  const releasePress = () => { clearPress(); if (press.current.long) window.setTimeout(() => { press.current.long = false; }, 0); };
-  const micClick = () => {
-    if (press.current.long) { press.current.long = false; return; }
-    if (computer.active) { computer.stop(); return; }
-    if (listening) { vibrate([20, 40, 20]); composer.stop(); return; }
-    if (phase === 'idle') { vibrate(30); void composer.record(); }
-  };
-
-  return <VoiceStripFrame phase={phase} className="voice-strip-live" sheetOpen={sheetOpen} trailing={<>
+  return <VoiceStripFrame phase={phase} className="voice-strip-live" sheetOpen={sheetOpen} state={handover} compact={compact} trailing={<>
     {trailing}
     <div className="voice-menu-host">
       <button ref={menuButton} type="button" className="voice-icon-button" data-voice-more aria-label={translate("Other options")} aria-haspopup="menu" aria-expanded={menuOpen}
@@ -170,7 +169,7 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
         {!computer.active && <button type="button" className="voice-quiet" onClick={computer.dismiss}>{translate("Hide")}</button>}
       </div>
     </div>}
-    {!hintSeen && !computerVisible && <p className="voice-hint" role="note"><span>{port.liveRecording ? translate("Audio goes to ElevenLabs on an ongoing basis.") : translate("Audio goes to ElevenLabs when transcribing.")}{" "}{translate("Recordings last at most")}{" "}{duration}{translate(". The draft stays on this device.")}{port.computerGreeting ? translate(" Long press to call the computer.") : ''}</span>
+    {!hintSeen && !computerVisible && <p className="voice-hint" role="note"><span>{port.computerGreeting && <strong className="voice-hint-gesture">{translate("Tap: dictation · Hold: Computer.")}{" "}</strong>}{port.liveRecording ? translate("Audio goes to ElevenLabs on an ongoing basis.") : translate("Audio goes to ElevenLabs when transcribing.")}{" "}{translate("Recordings last at most")}{" "}{duration}{translate(". The draft stays on this device.")}</span>
       <button type="button" className="voice-quiet" onClick={dismissHint}>{translate("Understood")}</button></p>}
     {composer.recordingOpen && <div className="voice-strip-row"><span className="voice-status">{translate("One recording is still open.")}</span>
       <button type="button" className="voice-quiet" disabled={!online} onClick={composer.checkRecording}>{translate("Check recording status")}</button>
@@ -189,22 +188,16 @@ export function VoiceStrip({ draftKey, online, speechAllowed, port, sendBlockedR
     {error && <p role="alert" className="voice-alert">{localizeAppMessage(error)}</p>}
   </>}>
     <button ref={micButton} type="button" className="voice-mic" data-phase={micPhase} aria-pressed={listening || computer.phase === 'listening'} disabled={micDisabled}
-      onClick={micClick} onContextMenu={event => event.preventDefault()}
-      onPointerDown={event => {
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-        if (!computerEnabled || computer.active || phase !== 'idle') return;
-        press.current.long = false; clearPress();
-        press.current.timer = window.setTimeout(() => { press.current.timer = undefined; press.current.long = true; vibrate(40); void computer.run(); }, LONG_PRESS_MS);
-      }}
-      onPointerUp={releasePress} onPointerCancel={releasePress} onPointerLeave={releasePress}>
-      <span className="voice-mic-glyph"><MicIcon /></span><span className="voice-mic-label">{micLabel}</span>
+      aria-describedby={gestureId} {...gesture.props}>
+      <span className="voice-mic-glyph mic-glyph"><MicIcon /><MicRing /></span><span className="voice-mic-label">{micLabel}</span>
     </button>
+    <MicGestureDescription id={gestureId} hold={!!port.computerGreeting} />
     {(computer.active || ['permission', 'recording', 'transcribing'].includes(phase)) && <button type="button" className="voice-quiet"
       onClick={() => { if (computer.active) computer.stop(); else composer.cancel(); }}>{translate("Cancel")}</button>}
     {reason && <button type="button" className="voice-reason" aria-expanded={reasonOpen} disabled={!reasonDetail} onClick={() => setReasonOpen(open => !open)}>{reason}</button>}
     {statusVisible && <span role="status" className="voice-status" data-kind={noticeKind} title={localizeAppMessage(notice)}>{shortNotice(notice, noticeKind)}</span>}
-    <span style={{ flex: 1 }} />
-    <button type="button" className="voice-quiet" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>{translate("Paste")}</button>
+    <span className="voice-spacer" />
+    <button type="button" className="voice-quiet voice-paste" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>{translate("Paste")}</button>
     <button type="button" className="voice-quiet voice-send" disabled={!composer.canSend} aria-busy={phase === 'sending'} onClick={() => void composer.send('submit')}>
       {phase === 'sending' ? translate("Sending…") : translate("Send")}<SendIcon /></button>
   </VoiceStripFrame>;

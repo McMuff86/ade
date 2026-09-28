@@ -181,7 +181,7 @@ export function GraphInspector(props: GraphInspectorProps): JSX.Element | null {
     const details = detailsFor(orchestrator.id);
     const liveSessionId = liveSessionIdFor(orchestrator.id);
     return (
-      <aside className="ginspector">
+      <aside className="ginspector" aria-label={translate("Details")}>
         <Head glyph={<runtime.Glyph />} color={runtime.color} title={orchestrator.name} sub={`Orchestrator · ${cluster.run.name}`} onClose={props.onClose} />
         <div className="ginsp-body">
           <KV k="Runtime" v={runtime.label} />
@@ -236,7 +236,7 @@ export function GraphInspector(props: GraphInspectorProps): JSX.Element | null {
     const runtime = runtimeVisual(team.lead?.runtime ?? 'claude');
     const leadDetails = team.lead ? detailsFor(team.lead.id) : null;
     return (
-      <aside className="ginspector">
+      <aside className="ginspector" aria-label={translate("Details")}>
         <Head
           glyph={<runtime.Glyph />}
           color={runtime.color}
@@ -324,7 +324,7 @@ export function GraphInspector(props: GraphInspectorProps): JSX.Element | null {
   const details = detailsFor(worker.id);
   const liveSessionId = liveSessionIdFor(worker.id);
   return (
-    <aside className="ginspector">
+    <aside className="ginspector" aria-label={translate("Details")}>
       <Head glyph={<runtime.Glyph />} color={runtime.color} title={worker.name} sub={`Worker · ${team.name} · ${cluster.run.name}`} onClose={props.onClose} />
       <div className="ginsp-body">
         <KV k="Runtime" v={runtime.label} />
@@ -379,7 +379,7 @@ function Head(props: {
     <div className="ginsp-head">
       <div className="gglyph" style={{ ['--rt' as string]: props.color }}>{props.glyph}</div>
       <div className="t"><h3>{props.title}</h3><p>{props.sub}</p></div>
-      <button className="ginsp-close" title={translate("Close [5363686c]")} onClick={props.onClose}><Ico>{I.close}</Ico></button>
+      <button type="button" className="ginsp-close" aria-label={translate("Close details")} title={translate("Close details")} onClick={props.onClose}><Ico>{I.close}</Ico></button>
     </div>
   );
 }

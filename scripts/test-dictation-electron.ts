@@ -242,6 +242,12 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
     console.log(`Computer Electron: ${passed} passed, 0 failed`); return;
   }
   check('desktop explains the five-minute live recording limit', (await dialog.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
+  const dictate = dialog.getByRole('button', { name: 'Diktieren', exact: true });
+  check('desktop dock uses the handover gesture: ring, tap/hold description, Shift+Enter and an idle state', await dictate.locator('.mic-ring').count() === 1
+    && await dictate.evaluate(node => document.getElementById(node.getAttribute('aria-describedby') ?? '')?.textContent) === 'Tippen startet das Diktat, Halten ruft den Computer (Tastatur: Umschalt+Eingabe).'
+    && await dictate.getAttribute('aria-keyshortcuts') === 'Shift+Enter'
+    && await dialog.locator('.prompt-composer.mic-surface').getAttribute('data-state') === 'idle'
+    && (await dialog.innerText()).includes('Tippen: Diktat · Halten: Computer.'));
   check('opening the dock focuses its draft and exposes its expanded state', await draft.evaluate(node => node === document.activeElement)
     && await terminal.getByRole('button', { name: 'Prompt / Diktat', exact: true }).getAttribute('aria-expanded') === 'true');
   check('prompt dock leaves the terminal non-modal', await dialog.getAttribute('aria-modal') !== 'true'
@@ -324,6 +330,7 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
   await draft.fill('Prüfe nur diese Datei.');
   await dialog.getByRole('button', { name: 'An CLI absenden', exact: true }).click();
   await dialog.getByText('An die CLI übergeben. Die Verarbeitung durch das Modell ist damit noch nicht bestätigt.', { exact: true }).waitFor();
+  check('desktop dock shows the confirmed handover state after the CLI took the prompt', await dialog.locator('.prompt-composer.mic-surface').getAttribute('data-state') === 'confirmed');
   for (let attempt = 0; attempt < 100 && !existsSync(join(repo, 'prompt-proof.jsonl')); attempt++) await new Promise(done => setTimeout(done, 20));
   check('edited prompt reaches real ConPTY exactly once with paste markers and Enter', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim() === Buffer.from('\x1b[200~Prüfe nur diese Datei.\x1b[201~\r').toString('base64'));
   check('accepted delivery clears only this draft', await draft.inputValue() === '');
@@ -430,6 +437,18 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
     && await speak.evaluate(node => { const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight && box.height >= 44; }));
   check('tablet explains the same five-minute live recording limit', (await strip.innerText()).includes('Aufnahmen dauern höchstens 5 Minuten.'));
   const mobileDraft = strip.getByLabel('CLI-Promptentwurf', { exact: true });
+  check('tablet strip stays open while its first-use hint is shown', await strip.getAttribute('data-compact') === null);
+  await mobileDraft.fill('');
+  await strip.getByRole('button', { name: 'Verstanden', exact: true }).click();
+  await tablet.waitForFunction(() => document.querySelector('.voice-strip-live')?.hasAttribute('data-compact'));
+  const [micBox, draftBox, stripBox] = [await speak.boundingBox(), await mobileDraft.boundingBox(), await strip.boundingBox()];
+  check('idle and empty, the tablet strip is one row: microphone, draft line, tools', Boolean(micBox && draftBox && stripBox
+    && draftBox.x > micBox.x && draftBox.y < micBox.y + micBox.height && micBox.y < draftBox.y + draftBox.height && stripBox.height <= 72)
+    && !await strip.getByRole('button', { name: 'Senden', exact: true }).isVisible());
+  await tablet.screenshot({ path: join(evidence, 'tablet-strip-compact.png') });
+  await mobileDraft.focus(); await tablet.keyboard.type('A');
+  check('typing into the one-row strip opens it again without losing focus', await strip.getAttribute('data-compact') === null
+    && await mobileDraft.evaluate(node => node === document.activeElement) && await mobileDraft.inputValue() === 'A');
   await mobileDraft.fill('Auf dem Tablet.');
   const tokensBeforeTablet = tokenCount(); await holdMicrophone(tablet);
   await speak.click();
@@ -466,6 +485,7 @@ require(${JSON.stringify(mainEntry(process.env.ADE_E2E_MAIN))});`);
   await mobileDraft.fill('Aufgabe vom Tablet.');
   await strip.getByRole('button', { name: 'Senden', exact: true }).click();
   await strip.getByText('Übergeben ✓', { exact: true }).waitFor();
+  check('tablet strip shows the confirmed handover state', await strip.getAttribute('data-state') === 'confirmed');
   check('tablet prompt reaches the selected real PTY exactly once while the terminal stays visible', readFileSync(join(repo, 'prompt-proof.jsonl'), 'utf8').trim().split('\n').at(-1) === Buffer.from('\x1b[200~Aufgabe vom Tablet.\x1b[201~\r').toString('base64')
     && await mobileDraft.inputValue() === '' && await project.getByLabel('Terminalanzeige', { exact: true }).isVisible());
   await mobileDraft.fill('Entwurf bei Anzeigefehler.');

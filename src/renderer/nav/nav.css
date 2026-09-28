@@ -1,6 +1,7 @@
 /* Grouped primary navigation — shared by the desktop title bar and the tablet
-   header. Colours via theme tokens only. Grouping is proximity, a hairline and
-   a quiet inline caption; the active tab is text colour plus a copper rule. */
+   header. Colours via theme tokens only. Grouping is proximity and a hairline;
+   group names are accessible descriptions and tooltips, never visible captions
+   (AppNav.tsx). The active tab is text colour plus a copper rule. */
 
 .appnav {
   display: flex;
@@ -44,14 +45,6 @@
 
 .appnav-group + .appnav-group {
   border-left: 1px solid var(--line);
-}
-
-.appnav-caption {
-  flex: none;
-  padding: 0 6px 0 4px;
-  color: var(--faint);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
 }
 
 .appnav-tab {
@@ -104,31 +97,15 @@
 }
 
 /* Compact windows keep every room reachable and the header on one line.
-   Desktop (.titlebar): the group captions go first — they are the most
-   decorative part — then the icons; below 1000px the rooms take a row of
-   their own (app.css). Measured at 1440px the full desktop row is ~1430px
-   wide, so the first step already applies on a common laptop screen. The
-   tablet header has fewer neighbours; with the conversations entry its full
-   row needs ~1366px (captions go below that) and the rooms without captions
-   need their icons gone below ~1180px (measured 2026-09-24). */
-@media (max-width: 1440px) {
-  .titlebar .appnav-caption {
-    display: none;
-  }
-}
-
+   Desktop (.titlebar): the icons go first; below 1000px the rooms take a row
+   of their own (app.css). The tablet rooms need their icons gone below
+   ~1180px (measured 2026-09-24). */
 @media (max-width: 1260px) {
   .titlebar .appnav-icon {
     display: none;
   }
   .titlebar .appnav-group {
     padding: 0 4px;
-  }
-}
-
-@media (max-width: 1365px) {
-  .m-appnav .appnav-caption {
-    display: none;
   }
 }
 

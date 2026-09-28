@@ -306,20 +306,70 @@ E → F, jeweils nach A und B):
   Treiber (hell/dunkel, drei Breiten, Tablet) ansehen, ein Element entfernen,
   dann Baseline aktualisieren.
 
-## 6. Entscheide, die Adi treffen muss
+## 6. Entscheide (von Adi getroffen am 27. September 2026)
 
-1. Raum-Gruppen in der Kopfzeile: Beschriftung, nur Abstand, oder Icon+Label?
-   Heute sind die Beschriftungen unter 1440 px unsichtbar.
-2. Einstellungen: zweispaltiges Modal oder eigener Raum in der Navigation?
-3. Sammlungen: Zeilen (Übersicht/Aufträge) oder Karten (Projekte-Verzeichnis)?
-   Eine Antwort für alle Räume.
-4. Graph: Ampel-Lichter auf den Knoten als Marke behalten oder durch einen
-   Statuschip ersetzen? Inspector als angedockte Spalte statt Overlay?
-5. Tablet: Fusszeile behalten oder ganz in den Verbindungsdialog? Fokusmodus
-   nur implizit oder mit sichtbarem Schalter? Mindestschrift 12 oder 13 px?
-6. Sprachleiste am PC im Leerlauf einklappen wie am Tablet?
-7. Eigenständigkeits-Stelle: Übergabe-Geste (Vorschlag) oder Graph-Knoten?
-8. Verbleibende Lehnwörter im Glossar: „Workspace“, „Inspector“, „Run“.
+1. **Raum-Gruppen in der Kopfzeile:** nur Abstand und eine feine Trennlinie,
+   keine sichtbaren Beschriftungen; der Gruppenname bleibt als
+   `aria-label`/Tooltip.
+2. **Einstellungen:** breiteres Modal (etwa 720–880 px, 80 vh) mit Navigation
+   je Thema links; kein eigener Raum (Verwaltung bleibt Chrome).
+3. **Sammlungen:** Zeilen mit Haarlinien überall; Karten nur, wo eine Wahl
+   getroffen wird (CLI-Startkacheln, Auswahl im Neuer-Run-Dialog).
+4. **Graph:** Ampel-Lichter ersetzt durch eine Status-Sprache (Chip mit Punkt,
+   Bewegung nur bei „arbeitet“); Details als angedockte Spalte mit
+   Schliessen-Knopf und Fokusrückgabe.
+5. **Tablet:** Fusszeile in den Verbindungs-Pill und seinen Dialog;
+   Fokusmodus automatisch, aber als expliziter Zustand mit immer sichtbarer
+   44-px-Rückkehr; Mindestschrift 12 px.
+6. **Sprachleiste am PC:** im Leerlauf auf eine 28-px-Zeile eingeklappt, nie
+   mit Entwurf oder angezeigtem Zustand, mit Tastenkürzel.
+7. **Eigenständigkeit:** die Übergabe-Geste (Mikrofon, Ring beim Halten,
+   Zustände), auf PC und Tablet gleich.
+8. **Lehnwörter:** „Run“ und „Workspace“ bleiben (Workspace im Glossar
+   erklärt); „Inspector“ heisst sichtbar „Details“.
+
+**Korrektur zu 6 (nach Code-Prüfung):** Der PC hat keine Sprachleiste unter
+dem Terminal; Diktat öffnet dort das Seitendock „Prompt / Diktat“, das im
+Leerlauf keinen Platz belegt. Auch die Tablet-Leiste klappte im Leerlauf nicht
+ein. Adi hat daraufhin entschieden: Tablet-Leiste mit einzeiliger Ruheform,
+Geste in Tablet-Leiste und PC-Dock, das Dock bleibt.
+
+**Umgesetzt (28. September 2026):**
+
+- 1: `AppNav.tsx` ohne sichtbare Beschriftungen; Gruppenname als
+  `aria-describedby` jedes Tabs und als `title` der Gruppe; auch die
+  „Verwaltung“-Beschriftung der Titelleiste entfällt.
+- 2: `SettingsTopics.tsx` + `settings-topics.css`: Modal bis 880 px und 80 vh,
+  Themen Allgemein · Tablet und Geräte · Projekte · Harnesses und Schlüssel ·
+  Stimme; eine Scrollfläche (Strg+F findet alles), die Navigation springt zum
+  Thema, fokussiert seine Überschrift und markiert es (`aria-current`). Das
+  Tablet behält seine Tabs Allgemein/Stimme.
+- 3: Zeilen in Übersicht (Projekte), Projektverzeichnis (PC und Tablet),
+  Nutzungs-Aufschlüsselung, Einstellungen (Geräte, Harnesses, Bundle-Import),
+  Git-Sync, Sitzungswechsler, Tablet-Übersicht, Weiterarbeiten, Sitzungen im
+  Starter, Terminal-Navigation, Organizer-Listen, Commit-Listen, Projekt-Rail,
+  Workspace-Zuordnung, Notizauswahl. Karten bleiben: CLI-Startkacheln,
+  Modus/Theme-Wahl, Bildauswahl, Gesprächsmodi, Gesprächsverlauf und
+  Vorschläge (je eigene Entscheidung).
+- 4: Graph-Knoten (PC und Tablet) ohne Lichter; `.gchip` mit Punkt ist die
+  einzige Status-Sprache, Bewegung nur bei „arbeitet“. Details als Spalte
+  (328 px, bündig rechts, unter 900 px weiter überlagernd) mit „Details
+  schliessen“, Fokus zurück an den Knoten (`data-node-id`).
+- 5: Fusszeile entfernt; Task-Slots, letzte Bestätigung und „Erneut
+  verbinden“ (in jedem Zustand) im Verbindungsdialog, Uhrzeit in der Pill ab
+  1440 px. Fokusmodus als `data-focus-mode` (`terminal` | `keyboard`), vom
+  Terminal an den Arbeitsbereich gemeldet, statt `:has()`-Proben; „Workspace
+  einblenden“ bleibt auch bei offener Tastatur in der Titelzeile und schliesst
+  sie. Tablet-Schrift ≥ 12 px (`--fs-xs` am Tablet 12 px), Bedienelemente
+  44 px, Checkbox-/Radio-Zeilen 44 px.
+- 6/7: `micGesture.tsx` + `mic-gesture.css` für Tablet-Leiste und PC-Dock:
+  Tippen diktiert, Halten (550 ms, Ring füllt sich) ruft den Computer,
+  Umschalt+Eingabe als Tastenkürzel, Beschreibung per `aria-describedby`,
+  Übergabe-Zustand `data-state` idle/sending/confirmed/offline/needs-check.
+  Tablet-Leiste im Leerlauf mit leerem Entwurf einzeilig (`data-compact`,
+  gleiche DOM-Knoten, Fokus bleibt beim Tippen).
+- 8: „Details“, „Details schliessen“, „Breite der Details“, „Seite der
+  Details“, „Details ein- oder ausblenden“; Glossar in `appNavigation.ts`.
 
 ## 7. Bewusst nicht in diesem Plan
 

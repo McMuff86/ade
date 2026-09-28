@@ -1,5 +1,15 @@
 # ADE — aktuelle Übergabe
 
+## Acht UI-Entscheide umgesetzt (28. September 2026)
+
+Kopfzeile, Einstellungen, Zeilen statt Karten, Graph ohne Lichter mit Details-Spalte,
+Tablet-Chrome (Fusszeile im Verbindungsdialog, Fokusmodus, 12 px/44 px), Übergabe-Geste auf PC
+und Tablet und „Details“ statt „Inspector“ sind umgesetzt und geprüft (siehe
+[STATUS.md](STATUS.md), Umsetzungsnotizen im [Verbesserungsplan §6](UI_UX_IMPROVEMENT_PLAN.md)).
+Am Tablet nach der Aktivierung die Seite neu laden. Offen ist Adis Urteil am echten Tablet:
+Ruheform der Sprachleiste, Ring beim Halten, Rückweg bei offener Tastatur, Lesbarkeit mit 12 px.
+Nächster Schritt laut Plan: Paket A (visuelle Baselines) und B (Token/Primitive), dann C.
+
 ## Graph und rechte Leiste modularisiert, nicht aktiviert (27. September 2026, Abend)
 
 Vorarbeit für den Frontend-Design-Durchgang: `GraphView.tsx`, `graph.css` und

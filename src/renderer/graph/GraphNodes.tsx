@@ -147,6 +147,7 @@ function OrchestratorCard(props: {
   };
   return (
     <div
+      data-node-id={orchestrator.id}
       className={`gcard orch${selected ? ' sel' : ''}${orchestrator.available ? '' : ' unavailable'}${flashClass}`}
       data-status={status}
       role="button"
@@ -172,7 +173,6 @@ function OrchestratorCard(props: {
         className="gcard-bar"
         onPointerDown={(event) => ctx.startDrag('node', run.id, 'orchestrator', event, selectCard)}
       >
-        <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
         <div className="gcard-title">{translate("ade · orchestrator")}</div>
       </div>
       <div className="gcard-body">
@@ -207,6 +207,7 @@ function TeamFrame(props: { cluster: RunClusterModel; team: TeamModel; ctx: Grap
     >
       <div
         className="gteam-bar"
+        data-node-id={team.id}
         role="button"
         tabIndex={0}
         aria-pressed={selected}
@@ -216,7 +217,6 @@ function TeamFrame(props: { cluster: RunClusterModel; team: TeamModel; ctx: Grap
         })}
         onKeyDown={nodeKeyHandler(() => ctx.selectInCluster(run.id, { kind: 'team', id: team.id }), selected)}
       >
-        <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
         <div className="gteam-tt">{translate("team ·")}{" "}<b>{team.name}</b></div>
         {team.idle && (
           <span className="gteam-paused">{managed ? translate("paused") : translate("paused manually")}</span>
@@ -288,6 +288,7 @@ function MemberCard(props: {
   };
   return (
     <div
+      data-node-id={member.id}
       className={`gcard gcard-static${selected ? ' sel' : ''}${member.available ? '' : ' unavailable'}${flashClass}`}
       data-status={status}
       role="button"
@@ -306,11 +307,9 @@ function MemberCard(props: {
       onKeyDown={nodeKeyHandler(selectCard, selected, openCard)}
     >
       <div className="gcard-bar nograb">
-        <div className="glights"><i className="r" /><i className="y" /><i className="g" /></div>
         <div className="gcard-title">~ {role}</div>
       </div>
       <div className="gcard-body">
-        <div className="gcard-role">~ {role}</div>
         <div className="gglyph"><runtime.Glyph /></div>
         <div className="gcard-name">{member.name}</div>
         {branch && <div className="gcard-branch" title={translate("Worktree branch {{value1}}", { value1: branch })}>⎇ {branch}</div>}

@@ -72,7 +72,7 @@ export async function tabletLayoutFlow(app: ElectronApplication, desktop: Page, 
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByRole('tab', { name: 'Terminals', exact: true }).click();
   const rail = page.getByRole('separator', { name: 'Breite der Agentenliste', exact: true });
-  const inspector = page.getByRole('separator', { name: 'Breite des Inspectors', exact: true });
+  const inspector = page.getByRole('separator', { name: 'Breite der Details', exact: true });
   await rail.focus(); await page.keyboard.press('End');
   await inspector.focus(); await page.keyboard.press('Home');
   check('keyboard independently sets agent and inspector widths within bounds', await rail.getAttribute('aria-valuenow') === '32' && await inspector.getAttribute('aria-valuenow') === '14');

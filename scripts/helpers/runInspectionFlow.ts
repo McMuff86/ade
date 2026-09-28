@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { Page } from 'playwright';
+import { reconnectTablet } from './tabletConnection';
 import { PNG } from 'pngjs';
 
 const message = 'Bild erstellt.\nDie Ergebnisdatei liegt unter outputs/image.png.\nVollstaendige Abschlussantwort aus einer echten PTY.';
@@ -35,7 +36,7 @@ export async function runInspectionFlow(desktop: Page, page: Page, categoryId: s
   const agent = await desktop.evaluate(async (input) => window.ade.invoke('agent:create', { categoryId: input.categoryId, name: 'Image Agent', runtime: 'codex', permissionMode: 'default', defaultRepositoryId: input.repositoryId }), { categoryId, repositoryId });
   const initial = await desktop.evaluate((input) => window.ade.invoke('workspace:describe', input), { agentId: agent.id });
   writeFileSync(join(initial.workspaceDir, 'tracked-edit.txt'), 'before'); writeFileSync(join(initial.workspaceDir, 'tracked-delete.txt'), 'before');
-  await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+  await reconnectTablet(page);
   await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   const composer = page.getByRole('dialog', { name: 'Agent beauftragen', exact: true });

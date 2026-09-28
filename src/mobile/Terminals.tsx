@@ -5,7 +5,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { MobileRecentSession, MobileSessionInventory, MobileTerminalSelection } from '../shared/remote';
 import { sessionStateLabel } from '../shared/sessionState';
 import type { MobileHost } from './useMobileHost';
-import { RemoteTerminalPane } from './RemoteTerminalPane';
+import { RemoteTerminalPane, type TerminalFocusMode } from './RemoteTerminalPane';
 import { AgentNavigation } from './AgentNavigation';
 import { MobileClientError } from './client';
 import { TabletKeyboardContext } from './useTabletViewport';
@@ -28,6 +28,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
   const [inventory, setInventory] = useState<MobileSessionInventory>();
   const [error, setError] = useState(''); const [refresh, setRefresh] = useState(0);
   const [railOpen, setRailOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState<TerminalFocusMode>('off');
   const [focusVersion, setFocusVersion] = useState(0);
   const title = useRef<HTMLHeadingElement>(null);
   const panels = useRef<HTMLDivElement>(null);
@@ -63,7 +64,7 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
   const project = host.catalog?.repositories.find((item) => item.id === target.repositoryId);
   const key = `${target.terminalHome ? 'home' : target.projectWorkspaceId ?? `${target.agentId}:${target.repositoryId ?? 'home'}`}:${launchVersion}`;
   useLayoutEffect(() => { title.current?.focus({ preventScroll: true }); }, [focusVersion, launchVersion]);
-  return <div ref={panels} style={panelWidths.style} className={`m-terminals-page ${keyboardOpen ? 'm-terminals-keyboard' : ''}`}>
+  return <div ref={panels} style={panelWidths.style} className={`m-terminals-page ${keyboardOpen ? 'm-terminals-keyboard' : ''}`} data-focus-mode={focusMode === 'off' ? undefined : focusMode}>
     <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle" aria-label={translate("Terminal controls")}
       aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls" onPointerDown={(event) => event.preventDefault()}
       onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? translate("Collapse controls") : translate("Controls")}</button>
@@ -89,13 +90,13 @@ export function Terminals({ host, target, onTarget, onWorkspace, launchVersion }
       </select></label>}
       {agent && <button className="m-terminal-scope" disabled={host.status !== 'online'} onClick={() => setAssignmentOpen(true)}>{translate("Search for projects")}</button>}
       {assigned.loading && <p role="status">{translate("Loading workspace assignment…")}</p>}{assigned.error && <p role="alert">{localizeAppMessage(assigned.error)}</p>}
-      {!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${host.identityVersion}:${key}:${assigned.selection.projectWorkspaceId ?? ''}`} host={host} {...(agent ? assigned.selection : target)}
+      {!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${host.identityVersion}:${key}:${assigned.selection.projectWorkspaceId ?? ''}`} host={host} {...(agent ? assigned.selection : target)} onFocusModeChange={setFocusMode}
         expectedBranch={agent ? assigned.view?.branch : target.expectedBranch} defaultProfileId={agent && assigned.selection.projectWorkspaceId ? agent.id : undefined}
         active initialTerminalId={target.terminalId} projectEntry={!!target.projectWorkspaceId}
         compactControls={keyboardOpen && !keyboardControls} fallbackFocusId="view-tab-terminals" onSelectionChanged={(id) => onTarget({ ...target, terminalId: id })} />}
     </section>
     <TerminalPanelResize side="inspector" value={panelWidths.widths[1]} onChange={(value) => panelWidths.resize(1, value)} container={panels} />
-    <aside id="terminal-inspector" className="m-terminal-context" aria-label={translate("Terminal context")}><h2>{translate("Inspector")}</h2>
+    <aside id="terminal-inspector" className="m-terminal-context" aria-label={translate("Terminal context")}><h2>{translate("Details")}</h2>
       <p>{target.terminalHome ? translate("Standalone terminal") : agent?.name ?? translate("Project terminal")}</p>
       <p>{target.terminalHome ? translate("Start in the user directory of the ADE computer.") : project?.name ?? (target.projectWorkspaceId ? translate("Existing project workspace") : translate("Own Agent Workspace"))}</p>
       {target.expectedBranch && <p>{translate("Branch:")}{" "}{target.expectedBranch}</p>}

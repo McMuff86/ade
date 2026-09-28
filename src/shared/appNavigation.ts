@@ -51,6 +51,8 @@ export function adjacentView(current: AppView, direction: -1 | 1): AppView {
  *   Agentenauftrag – work explicitly handed to one agent ("Agent beauftragen").
  *   Run            – the execution of one or many agent orders, visible in Aufträge and Graph.
  *   Sitzung        – a live terminal on the PC.
+ *   Workspace      – the folder an agent works in, often an ADE worktree (kept as a loanword).
+ *   Details        – the column that describes the selected item; never "Inspector" in visible copy.
  */
 export const GLOSSARY = localizedLabels(() => ({
   personalTask: translate("Task"),

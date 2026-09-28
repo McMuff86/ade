@@ -4,8 +4,9 @@ import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
 /**
  * One place that answers "is the PC reachable, and what should I do?".
- * The header pill states the situation in one word; the dialog explains it
- * and offers exactly the action that fits. Re-pairing is never suggested for
+ * The header pill states the situation in one word (plus the time of the last
+ * confirmation where there is room); the dialog explains it, shows the task
+ * slots and always offers to reconnect, first when that is the fitting action. Re-pairing is never suggested for
  * a network interruption (UX-05).
  */
 import type { JSX } from 'react';
@@ -22,7 +23,7 @@ export function connectionSituation(host: Pick<MobileHost, 'status' | 'paired'>,
   return host.status === 'connecting' ? 'reconnecting' : 'unreachable';
 }
 
-/** Short label; tests and the status bar rely on the exact word "Verbunden". */
+/** Short label; tests rely on the exact word "Verbunden" in the pill's status. */
 export function connectionLabel(host: Pick<MobileHost, 'status' | 'paired'>): string {
   if (!host.paired) return translate("Private access");
   return host.status === 'online' ? translate("Connected") : host.status === 'connecting' ? translate("Connecting…") : translate("Offline");
@@ -43,6 +44,7 @@ export function ConnectionDialog({ host, build, onClose, onSettings, fallbackId 
         {situation === 'unreachable' && translate("PC not reachable.")}
       </dd></div>
       <div><dt>{translate("Last confirmation")}</dt><dd>{seen ?? translate("No response in this session yet")}</dd></div>
+      <div><dt>{translate("Task slots")}</dt><dd>{host.health ? `${host.health.queue.active}/${host.health.queue.maxActive}` : '—'}</dd></div>
       <div><dt>{translate("Pairing")}</dt><dd>{translate("Pairing is preserved. Switching networks does not require pairing again; this device signs back in with its saved key.")}</dd></div>
     </dl>
     {situation === 'reconnecting' && <p>{translate("Data displayed may be obsolete. Drafts remain stored on this device and are transferred after reconnection.")}</p>}
@@ -57,8 +59,8 @@ export function ConnectionDialog({ host, build, onClose, onSettings, fallbackId 
     {situation === 'build' && <p>{translate("After building on the PC, fully quit and restart ADE there; closing the window leaves the old build running. Then reload this page.")}</p>}
     {host.error && <p className="m-alert" role="alert">{localizeAppMessage(host.error)}</p>}
     <div className="m-actions">
-      {situation !== 'online' && situation !== 'build' && <button className="m-primary" onClick={() => { host.reconnect(); onClose(); }}><Icon name="refresh" />{translate("Reconnect")}</button>}
       {situation === 'build' && <button className="m-primary" onClick={() => { onClose(); onSettings(); }}>{translate("View build information")}</button>}
+      <button className={situation === 'online' || situation === 'build' ? undefined : 'm-primary'} onClick={() => { host.reconnect(); onClose(); }}><Icon name="refresh" />{translate("Reconnect")}</button>
       <button onClick={onClose}>{translate("Close")}</button>
     </div>
   </Dialog>;

@@ -185,7 +185,8 @@ function MobileApp(): JSX.Element {
       {host.paired && <AppNav className="m-appnav" current={view} onSelect={navigate} idPrefix="view-tab" controls="mobile-view-panel" conversations={{ id: 'mobile-supervision', onOpen: () => setSupervision({}) }} />}
       <span className="m-header-spacer" />
       <button className={`m-connection ${host.status}`} aria-haspopup="dialog" title={translate("Connection to PC")} disabled={!host.paired}
-        onClick={(event) => { event.currentTarget.focus(); setConnectionOpen(true); }}><span className="m-live-dot" /><span role="status">{connectionLabel(host)}</span></button>
+        onClick={(event) => { event.currentTarget.focus(); setConnectionOpen(true); }}><span className="m-live-dot" /><span role="status">{connectionLabel(host)}</span>
+        {host.lastSeen && <span className="m-connection-seen" aria-hidden="true">{new Date(host.lastSeen).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}</span>}</button>
       <div className="m-header-admin" role="group" aria-label={translate("Administration")}>
         {host.paired && <button className="m-quiet m-manage" aria-label={translate("Manage")} title={translate("Manage")} onClick={(event) => { event.currentTarget.focus(); setManagement(true); }}><svg className="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h10m4 0h2M4 12h2m4 0h10M4 17h12m4 0h0" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="18" cy="17" r="2" /></svg><span>{translate("Manage")}</span></button>}
         <button className="m-icon-button" aria-label={translate("Settings")} title={translate("Settings")} onClick={(event) => { event.currentTarget.focus(); setSettings(true); }}><Icon name="settings" /></button>
@@ -252,10 +253,8 @@ function MobileApp(): JSX.Element {
                     : <ul className="m-work-list">{filtered.map((run) => <li key={run.id}><RunRow run={run} selected={selected?.runId === run.id} onSelect={() => select(run.id)} /></li>)}</ul>}
                 </div></div>}
         </main>
-        {inspector && !compact && <aside className="m-inspector" aria-label={translate("Run Details")}><div className="m-inspector-bar"><span>{translate("Inspector")}</span><button className="m-icon-button" aria-label={translate("Close inspector")} onClick={clearSelection}><Icon name="close" /></button></div>{inspector}</aside>}
+        {inspector && !compact && <aside className="m-inspector" aria-label={translate("Run Details")}><div className="m-inspector-bar"><span>{translate("Details")}</span><button className="m-icon-button" aria-label={translate("Close details")} onClick={clearSelection}><Icon name="close" /></button></div>{inspector}</aside>}
       </div>
-      <footer className="m-statusbar"><span className="m-slot-status"><span className="m-live-dot" />{translate("Task slots")}{" "}{host.health ? `${host.health.queue.active}/${host.health.queue.maxActive}` : '—'}</span>
-        <span className="m-last-seen">{host.lastSeen ? translate("Confirmed {{value1}}", { value1: new Date(host.lastSeen).toLocaleTimeString(intlLocale()) }) : translate("Waiting for the PC")}</span><button onClick={host.reconnect}><Icon name="refresh" /><span>{translate("Reconnect")}</span></button></footer>
     </>}
     {inspector && compact && !composer && !settings && !management && <Dialog title={translate("Run Details")} onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
     {composer && host.paired && <WorkComposer draft={draft} setDraft={setDraft} catalog={host.catalog} host={host} onSend={(command) => void send(command)} onClose={() => setComposer(false)} />}

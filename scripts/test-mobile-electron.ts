@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { reconnectTablet } from './helpers/tabletConnection';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
 import { runDeletionFlow } from './helpers/runDeletionFlow';
 import { mainEntry } from './helpers/buildOutput';
@@ -98,7 +99,7 @@ void (async () => {
   await inventory.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   await inventory.getByText('Verwaltungsrechte gespeichert. Das Gerät verbindet sich erneut.', { exact: true }).waitFor();
   check('saving sharing returns keyboard focus to the stable refresh control', await inventory.getByRole('button', { name: 'Geräte aktualisieren' }).evaluate((node) => node === document.activeElement));
-  await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+  await reconnectTablet(phone);
   await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await phone.getByText('Shared tablet agent', { exact: true }).first().waitFor();
   check('real paired browser sees the shared agent and hides the private agent', await phone.getByText('Private PC agent', { exact: true }).count() === 0);
@@ -108,7 +109,7 @@ void (async () => {
   check('refresh preserves saved resource selection', await resources.getByRole('checkbox', { name: 'Shared tablet agent', exact: true }).isChecked());
   await resources.getByRole('radio', { name: 'Alle, einschliesslich künftig hinzugefügter Projekte und Agenten', exact: true }).check();
   await inventory.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
-  await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+  await reconnectTablet(phone);
   await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   await phone.getByText('Private PC agent', { exact: true }).first().waitFor();
   check('positive control explicitly restores the full catalogue', true);
@@ -127,7 +128,7 @@ void (async () => {
   check('closing the desktop keeps the enabled host in the tray', await app.evaluate(({ BrowserWindow }) => {
     const window = BrowserWindow.getAllWindows()[0]; return !!window && !window.isVisible();
   }));
-  await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+  await reconnectTablet(phone);
   await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   check('phone stays connected with the desktop window closed', true);
   await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.show(); });

@@ -128,6 +128,20 @@ export function GraphView(): JSX.Element {
   const clearSelection = useCallback(() => select(null), [select]);
   const viewport = useGraphViewport(clusters, layout.clusterPos, clearSelection);
 
+  /**
+   * Closing the details column unmounts whatever had focus inside it, so focus
+   * goes back to the node it described (cards and team bars carry data-node-id).
+   */
+  const closeDetails = useCallback(() => {
+    const nodeId = useGraphStore.getState().selection?.id;
+    const focusWasInside = Boolean(document.activeElement?.closest('.ginspector'));
+    select(null);
+    if (!nodeId || (!focusWasInside && document.activeElement !== document.body)) return;
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`.graph [data-node-id="${CSS.escape(nodeId)}"]`)?.focus();
+    });
+  }, [select]);
+
   const onGraphKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
     if (reportOpen) {
@@ -136,7 +150,7 @@ export function GraphView(): JSX.Element {
     }
     if (selection) {
       event.preventDefault();
-      select(null);
+      closeDetails();
     }
   };
 
@@ -180,7 +194,7 @@ export function GraphView(): JSX.Element {
       <GraphInspector
         clusters={clusters}
         selection={selection}
-        onClose={() => select(null)}
+        onClose={closeDetails}
         onCompose={setComposer}
         setTeamIdle={setTeamIdle}
         flash={flash}

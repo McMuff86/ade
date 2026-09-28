@@ -15,7 +15,7 @@
 .st-device-heading, .st-device-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .st-device-heading h3 { flex: 1; }
 .st-device-list { list-style: none; padding: 0; margin: 0; }
-.st-device { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-top: 8px; overflow-wrap: anywhere; }
+.st-device { padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .st-device-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; min-width: 0; }
 .st-device-form input {
   width: 100%; min-width: 0; box-sizing: border-box;
@@ -54,14 +54,12 @@
 .st-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
 .st-harness {
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--raised) 34%, var(--panel));
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
 }
 
 .st-harness-head {
@@ -329,11 +327,14 @@
   overflow-wrap: anywhere;
 }
 
+/* A row with its status as the left stripe. */
 .st-bundle-item {
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-left-width: 3px;
-  border-radius: 6px;
+  padding: 8px 0 8px 10px;
+  border-left: 3px solid var(--line);
+}
+
+.st-bundle-item + .st-bundle-item {
+  margin-top: 6px;
 }
 
 .st-bundle-item.is-ready { border-left-color: var(--add); }

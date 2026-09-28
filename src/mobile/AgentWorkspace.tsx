@@ -6,7 +6,7 @@ import type { MobileWorkspaceOperation, MobileWorkspaceResult } from '../shared/
 import type { MobileHost } from './useMobileHost';
 import { MobileClientError } from './client';
 import { Dialog } from './ui';
-import { RemoteTerminalPane } from './RemoteTerminalPane';
+import { RemoteTerminalPane, type TerminalFocusMode } from './RemoteTerminalPane';
 import { FileEditor, type FileDrafts } from './FileEditor';
 import { AgentProfile, type ProfileDrafts } from './AgentProfile';
 import { DashboardLink } from './DashboardLink';
@@ -40,6 +40,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   const [repositoryId, selectRepository] = useState(() => host.catalog?.repositories.some((repo) => repo.id === initialRepositoryId)
     ? initialRepositoryId : '');
   const [tab, selectTab] = useState<'files' | 'git' | 'terminal' | 'profile'>(initialTab ?? 'files');
+  const [focusMode, setFocusMode] = useState<TerminalFocusMode>('off');
   const keyboardOpen = useContext(TabletKeyboardContext);
   const [keyboardControls, setKeyboardControls] = useState(false);
   const keyboardToggle = useRef<HTMLButtonElement>(null);
@@ -105,6 +106,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
   const folder = (path: string) => { setDirectory(path); setSearch(''); void load({ operation: 'tree', path }); };
   const disabled = busy || assigned.loading || !!assigned.error || host.status !== 'online';
   return <Dialog title={projectEntry ? translate("Project · {{value1}}", { value1: host.catalog?.repositories.find((repo) => repo.id === repositoryId)?.name ?? 'Workspace' }) : `Workspace · ${agent?.name ?? 'Agent'}`} onClose={onClose} fallbackId="mobile-title" className={`m-agent-workspace ${tab === 'terminal' ? 'm-terminal-workspace' : ''}`}
+    focusMode={tab === 'terminal' && focusMode !== 'off' ? focusMode : undefined}
     headerActions={tab === 'terminal' && <button ref={keyboardToggle} hidden={!keyboardOpen} className="m-keyboard-controls-toggle"
       aria-label={translate("Terminal controls")} aria-expanded={keyboardControls} aria-controls="workspace-terminal-controls"
       onPointerDown={(event) => event.preventDefault()} onClick={() => setKeyboardControls((value) => !value)}>{keyboardControls ? translate("Collapse controls") : translate("Controls")}</button>}>
@@ -129,7 +131,7 @@ export function AgentWorkspace({ host, agentId, initialRepositoryId, initialTab,
     {!repositoryId && <p>{translate("Files and the terminal use the dedicated agent folder. Select a project for managed tasks and Git.")}</p>}
     {tab !== 'terminal' && overview?.notice && <p>{localizeAppMessage(overview.notice)}</p>}
     {tab !== 'terminal' && overview && !overview.ready && (repositoryId ? <button onClick={onManage}>{translate("Manage workspaces")}</button> : <button onClick={() => setTab('terminal')}>{translate("Open terminal")}</button>)}
-    <div className="m-terminal-slot" hidden={tab !== 'terminal'}>{!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${host.identityVersion}`} host={host} {...assigned.selection} active={tab === 'terminal'}
+    <div className="m-terminal-slot" hidden={tab !== 'terminal'}>{!assigned.loading && !assigned.error && <RemoteTerminalPane key={`${agentId}:${repositoryId}:${assigned.selection.projectWorkspaceId ?? ''}:${host.identityVersion}`} host={host} {...assigned.selection} active={tab === 'terminal'} onFocusModeChange={setFocusMode}
       expectedBranch={assigned.view?.branch} defaultProfileId={assigned.selection.projectWorkspaceId ? agentId : undefined}
       projectEntry={projectEntry}
       compactControls={keyboardOpen && !keyboardControls}

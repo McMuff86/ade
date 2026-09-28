@@ -18,6 +18,24 @@ void (async () => {
   await work.click(); await page.getByRole('heading', { name: 'Noch keine Runs' }).waitFor();
   check('Work is a desktop tab with useful empty state', await work.getAttribute('aria-selected') === 'true');
   check('desktop has the same ordered navigation as mobile', (await page.getByRole('tablist', { name: 'Bereiche' }).getByRole('tab').allTextContents()).map(text => text.trim()).join(',') === 'Übersicht,Aufgaben,Notizen,Projekte,Terminals,Aufträge,Graph');
+  // No named helper functions inside evaluate: tsx would inject a __name helper the page lacks.
+  const header = await page.evaluate(() => {
+    const descriptions = Object.fromEntries([...document.querySelectorAll<HTMLElement>('.titlebar [role="tab"]')].map((tab) => [
+      tab.textContent?.trim() ?? '',
+      (tab.getAttribute('aria-describedby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent ?? '').join(' ').trim(),
+    ]));
+    const groups = [...document.querySelectorAll<HTMLElement>('.titlebar .appnav-group')];
+    return {
+      visibleCaptions: [...document.querySelectorAll<HTMLElement>('.titlebar *')].filter((node) => node.children.length === 0
+        && node.getClientRects().length > 0 && ['Organisation', 'Entwicklung', 'Verwaltung'].includes(node.textContent?.trim() ?? '')).length,
+      tasks: descriptions['Aufgaben'], graph: descriptions['Graph'], overview: descriptions['Übersicht'],
+      hairlines: groups.slice(1).every((group) => getComputedStyle(group).borderLeftStyle === 'solid' && getComputedStyle(group).borderLeftWidth === '1px'),
+      tooltip: groups.find((group) => group.dataset.group === 'development')?.title,
+    };
+  });
+  check('room groups carry no visible caption but keep their name as description and tooltip',
+    header.visibleCaptions === 0 && header.tasks === 'Organisation' && header.graph === 'Entwicklung' && header.overview === ''
+      && header.hairlines && header.tooltip === 'Entwicklung');
   await work.focus(); await page.keyboard.press('ArrowRight');
   check('keyboard navigation moves Work to Graph', await page.getByRole('tab', { name: 'Graph', exact: true }).getAttribute('aria-selected') === 'true');
   await page.keyboard.press('ArrowLeft'); await page.reload(); await work.waitFor();

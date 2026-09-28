@@ -1635,7 +1635,12 @@ src/
     theme/                 # tokens.css, themes.ts (incl. xterm ITheme), provider
     rail/                  # categories + agents, avatars, presence
     tabs/                  # session tab strip
-    terminal/              # TerminalPane (xterm runtime, coalescer, attach)
+    terminal/              # TerminalPane (xterm runtime, coalescer, attach); micGesture.tsx =
+                           #   the one handover gesture (tap dictates, 550-ms hold or
+                           #   Shift+Enter calls the Computer, ring + data-state) shared by
+                           #   the desktop prompt dock and the tablet voice strip
+    settings/              # desktop settings modal: SettingsTopics = topic nav + one scroll
+                           #   area; the tablet keeps SettingsTabs (Allgemein/Stimme)
     diagnostics/           # CLI/auth readiness modal
     keyboard/              # view/session shortcut routing
     overview/              # read-only home over catalog, bindings and runs
@@ -1655,6 +1660,14 @@ docs/                      # SPEC, this file, reports/
 mock/  mockup/             # references (kept)
 reference/                 # cloned Superset/Hermes — git-ignored
 ```
+
+Tablet chrome follows one focus mode: the workspace terminal
+(`RemoteTerminalPane`) reports `off | terminal | keyboard`, and the workspace
+dialog or the Terminals page carries it as `data-focus-mode`. Chrome rules key
+on that attribute, never on `:has()` probes of pane classes; the way back
+(„Workspace einblenden“) stays visible in every mode inside a workspace dialog.
+The connection pill is the only connection surface: its dialog holds the last
+confirmation, the task slots and „Erneut verbinden“ in every state.
 
 Remaining planned additions for Goals 7-10 (names may be refined without
 changing the boundaries):

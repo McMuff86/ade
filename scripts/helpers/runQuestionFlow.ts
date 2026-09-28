@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { ElectronApplication, Page } from 'playwright';
+import { reconnectTablet } from './tabletConnection';
 
 /** Real Electron/IPC/HTTP/UI; the Codex stdio peer is deterministic and isolated. */
 export async function runQuestionFlow(app: ElectronApplication, desktop: Page, phone: Page, root: string, evidence: string,
@@ -50,7 +51,7 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     if (!completed.tasks.some((task) => task.output?.text.includes('Blau'))) console.error('Question fixture result:', JSON.stringify(completed.tasks.map((task) => ({ status: task.status, output: task.output }))));
     await desktop.keyboard.press('Escape'); await report.waitFor({ state: 'hidden' });
     check('closed answer report restores focus when question opener disappears', await desktop.getByRole('button', { name: 'Bericht', exact: true }).evaluate((node) => node === document.activeElement));
-    await phone.getByRole('button', { name: 'Erneut verbinden', exact: true }).click();
+    await reconnectTablet(phone);
     await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
     await phone.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
     const composer = phone.getByRole('dialog', { name: 'Agent beauftragen', exact: true });

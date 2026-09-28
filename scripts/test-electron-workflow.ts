@@ -1299,9 +1299,31 @@ async function run(): Promise<void> {
         && await page.locator('.ginspector .gresult-tests li[data-s="failed"]').count() === 1
         && (await page.locator('.ginspector .gresult-tests li[data-s="failed"]').textContent())?.includes('expected 1 file, saw 2') === true,
       await page.locator('.ginspector').textContent());
+    check('graph nodes speak one status language: no traffic lights, one status chip per card',
+      await page.locator('.graph .glights').count() === 0
+        && await page.locator('.graph .gcard').count() > 0
+        && await page.locator('.graph .gcard').count() === await page.locator('.graph .gcard .gchip').count(),
+      { lights: await page.locator('.graph .glights').count(), cards: await page.locator('.graph .gcard').count() });
+    const details = page.getByRole('complementary', { name: 'Details' });
+    const detailsBox = await details.boundingBox();
+    const graphBox = await page.locator('.graph').boundingBox();
+    check('the details column is docked flush right and reaches the bottom of the graph',
+      Boolean(detailsBox && graphBox
+        && Math.abs(detailsBox.x + detailsBox.width - (graphBox.x + graphBox.width)) <= 1
+        && Math.abs(detailsBox.y + detailsBox.height - (graphBox.y + graphBox.height)) <= 1
+        && Math.abs(detailsBox.width - 328) <= 1),
+      { detailsBox, graphBox });
     await page.keyboard.press('Escape');
     await eventually('Escape clears the inspector selection', async () =>
       await page!.locator('.graph.graph-inspecting').count() === 0,
+    );
+    await failedCard.focus();
+    await page.keyboard.press('Enter');
+    await details.waitFor({ state: 'visible' });
+    await details.getByRole('button', { name: 'Details schliessen' }).click();
+    await eventually('the close button hides the details column and returns focus to the card', async () =>
+      await page!.locator('.graph.graph-inspecting').count() === 0
+        && await failedCard.evaluate((node) => node === document.activeElement),
     );
     await failedAlert.getByRole('button', { name: 'Bericht öffnen' }).click();
     const report = page.locator('.greport[role="dialog"]');

@@ -74,14 +74,6 @@
 .gcard-bar.nograb { cursor: default; }
 .gcard-bar:active { cursor: grabbing; }
 
-.glights { display: flex; gap: 5px; }
-.glights i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: block; }
-.glights i.r { background: color-mix(in srgb, var(--del) 45%, transparent); }
-.glights i.y { background: color-mix(in srgb, var(--accent) 45%, transparent); }
-.glights i.g { background: color-mix(in srgb, var(--add) 40%, transparent); }
-.gcard[data-status='running'] .glights i.g,
-.gcard[data-status='working'] .glights i.g { background: var(--add); box-shadow: 0 0 7px var(--add); }
-
 .gcard-title { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .gcard-body { padding: 15px 12px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
@@ -98,7 +90,9 @@
   color: var(--muted);
 }
 
-.gchip { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-transform: none; }
+/* One status language per node: this chip (dot + word). Motion only while working. */
+.gchip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-transform: none; }
+.gchip::before { content: ''; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; }
 .gchip[data-s='running'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 40%, var(--line)); }
 .gchip[data-s='working'] { color: var(--accent); border-color: var(--accent-dim); }
 .gchip[data-s='done'] { color: var(--add); border-color: color-mix(in srgb, var(--add) 40%, var(--line)); }
@@ -117,7 +111,6 @@
 .ganchor { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); left: 50%; translate: -50% 0; }
 .ganchor.top { top: -4px; }
 .ganchor.bot { bottom: -4px; }
-.gcard[data-status='running'] .ganchor, .gcard[data-status='working'] .ganchor { background: var(--cable); box-shadow: 0 0 6px var(--cable); }
 
 /* orchestrator */
 .gcard.orch { width: 224px; }

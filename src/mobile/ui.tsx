@@ -33,9 +33,10 @@ export function Status({ status }: { status: string }): JSX.Element {
 export function runKindLabel(run: RunSummary): string {
   return run.mode === 'managed' ? translate("Managed Run") : run.status === 'draft' ? translate("Run draft") : translate("Tasks");
 }
+/** Title bar of a graph node; status lives in the node's status chip, not in decorative lights. */
 export function Chrome({ children }: { children: ReactNode }): JSX.Element {
   useLocale();
-  return <div className="m-window-bar"><span className="m-traffic" aria-hidden="true"><i /><i /><i /></span>{children}</div>;
+  return <div className="m-window-bar">{children}</div>;
 }
 export function Empty({ children, title }: { children?: ReactNode; title: string }): JSX.Element {
   useLocale();
@@ -48,8 +49,10 @@ export function reportedTokens(runs: RunSummary[]): string | null {
 }
 
 export const DialogHeaderSlot = createContext<HTMLElement | null>(null);
-export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions }: {
+export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overview', className = '', restoreFocusTo, headerActions, focusMode }: {
   title: string; children: ReactNode; onClose: () => void; fallbackId?: string; className?: string; restoreFocusTo?: HTMLElement | null | (() => HTMLElement | null); headerActions?: ReactNode;
+  /** Terminal focus mode of a workspace dialog (RemoteTerminalPane); its chrome rules key on data-focus-mode. */
+  focusMode?: 'terminal' | 'keyboard';
 }): JSX.Element {
   useLocale();
   const ref = useRef<HTMLDialogElement>(null);
@@ -71,7 +74,7 @@ export function Dialog({ title, children, onClose, fallbackId = 'view-tab-overvi
       target?.focus();
     };
   }, [fallbackId]);
-  return <dialog ref={ref} className={`m-dialog ${className}`} aria-label={title} onCancel={(event) => { event.preventDefault(); event.stopPropagation(); close.current(); }}
+  return <dialog ref={ref} className={`m-dialog ${className}`} data-focus-mode={focusMode} aria-label={title} onCancel={(event) => { event.preventDefault(); event.stopPropagation(); close.current(); }}
     onKeyDown={(event) => {
       if ((event.target as Element).closest('dialog') !== event.currentTarget) return;
       if (event.key === 'Escape') { event.stopPropagation(); return; }

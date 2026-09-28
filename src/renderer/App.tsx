@@ -101,7 +101,6 @@ export function App() {
         </div>
 
         <div className="titlebar-admin" role="group" aria-label={translate("Administration")}>
-          <span className="titlebar-caption" aria-hidden="true">{translate("Administration")}</span>
           <button id="ade-setup" className="btn btn-quiet" onClick={() => setSetupOpen(true)}>{translate("Setup")}</button>
           <button
             className="btn btn-quiet"
@@ -195,9 +194,9 @@ function TerminalsLayout(props: {
           <button
             className={props.inspectorOpen ? 'btn btn-toggled' : 'btn'}
             onClick={props.onToggleInspector}
-            title={translate("Repository Inspector on or off")}
+            title={translate("Show or hide details")}
           >
-            {translate("Inspector")}</button>
+            {translate("Details")}</button>
         </div>
       </div>
       <div className="workarea">

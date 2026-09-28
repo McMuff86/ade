@@ -8,6 +8,7 @@ import { RemoteAuthorizer } from '../src/main/remote/authorization';
 import { loadMobileAssets } from '../src/main/remote/mobileAssets';
 import { createMobileFixture } from './helpers/mobileFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { reconnectTablet } from './helpers/tabletConnection';
 import { mobileAssetsDir } from './helpers/buildOutput';
 
 let passed = 0; let failed = 0;
@@ -46,7 +47,7 @@ void (async () => {
   const closeInspector = async () => {
     const dialog = page!.getByRole('dialog', { name: 'Run-Details', exact: true });
     if (await dialog.count()) await dialog.getByRole('button', { name: 'Run-Details schliessen', exact: true }).click();
-    else if (await page!.getByRole('button', { name: 'Inspector schliessen' }).count()) await page!.getByRole('button', { name: 'Inspector schliessen' }).click();
+    else if (await page!.getByRole('button', { name: 'Details schliessen', exact: true }).count()) await page!.getByRole('button', { name: 'Details schliessen', exact: true }).click();
   };
   await page.goto(browserOrigin);
   if (!useWebkit) {
@@ -177,7 +178,7 @@ void (async () => {
   await context.setOffline(false); await connected();
   check('network return restores authoritative runs', await page.getByRole('button', { name: 'Run Phone task', exact: true }).isVisible());
   sessions!.dispose(); await server!.stop(); await start();
-  await page.getByRole('button', { name: 'Erneut verbinden', exact: true }).click(); await connected();
+  await reconnectTablet(page); await connected();
   check('host restart renews session using persisted device proof', fixture.devices.inventory().devices.length === 1);
   await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('task draft survives offline reload and host reconnection', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Preserve this offline draft.');

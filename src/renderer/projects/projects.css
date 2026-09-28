@@ -10,9 +10,12 @@
 .project-directory input, .project-directory button, .project-desktop button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-height: 44px; }
 .project-directory button:disabled, .project-desktop button:disabled { opacity: .6; cursor: default; }
 .project-directory button:focus-visible, .project-directory input:focus-visible, .project-desktop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.project-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; padding: 0; list-style: none; }
-.project-directory-grid li { min-width: 0; border: 1px solid var(--line); border-radius: 6px; }
-.project-directory-grid li > button { width: 100%; display: flex; flex-direction: column; align-items: start; gap: 8px; text-align: left; border: 0; overflow-wrap: anywhere; }
+/* Rows with hairlines: open the project on the left, its one membership
+   action on the right; usage and notices run underneath both. */
+.project-directory-grid { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.project-directory-grid li { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-bottom: 1px solid var(--line); }
+.project-directory-grid li > :not(button) { grid-column: 1 / -1; }
+.project-directory-grid li > button { width: 100%; display: flex; flex-direction: column; align-items: start; gap: 2px; text-align: left; border: 0; border-radius: 0; background: transparent; overflow-wrap: anywhere; }
 .project-directory-grid li > p { margin: 10px 12px; font-size: 12px; }
 .project-usage { margin: 0 12px 10px; font-size: 12px; }
 .project-usage-line { margin: 4px 0 6px; color: var(--muted); overflow-wrap: anywhere; }
@@ -20,14 +23,12 @@
 .project-usage-range { margin: 0 0 10px; }
 .project-usage-breakdown { margin: 8px 0 0; padding: 10px 12px; }
 .project-usage-providers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-/* An opened breakdown needs room: the card takes the whole grid row while it is open. */
-.project-directory-grid li:has(.project-usage-breakdown) { grid-column: 1 / -1; }
 .project-usage-breakdown .usage-overview-tokens { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .project-usage-providers li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .project-usage-providers li span { color: var(--muted); }
 .project-usage-sessions-title { margin: 6px 0 0; font-size: 11px; font-weight: 500; color: var(--muted); }
-.project-usage-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.project-usage-sessions li { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.project-usage-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.project-usage-sessions li { display: grid; gap: 6px; padding: 8px 0; border-top: 1px solid var(--line); }
 .project-usage-session-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 12px; }
 .project-usage-session-head span { color: var(--muted); }
 .project-usage-session-head .project-usage-session-cost { margin-left: auto; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -90,12 +91,12 @@
 .project-workspace-path summary { cursor: pointer; min-height: 44px; align-content: center; }
 .project-workspace-path summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .project-workspace-path code { display: block; overflow-wrap: anywhere; user-select: text; }
-.project-directory-grid li > button + button { border-top: 1px solid var(--line); font-size: 12px; color: var(--accent); border-radius: 0 0 6px 6px; }
+.project-directory-grid li > button + button { width: auto; font-size: 12px; color: var(--accent); }
 
 /* ------------------------------------------------------------ desktop room
    Same column, type scale and control height as Übersicht and Aufträge. The
    directory is a toolbar line (search · filter · refresh), one line of help,
-   then cards — cards are kept here because each one is a choice. */
+   then rows with hairlines, like every other collection. */
 .shell > .project-desktop { padding: 20px max(28px, calc((100% - 1120px) / 2)) 36px; }
 .project-desktop h1 { font-size: var(--fs-xl); font-weight: 600; margin: 0; line-height: 1.2; }
 .project-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -130,16 +131,15 @@
 .project-desktop .project-filter-segment button { min-height: 22px; padding: 2px 10px; border-color: transparent; background: transparent; font-size: var(--fs-xs); border-radius: 5px; }
 .project-desktop .project-filter-segment button:hover:not(:disabled) { border-color: transparent; }
 .project-desktop .project-filter-segment button[aria-pressed=true] { color: var(--text); background: var(--raised); border-color: transparent; }
-.project-desktop .project-directory-grid { gap: 10px; }
-.project-desktop .project-directory-grid li { border-radius: var(--radius-m); background: transparent; transition: border-color .12s; }
-.project-desktop .project-directory-grid li:hover { border-color: var(--faint); }
-.project-desktop .project-directory-grid li > button:first-child { padding: 12px 12px 10px; gap: 3px; background: transparent; border-radius: var(--radius-m) var(--radius-m) 0 0; }
+.project-desktop .project-directory-grid li:hover { background: var(--raised); }
+.project-desktop .project-directory-grid li > button:first-child { padding: 8px 6px; gap: 2px; background: transparent; border-radius: 0; }
 .project-desktop .project-directory-grid li > button:first-child:hover:not(:disabled) { background: var(--raised); }
 .project-desktop .project-directory-grid li > button:first-child strong { color: var(--text); font-size: var(--fs-m); }
 .project-desktop .project-directory-grid span { font-size: var(--fs-xs); }
-.project-desktop .project-directory-grid li > button + button { width: 100%; justify-content: flex-start; padding: 6px 12px; font-size: var(--fs-xs); color: var(--muted); background: transparent; border-radius: 0 0 var(--radius-m) var(--radius-m); }
-.project-desktop .project-directory-grid li > button + button:hover:not(:disabled) { color: var(--accent); background: var(--raised); border-color: transparent; border-top-color: var(--line); }
-.project-desktop .project-directory-grid li > p { margin: 6px 12px 10px; font-size: var(--fs-xs); color: var(--faint); }
+.project-desktop .project-directory-grid li > button + button { width: auto; margin-right: 6px; padding: 4px 9px; font-size: var(--fs-xs); color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--radius-s); }
+.project-desktop .project-directory-grid li > button + button:hover:not(:disabled) { color: var(--accent); background: var(--panel); border-color: transparent; }
+.project-desktop .project-directory-grid li > p { margin: 0 6px 8px; font-size: var(--fs-xs); color: var(--faint); }
+.project-desktop .project-usage { margin: 0 6px 8px; }
 /* Inside an open workspace the section switch is a segmented control too. */
 .project-desktop .project-workspace-actions[aria-label] > button[aria-pressed] { border-color: var(--line); }
 .project-desktop .project-workspace-actions button[aria-pressed=true] { border-color: var(--accent-dim); color: var(--accent); background: var(--accent-soft); }

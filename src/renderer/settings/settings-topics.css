@@ -1,0 +1,82 @@
+/* Desktop settings: a wide modal with the topic navigation on the left and one
+   scroll area on the right (SettingsTopics.tsx). Replaces the 420-px modal
+   with its 58-vh scroll well. Colours via tokens only. */
+
+.modal.settings-modal {
+  width: min(880px, calc(100vw - 32px));
+  height: min(80vh, 820px);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.st-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.st-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 12px;
+  border-right: 1px solid var(--line);
+}
+
+.st-nav-item {
+  min-height: var(--control-h);
+  padding: 4px 10px;
+  border-radius: var(--radius-s);
+  color: var(--muted);
+  font-size: var(--fs-s);
+  text-align: left;
+}
+
+.st-nav-item:hover { color: var(--text); background: var(--panel); }
+.st-nav-item[aria-current='true'] { color: var(--text); background: var(--panel); box-shadow: inset 2px 0 0 var(--accent); }
+.st-nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Positioned so topic offsets are measured against the scroll area. */
+.st-scroll {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.st-topic + .st-topic {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.st-topic-title {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: var(--fs-l);
+  font-weight: 600;
+  scroll-margin-top: 4px;
+}
+
+.st-topic-title:focus { outline: none; }
+.st-topic-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* The topic body flows in the one scroll area; no nested scroll well. */
+.settings-modal .st-body {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+/* Narrow windows: the navigation becomes one scrollable row above the topics. */
+@media (max-width: 760px) {
+  .st-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+  .st-nav { flex-direction: row; overflow-x: auto; padding: 0 0 8px; border-right: 0; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .st-nav-item { flex: none; white-space: nowrap; }
+  .st-nav-item[aria-current='true'] { box-shadow: inset 0 -2px 0 var(--accent); }
+}

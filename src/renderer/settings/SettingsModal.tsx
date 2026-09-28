@@ -45,7 +45,7 @@ import { MobileAccessSection } from './MobileAccessSection';
 import { UsageSettingsSection } from './UsageSettingsSection';
 import { ProjectDefaultsSection } from './ProjectDefaultsSection';
 import { TargetSpeechSettings } from './TargetSpeechSettings';
-import { SettingsTabs } from './SettingsTabs';
+import { SettingsTopics } from './SettingsTopics';
 
 const SCOPE_RUNTIMES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
@@ -501,10 +501,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
       title={translate("Settings")}
       subtitle={translate("Appearance, connected devices, workspaces and harness management.")}
       onClose={onClose}
+      className="settings-modal"
     >
-      <SettingsTabs voice={<div className="st-body"><TargetSpeechSettings target={{ kind: 'default' }} /></div>}><div className="st-body" data-testid="settings-harnesses">
+      <SettingsTopics
+        testId="settings-harnesses"
+        lead={error ? <div className="st-error" role="alert">{localizeAppMessage(error)}</div> : null}
+        topics={[
+      { id: 'general', label: translate("General"), content: <div className="st-body">
         <LanguageSetting desktop />
-        {error ? <div className="st-error" role="alert">{localizeAppMessage(error)}</div> : null}
         <div className="st-theme-row" role="group" aria-label={translate("Appearance")}>
           <span className="st-theme-label">{translate("Appearance")}</span>
           <div className="st-theme-choice">
@@ -524,8 +528,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               {translate("Light [48656c6c]")}</button>
           </div>
         </div>
-        <div className="st-theme-row" role="group" aria-label={translate("Inspector position")} data-testid="settings-inspector-side">
-          <span className="st-theme-label">{translate("Inspector")}</span>
+        <div className="st-theme-row" role="group" aria-label={translate("Details position")} data-testid="settings-inspector-side">
+          <span className="st-theme-label">{translate("Details")}</span>
           <div className="st-theme-choice">
             <button
               type="button"
@@ -540,13 +544,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
               aria-pressed={inspectorSide === 'left'}
               onClick={() => setInspectorSide('left')}
             >
-              {translate("Links")}</button>
+              {translate("Left")}</button>
           </div>
         </div>
         <UsageSettingsSection />
+      </div> },
+      { id: 'devices', label: translate("Tablet and devices"), content: <div className="st-body">
         <MobileAccessSection />
-        <ProjectDefaultsSection />
         <RemoteDevicesSection />
+      </div> },
+      { id: 'projects', label: translate("Projects"), content: <div className="st-body">
+        <ProjectDefaultsSection />
         <section className="st-bundle-section" data-testid="workspace-bundle-settings">
           <div className="st-section-head">
             <strong>{translate("Workspace bundles")}</strong>
@@ -647,6 +655,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
           ) : null}
           {bundleMessage ? <div className="st-bundle-message">{bundleMessage}</div> : null}
         </section>
+      </div> },
+      { id: 'harnesses', label: translate("Harnesses and keys"), content: <div className="st-body">
         {!storageAvailable ? (
           <div className="st-warning">
             {translate("Secure key storage is not available on this system. Keys can therefore not be stored; the login via the respective CLI still works.")}</div>
@@ -842,7 +852,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
 
         <div className="st-footnote">
           {translate("Subscription logins (e.g. Claude Pro/Max, ChatGPT for Codex) are managed by the respective CLI itself and are also automatically valid for ADE sessions. Stored keys are encrypted with the secure storage of the operating system, are never displayed and are only transferred to the selected sessions as an environment variable.")}</div>
-      </div></SettingsTabs>
+      </div> },
+      { id: 'voice', label: translate("Voice"), content: <div className="st-body"><TargetSpeechSettings target={{ kind: 'default' }} /></div> },
+        ]}
+      />
       <div className="modal-actions">
         <button type="button" className="btn" onClick={() => void runDiagnose()} disabled={diagnosing}>
           {diagnosing ? translate("Checking… [5072c3bc]") : translate("Check CLI status again")}

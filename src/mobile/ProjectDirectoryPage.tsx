@@ -12,7 +12,7 @@ import type { MobileHost } from './useMobileHost';
 import { Dialog } from './ui';
 import { MobileClientError } from './client';
 import { ProjectBranches, type PendingBranch } from '../renderer/projects/ProjectBranches';
-import { RemoteTerminalPane } from './RemoteTerminalPane';
+import { RemoteTerminalPane, type TerminalFocusMode } from './RemoteTerminalPane';
 import { MobileSpeechSettings } from './SpeechSettings';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { ProjectGitPanel, type PendingProjectFile, type PendingProjectGit } from '../renderer/projects/ProjectGitPanel';
@@ -52,6 +52,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [pendingFile, savePendingFile] = useDeviceDraft<PendingProjectFile | null>(host.deviceId, `project-file:${workspaceId ?? 'none'}`, null);
   const [pendingPublish, savePendingPublish] = useDeviceDraft<PendingProjectPublish | null>(host.deviceId, `project-publish:${workspaceId ?? 'none'}`, null);
   const [section, setSection] = useState<'terminal' | 'git' | 'results' | 'settings'>('terminal');
+  const [focusMode, setFocusMode] = useState<TerminalFocusMode>('off');
   useEffect(() => { if (pendingGit || pendingFile || pendingPublish) setSection('git'); }, [pendingGit, pendingFile, pendingPublish]);
   const filePort = useRunFilesPort(host);
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -156,6 +157,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
         ?? { id: opening.entryId, name: opening.name, kind: 'repository', backend: 'native', source: 'root', notice: null });
     }}>{translate("Check workspace opening")}</button></div>}
     {show && <Dialog title={translate("Project · {{value1}}", { value1: name })} onClose={close} fallbackId="view-tab-projects" restoreFocusTo={opener.current} className={`m-independent-project ${workspace ? `m-agent-workspace ${section === 'terminal' ? 'm-terminal-workspace' : 'm-project-git-workspace'}` : ''}`}
+      focusMode={workspace && section === 'terminal' && focusMode !== 'off' ? focusMode : undefined}
       headerActions={workspace && canRead && <div className="m-project-header-actions">
         <button ref={infoButton} className="m-workspace-info-button" onClick={(event) => { event.currentTarget.focus(); setWorkspaceInfo(true); }}>{translate("Workspace Info")}</button>
         <button className="m-project-context-toggle" aria-expanded={!contextHidden} aria-controls={contextId} disabled={!!pendingBranch}
@@ -179,7 +181,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
       </div>
       </div>
       {workspace && canRead && (section === 'terminal' ? <div className="m-terminal-slot"><RemoteTerminalPane key={`${workspace.id}:${workspace.branch}`} host={host} projectWorkspaceId={workspace.id}
-        expectedBranch={workspace.branch} active projectEntry initialTerminalId={terminalId} compactControls={keyboardOpen} /></div>
+        expectedBranch={workspace.branch} active projectEntry initialTerminalId={terminalId} compactControls={keyboardOpen} onFocusModeChange={setFocusMode} /></div>
         : section === 'results' ? <div className="m-project-git-body"><ProjectRunResults key={workspace.id} workspaceId={workspace.id} query={branchQuery} port={filePort} online={online} identity={host.identityVersion} errorText={workspaceError} /></div>
         : section === 'settings' ? <div className="m-project-git-body"><MobileSpeechSettings host={host} target={{ kind: 'project', repositoryId: workspace.repositoryId }} title={translate("Project Voice")} /></div>
         : <div className="m-project-git-body"><ProjectGitPanel key={`${workspace.id}:${workspace.branch}`} workspace={workspace} online={online} canChange={canOpen && !!rights?.capabilities?.includes('projectGit:write')} canEdit={!!rights?.capabilities?.includes('workspace:write')}

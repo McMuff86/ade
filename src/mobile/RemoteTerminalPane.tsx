@@ -30,7 +30,15 @@ import { launchTiles, SessionLauncher } from './SessionLauncher';
 
 interface TerminalDraft { text: string; review: boolean }
 
-export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspaceId, terminalHome, expectedBranch, active, initialTerminalId, projectEntry, compactControls, profileIntent, onProfileIntentConsumed, fallbackFocusId = 'workspace-refresh', onSelectionChanged, defaultProfileId }: MobileTerminalSelection & {
+/**
+ * The one focus mode of a workspace terminal: `terminal` after "Terminal
+ * vergrössern" or a launch, `keyboard` while the soft keyboard compacts the
+ * controls (it wins over `terminal`), else `off`. The workspace around the
+ * pane carries it as data-focus-mode and hides its chrome from that alone.
+ */
+export type TerminalFocusMode = 'off' | 'terminal' | 'keyboard';
+
+export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspaceId, terminalHome, expectedBranch, active, initialTerminalId, projectEntry, compactControls, profileIntent, onProfileIntentConsumed, fallbackFocusId = 'workspace-refresh', onSelectionChanged, defaultProfileId, onFocusModeChange }: MobileTerminalSelection & {
   host: MobileHost; active: boolean; expectedBranch?: string;
   fallbackFocusId?: string;
   defaultProfileId?: string;
@@ -39,6 +47,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   projectEntry?: boolean;
   compactControls?: boolean;
   profileIntent?: string; onProfileIntentConsumed?: () => void;
+  onFocusModeChange?: (mode: TerminalFocusMode) => void;
 }): JSX.Element {
   useLocale();
   const keyboardOpen = useContext(TabletKeyboardContext);
@@ -403,6 +412,16 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
   const ownerText = host.status !== 'online' ? translate("Offline") : !state.selected ? translate("No session") : state.selected.status === 'exited' ? translate("Session ended")
     : owning ? translate("Input: You (tablet)") : state.selected.owner === 'other' ? translate("Input: another device") : translate("Input: desktop");
   const compactOwnership = compactControls && state.selected?.status === 'running' && !owning;
+  const focusMode: TerminalFocusMode = compactControls && state.selected ? 'keyboard' : focused ? 'terminal' : 'off';
+  const reportFocusMode = useRef(onFocusModeChange); reportFocusMode.current = onFocusModeChange;
+  // Layout effect: the workspace hides its chrome in the same frame as the pane changes.
+  useLayoutEffect(() => { reportFocusMode.current?.(focusMode); }, [focusMode]);
+  useLayoutEffect(() => () => reportFocusMode.current?.('off'), []);
+  /** The way back stays visible in every focus mode; with the keyboard up it also closes the keyboard. */
+  const showWorkspace = (): void => {
+    setFocused(false);
+    if (document.activeElement instanceof HTMLElement && screenRoot.current?.contains(document.activeElement)) document.activeElement.blur();
+  };
   const recover = (button: HTMLButtonElement) => {
     button.focus(); focusTerminal.current = button;
     if (host.status !== 'online') host.reconnect(); else refreshNow.current();
@@ -417,9 +436,9 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     <SessionSwitchButton />
     <SupervisionButton repositoryId={state?.selected?.projectRepositoryId ?? repositoryId ?? undefined} />
     {state.selected && <button aria-expanded={controlsVisible} aria-controls={controlsId} onClick={() => setControlsExpanded(!controlsExpanded)}>{translate("Session & Workspace")}</button>}
-    {focused && <button onClick={() => setFocused(false)}>{translate("Show workspace")}</button>}
+    {(focused || (focusMode === 'keyboard' && headerSlot)) && <button className="m-terminal-return" onClick={showWorkspace}>{translate("Show workspace")}</button>}
   </div>;
-  return <section ref={screenRoot} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label={translate("Interactive terminal")}>
+  return <section ref={screenRoot} data-focus-mode={focusMode} className={`m-remote-terminal ${focused ? 'm-terminal-focused' : ''} ${!controlsVisible ? 'm-controls-collapsed' : ''} ${compactControls && state.selected ? 'm-keyboard-compact' : ''}`} aria-label={translate("Interactive terminal")}>
     {active && (headerSlot ? createPortal(statusBar, headerSlot) : statusBar)}
     {error && !controlsVisible && <p role="alert" className="m-alert">{error}</p>}
     {state.selected && (host.status !== 'online' || !displayReady || readError || compactOwnership) && <div className="m-terminal-recovery" aria-label={translate("Terminal connection")}>

@@ -68,6 +68,8 @@
 .gdbtn.danger { color: var(--del); }
 .gdbtn svg { width: 15px; height: 15px; }
 .gdbtn:disabled { opacity: 0.42; cursor: default; filter: none; }
+/* Centred in the space left of the docked details column. */
+.graph-inspecting .gdock { left: calc(50% - 164px); max-width: calc(100% - 438px); }
 
 /* ------------------------------------------------------------- empty / hint */
 .gempty {
@@ -84,7 +86,9 @@
 .gempty .gact { width: auto; margin: 0 auto; }
 
 .gtoast { position: absolute; left: 50%; bottom: 78px; translate: -50% 0; background: var(--raised); border: 1px solid var(--line); color: var(--text); font-size: 12px; padding: 8px 14px; border-radius: 9px; z-index: 50; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+.graph-inspecting .gtoast { left: calc(50% - 164px); }
 
 @media (max-width: 900px) {
-  .gdock { max-width: calc(100% - 84px); }
+  .gdock, .graph-inspecting .gdock { left: 50%; max-width: calc(100% - 84px); }
+  .graph-inspecting .gtoast { left: 50%; }
 }

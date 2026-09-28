@@ -143,9 +143,14 @@ zweiten Versand.
 **Computer live testen:** Im selben Fenster **Computer testen** wählen. Sobald
 „Ich höre zu“ erscheint, **Computer** sagen. Die Standardstimme begrüsst dich
 kurz („Guten Abend, Adi. Was kann ich für dich tun?“); der Text erscheint daneben.
-Auf dem Tablet startest du den Computer mit langem Drücken auf **Sprechen**; nach
-der Begrüssung hört die Leiste von selbst zu. Ein kurzer Tipp diktiert direkt ohne
-Begrüssung. Ab dem zweiten Aufruf kommt die Begrüssung ohne Wartezeit aus dem
+Auf PC und Tablet gilt dieselbe Geste: **Tippen** auf das Mikrofon (**Sprechen** am
+Tablet, **Diktieren** im PC-Dock) diktiert, **Halten** ruft den Computer. Während du
+hältst, füllt sich ein Ring um das Mikrofon; nach etwa einer halben Sekunde meldet
+sich der Computer, nach der Begrüssung hört die Leiste von selbst zu. Mit der
+Tastatur: **Umschalt+Eingabe** auf dem Mikrofon. Der Ring zeigt danach die Übergabe:
+bewegt beim Senden, grün nach der Übergabe an die CLI, gestrichelt, wenn du etwas
+prüfen musst. Am Tablet ist die Leiste im Leerlauf eine Zeile (Mikrofon,
+Schreibfeld, Werkzeuge) und öffnet sich, sobald ein Entwurf entsteht. Ab dem zweiten Aufruf kommt die Begrüssung ohne Wartezeit aus dem
 Speicher des PCs. **Computer-Test beenden** stoppt den
 Ablauf. **Begrüssung abspielen** wiederholt das empfangene Audio. Der Test hört
 höchstens 20 Sekunden zu; Fenster und Tablet-Browser im Vordergrund lassen.
@@ -763,7 +768,7 @@ Gerätekopplung dafür nicht löschen.
 
 | Beobachtung | Nächster sinnvoller Schritt |
 |---|---|
-| Offline / Verbindung wird hergestellt | PC wach und ADE aktiv? Beide Geräte in Tailscale verbunden? Am PC **Verbindung prüfen**, am Tablet **Erneut verbinden**. Bei festhängendem Android-VPN Tailscale neu verbinden; danach Chrome neu laden. |
+| Offline / Verbindung wird hergestellt | PC wach und ADE aktiv? Beide Geräte in Tailscale verbunden? Am PC **Verbindung prüfen**, am Tablet oben rechts auf den Verbindungsstatus tippen und **Erneut verbinden** wählen (dort stehen auch letzte Bestätigung und Task-Slots). Bei festhängendem Android-VPN Tailscale neu verbinden; danach Chrome neu laden. |
 | Tailscale verbunden, Chrome erreicht ADE trotzdem nicht | Die Adresse aus ADE verwenden. Chrome darf in Tailscale nicht ausgeschlossen sein. Gerätezeit automatisch synchronisieren. Bei Namens-/Zertifikatsfehlern die konkrete Meldung und PC-HTTPS-Prüfung untersuchen. |
 | Projekte oder neuer Einstieg fehlen | Mobile-Seite nach einem vollständigen ADE-Update neu laden; prüfen, ob am PC wirklich der neue Host läuft. |
 | Neues Projekt meldet fehlende Einrichtung | Am PC Stammordner speichern; Projektverwaltung und Terminalrecht für genau dieses gekoppelte Gerät freigeben. |

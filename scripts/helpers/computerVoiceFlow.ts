@@ -64,14 +64,18 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(speak).toBeFocused();
   check('tablet: cancelling the call synthesizes nothing and returns focus to the microphone', generations().length === before);
+  check('tablet: the microphone describes tap and hold and offers Shift+Enter', await mic.evaluate(node => document.getElementById(node.getAttribute('aria-describedby') ?? '')?.textContent)
+    === 'Tippen startet das Diktat, Halten ruft den Computer (Tastatur: Umschalt+Eingabe).' && await mic.getAttribute('aria-keyshortcuts') === 'Shift+Enter');
   // Keep the negative phrase until the long press has visibly opened listening.
   // A fast fixture greeting can otherwise finish during the 900 ms press and
   // the assertion would wait for an intermediate state that already passed.
   writeFileSync(join(root, 'committed-phrase.txt'), '');
   const box = (await mic.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.waitForTimeout(250);
+  const ringFilling = await mic.getAttribute('data-holding') === 'true' && await mic.locator('.mic-ring').count() === 1;
+  await page.waitForTimeout(650); await page.mouse.up();
   await calling.waitFor();
-  check('tablet: a long press on the microphone calls the Computer', true);
+  check('tablet: holding fills the ring, and a long press on the microphone calls the Computer', ringFilling);
   writeFileSync(join(root, 'live-phrase.txt'), 'Computer.');
   await strip.getByLabel('Computer Antwort', { exact: true }).waitFor();
   const answer = await strip.getByLabel('Computer Antwort', { exact: true }).innerText();
@@ -96,6 +100,11 @@ export async function computerStripFlow(page: Page, strip: Locator, root: string
   await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await expect(speak).toBeEnabled();
   check('tablet: cancelling the follow-up dictation keeps the draft', await draft.inputValue() === 'Entwurf tablet.\nBitte prüfe den Code.');
+  await speak.focus(); await page.keyboard.press('Shift+Enter');
+  await calling.waitFor();
+  check('tablet: Shift+Enter on the microphone calls the Computer like holding', true);
+  await strip.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await expect(speak).toBeFocused();
   check('tablet: voice controls fit the available width', await strip.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
   await strip.screenshot({ path: join(evidence, 'computer-tablet.png') });
   await page.screenshot({ path: join(evidence, 'computer-tablet-page.png') });

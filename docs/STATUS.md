@@ -1,5 +1,40 @@
 # ADE implementation status
 
+## Acht UI-Entscheide umgesetzt (28. September 2026)
+
+Adis Entscheide aus [Verbesserungsplan §6](UI_UX_IMPROVEMENT_PLAN.md) sind umgesetzt, auf PC
+und Tablet (Details je Punkt im Plan):
+
+- **Kopfzeile:** keine sichtbaren Gruppen- und „Verwaltung“-Beschriftungen mehr; Abstand und
+  Haarlinie tragen die Gruppen, der Name bleibt als Tab-Beschreibung und Tooltip.
+- **Einstellungen:** breites Modal (bis 880 px, 80 vh) mit Themen links (Allgemein · Tablet und
+  Geräte · Projekte · Harnesses und Schlüssel · Stimme) und einer Scrollfläche; die Navigation
+  springt, fokussiert die Überschrift und markiert das Thema im Blick.
+- **Sammlungen:** Zeilen mit Haarlinien statt Karten (Übersicht, Projektverzeichnis, Einstellungen,
+  Git-Sync, Sitzungswechsler, Tablet-Listen); Karten nur für echte Wahlen.
+- **Graph:** keine Ampel-Lichter (PC und Tablet), ein Status-Chip mit Punkt; Details als
+  angedockte Spalte mit „Details schliessen“ und Fokusrückgabe an den Knoten.
+- **Tablet:** Fusszeile im Verbindungsdialog (Task-Slots, letzte Bestätigung, „Erneut verbinden“
+  in jedem Zustand); expliziter `data-focus-mode` statt `:has()`-Proben, „Workspace einblenden“
+  bleibt bei offener Tastatur in der Titelzeile; Schrift ≥ 12 px, Bedienelemente 44 px.
+- **Übergabe-Geste** in Tablet-Leiste und PC-Dock: Tippen diktiert, Halten (Ring füllt sich,
+  550 ms) oder Umschalt+Eingabe ruft den Computer, Ring zeigt senden/übergeben/prüfen/offline.
+  Die Tablet-Leiste ist im Leerlauf eine Zeile. (Der PC hat weiterhin keine eigene Leiste; das
+  Dock belegt im Leerlauf keinen Platz.)
+- **Wortschatz:** sichtbar „Details“ statt „Inspector“; „Run“ und „Workspace“ bleiben.
+
+Nachweis: `pnpm verify` (10 min 11 s) **39/41**, darunter `electron-workflow` 200/0,
+`dictation-electron` 72/0, `dictation-electron:computer` 23/0, `mobile-browser` 61/0,
+`mobile-electron` 37/0, `remote-terminal-electron` 210/0, `speech-electron` 32/0,
+`work-electron`, `visual-regression` 22/0. Die zwei roten Schritte: `project-publish` (Git-Veröffentlichung
+im Hauptprozess, unverändert; einzeln zweimal 41/0) und ein Testfehler in der neuen
+Kopfzeilen-Prüfung (`__name` in `page.evaluate`); Wiederholung auf demselben Build mit
+`--only suites,work-electron --reuse-build`: Suiten **4 214** Checks, `work-electron` **24/0**.
+Neue Prüfungen: Kopfzeile ohne sichtbare Beschriftungen, Einstellungs-Navigation per Tastatur
+und Fokusfalle, Details-Spalte bündig rechts und Fokusrückgabe, Tablet-Ruheform einzeilig und
+Fokus beim Tippen, Ring beim Halten, Umschalt+Eingabe, Übergabe-Zustand „confirmed“ auf PC und
+Tablet, Rückweg bei Tastatur 44 px in der Titelzeile.
+
 ## Graph und rechte Leiste modularisiert (27. September 2026, Abend)
 
 Vorarbeit für den Frontend-Design-Durchgang ([Verbesserungsplan §4 B5](UI_UX_IMPROVEMENT_PLAN.md)).

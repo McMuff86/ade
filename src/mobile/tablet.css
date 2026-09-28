@@ -4,8 +4,8 @@
 .m-integration-dialog { width: min(1100px, calc(100vw - 24px)); }
 .m-assignment-dialog > p { line-height: 1.6; }
 .m-assignment-dialog > label { display: grid; gap: 8px; }
-.m-assignment-candidates { list-style: none; padding: 0; display: grid; gap: 10px; }
-.m-assignment-candidates li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid var(--line); padding: 12px; overflow-wrap: anywhere; min-width: 0; }
+.m-assignment-candidates { list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.m-assignment-candidates li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding: 12px 0; overflow-wrap: anywhere; min-width: 0; }
 .m-assignment-candidates span { font-size: 12px; color: var(--muted); }
 .m-assignment-candidates button { margin-left: auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .m-assignment-dialog section ul { padding-left: 20px; line-height: 1.6; }
@@ -42,11 +42,12 @@
 .m-note-image-picker-head h3 { margin: 0; font-size: 13px; font-weight: 600; outline: none; }
 .m-note-image-notes, .m-note-image-items { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .m-note-image-items { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-.m-note-image-notes button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; text-align: left; }
-.m-note-image-notes small { color: var(--muted); font-size: 11px; }
+.m-note-image-notes { gap: 0; border-top: 1px solid var(--line); }
+.m-note-image-notes button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 6px; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.m-note-image-notes small { color: var(--muted); font-size: 12px; }
 .m-note-image-items button { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 6px; }
 .m-note-image-items img, .m-note-image-items canvas, .m-note-image-blank { display: block; width: 100%; height: 80px; object-fit: contain; background: white; border-radius: 4px; }
-.m-note-image-items span { font-size: 11px; overflow-wrap: anywhere; }
+.m-note-image-items span { font-size: 12px; overflow-wrap: anywhere; }
 .m-terminal-links-dialog .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .m-terminal-history-panel { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; background: var(--bg); color: var(--text); white-space: normal; }
 .m-terminal-history-panel p { margin: 0; padding: 52px 12px 8px; font: 12px/1.4 sans-serif; }
@@ -55,11 +56,14 @@
 .m-terminal-transcript summary { padding: 6px; cursor: pointer; }
 .m-terminal-composer summary { padding: 8px 4px; cursor: pointer; }
 .m-terminal-focus-bar { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
-.m-terminal-focus-bar span { font-size: 11px; color: var(--muted); }
-.m-terminal-workspace:has(.m-terminal-focused) .m-project-rail,
-.m-terminal-workspace:has(.m-terminal-focused) .m-workspace-controls,
-.m-terminal-workspace:has(.m-terminal-focused) .m-tablet-workbench-main > nav,
-.m-terminal-workspace:has(.m-terminal-focused) .m-tablet-workbench-main > p { display: none; }
+.m-terminal-focus-bar span { font-size: 12px; color: var(--muted); }
+/* Focus mode (RemoteTerminalPane → data-focus-mode on the workspace dialog):
+   one explicit state instead of :has() probes. "terminal" and "keyboard"
+   both hide the workspace chrome; "keyboard" compacts further (below). */
+.m-terminal-workspace[data-focus-mode] .m-project-rail,
+.m-terminal-workspace[data-focus-mode] .m-workspace-controls,
+.m-terminal-workspace[data-focus-mode] .m-tablet-workbench-main > nav,
+.m-terminal-workspace[data-focus-mode] .m-tablet-workbench-main > p { display: none; }
 .m-terminal-focused .m-terminal-tools { flex: none; max-height: none; min-height: 0; }
 .m-independent-project .m-project-context { flex: none; max-height: 45%; overflow: auto; }
 .m-project-context[hidden] { display: none; }
@@ -74,22 +78,19 @@
 .m-project-toolbar > .project-branches { margin: 0; padding: 0 12px; min-width: 0; max-width: 100%; }
 .m-project-toolbar > .project-branches > summary { min-height: 44px; align-content: center; overflow-wrap: anywhere; }
 .m-project-toolbar > .project-branches[open] { flex-basis: 100%; padding-bottom: 12px; }
-.m-independent-project:has(.m-terminal-focused) .m-project-context-toggle,
-.m-independent-project:has(.m-keyboard-compact) .m-project-context-toggle { display: none; }
-.m-independent-project:has(.m-terminal-focused) .m-project-context,
-.m-independent-project:has(.m-keyboard-compact) .m-project-context,
-.m-independent-project:has(.m-terminal-focused) > details,
-.m-independent-project:has(.m-keyboard-compact) > details { display: none; }
+.m-independent-project[data-focus-mode] .m-project-context-toggle,
+.m-independent-project[data-focus-mode] .m-project-context,
+.m-independent-project[data-focus-mode] > details { display: none; }
 .m-terminal-focused .m-terminal-tools > p:not([role='alert']):not([role='status']):not(.m-terminal-notice),
 .m-terminal-focused .m-terminal-tools > details, .m-terminal-focused .m-terminal-tools > label,
 .m-terminal-focused .m-terminal-tools > .m-management-actions { display: none; }
 .m-terminal-focused .m-terminal-screen { flex: 1 1 0; min-height: 120px; }
-.m-terminal-workspace:has(.m-terminal-focused) .m-terminal-slot { min-height: 0; }
+.m-terminal-workspace[data-focus-mode] .m-terminal-slot { min-height: 0; }
 .m-continue { padding: 24px 28px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .m-continue-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .m-continue-heading h2 { font-size: 20px; margin: 0; }.m-continue p { color: var(--muted); font-size: 12px; }
-.m-session-cards { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
-.m-session-cards button { display: grid; text-align: left; gap: 8px; width: 100%; min-height: 110px; padding: 16px; overflow-wrap: anywhere; }
+.m-session-cards { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.m-session-cards button { display: grid; justify-content: stretch; text-align: left; gap: 2px; width: 100%; min-height: 56px; padding: 10px 6px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; overflow-wrap: anywhere; }
 .m-session-cards span, .m-session-cards small { color: var(--muted); font-size: 12px; }
 .m-project-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .m-project-start form { display: grid; gap: 16px; }.m-project-start p { line-height: 1.6; }
@@ -101,12 +102,12 @@
 .m-tablet-workbench-main { flex: 1; min-width: 0; overflow: auto; }
 .m-terminal-workspace .m-tablet-workbench-main { display: flex; flex-direction: column; overflow: auto; }
 .m-terminal-workspace .m-workspace-controls { flex: none; }
-.m-terminal-workspace .m-tablet-workbench-main > p { margin: 4px 0; font-size: 11px; }
+.m-terminal-workspace .m-tablet-workbench-main > p { margin: 4px 0; font-size: 12px; }
 .m-terminal-slot:not([hidden]) { flex: 1; min-height: min(480px, 65dvh); display: flex; }
 .m-terminal-slot[hidden] { display: none; }
 .m-remote-terminal { width: 100%; display: flex; flex-direction: column; min-height: 0; overflow: auto; }
 .m-terminal-tools { flex: none; min-height: 0; }
-.m-terminal-tools p { font-size: 11px; margin: 4px 0; }.m-terminal-tools summary { cursor: pointer; padding: 12px 4px; }
+.m-terminal-tools p { font-size: 12px; margin: 4px 0; }.m-terminal-tools summary { cursor: pointer; padding: 12px 4px; }
 .m-terminal-tools .m-management-actions { margin: 5px 0; }
 /* Session launcher: one tile per CLI. The literal start command is machine text and
    the only mono element; copper marks focus and hover, green marks a running session. */
@@ -122,9 +123,9 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 .m-launch-state { font-size: var(--fs-s); color: var(--muted); }
 .m-launch-tile[data-running] .m-launch-state { color: var(--ok); }
 .m-launch-sessions { padding: 14px 0 0; }
-.m-launch-sessions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.m-launch-sessions button { width: 100%; justify-content: flex-start; gap: 10px; text-align: left; overflow-wrap: anywhere; }
-.m-launch-sessions button[aria-pressed='true'] { border-color: var(--accent-dim); background: var(--raised); }
+.m-launch-sessions ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.m-launch-sessions button { width: 100%; justify-content: flex-start; gap: 10px; text-align: left; overflow-wrap: anywhere; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.m-launch-sessions button[aria-pressed='true'] { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .m-launch-owner { margin-left: auto; font-size: var(--fs-s); color: var(--muted); }
 .m-launch-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .m-launch-dot[data-state='running'] { background: var(--ok); }
@@ -154,20 +155,15 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 .m-terminal-recovery p { flex: 1; min-width: 0; margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .m-terminal-recovery button { flex: none; min-height: 44px; max-width: 48%; white-space: normal; }
 .m-terminal-end { flex: none; margin-left: auto; min-height: 44px; }
-.m-terminal-composer .m-field-note { font-size: 10px; margin: 2px 0; }
-.m-remote-terminal > .m-field-note { font-size: 10px; margin: 3px 0; flex: none; }
+.m-terminal-composer .m-field-note { font-size: 12px; margin: 2px 0; }
+.m-remote-terminal > .m-field-note { font-size: 12px; margin: 3px 0; flex: none; }
 /* Android Chrome resizes visualViewport, not the layout viewport used by media
    queries. Compact only while the keyboard reduces that visible area. */
 .m-keyboard-controls-toggle { flex: none; margin-left: auto; }
 .m-keyboard-controls-toggle[hidden] { display: none; }
-.m-terminal-workspace:has(.m-keyboard-compact) { padding: 0 8px 4px; }
-.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { padding: 2px 0; margin-bottom: 0; gap: 8px; }
-.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.m-terminal-workspace:has(.m-keyboard-compact) .m-project-rail,
-.m-terminal-workspace:has(.m-keyboard-compact) .m-workspace-controls,
-.m-terminal-workspace:has(.m-keyboard-compact) .m-tablet-workbench-main > nav,
-.m-terminal-workspace:has(.m-keyboard-compact) .m-tablet-workbench-main > p { display: none; }
-.m-terminal-workspace:has(.m-keyboard-compact) .m-terminal-slot { min-height: 0; }
+.m-terminal-workspace[data-focus-mode='keyboard'] { padding: 0 8px 4px; }
+.m-terminal-workspace[data-focus-mode='keyboard'] > .m-dialog-head { padding: 2px 0; margin-bottom: 0; gap: 8px; }
+.m-terminal-workspace[data-focus-mode='keyboard'] > .m-dialog-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .m-keyboard-compact .m-terminal-focus-bar,
 .m-keyboard-compact .m-terminal-tools > details,
 .m-keyboard-compact .m-terminal-tools > label,
@@ -181,8 +177,8 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 .m-keyboard-compact .m-terminal-keybar .m-terminal-keys { margin: 0; gap: 4px; }
 @media (min-width: 1000px) {
   .m-project-rail { display: block; width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 16px; overflow: auto; }
-  .m-project-rail button { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
-  .m-project-rail button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-dim); }
+  .m-project-rail button { display: block; width: 100%; text-align: left; margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; overflow-wrap: anywhere; }
+  .m-project-rail button[aria-pressed='true'] { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 }
 @media (max-width: 699px) {
   .m-continue { padding: 18px; }.m-continue-heading { align-items: flex-start; }
@@ -202,7 +198,7 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 
 .m-dialog-terminal-header:empty { display: none; }
 .m-dialog-terminal-header { flex: 1; min-width: 0; }
-.m-terminal-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; min-width: 0; }
+.m-terminal-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; min-width: 0; }
 .m-terminal-status-bar > span { color: var(--muted); }
 .m-terminal-status-bar button { min-height: 44px; }
 .m-terminal-status-bar button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
@@ -214,10 +210,14 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 /* Up to 900px the status bar takes its own head row: beside the title it would wrap into a column
    that pushes the terminal under the head (iPad portrait is 768px wide). */
 @media (max-width: 900px) { .m-dialog-terminal-header:not(:empty) { flex-basis: 100%; order: 3; } }
-.m-terminal-workspace:has(.m-keyboard-compact) > .m-dialog-head { flex-wrap: nowrap; }
+.m-terminal-workspace[data-focus-mode='keyboard'] > .m-dialog-head { flex-wrap: nowrap; }
 .m-independent-project > .m-dialog-head > h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-workspace-info-button { flex: none; min-height: 44px; font-size: 12px; }
-.m-terminal-workspace:has(.m-keyboard-compact) .m-dialog-terminal-header,
+/* With the keyboard up the dialog head keeps only the way back, in the title
+   row; it closes the keyboard so Dateien/Git return. The Terminals room has no
+   dialog head and keeps its status bar out of the way. */
+.m-dialog[data-focus-mode='keyboard'] .m-dialog-terminal-header { flex: none; flex-basis: auto; order: 0; }
+.m-dialog[data-focus-mode='keyboard'] .m-terminal-status-bar > :not(.m-terminal-return) { display: none; }
 .m-keyboard-compact > .m-terminal-status-bar { display: none; }
 .m-profile-photo-button { padding: 0; border-radius: 50%; display: inline-flex; }
 .m-profile-photo[data-runtime-logo], .m-profile-photo-large[data-runtime-logo] { background: #111; padding: 12%; box-sizing: border-box; }
@@ -243,11 +243,11 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
    top of the output. */
 .m-terminal-tool-slot { display: flex; align-items: center; gap: 2px; }
 .m-terminal-tool-slot:empty { display: none; }
-.m-terminal-tool-slot > button { position: static; min-height: 40px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
+.m-terminal-tool-slot > button { position: static; min-height: 44px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
 .m-terminal-tool-slot > button:hover:not(:disabled) { border-color: transparent; background: var(--raised); color: var(--text); }
 .m-terminal-tool-slot > button[aria-expanded='true'] { color: var(--accent); }
 .m-terminal-tools-slotted .m-terminal-history-panel p { padding-top: 12px; }
-.m-terminal-status-bar button:not(.m-primary) { min-height: 40px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
+.m-terminal-status-bar button:not(.m-primary) { min-height: 44px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--muted); font-size: 12px; }
 .m-terminal-status-bar button:not(.m-primary):hover:not(:disabled) { border-color: transparent; background: var(--raised); color: var(--text); }
 .m-terminal-status-bar button[aria-expanded='true'] { color: var(--accent); background: var(--accent-soft); }
 .m-project-header-actions .m-workspace-info-button, .m-project-context-toggle { border-color: transparent; background: transparent; color: var(--muted); }
@@ -260,6 +260,6 @@ button.m-launch-tile:hover:not(:disabled), button.m-launch-tile:focus-visible { 
 .m-independent-project > .m-dialog-head > h2 { font-size: 15px; }
 /* The subscription/auth chip is status, not machine text: quiet sans until opened. */
 .m-terminal-status-bar .terminal-usage-compact { border-color: transparent; background: transparent; font: 12px/1.5 var(--sans); color: var(--muted); }
-.m-terminal-status-bar .terminal-usage-compact > summary { min-height: 40px; padding: 0 8px; border-radius: 6px; }
+.m-terminal-status-bar .terminal-usage-compact > summary { min-height: 44px; padding: 0 8px; border-radius: 6px; }
 .m-terminal-status-bar .terminal-usage-compact > summary:hover, .m-terminal-status-bar .terminal-usage-compact[open] > summary { background: var(--raised); color: var(--text); }
 .m-terminal-status-bar .terminal-usage-compact > section { font: 12px/1.5 var(--mono); color: var(--text); }

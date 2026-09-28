@@ -1,13 +1,15 @@
 import { localizeAppMessage } from '../../shared/i18n/appMessages';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { DICTATION_MAX_SECONDS, DICTATION_MAX_TEXT_CHARS, validPromptText, type DictationJobState } from '../../shared/dictation';
 import { LIVE_DICTATION_MAX_SECONDS } from '../../shared/liveDictation';
 import type { TerminalPromptCapability, TerminalPromptReceipt } from '../../shared/terminalPrompt';
 import { DictationRecorder } from './DictationRecorder';
 import { LiveDictationRecorder } from './LiveDictationRecorder';
 import { ComputerVoiceTest } from './ComputerVoiceTest';
+import { useComputerCall } from './useComputerCall';
+import { COMPUTER_LABEL, MicGestureDescription, MicIcon, MicRing, useHandoverState, useMicGesture } from './micGesture';
 import { PromptDraftStore, type PromptDraft } from './promptDrafts';
 import './prompt-composer.css';
 
@@ -269,11 +271,24 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
 }) {
   useLocale();
   const composer = usePromptComposer({ draftKey, online, speechAllowed, port, sendBlockedReason });
-  const { draft, liveText, phase, seconds, maxSeconds, error, notice, storageError, capability } = composer;
-  return <section className="prompt-composer" aria-label={translate("Prompt draft")}>
+  const { draft, liveText, phase, seconds, maxSeconds, error, notice, noticeKind, storageError, capability } = composer;
+  // The same handover gesture as the tablet voice strip (micGesture.tsx): tap dictates, holding calls the Computer.
+  const holdPossible = !!port.computerGreeting && !!port.liveRecording;
+  const computerEnabled = online && speechAllowed && port.computerAllowed !== false && holdPossible
+    && phase === 'idle' && !draft.delivery && !draft.recordingJob;
+  const recordRef = useRef(composer.record); recordRef.current = composer.record;
+  const computer = useComputerCall(port, { enabled: computerEnabled, onBusy: composer.setComputerBusy, onGreeted: () => { void recordRef.current(); } });
+  const handover = useHandoverState({ online, phase, notice, noticeKind, error, deliveryOpen: composer.deliveryOpen, recordingOpen: composer.recordingOpen });
+  const gestureId = useId();
+  const gesture = useMicGesture({
+    holdEnabled: computerEnabled && !computer.active && !composer.computerBusy,
+    onTap: () => { if (computer.active) computer.stop(); else void composer.record(); },
+    onHold: () => { void computer.run(); },
+  });
+  return <section className="prompt-composer mic-surface" aria-label={translate("Prompt draft")} data-state={handover}>
     <p className="prompt-target"><strong>{translate("To:")}{" "}{targetLabel}</strong></p>
     {port.computerGreeting && <ComputerVoiceTest port={port} onBusy={composer.setComputerBusy}
-      enabled={online && speechAllowed && port.computerAllowed !== false && phase === 'idle' && !draft.delivery && !draft.recordingJob} />}
+      enabled={online && speechAllowed && port.computerAllowed !== false && phase === 'idle' && !draft.delivery && !draft.recordingJob && !computer.active} />}
     <p>{translate("Before sending, complete sign-in and project trust directly in the terminal. The CLI must show its input prompt.")}</p>
     {!online && <p role="status">{translate("Offline. The draft can be further edited.")}</p>}
     {sendBlockedReason && <p role="status">{sendBlockedReason}{translate(". You can still edit the draft.")}</p>}
@@ -284,13 +299,17 @@ export function PromptComposer({ draftKey, targetLabel, online, speechAllowed, p
     <p className="prompt-help">{translate("This draft stays tied to this session and is saved on this device. Recordings last at most")}{" "}{maxSeconds >= 120 ? translate("{{value1}} minutes", { value1: maxSeconds / 60 }) : translate("{{value1}} seconds", { value1: maxSeconds })}. {port.liveRecording ? translate("When dictating, the audio is continuously transmitted to ElevenLabs.") : translate("When transcribing, the audio goes to ElevenLabs.")}</p>
     {storageError && <p role="alert">{storageError}</p>}{error && <p role="alert">{localizeAppMessage(error)}</p>}{notice && <p role="status">{localizeAppMessage(notice)}</p>}
     <div className="prompt-actions">
-      <button type="button" disabled={!composer.canRecord} onClick={() => void composer.record()}>{translate("Dictate")}</button>
+      <button type="button" className="prompt-mic" disabled={!composer.canRecord && !computer.active} aria-describedby={gestureId} {...gesture.props}>
+        <span className="mic-glyph mic-glyph-dock"><MicIcon /><MicRing /></span>{computer.active ? COMPUTER_LABEL[computer.phase] : translate("Dictate")}</button>
+      <MicGestureDescription id={gestureId} hold={holdPossible} />
       {phase === 'recording' && <button type="button" onClick={composer.stop}>{translate("Stop recording ·")}{" "}{seconds}{" "}{translate("s")}</button>}
       {['permission', 'recording', 'transcribing'].includes(phase) && <button type="button" onClick={composer.cancel}>{translate("Cancel recording")}</button>}
       {phase === 'permission' && <span role="status">{translate("Requesting microphone…")}</span>}{phase === 'transcribing' && <span role="status">{translate("Transcribing audio…")}</span>}
       <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('insert')}>{translate("Insert to CLI")}</button>
       <button type="button" disabled={!composer.canSend} onClick={() => void composer.send('submit')}>{translate("Submit to CLI")}</button>
     </div>
+    {holdPossible && <p className="prompt-help prompt-gesture-hint">{translate("Tap: dictation · Hold: Computer.")}</p>}
+    {computer.status && <p role="status">{computer.status}</p>}{computer.error && <p role="alert">{localizeAppMessage(computer.error)}</p>}
     {!speechAllowed && <p>{translate("ElevenLabs dictation needs its own dictation permission on the PC.")}</p>}
     {composer.recordingOpen && <div className="prompt-actions"><button type="button" disabled={!online} onClick={composer.checkRecording}>{translate("Check recording status")}</button>
       <button type="button" onClick={composer.discardRecording}>{translate("Discard recording")}</button></div>}

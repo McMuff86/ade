@@ -166,27 +166,16 @@
   background: var(--run);
 }
 
-.ov-projects {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-}
-
+/* Projects are rows like agents and runs: name, workspaces, last activity. */
 .ov-project {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  padding: 12px 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-m);
+  grid-template-columns: minmax(9rem, 1fr) minmax(10rem, 1.4fr) minmax(10rem, 1.4fr);
 }
 
 .ov-project-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .ov-pill {
@@ -237,6 +226,11 @@
   .ov-agent,
   .ov-run {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .ov-project {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .ov-agents > li {

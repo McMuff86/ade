@@ -2,9 +2,10 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 /**
  * Grouped primary navigation, identical on desktop and tablet.
- * Captions name the group inline ("Organisation  Aufgaben Notizen"), so the
- * row reads like a sentence instead of seven equal pills. Arrow keys move
- * across every tab regardless of group; Home/End jump to the ends.
+ * Groups are carried by spacing and a hairline, not by visible captions (they
+ * never fit on common laptop widths). The group name stays available: as the
+ * accessible description of each tab and as the tooltip of its group. Arrow
+ * keys move across every tab regardless of group; Home/End jump to the ends.
  */
 import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { APP_NAV_GROUPS, adjacentView, viewLabel } from '../../shared/appNavigation';
@@ -60,8 +61,7 @@ export function AppNav(props: {
       </button>
       <div id={`${idPrefix}-navigation`} hidden={collapsed} className="appnav-list" role="tablist" aria-label={translate("Areas")}>
         {APP_NAV_GROUPS.map((group) => (
-          <div key={group.id} className="appnav-group" role="presentation" data-group={group.id}>
-            {group.id !== 'home' && <span className="appnav-caption" aria-hidden="true">{group.label}</span>}
+          <div key={group.id} className="appnav-group" role="presentation" data-group={group.id} title={group.id === 'home' ? undefined : group.label}>
             {group.views.map((view) => (
               <button
                 key={view}
@@ -70,6 +70,7 @@ export function AppNav(props: {
                 role="tab"
                 aria-selected={current === view}
                 aria-controls={props.controls}
+                aria-describedby={group.id === 'home' ? undefined : `${idPrefix}-group-${group.id}`}
                 tabIndex={current === view ? 0 : -1}
                 className={current === view ? 'appnav-tab on' : 'appnav-tab'}
                 onClick={() => onSelect(view)}
@@ -91,6 +92,9 @@ export function AppNav(props: {
           </div>
         ))}
       </div>
+      {APP_NAV_GROUPS.filter((group) => group.id !== 'home').map((group) => (
+        <span key={group.id} id={`${idPrefix}-group-${group.id}`} hidden>{group.label}</span>
+      ))}
       {props.conversations && <div className="appnav-extra">
         <button id={props.conversations.id} type="button" className="appnav-tab" aria-haspopup="dialog"
           onClick={(event) => { event.currentTarget.focus(); props.conversations!.onOpen(); }}>

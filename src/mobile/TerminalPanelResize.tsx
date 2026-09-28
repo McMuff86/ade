@@ -27,7 +27,7 @@ export function TerminalPanelResize({ side, value, onChange, container }: {
   const drag = useRef<{ id: number; x: number; value: number; width: number } | null>(null);
   const direction = side === 'agents' ? 1 : -1;
   return <div className={`m-terminal-resize m-terminal-resize-${side}`} role="separator" tabIndex={0}
-    aria-label={side === 'agents' ? translate("Width of the agent list") : translate("Width of the inspector")} aria-orientation="vertical"
+    aria-label={side === 'agents' ? translate("Width of the agent list") : translate("Width of the details column")} aria-orientation="vertical"
     aria-controls={side === 'agents' ? 'terminal-navigation' : 'terminal-inspector'}
     aria-valuemin={14} aria-valuemax={32} aria-valuenow={Math.round(value)} aria-valuetext={`${Math.round(value)} Prozent`}
     title={translate("Drag or adjust with arrow keys. Home: smallest width, end: largest width.")}

@@ -22,13 +22,30 @@
 .voice-mic[data-phase='recording'] .voice-mic-glyph::before { animation: voice-pulse 1.6s ease-out infinite; }
 .voice-mic[data-phase='permission'] .voice-mic-glyph::before { animation: voice-pulse 2.4s ease-out infinite; }
 .voice-mic[data-phase='transcribing'] .voice-mic-glyph::before { border-style: dashed; }
+/* The gesture ring (mic-gesture.css) takes over the rim while holding or showing a handover state. */
+.voice-mic[data-holding='true'] .voice-mic-glyph::before,
+.voice-strip:is([data-state='sending'], [data-state='confirmed'], [data-state='needs-check'], [data-state='offline']) .voice-mic-glyph::before { border-color: transparent; }
+.voice-hint-gesture { color: var(--text); font-weight: 600; }
+.voice-spacer { flex: 1; }
+/* Idle and empty (data-compact): one row — microphone, the draft as a single
+   line, then the tools. The same DOM nodes as the full strip, so the first
+   typed character keeps focus while the strip opens up again. */
+.voice-strip[data-compact] { flex-direction: row; align-items: center; gap: 8px; }
+.voice-strip[data-compact] > .voice-strip-above,
+.voice-strip[data-compact] > .voice-strip-row { display: contents; }
+.voice-strip[data-compact] .voice-sheet-slot,
+.voice-strip[data-compact] .voice-spacer,
+.voice-strip[data-compact] .voice-paste,
+.voice-strip[data-compact] .voice-send { display: none; }
+.voice-strip[data-compact] .voice-draft { order: 1; flex: 1; min-width: 0; }
+.voice-strip[data-compact] .voice-trailing { order: 2; margin-left: 0; }
 .voice-mic-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
 @keyframes voice-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.55); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .voice-mic .voice-mic-glyph::before { animation: none !important; }
   .voice-mic[data-phase='recording'] .voice-mic-glyph::before { inset: -4px; border-width: 3px; }
 }
-.voice-quiet { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; margin: 0; border: 1px solid transparent; border-radius: 6px;
+.voice-quiet { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 10px; margin: 0; border: 1px solid transparent; border-radius: 6px;
   background: transparent; color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
 .voice-quiet:hover:not(:disabled), .voice-quiet:focus-visible { border-color: var(--line); background: var(--raised); }
 .voice-quiet:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -42,14 +59,14 @@
 .voice-icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .voice-icon-button:disabled { opacity: .45; cursor: default; }
 .voice-strip-reply { display: contents; }
-.voice-strip-reply > button { min-height: 40px; padding: 6px 10px; margin: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); font: inherit; white-space: nowrap; }
+.voice-strip-reply > button { min-height: 44px; padding: 6px 10px; margin: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); font: inherit; white-space: nowrap; }
 .voice-strip-reply > button:hover:not(:disabled), .voice-strip-reply > button:focus-visible { border-color: var(--line); background: var(--raised); }
 .voice-strip-reply > button:disabled { opacity: .45; }
 .voice-strip-reply .reply-speech-error { font-size: 12px; color: var(--del); }
 .voice-status { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
 .voice-status[data-kind='submitted'], .voice-status[data-kind='inserted'], .voice-status[data-kind='copied'] { color: var(--add); }
 .voice-alert { margin: 0; font-size: 12px; color: var(--del); overflow-wrap: anywhere; }
-.voice-reason { min-height: 32px; padding: 2px 10px; margin: 0; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+.voice-reason { min-height: 44px; padding: 2px 10px; margin: 0; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
 .voice-reason[aria-expanded='true'] { border-style: solid; color: var(--text); }
 .voice-reason:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .voice-reason-detail { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }

@@ -1,4 +1,4 @@
-.m-terminals-page { display: grid; grid-template-columns: max(160px, var(--terminal-agents-width, 20%)) 28px minmax(0, 1fr); min-height: 520px; height: calc(var(--tablet-height, 100dvh) - 185px); }
+.m-terminals-page { display: grid; grid-template-columns: max(160px, var(--terminal-agents-width, 20%)) 28px minmax(0, 1fr); min-height: 520px; height: calc(var(--tablet-height, 100dvh) - 141px); }
 .m-terminal-resize { display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; cursor: col-resize; color: var(--muted); background: var(--panel); }
 .m-terminal-resize:hover, .m-terminal-resize:focus-visible { background: var(--accent-dim); color: var(--text); outline: 2px solid var(--accent); outline-offset: -2px; }
 .m-terminal-resize-inspector { display: none; }
@@ -7,7 +7,9 @@
 .m-terminal-navigation { overflow: auto; padding: 14px; border-right: 1px solid var(--line); background: var(--panel); }
 .m-terminal-navigation h2, .m-terminal-context h2 { font-size: 13px; margin: 18px 0 10px; }
 .m-terminal-navigation button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; margin: 6px 0; min-height: 44px; overflow-wrap: anywhere; }
-.m-terminal-navigation button[aria-pressed='true'] { border-color: var(--accent-dim); background: var(--accent-soft); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+/* Choices of agent, session or standalone terminal are rows; other buttons stay buttons. */
+.m-terminal-navigation button[aria-pressed] { justify-content: flex-start; margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.m-terminal-navigation button[aria-pressed='true'] { background: var(--accent-soft); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 .m-terminal-navigation small { display: block; color: var(--muted); margin-top: 4px; }
 .m-agent-navigation label { display: grid; gap: 5px; font-size: 12px; }
 .m-agent-navigation input { min-width: 0; width: 100%; }
@@ -23,10 +25,11 @@
 .m-terminal-context { display: none; border-left: 1px solid var(--line); padding: 14px; }
 .m-terminal-navigation-toggle { display: none; }
 .m-terminal-xterm { background: var(--bg); }
-.m-terminals-page:has(.m-terminal-focused) { grid-template-columns: minmax(0, 1fr); }
-.m-terminals-page:has(.m-terminal-focused) > .m-terminal-navigation,
-.m-terminals-page:has(.m-terminal-focused) > .m-terminal-context,
-.m-terminal-main:has(.m-terminal-focused) > .m-terminal-scope { display: none; }
+/* Focus mode comes from the pane as data-focus-mode (see tablet.css). */
+.m-terminals-page[data-focus-mode] { grid-template-columns: minmax(0, 1fr); }
+.m-terminals-page[data-focus-mode] > .m-terminal-navigation,
+.m-terminals-page[data-focus-mode] > .m-terminal-context,
+.m-terminals-page[data-focus-mode] .m-terminal-main > .m-terminal-scope { display: none; }
 @media (min-width: 1250px) {
   .m-terminals-page { grid-template-columns: max(160px, var(--terminal-agents-width, 20%)) 28px minmax(0, 1fr) 28px max(160px, var(--terminal-inspector-width, 20%)); }
   .m-terminal-resize-inspector { display: flex; }
@@ -39,13 +42,12 @@
   .m-terminal-navigation { display: none; max-height: 45dvh; border-bottom: 1px solid var(--line); }
   .m-terminal-navigation.is-open { display: block; }
   .m-terminal-main { min-height: 550px; padding: 6px 10px; }
-  .m-terminals-page:has(.m-terminal-focused) .m-terminal-main { height: calc(var(--tablet-height, 100dvh) - 220px); min-height: 300px; }
+  .m-terminals-page[data-focus-mode] .m-terminal-main { height: calc(var(--tablet-height, 100dvh) - 176px); min-height: 300px; }
 }
 /* Android changes only visualViewport when its keyboard opens. */
 .m-app:has(.m-terminals-keyboard) { height: var(--tablet-height, 100dvh); }
 .m-app:has(.m-terminals-keyboard) > .m-titlebar,
-.m-app:has(.m-terminals-keyboard) > .m-toolbar,
-.m-app:has(.m-terminals-keyboard) > .m-statusbar { display: none; }
+.m-app:has(.m-terminals-keyboard) > .m-toolbar { display: none; }
 .m-view-terminals:has(.m-terminals-keyboard) { display: flex; overflow: hidden; }
 .m-terminals-page.m-terminals-keyboard { flex: 1; display: flex; flex-direction: column; height: auto; min-height: 0; min-width: 0; }
 .m-terminals-keyboard > .m-terminal-navigation-toggle,
@@ -56,4 +58,4 @@
 .m-terminals-keyboard .m-terminal-scope { display: none; }
 .m-terminals-page.m-terminals-keyboard .m-terminal-main { flex: 1; height: auto; min-height: 0; padding: 0 8px 4px; overflow: hidden; }
 
-.m-terminals-page:has(.m-terminal-focused) > .m-terminal-resize { display: none; }
+.m-terminals-page[data-focus-mode] > .m-terminal-resize { display: none; }

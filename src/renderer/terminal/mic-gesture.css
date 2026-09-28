@@ -1,0 +1,32 @@
+/* The handover gesture (micGesture.tsx), shared by the tablet voice strip and
+   the desktop prompt dock. The ring is the one distinctive element of the
+   interface: it fills while holding (0–550 ms, then the Computer answers),
+   turns into a moving dash while a handover is sent, and closes in the
+   confirmation colour once the CLI took it. Copper stays the only warm voice. */
+
+.mic-glyph { position: relative; display: inline-grid; place-items: center; flex: none; color: var(--accent); }
+.mic-glyph.mic-glyph-dock { width: 26px; height: 26px; }
+.mic-glyph-dock > svg:not(.mic-ring) { width: 16px; height: 16px; }
+
+/* Specific enough to win over icon sizing such as `.voice-mic-glyph svg`. */
+.mic-glyph > .mic-ring { position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); rotate: -90deg; overflow: visible; pointer-events: none; }
+.mic-ring circle { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke .2s; }
+
+/* Holding: the ring fills in exactly the long-press time. */
+[data-holding='true'] .mic-ring circle { animation: mic-hold 550ms linear forwards; }
+@keyframes mic-hold { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+
+/* Handover states on the surface (.mic-surface[data-state]). */
+.mic-surface[data-state='sending'] .mic-ring circle { stroke-dasharray: 14 11; stroke-dashoffset: 0; animation: mic-sending 1.1s linear infinite; }
+@keyframes mic-sending { to { stroke-dashoffset: -50; } }
+.mic-surface[data-state='confirmed'] .mic-ring circle { stroke: var(--ok); stroke-dashoffset: 0; }
+.mic-surface[data-state='needs-check'] .mic-ring circle { stroke: var(--warn); stroke-dasharray: 3 5; stroke-dashoffset: 0; }
+.mic-surface[data-state='offline'] .mic-glyph { color: var(--bad); }
+.mic-surface[data-state='offline'] .mic-ring circle { stroke: var(--bad); stroke-dasharray: 2 6; stroke-dashoffset: 0; opacity: .6; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still visible, no motion: holding shows the full ring at once; sending stays dashed. */
+  [data-holding='true'] .mic-ring circle { animation: none; stroke-dashoffset: 0; }
+  .mic-surface[data-state='sending'] .mic-ring circle { animation: none; }
+  .mic-ring circle { transition: none; }
+}
