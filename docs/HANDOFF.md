@@ -1,5 +1,13 @@
 # ADE — aktuelle Übergabe
 
+## UI-Entscheide aktiviert (28. September 2026, 08:53 CEST)
+
+`pnpm activate -- -Label UiEntscheide` ohne `-Force` (keine laufenden Sitzungen): Gate
+**12/12** (Suiten 4 214, `electron-workflow` 200/0), PID **23968**, Source
+`1f29b859da4a5db73372`, Code `ed4df51`. Backup
+`C:\Users\Adi.Muff\ADE-Backups\Activate-UiEntscheide-20260928-085253`, vorheriger Build in
+`out.prev`. Die alte Instanz 54800 wurde regulär beendet. Tablet-Seite neu laden.
+
 ## Acht UI-Entscheide umgesetzt (28. September 2026)
 
 Kopfzeile, Einstellungen, Zeilen statt Karten, Graph ohne Lichter mit Details-Spalte,
