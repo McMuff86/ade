@@ -269,6 +269,15 @@ pnpm test:electron    # build + real Electron/ConPTY workflow (isolated profile)
 pnpm test:wsl-backend # real WSL distro/Git/PTY integration (Windows + WSL)
 ```
 
+**Linux.** `pnpm verify` needs Playwright's Chromium (`pnpm exec playwright
+install chromium`; verify stops early with that hint) and, for stable window
+sizes under a tiling compositor, Xvfb (`xorg-server-xvfb` / `xvfb`). Drivers
+then run on a private `HOME` — so a login shell's `mise activate` cannot sort the
+fixture CLIs behind the real ones — and on one headless X server that verify
+starts and stops itself, so no test window appears on the desktop. A step that is
+only measured on Windows is reported as *not measured* with its reason, never
+as green or red; the run ends with that list.
+
 Setting `ADE_WSL_BACKEND_E2E=1` on the Electron workflow adds the complete
 cross-boundary scenario: WSL repository import, a WSL agent home, a managed
 run executing inside the distribution, restart and cleanup.

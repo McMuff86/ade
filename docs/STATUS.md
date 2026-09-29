@@ -1,5 +1,32 @@
 # ADE implementation status
 
+## Linux-Prüfstand: `pnpm verify` grün, Windows-only ausgewiesen, zwei echte Fehler behoben (29. September 2026)
+
+`pnpm verify` war unter Linux mit 33 roten Schritten wertlos; auf `main` war auch die Linux-CI rot
+(`project-publish`). Jetzt: **22 unter Linux gemessene Schritte grün, 19 „nicht gemessen“ mit Grund**
+(zweimal in Folge; 2 min 15 s).
+
+- **verify:** Schritte tragen Plattformen; anderswo `not-measured` mit Grund, am Ende gelistet, nie rot
+  oder stillschweigend grün. Unter Linux laufen die Treiber auf eigenem `HOME` (die Login-Shell mit
+  `mise activate` sortierte die Fixture-CLIs hinter die echten) und auf **einem** von verify
+  gestarteten Xvfb (`xvfb-run` je Treiber meldete bei eigenem Aufräumen Exit ≠ 0; Electron braucht
+  dort `XDG_SESSION_TYPE=x11`). Fehlt Playwrights Chromium, bricht verify sofort mit dem Befehl ab.
+- **Testkorrekturen:** `project-publish` baut das `gh`-Double ausserhalb Windows als Node-Skript
+  (41/0 unter Linux); `work-electron` beendet den Renderer unter Linux per SIGKILL
+  (`forcefullyCrashRenderer()` tat dort nachweislich nichts); das Rückfragen-Double greift auch beim
+  Linux-Start `codex app-server` (Tablet-Rückfragen unter Linux jetzt nachgewiesen).
+- **Fehler in ADE behoben:**
+  - *Dialog nach Fokusverlust:* Deaktiviert eine Aktion den fokussierten Knopf (Stimmenstudio beim
+    Speichern), fällt der Fokus auf `<body>` und Escape schloss den Dialog nicht mehr. `Modal` schliesst
+    jetzt den obersten Dialog auch dann. Tab braucht keine Hilfe (Chromium setzt die Navigation am
+    verlorenen Element fort; gemessen). Negativkontrolle: ohne Fix scheitert die Prüfung.
+  - *Tablet-Modellwahl verschwand:* Eine Profil-Antwort ohne Katalog, die nach dem Katalog eintraf,
+    löschte ihn (Race unter Last). Sie behält jetzt den geladenen Katalog desselben Agents.
+    Deterministische Prüfung per zweitem Neuladen; ohne Fix FAIL.
+- **Neue Produktlücke sichtbar:** Das **ADE-Gespräch (Koordinator) läuft nur unter Windows**
+  (`launchCoordinatorCodex`); `conversation-electron` ist deshalb unter Linux „nicht gemessen“.
+- Enthält PR #19 (Keyring-Schalter), ohne den drei Treiber an der Schlüsselablage scheitern.
+
 ## Installation: `pnpm doctor`, Selbstreparatur beim Install, Schlüsselablage unter Hyprland (29. September 2026)
 
 - **`pnpm doctor`** prüft Node (≥ 22), pnpm (Pin 9.15.9), Git, den Electron-Download, ob node-pty

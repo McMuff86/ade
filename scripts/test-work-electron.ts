@@ -124,7 +124,13 @@ void (async () => {
   check('an uncaught main-process error is logged without a modal box and ADE keeps serving IPC',
     await logged('[ade] uncaught exception in main: Error: ade-main-probe')
       && (await page.evaluate(() => window.ade.invoke('run:get'))).runs.length > 0);
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.forcefullyCrashRenderer());
+  // forcefullyCrashRenderer() is a no-op on Linux here (measured: the renderer
+  // stayed alive and isCrashed() false), so kill the process like a real crash.
+  if (process.platform === 'win32') {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.forcefullyCrashRenderer());
+  } else {
+    process.kill(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.getOSProcessId()), 'SIGKILL');
+  }
   check('a crashed renderer process is written to main.log', await logged('[ade] renderer process gone:'));
 })().catch(error => { failed++; console.error(error); }).finally(async () => {
   await app?.close(); rmSync(root, { recursive: true, force: true });
