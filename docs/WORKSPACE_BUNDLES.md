@@ -74,7 +74,9 @@ Nothing is written before *Import anwenden*.
 - **Agent homes** are *created* by the import, so the host proposes one under
   its own layout (`<profileDir>/agents/<slug>-<id>`), seeded once when the bundle
   is opened. The browse button picks the home's **parent**, since the home itself
-  must not exist yet.
+  must not exist yet. The proposed parent `<profileDir>/agents` is ADE's own and
+  is created (0700) when the proposal is made; a parent the user chooses must
+  already exist, because the import never creates ancestors on a user path.
 - **Kategorien / Agents / Vorlagen** are renamed or skipped here. Skipping a
   category skips its agents too — a cascade the preview states rather than
   implies.
