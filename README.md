@@ -175,8 +175,12 @@ directory, with the right PATH.
 
 ## Quickstart
 
+Requires Node.js 22+ (`.nvmrc`), pnpm 9.15.9 (`packageManager`) and Git.
+
 ```bash
-pnpm i
+pnpm i          # also runs `pnpm doctor --postinstall`: fetches a skipped Electron
+                # download, rebuilds node-pty if it does not load in Electron
+pnpm doctor     # re-check any time: Node, pnpm, Git, Electron, terminal, agent CLIs, key storage
 pnpm dev        # development
 pnpm build      # build desktop and mobile to out/
 pnpm start      # run the built app without rebuilding; run pnpm build after source changes
@@ -186,6 +190,12 @@ First session in a fresh agent workspace: your CLI may show its own one-time
 trust/login prompt — answer it in the terminal like in any shell. Stored API
 keys and CLI sign-ins are per execution backend; authenticate WSL runtimes
 inside the distribution.
+
+On Linux desktops Chromium does not recognise (Hyprland, Sway, i3, niri, …) ADE
+starts Electron with `--password-store=gnome-libsecret` so API keys go to the
+running Secret Service instead of being refused; an explicit
+`--password-store` always wins (`src/main/passwordStore.ts`). Set
+`CI` or `ADE_SKIP_POSTINSTALL` to skip the install-time repair.
 
 ### Native Windows and native Linux checkouts
 

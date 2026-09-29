@@ -17,6 +17,7 @@ import { registerRendererWindow, rendererWindows } from './rendererWindows';
 import { MainLogSink } from './logging/mainLog';
 import { captureMainProcessFailures, captureProcessCrashes, captureRendererConsoleErrors } from './logging/crashCapture';
 import { desktopMicrophone } from './settings/desktopMicrophone';
+import { linuxPasswordStoreSwitch } from './passwordStore';
 
 // Must run before app `ready` — declares ade-photo:// as a privileged scheme.
 registerPhotoProtocolScheme();
@@ -60,6 +61,11 @@ const remoteDebugPort = !app.isPackaged ? process.env['ADE_REMOTE_DEBUG_PORT'] :
 if (remoteDebugPort && /^\d{2,5}$/.test(remoteDebugPort)) {
   app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
 }
+
+// Tiling Wayland desktops are unknown to Chromium's keyring detection, which
+// then silently stores secrets as plain text; see passwordStore.ts.
+const passwordStore = linuxPasswordStoreSwitch(process.platform, process.env, process.argv);
+if (passwordStore) app.commandLine.appendSwitch('password-store', passwordStore);
 
 // Opt-in user-data override so integration runs use a clean throwaway dir
 // instead of the real config/photos/workspaces (no prod impact).

@@ -1,5 +1,27 @@
 # ADE implementation status
 
+## Installation: `pnpm doctor`, Selbstreparatur beim Install, Schlüsselablage unter Hyprland (29. September 2026)
+
+- **`pnpm doctor`** prüft Node (≥ 22), pnpm (Pin 9.15.9), Git, den Electron-Download, ob node-pty
+  **in Electron** lädt, die Agent-CLIs und (Linux) den Secret Service. Jeder Fehler nennt den
+  Befehl, der ihn behebt; `--fix` repariert Electron-Download und node-pty automatisch.
+- **`pnpm install`** ruft `doctor --postinstall` auf: repariert, zeigt den Bericht, lässt die
+  Installation nie scheitern; übersprungen mit `CI` oder `ADE_SKIP_POSTINSTALL`.
+- **Schlüsselablage:** Auf Desktops, die Chromium nicht kennt (Hyprland, Sway, …), startet ADE
+  Electron mit `--password-store=gnome-libsecret` (`src/main/passwordStore.ts`); ein expliziter
+  Schalter hat Vorrang.
+- `.nvmrc` und `engines.node` legen Node 22 fest.
+
+Nachweis (Omarchy/Hyprland, Linux): frischer Klon, `pnpm install` holt den übersprungenen
+Electron-Download selbst nach, danach alles grün. Negativkontrolle: absichtlich zerstörtes
+`pty.node` → `doctor` FAIL mit Loader-Meldung, `doctor --fix` baut neu → grün. Neue Suite
+`doctor` 20/0. `pnpm verify` unter Linux: 31 rote Schritte, Vergleichslauf auf `main` (3070b1c)
+auf derselben Maschine 33 rote — keine neuen. Die Linux-Rotschritte sind Windows-gemessene
+Treiber (z. B. „Setup flow is currently measured on native Windows“) und Test-Doubles, die eine
+Login-Shell mit `mise activate` hinter die echten CLIs sortiert. Durch die nun verfügbare
+Schlüsselablage laufen in `electron-workflow` 16 Prüfungen zusätzlich; die zwei neuen roten
+(Grok-Sitzung) haben dieselbe Ursache: das echte `grok` statt des Doubles.
+
 ## Acht UI-Entscheide umgesetzt (28. September 2026)
 
 Adis Entscheide aus [Verbesserungsplan §6](UI_UX_IMPROVEMENT_PLAN.md) sind umgesetzt, auf PC

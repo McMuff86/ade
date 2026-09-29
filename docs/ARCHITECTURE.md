@@ -2592,7 +2592,10 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
   write-only encrypted key storage (OS safeStorage, own file next to
   config.json; refuses to store when OS encryption is unavailable). On Linux,
   only known OS-backed Secret Service/KWallet backends are accepted;
-  Electron's `basic_text` and `unknown` backends fail closed. Stored keys are
+  Electron's `basic_text` and `unknown` backends fail closed. Chromium maps
+  unrecognised desktops (Hyprland, Sway, …) to `basic_text` even when a Secret
+  Service runs, so `src/main/passwordStore.ts` requests `gnome-libsecret`
+  there before `ready` unless `--password-store` was given explicitly. Stored keys are
   injected main-side as the harness's documented environment variable only
   while secure storage remains available and only into sessions whose
   effective runtime matches

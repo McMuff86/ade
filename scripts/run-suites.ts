@@ -135,6 +135,7 @@ const SUITES: Suite[] = [
   // profile-lock check. Everything else, including the whole apply
   // transaction, is exercised on both.
   { id: 'workspace-bundle', script: 'test-workspace-bundle.ts', floors: { win32: 200 } },
+  { id: 'doctor', script: 'test-doctor.ts', floors: { win32: 20, linux: 20 } },
   { id: 'workspace-fs', script: 'test-workspace-fs.ts', floors: { win32: 14 } },
   { id: 'style-entries', script: 'test-style-entries.ts', floors: { win32: 18 } },
   { id: 'security', script: 'test-security.ts', floors: { win32: 291 } },
