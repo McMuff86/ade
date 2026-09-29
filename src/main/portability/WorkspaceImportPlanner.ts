@@ -176,7 +176,7 @@ function backendIdentityKey(backend: ExecutionBackendId): string {
   return backend === 'native' ? backend : `wsl:${folded(backend.slice(4))}`;
 }
 
-function remoteIdentitiesMatch(left: string, right: string): boolean {
+export function remoteIdentitiesMatch(left: string, right: string): boolean {
   const split = (value: string): { host: string; path: string } | null => {
     const separator = value.indexOf('/');
     if (separator <= 0 || separator === value.length - 1) return null;

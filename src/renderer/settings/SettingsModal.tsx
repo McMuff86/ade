@@ -357,6 +357,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
     setBundleConfirmed(false);
   });
 
+  /**
+   * Fill every still-empty repository field from the clones in one folder.
+   * Typed values are never overwritten, and nothing is trusted: the proposals
+   * go through target authorization and the planner's probe like typed paths.
+   */
+  const findClones = (): Promise<void> => guarded(async () => {
+    if (!bundlePreview) return;
+    const result = await window.ade.invoke('workspaceBundle:findClones', { sessionId: bundlePreview.sessionId });
+    if (!result) return;
+    const open = result.matches.filter((match) => !bundleMappings.repositories[match.sourceId]?.path);
+    for (const match of open) updateMapping('repositories', match.sourceId, 'path', match.path);
+    const byRemote = open.filter((match) => match.via === 'remote').length;
+    setBundleMessage(open.length === 0
+      ? translate("No matching clone found in {{value1}} ({{value2}} Git clones searched).", {
+        value1: result.root, value2: result.clonesFound,
+      })
+      : translate("{{value1}} of {{value2}} repositories assigned from {{value3}} ({{value4}} via Git remote, {{value5}} via folder name). Update the preview to check them.", {
+        value1: open.length, value2: bundlePreview.repositories.length, value3: result.root,
+        value4: byRemote, value5: open.length - byRemote,
+      }));
+  });
+
   const exportBundle = (): Promise<void> => guarded(async () => {
     const result = await window.ade.invoke('workspaceBundle:export', {
       includeMemory: exportMemory,
@@ -367,6 +389,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
       setBundleMessage(`Bundle exportiert: ${result.path}${warnings ? translate(" — Notices: {{value1}}", { value1: warnings }) : ''}`);
     }
   });
+
+  const blockingItems: WorkspaceBundlePreviewItem[] = bundlePreview ? [
+    ...bundlePreview.repositories, ...bundlePreview.agentHomes, ...bundlePreview.categories,
+    ...bundlePreview.agents, ...bundlePreview.agentTemplates,
+  ].filter((item) => item.status !== 'ready' && item.status !== 'reused' && item.status !== 'skipped') : [];
 
   /** What the plan will actually produce, per collection, as "kept of total". */
   const importTotals = ((): { parts: string[]; skippedAny: boolean } => {
@@ -600,8 +627,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
                   {bundlePreview.notices.map((notice) => notice.message).join(' · ')}
                 </div>
               ) : null}
+              {/* Why the apply controls are disabled. Without this line a single
+                  unassigned repository (or a home whose parent is missing)
+                  disabled both checkboxes with no visible reason. */}
+              {bundlePreviewCurrent && !bundlePreview.canApplyFully && blockingItems.length > 0 ? (
+                <div className="st-warning" role="status" data-testid="bundle-import-blockers">
+                  {translate("Import blocked by:")}{" "}{blockingItems.slice(0, 8)
+                    .map((item) => `${item.name} (${localizedState(item.status)}${item.reason ? `: ${item.reason}` : ''})`)
+                    .join(' · ')}{blockingItems.length > 8 ? ' …' : ''}
+                  {" "}{translate("Assign or skip these entries, then update the preview.")}
+                </div>
+              ) : null}
               {bundlePreview.repositories.length > 0 ? (
-                <><h4>{translate("Repositories")}</h4>{bundlePreview.repositories.map((item) => mappingRow(item, 'repositories'))}</>
+                <>
+                  <h4>{translate("Repositories")}</h4>
+                  <div className="st-key-row">
+                    <button type="button" className="btn" disabled={busy} data-testid="bundle-find-clones"
+                      title={translate("Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.")}
+                      onClick={() => void findClones()}>
+                      {translate("Find clones in folder…")}</button>
+                  </div>
+                  {bundlePreview.repositories.map((item) => mappingRow(item, 'repositories'))}
+                </>
               ) : null}
               {bundlePreview.agentHomes.length > 0 ? (
                 <><h4>{translate("Agent Homes")}</h4>{bundlePreview.agentHomes.map((item) => mappingRow(item, 'agentHomes'))}</>

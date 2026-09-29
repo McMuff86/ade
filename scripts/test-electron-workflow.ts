@@ -642,6 +642,7 @@ async function run(): Promise<void> {
         ADE_E2E_PTY_LIST_SNAPSHOT_DELAY_MS: '900',
         ADE_E2E_FAKE_GH_STATE: fakeGithub.statePath,
         ADE_E2E_MANAGED_REMOTE: managed.remote,
+        ADE_E2E_CLONE_ROOT: join(scratch, 'clones'),
         PATH: `${modelFixtures.bin}${delimiter}${fakeGithub.bin}${delimiter}${process.env['PATH'] ?? ''}`,
         NODE_ENV: 'test',
       },
@@ -2062,7 +2063,54 @@ async function run(): Promise<void> {
     // keep describing the previous plan while the fields show the new one —
     // which reads as "the button does nothing".
     check('a completed refresh clears the stale-preview marker',
-      ((await settingsDialog.textContent()) ?? '').includes('Preflight: veraltet') === false);
+      ((await settingsDialog.textContent()) ?? '').includes('Vorprüfung: veraltet') === false);
+
+    // Clone search. A migrated profile names clones by Windows paths this host
+    // does not have, so every repository used to be typed by hand — and one
+    // unassigned row disabled "Import anwenden" with no visible reason.
+    const cloneRoot = join(scratch, 'clones');
+    const renamedClone = join(cloneRoot, 'renamed-on-this-host');
+    const nameOnlyClone = join(cloneRoot, 'knuckles-pi');
+    mkdirSync(renamedClone, { recursive: true });
+    mkdirSync(nameOnlyClone, { recursive: true });
+    execFileSync('git', ['init', '-q', renamedClone]);
+    execFileSync('git', ['-C', renamedClone, 'remote', 'add', 'origin', 'https://github.com/McMuff86/E2E-Clone.git']);
+    execFileSync('git', ['init', '-q', nameOnlyClone]);
+    const cloneBundleConfig: AdeConfig = {
+      ...structuredClone(DEFAULT_CONFIG),
+      repositories: [
+        {
+          id: 'e2e-clone-by-remote', name: 'E2E Clone', rootPath: 'C:\\repos\\e2e-clone-windows',
+          commonGitDir: 'C:\\repos\\e2e-clone-windows\\.git', executionBackend: 'native', verified: true, createdAt: 1,
+        },
+        {
+          id: 'e2e-clone-by-name', name: 'Knuckles Pi', rootPath: 'C:\\repos\\knuckles-pi',
+          commonGitDir: 'C:\\repos\\knuckles-pi\\.git', executionBackend: 'native', verified: true, createdAt: 1,
+        },
+      ],
+    };
+    writeFileSync(bundleFixturePath, serializeWorkspaceBundle(exportWorkspaceBundle(cloneBundleConfig, {
+      sourcePlatform: 'win32', exportedAt: '2026-09-29T10:00:00.000Z',
+      resources: {
+        repositoryRemote: (repository) => (repository.id === 'e2e-clone-by-remote'
+          ? 'https://github.com/McMuff86/E2E-Clone.git' : null),
+      },
+    }).bundle));
+    await settingsDialog.getByRole('button', { name: 'Workspace/Profil importieren…' }).click();
+    const blockers = settingsDialog.getByTestId('bundle-import-blockers');
+    await eventually('a blocked import names the entries that block it', async () => {
+      const text = (await blockers.textContent()) ?? '';
+      return text.includes('E2E Clone') && text.includes('Knuckles Pi') && text.includes('zuordnen oder überspringen');
+    }, 20_000);
+    await settingsDialog.getByTestId('bundle-find-clones').click();
+    await eventually('clone search fills both repositories: by origin and by folder name', async () =>
+      await settingsDialog.getByLabel('Zielpfad für E2E Clone').inputValue() === renamedClone
+        && await settingsDialog.getByLabel('Zielpfad für Knuckles Pi').inputValue() === nameOnlyClone
+        && ((await settingsDialog.textContent()) ?? '').includes('2 von 2 Repositories'), 20_000);
+    await settingsDialog.getByRole('button', { name: 'Vorschau aktualisieren' }).click();
+    await eventually('found clones pass the planner probe and unblock the import', async () =>
+      await blockers.count() === 0
+        && ((await settingsDialog.textContent()) ?? '').includes('Vorprüfung: bereit'), 20_000);
 
     const claudeRow = settingsDialog.locator('.st-harness', { hasText: 'Claude Code' });
     await eventually('an existing CLI subscription sign-in is shown, not replaced', async () => {

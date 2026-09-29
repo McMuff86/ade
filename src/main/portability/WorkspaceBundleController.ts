@@ -1,5 +1,5 @@
 import {
-  closeSync, constants, fstatSync, lstatSync, openSync, readSync,
+  closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -28,6 +28,7 @@ import {
   type WorkspaceImportConfigStore,
   type WorkspaceImportReceipt,
 } from './WorkspaceImportService';
+import type { CloneCandidate } from './CloneFinder';
 
 interface CachedPreview {
   plan: WorkspaceImportPlan;
@@ -128,6 +129,14 @@ export class WorkspaceBundleController {
     const sessionId = randomUUID();
     this.previews.set(sessionId, { plan, mappings: structuredClone(mappings), createdAt: now });
     while (this.previews.size > 4) this.previews.delete(this.previews.keys().next().value!);
+    // The proposal below names `<profileDir>/agents/<leaf>`, but the probe and
+    // the provisioner only accept a home whose parent already exists — they
+    // must not create ancestors on a user-chosen path. That parent is ADE's own
+    // directory, so ADE creates it before proposing into it; a fresh profile
+    // (no agent created yet) otherwise reports every proposed home as invalid.
+    if (plan.agentHomes.some((item) => !item.target)) {
+      mkdirSync(join(this.options.profileDir, 'agents'), { recursive: true, mode: 0o700 });
+    }
     const support = managedProfileSupport(this.options.hostPlatform);
     const notices = structuredClone(plan.bundle.notices);
     if (support.notice) {
@@ -155,6 +164,24 @@ export class WorkspaceBundleController {
       }))),
       agentTemplates: plan.agentTemplates.map((item) => viewItem(item)),
     };
+  }
+
+  /**
+   * The repositories of a previewed bundle as clone-search candidates. Read
+   * from the cached plan, so the renderer names a preview session and never
+   * supplies identities of its own.
+   */
+  repositoryCandidates(sessionId: string): CloneCandidate[] {
+    const cached = this.previews.get(sessionId);
+    if (!cached || Date.now() - cached.createdAt > PREVIEW_TTL_MS) {
+      throw new Error('workspace import: preview session is missing or expired');
+    }
+    return cached.plan.bundle.repositories.map((repository) => ({
+      sourceId: repository.id,
+      name: repository.name,
+      sourceLeafName: repository.sourceLeafName,
+      ...(repository.remoteIdentity ? { remoteIdentity: repository.remoteIdentity } : {}),
+    }));
   }
 
   async apply(sessionId: string, token: string): Promise<WorkspaceImportReceipt> {

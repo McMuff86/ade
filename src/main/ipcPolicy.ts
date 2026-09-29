@@ -116,6 +116,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'workspaceBundle:preview': read,
   'workspaceBundle:apply': { ...armsShell, audit: true },
   'workspaceBundle:export': host,
+  'workspaceBundle:findClones': host,
   'photo:import': mutate,
   'category:create': mutate,
   'category:update': mutate,
