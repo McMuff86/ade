@@ -1,5 +1,5 @@
 import {
-  closeSync, constants, fstatSync, lstatSync, openSync, readSync,
+  closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -128,6 +128,14 @@ export class WorkspaceBundleController {
     const sessionId = randomUUID();
     this.previews.set(sessionId, { plan, mappings: structuredClone(mappings), createdAt: now });
     while (this.previews.size > 4) this.previews.delete(this.previews.keys().next().value!);
+    // The proposal below names `<profileDir>/agents/<leaf>`, but the probe and
+    // the provisioner only accept a home whose parent already exists — they
+    // must not create ancestors on a user-chosen path. That parent is ADE's own
+    // directory, so ADE creates it before proposing into it; a fresh profile
+    // (no agent created yet) otherwise reports every proposed home as invalid.
+    if (plan.agentHomes.some((item) => !item.target)) {
+      mkdirSync(join(this.options.profileDir, 'agents'), { recursive: true, mode: 0o700 });
+    }
     const support = managedProfileSupport(this.options.hostPlatform);
     const notices = structuredClone(plan.bundle.notices);
     if (support.notice) {

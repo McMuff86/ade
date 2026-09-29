@@ -21,6 +21,7 @@ import {
 } from '../src/main/portability/WorkspaceImportPlanner';
 import { TargetPathProbe } from '../src/main/portability/TargetPathProbe';
 import { WorkspaceImportService } from '../src/main/portability/WorkspaceImportService';
+import { WorkspaceBundleController } from '../src/main/portability/WorkspaceBundleController';
 import { ExecutionBackendHomeProvisioner } from '../src/main/portability/ExecutionBackendHomeProvisioner';
 import type { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import {
@@ -1584,6 +1585,45 @@ async function testRealTargetProbe(): Promise<void> {
   }
 }
 
+async function testSuggestedHomesOnFreshProfile(): Promise<void> {
+  // A fresh profile has no agents/ directory until its first agent exists.
+  // The suggested homes point there, and the probe requires an existing
+  // parent, so without ADE creating it every proposal came back invalid and
+  // the import could not be applied at all.
+  const root = mkdtempSync(join(tmpdir(), 'ade-fresh-profile-'));
+  try {
+    const profileDir = join(root, 'ade');
+    mkdirSync(profileDir);
+    const controller = new WorkspaceBundleController({
+      store: { get: () => structuredClone(DEFAULT_CONFIG), replace: (config) => config },
+      probe: new TargetPathProbe({ hostPlatform: process.platform }),
+      importer: {} as WorkspaceImportService,
+      hostPlatform: process.platform,
+      profileDir,
+    });
+    const first = await controller.previewBundle(validBundle(), {
+      repositories: {}, agentHomes: {}, settings: 'keep-target',
+    });
+    const suggested = Object.fromEntries(first.agentHomes.flatMap((item) => (
+      item.suggestedTarget ? [[item.sourceId, item.suggestedTarget]] : []
+    )));
+    check('fresh profile: every agent home gets a proposal below <profile>/agents',
+      first.agentHomes.length > 0 && Object.keys(suggested).length === first.agentHomes.length
+        && Object.values(suggested).every((target) => target.path.startsWith(join(profileDir, 'agents'))));
+    check('fresh profile: the proposed parent exists (0700) and no home is created before apply',
+      pathExists(join(profileDir, 'agents'))
+        && (IS_LINUX ? (statSync(join(profileDir, 'agents')).mode & 0o777) === 0o700 : true)
+        && Object.values(suggested).every((target) => !pathExists(target.path)));
+    const second = await controller.previewBundle(validBundle(), {
+      repositories: {}, agentHomes: suggested, settings: 'keep-target',
+    });
+    check('fresh profile: accepted proposals are ready, not invalid',
+      second.agentHomes.every((item) => item.status === 'ready'), second.agentHomes);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 async function testWorkspaceImportService(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'ade-workspace-apply-'));
   try {
@@ -1957,6 +1997,7 @@ async function main(): Promise<void> {
   }
   await testImportPlanner();
   await testRealTargetProbe();
+  await testSuggestedHomesOnFreshProfile();
   if (MANAGED.canApply) {
     await testWorkspaceImportService();
   } else {
