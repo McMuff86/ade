@@ -298,7 +298,7 @@ export function exportWorkspaceBundle(
     if (agent.customCommand || agent.dashboardCommand || agent.dashboardUrl) {
       warnings.push({
         code: 'agent-settings-omitted', subjectType: 'agent', subjectId: agent.id,
-        message: translate("Custom commands and dashboard settings are host-specific and were not exported."),
+        message: translate("{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.", { value1: agent.name }),
       });
     }
     return {

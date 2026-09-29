@@ -22,6 +22,7 @@ import {
 import { TargetPathProbe } from '../src/main/portability/TargetPathProbe';
 import { WorkspaceImportService } from '../src/main/portability/WorkspaceImportService';
 import { WorkspaceBundleController } from '../src/main/portability/WorkspaceBundleController';
+import { listClones, matchClones, nameKey } from '../src/main/portability/CloneFinder';
 import { ExecutionBackendHomeProvisioner } from '../src/main/portability/ExecutionBackendHomeProvisioner';
 import type { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import {
@@ -1624,6 +1625,72 @@ async function testSuggestedHomesOnFreshProfile(): Promise<void> {
   }
 }
 
+async function testCloneFinder(): Promise<void> {
+  check('clone names compare without case, spaces or punctuation',
+    nameKey('Knuckles Pi') === nameKey('knuckles-pi') && nameKey('gabby_stories') === nameKey('GabbyStories'));
+
+  const clones = [
+    { path: '/w/ade', leaf: 'ade', remoteIdentity: 'GitHub.com/McMuff86/ade' },
+    { path: '/w/knuckles-pi', leaf: 'knuckles-pi' },
+    { path: '/w/RhinoClaw', leaf: 'RhinoClaw', remoteIdentity: 'github.com/someone-else/rhinoclaw' },
+    { path: '/w/tools-a', leaf: 'tools' },
+    { path: '/x/tools', leaf: 'tools' },
+  ];
+  const matches = matchClones([
+    // Source folder was named differently on Windows; the origin still finds it.
+    { sourceId: 'ade', name: 'ADE', sourceLeafName: 'ai_agent_code_workspace', remoteIdentity: 'github.com/McMuff86/ade' },
+    // Profile copied from another machine: no origin, display name matches the folder.
+    { sourceId: 'pi', name: 'Knuckles Pi', sourceLeafName: 'knuckles-pi' },
+    // Same folder name, but the clone's origin names another repository.
+    { sourceId: 'claw', name: 'RhinoClaw', sourceLeafName: 'RhinoClaw', remoteIdentity: 'github.com/mcmuff86/rhinoclaw' },
+    // Two clones fit the name: left open instead of guessed.
+    { sourceId: 'tools', name: 'tools', sourceLeafName: 'tools' },
+    { sourceId: 'gone', name: 'Nowhere', sourceLeafName: 'nowhere' },
+  ], clones);
+  const bySource = Object.fromEntries(matches.map((match) => [match.sourceId, match]));
+  check('a matching origin (host case-insensitive, like the planner) wins over a differing folder name',
+    bySource['ade']?.path === '/w/ade' && bySource['ade']?.via === 'remote', matches);
+  check('without an origin, the folder name matches case- and punctuation-insensitively',
+    bySource['pi']?.path === '/w/knuckles-pi' && bySource['pi']?.via === 'name', matches);
+  check('a clone whose origin contradicts the repository is never matched by name',
+    !bySource['claw'], matches);
+  check('a name that fits several clones is left open, and unknown repositories stay open',
+    !bySource['tools'] && !bySource['gone'], matches);
+  const reuse = matchClones([
+    { sourceId: 'one', name: 'ade', remoteIdentity: 'github.com/McMuff86/ade' },
+    { sourceId: 'two', name: 'ade', sourceLeafName: 'ade' },
+  ], clones);
+  check('one clone is never proposed for two repositories', reuse.length === 1 && reuse[0]?.sourceId === 'one', reuse);
+
+  const root = mkdtempSync(join(tmpdir(), 'ade-clone-finder-'));
+  try {
+    const withOrigin = join(root, 'with-origin');
+    const withoutOrigin = join(root, 'Without Origin');
+    mkdirSync(withOrigin);
+    mkdirSync(withoutOrigin);
+    mkdirSync(join(root, 'plain-folder'));
+    mkdirSync(join(root, '.hidden-clone'));
+    execFileSync('git', ['init', '-q', withOrigin]);
+    execFileSync('git', ['-C', withOrigin, 'remote', 'add', 'origin', 'git@github.com:McMuff86/RhinoClaw.git']);
+    execFileSync('git', ['init', '-q', withoutOrigin]);
+    execFileSync('git', ['init', '-q', join(root, '.hidden-clone')]);
+    if (IS_LINUX) symlinkSync(withOrigin, join(root, 'linked-clone'));
+    const found = await listClones(root, async (path) => {
+      try {
+        return execFileSync('git', ['-C', path, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      } catch { return null; }
+    });
+    const leaves = found.map((clone) => clone.leaf).sort();
+    check('the scan finds direct child clones and skips plain folders, hidden folders and symlinks',
+      JSON.stringify(leaves) === JSON.stringify(['Without Origin', 'with-origin']), leaves);
+    check('the scan reads and normalises each origin',
+      found.find((clone) => clone.leaf === 'with-origin')?.remoteIdentity === 'github.com/McMuff86/RhinoClaw'
+        && found.find((clone) => clone.leaf === 'Without Origin')?.remoteIdentity === undefined, found);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 async function testWorkspaceImportService(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'ade-workspace-apply-'));
   try {
@@ -1998,6 +2065,7 @@ async function main(): Promise<void> {
   await testImportPlanner();
   await testRealTargetProbe();
   await testSuggestedHomesOnFreshProfile();
+  await testCloneFinder();
   if (MANAGED.canApply) {
     await testWorkspaceImportService();
   } else {
