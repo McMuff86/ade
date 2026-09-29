@@ -161,6 +161,14 @@ void (async () => {
   const modelSelect = workspace.getByLabel('Codex-Modell', { exact: true }); await modelSelect.waitFor();
   await workspace.getByRole('option', { name: /Codex fixture fast/ }).waitFor({ state: 'attached' });
   check('the PC model catalog fills the tablet model choice with the default marked', (await modelSelect.locator('option').allTextContents()).join('|') === 'GPT-5.6 Sol · gpt-5.6-sol · Standard|Codex fixture fast · codex-fixture-fast');
+  // A profile read without the catalog, arriving after it, used to wipe the
+  // model choice (a race under load). Reloading again makes it deterministic.
+  const reloaded = page.waitForResponse((response) => response.url().endsWith('/api/v1/profile/query')
+    && !String(response.request().postData()).includes('"models":true'));
+  await workspace.getByRole('button', { name: 'Profil neu laden', exact: true }).click();
+  await reloaded; await page.waitForTimeout(300);
+  check('reloading the profile keeps the model catalog loaded from the PC',
+    (await modelSelect.locator('option').allTextContents()).some((text) => text.includes('codex-fixture-fast')));
   await modelSelect.selectOption('codex-fixture-fast');
   check('choosing a model narrows the reasoning choices to what the model reports', await workspace.getByLabel('Denktiefe', { exact: true }).inputValue() === 'low' && await workspace.getByLabel('Denktiefe', { exact: true }).locator('option').count() === 1);
   await workspace.getByLabel('Berechtigungsmodus', { exact: true }).selectOption('bypass');

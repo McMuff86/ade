@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { projectPublishFixture } from './helpers/projectPublishFixture';
 import { ProjectPublishService } from '../src/main/repositories/ProjectPublishService';
@@ -97,6 +97,10 @@ void (async () => {
   writeFileSync(join(bin, 'list.json'), '[]');
   writeFileSync(join(bin, 'created.json'), JSON.stringify([{ number: 3, url: 'https://github.com/ade-fixture/review/pull/3', headRefName: 'feature/review',
     headRefOid: run('rev-parse', 'HEAD'), baseRefName: 'main', isDraft: true, isCrossRepository: false }]));
+  // A real executable named gh on PATH, so the service's own spawn path (argv
+  // without a shell, body over real stdin) is what is exercised. Windows needs
+  // a genuine .exe; elsewhere an executable Node script is the same contract.
+  if (process.platform === 'win32') {
   const compile = join(root, 'compile-gh.ps1');
   writeFileSync(compile, `param([string]$Target)
 Add-Type -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'
@@ -114,9 +118,24 @@ public class FixtureGh { public static int Main(string[] args) {
 '@
 `);
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'gh.exe')], { windowsHide: true, timeout: 30_000 });
+  } else {
+    const gh = join(bin, 'gh');
+    writeFileSync(gh, `#!${process.execPath}
+const { readFileSync, writeFileSync, copyFileSync } = require('node:fs');
+const { join } = require('node:path');
+const root = __dirname; const args = process.argv.slice(2);
+if (args.length < 2 || args[0] !== 'pr') process.exit(12);
+if (args[1] === 'list') { process.stdout.write(readFileSync(join(root, 'list.json'), 'utf8') + '\\n'); process.exit(0); }
+if (args[1] !== 'create') process.exit(13);
+writeFileSync(join(root, 'body.txt'), readFileSync(0, 'utf8'));
+writeFileSync(join(root, 'args.txt'), args.join('\\n'));
+copyFileSync(join(root, 'created.json'), join(root, 'list.json'));
+process.stdout.write('https://github.com/ade-fixture/review/pull/3\\n');
+`, { mode: 0o755 });
+  }
   const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH'; const oldPath = process.env[pathKey];
   try {
-    process.env[pathKey] = `${bin};${oldPath ?? ''}`;
+    process.env[pathKey] = `${bin}${delimiter}${oldPath ?? ''}`;
     const nativePublisher = new ProjectPublishService(f.projectGit, undefined, Date.now, f.publicationGit);
     const nativePreview = await nativePublisher.preview(workspace.id, action, 'desktop'); const nativeResult = await nativePublisher.apply(nativePreview.id, 'desktop');
     check('native gh executable receives exact multiline body through real stdin', readFileSync(join(bin, 'body.txt'), 'utf8') === action.body);

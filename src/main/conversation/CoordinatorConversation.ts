@@ -87,7 +87,6 @@ export function createCoordinatorConversation(options: {
   const resolveProfile = (profileId: string, mode: ConversationMode = 'project') => {
     const agent = options.config.get().agents.find(a => a.id === profileId);
     if (!agent || agent.runtime !== 'codex' || agent.customCommand?.trim() || agent.homeExecutionBackend && agent.homeExecutionBackend !== 'native') throw new Error(translate("ADE conversations require a native Codex profile without a custom start command."));
-    if (process.platform !== 'win32') throw new Error(translate("ADE conversations currently require native Windows."));
     if (!agent.codexModel || !agent.codexReasoningEffort) throw new Error(translate("Select a model and reasoning effort explicitly in the Codex profile."));
     // Casual chat inherits model selection only, never project guidance or memory.
     if (mode === 'casual') return { agent, content: CASUAL_INSTRUCTIONS };

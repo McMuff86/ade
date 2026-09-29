@@ -12,7 +12,10 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     const original = cp.spawn;
     (globalThis as unknown as { restoreQuestionSpawn?: () => void }).restoreQuestionSpawn = () => { cp.spawn = original; };
     cp.spawn = ((file: string, args: string[], options: Record<string, unknown>) => {
-      if (file === 'powershell.exe' && args.includes('& codex app-server --listen stdio://')) {
+      // Windows starts the app server through PowerShell, Linux and macOS spawn
+      // `codex app-server` directly (CodexAppServerProcess); both reach the fixture.
+      if ((file === 'powershell.exe' && args.includes('& codex app-server --listen stdio://'))
+        || (file === 'codex' && args[0] === 'app-server')) {
         return original(process.execPath, [fixture], { ...options, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true });
       }
       return original(file, args, options);

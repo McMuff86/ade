@@ -67,7 +67,8 @@ export async function conversationProjectFlow(desktop: Page, port: number, profi
     await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toHaveValue(new RegExp(conversationId));
     check('one-click continuation carries the old conversation into a fresh writable context', await dialog.getByLabel('Gespräch auswählen', { exact: true }).inputValue() !== conversationId
       && await dialog.getByLabel('Nachricht an ADE', { exact: true }).isEditable());
-    check('continuation focuses the draft without sending or launching on its own', await dialog.getByLabel('Nachricht an ADE', { exact: true }).evaluate(node => node === document.activeElement)
+    // Focus lands after the fresh conversation renders; poll instead of sampling once (raced under load).
+    check('continuation focuses the draft without sending or launching on its own', await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toBeFocused({ timeout: 5_000 }).then(() => true, () => false)
       && (await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length === before.runs.length);
 
     // A second, explicit proposal includes its first task. Creation-only above

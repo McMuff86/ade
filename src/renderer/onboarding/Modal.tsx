@@ -19,6 +19,20 @@ interface ModalProps {
   fallbackFocus?: () => HTMLElement | null;
 }
 
+/**
+ * Whether `dialog` is the topmost open modal and keyboard focus has fallen out
+ * of every dialog onto <body>. That happens when the focused control becomes
+ * disabled mid-action (the voice studio disables its chips while it saves):
+ * the browser drops focus to <body>, so the dialog's own handler stops hearing
+ * Escape (measured on Linux). Tab needs no help: Chromium resumes sequential
+ * navigation from the dropped element, so it lands back inside the dialog.
+ */
+export function strayKeyFor(dialog: HTMLElement | null, event: KeyboardEvent): boolean {
+  if (!dialog || event.target !== document.body) return false;
+  const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+  return open[open.length - 1] === dialog;
+}
+
 const FOCUSABLE =
   'a[href], summary, button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -79,6 +93,18 @@ export function Modal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
   const trapTab = useDialogFocus(dialogRef, fallbackFocus);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // Escape still closes the topmost dialog when focus was dropped to <body>.
+  useEffect(() => {
+    const onStrayEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !strayKeyFor(dialogRef.current, event)) return;
+      event.preventDefault();
+      closeRef.current();
+    };
+    document.addEventListener('keydown', onStrayEscape);
+    return () => document.removeEventListener('keydown', onStrayEscape);
+  }, []);
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {

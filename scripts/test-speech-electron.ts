@@ -132,7 +132,18 @@ require(${JSON.stringify(mainEntry())});`);
   check('desktop head switch saves the default and keeps the saved delivery', saved.speechVoiceId === male && saved.speechTuning?.stability === 0.6);
   check('desktop default preview speaks the chosen sentence with v3 and the saved stability', spoken.model_id === 'eleven_v3' && String(spoken.text).startsWith('Es war einmal') && spoken.voice_settings.stability === 0.6);
   await page.screenshot({ path: resolve('test-results/speech/voice-studio.png') });
-  await page.keyboard.press('Escape'); await casual.waitFor({ state: 'hidden' });
+  // Saving disables the focused chip, and the browser then drops focus to
+  // <body> — at random, so force it: the dialog must stay keyboard-reachable.
+  const strand = () => page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); return document.activeElement === document.body; });
+  const stranded = await strand();
+  await page.keyboard.press('Tab');
+  check('Tab from a stranded <body> returns focus into the open dialog', stranded
+    && await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')));
+  const strandedAgain = await strand();
+  await page.keyboard.press('Escape');
+  check('Escape closes the dialog even after focus fell to <body>', strandedAgain
+    && await casual.waitFor({ state: 'hidden', timeout: 5_000 }).then(() => true, () => false));
+  await casual.waitFor({ state: 'hidden' });
   check('closing the studio returns focus to the conversations entry', await conversations.evaluate(node => node === document.activeElement));
   console.log(`Speech Electron: ${passed} passed, 0 failed`);
 })().catch(error => { console.error(error); console.log(`Speech Electron: ${passed} passed, 1 failed`); process.exitCode = 1; })

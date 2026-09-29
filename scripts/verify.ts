@@ -44,9 +44,16 @@ interface Step {
   command: string[];
   timeoutMs: number;
   lane: Lane;
+  /**
+   * Platforms this step is measured on; absent = every platform. Elsewhere it
+   * is reported as `not-measured` with `reason` — listed, never silently green
+   * and never red for a platform nobody measured it on.
+   */
+  platforms?: readonly NodeJS.Platform[];
+  reason?: string;
 }
 
-type Status = 'passed' | 'failed' | 'timeout' | 'skipped';
+type Status = 'passed' | 'failed' | 'timeout' | 'skipped' | 'not-measured';
 
 interface Outcome {
   id: string;
@@ -57,6 +64,7 @@ interface Outcome {
   passed: number | null;
   failed: number | null;
   log: string;
+  reason?: string;
 }
 
 const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -111,11 +119,23 @@ const tsc = (project: string): Step => ({
   command: [NODE, bin('typescript', 'tsc'), '--noEmit', '-p', project],
 });
 
-const driver = (id: string, script: string, options: { args?: string[]; lane?: Lane } = {}): Step => ({
+const driver = (
+  id: string, script: string,
+  options: { args?: string[]; lane?: Lane; platforms?: readonly NodeJS.Platform[]; reason?: string } = {},
+): Step => ({
   id, kind: 'driver', timeoutMs: 20 * MINUTE, lane: options.lane ?? 'pool',
   command: [NODE, '--import', 'tsx', join('scripts', script), ...(options.args ?? [])],
+  ...(options.platforms ? { platforms: options.platforms, reason: options.reason } : {}),
 });
 const only = (flag: string, lane: Lane = 'pool') => ({ args: [`--${flag}-only`], lane });
+
+// Why each Windows-only driver is Windows-only. Porting one means replacing
+// what its reason names, then dropping it from here.
+const WINDOWS_CONSOLE_FIXTURE = { platforms: ['win32'] as const,
+  reason: 'fixture CLI is a compiled Windows console program (powershell.exe Add-Type)' };
+const WINDOWS_REMOTE_TERMINAL = { platforms: ['win32'] as const,
+  reason: 'remote terminal runtime evidence is measured on native Windows (ConPTY)' };
+const windowsOnly = (reason: string) => ({ platforms: ['win32'] as const, reason });
 
 const STEPS: Step[] = [
   tsc('tsconfig.node.json'),
@@ -126,41 +146,41 @@ const STEPS: Step[] = [
     command: [NODE, bin('electron-vite', 'electron-vite'), 'build', '--outDir', BUILD_DIR] },
   { id: 'build:mobile', kind: 'build', timeoutMs: 10 * MINUTE, lane: 'pool',
     command: [NODE, bin('vite', 'vite'), 'build', '--config', 'vite.mobile.config.ts', '--outDir', join(BUILD_DIR, 'mobile'), '--emptyOutDir'] },
-  driver('ollama-electron', 'test-ollama-electron.ts'),
+  driver('ollama-electron', 'test-ollama-electron.ts', windowsOnly('asserts the native Windows Ollama launch path')),
   driver('speech-electron', 'test-speech-electron.ts'),
-  driver('reply-speech-electron', 'test-reply-speech-electron.ts'),
-  driver('dictation-electron:computer', 'test-dictation-electron.ts', only('computer')),
-  driver('dictation-electron:terminal-media', 'test-dictation-electron.ts', only('terminal-media', 'clipboard')),
-  driver('dictation-electron', 'test-dictation-electron.ts'),
+  driver('reply-speech-electron', 'test-reply-speech-electron.ts', WINDOWS_CONSOLE_FIXTURE),
+  driver('dictation-electron:computer', 'test-dictation-electron.ts', { ...only('computer'), ...WINDOWS_CONSOLE_FIXTURE }),
+  driver('dictation-electron:terminal-media', 'test-dictation-electron.ts', { ...only('terminal-media', 'clipboard'), ...WINDOWS_CONSOLE_FIXTURE }),
+  driver('dictation-electron', 'test-dictation-electron.ts', WINDOWS_CONSOLE_FIXTURE),
   driver('mobile-speech-browser', 'test-mobile-speech-browser.ts'),
   driver('agent-behavior-browser', 'test-agent-behavior-browser.ts'),
-  driver('profile-session-electron', 'test-profile-session-electron.ts'),
+  driver('profile-session-electron', 'test-profile-session-electron.ts', windowsOnly('native profile session integration is measured on Windows')),
   driver('agent-settings-profile-electron', 'test-agent-settings-profile-electron.ts'),
   driver('work-electron', 'test-work-electron.ts'),
   driver('organizer-electron', 'test-organizer-electron.ts'),
   driver('organizer-browser', 'test-organizer-browser.ts'),
   driver('usage-overview-electron', 'test-usage-overview-electron.ts'),
   driver('conversation-electron', 'test-conversation-electron.ts'),
-  driver('project-profile-electron', 'test-remote-terminal-electron.ts', only('project-profile')),
+  driver('project-profile-electron', 'test-remote-terminal-electron.ts', { ...only('project-profile'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('electron-workflow', 'test-electron-workflow.ts'),
   driver('git-sync-electron', 'test-git-sync-electron.ts'),
   driver('mobile-browser', 'test-mobile-browser.ts'),
   driver('mobile-electron', 'test-mobile-electron.ts'),
-  driver('remote-restart-electron', 'test-remote-restart-electron.ts'),
+  driver('remote-restart-electron', 'test-remote-restart-electron.ts', windowsOnly('remote relaunch is measured on native Windows')),
   driver('remote-workspace-browser', 'test-remote-workspace-browser.ts'),
   driver('remote-workbench-browser', 'test-remote-workbench-browser.ts'),
-  driver('remote-terminal-electron:session-navigation', 'test-remote-terminal-electron.ts', only('session-navigation')),
-  driver('remote-terminal-electron:project-launcher', 'test-remote-terminal-electron.ts', only('project-launcher')),
-  driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', only('tablet-layout')),
+  driver('remote-terminal-electron:session-navigation', 'test-remote-terminal-electron.ts', { ...only('session-navigation'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:project-launcher', 'test-remote-terminal-electron.ts', { ...only('project-launcher'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', { ...only('tablet-layout'), ...WINDOWS_REMOTE_TERMINAL }),
   // Restarts short-lived fixture CLIs back to back; beside the pool it failed at changing spots.
-  driver('remote-terminal-electron', 'test-remote-terminal-electron.ts', { lane: 'solo' }),
-  driver('remote-terminal-electron:run-inspection', 'test-remote-terminal-electron.ts', only('run-inspection')),
-  driver('remote-terminal-electron:workspace-cli', 'test-remote-terminal-electron.ts', only('workspace-cli', 'clipboard')),
-  driver('remote-terminal-electron:project-git', 'test-remote-terminal-electron.ts', only('project-git')),
-  driver('remote-terminal-electron:terminal-latency', 'test-remote-terminal-electron.ts', only('terminal-latency', 'solo')),
-  driver('remote-terminal-electron:input-race', 'test-remote-terminal-electron.ts', only('input-race', 'solo')),
+  driver('remote-terminal-electron', 'test-remote-terminal-electron.ts', { lane: 'solo', ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:run-inspection', 'test-remote-terminal-electron.ts', { ...only('run-inspection'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:workspace-cli', 'test-remote-terminal-electron.ts', { ...only('workspace-cli', 'clipboard'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:project-git', 'test-remote-terminal-electron.ts', { ...only('project-git'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:terminal-latency', 'test-remote-terminal-electron.ts', { ...only('terminal-latency', 'solo'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:input-race', 'test-remote-terminal-electron.ts', { ...only('input-race', 'solo'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('project-publish-browser', 'test-project-publish-browser.ts'),
-  driver('setup-electron', 'test-setup-electron.ts'),
+  driver('setup-electron', 'test-setup-electron.ts', windowsOnly('the setup flow is measured on native Windows')),
   driver('visual-regression', 'test-visual-regression.ts', { lane: 'solo' }),
 ];
 
@@ -259,6 +279,79 @@ function lastDurations(): Map<string, number> {
  * One run at a time: a second one would delete the build the first one's
  * drivers are using (e.g. an activation while the owed full run still runs).
  */
+/**
+ * Linux drivers run like CI does. A private HOME keeps the developer's shell
+ * start-up (e.g. `mise activate` re-sorting PATH in front of the fixture CLIs)
+ * and real CLI sign-ins out of the drivers; a headless X server, when
+ * `xvfb-run` exists, gives windows the size they ask for — a tiling Wayland
+ * compositor otherwise resizes them — and keeps them off the desktop.
+ * Returns a note for the start line.
+ */
+async function isolateLinuxDrivers(env: NodeJS.ProcessEnv, steps: Step[]): Promise<string | undefined> {
+  if (process.platform !== 'linux' || !steps.some((step) => step.kind === 'driver')) return undefined;
+  const realHome = env['HOME'];
+  const home = join(LOG_DIR, 'home');
+  rmSync(home, { recursive: true, force: true });
+  mkdirSync(home, { recursive: true });
+  writeFileSync(join(home, '.gitconfig'), [
+    '[user]', '\tname = ADE Verify', '\temail = verify@localhost',
+    '[init]', '\tdefaultBranch = main', '[commit]', '\tgpgSign = false', '',
+  ].join('\n'));
+  env['HOME'] = home;
+  for (const key of ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME']) delete env[key];
+  // Browsers Playwright downloaded for the real user stay usable.
+  if (!env['PLAYWRIGHT_BROWSERS_PATH'] && realHome) env['PLAYWRIGHT_BROWSERS_PATH'] = join(realHome, '.cache', 'ms-playwright');
+  // One X server for the whole run, owned and stopped by verify. xvfb-run per
+  // driver exited non-zero whenever its own cleanup found the server already
+  // gone, turning green drivers red (measured).
+  const display = await startXvfb();
+  if (!display) {
+    return env['WAYLAND_DISPLAY']
+      ? 'no Xvfb: drivers use the desktop session, window sizes follow the compositor (install xorg-server-xvfb)'
+      : undefined;
+  }
+  // Electron picks its Ozone backend from XDG_SESSION_TYPE; with "wayland" it
+  // keeps trying Wayland even without WAYLAND_DISPLAY and exits (measured).
+  delete env['WAYLAND_DISPLAY'];
+  env['XDG_SESSION_TYPE'] = 'x11';
+  env['DISPLAY'] = display;
+  return `drivers on a private HOME and a headless X server (${display})`;
+}
+
+async function startXvfb(): Promise<string | undefined> {
+  if (spawnSync('Xvfb', ['-help'], { stdio: 'ignore' }).error) return undefined;
+  // -displayfd: the server picks a free display and writes its number to fd 3.
+  const server = spawn('Xvfb', ['-displayfd', '3', '-screen', '0', '1920x1200x24', '-nolisten', 'tcp'], {
+    stdio: ['ignore', 'ignore', 'ignore', 'pipe'],
+  });
+  process.on('exit', () => { try { server.kill('SIGTERM'); } catch { /* gone */ } });
+  const value = await new Promise<string>((done) => {
+    let text = '';
+    const timer = setTimeout(() => done(''), 10_000);
+    (server.stdio[3] as NodeJS.ReadableStream).on('data', (chunk: Buffer) => {
+      text += chunk.toString();
+      if (text.includes('\n')) { clearTimeout(timer); done(text.trim()); }
+    });
+    server.on('exit', () => { clearTimeout(timer); done(''); });
+  });
+  if (!/^\d+$/.test(value)) { server.kill('SIGTERM'); return undefined; }
+  // Neither the server nor its pipe may keep verify alive after the last step.
+  (server.stdio[3] as NodeJS.ReadableStream & { destroy(): void }).destroy();
+  server.unref();
+  return `:${value}`;
+}
+
+/** Browser drivers need Playwright's Chromium; say so once instead of failing each. */
+function checkBrowsers(steps: Step[]): void {
+  if (!steps.some((step) => step.kind === 'driver' && /-browser(?::|$)/.test(step.id))) return;
+  try {
+    const { chromium } = requireFromHere('playwright') as { chromium: { executablePath(): string } };
+    if (existsSync(chromium.executablePath())) return;
+  } catch { /* reported below */ }
+  console.error('verify: Playwright Chromium is not installed; run `pnpm exec playwright install chromium` first');
+  process.exit(2);
+}
+
 function acquireRunLock(): void {
   const lock = join(LOG_DIR, 'verify.lock');
   const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
@@ -279,16 +372,25 @@ function acquireRunLock(): void {
 
 async function main(): Promise<void> {
   const steps = selectSteps();
+  checkBrowsers(steps);
   mkdirSync(LOG_DIR, { recursive: true });
   acquireRunLock();
-  const env = { ...process.env, ADE_BUILD_DIR: BUILD_DIR };
+  const env: NodeJS.ProcessEnv = { ...process.env, ADE_BUILD_DIR: BUILD_DIR };
+  const display = await isolateLinuxDrivers(env, steps);
   const startedAt = new Date();
   console.log(`verify: ${steps.length} step(s), isolated build ${relative(REPOSITORY, BUILD_DIR)}, logs ${relative(REPOSITORY, LOG_DIR)},`
-    + ` ${DRIVER_JOBS} pool driver(s) at once`);
+    + ` ${DRIVER_JOBS} pool driver(s) at once${display ? `, ${display}` : ''}`);
 
   const outcomes = new Map<string, Outcome>();
   const label = (step: Step): string => `[${String(steps.indexOf(step) + 1).padStart(2)}/${steps.length}] ${step.id}`;
   const run = async (step: Step): Promise<Outcome> => {
+    if (step.platforms && !step.platforms.includes(process.platform)) {
+      const outcome: Outcome = { id: step.id, kind: step.kind, status: 'not-measured', seconds: 0, exitCode: null,
+        passed: null, failed: null, log: '', reason: step.reason ?? `measured on ${step.platforms.join(', ')} only` };
+      outcomes.set(step.id, outcome);
+      console.log(`${label(step)}  not measured on ${process.platform}: ${outcome.reason}`);
+      return outcome;
+    }
     if (step.id === 'build:desktop') rmSync(BUILD_DIR, { recursive: true, force: true });
     console.log(`${label(step)} ...`);
     const outcome = await runStep(step, env);
@@ -340,14 +442,22 @@ async function main(): Promise<void> {
   for (const outcome of [...ordered].sort((a, b) => b.seconds - a.seconds).slice(0, 10)) {
     console.log(`  ${formatSeconds(outcome.seconds).padStart(8)}  ${outcome.id}`);
   }
-  const broken = ordered.filter((outcome) => outcome.status !== 'passed');
+  const broken = ordered.filter((outcome) => outcome.status !== 'passed' && outcome.status !== 'not-measured');
+  const unmeasured = ordered.filter((outcome) => outcome.status === 'not-measured');
   console.log(`\n${ordered.length} step(s) in ${formatSeconds(totalSeconds)}; report ${relative(REPOSITORY, join(LOG_DIR, 'report.json'))}`);
+  if (unmeasured.length > 0) {
+    // Named every run, so "green" never quietly means "less was checked".
+    console.log(`NOT MEASURED on ${process.platform} - ${unmeasured.length} step(s):`);
+    for (const outcome of unmeasured) console.log(`  ${outcome.id}: ${outcome.reason}`);
+  }
   if (broken.length > 0) {
     console.log(`FAILED - ${broken.length} step(s):`);
     for (const outcome of broken) console.log(`  ${outcome.id}: ${outcome.status}${outcome.log ? ` (${outcome.log})` : ''}`);
     process.exit(1);
   }
-  console.log('PASSED - every step is green');
+  console.log(unmeasured.length > 0
+    ? `PASSED - every step measured on ${process.platform} is green (${unmeasured.length} not measured here, listed above)`
+    : 'PASSED - every step is green');
 }
 
 void main();

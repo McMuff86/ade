@@ -14,7 +14,7 @@
 - Inspect the nearest existing conventions before editing and preserve unrelated user changes.
 - Keep code and documentation synchronized in the same change. Update architecture/spec for contracts, status/roadmap for current support, and handoff/results for operator state.
 - Add or update focused tests for every behavioral contract. Run the focused check while iterating.
-- Before claiming repository-wide completion, run `pnpm verify`: both TypeScript projects, all focused suites, production build, and real Electron/Playwright automation. It builds into `test-results/verify-build`, so it may run while the personal instance runs from `out/`; never run `pnpm build` then. New drivers locate the build through `scripts/helpers/buildOutput.ts` and join the step list in `scripts/verify.ts`.
+- Before claiming repository-wide completion, run `pnpm verify`: both TypeScript projects, all focused suites, production build, and real Electron/Playwright automation. It builds into `test-results/verify-build`, so it may run while the personal instance runs from `out/`; never run `pnpm build` then. New drivers locate the build through `scripts/helpers/buildOutput.ts` and join the step list in `scripts/verify.ts`; a driver that cannot run on a platform declares `platforms` with a `reason` there (reported as *not measured*), instead of throwing or passing vacuously.
 - Restart the personal instance with `pnpm activate` (gate, backup, graceful quit, `out.prev` rollback), not by hand.
 - Treat expected-failure negative controls as successful evidence only when they fail for the intended reason and the final positive control passes.
 - Never claim a runtime, model, platform, packaging target, or UI flow is supported without executable evidence.

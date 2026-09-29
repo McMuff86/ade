@@ -1,5 +1,74 @@
 # ADE implementation status
 
+## ADE-Gespräch unter Linux (29. September 2026)
+
+Das zentrale ADE-Gespräch (Projektbetreuung, Aufträge vorbereiten, Plaudern & Stimme; PC und Tablet)
+war hart auf Windows begrenzt (`launchCoordinatorCodex`, `CoordinatorConversation`). Unter Linux/macOS
+startet jetzt ein konstanter Node-Starter (`POSIX_COORDINATOR_LAUNCHER`, Electrons eigenes Node, keine
+Shell) dieselben zwei Stufen wie das PowerShell-Skript: MCP-Inventar ohne Verbindung, jeden geprüften
+Namen nur für diesen Prozess abschalten, dann `codex app-server` mit ADEs Vorgaben; Signale werden
+weitergereicht. Die Prüfungen danach (CLI-Version, wirksame Konfiguration, schreibgeschützter Thread
+ohne Netz) sind unverändert und gelten auf beiden Systemen.
+
+Nachweis (Omarchy, Codex 0.158.0): Rauchtest mit dem echten CLI bis `thread/start` (kein Modellaufruf) —
+Version, wirksame Konfiguration und Thread-Sandbox bestätigt; mit zwei geerbten MCP-Servern ebenso;
+**Negativkontrolle** ohne Abschaltung → ADE verweigert. Suite `coordinator-codex-policy` 58/0 (7 neue
+Prozessprüfungen: Inventar-Argumente ohne Shell, Abschaltung je Name, cwd/Umgebung, stdio-Durchreichung,
+ungültiger Name und fehlschlagendes Inventar stoppen vor dem Server, SIGTERM beendet auch einen hängenden
+Server — ohne Weiterleitung FAIL). `conversation-electron` unter Linux **90/0** (vorher nicht gemessen;
+das Double greift jetzt auch beim Linux-Start von Koordinator und Worker). `pnpm verify` Linux zweimal
+grün: 23 gemessen, 18 Windows-only ausgewiesen. Eine Fokusprüfung („continuation focuses the draft“) wartet
+jetzt bis 5 s statt einmal zu stichproben (lief unter Last zu früh).
+
+## Linux-Prüfstand: `pnpm verify` grün, Windows-only ausgewiesen, zwei echte Fehler behoben (29. September 2026)
+
+`pnpm verify` war unter Linux mit 33 roten Schritten wertlos; auf `main` war auch die Linux-CI rot
+(`project-publish`). Jetzt: **22 unter Linux gemessene Schritte grün, 19 „nicht gemessen“ mit Grund**
+(zweimal in Folge; 2 min 15 s).
+
+- **verify:** Schritte tragen Plattformen; anderswo `not-measured` mit Grund, am Ende gelistet, nie rot
+  oder stillschweigend grün. Unter Linux laufen die Treiber auf eigenem `HOME` (die Login-Shell mit
+  `mise activate` sortierte die Fixture-CLIs hinter die echten) und auf **einem** von verify
+  gestarteten Xvfb (`xvfb-run` je Treiber meldete bei eigenem Aufräumen Exit ≠ 0; Electron braucht
+  dort `XDG_SESSION_TYPE=x11`). Fehlt Playwrights Chromium, bricht verify sofort mit dem Befehl ab.
+- **Testkorrekturen:** `project-publish` baut das `gh`-Double ausserhalb Windows als Node-Skript
+  (41/0 unter Linux); `work-electron` beendet den Renderer unter Linux per SIGKILL
+  (`forcefullyCrashRenderer()` tat dort nachweislich nichts); das Rückfragen-Double greift auch beim
+  Linux-Start `codex app-server` (Tablet-Rückfragen unter Linux jetzt nachgewiesen).
+- **Fehler in ADE behoben:**
+  - *Dialog nach Fokusverlust:* Deaktiviert eine Aktion den fokussierten Knopf (Stimmenstudio beim
+    Speichern), fällt der Fokus auf `<body>` und Escape schloss den Dialog nicht mehr. `Modal` schliesst
+    jetzt den obersten Dialog auch dann. Tab braucht keine Hilfe (Chromium setzt die Navigation am
+    verlorenen Element fort; gemessen). Negativkontrolle: ohne Fix scheitert die Prüfung.
+  - *Tablet-Modellwahl verschwand:* Eine Profil-Antwort ohne Katalog, die nach dem Katalog eintraf,
+    löschte ihn (Race unter Last). Sie behält jetzt den geladenen Katalog desselben Agents.
+    Deterministische Prüfung per zweitem Neuladen; ohne Fix FAIL.
+- **Neue Produktlücke sichtbar:** Das **ADE-Gespräch (Koordinator) lief nur unter Windows**
+  (`launchCoordinatorCodex`) — geschlossen im folgenden Eintrag.
+- Enthält PR #19 (Keyring-Schalter), ohne den drei Treiber an der Schlüsselablage scheitern.
+
+## Installation: `pnpm doctor`, Selbstreparatur beim Install, Schlüsselablage unter Hyprland (29. September 2026)
+
+- **`pnpm doctor`** prüft Node (≥ 22), pnpm (Pin 9.15.9), Git, den Electron-Download, ob node-pty
+  **in Electron** lädt, die Agent-CLIs und (Linux) den Secret Service. Jeder Fehler nennt den
+  Befehl, der ihn behebt; `--fix` repariert Electron-Download und node-pty automatisch.
+- **`pnpm install`** ruft `doctor --postinstall` auf: repariert, zeigt den Bericht, lässt die
+  Installation nie scheitern; übersprungen mit `CI` oder `ADE_SKIP_POSTINSTALL`.
+- **Schlüsselablage:** Auf Desktops, die Chromium nicht kennt (Hyprland, Sway, …), startet ADE
+  Electron mit `--password-store=gnome-libsecret` (`src/main/passwordStore.ts`); ein expliziter
+  Schalter hat Vorrang.
+- `.nvmrc` und `engines.node` legen Node 22 fest.
+
+Nachweis (Omarchy/Hyprland, Linux): frischer Klon, `pnpm install` holt den übersprungenen
+Electron-Download selbst nach, danach alles grün. Negativkontrolle: absichtlich zerstörtes
+`pty.node` → `doctor` FAIL mit Loader-Meldung, `doctor --fix` baut neu → grün. Neue Suite
+`doctor` 20/0. `pnpm verify` unter Linux: 31 rote Schritte, Vergleichslauf auf `main` (3070b1c)
+auf derselben Maschine 33 rote — keine neuen. Die Linux-Rotschritte sind Windows-gemessene
+Treiber (z. B. „Setup flow is currently measured on native Windows“) und Test-Doubles, die eine
+Login-Shell mit `mise activate` hinter die echten CLIs sortiert. Durch die nun verfügbare
+Schlüsselablage laufen in `electron-workflow` 16 Prüfungen zusätzlich; die zwei neuen roten
+(Grok-Sitzung) haben dieselbe Ursache: das echte `grok` statt des Doubles.
+
 ## Import: Klone in Ordner suchen, sichtbare Blocker, gleitende Gültigkeit (29. September 2026)
 
 - **„Klone in Ordner suchen…“** im Import-Formular: ein Ordner wählen (Vorgabe: Projekt-Stammordner),

@@ -8,7 +8,12 @@
   "desktopName": "com.adimuff.ade.desktop",
   "description": "ADE - agentic development environment (desktop workspace for CLI agents)",
   "main": "out/main/index.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "doctor": "tsx scripts/doctor.ts",
+    "postinstall": "tsx scripts/doctor.ts --postinstall",
     "dev": "electron-vite dev",
     "build": "electron-vite build && vite build --config vite.mobile.config.ts",
     "start": "electron-vite preview --skipBuild",
@@ -46,6 +51,7 @@
     "test:remote-workspace-browser": "pnpm build:mobile && tsx scripts/test-remote-workspace-browser.ts",
     "test:remote-restart-electron": "pnpm build && tsx scripts/test-remote-restart-electron.ts",
     "test:workspace-bundle": "tsx scripts/test-workspace-bundle.ts",
+    "test:doctor": "tsx scripts/test-doctor.ts",
     "test:workspace-fs": "tsx scripts/test-workspace-fs.ts",
     "test:security": "tsx scripts/test-security.ts",
     "test:electron": "pnpm run build && tsx scripts/test-electron-workflow.ts",

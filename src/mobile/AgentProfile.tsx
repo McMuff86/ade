@@ -77,7 +77,14 @@ export function AgentProfile({ host, agentId, repositoryId, drafts }: { host: Mo
     try {
       const [value, state] = await Promise.all([host.request<MobileAgentProfile>('/api/v1/profile/query', 'POST', { agentId }),
         host.request<{ capabilities?: string[] }>('/api/v1/host')]);
-      if (live.current) { setProfile(value); setAllowed(state.capabilities?.includes('profiles:write') === true); }
+      // A profile read carries no model catalog. Arriving after loadModels() it
+      // used to replace the catalog, so the model choice vanished on a slow host
+      // (measured under load); the catalog comes from the PC's CLI, not the profile.
+      if (live.current) {
+        setProfile(previous => (!value.models && previous?.models && previous.agent.id === value.agent.id
+          ? { ...value, models: previous.models } : value));
+        setAllowed(state.capabilities?.includes('profiles:write') === true);
+      }
     } catch (reason) { if (live.current) setError(profileError(reason)); }
     finally { if (live.current) setLoading(false); }
   };

@@ -224,8 +224,13 @@ idempotency before side effects. This transport alone does not restrict native
 Codex's other tools or implement the central coordinator. Codex 0.154 restores
 tool specifications from its rollout on resume; the conversation owner must pin
 its tool contract instead of assuming that resume replaces definitions.
-The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant native-Windows
-launch overrides, a stable CLI identity of at least 0.154.0, effective config inspection before
+The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant
+launch overrides (a PowerShell script on Windows; on Linux/macOS the constant
+`POSIX_COORDINATOR_LAUNCHER`, run by Electron's own Node with
+`ELECTRON_RUN_AS_NODE` — no shell, overrides as argv — which inventories MCP
+servers with `codex mcp list --json`, disables each validated name for this
+process, execs `codex app-server` with inherited stdio and forwards
+SIGTERM/SIGINT/SIGHUP, so a hung app server still ends with the connection), a stable CLI identity of at least 0.154.0, effective config inspection before
 the first turn, and a read-only/no-network thread even when the selected coding
 profile allows bypass. Native execution, browser/computer, MCP, plugins and native
 subagents are disabled. `code_mode_host` remains enabled because this CLI also
@@ -2592,7 +2597,10 @@ Invoke (renderer → main, `ipcRenderer.invoke`):
   write-only encrypted key storage (OS safeStorage, own file next to
   config.json; refuses to store when OS encryption is unavailable). On Linux,
   only known OS-backed Secret Service/KWallet backends are accepted;
-  Electron's `basic_text` and `unknown` backends fail closed. Stored keys are
+  Electron's `basic_text` and `unknown` backends fail closed. Chromium maps
+  unrecognised desktops (Hyprland, Sway, …) to `basic_text` even when a Secret
+  Service runs, so `src/main/passwordStore.ts` requests `gnome-libsecret`
+  there before `ready` unless `--password-store` was given explicitly. Stored keys are
   injected main-side as the harness's documented environment variable only
   while secure storage remains available and only into sessions whose
   effective runtime matches
