@@ -114,6 +114,7 @@ import { TargetPathProbe } from './portability/TargetPathProbe';
 import { WorkspaceImportService } from './portability/WorkspaceImportService';
 import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendHomeProvisioner';
 import { WorkspaceBundleController } from './portability/WorkspaceBundleController';
+import { listClones, matchClones } from './portability/CloneFinder';
 import { exportWorkspaceBundle } from './portability/WorkspaceBundleExporter';
 import { openManagedProfileReader } from './portability/ProfileMigrationSource';
 import { buildProfileImportBundle } from './portability/ProfileImportPreview';
@@ -767,12 +768,44 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       }).then((exported) => workspaceBundles.previewBundle(exported.bundle, mappings))
       : workspaceBundles.previewFile(selection.path, mappings);
     return previewPromise.then((preview) => {
+      // Sliding expiry: the selection lapses 10 minutes after the last
+      // successful preview, not after the pick. Assigning seven repositories
+      // by hand took longer than that and lost every typed path.
+      selection.createdAt = Date.now();
       previewOwners.set(preview.sessionId, event.sender.id);
       while (previewOwners.size > 16) {
         previewOwners.delete(previewOwners.keys().next().value!);
       }
       return preview;
     });
+  });
+  handleWithEvent(IPC.WorkspaceBundleFindClones, async ({ sessionId }, event) => {
+    if (previewOwners.get(sessionId) !== event.sender.id) {
+      throw new Error('workspace import: preview session is not owned by this renderer');
+    }
+    const candidates = workspaceBundles.repositoryCandidates(sessionId);
+    const e2eRoot = process.env.NODE_ENV === 'test' ? process.env['ADE_E2E_CLONE_ROOT'] : undefined;
+    let root = e2eRoot;
+    if (!root) {
+      const focused = BrowserWindow.getFocusedWindow();
+      const win = (isRendererWindow(focused) ? focused : null) ?? rendererWindows()[0] ?? null;
+      const options: Electron.OpenDialogOptions = {
+        title: translate("Folder with your clones"),
+        properties: ['openDirectory'],
+        ...(store.get().settings.projectDefaults?.rootPath
+          ? { defaultPath: store.get().settings.projectDefaults!.rootPath } : {}),
+      };
+      const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+      root = result.canceled ? undefined : result.filePaths[0];
+    }
+    if (!root) return null;
+    const clones = await listClones(root, async (path) => {
+      const remote = await execution.run(NATIVE_EXECUTION_BACKEND, 'git', [
+        '-C', path, 'remote', 'get-url', 'origin',
+      ], { timeoutMs: 15_000, maxBuffer: 64 * 1024 });
+      return remote.code === 0 ? Buffer.from(remote.stdout).toString('utf8').trim() : null;
+    });
+    return { root, clonesFound: clones.length, matches: matchClones(candidates, clones) };
   });
   handleWithEvent(IPC.WorkspaceBundleApply, async ({ sessionId, token }, event) => {
     if (previewOwners.get(sessionId) !== event.sender.id) {

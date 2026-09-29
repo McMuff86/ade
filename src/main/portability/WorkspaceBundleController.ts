@@ -28,6 +28,7 @@ import {
   type WorkspaceImportConfigStore,
   type WorkspaceImportReceipt,
 } from './WorkspaceImportService';
+import type { CloneCandidate } from './CloneFinder';
 
 interface CachedPreview {
   plan: WorkspaceImportPlan;
@@ -163,6 +164,24 @@ export class WorkspaceBundleController {
       }))),
       agentTemplates: plan.agentTemplates.map((item) => viewItem(item)),
     };
+  }
+
+  /**
+   * The repositories of a previewed bundle as clone-search candidates. Read
+   * from the cached plan, so the renderer names a preview session and never
+   * supplies identities of its own.
+   */
+  repositoryCandidates(sessionId: string): CloneCandidate[] {
+    const cached = this.previews.get(sessionId);
+    if (!cached || Date.now() - cached.createdAt > PREVIEW_TTL_MS) {
+      throw new Error('workspace import: preview session is missing or expired');
+    }
+    return cached.plan.bundle.repositories.map((repository) => ({
+      sourceId: repository.id,
+      name: repository.name,
+      sourceLeafName: repository.sourceLeafName,
+      ...(repository.remoteIdentity ? { remoteIdentity: repository.remoteIdentity } : {}),
+    }));
   }
 
   async apply(sessionId: string, token: string): Promise<WorkspaceImportReceipt> {

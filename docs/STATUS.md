@@ -1,5 +1,25 @@
 # ADE implementation status
 
+## Import: Klone in Ordner suchen, sichtbare Blocker, gleitende Gültigkeit (29. September 2026)
+
+- **„Klone in Ordner suchen…“** im Import-Formular: ein Ordner wählen (Vorgabe: Projekt-Stammordner),
+  ADE füllt alle leeren Repository-Felder — zuerst über den Git-Remote (dieselbe Vergleichsregel wie
+  der Planer), sonst über den Ordnernamen (Quell-Ordnername oder Anzeigename, ohne Gross/Klein und
+  Satzzeichen). Kein Klon doppelt, kein Namenstreffer gegen einen widersprechenden Remote, mehrdeutige
+  Namen bleiben offen. Vorschläge laufen weiter durch Autorisierung und Repository-Probe.
+- **„Import blockiert durch: …“** nennt jeden Eintrag, der das Anwenden sperrt, mit Zustand und Grund.
+- Die Import-Auswahl verfällt 10 Minuten nach der **letzten** erfolgreichen Vorschau statt nach der Wahl.
+- Der Hinweis zu nicht übernommenen Startbefehlen/Dashboards nennt den Agent.
+- Enthält den Fix aus PR #18 (Elternordner `agents/` für vorgeschlagene Agent-Homes).
+
+Nachweis (Linux): `workspace-bundle` 213/0 (neu: Zuordnung per Remote/Name, Widerspruch, Mehrdeutigkeit,
+keine Doppelvergabe, echter Ordner-Scan mit Git inkl. Symlink/versteckt); `security` 291/0 (neuer
+Kanal `workspaceBundle:findClones`, `host`); `electron-workflow` mit neuem Formularlauf (Blocker sichtbar
+→ Suche füllt beide Repos → Vorschau „bereit“). Die Prüfung „a completed refresh clears the
+stale-preview marker“ suchte das nie angezeigte „Preflight: veraltet“ und konnte nicht scheitern; sie
+prüft jetzt „Vorprüfung: veraltet“. `pnpm verify` unter Linux: dieselben 33 roten Schritte wie `main`
+auf dieser Maschine, keine neuen.
+
 ## Acht UI-Entscheide umgesetzt (28. September 2026)
 
 Adis Entscheide aus [Verbesserungsplan §6](UI_UX_IMPROVEMENT_PLAN.md) sind umgesetzt, auf PC

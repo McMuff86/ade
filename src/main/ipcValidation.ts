@@ -835,6 +835,13 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       if (!/^[a-f0-9-]{36}$/.test(id)) invalid(channel, 'previewId is invalid');
       return;
     }
+    case IPC.WorkspaceBundleFindClones: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['sessionId']);
+      const sessionId = stringValue(channel, request.sessionId, 'sessionId', { min: 16, max: 128 });
+      if (!/^[0-9a-f-]+$/.test(sessionId)) invalid(channel, 'sessionId is invalid');
+      return;
+    }
     case IPC.WorkspaceBundleApply: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['sessionId', 'token']);

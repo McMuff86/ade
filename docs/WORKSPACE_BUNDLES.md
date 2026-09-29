@@ -69,8 +69,17 @@ copied from another machine and never fails the import.
 Nothing is written before *Import anwenden*.
 
 - **Repositories** must point at a clone that already exists on this host. No
-  target is proposed, because a guess would send the user at a path that cannot
-  work. An entry can be skipped.
+  target is proposed unasked, because a guess would send the user at a path
+  that cannot work. **Klone in Ordner suchen…** (`workspaceBundle:findClones`)
+  asks for the folder that holds the clones (default: the project root) and
+  fills every still-empty repository field: first by origin identity, with the
+  planner's own comparison, then by folder name against the source leaf name
+  and the display name, case- and punctuation-insensitively. A clone whose
+  origin names another repository is never matched by name, a name that fits
+  several clones stays open, and no clone is proposed twice. Only direct child
+  clones are searched; hidden folders and symlinks are skipped. Proposals are
+  ordinary field values: they go through target authorization and the
+  repository probe like typed paths. An entry can be skipped.
 - **Agent homes** are *created* by the import, so the host proposes one under
   its own layout (`<profileDir>/agents/<slug>-<id>`), seeded once when the bundle
   is opened. The browse button picks the home's **parent**, since the home itself
@@ -80,6 +89,17 @@ Nothing is written before *Import anwenden*.
 - **Kategorien / Agents / Vorlagen** are renamed or skipped here. Skipping a
   category skips its agents too — a cascade the preview states rather than
   implies.
+
+While anything blocks the apply, a line above the rows names each blocking
+entry with its state and reason (*"Import blockiert durch: …"*) — before it, one
+unassigned repository disabled both confirmations with no visible cause.
+
+The picked bundle or profile stays valid for ten minutes after the **last**
+successful preview, not after the pick, so assigning many targets by hand no
+longer expires the selection mid-form.
+
+An agent whose custom command or dashboard settings were left out is named in
+the notice, so they can be set again in its settings after the import.
 
 Above the confirmation the preview states the outcome — *"Es werden übernommen:
 2 von 3 Repositories · 5 von 5 Kategorien · 7 von 7 Agents"* — and warns whenever

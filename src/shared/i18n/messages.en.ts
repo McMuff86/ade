@@ -4018,5 +4018,13 @@ export const messagesEn = {
   "Harnesses and keys": "Harnesses and keys",
   "Tap: dictation · Hold: Computer.": "Tap: dictation · Hold: Computer.",
   "Tap to dictate, hold to call the Computer (keyboard: Shift+Enter).": "Tap to dictate, hold to call the Computer (keyboard: Shift+Enter).",
-  "Tap to dictate.": "Tap to dictate."
+  "Tap to dictate.": "Tap to dictate.",
+  "Folder with your clones": "Folder with your clones",
+  "No matching clone found in {{value1}} ({{value2}} Git clones searched).": "No matching clone found in {{value1}} ({{value2}} Git clones searched).",
+  "{{value1}} of {{value2}} repositories assigned from {{value3}} ({{value4}} via Git remote, {{value5}} via folder name). Update the preview to check them.": "{{value1}} of {{value2}} repositories assigned from {{value3}} ({{value4}} via Git remote, {{value5}} via folder name). Update the preview to check them.",
+  "Import blocked by:": "Import blocked by:",
+  "Assign or skip these entries, then update the preview.": "Assign or skip these entries, then update the preview.",
+  "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.": "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.",
+  "Find clones in folder…": "Find clones in folder…",
+  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import."
 } as const;

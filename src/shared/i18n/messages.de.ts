@@ -4019,5 +4019,13 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Harnesses and keys": "Harnesses und Schlüssel",
   "Tap: dictation · Hold: Computer.": "Tippen: Diktat · Halten: Computer.",
   "Tap to dictate, hold to call the Computer (keyboard: Shift+Enter).": "Tippen startet das Diktat, Halten ruft den Computer (Tastatur: Umschalt+Eingabe).",
-  "Tap to dictate.": "Tippen startet das Diktat."
+  "Tap to dictate.": "Tippen startet das Diktat.",
+  "Folder with your clones": "Ordner mit deinen Klonen",
+  "No matching clone found in {{value1}} ({{value2}} Git clones searched).": "Kein passender Klon in {{value1}} gefunden ({{value2}} Git-Klone durchsucht).",
+  "{{value1}} of {{value2}} repositories assigned from {{value3}} ({{value4}} via Git remote, {{value5}} via folder name). Update the preview to check them.": "{{value1}} von {{value2}} Repositories aus {{value3}} zugeordnet ({{value4}} über Git-Remote, {{value5}} über Ordnername). Vorschau aktualisieren, um sie zu prüfen.",
+  "Import blocked by:": "Import blockiert durch:",
+  "Assign or skip these entries, then update the preview.": "Diese Einträge zuordnen oder überspringen, dann die Vorschau aktualisieren.",
+  "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.": "Ordner mit deinen Klonen wählen; leere Felder werden über Git-Remote oder Ordnernamen gefüllt.",
+  "Find clones in folder…": "Klone in Ordner suchen…",
+  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: Eigener Startbefehl und Dashboard-Einstellungen sind rechnerspezifisch und wurden nicht übernommen; nach dem Import in den Agent-Einstellungen neu setzen."
 };

@@ -80,6 +80,7 @@ export const IPC = {
   WorkspaceBundlePreview: 'workspaceBundle:preview',
   WorkspaceBundleApply: 'workspaceBundle:apply',
   WorkspaceBundleExport: 'workspaceBundle:export',
+  WorkspaceBundleFindClones: 'workspaceBundle:findClones',
   PhotoImport: 'photo:import',
   CategoryCreate: 'category:create',
   CategoryUpdate: 'category:update',
@@ -660,6 +661,15 @@ export interface WorkspaceBundleApplyResult {
   }>;
 }
 
+export interface WorkspaceBundleCloneSearchResult {
+  /** The folder that was searched. */
+  root: string;
+  /** Number of Git clones found directly in it. */
+  clonesFound: number;
+  /** One proposal per matched repository; never the same clone twice. */
+  matches: Array<{ sourceId: string; path: string; via: 'remote' | 'name' }>;
+}
+
 export interface WorkspaceBundleExportResult {
   path: string;
   notices: WorkspaceBundleNotice[];
@@ -701,6 +711,11 @@ export interface IpcInvokeMap {
   'workspaceBundle:apply': {
     req: { sessionId: string; token: string };
     res: WorkspaceBundleApplyResult;
+  };
+  /** Pick a folder and propose clones in it for the previewed bundle's repositories. */
+  'workspaceBundle:findClones': {
+    req: { sessionId: string };
+    res: WorkspaceBundleCloneSearchResult | null;
   };
   'workspaceBundle:export': {
     req: { includeMemory: boolean; includePhotos: boolean };
