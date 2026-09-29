@@ -26,7 +26,7 @@ async function main() {
   const config = { features: { ...Object.fromEntries(COORDINATOR_DISABLED_FEATURES.map(name => [name, false])), code_mode_host: true }, mcp_servers: {}, agents: { enabled: false }, web_search: 'disabled', sandbox_mode: 'read-only', approval_policy: 'never' };
   writeFileSync(launcher, `require(${JSON.stringify(resolve('scripts/fixtures/conversation-speech.cjs'))});
 const cp=require('node:child_process');const spawn=cp.spawn;
-cp.spawn=function(file,args,options){if(${!nativeCasual}&&file==='powershell.exe'&&args.some(a=>a.startsWith('& codex ')||a.startsWith('# ADE_COORDINATOR_LAUNCH'))){
+cp.spawn=function(file,args,options){if(${!nativeCasual}&&((file==='powershell.exe'&&args.some(a=>a.startsWith('& codex ')||a.startsWith('# ADE_COORDINATOR_LAUNCH')))||(file===process.execPath&&args[0]==='-e'&&String(args[1]).startsWith('// ADE_COORDINATOR_LAUNCH'))||(file==='codex'&&args[0]==='app-server'))){
  return spawn.call(this,${JSON.stringify(process.execPath)},[${JSON.stringify(resolve('scripts/fixtures/codex-conversation.cjs'))}],{...options,env:{...options.env,ADE_CODEX_USER_AGENT:'ade/0.155.1 (Windows)',ADE_COORDINATOR_CONFIG:${JSON.stringify(JSON.stringify(config))}}});}
  return spawn.call(this,file,args,options);};
 const original=cp.execFile;

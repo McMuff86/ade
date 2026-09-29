@@ -1,5 +1,25 @@
 # ADE implementation status
 
+## ADE-Gespräch unter Linux (29. September 2026)
+
+Das zentrale ADE-Gespräch (Projektbetreuung, Aufträge vorbereiten, Plaudern & Stimme; PC und Tablet)
+war hart auf Windows begrenzt (`launchCoordinatorCodex`, `CoordinatorConversation`). Unter Linux/macOS
+startet jetzt ein konstanter Node-Starter (`POSIX_COORDINATOR_LAUNCHER`, Electrons eigenes Node, keine
+Shell) dieselben zwei Stufen wie das PowerShell-Skript: MCP-Inventar ohne Verbindung, jeden geprüften
+Namen nur für diesen Prozess abschalten, dann `codex app-server` mit ADEs Vorgaben; Signale werden
+weitergereicht. Die Prüfungen danach (CLI-Version, wirksame Konfiguration, schreibgeschützter Thread
+ohne Netz) sind unverändert und gelten auf beiden Systemen.
+
+Nachweis (Omarchy, Codex 0.158.0): Rauchtest mit dem echten CLI bis `thread/start` (kein Modellaufruf) —
+Version, wirksame Konfiguration und Thread-Sandbox bestätigt; mit zwei geerbten MCP-Servern ebenso;
+**Negativkontrolle** ohne Abschaltung → ADE verweigert. Suite `coordinator-codex-policy` 58/0 (7 neue
+Prozessprüfungen: Inventar-Argumente ohne Shell, Abschaltung je Name, cwd/Umgebung, stdio-Durchreichung,
+ungültiger Name und fehlschlagendes Inventar stoppen vor dem Server, SIGTERM beendet auch einen hängenden
+Server — ohne Weiterleitung FAIL). `conversation-electron` unter Linux **90/0** (vorher nicht gemessen;
+das Double greift jetzt auch beim Linux-Start von Koordinator und Worker). `pnpm verify` Linux zweimal
+grün: 23 gemessen, 18 Windows-only ausgewiesen. Eine Fokusprüfung („continuation focuses the draft“) wartet
+jetzt bis 5 s statt einmal zu stichproben (lief unter Last zu früh).
+
 ## Linux-Prüfstand: `pnpm verify` grün, Windows-only ausgewiesen, zwei echte Fehler behoben (29. September 2026)
 
 `pnpm verify` war unter Linux mit 33 roten Schritten wertlos; auf `main` war auch die Linux-CI rot
@@ -23,8 +43,8 @@
   - *Tablet-Modellwahl verschwand:* Eine Profil-Antwort ohne Katalog, die nach dem Katalog eintraf,
     löschte ihn (Race unter Last). Sie behält jetzt den geladenen Katalog desselben Agents.
     Deterministische Prüfung per zweitem Neuladen; ohne Fix FAIL.
-- **Neue Produktlücke sichtbar:** Das **ADE-Gespräch (Koordinator) läuft nur unter Windows**
-  (`launchCoordinatorCodex`); `conversation-electron` ist deshalb unter Linux „nicht gemessen“.
+- **Neue Produktlücke sichtbar:** Das **ADE-Gespräch (Koordinator) lief nur unter Windows**
+  (`launchCoordinatorCodex`) — geschlossen im folgenden Eintrag.
 - Enthält PR #19 (Keyring-Schalter), ohne den drei Treiber an der Schlüsselablage scheitern.
 
 ## Installation: `pnpm doctor`, Selbstreparatur beim Install, Schlüsselablage unter Hyprland (29. September 2026)

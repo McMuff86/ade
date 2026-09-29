@@ -160,7 +160,7 @@ const STEPS: Step[] = [
   driver('organizer-electron', 'test-organizer-electron.ts'),
   driver('organizer-browser', 'test-organizer-browser.ts'),
   driver('usage-overview-electron', 'test-usage-overview-electron.ts'),
-  driver('conversation-electron', 'test-conversation-electron.ts', windowsOnly('the ADE coordinator conversation requires native Windows (launchCoordinatorCodex)')),
+  driver('conversation-electron', 'test-conversation-electron.ts'),
   driver('project-profile-electron', 'test-remote-terminal-electron.ts', { ...only('project-profile'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('electron-workflow', 'test-electron-workflow.ts'),
   driver('git-sync-electron', 'test-git-sync-electron.ts'),

@@ -224,8 +224,13 @@ idempotency before side effects. This transport alone does not restrict native
 Codex's other tools or implement the central coordinator. Codex 0.154 restores
 tool specifications from its rollout on resume; the conversation owner must pin
 its tool contract instead of assuming that resume replaces definitions.
-The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant native-Windows
-launch overrides, a stable CLI identity of at least 0.154.0, effective config inspection before
+The explicit coordinator mode adds `CoordinatorCodexPolicy`: constant
+launch overrides (a PowerShell script on Windows; on Linux/macOS the constant
+`POSIX_COORDINATOR_LAUNCHER`, run by Electron's own Node with
+`ELECTRON_RUN_AS_NODE` — no shell, overrides as argv — which inventories MCP
+servers with `codex mcp list --json`, disables each validated name for this
+process, execs `codex app-server` with inherited stdio and forwards
+SIGTERM/SIGINT/SIGHUP, so a hung app server still ends with the connection), a stable CLI identity of at least 0.154.0, effective config inspection before
 the first turn, and a read-only/no-network thread even when the selected coding
 profile allows bypass. Native execution, browser/computer, MCP, plugins and native
 subagents are disabled. `code_mode_host` remains enabled because this CLI also
