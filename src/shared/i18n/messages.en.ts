@@ -4031,5 +4031,8 @@ export const messagesEn = {
   "Assign or skip these entries, then update the preview.": "Assign or skip these entries, then update the preview.",
   "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.": "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.",
   "Find clones in folder…": "Find clones in folder…",
-  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import."
+  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.",
+  "ade: Profile instructions require a native Windows or Linux start.": "ade: Profile instructions require a native Windows or Linux start.",
+  "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.": "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.",
+  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Combined profile instructions exceed the safe snapshot limit."
 } as const;

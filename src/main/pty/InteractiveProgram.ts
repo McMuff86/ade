@@ -52,7 +52,7 @@ export class ProgramSignalReader {
 const quotePs = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 const quoteSh = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
 
-export function programWrapper(command: string, platform: 'win32' | 'posix', nonce: string): string {
+export function programWrapper(command: string, platform: 'win32' | 'posix', nonce: string, exitWithProgram = false): string {
   if (!/^[a-f0-9]{32}$/.test(nonce)) throw new Error('ade: invalid program marker');
   if (platform === 'win32') return [
     `[Console]::Write(([char]27) + ']777;ade-cli;${nonce};start' + ([char]7))`,
@@ -73,12 +73,12 @@ export function programWrapper(command: string, platform: 'win32' | 'posix', non
     '(\n' + command + '\n)',
     'ade_cli_exit=$?',
     `printf '\\033]777;ade-cli;${nonce};end;%s\\007' "$ade_cli_exit"`,
-    'unset ade_cli_exit',
+    exitWithProgram ? 'exit "$ade_cli_exit"' : 'unset ade_cli_exit',
   ].join('\n');
 }
 
 export async function prepareProgram(command: string, platform: 'win32' | 'posix',
-  backendPath: (path: string) => Promise<string>): Promise<{ nonce: string; args?: string[]; initialCommand?: string; dispose(): void }> {
+  backendPath: (path: string) => Promise<string>, exitWithProgram = false): Promise<{ nonce: string; scriptPath: string; args?: string[]; initialCommand?: string; dispose(): void }> {
   const nonce = randomBytes(16).toString('hex');
   const directory = mkdtempSync(join(tmpdir(), 'ade-interactive-'));
   const file = join(directory, platform === 'win32' ? 'launch.ps1' : 'launch.sh');
@@ -87,10 +87,10 @@ export async function prepareProgram(command: string, platform: 'win32' | 'posix
     try { rmSync(file, { force: true }); rmdirSync(directory); } catch { /* best effort on shutdown */ }
   };
   try {
-    writeFileSync(file, programWrapper(command, platform, nonce), { encoding: 'utf8', mode: 0o600 });
+    writeFileSync(file, programWrapper(command, platform, nonce, exitWithProgram), { encoding: 'utf8', mode: 0o600 });
     const path = await backendPath(file);
     return platform === 'win32'
-      ? { nonce, args: ['-NoLogo', '-NoExit', '-Command', `& ([scriptblock]::Create([IO.File]::ReadAllText(${quotePs(path)})))`], dispose }
-      : { nonce, initialCommand: `source ${quoteSh(path)}`, dispose };
+      ? { nonce, scriptPath: path, args: ['-NoLogo', '-NoExit', '-Command', `& ([scriptblock]::Create([IO.File]::ReadAllText(${quotePs(path)})))`], dispose }
+      : { nonce, scriptPath: path, initialCommand: `source ${quoteSh(path)}`, dispose };
   } catch (error) { dispose(); throw error; }
 }

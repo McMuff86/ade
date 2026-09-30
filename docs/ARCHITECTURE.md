@@ -982,9 +982,12 @@ before ring-buffer replay, screen interpretation, or renderer output. The parser
 handles split frames, bounded incomplete candidates and duplicate signals. These
 markers are observational and never grant permission or relax workspace locks.
 
-New native Windows Codex/Claude/Grok invocations use `prepareProtectedProgram`:
-PowerShell reads the local wrapper without `-NoExit`, with `-NoProfile`, and exits
-with the CLI. This prevents a delayed structured prompt from reaching a surviving
+New native Windows and Linux Codex/Claude/Grok invocations use
+`prepareProtectedProgram`. PowerShell reads the local wrapper without `-NoExit`,
+with `-NoProfile`; Linux launches `/bin/bash --noprofile --norc <private-script>`
+directly. Both exit with the CLI; Linux preserves its exit code. Native Linux
+launches remove Bash startup hooks, tracing options and exported functions from
+the child environment. The Codex configuration probe uses the same environment. This prevents a delayed structured prompt from reaching a surviving
 command-reading shell. Custom, WSL, assistant and other legacy launches retain
 their earlier shell lifecycle: PowerShell uses `-NoExit`; bash sources the wrapper
 around a foreground subshell. CLI commands/credentials are not moved
@@ -1105,7 +1108,7 @@ normalizes line breaks and writes one bracketed paste. Explicit submit waits
 Enter during a paste burst. `ProtectedPromptWriter` serializes input per PTY
 and rechecks authorization and the protected invocation before Enter; partial
 or ambiguous delivery remains unconfirmed and is never repeated automatically.
-Native Windows is the implemented protected launch path;
+Native Windows and native Linux implement this protected launch path;
 WSL/custom/assistant sessions explain that structured delivery is unavailable.
 Those sessions retain their existing direct terminal and dashboard access.
 CLI login/trust dialogs must be completed directly in the terminal first; paste
@@ -1282,13 +1285,15 @@ schema by `--json-schema @file`; main validates the terminal success envelope
 and result schema before writing the bounded result file. CLI token counters
 override model-authored usage; Qwen prompt totals already include cached tokens,
 and costs stay unknown. Live Qwen events use their own format identity.
-Native Windows interactive coding uses protected program transport. Saved
+Native Windows and Linux interactive coding use protected program transport. Saved
 behavior uses the Codex instruction transport or Qwen's append-system-prompt
-argument with immutable external snapshots and tested PowerShell marshalling.
+argument with immutable external snapshots and platform-specific quoted argument
+transport (PowerShell marshalling or Bash read with a quoted variable).
 Qwen receives identity and enabled memory this way even without an edited
 behavior profile, because it does not auto-read ADE's AGENTS.md injection;
 ADE never creates a project-owned QWEN.md. This interactive Qwen snapshot
-transport currently requires native Windows.
+transport supports native Windows and Linux; Linux Qwen argument delivery has
+fixture evidence, not a new real Qwen/Ollama model acceptance.
 Ollama sessions remain runtime `ollama` and never enter the OpenAI subscription
 collector. Interactive token collection is not implemented. Direct session
 choice `ollama` remains chat; saved-profile choice preserves mode and harness
@@ -1464,9 +1469,12 @@ redaction prevents host paths from escaping and marks altered editable copies
 read-only, avoiding accidental loss when round-tripping a redacted profile.
 
 Saving behavior opts interactive agent-profile starts into an external immutable
-snapshot. Native Windows Codex appends to developer instructions obtained by a
+snapshot. Native Windows/Linux Codex appends to developer instructions obtained by a
 bounded read-only `config/read` probe with matching cwd/environment; unknown
-configuration blocks the launch. Native Claude uses its additional prompt-file
+configuration blocks the launch. The Linux probe directly starts an owned
+`codex app-server` process group; timeout cleanup also handles an exited npm
+launcher whose descendant still owns stdio. No thread or model turn is started.
+Native Claude uses its additional prompt-file
 option. Custom commands and other backends are explicitly rejected for this
 transport. Plain CLI, shell and login launches do not inject new ADE guidance.
 Previously injected repository blocks are not automatically removed.
@@ -1479,8 +1487,14 @@ until that session is removed. Desktop `terminal:profileContext` and an explicit
 remote terminal query with `profileContext: true` can read it; normal polling,
 inventory and events never contain it. The remote path reuses the terminal's
 current device/resource authorization and applies bounded wire redaction.
-Native Windows end-to-end acceptance passed; evidence and platform limits are
-recorded in `AGENT_PROFILE_RESULTS.md`.
+Linux snapshots remain outside project workspaces; Codex TOML and Qwen text are
+read without evaluating their contents and passed as one quoted argument, with
+trailing newlines preserved. Codex combined guidance is bounded to 32,000
+characters, expanded Linux arguments to 120 KiB; Windows retains its 28,000
+character invocation bound. New Linux evidence and remaining platform limits:
+`AGENT_SESSION_PLATFORM_RESULTS.md`; earlier Windows evidence:
+`AGENT_PROFILE_RESULTS.md`. Linux native interactive usage interception remains
+unmeasured and disabled; profile transport does not imply usage collection.
 
 Interactive profile snapshots preserve enabled MEMORY/USER content and the
 existing maintenance guidance without injecting files into the project.

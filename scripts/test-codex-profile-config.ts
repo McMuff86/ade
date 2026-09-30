@@ -1,9 +1,10 @@
 /** Local fake JSON-RPC protocol only by default. --real optionally reads installed CLI config without starting a thread. */
 import { strict as assert } from 'node:assert';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { nativeLaunchEnv } from '../src/main/pty/nativeLaunchEnv';
 import { CODEX_PROFILE_CONFIG_STDERR_BYTES, CODEX_PROFILE_CONFIG_STDOUT_BYTES,
   projectCodexProfileConfig, readCodexProfileConfig, type CodexProfileConfigResult } from '../src/main/pty/CodexProfileConfig';
 
@@ -11,7 +12,7 @@ let passed = 0;
 async function check(name: string, fn: () => void | Promise<void>): Promise<void> { await fn(); passed++; console.log(`ok ${name}`); }
 const root = mkdtempSync(join(tmpdir(), 'ade-codex-config-test-'));
 const cwd = root;
-const env = { ...process.env, ADE_PROFILE_FIXTURE_SENTINEL: 'expected' };
+const env: NodeJS.ProcessEnv = { ...process.env, ADE_PROFILE_FIXTURE_SENTINEL: 'expected' };
 const instructions = 'Existing "developer" text\nwith $dollar, `tick and Unicode ä 漢字.';
 
 function fixture(body: string): { launch(): ChildProcessWithoutNullStreams; child(): ChildProcessWithoutNullStreams | undefined } {
@@ -95,6 +96,28 @@ void (async () => {
     assert.equal((await readCodexProfileConfig({ cwd: 'relative', env, launch })).status, 'unavailable');
     assert.equal((await readCodexProfileConfig({ cwd, env, launch, timeoutMs: 60_000 })).status, 'unavailable');
     assert.equal(launches, 0);
+  });
+  await check('native Linux environment removes Bash startup hooks without changing PATH or caller', () => {
+    const original = { PATH: '/fixture', HOME: '/home/fixture', BASH_ENV: '/bad', ENV: '/bad', SHELLOPTS: 'xtrace', BASHOPTS: 'extdebug', BASH_XTRACEFD: '1', 'BASH_FUNC_codex%%': 'bad' };
+    assert.deepEqual(nativeLaunchEnv(original, 'linux'), { PATH: '/fixture', HOME: '/home/fixture' });
+    assert.deepEqual(nativeLaunchEnv(original, 'win32'), original);
+    assert.equal(original.BASH_ENV, '/bad');
+  });
+  if (process.platform === 'linux') await check('native probe kills a remaining group after its launcher exits', async () => {
+    const childPid = join(root, 'descendant.pid');
+    const script = join(root, 'orphan.cjs');
+    writeFileSync(script, `const cp=require('node:child_process');const fs=require('node:fs');
+      const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'});
+      fs.writeFileSync(${JSON.stringify(childPid)},String(child.pid));process.exit(0);`);
+    const quote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+    writeFileSync(join(root, 'codex'), `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(script)}\n`, { mode: 0o700 });
+    assert.equal((await readCodexProfileConfig({ cwd, env: { ...env, PATH: `${root}:${env.PATH}` }, timeoutMs: 1000 })).status, 'unavailable');
+    assert.ok(existsSync(childPid));
+    const pid = Number(readFileSync(childPid, 'utf8'));
+    const alive = () => { try { return !readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1]!.startsWith('Z'); } catch { return false; } };
+    const deadline = Date.now() + 4000;
+    while (alive() && Date.now() < deadline) await new Promise(done => setTimeout(done, 25));
+    assert.equal(alive(), false);
   });
   if (process.argv.includes('--real')) {
     const result = await readCodexProfileConfig({ cwd: process.cwd(), env: { ...process.env } });

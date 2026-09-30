@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright';
 import { DEFAULT_CONFIG, type SessionMeta } from '../src/shared/types';
 import { mainEntry } from './helpers/buildOutput';
+import { posixProfileFixture } from './helpers/posixProfileFixture';
 
 let passed = 0;
 const check = (label: string, condition: unknown): void => { assert.ok(condition, label); passed++; console.log(`ok ${label}`); };
@@ -39,14 +40,17 @@ const compile = join(root, 'compile.ps1');
 writeFileSync(compile, `param([string]$Target)\nAdd-Type -ReferencedAssemblies System.Web.Extensions -OutputAssembly $Target -OutputType ConsoleApplication -TypeDefinition @'\n${source}\n'@\n`);
 interface Proof { cli: string; args: string[]; cwd: string; profileText: string; sourcePath: string }
 let app: ElectronApplication | undefined;
+const fixtureEnv = () => ({ ...process.env,
+  ...(process.platform === 'win32' ? { Path: `${bin};${process.env.Path ?? process.env.PATH}` } : { PATH: `${bin}:${process.env.PATH}` }),
+  ADE_PROFILE_FIXTURE_PROOFS: proofs, ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' });
 
 void (async () => {
-  if (process.platform !== 'win32') throw new Error('Native profile session integration requires Windows.');
+  if (process.platform === 'win32') {
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['codex', 'claude']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
+  } else posixProfileFixture(bin);
   app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
-    env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs,
-      ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
+    env: fixtureEnv() });
   const page = await app.firstWindow(); page.setDefaultTimeout(20_000);
   await page.waitForFunction(() => !!window.ade);
   check('isolated ADE configuration starts with optional memory disabled', (await page.evaluate(() => window.ade.invoke('config:get'))).settings.memory?.enabled === false);
@@ -193,8 +197,7 @@ void (async () => {
     persisted.settings.memory = { enabled: true, userProfileEnabled, memoryCharLimit: 2200, userCharLimit: 1375 };
     writeFileSync(configPath, JSON.stringify(persisted));
     app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
-      env: { ...process.env, Path: `${bin};${process.env.Path ?? process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs,
-        ADE_USER_DATA_DIR: userData, ADE_HOST_API_ENABLED: '0', NODE_ENV: 'test' } });
+      env: fixtureEnv() });
     const memoryPage = await app.firstWindow(); memoryPage.setDefaultTimeout(20_000);
     await memoryPage.waitForFunction(() => !!window.ade);
     const started = await memoryPage.evaluate(async (agentId) => ({

@@ -8,6 +8,9 @@ import { _electron as electron, chromium, type ElectronApplication, type Browser
 import { mainEntry } from './helpers/buildOutput';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { sessionNavigationFlow } from './helpers/sessionNavigationFlow';
+import { posixProfileFixture } from './helpers/posixProfileFixture';
+import { linuxAgentTabletFlow } from './helpers/linuxAgentTabletFlow';
+import { runQuestionFlow } from './helpers/runQuestionFlow';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => {
@@ -15,7 +18,10 @@ const check = (label: string, ok: boolean): void => {
   else { failed++; console.error(`FAIL  ${label}`); }
 };
 const root = mkdtempSync(join(tmpdir(), 'ade-session-navigation-'));
-const evidence = resolve('test-results/session-navigation'); mkdirSync(evidence, { recursive: true });
+const agentTablet = process.argv.includes('--agent-tablet');
+const evidence = resolve(agentTablet ? 'test-results/linux-agent-tablet' : 'test-results/session-navigation'); mkdirSync(evidence, { recursive: true });
+const bin = join(root, 'bin'); const proofs = join(root, 'proofs');
+if (agentTablet) { posixProfileFixture(bin); mkdirSync(proofs); }
 let app: ElectronApplication | undefined; let browser: Browser | undefined;
 let desktop: Page | undefined; let tablet: Page | undefined;
 let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
@@ -59,7 +65,8 @@ cp.execFile[require('node:util').promisify.custom] = (file, args, options) => ne
 require(${JSON.stringify(mainEntry())});
 `);
   app = await electron.launch({ args: [launcher], cwd: resolve('.'), timeout: 30_000,
-    env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
+    env: { ...process.env, ...(agentTablet ? { PATH: `${bin}:${process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs } : {}),
+      ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   desktop = await app.firstWindow(); desktop.setDefaultTimeout(30_000);
   await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const mobile = desktop.getByTestId('mobile-access');
@@ -91,7 +98,11 @@ require(${JSON.stringify(mainEntry())});
   await grants.getByRole('button', { name: 'Verwaltungsrechte speichern', exact: true }).click();
   await desktop.getByText('Verwaltungsrechte gespeichert. Das Gerät verbindet sich erneut.', { exact: true }).waitFor();
   await desktop.keyboard.press('Escape');
-  await sessionNavigationFlow(desktop, tablet, root, check);
+  if (agentTablet) {
+    await linuxAgentTabletFlow(desktop, tablet, root, proofs, evidence, proxy, check);
+    await runQuestionFlow(app, desktop, tablet, root, evidence, check);
+    await desktop.keyboard.press('Escape');
+  } else await sessionNavigationFlow(desktop, tablet, root, check);
   // kill acknowledges the signal; the PTY exit event removes the session later.
   await desktop.waitForFunction(async () => (await window.ade.invoke('pty:list')).sessions.every(session => session.status !== 'running'));
   check('all fixture shells are stopped after the flow', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.every(session => session.status !== 'running'));

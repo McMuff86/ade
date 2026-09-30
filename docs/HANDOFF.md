@@ -1,5 +1,45 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.2: Linux-Profile und geschützte Agent-Prompts (30. September 2026, spätabends)
+
+Auftrag über `/goals` aufgenommen: native Linux-Prompt-/Diktatübergabe und
+Profiltransport umsetzen, den Tablet-Ablauf prüfen, nach erfolgreichen Tests
+committen und pushen. Bestehender Commit `5f566c0` bleibt erhalten und wird mit
+veröffentlicht. Der unabhängige ADE-Host (34.6) bleibt nachgelagert.
+
+- Neue feste native CLI-Sitzungen verwenden einen geschützten Bash-Start ohne
+  überlebende Shell; CLI-Exit beendet das PTY mit ursprünglichem Exitcode.
+  Eingabebesitz wird auch vor dem verzögerten Enter nochmals geprüft.
+- Gespeicherte Linux-Codex-/Claude-/Qwen-Profile werden ausserhalb der Projekte
+  übergeben, vorhandene Codex-Anweisungen vorher verifiziert und erhalten.
+  Keine Profilinjektion in Projektdateien. Eigene Startbefehle/WSL bleiben separat.
+- Fokussiert: Prompt **28/0**, Profilargumente **12/0**, Codex-Konfiguration
+  **12/0**, echte native PTYs **30/0**, Electron-Profile **39/0**, neuer
+  Agent-/Tablet-Treiber **29/0**. Dieser prüft vier CLI-Prozesse, Wechsel,
+  verlorene Bestätigung, Wiederverbindung, Datei/Diff und Rückfragen.
+- Reale Codex-TUI-Probe **bestanden**, **0.159.0 / gpt-5.6-sol / high**:
+  Profilphrase nur aus den zusätzlichen Anweisungen, geschützter Prompt,
+  idempotenter Replay, unveränderter Checkout, reguläres CLI-/PTY-Ende.
+  Grenzen und anfängliche Treiberkorrekturen stehen im [Prüfstand](AGENT_SESSION_PLATFORM_RESULTS.md).
+- **Diese Folgelieferung wurde noch nicht persönlich aktiviert.** Laufende
+  Sitzungen und `out/` bleiben erhalten. Persönlicher aktiver Stand bleibt die
+  unten dokumentierte Aktivierung um 21:29 CEST, ADE weiterhin auf **:8443**.
+  Lesende Prozessprüfung um 23:02 CEST: Host **1780794** mit laufendem
+  Sitzungsprozess **1807243**; keine Quit-/Neustartanforderung gestellt.
+  Neue Fähigkeiten benötigen später `pnpm activate` mit dem Sitzungsschutz und
+  anschliessend neue CLI-Sitzungen; Browser-Neuladen allein ersetzt den Host nicht.
+- Keine neue Windows-, WSLg-, Windows-UI/WSL-Backend- oder physische Android-Abnahme.
+  Mikrofon-/Diktat-Audio, weitere echte Agent-CLIs und Windows-Nachweise bleiben
+  nächste Abnahmen innerhalb 34.2; dessen Gesamtziel bleibt ausdrücklich offen.
+
+Vollständiges `pnpm verify` am **30. September 2026 um 23:02:15 CEST**:
+**27 bestanden / 0 Fehler / 16 nicht gemessen**, **102 Suiten / 4.325 Checks**,
+drei Typechecks, beide isolierten Builds, Browser-/Electron-Abläufe und
+Linux-Aktivierung **15/0**. Archiv: `test-results/goal34-linux-profiles-20260930/`
+mit Vollbericht, Schrittlogs, positiver nativer Codex-Probe und Tablet-Bildern.
+Die 16 nicht gemessenen Schritte besitzen explizite Plattformgründe. Kein
+vollständiger Windows- oder physischer Android-Nachweis wird daraus abgeleitet.
+
 ## Tablet-Terminal: benannte Weblinks aktiviert und über HTTPS geprüft (30. September 2026, 21:29 CEST)
 
 **ADE kann jetzt auf dem Tablet neu geladen werden. Keine neue Kopplung nötig.**
@@ -53,7 +93,7 @@ denselben Zugang, mit Tastatur/Fokusrückkehr. [Vertrag](TERMINAL_MEDIA.md).
 
 Dieser Commit sichert den gesamten zusammengehörigen Stand: HTTPS-Portwahl,
 sichere Linux-Aktivierung, Plattform-/Sitzungsnachweise und Terminal-Weblinks
-einschliesslich aller vorher vorhandenen Änderungen. Push steht noch aus.
+einschliesslich aller vorher vorhandenen Änderungen. Push wurde mit der anschliessenden Goal-34.2-Lieferung beauftragt.
 Nächste empfohlene Entwicklungsarbeit: Goal 34.2 fortführen, beginnend mit
 geschützter Prompt-/Diktatübergabe und Profiltransport für native Linux-Codex-
 Sitzungen; danach weitere CLIs mit eigenen Nachweisen. Nicht nur die bestehende

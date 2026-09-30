@@ -49,6 +49,7 @@ import { GrokActivityParser } from '../orchestration/grokStream';
 import { injectMemoryBlock } from '../memory/inject';
 import { buildInteractiveProfileSnapshot } from '../memory/interactiveProfileSnapshot';
 import { prepareProfileLaunch, type PreparedProfileLaunch } from './profileLaunch';
+import { nativeLaunchEnv } from './nativeLaunchEnv';
 import { readCodexProfileConfig } from './CodexProfileConfig';
 import { showSessionExitNotification } from '../notifications';
 import { redactArgs } from '../errors';
@@ -612,10 +613,10 @@ export class PtyManager {
     }
     const credentialEnv = login ? {} : this.harnessCredentials?.envFor(agent.runtime) ?? {};
     if (profileSnapshot && profileIdentity) {
-      if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || process.platform !== 'win32') throw new Error(translate("ade: Interactive profile instructions currently require a native Windows startup."));
+      if (scope.executionBackend !== NATIVE_EXECUTION_BACKEND || !['win32', 'linux'].includes(process.platform)) throw new Error(translate("ade: Profile instructions require a native Windows or Linux start."));
       if (!spec.initialCommand) throw new Error(translate("ade: This session start cannot transfer profile instructions."));
       const baseline = agent.runtime === 'codex' || ollamaCodex ? await readCodexProfileConfig({ cwd,
-        env: { ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) } }) : undefined;
+        env: nativeLaunchEnv({ ...process.env, TERM: 'xterm-256color', ...credentialEnv, ...(spec.env ?? {}) }) }) : undefined;
       if (baseline?.status === 'unavailable') throw new Error(baseline.message);
       preparedProfile = prepareProfileLaunch({ agent: { ...profileIdentity, ...agent, ...(ollamaCodex ? { runtime: 'codex' as const } : {}) }, snapshot: profileSnapshot,
         command: spec.initialCommand, scratchRoot: join(os.tmpdir(), 'ade-profile-snapshots'), workspaceDir: scope.workspaceDir,
@@ -623,11 +624,11 @@ export class PtyManager {
         codexDeveloperInstructions: baseline?.status === 'verified' ? { mode: 'append-verified', existing: baseline.developerInstructions ?? '' } : undefined });
       spec = { ...spec, initialCommand: preparedProfile.command };
     }
-    const promptProtected = !task && !login && !!spec.initialCommand && !agent.customCommand && process.platform === 'win32'
+    const promptProtected = !task && !login && !!spec.initialCommand && !agent.customCommand && ['win32', 'linux'].includes(process.platform)
       && scope.executionBackend === NATIVE_EXECUTION_BACKEND && (ollamaCoding || ['codex', 'claude', 'grok'].includes(agent.runtime));
     const id = `s${Date.now().toString(36)}${(sessionSeq++).toString(36)}`;
     let usageLaunch: NativeUsageLaunch | undefined;
-    if (promptProtected && !ollamaCoding && this.nativeUsage) {
+    if (promptProtected && !ollamaCoding && this.nativeUsage && process.platform === 'win32') {
       try {
         usageLaunch = await this.nativeUsage.prepare({ provider: agent.runtime as 'codex' | 'claude' | 'grok', command: spec.initialCommand!,
           env: { ...process.env, ...credentialEnv, ...spec.env }, terminalSessionId: id, repositoryId: scope.repositoryId, agentId });
@@ -643,7 +644,7 @@ export class PtyManager {
     if (program) spec = { ...spec, args: program.args ?? spec.args, initialCommand: program.initialCommand };
     // Match the read-only Codex config probe's clean shell environment. A
     // PowerShell profile must not swap aliases/config after baseline capture.
-    if (preparedProfile && !spec.args.includes('-NoProfile')) spec = { ...spec, args: ['-NoProfile', ...spec.args] };
+    if (preparedProfile && backendPlatform === 'win32' && !spec.args.includes('-NoProfile')) spec = { ...spec, args: ['-NoProfile', ...spec.args] };
     // Stored service keys and the matching harness API key reach only
     // sessions of the effective runtime; explicit task/launch env always
     // wins. Login terminals stay credential-free so the CLI's own sign-in
@@ -663,7 +664,7 @@ export class PtyManager {
     // WSL launches receive their backend fields through WSLENV in the host
     // environment of wsl.exe (see ExecutionBackendService.wslLaunch), never
     // through argv, so the credential is not on the relay's command line.
-    const env = scope.executionBackend === NATIVE_EXECUTION_BACKEND
+    let env = scope.executionBackend === NATIVE_EXECUTION_BACKEND
       ? {
           ...process.env,
           TERM: 'xterm-256color',
@@ -672,6 +673,7 @@ export class PtyManager {
           ...(spec.taskPrompt ? { ADE_TASK_PROMPT: spec.taskPrompt } : {}),
         } as Record<string, string>
       : command.hostEnv ?? (process.env as Record<string, string>);
+    if (promptProtected || preparedProfile) env = nativeLaunchEnv(env) as Record<string, string>;
     let proc: TaskProcess;
     try {
       if (project) await project.revalidate();

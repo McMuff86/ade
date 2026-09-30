@@ -1,12 +1,14 @@
 /** Native PTYs through the real ADE supervisor. Complements, never replaces, the UI driver. */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_CONFIG, type Agent } from '../src/shared/types';
+import { posixProfileFixture } from './helpers/posixProfileFixture';
 
 async function nativeSessions(): Promise<void> {
   const { PtyManager } = await import('../src/main/pty/PtyManager');
@@ -96,6 +98,82 @@ readline.createInterface({input:process.stdin}).on('line', line => {
     };
     await until('all fixture children exit', () => pids.every(pid => !childAlive(pid)));
     check('shutdown leaves no fixture child process running', true);
+    if (process.platform === 'linux') {
+      const bin = join(root, 'bin'); const proofs = join(root, 'proofs'); mkdirSync(proofs);
+      posixProfileFixture(bin);
+      const startupMarker = join(root, 'STARTUP_MUST_NOT_RUN'); const startup = join(root, 'bash-env');
+      writeFileSync(startup, `printf BAD > '${startupMarker}'\n`);
+      const originalEnv = { ...process.env };
+      Object.assign(process.env, { PATH: `${bin}:${process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs, BASH_ENV: startup });
+      const cliAgents: Agent[] = ['codex', 'claude', 'grok'].map((runtime, i) => ({ ...agents[i]!, runtime: runtime as Agent['runtime'], customCommand: '' }));
+      store.save({ agents: cliAgents });
+      const known = new Set<string>();
+      type Proof = { cli: string; inputFile: string; pid: number };
+      const proof = async (cli: string): Promise<Proof> => {
+        let result: Proof | undefined;
+        await until('native CLI fixture proof', () => {
+          for (const name of readdirSync(proofs).filter(name => name.endsWith('.json') && !known.has(name))) {
+            const item = JSON.parse(readFileSync(join(proofs, name), 'utf8')) as Proof;
+            if (item.cli === cli) { known.add(name); result = item; return true; }
+          }
+          return false;
+        }); return result!;
+      };
+      try {
+        const protectedSessions = [];
+        for (const agent of cliAgents) {
+          const session = await manager.createRemoteInteractive(agent.id, null, undefined, 'agent');
+          const evidence = await proof(agent.runtime); protectedSessions.push({ session, evidence });
+          await until('protected paste ready', () => manager!.promptCapability(session.id).available);
+          const text = 'Diktat: Prüfe "Zeile eins".\nDann ä 漢字 und $dollar.';
+          const request = { sessionId: session.id, commandId: randomUUID(), text, mode: 'submit' as const };
+          await manager.deliverPrompt(request, () => undefined);
+          const expected = `\x1b[200~${text}\x1b[201~\r`;
+          await until('exact multiline prompt received', () => readFileSync(evidence.inputFile, 'utf8') === expected);
+          check(`${agent.runtime}: native PTY receives one exact multiline paste and one separate Enter`, true);
+          await manager.deliverPrompt(request, () => undefined);
+          check(`${agent.runtime}: receipt replay cannot duplicate prompt delivery`, readFileSync(evidence.inputFile, 'utf8') === expected);
+          manager.write(session.id, Buffer.from('DIRECT'));
+          await until('direct input after prompt', () => readFileSync(evidence.inputFile, 'utf8').endsWith('DIRECT'));
+        }
+        check('protected native launches ignore inherited Bash startup hooks', !existsSync(startupMarker));
+        const first = protectedSessions[0]!; writeFileSync(first.evidence.inputFile, '');
+        let authorizations = 0; let refusal = '';
+        try {
+          await manager.deliverPrompt({ sessionId: first.session.id, commandId: randomUUID(), text: 'revoked', mode: 'submit' }, () => {
+            if (++authorizations >= 4) throw new Error('ownership revoked');
+          });
+        } catch (error) { refusal = String(error); }
+        check('ownership lost during real PTY settle refuses the delayed Enter', refusal.includes('ownership revoked')
+          && readFileSync(first.evidence.inputFile, 'utf8') === '\x1b[200~revoked\x1b[201~');
+        const after = { sessionId: first.session.id, commandId: randomUUID(), text: 'positive-after-revocation', mode: 'insert' as const };
+        await manager.deliverPrompt(after, () => undefined);
+        await until('positive insertion after revoked delivery', () => readFileSync(first.evidence.inputFile, 'utf8').includes(after.text));
+        check('another authorized insertion succeeds after revocation without Enter', !readFileSync(first.evidence.inputFile, 'utf8').endsWith('\r'));
+        for (const { session, evidence } of protectedSessions) {
+          manager.write(session.id, Buffer.from([4]));
+          await until('protected CLI and wrapper exit', () => manager!.getSessionMeta(session.id)?.status === 'exited');
+          check(`${evidence.cli}: CLI exit ends its PTY with the original code and disables prompt delivery`, manager.getSessionMeta(session.id)?.exitCode === 7
+            && !manager.promptCapability(session.id).available);
+        }
+        process.env.ADE_FIXTURE_EXIT_ON_PASTE = '1';
+        const session = await manager.createRemoteInteractive(cliAgents[0]!.id, null, undefined, 'agent');
+        const evidence = await proof('codex');
+        delete process.env.ADE_FIXTURE_EXIT_ON_PASTE;
+        await until('exiting CLI ready', () => manager!.promptCapability(session.id).available);
+        const marker = join(root, 'DELAYED_PROMPT_MUST_NOT_EXECUTE');
+        const dangerous = `printf WRONG > '${marker}'`;
+        refusal = '';
+        try { await manager.deliverPrompt({ sessionId: session.id, commandId: randomUUID(), text: dangerous, mode: 'submit' }, () => undefined); }
+        catch (error) { refusal = String(error); }
+        check('CLI exit during the real settle window rejects completion and never runs a shell command', !!refusal
+          && !existsSync(marker) && readFileSync(evidence.inputFile, 'utf8') === `\x1b[200~${dangerous}\x1b[201~`);
+        manager.disposeAll();
+      } finally {
+        for (const key of Object.keys(process.env)) if (!(key in originalEnv)) delete process.env[key];
+        Object.assign(process.env, originalEnv);
+      }
+    }
     console.log(`Native session processes (${process.platform}): ${passed} passed, 0 failed`);
   } catch (error) {
     console.error(error);

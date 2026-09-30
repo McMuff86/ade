@@ -1,6 +1,7 @@
 import { t as translate } from "../../shared/i18n";
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isAbsolute } from 'node:path';
+import { nativeLaunchEnv } from './nativeLaunchEnv';
 
 export const CODEX_PROFILE_CONFIG_TIMEOUT_MS = 12_000;
 export const CODEX_PROFILE_CONFIG_STDOUT_BYTES = 512 * 1024;
@@ -46,16 +47,18 @@ export function projectCodexProfileConfig(value: unknown): CodexProfileConfigRes
  * model invocation or cache. The caller must still revalidate launch context:
  * a read-only probe cannot lock Codex's configuration against external changes. */
 export function readCodexProfileConfig(options: CodexProfileConfigOptions): Promise<CodexProfileConfigResult> {
-  if (!isAbsolute(options.cwd) || (!options.launch && process.platform !== 'win32')) return Promise.resolve(unavailable());
+  if (!isAbsolute(options.cwd) || (!options.launch && !['win32', 'linux'].includes(process.platform))) return Promise.resolve(unavailable());
   const timeoutMs = options.timeoutMs ?? CODEX_PROFILE_CONFIG_TIMEOUT_MS;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 50 || timeoutMs > CODEX_PROFILE_CONFIG_TIMEOUT_MS) return Promise.resolve(unavailable());
   // Freeze the caller's launch environment; do not merge in a different ambient home/key.
-  const env = { ...options.env };
+  const env = nativeLaunchEnv(options.env);
   return new Promise((resolve) => {
     let child: ChildProcessWithoutNullStreams;
     try {
-      child = options.launch?.() ?? spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '& codex app-server --listen stdio://'],
-        { cwd: options.cwd, env, windowsHide: true, stdio: 'pipe' });
+      child = options.launch?.() ?? (process.platform === 'win32'
+        ? spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '& codex app-server --listen stdio://'],
+          { cwd: options.cwd, env, windowsHide: true, stdio: 'pipe' })
+        : spawn('codex', ['app-server', '--listen', 'stdio://'], { cwd: options.cwd, env, detached: true, stdio: 'pipe' }));
     } catch { resolve(unavailable()); return; }
     let finished = false;
     let received = '';
@@ -71,7 +74,14 @@ export function readCodexProfileConfig(options: CodexProfileConfigOptions): Prom
       // EOF normally ends the app-server and its foreground launcher. If it
       // ignores EOF, terminate only the owned process tree while its PID lives.
       cleanupTimer = setTimeout(() => {
-        if (child.exitCode !== null || child.signalCode !== null || !child.pid) return;
+        if (!child.pid) return;
+        // On Linux an npm launcher can exit while its child still owns stdio.
+        // Until close, the detached group remains ours even if its leader exited.
+        if (process.platform === 'linux' && !options.launch) {
+          try { process.kill(-child.pid, 'SIGKILL'); } catch { /* Owned group exited. */ }
+          return;
+        }
+        if (child.exitCode !== null || child.signalCode !== null) return;
         if (process.platform === 'win32') execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'],
           { windowsHide: true, timeout: 3000 }, () => undefined);
         else child.kill('SIGKILL');

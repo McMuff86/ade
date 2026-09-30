@@ -4032,5 +4032,8 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "Assign or skip these entries, then update the preview.": "Diese Einträge zuordnen oder überspringen, dann die Vorschau aktualisieren.",
   "Choose the folder that contains your clones; empty fields are filled by Git remote or folder name.": "Ordner mit deinen Klonen wählen; leere Felder werden über Git-Remote oder Ordnernamen gefüllt.",
   "Find clones in folder…": "Klone in Ordner suchen…",
-  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: Eigener Startbefehl und Dashboard-Einstellungen sind rechnerspezifisch und wurden nicht übernommen; nach dem Import in den Agent-Einstellungen neu setzen."
+  "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: Eigener Startbefehl und Dashboard-Einstellungen sind rechnerspezifisch und wurden nicht übernommen; nach dem Import in den Agent-Einstellungen neu setzen.",
+  "ade: Profile instructions require a native Windows or Linux start.": "ade: Profilanweisungen benötigen einen nativen Windows- oder Linux-Start.",
+  "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.": "ade: Profilanweisungen überschreiten die sichere Linux-Argumentgrenze. Profil kürzen.",
+  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Profilanweisungen überschreiten zusammen mit den vorhandenen Anweisungen die sichere Snapshot-Grenze."
 };

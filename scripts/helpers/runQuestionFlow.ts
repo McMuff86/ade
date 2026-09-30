@@ -28,7 +28,7 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
       const category = await window.ade.invoke('category:create', { name: 'Question fixture' });
       const agent = await window.ade.invoke('agent:create', { categoryId: category.id, name: 'Question agent', runtime: 'codex', permissionMode: 'default', defaultRepositoryId: repository.repositoryId });
       const device = (await window.ade.invoke('remoteDevices:list')).devices.find((item) => item.revokedAt === null)!;
-      await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: [...device.adminScopes ?? [], 'workspace:read'] });
+      await window.ade.invoke('remoteDevices:setAdminScopes', { deviceId: device.id, scopes: [...new Set([...device.adminScopes ?? [], 'workspace:read' as const])] });
       return { repositoryId: repository.repositoryId, agentId: agent.id };
     }, projectRoot);
     await desktop.keyboard.press('Escape');
@@ -56,6 +56,7 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     check('closed answer report restores focus when question opener disappears', await desktop.getByRole('button', { name: 'Bericht', exact: true }).evaluate((node) => node === document.activeElement));
     await reconnectTablet(phone);
     await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+    await phone.getByRole('tab', { name: 'Übersicht', exact: true }).click();
     await phone.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
     const composer = phone.getByRole('dialog', { name: 'Agent beauftragen', exact: true });
     await composer.getByLabel('Repository', { exact: true }).selectOption(config.repositoryId);

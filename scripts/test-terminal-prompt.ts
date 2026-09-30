@@ -76,9 +76,9 @@ void (async () => {
     ? "[void][Console]::ReadLine(); [Console]::WriteLine('CLI_EXIT')" : "IFS= read -r ade_fixture; printf 'CLI_EXIT\\n'", platform, async value => value);
   try {
     if (platform === 'win32') check('protected Windows wrapper cannot return to an interactive PowerShell', !program.args!.includes('-NoExit') && program.args!.includes('-NoProfile'));
-    else check('protected POSIX wrapper replaces its bootstrap shell', program.initialCommand!.startsWith('exec /bin/bash '));
+    else check('protected POSIX wrapper directly runs a script without login or stdin commands', !program.initialCommand && program.args![0] === '--noprofile' && program.args![1] === '--norc');
     const result = await new Promise<{ code: number | null; output: string }>((resolve, reject) => {
-      const child = spawn(platform === 'win32' ? 'powershell.exe' : '/bin/bash', platform === 'win32' ? program.args! : ['-c', program.initialCommand!], { windowsHide: true, stdio: 'pipe' });
+      const child = spawn(platform === 'win32' ? 'powershell.exe' : '/bin/bash', program.args!, { windowsHide: true, stdio: 'pipe' });
       let output = ''; child.stdout.on('data', value => { output = (output + String(value)).slice(-10_000); });
       child.stderr.resume(); child.stdin.on('error', () => undefined);
       const timer = setTimeout(() => { child.kill(); reject(new Error('protected wrapper remained alive after CLI ended')); }, 15_000);

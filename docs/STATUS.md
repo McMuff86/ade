@@ -1,5 +1,28 @@
 # ADE implementation status
 
+## Goal 34.2: native Linux-Prompts und Agent-Profile (30. September 2026, spätabends)
+
+Neue feste native Linux-Codex-/Claude-/Grok-Sitzungen unterstützen geschützte
+Promptübergabe ohne verbleibende Shell nach CLI-Ende. Gespeicherte Profile werden
+für Codex/Claude/Qwen ausserhalb des Workspaces übertragen; bestehende Codex-
+Anweisungen bleiben erhalten. Desktop-Profilablauf **39/0**, neuer Tablet-Ablauf
+**29/0** mit vier nativen CLI-Fixtures, Wiederverbindung, verlorener Bestätigung,
+Datei-/Difflesen und Rückfragen. Fokussiert: **28** Prompt-, **12** Profilargument-,
+**12** Konfigurations- und **30** Prozesschecks. Echte Codex-TUI-/Modellprobe
+**0.159.0 / gpt-5.6-sol / high bestanden**. [Nachweise und Grenzen](AGENT_SESSION_PLATFORM_RESULTS.md).
+
+Vollständiges `pnpm verify` am **30. September 2026 um 23:02:15 CEST**:
+**27 bestanden / 0 Fehler / 16 nicht gemessen**, **102 Suiten / 4.325 Checks**,
+drei Typechecks, beide isolierten Builds, Browser-/Electron-Abläufe und
+Linux-Aktivierung **15/0**. Archiv: `test-results/goal34-linux-profiles-20260930/`
+mit Vollbericht, Schrittlogs, positiver nativer Codex-Probe und Tablet-Bildern.
+Die 16 nicht gemessenen Schritte besitzen explizite Plattformgründe. Kein
+vollständiger Windows- oder physischer Android-Nachweis wird daraus abgeleitet.
+
+Die persönliche Instanz wurde dafür nicht neu gestartet; bestehende Sitzungen
+bleiben erhalten. Vollständige Plattformabnahme, weitere reale CLIs und physisches
+Android bleiben offen. Goal 34.6 folgt separat. [Betriebsstand](HANDOFF.md).
+
 ## Benannte Weblinks im Tablet-Terminal (30. September 2026, Abend)
 
 Der Android-Screenshot zeigte einen unterstrichenen Codex-Link „Knuckles Pi
@@ -54,8 +77,9 @@ spätere Aktivierungsgates ersetzen nur den aktuellen `verify/report.json`.
 Persönlich aktiviert um **17:13 CEST**, PID **1511026**: private Freigabe auf
 **8443**, reale TLS-/Asset-Prüfung und Browserkopplung bestanden. OpenClaws reale
 Route auf **443** ist unverändert, weiterhin HTTPS 200. Backups und Belege: HANDOFF.
-Interaktiver Linux-Profiltransport und geschützte Promptübergabe bleiben offen,
-ebenso weitere native CLIs, vollständige Windows- und physische Android-Abnahme.
+Linux-Profiltransport und geschützte Promptübergabe sind im späteren Eintrag oben
+ergänzt; weitere native CLIs, vollständige Windows- und physische Android-Abnahme
+bleiben offen.
 Goal 34.2 wird deshalb noch nicht als vollständiges Produktteilziel abgeschlossen.
 
 ## ADE-Gespräch unter Linux (29. September 2026)

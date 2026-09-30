@@ -1,13 +1,82 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
-Stand: 30. September 2026. Linux-Desktop-/Tablet- und Portnachweis **78/0**;
-Linux-Aktivierung **15/0**, native Codex-Tablet-Browserprobe **16/0**.
-Vollständige Linux-Prüfläufe: **25 bestanden, 0 Fehler, 17 nicht gemessen**.
-Persönliche Aktivierung und reale HTTPS-Probe werden in HANDOFF protokolliert.
-Die vollständige Plattform- und physische Tablet-Abnahme bleibt offen.
-Produktziel und weitere Aufgaben: [Goal 34](AGENT_SESSION_PRODUCT_GOALS.md).
-ADE verwaltet seine eigenen Agent-Sitzungen auf dem jeweiligen Linux- oder
-Windows-Host. Andere Agentenverwaltungen werden dafür nicht benötigt.
+Stand: 30. September 2026. Goal 34.2 wird um geschützte native Linux-Prompts,
+gespeicherte Profile und einen zusätzlichen Tablet-Ablauf ergänzt. Aktuelle
+Nachweise unten; frühere Betriebsstände bleiben als datierte Evidenz erhalten.
+Persönliche Aktivierung und reale HTTPS-Probe: [HANDOFF](HANDOFF.md).
+Die vollständige Windows-/Linux- und physische Tablet-Abnahme bleibt offen.
+Produktziel: [Goal 34](AGENT_SESSION_PRODUCT_GOALS.md). ADE verwaltet seine eigenen
+Sitzungen; andere Agentenverwaltungen sind keine Voraussetzung.
+
+### Native Linux-Profile und geschützte Prompts (30. September, spätabends)
+
+Neue feste native Codex-/Claude-/Grok-Starts lesen ein privates Bash-Skript ohne
+Login-/Startdateien. Das PTY endet mit der CLI und ihrem Exitcode. Dadurch kann
+auch ein verspäteter Prompt nach CLI-Ende keinen Shellbefehl ausführen. Eigene
+Startbefehle, Shells und Windows-UI mit WSL-Backend behalten ihre bisherigen
+Verträge. Bestehende Sitzungen werden nicht umgebaut oder neu gestartet.
+
+Gespeicherte Codex-/Claude-/Qwen-Profile werden unter Linux aus unveränderlichen
+Snapshots ausserhalb der Projekte übergeben, unabhängig vom Memory-Schalter.
+Unicode, Shellzeichen und abschliessende Zeilenumbrüche bleiben Daten. Vor
+Codex-Start wird die wirksame zusätzliche Anleitung über `config/read` gelesen
+und erhalten; ein unbekannter Zustand blockiert den Start. Referenz:
+[Codex-Konfiguration](https://learn.chatgpt.com/docs/config-file/config-reference),
+[App-Server config/read](https://learn.chatgpt.com/docs/app-server).
+Keine Projekt-AGENTS.md/CLAUDE.md wird dafür verändert. Das frühere Profil und
+seine Revision bleiben in der laufenden Sitzung sichtbar, wenn das gespeicherte
+Profil später geändert wird. Native Linux-Nutzungsinterception ist hier nicht
+freigegeben; CLI-/Modellnachweise bleiben je Adapter getrennt.
+
+Fokussierte Nachweise: Promptvertrag **28/0**, Linux-Profilargumente **12/0**,
+Codex-Konfigurationsprobe **12/0**, native Sitzungsprozesse **30/0**,
+Electron-Profilablauf **39/0**. Der Sitzungskern umfasst drei feste CLI-Fixtures,
+exakte mehrzeilige Übergabe, idempotente Wiederholung, Entzug des Eingaberechts
+vor verzögertem Enter, CLI-Exit während der Übergabe und eine erfolgreiche
+positive Kontrolle danach. Der Konfigurationstest beendet auch einen verwaisten
+Kindprozess der eigenen Linux-Probe. Die reale installierte Codex-Konfiguration
+wurde ohne Modellauftrag erfolgreich gelesen, ohne ihren Inhalt auszugeben.
+
+Zusätzlicher Browser-Treiber: `linux-agent-tablet` in `pnpm verify`, Implementierung
+`test-session-navigation-electron.ts --agent-tablet`. Eigene Geräteverwaltung,
+signierte HTTP-Anfragen, native PTYs und echtes Git; Tailscale/TLS und Agent-CLI
+werden für den reproduzierbaren Ablauf ersetzt. Physische Android-, weitere
+reale CLI-/Modell- sowie neue Windows-Abnahmen werden daraus nicht abgeleitet.
+Der zusätzliche Browserlauf besteht **29/0**: drei native Profilprozesse in zwei
+Projekten (zwei im selben Checkout), zielgenaue mehrzeilige Prompts, getrennte
+Entwürfe, Orientierung/Offline, verlorene Antwort nach tatsächlicher Zustellung,
+Neuladen ohne Doppelzustellung, explizite Wiederaufnahme, vierter Profilstart vom
+Tablet, echtes Git-Diff und schreibgeschützter Dateiinhalt bei 390 px. Anschliessend
+Desktop- und Tablet-Rückfragen samt Ergebnis und Neuladen ohne Doppelauftrag.
+Alle Testprozesse werden beendet; fremde Port-443-Freigabe bleibt erhalten.
+
+**Echte interaktive Codex-Probe bestanden um 22:59 CEST:** Codex **0.159.0**,
+**gpt-5.6-sol / high**, native ADE-PTY mit gespeichertem Profil, Memory aus,
+geschützte mehrzeilige Übergabe und eine kurze Modellantwort. Die zufällige
+Prüfphrase stand ausschliesslich im Profil und erschien in der Antwort. Die
+Bestätigungswiederholung war als Replay gekennzeichnet; kein neuer Prompt.
+Der leere Test-Checkout blieb unverändert, CLI und PTY endeten regulär und
+Promptfähigkeit wurde deaktiviert. `scripts/probe-linux-codex-prompt.ts` ist eine
+separate Opt-in-Probe, kein bezahlter Bestandteil von `pnpm verify`.
+
+Zwei vorbereitende Versuche stiessen auf den Codex-Ordnervertrauensdialog;
+sie belegen keine Modellantwort. Der endgültige Treiber benutzt eine private,
+nachher gelöschte Kopie der Codex-Konfiguration/Anmeldung mit Vertrauen nur für
+seinen temporären Checkout. Der erste tatsächliche Modellversuch bewies bereits
+die Profilphrase, aber seine Prüfbedingungen verglichen fälschlich Erstbeleg
+und Replay bytegleich und warteten zu kurz auf Shutdown. Diese Treiberfehler
+wurden korrigiert; der abschliessende vollständige positive Lauf ist grün.
+Keine Änderungen an der persönlichen Codex-Konfiguration. Lokaler Beleg:
+`test-results/linux-codex-prompt-probe.json`. Das beweist weder Mikrofon/
+ElevenLabs-Audio noch Bildanhänge, Resume alter Threads oder andere reale Modelle.
+
+Vollständiges `pnpm verify` am **30. September 2026 um 23:02:15 CEST**:
+**27 bestanden / 0 Fehler / 16 nicht gemessen**, **102 Suiten / 4.325 Checks**,
+drei Typechecks, beide isolierten Builds, Browser-/Electron-Abläufe und
+Linux-Aktivierung **15/0**. Archiv: `test-results/goal34-linux-profiles-20260930/`
+mit Vollbericht, Schrittlogs, positiver nativer Codex-Probe und Tablet-Bildern.
+Die 16 nicht gemessenen Schritte besitzen explizite Plattformgründe. Kein
+vollständiger Windows- oder physischer Android-Nachweis wird daraus abgeleitet.
 
 ### Ergänzung: benannte Terminal-Weblinks (30. September, Abend)
 
@@ -42,17 +111,18 @@ Eine CLI im PATH beweist nur ihre Auffindbarkeit. Eine Shell, eine interaktive
 Agent-Sitzung, eine verwaltete Aufgabe und das zentrale ADE-Gespräch sind
 verschiedene Start-/Steuerungswege. Diese Matrix trennt sie; die neue native
 Codex-Probe deckt verwaltete Aufgaben und das ADE-Gespräch ab. Interaktive
-CLI-, weitere Adapter- und Windows-Proben bleiben getrennt offen.
+Die interaktive native Codex-Probe ist oben ergänzt; weitere Adapter- und
+Windows-Proben bleiben getrennt offen.
 
 | Fähigkeit / Sitzungsart | Linux nativ (Omarchy) | Windows nativ | Nachweis / nächste Arbeit |
 |---|---|---|---|
 | Mehrere interaktive Shells, exakter Projekt-/Sitzungswechsel | **78 Prüfungen bestanden** im portablen Electron-/Tablet-Treiber mit vier nativen Shells | Bestehender Windows-Ablauf; neuer Treiber noch nicht ausgeführt | `sessionNavigationFlow.ts`, neuer `test-session-navigation-electron.ts` |
-| Mehrere native Prozesse im ADE-Sitzungskern | **17 Prüfungen bestanden** mit echtem `PtyManager`, vier PTYs und deterministischen CLI-Fixtures | Derselbe Testpfad angelegt, noch nicht ausgeführt | `test-session-processes.ts`; kein Ersatz für Desktop-/Tablet- oder native Modellabnahme |
-| Feste Codex-/Claude-/Grok-CLI ohne ADE-Verhaltensprofil | Startpfade vorhanden; keine neue native CLI-Abnahme | Frühere Windows-Terminalnachweise; keine neue Messung | `SessionLaunchService`, `PtyManager`; je CLI separater nativer Test erforderlich |
+| Mehrere native Prozesse im ADE-Sitzungskern | **30 Prüfungen bestanden** mit echtem `PtyManager`, vier PTYs und deterministischen CLI-Fixtures | Derselbe Testpfad angelegt, noch nicht ausgeführt | `test-session-processes.ts`; kein Ersatz für Desktop-/Tablet- oder native Modellabnahme |
+| Feste Codex-/Claude-/Grok-CLI | Codex 0.159.0 mit Profil und geschütztem Prompt real geprüft; Claude/Grok nur neue Transport-Fixtures | Frühere Windows-Terminalnachweise; keine neue Messung | `SessionLaunchService`, `PtyManager`; je CLI separater nativer Test erforderlich |
 | Hermes, eigene Startbefehle, Ollama/Qwen | Startoptionen im Code; keine pauschale Linux-Freigabe | Frühere adapterbezogene Nachweise gelten nur im dokumentierten Umfang | Auffindbarkeit, Shellstart und Modellantwort getrennt prüfen |
-| Gespeichertes Profil mit ADE-Verhaltensanweisungen im interaktiven CLI | **Explizit blockiert**: Start und Profiltransport verlangen Windows | Transport für Codex/Claude/Qwen vorgesehen; Grok/eigene Befehle nicht gleichsetzen | `PtyManager.ts`, `profileLaunch.ts`, `CodexProfileConfig.ts`; nächste Produktlücke |
+| Gespeichertes Profil mit ADE-Verhaltensanweisungen im interaktiven CLI | **Implementiert**: Codex-/Claude-Electron-Fixture 39/0, Codex-/Claude-/Qwen-Argumenttransport 12/0 | Transport für Codex/Claude/Qwen vorgesehen; Grok/eigene Befehle nicht gleichsetzen | `PtyManager.ts`, `profileLaunch.ts`, `CodexProfileConfig.ts`; reale Adapterabnahme getrennt |
 | Direkte Terminaleingabe und Desktop/Tablet-Besitzwechsel | Prozessgenaue Zustellung, Lease-Ablauf, explizite Freigabe und Desktop-Rückübernahme im neuen UI-Treiber bestanden | Bestehende Terminalverträge | `RemoteTerminalService`; Lease, Eingabesequenz und Widerruf beibehalten |
-| Strukturierter Prompt/Diktat an geschützten interaktiven CLI | **Produktstart noch Windows-begrenzt**, obwohl POSIX-Wrapper existiert | Geschützter Startpfad implementiert | `promptProtected` in `PtyManager`; kein Entfernen der Grenze ohne Ende-/Nachlaufnachweise |
+| Strukturierter Prompt/Diktat an geschützten interaktiven CLI | **Implementiert** für neue feste native Starts: Promptvertrag 28/0 und echte PTY-Negativkontrollen | Geschützter Startpfad implementiert | `promptProtected` in `PtyManager`; Ende-/Nachlauf-/Rechteverlustnachweise vorhanden |
 | Rückfragen in verwalteten Aufgaben | Nativer Codex-App-Server-Pfad; Linux-UI-Fixture und echte Codex-Modellprobe **16/0** dokumentiert | Codex-Nachweise vorhanden; keine allgemeine Claude-/Grok-Rückfragenzusage | `RunQuestionService`, `CodexAppServerProcess`, `LIVE_RUN_INTERACTION_PLAN.md`, aktueller STATUS |
 | Zentrales ADE-Gespräch | POSIX-Start und echte Codex-Browserprobe **16/0**: Vorschlag, Bestätigung, Worker-Rückfrage und Ergebnis | Bestehender Windows-Koordinator | Beweist nicht automatisch Fortsetzung beliebiger interaktiver CLI-Sitzungen |
 | Abbruch, Unterbrechen, Fortsetzen | Rohes Terminal und Managed-Task-Abbruch vorhanden; kein universeller Pause-/Resume-Vertrag | Gleiche fachliche Unterscheidung | Fähigkeiten je Adapter, Sitzungstyp und Prozesszustand nachweisen |
@@ -203,6 +273,6 @@ Belege und Backup-/Rollback-Pfade: [HANDOFF](HANDOFF.md),
 Persönliche Aktivierung, Adresse und aktuelle TLS-Nachweise stehen oben in
 [HANDOFF](HANDOFF.md). Der reale Android-Test bleibt eigenständig: Tailscale,
 Kopplung, Gerätefreigaben, Bildschirmtastatur, Hoch-/Querformat und Mobilfunk.
-Windows-Nachweis des portablen Treibers, Linux-Profiltransport, geschützte
-Promptübergabe und weitere native CLIs bleiben offen. Goal 34.2 ist damit
+Windows-Nachweis des portablen Treibers sowie weitere reale native CLIs bleiben
+offen. Linux-Profiltransport und geschützte Promptübergabe sind oben ergänzt. Goal 34.2 ist damit
 weitergeführt, als vollständiges Linux-/Windows-Produktteilziel noch nicht abgenommen.

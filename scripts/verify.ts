@@ -155,7 +155,7 @@ const STEPS: Step[] = [
   driver('dictation-electron', 'test-dictation-electron.ts', WINDOWS_CONSOLE_FIXTURE),
   driver('mobile-speech-browser', 'test-mobile-speech-browser.ts'),
   driver('agent-behavior-browser', 'test-agent-behavior-browser.ts'),
-  driver('profile-session-electron', 'test-profile-session-electron.ts', windowsOnly('native profile session integration is measured on Windows')),
+  driver('profile-session-electron', 'test-profile-session-electron.ts', { platforms: ['win32', 'linux'], reason: 'native profile transport supports Windows and Linux; macOS is not measured' }),
   driver('agent-settings-profile-electron', 'test-agent-settings-profile-electron.ts'),
   driver('work-electron', 'test-work-electron.ts'),
   driver('organizer-electron', 'test-organizer-electron.ts'),
@@ -172,6 +172,9 @@ const STEPS: Step[] = [
   driver('remote-workbench-browser', 'test-remote-workbench-browser.ts'),
   driver('remote-terminal-electron:session-navigation', 'test-session-navigation-electron.ts', {
     platforms: ['linux', 'win32'], reason: 'native session navigation targets Linux PTY and Windows ConPTY; macOS is not measured',
+  }),
+  driver('linux-agent-tablet', 'test-session-navigation-electron.ts', {
+    args: ['--agent-tablet'], platforms: ['linux'], reason: 'native Linux profile, prompt and tablet fixture; Windows has separate drivers',
   }),
   driver('remote-terminal-electron:project-launcher', 'test-remote-terminal-electron.ts', { ...only('project-launcher'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', { ...only('tablet-layout'), ...WINDOWS_REMOTE_TERMINAL }),

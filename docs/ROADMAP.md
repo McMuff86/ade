@@ -19,8 +19,16 @@ frühere Funktionsnachweise gelten nur in ihrem dokumentierten Umfang.
 Rollback, Electron-Nachweis 15/0. Vollständiges Linux-Verify: 25 bestanden,
 0 Fehler, 17 ausdrücklich nicht gemessene Windows-Schritte. Persönliche
 8443-Freigabe und TLS-Evidenz: [Betriebsstand](HANDOFF.md).
-Nächste Abnahmen: physisches Android/Mobilfunk, Linux-Profil-/Prompttransport,
-weitere native Agenten sowie derselbe Mehrsitzungs- und Aktivierungsvertrag auf Windows.
+Linux-Profil-/Prompttransport ist inzwischen implementiert: native Prozesschecks
+30/0, Profil-Electron 39/0, integrierter Tablet-/Agent-Ablauf 29/0. Codex 0.159.0
+mit gpt-5.6-sol/high bestätigt in einer echten interaktiven Sitzung Profilinhalt,
+Promptübergabe und reguläres Ende. Abschliessendes Linux-Verify **27 bestanden /
+0 Fehler / 16 nicht gemessen**, **102 Suiten / 4.325 Checks**. Aktuelle Nachweise und Grenzen im
+[Prüfstand](AGENT_SESSION_PLATFORM_RESULTS.md).
+Nächste Abnahmen: physisches Android/Mobilfunk einschliesslich Audio, weitere
+native Agenten sowie derselbe Mehrsitzungs- und Aktivierungsvertrag auf Windows.
+Die Folgelieferung bleibt bis zur sicheren Aktivierung vom persönlichen Host
+getrennt; laufende Sitzungen werden erhalten.
 
 Tablet-Rückmeldung am Abend: benannte Codex-Weblinks behalten jetzt ihr geprüftes
 Ziel und öffnen vor der Navigation eine Adressvorschau. Linux-Browserablauf mit

@@ -40,6 +40,7 @@ export interface PreparedProfileLaunch {
 }
 
 const quotePs = (text: string): string => `'${text.replace(/'/g, "''")}'`;
+const quoteSh = (text: string): string => `'${text.replace(/'/g, "'\\''")}'`;
 const hash = (text: string): string => createHash('sha256').update(text, 'utf8').digest('hex');
 
 /** JSON basic-string escapes are TOML-compatible for valid Unicode strings. */
@@ -62,13 +63,15 @@ function outsideWorkspace(root: string, workspace: string): void {
   }
 }
 
-/** Native Windows transport only. This proves argument/file delivery, not that
+/** Native Windows/Linux transport. This proves argument/file delivery, not that
  * a particular installed CLI/model consumed the instructions. Caller owns the
  * actual CLI compatibility probe and the lifetime through process termination. */
 export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfileLaunch {
   const { agent, snapshot, command } = input;
-  if (input.executionBackend !== 'native' || (input.platform ?? process.platform) !== 'win32') {
-    throw new Error(translate("ade: Profile instructions are only natively transferred under Windows for this start."));
+  const platform = input.platform ?? process.platform;
+  const windows = platform === 'win32';
+  if (input.executionBackend !== 'native' || !['win32', 'linux'].includes(platform)) {
+    throw new Error(translate("ade: Profile instructions require a native Windows or Linux start."));
   }
   const qwen = agent.runtime === 'ollama' && agent.ollamaMode === 'coding' && agent.ollamaHarness === 'qwen-code';
   if (agent.customCommand?.trim() || (!['codex', 'claude'].includes(agent.runtime) && !qwen)) {
@@ -86,7 +89,7 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
   let argument: string | undefined;
   if (qwen) {
     argument = snapshot.content;
-    if (windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
+    if (windows && windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
       throw new Error(translate("ade: Profile instructions exceed the safe Windows invocation limit of 28,000 characters. Shorten the profile."));
     }
   }
@@ -95,17 +98,22 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
     if (baseline?.mode !== 'append-verified' || typeof baseline.existing !== 'string') {
       throw new Error(translate("ade: Existing Codex Developer statements have not yet been verified. Profilstart might overwrite them."));
     }
-    if (baseline.existing.length + snapshot.content.length > MAX_SNAPSHOT_CHARS) {
-      throw new Error(translate("ade: Profile statements, along with the existing instructions, exceed the secure Windows call limit."));
-    }
     const complete = baseline.existing ? `${baseline.existing}\n\n${snapshot.content}` : snapshot.content;
+    if (complete.length > MAX_SNAPSHOT_CHARS) {
+      throw new Error(translate("ade: Combined profile instructions exceed the safe snapshot limit."));
+    }
     // Whitespace before the TOML value is semantically inert and makes the
     // PowerShell 5.1 native marshaller quote the complete argument before it
     // encounters any escaped double quotes within that value.
     argument = `developer_instructions= ${tomlString(complete)}`;
-    if (windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
+    if (windows && windowsArgument(argument).length + command.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) {
       throw new Error(translate("ade: Profile instructions exceed the safe Windows invocation limit of 28,000 characters. Shorten the profile."));
     }
+  }
+  // Linux's per-argument byte limit is lower than ARG_MAX. Include TOML expansion
+  // and UTF-8, while reserving space below the usual 128 KiB MAX_ARG_STRLEN.
+  if (!windows && argument !== undefined && Buffer.byteLength(argument, 'utf8') > 120 * 1024) {
+    throw new Error(translate("ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile."));
   }
   if (!isAbsolute(input.scratchRoot)) throw new Error(translate("ade: Profile storage requires an absolute ADE path."));
   const root = resolve(input.scratchRoot);
@@ -146,24 +154,30 @@ export function prepareProfileLaunch(input: ProfileLaunchInput): PreparedProfile
     let prepared: string;
     if (argument !== undefined) {
       write(argumentPath, argument);
-      // Windows PowerShell 5.1 forwards raw embedded quotes incorrectly to native
-      // executables. Quote for its legacy argv marshaller; PowerShell 7's standard
-      // marshaller receives the original argument. Neither path evaluates content.
-      const expression = [
-        '(& {',
-        `$adeProfileArg = [IO.File]::ReadAllText(${quotePs(argumentPath)}, [Text.Encoding]::UTF8);`,
-        "if ($PSVersionTable.PSVersion -lt [version]'7.3' -or $PSNativeCommandArgumentPassing -eq 'Legacy') {",
-        String.raw`$adeProfileNeedsQuotes = $adeProfileArg -match '\s';`,
-        String.raw`$adeProfileArg = [regex]::Replace($adeProfileArg, '(\\*)"', '$1$1\"');`,
-        String.raw`if ($adeProfileNeedsQuotes) { [regex]::Replace($adeProfileArg, '(\\+)$', '$1$1') } else { $adeProfileArg }`,
-        '} else { $adeProfileArg }',
-        '})',
-      ].join(' ');
-      prepared = `${command} ${qwen ? '--append-system-prompt' : '-c'} ${expression}`;
+      if (!windows) {
+        // read -d '' retains trailing newlines. Contents are one quoted argument,
+        // never shell source; a missing file must not launch an empty profile.
+        prepared = `test -f ${quoteSh(argumentPath)} && { IFS= read -r -d '' ade_profile_arg < ${quoteSh(argumentPath)}; test "$?" -eq 1; } && ${command} ${qwen ? '--append-system-prompt' : '-c'} "$ade_profile_arg"`;
+      } else {
+        // Windows PowerShell 5.1 forwards raw embedded quotes incorrectly to native
+        // executables. Quote for its legacy argv marshaller; PowerShell 7's standard
+        // marshaller receives the original argument. Neither path evaluates content.
+        const expression = [
+          '(& {',
+          `$adeProfileArg = [IO.File]::ReadAllText(${quotePs(argumentPath)}, [Text.Encoding]::UTF8);`,
+          "if ($PSVersionTable.PSVersion -lt [version]'7.3' -or $PSNativeCommandArgumentPassing -eq 'Legacy') {",
+          String.raw`$adeProfileNeedsQuotes = $adeProfileArg -match '\s';`,
+          String.raw`$adeProfileArg = [regex]::Replace($adeProfileArg, '(\\*)"', '$1$1\"');`,
+          String.raw`if ($adeProfileNeedsQuotes) { [regex]::Replace($adeProfileArg, '(\\+)$', '$1$1') } else { $adeProfileArg }`,
+          '} else { $adeProfileArg }',
+          '})',
+        ].join(' ');
+        prepared = `${command} ${qwen ? '--append-system-prompt' : '-c'} ${expression}`;
+      }
     } else {
-      prepared = `${command} --append-system-prompt-file ${quotePs(snapshotPath)}`;
+      prepared = `${command} --append-system-prompt-file ${(windows ? quotePs : quoteSh)(snapshotPath)}`;
     }
-    if (prepared.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) throw new Error(translate("ade: Profile start exceeds the secure Windows call limit."));
+    if (windows && prepared.length > MAX_PROFILE_NATIVE_COMMAND_CHARS) throw new Error(translate("ade: Profile start exceeds the secure Windows call limit."));
     return { command: prepared, snapshotPath, dispose };
   } catch (error) { dispose(); throw error; }
 }

@@ -2,9 +2,9 @@
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { Agent } from '../src/shared/types';
 import type { AgentInstructionsSnapshot } from '../src/main/memory/agentInstructions';
 import { prepareProfileLaunch, type ProfileLaunchInput } from '../src/main/pty/profileLaunch';
@@ -19,6 +19,7 @@ const fixture = join(root, 'argv.cjs');
 const output = join(root, 'arguments.json');
 writeFileSync(fixture, "require('node:fs').writeFileSync(process.argv[2], JSON.stringify(process.argv.slice(3)), 'utf8');");
 const ps = (text: string) => `'${text.replace(/'/g, "''")}'`;
+const sh = (text: string) => `'${text.replace(/'/g, "'\\''")}'`;
 const fixtureCommand = `& ${ps(process.execPath)} ${ps(fixture)} ${ps(output)}`;
 const shim = join(root, 'npm-shim.ps1');
 writeFileSync(shim, `${fixtureCommand} $args\nexit $LASTEXITCODE\n`, 'utf8');
@@ -42,8 +43,8 @@ check('unknown Codex baseline fails before any scratch write', () => {
   assert.equal(existsSync(scratch), false);
 });
 check('WSL, unsupported native platforms, custom commands and unsupported runtimes fail explicitly', () => {
-  assert.throws(() => prepareProfileLaunch({ ...base, executionBackend: 'wsl:Ubuntu' }), /nativ unter Windows/);
-  assert.throws(() => prepareProfileLaunch({ ...base, platform: 'linux' }), /nativ unter Windows/);
+  assert.throws(() => prepareProfileLaunch({ ...base, executionBackend: 'wsl:Ubuntu' }), /nativen Windows- oder Linux/);
+  assert.throws(() => prepareProfileLaunch({ ...base, platform: 'darwin' }), /nativen Windows- oder Linux/);
   assert.throws(() => prepareProfileLaunch({ ...base, agent: { ...agent, customCommand: 'codex --resume' } }), /eigenen Startbefehl/);
   assert.throws(() => prepareProfileLaunch({ ...base, agent: { ...agent, runtime: 'grok' } }), /unterstützten/);
 });
@@ -56,6 +57,9 @@ check('snapshot integrity, Unicode, duplicate instruction options and Windows ar
 check('scratch cannot be inside identity or actual project workspace', () => {
   assert.throws(() => prepareProfileLaunch({ ...base, scratchRoot: join(repo, 'scratch') }), /ausserhalb/);
   assert.throws(() => prepareProfileLaunch({ ...base, workspaceDir: scratch }), /ausserhalb/);
+});
+check('combined Codex baseline and snapshot stay within the shared context bound', () => {
+  assert.throws(() => prepareProfileLaunch({ ...base, snapshot: snapshotFor('x'.repeat(32000)) }), /Snapshot-Grenze/);
 });
 
 if (process.platform === 'win32') {
@@ -116,6 +120,43 @@ if (process.platform === 'win32') {
     });
   }
 } else console.log('SKIP Windows native shell transport: requires a Windows host.');
+
+if (process.platform === 'linux') {
+  const linuxCommand = `${sh(process.execPath)} ${sh(fixture)} ${sh(output)}`;
+  const linuxContent = content + `\n$(touch ${sh(marker)})\n\n`;
+  for (const runtime of ['codex', 'claude', 'qwen'] as const) {
+    check(`Linux ${runtime} delivers exact profile, Unicode and trailing newlines without shell evaluation`, () => {
+      const prepared = prepareProfileLaunch({ ...base, platform: 'linux', command: linuxCommand, snapshot: snapshotFor(linuxContent),
+        agent: { ...agent, runtime: runtime === 'qwen' ? 'ollama' : runtime, ...(runtime === 'qwen' ? { ollamaMode: 'coding', ollamaHarness: 'qwen-code' } as const : {}) } });
+      try {
+        assert.equal(prepared.command.includes('PRIVATE PROFILE CONTENT'), false);
+        execFileSync('/bin/bash', ['--noprofile', '--norc', '-c', prepared.command], { cwd: repo, timeout: 15_000 });
+        const args = JSON.parse(readFileSync(output, 'utf8')) as string[];
+        assert.equal(args.length, 2);
+        if (runtime === 'codex') {
+          assert.equal(args[0], '-c');
+          assert.equal(JSON.parse(args[1]!.slice('developer_instructions='.length)), 'Existing developer guidance.\n\n' + linuxContent);
+        } else if (runtime === 'claude') {
+          assert.equal(args[0], '--append-system-prompt-file'); assert.equal(readFileSync(args[1]!, 'utf8'), linuxContent);
+        } else assert.deepEqual(args, ['--append-system-prompt', linuxContent]);
+        assert.equal(existsSync(marker), false); assert.deepEqual(readdirSync(repo), []);
+      } finally { prepared.dispose(); }
+      assert.equal(existsSync(prepared.snapshotPath), false);
+    });
+  }
+  check('Linux argument bound counts expanded UTF-8/TOML bytes before any write', () => {
+    assert.throws(() => prepareProfileLaunch({ ...base, platform: 'linux', command: linuxCommand, snapshot: snapshotFor('\x01'.repeat(25000)) }), /Linux-Argumentgrenze/);
+  });
+  check('missing Linux argument file refuses launch instead of sending an empty profile', () => {
+    const prepared = prepareProfileLaunch({ ...base, platform: 'linux', command: linuxCommand });
+    try {
+      unlinkSync(join(dirname(prepared.snapshotPath), 'CODEX_ARGUMENT.txt'));
+      if (existsSync(output)) unlinkSync(output);
+      assert.throws(() => execFileSync('/bin/bash', ['--noprofile', '--norc', '-c', prepared.command], { cwd: repo, timeout: 15000, stdio: 'pipe' }));
+      assert.equal(existsSync(output), false);
+    } finally { prepared.dispose(); }
+  });
+}
 
 check('snapshots use unique immutable copies and disposal leaves unrelated files', () => {
   const first = prepareProfileLaunch(base); const second = prepareProfileLaunch(base);

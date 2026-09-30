@@ -104,6 +104,11 @@ Agentenverwaltung muss weder installiert noch gestartet sein.
 Erster Umsetzungsschritt: [Fähigkeitsmatrix, portabler Sitzungstreiber und
 Prüfstand](AGENT_SESSION_PLATFORM_RESULTS.md). Der kombinierte Linux-Desktop-/Tablet-Treiber besteht 78/0; die native Codex-Browserprobe 16/0 und der Linux-Aktivierungstreiber 15/0. Die vollständigen
 Teilzielkriterien unten bleiben offen; aktuelle Nachweise stehen im Prüfstand.
+Die nächste Linux-Lieferung ergänzt geschützte Prompt-/Diktatübergabe, gespeicherte
+Profile und einen integrierten Agent-/Tablet-Treiber. Neue Sitzungen erhalten
+den Schutz; laufende Sitzungen bleiben unverändert. Die Gesamt-Abnahme verlangt
+weiterhin Windows- und physische Tablet-Nachweise, der unabhängige Host folgt
+separat in 34.6.
 
 - [ ] Zuerst eine Fähigkeitsmatrix pro Plattform, Adapter und Sitzungsart aus
   aktuellem Code und Nachweisen erstellen: starten, beobachten, Eingabe senden,
