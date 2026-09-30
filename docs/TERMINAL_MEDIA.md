@@ -13,6 +13,12 @@ ADE-Neustart nach bestandener Prüfung.
   einen Hinweis auf die erreichbare Projektadresse; ADE errät keine Portfreigabe.
   **Links** liegt oben rechts bei **Verlauf**, damit der linke Terminaltext für
   Tastatur-Tipps und direkte Link-Tipps frei bleibt.
+- Benannte Terminal-Weblinks wie **Knuckles Pi öffnen** zeigen beim Antippen
+  zuerst die vollständige Zieladresse. **Öffnen** öffnet sie auf dem Tablet in
+  einem neuen Tab; **Kopieren** kopiert die Adresse. Auch unter **Links** und im
+  **Verlauf** erreichbar, dort per Tab/Enter bedienbar. Escape kehrt zum Auslöser
+  bzw. bei Live-Ausgabe zu **Links** zurück. Diese Ergänzung vom 30. September
+  benötigt den neuen Host-Build; persönlicher Aktivierungsstand siehe HANDOFF.
 - **Bild hinzufügen** unter dem Terminal öffnet **Bild und Nachricht**. Screenshot
   aus Galerie/Dateien auswählen, Vorschau prüfen, Nachricht schreiben und
   **Bild und Nachricht senden**. PNG, JPEG und WebP werden im Browser als PNG
@@ -70,13 +76,31 @@ zwischen Bild/Text/Enter und prüft vor jedem Teil erneut Ziel, Rechte und Datei
 Die native Probe prüft `[Image #1]` in einer echten separaten CLI und sendet
 keinen Modellauftrag. Transportquittung bedeutet keine bestätigte Modellantwort.
 
-Die Linkerkennung verwendet ausschliesslich bereits redigierten sichtbaren Text.
-OSC-Ziele bleiben entfernt. Nur HTTP(S), keine eingebetteten Zugangsdaten oder
-redigierten Platzhalter. Bei umgebrochenen Adressen wird das vollständige Ziel
+Ausgeschriebene Adressen werden aus bereits redigiertem sichtbarem Text erkannt.
+Rohe OSC-Sequenzen bleiben entfernt. Benannte OSC-8-Weblinks erhalten separate,
+geprüfte Metadaten aus den tatsächlichen Terminalzellen: Textposition und optional
+Bildschirmposition, maximal 100 Abschnitte und 64 KiB. Keine Zuordnung durch
+Raten anhand gleicher Beschriftungen. Nur HTTP(S), keine eingebetteten Zugangsdaten,
+Host-Dateipfade, Steuerzeichen oder redigierten Platzhalter; auch kodierte Ziele
+durchlaufen die Prüfung. Redigierte Zeilen verlieren ihre Link-Metadaten. Die
+Kapselung der internen Zell-Link-API des fest gepinnten headless xterm 6.0.0 ist
+durch Parserprüfungen abgesichert und fällt bei fehlender API geschlossen aus.
+Bei umgebrochenen ausgeschriebenen Adressen wird das vollständige Ziel
 aus dem Textverlauf verwendet; mehrdeutige Präfixe öffnen kein gekürztes Ziel.
 Linkliste höchstens 100 Einträge; keine automatische Navigation.
 
 ## Prüfstand und Aktivierung
+
+30. September 2026, benannte Terminal-Weblinks: Parser **77/0**, portabler
+Linux-Electron-/Browserablauf **87/0**, vollständiges `pnpm verify` **25 bestanden,
+0 Fehler, 17 Windows-Schritte nicht gemessen**; **102 Suiten / 4.304 Checks**.
+Archiv samt Screenshot: `test-results/terminal-hyperlinks-20260930/`.
+Der persönliche Aktivierungsversuch blockierte vor dem Quit an der laufenden
+Knuckles-Pi-Sitzung. Nach deren regulärem Ende durch den Benutzer **um 21:29 CEST
+persönlich aktiviert** über `pnpm activate`, mit Backup/Rollback und bestandenem
+Gate. Reale HTTPS-Seite und Assets einschliesslich Terminal-Modul entsprechen
+dem aktivierten Build; Serve-Konfiguration und Geräte-Vault unverändert.
+Tablet neu laden; physische Tablet-Abnahme der Korrektur offen.
 
 20. September 2026, Korrektur der Nachrichtenbearbeitung: Der neue Touch-Test
 reproduzierte vor der Korrektur den Fokusverlust und das Verschwinden des

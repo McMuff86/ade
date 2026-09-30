@@ -8,6 +8,7 @@ import { isRemoteAdminScopes, isValidRemoteDeviceName as validName, type RemoteA
 import { redactForWire } from '../errors';
 import { isValidDeviceId, isValidDeviceSecret, type RemoteDevice } from './authorization';
 import { RemoteAuditLog } from './RemoteAuditLog';
+import { isMobileHttpsPort, type MobileHttpsPort } from '../../shared/mobileAccess';
 
 export interface DeviceSecretProtection {
   available(): boolean;
@@ -16,7 +17,7 @@ export interface DeviceSecretProtection {
 }
 
 interface StoredDevice extends RemoteDeviceInfo { encryptedSecret: string | null }
-interface DeviceState { version: 1; bootstrapImported: boolean; devices: StoredDevice[]; mobileEnabled?: boolean; ownsServe?: boolean }
+interface DeviceState { version: 1; bootstrapImported: boolean; devices: StoredDevice[]; mobileEnabled?: boolean; ownsServe?: boolean; mobileHttpsPort?: MobileHttpsPort }
 export interface DeviceAuditEntry {
   at: number;
   principalId: string;
@@ -76,6 +77,7 @@ export class RemoteDeviceStore {
       if (state.version !== 1 || typeof state.bootstrapImported !== 'boolean'
         || (state.mobileEnabled !== undefined && typeof state.mobileEnabled !== 'boolean')
         || (state.ownsServe !== undefined && typeof state.ownsServe !== 'boolean')
+        || (state.mobileHttpsPort !== undefined && !isMobileHttpsPort(state.mobileHttpsPort))
         || !Array.isArray(state.devices) || state.devices.length > 100
         || (state.devices.length > 0 && !state.bootstrapImported)) throw new Error('invalid state');
       const ids = new Set<string>();
@@ -123,13 +125,14 @@ export class RemoteDeviceStore {
     return () => { this.listeners.delete(listener); };
   }
 
-  mobilePreferences(): { enabled: boolean; ownsServe: boolean } {
-    return { enabled: this.state.mobileEnabled === true, ownsServe: this.state.ownsServe === true };
+  mobilePreferences(): { enabled: boolean; ownsServe: boolean; httpsPort: MobileHttpsPort } {
+    return { enabled: this.state.mobileEnabled === true, ownsServe: this.state.ownsServe === true, httpsPort: this.state.mobileHttpsPort ?? 443 };
   }
 
-  setMobilePreferences(enabled: boolean, ownsServe: boolean): void {
+  setMobilePreferences(enabled: boolean, ownsServe: boolean, httpsPort = this.mobilePreferences().httpsPort): void {
     this.assertAvailable();
-    this.change({ ...structuredClone(this.state), mobileEnabled: enabled, ownsServe }, 'mobile:configure', 'host');
+    if (!isMobileHttpsPort(httpsPort)) throw new Error('ade: invalid mobile HTTPS port');
+    this.change({ ...structuredClone(this.state), mobileEnabled: enabled, ownsServe, mobileHttpsPort: httpsPort }, 'mobile:configure', 'host');
   }
 
   /** Only the trusted pairing service may enroll a browser-generated signing key. */

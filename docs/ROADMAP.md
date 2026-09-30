@@ -1,5 +1,32 @@
 # ADE delivery roadmap
 
+## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)
+
+[Goal 34](AGENT_SESSION_PRODUCT_GOALS.md) führt bestehende Sitzungs-, Remote-,
+Betriebs- und Betreuungsverträge für native Linux- und Windows-Hosts zusammen.
+ADE verwaltet seine Sitzungen eigenständig; OpenClaw ist keine Voraussetzung.
+Die Umsetzung wurde beauftragt und beginnt mit 34.2: mehrere Agent-Sitzungen,
+Fähigkeiten und Plattformnachweise. 34.1 ergänzt den eigenen Tablet-Zugriff,
+34.3 den verlässlichen Plattformbetrieb. Danach folgen 34.4 Entscheidungen und
+Eingriffe, 34.5 mobile Benachrichtigungen und 34.6 der unabhängige ADE-Host.
+34.1–34.3 bilden die erste nutzbare Lieferung. Alle neuen Abnahmen bleiben offen;
+frühere Funktionsnachweise gelten nur in ihrem dokumentierten Umfang.
+
+34.2: [Fähigkeitsmatrix und Nachweise](AGENT_SESSION_PLATFORM_RESULTS.md): Linux-Kern
+17/0, Desktop-/Tablet-Treiber 78/0, echte native Codex-Browserprobe 16/0.
+34.1: persistierte HTTPS-Portwahl und separater Funnel-Hinweis, Mobile-Verträge
+108/0. 34.3: Linux-Aktivierung mit Gate, Profilbackup, Sitzungsblockade und
+Rollback, Electron-Nachweis 15/0. Vollständiges Linux-Verify: 25 bestanden,
+0 Fehler, 17 ausdrücklich nicht gemessene Windows-Schritte. Persönliche
+8443-Freigabe und TLS-Evidenz: [Betriebsstand](HANDOFF.md).
+Nächste Abnahmen: physisches Android/Mobilfunk, Linux-Profil-/Prompttransport,
+weitere native Agenten sowie derselbe Mehrsitzungs- und Aktivierungsvertrag auf Windows.
+
+Tablet-Rückmeldung am Abend: benannte Codex-Weblinks behalten jetzt ihr geprüftes
+Ziel und öffnen vor der Navigation eine Adressvorschau. Linux-Browserablauf mit
+Linkbedienung **87/0**. Persönliche Aktivierung dieser Ergänzung separat in
+[HANDOFF](HANDOFF.md); aktive Sitzungen bleiben geschützt.
+
 ## Tablet-Stabilisierung und bestätigter Arbeitsstart
 
 Umgesetzt: grösserer dauerhafter Aktionsspeicher, gespeicherte Projektprofile bei

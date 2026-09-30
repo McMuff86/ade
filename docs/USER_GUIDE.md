@@ -23,9 +23,13 @@ diesem Gerät; nur die Standardstimme oben und „A/B als Standardstimme
 übernehmen“ ändern die ADE-Stimme.
 [Anleitung, Modellunterschiede und Grenzen](LANGUAGES_AND_CONVERSATIONS.md).
 
-Desktop **und** Mobile bauen: ADE über das Infobereich-Menü vollständig beenden,
-im Repository `pnpm build` ausführen, dann mit `pnpm start` öffnen. Auf dem Tablet
-die bestehende HTTPS-Seite neu laden. Eine neue Kopplung ist nicht erforderlich.
+Desktop **und** Mobile sicher aktualisieren: im Repository
+`pnpm activate -- -Label Update` ausführen. Linux prüft den neuen Build, sichert
+das Profil und startet ADE regulär neu; laufende Sitzungen blockieren den Wechsel.
+Diese zuerst regulär abschliessen. Rückkehr zum vorherigen Build:
+`pnpm activate -- -Rollback`. Auf dem Tablet die bestehende HTTPS-Seite neu laden;
+eine neue Kopplung ist nicht erforderlich. Den Rechner eingeschaltet und angemeldet
+lassen; bei aktivem mobilen Zugriff bleibt ADE nach Schliessen des Fensters im Tray.
 
 ## Eine Sitzungsantwort anhören
 
@@ -272,6 +276,12 @@ Den Unterschied zum unabhängigen Checkout erklären wir in Abschnitt 8.*
 1. Tailscale auf PC und Tablet verbinden. Beide Geräte müssen zum selben Tailnet
    gehören und sich erreichen dürfen. MagicDNS und HTTPS müssen verfügbar sein.
 2. Am PC **Einstellungen → Mobiler Zugriff → Mit Tailscale aktivieren** wählen.
+   Im neuen Arbeitsstand gibt es zusätzlich **ADE-HTTPS-Port** (443, 8443,
+   10000). Ist 443 durch eine andere Anwendung belegt, bei ausgeschaltetem
+   mobilen Zugriff 8443 wählen und danach aktivieren. Die angezeigte Adresse
+   enthält den Port; am Tablet genau diese Adresse verwenden. Bestehende
+   Freigaben bleiben erhalten. Diese Änderung ist am persönlichen Omarchy-
+   Rechner noch nicht aktiviert (Stand 30. September; siehe HANDOFF).
 3. **Tablet oder Smartphone koppeln** drücken. Den QR-Code mit dem Tablet scannen
    oder die angezeigte ADE-Adresse in Chrome öffnen und den Pairing-Code eingeben.
 4. Einen Gerätenamen, etwa „Mein Samsung Tablet“, setzen und **Dieses Gerät verbinden** drücken.
@@ -487,6 +497,14 @@ Seitenneuladen erhalten. Er wird nicht automatisch abgeschickt.
 **Textausgabe und Verlauf** zeigt einen begrenzten Textverlauf. Die Liveanzeige
 unterstützt Farben und Cursor. Nicht jede Desktop-Terminalfunktion ist enthalten,
 beispielsweise keine Dateiübertragung oder vollständiges Mausreporting.
+
+Weblinks lassen sich auf dem Tablet antippen. Bei benannten Links wie **Knuckles
+Pi öffnen** zeigt ADE zunächst die vollständige Adresse; mit **Öffnen** wechselst
+du in einen neuen Browser-Tab. **Links** sammelt die verfügbaren Adressen und bietet
+**Kopieren**. Im **Verlauf** sind benannte Weblinks auch per Tab und Enter erreichbar.
+`localhost` bezeichnet den ADE-Rechner und braucht eine separat freigegebene
+Projektadresse. Die Ergänzung für benannte Links benötigt die Aktivierung des
+neuen Builds; der persönliche Stand ist in [HANDOFF](HANDOFF.md) dokumentiert.
 
 **Workspace einblenden** bringt Dateien und andere Werkzeuge zurück.
 **Eingabe freigeben** gibt die Steuerung an den Desktop zurück. Nach Verbindungsverlust

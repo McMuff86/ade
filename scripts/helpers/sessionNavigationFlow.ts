@@ -1,9 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Page } from 'playwright';
 import { supervisionFlow } from './supervisionFlow';
 import { inputResumeFlow } from './inputResumeFlow';
+import { terminalComposer } from './terminalControls';
+import { expect } from 'playwright/test';
+import { terminalHyperlinksFlow } from './terminalHyperlinksFlow';
 
 export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: string, check: (name: string, ok: boolean) => void): Promise<void> {
   const evidence = resolve('test-results/main-agent-planning'); mkdirSync(evidence, { recursive: true });
@@ -27,6 +30,12 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
     result.push({ id: extra.id, workspaceId: result[0]!.workspaceId, repositoryId: result[0]!.repositoryId, createdAt: extra.createdAt, name: 'Switch A' });
     return result;
   }, parent);
+  // Per-process markers distinguish even two shells in the very same checkout.
+  // A navigation bug must not pass just because both sessions share a directory.
+  for (const [index, session] of sessions.entries()) {
+    const command = process.platform === 'win32' ? `$env:ADE_SESSION_MARKER='session-${index}'\r` : `export ADE_SESSION_MARKER=session-${index}\r`;
+    await desktop.evaluate(({ id, command }) => window.ade.invoke('pty:write', { sessionId: id, dataBase64: btoa(command) }), { id: session.id, command });
+  }
   const count = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
   await desktop.keyboard.press('Escape'); await tablet.keyboard.press('Escape');
   const pickDesktop = async (index: number) => {
@@ -68,10 +77,11 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
   const inventory = await (await inventoryResponse).json() as import('../../src/shared/remote').MobileSessionInventory;
   await tablet.keyboard.press('Escape');
   const remoteIds = sessions.map(session => {
-    const found = inventory.sessions.find(item => item.projectName === session.name && item.createdAt === session.createdAt);
-    if (!found) throw new Error(`Missing authorized fixture session: ${session.name}`);
-    return found.id;
+    const matches = inventory.sessions.filter(item => item.projectRepositoryId === session.repositoryId && item.createdAt === session.createdAt);
+    if (matches.length !== 1) throw new Error(`Expected one authorized fixture session: ${session.name}, found ${matches.length}`);
+    return matches[0]!.id;
   });
+  check('each desktop fixture maps to a distinct opaque tablet session', new Set(remoteIds).size === sessions.length);
   const pickTablet = async (index: number) => {
     const target = sessions[index]!;
     // The project dialog exposes the same action within the modal's focus boundary.
@@ -87,6 +97,7 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
   };
   await tablet.setViewportSize({ width: 1280, height: 800 });
   await pickTablet(0);
+  await terminalHyperlinksFlow(desktop, tablet, sessions[0]!.id, check);
   const project = tablet.getByRole('dialog', { name: 'Projekt · Switch A', exact: true });
   const ownBefore = await desktop.evaluate(id => window.ade.invoke('terminal:control', { sessionId: id }), sessions[0]!.id);
   check('tablet navigation alone does not take desktop input', !ownBefore.remote);
@@ -100,6 +111,35 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
   await inputResumeFlow(tablet, desktop, project, sessions[0]!.id, pickTablet, check, evidence);
   await pickTablet(3); await pickTablet(0);
   check('tablet also selects the exact sibling session', true);
+  for (const [index, session] of sessions.entries()) {
+    await pickTablet(index);
+    const current = tablet.getByRole('dialog', { name: `Projekt · ${session.name}`, exact: true });
+    const claim = current.getByRole('button', { name: 'Eingabe übernehmen', exact: true });
+    if (await claim.isVisible()) await claim.click();
+    await current.getByText('Eingabe: Du (Tablet)', { exact: true }).waitFor();
+    const filename = `session-input-${index}.txt`;
+    const proof = join(parent, session.name, filename);
+    const command = process.platform === 'win32'
+      ? `Set-Content -LiteralPath '${filename}' -Value $env:ADE_SESSION_MARKER`
+      : `printf '%s' "$ADE_SESSION_MARKER" > '${filename}'`;
+    await (await terminalComposer(current)).fill(command);
+    await current.getByRole('button', { name: 'Text und Enter senden', exact: true }).click();
+    await expect.poll(() => existsSync(proof) ? readFileSync(proof, 'utf8').trim() : '', { timeout: 10_000 }).toBe(`session-${index}`);
+    check(`tablet input reaches exact process ${index}, including sibling shells in one project`, true);
+    check(`process ${index} input leaves other projects untouched`, sessions.filter(other => other.name !== session.name)
+      .every(other => !existsSync(join(parent, other.name, filename))));
+    const refusal = await desktop.evaluate(async id => {
+      try { await window.ade.invoke('pty:write', { sessionId: id, dataBase64: btoa('SHOULD_NOT_RUN\r') }); return ''; }
+      catch (error) { return error instanceof Error ? error.message : String(error); }
+    }, session.id);
+    check(`desktop cannot type into tablet-owned process ${index} for the ownership reason`, refusal.includes('Terminal wird remote gesteuert'));
+    await desktop.evaluate(id => window.ade.invoke('terminal:reclaim', { sessionId: id }), session.id);
+    const desktopCommand = command.replace(filename, `desktop-${filename}`) + '\r';
+    await desktop.evaluate(({ id, command }) => window.ade.invoke('pty:write', { sessionId: id, dataBase64: btoa(command) }), { id: session.id, command: desktopCommand });
+    const desktopProof = join(parent, session.name, `desktop-${filename}`);
+    await expect.poll(() => existsSync(desktopProof) ? readFileSync(desktopProof, 'utf8').trim() : '', { timeout: 10_000 }).toBe(`session-${index}`);
+    check(`desktop reclaim restores input to exact process ${index} after the negative control`, true);
+  }
   for (const viewport of [{ width: 800, height: 1280 }, { width: 390, height: 844 }]) {
     await tablet.setViewportSize(viewport); await pickTablet(1);
     const current = tablet.getByRole('dialog', { name: 'Projekt · Switch B', exact: true });

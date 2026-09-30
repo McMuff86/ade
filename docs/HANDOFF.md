@@ -1,5 +1,231 @@
 # ADE — aktuelle Übergabe
 
+## Tablet-Terminal: benannte Weblinks aktiviert und über HTTPS geprüft (30. September 2026, 21:29 CEST)
+
+**ADE kann jetzt auf dem Tablet neu geladen werden. Keine neue Kopplung nötig.**
+Adresse unverändert: **https://omarchy.tailfc0b86.ts.net:8443**.
+
+Android-Screenshot aus `~/Austausch/Screenshot_20260930_210628_Chrome.jpg`:
+Codex zeigte „Knuckles Pi öffnen“ als OSC-8-Link. Sein Ziel ging bisher beim
+sicheren Terminaltransfer verloren. Die Korrektur erhält geprüfte HTTP(S)-Ziele
+als begrenzte Zell-/Text-Metadaten; rohe OSC-, Clipboard- und Dateisequenzen bleiben
+entfernt. Antippen zeigt die vollständige Adresse, **Öffnen** öffnet einen neuen
+Tab auf dem Tablet, **Kopieren** kopiert das Ziel. **Links** und **Verlauf** bieten
+denselben Zugang, mit Tastatur/Fokusrückkehr. [Vertrag](TERMINAL_MEDIA.md).
+
+- Fokussierter Linux-Electron-/Browserlauf **87/0**, davon neun neue Linkchecks;
+  Parser-Suite **77/0**. Vorschau: `test-results/terminal-hyperlink-review.png`.
+- Abschliessendes **`pnpm verify` um 21:26:37 CEST grün**: **25 bestanden,
+  0 Fehler, 17 Windows-Schritte nicht gemessen**, **102 Suiten / 4.304 Checks**,
+  drei Typechecks, beide isolierten Builds, Browser-/Electron-Abläufe und
+  Linux-Aktivierung **15/0**. Vollbericht und Schrittlogs archiviert in
+  `test-results/terminal-hyperlinks-20260930/`; ältere Vormittagsbelege bleiben
+  separat erhalten. Keine neue native Windows- oder physische Android-Abnahme.
+- Der erste Aktivierungsversuch blockierte korrekt vor Gate/Backup/Quit an
+  **PID 1605131 (bash)** unter ADE **1511026**. Der Benutzer beendete danach die
+  Knuckles-Pi-Sitzung ausdrücklich am Tablet. Kein erzwungenes Sitzungsende.
+- **Persönlich aktiviert um 21:29:26 CEST** über
+  `pnpm activate -- -Label TabletTerminalLinks`, ohne übersprungenes Gate.
+  Gate **13 bestanden / 0 Fehler / 1 Windows-Schritt nicht gemessen**.
+  Neuer Host **PID 1780794**, Main-Datei-SHA-Präfix **85dd7d7679011b709bbe**;
+  vorheriger Host **1511026** regulär beendet. Backup vor/nach Quit:
+  `/home/mcmuff/ADE-Backups/Activate-TabletTerminalLinks-2026-09-30T19-29-25-951Z/`.
+  `out.prev` enthält den vorherigen funktionierenden Build; Rückkehr über
+  `pnpm activate -- -Rollback` unter demselben Sitzungsschutz.
+- Tatsächliche HTTPS-Probe **21:29:49 CEST**: Seite und sieben JS-/CSS-Dateien,
+  einschliesslich des neuen Terminal-Moduls, **200**, reguläre Zertifikatsprüfung,
+  Assets bytegleich mit aktiviertem `out/mobile`. HTML stimmt nach Entfernung
+  des absichtlich pro Anfrage eingefügten Style-Nonce-Metatags überein.
+  **Tailscale-Konfiguration strukturell und verschlüsselter Geräte-Vault
+  bytegleich unverändert**, Kopplung erhalten. Probe und Aktivierungslogs:
+  `test-results/terminal-hyperlinks-20260930/terminal-hyperlinks-final-https.json`,
+  `terminal-hyperlinks-activation-ready.log`, `activation-gate-report.json`.
+- Sofort nutzbare Knuckles-Pi-Adresse **https://omarchy.tailfc0b86.ts.net:8444/**:
+  exakt das Ziel aus der ursprünglichen Codex-Antwort. Reale Probe um **21:24 CEST**:
+  Knuckles Pi **8444**, ADE **8443**, OpenClaw **443** jeweils **HTTPS 200 mit
+  regulärer Zertifikatsprüfung**; Beleg `terminal-hyperlinks-https.json` im
+  Archiv. Alternativ den Agenten die Adresse ausgeschrieben ausgeben lassen;
+  ausgeschriebene HTTP(S)-URLs funktionieren bereits im laufenden ADE-Build.
+- Nach Aktivierung bestätigt der Benutzer vom Tablet eine „deutliche Verbesserung“
+  und beauftragt den Commit. Das ist eine positive persönliche Rückmeldung;
+  die vollständige Android-Abnahme mit Tastatur, Orientierung und Mobilfunk
+  ist weiterhin offen.
+
+Dieser Commit sichert den gesamten zusammengehörigen Stand: HTTPS-Portwahl,
+sichere Linux-Aktivierung, Plattform-/Sitzungsnachweise und Terminal-Weblinks
+einschliesslich aller vorher vorhandenen Änderungen. Push steht noch aus.
+Nächste empfohlene Entwicklungsarbeit: Goal 34.2 fortführen, beginnend mit
+geschützter Prompt-/Diktatübergabe und Profiltransport für native Linux-Codex-
+Sitzungen; danach weitere CLIs mit eigenen Nachweisen. Nicht nur die bestehende
+Windows-Sperre entfernen. Mehrsitzungs-, Rechte- und Wiederverbindungsprüfungen
+bleiben Voraussetzung; der unabhängige Host folgt separat in 34.6.
+Die folgenden Einträge dokumentieren frühere Betriebsstände und Prozess-IDs.
+
+## Omarchy-Tablet-Zugang aktiviert und geprüft (30. September 2026, 17:13 CEST)
+
+**ADE kann jetzt geöffnet und das Android-Tablet gekoppelt werden.**
+Adresse: **https://omarchy.tailfc0b86.ts.net:8443**. Auf dem Tablet Tailscale
+verbinden; am Desktop unter Einstellungen → Tablet und Geräte → Mobiler Zugriff
+„Tablet oder Smartphone koppeln“ wählen und den QR-Code öffnen. Danach beim
+neuen Gerät Terminalsteuerung und Datei-/Diff-Zugriff gezielt freigeben. Für das
+zentrale ADE-Gespräch braucht das Gerät Workspace-Leserechte und vollständige
+Projektfreigabe. Die Adresse inklusive `:8443` im selben Browser wiederverwenden.
+
+### Persönlicher Betriebsstand
+
+- **Aktiviert über `pnpm activate -- -Label OmarchyTabletReady`**, ohne Force
+  oder übersprungenes Gate. Native Linux-Aktivierung ist jetzt implementiert.
+  Gate: **13 bestanden, 0 Fehler, 1 Windows-Schritt nicht gemessen** (14 Schritte).
+- Laufender Host **PID 1511026**, lokaler Listener **127.0.0.1:4317**, HTTPS
+  **8443**, Build-Quellkennung `b27aad100e5e63832fe4`, Main-Datei-SHA-Präfix
+  `8b2829ec88832f34c46f`. Der vorige Einrichtungsprozess 1487680 hat den
+  geschützten regulären Quit bestätigt. Es gab **0 laufende persönliche PTYs**;
+  keine Sitzung wurde erzwungen beendet.
+- Profilbackups vor/nach Quit:
+  `/home/mcmuff/ADE-Backups/Activate-OmarchyTabletReady-2026-09-30T15-13-10-370Z/`.
+  `out.prev` enthält den vorherigen funktionierenden korrigierten Build.
+  Rückkehr: `pnpm activate -- -Rollback` (laufende Arbeit blockiert auch Rollback).
+  Der ursprüngliche Build vor dieser Sitzung wurde zusätzlich im ersten Backup
+  `Activate-OmarchyTablet8443-2026-09-30T15-11-06-024Z/build-before-activation`
+  erhalten. Profilbackup bedeutet keine automatische Rücksetzung von Nutzerdaten.
+- Der Einrichtungsstart verwendete kurzzeitig den lokalen Renderer-Prüfport
+  9337. Der abschliessende reguläre Start hat **keinen Debug-Listener**.
+  Keine globale Omarchy-, Shell-, mise- oder Autostart-Konfiguration geändert.
+- Tailscale **1.102.3**, eigener Background-Serve auf 8443 → 127.0.0.1:4317.
+  Der vollständige fremde Foreground-Block auf **443 → 127.0.0.1:35855** ist
+  gegenüber dem vorher gespeicherten JSON unverändert; OpenClaw liefert weiter
+  **HTTPS 200** mit gültigem Zertifikat. Kein Funnel eingerichtet.
+- Tatsächliche HTTPS-Probe **17:13:22 CEST** nach dem letzten Neustart: Seite
+  und sechs referenzierte JS-/CSS-Dateien **200**, normale Zertifikatsprüfung,
+  alle Dateien bytegleich mit `out/mobile`. Ein frischer Browser bestand zuvor
+  **6 reale HTTPS-Prüfungen**: Status, Seitenaufruf, ungekoppelter Zugriff
+  abgewiesen, Kopplung, Neuladen, Widerruf. Das temporäre Prüfgerät ist widerrufen;
+  kein Kopplungscode oder Geräteschlüssel wurde protokolliert.
+- Belege: `test-results/activations.jsonl`,
+  `test-results/goal34-personal/https-browser-result.json`,
+  `test-results/goal34-personal/final-https-result.json`, `serve-before.json`
+  und `serve-after.json` im selben Verzeichnis. Das ist reale Host-/Tailnet-
+  Evidenz; der tatsächliche Android-/Mobilfunktest durch Adi bleibt offen.
+
+### Verifikation und Goal 34.2
+
+- Vollständiges `pnpm verify`: **25 bestanden, 0 Fehler, 17 nicht gemessen**,
+  **102 Suiten / 4.283 Checks**, drei Typechecks, beide isolierten Builds und
+  echte Electron-/Browser-Treiber. Mehrfach grün; archivierter Vollbericht:
+  `test-results/goal34-full-20260930/final/report.json` samt Schrittlogs.
+  `test-results/verify/report.json` ist nun das letzte erfolgreiche Aktivierungsgate.
+- Auf diesem Host liefen Verify und Aktivierung mit dem installierten pnpm
+  zuerst im **Prozess-PATH**: `PATH="/home/mcmuff/.local/share/mise/installs/pnpm/9.15.9:$PATH"`.
+  So umgehen die privaten Test-HOMEs den mise-Shim; keine globale PATH-Änderung.
+- HTTPS-Portreview abgeschlossen: Funnel besitzt einen eigenen Hinweis;
+  anderer Port umgeht den globalen Ausschluss nicht. Mobile-Verträge **108/0**,
+  Mobile Electron **37/0**, kombinierter Port-/Mehrsitzungstreiber **78/0**.
+- Neuer Linux-Aktivierungstreiber **15/0**: Gatefehler, Erhalt unterbrochener
+  Staging-Dateien, aktive Shell als Blocker im Treiber **und im Host**, dieselbe
+  Shell danach weiterhin schreibfähig, Update, Profilbackup, explizites sowie
+  automatisches Rollback und erhaltene verschlüsselte Kopplung. Im letzten
+  Start prüft der Treiber auch den Listenerbesitz des neuen Prozesses.
+- Goal 34.2 weitergeführt: echte Codex-Rückfrage **5/0** und native Codex-
+  Tablet-Browserprobe **16/0**, **Codex 0.159.0 / gpt-5.6-sol / high**.
+  Auftrag → Bestätigung → Rückfrage → Antwort → Ergebnis, verlorene Antwort,
+  Offline/Online, Neuladen, geleaster Checkout, unveränderte Git-Metadaten,
+  schmale Ansicht und Wiederfinden nach Host-Neustart bestanden. Der native
+  Treiber wurde für Linux portiert und an die aktuelle Gesprächsauswahl angepasst.
+  Belege und genaue Grenzen: [AGENT_SESSION_PLATFORM_RESULTS](AGENT_SESSION_PLATFORM_RESULTS.md).
+
+**Weiter offen:** physische Android-Tastatur/Orientierung/Mobilfunk, native
+interaktive CLI-Proben je Agent, Linux-Profiltransport und geschützte Prompt-/
+Diktatübergabe sowie neue native Windows-Abnahmen. Goal 34.2 deshalb nicht
+vollständig abgeschlossen. ADE bleibt ein eigenständiges Linux-/Windows-Produkt.
+Das Fenster kann bei aktivem Mobile-Host in den Tray geschlossen werden;
+vollständiges Beenden von ADE beendet weiterhin Host und PTYs (Goal 34.6 offen).
+
+Alle vorher vorhandenen Arbeitsbaumänderungen sind erhalten. Nicht committet.
+Die folgenden Abschnitte sind historische Übergaben; „noch nicht aktiviert“
+bezieht sich dort auf den damaligen Stand.
+
+
+## Wiederaufnahme: Tablet-Zugang Omarchy und Goal 34 (30. September 2026)
+
+**Benutzer unterbricht für eine neue Codex-Sitzung mit `--yolo`.** Änderungen
+sind im Arbeitsbaum gespeichert, nicht committet. Keine persönliche Aktivierung,
+kein Neustart und keine Änderung der echten Tailscale-Freigaben erfolgt.
+Der Benutzer wartet ausdrücklich auf die Nachricht, wann er ADE neu öffnen
+und am Android-Tablet testen kann. Jetzt noch nicht dazu auffordern.
+
+### Nächste Sitzung: direkt hier weiterarbeiten
+
+1. `AGENTS.md`, diesen Abschnitt und `AGENT_SESSION_PLATFORM_RESULTS.md` lesen;
+   vorhandene Änderungen erhalten. ADE ist ein eigenständiges Produkt auf jedem
+   Linux-/Windows-Host. OpenClaw ist keine ADE-Abhängigkeit.
+2. Die HTTPS-Portkorrektur im Arbeitsbaum reviewen und verbleibende Vertragslücken
+   prüfen. `mobileAccess:setEnabled` akzeptiert optional nur 443/8443/10000;
+   Auswahl wird im Geräte-Vault gespeichert, alte Profile bleiben auf 443.
+   Änderung nur bei deaktiviertem Zugriff ohne ausstehende Serve-Eigentümerschaft.
+   Status, HTTPS-Probe, Pairing, Restore, Monitor und Disable nutzen denselben Port.
+   Main-Stack bleibt im Log; UI bekommt `redactedErrorMessage`.
+   Noch verfeinern: Die gemeinsame Konfliktmeldung empfiehlt einen anderen Port
+   auch bei Funnel; der unverändert globale Funnel-Ausschluss braucht hierfür
+   einen eigenen verständlichen Hinweis. Kein Aufweichen des Ausschlusses.
+3. Vollständiges `pnpm verify` ausführen. Der mise-pnpm-Shim funktioniert im
+   privaten Test-HOME nicht. Erfolgreich für gezielte Tests war das installierte
+   pnpm mit seinem Verzeichnis vorn im PATH (nur für den Prüfprozess):
+   `PATH="/home/mcmuff/.local/share/mise/installs/pnpm/9.15.9:$PATH" /home/mcmuff/.local/share/mise/installs/pnpm/9.15.9/pnpm verify`.
+   Nicht global an mise/HOME drehen. Kein `pnpm build` in die laufende `out/`-Instanz.
+4. Sichere persönliche Linux-Aktivierung konkret lösen: `pnpm activate` ruft
+   bisher nur `scripts/activate.ps1` auf. Das Skript ist **native Windows-only**
+   (`Win32_Process`, Windows-Pfade); es gibt noch keinen Linux-Aktivierungstreiber.
+   Nicht einfach manuell `out/` ersetzen oder die App töten. AGENTS verlangt
+   Gate, Backup, reguläres Quit und `out.prev`-Rollback über `pnpm activate`.
+   Bei Portierung fokussierte Nachweise und Weg zurück vor persönlichem Einsatz
+   liefern; laufende PTYs/Agent-Aufträge nicht still beenden.
+5. Erst mit laufender korrigierter ADE-Version am Omarchy-Host unter
+   Einstellungen → Tablet und Geräte → Mobiler Zugriff **8443** wählen und
+   aktivieren. Echte Freigabe und HTTPS-Erreichbarkeit prüfen; fremde 443-Route
+   unverändert erhalten. Danach Benutzer ausdrücklich informieren und Android
+   über den angezeigten QR-Code koppeln, Terminal-/Dateirechte gezielt freigeben.
+6. Ergebnisse in Status/Goals/Handoff aktualisieren. Vollständige Windows-,
+   Modell- und physische Tablet-Abnahmen bleiben getrennt offen.
+
+### Verifizierter Stand
+
+- Neuer `test-session-processes.ts`: **17/0**, echter Linux-PtyManager,
+  vier native CLI-Fixtures; Teil von `run-suites.ts`.
+- `session-navigation` **14/0**, `session-launch` **47/0**.
+- `test-mobile-access.ts` nach Portkorrektur **107/0**: alternative Ports,
+  fremde Vordergrund-Route, Funnel, exakte Origin inklusive Port, Persistenz,
+  Restore, aktiver Portwechsel abgelehnt und Enable/Disable geprüft.
+- Letzter fokussierter Verify-Lauf: **7/7 Schritte bestanden** — alle drei
+  TypeScript-Projekte, beide isolierten Builds, `mobile-electron` **37/0**, neuer
+  `remote-terminal-electron:session-navigation` **78/0**. Der Treiber prüft nun
+  ausdrücklich fremdes HTTPS 443, Portwahl 8443, Pairing, echte vier Shells,
+  Desktop-/Tablet-Wechsel und Erhalt der fremden Route beim Ausschalten.
+- Früherer voller Lauf: 41 Schritte, 23 bestanden, 1 Fehler, 17 nicht gemessen.
+  Der erste Fehler war der pnpm-Shim (Integrationssuite mit korrektem PATH
+  anschliessend **53/0**); im Wiederholungslauf war es eine Test-Race beim
+  Shell-Ende (71/1). Behoben: `pty:kill` bestätigt das Signal, daher wartet der
+  Treiber nun auf das Exit-Ereignis/Inventar. Abschliessender fokussierter Lauf
+  **78/0**. **Ein voller Lauf mit allen jetzigen Änderungen fehlt noch.**
+  Der letzte volle Suitenlauf bestand 102 Suiten mit **4263 Checks** vor den
+  zusätzlichen Portprüfungen; diese Zahl nicht als aktuellen Gesamtnachweis verwenden.
+- `test-results/verify/report.json` ist jetzt der grüne **fokussierte** Lauf;
+  frühere volle Läufe stehen in `test-results/verify/history.jsonl`.
+
+### Echte Adressen und Fehlerursache
+
+Direkt gelesen (keine Mutation): `tailscale serve status` meldet **No serve
+config**, während `tailscale serve status --json` eine aktive **Foreground**-
+Route zeigt: `omarchy.tailfc0b86.ts.net:443` → `http://127.0.0.1:35855`.
+Der Benutzer bestätigt dort sein OpenClaw-Dashboard. Genau diese Route blockiert
+ADEs bisher festes HTTPS 443. Den normalen Textstatus nicht als Abwesenheit
+jeder Freigabe interpretieren. Keine fremde Route löschen oder überschreiben.
+
+Der Benutzer probiert bereits `omarchy.tailfc0b86.ts.net:8443` am Android-Tablet;
+**dort wurde noch nichts aktiviert**, deshalb ist die Adresse nicht erreichbar.
+`number-cruncher.tailfc0b86.ts.net` gehört zum Windows-Rechner und ist kein Zugang
+zur Omarchy-Instanz. Die letzten Screenshots zeigen noch den alten Build ohne
+Portauswahl und mit Stacktrace. Kein weiteres Tablet-Testen vor Aktivierung anleiten.
+
 ## UI-Entscheide aktiviert (28. September 2026, 08:53 CEST)
 
 `pnpm activate -- -Label UiEntscheide` ohne `-Force` (keine laufenden Sitzungen): Gate

@@ -7,7 +7,7 @@ import { changeLocale, i18n } from '../shared/i18n';
 import { app, BrowserWindow, Menu, nativeImage, session, shell, Tray } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { registerIpcHandlers, disposePtyManager, mobileHostEnabled } from './ipc';
+import { registerIpcHandlers, disposePtyManager, mobileHostEnabled, reserveActivationQuit } from './ipc';
 import { redactedErrorDetail } from './errors';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
@@ -76,11 +76,12 @@ if (userDataOverride) {
 
 // `<electron> <app> --ade-quit` asks the running owner of this profile to quit
 // through the same graceful path as the tray's Quit item (PTY and usage
-// shutdown), so scripts/activate.ps1 can restart ADE without UI automation.
+// shutdown), for explicit operator shutdown. Activation uses the guarded switch below.
 // Without a running owner it starts nothing. Only a process of the same user
 // and the same user-data directory reaches the owner.
 const QUIT_SWITCH = '--ade-quit';
-const quitOnly = process.argv.includes(QUIT_SWITCH);
+const ACTIVATION_QUIT_SWITCH = '--ade-activate-quit';
+const quitOnly = process.argv.includes(QUIT_SWITCH) || process.argv.includes(ACTIVATION_QUIT_SWITCH);
 
 // One owner per user-data directory: two windows must not race the same
 // journal, encrypted device store or mobile listener. Isolated test profiles
@@ -88,6 +89,15 @@ const quitOnly = process.argv.includes(QUIT_SWITCH);
 const ownsProfile = app.requestSingleInstanceLock();
 if (!ownsProfile || quitOnly) app.quit();
 else app.on('second-instance', (_event, argv) => {
+  if (argv.includes(ACTIVATION_QUIT_SWITCH)) {
+    if (!initialized || !reserveActivationQuit()) {
+      console.warn('[ade] activation refused: ongoing work or startup');
+      return;
+    }
+    console.log('[ade] activation quit accepted');
+    app.quit();
+    return;
+  }
   if (argv.includes(QUIT_SWITCH)) {
     console.log('[ade] quit requested by a second launch');
     app.quit();

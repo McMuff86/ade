@@ -1232,8 +1232,19 @@ Mobile shell responses inject a fresh style-only CSP nonce. xterm's scoped
 document override nonces its generated style elements; script policy stays
 `script-src 'self'`, with no unsafe-inline/eval exception.
 
-Tablet terminal media uses visible, already-redacted HTTP(S) link detection;
-OSC links stay stripped. Touch and history links open a separate noopener tab;
+Tablet terminal media uses visible, already-redacted HTTP(S) link detection.
+Raw OSC stays stripped. Validated OSC-8 web targets travel separately in bounded
+`MobileTerminalFrame.hyperlinks` (100 cell spans / 64 KiB): transcript offsets,
+visible label and optional zero-based viewport cells. Main reads the pinned
+headless xterm 6.0.0 cell/link service through a small fail-closed adapter; targets
+are never guessed from repeated labels or stale OSC events. Redacted logical
+lines lose their links, contextual redaction suppresses all link metadata;
+destinations changed by wire redaction (including decoded forms), credentials,
+non-HTTP schemes and control characters are refused. Repaints/erasures/alternate
+buffers follow parser cell identity; revisions include destinations. A label tap
+or keyboard activation first shows the complete URL in a frozen review dialog.
+Only its explicit Open action navigates; Escape restores focus. Plain visible
+URLs retain direct opening. Touch and history links open a separate noopener tab;
 loopback URLs require an explicitly reachable project address. Image input uses
 the signed, leased `POST /api/v1/terminal/images` application-service endpoint
 and opaque IDs in `MobileTerminalPrompt.imageIds`, never client paths. Main
@@ -2807,16 +2818,29 @@ than they appear to.
   activation cannot delete the build a background run still uses.
   `pnpm verify:gate` is the fast subset for activations: typechecks, suites,
   build and the core desktop/tablet drivers (`GATE_DRIVERS`).
-- **Activation is scripted.** `pnpm activate -- -Label <name>` runs the gate,
-  refuses to end running terminals or agents without `-Force`, backs up the
-  profile, quits ADE through `--ade-quit`, keeps the running build as
-  `out.prev`, installs the checked build and waits for the desktop (and the
-  mobile listener, when it was active). `-SkipGate` still requires typecheck
-  and build, records the activation as unverified in
-  `test-results/activations.jsonl` and starts the full run in the background;
-  `-Rollback` swaps back to `out.prev`. `ADE_USER_DATA_DIR`/`ADE_BACKUP_DIR`
-  run the same script against a throwaway profile in another checkout, which
-  is how it is rehearsed without touching the personal instance.
+- **Activation is scripted.** `pnpm activate -- -Label <name>` dispatches through
+  `scripts/activate.ts`. Native Windows retains `activate.ps1`, including its
+  explicit `-Force`/`-SkipGate` options and listener check. Linux uses
+  `helpers/linuxActivation.ts`: the gate is mandatory, live descendants block
+  activation, and the profile owner performs an atomic busy check through
+  `--ade-activate-quit` before reserving `HostOperationGate`. Running PTYs,
+  queued tasks, active runs/conversations, workspace/integration operations and
+  admitted host mutations prevent shutdown. Linux exposes no force/skip switch.
+  Older builds without the guarded switch require a deliberate tray quit first.
+- Linux activation locks its checkout, copies the verified build before quitting,
+  and takes private profile snapshots both before and after graceful shutdown
+  (`~/ADE-Backups/Activate-*/before-quit` and `profile`; Chromium singleton links
+  are excluded). The verify-build lock prevents concurrent verification during
+  installation. The previous build becomes `out.prev` only after the replacement
+  reports ready as the new profile owner and owns the loopback listener when
+  mobile access was enabled. Failed startup restores and starts the
+  previous build automatically; an active new session prevents forced recovery.
+  `pnpm activate -- -Rollback` explicitly restores `out.prev` without rebuilding.
+  Backups are retained; profile data is never automatically overwritten on rollback.
+  `ADE_USER_DATA_DIR`/`ADE_BACKUP_DIR` select disposable profiles/backups. Activation
+  receipts live in `test-results/activations.jsonl`. The registered Linux driver
+  measures busy refusal, update, explicit/automatic rollback and paired browser
+  reconnection using real Electron and encrypted device storage.
 
 ## CI and packaging
 
@@ -2907,6 +2931,47 @@ repository-scope header plus Overview / Changes / Files tabs, collapsible,
 resizable and progressively disclosed through one shared detail pane.
 Default order is rail | terminal | inspector; Settings may put the inspector
 on the left. Rail resizable. Onboarding modals per mockup, plus photo upload.
+
+## Desktop-selected mobile HTTPS port (Goal 34.1)
+
+`mobileAccess:setEnabled` remains a desktop-only launch channel. Its optional
+`httpsPort` accepts only 443, 8443 or 10000; it never accepts arbitrary ports,
+URLs or argv. `RemoteDeviceStore` persists `mobileHttpsPort` beside opt-in and
+Serve ownership; an absent value means 443 for compatibility. A change requires
+opt-out and no retained ownership of the previous Serve route. The loopback
+listener remains independent (`ADE_MOBILE_PORT`, default 4317).
+
+`TailscaleService` inspects both background and foreground configuration for
+the selected HTTPS port. It preserves other ports, refuses public Funnel as
+before, and only removes an exact matching proxy with no extra handlers.
+The full origin, including non-default port, flows through readiness probing,
+pairing, host/origin validation, restart restoration and connection monitoring.
+Changing ports changes the browser origin and may require pairing that browser
+again. No remote device receives a host-configuration channel. Setup failures
+use `redactedErrorMessage` for the renderer and `redactedErrorDetail` for the log.
+Executable evidence: `test-mobile-access.ts` and the port-conflict scenario in
+`test-session-navigation-electron.ts`. Real Tailscale and device acceptance
+remain separate; real Omarchy activation and certificate-verified HTTPS evidence
+are recorded in HANDOFF and AGENT_SESSION_PLATFORM_RESULTS. Funnel has its own
+explanation: changing ports never removes the global public-ingress exclusion.
+
+## Session verification layers (Goal 34.2)
+
+`scripts/test-session-processes.ts` runs the real `PtyManager` under Electron's
+Node runtime so native PTYs use ADE's addon ABI. It needs no BrowserWindow or
+network listener. Deterministic interactive child programs expose their PID and
+input counter to distinguish sibling sessions sharing a workspace. The suite
+checks attach/replay, input isolation, invocation exit versus surviving custom
+shell, targeted termination and shutdown of the actual child processes.
+It is part of `run-suites.ts`; it does not certify model adapters or UI behavior.
+
+`scripts/test-session-navigation-electron.ts` separately drives the production
+Electron and paired tablet surfaces with native shells and the existing
+`sessionNavigationFlow`. Only the external Tailscale dependency is replaced.
+The Verify step targets Linux and Windows; a registered test is not a passed
+platform measurement. Browser/device and native CLI acceptance remain separate
+from the socket-free process test. Current results and execution limits:
+[session platform evidence](AGENT_SESSION_PLATFORM_RESULTS.md).
 
 ## Build phases & ownership (agents)
 
@@ -3032,7 +3097,8 @@ Electron owns one process per user-data profile via `requestSingleInstanceLock`;
 a subsequent launch activates the initialized owner. A launch with `--ade-quit`
 instead asks the owner to quit through the tray's graceful path (PTY and usage
 shutdown) and starts nothing when no owner runs; `scripts/activate.ps1` uses it
-so restarts need no UI automation. Only a process of the same user and profile
+so Windows restarts need no UI automation. Linux activation uses the separate guarded
+`--ade-activate-quit` path described above; it creates no remote or renderer IPC channel. Only a process of the same user and profile
 reaches the owner, which could already end it outright. A persisted mobile opt-in
 starts connection monitoring even after an initial listener failure. Retry never
 enables a device/profile that the operator has disabled.

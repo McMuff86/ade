@@ -14,10 +14,12 @@ import { buildIdentity } from '../build/identity';
 import type { CoordinatorActionSummary } from '../src/shared/coordinatorActions';
 import { redactedErrorDetail } from '../src/main/errors';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
+import { assertCoordinatorCodexVersion } from '../src/main/pty/CoordinatorCodexPolicy';
 import { mainEntry } from './helpers/buildOutput';
 
 if (!process.argv.includes('--run-native')) throw new Error('Native Modellprobe nur ausdrücklich mit --run-native ausführen.');
-if (process.platform !== 'win32') throw new Error('This acceptance measures native Windows only.');
+if (process.platform !== 'win32' && process.platform !== 'linux') throw new Error('This acceptance targets native Windows and Linux only.');
+let measuredVersion = 'not measured';
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ade-tablet-codex-native-')));
 const evidence = resolve('test-results/tablet-codex-native'); mkdirSync(evidence, { recursive: true });
 const checks: Array<{ name: string; passed: boolean }> = [];
@@ -32,8 +34,11 @@ const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, 
 
 async function main() {
   check('production build matches the source under test', readFileSync(mainEntry(), 'utf8').includes(sourceId));
-  const version = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '& codex --version'], { windowsHide: true, encoding: 'utf8', timeout: 15_000 }).trim();
-  check('installed native Codex has the accepted protocol version', version === 'codex-cli 0.154.0');
+  const version = process.platform === 'win32'
+    ? execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '& codex --version'], { windowsHide: true, encoding: 'utf8', timeout: 15_000 }).trim()
+    : execFileSync('codex', ['--version'], { encoding: 'utf8', timeout: 15_000 }).trim();
+  measuredVersion = assertCoordinatorCodexVersion({ userAgent: version.replace(/^codex-cli /, 'ade/') });
+  check('installed native Codex has the accepted protocol version', Boolean(measuredVersion));
   const repository = join(root, 'project'); mkdirSync(repository);
   const guidance = '# Native tablet acceptance\nWork only in this leased workspace. ADE owns Git metadata: do not add, commit, reset, checkout, rebase, merge or push. Read these instructions, ask the requested question through request_user_input and wait for its answer. Then write only tablet-result.txt with exactly the answer. Do not delegate or start other agents.\n';
   writeFileSync(join(repository, 'AGENTS.md'), guidance);
@@ -78,7 +83,7 @@ require(${JSON.stringify(mainEntry())});`);
   const deviceId = (await desktop.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.find(d => d.name === 'Native acceptance tablet')!.id;
   await desktop.evaluate(deviceId => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes: ['workspace:read'], resourceAccess: { mode: 'all' } }), deviceId);
   const open = async () => {
-    await tablet!.locator('#mobile-supervision').click(); await tablet!.locator('#mobile-conversation-open').click();
+    await tablet!.locator('#mobile-supervision').click(); await tablet!.locator('#conversation-mode-project').click(); await tablet!.locator('#mobile-conversation-open').click();
     return tablet!.getByRole('dialog', { name: 'ADE-Gespräch', exact: true });
   };
   let dialog = await open(); await dialog.getByLabel('Gesprächsprofil', { exact: true }).selectOption(setup.agentId);
@@ -172,14 +177,14 @@ require(${JSON.stringify(mainEntry())});`);
 void main().catch(async error => {
   failed++; console.error(redactedErrorDetail(error));
   if (tablet) {
-    writeFileSync(join(evidence, 'failure-ui.txt'), await tablet.locator('.conversation-panel').innerText().catch(() => 'Panel unavailable'));
-    await tablet.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }).evaluate(node => { node.scrollTop = node.scrollHeight; }).catch(() => undefined);
+    writeFileSync(join(evidence, 'failure-ui.txt'), await tablet.locator('.conversation-panel').innerText({ timeout: 1000 }).catch(() => 'Panel unavailable'));
+    await tablet.getByRole('dialog', { name: 'ADE-Gespräch', exact: true }).evaluate(node => { node.scrollTop = node.scrollHeight; }, undefined, { timeout: 1000 }).catch(() => undefined);
   }
   await tablet?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined);
 }).finally(async () => {
   await browser?.close(); await proxy?.close(); await app?.close().catch(() => undefined);
   writeFileSync(join(evidence, 'result.json'), JSON.stringify({ at: new Date().toISOString(), platform: process.platform, sourceId,
-    model: 'gpt-5.6-sol', reasoning: 'high', protocol: 'installed Codex 0.154.0', launcher: 'production Electron queue and leased workspace',
+    model: 'gpt-5.6-sol', reasoning: 'high', protocol: `installed Codex ${measuredVersion}`, launcher: 'production Electron queue and leased workspace',
     physicalTablet: false, conversationId, taskId, runId, checks, passed: checks.filter(item => item.passed).length, failed }, null, 2));
   if (dirname(root) !== realpathSync.native(tmpdir())) throw new Error('Unexpected acceptance root');
   await rm(root, { recursive: true, force: true, maxRetries: 12, retryDelay: 250 });

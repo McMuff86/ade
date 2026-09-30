@@ -54,7 +54,7 @@ import type {
 } from './types';
 import type { ExecutionBackendId } from './executionBackends';
 import type { RemoteAdminScope, RemoteDeviceInventory } from './remoteDevices';
-import type { MobileAccessStatus, MobilePairingChallenge } from './mobileAccess';
+import type { MobileAccessStatus, MobilePairingChallenge, MobileHttpsPort } from './mobileAccess';
 import type { GitSyncOverview, GitSyncPreview, GitSyncRequest } from './gitSync';
 import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspaceBundle';
 
@@ -695,7 +695,7 @@ export interface IpcInvokeMap {
   'config:health': { req: void; res: ConfigHealth };
   'remoteDevices:list': { req: void; res: RemoteDeviceInventory };
   'mobileAccess:status': { req: void; res: MobileAccessStatus };
-  'mobileAccess:setEnabled': { req: { enabled: boolean }; res: MobileAccessStatus };
+  'mobileAccess:setEnabled': { req: { enabled: boolean; httpsPort?: MobileHttpsPort }; res: MobileAccessStatus };
   'mobileAccess:pair': { req: void; res: MobilePairingChallenge };
   'mobileAccess:cancelPair': { req: void; res: void };
   'remoteDevices:rename': { req: { deviceId: string; name: string }; res: RemoteDeviceInventory };

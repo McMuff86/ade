@@ -99,7 +99,7 @@ if (GATE && ONLY) {
  * minutes; everything else waits for the full run.
  */
 const GATE_DRIVERS = new Set(['electron-workflow', 'mobile-browser', 'mobile-electron', 'remote-terminal-electron:tablet-layout',
-  'organizer-electron', 'work-electron']);
+  'organizer-electron', 'work-electron', 'activation-linux', 'remote-terminal-electron:session-navigation']);
 
 function positiveInteger(value: string | undefined): number | undefined {
   const parsed = Number(value);
@@ -147,6 +147,7 @@ const STEPS: Step[] = [
   { id: 'build:mobile', kind: 'build', timeoutMs: 10 * MINUTE, lane: 'pool',
     command: [NODE, bin('vite', 'vite'), 'build', '--config', 'vite.mobile.config.ts', '--outDir', join(BUILD_DIR, 'mobile'), '--emptyOutDir'] },
   driver('ollama-electron', 'test-ollama-electron.ts', windowsOnly('asserts the native Windows Ollama launch path')),
+  driver('activation-linux', 'test-activation-linux.ts', { lane: 'solo', platforms: ['linux'], reason: 'native Linux activation uses /proc; Windows retains the PowerShell driver' }),
   driver('speech-electron', 'test-speech-electron.ts'),
   driver('reply-speech-electron', 'test-reply-speech-electron.ts', WINDOWS_CONSOLE_FIXTURE),
   driver('dictation-electron:computer', 'test-dictation-electron.ts', { ...only('computer'), ...WINDOWS_CONSOLE_FIXTURE }),
@@ -169,7 +170,9 @@ const STEPS: Step[] = [
   driver('remote-restart-electron', 'test-remote-restart-electron.ts', windowsOnly('remote relaunch is measured on native Windows')),
   driver('remote-workspace-browser', 'test-remote-workspace-browser.ts'),
   driver('remote-workbench-browser', 'test-remote-workbench-browser.ts'),
-  driver('remote-terminal-electron:session-navigation', 'test-remote-terminal-electron.ts', { ...only('session-navigation'), ...WINDOWS_REMOTE_TERMINAL }),
+  driver('remote-terminal-electron:session-navigation', 'test-session-navigation-electron.ts', {
+    platforms: ['linux', 'win32'], reason: 'native session navigation targets Linux PTY and Windows ConPTY; macOS is not measured',
+  }),
   driver('remote-terminal-electron:project-launcher', 'test-remote-terminal-electron.ts', { ...only('project-launcher'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('remote-terminal-electron:tablet-layout', 'test-remote-terminal-electron.ts', { ...only('tablet-layout'), ...WINDOWS_REMOTE_TERMINAL }),
   // Restarts short-lived fixture CLIs back to back; beside the pool it failed at changing spots.

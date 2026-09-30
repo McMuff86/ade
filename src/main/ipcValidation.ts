@@ -1,4 +1,5 @@
 import { isAppLocale } from '../shared/i18n/locales';
+import { isMobileHttpsPort } from '../shared/mobileAccess';
 import { validSpeechTest } from '../shared/speech';
 import { validSupervisionCommand } from '../shared/supervision';
 import { conversationId, validConversationCommand } from '../shared/conversation';
@@ -783,8 +784,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       return;
     case IPC.MobileAccessSetEnabled: {
       const request = record(channel, payload);
-      exactKeys(channel, request, ['enabled']);
+      exactKeys(channel, request, ['enabled', 'httpsPort']);
       if (typeof request.enabled !== 'boolean') invalid(channel, 'enabled must be a boolean');
+      if (request.httpsPort !== undefined && !isMobileHttpsPort(request.httpsPort)) invalid(channel, 'invalid mobile HTTPS port');
       return;
     }
     case IPC.RemoteDevicesRename:

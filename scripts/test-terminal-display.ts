@@ -2,6 +2,7 @@ import { Terminal } from '@xterm/headless';
 import { RemoteTerminalDisplay } from '../src/main/application/RemoteTerminalScreen';
 import { TerminalInputQueue } from '../src/mobile/TerminalInputQueue';
 import { mobileDashboard } from '../src/main/dashboard/mobileDashboard';
+import { safeTerminalHyperlink } from '../src/main/application/TerminalHyperlinks';
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
 const wait = (ms = 25) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -58,7 +59,8 @@ void (async () => {
     display.write(Buffer.from('\x1b[?1049l\x1b[2J\x1b[HPS C:\\private\\workspace>\r\napi_key=sensitive\r\n\x1b]52;c;U0VDUkVU\x07\x1b]8;;https://bad.invalid/token\x07LINK\x1b]8;;\x07'));
     const safe = await display.snapshot(); const wire = JSON.stringify(safe);
     check('frame and transcript redact paths and secrets', !/private|sensitive/.test(wire) && wire.includes('[path]'));
-    check('OSC clipboard and hyperlink payloads never leave main', !/U0VDUkVU|bad.invalid/.test(wire) && !safe.frame.ansi.includes('\x1b]'));
+    check('OSC clipboard and raw hyperlink sequences never leave main', !wire.includes('U0VDUkVU') && !safe.frame.ansi.includes('\x1b]'));
+    check('HTTP hyperlink travels only as explicit validated metadata', safe.frame.hyperlinks?.[0]?.href === 'https://bad.invalid/token' && safe.frame.hyperlinks[0].text === 'LINK');
     display.resize(20, 6); display.write(Buffer.from('\x1b[2J\x1b[Hapi_key=abcdefghijklmnopqrstuvwxyz\r\nREADY'));
     const wrapped = await display.snapshot();
     check('wrapped credentials are redacted across cell rows', !JSON.stringify(wrapped).includes('abcdef') && wrapped.screen.includes('READY'));
@@ -70,6 +72,59 @@ void (async () => {
     display.write(Buffer.from('\x1b[?2004l')); await display.snapshot();
     check('CLI leaving paste mode disables prompt capability', !display.acceptsBracketedPaste());
   } finally { display.dispose(); browser.dispose(); }
+  {
+    const link = (uri: string, text: string) => `\x1b]8;;${uri}\x1b\\${text}\x1b]8;;\x1b\\`;
+    const target = 'https://pc.example.ts.net:8444/';
+    const display = new RemoteTerminalDisplay(30, 5);
+    try {
+      const output = 'C:\\private\\repo\r\nTablet: ' + link(target, 'Knuckles Pi öffnen');
+      // OSC can be split anywhere across PTY chunks, including UTF-8 characters.
+      for (const byte of Buffer.from(output)) display.write(Buffer.from([byte]));
+      const first = await display.snapshot(); const item = first.frame.hyperlinks?.[0];
+      check('split OSC8 and UTF8 retain precise visible label, destination and cells', item?.href === target && item.text === 'Knuckles Pi öffnen'
+        && item.row === 1 && item.col === 8 && item.endCol === 26 && first.screen.slice(item.start, item.end) === item.text);
+      display.write(Buffer.from('\x1b[2;1H\x1b[2KTablet: ' + link('https://example.org/new', 'Knuckles Pi öffnen')));
+      const updated = await display.snapshot();
+      check('destination-only repaint changes revision and discards stale targets', updated.frame.revision !== first.frame.revision && updated.frame.hyperlinks?.[0]?.href === 'https://example.org/new'
+        && !JSON.stringify(updated).includes(target));
+      display.write(Buffer.from('\x1b[2;1H\x1b[2KPlain text'));
+      check('erased link cells cannot retain clickable destinations', !(await display.snapshot()).frame.hyperlinks?.length);
+      display.write(Buffer.from('\x1b[2J\x1b[H' + link(target, '界e\u0301'.repeat(15))));
+      const wrapped = await display.snapshot();
+      check('wide and combining labels keep wrapped cell and transcript spans', (wrapped.frame.hyperlinks?.length ?? 0) > 1 && wrapped.frame.hyperlinks!.every(item => wrapped.screen.slice(item.start, item.end) === item.text && item.col === 0 && item.endCol! <= 30));
+      display.write(Buffer.from('\r\n' + 'history\r\n'.repeat(12)));
+      const history = await display.snapshot();
+      check('scrolled links remain in history without live coordinates', !!history.frame.hyperlinks?.length && history.frame.hyperlinks.every(item => item.row === undefined));
+      display.write(Buffer.from('\x1b[?1049h' + link('https://example.org/alternate', 'Alternate')));
+      check('alternate screen excludes hidden normal-buffer destinations', !(await display.snapshot()).frame.hyperlinks?.some(item => item.href === target));
+      display.write(Buffer.from('\x1b[?1049l'));
+      check('return from alternate screen restores normal-buffer links', (await display.snapshot()).frame.hyperlinks?.some(item => item.href === target) === true);
+    } finally { display.dispose(); }
+    for (const uri of ['javascript:alert(1)', 'file:///home/user/private', 'https://user:password@example.org/', 'https://example.org/?token=hidden',
+      'https://example.org/?%74oken=hidden', 'https://example.org/?%2574oken=hidden', 'https://example.org/?path=%2Fhome%2Fuser%2Fprivate',
+      'https://example.org/%5Bredacted%5D', 'https://example.org/%0aevil', 'https://example.org/\\evil']) {
+      check('unsafe hidden target is rejected: ' + uri.split(':')[0], !safeTerminalHyperlink(uri));
+    }
+    const unsafe = new RemoteTerminalDisplay(80, 5);
+    try {
+      unsafe.write(Buffer.from(link('file:///home/user/private', 'File') + '\r\napi_key=secret ' + link(target, 'Innocent') + '\r\n' + link('http://localhost:5173/', 'Local')));
+      const result = await unsafe.snapshot();
+      check('redacted logical lines lose links and loopback stays explanatory', result.frame.hyperlinks?.length === 1 && result.frame.hyperlinks[0].local && !JSON.stringify(result).includes('private'));
+    } finally { unsafe.dispose(); }
+    const bounded = new RemoteTerminalDisplay(240, 10);
+    try {
+      bounded.write(Buffer.from(Array.from({ length: 150 }, (_, i) => link(`https://example.org/${i}/${'x'.repeat(3500)}`, 'Open') + '\r\n').join('')));
+      const result = await bounded.snapshot();
+      check('embedded targets are bounded independently of terminal frame and transcript', (result.frame.hyperlinks?.length ?? 0) <= 100
+        && Buffer.byteLength(JSON.stringify(result.frame.hyperlinks ?? [])) <= 64 * 1024 && Buffer.byteLength(JSON.stringify(result)) < 512 * 1024);
+    } finally { bounded.dispose(); }
+    const contextual = new RemoteTerminalDisplay(80, 5);
+    try {
+      contextual.write(Buffer.from('token=\r\n' + link(target, 'HIDDEN_VALUE')));
+      const result = await contextual.snapshot();
+      check('contextual multiline redaction suppresses all embedded metadata', !result.frame.hyperlinks?.length && !JSON.stringify(result).includes('HIDDEN_VALUE'));
+    } finally { contextual.dispose(); }
+  }
   const history = new RemoteTerminalDisplay(80, 10);
   try {
     history.write(Buffer.from(Array.from({ length: 400 }, (_, i) => `HISTORY_${i}\r\n`).join('')));

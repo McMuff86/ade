@@ -61,7 +61,7 @@
     "agents:codex": "tsx scripts/configure-codex-roster.ts",
     "verify": "tsx scripts/verify.ts",
     "verify:gate": "tsx scripts/verify.ts --gate",
-    "activate": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/activate.ps1",
+    "activate": "tsx scripts/activate.ts",
     "package:dir": "pnpm run build && electron-builder --win --x64 --dir",
     "package:win": "pnpm run build && electron-builder --win nsis --x64",
     "package:linux:dir": "pnpm run build && electron-builder --linux --x64 --dir --publish never",

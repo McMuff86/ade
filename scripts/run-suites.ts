@@ -110,6 +110,7 @@ const SUITES: Suite[] = [
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 34 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },
+  { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 17 } },
   { id: 'supervision-navigation', script: 'test-supervision-navigation.ts', floors: { win32: 8 } },
   { id: 'terminal-workspace-identity', script: 'test-terminal-workspace-identity.ts', floors: { win32: 17 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },

@@ -1,6 +1,6 @@
 # ADE-Zielregister
 
-Abgleich vom 17. September 2026. Die Nummer bezeichnet einen stabilen
+Abgleich vom 30. September 2026. Die Nummer bezeichnet einen stabilen
 Liefervertrag; ob dieser bereits unterstützt wird, entscheidet der zugehörige
 Nachweis mit Plattform und Datum. [STATUS](STATUS.md) und [HANDOFF](HANDOFF.md)
 führen den aktuellen Code- beziehungsweise Betriebsstand.
@@ -21,6 +21,12 @@ führen den aktuellen Code- beziehungsweise Betriebsstand.
 | 31 | [Ollama-Coding-Harness](OLLAMA_HARNESS_GOALS.md) | Abgeschlossen: Auswahl Codex CLI/Qwen Code, persistierte Profile, PC-/Tablet-Starts und verwaltete Aufgaben; vollständige Abnahme bestanden, Commit 3b0bddd gebaut und persönlich aktiviert |
 | 32 | [Fünf Minuten Live-Diktat](LONG_DICTATION_GOALS.md) | Abgeschlossen: 5-Minuten-Diktat und Startfrist geprüft; Computer-Hotfix 06cd6ea aktiviert; Gesamtabnahme bestanden |
 | 33 | [Persönlicher Sprachdialog](VOICE_COMPANION_PROPOSAL.md) und [globaler ADE-Dialog](MAIN_AGENT_GOALS.md) | Explizite Projektübergaben und Morgenüberblick sowie globaler Text-/Diktatdialog auf PC/Tablet angebunden; gemeinsame Bedienprobe 44/0, native Produktions-Gesprächsprobe 4/0; Sprachausgabe, Aktivierung, natürliche Unterbrechung und automatischer Mehrprojektpilot offen |
+| 34 | [Eigenständige Agent-Sitzungsverwaltung](AGENT_SESSION_PRODUCT_GOALS.md) | Linux und Windows: 34.2 mehrere Sitzungen (Linux-Fixture 78/0, native Codex-Browserprobe 16/0), 34.1 eigener Tablet-Zugriff (Portwahl 108/0; Betriebsstand in HANDOFF), 34.3 Linux-Aktivierung 15/0, 34.4 Eingriffe, 34.5 Push, 34.6 unabhängiger Host; Abnahmen offen |
+
+Goal 34 bündelt die Linux-/Windows-Lieferung bestehender Sitzungs-, Remote-,
+Betriebs- und Betreuungsverträge. ADE ist eigenständig und benötigt keine andere
+Agentenverwaltung. Es ersetzt die bisherigen Nummern und Nachweise nicht.
+Arbeitsstart ist 34.2; 34.1–34.3 bilden die erste nutzbare Lieferung.
 
 Die Vorbereitung vom 17. September führt Goals 26/27/33 in einem
 [gemeinsamen Pilot- und Abnahmeplan](MAIN_AGENT_GOALS.md) zusammen.

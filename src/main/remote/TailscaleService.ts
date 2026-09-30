@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MobileAccessStatus } from '../../shared/mobileAccess';
+import { isMobileHttpsPort, type MobileHttpsPort } from '../../shared/mobileAccess';
 import { parseMobileOrigin } from './hostApiConfig';
 
 export type TailscaleCommand = (args: readonly string[]) => Promise<string>;
@@ -33,22 +34,26 @@ function hasFunnel(config: ServeConfig): boolean {
 export class TailscaleService {
   constructor(private readonly execute: TailscaleCommand = runTailscale) {}
 
-  async inspect(port: number): Promise<TailscaleInspection> {
+  async inspect(port: number, httpsPort: MobileHttpsPort = 443): Promise<TailscaleInspection> {
+    if (!isMobileHttpsPort(httpsPort)) throw new Error('ade: invalid mobile HTTPS port');
     try {
       const status = JSON.parse(await this.execute(['status', '--json'])) as { BackendState?: string; Self?: { DNSName?: string; Online?: boolean } };
       if (status.BackendState !== 'Running' || status.Self?.Online !== true) {
         return { state: 'offline', origin: null, serving: false, message: translate("Tailscale is offline. Sign in and connect to this PC.") };
       }
-      const origin = parseMobileOrigin(`https://${status.Self?.DNSName?.replace(/\.$/, '')}`);
+      const origin = parseMobileOrigin(`https://${status.Self?.DNSName?.replace(/\.$/, '')}${httpsPort === 443 ? '' : `:${httpsPort}`}`);
       const config = JSON.parse(await this.execute(['serve', 'status', '--json'])) as ServeConfig;
       const host = new URL(origin).hostname;
-      const web = config.Web?.[`${host}:443`];
+      const web = config.Web?.[`${host}:${httpsPort}`];
       const handlers = web?.Handlers;
-      const serving = config.TCP?.['443']?.HTTPS === true && !!handlers && Object.keys(handlers).length === 1
+      const serving = config.TCP?.[httpsPort]?.HTTPS === true && !!handlers && Object.keys(handlers).length === 1
         && handlers['/']?.Proxy === `http://127.0.0.1:${port}`;
-      const foregroundConflict = Object.values(config.Foreground ?? {}).some((item) => item.TCP?.['443'] || item.Web?.[`${host}:443`]);
-      if (hasFunnel(config) || foregroundConflict || ((!serving) && (config.TCP?.['443'] || web))) {
-        return { state: 'conflict', origin, serving: false, message: translate("Tailscale Conflict: Funnel or another share uses HTTPS. Check existing shares in Tailscale.") };
+      const foregroundConflict = Object.values(config.Foreground ?? {}).some((item) => item.TCP?.[httpsPort] || item.Web?.[`${host}:${httpsPort}`]);
+      if (hasFunnel(config)) {
+        return { state: 'conflict', origin, serving: false, message: translate("Tailscale Funnel is active. ADE requires private access on this host; changing the HTTPS port does not resolve this conflict. Existing shares are preserved.") };
+      }
+      if (foregroundConflict || ((!serving) && (config.TCP?.[httpsPort] || web))) {
+        return { state: 'conflict', origin, serving: false, message: translate("Tailscale conflict: HTTPS port {{port}} is occupied. Choose another HTTPS port for ADE; existing shares are preserved.", { port: httpsPort }) };
       }
       return { state: 'ready', origin, serving, message: serving ? translate("Private Tailscale Serve Sharing is set up.") : translate("Tailscale connected. Mobile access can be activated.") };
     } catch (error) {
@@ -58,17 +63,17 @@ export class TailscaleService {
     }
   }
 
-  async enable(port: number): Promise<void> {
+  async enable(port: number, httpsPort: MobileHttpsPort = 443): Promise<void> {
     // Recheck immediately before mutation; never reset global Serve configuration.
-    const before = await this.inspect(port);
+    const before = await this.inspect(port, httpsPort);
     if (before.state !== 'ready') throw new Error(before.message);
-    if (!before.serving) await this.execute(['serve', '--bg', '--https=443', `http://127.0.0.1:${port}`]);
-    const after = await this.inspect(port);
+    if (!before.serving) await this.execute(['serve', '--bg', `--https=${httpsPort}`, `http://127.0.0.1:${port}`]);
+    const after = await this.inspect(port, httpsPort);
     if (after.state !== 'ready' || !after.serving) throw new Error(translate("ade: Tailscale HTTPS could not be confirmed"));
   }
 
-  async disable(port: number): Promise<void> {
-    const before = await this.inspect(port);
-    if (before.state === 'ready' && before.serving) await this.execute(['serve', '--https=443', 'off']);
+  async disable(port: number, httpsPort: MobileHttpsPort = 443): Promise<void> {
+    const before = await this.inspect(port, httpsPort);
+    if (before.state === 'ready' && before.serving) await this.execute(['serve', `--https=${httpsPort}`, 'off']);
   }
 }

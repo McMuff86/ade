@@ -1,5 +1,63 @@
 # ADE implementation status
 
+## Benannte Weblinks im Tablet-Terminal (30. September 2026, Abend)
+
+Der Android-Screenshot zeigte einen unterstrichenen Codex-Link „Knuckles Pi
+öffnen“, dessen OSC-8-Ziel bisher aus der Übertragung entfernt wurde. Main liefert
+jetzt geprüfte HTTP(S)-Ziele getrennt von Terminal-Steuersequenzen und zugeordnet
+zu den tatsächlichen Zellen. Antippen zeigt die vollständige Adresse; explizites
+Öffnen verwendet einen neuen Tab. **Links** und **Verlauf** sind ebenfalls
+bedienbar, inklusive Tastatur/Fokusrückkehr und schmaler Ansicht. Lokale Dateiziele,
+Zugangsdaten und redigierte Ziele bleiben ausgeschlossen. [Vertrag](TERMINAL_MEDIA.md).
+
+Fokussierter Linux-Electron-/Browserlauf **87/0**, inklusive neun neuer
+Link-Bedienprüfungen; alle drei Typechecks und beide isolierten Builds bestanden.
+Parser-Suite **77/0**; abschliessendes `pnpm verify` **25 bestanden / 0 Fehler /
+17 nicht gemessen**, **102 Suiten / 4.304 Checks**. Belege:
+`test-results/terminal-hyperlinks-20260930/`. Erster Aktivierungsversuch an der
+laufenden Knuckles-Pi-Sitzung sicher blockiert. Nach deren Ende durch den Benutzer
+**um 21:29 CEST aktiviert**, mit Backup, Rollback und Gate **13/0/1 nicht gemessen**.
+Reales HTTPS samt neuem Terminal-Modul geprüft, Geräte-Vault und Serve-Konfiguration
+unverändert. Tablet neu laden, bestehende Kopplung weiterverwenden.
+Aktueller Betriebsnachweis in [HANDOFF](HANDOFF.md).
+Neue Windows- und physische Android-Abnahme der Korrektur bleiben offen.
+
+## Goal 34: Linux-Aktivierung, Agent-Sitzungen und Tablet-Zugang (30. September 2026)
+
+ADE bleibt eine eigenständige Sitzungsverwaltung auf nativen Linux-/Windows-Hosts.
+OpenClaw ist keine Produktabhängigkeit. [Produktziele](AGENT_SESSION_PRODUCT_GOALS.md),
+[Fähigkeitsmatrix und Nachweise](AGENT_SESSION_PLATFORM_RESULTS.md),
+[persönlicher Betriebsstand](HANDOFF.md).
+
+- **34.1:** Persistierte HTTPS-Portwahl 443/8443/10000, exakte Origin in Status,
+  Probe, Pairing, Restore und Disable. Fremde Foreground-/Background-Routen bleiben
+  erhalten. Funnel bekommt einen eigenen Hinweis und bleibt global ausgeschlossen.
+  Main-Stacks bleiben im Log. Mobile-Verträge **108/0**, Mobile Electron **37/0**.
+- **34.2:** Linux-Sitzungskern **17/0**, Navigation **14/0**, Startverträge **47/0**,
+  kombinierter Port-/Desktop-/Tablet-Treiber mit vier echten Shells **78/0**.
+  Native Codex-Rückfrage **5/0** und vollständige native Codex-Browserprobe **16/0**
+  (Codex 0.159.0, gpt-5.6-sol/high): Auftrag, Bestätigung, Rückfrage/Antwort,
+  Verbindungsverlust, Ergebnis, Host-Neustart und erhaltene Kopplung. Browser/TLS
+  im Modelllauf sind Fixtures; es ist keine physische Android-Abnahme.
+- **34.3:** `pnpm activate` wählt den Plattformtreiber. Linux erzwingt Gate,
+  private Profilbackups vor/nach regulärem Quit, `out.prev` und bestätigten
+  Wiederanlauf samt zuvor aktiviertem Listener. Aktive Arbeit blockiert den
+  Treiber und zusätzlich den neuen atomaren Quit im Host. Ein fehlgeschlagener
+  Start stellt den vorherigen Build wieder her. Reale Electron-Probe **15/0**.
+  Der Windows-PowerShell-Weg bleibt erhalten, neue Windows-Abnahme offen.
+
+Vollständiges `pnpm verify` unter Linux: **25 bestanden / 0 Fehler / 17 nicht
+gemessen**, **102 Suiten / 4.283 Checks**, drei Typechecks, beide isolierten Builds
+und echte Electron-/Browser-Treiber. Vollbericht: `test-results/goal34-full-20260930/final/`;
+spätere Aktivierungsgates ersetzen nur den aktuellen `verify/report.json`.
+
+Persönlich aktiviert um **17:13 CEST**, PID **1511026**: private Freigabe auf
+**8443**, reale TLS-/Asset-Prüfung und Browserkopplung bestanden. OpenClaws reale
+Route auf **443** ist unverändert, weiterhin HTTPS 200. Backups und Belege: HANDOFF.
+Interaktiver Linux-Profiltransport und geschützte Promptübergabe bleiben offen,
+ebenso weitere native CLIs, vollständige Windows- und physische Android-Abnahme.
+Goal 34.2 wird deshalb noch nicht als vollständiges Produktteilziel abgeschlossen.
+
 ## ADE-Gespräch unter Linux (29. September 2026)
 
 Das zentrale ADE-Gespräch (Projektbetreuung, Aufträge vorbereiten, Plaudern & Stimme; PC und Tablet)

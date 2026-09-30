@@ -3,11 +3,12 @@ import { intlLocale } from '../../shared/i18n';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
-import type { MobileAccessStatus, MobilePairingChallenge } from '../../shared/mobileAccess';
+import { MOBILE_HTTPS_PORTS, isMobileHttpsPort, type MobileHttpsPort, type MobileAccessStatus, type MobilePairingChallenge } from '../../shared/mobileAccess';
 
 export function MobileAccessSection(): JSX.Element {
   useLocale();
   const [status, setStatus] = useState<MobileAccessStatus | null>(null);
+  const [selectedPort, setSelectedPort] = useState<MobileHttpsPort | null>(null);
   const [pairing, setPairing] = useState<MobilePairingChallenge | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,7 +48,10 @@ export function MobileAccessSection(): JSX.Element {
   const enable = async (enabled: boolean): Promise<void> => {
     if (actionBusy.current) return;
     actionBusy.current = true; setBusy(true); setError(''); setPairing(null);
-    try { setStatus(await window.ade.invoke('mobileAccess:setEnabled', { enabled })); }
+    try {
+      setStatus(await window.ade.invoke('mobileAccess:setEnabled', { enabled, ...(enabled ? { httpsPort: selectedPort ?? status?.httpsPort ?? 443 } : {}) }));
+      setSelectedPort(null);
+    }
     catch { setError(translate("Connection could not be changed. Check status again.")); }
     finally { actionBusy.current = false; focusAfter.current = 'refresh'; setBusy(false); }
   };
@@ -67,6 +71,13 @@ export function MobileAccessSection(): JSX.Element {
     {status && <p role="status"><strong>{status.listening ? status.https === 'verified' ? translate("HTTPS connection confirmed.") : translate("Private access configured.") : status.enabled ? translate("Connection not yet ready.") : translate("Mobile access is turned off.")}</strong> {localizeAppMessage(status.message)}</p>}
     {error && <p className="st-error" role="alert">{localizeAppMessage(error)}</p>}
     {busy && <p role="status">{translate("Setting up connection…")}</p>}
+    <label htmlFor="mobile-https-port">{translate("ADE HTTPS port")}</label>
+    <select id="mobile-https-port" value={selectedPort ?? status?.httpsPort ?? 443}
+      disabled={busy || !status || status.enabled} aria-describedby="mobile-https-port-hint"
+      onChange={event => { const port = Number(event.target.value); if (isMobileHttpsPort(port)) setSelectedPort(port); }}>
+      {MOBILE_HTTPS_PORTS.map(port => <option key={port} value={port}>{port}</option>)}
+    </select>
+    <p id="mobile-https-port-hint" className="st-device-hint">{translate("If another app uses 443, choose 8443 or 10000. Use the complete ADE address including its port on the tablet. Turn off mobile access before changing the port.")}</p>
     <div className="st-mobile-actions">
       <button className="btn" type="button" disabled={busy} onClick={() => void enable(true)}>{status?.enabled ? translate("Activate the connection again") : translate("Activate with Tailscale")}</button>
       {status?.enabled && <button className="btn" type="button" disabled={busy} onClick={() => void enable(false)}>{translate("Turn off mobile access")}</button>}

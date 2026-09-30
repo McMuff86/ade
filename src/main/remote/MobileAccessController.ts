@@ -1,8 +1,8 @@
 import { t as translate } from "../../shared/i18n";
 import { randomBytes } from 'node:crypto';
-import type { MobileAccessStatus, MobilePairingChallenge } from '../../shared/mobileAccess';
+import { isMobileHttpsPort, type MobileAccessStatus, type MobilePairingChallenge, type MobileHttpsPort } from '../../shared/mobileAccess';
 import type { AdeApplicationService } from '../application/AdeApplicationService';
-import { redactedErrorDetail } from '../errors';
+import { redactedErrorDetail, redactedErrorMessage } from '../errors';
 import { RemoteAuthorizer } from './authorization';
 import { BrowserSessions } from './BrowserSessions';
 import { HostApiServer } from './HostApiServer';
@@ -36,9 +36,10 @@ export class MobileAccessController {
 
   commandsEnabled(): boolean { return this.server !== null && this.devices.activeDevices().length > 0; }
   enabled(): boolean { return this.devices.mobilePreferences().enabled; }
+  private get httpsPort(): MobileHttpsPort { return this.devices.mobilePreferences().httpsPort; }
 
   async status(): Promise<MobileAccessStatus> {
-    const tail = await this.tailscale.inspect(this.port);
+    const tail = await this.tailscale.inspect(this.port, this.httpsPort);
     const storage = this.devices.inventory();
     const listening = storage.available && this.server !== null && tail.state === 'ready' && tail.serving && tail.origin === this.origin;
     if (listening && tail.origin && this.https === 'unreachable' && Date.now() - this.lastProbeAt > 15_000) this.scheduleProbe(tail.origin);
@@ -46,28 +47,34 @@ export class MobileAccessController {
       ? this.https === 'pending' ? translate("HTTPS is tested with certificate verification. The first tailscale certificate provision may take time.")
         : translate("HTTPS from the PC is not yet reachable. Check tailscale certificate provisioning and network; then check connection again.")
       : tail.message;
-    return { enabled: this.devices.mobilePreferences().enabled, listening, https: storage.available ? this.https : 'pending',
+    return { enabled: this.devices.mobilePreferences().enabled, httpsPort: this.httpsPort, listening, https: storage.available ? this.https : 'pending',
       url: tail.origin, tailscale: tail.state, message: !storage.available ? storage.error! : this.message || httpsMessage };
   }
 
-  async setEnabled(enabled: boolean): Promise<MobileAccessStatus> {
+  async setEnabled(enabled: boolean, httpsPort = this.httpsPort): Promise<MobileAccessStatus> {
     if (this.busy || this.disposed) throw new Error(translate("ade: Mobile connection is being changed"));
+    if (!isMobileHttpsPort(httpsPort)) throw new Error('ade: invalid mobile HTTPS port');
+    const preferences = this.devices.mobilePreferences();
+    if (httpsPort !== preferences.httpsPort && (!enabled || preferences.enabled || preferences.ownsServe)) {
+      throw new Error(translate("Turn off mobile access before changing its HTTPS port."));
+    }
     this.busy = true;
     this.message = '';
     try {
+      if (httpsPort !== this.httpsPort) this.devices.setMobilePreferences(false, false, httpsPort);
       if (!enabled) {
         const ownsServe = this.devices.mobilePreferences().ownsServe;
         this.devices.setMobilePreferences(false, ownsServe);
         await this.stopListener();
         if (ownsServe) {
-          await this.tailscale.disable(this.port);
+          await this.tailscale.disable(this.port, this.httpsPort);
           this.devices.setMobilePreferences(false, false);
         }
         this.message = translate("Mobile access is turned off.");
       } else {
         if (this.legacyEnabled) throw new Error(translate("The old ADE_HOST_API_ENABLED mode is active, turning it off before mobile access and restarting ADE."));
         if (!this.devices.inventory().available) throw new Error(translate("Secure device storage is not available."));
-        const tail = await this.tailscale.inspect(this.port);
+        const tail = await this.tailscale.inspect(this.port, this.httpsPort);
         if (tail.state !== 'ready' || !tail.origin) throw new Error(tail.message);
         // Assets and the listener must work before any network exposure is configured.
         if (!this.server || this.origin !== tail.origin) {
@@ -77,7 +84,7 @@ export class MobileAccessController {
         const ownsServe = this.devices.mobilePreferences().ownsServe || !tail.serving;
         // Persist ownership before the CLI call, so an interrupted setup can be retried/disabled.
         this.devices.setMobilePreferences(true, ownsServe);
-        await this.tailscale.enable(this.port);
+        await this.tailscale.enable(this.port, this.httpsPort);
         this.scheduleProbe(tail.origin);
         this.message = '';
       }
@@ -85,8 +92,8 @@ export class MobileAccessController {
       await this.stopListener();
       console.warn('[ade] mobile connection setup failed:', redactedErrorDetail(error));
       this.message = error instanceof Error && error.message.startsWith('tailscale_')
-        ? translate("Tailscale HTTPS is not yet available. Run tailscale serve --bg --https=443 http://127.0.0.1:{{value1}} in a PC console and, if necessary, confirm HTTPS; then reconnect.", { value1: this.port })
-        : redactedErrorDetail(error);
+        ? translate("Tailscale HTTPS is not yet available. Check Tailscale permissions and HTTPS setup, then activate the connection again.")
+        : redactedErrorMessage(error);
     } finally {
       this.busy = false;
       // A previously enabled host must also recover when its first listen
@@ -144,7 +151,7 @@ export class MobileAccessController {
     try {
       const storage = this.devices.inventory();
       if (!storage.available) { await this.stopListener(); this.message = storage.error!; return; }
-      const tail = await this.tailscale.inspect(this.port);
+      const tail = await this.tailscale.inspect(this.port, this.httpsPort);
       if (tail.state !== 'ready' || !tail.serving || !tail.origin) {
         await this.stopListener();
         this.message = tail.state === 'ready' ? translate("Tailscale sharing is missing. Re-enable connection.") : tail.message;

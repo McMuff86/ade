@@ -48,10 +48,10 @@ function headers(path: string, method = 'GET', body = '', key = '', identity = i
     'x-ade-signature': signRequest(deviceSecret, { method, path, timestamp, idempotencyKey: key, bodySha256: sha256Hex(body) }),
     ...(key ? { 'idempotency-key': key } : {}), ...(method === 'POST' ? { 'content-length': String(Buffer.byteLength(body)), ...(body ? { 'content-type': 'application/json' } : {}) } : {}) };
 }
-async function http(path: string, method = 'GET', body = '', override: Record<string, string | undefined> = {}) {
+async function http(path: string, method = 'GET', body = '', override: Record<string, string | undefined> = {}, targetPort = port) {
   return new Promise<{ status: number; body: string; headers: IncomingMessage['headers'] }>((resolveRequest, reject) => {
     const cleanHeaders = Object.fromEntries(Object.entries({ ...headers(path, method, body), ...override }).filter(([, value]) => value !== undefined));
-    const req = request({ host: '127.0.0.1', port, path, method, headers: cleanHeaders }, (res) => {
+    const req = request({ host: '127.0.0.1', port: targetPort, path, method, headers: cleanHeaders }, (res) => {
       let text = ''; res.setEncoding('utf8'); res.on('data', (chunk) => { text += chunk; });
       res.on('end', () => resolveRequest({ status: res.statusCode!, body: text, headers: res.headers }));
     });
@@ -166,6 +166,11 @@ void (async () => {
   }
   rejects('mobile configuration rejects arbitrary ports', () => assertIpcPayload('mobileAccess:setEnabled', { enabled: true, port: 8080 }));
   rejects('mobile configuration requires boolean opt-in', () => assertIpcPayload('mobileAccess:setEnabled', { enabled: 'true' }));
+  for (const httpsPort of [443, 8443, 10000]) assertIpcPayload('mobileAccess:setEnabled', { enabled: true, httpsPort });
+  check('desktop accepts only the named HTTPS port choices', true);
+  for (const httpsPort of [0, 8080, 65536, '8443', null, '8443;off']) {
+    rejects('HTTPS port rejects unsupported values and argv injection', () => assertIpcPayload('mobileAccess:setEnabled', { enabled: true, httpsPort }));
+  }
 
   let config: Record<string, unknown> = {};
   const calls: string[][] = [];
@@ -192,6 +197,40 @@ void (async () => {
   config = { TCP: { '443': { HTTPS: true } }, Web: { 'ade-mobile.fixture.ts.net:443': { Handlers: { '/': { Proxy: 'http://127.0.0.1:9999' } } } } };
   check('unrelated HTTPS route is never overwritten', (await tailscale.inspect(4317)).state === 'conflict');
   check('missing Tailscale has an actionable state', (await new TailscaleService(async () => { throw new Error('tailscale_missing'); }).inspect(4317)).state === 'missing');
+  const foreground = { TCP: { '443': { HTTPS: true } }, Web: { 'ade-mobile.fixture.ts.net:443': { Handlers: { '/': { Proxy: 'http://127.0.0.1:35855' } } } } };
+  let alternateConfig = { Foreground: { other: foreground }, TCP: {}, Web: {} } as {
+    Foreground: Record<string, typeof foreground>; TCP: Record<string, { HTTPS: boolean }>;
+    Web: Record<string, { Handlers: Record<string, { Proxy: string }> }>; AllowFunnel?: Record<string, boolean>;
+  };
+  const alternateCalls: string[][] = [];
+  const alternate = new TailscaleService(async args => {
+    if (args[0] === 'status') return JSON.stringify({ BackendState: 'Running', Self: { DNSName: 'ade-mobile.fixture.ts.net.', Online: true } });
+    if (args[1] === 'status') return JSON.stringify(alternateConfig);
+    alternateCalls.push([...args]);
+    const target = args.find(arg => arg.startsWith('--https='))!.slice(8);
+    if (args.includes('off')) { delete alternateConfig.TCP[target]; delete alternateConfig.Web[`ade-mobile.fixture.ts.net:${target}`]; }
+    else { alternateConfig.TCP[target] = { HTTPS: true }; alternateConfig.Web[`ade-mobile.fixture.ts.net:${target}`] = { Handlers: { '/': { Proxy: 'http://127.0.0.1:4317' } } }; }
+    return '';
+  });
+  check('foreground sharing on 443 is a conflict even without background configuration', (await alternate.inspect(4317)).state === 'conflict');
+  await alternate.enable(4317, 8443);
+  check('alternate port has its own exact HTTPS origin', (await alternate.inspect(4317, 8443)).origin === `${origin}:8443` && (await alternate.inspect(4317, 8443)).serving);
+  check('enabling 8443 preserves the foreign foreground service byte for byte', JSON.stringify(alternateConfig.Foreground.other) === JSON.stringify(foreground)
+    && alternateCalls[0]!.join(' ') === 'serve --bg --https=8443 http://127.0.0.1:4317');
+  alternateConfig.Web['ade-mobile.fixture.ts.net:8443']!.Handlers['/other'] = { Proxy: 'http://127.0.0.1:9999' };
+  const mutations = alternateCalls.length;
+  await alternate.disable(4317, 8443);
+  check('additional handler on the selected port blocks removal', alternateCalls.length === mutations && (await alternate.inspect(4317, 8443)).state === 'conflict');
+  delete alternateConfig.Web['ade-mobile.fixture.ts.net:8443']!.Handlers['/other'];
+  alternateConfig.AllowFunnel = { 'ade-mobile.fixture.ts.net:443': true };
+  check('alternate port never relaxes the Funnel prohibition', (await alternate.inspect(4317, 8443)).state === 'conflict');
+  check('Funnel explains why a different port cannot help', /Funnel/.test((await alternate.inspect(4317, 8443)).message) && /does not resolve this conflict|löst diesen Konflikt nicht/.test((await alternate.inspect(4317, 8443)).message));
+  delete alternateConfig.AllowFunnel;
+  await alternate.disable(4317, 8443);
+  check('disable removes only ADEs exact alternate port', alternateCalls.at(-1)!.join(' ') === 'serve --https=8443 off'
+    && !alternateConfig.TCP['8443'] && JSON.stringify(alternateConfig.Foreground.other) === JSON.stringify(foreground));
+  await alternate.enable(4317, 10000);
+  check('final positive alternative is usable after conflict controls', (await alternate.inspect(4317, 10000)).serving && (await alternate.inspect(4317, 10000)).origin === `${origin}:10000`);
   const positive = new RemoteDeviceStore(join(root, 'positive'), fixtureProtection);
   positive.enroll('positive', 'Final positive control', 'p'.repeat(43));
   check('final positive pairing persists after negative controls', new RemoteDeviceStore(join(root, 'positive'), fixtureProtection).activeDevices().length === 1);
@@ -201,9 +240,11 @@ void (async () => {
   const reserved = reservation.address(); if (!reserved || typeof reserved === 'string') throw new Error('no reserved port');
   const controllerPort = reserved.port; await new Promise<void>((done) => reservation.close(() => done()));
   let serving = false;
+  let servingHttpsPort = 443;
   const controllerTail = new TailscaleService(async (args) => {
     if (args[0] === 'status') return JSON.stringify({ BackendState: 'Running', Self: { DNSName: 'ade-mobile.fixture.ts.net.', Online: true } });
-    if (args[1] === 'status') return JSON.stringify(serving ? { TCP: { '443': { HTTPS: true } }, Web: { 'ade-mobile.fixture.ts.net:443': { Handlers: { '/': { Proxy: `http://127.0.0.1:${controllerPort}` } } } } } : {});
+    if (args[1] === 'status') return JSON.stringify(serving ? { TCP: { [servingHttpsPort]: { HTTPS: true } }, Web: { [`ade-mobile.fixture.ts.net:${servingHttpsPort}`]: { Handlers: { '/': { Proxy: `http://127.0.0.1:${controllerPort}` } } } } } : {});
+    servingHttpsPort = Number(args.find(arg => arg.startsWith('--https='))!.slice(8));
     serving = !args.includes('off'); return '';
   });
   let httpsVerified = false;
@@ -235,6 +276,21 @@ void (async () => {
     check('startup recovery retains the same paired identity', positive.activeDevices()[0]?.id === 'positive');
     check('disable stops listener and removes only its owned route', !(await controller.setEnabled(false)).enabled && !serving);
     check('opt-out survives vault reload', !new RemoteDeviceStore(join(root, 'positive'), fixtureProtection).mobilePreferences().enabled);
+    const alternativeStatus = await controller.setEnabled(true, 8443);
+    check('controller advertises and pairs the selected HTTPS port', alternativeStatus.listening && alternativeStatus.httpsPort === 8443
+      && alternativeStatus.url === `${origin}:8443` && (await controller.beginPairing()).url.startsWith(`${origin}:8443/#pair=`));
+    let changeRejected = false;
+    try { await controller.setEnabled(true, 10000); } catch { changeRejected = true; }
+    check('active port cannot change behind connected devices', changeRejected && (await controller.status()).listening && positive.mobilePreferences().httpsPort === 8443);
+    check('port selection is durable across vault reload', new RemoteDeviceStore(join(root, 'positive'), fixtureProtection).mobilePreferences().httpsPort === 8443);
+    await controller.dispose();
+    controller = new MobileAccessController(fixture.application, positive, assets, controllerTail, controllerPort, false, async () => httpsVerified, 25);
+    await controller.restore();
+    check('restart restores the exact alternate origin and probe', (await controller.status()).url === `${origin}:8443` && (await controller.status()).https === 'verified');
+    const alternatePage = await http('/', 'GET', '', { host: 'ade-mobile.fixture.ts.net:8443', origin: `${origin}:8443` }, controllerPort);
+    const wrongPort = await http('/', 'GET', '', { host: 'ade-mobile.fixture.ts.net:8443', origin }, controllerPort);
+    check('host accepts the selected origin and rejects the same hostname on 443', alternatePage.status === 200 && wrongPort.status === 403);
+    await controller.setEnabled(false);
     await controller.setEnabled(true);
     appendFileSync(positive.auditPath, '{torn');
     try { positive.audit({ at: Date.now(), principalId: 'desktop', principalKind: 'desktop', requestId: 'failed-audit', channel: 'pairing:begin', target: null, outcome: 'requested' }); } catch { /* Intended storage failure. */ }

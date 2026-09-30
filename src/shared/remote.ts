@@ -320,7 +320,13 @@ export interface MobileTerminalState {
   inputUncertain?: boolean;
 }
 /** Main-generated, redacted screen. Only allowlisted display sequences, never raw PTY output. */
-export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string }
+/** Validated OSC-8 destinations, separate from executable terminal escape sequences.
+ * Offsets refer to screen text; optional cells refer to this exact frame (zero based). */
+export interface MobileTerminalHyperlink {
+  text: string; href: string; local: boolean; start: number; end: number;
+  row?: number; col?: number; endCol?: number;
+}
+export interface MobileTerminalFrame { revision: string; cols: number; rows: number; ansi: string; hyperlinks?: MobileTerminalHyperlink[] }
 export type MobileTerminalQuery = MobileTerminalSelection & { terminalId?: string; options?: true; usage?: true; profileContext?: true; prompt?: true; knownDisplayRevision?: string };
 export type MobileTerminalCommand = MobileTerminalSelection & (
   | ({ operation: 'open'; expectedBranch?: string; profileId?: string } & SessionLaunchChoice)

@@ -4,7 +4,7 @@ import { useContext, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { MobileTerminalFrame } from '../shared/remote';
+import type { MobileTerminalFrame, MobileTerminalHyperlink } from '../shared/remote';
 import { TabletKeyboardContext } from './useTabletViewport';
 import { openTerminalKeyboard } from './terminalKeyboard';
 import '@xterm/xterm/css/xterm.css';
@@ -51,16 +51,28 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
   const lastFrame = useRef('');
   const measureRef = useRef<() => void>(() => undefined);
   const [history, setHistory] = useState<string | null>(null);
+  const historyLinks = useRef<MobileTerminalHyperlink[]>([]);
   const historyRef = useRef<HTMLPreElement>(null);
   const historyButton = useRef<HTMLButtonElement>(null);
   const linksButton = useRef<HTMLButtonElement>(null);
   const [linksOpen, setLinksOpen] = useState(false);
+  const [selectedLink, setSelectedLink] = useState<MobileTerminalHyperlink>();
+  const linkOpener = useRef<HTMLElement | null>(null);
+  const showEmbeddedLink = (link: MobileTerminalHyperlink) => {
+    linkOpener.current = document.activeElement instanceof HTMLElement && historyRef.current?.contains(document.activeElement)
+      ? document.activeElement : linksButton.current;
+    setSelectedLink(link); setLinksOpen(true);
+  };
+  const showLinks = () => { linkOpener.current = linksButton.current; setSelectedLink(undefined); setLinksOpen(true); };
   const openLink = (link: TerminalWebLink) => {
-    if (link.local) setLinksOpen(true);
+    if (link.local) showLinks();
     else window.open(link.href, '_blank', 'noopener,noreferrer');
   };
   const openLinkRef = useRef(openLink); openLinkRef.current = openLink;
   const transcriptRef = useRef(screen); transcriptRef.current = screen;
+  // Bind hit testing to the frame xterm has actually painted, never a newer response.
+  const paintedLinks = useRef<MobileTerminalHyperlink[]>([]);
+  const embeddedOpener = useRef(showEmbeddedLink); embeddedOpener.current = showEmbeddedLink;
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
   const activateAt = (x: number, y: number): boolean => {
@@ -70,13 +82,15 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
     const col = Math.floor((x - box.left) * term.cols / box.width);
     const line = row >= 0 && row < term.rows && col >= 0 && col < term.cols ? term.buffer.active.getLine(term.buffer.active.viewportY + row) : undefined;
     if (!line) return false;
+    const embedded = paintedLinks.current.find(link => link.row === row && col >= link.col! && col < link.endCol!);
+    if (embedded) { showEmbeddedLink(embedded); return true; }
     const offset = line.translateToString(false, 0, col).length;
     const link = terminalWebLinks(line.translateToString(true)).find(item => offset >= item.start && offset < item.end);
     if (!link) return false;
-    const full = completeTerminalLink(link, screen); if (full) openLink(full); else setLinksOpen(true);
+    const full = completeTerminalLink(link, screen); if (full) openLink(full); else showLinks();
     return true;
   };
-  const showHistory = () => setHistory(screen || translate("There is no terminal output yet."));
+  const showHistory = () => { historyLinks.current = frame.hyperlinks ?? []; setHistory(screen || translate("There is no terminal output yet.")); };
   const closeHistory = () => { setHistory(null); historyButton.current?.focus(); };
   useEffect(() => {
     if (history === null || !historyRef.current) return;
@@ -97,10 +111,14 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
         while (col < term.cols && chars < offset) { chars += line.getCell(col)?.getChars().length ?? 0; col++; }
         return col;
       };
-      done(terminalWebLinks(text).map(link => ({ text: link.text,
+      const embedded = paintedLinks.current.filter(link => link.row === row - 1);
+      done([...embedded.map(link => ({ text: link.text,
+        range: { start: { x: link.col! + 1, y: row }, end: { x: link.endCol!, y: row } },
+        activate: (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); embeddedOpener.current(link); },
+      })), ...terminalWebLinks(text).filter(link => !embedded.some(item => column(link.start) < item.endCol! && column(link.end) > item.col!)).map(link => ({ text: link.text,
         range: { start: { x: column(link.start) + 1, y: row }, end: { x: column(link.end), y: row } },
         activate: (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); const full = completeTerminalLink(link, transcriptRef.current); if (full) openLinkRef.current(full); },
-      })));
+      }))]);
     } });
     term.textarea?.setAttribute('aria-label', translate("Direct terminal input"));
     term.textarea?.setAttribute('autocapitalize', 'off');
@@ -135,7 +153,8 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
       // clear() preserves the keyboard modes and in-progress IME composition.
       term.clear();
     }
-    term.write(frame.ansi); lastFrame.current = frame.revision;
+    paintedLinks.current = [];
+    term.write(frame.ansi, () => { if (lastFrame.current === frame.revision) paintedLinks.current = frame.hyperlinks ?? []; }); lastFrame.current = frame.revision;
   }, [frame]);
   return <div className={`m-terminal-screen m-terminal-xterm m-terminal-history-host${toolContainer ? ' m-terminal-tools-slotted' : ''}`} aria-label={translate("Terminal display")}
     onKeyDownCapture={(event) => {
@@ -181,11 +200,12 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
       const tools = <>
         <button ref={historyButton} className="m-terminal-history-button" aria-expanded={history !== null}
           onClick={() => history === null ? showHistory() : closeHistory()}>{history === null ? translate("History") : translate("Back to live output")}</button>
-        <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); setLinksOpen(true); }}>{translate("Links")}</button>
+        <button ref={linksButton} className="m-terminal-links-button" onClick={(event) => { event.currentTarget.focus(); showLinks(); }}>{translate("Links")}</button>
       </>;
       return toolContainer ? createPortal(tools, toolContainer) : tools;
     })()}
-    {linksOpen && <TerminalLinksDialog text={history ?? screen} onClose={() => setLinksOpen(false)} opener={() => linksButton.current ?? historyButton.current} />}
+    {linksOpen && <TerminalLinksDialog text={history ?? screen} hyperlinks={history !== null ? historyLinks.current : frame.hyperlinks} selected={selectedLink}
+      onClose={() => setLinksOpen(false)} opener={() => linkOpener.current?.isConnected ? linkOpener.current : linksButton.current ?? historyButton.current} />}
     {replyPort && <ReplySpeechButton port={replyPort} active={active} buttonContainer={replyButtonContainer} label={replyButtonContainer ? translate("Listen") : translate("Listen to the reply")}
       sheetContainer={replySheetContainer} onOpenChange={onReplyOpenChange}
       fallbackFocus={() => historyButton.current} readSource={() => {
@@ -198,7 +218,7 @@ export function TerminalScreen({ frame, screen, enabled, active, onData, onSize,
       }} />}
     {history !== null && <div className="m-terminal-history-panel">
       <p>{translate("Saved text history · Display paused. Return to live output to continue typing.")}</p>
-      <pre ref={historyRef} tabIndex={0} aria-label={translate("Read the terminal history")}><LinkedTerminalText text={history} onLocal={() => setLinksOpen(true)} /></pre>
+      <pre ref={historyRef} tabIndex={0} aria-label={translate("Read the terminal history")}><LinkedTerminalText text={history} onLocal={showLinks} hyperlinks={historyLinks.current} onEmbedded={showEmbeddedLink} /></pre>
     </div>}
   </div>;
 }

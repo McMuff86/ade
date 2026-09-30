@@ -1,8 +1,9 @@
 import { t as translate } from "../../shared/i18n";
 import { createHash } from 'node:crypto';
 import { Terminal, type IBufferCell } from '@xterm/headless';
-import type { MobileTerminalFrame } from '../../shared/remote';
+import type { MobileTerminalFrame, MobileTerminalHyperlink } from '../../shared/remote';
 import { redactForWire } from '../errors';
+import { terminalHyperlinkReader } from './TerminalHyperlinks';
 
 const CSI = '\x1b[';
 const safeText = (text: string) => redactForWire(text, 256 * 1024).replace(/[\x00-\x1f\x7f-\x9f]/g, '');
@@ -102,8 +103,11 @@ export class RemoteTerminalDisplay {
     let cursor = { row: Math.min(rows - 1, buffer.cursorY), col: Math.min(cols - 1, buffer.cursorX) };
     const cursorLine = baseY + buffer.cursorY;
     const logical: string[] = []; const originals: string[] = [];
+    const hyperlinks: MobileTerminalHyperlink[] = [];
+    const readHyperlink = terminalHyperlinkReader(term);
+    let hyperlinkBytes = 0;
     const changed: Array<{ start: number; end: number; text: string; caret?: number }> = [];
-    let originalCaret = 0; let originalLength = 0;
+    let originalCaret = 0; let originalLength = 0; let safeLength = 0;
     for (let index = 0; index < buffer.length;) {
       const first = index; let original = ''; let caret: number | undefined;
       do {
@@ -119,8 +123,37 @@ export class RemoteTerminalDisplay {
         original += part; index++;
       } while (index < buffer.length && buffer.getLine(index)!.isWrapped);
       const safe = safeText(original); logical.push(safe); originals.push(original);
+      // Only unchanged logical lines can retain exact cell/text coordinates.
+      // A redacted line loses all embedded destinations, including innocent ones.
+      if (safe === original && hyperlinks.length < 100) {
+        let lineOffset = 0;
+        for (let y = first; y < index; y++) {
+          const line = buffer.getLine(y)!;
+          const part = line.translateToString(!buffer.getLine(y + 1)?.isWrapped);
+          let offset = 0; let current: MobileTerminalHyperlink | undefined;
+          for (let x = 0; x < line.length && offset < part.length; x++) {
+            const cell = line.getCell(x)!; if (!cell.getWidth()) continue;
+            const text = cell.getChars() || ' '; const target = readHyperlink(cell);
+            const start = safeLength + lineOffset + offset;
+            if (target && current?.href === target.href && current.end === start) {
+              current.text += text; current.end += text.length;
+              if (current.endCol !== undefined) current.endCol = Math.min(cols, x + cell.getWidth());
+            } else {
+              current = undefined;
+              if (target && hyperlinks.length < 100 && hyperlinkBytes + Buffer.byteLength(target.href) + 256 < 48 * 1024) {
+                current = { text, href: target.href, local: target.local, start, end: start + text.length,
+                  ...(y >= baseY && y < baseY + rows && x < cols ? { row: y - baseY, col: x, endCol: Math.min(cols, x + cell.getWidth()) } : {}) };
+                hyperlinkBytes += Buffer.byteLength(target.href) + 256; hyperlinks.push(current);
+              }
+            }
+            offset += text.length;
+          }
+          lineOffset += part.length;
+        }
+      }
       if (caret !== undefined) originalCaret = originalLength + caret;
       originalLength += original.length + 1;
+      safeLength += safe.length + 1;
       if (safe !== original && index > baseY && first < baseY + rows) {
         // Never reuse cells from a redacted logical line: they may contain secret fragments.
         changed.push({ start: Math.max(first, baseY), end: Math.min(index, baseY + rows), text: safe,
@@ -170,8 +203,17 @@ export class RemoteTerminalDisplay {
     ansi += `${CSI}0m${CSI}?7h${CSI}${cursor.row + 1};${cursor.col + 1}H`;
     for (const [mode, enabled] of [[1, modes.applicationCursorKeysMode], [66, modes.applicationKeypadMode],
       [2004, modes.bracketedPasteMode], [25, cursorVisible]] as const) ansi += `${CSI}?${mode}${enabled ? 'h' : 'l'}`;
-    const revision = createHash('sha256').update(ansi).digest('hex');
-    const value = { screen: fullText.slice(-64 * 1024).trimEnd(), frame: { cols, rows, ansi, revision } };
+    const screenOffset = Math.max(0, fullText.length - 64 * 1024);
+    const screen = fullText.slice(screenOffset).trimEnd();
+    let wireLinkBytes = 0;
+    const safeLinks = contextual ? [] : hyperlinks.filter(link => {
+      wireLinkBytes += Buffer.byteLength(JSON.stringify(link));
+      return wireLinkBytes <= 64 * 1024 && link.start >= screenOffset && link.end <= screenOffset + screen.length
+        && fullText.slice(link.start, link.end) === link.text;
+    })
+      .map(link => ({ ...link, start: link.start - screenOffset, end: link.end - screenOffset }));
+    const revision = createHash('sha256').update(ansi).update(JSON.stringify(safeLinks)).digest('hex');
+    const value = { screen, frame: { cols, rows, ansi, revision, ...(safeLinks.length ? { hyperlinks: safeLinks } : {}) } };
     this.cached = { version, value }; return value;
   }
 }

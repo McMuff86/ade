@@ -431,7 +431,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.RemoteDevicesRename, ({ deviceId, name }) => remoteDevices.rename(deviceId, name));
   handle(IPC.RemoteDevicesRevoke, ({ deviceId }) => remoteDevices.revoke(deviceId));
   handle(IPC.RemoteDevicesSetAdminScopes, ({ deviceId, scopes: grants, resourceAccess }) => remoteDevices.setAdminScopes(deviceId, grants, resourceAccess));
-  const restart = new HostRestartController(hostOperations, () => {
+  const restartBlockers = () => {
     const reasons: string[] = [];
     if (ptyManager?.list().some((session) => session.status === 'running')) reasons.push(translate("A terminal or agent process is running."));
     const queue = ptyManager?.queueStatus();
@@ -439,8 +439,15 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (store.get().runs.some((run) => run.status === 'running')) reasons.push(translate("A run is still active."));
     if (workspaceOperations.busy()) reasons.push(translate("A workspace is prepared or updated."));
     if (integrationService?.busy()) reasons.push(translate("An integration review is running."));
+    if (conversations?.query().some((conversation) => ['working', 'interrupting'].includes(conversation.status))) reasons.push(translate("A terminal or agent process is running."));
     return reasons;
-  }, () => {
+  };
+  activationQuit = () => {
+    if (restartBlockers().length) return false;
+    hostOperations.reserve();
+    return true;
+  };
+  const restart = new HostRestartController(hostOperations, restartBlockers, () => {
     // Keep the app's local arguments, without launcher-only instrumentation
     // (Playwright's loader otherwise holds the new ready event indefinitely).
     app.relaunch({ args: process.argv.slice(1) });
@@ -579,7 +586,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   mobileAccess = new MobileAccessController(application, remoteDevices, join(__dirname, '../mobile'), undefined,
     mobileListenerPort(process.env['ADE_MOBILE_PORT']), hostApiConfig.enabled);
   handle(IPC.MobileAccessStatus, () => mobileAccess!.status());
-  handle(IPC.MobileAccessSetEnabled, ({ enabled }) => mobileAccess!.setEnabled(enabled));
+  handle(IPC.MobileAccessSetEnabled, ({ enabled, httpsPort }) => mobileAccess!.setEnabled(enabled, httpsPort));
   handle(IPC.MobileAccessPair, () => mobileAccess!.beginPairing());
   handle(IPC.MobileAccessCancelPair, () => mobileAccess!.cancelPairing());
   void mobileAccess.restore().catch((error) => console.warn('[ade] mobile restore failed:', redactedErrorDetail(error)));
@@ -1356,6 +1363,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 }
 
 /** Kill every live pty — call on app quit so no orphan ConPTY lingers. */
+let activationQuit: (() => boolean) | null = null;
+/** Local activation only: reserve the same mutation fence as host restart. */
+export function reserveActivationQuit(): boolean {
+  try { return activationQuit?.() === true; }
+  catch { return false; }
+}
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 
 export async function disposePtyManager(): Promise<void> {

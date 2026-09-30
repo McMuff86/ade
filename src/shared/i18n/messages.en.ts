@@ -1,5 +1,12 @@
 /** App-owned English copy. Keys are readable source messages. */
 export const messagesEn = {
+  "ADE HTTPS port": "ADE HTTPS port",
+  "If another app uses 443, choose 8443 or 10000. Use the complete ADE address including its port on the tablet. Turn off mobile access before changing the port.": "If another app uses 443, choose 8443 or 10000. Use the complete ADE address including its port on the tablet. Turn off mobile access before changing the port.",
+  "Turn off mobile access before changing its HTTPS port.": "Turn off mobile access before changing its HTTPS port.",
+  "Tailscale HTTPS is not yet available. Check Tailscale permissions and HTTPS setup, then activate the connection again.": "Tailscale HTTPS is not yet available. Check Tailscale permissions and HTTPS setup, then activate the connection again.",
+  "Tailscale conflict: HTTPS port {{port}} is occupied. Choose another HTTPS port for ADE; existing shares are preserved.": "Tailscale conflict: HTTPS port {{port}} is occupied. Choose another HTTPS port for ADE; existing shares are preserved.",
+  "Tailscale Funnel is active. ADE requires private access on this host; changing the HTTPS port does not resolve this conflict. Existing shares are preserved.": "Tailscale Funnel is active. ADE requires private access on this host; changing the HTTPS port does not resolve this conflict. Existing shares are preserved.",
+
   "Work was submitted, but project coordination is not confirmed. Check the existing run; do not start it again.": "Work was submitted, but project coordination is not confirmed. Check the existing run; do not start it again.",
   "Permission mode: {{mode}}": "Permission mode: {{mode}}",
   "Also starts the first task described in PROJECT.md with this profile. Results and questions appear here.": "Also starts the first task described in PROJECT.md with this profile. Results and questions appear here.",

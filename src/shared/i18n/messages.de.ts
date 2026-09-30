@@ -1,6 +1,13 @@
 import type { messagesEn } from "./messages.en";
 /** German interface copy; user content is never a catalogue key. */
 export const messagesDe: Record<keyof typeof messagesEn, string> = {
+  "ADE HTTPS port": "ADE-HTTPS-Port",
+  "If another app uses 443, choose 8443 or 10000. Use the complete ADE address including its port on the tablet. Turn off mobile access before changing the port.": "Wenn eine andere App 443 verwendet, wähle 8443 oder 10000. Verwende am Tablet die vollständige ADE-Adresse inklusive Port. Zum Ändern des Ports zuerst den mobilen Zugriff ausschalten.",
+  "Turn off mobile access before changing its HTTPS port.": "Vor dem Ändern des HTTPS-Ports den mobilen Zugriff ausschalten.",
+  "Tailscale HTTPS is not yet available. Check Tailscale permissions and HTTPS setup, then activate the connection again.": "Tailscale-HTTPS ist noch nicht verfügbar. Tailscale-Berechtigungen und HTTPS-Einrichtung prüfen, dann erneut aktivieren.",
+  "Tailscale conflict: HTTPS port {{port}} is occupied. Choose another HTTPS port for ADE; existing shares are preserved.": "Tailscale-Konflikt: HTTPS-Port {{port}} ist belegt. Wähle einen anderen HTTPS-Port für ADE; bestehende Freigaben bleiben erhalten.",
+  "Tailscale Funnel is active. ADE requires private access on this host; changing the HTTPS port does not resolve this conflict. Existing shares are preserved.": "Tailscale Funnel ist aktiv. ADE benötigt privaten Zugriff auf diesem Rechner; ein anderer HTTPS-Port löst diesen Konflikt nicht. Bestehende Freigaben bleiben erhalten.",
+
   "Work was submitted, but project coordination is not confirmed. Check the existing run; do not start it again.": "Der Auftrag wurde übergeben, aber die Projektkoordination ist unbestätigt. Prüfe den vorhandenen Lauf; starte ihn nicht erneut.",
   "Permission mode: {{mode}}": "Berechtigungsmodus: {{mode}}",
   "Also starts the first task described in PROJECT.md with this profile. Results and questions appear here.": "Startet auch den in PROJECT.md beschriebenen Erstauftrag mit diesem Profil. Ergebnisse und Rückfragen erscheinen hier.",
