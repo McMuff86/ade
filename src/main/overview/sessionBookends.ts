@@ -3,7 +3,7 @@
  * Records are path-free: no workspaceDir, prompts or transcripts.
  */
 
-import type { SessionBookend, SessionBookendExitReason } from '../../shared/types';
+import type { SessionBookend, SessionBookendExitReason, SessionInterruptionCause } from '../../shared/types';
 
 export const SESSION_BOOKEND_LIMIT = 100;
 
@@ -34,12 +34,14 @@ export function interruptOrphanBookends(
   bookends: readonly SessionBookend[],
   liveSessionIds: ReadonlySet<string>,
   now: number,
+  /** Previous owner's end for a session started at `startedAt`; see hostLifecycle.ts. */
+  causeFor: (startedAt: number) => SessionInterruptionCause = () => 'unknown',
 ): SessionBookend[] {
   let changed = false;
   const next = bookends.map((bookend) => {
     if (bookend.endedAt !== null || liveSessionIds.has(bookend.id)) return bookend;
     changed = true;
-    return { ...bookend, endedAt: now, exitReason: 'interrupted' as const };
+    return { ...bookend, endedAt: now, exitReason: 'interrupted' as const, interruption: causeFor(bookend.startedAt) };
   });
   return changed ? next : (bookends as SessionBookend[]);
 }

@@ -41,7 +41,7 @@ export function attentionOverview(config: AdeConfig, runs: readonly RunSummary[]
     if (liveIds.has(bookend.id) || bookend.exitReason !== 'interrupted') continue;
     const repository = config.repositories.find(repo => repo.id === bookend.repositoryId);
     rows.push({ id: `history:${bookend.id}`, kind: 'history', group: 'interrupted', title: bookend.agentName,
-      project: bookend.repositoryName, reason: 'lost', pendingQuestions: 0,
+      project: bookend.repositoryName, reason: 'lost', pendingQuestions: 0, interruption: bookend.interruption ?? 'unknown',
       activityAt: bookend.endedAt, activityKind: 'state', target: repository ? { kind: 'project', id: repository.id } : null, actions: [] });
   }
   for (const project of briefing?.projects ?? []) {

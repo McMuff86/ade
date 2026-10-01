@@ -427,7 +427,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
     ['commandId', 'channel', 'createdAt', 'resultJson'], 'commandId');
   schema(config.sessionBookends, 'config.sessionBookends', [
     'id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName',
-    'startedAt', 'endedAt', 'exitReason', 'projectWorkspaceId', 'branch',
+    'startedAt', 'endedAt', 'exitReason', 'interruption', 'projectWorkspaceId', 'branch',
   ], ['id', 'agentName', 'runtime', 'repositoryId', 'repositoryName', 'startedAt', 'endedAt']);
 
   const text = (value: unknown, label: string, optional = false): void => {
@@ -609,6 +609,10 @@ export function validateCompleteConfig(config: AdeConfig): void {
     }
     if (bookend.exitReason !== undefined) {
       enumValue(bookend.exitReason, ['exit', 'cancelled', 'interrupted'], 'sessionBookend.exitReason');
+    }
+    if (bookend.interruption !== undefined) {
+      if (bookend.exitReason !== 'interrupted') throw new Error('sessionBookend.interruption requires an interrupted session.');
+      enumValue(bookend.interruption, ['app-quit', 'host-restart', 'app-crash', 'unknown'], 'sessionBookend.interruption');
     }
   }
 

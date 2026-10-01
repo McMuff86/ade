@@ -25,6 +25,7 @@ import { HostOperationService } from './settings/HostOperationService';
 import { LinuxLoginStartup, windowsLoginStartup } from './settings/loginStartup';
 import { homedir } from 'node:os';
 import { powerSaveBlocker } from 'electron';
+import { causeFor, HostLifecycle, LIFECYCLE_HEARTBEAT_MS, TASK_INTERRUPTION_REASON } from './overview/hostLifecycle';
 import { AgentBehaviorService } from './memory/AgentBehaviorService';
 import { RemoteSpeechService } from './application/RemoteSpeechService';
 import { DeviceResourceService } from './application/DeviceResourceService';
@@ -215,6 +216,12 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
+  // Classify how the previous owner ended before any recovery marks its work.
+  hostLifecycle = new HostLifecycle(join(app.getPath('userData'), 'ade', 'lifecycle.json'));
+  const previousEnd = hostLifecycle.previous;
+  if (previousEnd.cause !== 'app-quit') console.warn(`[ade] previous owner ended: ${previousEnd.cause}`);
+  lifecycleTimer = setInterval(() => hostLifecycle?.heartbeat(), LIFECYCLE_HEARTBEAT_MS);
+  lifecycleTimer.unref();
   const executable = process.platform === 'linux' && app.isPackaged && process.env['APPIMAGE'] ? process.env['APPIMAGE'] : process.execPath;
   const startupArgs = app.isPackaged ? [] : [app.getAppPath()];
   const startupAvailable = !process.env['ELECTRON_RENDERER_URL'] && !process.env['ADE_USER_DATA_DIR'] && !app.getAppPath().includes('test-results');
@@ -306,7 +313,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, orchestration.view());
     });
   }, new RunArchiveStore(join(app.getPath('userData'), 'ade', 'archive', 'runs')));
-  const recoveredTasks = orchestration.recoverInterruptedTasks();
+  const recoveredTasks = orchestration.recoverInterruptedTasks(TASK_INTERRUPTION_REASON[previousEnd.cause]);
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
   }
@@ -443,7 +450,8 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.AgentBehaviorSet, (input) => agentBehavior.update(input));
   const runtimeModels = new RuntimeModelService(harnessCredentials);
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
-  ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
+  ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions,
+    startedAt => causeFor(previousEnd, startedAt));
   ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
   const remoteProtection: import('./remote/RemoteDeviceStore').DeviceSecretProtection = {
@@ -1424,6 +1432,13 @@ export function reserveActivationQuit(): boolean {
 }
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
 let hostOperation: HostOperationService | null = null;
+let hostLifecycle: HostLifecycle | null = null;
+let lifecycleTimer: ReturnType<typeof setInterval> | null = null;
+/** Graceful quit only, after every PTY, task and listener has been stopped. */
+export function markCleanShutdown(): void {
+  if (lifecycleTimer) clearInterval(lifecycleTimer); lifecycleTimer = null;
+  hostLifecycle?.markClean(); hostLifecycle = null;
+}
 let hostOperationTimer: ReturnType<typeof setInterval> | null = null;
 export function keepDesktopInTray(): boolean { return hostOperation?.status().keepInTray === true; }
 

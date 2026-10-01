@@ -35,6 +35,7 @@ import type {
   RuntimeId,
   SessionBookend,
   SessionBookendExitReason,
+  SessionInterruptionCause,
   SessionMeta,
   TaskQueueStatus,
 } from '../../shared/types';
@@ -220,6 +221,8 @@ export class PtyManager {
     /** Main-only source of harness API-key env for the launching runtime. */
     private readonly harnessCredentials?: { envFor(runtime: RuntimeId): Record<string, string> },
     private readonly questions?: RunQuestionService,
+    /** How the previous profile owner ended, for sessions it left open. */
+    private readonly interruptionCause: (startedAt: number) => SessionInterruptionCause = () => 'unknown',
   ) {
     this.scopes = scopes ?? {
       resolve: async (agentId) => {
@@ -1021,7 +1024,7 @@ export class PtyManager {
   }
 
   private interruptOrphanBookends(): void {
-    this.persistBookends((bookends) => interruptOrphanBookends(bookends, new Set(), Date.now()));
+    this.persistBookends((bookends) => interruptOrphanBookends(bookends, new Set(), Date.now(), this.interruptionCause));
   }
 
   private recordInteractiveStart(meta: SessionMeta, agent: InteractiveLaunchSettings): void {

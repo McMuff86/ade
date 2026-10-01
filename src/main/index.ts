@@ -7,7 +7,7 @@ import { changeLocale, i18n } from '../shared/i18n';
 import { app, BrowserWindow, Menu, nativeImage, session, shell, Tray } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { registerIpcHandlers, disposePtyManager, mobileHostEnabled, keepDesktopInTray, reserveActivationQuit } from './ipc';
+import { registerIpcHandlers, disposePtyManager, markCleanShutdown, mobileHostEnabled, keepDesktopInTray, reserveActivationQuit } from './ipc';
 import { redactedErrorDetail } from './errors';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
@@ -238,6 +238,7 @@ app.on('before-quit', (event) => {
   hostTray?.destroy(); hostTray = null;
   // Finish the bounded numeric journal before Electron terminates its I/O.
   void disposePtyManager().catch(() => console.warn('[ade] usage shutdown incomplete.')).finally(() => {
+    markCleanShutdown();
     shutdownFinished = true; app.quit();
   });
 });

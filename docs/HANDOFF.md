@@ -1,5 +1,37 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.3: Neustart, Absturz und Prozessverlust unterscheiden (1. Oktober 2026, 23:11 CEST)
+
+ADE hält pro Profil einen privaten Lebenszyklus-Eintrag (`ade/lifecycle.json`:
+Boot-Kennung, Start, Minuten-Heartbeat, sauberes Ende). Beim Start wird vor
+jeder Recovery eingeordnet, wie der vorherige Eigentümer endete: **Rechner neu
+gestartet** (andere Boot-Kennung), **ADE beendet** (gleicher Boot, sauberes
+Ende nach Stopp aller PTYs), **ADE unerwartet beendet** (gleicher Boot, kein
+sauberes Ende) oder **unbekannt** (kein, defekter oder verlinkter Eintrag bzw.
+Sitzung ausserhalb des Zeitfensters, etwa aus einem Rollback-Build). Verwaiste
+Sitzungen tragen die Ursache als `interruption`, Aufgaben einen passenden
+Fehlergrund. Die Übersicht auf PC und Tablet nennt die Ursache und dass nichts
+wiederholt wurde; die Zeile hat keine Aktionen und öffnet nur das Projekt. Kein
+Resume, keine Eingabewiederholung, keine privilegierte Wiederholung.
+
+Nachweise: neues `test-host-lifecycle.ts` **24/0** (Klassifikation inkl.
+Boot-Zeit-Toleranz, Zeitfenster, defekter/verlinkter Eintrag, Store-Schema,
+Projektion ohne Pfade); `test-host-operation.ts` **54/0** (Mindestzahl von 50
+auf 54 angehoben; Wachhalten wird nach Ende, Opt-out, Fehler und Beenden
+freigegeben). Linux-Aktivierungstreiber **21/0** (vorher 15) im
+Disposable-Profil, zusätzlich: zweiter Start beendet sich ohne zweiten
+Profileigentümer; SIGKILL des Eigentümers mit offener Shell → kein sauberes
+Ende, Sitzung nicht live, Desktop und gekoppeltes Tablet zeigen „ADE wurde
+unerwartet beendet …“ bei erhaltener Kopplung; reguläres `--ade-quit` mit
+offener Shell → sauberes Ende und „ADE wurde beendet …“; der frühere Absturz
+behält seine Ursache. Vollständiges `pnpm verify` **23:11:28 CEST: 28 bestanden /
+0 Fehler / 16 nicht gemessen** (Windows-only), **106 Suiten / 4.531 Checks**.
+Archiv: `test-results/host-lifecycle-20261001/`.
+
+Nicht gemessen: echter Rechnerneustart (nur injizierte Boot-Kennung), native
+Windows-Ausführung (Boot-Zeit-Pfad), physische Anmeldung/Sperre und Tray.
+Nicht persönlich aktiviert; Aktivierung ausschliesslich über `pnpm activate`.
+
 ## Goal 34.4: Entscheidungen direkt in der Übersicht (1. Oktober 2026, 22:49 CEST)
 
 Die offenen 34.4-Punkte sind unter Linux umgesetzt. Jede Zeile von „Deine

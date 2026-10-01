@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Goal 34.3: unterbrochene Arbeit mit Ursache (1. Oktober 2026)
+
+Unterbrochene Sitzungen und Aufgaben nennen, wie ADE zuvor endete: Rechner neu
+gestartet, ADE beendet, ADE unerwartet beendet oder unbekannt. Nichts wird
+wiederholt oder fortgesetzt; Kopplungen bleiben erhalten. Doppelstart erzeugt
+keinen zweiten Profileigentümer. Linux: Lebenszyklus **24/0**, Betrieb **54/0**,
+Aktivierungstreiber **21/0**, Verify **28/0/16 nicht gemessen**, 106 Suiten /
+4.531 Checks. Echter Rechnerneustart, Windows und physische Anmeldung/Sperre
+offen. [Nachweis](HANDOFF.md).
+
 ## Physischer Push-Testempfang bestätigt (1. Oktober 2026)
 
 Benutzer bestätigt den Empfang der ADE-Testnachricht auf dem Android-Tablet.

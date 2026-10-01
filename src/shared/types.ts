@@ -213,6 +213,9 @@ export type SessionKind = 'interactive' | 'task';
 export type PtyExitReason = 'exit' | 'cancelled';
 /** Durable Overview journal reason. `interrupted` is a restart close, not a PTY exit. */
 export type SessionBookendExitReason = PtyExitReason | 'interrupted';
+/** Why an `interrupted` session stopped, from the previous owner's lifecycle record.
+ * `unknown` when no record covers the session. Evidence only; never a resume handle. */
+export type SessionInterruptionCause = 'app-quit' | 'host-restart' | 'app-crash' | 'unknown';
 
 /** Path-free interactive session bookend. Task PTYs are not recorded here. */
 export interface SessionBookend {
@@ -227,6 +230,8 @@ export interface SessionBookend {
   startedAt: number;
   endedAt: number | null;
   exitReason?: SessionBookendExitReason;
+  /** Only with `exitReason: 'interrupted'`. */
+  interruption?: SessionInterruptionCause;
 }
 
 /** The ADE-started foreground invocation, separate from its surviving PTY shell. */

@@ -55,6 +55,10 @@ fixtureCp.execFile = function(file, args, opts, cb) {
   check('failed gate leaves the running owner and build unchanged', badGate.includes('intended failing gate') && profileOwner(profile) === first.pid
     && readFileSync(join(root, 'out/main/index.js'), 'utf8') === readFileSync(entry, 'utf8'));
   check('initial activation runs its gate and reports the profile owner', gates === 1 && profileOwner(profile) === first.pid);
+  const duplicate = spawn(electron, [root], { env: options.env, stdio: 'ignore' });
+  const duplicateExit = await Promise.race([new Promise<'exited'>(done => duplicate.once('exit', () => done('exited'))), delay(15_000).then(() => 'running' as const)]);
+  if (duplicateExit === 'running') duplicate.kill('SIGKILL');
+  check('a second launch exits and never becomes a second profile owner', duplicateExit === 'exited' && profileOwner(profile) === first.pid);
   const connect = async () => {
     desktopBrowser = await chromium.connectOverCDP(`http://127.0.0.1:${debug}`);
     const page = desktopBrowser.contexts()[0]!.pages()[0]!;
@@ -109,6 +113,48 @@ fixtureCp.execFile = function(file, args, opts, cb) {
   page = await connect();
   await phone.reload(); await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   check('final positive control retains pairing and listener after automatic rollback', (await page.evaluate(() => window.ade.invoke('remoteDevices:list'))).devices.some(item => item.id === device));
+  // Process loss versus graceful quit: the restarted owner explains each lost
+  // shell by how its predecessor ended, and never resumes or replays it.
+  const lifecycle = () => JSON.parse(readFileSync(join(profile, 'ade/lifecycle.json'), 'utf8')) as { cleanAt: number | null };
+  const restart = async (end: () => Promise<void>) => {
+    const session = await page.evaluate(() => window.ade.invoke('session:launch', { terminalHome: true, mode: 'shell' }));
+    await disconnectDesktop(); await end();
+    for (let i = 0; i < 150 && profileOwner(profile); i++) await delay(100);
+    const ended = lifecycle().cleanAt;
+    const child = spawn(electron, [root], { env: options.env, detached: true, stdio: 'ignore' }); child.unref();
+    for (let i = 0; i < 300 && profileOwner(profile) !== child.pid; i++) await delay(100);
+    // The profile lock precedes the debugging endpoint; retry until the window is reachable.
+    for (let attempt = 0; ; attempt++) {
+      try { page = await connect(); break; } catch (error) { await disconnectDesktop(); if (attempt >= 100) throw error; await delay(300); }
+    }
+    const row = (await page.evaluate(() => window.ade.invoke('attention:get'))).rows.find(item => item.id === `history:${session.id}`);
+    const live = (await page.evaluate(() => window.ade.invoke('pty:list'))).sessions.some(item => item.id === session.id);
+    return { session, ended, row, live };
+  };
+  // A category leaves first-run onboarding so the desktop overview renders.
+  await page.evaluate(() => window.ade.invoke('category:create', { name: 'Recovery' }));
+  // Interrupted terminal history is visible only to a device allowed to control terminals.
+  await page.evaluate(deviceId => window.ade.invoke('remoteDevices:setAdminScopes', { deviceId, scopes: ['terminal:control', 'workspace:read'], resourceAccess: { mode: 'all' } }), device);
+  const crashed = await restart(async () => { process.kill(profileOwner(profile)!, 'SIGKILL'); });
+  check('killed owner leaves no clean mark and its shell is reported as an ADE crash, not as live', crashed.ended === null && !crashed.live
+    && crashed.row?.group === 'interrupted' && crashed.row.interruption === 'app-crash' && crashed.row.actions.length === 0);
+  await page.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+  await page.getByTestId('attention-panel').locator(`[data-attention-id="history:${crashed.session.id}"]`)
+    .getByText('ADE wurde unerwartet beendet; diese Sitzung endete damit. Es wurde nichts wiederholt.', { exact: true }).waitFor();
+  check('desktop names the unexpected stop and that nothing was replayed', true);
+  await phone.reload(); await phone.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  // Remote history ids are opaque per device, so the tablet row is found by its interrupted group.
+  await phone.getByTestId('attention-panel').locator('[data-attention-group="interrupted"]')
+    .getByText('ADE wurde unerwartet beendet; diese Sitzung endete damit. Es wurde nichts wiederholt.', { exact: true }).waitFor();
+  check('paired tablet keeps its pairing after the crash and shows the same interruption', true);
+  const quit = await restart(async () => {
+    const child = spawn(electron, [root, '--ade-quit'], { env: options.env, stdio: 'ignore' });
+    await new Promise<void>(done => child.once('exit', () => done()));
+  });
+  check('graceful quit with a live shell writes the clean mark and is reported as quit', typeof quit.ended === 'number' && !quit.live
+    && quit.row?.interruption === 'app-quit' && quit.row.group === 'interrupted');
+  check('the earlier crash keeps its own cause after the next restart',
+    (await page.evaluate(() => window.ade.invoke('attention:get'))).rows.find(item => item.id === `history:${crashed.session.id}`)?.interruption === 'app-crash');
 })().catch(error => { failed++; console.error(error); }).finally(async () => {
   await desktopBrowser?.close(); await phoneBrowser?.close(); await proxy?.close();
   if (profileOwner(profile)) {

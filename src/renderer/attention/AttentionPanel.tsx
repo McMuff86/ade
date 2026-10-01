@@ -14,6 +14,11 @@ const reasonLabel = (reason: AttentionRow['reason']) => ({ question: t('A confir
   cancelled: t('Work was cancelled.'), lost: t('The previous host lost this session. Nothing was replayed.'),
   unknown: t('No confirmed agent state. Silence does not mean completion.'), ended: t('The terminal ended; this does not prove task completion.'),
   handoff: t('An open handoff is waiting in the morning overview.') })[reason];
+/** Process loss is explained, never resumed: no input or privileged action was repeated. */
+const lostLabel = (cause: AttentionRow['interruption']) => cause === 'host-restart' ? t('The computer restarted; this session ended with it. Nothing was replayed.')
+  : cause === 'app-crash' ? t('ADE stopped unexpectedly; this session ended with it. Nothing was replayed.')
+    : cause === 'app-quit' ? t('ADE was quit; this session ended with it. Nothing was replayed.')
+      : t('The previous host lost this session. Nothing was replayed.');
 
 /** Same accessible decision surface on desktop and tablet. Navigation delegates
  * to existing detail views. Inline decisions use only the actions main reports for
@@ -72,7 +77,7 @@ export function AttentionPanel({ identity, online = true, query, onOpen, actions
           <h3>{groupLabel(group)} <span>{rows.length}</span></h3>
           <ul>{rows.map(row => <li key={row.id} data-attention-id={row.id}>
             <strong>{row.title}</strong>{row.project && <span>{row.project}</span>}
-            <p>{reasonLabel(row.reason)}{row.pendingQuestions > 0 ? ` (${row.pendingQuestions})` : ''}</p>
+            <p>{row.reason === 'lost' ? lostLabel(row.interruption) : reasonLabel(row.reason)}{row.pendingQuestions > 0 ? ` (${row.pendingQuestions})` : ''}</p>
             <small>{row.activityAt === null ? t('Last activity unknown') : `${row.activityKind === 'output' ? t('Last confirmed output') : row.activityKind === 'start' ? t('Session started') : t('Last confirmed state')}: ${formatRelativeTime(snapshot.observedAt, row.activityAt)}`}</small>
             <button type="button" disabled={!row.target || !!opening && opening !== row.id} aria-disabled={opening === row.id || undefined}
               aria-busy={opening === row.id || undefined} onClick={event => { event.currentTarget.focus(); void open(row); }} aria-label={t('Open work: {{title}}', { title: row.title })}>

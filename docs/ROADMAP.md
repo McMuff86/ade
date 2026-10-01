@@ -25,6 +25,10 @@ noch nicht aktiviert.
 34.4 abends ergänzt: Entscheidungen direkt in der Übersicht nach gemeldeten
 Fähigkeiten, Entwurfsbindung und höchstens einmalige Zustellprüfung; Verify
 **28/0/16 nicht gemessen**, **105 Suiten / 4.507 Checks**; noch nicht aktiviert.
+Stabilisierung 34.3 (abends): unterbrochene Arbeit nennt ihre Ursache (Rechner
+neu gestartet, ADE beendet, ADE unerwartet beendet, unbekannt), ohne Wiederholung;
+Doppelstart, Absturz und reguläres Beenden im Linux-Aktivierungstreiber **21/0**
+belegt, Verify **28/0/16 nicht gemessen**, **106 Suiten / 4.531 Checks**.
 34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)

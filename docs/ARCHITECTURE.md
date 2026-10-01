@@ -1952,7 +1952,8 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   and an empty usage rollup.
 - Interactive spawn/exit writes `AdeConfig.sessionBookends` (FIFO 100,
   path-free). Task PTYs do not. On PtyManager construct, open bookends whose
-  session is gone close as `interrupted`.
+  session is gone close as `interrupted` with an `interruption` cause from the
+  host lifecycle record (see "Previous owner end and interrupted work").
 - The view is event-driven (`orchestration:changed`, `pty:exit`,
   `pty:removed`). It does not poll `repository:overview`. Clicks set existing
   selection/run/session stores and switch to Terminals or Graph.
@@ -2619,6 +2620,33 @@ Windows uses Electron's login item API with a fixed executable and arguments,
 including its user-disabled startup status. Development servers, disposable
 profiles and verification builds cannot register login startup. No pre-login
 service, automatic session replay or remote wake is implemented.
+
+#### Previous owner end and interrupted work (Goal 34.3)
+
+`HostLifecycle` (`src/main/overview/hostLifecycle.ts`) keeps one private
+`userData/ade/lifecycle.json` per profile: boot identity, owner start, a
+60-second heartbeat and a clean mark. Startup classifies the previous owner
+before any recovery: a different boot (Linux `boot_id`; elsewhere boot time
+within five minutes) is `host-restart`; the same boot with a clean mark is
+`app-quit`; the same boot without one is `app-crash`; a missing, malformed,
+linked or incomparable record is `unknown`. The clean mark is written by the
+graceful `before-quit` path only after `disposePtyManager` has stopped PTYs,
+tasks and listeners, so tray quit, `--ade-quit` and activation quit all count.
+Record failures are logged without paths and degrade the next start to
+`unknown`; they never block startup.
+
+Orphaned interactive bookends receive the cause only if their `startedAt`
+falls inside the previous owner's window (start to clean mark, or last
+heartbeat plus two intervals); older records, for example from a rollback
+build, stay `unknown`. The store accepts `interruption` only on
+`exitReason: 'interrupted'` and only from the fixed enum. Tasks left active
+receive a cause-specific failure reason through `recoverInterruptedTasks`.
+`attentionOverview` carries the enum as `AttentionRow.interruption` on `lost`
+history rows; desktop and tablet name the cause and state that nothing was
+replayed. Such rows have no actions and open the project, never a PTY: no
+process continuity, input replay, privileged retry or native resume is
+claimed. The Electron single-instance lock remains the only profile owner;
+a second launch only raises the window or forwards the quit switches.
 
 The single profile owner requests Electron `prevent-app-suspension` while the
 local opt-in is enabled and a PTY, queued task, running run, conversation turn,

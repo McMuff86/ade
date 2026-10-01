@@ -148,18 +148,32 @@ Linux-XDG-Dateivertrag und injizierter Windows-Adapter fokussiert geprüft;
 physische Anmeldung/Sperre und native Windows-Abnahme bleiben offen. Die
 Checkboxen unten beschreiben weiterhin die vollständige Plattformabnahme.
 
+Stabilisierung am 1. Oktober (abends): ADE unterscheidet nun, wie der vorherige
+Profileigentümer endete (Rechner neu gestartet, ADE beendet, ADE unerwartet
+beendet, unbekannt), und zeigt das bei unterbrochenen Sitzungen auf PC und
+Tablet; Aufgaben erhalten den passenden Fehlergrund. Nichts wird wiederholt
+oder fortgesetzt. Der Linux-Aktivierungstreiber belegt zusätzlich Doppelstart,
+SIGKILL-Absturz und reguläres Beenden mit offener Shell, jeweils mit erhaltener
+Kopplung. [Nachweise](AGENT_SESSION_PLATFORM_RESULTS.md).
+
 - [ ] `pnpm activate` plattformgerecht erweitern: Gate, Profilbackup, reguläres
   Beenden, `out.prev`, Rollback und bestätigter Wiederanlauf unter Linux.
   Den bestehenden Windows-Weg als Regression prüfen. Aktive Arbeit blockiert
   eine unterbrechende Aktualisierung mit klarer Begründung.
+  *Linux im Disposable-Profil belegt (Treiber 21/0); Windows-Regression offen.*
 - [ ] Opt-in-Autostart nach Benutzeranmeldung und Tray-Wiederöffnung unter
   Hyprland und Windows prüfen; doppelter Start erzeugt keinen zweiten Profileigentümer.
+  *Doppelstart unter Linux belegt; physische Anmeldung/Tray und Windows offen.*
 - [ ] Optionales Wachhalten während aktiver Arbeit vorsehen. Bildschirmsperre
   bleibt möglich; Inhibitor wird nach Ende/Fehler freigegeben. Keine globale
   Abschaltung des normalen Ruhemodus.
-- [ ] App-Neustart, Host-Neustart und Prozessverlust unterscheiden. Unterbrochene
+  *Freigabe nach Ende, Opt-out, Fehler und Beenden fokussiert belegt (54/0);
+  physische Sperr-/Ruheprobe und Windows offen.*
+- [x] App-Neustart, Host-Neustart und Prozessverlust unterscheiden. Unterbrochene
   Arbeit explizit anzeigen, Kopplungen erhalten und keine unbekannte Eingabe
   oder privilegierte Aktion automatisch wiederholen.
+  *Linux: Absturz und Beenden in Electron/Tablet belegt, Rechnerneustart nur
+  mit injizierter Boot-Kennung (24/0); echter Neustart und Windows offen.*
 
 **Abnahme:** Disposable-Profile belegen Update, fehlgeschlagenen Start mit
 Rollback, aktive Arbeit als Neustartblocker und erhaltenes Pairing auf beiden

@@ -813,6 +813,11 @@ mutations require idempotency keys and audit. Activation instructions:
   Opening a row selects the existing session, question/report or morning
   handoff; it does not create work or take input ownership. Lost sessions after
   restart offer their project when it still exists, never a fabricated resume.
+  They name how the previous ADE ended: computer restarted, ADE quit, ADE
+  stopped unexpectedly, or unknown when no lifecycle record covers the session;
+  each states that nothing was replayed. Interrupted tasks get the matching
+  failure reason. A second ADE launch on the same profile never becomes a
+  second owner.
   Only device-authorized work appears remotely. Offline/failed reads remove
   stale actions; refresh retries only the read. Existing detail capabilities
   and host/session/question-bound draft rules remain authoritative.

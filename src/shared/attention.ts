@@ -22,6 +22,8 @@ export interface AttentionRow {
   activityKind: 'state' | 'output' | 'start';
   reason: 'question' | 'approval' | 'run-active' | 'process-active' | 'completed' | 'failed' | 'cancelled' | 'lost' | 'unknown' | 'ended' | 'handoff';
   pendingQuestions: number;
+  /** Only for `reason: 'lost'`: how the previous ADE owner ended. Process loss is never a resumable session. */
+  interruption?: 'app-quit' | 'host-restart' | 'app-crash' | 'unknown';
   target: AttentionTarget | null;
   actions: AttentionAction[];
 }
