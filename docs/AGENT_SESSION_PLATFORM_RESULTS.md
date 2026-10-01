@@ -1,5 +1,55 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
+## Goals 34.3–34.5 persönlich aktiviert (1. Oktober 2026, 10:36 CEST)
+
+**ADE kann jetzt neu geöffnet und das Tablet wieder verwendet werden. Keine
+neue Kopplung nötig.** Zugang: **https://omarchy.tailfc0b86.ts.net:8443**.
+Für den neuen Service Worker alle ADE-Ansichten auf dem Tablet einmal schliessen
+und neu öffnen. Danach unter **Einstellungen → Mobile Benachrichtigungen** die
+gewünschten Kategorien einschalten, die Browser-Berechtigung erlauben und
+**Testnachricht senden**. Der tatsächliche Empfang bei geschlossener ADE-Ansicht
+muss am physischen Tablet bestätigt werden; bisher kein Gerätebeleg dafür.
+
+Produktcommits sind auf `main` gepusht: **`b1d80bd`** Betrieb/Start,
+**`56b689f`** Entscheidungseinstieg und **`cfd668c`** gerätebezogenes Push.
+ADE bleibt ein eigener nativer Linux-/Windows-Host; OpenClaw ist unabhängig.
+
+- Aktivierung **10:35:46 CEST** über `pnpm activate -- -Label Goals343-345`:
+  Gate **14 bestanden / 0 Fehler / 1 Windows-Schritt nicht gemessen**, darin
+  **105 Suiten / 4.477 Checks**, drei Typechecks, isolierte Builds, Push-Browser
+  **19/0** und Linux-Aktivierung **15/0**. Vollständiger Produktlauf separat:
+  **10:32:37 CEST, 28/0/16 nicht gemessen**. Kein Gate wurde übersprungen.
+- Alter Host **2666350** regulär beendet, neuer Host **3264791** bestätigt bereit;
+  er besitzt **127.0.0.1:4317**. Main-SHA-Präfix **ccfdfa66a8a803e01a2c**.
+  Keine laufende Agent-/Terminal-Arbeit beendet; Sitzungsschutz geprüft.
+- Backup vor und nach Quit:
+  `/home/mcmuff/ADE-Backups/Activate-Goals343-345-2026-10-01T08-35-45-240Z/`.
+  Geräte-Vault in beiden Backups hashgleich zum vorherigen Profil.
+  `out.prev/main/index.js` exakt gleich dem bisherigen persönlichen Build.
+  Rollback bei Bedarf über `pnpm activate -- -Rollback` mit demselben Schutz;
+  keine automatische Rücksetzung der Nutzerdaten.
+- Echte HTTPS-Probe **10:36:04 CEST**: HTML und **21 JS-/CSS-/Worker-/Manifest-/
+  Icon-Dateien** jeweils **200 mit regulärer Zertifikatsprüfung**, bytegleich
+  zum aktivierten `out/mobile`. Beim HTML nur das zufällige Nonce-Metatag entfernt.
+  Der ausgelieferte Worker enthält den neuen Push-Vertrag.
+- Vollständige Tailscale-Serve-Konfiguration strukturell unverändert, Geräte-
+  Vault bytegleich, neue Push-Datei ausschliesslich mit verschlüsseltem Inhalt.
+  **OpenClaw auf :443 weiterhin HTTPS 200**, andere Serve-Routen unberührt.
+  Autostart/Wachhalten bleiben persönliche Opt-ins; keine Gerätebenachrichtigung
+  ohne Auswahl am betreffenden Browser eingeschaltet.
+
+Belege: `test-results/goals343-345-activation-20261001/` mit Aktivierungslog,
+Gatebericht, Vorzustand, Serve-Konfiguration vor/nach Aktivierung und ausführbarem
+HTTPS-Prüfskript samt `https-result.json`. Entwicklungsnachweise der drei
+Lieferungen stehen in den darunter dokumentierten Archiven.
+
+**Weiter offen:** tatsächliches Tablet-Modell/Android-/Chrome-Version und
+Installationsart, physischer Push-Empfang, neue Windows-/Anmeldung-/Sperrproben
+und getrennte native Adapterabnahmen. Push gilt für bestätigte ADE-Aufgaben/
+Runs, nicht für aus Terminaltext vermutete interaktive CLI-Zustände. Provider-
+Annahme allein ist keine Zustellbestätigung. Nach diesen gezielten Abnahmen
+folgt als eigenes Vorhaben Goal **34.6** (unabhängiger Host).
+
 ## Goal 34.5: gerätebezogenes Web Push implementiert und geprüft (1. Oktober, 10:32 CEST)
 
 Mobile Einstellungen bieten jetzt Opt-in für bestätigte ADE-Aufgaben-/Run-

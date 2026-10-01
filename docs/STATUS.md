@@ -8,8 +8,10 @@ für bestätigte ADE-Aufgaben-/Run-Ereignisse implementiert. Android Chrome/Goog
 ist der erste Transport; keine automatische Interpretation interaktiver CLIs.
 Verträge **56/0**, Chromium-/HTTPS-Ablauf mit simuliertem Push-Dienst **19/0**,
 Mobile-Protokoll **114/0**. Vollständiges Verify **10:32:37 CEST: 28/0/16 nicht
-gemessen**, **105 Suiten / 4.477 Checks**. Noch nicht persönlich aktiviert;
-physischer Tablet-Empfang und neue native Windows-Abnahme offen.
+gemessen**, **105 Suiten / 4.477 Checks**. Persönlich aktiviert um **10:35:46 CEST** über `pnpm activate`, Gate **14/0/1
+nicht gemessen**; echtes HTTPS auf **:8443**, HTML und 21 passende Dateien geprüft.
+Kopplung und Serve-Konfiguration erhalten, OpenClaw :443 weiter HTTPS 200.
+Physischer Tablet-Empfang und neue native Windows-Abnahme offen.
 [Nachweise, Erstlauffehler und Grenzen](HANDOFF.md).
 
 ## Goal 34.4: Entscheidungen auf Desktop und Tablet (1. Oktober 2026)
@@ -19,8 +21,8 @@ Prozessverlust und Morgenübergaben implementiert. Direkte Detailnavigation,
 aktuelle Gerätefreigaben, Tastatur/Fokus, Offline-/Fehlerzustände geprüft.
 Zusätzlich tatsächlichen Fokusfehler beim Fortsetzen eines Gesprächs behoben.
 Vollständiges Verify **10:06:08 CEST: 27/0/16 nicht gemessen**, **104 Suiten /
-4.417 Checks**. Noch keine persönliche Aktivierung oder neue physische
-Android-/Windows-Abnahme. [Belege und Grenzen](HANDOFF.md).
+4.417 Checks**. Zusammen mit 34.3/34.5 um **10:35:46 CEST** persönlich aktiviert;
+keine neue physische Android-/Windows-Abnahme. [Belege und Grenzen](HANDOFF.md).
 
 ## Goal 34.3: Betrieb und Start (1. Oktober 2026)
 
@@ -33,7 +35,8 @@ physische Anmeldung/Sperre und Tablet-Hintergrundzustellung bleiben offen.
 
 `pnpm verify` **1. Oktober, 09:23:52 CEST**: **27/0/16 nicht gemessen**,
 **103 Suiten / 4.381 Checks**, drei Typechecks und isolierte Builds. Archiv:
-`test-results/goal343-operation-20261001/`. Noch nicht persönlich aktiviert.
+`test-results/goal343-operation-20261001/`. Zusammen mit 34.4/34.5 persönlich
+aktiviert am 1. Oktober um **10:35:46 CEST**.
 Auftrag bis möglichst 34.5 läuft weiter; [Betriebsdetails und Grenzen](HANDOFF.md).
 
 ## Goal 34.2: native Linux-Prompts und Agent-Profile (30. September 2026, spätabends)

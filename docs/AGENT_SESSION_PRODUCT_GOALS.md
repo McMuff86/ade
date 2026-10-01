@@ -175,8 +175,8 @@ Morgenübergaben; aktuelle Gerätefreigaben begrenzen die Tablet-Projektion.
 Verify **27/0/16 nicht gemessen**, **104 Suiten / 4.417 Checks**. Projektion
 **28/0**, Sitzungsnavigation **95/0**, Agent-/Tablet **40/0** mit Tastatur,
 Fokus, leerer Liste, Fehler, Offline und schmaler Ansicht. Detailaktionen nutzen
-bestehende Frage-/Sitzungs-/Lease-Verträge. Noch keine persönliche Aktivierung
-oder neue reale Codex-Rückfrage-/Android-Abnahme. [Belege](HANDOFF.md).
+bestehende Frage-/Sitzungs-/Lease-Verträge. Persönlich aktiviert am 1. Oktober um **10:35:46 CEST**; keine neue reale
+Codex-Rückfrage-/Android-Abnahme. [Belege](HANDOFF.md).
 
 - [x] Bestehende Arbeitsübersicht, Rückfragen und Morgenüberblick zusammenführen:
   „Braucht dich“, „Arbeitet“, „Bereit zur Prüfung“ und „Unterbrochen“.
@@ -208,7 +208,8 @@ ersetztem Browser-Abonnement und Push-Provider. Vollständiges Verify am
 Android Chrome/Google ist der erste Transport; interaktive CLI-Ereignisse und
 andere Push-Dienste sind nicht daraus abgeleitet. Die konkrete Tablet-/Chrome-
 Version und Installation bleiben angefragt, physische Hintergrundzustellung
-und neue native Windows-Abnahme offen. Noch nicht persönlich aktiviert.
+und neue native Windows-Abnahme offen. Persönlich aktiviert um **10:35:46 CEST**, HTTPS und unveränderte Kopplung
+geprüft. [Betriebsnachweis](HANDOFF.md).
 
 - [ ] Für das tatsächliche Tablet die Voraussetzungen für Web Push prüfen;
   Berechtigungs-/Installationsablauf und erreichbaren Zustellweg dokumentieren.

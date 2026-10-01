@@ -3,8 +3,10 @@
 Fortführung am **1. Oktober 2026** bis möglichst **34.5** beauftragt.
 34.3 ergänzt nun lokale Opt-ins für Autostart, Tray und Wachhalten; Linux-Vertrag
 **54/0**, Electron-/Tablet **92/0**, Agent-/Tablet **33/0**. Vollständiges Verify
-**27/0/16 nicht gemessen**, **103 Suiten / 4.381 Checks**. Noch keine neue
-persönliche Aktivierung; physische Anmeldung/Sperre und Windows-Abnahme offen.
+**27/0/16 nicht gemessen**, **103 Suiten / 4.381 Checks**. Persönliche Aktivierung von 34.3–34.5 über `pnpm activate` am 1. Oktober
+um **10:35:46 CEST**, echtes HTTPS :8443 mit 21 passenden Dateien, Pairing
+erhalten und OpenClaw :443 unverändert. Physische Anmeldung/Sperre und
+Windows-Abnahme offen.
 34.4 Entscheidungseinstieg ist implementiert und vollständig geprüft: Verify
 **27/0/16 nicht gemessen**, **104 Suiten / 4.417 Checks**, Sitzungsnavigation
 **95/0**, Agent-/Tablet **40/0**. Physische Abnahmen bleiben gesondert offen.
