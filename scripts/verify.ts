@@ -98,7 +98,7 @@ if (GATE && ONLY) {
  * The drivers of the gate cover the main desktop and tablet paths in a few
  * minutes; everything else waits for the full run.
  */
-const GATE_DRIVERS = new Set(['electron-workflow', 'mobile-browser', 'mobile-electron', 'remote-terminal-electron:tablet-layout',
+const GATE_DRIVERS = new Set(['electron-workflow', 'mobile-browser', 'web-push-browser', 'mobile-electron', 'remote-terminal-electron:tablet-layout',
   'organizer-electron', 'work-electron', 'activation-linux', 'remote-terminal-electron:session-navigation']);
 
 function positiveInteger(value: string | undefined): number | undefined {
@@ -166,6 +166,7 @@ const STEPS: Step[] = [
   driver('electron-workflow', 'test-electron-workflow.ts'),
   driver('git-sync-electron', 'test-git-sync-electron.ts'),
   driver('mobile-browser', 'test-mobile-browser.ts'),
+  driver('web-push-browser', 'test-web-push-browser.ts'),
   driver('mobile-electron', 'test-mobile-electron.ts'),
   driver('remote-restart-electron', 'test-remote-restart-electron.ts', windowsOnly('remote relaunch is measured on native Windows')),
   driver('remote-workspace-browser', 'test-remote-workspace-browser.ts'),

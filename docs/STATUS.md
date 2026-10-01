@@ -1,5 +1,17 @@
 # ADE implementation status
 
+## Goal 34.5: erste mobile Push-Lieferung (1. Oktober 2026)
+
+Geräte-Opt-in, Kategorien, Test, verschlüsselte Abonnements/VAPID, neutrale
+Meldungen, Widerruf, Duplikatbegrenzung und erneut autorisierte Detailnavigation
+für bestätigte ADE-Aufgaben-/Run-Ereignisse implementiert. Android Chrome/Google
+ist der erste Transport; keine automatische Interpretation interaktiver CLIs.
+Verträge **56/0**, Chromium-/HTTPS-Ablauf mit simuliertem Push-Dienst **19/0**,
+Mobile-Protokoll **114/0**. Vollständiges Verify **10:32:37 CEST: 28/0/16 nicht
+gemessen**, **105 Suiten / 4.477 Checks**. Noch nicht persönlich aktiviert;
+physischer Tablet-Empfang und neue native Windows-Abnahme offen.
+[Nachweise, Erstlauffehler und Grenzen](HANDOFF.md).
+
 ## Goal 34.4: Entscheidungen auf Desktop und Tablet (1. Oktober 2026)
 
 Gemeinsame Übersicht mit bestätigten Fragen, Ergebnissen, CLI-Zuständen,

@@ -97,6 +97,8 @@ import { validAssignmentRequest } from '../../shared/workspaceAssignments';
 import type { WorkspaceAssignmentResult } from '../../shared/remote';
 import type { IntegrationResult } from '../../shared/remote';
 import type { IntegrationService } from '../repositories/IntegrationService';
+import type { WebPushService } from '../notifications/WebPushService';
+import { validPushCommand } from '../notifications/pushValidation';
 import { validIntegrationCommand, validIntegrationQuery } from '../../shared/integrationRequests';
 
 export interface ApplicationConfigPort {
@@ -149,6 +151,7 @@ export interface RemoteAuditEntry {
 }
 
 export interface ApplicationOptions {
+  notifications?: WebPushService;
   organizer?: OrganizerService;
   /** Non-mutating CLI/auth probes for the configured agents (the desktop `runtime:diagnose` handler without a session). */
   diagnostics?: (agentId?: string) => Promise<RuntimeDiagnosticsResult> | RuntimeDiagnosticsResult;
@@ -1087,6 +1090,25 @@ export class AdeApplicationService {
     ledger.permits({ principal, idempotencyKey: undefined, requestId: 'terminal-inventory' }, 'terminal:control');
     try { return await terminals.inventory(principal.id); }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  notificationStatus(principal: RemotePrincipal): import('../../shared/remote').MobilePushStatus {
+    if (principal.kind !== 'device' || principal.proof !== 'device-signature' || !principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+    if (!this.options.notifications || !this.options.deviceActive) throw new RemoteApiError(503, 'unavailable');
+    if (!this.options.deviceActive(principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    return this.options.notifications.status(principal.id);
+  }
+
+  async notificationCommand(context: RemoteCommandContext, payload: unknown): Promise<import('../../shared/remote').MobilePushStatus> {
+    if (!validPushCommand(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const ledger = this.options.administration?.ledger;
+    if (!ledger || !this.options.notifications) throw new RemoteApiError(503, 'unavailable');
+    const result = await ledger.execute(context, 'notification:command', 'runs:write', payload, () => {
+      const execute = () => this.options.notifications!.command(context.principal.id, payload);
+      return this.options.activity ? this.options.activity.use(execute) : execute();
+    });
+    ledger.permits(context, 'runs:write');
+    return result.value;
   }
 
   async attention(principal: RemotePrincipal): Promise<MobileAttentionSnapshot> {

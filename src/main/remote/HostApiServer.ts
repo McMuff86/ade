@@ -75,14 +75,14 @@ type Route =
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
   | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
-  | { kind: 'terminalSessions' | 'attention' }
+  | { kind: 'terminalSessions' | 'attention' | 'notificationStatus' | 'notificationCommand' }
   | { kind: 'supervisionQuery' | 'supervisionCommand' }
   | { kind: 'conversationQuery' | 'conversationCommand' | 'conversationDictation' | 'conversationActionsQuery' | 'conversationActionsCommand' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -165,6 +165,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
     case '/api/v1/terminal/query': return { route: { kind: 'terminalQuery' }, allow: ['POST'] };
     case '/api/v1/terminal/sessions': return { route: { kind: 'terminalSessions' }, allow: ['GET'] };
+    case '/api/v1/notifications': return { route: { kind: 'notificationStatus' }, allow: ['GET'] };
+    case '/api/v1/notifications/command': return { route: { kind: 'notificationCommand' }, allow: ['POST'] };
     case '/api/v1/attention': return { route: { kind: 'attention' }, allow: ['GET'] };
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
@@ -431,7 +433,7 @@ export class HostApiServer {
       }
       let readPrincipal = bearer;
       if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions'
-        || ['runActivity', 'runFiles', 'runFile', 'runQuestions', 'attention'].includes(matched.route.kind))) {
+        || ['runActivity', 'runFiles', 'runFile', 'runQuestions', 'attention', 'notificationStatus'].includes(matched.route.kind))) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -469,6 +471,8 @@ export class HostApiServer {
           writeJson(response, 200, this.application.hostState(readPrincipal!)); return;
         case 'terminalSessions':
           writeJson(response, 200, await this.application.remoteSessionInventory(readPrincipal!)); return;
+        case 'notificationStatus':
+          writeJson(response, 200, this.application.notificationStatus(readPrincipal!)); return;
         case 'attention':
           writeJson(response, 200, await this.application.attention(readPrincipal!)); return;
         case 'runActivity':
@@ -491,6 +495,7 @@ export class HostApiServer {
         }
         case 'restartHost':
           await this.handleCommand(request, response, requestId, bearer, target.path, 'restartHost', undefined, browserRequest); return;
+        case 'notificationCommand':
         case 'administer':
         case 'projectQuery':
         case 'projectCommand':
@@ -640,6 +645,7 @@ export class HostApiServer {
 
     try {
       const result = kind === 'deleteRun' ? await this.application.deleteRun(context, runId!)
+        : kind === 'notificationCommand' ? await this.application.notificationCommand(context, payload)
         : kind === 'diagnosticsQuery' ? await this.application.diagnostics(context, payload)
         : kind === 'usageOverview' ? await this.application.usageOverview(context, payload)
         : kind === 'usageProjects' ? this.application.usageProjects(context, payload)

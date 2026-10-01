@@ -1,3 +1,4 @@
+import { PUSH_WORKER } from './build/pushWorker';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { createHash } from 'node:crypto';
@@ -31,6 +32,7 @@ self.addEventListener('fetch', event => {
     return response;
   }).catch(() => caches.open(CACHE).then(cache => cache.match(url.pathname)).then(response => response || Response.error())));
 });
+${PUSH_WORKER}
 ` });
     },
   }],

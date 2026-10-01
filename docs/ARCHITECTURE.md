@@ -2494,6 +2494,68 @@ their authorization, input leases, question bindings and drafts. It does not
 answer, claim input, restart work or offer a universal pause. Desktop question
 details preserve opener focus while loading, with a fallback after row removal.
 
+Goal 34.5 adds optional, per-device Web Push for **confirmed ADE-managed run
+questions, errors and final results**. This includes single-task submissions:
+`task.completed` is eligible only when the current run is completed; a completed
+intermediate task in a multi-phase run is not a finished result. Interactive
+terminal output/normal CLI exits are not inferred as questions or success, and
+interactive-session push is not yet supported.
+
+`GET /api/v1/notifications` requires a current signed device/read principal.
+`POST /api/v1/notifications/command` is a strict enable/disable/test contract in
+`shared/remote.ts`, through `AdeApplicationService` only. Mutations use the
+existing `runs:write` device grant, browser CSRF, durable idempotency/audit and
+host operation gate. There is no caller-supplied device ID and no new shared
+IPC mutation or extension of `REMOTE_COMMAND_CHANNELS`. Receipts retain only
+fingerprints and public status, never subscription secrets.
+
+`PushStore` keeps one browser subscription per device (and one device per
+endpoint), VAPID key pair, locale, category preferences, delivery cursor and
+bounded dedup records in **OS-encrypted `ade/remote/push.json`**, separate from
+AdeConfig and exports. Unavailable secure storage or damaged state disables
+push without altering work. Writes use private temporary files, fsync/rename,
+link rejection and a 512 KiB bound. Native Windows uses the existing safeStorage
+boundary; this Linux delivery does not establish native Windows runtime proof.
+
+`WebPushService` observes the journal without modifying it. Opt-in starts at
+the current cursor; events older than five minutes are not sent. Each page has
+at most 100 journal records, at most five notices per device, and up to 100
+recent category/run digests. Equal category/run notices coalesce for 30 seconds.
+The cursor/dedup reservation is durable **before** the outbound attempt;
+ambiguous delivery is not automatically retried, including after restart.
+Journal changes trigger observation; a two-second timer drains pending pages.
+Current device and resource grants are checked before each request. Revocation
+aborts in-flight requests and deletes the subscription; grant changes invalidate
+the pending batch while retaining opt-in. An already accepted provider message
+cannot be recalled. Notification clicks independently reauthorize the target.
+
+The first transport supports Android Chrome's HTTPS `fcm.googleapis.com`
+`/fcm/send/…` and `/wp/…` endpoints only: no arbitrary host/port, redirects,
+credentials, query/fragment or invalid browser keys. `web-push` implements VAPID
+and RFC 8291 encryption; HTTPS requests have a ten-second bound and five-minute
+TTL. VAPID keys are generated locally; no Firebase API key/account or ElevenLabs
+key is needed. Provider response bodies/endpoints never enter diagnostics.
+201/202 means **provider accepted**, never proof of tablet delivery; 404/410
+removes the unusable subscription. Explicit test requests have a persisted
+30-second cooldown. Push failure never changes a run or replays input.
+
+The public-shell worker displays only static neutral ADE text plus a bounded
+opaque run navigation hint. It accepts no supplied title/body/path/action URL.
+Click navigation remains same-origin, clears the hash on page entry and reads
+the currently authorized runs before opening an existing detail; it never
+submits work. API data/credentials stay out of its offline cache. Push settings
+are device-local opt-in with category choice, permission/unsupported/offline
+states, status reload and an explicit test. Permission is requested in the user
+gesture; the worker capability handshake rejects an obsolete active worker
+until all ADE views are closed and reopened. The worker source participates in
+the shared desktop/mobile build fingerprint.
+
+Sources: [web-push protocol/library](https://github.com/web-push-libs/web-push),
+[PushManager.subscribe](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe).
+Physical Android model, Chrome version, permissions, installation state and
+closed-view receipt remain separately measured operator acceptance; Chromium
+fixtures and provider acceptance cannot substitute for that evidence.
+
 With mobile access enabled, closing the desktop window hides it only after a
 tray icon is available. The tray can reopen ADE or explicitly quit, which stops
 listeners and PTYs. If the tray is unavailable, closing retains normal app exit

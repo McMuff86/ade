@@ -1,3 +1,5 @@
+import { PushSettings } from './PushSettings';
+import { NotificationOpen } from './NotificationOpen';
 import { localizeAppMessage } from '../shared/i18n/appMessages';
 import { intlLocale } from '../shared/i18n';
 import { t as translate } from "../shared/i18n";
@@ -181,6 +183,7 @@ function MobileApp(): JSX.Element {
   return <SupervisionContext.Provider value={repositoryId => setSupervision({ repositoryId })}><SessionNavigationContext.Provider value={() => setSwitcherOpen(true)}><TabletKeyboardContext.Provider value={keyboardOpen}><div className="m-app" onKeyDown={(event) => {
     if (event.key === 'Escape' && selected && !composer && !settings && !management && !compact) { event.preventDefault(); clearSelection(); }
   }}>
+    <NotificationOpen host={host} onRun={id => { setProjectFilter(''); setAgentFilter(''); setGraphRunId(id); setView('graph'); select(id); }} />
     <header className="m-titlebar"><button className="m-logo" id="mobile-title" onClick={() => navigate('overview')} aria-label={translate("ADE Overview")}>ade<span>_</span></button>
       {host.paired && <AppNav className="m-appnav" current={view} onSelect={navigate} idPrefix="view-tab" controls="mobile-view-panel" conversations={{ id: 'mobile-supervision', onOpen: () => setSupervision({}) }} />}
       <span className="m-header-spacer" />
@@ -283,6 +286,7 @@ function MobileApp(): JSX.Element {
       <SettingsTabs voice={host.paired ? <MobileSpeechSettings host={host} target={{ kind: 'default' }} /> : <p>{translate("To set the voice first connect to the PC.")}</p>}>
       <p className="m-settings-group">{translate("This device")}</p>
       <section className="m-settings-section"><LanguageSetting /></section>
+      {host.paired && <PushSettings key={`${host.deviceId}:${host.identityVersion}`} host={host} />}
       <section className="m-settings-section"><h3>{translate("Appearance")}</h3><p>{translate("Theme on this device. Your PC setting remains independent.")}</p>
       <div className="m-mode-choice"><label><input type="radio" name="theme" checked={theme === 'dark'} onChange={() => setTheme('dark')} />{translate("Dark")}</label><label><input type="radio" name="theme" checked={theme === 'light'} onChange={() => setTheme('light')} />{translate("Light")}</label></div></section>
       <section className="m-settings-section"><h3>{translate("Connection")}</h3><p>{translate("Private via Tailscale. PC on and leave ADE open.")}</p><p>{translate("Use as an app: Select “To the home screen” or “Install the app” in the browser.")}</p>

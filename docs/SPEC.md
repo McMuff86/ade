@@ -816,6 +816,19 @@ mutations require idempotency keys and audit. Activation instructions:
   Only device-authorized work appears remotely. Offline/failed reads remove
   stale actions; refresh retries only the read. Existing detail capabilities
   and host/session/question-bound draft rules remain authoritative.
+- Mobile Settings → Mobile notifications offers device-specific opt-in for
+  confirmed ADE task/run questions, reported errors and final results. Category
+  choices, a test, status reload and disable are explicit. This slice supports
+  Android Chrome's Google push endpoints; other push providers and interactive
+  CLI question/result inference are not implemented. Normal CLI exit is not a
+  completion notification. All lock-screen text is neutral and contains no
+  project name, prompt, code or host path. Opening a notice rechecks access and
+  opens an existing run; it never grants access or submits/queues work.
+  Subscriptions/VAPID keys are OS-encrypted outside config/export. Current grants,
+  revocation, bounded coalescing, durable at-most-once attempts and isolated
+  failures apply. “Provider accepted” is not delivery confirmation. The PC must
+  keep ADE running; both sides need internet, and Tailscale is needed to open
+  details. Actual closed-view Android delivery needs a physical-device test.
 - Goals 8.6–8.9 align the mobile shell with the desktop: shared dark/light tokens,
   `ade_` title bar, Overview/Work/Graph navigation, agent/project inventory,
   searchable runs, team nodes and a tablet side inspector or phone detail dialog.

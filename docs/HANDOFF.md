@@ -1,5 +1,52 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.5: gerätebezogenes Web Push implementiert und geprüft (1. Oktober, 10:32 CEST)
+
+Mobile Einstellungen bieten jetzt Opt-in für bestätigte ADE-Aufgaben-/Run-
+Rückfragen, Fehler und fertige Ergebnisse sowie eine Testnachricht. VAPID und
+Browser-Abonnement liegen OS-verschlüsselt ausserhalb der Projektkonfiguration.
+Keine weiteren Anbieter-Schlüssel nötig. Sperrbildschirmtexte bleiben neutral;
+Öffnen liest die aktuellen Geräte-/Projektfreigaben erneut. Einzelaufträge sind
+berücksichtigt, abgeschlossene Zwischenschritte noch laufender Runs nicht.
+
+- Vollständiges `pnpm verify` **10:32:37 CEST: 28 bestanden / 0 Fehler / 16 nicht
+  gemessen**, **105 Suiten / 4.477 Checks**, drei Typechecks, beide isolierten
+  Builds und Linux-Aktivierung **15/0**. Neuer Push-Browserlauf ist auch Teil des
+  Aktivierungsgates. Sitzungstests bleiben **95/0**, Agent-/Tablet **40/0**,
+  Gespräch **90/0**, mobiler Browser **61/0**.
+- Push-Verträge **56/0**: echte Ver-/Entschlüsselungsrunde mit Browser-Schlüssel,
+  private Dateispeicherung, VAPID-Persistenz, Ziel-/Payloadgrenzen, Geräte- und
+  Projektentzug, idempotente Verwaltung, Aktivierungssperre, Wiederanlauf ohne
+  Doppelzustellung, Fehler-/Ablaufzustand und anschliessende positive Kontrolle.
+  Mobiler HTTP-Vertrag **114/0**, Buildidentität **28/0** inklusive Push-Worker.
+- Chromium-/HTTPS-/Journalablauf **19/0**: Tastatur-Opt-in und Kategorien,
+  verspätete Statusantwort ohne Überschreiben, 390-px-Ansicht, Fokus-Rückkehr,
+  echter Coordinator-Abschluss, zielgenaue Detailnavigation, verweigerter alter
+  Link nach Projektentzug, Offline/Neuladen, fehlende Browser-Berechtigung,
+  nicht unterstützter Browser und Widerruf. Browser-Abonnement und Provider
+  werden ersetzt: **kein Beleg einer physischen Android-Hintergrundzustellung**.
+- Im ersten Gesamtlauf erkannte der bestehende mobile Test einen echten
+  Kompatibilitätsfehler: fehlender Push-Dienst meldete `unknown_device` und
+  löschte dadurch die Browser-Identität. Jetzt `unavailable`, fokussiert und
+  mit vollständigem grünem Folgelauf bestätigt. Der ursprüngliche Bericht bleibt
+  in `first-verify/`. Die Browserentwicklung korrigierte zusätzlich den Umgang
+  mit Einzelauftrag-Ereignissen und die Testsimulation der Browser-API.
+
+Archiv: `test-results/goal345-push-20261001/`. **Noch nicht persönlich aktiviert**;
+Aktivierung folgt ausschliesslich über `pnpm activate`. Letzte Vorprüfung:
+Host **2666350** ohne laufende Agent-/Terminal-Nachfahren, bisheriger Build und
+Geräte-Vault unverändert; diese Prüfung ersetzt nicht das spätere Sitzungsgate.
+
+Der erste Transport unterstützt Android Chrome/Googles Web Push. Andere
+Push-Anbieter und Rückfrage-/Fertig-Erkennung interaktiver CLI-Terminals sind
+nicht implementiert. Providerannahme ist keine Empfangsbestätigung. PC/ADE und
+Internet müssen verfügbar bleiben; Details öffnen über Tailscale. Opt-in sendet
+keine alten Ereignisse, mehrdeutige Zustellung wird nicht automatisch wiederholt.
+Konkretes Tablet-Modell, Android-/Chrome-Version und Installationsart bleiben
+angefragt. Physische Tablet-, Anmeldung/Sperre- und native Windows-Abnahmen
+bleiben offen; die Roadmap-Checkboxen werden deshalb nicht pauschal abgehakt.
+Goal 34.6 bleibt separat.
+
 ## Goal 34.4: gemeinsamer Entscheidungseinstieg geprüft (1. Oktober 2026, 10:06 CEST)
 
 Die Übersicht auf PC und Tablet bündelt bestätigte Rückfragen, aktive Arbeit,

@@ -1,3 +1,5 @@
+import { PushStore } from './notifications/PushStore';
+import { WebPushService } from './notifications/WebPushService';
 import { t as translate } from "../shared/i18n";
 import type { RuntimeModelRequest } from '../shared/runtimeModels';
 import { changeLocale } from '../shared/i18n';
@@ -133,6 +135,7 @@ let remoteTerminals: RemoteTerminalService | null = null;
 let dictationJobs: DictationJobs | null = null;
 let nativeUsage: NativeUsageService | null = null;
 let usageOverview: UsageOverviewService | null = null;
+let mobilePush: WebPushService | null = null;
 let stopTerminalRevocation: (() => void) | null = null;
 let replySpeech: ReplySpeechService | null = null;
 let orchestration: OrchestrationService | null = null;
@@ -443,12 +446,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions);
   ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
-  const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), {
+  const remoteProtection: import('./remote/RemoteDeviceStore').DeviceSecretProtection = {
     available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
       process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : ''),
     encrypt: (value) => safeStorage.encryptString(value),
     decrypt: (value) => safeStorage.decryptString(value),
-  });
+  };
+  const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), remoteProtection);
   const repositorySync = new RepositorySyncService(store, () => ptyManager?.list() ?? [], execution);
   if (hostApiConfig.enabled && hostApiConfig.devices.length > 0) {
     try { remoteDevices.importBootstrap(hostApiConfig.devices); }
@@ -530,7 +534,20 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     if (image.isEmpty()) throw new Error(translate("You can't read a picture. Select a PNG or JPEG."));
     return image.toPNG();
   }));
+  mobilePush = new WebPushService(new PushStore(join(app.getPath('userData'), 'ade', 'remote', 'push.json'), remoteProtection), {
+    subscribe: listener => journalChanges.subscribe(listener),
+    cursor: () => orchestration!.journalCursor(),
+    completed: runId => store.get().runs.some(run => run.id === runId && run.status === 'completed'),
+    events: cursor => orchestration!.eventsSince(cursor, 100),
+    active: id => remoteDevices.activeDevices().some(device => device.id === id),
+    allowed: (id, runId) => remoteDevices.mobilePreferences().enabled
+      && remoteDevices.activeDevices().some(device => device.id === id && device.scopes.includes('read'))
+      && store.get().runs.some(run => run.id === runId) && deviceResources.run(id, runId),
+  });
+  mobilePush.start();
   stopTerminalRevocation = remoteDevices.onRevoked((id) => {
+    try { mobilePush?.authorityChanged(id); } catch { console.warn('[ade] push authorization changed; notification storage unavailable'); }
+
     remoteTerminals?.revoke(id);
     if (id === null) { for (const device of remoteDevices.inventory().devices) replies.revoke(`device:${device.id}`); }
     else replies.revoke(`device:${id}`);
@@ -558,6 +575,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     orchestration,
     { status: () => ptyManager!.queueStatus() },
     {
+      notifications: mobilePush,
       activity: hostOperations,
       integration,
       catalogChanged: () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }),
@@ -1412,6 +1430,7 @@ export async function disposePtyManager(): Promise<void> {
   await replies?.dispose();
   dictationJobs?.dispose(); dictationJobs = null;
   integrationService?.stop(); integrationService = null;
+  mobilePush?.dispose(); mobilePush = null;
   stopTerminalRevocation?.(); stopTerminalRevocation = null;
   remoteTerminals?.dispose(); remoteTerminals = null;
   remoteWorkbench?.dispose(); remoteWorkbench = null;

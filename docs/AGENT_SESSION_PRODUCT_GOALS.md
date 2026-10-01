@@ -104,8 +104,10 @@ Agentenverwaltung muss weder installiert noch gestartet sein.
 Erster Umsetzungsschritt: [Fähigkeitsmatrix, portabler Sitzungstreiber und
 Prüfstand](AGENT_SESSION_PLATFORM_RESULTS.md). Der kombinierte Linux-Desktop-/Tablet-Treiber besteht 78/0; die native Codex-Browserprobe 16/0 und der Linux-Aktivierungstreiber 15/0. Die vollständigen
 Teilzielkriterien unten bleiben offen; aktuelle Nachweise stehen im Prüfstand.
-Die nächste Linux-Lieferung ergänzt geschützte Prompt-/Diktatübergabe, gespeicherte
-Profile und einen integrierten Agent-/Tablet-Treiber. Neue Sitzungen erhalten
+Die Linux-Lieferung vom 30. September ergänzt geschützte Prompt-/Diktatübergabe,
+gespeicherte Profile und einen integrierten Agent-/Tablet-Treiber; seit dem
+1. Oktober um 08:14 CEST persönlich aktiviert. Die Fortführung bis 34.5 bestätigt
+den Agent-/Tablet-Treiber mit **40/0** und die Sitzungsnavigation mit **95/0**. Neue Sitzungen erhalten
 den Schutz; laufende Sitzungen bleiben unverändert. Die Gesamt-Abnahme verlangt
 weiterhin Windows- und physische Tablet-Nachweise, der unabhängige Host folgt
 separat in 34.6.
@@ -196,6 +198,17 @@ Codex-Probe bestätigt mindestens Rückfrage → Antwort → Fortsetzung; weiter
 Adapter werden gesondert gemessen. Managed-Workspace-Leases bleiben erhalten.
 
 ## Goal 34.5 — Benachrichtigungen, die unterwegs helfen
+
+Erste Implementierung am 1. Oktober: gerätebezogenes Web Push für bestätigte
+ADE-Aufgaben-/Run-Ereignisse, verschlüsselte lokale VAPID-/Aboverwaltung,
+neutrale Texte, Kategorien, Testnachricht, Widerruf und erneute Zielautorisierung.
+Fokussierte Verträge **56/0**, echter Chromium-/HTTPS-/Journalablauf **19/0** mit
+ersetztem Browser-Abonnement und Push-Provider. Vollständiges Verify am
+1. Oktober um **10:32:37 CEST: 28/0/16 nicht gemessen**, **105 Suiten / 4.477 Checks**.
+Android Chrome/Google ist der erste Transport; interaktive CLI-Ereignisse und
+andere Push-Dienste sind nicht daraus abgeleitet. Die konkrete Tablet-/Chrome-
+Version und Installation bleiben angefragt, physische Hintergrundzustellung
+und neue native Windows-Abnahme offen. Noch nicht persönlich aktiviert.
 
 - [ ] Für das tatsächliche Tablet die Voraussetzungen für Web Push prüfen;
   Berechtigungs-/Installationsablauf und erreichbaren Zustellweg dokumentieren.

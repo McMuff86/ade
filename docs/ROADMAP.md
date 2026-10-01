@@ -8,7 +8,10 @@ persönliche Aktivierung; physische Anmeldung/Sperre und Windows-Abnahme offen.
 34.4 Entscheidungseinstieg ist implementiert und vollständig geprüft: Verify
 **27/0/16 nicht gemessen**, **104 Suiten / 4.417 Checks**, Sitzungsnavigation
 **95/0**, Agent-/Tablet **40/0**. Physische Abnahmen bleiben gesondert offen.
-34.5 Web Push ist die nächste Implementierung;
+34.5 erste Web-Push-Lieferung für bestätigte Aufgaben-/Run-Ereignisse implementiert:
+Verträge **56/0**, Browser mit simuliertem Provider **19/0**, vollständiges Verify
+**28/0/16 nicht gemessen**, **105 Suiten / 4.477 Checks**. Physischer Android-Empfang
+und weitere Plattform-/Adapterabnahmen bleiben offen;
 34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)

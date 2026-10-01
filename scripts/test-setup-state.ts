@@ -32,7 +32,7 @@ try {
   check('missing either build remains unknown', compareBuilds(undefined, one) === 'unknown' && compareBuilds(one, undefined) === 'unknown');
   check('unexpected paths and invalid timestamps fail descriptor validation', !isBuildInfo({ ...one, path: 'C:/private' }) && !isBuildInfo({ ...one, sourceId: 'C:/private' }) && !isBuildInfo({ ...one, builtAt: 'not a date' }));
   for (const dir of ['src/nested', 'build', 'docs']) mkdirSync(join(root, dir), { recursive: true });
-  for (const file of ['package.json', 'pnpm-lock.yaml', 'electron.vite.config.ts', 'vite.mobile.config.ts', 'tsconfig.node.json', 'tsconfig.web.json', 'build/identity.ts', 'build/browserChunks.ts', 'src/nested/app.ts']) writeFileSync(join(root, file), `fixture:${file}`);
+  for (const file of ['package.json', 'pnpm-lock.yaml', 'electron.vite.config.ts', 'vite.mobile.config.ts', 'tsconfig.node.json', 'tsconfig.web.json', 'build/identity.ts', 'build/browserChunks.ts', 'build/pushWorker.ts', 'src/nested/app.ts']) writeFileSync(join(root, file), `fixture:${file}`);
   const initial = buildIdentity(root, new Date(one.builtAt));
   check('generator emits only a bounded digest and timestamp', isBuildInfo(initial) && !JSON.stringify(initial).includes(root));
   check('same sources built later retain their identity', buildIdentity(root).sourceId === initial.sourceId);
@@ -46,6 +46,9 @@ try {
   const beforeChunks = buildIdentity(root).sourceId;
   writeFileSync(join(root, 'build/browserChunks.ts'), 'changed browser chunks');
   check('browser build changes alter the shared source fingerprint', buildIdentity(root).sourceId !== beforeChunks);
+  const beforeWorker = buildIdentity(root).sourceId;
+  writeFileSync(join(root, 'build/pushWorker.ts'), 'changed notification worker');
+  check('notification worker changes alter the shared source fingerprint', buildIdentity(root).sourceId !== beforeWorker);
   symlinkSync(join(root, 'docs'), join(root, 'src', 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
   let rejected = false; try { buildIdentity(root); } catch (error) { rejected = error instanceof Error && error.message === 'Build inputs must not contain links'; }
   check('linked sources fail for the intended boundary reason', rejected);

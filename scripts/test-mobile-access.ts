@@ -71,6 +71,7 @@ void (async () => {
   check('public app shell contains no private data', (await http('/')).body.includes('Public ADE shell'));
   check('unpaired device cannot read the catalog', (await http('/api/v1/catalog')).status === 401);
   check('unpaired device cannot read the decision overview', (await http('/api/v1/attention')).status === 401);
+  check('unpaired device cannot read notification settings', (await http('/api/v1/notifications')).status === 401);
   check('foreign origin is refused before pairing', (await http('/api/v1/pair', 'POST', '{}', { origin: 'https://evil.example' })).status === 403);
   check('missing mutation origin is refused', (await http('/api/v1/pair', 'POST', '{}', { origin: undefined })).status === 403);
   check('unknown host is refused even with forwarded host', (await http('/', 'GET', '', { host: 'evil.example', 'x-forwarded-host': new URL(origin).host })).status === 400);
@@ -94,6 +95,8 @@ void (async () => {
   check('single-use pairing persists a separate device', pair.status === 200 && fixture.devices.inventory().devices[0]?.name === 'My Phone');
   check('paired signed device can read a bounded decision overview', (await http('/api/v1/attention')).status === 200);
   check('decision overview requires proof even with a browser cookie', (await http('/api/v1/attention', 'GET', '', { 'x-ade-signature': undefined })).status === 401);
+  check('notification settings require signed proof with a cookie', (await http('/api/v1/notifications', 'GET', '', { 'x-ade-signature': undefined })).status === 401);
+  check('notification POST rejects a missing CSRF proof before any mutation', (await http('/api/v1/notifications/command', 'POST', JSON.stringify({ operation: 'disable' }), { 'x-ade-csrf': undefined })).status === 403);
   check('session cookie has Secure, HttpOnly, Strict and host-only prefix', /__Host-ade-session=.*; Path=\/; Secure; HttpOnly; SameSite=Strict; Max-Age=1800/.test(pair.headers['set-cookie']![0]!));
   check('pairing returns no device secret or listener token', !pair.body.includes(secret) && !pair.body.includes('t'.repeat(32)));
   check('pairing replay is refused', (await http('/api/v1/pair', 'POST', body)).status === 401);
