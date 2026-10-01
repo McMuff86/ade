@@ -1,5 +1,26 @@
 # ADE-Dokumentationsaudit
 
+## Abgleich nach der Goal-34-Stabilisierung (1. Oktober 2026, abends)
+
+Nach `5ea398f`, `198e39b`, `e5fda7f` und `2dde188` wurden die aktiven Dokumente
+gegen den Code geprüft: relative Links und genannte Pfade unter `src/`,
+`scripts/`, `build/` und `docs/` (keine toten Verweise), `pnpm`-Skripte gegen
+`package.json`, IPC-/Ledger-Kanäle gegen `ipcPolicy.ts` und
+`AdeApplicationService` sowie die neuen Verträge (Aktionen nach Fähigkeit,
+Unterbrechungsursache, Push-Testsperre, `renotify`) gegen ARCHITECTURE/SPEC.
+
+Korrigiert: README (Badge-Zahlen, Linux-Gespräch und -Promptübergabe,
+`pnpm activate` auch unter Linux mit dessen tatsächlichen Optionen, neuer
+Abschnitt zu Entscheidungen/Unterbrechung/Push, Goal-34-Stand), USER_GUIDE
+(Betrieb und Start, Unterbrochen, Entscheidungseinstieg, mobile
+Benachrichtigungen, Erinnerungen ohne Push), ROADMAP-Kopf als konsolidierte
+Teilzieltabelle, STATUS-Kurzüberblick und überholte „offen“-Aussagen zum Push,
+Zielregister Goal 34, Goal-34-Plan (Stand, abgehakte Fähigkeitsmatrix, nächster
+Arbeitsstart 34.6), Fähigkeitsmatrix um 34.3–34.5 ergänzt, SPEC-Qualitätsregel
+„Windows first“ durch gleichwertige Linux-/Windows-Ziele ersetzt,
+MULTIPLATFORM_PLAN um den Linux-Stand ergänzt. Historische Ergebnisberichte
+blieben unverändert. Windows- und physische Abnahmen bleiben offen.
+
 ## Folgeabgleich für den Tablet-Test-Checkpoint vom 15. September 2026
 
 Die führenden Dokumente sind mit der jetzigen Sitzungs-/Sprachzählung abgeglichen.

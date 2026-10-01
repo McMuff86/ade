@@ -1,5 +1,20 @@
 # ADE implementation status
 
+Kurzüberblick (1. Oktober 2026, abends): Goal 34.1–34.5 unter nativem Linux
+implementiert und geprüft, letztes `pnpm verify` **28/0/16 nicht gemessen**,
+**106 Suiten / 4.541 Checks**; 34.6 nicht begonnen. Windows-, physische Tablet-
+und weitere native Adapterabnahmen offen. Übersicht je Teilziel:
+[ROADMAP](ROADMAP.md#aktueller-stand-1-oktober-2026-abends). Abschnitte unten
+sind datiert; ältere Abschnitte nennen den damaligen Stand.
+
+## Goal 34.5: Wartezeit nach Push-Test sichtbar (1. Oktober 2026)
+
+Der Status liefert `testRetryAfterMs` relativ zur Hostantwort; „Testnachricht
+senden“ bleibt bis Ablauf gesperrt und zeigt einen Countdown, eine abgewiesene
+Wiederholung erscheint als Statushinweis statt Sammelfehler. Verträge **64/0**,
+Chromium/HTTPS **30/0**, Verify **22:22 CEST: 28/0/16 nicht gemessen**,
+105 Suiten / 4.485 Checks. Commit `5ea398f`; physische Tablet-Prüfung offen.
+
 ## Goal 34.3: unterbrochene Arbeit mit Ursache (1. Oktober 2026)
 
 Unterbrochene Sitzungen und Aufgaben nennen, wie ADE zuvor endete: Rechner neu
@@ -16,8 +31,8 @@ Benutzer bestätigt den Empfang der ADE-Testnachricht auf dem Android-Tablet.
 Chrome-Screenshot zeigt Opt-in und Provider-Annahme; Host-Audit bestätigt
 Ausführung. Eine weitere Testanforderung nach rund 16 Sekunden wurde durch die
 30-Sekunden-Sperre abgewiesen und irreführend als allgemeiner Fehler angezeigt.
-Gezielte Wartezeitanzeige, Hintergrund-/Sperrbildschirmempfang und echte
-Aufgabenereignisse bleiben offen. [Nachweis und Grenzen](HANDOFF.md).
+Hintergrund-/Sperrbildschirmempfang und echte Aufgabenereignisse bleiben offen;
+die gezielte Wartezeitanzeige ist inzwischen umgesetzt (Abschnitt oben). [Nachweis und Grenzen](HANDOFF.md).
 
 ## Push-Anmeldung: nachvollziehbare Fehler und Statusprüfung
 
@@ -28,7 +43,7 @@ Gezielter Chromium-/HTTPS-Test **27/0** mit simuliertem Push-Dienst. Vollständi
 Verify **12:30:58 CEST: 28/0/16 nicht gemessen**, 105 Suiten / 4.477 Checks.
 Aktiviert **12:32:53 CEST**, Gate **14/0/1**, echtes HTTPS :8443 **200** mit
 21 passenden Dateien, Pairing/Push-Vault erhalten. Physische Tablet-Fehlerursache
-und Empfang offen. [Aktueller Nachweis](HANDOFF.md).
+und Empfang waren damals offen; der Testempfang ist inzwischen bestätigt (oben). [Aktueller Nachweis](HANDOFF.md).
 
 ## Goal 34.5: erste mobile Push-Lieferung (1. Oktober 2026)
 
@@ -41,7 +56,7 @@ Mobile-Protokoll **114/0**. Vollständiges Verify **10:32:37 CEST: 28/0/16 nicht
 gemessen**, **105 Suiten / 4.477 Checks**. Persönlich aktiviert um **10:35:46 CEST** über `pnpm activate`, Gate **14/0/1
 nicht gemessen**; echtes HTTPS auf **:8443**, HTML und 21 passende Dateien geprüft.
 Kopplung und Serve-Konfiguration erhalten, OpenClaw :443 weiter HTTPS 200.
-Physischer Tablet-Empfang und neue native Windows-Abnahme offen.
+Physischer Testempfang inzwischen bestätigt; Hintergrundempfang und native Windows-Abnahme offen.
 Stabilisierung am Abend: spätere bestätigte Nachricht mit gleichem Tag meldet sich
 erneut (`renotify`), Burst-/Duplikatgrenzen, neutrale Texte aller Kategorien,
 Antippen offline ohne Vormerkung, widerrufenes Gerät ohne Zugriff und unterbrochene

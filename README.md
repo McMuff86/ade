@@ -5,8 +5,8 @@
 <p align="center">
   <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux-1a1c22?labelColor=0e0f12&color=c97b2e">
   <img alt="WSL" src="https://img.shields.io/badge/WSL2-first--class%20backend-1a1c22?labelColor=0e0f12&color=7bc9a0">
-  <img alt="Electron" src="https://img.shields.io/badge/Electron-ConPTY%20terminals-1a1c22?labelColor=0e0f12&color=7ba9c9">
-  <img alt="Automated checks" src="https://img.shields.io/badge/checks-2100%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
+  <img alt="Electron" src="https://img.shields.io/badge/Electron-ConPTY%20%C2%B7%20Linux%20PTY-1a1c22?labelColor=0e0f12&color=7ba9c9">
+  <img alt="Automated checks" src="https://img.shields.io/badge/checks-4500%2B%20automated-1a1c22?labelColor=0e0f12&color=b99bd6">
 </p>
 
 **ADE** (agentic development environment) brings projects, coding CLIs and
@@ -21,8 +21,14 @@ PC einrichten, Tablet koppeln, Projekte und Assistenten öffnen, Arbeit sichern.
 Choose **Deutsch / English** in Settings → Language independently on desktop and
 tablet. **Conversations** opens Project supervision or **Chat & voice**, with a
 separate casual history and an ElevenLabs voice studio. [Usage and implementation
-limits](docs/LANGUAGES_AND_CONVERSATIONS.md). The latest additions have production
-build evidence; runtime tests were deferred at the operator's explicit request.
+limits](docs/LANGUAGES_AND_CONVERSATIONS.md).
+**Current focus (Goal 34):** ADE as a standalone multi-session manager on native
+Linux and Windows. On native Linux, 34.1–34.5 are implemented and pass
+`pnpm verify` (28 passed / 0 failed / 16 Windows-only steps not measured,
+106 suites / 4,541 checks); Windows, physical-tablet and further native adapter
+acceptance remain open, and the independent host (34.6) has not started.
+[Goal 34](docs/AGENT_SESSION_PRODUCT_GOALS.md) ·
+[capability matrix](docs/AGENT_SESSION_PLATFORM_RESULTS.md).
 [Documentation index](docs/README.md) · [Current status](docs/STATUS.md) ·
 [Active CLI, dictation and mobile goals](docs/CLI_WORK_AND_DICTATION_GOALS.md).
 
@@ -33,7 +39,8 @@ build evidence; runtime tests were deferred at the operator's explicit request.
 **ADE project conversation** — **Gespräche → Projektbetreuung → Mit ADE sprechen**
 opens a saved Codex conversation without a project terminal. It reads supervised
 project states and explicit handoffs, answers questions and resumes its exact
-context after restart. This Windows-native path requires Codex CLI 0.154.0 and
+context after restart. It runs on native Windows and, since Goal 34, on native
+Linux (real Codex browser probe 16/0); it requires Codex CLI 0.154.0 or newer and
 an explicit model/reasoning profile. Paired tablets use the same conversation
 with full project access and recover lost send receipts using the original key.
 Conversation dictation records directly into a reviewable preview, with no
@@ -70,6 +77,16 @@ inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
 confirm a clean worktree's fast-forward. Dirty or divergent worktrees show why
 they need attention. [Workflow and boundaries](docs/REPOSITORY_SYNC_PLAN.md).
 
+**Decisions, interruptions and push** — one entry on desktop and tablet groups
+work into *needs you*, *working*, *ready for review* and *interrupted*. Each row
+offers only the actions its session or run actually supports (answer, cancel,
+instruct, take input; never a fake pause), binds input to the exact run,
+question or session process and keeps drafts while switching. Interrupted work
+names how ADE ended before (host restart, quit, crash, unknown) and is never
+retried automatically. Paired tablets can opt in to neutral Web Push for
+confirmed run events. Linux evidence; Windows and physical lock-screen delivery
+are open. [Goal 34](docs/AGENT_SESSION_PRODUCT_GOALS.md).
+
 **Overview and Work** — return directly to an existing interactive CLI session,
 filter by project/runtime/status, name sessions and see new output. CLI activity
 and managed runs are shown separately. Overview also provides saved projects,
@@ -88,8 +105,9 @@ switches; sessions reconnect across reloads.
 the selected CLI on desktop and the paired HTTPS tablet. Record up to 60 seconds,
 review the ElevenLabs transcript, then insert it or explicitly submit it. Finish
 CLI sign-in and project-trust dialogs in the terminal first. Structured delivery
-currently requires a newly started native Windows Codex, Claude Code or Grok
-invocation with paste support. Custom commands and WSL assistants keep their
+requires a newly started native Codex, Claude Code or Grok invocation with
+paste support (native Windows; on native Linux via the protected prompt path,
+measured with Codex 0.159.0). Custom commands and WSL assistants keep their
 existing terminal workflow. Unconfirmed sends retain the draft without automatic
 resubmission. [Implementation and evidence](docs/DICTATION_IMPLEMENTATION_RESULTS.md).
 
@@ -212,7 +230,9 @@ scripts/ade-sync.sh status             # fetch, then local changes and ahead/beh
 On Windows use `powershell -ExecutionPolicy Bypass -File scripts\ade-sync.ps1 <command>`.
 `load` refuses local changes and diverged branches instead of merging. On
 Linux it also downloads a missing Electron binary and runs `pnpm rebuild:pty`;
-afterwards `pnpm build && pnpm start`. On Windows restart with `pnpm activate`.
+afterwards build and restart the personal instance with `pnpm activate` on both
+operating systems (gate, profile backup, graceful quit, `out.prev` rollback;
+active sessions block the restart).
 
 ### Keyboard
 
@@ -264,7 +284,7 @@ pnpm verify           # typecheck + all focused suites + isolated build + Electr
 pnpm verify:gate      # fast subset before an activation (core desktop/tablet drivers)
 pnpm test             # focused suites only, in parallel (every suite runs; each has a floor)
 pnpm test -- --record # print the check floors measured on this platform
-pnpm activate -- -Label <name> [-SkipGate] [-Rollback] [-Force]  # restart the personal instance
+pnpm activate -- -Label <name> [-Rollback]  # restart the personal instance (Windows also: -SkipGate, -Force)
 pnpm test:electron    # build + real Electron/ConPTY workflow (isolated profile)
 pnpm test:wsl-backend # real WSL distro/Git/PTY integration (Windows + WSL)
 ```

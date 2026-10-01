@@ -1,39 +1,27 @@
 # ADE delivery roadmap
 
-Fortführung am **1. Oktober 2026** bis möglichst **34.5** beauftragt.
-34.3 ergänzt nun lokale Opt-ins für Autostart, Tray und Wachhalten; Linux-Vertrag
-**54/0**, Electron-/Tablet **92/0**, Agent-/Tablet **33/0**. Vollständiges Verify
-**27/0/16 nicht gemessen**, **103 Suiten / 4.381 Checks**. Persönliche Aktivierung von 34.3–34.5 über `pnpm activate` am 1. Oktober
-um **10:35:46 CEST**, echtes HTTPS :8443 mit 21 passenden Dateien, Pairing
-erhalten und OpenClaw :443 unverändert. Physische Anmeldung/Sperre und
-Windows-Abnahme offen.
-34.4 Entscheidungseinstieg ist implementiert und vollständig geprüft: Verify
-**27/0/16 nicht gemessen**, **104 Suiten / 4.417 Checks**, Sitzungsnavigation
-**95/0**, Agent-/Tablet **40/0**. Physische Abnahmen bleiben gesondert offen.
-34.5 erste Web-Push-Lieferung für bestätigte Aufgaben-/Run-Ereignisse implementiert:
-Verträge **56/0**, Browser mit simuliertem Provider **19/0**, vollständiges Verify
-**28/0/16 nicht gemessen**, **105 Suiten / 4.477 Checks**. Physischer Android-Empfang
-ist am **1. Oktober, 14:10 CEST** erstmals durch Benutzerrückmeldung zur
-Testnachricht bestätigt. Hintergrund-/Sperrbildschirmempfang, Zustellung echter
-Aufgabenereignisse und weitere Plattform-/Adapterabnahmen bleiben offen;
-34.5 erhält nach Tablet-Rückmeldung eine Korrektur der Fehler-/Statusanzeige
-(Browsernachweis **27/0**, Vollprüfung **28/0/16 nicht gemessen**, persönlich
-aktiviert **12:32:53 CEST**, HTTPS :8443 geprüft).
-Push-Testsperre zeigt jetzt Countdown statt Sammelfehler: Verträge **64/0**,
-Browser **30/0**, Verify **28/0/16 nicht gemessen**, **105 Suiten / 4.485 Checks**;
-noch nicht aktiviert.
-34.4 abends ergänzt: Entscheidungen direkt in der Übersicht nach gemeldeten
-Fähigkeiten, Entwurfsbindung und höchstens einmalige Zustellprüfung; Verify
-**28/0/16 nicht gemessen**, **105 Suiten / 4.507 Checks**; noch nicht aktiviert.
-Stabilisierung 34.3 (abends): unterbrochene Arbeit nennt ihre Ursache (Rechner
-neu gestartet, ADE beendet, ADE unerwartet beendet, unbekannt), ohne Wiederholung;
-Doppelstart, Absturz und reguläres Beenden im Linux-Aktivierungstreiber **21/0**
-belegt, Verify **28/0/16 nicht gemessen**, **106 Suiten / 4.531 Checks**.
-Stabilisierung 34.5 (abends): spätere Nachricht mit gleichem Tag meldet sich wieder,
-neutrale Texte, Burst-Grenze, Offline-Antippen ohne Vormerkung und unterbrochene
-Arbeit als neutrale Fehlermeldung belegt; Verträge **74/0**, Browser **33/0**,
-Verify **28/0/16 nicht gemessen**, **106 Suiten / 4.541 Checks**; noch nicht aktiviert.
-34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
+## Aktueller Stand (1. Oktober 2026, abends)
+
+Goal 34 ist unter **nativem Linux (Omarchy)** bis einschliesslich **34.5**
+implementiert und geprüft; letztes vollständiges `pnpm verify` (23:19:14 CEST)
+**28 bestanden / 0 Fehler / 16 nicht gemessen** (nur Windows), **106 Suiten /
+4.541 Checks**. Details je Teilziel: [STATUS](STATUS.md),
+[Fähigkeitsmatrix](AGENT_SESSION_PLATFORM_RESULTS.md), [Betrieb](HANDOFF.md).
+
+| Teilziel | Linux-Stand | Offen |
+|---|---|---|
+| 34.1 Tablet-Zugriff | HTTPS :8443 persönlich aktiv, Kopplung erhalten | frischer Host, Windows, Mobilfunk |
+| 34.2 Mehrere Sitzungen | Navigation **96/0**, geschützte Prompts/Profile, echte Codex-Proben | Windows-ConPTY, weitere native CLIs, physisches Tablet |
+| 34.3 Betrieb | `pnpm activate` mit Gate/Backup/Rollback, Opt-ins für Autostart/Tray/Wachhalten, Unterbrechungsursache (Aktivierung **21/0**, Lebenszyklus **24/0**) | echter Rechnerneustart, physische Anmeldung/Sperre, Windows |
+| 34.4 Entscheidungen | Gemeinsamer Einstieg mit Aktionen nach Fähigkeit, gebundenen Eingaben, Entwürfen (**56/0**) | echte Codex-Rückfrage über die Ansicht, Windows, Tablet |
+| 34.5 Push | Web Push für bestätigte Run-Ereignisse, Testsperre mit Countdown, `renotify`, Burst-Grenze (**74/0**, Browser **33/0**); physischer Testempfang bestätigt | Empfang bei gesperrtem Tablet, echte Aufgabenereignisse am Gerät, Windows |
+| 34.6 Unabhängiger Host | nicht begonnen | Architekturentscheid als nächste Codearbeit |
+
+Commits der Stabilisierung: `5ea398f` (Push-Countdown), `198e39b` (34.4),
+`e5fda7f` (34.3), `2dde188` (34.5). Persönliche Aktivierung dieser Commits
+über `pnpm activate` wird in [HANDOFF](HANDOFF.md) protokolliert. Frühere
+Zwischenstände des Tages (Aktivierungen 08:14, 10:35:46 und 12:32:53 CEST,
+Verify-Läufe 103–105 Suiten) stehen in STATUS und HANDOFF.
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)
 

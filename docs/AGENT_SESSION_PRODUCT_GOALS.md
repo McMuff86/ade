@@ -1,8 +1,10 @@
 # Goal 34 — ADE als eigenständige Sitzungsverwaltung auf Linux und Windows
 
-Stand: 30. September 2026. Der Benutzer möchte ADE weiterentwickeln und hat
+Stand: 1. Oktober 2026, abends (erstellt am 30. September). Der Benutzer hat
 die Erstellung und anschliessend die Umsetzung dieser Arbeitsziele beauftragt.
-**Umsetzung von 34.1–34.3 fortgeführt; vollständige Plattformabnahmen offen.**
+**34.1–34.5 unter Linux implementiert und fokussiert sowie mit `pnpm verify`
+geprüft (zuletzt 28/0/16 nicht gemessen, 106 Suiten / 4.541 Checks); 34.6 nicht
+begonnen. Windows-, physische Tablet- und weitere native Adapterabnahmen offen.**
 Linux-Desktop-/Tablet-, native Codex- und Aktivierungsnachweise liegen vor;
 persönlicher Betriebsstand und echte HTTPS-Prüfung: [HANDOFF](HANDOFF.md); [Nachweise und Wiederaufnahme](AGENT_SESSION_PLATFORM_RESULTS.md#fortsetzung).
 
@@ -74,7 +76,8 @@ Hostwechsel zwischen mehreren Rechnern (Goals 28–30) bleibt ein eigener Track.
 | P2 | 34.6 Unabhängiger ADE-Host | Desktop schliessen/neustarten beendet keine Host-Sitzung | 34.2/34.3; schriftlicher Architekturentscheid vor Umbau |
 
 Die erste nutzbare Lieferung umfasst 34.1–34.3. Sie wartet nicht auf den
-Architekturumbau in 34.6. Alle nachfolgenden Checkboxen sind offen.
+Architekturumbau in 34.6. Abgehakte Checkboxen tragen ihren Plattformvorbehalt
+(derzeit Linux); keine Teilabnahme ist damit insgesamt erteilt.
 
 ## Goal 34.1 — Eigenständiger Zugriff auf den jeweiligen ADE-Host
 
@@ -112,10 +115,12 @@ den Schutz; laufende Sitzungen bleiben unverändert. Die Gesamt-Abnahme verlangt
 weiterhin Windows- und physische Tablet-Nachweise, der unabhängige Host folgt
 separat in 34.6.
 
-- [ ] Zuerst eine Fähigkeitsmatrix pro Plattform, Adapter und Sitzungsart aus
+- [x] Zuerst eine Fähigkeitsmatrix pro Plattform, Adapter und Sitzungsart aus
   aktuellem Code und Nachweisen erstellen: starten, beobachten, Eingabe senden,
   Rückfrage beantworten, unterbrechen, beenden und nativ fortsetzen. Unterstützt,
   nicht unterstützt und nicht gemessen unterscheiden; keine Versionsannahmen.
+  *Erstellt und fortgeschrieben in der [Fähigkeitsmatrix](AGENT_SESSION_PLATFORM_RESULTS.md#fähigkeiten-vorhandener-code-und-tatsächliche-grenzen);
+  die Windows-Spalte ist dort ausdrücklich als nicht gemessen geführt.*
 - [ ] Mehrere unabhängige Sitzungen über Projekte hinweg starten und wechseln.
   Jede Sitzung besitzt eindeutige Host-/Sitzungsidentität, Workspace, Agent und
   bestätigten Zustand. Entwürfe und Eingaben dürfen nie zur Nachbarsitzung gelangen.
@@ -300,11 +305,12 @@ Instanz nach `test-results/verify-build`; Aktivierung erfolgt über das dafür
 geprüfte `pnpm activate`. Produktverträge in ARCHITECTURE/SPEC werden gemeinsam
 mit ihrer Umsetzung aktualisiert; dieser Plan ändert sie noch nicht.
 
-**Nächster Arbeitsstart: 34.2.** Sitzungsmodell und Adapterfähigkeiten für Linux
-und Windows abgleichen, fehlende Mehrsitzungs-/Plattformnachweise identifizieren
-und den kleinsten durchgehenden Sitzungsablauf implementieren und prüfen.
-34.1 ergänzt danach bzw. während der Integrationsarbeit den eigenständigen
-Tablet-Zugriff. Ein lokaler Konflikt mit einer fremden Anwendung bestimmt weder
-das Produktmodell noch die Entwicklungspriorität.
-Die frühere Sandboxeinschränkung gilt in der fortgesetzten Sitzung nicht mehr.
+**Nächster Arbeitsstart (Stand 1. Oktober abends):** 34.1–34.5 sind unter Linux
+umgesetzt. Als nächste Codearbeit folgt der schriftliche Architekturentscheid
+für 34.6 (unabhängiger Host). Parallel offen bleiben die Abnahmen, die keine
+weitere Implementierung ersetzen kann: native Windows-Läufe für 34.2–34.5,
+physisches Tablet (gesperrt/geschlossene Ansicht, Mobilfunk, Touch), echte
+Codex-Rückfrage über den Entscheidungseinstieg, echter Rechnerneustart sowie
+weitere native CLI-Adapter. Ein lokaler Konflikt mit einer fremden Anwendung
+bestimmt weder das Produktmodell noch die Entwicklungspriorität.
 Persönliche Inbetriebnahme und echte Netzabnahmen werden separat protokolliert.

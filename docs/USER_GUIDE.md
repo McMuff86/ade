@@ -30,6 +30,10 @@ Diese zuerst regulär abschliessen. Rückkehr zum vorherigen Build:
 `pnpm activate -- -Rollback`. Auf dem Tablet die bestehende HTTPS-Seite neu laden;
 eine neue Kopplung ist nicht erforderlich. Den Rechner eingeschaltet und angemeldet
 lassen; bei aktivem mobilen Zugriff bleibt ADE nach Schliessen des Fensters im Tray.
+Unter **Einstellungen → Betrieb und Start** lassen sich zusätzlich „ADE bei der
+Desktop-Anmeldung öffnen“, „ADE beim Schließen des Fensters im Tray behalten“
+und Wachhalten während aktiver Arbeit einschalten. Der Bildschirm darf sich dabei
+weiterhin sperren; unterbrochene Arbeit wird nie automatisch neu gestartet.
 
 ## Eine Sitzungsantwort anhören
 
@@ -753,13 +757,17 @@ eine Verbindung zum PC. Bei einem alten Browserstand ADE in Chrome neu laden.
 | Sitzung beenden + bestätigen | Der ausgewählte Terminalprozess wird beendet |
 | ADE-Fenster schliessen, mobiler Zugriff aktiv | ADE bleibt im Infobereich des PCs aktiv |
 | ADE im Tray vollständig beenden / PC neu starten | Laufende Terminalprozesse enden; Dateien bleiben bestehen |
+| ADE stürzt ab oder der Rechner startet neu | Die Übersicht zeigt die Arbeit unter **Unterbrochen** mit Ursache („Rechner wurde neu gestartet“, „ADE wurde beendet“, „ADE wurde unerwartet beendet“); nichts wird wiederholt |
 
 Zum Weiterarbeiten dasselbe Projekt bzw. denselben Agenten öffnen und eine
 bestehende Sitzung verwenden. Nach einem vollständigen ADE-Neustart muss die CLI
 neu gestartet werden. Ob ein früheres Gespräch fortgesetzt werden kann, hängt
 von deren eigener Resume-/Verlaufsfunktion ab.
 
-Für einen **Windows-Quellcode-Update** erst aktive Arbeit abschliessen, ADE über
+Unter Linux und Windows aktualisiert `pnpm activate -- -Label Update` die
+persönliche Instanz mit Prüfung, Profilsicherung und Rückfallbuild (siehe oben).
+Der folgende manuelle Weg bleibt für einen **Windows-Quellcode-Update** ohne
+`pnpm activate`: erst aktive Arbeit abschliessen, ADE über
 das Tray vollständig beenden und im ADE-Repository ausführen:
 
 ```powershell
@@ -838,6 +846,37 @@ Rückfrage pausiert das Aufgaben-Zeitlimit. Eine Eingabe bleibt bei Drehung und
 kurzem Offline-Zustand im geöffneten Fenster; ein Browser-Neuladen verwirft den
 Formularentwurf. Nach einem ADE-/Agent-Neustart sind alte Fragen abgelaufen.
 
+## Entscheidungen an einem Ort
+
+**Übersicht → Deine nächsten Entscheidungen** (PC) bzw. die Übersicht am Tablet
+sammelt Arbeit aus allen Projekten unter **Braucht dich**, **Arbeitet**, **Bereit
+zur Prüfung** und **Unterbrochen**. Ein Eintrag öffnet die passende Detailansicht.
+**Hier entscheiden** klappt die Aktionen direkt in der Zeile auf. Es erscheinen
+nur Aktionen, die Sitzung bzw. Run tatsächlich unterstützen: **Rückfrage
+beantworten**, **Run abbrechen…** (mit Bestätigung), **Weitere Anweisung** an eine
+CLI mit geschütztem Prompt-Weg und **Eingabe übernehmen**. **Turn unterbrechen**
+bleibt gesperrt; ADE bietet keine Pause an. Ein gesperrter Knopf nennt den Grund,
+etwa nur Leserechte oder ein anderes Gerät mit Eingabebesitz. Am Tablet sendest
+du Anweisungen im Terminal, nachdem du dort die Eingabe übernommen hast.
+
+Entwürfe bleiben nur im geöffneten Fenster und nur für ihre Sitzung erhalten.
+Ist eine Zustellung nicht bestätigt, wiederholt **Zustellung prüfen** genau
+denselben Befehl; die CLI erhält ihn höchstens einmal. Ruhe im Terminal bedeutet
+keinen Abschluss.
+
+## Benachrichtigungen auf dem Tablet
+
+Am Tablet **Einstellungen → Mobile Benachrichtigungen → Benachrichtigungen auf
+diesem Gerät einschalten** wählen und die Browser- sowie Android-Berechtigung
+erlauben. Kategorien (Rückfrage, Fehler, fertiges Ergebnis) gelten je Gerät.
+**Testnachricht senden** prüft den Weg; danach ist der nächste Test 30 Sekunden
+gesperrt und die Seite zeigt die Restzeit. Nachrichten bleiben neutral, ohne
+Prompts, Code oder Pfade. Antippen öffnet den passenden Run erst nach erneuter
+Prüfung der Gerätefreigabe; offline wird nichts vorgemerkt. Benachrichtigungen
+gibt es nur für bestätigte ADE-Aufgaben-/Run-Ereignisse, nicht für interaktive
+CLIs. PC und ADE müssen laufen. Ein Empfang bei gesperrtem Tablet ist noch nicht
+abgenommen.
+
 ## Ergebnisse später wiederfinden
 
 Unter **Projekte → Workspace öffnen → Ergebnisse** kannst du mit **Ältere Runs**
@@ -893,8 +932,8 @@ Aufgaben bieten Checkliste, Fälligkeit und Erinnerung. „Heute“ enthält auc
 Aufgaben; „Später“ zeigt offene Aufgaben ohne Fälligkeit. „Erinnerungen“ zeigt fällige,
 noch nicht bestätigte Hinweise. Der PC muss für Desktop-Erinnerungen mit ADE laufen.
 Benachrichtigungen im Hintergrund hängen von den Systemeinstellungen ab. Auf dem
-Tablet siehst du Erinnerungen beim Öffnen; es gibt keine zugesicherte Push-Zustellung
-bei geschlossener App. Eine Erinnerung startet keine Agentenarbeit.
+Tablet siehst du Erinnerungen beim Öffnen; Erinnerungen werden nicht per Push
+zugestellt (Push gilt nur für ADE-Aufgaben/Runs, siehe oben). Eine Erinnerung startet keine Agentenarbeit.
 
 **An Agenten übergeben** zeigt vor dem Start Projekt, Agent und Auftragstext. Titel,
 Text und Checkliste werden übergeben; Fotos/Skizzen bleiben an der persönlichen

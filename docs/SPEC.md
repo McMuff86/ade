@@ -932,7 +932,9 @@ source-install and tablet setup steps are in [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Quality bar
 
-- Windows first (dev machine is Win11; ConPTY), keep macOS/Linux compatible.
+- Native Windows (ConPTY) and native Linux (Unix PTY) are equal product targets
+  with separate evidence (Goal 34); WSL deployment models stay distinct and
+  macOS is not a delivery target.
 - Terminal scrollback survives tab switches; sessions survive app reload
   where the PTY layer allows it.
 - Mobile terminal history opens with the visible Verlauf button, upward wheel,

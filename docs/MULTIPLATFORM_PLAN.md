@@ -7,6 +7,16 @@ repository scope inside a selected WSL distribution. CI and the complete Linux
 package workflow passed on commit `d32faa9`; publication of versioned Linux
 release assets remains a separate release gate.
 
+Update 2026-10-01 (Goal 34): native Linux (Omarchy/Hyprland) is now a
+first-class development and personal-use host, not only a package target.
+`pnpm verify` runs on Linux (28 passed / 0 failed / 16 Windows-only steps
+reported as not measured, 106 suites / 4,541 checks), and `pnpm activate` has a
+measured Linux path (gate, profile backup, graceful quit, `out.prev` rollback,
+live-session block). Linux login autostart (XDG), opt-in tray, sleep inhibition
+and interrupted-work causes are implemented with Linux evidence only; the
+matching native Windows runs are open. Current per-capability evidence:
+[AGENT_SESSION_PLATFORM_RESULTS](AGENT_SESSION_PLATFORM_RESULTS.md).
+
 ## Product definitions
 
 These are separate deployment models:

@@ -447,14 +447,15 @@ keine vollständige Geräteabnahme mit Tastatur, Orientierung und Mobilfunk.
 
 Eine CLI im PATH beweist nur ihre Auffindbarkeit. Eine Shell, eine interaktive
 Agent-Sitzung, eine verwaltete Aufgabe und das zentrale ADE-Gespräch sind
-verschiedene Start-/Steuerungswege. Diese Matrix trennt sie; die neue native
-Codex-Probe deckt verwaltete Aufgaben und das ADE-Gespräch ab. Interaktive
-Die interaktive native Codex-Probe ist oben ergänzt; weitere Adapter- und
-Windows-Proben bleiben getrennt offen.
+verschiedene Start-/Steuerungswege. Diese Matrix trennt sie. Native
+Codex-Proben decken verwaltete Aufgaben, das ADE-Gespräch und eine interaktive
+Sitzung ab; weitere Adapter- und Windows-Proben bleiben getrennt offen.
+Fortgeschrieben am 1. Oktober abends mit den Ergebnissen von 34.3–34.5
+(letztes Linux-Verify 28/0/16 nicht gemessen, 106 Suiten / 4.541 Checks).
 
 | Fähigkeit / Sitzungsart | Linux nativ (Omarchy) | Windows nativ | Nachweis / nächste Arbeit |
 |---|---|---|---|
-| Mehrere interaktive Shells, exakter Projekt-/Sitzungswechsel | **78 Prüfungen bestanden** im portablen Electron-/Tablet-Treiber mit vier nativen Shells | Bestehender Windows-Ablauf; neuer Treiber noch nicht ausgeführt | `sessionNavigationFlow.ts`, neuer `test-session-navigation-electron.ts` |
+| Mehrere interaktive Shells, exakter Projekt-/Sitzungswechsel | **96 Prüfungen bestanden** (zuvor 78) im portablen Electron-/Tablet-Treiber mit vier nativen Shells | Bestehender Windows-Ablauf; neuer Treiber noch nicht ausgeführt | `sessionNavigationFlow.ts`, neuer `test-session-navigation-electron.ts` |
 | Mehrere native Prozesse im ADE-Sitzungskern | **30 Prüfungen bestanden** mit echtem `PtyManager`, vier PTYs und deterministischen CLI-Fixtures | Derselbe Testpfad angelegt, noch nicht ausgeführt | `test-session-processes.ts`; kein Ersatz für Desktop-/Tablet- oder native Modellabnahme |
 | Feste Codex-/Claude-/Grok-CLI | Codex 0.159.0 mit Profil und geschütztem Prompt real geprüft; Claude/Grok nur neue Transport-Fixtures | Frühere Windows-Terminalnachweise; keine neue Messung | `SessionLaunchService`, `PtyManager`; je CLI separater nativer Test erforderlich |
 | Hermes, eigene Startbefehle, Ollama/Qwen | Startoptionen im Code; keine pauschale Linux-Freigabe | Frühere adapterbezogene Nachweise gelten nur im dokumentierten Umfang | Auffindbarkeit, Shellstart und Modellantwort getrennt prüfen |
@@ -463,8 +464,12 @@ Windows-Proben bleiben getrennt offen.
 | Strukturierter Prompt/Diktat an geschützten interaktiven CLI | **Implementiert** für neue feste native Starts: Promptvertrag 28/0 und echte PTY-Negativkontrollen | Geschützter Startpfad implementiert | `promptProtected` in `PtyManager`; Ende-/Nachlauf-/Rechteverlustnachweise vorhanden |
 | Rückfragen in verwalteten Aufgaben | Nativer Codex-App-Server-Pfad; Linux-UI-Fixture und echte Codex-Modellprobe **16/0** dokumentiert | Codex-Nachweise vorhanden; keine allgemeine Claude-/Grok-Rückfragenzusage | `RunQuestionService`, `CodexAppServerProcess`, `LIVE_RUN_INTERACTION_PLAN.md`, aktueller STATUS |
 | Zentrales ADE-Gespräch | POSIX-Start und echte Codex-Browserprobe **16/0**: Vorschlag, Bestätigung, Worker-Rückfrage und Ergebnis | Bestehender Windows-Koordinator | Beweist nicht automatisch Fortsetzung beliebiger interaktiver CLI-Sitzungen |
-| Abbruch, Unterbrechen, Fortsetzen | Rohes Terminal und Managed-Task-Abbruch vorhanden; kein universeller Pause-/Resume-Vertrag | Gleiche fachliche Unterscheidung | Fähigkeiten je Adapter, Sitzungstyp und Prozesszustand nachweisen |
-| Oberfläche schliessen / ADE beenden | Tray bei aktivem Mobile-Host; vollständiges Beenden stoppt PTYs | Entsprechender Lebenszyklus | Unabhängiger Host bleibt Goal 34.6; Prozessverlust ist keine laufende Sitzung |
+| Abbruch, Unterbrechen, Fortsetzen | Rohes Terminal und Managed-Task-Abbruch vorhanden; kein universeller Pause-/Resume-Vertrag. Der Entscheidungseinstieg meldet „Turn unterbrechen“ immer als gesperrt (`no-turn-control`) | Gleiche fachliche Unterscheidung; nicht gemessen | Fähigkeiten je Adapter, Sitzungstyp und Prozesszustand nachweisen |
+| Entscheidungseinstieg mit Aktionen nach Fähigkeit (34.4) | **Implementiert**: Main meldet je Zeile `answer`/`cancel`/`instruct`/`take-input`/`interrupt` mit Sperrgrund; Antworten an Run/Task/Frage, Anweisungen an Sitzung und Prozess gebunden; fensterlokale Entwürfe; Agent-/Tablet-Treiber **56/0**, `test-attention.ts` **49/0** | Nicht gemessen | `src/shared/attention.ts`, `attentionOverview.ts`, `AttentionDecision.tsx`; echte Codex-Rückfrage über diese Ansicht und physisches Tablet offen |
+| Unterbrochene Arbeit mit Ursache (34.3) | **Implementiert**: `host-restart`/`app-quit`/`app-crash`/`unknown` aus `ade/lifecycle.json` (Boot-ID); nichts wird wiederholt; Lebenszyklus **24/0**, Aktivierungstreiber **21/0** mit SIGKILL/regulärem Ende/Doppelstart | Boot-Zeit-Pfad implementiert, nicht gemessen | `hostLifecycle.ts`; echter Rechnerneustart nur über injizierte Boot-ID belegt |
+| Autostart, Tray, Wachhalten (34.3) | **Implementiert** als lokale Opt-ins (XDG-Autostart, Tray ohne Mobile-Host, Inhibitor mit Freigabe); Betriebsvertrag **54/0** | Adapter injiziert getestet; kein Windows-Betriebsnachweis | Physische Anmeldung/Sperre unter Hyprland und Windows offen |
+| Mobile Push (34.5) | **Implementiert** für bestätigte Run-/Aufgabenereignisse: Opt-in je Gerät, neutrale Texte, Duplikat-/Burstgrenze, `renotify`, Detailnavigation mit erneuter Autorisierung, Testsperre mit Countdown; Verträge **74/0**, Chromium/HTTPS **33/0**; physischer Testempfang am Android-Tablet bestätigt | Nicht gemessen | Empfang bei gesperrtem Tablet und echte Aufgabenereignisse am Gerät offen; interaktive CLI-Ereignisse lösen keinen Push aus |
+| Oberfläche schliessen / ADE beenden | Tray bei aktivem Mobile-Host oder per Opt-in auch ohne; vollständiges Beenden stoppt PTYs und markiert ein sauberes Ende | Entsprechender Lebenszyklus | Unabhängiger Host bleibt Goal 34.6; Prozessverlust ist keine laufende Sitzung |
 
 Native Windows, natives Linux, Linux unter WSLg und Windows-UI mit WSL-Backend
 werden separat abgenommen. Ein Linux-Fixturelauf beweist keine Windows-ConPTY-
@@ -614,3 +619,5 @@ Kopplung, Gerätefreigaben, Bildschirmtastatur, Hoch-/Querformat und Mobilfunk.
 Windows-Nachweis des portablen Treibers sowie weitere reale native CLIs bleiben
 offen. Linux-Profiltransport und geschützte Promptübergabe sind oben ergänzt. Goal 34.2 ist damit
 weitergeführt, als vollständiges Linux-/Windows-Produktteilziel noch nicht abgenommen.
+Die Stabilisierung von 34.3–34.5 vom 1. Oktober abends steht oben; nächste
+Codearbeit ist der Architekturentscheid für 34.6.

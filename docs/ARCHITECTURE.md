@@ -1536,8 +1536,9 @@ Electron app and port the load-bearing pieces:
 - agent launch commands (`packages/shared/src/builtin-terminal-agents.ts`,
   `agent-command.ts`, renderer `agent-launch-command.ts`/`argv.ts`)
 - pty-daemon's session model (ring buffer, detach/replay) — but NOT its
-  POSIX-only process (fd-handoff/stty). We are Windows-first: node-pty with
-  ConPTY lives in the Electron main process.
+  POSIX-only process (fd-handoff/stty). ADE started Windows-first: node-pty
+  (ConPTY on Windows, a Unix PTY on native Linux) lives in the Electron main
+  process. A separate long-lived host is the subject of Goal 34.6.
 
 Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 
