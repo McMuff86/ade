@@ -2,6 +2,14 @@ import { messagesEn } from './messages.en';
 /** English is the source catalog and fallback for future languages. */
 export const en = {
   ...messagesEn,
+  "Notification status checked: enabled. You can send a test.": "Notification status checked: enabled. You can send a test.",
+  "Notification status checked: not yet enabled. Use Enable notifications to try registration again.": "Notification status checked: not yet enabled. Use Enable notifications to try registration again.",
+  "Notification permission was not granted. Allow notifications in the browser site settings, then try enabling them again.": "Notification permission was not granted. Allow notifications in the browser site settings, then try enabling them again.",
+  "The ADE background component is not ready for notifications. Close every ADE tab and the installed ADE app, reopen ADE, then enable notifications again. Reloading the status does not update this component.": "The ADE background component is not ready for notifications. Close every ADE tab and the installed ADE app, reopen ADE, then enable notifications again. Reloading the status does not update this component.",
+  "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.": "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.",
+  "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.": "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.",
+  "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.": "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.",
+
   "Notification settings could not be loaded. Reconnect and try again.": "Notification settings could not be loaded. Reconnect and try again.",
   "Notification change was not confirmed. Reload its status before trying again; work is unchanged.": "Notification change was not confirmed. Reload its status before trying again; work is unchanged.",
   "Mobile notifications": "Mobile notifications",

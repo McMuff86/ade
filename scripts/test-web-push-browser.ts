@@ -56,10 +56,18 @@ void (async () => {
   await context.addInitScript({ content: `(() => {
     const value = ${JSON.stringify(sub)};
     let active = null;
+    const control = window.__pushFixture = { workerUnavailable: false, subscriptionFails: false, permission: 'granted', subscriptions: 0 };
+    const postMessage = ServiceWorker.prototype.postMessage;
+    ServiceWorker.prototype.postMessage = function(message, transfer) {
+      if (control.workerUnavailable && message === 'ade-push-capability') return;
+      return postMessage.call(this, message, transfer);
+    };
     Object.defineProperty(Notification, 'permission', { configurable: true, get: () => 'granted' });
-    Object.defineProperty(Notification, 'requestPermission', { configurable: true, value: async () => 'granted' });
+    Object.defineProperty(Notification, 'requestPermission', { configurable: true, value: async () => control.permission });
     PushManager.prototype.getSubscription = async () => active;
     PushManager.prototype.subscribe = async () => {
+      control.subscriptions++;
+      if (control.subscriptionFails) throw new DOMException('PRIVATE ENDPOINT must not reach UI', 'AbortError');
       active = { toJSON: () => value, unsubscribe: async () => { active = null; return true; } };
       return active;
     };
@@ -73,6 +81,32 @@ void (async () => {
   let dialog = await openSettings(); let panel = dialog.getByRole('region', { name: 'Mobile Benachrichtigungen', exact: true });
   await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät ausgeschaltet.', { exact: true }).waitFor();
   check('new device is opted out with no delivery', !push.status(device).enabled && delivered.length === 0);
+  check('test remains discoverable but disabled until registration is confirmed', await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isDisabled()
+    && await panel.getByText('Der Test wird verfügbar, sobald ADE', { exact: false }).isVisible());
+  await page.evaluate("window.__pushFixture.permission = 'default'");
+  await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).click();
+  await panel.getByRole('alert').filter({ hasText: 'Die Browser-Berechtigung wurde nicht erteilt.' }).waitFor();
+  check('dismissed permission explains its own recovery before any subscription', !push.status(device).enabled && await page.evaluate('window.__pushFixture.subscriptions') === 0);
+  await page.evaluate("window.__pushFixture.permission = 'granted'; window.__pushFixture.workerUnavailable = true");
+  await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).click();
+  await panel.getByRole('alert').filter({ hasText: 'Die ADE-Hintergrundkomponente ist noch nicht' }).waitFor();
+  check('obsolete worker fails for the expected capability timeout with no subscription', !push.status(device).enabled && await page.evaluate('window.__pushFixture.subscriptions') === 0);
+  await panel.getByRole('button', { name: 'Benachrichtigungsstatus neu laden', exact: true }).click();
+  await panel.getByRole('status').filter({ hasText: 'Status geprüft: noch nicht eingeschaltet.' }).waitFor();
+  check('status reload acknowledges unchanged state and retains the actionable worker diagnosis', await panel.getByRole('alert').filter({ hasText: 'Schliesse alle ADE-Tabs' }).isVisible()
+    && await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isDisabled());
+  await page.evaluate('window.__pushFixture.workerUnavailable = false; window.__pushFixture.subscriptionFails = true');
+  await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).click();
+  await panel.getByRole('alert').filter({ hasText: 'Der Browser konnte sich nicht beim Push-Dienst anmelden.' }).waitFor();
+  check('browser provider failure is distinct and never exposes its raw exception', !push.status(device).enabled && !(await panel.innerText()).includes('PRIVATE ENDPOINT'));
+  await page.evaluate('window.__pushFixture.subscriptionFails = false');
+  await page.route('**/api/v1/notifications/command', route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'invalid_payload' }) }));
+  await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).click();
+  await panel.getByRole('alert').filter({ hasText: 'ADE konnte diese Push-Anmeldung des Browsers nicht annehmen.' }).waitFor();
+  check('host subscription validation rejection stays distinct from local browser failures', !push.status(device).enabled);
+  await page.unroute('**/api/v1/notifications/command');
+
+
   await panel.getByRole('checkbox', { name: 'Gemeldete Arbeitsfehler', exact: true }).uncheck();
   let releaseStatus!: () => void; let capturedStatus = false;
   const heldStatus = new Promise<void>(done => { releaseStatus = done; });
@@ -90,6 +124,11 @@ void (async () => {
   check('late status response cannot overwrite a confirmed opt-in or category choice', await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät eingeschaltet.', { exact: true }).isVisible()
     && !await panel.getByRole('checkbox', { name: 'Gemeldete Arbeitsfehler', exact: true }).isChecked());
   check('keyboard opt-in persists only the chosen categories for this identity', push.status(device).enabled && !push.status(device).preferences.error);
+  await panel.getByRole('button', { name: 'Benachrichtigungsstatus neu laden', exact: true }).click();
+  await panel.getByRole('status').filter({ hasText: 'Status geprüft: eingeschaltet.' }).waitFor();
+  check('positive recovery clears the failure and makes the test available', await panel.getByRole('alert').count() === 0
+    && await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isEnabled());
+
   check('notification choices and controls fit a narrow tablet', await panel.evaluate(n => n.scrollWidth <= n.clientWidth + 1 && [...n.querySelectorAll('button')].every(b => b.getBoundingClientRect().height >= 40)));
   await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).click();
   await panel.getByText('Der Push-Dienst hat die letzte Nachricht angenommen.', { exact: false }).waitFor();
@@ -116,9 +155,13 @@ void (async () => {
   dialog = await openSettings(); panel = dialog.getByRole('region', { name: 'Mobile Benachrichtigungen', exact: true });
   await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät eingeschaltet.', { exact: true }).waitFor();
   check('grant refresh and page reload preserve the device opt-in', push.status(device).enabled);
+  await page.evaluate("window.__savedRegistration = navigator.serviceWorker.getRegistration; navigator.serviceWorker.getRegistration = async () => { throw new Error('fixture unavailable worker'); }");
   await panel.getByRole('button', { name: 'Benachrichtigungen ausschalten', exact: true }).click();
   await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät ausgeschaltet.', { exact: true }).waitFor();
   check('explicit disable removes host subscription', !push.status(device).enabled);
+  check('host opt-out succeeds even when browser worker lookup fails', await panel.getByRole('alert').count() === 0);
+  await page.evaluate('navigator.serviceWorker.getRegistration = window.__savedRegistration');
+
   await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).click();
   await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät eingeschaltet.', { exact: true }).waitFor();
   transportFails = true; await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).click();

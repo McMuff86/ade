@@ -1,5 +1,43 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.5: Rückmeldung bei fehlgeschlagener Push-Anmeldung (1. Oktober 2026)
+
+Am Tablet meldet der Benutzer „Änderung nicht bestätigt“; erneutes Statusladen
+scheint ohne Wirkung. Im persönlichen Audit bisher kein `notification:command`,
+Push-Vault seit der Aktivierung unverändert. Das grenzt die Ursache nicht sicher
+auf einen bestimmten Browser-Schritt ein; physischer Empfang ist nicht belegt.
+
+Die mobile UI unterscheidet jetzt Berechtigung, veraltete/nicht bereite
+Hintergrundkomponente, Browser-Push-Anmeldung und Ablehnung durch ADE. Statusladen
+bestätigt auch „noch nicht eingeschaltet“ und erhält die konkrete Fehlerhilfe;
+es wiederholt keine Anmeldung. Der Testknopf bleibt mit Erklärung sichtbar und
+bis zur bestätigten Anmeldung deaktiviert. Host-Abmeldung funktioniert auch bei
+fehlerhafter Browser-Hintergrundkomponente. Keine Sitzung oder Freigabe verändert.
+
+Gezielter HTTPS-/Chromium-Test mit simuliertem Provider: **27/0** inklusive
+Negativkontrollen und anschliessender erfolgreicher Anmeldung/Testnachricht.
+Vollständiges `pnpm verify` **12:30:58 CEST: 28 bestanden / 0 Fehler /
+16 nicht gemessen**, **105 Suiten / 4.477 Checks**, Push-Browser **27/0**.
+Persönlich aktiviert **12:32:53 CEST** über `pnpm activate -- -Label PushFeedback`:
+Gate **14/0/1 nicht gemessen**, neuer Host **3820847**, Source-ID
+**6b25cdcaf4b931daee2d**. Backup vor/nach regulärem Quit:
+`/home/mcmuff/ADE-Backups/Activate-PushFeedback-2026-10-01T10-32-52-466Z/`.
+Keine laufende Terminal-/Agent-Arbeit beendet; `out.prev` entspricht dem alten Build.
+Echte HTTPS-Probe **12:33:10 CEST**: HTML und **21 Dateien** mit regulärer
+Zertifikatsprüfung **200**, passend zum neuen `out/mobile`; Listener gehört dem
+neuen Host auf **127.0.0.1:4317**. Geräte-/Push-Vault bytegleich, beide
+Gerätebackups passend, Tailscale-Serve unverändert, OpenClaw **:443 HTTPS 200**.
+
+**ADE kann jetzt auf dem Tablet neu geöffnet werden; keine neue Kopplung.**
+Unter Einstellungen → Mobile Benachrichtigungen erneut einschalten. Bleibt die
+Anmeldung erfolglos, ist der neue konkrete Fehlertext für die weitere Diagnose
+nötig. Die physische Ursache und tatsächliche Zustellung sind weiterhin offen.
+
+Belege: `test-results/push-registration-feedback-20261001/` mit `full-verify/`,
+`gate/`, fokussiertem Browserlauf, Aktivierungslog und `https-result.json` samt
+Prüfskript. Browser/Provider bleiben im automatisierten Push-Test simuliert.
+
+
 ## Goals 34.3–34.5 persönlich aktiviert (1. Oktober 2026, 10:36 CEST)
 
 **ADE kann jetzt neu geöffnet und das Tablet wieder verwendet werden. Keine

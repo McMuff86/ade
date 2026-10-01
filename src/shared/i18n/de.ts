@@ -2,6 +2,14 @@ import type { en } from './en';
 import { messagesDe } from './messages.de';
 export const de: Record<keyof typeof en, string> = {
   ...messagesDe,
+  "Notification status checked: enabled. You can send a test.": "Status geprüft: eingeschaltet. Du kannst eine Testnachricht senden.",
+  "Notification status checked: not yet enabled. Use Enable notifications to try registration again.": "Status geprüft: noch nicht eingeschaltet. Tippe auf „Benachrichtigungen auf diesem Gerät einschalten“, um die Anmeldung erneut zu versuchen.",
+  "Notification permission was not granted. Allow notifications in the browser site settings, then try enabling them again.": "Die Browser-Berechtigung wurde nicht erteilt. Erlaube Benachrichtigungen in den Website-Einstellungen und versuche das Einschalten erneut.",
+  "The ADE background component is not ready for notifications. Close every ADE tab and the installed ADE app, reopen ADE, then enable notifications again. Reloading the status does not update this component.": "Die ADE-Hintergrundkomponente ist noch nicht für Benachrichtigungen bereit. Schliesse alle ADE-Tabs und die installierte ADE-App, öffne ADE erneut und schalte Benachrichtigungen wieder ein. Status neu laden aktualisiert diese Komponente nicht.",
+  "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.": "Der Browser konnte sich nicht beim Push-Dienst anmelden. Prüfe die Internetverbindung des Tablets und die Benachrichtigungsberechtigungen des Browsers. Versuche danach das Einschalten erneut.",
+  "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.": "ADE konnte diese Push-Anmeldung des Browsers nicht annehmen. Verwende Google Chrome auf Android und versuche das Einschalten erneut.",
+  "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.": "Der Test wird verfügbar, sobald ADE die Anmeldung dieses Geräts bestätigt. Die Browser-Berechtigung allein schaltet die Zustellung noch nicht ein.",
+
   "Notification settings could not be loaded. Reconnect and try again.": "Benachrichtigungseinstellungen konnten nicht geladen werden. Erneut verbinden und versuchen.",
   "Notification change was not confirmed. Reload its status before trying again; work is unchanged.": "Änderung nicht bestätigt. Status neu laden, bevor du erneut versuchst. Laufende Arbeit bleibt unverändert. Nach einem Update ADE vollständig schliessen und neu öffnen.",
   "Mobile notifications": "Mobile Benachrichtigungen",

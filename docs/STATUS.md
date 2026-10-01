@@ -1,5 +1,16 @@
 # ADE implementation status
 
+## Push-Anmeldung: nachvollziehbare Fehler und Statusprüfung
+
+Korrektur nach physischer Tablet-Rückmeldung: getrennte Hilfe für Berechtigung,
+Hintergrundkomponente, Browser-Anmeldung und Host-Ablehnung. Statusladen bestätigt
+auch unveränderten Zustand; der Test bleibt sichtbar und erklärt seine Sperre.
+Gezielter Chromium-/HTTPS-Test **27/0** mit simuliertem Push-Dienst. Vollständiges
+Verify **12:30:58 CEST: 28/0/16 nicht gemessen**, 105 Suiten / 4.477 Checks.
+Aktiviert **12:32:53 CEST**, Gate **14/0/1**, echtes HTTPS :8443 **200** mit
+21 passenden Dateien, Pairing/Push-Vault erhalten. Physische Tablet-Fehlerursache
+und Empfang offen. [Aktueller Nachweis](HANDOFF.md).
+
 ## Goal 34.5: erste mobile Push-Lieferung (1. Oktober 2026)
 
 Geräte-Opt-in, Kategorien, Test, verschlüsselte Abonnements/VAPID, neutrale

@@ -2547,8 +2547,15 @@ submits work. API data/credentials stay out of its offline cache. Push settings
 are device-local opt-in with category choice, permission/unsupported/offline
 states, status reload and an explicit test. Permission is requested in the user
 gesture; the worker capability handshake rejects an obsolete active worker
-until all ADE views are closed and reopened. The worker source participates in
-the shared desktop/mobile build fingerprint.
+until all ADE views are closed and reopened. Permission, worker capability,
+browser subscription and host validation failures have separate static recovery
+messages; raw browser exceptions and subscription endpoints never enter the UI.
+Explicit status reload acknowledges an unchanged opt-out and retains the last
+registration diagnosis; it never retries registration or updates the worker.
+The test button remains visible but disabled with an explanation until the host
+confirms opt-in. Disable/test do not require a working local worker; host opt-out
+is authoritative even if best-effort browser subscription cleanup fails.
+The worker source participates in the shared desktop/mobile build fingerprint.
 
 Sources: [web-push protocol/library](https://github.com/web-push-libs/web-push),
 [PushManager.subscribe](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe).
