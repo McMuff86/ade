@@ -13,7 +13,9 @@ Windows-Abnahme offen.
 34.5 erste Web-Push-Lieferung für bestätigte Aufgaben-/Run-Ereignisse implementiert:
 Verträge **56/0**, Browser mit simuliertem Provider **19/0**, vollständiges Verify
 **28/0/16 nicht gemessen**, **105 Suiten / 4.477 Checks**. Physischer Android-Empfang
-und weitere Plattform-/Adapterabnahmen bleiben offen;
+ist am **1. Oktober, 14:10 CEST** erstmals durch Benutzerrückmeldung zur
+Testnachricht bestätigt. Hintergrund-/Sperrbildschirmempfang, Zustellung echter
+Aufgabenereignisse und weitere Plattform-/Adapterabnahmen bleiben offen;
 34.5 erhält nach Tablet-Rückmeldung eine Korrektur der Fehler-/Statusanzeige
 (Browsernachweis **27/0**, Vollprüfung **28/0/16 nicht gemessen**, persönlich
 aktiviert **12:32:53 CEST**, HTTPS :8443 geprüft).

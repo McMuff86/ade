@@ -1,5 +1,14 @@
 # ADE implementation status
 
+## Physischer Push-Testempfang bestätigt (1. Oktober 2026)
+
+Benutzer bestätigt den Empfang der ADE-Testnachricht auf dem Android-Tablet.
+Chrome-Screenshot zeigt Opt-in und Provider-Annahme; Host-Audit bestätigt
+Ausführung. Eine weitere Testanforderung nach rund 16 Sekunden wurde durch die
+30-Sekunden-Sperre abgewiesen und irreführend als allgemeiner Fehler angezeigt.
+Gezielte Wartezeitanzeige, Hintergrund-/Sperrbildschirmempfang und echte
+Aufgabenereignisse bleiben offen. [Nachweis und Grenzen](HANDOFF.md).
+
 ## Push-Anmeldung: nachvollziehbare Fehler und Statusprüfung
 
 Korrektur nach physischer Tablet-Rückmeldung: getrennte Hilfe für Berechtigung,

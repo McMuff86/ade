@@ -1,5 +1,30 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
+## Goal 34.5: erster physischer Testempfang bestätigt (1. Oktober 2026, 14:10 CEST)
+
+Der Benutzer bestätigt auf dem Android-Tablet die Nachricht „Die
+ADE-Testnachricht ist angekommen“. Screenshot
+`/home/mcmuff/Austausch/Screenshot_20261001_140825_Chrome.jpg` zeigt Chrome auf
+`:8443`, aktivierte Benachrichtigungen, alle drei Kategorien und die Annahme der
+letzten Nachricht durch den Provider. Der Screenshot allein belegt nur diese
+UI-Zustände; der tatsächliche Empfang ist durch die Benutzerrückmeldung belegt.
+
+Persönliches Audit: Befehle **14:08:01**, **14:08:05** und **14:10:21 CEST**
+ausgeführt; **14:08:20.981** abgewiesen mit
+`Push test unavailable; wait before trying again`. Der erneute Test nach rund
+16 Sekunden lag innerhalb der implementierten 30-Sekunden-Testsperre. Die
+zusätzliche Sammelfehlermeldung im Screenshot ist daher kein Beleg für einen
+fehlgeschlagenen ersten Empfang. Die UI sollte diese Wartezeit künftig gezielt
+anzeigen; diese Klarstellung ist noch nicht implementiert.
+
+**Erster manueller Testempfang auf einem physischen Tablet bestätigt.** Weiter
+nicht gemessen: Empfang bei geschlossener ADE-Ansicht/gesperrtem Tablet,
+physische Zustellung echter Aufgabenereignisse, genaue Android-/Chrome-Version
+und Gerätemodell. Keine Änderung am laufenden Host oder an der Kopplung.
+Reduzierter Audit-/Screenshot-Nachweis ohne Gerätegeheimnisse:
+`test-results/push-tablet-receipt-20261001/evidence.json`.
+
+
 ## Goal 34.5: Rückmeldung bei fehlgeschlagener Push-Anmeldung (1. Oktober 2026)
 
 Am Tablet meldet der Benutzer „Änderung nicht bestätigt“; erneutes Statusladen
