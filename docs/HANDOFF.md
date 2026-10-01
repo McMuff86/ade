@@ -1,5 +1,26 @@
 # ADE — aktuelle Übergabe
 
+## Goal-34-Stabilisierung persönlich aktiviert (1. Oktober 2026, 23:34 CEST)
+
+- Aktiviert über `pnpm activate -- -Label Goal34Stabilization` mit den Commits
+  5ea398f, 198e39b, e5fda7f, 2dde188, 54c7563 und eee3615.
+- Erster Versuch abgebrochen, die bestehende Instanz blieb unverändert: Die Prüfung
+  „a notification on a revoked device opens no work“ war unter der parallelen
+  Gate-Last zeitabhängig (feste Wartezeit von 1 s). Ursache behoben in eee3615:
+  Die Prüfung wartet jetzt, bis der Zustand stabil ist, und schlägt fehl, sobald
+  irgendwann ein Run-Dialog erscheint. Einzeln 6/6 und parallel 4/4 bestanden.
+- Gate: 14 bestanden / 0 Fehler / 1 nicht gemessen (`tablet-layout`, nur Windows);
+  Suiten 4.541 Checks, Web-Push-Browser 33/0, Sitzungsnavigation 96/0,
+  Linux-Aktivierung 21/0.
+- Neuer Host **PID 1766400**, Quelle `2cc73003979cc98efdb3`; Backup
+  `~/ADE-Backups/Activate-Goal34Stabilization-2026-10-01T21-34-51-236Z`.
+  Rollback über `pnpm activate -- -Rollback`.
+- HTTPS-Probe auf `:8443`: HTML und alle 7 referenzierten JS-/CSS-/Manifest-Dateien
+  liefern 200; der ausgelieferte `sw.js` enthält `renotify: true`. Die Tailscale-
+  Serve-Konfiguration (:8443 → 127.0.0.1:4317, :8444) ist unverändert.
+- Weiterhin offen: physische Tablet-Prüfung der neuen Entscheidungsaktionen,
+  Unterbrechungsanzeige und Push bei gesperrtem Bildschirm; Windows-Abnahmen.
+
 ## Goal 34.5: Push-Stabilisierung ohne physisches Gerät (1. Oktober 2026, 23:19 CEST)
 
 Die offenen 34.5-Punkte waren weitgehend vorhanden und sind jetzt belegt; eine
