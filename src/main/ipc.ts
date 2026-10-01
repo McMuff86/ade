@@ -108,6 +108,7 @@ import { RemoteProfileService } from './application/RemoteProfileService';
 import { workspaceOperations } from './repositories/WorkspaceOperationGate';
 import { IntegrationService } from './repositories/IntegrationService';
 import { projectOverview } from './overview/projectOverview';
+import { attentionOverview } from './overview/attentionOverview';
 import { HostApiServer } from './remote/HostApiServer';
 import { MobileAccessController } from './remote/MobileAccessController';
 import { RemoteAuthorizer } from './remote/authorization';
@@ -1220,6 +1221,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
 
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
+  handle(IPC.AttentionGet, () => attentionOverview(store.get(), orchestration!.summarize(), ptyManager!.list(), supervisionService().briefing()));
   handle(IPC.RunGet, () => orchestration!.view());
   handle(IPC.RunReport, ({ runId }) => orchestration!.report(runId));
   handle(IPC.RunQuestions, ({ runId }) => runQuestions.view(runId));

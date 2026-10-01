@@ -71,7 +71,7 @@ void (async () => {
   const firstStream = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/v1/events');
   await page.getByRole('button', { name: 'Dieses Gerät verbinden', exact: true }).click();
   await connected(); await firstStream;
-  check('browser pairs and loads real host catalog in desktop-style Overview', await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).isVisible());
+  check('browser pairs and loads real host catalog in desktop-style Overview', await page.getByTestId('mobile-overview').locator('.m-projects').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).isVisible());
   check('phone layout has no horizontal overflow', await noOverflow());
   check('mobile shares desktop dark tokens with sans UI and monospace machine text', await page.evaluate(() => {
     const style = getComputedStyle(document.body);
@@ -106,7 +106,7 @@ void (async () => {
   await page.keyboard.press('End');
   check('Graph has a useful empty canvas and keyboard End support', await page.getByRole('heading', { name: 'Dein Graph ist bereit' }).isVisible());
   await page.keyboard.press('Home');
-  await page.getByTestId('mobile-overview').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).tap();
+  await page.getByTestId('mobile-overview').locator('.m-projects').getByRole('button', { name: 'Projekt öffnen: Mobile project', exact: true }).tap();
   await page.getByRole('alert').filter({ hasText: 'Diese Funktion benötigt die neue ADE-Version auf dem PC.' }).waitFor();
   check('Overview project selection routes to Projects and explains missing legacy API', await page.getByRole('tab', { name: 'Projekte', exact: true }).getAttribute('aria-selected') === 'true'
     && !await page.getByRole('dialog', { name: 'Agent beauftragen' }).count());
@@ -272,7 +272,7 @@ void (async () => {
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)
     || /^\/api\/v1\/runs\/[A-Za-z0-9_.:-]{1,128}(\/tasks\/[A-Za-z0-9_.:-]{1,128})?\/activity$/.test(path)
     || path === '/api/v1/workspace/query' || path === '/api/v1/workspace/assignment/query' || path === '/api/v1/terminal/sessions' || path === '/api/v1/diagnostics/query' || path === '/api/v1/usage/overview' || path === '/api/v1/usage/projects'
-    || path === '/api/v1/supervision/query'));
+    || path === '/api/v1/supervision/query' || path === '/api/v1/attention'));
   check('mobile workflow has no uncaught page errors', errors.length === 0);
   await context.close();
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'browser-failure.png'), fullPage: true }).catch(() => undefined); })

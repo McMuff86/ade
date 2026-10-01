@@ -31,6 +31,18 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
     return result;
   }, parent);
   if (checkSleepPrevention) check('real open PTYs request sleep prevention after opt-in', (await desktop.evaluate(() => window.ade.invoke('hostOperation:get'))).sleepPrevention === 'requested');
+  await desktop.keyboard.press('Escape');
+  await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+  const decisions = desktop.getByTestId('attention-panel');
+  await decisions.locator(`[data-attention-id="session:${sessions[2]!.id}"]`).waitFor();
+  const openedCount = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
+  check('three project shells appear with an honest unknown agent state', (await decisions.locator('[data-attention-group="unknown"] [data-attention-id]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-attention-id')))).filter(id => sessions.some(session => id === `session:${session.id}`)).length === 4);
+  await decisions.locator(`[data-attention-id="session:${sessions[2]!.id}"] button`).click();
+  await desktop.locator(`#project-session-tab-${sessions[2]!.id}[aria-selected="true"]`).waitFor();
+  check('decision navigation selects the exact existing session without relaunch', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === openedCount);
+  // Navigation correctly focuses the PTY. Return to app chrome before the
+  // fixture's later generic Escape; a raw Escape would alter shell readline.
+  await desktop.getByRole('tab', { name: 'Projekte', exact: true }).focus();
   // Per-process markers distinguish even two shells in the very same checkout.
   // A navigation bug must not pass just because both sessions share a directory.
   for (const [index, session] of sessions.entries()) {

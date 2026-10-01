@@ -1,5 +1,5 @@
 /** Real platform-native shells, Electron and paired tablet; no agent CLI or model required. */
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -11,6 +11,7 @@ import { sessionNavigationFlow } from './helpers/sessionNavigationFlow';
 import { posixProfileFixture } from './helpers/posixProfileFixture';
 import { linuxAgentTabletFlow } from './helpers/linuxAgentTabletFlow';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
+import { DEFAULT_CONFIG } from '../src/shared/types';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => {
@@ -41,6 +42,13 @@ void (async () => {
   const launcher = join(root, 'launch.cjs');
   const routeEvidence = join(root, 'serve.json');
   const home = join(root, 'terminal-home'); mkdirSync(home);
+  if (agentTablet) {
+    const profile = join(root, 'profile', 'ade'); mkdirSync(profile, { recursive: true });
+    const config = structuredClone(DEFAULT_CONFIG);
+    config.sessionBookends = [{ id: 'orphan-before-host-restart', agentId: 'removed-profile', agentName: 'Interrupted fixture', runtime: 'codex',
+      repositoryId: null, repositoryName: null, startedAt: 1, endedAt: null }];
+    writeFileSync(join(profile, 'config.json'), JSON.stringify(config));
+  }
   writeFileSync(launcher, `
 require('node:os').homedir = () => ${JSON.stringify(home)};
 const cp = require('node:child_process'); const original = cp.execFile;
@@ -71,6 +79,18 @@ require(${JSON.stringify(mainEntry())});
   // A deliberately hidden/reopened fixture may remain occluded by the test
   // runner on Wayland. Keep its animation clock live for Playwright actions.
   await app.evaluate(({ BrowserWindow }) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.setBackgroundThrottling(false); });
+  await desktop.evaluate(() => window.ade.invoke('category:create', { name: 'Overview fixture' }));
+  await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+  const initialDecisions = desktop.getByTestId('attention-panel');
+  if (agentTablet) {
+    const lost = initialDecisions.locator('[data-attention-group="interrupted"] [data-attention-id="history:orphan-before-host-restart"]');
+    await lost.waitFor();
+    check('startup recovery marks a lost process interrupted without offering a fabricated resume', await lost.getByRole('button').isDisabled()
+      && (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === 0);
+  } else {
+    await initialDecisions.getByText('Noch keine aktuellen Entscheidungen oder aufgezeichnete Arbeit.', { exact: true }).waitFor();
+    check('fresh desktop decision overview has a useful empty state', await initialDecisions.locator('[data-attention-id]').count() === 0);
+  }
   await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   const operation = desktop.getByTestId('host-operation');
   const awake = operation.getByRole('checkbox', { name: 'Während offener Sitzungen und aktiver Arbeit Wachhalten anfordern', exact: true });
@@ -138,6 +158,9 @@ require(${JSON.stringify(mainEntry())});
     && await mobile.getByLabel('ADE-HTTPS-Port', { exact: true }).isEnabled());
 })().catch(async error => {
   failed++; console.error(error);
+  for (const [source, name] of [['logs/main.log', 'failure-main.log'], ['remote/audit.jsonl', 'failure-audit.jsonl']]) {
+    try { copyFileSync(join(root, 'profile', 'ade', source), join(evidence, name)); } catch { /* A failed startup may not have created these logs. */ }
+  }
   await desktop?.screenshot({ path: join(evidence, 'failure-desktop.png') }).catch(() => undefined);
   await tablet?.screenshot({ path: join(evidence, 'failure-tablet.png') }).catch(() => undefined);
 }).finally(async () => {

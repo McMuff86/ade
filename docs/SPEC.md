@@ -807,6 +807,15 @@ mutations require idempotency keys and audit. Activation instructions:
   Linux Electron and injected-adapter tests.
 - Implementation and platform evidence are in `goal8/MOBILE_CONNECT_RESULTS.md`;
   physical iOS/Android and mobile-network acceptance must be measured separately.
+- Overview → Your next decisions is shared by desktop and tablet. It groups
+  confirmed questions/approvals and open handoffs, active runs/CLI processes,
+  completed managed results, interruptions and explicitly unknown states.
+  Opening a row selects the existing session, question/report or morning
+  handoff; it does not create work or take input ownership. Lost sessions after
+  restart offer their project when it still exists, never a fabricated resume.
+  Only device-authorized work appears remotely. Offline/failed reads remove
+  stale actions; refresh retries only the read. Existing detail capabilities
+  and host/session/question-bound draft rules remain authoritative.
 - Goals 8.6–8.9 align the mobile shell with the desktop: shared dark/light tokens,
   `ade_` title bar, Overview/Work/Graph navigation, agent/project inventory,
   searchable runs, team nodes and a tablet side inspector or phone detail dialog.

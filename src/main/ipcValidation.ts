@@ -682,6 +682,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     case IPC.WorkspaceBundlePickImport:
     case IPC.PtyList:
     case IPC.OverviewGet:
+    case IPC.AttentionGet:
     case IPC.RunGet:
     case IPC.DialogPickFolder:
     case IPC.WslList:

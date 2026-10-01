@@ -109,6 +109,7 @@ const SUITES: Suite[] = [
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 34 } },
   { id: 'host-operation', script: 'test-host-operation.ts', floors: { linux: 50, win32: 35 } },
+  { id: 'attention', script: 'test-attention.ts', floors: { linux: 27, win32: 27 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },
   { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 30 } },

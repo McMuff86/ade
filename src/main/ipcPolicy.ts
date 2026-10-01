@@ -98,6 +98,7 @@ const sharedLaunch: ChannelPolicy = { effect: 'launch', surface: 'shared', audit
 export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'config:get': shared,
   'hostOperation:get': read,
+  'attention:get': read,
   'hostOperation:change': host,
   'projectDefaults:get': read,
   'projectDefaults:save': { ...mutate, audit: true },

@@ -1,5 +1,15 @@
 # ADE implementation status
 
+## Goal 34.4: Entscheidungen auf Desktop und Tablet (1. Oktober 2026)
+
+Gemeinsame Übersicht mit bestätigten Fragen, Ergebnissen, CLI-Zuständen,
+Prozessverlust und Morgenübergaben implementiert. Direkte Detailnavigation,
+aktuelle Gerätefreigaben, Tastatur/Fokus, Offline-/Fehlerzustände geprüft.
+Zusätzlich tatsächlichen Fokusfehler beim Fortsetzen eines Gesprächs behoben.
+Vollständiges Verify **10:06:08 CEST: 27/0/16 nicht gemessen**, **104 Suiten /
+4.417 Checks**. Noch keine persönliche Aktivierung oder neue physische
+Android-/Windows-Abnahme. [Belege und Grenzen](HANDOFF.md).
+
 ## Goal 34.3: Betrieb und Start (1. Oktober 2026)
 
 Lokale Opt-ins für Login-Autostart (Linux XDG / Windows-API), Tray ohne mobilen

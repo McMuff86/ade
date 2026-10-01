@@ -63,6 +63,14 @@ export async function conversationProjectFlow(desktop: Page, port: number, profi
       check(`project preview fits ${width}px with touch controls`, await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1 && [...node.querySelectorAll('.conversation-action button')].every(b => b.getBoundingClientRect().height >= 44)));
       await card.screenshot({ path: join(evidence, `conversation-project-${width}.png`) });
     }
+    // Force the new detail to arrive after command acknowledgement. Focus must
+    // survive a refresh in flight, not merely a fast local response.
+    const delayedDetail = async (route: import('playwright').Route) => {
+      const body = route.request().postDataJSON();
+      if (body?.operation === 'detail' && body.conversationId !== conversationId) await new Promise(done => setTimeout(done, 300));
+      await route.continue();
+    };
+    await page.route('**/api/v1/conversation/query', delayedDetail);
     await dialog.getByRole('button', { name: 'Mit diesem Kontext weiterreden', exact: true }).click();
     await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toHaveValue(new RegExp(conversationId));
     check('one-click continuation carries the old conversation into a fresh writable context', await dialog.getByLabel('Gespräch auswählen', { exact: true }).inputValue() !== conversationId
@@ -70,6 +78,7 @@ export async function conversationProjectFlow(desktop: Page, port: number, profi
     // Focus lands after the fresh conversation renders; poll instead of sampling once (raced under load).
     check('continuation focuses the draft without sending or launching on its own', await expect(dialog.getByLabel('Nachricht an ADE', { exact: true })).toBeFocused({ timeout: 5_000 }).then(() => true, () => false)
       && (await desktop.evaluate(() => window.ade.invoke('config:get'))).runs.length === before.runs.length);
+    await page.unroute('**/api/v1/conversation/query', delayedDetail);
 
     // A second, explicit proposal includes its first task. Creation-only above
     // remains covered; selecting a profile never starts work by implication.

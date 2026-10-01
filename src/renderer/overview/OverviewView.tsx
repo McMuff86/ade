@@ -23,6 +23,7 @@ import { useSelection } from '../stores/selection';
 import { useRuns } from '../stores/runs';
 import { useSessions } from '../stores/sessions';
 import { CliWorkPanel } from '../work/CliWorkPanel';
+import { DesktopAttention } from '../attention/DesktopAttention';
 import { useAppData } from '../stores/appdata';
 import { UsageOverviewPanel, UsageOverviewTile, useUsageOverview } from '../usage/UsageOverviewCard';
 import './overview.css';
@@ -195,6 +196,7 @@ export function OverviewView(): JSX.Element {
       {!snapshot && !error ? (
         <p className="ov-empty" data-testid="overview-loading">{translate("Loading …")}</p>
       ) : null}
+      <DesktopAttention />
       <header className="ov-hero" aria-label={translate("Overview figures")}>
         <div className="ov-stat">
           <span className="ov-stat-label">{translate("Live")}</span>

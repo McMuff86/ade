@@ -68,12 +68,18 @@ void (async () => {
     } } as unknown as RemoteTerminalService,
   });
   const raceBriefing = () => raceApp.supervision(context(), { operation: 'briefing' }, false) as Promise<MobileMorningBriefing>;
+  const attention = await raceApp.attention(context().principal);
+  check('decision overview replaces native PTY IDs with device-visible session targets', attention.rows.some(row => row.target?.id === 'opaque-session') && !JSON.stringify(attention).includes('native-session'));
+  await refuses('bearer cannot read decision overview', () => raceApp.attention({ kind: 'bootstrap-token', id: 'token', proof: 'bearer', scopes: new Set(['read']) }), 'device_proof_required');
   check('authorized morning briefing includes linked profile work', (await raceBriefing()).projects[0].work.length === 1);
   revokeProfile = true;
+  await refuses('decision overview rechecks profile grants after inventory awaits', () => raceApp.attention(context().principal), 'scope_not_granted');
+  grantProfile();
   await refuses('morning read rechecks a launch-profile grant revoked during inventory', raceBriefing, 'scope_not_granted');
   grantProfile();
   await refuses('graph read rechecks a launch-profile grant revoked during inventory', () => raceApp.supervision(context(), { operation: 'overview' }, false), 'scope_not_granted');
   revokeProfile = false; grantProfile();
+  check('decision overview recovers after the authorized profile is restored', (await raceApp.attention(context().principal)).rows.some(row => row.target?.id === 'opaque-session'));
   check('final morning read succeeds after profile access is restored', (await raceBriefing()).projects[0].work.length === 1);
   state = await query();
   devices.setAdminScopes('tablet', [], { mode: 'selected', agentIds: ['builder'], repositoryIds: ['b'] });

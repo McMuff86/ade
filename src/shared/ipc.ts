@@ -177,6 +177,7 @@ export const IPC = {
   PtyCancelTasks: 'pty:cancelTasks',
   RuntimeDiagnose: 'runtime:diagnose',
   OverviewGet: 'overview:get',
+  AttentionGet: 'attention:get',
   RunGet: 'run:get',
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
@@ -693,6 +694,7 @@ export interface IpcInvokeMap {
   'project:fileSave': { req: Extract<import('./remote').MobileFileSaveInput, { projectWorkspaceId: string }>; res: import('./remote').MobileFileSaveResult };
   'config:get': { req: void; res: AdeConfig };
   'hostOperation:get': { req: void; res: import('./hostOperation').HostOperationStatus };
+  'attention:get': { req: void; res: import('./attention').AttentionSnapshot };
   'hostOperation:change': { req: import('./hostOperation').HostOperationChange; res: import('./hostOperation').HostOperationStatus };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };

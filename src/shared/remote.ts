@@ -1,4 +1,6 @@
 import type { ExecutionBackendId } from './executionBackends';
+/** Session targets contain opaque device-visible IDs, never native PTY IDs. */
+export type MobileAttentionSnapshot = import('./attention').AttentionSnapshot;
 import type { RemoteAdminScope } from './remoteDevices';
 import type { SpeechAudio, SpeechPreference, SpeechTarget } from './speech';
 import type { DictationJobState } from './dictation';

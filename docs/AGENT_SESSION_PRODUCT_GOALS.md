@@ -167,10 +167,19 @@ wird als nicht erreichbar behandelt; Wake-on-LAN ist kein Bestandteil.
 
 ## Goal 34.4 — Ein Einstieg für Entscheidungen und Eingriffe
 
-- [ ] Bestehende Arbeitsübersicht, Rückfragen und Morgenüberblick zusammenführen:
+Implementiert und vollständig geprüft am **1. Oktober, 10:06 CEST**: gemeinsamer
+Entscheidungseinstieg mit Run-Rückfragen, CLI-Zuständen, Prozessverlust und offenen
+Morgenübergaben; aktuelle Gerätefreigaben begrenzen die Tablet-Projektion.
+Verify **27/0/16 nicht gemessen**, **104 Suiten / 4.417 Checks**. Projektion
+**28/0**, Sitzungsnavigation **95/0**, Agent-/Tablet **40/0** mit Tastatur,
+Fokus, leerer Liste, Fehler, Offline und schmaler Ansicht. Detailaktionen nutzen
+bestehende Frage-/Sitzungs-/Lease-Verträge. Noch keine persönliche Aktivierung
+oder neue reale Codex-Rückfrage-/Android-Abnahme. [Belege](HANDOFF.md).
+
+- [x] Bestehende Arbeitsübersicht, Rückfragen und Morgenüberblick zusammenführen:
   „Braucht dich“, „Arbeitet“, „Bereit zur Prüfung“ und „Unterbrochen“.
   Unbekannter Zustand bleibt unbekannt; Terminalruhe ist kein Fertignachweis.
-- [ ] Pro Eintrag Projekt, Sitzung/Aufgabe, letzte bestätigte Aktivität und
+- [x] Pro Eintrag Projekt, Sitzung/Aufgabe, letzte bestätigte Aktivität und
   nächste mögliche Aktion zeigen; mit einem Schritt zur richtigen Detailansicht.
 - [ ] Antworten, weitere Anweisungen, Eingabeübernahme und Abbruch anhand der
   tatsächlichen Adapterfähigkeiten anbieten. Eingreifen in einen laufenden Turn

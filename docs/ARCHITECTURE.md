@@ -2469,6 +2469,31 @@ run/task labels with `Single task`/`Task`, including existing persisted records.
 Explicit independent labels remain visible. Prompts cannot escape through the
 former 80-character title shortcut; source records are preserved unchanged.
 
+The additional Goal 34.4 decision overview uses `attentionOverview`, shared by
+desktop `attention:get` and `AdeApplicationService.attention()` behind signed
+`GET /api/v1/attention`. `MobileAttentionSnapshot` is the wire contract; neither
+the HTTP adapter nor renderer reads a raw orchestration snapshot. Up to 100
+rows combine run summaries, interactive session metadata, interrupted durable
+bookends and open morning handoffs. Questions/approvals need the operator;
+managed completion needs review; failed/cancelled/lost work is interrupted.
+Known running CLI processes are labelled as processes, not model progress.
+Shells, unknown adapters and ordinary terminal exits never imply task completion.
+Last output, start and confirmed state timestamps are distinguished from the
+time at which the overview was fetched. No question text, prompt, handoff body,
+artifact or host path is added to the overview.
+
+Device queries filter runs/projects by current grants, include terminal/history
+rows only with `terminal:control`, and include handoff summaries only with the
+existing `workspace:read` grant. Native PTY IDs are replaced with inventory IDs;
+history row identifiers are per-device digests. Grants and device validity are
+checked again after awaiting inventory. Inventory keeps its existing 32-session
+bound. The shared `AttentionPanel` clears rows on identity change, offline state
+or failed reads and never persists/queues a command. Detail navigation reuses
+the existing terminal, run question/report and supervision flows, including
+their authorization, input leases, question bindings and drafts. It does not
+answer, claim input, restart work or offer a universal pause. Desktop question
+details preserve opener focus while loading, with a fallback after row removal.
+
 With mobile access enabled, closing the desktop window hides it only after a
 tray icon is available. The tray can reopen ADE or explicitly quit, which stops
 listeners and PTYs. If the tray is unavailable, closing retains normal app exit

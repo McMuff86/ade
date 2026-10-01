@@ -36,6 +36,15 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     const started = await desktop.evaluate((input) => window.ade.invoke('runTask:submit', { ...input, name: 'Desktop question', prompt: 'Question fixture prompt', allowQuestions: true }), config);
     await desktop.getByLabel('Aktiver Run', { exact: true }).selectOption(started.run.id);
     const opener = desktop.getByRole('button', { name: '1 Rückfragen beantworten', exact: true }); await opener.waitFor();
+    await desktop.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+    const decision = desktop.getByTestId('attention-panel').locator('[data-attention-group="needs-you"]')
+      .getByRole('button', { name: 'Arbeit öffnen: Desktop question', exact: true });
+    await decision.focus(); await desktop.keyboard.press('Enter');
+    await desktop.getByRole('dialog', { name: 'Desktop question', exact: true }).getByRole('region', { name: 'Rückfragen des Agenten', exact: true }).getByText('Welche Farbe soll verwendet werden?', { exact: true }).waitFor();
+    check('desktop decision overview opens the actual question with one keyboard action', true);
+    await desktop.keyboard.press('Escape');
+    check('closing decision detail returns focus to the decision button', await decision.evaluate(node => node === document.activeElement));
+    await desktop.getByRole('tab', { name: 'Graph', exact: true }).click();
     await opener.focus(); await desktop.keyboard.press('Enter');
     const report = desktop.getByRole('dialog', { name: 'Desktop question', exact: true });
     const panel = report.getByRole('region', { name: 'Rückfragen des Agenten', exact: true });
@@ -65,8 +74,8 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
     await composer.getByLabel('Aufgabe', { exact: true }).fill('Question fixture prompt from tablet');
     await composer.getByRole('checkbox', { name: 'Rückfragen erlauben (native Codex-Agenten)', exact: true }).check();
     await composer.getByRole('button', { name: 'Aufgabe starten', exact: true }).click(); await composer.waitFor({ state: 'hidden' });
-    await phone.keyboard.press('Escape'); await phone.getByRole('tab', { name: 'Aufträge', exact: true }).click();
-    await phone.getByRole('button', { name: 'Run Tablet question', exact: true }).click();
+    await phone.keyboard.press('Escape'); await phone.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+    await phone.getByTestId('attention-panel').locator('[data-attention-group="needs-you"]').getByRole('button', { name: 'Arbeit öffnen: Tablet question', exact: true }).click();
     const mobilePanel = phone.getByRole('region', { name: 'Rückfragen des Agenten', exact: true });
     await mobilePanel.getByText('Welche Farbe soll verwendet werden?', { exact: true }).waitFor();
     check('tablet task submission creates answerable question in its run inspector', await mobilePanel.getByRole('button', { name: 'Antwort senden', exact: true }).isDisabled());
@@ -90,6 +99,28 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
       && runs.find((run) => run.name === 'Tablet question')!.tasks[0]!.pendingQuestions === 0);
     await phone.setViewportSize({ width: 390, height: 844 });
     await phone.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+    const decisions = phone.getByTestId('attention-panel');
+    await decisions.locator('[data-attention-group="review"]').getByRole('button', { name: 'Arbeit öffnen: Tablet question', exact: true }).waitFor();
+    check('completed structured work moves to review on a narrow tablet without horizontal overflow', await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await phone.route('**/api/v1/attention', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' }));
+    await decisions.getByRole('button', { name: 'Arbeitsübersicht aktualisieren', exact: true }).click();
+    await decisions.getByRole('alert').waitFor();
+    check('failed refresh removes stale decision actions', await decisions.locator('[data-attention-id]').count() === 0);
+    await phone.unroute('**/api/v1/attention');
+    await decisions.getByRole('button', { name: 'Arbeitsübersicht aktualisieren', exact: true }).click();
+    await decisions.locator('[data-attention-group="review"]').getByRole('button', { name: 'Arbeit öffnen: Tablet question', exact: true }).waitFor();
+    check('positive refresh restores authorized results after read failure', await decisions.getByRole('alert').count() === 0);
+    await phone.context().setOffline(true);
+    // An explicit reconnect asks the connection owner to recheck reachability;
+    // the overview itself never submits or queues a command while offline.
+    await phone.reload();
+    await decisions.getByText('PC offline. Verbinde dich zum Prüfen erneut; keine Aktion wird vorgemerkt.', { exact: true }).waitFor();
+    check('offline decision overview offers no stale work actions', await decisions.locator('[data-attention-id]').count() === 0
+      && await decisions.getByRole('button', { name: 'Arbeitsübersicht aktualisieren', exact: true }).isDisabled());
+    await phone.context().setOffline(false);
+    await reconnectTablet(phone);
+    await decisions.locator('[data-attention-group="review"]').getByRole('button', { name: 'Arbeit öffnen: Tablet question', exact: true }).waitFor();
+    await phone.screenshot({ path: join(evidence, 'attention-narrow.png') });
     await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   } finally {
     await app.evaluate(() => { (globalThis as unknown as { restoreQuestionSpawn?: () => void }).restoreQuestionSpawn?.(); });

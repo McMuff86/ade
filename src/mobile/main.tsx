@@ -162,7 +162,7 @@ function MobileApp(): JSX.Element {
   };
   const inspector = selectedRun && <RunInspector run={selectedRun} participantId={selected?.participantId ?? null} host={host} onSend={(command) => void send(command)} focusVersion={focusVersion} />;
 
-  const openSupervisedWork = async (target: SupervisionTarget) => {
+  const openSupervisedWork = async (target: SupervisionTarget, current: () => boolean = () => true) => {
     const generation = ++supervisionNavigation.current;
     if (target.kind === 'run') {
       if (!host.runs.some(run => run.id === target.id)) throw new Error(translate("Work is no longer available."));
@@ -172,7 +172,7 @@ function MobileApp(): JSX.Element {
     const session = inventory.sessions.find(item => item.id === target.id); if (!session) throw new Error(translate("The session is no longer available."));
     const selection = terminalTarget(session); const { expectedBranch, ...query } = selection;
     const state = await host.request<MobileTerminalState>('/api/v1/terminal/query', 'POST', query);
-    if (generation !== supervisionNavigation.current) return;
+    if (generation !== supervisionNavigation.current || !current()) return;
     if (state.selected?.id !== target.id || expectedBranch !== undefined && state.selected.branch !== expectedBranch) throw new Error(translate("Session has been changed. List updated."));
     setWorkspace(null); setProjectWorkspace(null); setManagement(false); setSelected(null); setSupervision(null);
     if (selection.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: selection.projectWorkspaceId, terminalId: selection.terminalId }); }
@@ -237,11 +237,17 @@ function MobileApp(): JSX.Element {
       <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'tasks' || view === 'notes' ? <Suspense fallback={<p role="status">{translate("Loading tasks and notes…")}</p>}><MobileOrganizer host={host} access={admin.state} kind={view === 'tasks' ? 'task' : 'note'} onKind={kind => setView(kind === 'task' ? 'tasks' : 'notes')} onRun={id => { setGraphRunId(id); setView('graph'); select(id); }} /></Suspense>
-            : view === 'overview' ? <><ContinueWork host={host} onProject={openProject}
+            : view === 'overview' ? <Overview continuation={<ContinueWork host={host} onProject={openProject}
             onSession={(session) => { if (session.terminalHome) { navigate('terminals'); setTerminalSelection(terminalTarget(session)); }
               else if (session.projectWorkspaceId) { setView('projects'); setProjectIntent({ key: crypto.randomUUID(), workspaceId: session.projectWorkspaceId, terminalId: session.id }); }
-              else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />
-            <Overview host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProfile={openProfile} onProject={openProject} /></>
+              else setWorkspace({ agentId: session.agentId!, repositoryId: session.repositoryId ?? null, terminalId: session.id, tab: 'terminal' }); }} />}
+              host={host} selected={selected?.runId ?? null} onRun={(id) => { setGraphRunId(id); setView('graph'); select(id); }} onAgent={openAgent} onTerminal={openTerminal} onProfile={openProfile} onProject={openProject}
+              onAttention={async (target, current) => {
+                if (target.kind === 'project') openProject(target.id);
+                else if (target.kind === 'supervision') setSupervision({ repositoryId: target.id });
+                else if (target.kind === 'run') { setGraphRunId(target.id); setView('graph'); select(target.id); }
+                else await openSupervisedWork({ kind: 'session', id: target.id }, current);
+              }} />
             : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
             : view === 'terminals' ? <Terminals host={host} target={terminalSelection} onTarget={setTerminalSelection} launchVersion={terminalLaunchVersion}
               onWorkspace={(agentId, repositoryId) => setWorkspace({ agentId, repositoryId })} />

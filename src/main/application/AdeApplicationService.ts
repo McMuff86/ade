@@ -31,6 +31,8 @@ import type { RunQuestionService } from '../orchestration/RunQuestionService';
 import { createHash } from 'node:crypto';
 import { DeviceResourceService } from './DeviceResourceService';
 import type { DeviceResourceAccess } from '../../shared/remoteDevices';
+import { attentionOverview } from '../overview/attentionOverview';
+import type { MobileAttentionSnapshot } from '../../shared/remote';
 import type {
   AdeConfig,
   Run,
@@ -1085,6 +1087,46 @@ export class AdeApplicationService {
     ledger.permits({ principal, idempotencyKey: undefined, requestId: 'terminal-inventory' }, 'terminal:control');
     try { return await terminals.inventory(principal.id); }
     catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  async attention(principal: RemotePrincipal): Promise<MobileAttentionSnapshot> {
+    const authorize = () => {
+      if (principal.kind !== 'device' || principal.proof !== 'device-signature' || !principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
+      if (this.options.deviceActive && !this.options.deviceActive(principal.id)) throw new RemoteApiError(401, 'unknown_device');
+    };
+    authorize();
+    const terminalAccess = principal.scopes.has('terminal:control') && !!this.options.terminals && !!this.options.administration;
+    if (terminalAccess) this.options.administration!.ledger.permits({ principal, requestId: 'attention', idempotencyKey: undefined }, 'terminal:control');
+    const sessions = terminalAccess ? await this.options.terminals!.supervisionSessions(principal.id) : [];
+    authorize();
+    if (terminalAccess) this.options.administration!.ledger.permits({ principal, requestId: 'attention', idempotencyKey: undefined }, 'terminal:control');
+    for (const item of sessions) this.resources.assertSelection(principal, { ...item.wire, profileId: item.wire.launchProfileId });
+    const config = this.store.get();
+    const filtered = { ...config, sessionBookends: terminalAccess ? config.sessionBookends.filter(bookend => {
+      if (bookend.repositoryId && !this.resources.repository(principal, bookend.repositoryId)) return false;
+      if (bookend.agentId && !this.resources.agent(principal, bookend.agentId)) return false;
+      if (bookend.projectWorkspaceId) {
+        const workspace = config.projectWorkspaces.find(item => item.id === bookend.projectWorkspaceId);
+        if (!workspace || !this.resources.repository(principal, workspace.repositoryId)) return false;
+      }
+      return true;
+    }) : [] };
+    // Handoff summaries are exposed through the existing supervision read grant.
+    const briefing = principal.scopes.has('workspace:read') ? this.options.supervision?.().briefing() : undefined;
+    if (briefing) {
+      if (!this.options.administration) throw new RemoteApiError(503, 'unavailable');
+      this.options.administration.ledger.permits({ principal, requestId: 'attention', idempotencyKey: undefined }, 'workspace:read');
+      briefing.projects = briefing.projects.filter(project => this.resources.repository(principal, project.repositoryId));
+    }
+    const snapshot = attentionOverview(filtered, this.runs(undefined, principal), sessions.map(item => item.session), briefing);
+    return { ...snapshot, rows: snapshot.rows.map(row => {
+      const wire = row.target?.kind === 'session' ? sessions.find(item => item.session.id === row.target!.id)?.wire : undefined;
+      return { ...row,
+        id: row.kind === 'session' ? `session:${wire!.id}` : row.kind === 'history'
+          ? `history:${createHash('sha256').update(`${principal.id}:${row.id}`).digest('hex').slice(0, 32)}` : row.id,
+        title: redactForWire(row.title, 200), project: row.project === null ? null : redactForWire(row.project, 200),
+        target: wire ? { kind: 'session' as const, id: wire.id } : row.target };
+    }) };
   }
 
   async inspectRun(principal: RemotePrincipal, runId: string, taskId?: string): Promise<MobileRunActivity> {

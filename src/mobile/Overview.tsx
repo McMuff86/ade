@@ -1,13 +1,15 @@
 import { localizedState } from '../shared/i18n/states';
 import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import type { MobileHost } from './useMobileHost';
 import { MobileAvatar } from './AgentProfile';
 import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
 import { formatRelativeTime, formatTokenCount, formatCostUsd } from '../shared/overviewFormat';
 import { finalStates, Icon, reportedTokens, runKindLabel, Status } from './ui';
 import type { MobileRunSummary } from '../shared/remote';
+import type { AttentionTarget } from '../shared/attention';
+import { AttentionPanel } from '../renderer/attention/AttentionPanel';
 import { DashboardLink } from './DashboardLink';
 import { UsageOverviewPanel, UsageOverviewTile, useUsageOverview } from '../renderer/usage/UsageOverviewCard';
 import type { UsageOverview } from '../shared/usageOverview';
@@ -21,7 +23,9 @@ export function RunRow({ run, selected, onSelect }: { run: MobileRunSummary; sel
   </button>;
 }
 
-export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal, onProfile }: { host: MobileHost; selected: string | null;
+export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal, onProfile, onAttention, continuation }: { host: MobileHost; selected: string | null;
+  continuation?: ReactNode;
+  onAttention(target: AttentionTarget, current: () => boolean): Promise<void> | void;
   onTerminal: (id: string) => void; onProfile: (id: string) => void;
   onRun: (id: string) => void; onAgent: (id: string) => void; onProject: (id: string) => void;
 }): JSX.Element {
@@ -32,6 +36,8 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
   const open = runs.filter((run) => !finalStates.has(run.status));
   const recent = [...runs].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
   return <div className="m-overview" data-testid="mobile-overview">
+    <AttentionPanel identity={`mobile:${host.deviceId}`} online={host.status === 'online'} query={() => host.request('/api/v1/attention')} onOpen={onAttention} />
+    {continuation}
     <header className="m-hero" aria-label={translate("Overview figures")}>
       <div><span className="m-eyebrow">{translate("Active Tasks")}</span><strong>{health?.queue.active ?? '—'}</strong><small>{health ? translate("{{value1}} queued · {{value2}} slots", { value1: health.queue.queued, value2: health.queue.maxActive }) : translate("Waiting for the PC")}</small></div>
       <div><span className="m-eyebrow">{translate("Open")}</span><strong>{catalog ? open.length : '—'}</strong><small>{catalog ? translate("{{value1}} approvals pending", { value1: open.filter((run) => run.pendingApprovalId).length }) : translate("Waiting for the PC")}</small></div>

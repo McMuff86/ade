@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser } from 'playwright';
+import { expect } from 'playwright/test';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { BrowserSessions } from '../src/main/remote/BrowserSessions';
@@ -213,6 +214,9 @@ void (async () => {
   check('a reloaded tablet does not reopen the profile on its own', await workspace.count() === 0 || !await workspace.isVisible());
   // Overview usage: the PC's account windows and today's sums, opened from the hero tile; Escape returns to the tile button.
   await page.getByTestId('overview-usage').waitFor();
+  // The tile mounts with its loading value before the independent usage query
+  // completes; a connected SSE stream does not imply that query has finished.
+  await expect(page.getByTestId('overview-usage-value')).toHaveText('92 %');
   check('the usage tile shows the window closest to its limit', await page.getByTestId('overview-usage-value').textContent() === '92 %' && (await page.getByTestId('overview-usage').textContent())!.includes('Codex'));
   const usageToggle = page.getByRole('button', { name: 'Nutzung anzeigen', exact: true }); await usageToggle.click();
   const usagePanel = page.getByRole('region', { name: 'Nutzung', exact: true }); await usagePanel.waitFor();

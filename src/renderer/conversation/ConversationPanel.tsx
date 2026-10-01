@@ -44,6 +44,16 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
   const [busy, setBusy] = useState(false); const [draft, setDraft] = useState(''); const [draftError, setDraftError] = useState('');
   const live = useRef(true); const generation = useRef(0); const locked = useRef(false); const input = useRef<HTMLTextAreaElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const [focusConversation, setFocusConversation] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusConversation) return;
+    if (selected !== focusConversation) { setFocusConversation(null); return; }
+    // A refresh already in flight can finish after command() returns. Wait for
+    // the exact new conversation's textarea to mount, rather than one frame.
+    if (detail?.id === focusConversation && !busy && input.current) {
+      input.current.focus(); setFocusConversation(null);
+    }
+  }, [focusConversation, selected, detail?.id, busy]);
   const [pending, setPending] = useState<PendingConversationCommand | null>(null);
   const [creation, setCreation] = useState<PendingConversationCommand | null>(null);
   const loadingTurns = useRef(new Set<string>());
@@ -125,7 +135,7 @@ export function ConversationPanel({ port, profiles, draftScope, online = true, c
     const receipt = await command({ operation: 'create', profileId: continuationProfileId });
     if (!receipt || !live.current) return;
     const text = translate('Continue the project context from ADE conversation {{id}}. Read its saved history and check the current project state before suggesting the next step.', { id: sourceId });
-    try { drafts.edit(receipt.conversationId, text); setDraft(text); requestAnimationFrame(() => input.current?.focus()); }
+    try { drafts.edit(receipt.conversationId, text); setDraft(text); setFocusConversation(receipt.conversationId); }
     catch (reason) { setDraftError(describe(reason)); }
   };
   const questionPort: RunQuestionsPort = {

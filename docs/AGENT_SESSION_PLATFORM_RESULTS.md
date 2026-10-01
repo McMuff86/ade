@@ -1,5 +1,40 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
+## Goal 34.4: gemeinsamer Entscheidungseinstieg geprüft (1. Oktober 2026, 10:06 CEST)
+
+Die Übersicht auf PC und Tablet bündelt bestätigte Rückfragen, aktive Arbeit,
+Ergebnisse, Unterbrechungen und offene Morgenübergaben. Unbekannte CLI-Zustände
+bleiben ausdrücklich unbekannt. Eine Aktion öffnet die vorhandene Frage,
+Sitzung, Ergebnisansicht oder Übergabe; die Übersicht sendet keine Eingabe und
+übernimmt keine Sitzung. Gerätefreigaben werden auch nach asynchronem Lesen
+nochmals geprüft. Bestehende Entwürfe und Eingabebesitz bleiben erhalten.
+
+- Vollständiges `pnpm verify` **10:06:08 CEST: 27 bestanden / 0 Fehler / 16 nicht
+  gemessen**, **104 Suiten / 4.417 Checks**, drei Typechecks, isolierte Desktop-
+  und Mobile-Builds, Linux-Aktivierung **15/0**.
+- Projektion **28/0**, Remote-Betreuung **34/0**, Mobile-Protokoll **111/0**.
+  Drei Projektzustände, Grenzen, undurchsichtige Sitzungskennungen und Entzug
+  der Profilfreigabe während eines ausstehenden Inventarabrufs geprüft.
+- Linux-Sitzungsnavigation **95/0**, Agent-/Tablet **40/0**, mobiler Browser
+  **61/0**. Tastatur, direkter Fragenaufruf und Fokus-Rückkehr, leere Liste,
+  Fehler mit erfolgreicher Wiederholung, Offline-Neuladen, Wiederverbinden,
+  schmale Ansicht und bestehende sitzungsgebundene Entwürfe geprüft.
+- Vorläufe deckten einen mehrdeutigen Projekt-Locator und ein versehentlich in
+  Bash gesendetes Fixture-Escape auf; Treiber zielt nun auf die Projektliste
+  und fokussiert vor dem App-Escape die Navigation. Keine Produkt-Abkürzung.
+- Ein echter Gesprächs-Fokusfehler wurde behoben: Fokus wartet auf das neue
+  geladene Gespräch statt genau einen Animationsframe. Absichtlich verzögerte
+  Detailantwort im Regressionstest **22/0**, vollständiger Gesprächslauf **90/0**.
+  Eine weitere Test-Race las die Nutzungskachel vor ihrer unabhängigen Antwort;
+  sie wartet jetzt auf den erwarteten Wert, Arbeitsbereich-Browser **59/0**.
+
+Archiv: `test-results/goal344-attention-20261001/` mit allen drei fehlgeschlagenen
+Gesamtberichten, abschliessendem grünen Bericht, fokussierten Logs und Tabletbild.
+**Noch nicht persönlich aktiviert.** Host/Paarungen/Sitzungen sowie die Freigaben
+auf :443/:8443 bleiben unberührt. Keine neue reale Codex-Rückfrage, native
+Windows- oder physische Android-Abnahme. Nächste Lieferung: 34.5 gerätebezogenes
+Web Push; die konkrete Android-/Chrome-/Installationsangabe bleibt angefragt.
+
 ### Goal 34.3: Betriebseinstellungen (1. Oktober, 09:23 CEST)
 
 Autostart, optionaler Tray und Wachhalten lokal implementiert, noch nicht

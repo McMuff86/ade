@@ -75,7 +75,7 @@ type Route =
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
   | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
-  | { kind: 'terminalSessions' }
+  | { kind: 'terminalSessions' | 'attention' }
   | { kind: 'supervisionQuery' | 'supervisionCommand' }
   | { kind: 'conversationQuery' | 'conversationCommand' | 'conversationDictation' | 'conversationActionsQuery' | 'conversationActionsCommand' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
@@ -165,6 +165,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/profile/update': return { route: { kind: 'updateProfile' }, allow: ['POST'] };
     case '/api/v1/terminal/query': return { route: { kind: 'terminalQuery' }, allow: ['POST'] };
     case '/api/v1/terminal/sessions': return { route: { kind: 'terminalSessions' }, allow: ['GET'] };
+    case '/api/v1/attention': return { route: { kind: 'attention' }, allow: ['GET'] };
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
     case '/api/v1/terminal/prompt': return { route: { kind: 'terminalPrompt' }, allow: ['POST'] };
@@ -430,7 +431,7 @@ export class HostApiServer {
       }
       let readPrincipal = bearer;
       if (method === 'GET' && (this.options.requireDeviceReads || browserRequest || matched.route.kind === 'host' || matched.route.kind === 'terminalSessions'
-        || ['runActivity', 'runFiles', 'runFile', 'runQuestions'].includes(matched.route.kind))) {
+        || ['runActivity', 'runFiles', 'runFile', 'runQuestions', 'attention'].includes(matched.route.kind))) {
         const verdict = this.authorizer.verifyDeviceSignature(
           singleHeader(request, 'x-ade-device') ?? '', singleHeader(request, 'x-ade-signature') ?? '',
           { method, path: request.url!, timestamp: singleHeader(request, 'x-ade-timestamp') ?? '',
@@ -468,6 +469,8 @@ export class HostApiServer {
           writeJson(response, 200, this.application.hostState(readPrincipal!)); return;
         case 'terminalSessions':
           writeJson(response, 200, await this.application.remoteSessionInventory(readPrincipal!)); return;
+        case 'attention':
+          writeJson(response, 200, await this.application.attention(readPrincipal!)); return;
         case 'runActivity':
           writeJson(response, 200, await this.application.inspectRun(readPrincipal!, matched.route.runId, matched.route.taskId)); return;
         case 'runQuestions':
