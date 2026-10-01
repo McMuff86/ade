@@ -1,12 +1,29 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
-Stand: 30. September 2026. Goal 34.2 wird um geschützte native Linux-Prompts,
+Stand: 1. Oktober 2026. Goal 34.2 wird um geschützte native Linux-Prompts,
 gespeicherte Profile und einen zusätzlichen Tablet-Ablauf ergänzt. Aktuelle
 Nachweise unten; frühere Betriebsstände bleiben als datierte Evidenz erhalten.
 Persönliche Aktivierung und reale HTTPS-Probe: [HANDOFF](HANDOFF.md).
 Die vollständige Windows-/Linux- und physische Tablet-Abnahme bleibt offen.
 Produktziel: [Goal 34](AGENT_SESSION_PRODUCT_GOALS.md). ADE verwaltet seine eigenen
 Sitzungen; andere Agentenverwaltungen sind keine Voraussetzung.
+
+### Persönliche Aktivierung (1. Oktober, 08:14 CEST)
+
+Produktstand `fef47bd` über `pnpm activate -- -Label LinuxProfiles` aktiviert,
+Gate **13 bestanden / 0 Fehler / 1 Windows-Schritt nicht gemessen**, darin
+**102 Suiten / 4.325 Checks**. Profilbackups vor/nach regulärem Quit und exakter
+vorheriger Build in `out.prev` geprüft. Neuer Host **2666350** besitzt den
+Loopback-Listener; tatsächliches HTTPS auf **:8443** liefert HTML und sieben
+passende Assets mit gültigem Zertifikat. Geräte-Vault bytegleich, gesamte
+Serve-Konfiguration unverändert; OpenClaw **:443** weiter HTTPS 200.
+
+Vorher endete Codex regulär durch den Benutzer, seine alte leere Bash-Hülle
+blieb jedoch offen. Die Aktivierung blockierte daran korrekt; nur die nachweislich
+kinderlose Shell wurde vor dem regulären Aktivierungslauf geschlossen.
+Neue geschützte Starts benötigen diese Nacharbeit nicht. Keine neue physische
+Android-Abnahme. [Betriebsdetails](HANDOFF.md), lokale Belege:
+`test-results/linux-profiles-activation-20261001/`.
 
 ### Native Linux-Profile und geschützte Prompts (30. September, spätabends)
 

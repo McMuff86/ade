@@ -1,5 +1,53 @@
 # ADE — aktuelle Übergabe
 
+## Linux-Profile und geschützte Prompts persönlich aktiviert (1. Oktober 2026, 08:14 CEST)
+
+**ADE kann jetzt neu geöffnet und das Tablet neu geladen werden. Keine neue
+Kopplung nötig.** Adresse: **https://omarchy.tailfc0b86.ts.net:8443**.
+Für die neuen geschützten Prompts eine **neue Codex-Sitzung** starten.
+Produktstand `fef47bd` war bereits committed und gepusht; dieser Nachtrag sichert
+den anschliessenden persönlichen Betriebsnachweis.
+
+- **Aktiviert um 08:14:46 CEST** über `pnpm activate -- -Label LinuxProfiles`,
+  ohne übersprungenes Gate. Gate **13 bestanden / 0 Fehler / 1 Windows-Schritt
+  nicht gemessen**, einschliesslich **102 Suiten / 4.325 Checks**, drei Typechecks,
+  beider isolierter Builds, Electron-/Browser-Abläufe und Linux-Aktivierung **15/0**.
+  Der vollständige Produktlauf vom Vortag bleibt separat mit **27/0/16 nicht
+  gemessen** archiviert; ein Aktivierungsgate ersetzt diesen Nachweis nicht.
+- Neuer Host **PID 2666350**, Main-SHA-Präfix **0f05156361f91032e68c**,
+  Listener **127.0.0.1:4317** gehört diesem Prozess. Vorheriger Host **1780794**
+  bestätigte den geschützten regulären Quit. Kein Debug-Listener auf 9337.
+- Backup vor/nach Quit:
+  `/home/mcmuff/ADE-Backups/Activate-LinuxProfiles-2026-10-01T06-14-45-969Z/`.
+  Beide Profilkopien geprüft; `out.prev/main/index.js` ist hashgleich mit dem
+  zuvor aktiven Build. Rückkehr über `pnpm activate -- -Rollback` unter demselben
+  Sitzungsschutz; keine automatische Rücksetzung der Nutzerdaten.
+- Tatsächliche HTTPS-Probe **08:14:55 CEST**: HTML und sieben JS-/CSS-Dateien,
+  einschliesslich Terminal-Modul, **200 mit regulärer Zertifikatsprüfung**,
+  Assets bytegleich zum aktivierten `out/mobile`. HTML nach Entfernung des
+  absichtlich pro Anfrage erzeugten Style-Nonce-Metatags ebenfalls bytegleich.
+- Vollständige Tailscale-Serve-Konfiguration strukturell unverändert;
+  verschlüsselter Geräte-Vault bytegleich. Bestehende Kopplung bleibt erhalten.
+  **OpenClaw auf :443 weiterhin HTTPS 200**. Keine neue Gerätefreigabe eingerichtet.
+- Der Benutzer hatte Codex auf dem Tablet beendet. Der alte Startpfad liess
+  dessen Bash-Hülle **1807243** in `knuckles-pi` zurück; `pnpm activate` blockierte
+  daran korrekt vor Gate/Backup/Quit. Nach Prüfung von Eigentümer, Executable,
+  Arbeitsordner und **null Kindprozessen** wurde nur diese leere Shell über ihren
+  PID-Handle mit SIGHUP geschlossen. Danach bestand der unveränderte Sitzungsschutz.
+  Neue geschützte Starts enden bereits zusammen mit der CLI.
+- Vorheriger Versuch um 08:08 CEST scheiterte schon im tsx-Launcher am gesperrten
+  lokalen Socket (`EPERM`), ohne Host-/Buildänderung. Nach Umstellung dieser
+  Codex-Sitzung im Cursor-Terminal auf Vollzugriff konnte die Aktivierung laufen.
+  Die ursprünglichen Fehlerlogs bleiben in `test-results/linux-profiles-activation-20261001.log`
+  und `test-results/linux-profiles-activation-fullaccess-20261001.log` erhalten.
+
+Belege: `test-results/linux-profiles-activation-20261001/` mit `activation.log`,
+`before.json`, `https-result.json`, Serve-Konfiguration vor/nach Aktivierung und
+archiviertem Gatebericht samt Schrittlogs in `gate/`. Das bestätigt den realen
+Host-/HTTPS-Betrieb; neue physische Android-/Mobilfunk-/Audioproben und weitere
+Windows-/Agent-Abnahmen bleiben offen. Der unabhängige Host bleibt Goal 34.6.
+Die folgenden Einträge dokumentieren die früheren Zustände.
+
 ## Goal 34.2: Linux-Profile und geschützte Agent-Prompts (30. September 2026, spätabends)
 
 Auftrag über `/goals` aufgenommen: native Linux-Prompt-/Diktatübergabe und

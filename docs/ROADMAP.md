@@ -27,8 +27,11 @@ Promptübergabe und reguläres Ende. Abschliessendes Linux-Verify **27 bestanden
 [Prüfstand](AGENT_SESSION_PLATFORM_RESULTS.md).
 Nächste Abnahmen: physisches Android/Mobilfunk einschliesslich Audio, weitere
 native Agenten sowie derselbe Mehrsitzungs- und Aktivierungsvertrag auf Windows.
-Die Folgelieferung bleibt bis zur sicheren Aktivierung vom persönlichen Host
-getrennt; laufende Sitzungen werden erhalten.
+Die Folgelieferung wurde am **1. Oktober um 08:14 CEST** sicher persönlich
+aktiviert: Gate **13/0/1 nicht gemessen**, Backup/Rollback-Build vorhanden,
+reales HTTPS/Assets geprüft, Kopplung und fremde Freigaben erhalten. Zuvor
+blockierte die nach beendetem Codex verbliebene leere Shell den Sitzungsschutz;
+Details im [Betriebsnachweis](HANDOFF.md).
 
 Tablet-Rückmeldung am Abend: benannte Codex-Weblinks behalten jetzt ihr geprüftes
 Ziel und öffnen vor der Navigation eine Adressvorschau. Linux-Browserablauf mit

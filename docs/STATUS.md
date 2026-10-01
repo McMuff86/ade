@@ -19,9 +19,15 @@ mit Vollbericht, Schrittlogs, positiver nativer Codex-Probe und Tablet-Bildern.
 Die 16 nicht gemessenen Schritte besitzen explizite Plattformgründe. Kein
 vollständiger Windows- oder physischer Android-Nachweis wird daraus abgeleitet.
 
-Die persönliche Instanz wurde dafür nicht neu gestartet; bestehende Sitzungen
-bleiben erhalten. Vollständige Plattformabnahme, weitere reale CLIs und physisches
-Android bleiben offen. Goal 34.6 folgt separat. [Betriebsstand](HANDOFF.md).
+**Persönlich aktiviert am 1. Oktober um 08:14 CEST** über `pnpm activate`,
+Gate **13/0/1 nicht gemessen**, Backup und `out.prev` geprüft. Neuer Host
+**2666350**, HTTPS auf **:8443** und sieben Assets mit gültigem Zertifikat
+bestätigt; Kopplungsdaten und Serve-Konfiguration unverändert, OpenClaw **:443**
+weiter HTTPS 200. Tablet neu laden und neue Codex-Sitzung starten. Zunächst
+blockierte eine nach Codex-Ende verbliebene leere Shell; nur diese wurde nach
+Prozessprüfung geschlossen. [Betriebsnachweis und Fehlerverlauf](HANDOFF.md).
+Vollständige Plattformabnahme, weitere reale CLIs und physisches Android bleiben
+offen. Goal 34.6 folgt separat.
 
 ## Benannte Weblinks im Tablet-Terminal (30. September 2026, Abend)
 
