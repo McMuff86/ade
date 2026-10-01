@@ -221,9 +221,18 @@ void (async () => {
   await panel.getByText('Dieser Browser bietet kein Web Push.', { exact: false }).waitFor();
   check('unsupported browser exposes an explicit useful state', true);
   f.devices.revoke(device); check('full device revocation removes push credentials immediately', !push.status(device).enabled);
-  await page.goto(`${proxy.origin}/#notice=run:${task.run.id}`); await page.waitForTimeout(1_000);
-  check('a notification on a revoked device opens no work', await page.getByRole('dialog', { name: 'Run-Details', exact: true }).count() === 0
-    && !(await page.locator('body').innerText()).includes('Notification fixture work'));
+  await page.goto(`${proxy.origin}/#notice=run:${task.run.id}`);
+  // Revocation reaches the page asynchronously; under parallel gate load the
+  // previously shown overview may need longer than a fixed sleep to clear.
+  // Sample until it has settled and require that no run dialog ever appeared.
+  let revokedDialogSeen = false; let revokedWorkShown = true;
+  for (const deadline = Date.now() + 10_000; Date.now() < deadline;) {
+    if (await page.getByRole('dialog', { name: 'Run-Details', exact: true }).count() > 0) { revokedDialogSeen = true; break; }
+    revokedWorkShown = (await page.locator('body').innerText()).includes('Notification fixture work');
+    if (!revokedWorkShown) { await page.waitForTimeout(500); revokedDialogSeen = await page.getByRole('dialog', { name: 'Run-Details', exact: true }).count() > 0; break; }
+    await page.waitForTimeout(100);
+  }
+  check('a notification on a revoked device opens no work', !revokedDialogSeen && !revokedWorkShown);
   check('notification browser flow has no uncaught errors', errors.length === 0);
 })().catch(async error => {
   failed++; console.error(error);
