@@ -2578,7 +2578,14 @@ The public-shell worker displays only static neutral ADE text plus a bounded
 opaque run navigation hint. It accepts no supplied title/body/path/action URL.
 Click navigation remains same-origin, clears the hash on page entry and reads
 the currently authorized runs before opening an existing detail; it never
-submits work. API data/credentials stay out of its offline cache. Push settings
+submits work. Offline, a tapped notice only shows that the target is checked
+after reconnecting; nothing is queued, and a revoked device opens nothing. A
+notice with an already-shown tag uses `renotify: true`: the host bounds
+duplicates, so a later confirmed notice for the same run/category must alert
+again instead of silently replacing the tray entry. Work interrupted by an
+earlier owner end (Goal 34.3) reaches push only through the ordinary
+`task.failed` journal event of its recovery, as one neutral error per run; the
+interruption reason never travels. API data/credentials stay out of its offline cache. Push settings
 are device-local opt-in with category choice, permission/unsupported/offline
 states, status reload and an explicit test. Permission is requested in the user
 gesture; the worker capability handshake rejects an obsolete active worker

@@ -17,6 +17,7 @@ import { RemoteCommandLedger } from '../src/main/application/RemoteCommandLedger
 import { HostOperationGate } from '../src/main/application/HostOperationGate';
 import { HostRestartController } from '../src/main/application/HostRestartController';
 import { createMobileFixture } from './helpers/mobileFixture';
+import { TASK_INTERRUPTION_REASON } from '../src/main/overview/hostLifecycle';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -134,7 +135,54 @@ void (async () => {
   check('click opens same-origin detail hint without credentials or commands', opened[0] === 'https://ade.fixture.ts.net:8443/#notice=run:run-one');
   handlers.notificationclick({ notification: { data: { version: 1, runId: 'https://evil.test' }, close: () => {} }, waitUntil: () => {} });
   check('worker refuses external or malformed click targets', opened.length === 1);
+  check('worker alerts again for a later notice with the same tag', notices[0].renotify === true && notices[0].tag === `ade-${payload.tag}`);
+  const bodies = new Set<string>(); const targets: string[] = [];
+  for (const locale of ['de', 'en'] as const) for (const kind of ['question', 'error', 'result', 'test'] as const) {
+    const item: MobilePushPayload = { version: 1, kind, locale, tag: 'b'.repeat(32), runId: kind === 'test' ? null : 'run-two' };
+    handlers.push({ data: { json: () => item }, waitUntil: (p: Promise<unknown>) => { wait = p; } }); await wait;
+    const notice = notices.at(-1); bodies.add(notice.body);
+    handlers.notificationclick({ notification: { data: notice.data, close: () => {} }, waitUntil: (p: Promise<unknown>) => { wait = p; } }); await wait;
+    targets.push(opened.at(-1)!);
+  }
+  check('every kind and locale shows only fixed neutral lock-screen text', notices.length === 9 && [...bodies].every(body => /^(ADE|In ADE|Die ADE|Your ADE|A result)/.test(body) && !body.includes('run-two')));
+  check('every notice opens its run detail hint or the neutral test notice', targets.every(url => url === 'https://ade.fixture.ts.net:8443/#notice=run:run-two' || url === 'https://ade.fixture.ts.net:8443/#notice=test')
+    && targets.filter(url => url.endsWith('#notice=test')).length === 2);
+  handlers.push({ data: { json: () => ({ ...payload, runId: '/home/private/project' }) }, waitUntil: () => {} });
+  check('worker refuses a path-like or non-opaque target', notices.length === 9);
   push.dispose();
+
+  // Bounded bursts: at most five notices per device and poll; the cursor still
+  // advances so a flood is dropped instead of queued for later delivery.
+  const burstEvents: RunEvent[] = []; let burstCursor = 0; const burstSent: MobilePushPayload[] = [];
+  const burstSource = { cursor: () => burstCursor, completed: () => true, active: () => true, allowed: () => true,
+    events: (after: number) => ({ events: burstEvents.filter(e => e.seq > after).slice(0, 100), nextCursor: burstCursor }) };
+  const burst = new WebPushService(new PushStore(join(root, 'burst.json'), protection), burstSource, async (_s, p) => { burstSent.push(p); return 201; }, () => now);
+  await burst.command('tablet', enable);
+  for (let i = 0; i < 12; i++) burstEvents.push({ id: randomUUID(), seq: ++burstCursor, type: 'run.failed', runId: `burst-${i}`, createdAt: now, data: {} });
+  await burst.poll(); await burst.poll();
+  check('a burst of distinct runs is bounded to five notices and never replayed', burstSent.length === 5 && new Set(burstSent.map(p => p.tag)).size === 5);
+  for (let i = 0; i < 150; i++) { now += 1_000; burstEvents.push({ id: randomUUID(), seq: ++burstCursor, type: 'run.failed', runId: `many-${i}`, createdAt: now, data: {} }); await burst.poll(); }
+  const stored = new PushStore(join(root, 'burst.json'), protection).get().devices[0];
+  check('persisted duplicate memory stays bounded', stored.recent.length <= 100 && stored.recent.every(r => now - r.at < 300_000));
+  check('different runs are never coalesced into one notice', burstSent.length === 155);
+  burst.dispose();
+
+  // 34.3 interrupted work: recovery writes ordinary task.failed/run phase events
+  // to the real journal; push sees one neutral error per run, never the reason.
+  const recovery = createMobileFixture(join(root, 'recovery'));
+  const work = await recovery.coordinator.submitSingleTask({ agentId: 'builder', repositoryId: 'repo', name: 'Secret interrupted project', prompt: 'PRIVATE PROMPT' });
+  const recoverySent: MobilePushPayload[] = [];
+  const recoveryPush = new WebPushService(new PushStore(join(root, 'recovery-push.json'), protection), {
+    cursor: () => recovery.orchestration.journalCursor(), events: c => recovery.orchestration.eventsSince(c, 100),
+    completed: id => recovery.store.get().runs.some(run => run.id === id && run.status === 'completed'), active: () => true, allowed: () => true,
+  }, async (_s, p) => { recoverySent.push(p); return 201; });
+  await recoveryPush.command('tablet', enable);
+  check('interrupted-work fixture has active work before recovery', recovery.orchestration.recoverInterruptedTasks(TASK_INTERRUPTION_REASON['app-crash']) === 1);
+  await recoveryPush.poll(); await recoveryPush.poll();
+  check('recovered interrupted task notifies exactly one neutral error for its run', recoverySent.length === 1 && recoverySent[0].kind === 'error' && recoverySent[0].runId === work.run.id
+    && !JSON.stringify(recoverySent).includes('unexpectedly') && !JSON.stringify(recoverySent).includes('Secret'));
+  check('push observation leaves the recovered run state unchanged', recovery.store.get().runs.find(run => run.id === work.run.id)?.status === 'failed');
+  recoveryPush.dispose();
   writeFileSync(join(root, 'corrupt.json'), '{broken'); check('corrupt vault fails closed without replacing it', !new PushStore(join(root, 'corrupt.json'), protection).available() && readFileSync(join(root, 'corrupt.json'), 'utf8') === '{broken');
   if (process.platform !== 'win32') { symlinkSync(file, join(root, 'link.json')); check('linked push vault fails closed', !new PushStore(join(root, 'link.json'), protection).available()); }
 })().catch(error => { failed++; console.error(error); }).finally(() => { rmSync(root, { recursive: true, force: true }); console.log(`Web push: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0; });

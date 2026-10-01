@@ -1,5 +1,34 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.5: Push-Stabilisierung ohne physisches Gerät (1. Oktober 2026, 23:19 CEST)
+
+Die offenen 34.5-Punkte waren weitgehend vorhanden und sind jetzt belegt; eine
+echte Lücke ist behoben: Der ausgelieferte Worker zeigte eine spätere bestätigte
+Nachricht mit gleichem Tag (gleicher Run/gleiche Kategorie nach der 30-Sekunden-
+Sperre) still ersetzend an (`renotify: false`). Jetzt `renotify: true`; der Host
+begrenzt Duplikate weiterhin dauerhaft. Negativkontrolle: mit dem alten Wert
+schlägt genau die neue Prüfung fehl.
+
+Neue Belege in `test-web-push.ts` **74/0** (vorher 64, Mindestzahl angehoben):
+alle Kategorien in Deutsch/Englisch nur mit festen neutralen Texten; Antippen
+führt stets zur Run-Detailansicht (enthält die offenen Rückfragen) bzw. zum
+neutralen Testhinweis; pfadartige Ziele verworfen; ein Burst verschiedener Runs
+ist auf fünf Nachrichten je Abfrage begrenzt und wird nicht nachgeholt; der
+persistierte Duplikatspeicher bleibt begrenzt; verschiedene Runs werden nie
+zusammengefasst; eine durch 34.3 wiederhergestellte unterbrochene Aufgabe im
+echten Journal ergibt genau eine neutrale Fehlermeldung ohne Unterbrechungsgrund
+und ohne Änderung am Run. `test-web-push-browser.ts` **33/0** (vorher 30):
+Antippen offline zeigt nur „Erneut verbinden …“, startet und vormerkt nichts,
+nach Wiederverbindung wird das Gerät erneut geprüft und der Run geöffnet;
+ein widerrufenes Gerät öffnet nichts. Vollständiges `pnpm verify`
+**23:19:14 CEST: 28 bestanden / 0 Fehler / 16 nicht gemessen** (Windows-only),
+**106 Suiten / 4.541 Checks**.
+
+Nicht gemessen: Empfang bei geschlossener ADE-Ansicht bzw. gesperrtem Tablet,
+physische Zustellung echter Aufgabenereignisse, Gerätemodell/Android-/Chrome-
+Version, native Windows. Interaktive CLI-Ereignisse lösen weiterhin kein Push aus.
+Nicht persönlich aktiviert; Aktivierung ausschliesslich über `pnpm activate`.
+
 ## Goal 34.3: Neustart, Absturz und Prozessverlust unterscheiden (1. Oktober 2026, 23:11 CEST)
 
 ADE hält pro Profil einen privaten Lebenszyklus-Eintrag (`ade/lifecycle.json`:

@@ -34,7 +34,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 64 } },
+  { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 74 } },
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
   { id: 'remote-diagnostics', script: 'test-remote-diagnostics.ts', floors: { win32: 25 } },

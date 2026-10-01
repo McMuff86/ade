@@ -240,13 +240,25 @@ geprüft. [Betriebsnachweis](HANDOFF.md).
 
 - [ ] Für das tatsächliche Tablet die Voraussetzungen für Web Push prüfen;
   Berechtigungs-/Installationsablauf und erreichbaren Zustellweg dokumentieren.
-- [ ] Opt-in je Gerät für Rückfrage, Fehler und fertiges Ergebnis; Duplikate
+- [x] Opt-in je Gerät für Rückfrage, Fehler und fertiges Ergebnis; Duplikate
   begrenzen und Benachrichtigung mit passender Detailansicht verbinden.
-- [ ] Auf dem Sperrbildschirm standardmässig nur neutrale Hinweise ohne Prompts,
+  *(Linux-Vertrag/Browser mit simuliertem Provider; physisch offen.)*
+- [x] Auf dem Sperrbildschirm standardmässig nur neutrale Hinweise ohne Prompts,
   Code, Hostpfade oder vertrauliche Projektnamen zeigen. Öffnen prüft erneut die
   Geräteberechtigung; die Nachricht selbst erteilt keine Freigabe.
-- [ ] Widerruf beendet weitere Zustellungen; Push-Ausfälle verändern keine
+  *(Ausgelieferter Worker im Vertragstest; Sperrbildschirm am Gerät offen.)*
+- [x] Widerruf beendet weitere Zustellungen; Push-Ausfälle verändern keine
   Arbeit. Offline-Aufträge werden nicht implizit zur späteren Ausführung vorgemerkt.
+  *(Vertrag und Chromium-/HTTPS-Ablauf; physisch offen.)*
+
+Stabilisierung am 1. Oktober abends: Der Worker meldet eine spätere bestätigte
+Nachricht mit gleichem Tag erneut (`renotify: true`), statt sie still zu ersetzen.
+Neue Belege: alle Kategorien/Sprachen neutral, Ziel immer die Run-Detailansicht
+mit offenen Rückfragen, pfadartige Ziele verworfen, Burst auf fünf Nachrichten
+begrenzt ohne spätere Wiederholung, unterbrochene Arbeit aus 34.3 als genau eine
+neutrale Fehlermeldung, Antippen offline stellt nichts in eine Warteschlange,
+widerrufenes Gerät öffnet nichts. Verträge **74/0**, Browser **33/0**, Verify
+**28/0/16 nicht gemessen**, **106 Suiten / 4.541 Checks**. Abnahme unten bleibt offen.
 
 **Abnahme:** Reales Tablet mit geschlossener ADE-Ansicht: Nachricht empfangen,
 richtige Sitzung öffnen, Berechtigungsentzug und Duplikatunterdrückung prüfen.

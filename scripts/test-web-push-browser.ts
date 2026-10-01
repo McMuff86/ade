@@ -191,7 +191,17 @@ void (async () => {
   await page.getByText('Offline', { exact: true }).first().waitFor();
   dialog = await openSettings(); panel = dialog.getByRole('region', { name: 'Mobile Benachrichtigungen', exact: true });
   check('offline settings cannot enqueue notification or task commands', await panel.getByRole('button', { name: 'Benachrichtigungen auf diesem Gerät einschalten', exact: true }).isDisabled());
-  await context.setOffline(false); await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  await page.keyboard.press('Escape');
+  const requestsBefore = f.launched.length;
+  await page.goto(`${proxy.origin}/#notice=run:${task.run.id}`);
+  await page.getByText('Erneut verbinden, um das Nachrichtenziel zu prüfen. Es wird keine Arbeit gestartet.', { exact: true }).waitFor();
+  check('offline notification tap waits for authorization and queues no work', await page.getByRole('dialog').count() === 0 && f.launched.length === requestsBefore
+    && page.url() === `${proxy.origin}/`);
+  await context.setOffline(false);
+  await page.getByRole('dialog', { name: 'Run-Details', exact: true }).waitFor();
+  check('reconnect checks the device again before opening the notified run', await page.getByRole('dialog').getByText('Notification fixture work', { exact: false }).count() > 0 && f.launched.length === requestsBefore);
+  await page.keyboard.press('Escape');
+  await page.reload(); await page.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
   transportFails = false; dialog = await openSettings(); panel = dialog.getByRole('region', { name: 'Mobile Benachrichtigungen', exact: true });
   await panel.getByText('Benachrichtigungen für dieses gekoppelte Gerät eingeschaltet.', { exact: true }).waitFor();
   await panel.getByRole('button', { name: 'Benachrichtigungen ausschalten', exact: true }).click();
@@ -211,6 +221,9 @@ void (async () => {
   await panel.getByText('Dieser Browser bietet kein Web Push.', { exact: false }).waitFor();
   check('unsupported browser exposes an explicit useful state', true);
   f.devices.revoke(device); check('full device revocation removes push credentials immediately', !push.status(device).enabled);
+  await page.goto(`${proxy.origin}/#notice=run:${task.run.id}`); await page.waitForTimeout(1_000);
+  check('a notification on a revoked device opens no work', await page.getByRole('dialog', { name: 'Run-Details', exact: true }).count() === 0
+    && !(await page.locator('body').innerText()).includes('Notification fixture work'));
   check('notification browser flow has no uncaught errors', errors.length === 0);
 })().catch(async error => {
   failed++; console.error(error);

@@ -16,8 +16,11 @@ self.addEventListener('push', event => {
   const body = value.kind === 'test' ? (de ? 'Die ADE-Testnachricht ist angekommen.' : 'Your ADE test notification arrived.')
     : value.kind === 'result' ? (de ? 'In ADE liegt ein Ergebnis zur Prüfung bereit.' : 'A result is ready for review in ADE.')
     : (de ? 'ADE benötigt deine Aufmerksamkeit.' : 'ADE needs your attention.');
+  // The host already bounds duplicates (30 s per kind/run, persisted). A later
+  // confirmed notice replaces the tray entry with the same tag and must alert
+  // again; renotify false would replace it silently.
   event.waitUntil(self.registration.showNotification('ADE', { body, tag: 'ade-' + value.tag, icon: '/icon.svg',
-    renotify: false, data: { version: 1, runId: value.runId } }));
+    renotify: true, data: { version: 1, runId: value.runId } }));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();

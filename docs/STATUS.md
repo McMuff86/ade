@@ -42,6 +42,11 @@ gemessen**, **105 Suiten / 4.477 Checks**. Persönlich aktiviert um **10:35:46 C
 nicht gemessen**; echtes HTTPS auf **:8443**, HTML und 21 passende Dateien geprüft.
 Kopplung und Serve-Konfiguration erhalten, OpenClaw :443 weiter HTTPS 200.
 Physischer Tablet-Empfang und neue native Windows-Abnahme offen.
+Stabilisierung am Abend: spätere bestätigte Nachricht mit gleichem Tag meldet sich
+erneut (`renotify`), Burst-/Duplikatgrenzen, neutrale Texte aller Kategorien,
+Antippen offline ohne Vormerkung, widerrufenes Gerät ohne Zugriff und unterbrochene
+Arbeit (34.3) als neutrale Fehlermeldung belegt. Verträge **74/0**, Browser **33/0**,
+Verify **23:19:14 CEST: 28/0/16 nicht gemessen**, **106 Suiten / 4.541 Checks**.
 [Nachweise, Erstlauffehler und Grenzen](HANDOFF.md).
 
 ## Goal 34.4: Entscheidungen auf Desktop und Tablet (1. Oktober 2026)

@@ -29,6 +29,10 @@ Stabilisierung 34.3 (abends): unterbrochene Arbeit nennt ihre Ursache (Rechner
 neu gestartet, ADE beendet, ADE unerwartet beendet, unbekannt), ohne Wiederholung;
 Doppelstart, Absturz und reguläres Beenden im Linux-Aktivierungstreiber **21/0**
 belegt, Verify **28/0/16 nicht gemessen**, **106 Suiten / 4.531 Checks**.
+Stabilisierung 34.5 (abends): spätere Nachricht mit gleichem Tag meldet sich wieder,
+neutrale Texte, Burst-Grenze, Offline-Antippen ohne Vormerkung und unterbrochene
+Arbeit als neutrale Fehlermeldung belegt; Verträge **74/0**, Browser **33/0**,
+Verify **28/0/16 nicht gemessen**, **106 Suiten / 4.541 Checks**; noch nicht aktiviert.
 34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)

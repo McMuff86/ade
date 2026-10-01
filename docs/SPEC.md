@@ -842,7 +842,10 @@ mutations require idempotency keys and audit. Activation instructions:
   CLI question/result inference are not implemented. Normal CLI exit is not a
   completion notification. All lock-screen text is neutral and contains no
   project name, prompt, code or host path. Opening a notice rechecks access and
-  opens an existing run; it never grants access or submits/queues work.
+  opens an existing run (whose detail holds its open questions); it never grants
+  access or submits/queues work, also not when tapped offline. A later confirmed
+  notice for the same run alerts again; work interrupted by an earlier ADE end
+  arrives as a neutral error notice.
   Subscriptions/VAPID keys are OS-encrypted outside config/export. Current grants,
   revocation, bounded coalescing, durable at-most-once attempts and isolated
   failures apply. “Provider accepted” is not delivery confirmation. The PC must
