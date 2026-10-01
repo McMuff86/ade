@@ -1239,7 +1239,13 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
 
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
-  handle(IPC.AttentionGet, () => attentionOverview(store.get(), orchestration!.summarize(), ptyManager!.list(), supervisionService().briefing()));
+  handle(IPC.AttentionGet, () => attentionOverview(store.get(), orchestration!.summarize(), ptyManager!.list(), supervisionService().briefing(), Date.now(), {
+    runsWrite: true, terminalWrite: true, prompt: (sessionId) => {
+      if (!remoteTerminals!.desktopMayWrite(sessionId)) return 'other-device';
+      const capability = remoteTerminals!.desktopPromptCapability(sessionId);
+      return capability.available ? 'available' : capability.unsupported ? 'unsupported' : 'not-ready';
+    },
+  }));
   handle(IPC.RunGet, () => orchestration!.view());
   handle(IPC.RunReport, ({ runId }) => orchestration!.report(runId));
   handle(IPC.RunQuestions, ({ runId }) => runQuestions.view(runId));

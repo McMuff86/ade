@@ -2490,9 +2490,39 @@ checked again after awaiting inventory. Inventory keeps its existing 32-session
 bound. The shared `AttentionPanel` clears rows on identity change, offline state
 or failed reads and never persists/queues a command. Detail navigation reuses
 the existing terminal, run question/report and supervision flows, including
-their authorization, input leases, question bindings and drafts. It does not
-answer, claim input, restart work or offer a universal pause. Desktop question
+their authorization, input leases, question bindings and drafts. Desktop question
 details preserve opener focus while loading, with a fallback after row removal.
+
+Every `AttentionRow` also carries `actions`: a bounded list of enum entries
+(`answer`, `cancel`, `instruct`, `take-input`, `interrupt`), each available or
+blocked with an enum reason (`read-only`, `prompt-unsupported`,
+`prompt-not-ready`, `other-device`, `no-turn-control`). `attentionOverview`
+derives them from run/session state plus a caller-specific `AttentionAccess`;
+without one every write action is withheld. Runs offer `answer` only while a
+confirmed question is pending and `cancel` until a final status; sessions offer
+`instruct`/`take-input` only while running. `instruct` follows the actual
+protected prompt transport (`PtyManager.promptCapability`, whose `unsupported`
+flag separates sessions without that path from temporarily unready ones). An
+input lease held by another device is reported as `other-device`, on the desktop
+via `desktopMayWrite` and for devices via `RemoteTerminalService.attentionPrompt`. A running
+agent program carries `interrupt` as permanently blocked (`no-turn-control`):
+no interactive adapter has a confirmed turn interrupt and ADE offers no pause.
+Devices get `answer`/`cancel` only with `runs:write` and session actions only
+with `terminal:control`; the existing command routes enforce both again.
+
+The panel renders these actions inline (`AttentionDecision`) through surface
+ports that reuse existing idempotent contracts: `run:questions`/`run:answer`
+(bound to run, task and question; stale or cross-run answers are refused by
+`RunQuestionService`), `run:cancel` with a retained command ID, desktop
+`terminal:promptSend` with a retained `commandId` (receipts live with the PTY in
+`TerminalPromptDelivery`), and desktop `terminal:reclaim` for taking input. The
+tablet answers and cancels through its signed run routes; its instructions and
+input stay in the terminal view, where it claims the lease first. Unsent drafts
+live only in an in-memory `AttentionDrafts` map keyed by host identity, row and
+question (64 entries, oldest evicted, secret answers never kept, nothing in
+browser storage). An unconfirmed instruction or cancellation keeps its identity
+and text locked; the check repeats that identity, so the host applies it at most
+once, until the operator explicitly unlocks the draft after checking the terminal.
 
 Goal 34.5 adds optional, per-device Web Push for **confirmed ADE-managed run
 questions, errors and final results**. This includes single-task submissions:

@@ -342,7 +342,7 @@ export class PtyManager {
     if (!session || session.meta.status !== 'running' || session.meta.kind !== 'interactive' || session.meta.remoteAccessBlocked) {
       return { available: false, reason: translate("This CLI session has ended or is unavailable. Your draft is preserved.") };
     }
-    if (!session.promptProtected) return { available: false, reason: translate("For secure prompt delivery, open a new native Codex, Claude, or Grok session.") };
+    if (!session.promptProtected) return { available: false, unsupported: true, reason: translate("For secure prompt delivery, open a new native Codex, Claude, or Grok session.") };
     if (session.meta.program?.status !== 'running') return { available: false, reason: translate("The started CLI is not yet available or has already ended.") };
     if (requirePaste && !session.display?.acceptsBracketedPaste()) return { available: false, reason: translate("The CLI cannot accept a multiline paste right now. Check the terminal and wait briefly.") };
     return { available: true };

@@ -22,6 +22,9 @@ aktiviert **12:32:53 CEST**, HTTPS :8443 geprüft).
 Push-Testsperre zeigt jetzt Countdown statt Sammelfehler: Verträge **64/0**,
 Browser **30/0**, Verify **28/0/16 nicht gemessen**, **105 Suiten / 4.485 Checks**;
 noch nicht aktiviert.
+34.4 abends ergänzt: Entscheidungen direkt in der Übersicht nach gemeldeten
+Fähigkeiten, Entwurfsbindung und höchstens einmalige Zustellprüfung; Verify
+**28/0/16 nicht gemessen**, **105 Suiten / 4.507 Checks**; noch nicht aktiviert.
 34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)

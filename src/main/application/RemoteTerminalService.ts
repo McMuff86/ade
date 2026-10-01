@@ -18,6 +18,7 @@ import type { SpeechUsageAttribution } from '../usage/SpeechUsageService';
 import type { TerminalImageStore } from './TerminalImageStore';
 import { TERMINAL_IMAGE_MAX_BASE64, validTerminalImageId } from '../../shared/terminalImages';
 import type { MobileTerminalImageUpload } from '../../shared/remote';
+import type { AttentionPromptState } from '../../shared/attention';
 
 type RecordingAuthorization = (() => void) & { usage: Readonly<SpeechUsageAttribution> };
 const recordingAuthorization = (authorize: () => void, session: SessionMeta): RecordingAuthorization => Object.assign(authorize, {
@@ -240,6 +241,16 @@ export class RemoteTerminalService {
       const entry = this.entries.get(wire.id); const session = this.port.list().find(item => item.id === entry?.sessionId);
       return session && this.visible(deviceId, session) ? [{ wire, session }] : [];
     });
+  }
+
+  /** Adapter prompt readiness for the decision overview. The device still claims input
+   * in the terminal itself before a prompt is accepted; this grants nothing. */
+  attentionPrompt(deviceId: string, sessionId: string): AttentionPromptState {
+    this.expire();
+    const entry = [...this.entries.values()].find(item => item.sessionId === sessionId);
+    if (entry?.control && entry.control.deviceId !== deviceId) return 'other-device';
+    const capability = this.port.promptCapability?.(sessionId);
+    return !capability ? 'unsupported' : capability.available ? 'available' : capability.unsupported ? 'unsupported' : 'not-ready';
   }
 
   async command(deviceId: string, input: MobileTerminalCommand): Promise<{ terminalId: string }> {

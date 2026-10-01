@@ -37,7 +37,15 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
   await decisions.locator(`[data-attention-id="session:${sessions[2]!.id}"]`).waitFor();
   const openedCount = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
   check('three project shells appear with an honest unknown agent state', (await decisions.locator('[data-attention-group="unknown"] [data-attention-id]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-attention-id')))).filter(id => sessions.some(session => id === `session:${session.id}`)).length === 4);
-  await decisions.locator(`[data-attention-id="session:${sessions[2]!.id}"] button`).click();
+  const shellRow = decisions.locator(`[data-attention-id="session:${sessions[2]!.id}"]`);
+  await shellRow.getByRole('button', { name: /^Entscheidungsoptionen: / }).click();
+  const shellOptions = shellRow.getByRole('region');
+  check('a plain shell offers input but no instruction path and no pretended pause', JSON.stringify(await shellOptions.locator('[data-attention-action]')
+    .evaluateAll(nodes => nodes.map(node => node.getAttribute('data-attention-action')))) === JSON.stringify(['instruct', 'take-input'])
+    && await shellOptions.getByText('Diese Sitzung hat keinen geschützten Prompt-Weg. Nutze direkt ihr Terminal.', { exact: true }).isVisible()
+    && !await shellOptions.getByRole('textbox').count());
+  await desktop.keyboard.press('Escape');
+  await shellRow.getByRole('button', { name: /^Arbeit öffnen: / }).click();
   await desktop.locator(`#project-session-tab-${sessions[2]!.id}[aria-selected="true"]`).waitFor();
   check('decision navigation selects the exact existing session without relaunch', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === openedCount);
   // Navigation correctly focuses the PTY. Return to app chrome before the

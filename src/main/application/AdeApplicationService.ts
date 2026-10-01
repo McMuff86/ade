@@ -1140,7 +1140,10 @@ export class AdeApplicationService {
       this.options.administration.ledger.permits({ principal, requestId: 'attention', idempotencyKey: undefined }, 'workspace:read');
       briefing.projects = briefing.projects.filter(project => this.resources.repository(principal, project.repositoryId));
     }
-    const snapshot = attentionOverview(filtered, this.runs(undefined, principal), sessions.map(item => item.session), briefing);
+    // Write actions mirror the grants the corresponding command routes enforce again.
+    const snapshot = attentionOverview(filtered, this.runs(undefined, principal), sessions.map(item => item.session), briefing, Date.now(), {
+      runsWrite: principal.scopes.has('runs:write'), terminalWrite: terminalAccess,
+      prompt: sessionId => this.options.terminals!.attentionPrompt(principal.id, sessionId) });
     return { ...snapshot, rows: snapshot.rows.map(row => {
       const wire = row.target?.kind === 'session' ? sessions.find(item => item.session.id === row.target!.id)?.wire : undefined;
       return { ...row,

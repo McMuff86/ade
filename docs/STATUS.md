@@ -43,6 +43,12 @@ Zusätzlich tatsächlichen Fokusfehler beim Fortsetzen eines Gesprächs behoben.
 Vollständiges Verify **10:06:08 CEST: 27/0/16 nicht gemessen**, **104 Suiten /
 4.417 Checks**. Zusammen mit 34.3/34.5 um **10:35:46 CEST** persönlich aktiviert;
 keine neue physische Android-/Windows-Abnahme. [Belege und Grenzen](HANDOFF.md).
+Abends ergänzt: Entscheidungen direkt in der Übersicht nach gemeldeten
+Fähigkeiten (beantworten, abbrechen, anweisen, Eingabe übernehmen; keine Pause),
+fensterlokale Entwürfe und höchstens einmalige Zustellprüfung. Linux-Treiber
+**56/0**, Verify **22:49:25 CEST: 28/0/16 nicht gemessen**, **105 Suiten /
+4.507 Checks**. Noch nicht aktiviert; echte Codex-, Windows- und
+Tablet-Abnahme offen.
 
 ## Goal 34.3: Betrieb und Start (1. Oktober 2026)
 

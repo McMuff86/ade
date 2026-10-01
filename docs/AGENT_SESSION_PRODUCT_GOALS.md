@@ -178,19 +178,32 @@ Fokus, leerer Liste, Fehler, Offline und schmaler Ansicht. Detailaktionen nutzen
 bestehende Frage-/Sitzungs-/Lease-Verträge. Persönlich aktiviert am 1. Oktober um **10:35:46 CEST**; keine neue reale
 Codex-Rückfrage-/Android-Abnahme. [Belege](HANDOFF.md).
 
+Ergänzt am **1. Oktober abends**: Entscheidungen direkt in der Übersicht
+(Rückfrage beantworten, Run abbrechen, weitere Anweisung, Eingabe übernehmen)
+anhand der von Main gemeldeten Fähigkeiten; Drei-Projekte-Ablauf, Entwurfs-
+bindung und Negativkontrollen im Linux-Treiber. Offen bleiben für die Abnahme:
+echte Codex-Probe Rückfrage → Antwort → Fortsetzung, native Windows-Messung und
+physisches Tablet. [Belege](AGENT_SESSION_PLATFORM_RESULTS.md).
+
 - [x] Bestehende Arbeitsübersicht, Rückfragen und Morgenüberblick zusammenführen:
   „Braucht dich“, „Arbeitet“, „Bereit zur Prüfung“ und „Unterbrochen“.
   Unbekannter Zustand bleibt unbekannt; Terminalruhe ist kein Fertignachweis.
 - [x] Pro Eintrag Projekt, Sitzung/Aufgabe, letzte bestätigte Aktivität und
   nächste mögliche Aktion zeigen; mit einem Schritt zur richtigen Detailansicht.
-- [ ] Antworten, weitere Anweisungen, Eingabeübernahme und Abbruch anhand der
+- [x] Antworten, weitere Anweisungen, Eingabeübernahme und Abbruch anhand der
   tatsächlichen Adapterfähigkeiten anbieten. Eingreifen in einen laufenden Turn
   muss unterstützt und bestätigt sein; keine universelle Pause vortäuschen.
-- [ ] Eingaben an Host, Sitzung und gegebenenfalls Frage/Turn binden; Entwürfe
+  *Umgesetzt unter Linux:* Main liefert je Zeile Aktionen mit Sperrgrund; Turn-
+  Unterbrechung ist für interaktive CLIs ausdrücklich nicht unterstützt.
+- [x] Eingaben an Host, Sitzung und gegebenenfalls Frage/Turn binden; Entwürfe
   beim Wechsel erhalten, bei unklarer Zustellung eine gezielte Statusprüfung
   anbieten. Bestehende Speicher-/Datenschutzverträge nicht pauschal erweitern.
-- [ ] Drei Projekte mit arbeitender, wartender und unterbrochener Sitzung testen;
+  *Umgesetzt:* Bindung an Host-Identität, Sitzung/Prozess bzw. Run/Task/Frage;
+  interaktive CLIs besitzen keine Turn-Identität. Entwürfe nur im Speicher des
+  offenen Fensters; Prüfung wiederholt dieselbe Zustellung höchstens einmal.
+- [x] Drei Projekte mit arbeitender, wartender und unterbrochener Sitzung testen;
   Tastatur/Fokus, leere Liste, Fehler, Offline und schmale Ansicht abdecken.
+  *Linux-Electron-/Tablet-Treiber; Windows nicht gemessen.*
 
 **Abnahme:** Derselbe Zustand führt auf PC und Tablet zur selben Zielarbeit.
 Veraltete Fragen und fremde Sitzungen können keine Antwort erhalten. Die echte

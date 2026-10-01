@@ -1,5 +1,35 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
+## Goal 34.4: Entscheidungen direkt in der Übersicht (1. Oktober 2026, 22:49 CEST)
+
+Die offenen 34.4-Punkte sind unter Linux umgesetzt. Jede Zeile von „Deine
+nächsten Entscheidungen“ trägt von Main abgeleitete Aktionen mit Sperrgrund;
+„Hier entscheiden“ zeigt nur diese: Rückfrage beantworten, Run abbrechen (mit
+Bestätigung), weitere Anweisung an eine CLI mit geschütztem Prompt-Weg
+(Desktop; Tablet öffnet dafür das Terminal mit eigenem Eingabe-Lease) und
+Eingabe übernehmen (Desktop: `terminal:reclaim`). Einen laufenden Turn zu
+unterbrechen ist für interaktive CLIs ausdrücklich nicht unterstützt; ADE
+bietet keine Pause an. Entwürfe bleiben nur im Speicher des offenen Fensters,
+gebunden an Host-Identität, Sitzung bzw. Run/Task/Frage; geheime Antworten
+werden nie gehalten. Eine unbestätigte Anweisung oder ein unbestätigter Abbruch
+bleibt mit derselben ID gesperrt; „Zustellung prüfen“ wiederholt genau diese
+und stellt höchstens einmal zu. Neue Kanäle, Wire-DTOs oder Speicher gibt es nicht.
+
+Nachweise: `test-attention.ts` **49/0** (vorher 27) mit Aktionsableitung,
+Rechten, Prompt-Zuständen, Entwurfsbindung/-grenze und Zustelllogik;
+`test-remote-supervision.ts` **35/0**; Linux-Agent-/Tablet-Treiber **56/0**
+mit drei Projekten (wartend, arbeitend, unterbrochen), Tastatur/Escape-Fokus,
+Abbruch mit Rücknahme und Bestätigung, exakt einmaliger Anweisung an den
+nativen Fixture-Prozess, Entwurfserhalt beim Wechsel (Desktop und Tablet),
+Run-fremder und veralteter Antwort sowie Anweisung an eine beendete Sitzung als
+Negativkontrollen; Sitzungsnavigation **96/0** (Shell ohne Prompt-Weg).
+Vollständiges `pnpm verify` **22:49:25 CEST: 28 bestanden / 0 Fehler / 16 nicht
+gemessen** (Windows-only), **105 Suiten / 4.507 Checks**.
+
+Nicht gemessen: echte Codex-Rückfrage → Antwort → Fortsetzung über die neue
+Ansicht, native Windows-Ausführung, physisches Tablet. Nicht persönlich
+aktiviert (`pnpm activate` steht aus), nicht gepusht.
+
 ## Goal 34.5: Wartezeit nach Push-Test sichtbar (1. Oktober 2026, 22:22 CEST)
 
 Folgekorrektur zum Tablet-Test von 14:08: Ein Test innerhalb der persistierten

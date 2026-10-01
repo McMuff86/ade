@@ -816,6 +816,16 @@ mutations require idempotency keys and audit. Activation instructions:
   Only device-authorized work appears remotely. Offline/failed reads remove
   stale actions; refresh retries only the read. Existing detail capabilities
   and host/session/question-bound draft rules remain authoritative.
+  “Decide here” expands only the actions the host reports for that row:
+  answer a pending question, cancel a non-final run (explicit confirmation,
+  same cancellation repeated on check), send a further instruction to a CLI
+  with a protected prompt path (desktop; the tablet opens the terminal and
+  claims input there) and take input. Unsupported or unauthorized actions show
+  their reason; a running interactive turn states that it cannot be interrupted.
+  Drafts survive switching between rows, offline and failed reads in the open
+  window, never cross host, session or question, and an unconfirmed delivery
+  offers a check that delivers at most once. Escape closes the options and
+  returns focus to their toggle.
 - Mobile Settings → Mobile notifications offers device-specific opt-in for
   confirmed ADE task/run questions, reported errors and final results. Category
   choices, a test, status reload and disable are explicit. After a test, the

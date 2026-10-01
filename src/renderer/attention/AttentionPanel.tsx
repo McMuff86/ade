@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../../shared/i18n';
 import { useLocale } from '../i18n/language';
 import { ATTENTION_GROUPS, type AttentionGroup, type AttentionRow, type AttentionSnapshot, type AttentionTarget } from '../../shared/attention';
 import { formatRelativeTime } from '../../shared/overviewFormat';
+import { AttentionDecision, type AttentionActionsPort } from './AttentionDecision';
+import { AttentionDrafts } from './attentionDrafts';
 import './attention.css';
 
 const groupLabel = (group: AttentionGroup) => ({ 'needs-you': t('Needs you'), working: t('Working'), review: t('Ready for review'), interrupted: t('Interrupted work'), unknown: t('Unknown work state') })[group];
@@ -14,11 +16,17 @@ const reasonLabel = (reason: AttentionRow['reason']) => ({ question: t('A confir
   handoff: t('An open handoff is waiting in the morning overview.') })[reason];
 
 /** Same accessible decision surface on desktop and tablet. Navigation delegates
- * to existing detail views; this overview never sends input or takes a lease. */
-export function AttentionPanel({ identity, online = true, query, onOpen }: {
+ * to existing detail views. Inline decisions use only the actions main reports for
+ * the row and the existing idempotent question, cancel and prompt contracts. */
+export function AttentionPanel({ identity, online = true, query, onOpen, actions }: {
   identity: string; online?: boolean; query(): Promise<AttentionSnapshot>; onOpen(target: AttentionTarget, current: () => boolean): Promise<void> | void;
+  actions?: AttentionActionsPort;
 }) {
   useLocale();
+  // Drafts belong to one host identity; a new identity starts with none.
+  const drafts = useMemo(() => new AttentionDrafts(identity), [identity]);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  useEffect(() => { setExpanded(null); }, [identity]);
   const [snapshot, setSnapshot] = useState<AttentionSnapshot | null>(null);
   const [error, setError] = useState(''); const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
@@ -72,9 +80,20 @@ export function AttentionPanel({ identity, online = true, query, onOpen }: {
                 : row.target.kind === 'project' ? t('Open project') : row.target.kind === 'supervision' ? t('Review handoff')
                   : row.reason === 'question' ? t('Open question') : row.group === 'review' ? t('Review result') : t('Inspect work')}
             </button>
+            {actions && row.actions.length > 0 && row.target && <>
+              <button type="button" className="attention-toggle" id={`attention-toggle-${domId(row.id)}`} aria-expanded={expanded === row.id}
+                aria-controls={`attention-decision-${domId(row.id)}`} aria-label={t('Decision options: {{title}}', { title: row.title })}
+                onClick={() => setExpanded(current => current === row.id ? null : row.id)}>
+                {expanded === row.id ? t('Hide decision options') : t('Decide here')}</button>
+              {expanded === row.id && <AttentionDecision row={row} id={`attention-decision-${domId(row.id)}`} port={actions} drafts={drafts} online={online}
+                onChanged={() => void refreshRef.current()} onOpen={() => open(row)}
+                onClose={() => { setExpanded(null); document.getElementById(`attention-toggle-${domId(row.id)}`)?.focus(); }} />}
+            </>}
           </li>)}</ul>
         </section>;
       })}</div>
     </>}
   </section>;
 }
+
+const domId = (value: string) => value.replace(/[^A-Za-z0-9_-]/g, '_');

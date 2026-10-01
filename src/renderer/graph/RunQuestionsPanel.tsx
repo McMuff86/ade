@@ -3,6 +3,7 @@ import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { RunQuestion, RunQuestionAnswerInput, RunQuestionAnswers, RunQuestionsView } from '../../shared/runQuestions';
+import type { DraftSlot } from '../attention/attentionDrafts';
 import './runQuestions.css';
 
 export interface RunQuestionsPort {
@@ -45,17 +46,28 @@ export function RunQuestionsPanel({ runId, port, online, canAnswer, active = tru
   </section>;
 }
 
-export function QuestionCard({ question, taskId, runId, label, port, online, canAnswer, onAnswered, unavailableReason }: {
+/** Unsent answer state for one exact question. Secret fields are never kept. */
+export interface QuestionDraft { choices: Record<string, string>; free: Record<string, string>; pending?: { key: string; answers: RunQuestionAnswers } }
+
+export function QuestionCard({ question, taskId, runId, label, port, online, canAnswer, onAnswered, unavailableReason, draft }: {
   question: RunQuestion; taskId: string; runId: string; label: string; port: RunQuestionsPort;
   online: boolean; canAnswer: boolean; onAnswered(): void; unavailableReason?: string;
+  draft?: DraftSlot<QuestionDraft>;
 }): JSX.Element {
   useLocale();
-  const [choices, setChoices] = useState<Record<string, string>>({});
-  const [free, setFree] = useState<Record<string, string>>({});
+  const [choices, setChoices] = useState<Record<string, string>>(() => draft?.read()?.choices ?? {});
+  const [free, setFree] = useState<Record<string, string>>(() => draft?.read()?.free ?? {});
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const [pending, setPending] = useState<{ key: string; answers: RunQuestionAnswers }>();
+  const [pending, setPending] = useState<{ key: string; answers: RunQuestionAnswers } | undefined>(() => draft?.read()?.pending);
   const lock = useRef(false); const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    if (!draft) return;
+    const secret = new Set(question.questions.filter((item) => item.isSecret).map((item) => item.id));
+    const kept = Object.fromEntries(Object.entries(free).filter(([id]) => !secret.has(id)));
+    const empty = !Object.keys(choices).length && !Object.values(kept).some(Boolean) && !pending;
+    draft.write(empty ? undefined : { choices, free: kept, pending: secret.size ? undefined : pending });
+  }, [draft, question, choices, free, pending]);
   const answers: RunQuestionAnswers = Object.fromEntries(question.questions.map((item) => [item.id, {
     answers: [item.options && choices[item.id] !== '__free' ? choices[item.id] ?? '' : free[item.id] ?? ''],
   }]));

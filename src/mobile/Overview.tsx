@@ -1,7 +1,7 @@
 import { localizedState } from '../shared/i18n/states';
 import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
-import type { JSX, ReactNode } from 'react';
+import { useMemo, type JSX, type ReactNode } from 'react';
 import type { MobileHost } from './useMobileHost';
 import { MobileAvatar } from './AgentProfile';
 import { runtimeVisual } from '../renderer/graph/runtimeGlyphs';
@@ -10,6 +10,7 @@ import { finalStates, Icon, reportedTokens, runKindLabel, Status } from './ui';
 import type { MobileRunSummary } from '../shared/remote';
 import type { AttentionTarget } from '../shared/attention';
 import { AttentionPanel } from '../renderer/attention/AttentionPanel';
+import type { AttentionActionsPort } from '../renderer/attention/AttentionDecision';
 import { DashboardLink } from './DashboardLink';
 import { UsageOverviewPanel, UsageOverviewTile, useUsageOverview } from '../renderer/usage/UsageOverviewCard';
 import type { UsageOverview } from '../shared/usageOverview';
@@ -32,11 +33,18 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
   useLocale();
   const { catalog, runs, health } = host;
   const tokens = reportedTokens(runs);
+  // The tablet answers and cancels through its signed run routes. Instructions and
+  // input stay in the terminal view, where this device claims the input lease.
+  const actions = useMemo<AttentionActionsPort>(() => ({
+    questions: { read: (id) => host.request(`/api/v1/runs/${id}/questions`),
+      answer: (input, key) => host.request(`/api/v1/runs/${input.runId}/answers`, 'POST', { taskId: input.taskId, questionId: input.questionId, answers: input.answers }, key) },
+    cancel: (runId, key) => host.request(`/api/v1/runs/${runId}/cancel`, 'POST', undefined, key),
+  }), [host.request]);
   const usage = useUsageOverview(() => host.request<UsageOverview>('/api/v1/usage/overview', 'POST', {}), host.status === 'online');
   const open = runs.filter((run) => !finalStates.has(run.status));
   const recent = [...runs].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 20);
   return <div className="m-overview" data-testid="mobile-overview">
-    <AttentionPanel identity={`mobile:${host.deviceId}`} online={host.status === 'online'} query={() => host.request('/api/v1/attention')} onOpen={onAttention} />
+    <AttentionPanel identity={`mobile:${host.deviceId}:${host.identityVersion}`} actions={actions} online={host.status === 'online'} query={() => host.request('/api/v1/attention')} onOpen={onAttention} />
     {continuation}
     <header className="m-hero" aria-label={translate("Overview figures")}>
       <div><span className="m-eyebrow">{translate("Active Tasks")}</span><strong>{health?.queue.active ?? '—'}</strong><small>{health ? translate("{{value1}} queued · {{value2}} slots", { value1: health.queue.queued, value2: health.queue.maxActive }) : translate("Waiting for the PC")}</small></div>

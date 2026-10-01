@@ -7,7 +7,9 @@ export interface TerminalPromptRequest {
   text: string;
   mode: 'insert' | 'submit';
 }
-export type TerminalPromptCapability = { available: true } | { available: false; reason: string };
+/** `unsupported`: this session has no protected prompt transport at all. Any other
+ * refusal is temporary (not started, ended, no paste mode). Only main sets `unsupported`. */
+export type TerminalPromptCapability = { available: true } | { available: false; reason: string; unsupported?: true };
 export interface TerminalPromptReceipt { accepted: true; replayed: boolean }
 
 export function terminalPromptBytes(text: string, mode: 'insert' | 'submit'): string {

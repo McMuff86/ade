@@ -65,11 +65,14 @@ void (async () => {
     terminals: { supervisionSessions: async () => {
       if (revokeProfile) devices.setAdminScopes('tablet', ['terminal:control'], { mode: 'selected', repositoryIds: ['a'], agentIds: [] });
       return [{ session, wire: { id: 'opaque-session', repositoryId: 'a', launchProfileId: 'builder' } }];
-    } } as unknown as RemoteTerminalService,
+    }, attentionPrompt: (_device: string, id: string) => id === session.id ? 'other-device' : 'unsupported' } as unknown as RemoteTerminalService,
   });
   const raceBriefing = () => raceApp.supervision(context(), { operation: 'briefing' }, false) as Promise<MobileMorningBriefing>;
   const attention = await raceApp.attention(context().principal);
   check('decision overview replaces native PTY IDs with device-visible session targets', attention.rows.some(row => row.target?.id === 'opaque-session') && !JSON.stringify(attention).includes('native-session'));
+  const remoteActions = attention.rows.find(row => row.target?.id === 'opaque-session')?.actions ?? [];
+  check('remote decision actions are enums bound to the native session state, not executable commands', remoteActions.some(action => action.kind === 'instruct' && !action.available && action.reason === 'other-device')
+    && remoteActions.some(action => action.kind === 'take-input' && action.available) && !JSON.stringify(remoteActions).includes('native-session'));
   await refuses('bearer cannot read decision overview', () => raceApp.attention({ kind: 'bootstrap-token', id: 'token', proof: 'bearer', scopes: new Set(['read']) }), 'device_proof_required');
   check('authorized morning briefing includes linked profile work', (await raceBriefing()).projects[0].work.length === 1);
   revokeProfile = true;

@@ -141,7 +141,7 @@ require(${JSON.stringify(mainEntry())});
   await desktop.keyboard.press('Escape');
   if (agentTablet) {
     await linuxAgentTabletFlow(desktop, tablet, root, proofs, evidence, proxy, check);
-    await runQuestionFlow(app, desktop, tablet, root, evidence, check);
+    await runQuestionFlow(app, desktop, tablet, root, evidence, check, proofs);
     await desktop.keyboard.press('Escape');
   } else await sessionNavigationFlow(desktop, tablet, root, check, true);
   // kill acknowledges the signal; the PTY exit event removes the session later.

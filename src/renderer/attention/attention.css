@@ -14,3 +14,16 @@
 .attention-groups li { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-s); overflow-wrap: anywhere; }
 .attention-groups li > button { align-self: flex-start; margin-top: 6px; }
 .attention-groups [data-attention-group='needs-you'] li { border-left: 3px solid var(--accent); }
+.attention-groups li > .attention-toggle { margin-top: 0; }
+.attention-decision { display: grid; gap: 12px; margin-top: 6px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius-s); min-width: 0; }
+.attention-decision h4 { margin: 0 0 6px; font-size: 0.95em; }
+.attention-decision section { min-width: 0; }
+.attention-decision textarea { width: 100%; box-sizing: border-box; min-height: 72px; margin-top: 4px; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 8px; }
+.attention-decision textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.attention-decision textarea[readonly] { opacity: .8; }
+.attention-decision label { display: block; }
+.attention-row-actions, .attention-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.attention-confirm > p { flex-basis: 100%; }
+.attention-blocked, .attention-note { color: var(--muted); }
+.attention-panel button.attention-danger { border-color: var(--danger, var(--line)); }
+@media (pointer: coarse) { .attention-panel button { min-height: 44px; } }

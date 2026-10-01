@@ -6,7 +6,18 @@ import { useRuns } from '../stores/runs';
 import { useSelection } from '../stores/selection';
 import { DesktopSupervision } from '../supervision/DesktopSupervision';
 import { RunReportPanel } from '../graph/RunReportPanel';
+import { desktopRunQuestions } from '../graph/RunQuestionsPanel';
+import type { AttentionActionsPort } from './AttentionDecision';
 import '../graph/graph.css';
+
+/** Desktop owns local input: instructions go through the protected prompt path,
+ * taking input reclaims a remote lease before the terminal opens. */
+const desktopActions: AttentionActionsPort = {
+  questions: desktopRunQuestions,
+  cancel: (runId, commandId) => window.ade.invoke('run:cancel', { runId, commandId }),
+  instruct: (sessionId, text, commandId) => window.ade.invoke('terminal:promptSend', { sessionId, commandId, text, mode: 'submit' }),
+  takeInput: (sessionId) => window.ade.invoke('terminal:reclaim', { sessionId }),
+};
 
 export function DesktopAttention() {
   const [supervision, setSupervision] = useState<string | null>(null);
@@ -14,7 +25,7 @@ export function DesktopAttention() {
   const cursor = useRuns(state => state.seqCursor);
   const fallback = useRef<HTMLDivElement>(null);
   return <div className="desktop-attention" ref={fallback} tabIndex={-1}>
-    <AttentionPanel identity="desktop" query={() => window.ade.invoke('attention:get')} onOpen={async (target, current) => {
+    <AttentionPanel identity="desktop" actions={desktopActions} query={() => window.ade.invoke('attention:get')} onOpen={async (target, current) => {
       if (target.kind === 'session') await openCliSession(target.id, current);
       else if (target.kind === 'run') {
         await useRuns.getState().refresh();
