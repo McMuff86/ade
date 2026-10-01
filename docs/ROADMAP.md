@@ -1,5 +1,13 @@
 # ADE delivery roadmap
 
+Fortführung am **1. Oktober 2026** bis möglichst **34.5** beauftragt.
+34.3 ergänzt nun lokale Opt-ins für Autostart, Tray und Wachhalten; Linux-Vertrag
+**54/0**, Electron-/Tablet **92/0**, Agent-/Tablet **33/0**. Vollständiges Verify
+**27/0/16 nicht gemessen**, **103 Suiten / 4.381 Checks**. Noch keine neue
+persönliche Aktivierung; physische Anmeldung/Sperre und Windows-Abnahme offen.
+34.4 Entscheidungseinstieg und 34.5 Web Push sind nächste Implementierungen;
+34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
+
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)
 
 [Goal 34](AGENT_SESSION_PRODUCT_GOALS.md) führt bestehende Sitzungs-, Remote-,

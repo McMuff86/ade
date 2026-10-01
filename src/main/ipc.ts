@@ -19,6 +19,10 @@ import { SpeechUsageService } from './usage/SpeechUsageService';
 import { UsageJournal } from './usage/UsageJournal';
 import { desktopMicrophone } from './settings/desktopMicrophone';
 import { SpeechPreferences } from './settings/SpeechPreferences';
+import { HostOperationService } from './settings/HostOperationService';
+import { LinuxLoginStartup, windowsLoginStartup } from './settings/loginStartup';
+import { homedir } from 'node:os';
+import { powerSaveBlocker } from 'electron';
 import { AgentBehaviorService } from './memory/AgentBehaviorService';
 import { RemoteSpeechService } from './application/RemoteSpeechService';
 import { DeviceResourceService } from './application/DeviceResourceService';
@@ -29,7 +33,7 @@ import { DeviceResourceService } from './application/DeviceResourceService';
  */
 
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
-import { basename, dirname, extname, join, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -207,6 +211,29 @@ function handle<K extends keyof IpcInvokeMap>(
 }
 
 export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
+  const executable = process.platform === 'linux' && app.isPackaged && process.env['APPIMAGE'] ? process.env['APPIMAGE'] : process.execPath;
+  const startupArgs = app.isPackaged ? [] : [app.getAppPath()];
+  const startupAvailable = !process.env['ELECTRON_RENDERER_URL'] && !process.env['ADE_USER_DATA_DIR'] && !app.getAppPath().includes('test-results');
+  const xdgConfig = process.env['XDG_CONFIG_HOME'];
+  const startupDirectory = join(xdgConfig && isAbsolute(xdgConfig) ? xdgConfig : join(homedir(), '.config'), 'autostart');
+  const startup = startupAvailable && process.platform === 'linux'
+    ? new LinuxLoginStartup(startupDirectory, executable, startupArgs)
+    : startupAvailable && process.platform === 'win32' ? windowsLoginStartup(app, executable, startupArgs)
+      : { supported: false, enabled: () => false, set: () => { throw new Error('Autostart unavailable.'); } };
+  const preferences = () => store.get().settings.hostOperation ?? { keepAwake: false, keepInTray: false };
+  hostOperation = new HostOperationService({ preferences,
+    save: hostOperation => { store.save({ settings: { ...store.get().settings, hostOperation } }); },
+    activeSessions: () => ptyManager?.list().filter(session => session.status === 'running').length ?? 0,
+    otherWorkActive: () => store.get().runs.some(run => run.status === 'running')
+      || (ptyManager?.queueStatus().queued ?? 0) > 0 || workspaceOperations.busy() || integrationService?.busy() === true
+      || conversations?.query().some(conversation => ['working', 'interrupting'].includes(conversation.status)) === true,
+    startup, power: powerSaveBlocker,
+    warn: error => console.warn('[ade] host operation:', redactedErrorDetail(error)),
+  });
+  hostOperationTimer = setInterval(() => hostOperation?.reconcile(), 1000);
+  hostOperationTimer.unref();
+  handle(IPC.HostOperationGet, () => hostOperation!.status());
+  handle(IPC.HostOperationChange, input => hostOperation!.change(input));
   const execution = new ExecutionBackendService();
   const portabilityProfileDir = join(app.getPath('userData'), 'ade');
   const portabilityProbe = new TargetPathProbe({ hostPlatform: process.platform }, execution);
@@ -1370,8 +1397,13 @@ export function reserveActivationQuit(): boolean {
   catch { return false; }
 }
 export function mobileHostEnabled(): boolean { return mobileAccess?.enabled() === true; }
+let hostOperation: HostOperationService | null = null;
+let hostOperationTimer: ReturnType<typeof setInterval> | null = null;
+export function keepDesktopInTray(): boolean { return hostOperation?.status().keepInTray === true; }
 
 export async function disposePtyManager(): Promise<void> {
+  if (hostOperationTimer) clearInterval(hostOperationTimer); hostOperationTimer = null;
+  hostOperation?.dispose(); hostOperation = null;
   if (organizerReminderTimer) clearInterval(organizerReminderTimer); organizerReminderTimer = null;
   await conversations?.shutdown().catch(error => console.warn('[ade] conversation shutdown incomplete:', redactedErrorDetail(error))); conversations = null;
   const replies = replySpeech; replySpeech = null;

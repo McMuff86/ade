@@ -1,5 +1,20 @@
 # Goal 34.2 — Sitzungsfähigkeiten und erster Plattformschritt
 
+### Goal 34.3: Betriebseinstellungen (1. Oktober, 09:23 CEST)
+
+Autostart, optionaler Tray und Wachhalten lokal implementiert, noch nicht
+persönlich aktiviert. Betriebsvertrag **54/0**, echte Linux-XDG-Argumentprobe
+mit `desktop-file-validate`/`gio launch` bestanden. Electron-/Tablet **92/0**,
+Linux-Agent-/Tablet **33/0**; offene PTYs fordern Wachhalten an, das Ende aller
+PTYs gibt es frei. Der Inhibitorstatus bestätigt die Electron-Anforderung,
+keine garantierte OS-Wirkung. Windows nur als injizierter Adapter getestet.
+
+Vollständiges `pnpm verify` **09:23:52 CEST: 27 bestanden / 0 Fehler / 16 nicht
+gemessen**, **103 Suiten / 4.381 Checks**. Erstlauf scheiterte an der erwarteten
+alten Themenreihenfolge des Spracheinstellungs-Tests; korrigierter fokussierter
+und vollständiger Lauf erfolgreich. Archiv und verbleibende physische Abnahmen:
+[HANDOFF](HANDOFF.md), `test-results/goal343-operation-20261001/`.
+
 Stand: 1. Oktober 2026. Goal 34.2 wird um geschützte native Linux-Prompts,
 gespeicherte Profile und einen zusätzlichen Tablet-Ablauf ergänzt. Aktuelle
 Nachweise unten; frühere Betriebsstände bleiben als datierte Evidenz erhalten.

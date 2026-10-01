@@ -670,6 +670,7 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       if (!validProjectWorkspaceCommand(payload)) invalid(channel, 'invalid project command');
       return;
     case IPC.ConfigGet:
+    case IPC.HostOperationGet:
     case IPC.SpeechVoices:
     case IPC.ProjectDefaultsGet:
     case IPC.ConfigHealth:
@@ -884,6 +885,13 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       exactKeys(channel, request, ['rootPath', 'agentId']);
       stringValue(channel, request.rootPath, 'rootPath', { max: 4096 });
       if (request.agentId !== null) stringValue(channel, request.agentId, 'agentId', { max: 128 });
+      return;
+    }
+    case IPC.HostOperationChange: {
+      const input = record(channel, payload);
+      exactKeys(channel, input, ['setting', 'enabled']);
+      enumValue(channel, input.setting, 'setting', ['autostart', 'keepAwake', 'keepInTray']);
+      if (typeof input.enabled !== 'boolean') invalid(channel, 'enabled must be boolean');
       return;
     }
     case IPC.PhotoImport: {

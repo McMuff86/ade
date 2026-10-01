@@ -2472,8 +2472,37 @@ former 80-character title shortcut; source records are preserved unchanged.
 With mobile access enabled, closing the desktop window hides it only after a
 tray icon is available. The tray can reopen ADE or explicitly quit, which stops
 listeners and PTYs. If the tray is unavailable, closing retains normal app exit
-behavior. Login autostart, sleep prevention and pre-login execution are not
-implemented. The host is the native UI process even when tasks use WSL.
+behavior. A separate local opt-in also keeps the window in the tray without
+mobile access. The host remains the native UI process even when tasks use WSL.
+
+`HostOperationService` owns optional sleep prevention and login startup.
+`hostOperation:get` and `hostOperation:change` are desktop-only; the latter is
+an audited `host` effect with an exact setting/boolean payload. Generic config
+saves and the remote command allowlist cannot set them. `settings.hostOperation`
+contains only `keepAwake`/`keepInTray`, both false for old profiles; portable
+workspace bundles do not export them. Autostart is observed from the operating
+system rather than mirrored in a potentially stale configuration boolean.
+
+Linux registers only the marked `com.adimuff.ade.autostart.desktop` in the XDG
+autostart directory. Exec arguments use Desktop Entry escaping, with no shell;
+links, hardlinks, oversized files and foreign entries fail closed. Mutations
+use a directory descriptor, same-directory exclusive temporary file and rename.
+Windows uses Electron's login item API with a fixed executable and arguments,
+including its user-disabled startup status. Development servers, disposable
+profiles and verification builds cannot register login startup. No pre-login
+service, automatic session replay or remote wake is implemented.
+
+The single profile owner requests Electron `prevent-app-suspension` while the
+local opt-in is enabled and a PTY, queued task, running run, conversation turn,
+workspace operation or integration review is active. An open idle shell counts;
+silence does not prove completion. The one-second reconciliation releases the
+handle when work ends or opt-out is saved, and shutdown releases it before PTY
+disposal. Failures are reported; failed releases retain their handle for retry.
+The UI says **requested**, never guarantees the OS accepted an inhibitor.
+Display sleep and locking remain allowed; manual suspend/system policy can
+override it. Sources: [Electron powerSaveBlocker](https://www.electronjs.org/docs/latest/api/power-save-blocker),
+[login item API](https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows),
+[XDG autostart](https://specifications.freedesktop.org/autostart/latest/).
 
 #### Desktop device inventory and durable audit (Goal 8, step 1)
 

@@ -30,12 +30,12 @@ require(${JSON.stringify(mainEntry())});`);
   await firstTopic.waitFor();
   check('settings open as a wide dialog with focus on the first topic', await firstTopic.evaluate(node => node === document.activeElement)
     && ((await page.getByRole('dialog', { name: 'Einstellungen', exact: true }).boundingBox())?.width ?? 0) >= 720);
-  check('the topic navigation lists every topic in order', (await topics.getByRole('button').allTextContents()).map(text => text.trim()).join(',') === 'Allgemein,Tablet und Geräte,Projekte,Harnesses und Schlüssel,Stimme');
+  check('the topic navigation lists every topic in order', (await topics.getByRole('button').allTextContents()).map(text => text.trim()).join(',') === 'Allgemein,Betrieb und Start,Tablet und Geräte,Projekte,Harnesses und Schlüssel,Stimme');
   await page.keyboard.press('End');
   check('End moves to the last topic', await voiceTopic.evaluate(node => node === document.activeElement));
   await page.keyboard.press('Home');
   await page.keyboard.press('ArrowDown');
-  check('arrow keys move through the topics', await topics.getByRole('button', { name: 'Tablet und Geräte', exact: true }).evaluate(node => node === document.activeElement));
+  check('arrow keys move through the topics', await topics.getByRole('button', { name: 'Betrieb und Start', exact: true }).evaluate(node => node === document.activeElement));
   await voiceTopic.focus();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.activeElement?.textContent === 'Stimme' && document.activeElement.tagName === 'H3');

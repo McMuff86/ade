@@ -61,6 +61,8 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 }
 
 const valid: Record<InvokeChannel, unknown> = {
+  'hostOperation:get': undefined,
+  'hostOperation:change': { setting: 'keepAwake', enabled: true },
   'organizer:query': { operation: 'list' },
   'organizer:command': { operation: 'put', writerId: '11111111-1111-4111-8111-111111111111', sequence: 1, baseRevision: 0, document: newOrganizerDocument('note') },
   'organizer:dictationPrepare': { documentId: '11111111-1111-4111-8111-111111111111' },

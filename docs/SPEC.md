@@ -797,7 +797,14 @@ mutations require idempotency keys and audit. Activation instructions:
   normal certificate validation. Initial certificate provisioning can take time.
   Unrelated routes are preserved. Unsafe ingress stops the host.
   Closing the window with mobile access enabled keeps ADE in the tray; explicit
-  quit ends the host. Login autostart and remote wake remain future work.
+  quit ends the host. Desktop Settings → Operation and startup offers optional
+  login startup (native Linux XDG / native Windows), tray retention without mobile
+  access and sleep prevention during open sessions or active work. All default
+  off, are local-only and do not grant device rights. The displayed sleep status
+  is an OS request, not guaranteed availability; the screen may turn off/lock.
+  Interrupted work is not replayed. Pre-login service and remote wake remain
+  future work. Physical login/lock and Windows acceptance remain separate from
+  Linux Electron and injected-adapter tests.
 - Implementation and platform evidence are in `goal8/MOBILE_CONNECT_RESULTS.md`;
   physical iOS/Android and mobile-network acceptance must be measured separately.
 - Goals 8.6–8.9 align the mobile shell with the desktop: shared dark/light tokens,

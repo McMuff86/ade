@@ -108,6 +108,7 @@ const SUITES: Suite[] = [
   { id: 'repository-sync', script: 'test-repository-sync.ts', floors: { win32: 38 } },
   { id: 'harness', script: 'test-harness-credentials.ts', floors: { win32: 21 } },
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 34 } },
+  { id: 'host-operation', script: 'test-host-operation.ts', floors: { linux: 50, win32: 35 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },
   { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 30 } },

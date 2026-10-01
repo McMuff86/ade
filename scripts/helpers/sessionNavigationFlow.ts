@@ -8,7 +8,7 @@ import { terminalComposer } from './terminalControls';
 import { expect } from 'playwright/test';
 import { terminalHyperlinksFlow } from './terminalHyperlinksFlow';
 
-export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: string, check: (name: string, ok: boolean) => void): Promise<void> {
+export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: string, check: (name: string, ok: boolean) => void, checkSleepPrevention = false): Promise<void> {
   const evidence = resolve('test-results/main-agent-planning'); mkdirSync(evidence, { recursive: true });
   const parent = join(root, 'switch-projects'); mkdirSync(parent);
   for (const name of ['Switch A', 'Switch B', 'Switch C']) {
@@ -30,6 +30,7 @@ export async function sessionNavigationFlow(desktop: Page, tablet: Page, root: s
     result.push({ id: extra.id, workspaceId: result[0]!.workspaceId, repositoryId: result[0]!.repositoryId, createdAt: extra.createdAt, name: 'Switch A' });
     return result;
   }, parent);
+  if (checkSleepPrevention) check('real open PTYs request sleep prevention after opt-in', (await desktop.evaluate(() => window.ade.invoke('hostOperation:get'))).sleepPrevention === 'requested');
   // Per-process markers distinguish even two shells in the very same checkout.
   // A navigation bug must not pass just because both sessions share a directory.
   for (const [index, session] of sessions.entries()) {

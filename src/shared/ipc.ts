@@ -63,6 +63,8 @@ import type { WorkspaceBundleNotice, WorkspaceImportItemStatus } from './workspa
 /** Invoke channels (renderer -> main via ipcRenderer.invoke). */
 export const IPC = {
   ConfigGet: 'config:get',
+  HostOperationGet: 'hostOperation:get',
+  HostOperationChange: 'hostOperation:change',
   ProjectDefaultsGet: 'projectDefaults:get',
   ProjectDefaultsSave: 'projectDefaults:save',
   ConfigHealth: 'config:health',
@@ -690,6 +692,8 @@ export interface IpcInvokeMap {
   'project:fileRead': { req: { projectWorkspaceId: string; path: string }; res: import('./remote').MobileWorkspaceResult };
   'project:fileSave': { req: Extract<import('./remote').MobileFileSaveInput, { projectWorkspaceId: string }>; res: import('./remote').MobileFileSaveResult };
   'config:get': { req: void; res: AdeConfig };
+  'hostOperation:get': { req: void; res: import('./hostOperation').HostOperationStatus };
+  'hostOperation:change': { req: import('./hostOperation').HostOperationChange; res: import('./hostOperation').HostOperationStatus };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };
   'config:health': { req: void; res: ConfigHealth };

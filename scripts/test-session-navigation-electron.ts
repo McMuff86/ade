@@ -68,7 +68,28 @@ require(${JSON.stringify(mainEntry())});
     env: { ...process.env, ...(agentTablet ? { PATH: `${bin}:${process.env.PATH}`, ADE_PROFILE_FIXTURE_PROOFS: proofs } : {}),
       ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   desktop = await app.firstWindow(); desktop.setDefaultTimeout(30_000);
+  // A deliberately hidden/reopened fixture may remain occluded by the test
+  // runner on Wayland. Keep its animation clock live for Playwright actions.
+  await app.evaluate(({ BrowserWindow }) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.setBackgroundThrottling(false); });
   await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  const operation = desktop.getByTestId('host-operation');
+  const awake = operation.getByRole('checkbox', { name: 'Während offener Sitzungen und aktiver Arbeit Wachhalten anfordern', exact: true });
+  await awake.waitFor();
+  check('operating settings load with sleep prevention off and isolated autostart unavailable', !await awake.isChecked()
+    && await operation.getByRole('checkbox', { name: 'ADE bei der Desktop-Anmeldung öffnen', exact: true }).isDisabled());
+  await awake.focus(); await desktop.keyboard.press('Space');
+  await operation.getByTestId('sleep-prevention').getByText('Keine aktive Arbeit; Wachhalten freigegeben.', { exact: true }).waitFor();
+  check('keyboard opt-in remains idle without sessions', await awake.isChecked());
+  await desktop.getByRole('navigation', { name: 'Einstellungsbereiche', exact: true }).getByRole('button', { name: 'Betrieb und Start', exact: true }).click();
+  await desktop.waitForFunction(() => document.activeElement?.tagName === 'H3' && document.activeElement.textContent === 'Betrieb und Start');
+  await desktop.screenshot({ path: join(evidence, 'operation-settings.png') });
+  await operation.getByRole('checkbox', { name: 'ADE beim Schließen des Fensters im Tray behalten', exact: true }).click();
+  await desktop.waitForFunction(async () => (await window.ade.invoke('hostOperation:get')).keepInTray);
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(window => window.getTitle().toLowerCase().includes('ade'))?.close());
+  check('optional tray keeps Electron alive after desktop close without mobile access', await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => !window.isVisible())));
+  await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows().find(window => !window.isVisible()); window?.show(); window?.focus(); });
+  await operation.getByRole('checkbox', { name: 'ADE beim Schließen des Fensters im Tray behalten', exact: true }).click();
+  await desktop.waitForFunction(async () => !(await window.ade.invoke('hostOperation:get')).keepInTray);
   const mobile = desktop.getByTestId('mobile-access');
   await mobile.getByRole('button', { name: 'Mit Tailscale aktivieren' }).click();
   await mobile.getByText(/HTTPS-Port 443 ist belegt/).waitFor();
@@ -102,10 +123,11 @@ require(${JSON.stringify(mainEntry())});
     await linuxAgentTabletFlow(desktop, tablet, root, proofs, evidence, proxy, check);
     await runQuestionFlow(app, desktop, tablet, root, evidence, check);
     await desktop.keyboard.press('Escape');
-  } else await sessionNavigationFlow(desktop, tablet, root, check);
+  } else await sessionNavigationFlow(desktop, tablet, root, check, true);
   // kill acknowledges the signal; the PTY exit event removes the session later.
   await desktop.waitForFunction(async () => (await window.ade.invoke('pty:list')).sessions.every(session => session.status !== 'running'));
   check('all fixture shells are stopped after the flow', (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.every(session => session.status !== 'running'));
+  check('sleep inhibitor releases after all fixture sessions end', (await desktop.evaluate(() => window.ade.invoke('hostOperation:get'))).sleepPrevention === 'idle');
   await desktop.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   await mobile.getByRole('button', { name: 'Mobilen Zugriff ausschalten', exact: true }).click();
   await mobile.getByText('Mobiler Zugriff ist ausgeschaltet.', { exact: true }).first().waitFor();

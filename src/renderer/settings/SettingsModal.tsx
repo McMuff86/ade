@@ -46,6 +46,7 @@ import { UsageSettingsSection } from './UsageSettingsSection';
 import { ProjectDefaultsSection } from './ProjectDefaultsSection';
 import { TargetSpeechSettings } from './TargetSpeechSettings';
 import { SettingsTopics } from './SettingsTopics';
+import { HostOperationSection } from './HostOperationSection';
 
 const SCOPE_RUNTIMES: readonly RuntimeId[] = [
   'claude', 'codex', 'opencode', 'grok', 'gemini', 'ollama', 'shell', 'custom',
@@ -576,6 +577,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element
         </div>
         <UsageSettingsSection />
       </div> },
+      { id: 'operation', label: translate("Operation and startup"), content: <HostOperationSection /> },
       { id: 'devices', label: translate("Tablet and devices"), content: <div className="st-body">
         <MobileAccessSection />
         <RemoteDevicesSection />

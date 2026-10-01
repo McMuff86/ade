@@ -140,6 +140,12 @@ native CLI-Probe und physisches Gerät werden getrennt ausgewiesen.
 
 ## Goal 34.3 — Verlässlicher Betrieb unter Linux und Windows
 
+Implementierungsstand 1. Oktober: lokale Einstellungen für Login-Autostart,
+optionalen Tray ohne mobilen Zugriff und angefordertes Wachhalten ergänzt.
+Linux-XDG-Dateivertrag und injizierter Windows-Adapter fokussiert geprüft;
+physische Anmeldung/Sperre und native Windows-Abnahme bleiben offen. Die
+Checkboxen unten beschreiben weiterhin die vollständige Plattformabnahme.
+
 - [ ] `pnpm activate` plattformgerecht erweitern: Gate, Profilbackup, reguläres
   Beenden, `out.prev`, Rollback und bestätigter Wiederanlauf unter Linux.
   Den bestehenden Windows-Weg als Regression prüfen. Aktive Arbeit blockiert

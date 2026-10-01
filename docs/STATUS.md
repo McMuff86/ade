@@ -1,5 +1,19 @@
 # ADE implementation status
 
+## Goal 34.3: Betrieb und Start (1. Oktober 2026)
+
+Lokale Opt-ins für Login-Autostart (Linux XDG / Windows-API), Tray ohne mobilen
+Zugriff und angefordertes Wachhalten implementiert. Keine automatische
+Wiederholung unterbrochener Arbeit. Linux-Betriebsvertrag **54/0**, tatsächlicher
+Desktop-Dateiprüfer/GIO-Argumenttransport erfolgreich, Electron-/Tablet **92/0**,
+Agent-/Tablet **33/0**. Windows-Adaptertests sind kein Windows-Betriebsnachweis;
+physische Anmeldung/Sperre und Tablet-Hintergrundzustellung bleiben offen.
+
+`pnpm verify` **1. Oktober, 09:23:52 CEST**: **27/0/16 nicht gemessen**,
+**103 Suiten / 4.381 Checks**, drei Typechecks und isolierte Builds. Archiv:
+`test-results/goal343-operation-20261001/`. Noch nicht persönlich aktiviert.
+Auftrag bis möglichst 34.5 läuft weiter; [Betriebsdetails und Grenzen](HANDOFF.md).
+
 ## Goal 34.2: native Linux-Prompts und Agent-Profile (30. September 2026, spätabends)
 
 Neue feste native Linux-Codex-/Claude-/Grok-Sitzungen unterstützen geschützte

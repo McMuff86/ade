@@ -1,5 +1,40 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.3: optionale Betriebseinstellungen geprüft (1. Oktober 2026, 09:23 CEST)
+
+Der Auftrag läuft bis möglichst 34.5 weiter. Diese erste Lieferung ergänzt
+**Einstellungen → Betrieb und Start**: Autostart nach Desktop-Anmeldung,
+Tray ohne mobilen Zugriff und Wachhalten während offener Sitzungen/aktiver
+Arbeit. Alles bleibt standardmässig aus. Autostart wird unter Linux über einen
+eigenen XDG-Eintrag, unter Windows über die native Electron-API angeboten.
+Keine persönlichen Betriebseinstellungen geändert und **noch nicht aktiviert**;
+der unten dokumentierte persönliche Host und seine Sitzungen bleiben erhalten.
+
+- `pnpm verify` beendet **09:23:52 CEST**: **27 bestanden / 0 Fehler / 16 nicht
+  gemessen**, **103 Suiten / 4.381 Checks**, drei Typechecks, beide isolierten
+  Builds und Linux-Aktivierung **15/0**.
+- Fokussierter Betriebsvertrag **54/0**: Opt-in, genau ein Inhibitor, Freigabe,
+  Start-/Stopfehler und anschliessende positive Kontrolle, lokale IPC-Grenze,
+  fremde/verlinkte Autostartdateien; Windows-Adapter nur injiziert gemessen.
+- Linux-Electron-/Tablet-Navigation **92/0**, zusätzlicher Agent-/Tablet-Lauf
+  **33/0**. Tastatur-Opt-in, echtes Tray-Verbergen, reale PTYs mit angefordertem
+  Wachhalten und Freigabe nach deren Ende. Der Treiber hält nur seine eigene
+  Animationsuhr bei Verbergen/Überdeckung aktiv; keine Produkt-Testschalter.
+- Echte Linux-XDG-Probe **09:20:11 CEST**: `desktop-file-validate` und `gio launch`
+  übertragen Leerzeichen, Unicode, Dollarzeichen, Backticks, Quotes, Backslashes
+  und Prozentzeichen exakt; temporärer Eintrag danach entfernt. Das ist keine
+  physische Anmeldung. XDG-Autostart-Target dieses Omarchy-Desktops ist aktiv.
+- Erster Gesamtlauf: nur die alte Themenreihenfolge im Spracheinstellungs-Test
+  schlug fehl. Erwartung und Pfeiltastenprüfung angepasst; fokussiert **34/0**,
+  anschliessend vollständiger grüner Lauf. Ursprünglicher Bericht bleibt erhalten.
+
+Archiv: `test-results/goal343-operation-20261001/` mit `first-verify/`,
+`final-verify/`, XDG-Argumentbeleg samt Probe und Einstellungsbild.
+Physische Linux-Anmeldung/Sperre und native Windows-Abnahme bleiben offen.
+Nächste Implementierung: 34.4 gemeinsamer Entscheidungseinstieg, danach 34.5
+echtes gerätebezogenes Web Push. Die Android-/Chrome-/Installationsangabe des
+Benutzers wurde für die physische Abnahme angefragt; noch keine Antwort.
+
 ## Linux-Profile und geschützte Prompts persönlich aktiviert (1. Oktober 2026, 08:14 CEST)
 
 **ADE kann jetzt neu geöffnet und das Tablet neu geladen werden. Keine neue

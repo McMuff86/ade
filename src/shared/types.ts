@@ -1084,6 +1084,7 @@ export type InspectorSide = 'left' | 'right';
 export const DEFAULT_INSPECTOR_SIDE: InspectorSide = 'right';
 
 export interface Settings {
+  hostOperation?: import('./hostOperation').HostOperationPreferences;
   /** Desktop interface language; mobile devices keep their own preference. */
   language?: import('./i18n/locales').AppLocale;
   speechVoiceId?: string;

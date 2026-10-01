@@ -144,7 +144,12 @@ export function validateCompleteConfig(config: AdeConfig): void {
     if (!Array.isArray(root[key])) throw new Error(`config.${key} must be an array.`);
   }
   const settings = object(root.settings, 'config.settings');
-  exactKeys(settings, ['theme', 'language', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults', 'speechVoiceId', 'speechTuning', 'claudeAccountUsage'], 'config.settings');
+  exactKeys(settings, ['theme', 'language', 'inspectorSide', 'memory', 'worktreeBaseDir', 'projectDefaults', 'speechVoiceId', 'speechTuning', 'claudeAccountUsage', 'hostOperation'], 'config.settings');
+  if (settings.hostOperation !== undefined) {
+    const operation = object(settings.hostOperation, 'config.settings.hostOperation');
+    exactKeys(operation, ['keepAwake', 'keepInTray'], 'config.settings.hostOperation');
+    if (typeof operation.keepAwake !== 'boolean' || typeof operation.keepInTray !== 'boolean') throw new Error('Invalid host operation preferences.');
+  }
   if (settings.claudeAccountUsage !== undefined && typeof settings.claudeAccountUsage !== 'boolean') throw new Error('config.settings.claudeAccountUsage is invalid.');
   if (settings.language !== undefined && !isAppLocale(settings.language)) throw new Error('config.settings.language is invalid.');
   if (settings.speechTuning !== undefined && !validSpeechTuning(settings.speechTuning)) throw new Error('Invalid speech tuning.');

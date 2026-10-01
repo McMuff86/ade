@@ -7,7 +7,7 @@ import { changeLocale, i18n } from '../shared/i18n';
 import { app, BrowserWindow, Menu, nativeImage, session, shell, Tray } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { registerIpcHandlers, disposePtyManager, mobileHostEnabled, reserveActivationQuit } from './ipc';
+import { registerIpcHandlers, disposePtyManager, mobileHostEnabled, keepDesktopInTray, reserveActivationQuit } from './ipc';
 import { redactedErrorDetail } from './errors';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
@@ -35,7 +35,7 @@ function showDesktop(): void {
 
 function updateTrayLanguage(): void {
   if (!hostTray) return;
-  hostTray.setToolTip(translate("ADE · Mobile access remains active"));
+  hostTray.setToolTip(translate("ADE remains active"));
   hostTray.setContextMenu(Menu.buildFromTemplate([
     { label: translate("Open ADE"), click: showDesktop },
     { type: 'separator' },
@@ -171,7 +171,7 @@ function createWindow(): void {
   }
 
   mainWindow.on('close', (event) => {
-    if (!quitting && mobileHostEnabled() && ensureHostTray()) {
+    if (!quitting && (mobileHostEnabled() || keepDesktopInTray()) && ensureHostTray()) {
       event.preventDefault(); mainWindow?.hide();
     }
   });

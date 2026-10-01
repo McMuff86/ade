@@ -393,3 +393,17 @@
 }
 .modal .st-body > label { display: grid; gap: 5px; font-size: var(--fs-s); color: var(--muted); }
 .modal .st-body > label + p { color: var(--faint); font-size: var(--fs-xs); line-height: 1.5; }
+.settings-modal .st-host-operation .st-scope-all {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text);
+}
+.settings-modal .st-host-operation input[type='checkbox'] {
+  width: auto;
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.st-host-operation p { line-height: 1.55; }
