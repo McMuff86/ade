@@ -30,13 +30,13 @@ let browser: Browser | undefined; let server: HostApiServer | undefined; let pro
 let push: WebPushService | undefined;
 void (async () => {
   const f = createMobileFixture(root); const resources = new DeviceResourceService(f.store, id => f.devices.resourceAccess(id));
-  const delivered: MobilePushPayload[] = []; let transportFails = false;
+  const delivered: MobilePushPayload[] = []; let transportFails = false; let clockOffset = 0;
   push = new WebPushService(new PushStore(join(root, 'remote', 'push.json'), fixtureProtection), {
     subscribe: listener => f.changes.subscribe(listener),
     cursor: () => f.orchestration.journalCursor(), events: cursor => f.orchestration.eventsSince(cursor, 100),
     completed: id => f.store.get().runs.some(run => run.id === id && run.status === 'completed'),
     active: id => f.devices.activeDevices().some(d => d.id === id), allowed: (id, runId) => resources.run(id, runId),
-  }, async (_subscription, payload) => { if (transportFails) throw new Error('fixture provider failure'); delivered.push(payload); return 201; });
+  }, async (_subscription, payload) => { if (transportFails) throw new Error('fixture provider failure'); delivered.push(payload); return 201; }, () => Date.now() + clockOffset);
   push.start(); f.devices.onRevoked(id => push!.authorityChanged(id));
   const ledger = new RemoteCommandLedger(join(root, 'remote', 'commands.json'), e => f.devices.audit(e), (id, scope) => f.devices.activeDevices().some(d => d.id === id && d.scopes.includes(scope)));
   const app = new AdeApplicationService(f.store, f.orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
@@ -130,9 +130,29 @@ void (async () => {
     && await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isEnabled());
 
   check('notification choices and controls fit a narrow tablet', await panel.evaluate(n => n.scrollWidth <= n.clientWidth + 1 && [...n.querySelectorAll('button')].every(b => b.getBoundingClientRect().height >= 40)));
+  // A second tab of the same paired device still believes a test is possible.
+  const other = await context.newPage(); other.setDefaultTimeout(20_000); other.on('pageerror', e => { errors.push(e.message); console.error('Browser error:', e.message); });
+  await other.goto(proxy.origin); await other.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  await other.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  const otherPanel = other.getByRole('dialog', { name: 'Einstellungen', exact: true }).getByRole('region', { name: 'Mobile Benachrichtigungen', exact: true });
+  await otherPanel.getByText('Benachrichtigungen für dieses gekoppelte Gerät eingeschaltet.', { exact: true }).waitFor();
   await panel.getByRole('button', { name: 'Testnachricht senden', exact: true }).click();
   await panel.getByText('Der Push-Dienst hat die letzte Nachricht angenommen.', { exact: false }).waitFor();
   check('explicit browser test reaches signed command and simulated provider once', delivered.length === 1 && delivered[0].kind === 'test');
+  const testButton = panel.getByRole('button', { name: 'Testnachricht senden', exact: true });
+  check('accepted test disables another test and explains the host wait', await testButton.isDisabled()
+    && /^Nächster Test in (29|30) s möglich\./.test(await panel.locator('#push-test-wait').innerText())
+    && await testButton.getAttribute('aria-describedby') === 'push-test-wait' && await panel.locator('#push-test-wait').getAttribute('role') === null);
+  await panel.screenshot({ path: join(evidence, 'push-test-wait-390.png') });
+  clockOffset = 28_000;
+  await otherPanel.getByRole('button', { name: 'Testnachricht senden', exact: true }).click();
+  await otherPanel.getByRole('status').filter({ hasText: /^Gerade wurde ein Test gesendet\. Warte [12] s bis zum nächsten/ }).waitFor();
+  check('rejected repeat shows the remaining wait instead of a generic failure', await otherPanel.getByRole('alert').count() === 0
+    && await otherPanel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isDisabled() && delivered.length === 1);
+  await otherPanel.getByRole('status').filter({ hasText: 'Du kannst jetzt einen weiteren Test senden.' }).waitFor({ timeout: 5_000 });
+  check('test becomes available again exactly after the wait', await otherPanel.getByRole('button', { name: 'Testnachricht senden', exact: true }).isEnabled()
+    && await otherPanel.locator('#push-test-wait').count() === 0);
+  await other.close(); clockOffset = 0;
   await panel.screenshot({ path: join(evidence, 'push-settings-390.png') });
   await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Einstellungen', exact: true })).toBeFocused();
   check('closing notification settings returns keyboard focus', true);

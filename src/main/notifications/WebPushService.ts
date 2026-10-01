@@ -13,6 +13,7 @@ export interface PushSource {
   subscribe?(changed: () => void): () => void;
 }
 const defaults = () => ({ question: true, error: true, result: true });
+const TEST_COOLDOWN_MS = 30_000;
 const kindOf = (event: RunEvent): MobilePushKind | null => event.type === 'question.requested' ? 'question'
   : event.type === 'run.completed' || event.type === 'task.completed' ? 'result' : event.type === 'run.failed' || event.type === 'task.failed' ? 'error' : null;
 const tagFor = (device: string, key: string) => createHash('sha256').update(`${device}:${key}`).digest('hex').slice(0, 32);
@@ -34,9 +35,10 @@ export class WebPushService {
   }
   dispose(): void { this.disposed = true; this.unsubscribe?.(); if (this.timer) clearInterval(this.timer); this.timer = null; for (const c of this.sending.values()) c.abort(); }
   status(id: string): MobilePushStatus {
-    if (!this.store.available()) return { available: false, publicKey: null, enabled: false, preferences: defaults(), last: null };
+    if (!this.store.available()) return { available: false, publicKey: null, enabled: false, preferences: defaults(), last: null, testRetryAfterMs: 0 };
     const state = this.store.get(); const d = state.devices.find(d => d.id === id);
-    return { available: true, publicKey: state.keys.publicKey, enabled: !!d, preferences: d?.preferences ?? defaults(), last: d?.last ?? null };
+    const testRetryAfterMs = d ? Math.min(TEST_COOLDOWN_MS, Math.max(0, d.testAt + TEST_COOLDOWN_MS - this.now())) : 0;
+    return { available: true, publicKey: state.keys.publicKey, enabled: !!d, preferences: d?.preferences ?? defaults(), last: d?.last ?? null, testRetryAfterMs };
   }
   async command(id: string, command: MobilePushCommand): Promise<MobilePushStatus> {
     if (this.disposed || !this.source.active(id)) throw new Error('Push unavailable');
@@ -54,7 +56,7 @@ export class WebPushService {
       this.store.save(state); return this.status(id);
     }
     const d = state.devices.find(d => d.id === id);
-    if (!d || this.sending.has(id) || this.now() - d.testAt < 30_000) throw new Error('Push test unavailable; wait before trying again');
+    if (!d || this.sending.has(id) || this.now() - d.testAt < TEST_COOLDOWN_MS) throw new Error('Push test unavailable; wait before trying again');
     d.testAt = this.now(); this.store.save(state);
     await this.deliver(d, { version: 1, kind: 'test', locale: d.locale, tag: tagFor(id, 'test'), runId: null });
     return this.status(id);

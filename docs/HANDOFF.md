@@ -1,5 +1,25 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.5: Wartezeit nach Push-Test sichtbar (1. Oktober 2026, 22:22 CEST)
+
+Folgekorrektur zum Tablet-Test von 14:08: Ein Test innerhalb der persistierten
+30-Sekunden-Sperre erzeugt keine Sammelfehlermeldung mehr. `MobilePushStatus`
+trägt neu `testRetryAfterMs` (0–30000, relativ zur Hostantwort, daher ohne
+Uhrabweichung des Geräts). Nach einem Test bleibt „Testnachricht senden“ mit
+sichtbarem Countdown deaktiviert (`aria-describedby`, keine sekündliche
+Ansage). Eine abgelehnte Wiederholung, etwa aus einem zweiten Tab, bleibt
+`command_rejected`; die UI liest den Status neu und meldet die Restwartezeit
+als Status statt Alarm. Das Ende der Wartezeit wird angesagt. Kein neuer
+Fehlercode, kein neuer Kanal, keine Änderung an Kopplung oder Zustellung.
+
+Vertragstest **64/0** (zuvor 56; Countdown, rückwärts laufende Hostuhr,
+Neustart, Ablauf, Ablehnungscode), HTTPS-/Chromium-Treiber **30/0** (zuvor 27;
+zweiter Tab mit echter Ablehnung, Countdown und Wiederfreigabe). Vollständiges
+`pnpm verify` **22:22 CEST: 28 bestanden / 0 Fehler / 16 nicht gemessen**,
+**105 Suiten / 4.485 Checks**. Belege: `test-results/push-test-wait-20261001/`.
+**Nicht persönlich aktiviert** – dafür `pnpm activate`; keine physische
+Tablet-Abnahme dieser Anzeige.
+
 ## Goal 34.5: erster physischer Testempfang bestätigt (1. Oktober 2026, 14:10 CEST)
 
 Der Benutzer bestätigt auf dem Android-Tablet die Nachricht „Die
@@ -14,8 +34,8 @@ ausgeführt; **14:08:20.981** abgewiesen mit
 `Push test unavailable; wait before trying again`. Der erneute Test nach rund
 16 Sekunden lag innerhalb der implementierten 30-Sekunden-Testsperre. Die
 zusätzliche Sammelfehlermeldung im Screenshot ist daher kein Beleg für einen
-fehlgeschlagenen ersten Empfang. Die UI sollte diese Wartezeit künftig gezielt
-anzeigen; diese Klarstellung ist noch nicht implementiert.
+fehlgeschlagenen ersten Empfang. Die gezielte Anzeige dieser Wartezeit ist seit
+22:22 CEST implementiert (siehe oben), aber noch nicht aktiviert.
 
 **Erster manueller Testempfang auf einem physischen Tablet bestätigt.** Weiter
 nicht gemessen: Empfang bei geschlossener ADE-Ansicht/gesperrtem Tablet,

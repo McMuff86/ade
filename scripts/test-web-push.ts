@@ -71,7 +71,13 @@ void (async () => {
   fail = true; now += 31_000; add('run.failed'); await push.poll(); check('transport failure is isolated and visible', push.status('tablet').last?.outcome === 'failed');
   const count = sent.length; fail = false; await push.poll(); check('uncertain provider acceptance is not automatically retried', sent.length === count);
   await push.command('tablet', { operation: 'test' }); check('explicit test sends a neutral test payload', sent.at(-1)?.kind === 'test' && sent.at(-1)?.runId === null);
+  check('status reports the full test cooldown relative to the host response', push.status('tablet').testRetryAfterMs === 30_000);
   await refuses('test requests are bounded by a persisted cooldown', () => push.command('tablet', { operation: 'test' }));
+  now += 12_000; check('remaining test wait counts down with host time', push.status('tablet').testRetryAfterMs === 18_000);
+  now -= 60_000; check('a host clock moving backwards never reports more than the cooldown', push.status('tablet').testRetryAfterMs === 30_000); now += 60_000;
+  check('unregistered device reports no test wait', push.status('other').testRetryAfterMs === 0 && !push.status('other').enabled);
+  check('restarted host keeps the persisted remaining wait', new WebPushService(new PushStore(file, protection), source, transport, () => now).status('tablet').testRetryAfterMs === 18_000);
+  now += 18_000; check('wait ends exactly when the cooldown expires', push.status('tablet').testRetryAfterMs === 0); now -= 30_000;
   await push.command('tablet', { operation: 'disable' }); add('run.completed'); await push.poll(); check('disabling stops subsequent deliveries', !push.status('tablet').enabled && sent.length === count + 1);
   await push.command('tablet', enable); response = 410; now += 31_000; add('question.requested'); await push.poll(); check('expired provider endpoint disables the subscription', !push.status('tablet').enabled); response = 201;
   await push.command('tablet', enable); active = false; add('run.completed'); await push.poll(); check('revoked device is removed before sending', !push.status('tablet').enabled); active = true;
@@ -107,6 +113,9 @@ void (async () => {
   check('lost configuration reply replays the receipt without resubscribing', vault.get().devices[0].generation === generation);
   check('command ledger stores no subscription secrets', !readFileSync(join(root, 'api', 'remote', 'commands.json'), 'utf8').includes(subscription.endpoint));
   await refuses('same idempotency key cannot switch from enable to disable', () => app.notificationCommand(ctx, { operation: 'disable' }), 'idempotency_key_reused');
+  await app.notificationCommand(context(), { operation: 'test' });
+  await refuses('a repeated test is rejected as a command, not a transport failure', () => app.notificationCommand(context(), { operation: 'test' }), 'command_rejected');
+  check('device status exposes the authoritative remaining test wait', app.notificationStatus(context().principal).testRetryAfterMs === 30_000);
   gate.reserve(); await refuses('activation fence blocks new notification mutations', () => app.notificationCommand(context(), { operation: 'disable' }), 'command_rejected');
   check('blocked activation mutation preserves the subscription', push.status('tablet').enabled); gate.release();
   fixture.devices.revoke('tablet'); await refuses('device revocation defeats a completed command replay', () => app.notificationCommand(ctx, enable), 'scope_not_granted');

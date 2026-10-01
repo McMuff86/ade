@@ -13,10 +13,24 @@ export function PushSettings({ host }: { host: MobileHost }) {
   const [loadError, setLoadError] = useState('');
   const [checking, setChecking] = useState(false); const [notice, setNotice] = useState('');
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+  // Local monotonic deadline derived from the host's relative cooldown.
+  const [cooldownUntil, setCooldownUntil] = useState(0); const [, setTick] = useState(0);
   const epoch = useRef(0); const lock = useRef(false);
   const readRevision = useRef(0);
   const supported = window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && permission !== 'unsupported';
   const online = host.status === 'online';
+  const apply = (value: MobilePushStatus) => {
+    setState(value); setCooldownUntil(value.testRetryAfterMs > 0 ? performance.now() + value.testRetryAfterMs : 0);
+  };
+  const waitSeconds = cooldownUntil ? Math.max(1, Math.ceil((cooldownUntil - performance.now()) / 1000)) : 0;
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const timer = setInterval(() => {
+      if (performance.now() < cooldownUntil) { setTick(value => value + 1); return; }
+      setCooldownUntil(0); setNotice(t('You can send another test now.'));
+    }, 250);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
   const refresh = async (own: number, explicit = false) => {
     if (lock.current) return;
     setChecking(true); setNotice(''); setLoadError('');
@@ -25,14 +39,14 @@ export function PushSettings({ host }: { host: MobileHost }) {
     try {
       const value = await host.request<MobilePushStatus>('/api/v1/notifications');
       if (own === epoch.current && revision === readRevision.current) {
-        setState(value); setPreferences(value.preferences);
+        apply(value); setPreferences(value.preferences);
         if (explicit) setNotice(value.enabled ? t('Notification status checked: enabled. You can send a test.') : t('Notification status checked: not yet enabled. Use Enable notifications to try registration again.'));
       }
     } catch { if (own === epoch.current && revision === readRevision.current) { setState(null); setLoadError(t('Notification settings could not be loaded. Reconnect and try again.')); } }
     finally { if (own === epoch.current && revision === readRevision.current) setChecking(false); }
   };
   useEffect(() => {
-    const own = ++epoch.current; setState(null); setError(''); setLoadError(''); setNotice(''); setChecking(false);
+    const own = ++epoch.current; setState(null); setCooldownUntil(0); setError(''); setLoadError(''); setNotice(''); setChecking(false);
     if (online) void refresh(own);
     return () => { epoch.current++; };
   }, [host.deviceId, host.identityVersion, online]);
@@ -78,13 +92,24 @@ export function PushSettings({ host }: { host: MobileHost }) {
       stage = 'host';
       const value = await host.request<MobilePushStatus>('/api/v1/notifications/command', 'POST', command, crypto.randomUUID());
       if (own !== epoch.current) return;
-      setState(value);
+      apply(value);
       if (operation === 'disable' && 'serviceWorker' in navigator) {
         // Host revocation is authoritative; browser cleanup must not turn it
         // into a reported failure or require a functioning worker beforehand.
         try { await (await (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription())?.unsubscribe(); } catch { /* already disabled on host */ }
       }
     } catch (reason) {
+      if (operation === 'test' && own === epoch.current && reason instanceof MobileClientError && reason.code === 'command_rejected') {
+        // The host refuses a test during its cooldown or while one is in flight.
+        // Re-read the authoritative wait instead of reporting a generic failure.
+        try {
+          const value = await host.request<MobilePushStatus>('/api/v1/notifications');
+          if (own === epoch.current && value.enabled && value.testRetryAfterMs > 0) {
+            apply(value); setNotice(t('A test was just sent. Wait {{count}} s before sending another; the last result is shown below.', { count: Math.ceil(value.testRetryAfterMs / 1000) }));
+            return;
+          }
+        } catch { /* fall through to the generic, unchanged-work message */ }
+      }
       if (own === epoch.current) {
         if (stage === 'permission') setError(t('Notification permission was not granted. Allow notifications in the browser site settings, then try enabling them again.'));
         else if (stage === 'worker') setError(t('The ADE background component is not ready for notifications. Close every ADE tab and the installed ADE app, reopen ADE, then enable notifications again. Reloading the status does not update this component.'));
@@ -112,10 +137,11 @@ export function PushSettings({ host }: { host: MobileHost }) {
     </fieldset>
     <div className="m-actions">
       <button disabled={busy || !online || !state?.available || !supported || permission === 'denied' || !Object.values(preferences).some(Boolean)} onClick={() => void act('enable')}>{state?.enabled ? t('Save notification selection') : t('Enable notifications on this device')}</button>
-      <button disabled={busy || !online || !state?.enabled} aria-describedby={!state?.enabled ? 'push-test-help' : undefined} onClick={() => void act('test')}>{t('Send test notification')}</button>
+      <button disabled={busy || !online || !state?.enabled || waitSeconds > 0} aria-describedby={!state?.enabled ? 'push-test-help' : waitSeconds > 0 ? 'push-test-wait' : undefined} onClick={() => void act('test')}>{t('Send test notification')}</button>
       {state?.enabled && <button disabled={busy || !online} onClick={() => void act('disable')}>{t('Disable notifications')}</button>}
       <button disabled={busy || checking || !online} onClick={() => void refresh(epoch.current, true)}>{t('Reload notification status')}</button>
     </div>
+    {state?.enabled && waitSeconds > 0 && <p id="push-test-wait" className="m-field-note">{t('Next test possible in {{count}} s. A short wait prevents repeated notifications.', { count: waitSeconds })}</p>}
     {!state?.enabled && <p id="push-test-help" className="m-field-note">{t('A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.')}</p>}
     {notice && <p role="status">{notice}</p>}
     {(busy || checking) && <p role="status">{t('Checking notification settings…')}</p>}

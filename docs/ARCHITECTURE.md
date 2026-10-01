@@ -2537,7 +2537,11 @@ TTL. VAPID keys are generated locally; no Firebase API key/account or ElevenLabs
 key is needed. Provider response bodies/endpoints never enter diagnostics.
 201/202 means **provider accepted**, never proof of tablet delivery; 404/410
 removes the unusable subscription. Explicit test requests have a persisted
-30-second cooldown. Push failure never changes a run or replays input.
+30-second cooldown. `MobilePushStatus.testRetryAfterMs` reports the remaining
+wait (0–30000 ms) relative to the host response, so device clock skew cannot
+shift it; a refused repeat stays `command_rejected` (no new error code) and the
+tablet rereads the status to show that wait instead of a generic failure.
+Push failure never changes a run or replays input.
 
 The public-shell worker displays only static neutral ADE text plus a bounded
 opaque run navigation hint. It accepts no supplied title/body/path/action URL.

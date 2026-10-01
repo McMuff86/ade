@@ -19,6 +19,9 @@ Aufgabenereignisse und weitere Plattform-/Adapterabnahmen bleiben offen;
 34.5 erhält nach Tablet-Rückmeldung eine Korrektur der Fehler-/Statusanzeige
 (Browsernachweis **27/0**, Vollprüfung **28/0/16 nicht gemessen**, persönlich
 aktiviert **12:32:53 CEST**, HTTPS :8443 geprüft).
+Push-Testsperre zeigt jetzt Countdown statt Sammelfehler: Verträge **64/0**,
+Browser **30/0**, Verify **28/0/16 nicht gemessen**, **105 Suiten / 4.485 Checks**;
+noch nicht aktiviert.
 34.6 bleibt separat. [Aktueller Betriebsnachweis](HANDOFF.md).
 
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)

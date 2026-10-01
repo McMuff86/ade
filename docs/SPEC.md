@@ -818,7 +818,11 @@ mutations require idempotency keys and audit. Activation instructions:
   and host/session/question-bound draft rules remain authoritative.
 - Mobile Settings → Mobile notifications offers device-specific opt-in for
   confirmed ADE task/run questions, reported errors and final results. Category
-  choices, a test, status reload and disable are explicit. This slice supports
+  choices, a test, status reload and disable are explicit. After a test, the
+  test button stays disabled for the host's 30-second wait with a visible
+  countdown; a refused repeat (for example from a second tab) shows the
+  remaining wait, not a generic failure, and the end of the wait is announced.
+  This slice supports
   Android Chrome's Google push endpoints; other push providers and interactive
   CLI question/result inference are not implemented. Normal CLI exit is not a
   completion notification. All lock-screen text is neutral and contains no

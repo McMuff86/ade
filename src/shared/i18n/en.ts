@@ -9,6 +9,9 @@ export const en = {
   "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.": "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.",
   "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.": "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.",
   "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.": "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.",
+  "Next test possible in {{count}} s. A short wait prevents repeated notifications.": "Next test possible in {{count}} s. A short wait prevents repeated notifications.",
+  "A test was just sent. Wait {{count}} s before sending another; the last result is shown below.": "A test was just sent. Wait {{count}} s before sending another; the last result is shown below.",
+  "You can send another test now.": "You can send another test now.",
 
   "Notification settings could not be loaded. Reconnect and try again.": "Notification settings could not be loaded. Reconnect and try again.",
   "Notification change was not confirmed. Reload its status before trying again; work is unchanged.": "Notification change was not confirmed. Reload its status before trying again; work is unchanged.",

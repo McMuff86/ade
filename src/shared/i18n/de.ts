@@ -9,6 +9,9 @@ export const de: Record<keyof typeof en, string> = {
   "The browser could not register with its push service. Check the tablet internet connection and browser notification permissions, then try enabling notifications again.": "Der Browser konnte sich nicht beim Push-Dienst anmelden. Prüfe die Internetverbindung des Tablets und die Benachrichtigungsberechtigungen des Browsers. Versuche danach das Einschalten erneut.",
   "ADE could not accept this browser push subscription. Use Google Chrome on Android and try enabling notifications again.": "ADE konnte diese Push-Anmeldung des Browsers nicht annehmen. Verwende Google Chrome auf Android und versuche das Einschalten erneut.",
   "A test becomes available after ADE confirms registration for this device. Browser permission alone does not enable delivery.": "Der Test wird verfügbar, sobald ADE die Anmeldung dieses Geräts bestätigt. Die Browser-Berechtigung allein schaltet die Zustellung noch nicht ein.",
+  "Next test possible in {{count}} s. A short wait prevents repeated notifications.": "Nächster Test in {{count}} s möglich. Die kurze Wartezeit verhindert wiederholte Nachrichten.",
+  "A test was just sent. Wait {{count}} s before sending another; the last result is shown below.": "Gerade wurde ein Test gesendet. Warte {{count}} s bis zum nächsten; das letzte Ergebnis steht unten.",
+  "You can send another test now.": "Du kannst jetzt einen weiteren Test senden.",
 
   "Notification settings could not be loaded. Reconnect and try again.": "Benachrichtigungseinstellungen konnten nicht geladen werden. Erneut verbinden und versuchen.",
   "Notification change was not confirmed. Reload its status before trying again; work is unchanged.": "Änderung nicht bestätigt. Status neu laden, bevor du erneut versuchst. Laufende Arbeit bleibt unverändert. Nach einem Update ADE vollständig schliessen und neu öffnen.",

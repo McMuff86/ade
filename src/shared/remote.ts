@@ -630,6 +630,9 @@ export interface MobilePushStatus {
   available: boolean; publicKey: string | null; enabled: boolean;
   preferences: MobilePushPreferences;
   last: { at: number; outcome: 'accepted' | 'failed' | 'expired' } | null;
+  /** Remaining explicit-test cooldown in milliseconds (0..30000), relative to the
+   * host's response so device clock skew cannot shorten or extend the wait. */
+  testRetryAfterMs: number;
 }
 export interface MobilePushPayload {
   version: 1; kind: MobilePushKind | 'test'; locale: 'de' | 'en'; tag: string;
