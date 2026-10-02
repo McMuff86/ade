@@ -25,7 +25,7 @@ import { validReplyAction, validReplyInput } from '../../shared/terminalSpeech';
 import type { ReplySpeechService } from '../settings/ReplySpeechService';
 import type { MobileReplyResult, MobileReplyRequest } from '../../shared/remote';
 import type { MobileSpeechResult } from '../../shared/remote';
-import { validProjectMembership, type ProjectMembershipResult } from '../../shared/remote';
+import { validProjectMembership, validProjectRemoveMissing, type ProjectMembershipResult, type ProjectRemoveMissingResult } from '../../shared/remote';
 import { validQuestionAnswers, type RunQuestionAnswerInput } from '../../shared/runQuestions';
 import type { RunQuestionService } from '../orchestration/RunQuestionService';
 import { createHash } from 'node:crypto';
@@ -903,6 +903,28 @@ export class AdeApplicationService {
         return this.options.activity ? this.options.activity.use(execute) : execute();
       });
       authorize({ repositoryId: receipt.value.repositoryId });
+      this.options.catalogChanged?.();
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
+  /** Same catalog rights as membership; the folder is checked again inside the ledger operation. */
+  async projectRemoveMissing(context: RemoteCommandContext, payload: unknown): Promise<ProjectRemoveMissingResult> {
+    const ledger = this.options.administration?.ledger; const projects = this.options.projects;
+    if (!ledger || !projects) throw new RemoteApiError(404, 'not_found');
+    if (!validProjectRemoveMissing(payload)) throw new RemoteApiError(400, 'invalid_payload');
+    const authorize: ProjectAuthorization = (target) => {
+      ledger.permits(context, 'workspace:read'); ledger.permits(context, 'catalog:write');
+      if (this.resources.access(context.principal).mode === 'selected') throw new RemoteApiError(403, 'scope_not_granted');
+      if (target?.repositoryId) this.resources.assertRepository(context.principal, target.repositoryId);
+    };
+    authorize();
+    try {
+      const receipt = await ledger.execute(context, 'project:remove-missing', 'catalog:write', payload, () => {
+        const execute = () => projects.removeMissing(payload.repositoryId, authorize);
+        return this.options.activity ? this.options.activity.use(execute) : execute();
+      });
+      authorize();
       this.options.catalogChanged?.();
       return { ...receipt.value, replayed: receipt.replayed };
     } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }

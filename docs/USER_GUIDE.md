@@ -68,7 +68,12 @@ die Entwicklungswerkzeuge nicht selbst installieren.
 **Der neue Projekteinstieg: Projekte → Workspace öffnen.** Zuerst siehst du
 „Meine ADE Projekte“. Unter **Alle** findest du auch Ordner unter deinem
 Projekt-Stamm, die noch nicht in ADE erfasst sind. ADE merkt sich deine ausdrücklich
-gewählte Filteransicht auf diesem Gerät. Der geöffnete
+gewählte Filteransicht auf diesem Gerät. Löschst du einen Projektordner am PC,
+verschwindet das Projekt beim nächsten Wechsel in das ADE-Fenster bzw. den
+Tablet-Tab aus der Liste; darüber steht „1 Projekt nicht mehr gefunden“ mit
+**Aus ADE entfernen** (nur nach Bestätigung, der Run-Verlauf bleibt). Lehnt der PC
+einen Projektstart ab, behebe die Ursache am PC und tippe **Erneut versuchen**.
+Der geöffnete
 Workspace zeigt seinen tatsächlichen Branch und benötigt kein Agent-Profil.
 Unter **Branches** den Branch wählen und die Aktion prüfen. Auf dem Tablet
 startest du danach mit einer Kachel unter **Sitzung starten**: Codex, Claude Code,

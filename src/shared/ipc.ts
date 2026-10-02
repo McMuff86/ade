@@ -99,6 +99,7 @@ export const IPC = {
   AgentTemplateSpawn: 'agentTemplate:spawn',
   RepositoryImport: 'repository:import',
   ProjectMembership: 'project:membership',
+  ProjectRemoveMissing: 'project:removeMissing',
   SpeechVoices: 'speech:voices',
   SpeechSelect: 'speech:select',
   SpeechTest: 'speech:test',
@@ -746,6 +747,7 @@ export interface IpcInvokeMap {
   'agentTemplate:spawn': { req: AgentTemplateSpawnInput; res: Agent };
   'repository:import': { req: RepositoryImportRequest; res: Repository };
   'project:membership': { req: import('./remote').ProjectMembershipInput; res: import('./remote').ProjectMembershipResult };
+  'project:removeMissing': { req: import('./remote').ProjectRemoveMissingInput; res: import('./remote').ProjectRemoveMissingResult };
   'speech:voices': { req: void; res: import('./speech').SpeechCatalog };
   'speech:select': { req: { voiceId: string }; res: void };
   'speech:test': { req: import('./speech').SpeechTestInput; res: import('./speech').SpeechAudio };

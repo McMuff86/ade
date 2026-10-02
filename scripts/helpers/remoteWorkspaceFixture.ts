@@ -54,7 +54,7 @@ export function createRemoteWorkspaceFixture(root: string, publishOptions: { gh?
   const gate = new HostOperationGate();
   const ledger = new RemoteCommandLedger(join(root, 'remote', 'commands.json'), (entry) => devices.audit(entry),
     (id, scope) => devices.activeDevices().some((item) => item.id === id && item.scopes.includes(scope)));
-  const projects = new ProjectWorkspaceService(store);
+  const projects = new ProjectWorkspaceService(store, () => undefined, () => sessions);
   const projectBranches = new ProjectBranchService(store, projects, () => sessions);
   const projectGit = new ProjectGitService(store, projects, () => sessions);
   const integration = new IntegrationService(store, projects, () => sessions, join(root, 'integrations'));

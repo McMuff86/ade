@@ -2,7 +2,7 @@ import { localizeAppMessage } from '../shared/i18n/appMessages';
 import { t as translate } from "../shared/i18n";
 import { useLocale } from "../renderer/i18n/language";
 import { useCallback, useContext, useEffect, useId, useRef, useState, type JSX } from 'react';
-import type { MobileFileSaveInput, MobileFileSaveResult, MobileHostState, MobileWorkspaceResult, ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceCommandResult, ProjectWorkspaceQuery, ProjectWorkspaceQueryResult, ProjectWorkspaceView } from '../shared/remote';
+import type { MobileFileSaveInput, MobileFileSaveResult, MobileHostState, MobileWorkspaceResult, ProjectDirectoryEntry, ProjectDirectoryView, ProjectMissingEntry, ProjectRemoveMissingResult, ProjectWorkspaceCommandResult, ProjectWorkspaceQuery, ProjectWorkspaceQueryResult, ProjectWorkspaceView } from '../shared/remote';
 import { ProjectDirectory, ProjectWorkspaceSummary } from '../renderer/projects/ProjectDirectory';
 import { useProjectUsage } from '../renderer/usage/ProjectUsage';
 import type { UsageProjectsResult } from '../shared/usageProjects';
@@ -23,6 +23,7 @@ import { useRunFilesPort } from './useRunFilesPort';
 
 interface Opening { key: string; entryId: string; name: string }
 interface MembershipChange { key: string; entryId: string; included: boolean; name: string }
+interface MissingRemoval { key: string; repositoryId: string; name: string }
 export interface ProjectOpenIntent { key: string; workspaceId?: string; repositoryId?: string; terminalId?: string }
 /** Persist the receipt before sending; a lost reply is resolved by an explicit replay. */
 export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentConsumed }: { host: MobileHost; onAgentWorkspace: (repositoryId: string) => void; intent?: ProjectOpenIntent; onIntentConsumed?: () => void }): JSX.Element {
@@ -33,6 +34,7 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
   const [opening, saveOpening] = useDeviceDraft<Opening | null>(host.deviceId, 'project-opening', null);
   const [membershipChange, saveMembershipChange] = useDeviceDraft<MembershipChange | null>(host.deviceId, 'project-membership', null);
   const [membershipNotice, setMembershipNotice] = useState('');
+  const [removal, saveRemoval] = useDeviceDraft<MissingRemoval | null>(host.deviceId, 'project-remove-missing', null);
   const [workspaceId, saveWorkspaceId] = useDeviceDraft<string | null>(host.deviceId, 'project-selected', null);
   const [workspace, setWorkspace] = useState<ProjectWorkspaceView>();
   const [workspaceInfo, setWorkspaceInfo] = useState(false);
@@ -88,6 +90,16 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     finally { if (current()) setBusy(false); }
   }, [host.request, online, workspaceId]);
   useEffect(() => { void refresh(); }, [refresh]);
+  // A folder deleted on the PC sends no event. Returning to the tab re-checks, at most every 5 s.
+  const lastVisible = useRef(Date.now());
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastVisible.current < 5_000) return;
+      lastVisible.current = Date.now(); void refresh();
+    };
+    window.addEventListener('focus', again); document.addEventListener('visibilitychange', again);
+    return () => { window.removeEventListener('focus', again); document.removeEventListener('visibilitychange', again); };
+  }, [refresh]);
   useEffect(() => {
     if (!intent || !directory) return;
     if (intent.workspaceId) {
@@ -140,6 +152,25 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     } throw reason; }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
+  /** Same receipt discipline as membership: the key is stored first and replayed after a lost reply. */
+  const removeMissing = async (entry: Pick<ProjectMissingEntry, 'repositoryId' | 'name'>) => {
+    if (lock.current || !online) return;
+    lock.current = true; setBusy(true); setError(''); setMembershipNotice('');
+    const command = removal ?? { key: crypto.randomUUID(), repositoryId: entry.repositoryId, name: entry.name };
+    try {
+      if (!saveRemoval(command)) throw new Error(translate("Browser storage not available. Project selection has not been changed."));
+      await host.request<ProjectRemoveMissingResult>('/api/v1/projects/remove-missing', 'POST', { repositoryId: command.repositoryId }, command.key);
+      if (!live.current) return;
+      saveRemoval(null);
+      const result = await host.request<ProjectWorkspaceQueryResult>('/api/v1/projects/query', 'POST', { operation: 'directory' });
+      if (live.current) { setDirectory(result.directory); setMembershipNotice(translate("{{value1}} was removed from ADE. Run history remains.", { value1: command.name })); }
+      await host.refresh();
+    } catch (reason) { if (live.current) {
+      if (reason instanceof MobileClientError && reason.status >= 400 && reason.status < 500 && reason.code !== 'command_uncertain') saveRemoval(null);
+      setError(reason instanceof Error && !(reason instanceof MobileClientError) ? reason.message : workspaceError(reason));
+    } throw reason; }
+    finally { lock.current = false; if (live.current) setBusy(false); }
+  };
   const show = !!selected || !!workspaceId;
   const name = workspace?.name ?? selected?.name ?? opening?.name ?? 'Workspace';
   // A receipt awaiting recovery must remain visible even with a saved compact layout.
@@ -148,9 +179,10 @@ export function ProjectDirectoryPage({ host, onAgentWorkspace, intent, onIntentC
     {online && rights && !canRead && <p role="alert">{translate("Share \"Read Workspace Files and Git Diffs\" on PC under Settings → Connected Devices, then update project folders.")}</p>}
     {membershipNotice && <p role="status">{membershipNotice}</p>}
     {membershipChange && <p role="status">{translate("Project selection for:")}{" "}{membershipChange.name}{" "}{translate("not yet confirmed.")}{" "}<button disabled={busy || !online} onClick={() => void membership({ id: membershipChange.entryId, name: membershipChange.name, kind: 'repository', backend: 'native', source: 'catalog', notice: null }, membershipChange.included).catch(() => undefined)}>{translate("Check project selection again")}</button></p>}
+    {removal && <p role="status">{translate("Removal of “{{value1}}” not yet confirmed.", { value1: removal.name })}{" "}<button disabled={busy || !online} onClick={() => void removeMissing(removal).catch(() => undefined)}>{translate("Check removal again")}</button></p>}
     {canRead && !rights?.capabilities?.includes('catalog:write') && <p>{translate("To add and remove on PC under Connected Devices, share project management.")}</p>}
-    <ProjectDirectory usage={usage} directory={directory} busy={busy || !!opening || !!membershipChange} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
-      onMembership={membership} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}
+    <ProjectDirectory usage={usage} directory={directory} busy={busy || !!opening || !!membershipChange || !!removal} error={show ? '' : error} online={online} onRefresh={() => void refresh()}
+      onMembership={membership} onRemoveMissing={removeMissing} canManage={!!rights?.capabilities?.includes('catalog:write') && rights?.resourceSelection !== 'selected'}
       onOpen={(entry, button) => { opener.current = button; autoOpen.current = true; setSelected(entry); setError(''); }} />
     {opening && !show && <div role="status"><p>{translate("Opening “")}{opening.name}{translate("” has not been confirmed yet.")}</p><button onClick={(event) => {
       opener.current = event.currentTarget; setSelected(directory?.entries.find((entry) => entry.id === opening.entryId)

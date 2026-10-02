@@ -136,6 +136,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'agentTemplate:spawn': armsShell,
   'repository:import': mutate,
   'project:membership': mutate,
+  'project:removeMissing': { ...mutate, audit: true },
   'speech:voices': { effect: 'host', surface: 'desktop', audit: false },
   'speech:select': mutate,
   'speech:test': { effect: 'host', surface: 'desktop', audit: true },

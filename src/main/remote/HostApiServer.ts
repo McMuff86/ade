@@ -73,7 +73,7 @@ type Route =
   | { kind: 'runQuestions' | 'runAnswer'; runId: string }
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
-  | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' }
+  | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' | 'projectRemoveMissing' }
   | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
   | { kind: 'terminalSessions' | 'attention' | 'notificationStatus' | 'notificationCommand' }
   | { kind: 'supervisionQuery' | 'supervisionCommand' }
@@ -82,7 +82,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'projectRemoveMissing' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -138,6 +138,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/integration/command': return { route: { kind: 'integrationCommand' }, allow: ['POST'] };
     case '/api/v1/projects/command': return { route: { kind: 'projectCommand' }, allow: ['POST'] };
     case '/api/v1/projects/membership': return { route: { kind: 'projectMembership' }, allow: ['POST'] };
+    case '/api/v1/projects/remove-missing': return { route: { kind: 'projectRemoveMissing' }, allow: ['POST'] };
     case '/api/v1/speech/query': return { route: { kind: 'speechQuery' }, allow: ['POST'] };
     case '/api/v1/speech/command': return { route: { kind: 'speechCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/speech': return { route: { kind: 'terminalSpeech' }, allow: ['POST'] };
@@ -500,6 +501,7 @@ export class HostApiServer {
         case 'projectQuery':
         case 'projectCommand':
         case 'projectMembership':
+        case 'projectRemoveMissing':
         case 'speechQuery':
         case 'speechCommand':
         case 'terminalSpeech':
@@ -666,6 +668,7 @@ export class HostApiServer {
         : kind === 'projectQuery' ? await this.application.queryProjects(context, payload)
         : kind === 'projectCommand' ? await this.application.commandProject(context, payload)
         : kind === 'projectMembership' ? await this.application.projectMembership(context, payload)
+        : kind === 'projectRemoveMissing' ? await this.application.projectRemoveMissing(context, payload)
         : kind === 'speechQuery' || kind === 'speechCommand' ? await this.application.remoteSpeech(context, payload, kind === 'speechCommand')
         : kind === 'terminalSpeech' ? await this.application.terminalSpeech(context, payload)
         : kind === 'updateProfile' ? await this.application.updateProfile(context, payload)

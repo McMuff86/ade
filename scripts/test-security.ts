@@ -128,6 +128,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'workspaceBundle:export': { includeMemory: false, includePhotos: false },
   'workspaceBundle:findClones': { sessionId: '00000000-0000-4000-8000-000000000000' },
   'project:membership': { entryId: 'p' + 'a'.repeat(32), included: true },
+  'project:removeMissing': { repositoryId: 'r1' },
   'speech:voices': undefined,
   'speech:preferences': { kind: 'default' },
   'agent:behaviorGet': { agentId: 'agent-a' },

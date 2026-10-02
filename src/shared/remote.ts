@@ -216,11 +216,20 @@ export interface ProjectDirectoryEntry {
   source: 'root' | 'catalog';
   notice: string | null;
 }
+/** A registered project whose folder is gone. Hidden from the list; never carries a host path. */
+export interface ProjectMissingEntry {
+  repositoryId: string;
+  name: string;
+  /** Whether "Remove from ADE" may deregister it now, or why it stays hidden instead. */
+  removal: 'allowed' | 'history' | 'active';
+}
 export interface ProjectDirectoryView {
   configured: boolean;
   entries: ProjectDirectoryEntry[];
   limited: boolean;
   notice: string | null;
+  /** Absent from hosts before this field existed. */
+  missing?: ProjectMissingEntry[];
 }
 export interface ProjectWorkspaceView {
   id: string;
@@ -378,6 +387,13 @@ export interface MobileWorkspaceResult {
 }
 export interface ProjectMembershipInput { entryId: string; included: boolean }
 export interface ProjectMembershipResult { repositoryId: string; included: boolean; replayed: boolean }
+export interface ProjectRemoveMissingInput { repositoryId: string }
+export interface ProjectRemoveMissingResult { repositoryId: string; removed: true; replayed: boolean }
+export function validProjectRemoveMissing(value: unknown): value is ProjectRemoveMissingInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return Object.keys(item).length === 1 && typeof item.repositoryId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(item.repositoryId);
+}
 export function validProjectMembership(value: unknown): value is ProjectMembershipInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;

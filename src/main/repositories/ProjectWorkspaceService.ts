@@ -5,9 +5,9 @@ import { opendir } from 'node:fs/promises';
 import { lstatSync, realpathSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import type { AdeConfig, Repository } from '../../shared/types';
+import type { AdeConfig, Repository, SessionMeta } from '../../shared/types';
 import type { ProjectWorkspace } from '../../shared/projectWorkspaces';
-import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceView } from '../../shared/remote';
+import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectMissingEntry, ProjectRemoveMissingResult, ProjectWorkspaceView } from '../../shared/remote';
 import { projectRootIdentity } from '../settings/ProjectDefaultsService';
 import { stableIdentity } from './directoryIdentity';
 import { redactForWire } from '../errors';
@@ -29,12 +29,58 @@ export type ProjectAuthorization = (target?: { repositoryId?: string; workspaceI
 /** Native checkout discovery and identity only. Opening never creates an agent,
  * writes repository instructions, checks out a branch, or launches a CLI.
  */
+/** True only when the folder itself is absent; any other failure keeps the project visible. */
+function folderMissing(path: string): boolean {
+  try { lstatSync(path); return false; }
+  catch (error) { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
+}
+
 export class ProjectWorkspaceService {
-  constructor(private readonly store: ConfigPort, private readonly changed: () => void = () => undefined) {}
+  constructor(private readonly store: ConfigPort, private readonly changed: () => void = () => undefined,
+    private readonly sessions: () => SessionMeta[] = () => []) {}
 
   async directory(): Promise<ProjectDirectoryView> {
     const result = await this.discover();
-    return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice };
+    return { configured: result.configured, entries: result.targets.map((item) => item.entry), limited: result.limited, notice: result.notice,
+      missing: result.missing };
+  }
+
+  /**
+   * Deregisters a native project whose folder no longer exists. Only the
+   * catalog record, its project workspaces and their assignments go; nothing
+   * on disk is touched. A project still named by runs, agents, categories or
+   * bindings keeps its record (the config keeps those references valid) and a
+   * live terminal blocks removal. The folder is checked again under the gate.
+   */
+  async removeMissing(repositoryId: string, authorize: ProjectAuthorization = () => undefined): Promise<ProjectRemoveMissingResult> {
+    return workspaceOperations.use(async () => {
+      authorize({ repositoryId });
+      const config = this.store.get();
+      const repository = config.repositories.find((item) => item.id === repositoryId);
+      if (!repository || repository.executionBackend !== 'native') throw new Error(translate("ade: The project has since been changed."));
+      if (!folderMissing(repository.rootPath)) throw new Error(translate("ade: The project folder exists again. It stays in ADE."));
+      const removal = this.removal(config, repositoryId);
+      if (removal === 'active') throw new Error(translate("ade: A terminal is still open in this project. Close it first."));
+      if (removal === 'history') throw new Error(translate("ade: Runs, agents, bindings or another workspace still refer to this project. It stays hidden instead."));
+      authorize({ repositoryId });
+      const workspaces = new Set(config.projectWorkspaces.filter((item) => item.repositoryId === repositoryId).map((item) => item.id));
+      this.store.save({
+        repositories: config.repositories.filter((item) => item.id !== repositoryId),
+        projectWorkspaces: config.projectWorkspaces.filter((item) => !workspaces.has(item.id)),
+        workspaceAssignments: config.workspaceAssignments.filter((item) => item.repositoryId !== repositoryId && !workspaces.has(item.projectWorkspaceId)),
+      });
+      this.changed();
+      return { repositoryId, removed: true, replayed: false };
+    });
+  }
+
+  private removal(config: AdeConfig, repositoryId: string): ProjectMissingEntry['removal'] {
+    if (this.sessions().some((item) => item.repositoryId === repositoryId && item.status === 'running')) return 'active';
+    // Session bookends keep their own copy of the project name and stay as history.
+    // A worktree that still exists elsewhere keeps the record as well.
+    if (config.projectWorkspaces.some((item) => item.repositoryId === repositoryId && !folderMissing(item.workspaceDir))) return 'history';
+    const { repositories: _repositories, projectWorkspaces: _workspaces, workspaceAssignments: _assignments, sessionBookends: _bookends, ...rest } = config;
+    return JSON.stringify(rest).includes(JSON.stringify(repositoryId)) ? 'history' : 'allowed';
   }
 
   /** Membership is catalog metadata; existing workspaces, runs and files remain intact. */
@@ -258,7 +304,7 @@ export class ProjectWorkspaceService {
     return `${stableIdentity(stat)}:${stat.size}:${stat.mtimeMs}`;
   }
 
-  private async discover(): Promise<{ configured: boolean; targets: DirectoryTarget[]; limited: boolean; notice: string | null }> {
+  private async discover(): Promise<{ configured: boolean; targets: DirectoryTarget[]; limited: boolean; notice: string | null; missing: ProjectMissingEntry[] }> {
     const config = this.store.get(); const defaults = config.settings.projectDefaults;
     const targets: DirectoryTarget[] = []; const paths = new Set<string>(); let limited = false; let notice: string | null = null;
     const add = (path: string, repository?: Repository, rootIdentity?: string): void => {
@@ -294,8 +340,19 @@ export class ProjectWorkspaceService {
         targets.length = 0; paths.clear(); notice = translate("Project root folder unavailable or modified. Check again on PC under Settings.");
       }
     } else notice = translate("Save project root folders on the PC under Settings to see more folders.");
-    for (const repository of config.repositories) add(repository.rootPath, repository);
+    // A registered native folder that is gone (ENOENT only) is hidden rather
+    // than listed as unavailable; links, identity changes and permission
+    // errors still show with their notice. Nothing is deregistered here.
+    const missing: ProjectMissingEntry[] = [];
+    for (const repository of config.repositories) {
+      if (repository.executionBackend === 'native' && !paths.has(hostPathKey(repository.rootPath)) && folderMissing(repository.rootPath)) {
+        missing.push({ repositoryId: repository.id, name: redactForWire(repository.name, 200), removal: this.removal(config, repository.id) });
+        continue;
+      }
+      add(repository.rootPath, repository);
+    }
     targets.sort((left, right) => left.entry.name.localeCompare(right.entry.name));
-    return { configured: !!defaults, targets, limited, notice };
+    missing.sort((left, right) => left.name.localeCompare(right.name));
+    return { configured: !!defaults, targets, limited, notice, missing };
   }
 }

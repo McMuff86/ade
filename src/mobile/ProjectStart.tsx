@@ -12,6 +12,8 @@ import { MobileClientError } from './client';
 export interface ProjectSession { projectWorkspaceId: string; repositoryId: string }
 interface StartProgress {
   key: string; name: string; repositoryId: string; projectWorkspaceId?: string;
+  /** Replaces `${key}-project` after the host finally rejected that key; see `retryProject`. */
+  projectKey?: string;
   // Older pending starts remain recoverable without repeating their CLI launch.
   agentId?: string; terminalId?: string;
   phase: 'agent' | 'project' | 'workspace' | 'terminal' | 'done';
@@ -22,6 +24,7 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
   useLocale();
   const [progress, save] = useDeviceDraft<StartProgress | null>(host.deviceId, 'project-start', null);
   const [name, setName] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const lock = useRef(false);
+  const [retryable, setRetryable] = useState(false);
   const [rights, setRights] = useState<MobileHostState>(); const owner = useRef(host.deviceId); owner.current = host.deviceId;
   useEffect(() => {
     if (!open || host.status !== 'online') return; let live = true; setRights(undefined);
@@ -30,17 +33,25 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
   }, [open, host.status, host.request, host.refresh]);
   const permitted = rights?.resourceSelection !== 'selected' && (['catalog:write', 'workspace:read', 'projects:write'] as const).every((scope) => rights?.capabilities?.includes(scope));
   const checkpoint = (next: StartProgress) => { if (!save(next)) throw new Error(translate("The browser cannot save launch progress. Free up device storage and check again.")); };
-  const start = async () => {
+  const start = async (resume: StartProgress | null = progress) => {
     if (lock.current || host.status !== 'online' || !permitted || !host.catalog?.projectStart?.configured) return;
-    lock.current = true; setBusy(true); setError(''); const deviceId = host.deviceId;
-    let current: StartProgress = progress ?? { key: crypto.randomUUID(), name: name.trim() || `idee-${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID().slice(0, 4)}`, repositoryId: '', phase: 'project' };
+    lock.current = true; setBusy(true); setError(''); setRetryable(false); const deviceId = host.deviceId;
+    let current: StartProgress = resume ?? { key: crypto.randomUUID(), name: name.trim() || `idee-${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID().slice(0, 4)}`, repositoryId: '', phase: 'project' };
     const assertOwner = () => { if (owner.current !== deviceId) throw new Error(translate("Device pairing has changed.")); };
     try {
       checkpoint(current);
       if (!current.repositoryId) {
         assertOwner();
-        const result = await host.request<MobileAdministrationResult>('/api/v1/admin/commands', 'POST', { operation: 'project-create', input: { name: current.name } }, `${current.key}-project`);
-        assertOwner(); current = { ...current, repositoryId: result.created!.id, phase: 'workspace' }; checkpoint(current);
+        try {
+          const result = await host.request<MobileAdministrationResult>('/api/v1/admin/commands', 'POST', { operation: 'project-create', input: { name: current.name } }, current.projectKey ?? `${current.key}-project`);
+          assertOwner(); current = { ...current, repositoryId: result.created!.id, phase: 'workspace' }; checkpoint(current);
+        } catch (reason) {
+          // The ledger replays a stored rejection for the same key forever, even
+          // after the cause (e.g. the project root) was fixed on the PC. Only a
+          // definite rejection offers a new key; an uncertain outcome never does.
+          if (reason instanceof MobileClientError && reason.code === 'command_rejected') setRetryable(true);
+          throw reason;
+        }
       }
       if (!current.projectWorkspaceId) {
         const directory = await host.request<ProjectWorkspaceQueryResult>('/api/v1/projects/query', 'POST', { operation: 'directory' }); assertOwner();
@@ -54,6 +65,17 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
     } catch (reason) { if (owner.current === deviceId) setError(reason instanceof Error && !(reason instanceof MobileClientError) ? reason.message : workspaceError(reason)); }
     finally { lock.current = false; setBusy(false); }
   };
+  /**
+   * project-create is fail-closed on repetition: the folder name derives from
+   * the project name, so if the rejected attempt still created it, the new key
+   * ends in "folder already exists" instead of a second project.
+   */
+  const retryProject = () => {
+    if (!progress || progress.repositoryId) return;
+    const next = { ...progress, projectKey: `${crypto.randomUUID()}-project` };
+    if (!save(next)) { setError(translate("The browser cannot save launch progress. Free up device storage and check again.")); return; }
+    void start(next);
+  };
   return <>
     {progress && !open && <p className="m-notice">{translate("Project start “")}{progress.name}{translate("” is still pending.")}{" "}<button onClick={onOpen}>{translate("Continue project start")}</button></p>}
     {open && <Dialog title={translate("New project")} onClose={onClose} fallbackId="mobile-title" className="m-project-start">
@@ -64,13 +86,15 @@ export function ProjectStart({ host, open, onClose, onOpen, onStarted }: {
           placeholder={translate("For example, garden-planner")} onChange={(event) => setName(event.target.value)} /></label>
         <p>{translate("The new Git workspace starts with the branch main. All project files remain there.")}</p>
         {progress && <p role="status">{progress.repositoryId ? translate("Project is created; open workspace.") : translate("Create project.")} · {progress.name}</p>}
-        {error && <p role="alert">{localizeAppMessage(error)}</p>}{host.status !== 'online' && <p role="status">{translate("PC not connected. Continue the stored process after the connection.")}</p>}
+        {error && <p role="alert">{localizeAppMessage(error)}</p>}
+        {retryable && progress && !progress.repositoryId && <p>{translate("The PC declined this step. If you have fixed the cause on the PC, try again with a new attempt; ADE does not create the project twice.")}</p>}{host.status !== 'online' && <p role="status">{translate("PC not connected. Continue the stored process after the connection.")}</p>}
         {!rights && host.status === 'online' && <p role="status">{translate("Checking device permissions…")}</p>}
         {rights?.resourceSelection === 'selected' && <p>{translate("This device uses selected projects. Create new projects on the PC and share them with the tablet.")}</p>}
     {rights && !permitted && rights.resourceSelection !== 'selected' && <p role="alert">{translate("On the PC for this tablet, share “Create agents and projects”, “Read workspace files and git diffs” and “Open project workspaces without an agent profile”.")}</p>}
         <button className="m-primary" disabled={busy || host.status !== 'online' || !permitted || !host.catalog?.projectStart?.configured}>{busy ? translate("Opening project…") : progress ? translate("Continue start") : translate("Create and Open Project")}</button>
       </form>
-      {progress && !busy && <button onClick={() => { save(null); setError(''); }}>{translate("Close start sequence · Keep created work")}</button>}
+      {retryable && progress && !progress.repositoryId && !busy && <button className="m-primary" disabled={host.status !== 'online' || !permitted} onClick={retryProject}>{translate("Try again")}</button>}
+      {progress && !busy && <button onClick={() => { save(null); setError(''); setRetryable(false); }}>{translate("Close start sequence · Keep created work")}</button>}
     </Dialog>}
   </>;
 }

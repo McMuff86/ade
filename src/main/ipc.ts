@@ -496,7 +496,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const ledger = new RemoteCommandLedger(join(app.getPath('userData'), 'ade', 'remote', 'commands.json'),
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
-  const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
+  const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }), () => ptyManager?.list() ?? []);
   const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
   const conversationProjects = new ConversationProjectService(store, workspaceProvision, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   handle(IPC.ProjectCreate, async (input) => {
@@ -578,6 +578,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return { workspace: input.operation === 'open' ? await projects.open(input.entryId) : await projectBranches.apply(input.previewId, 'desktop'), replayed: false };
   });
   handle(IPC.ProjectMembership, (input) => projects.membership(input.entryId, input.included));
+  handle(IPC.ProjectRemoveMissing, (input) => projects.removeMissing(input.repositoryId));
   const application = new AdeApplicationService(
     store,
     orchestration,

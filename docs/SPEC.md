@@ -238,6 +238,15 @@ Weiterarbeiten erreichbar. Ein neu entdeckter Ordner wird durch bloßes Öffnen
 nicht automatisch zur Auswahl hinzugefügt. Am PC nimmt ein Ordnerdialog auch
 bestehende Git-Projekte außerhalb des Projekt-Stamms auf. Mobile benötigt zum
 Ändern der Auswahl die Projektverwaltung und volle Ressourcenfreigabe.
+Wird der Ordner eines erfassten Projekts ausserhalb von ADE gelöscht oder
+verschoben, blenden Desktop und Tablet das Projekt aus und melden „N Projekt(e)
+nicht mehr gefunden“. Die Registrierung bleibt, bis „Aus ADE entfernen“ nach
+Bestätigung ausgeführt wird; erneut vorhandene Ordner erscheinen wieder. Entfernen
+ist abgelehnt, solange ein Terminal im Projekt läuft oder Runs, Agenten,
+Zuordnungen bzw. ein anderer Arbeitsordner darauf verweisen. Die Liste prüft
+beim Zurückkehren ins Fenster bzw. in den Tab neu (höchstens alle 5 s).
+Ein am PC endgültig abgelehnter Projektstart bietet auf dem Tablet „Erneut
+versuchen“ mit neuem Befehlsschlüssel; ungewisse Zustellungen nie.
 
 Die mobile Terminal-Kopfzeile bündelt Verbindung, Eingabebesitzer und
 Nutzungsdetails. „Sitzung & Workspace“ klappt Start-/Workspace-Bedienelemente

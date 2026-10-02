@@ -8,7 +8,7 @@ import { validCoordinatorActionCommand, validCoordinatorActionQuery } from '../s
 import { validDesktopReply } from '../shared/terminalSpeech';
 import { validNavigationGroup } from '../shared/categoryNavigation';
 import { validateBehaviorUpdate } from './memory/AgentBehaviorService';
-import { validProjectMembership } from '../shared/remote';
+import { validProjectMembership, validProjectRemoveMissing } from '../shared/remote';
 import { validVoiceId, validSpeechSelection, validSpeechTarget, validSpeechPreset } from '../shared/speech';
 import { validTerminalPrompt } from '../shared/terminalPrompt';
 import { validDictationUpload, validPromptSessionId } from '../shared/dictationRequests';
@@ -699,6 +699,9 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
     }
     case IPC.ProjectMembership:
       if (!validProjectMembership(payload)) invalid(channel, 'invalid project membership');
+      return;
+    case IPC.ProjectRemoveMissing:
+      if (!validProjectRemoveMissing(payload)) invalid(channel, 'invalid missing project removal');
       return;
     case IPC.SpeechTest:
       if (!validSpeechTest(payload)) invalid(channel, 'invalid speech test');

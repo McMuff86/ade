@@ -565,6 +565,30 @@ payload-bound idempotency receipt/audit. The DTO accepts only an opaque
 directory entry id and boolean. No generic remote IPC allowlist is widened.
 The tablet saves its pending receipt before submission and offers explicit retry.
 
+Missing project folders (2 October 2026): `ProjectWorkspaceService.directory()`
+omits a registered native repository whose `rootPath` reports `ENOENT` and lists
+it in `ProjectDirectoryView.missing` as `{ repositoryId, name, removal }` (no
+host path). Links, identity changes and permission errors stay listed with
+their notice. Nothing is deregistered automatically; a returning folder lists
+the project again. `removal` is `active` while a PTY of the repository runs,
+`history` while any other config record (runs, participants, tasks, artifacts,
+leases, publications, bindings, agent/category defaults) names it or another
+of its workspaces still exists, otherwise `allowed`. Desktop
+`project:removeMissing` (desktop-only `mutate`, audited) and the host route
+`POST /api/v1/projects/remove-missing` → `AdeApplicationService.projectRemoveMissing`
+(device proof, `workspace:read`, `catalog:write`, full resource selection,
+payload-bound idempotency receipt/audit as `project:remove-missing`) call
+`ProjectWorkspaceService.removeMissing`, which re-checks `ENOENT` and the
+blockers under the workspace gate and removes only the repository, its project
+workspaces and their assignments. Session bookends keep their own copy of the
+project name and stay as history. Desktop and tablet lists re-query on window
+focus/visibility, at most every 5 s, because a deletion outside ADE emits no
+event. The tablet project start stores an optional `projectKey`: after a
+definite `command_rejected` for `project-create` (the ledger replays a stored
+rejection for its key) it offers one new key per explicit retry; uncertain
+outcomes keep the key. Repetition is fail-closed because the folder name
+derives from the project name.
+
 Mobile terminal status is portaled into its owning dialog header; other terminal
 surfaces render it inline. Session controls have a device-local disclosure
 preference, with controls always available before any session is selected.

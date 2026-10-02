@@ -146,3 +146,11 @@
 .project-desktop .project-branches summary, .project-desktop .project-git-history summary, .project-desktop .project-workspace-path summary { min-height: 28px; font-size: var(--fs-s); }
 .project-desktop .project-terminal select, .project-desktop .project-branches select, .project-desktop .project-branches input { min-height: var(--control-h); padding: 4px 9px; font-size: var(--fs-s); }
 @media (max-width: 900px) { .shell > .project-desktop { padding: 16px 16px 28px; } }
+.project-missing { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.project-missing h3 { margin: 0 0 6px; font-size: 1rem; }
+.project-missing h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.project-missing > p, .project-missing li p { margin: 6px 0; line-height: 1.5; color: var(--muted); }
+.project-missing ul { display: grid; gap: 10px; margin: 8px 0 0; padding: 0; list-style: none; }
+.project-missing li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.project-missing li strong { flex: 1 1 160px; overflow-wrap: anywhere; }
+.project-missing [role="group"] { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }

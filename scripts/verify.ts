@@ -187,6 +187,8 @@ const STEPS: Step[] = [
   driver('remote-terminal-electron:terminal-latency', 'test-remote-terminal-electron.ts', { ...only('terminal-latency', 'solo'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('remote-terminal-electron:input-race', 'test-remote-terminal-electron.ts', { ...only('input-race', 'solo'), ...WINDOWS_REMOTE_TERMINAL }),
   driver('project-publish-browser', 'test-project-publish-browser.ts'),
+  driver('missing-projects-browser', 'test-missing-projects-browser.ts'),
+  driver('missing-projects-electron', 'test-missing-projects-electron.ts'),
   driver('setup-electron', 'test-setup-electron.ts', windowsOnly('the setup flow is measured on native Windows')),
   driver('visual-regression', 'test-visual-regression.ts', { lane: 'solo' }),
 ];

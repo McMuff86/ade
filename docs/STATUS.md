@@ -7,6 +7,22 @@ und weitere native Adapterabnahmen offen. Übersicht je Teilziel:
 [ROADMAP](ROADMAP.md#aktueller-stand-1-oktober-2026-abends). Abschnitte unten
 sind datiert; ältere Abschnitte nennen den damaligen Stand.
 
+## Gelöschte Projektordner und wiederholbarer Projektstart (2. Oktober 2026)
+
+Ein am PC gelöschter Projektordner (ENOENT) wird auf Desktop und Tablet aus der
+Liste ausgeblendet und als „N Projekt(e) nicht mehr gefunden“ gemeldet; die
+Registrierung bleibt. „Aus ADE entfernen“ deregistriert nach Bestätigung nur
+Repository, Projekt-Arbeitsordner und Zuordnungen (Desktop `project:removeMissing`,
+Tablet signiert/idempotent/auditiert über `/api/v1/projects/remove-missing`);
+abgelehnt bei laufendem Terminal oder verweisenden Runs/Agenten/Zuordnungen und
+wenn der Ordner wieder existiert. Listen prüfen beim Zurückkehren neu (≤ alle 5 s).
+Tablet-Projektstart: Nach endgültiger Ablehnung (auch gespeicherter Replay)
+„Erneut versuchen“ mit neuem Schlüssel; ungewisse Zustellung behält den Schlüssel.
+Nachweise: Vertrag `test-missing-projects.ts` **36/0**, Tablet-Browser **13/0**,
+Desktop-Electron **8/0**; `pnpm verify` **30/0/16 nicht gemessen**, **4.596 Checks**. Nur lesend gegen die persönliche Konfiguration geprüft:
+`idee-2026-10-02-0235` würde ausgeblendet und wäre entfernbar. Physische
+Tablet-Abnahme und Windows offen.
+
 ## Projekt-Stammordner nach Neustart wieder gültig (2. Oktober 2026)
 
 Behoben: Nach einem Neustart meldete das Tablet „Der Projekt-Stammordner hat sich

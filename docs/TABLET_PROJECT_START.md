@@ -73,6 +73,12 @@ separate from Chromium touch/viewport automation.
   the operator checks output and explicitly releases the draft. Terminal input is
   never automatically repeated. A lost connection does not prove process exit.
 
+- A definite rejection of `project-create` (also a ledger replay of an earlier
+  rejection for the same key) shows the reason and **Erneut versuchen**, which
+  stores a new `projectKey` before sending. Lost or uncertain replies keep the
+  key and continue through **Start fortsetzen**. A second create for the same
+  name fails with “folder already exists”; no duplicate project.
+
 ## Validation and remaining acceptance
 
 Focused checks extend config, security, remote workspace and remote terminal

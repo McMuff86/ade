@@ -3,7 +3,7 @@ import { useProjectUsage } from '../usage/ProjectUsage';
 import { t as translate } from "../../shared/i18n";
 import { useLocale } from "../i18n/language";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
-import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceQuery, ProjectWorkspaceView } from '../../shared/remote';
+import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectMissingEntry, ProjectWorkspaceQuery, ProjectWorkspaceView } from '../../shared/remote';
 import { ProjectDirectory, ProjectWorkspaceSummary } from './ProjectDirectory';
 import { ProjectBranches, type PendingBranch } from './ProjectBranches';
 import { ProjectTerminal } from './ProjectTerminal';
@@ -60,6 +60,13 @@ export function ProjectsView(): JSX.Element {
     finally { lock.current = false; if (live.current) setBusy(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  // Folders deleted outside ADE send no event; check again when the window returns.
+  useEffect(() => {
+    let last = Date.now();
+    const again = () => { if (document.visibilityState !== 'visible' || Date.now() - last < 5_000) return; last = Date.now(); void refresh(); };
+    window.addEventListener('focus', again); document.addEventListener('visibilitychange', again);
+    return () => { window.removeEventListener('focus', again); document.removeEventListener('visibilitychange', again); };
+  }, [refresh]);
   useEffect(() => { let stopped = false; if (selectedId && selectedId !== workspace?.id) {
     setWorkspace(undefined); setError(''); setSection('terminal');
     void query({ operation: 'workspace', workspaceId: selectedId }).then((result) => { if (!stopped) setWorkspace(result.workspace); })
@@ -81,6 +88,15 @@ export function ProjectsView(): JSX.Element {
       await window.ade.invoke('project:membership', { entryId: entry.id, included });
       const result = await query({ operation: 'directory' });
       if (live.current) { setDirectory(result.directory); setShareNotice(`${entry.name}: ${included ? translate("Added to my ADE projects.") : translate("Removed from my ADE selection. Files and history remain.")}`); }
+    } catch (reason) { if (live.current) setError(String(reason)); throw reason; }
+    finally { lock.current = false; if (live.current) setBusy(false); }
+  };
+  const removeMissing = async (entry: ProjectMissingEntry) => {
+    if (lock.current) return; lock.current = true; setBusy(true); setError(''); setShareNotice('');
+    try {
+      await window.ade.invoke('project:removeMissing', { repositoryId: entry.repositoryId });
+      const result = await query({ operation: 'directory' });
+      if (live.current) { setDirectory(result.directory); setShareNotice(translate("{{value1}} was removed from ADE. Run history remains.", { value1: entry.name })); }
     } catch (reason) { if (live.current) setError(String(reason)); throw reason; }
     finally { lock.current = false; if (live.current) setBusy(false); }
   };
@@ -146,6 +162,6 @@ export function ProjectsView(): JSX.Element {
     </div>{repositoryEntry && <section aria-label={translate("Selected project")}><h2>{repositoryEntry.name}</h2>
       <button disabled={busy || repositoryEntry.kind !== 'repository'} onClick={(event) => void open(repositoryEntry, event.currentTarget)}>{translate("Open project workspace [50726f6a]")}</button></section>}
       {repositoryId && directory && !repositoryEntry && <p role="status">{translate("The selected project is currently unreachable. Update project folder.")}</p>}
-      <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onOpen={(entry, button) => void open(entry, button)} usage={usage} /></>}
+      <ProjectDirectory directory={directory} busy={busy} error={localizeAppMessage(error)} onRefresh={() => void refresh()} onMembership={membership} onRemoveMissing={removeMissing} onOpen={(entry, button) => void open(entry, button)} usage={usage} /></>}
   </section>;
 }
