@@ -1,5 +1,18 @@
 # ADE — aktuelle Übergabe
 
+## Fehlende Projektordner und wiederholbarer Projektstart aktiviert (2. Oktober 2026, 12:51 CEST)
+
+- Commit 2dd8fdc über `pnpm activate -- -Label MissingProjects`: Gate 14/0/1 nicht
+  gemessen; neuer Host **PID 2394729**, Quelle `0a5adb1d7414093997c3`; Backup
+  `~/ADE-Backups/Activate-MissingProjects-2026-10-02T10-51-14-250Z`.
+- HTTPS `:8443` liefert 200; Mobile-Bundle und Host melden dieselbe Build-Kennung
+  `629d2297827d38d68930`. Tailscale Serve unverändert.
+- Die Registrierung von `idee-2026-10-02-0235` (Ordner vom Benutzer gelöscht) ist
+  weiterhin in der Konfiguration und wird jetzt ausgeblendet; Entfernen bleibt
+  eine ausdrückliche Benutzeraktion.
+- Offen: Tablet-Probe durch den Benutzer — „Autokauf“ über „Erneut versuchen“
+  anlegen und `idee-…` über „Aus ADE entfernen“ aufräumen.
+
 ## Stabile Ordner-Kennung persönlich aktiviert (2. Oktober 2026, 10:22 CEST)
 
 - Anlass: Tablet-Screenshots 10:08/10:09 (`~/Austausch/Screenshot_20261002_10*`).
