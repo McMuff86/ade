@@ -1,5 +1,23 @@
 # ADE — aktuelle Übergabe
 
+## Stabile Ordner-Kennung persönlich aktiviert (2. Oktober 2026, 10:22 CEST)
+
+- Anlass: Tablet-Screenshots 10:08/10:09 (`~/Austausch/Screenshot_20261002_10*`).
+  „Projekt-Stammordner hat sich geändert“ beim Start von „Autokauf“: btrfs hatte
+  `/home/mcmuff/Work` nach dem Neustart vom 1. Oktober 14:15 die Geräte-Nummer 57
+  statt 55 gegeben; Inode und Erstellzeit waren unverändert. Der zusätzliche
+  Build-Hinweis stammte von einem Tablet-Tab vor der Aktivierung von 23:34.
+- Fix 76b6fbd über `pnpm activate -- -Label FolderIdentity`: Gate 14/0/1 nicht
+  gemessen; neuer Host **PID 2126755**, Quelle `8e6bb207cb1cf4f600a4`; Backup
+  `~/ADE-Backups/Activate-FolderIdentity-2026-10-02T08-22-12-624Z`.
+- Nach dem Start: persönliche Konfiguration enthält nur noch zweiteilige
+  Kennungen (Stammordner + 3 × 4 Arbeitsordner-Kennungen); jede passt zum
+  tatsächlichen Ordner. HTTPS `:8443` liefert 200, Mobile-Bundle und Host melden
+  dieselbe Build-Kennung `1152764245953ea92d8a`. Tailscale Serve unverändert.
+- Offen: „Start fortsetzen“ für „Autokauf“ auf dem Tablet durch den Benutzer
+  (Tab vorher neu laden). Rollback über `pnpm activate -- -Rollback`; der alte
+  Build lehnt die neuen Kennungen ab, bis der Stammordner erneut gewählt wird.
+
 ## Goal-34-Stabilisierung persönlich aktiviert (1. Oktober 2026, 23:34 CEST)
 
 - Aktiviert über `pnpm activate -- -Label Goal34Stabilization` mit den Commits
