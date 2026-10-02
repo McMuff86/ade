@@ -5,12 +5,13 @@ import { isAbsolute, join, parse, resolve } from 'node:path';
 import type { AdeConfig } from '../../shared/types';
 import type { ProjectDefaultsInput, ProjectDefaultsView } from '../../shared/projectDefaults';
 import { assertNoLinks } from '../repositories/pathDiscipline';
+import { stableIdentity } from '../repositories/directoryIdentity';
 
 export function projectRootIdentity(path: string): string {
   assertNoLinks(path);
   const stat = lstatSync(path);
   if (!stat.isDirectory()) throw new Error(translate("ade: The project root folder must be an existing folder."));
-  return `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
+  return stableIdentity(stat);
 }
 
 export class ProjectDefaultsService {

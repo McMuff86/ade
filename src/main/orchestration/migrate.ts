@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { migrateLegacyIdentity } from '../repositories/directoryIdentity';
 import { basename, dirname, join, posix, resolve } from 'node:path';
 import {
   NATIVE_EXECUTION_BACKEND,
@@ -69,6 +70,24 @@ function normalizeJournalRetention(value: unknown): JournalRetention {
 }
 
 /** Normalize older config files and import their persisted Graph topology once. */
+const WORKSPACE_IDENTITY_FIELDS = ['directoryIdentity', 'gitDirectoryIdentity', 'gitPointerIdentity', 'commonGitIdentity'] as const;
+
+/** Identities written with the mount-dependent device number gain the stable form once. */
+function migrateWorkspaceIdentities(workspaces: AdeConfig['projectWorkspaces']): AdeConfig['projectWorkspaces'] {
+  if (!Array.isArray(workspaces)) return workspaces;
+  return workspaces.map((workspace) => {
+    if (!workspace || typeof workspace !== 'object') return workspace;
+    let changed = false; const next = { ...workspace };
+    for (const field of WORKSPACE_IDENTITY_FIELDS) {
+      const value = workspace[field];
+      if (typeof value !== 'string') continue;
+      const migrated = migrateLegacyIdentity(value);
+      if (migrated !== value) { next[field] = migrated; changed = true; }
+    }
+    return changed ? next : workspace;
+  });
+}
+
 export function normalizeConfig(
   raw: Partial<AdeConfig>,
   now = Date.now(),
@@ -89,7 +108,7 @@ export function normalizeConfig(
     agents: scopeMigration.agents,
     repositories: scopeMigration.repositories,
     workspaceBindings: scopeMigration.workspaceBindings,
-    projectWorkspaces: raw.projectWorkspaces === undefined ? [] : raw.projectWorkspaces,
+    projectWorkspaces: raw.projectWorkspaces === undefined ? [] : migrateWorkspaceIdentities(raw.projectWorkspaces),
     workspaceAssignments: raw.workspaceAssignments === undefined ? [] : raw.workspaceAssignments,
     agentTemplates: arrayOrEmpty(raw.agentTemplates),
     runs: arrayOrEmpty(raw.runs).map((run) => {
@@ -144,6 +163,9 @@ export function normalizeConfig(
     settings: {
       ...DEFAULT_CONFIG.settings,
       ...(raw.settings ?? {}),
+      ...(raw.settings?.projectDefaults && typeof raw.settings.projectDefaults.rootIdentity === 'string'
+        ? { projectDefaults: { ...raw.settings.projectDefaults, rootIdentity: migrateLegacyIdentity(raw.settings.projectDefaults.rootIdentity) } }
+        : {}),
       inspectorSide: raw.settings?.inspectorSide === 'left' || raw.settings?.inspectorSide === 'right'
         ? raw.settings.inspectorSide
         : DEFAULT_CONFIG.settings.inspectorSide,
@@ -175,6 +197,8 @@ export function normalizeConfig(
     !Array.isArray(raw.agentTemplates) ||
     (raw.settings?.inspectorSide !== 'left' && raw.settings?.inspectorSide !== 'right') ||
     scopeMigration.migrated ||
+    config.settings.projectDefaults?.rootIdentity !== raw.settings?.projectDefaults?.rootIdentity ||
+    (Array.isArray(raw.projectWorkspaces) && config.projectWorkspaces.some((workspace, index) => workspace !== raw.projectWorkspaces![index])) ||
     config.runs.some((run, index) => (
       run.mode !== raw.runs?.[index]?.mode ||
       run.phase !== raw.runs?.[index]?.phase ||

@@ -9,6 +9,7 @@ import type { AdeConfig, Repository } from '../../shared/types';
 import type { ProjectWorkspace } from '../../shared/projectWorkspaces';
 import type { ProjectDirectoryEntry, ProjectDirectoryView, ProjectWorkspaceView } from '../../shared/remote';
 import { projectRootIdentity } from '../settings/ProjectDefaultsService';
+import { stableIdentity } from './directoryIdentity';
 import { redactForWire } from '../errors';
 import { hostPathKey, sameHostPath } from '../platform';
 import { assertNoLinks } from './pathDiscipline';
@@ -254,7 +255,7 @@ export class ProjectWorkspaceService {
     const file = join(path, '.git'); assertNoLinks(file); const stat = lstatSync(file);
     if (stat.isDirectory()) return projectRootIdentity(file);
     if (!stat.isFile() || stat.size > 4096) throw new Error(translate("ade: Git link file is invalid."));
-    return `${stat.dev}:${stat.ino}:${stat.birthtimeMs}:${stat.size}:${stat.mtimeMs}`;
+    return `${stableIdentity(stat)}:${stat.size}:${stat.mtimeMs}`;
   }
 
   private async discover(): Promise<{ configured: boolean; targets: DirectoryTarget[]; limited: boolean; notice: string | null }> {

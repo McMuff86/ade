@@ -7,6 +7,17 @@ und weitere native Adapterabnahmen offen. Übersicht je Teilziel:
 [ROADMAP](ROADMAP.md#aktueller-stand-1-oktober-2026-abends). Abschnitte unten
 sind datiert; ältere Abschnitte nennen den damaligen Stand.
 
+## Projekt-Stammordner nach Neustart wieder gültig (2. Oktober 2026)
+
+Behoben: Nach einem Neustart meldete das Tablet „Der Projekt-Stammordner hat sich
+geändert“, obwohl `/home/mcmuff/Work` unverändert war. btrfs vergab dem Subvolume
+eine neue Geräte-Nummer (55 → 57); die gespeicherte Ordner-Kennung enthielt sie.
+Kennungen bestehen jetzt aus Inode und Erstellzeit (`directoryIdentity.ts`);
+gespeicherte Werte werden beim Laden einmalig übernommen. Ein ersetzter Ordner
+wird weiterhin abgelehnt. Fokussiert **18/0**, `pnpm verify` **28/0/16 nicht
+gemessen**, **4.559 Checks**. Nur-lesende Prüfung gegen die persönliche
+Konfiguration: Stammordner und drei Projekt-Arbeitsordner passen nach Übernahme.
+
 ## Goal 34.5: Wartezeit nach Push-Test sichtbar (1. Oktober 2026)
 
 Der Status liefert `testRetryAfterMs` relativ zur Hostantwort; „Testnachricht

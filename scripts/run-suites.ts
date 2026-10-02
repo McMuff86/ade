@@ -111,6 +111,7 @@ const SUITES: Suite[] = [
   { id: 'overview', script: 'test-overview.ts', floors: { win32: 34 } },
   { id: 'host-operation', script: 'test-host-operation.ts', floors: { linux: 54, win32: 35 } },
   { id: 'host-lifecycle', script: 'test-host-lifecycle.ts', floors: { linux: 24 } },
+  { id: 'directory-identity', script: 'test-directory-identity.ts', floors: { linux: 18 } },
   { id: 'attention', script: 'test-attention.ts', floors: { linux: 49, win32: 49 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },

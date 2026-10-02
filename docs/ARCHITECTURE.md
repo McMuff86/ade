@@ -677,6 +677,18 @@ mutation and preserves at-most-once confirmation across lost replies.
 No path-bearing payload or generic remote IPC capability is added.
 Contracts and evidence: [Workspace assignment](WORKSPACE_ASSIGNMENT.md).
 
+Persisted folder identities (`settings.projectDefaults.rootIdentity` and the
+`ProjectWorkspace` directory/Git identities) come from
+`src/main/repositories/directoryIdentity.ts`: inode plus creation time when the
+filesystem records one, otherwise device, inode and creation time. The mount
+device number is not stable everywhere (btrfs assigns subvolumes an anonymous
+device at mount time), so it must not invalidate an unchanged folder after a
+reboot; a replaced or recreated folder still differs in inode/creation time.
+Config load rewrites identities stored in the older `dev:ino:birth` form once
+(`normalizeConfig`). In-process comparisons of open files keep using `dev`.
+A rollback build computes the older form again and fails closed until the
+project root is selected again.
+
 ## Agent-free terminal workspace
 
 The desktop independent launch dialog can also select a discovered project.

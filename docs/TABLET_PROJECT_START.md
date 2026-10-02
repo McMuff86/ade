@@ -30,7 +30,8 @@ separate from Chromium touch/viewport automation.
 
 - Desktop-only `projectDefaults:get` and audited `projectDefaults:save` configure
   an existing absolute native parent directory and optional native Codex agent.
-  The saved canonical path and directory identity are checked on provisioning;
+  The saved canonical path and directory identity (inode and creation time, see
+  ARCHITECTURE, stable across btrfs remounts) are checked on provisioning;
   links, junctions, root replacement and existing destination directories fail
   closed. Every new project gets a readable slug below the parent, local `main`
   and an empty initial commit. Legacy administration retains its ADE-owned UUID
