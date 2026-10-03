@@ -323,6 +323,18 @@ Prüfung fehlschlug. Das ist keine stille Degradierung und nie ein
 Klartext-Rückfall. Arbeit ohne Zugangsdaten bleibt möglich; Starts mit
 Zugangsdaten sind blockiert, bis der Benutzer den Schlüsselbund einrichtet.
 
+**Stärke des Tresors:** Der Tresor ist genau so stark wie der OS-Schlüsselbund.
+Auf diesem Rechner liegt `Default_keyring` unverschlüsselt vor (Autologin ohne
+Passwort, Spike H0, Experiment 1). Das betrifft schon heute den
+`safeStorage`-Schlüssel der Desktop-App. ADE erkennt einen unverschlüsselten
+bzw. passwortlosen Schlüsselbund und zeigt das als Diagnose an. Das ist kein
+Blocker, und ADE behauptet dann keine Verschlüsselung, die der Schlüsselbund
+nicht bietet. Ob ein Schlüsselbund-Passwort gesetzt wird, entscheidet der
+Benutzer; ADE ändert die Konfiguration nicht. Zusätzlich aus H0: Ein fehlender
+Eintrag in einer **gesperrten** Sammlung liest sich als `null`. Der Host prüft
+deshalb `Locked`, bevor er einen fehlenden Wrapping-Key als Erststart deutet
+(Negativkontrolle in H2).
+
 **Befund auf diesem Rechner (3. Oktober, nur gelesen):**
 - SDDM-Autologin (`/etc/sddm.conf.d/autologin.conf`) mit `pam_permit`. Es gibt
   also kein Anmeldepasswort, das den Schlüsselbund entsperren könnte;
@@ -489,7 +501,7 @@ persönlicher Aktivierung über `pnpm activate`. Die Aufwände sind grobe Schät
 |---|---|---|---|
 | **H0 Spike** | **Zuerst** Secret Service aus der User-Unit beim Booten (R5); danach Host-Einstieg unter `ELECTRON_RUN_AS_NODE` mit node-pty, Bildbibliothek, Latenz-Basis p95 (R3) | Wegwerf-Messprotokoll; keine Produktbehauptung; Ergebnis zu `locked`/`unavailable` dokumentiert | 2–3 Tage |
 | **H1 Composition Root trennen** | `ipc.ts` aufteilen in `hostComposer` (ohne Electron) und Desktop-Adapter; Ports für Bild, Power, Benachrichtigung; `clientId` statt `sender.id`; noch im selben Prozess. **Während H1 gehört `src/main/ipc.ts` exklusiv dieser Etappe** (kurzer Freeze für parallele IPC-Arbeit, R7) | Import-Graph-Prüfung „Host ohne Electron“ schlägt mit absichtlichem Import fehl; bestehende Suiten grün | ~1 Woche |
-| **H2 Secrets-Tresor** | Wrapping-Key im Schlüsselbund, AES-GCM-Store, Migration mit Bestätigung, Zustand `secrets: locked` | Migration bricht in der Mitte ab → alte Daten intakt; gesperrter Schlüsselbund → Start mit Zugangsdaten blockiert | 1–2 Wochen |
+| **H2 Secrets-Tresor** | Wrapping-Key im Schlüsselbund, AES-GCM-Store, Migration mit Bestätigung, Zustände `secrets: locked`/`unavailable`, Diagnose bei unverschlüsseltem Schlüsselbund | Migration bricht in der Mitte ab → alte Daten intakt; gesperrter Schlüsselbund → Start mit Zugangsdaten blockiert; **fehlender Wrapping-Key bei gesperrter Sammlung → kein neuer Schlüssel, keine erneute Migration** | 1–2 Wochen |
 | **H3 Host-Prozess** | `out/host` aus buildspezifischem Verzeichnis, `flock` + Epoch, lokaler Socket mit Token, generischer Kanal-Tunnel, Ereignisstrom, Desktop als Proxy, systemd-Unit | Doppelstart → zweiter Host beendet sich; falsche Verzeichnisrechte bzw. fehlendes Token → abgelehnt; Schreiben mit alter Epoch → abgelehnt; **Build tauschen bei laufendem Host → arbeitet weiter oder meldet „veraltet“, nie gemischt (R1)**; **SIGKILL des Hosts → systemd startet neu, Host startet ohne manuellen Eingriff (R6)** | 2–3 Wochen |
 | **H4 PTY-Strom** | Anhängen und Replay über den Socket, Beobachter plus genau ein Schreiber | **Desktop beenden und neu starten bei laufender Codex-Aufgabe: dieselbe Sitzung, Ausgabe fortlaufend** (Kernabnahme 34.6); **p95 Tastendruck → Echo höchstens H0-Basis + 5 ms (R3)**; beschleunigter Dauertest in `pnpm verify` (wiederholtes Anhängen/Trennen, RSS und Ringgrössen begrenzt, R2) | 1–2 Wochen |
 | **H5 Tablet und Aktivierung im Host** | Host-API, Tailscale, Push, PWA im Host; `pnpm activate` über die Leerlaufabfrage des Hosts; gemeinsamer Rollback | Tablet bleibt beim Schliessen des Desktops verbunden; Versionskonflikt → typisierter Fehler; Rollback auf `out.prev`; **24-h-Dauertest mit Desktop- und Tablet-Clients, wiederholtem Anhängen/Trennen und fester RSS-Obergrenze als Abnahme ausserhalb von `pnpm verify` (R2)** | ~1 Woche |
