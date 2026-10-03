@@ -9,7 +9,7 @@ import { OrganizerReminders } from './organizer/OrganizerReminders';
 import { OrganizerError } from './organizer/OrganizerStore';
 import { ORGANIZER_REJECTED } from '../shared/organizer';
 import { desktopNotifier } from './notifications';
-import type { HostEvents, ProfilePaths, SecretProtection } from './host/ports';
+import type { HostEvents, ProfilePaths } from './host/ports';
 import { photosDir } from './host/profilePaths';
 import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
@@ -24,9 +24,7 @@ import { UsageJournal } from './usage/UsageJournal';
 import { desktopMicrophone } from './settings/desktopMicrophone';
 import { SpeechPreferences } from './settings/SpeechPreferences';
 import { HostOperationService } from './settings/HostOperationService';
-import { LinuxLoginStartup, windowsLoginStartup } from './settings/loginStartup';
-import { homedir } from 'node:os';
-import { powerSaveBlocker } from 'electron';
+import { desktopAppInfo, desktopImages, desktopPower, desktopRelaunch, desktopSecrets, desktopStartup } from './desktop/desktopPorts';
 import { causeFor, HostLifecycle, LIFECYCLE_HEARTBEAT_MS, TASK_INTERRUPTION_REASON } from './overview/hostLifecycle';
 import { AgentBehaviorService } from './memory/AgentBehaviorService';
 import { RemoteSpeechService } from './application/RemoteSpeechService';
@@ -37,8 +35,8 @@ import { DeviceResourceService } from './application/DeviceResourceService';
  * real; the renderer codes against the full contract in shared/ipc.ts.
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
-import { basename, dirname, extname, isAbsolute, join, resolve, sep } from 'node:path';
+import { BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -119,7 +117,6 @@ import { MobileAccessController } from './remote/MobileAccessController';
 import { RemoteAuthorizer } from './remote/authorization';
 import { consumeHostApiConfig, mobileListenerPort } from './remote/hostApiConfig';
 import { RemoteDeviceStore } from './remote/RemoteDeviceStore';
-import { isSafeStorageSecure } from './settings/HarnessCredentialService';
 import { TargetPathProbe } from './portability/TargetPathProbe';
 import { WorkspaceImportService } from './portability/WorkspaceImportService';
 import { ExecutionBackendHomeProvisioner } from './portability/ExecutionBackendHomeProvisioner';
@@ -226,15 +223,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   if (previousEnd.cause !== 'app-quit') console.warn(`[ade] previous owner ended: ${previousEnd.cause}`);
   lifecycleTimer = setInterval(() => hostLifecycle?.heartbeat(), LIFECYCLE_HEARTBEAT_MS);
   lifecycleTimer.unref();
-  const executable = process.platform === 'linux' && app.isPackaged && process.env['APPIMAGE'] ? process.env['APPIMAGE'] : process.execPath;
-  const startupArgs = app.isPackaged ? [] : [app.getAppPath()];
-  const startupAvailable = !process.env['ELECTRON_RENDERER_URL'] && !process.env['ADE_USER_DATA_DIR'] && !app.getAppPath().includes('test-results');
-  const xdgConfig = process.env['XDG_CONFIG_HOME'];
-  const startupDirectory = join(xdgConfig && isAbsolute(xdgConfig) ? xdgConfig : join(homedir(), '.config'), 'autostart');
-  const startup = startupAvailable && process.platform === 'linux'
-    ? new LinuxLoginStartup(startupDirectory, executable, startupArgs)
-    : startupAvailable && process.platform === 'win32' ? windowsLoginStartup(app, executable, startupArgs)
-      : { supported: false, enabled: () => false, set: () => { throw new Error('Autostart unavailable.'); } };
+  const ports = { images: desktopImages, secrets: desktopSecrets, power: desktopPower, startup: desktopStartup(), relaunch: desktopRelaunch, app: desktopAppInfo() };
   const preferences = () => store.get().settings.hostOperation ?? { keepAwake: false, keepInTray: false };
   hostOperation = new HostOperationService({ preferences,
     save: hostOperation => { store.save({ settings: { ...store.get().settings, hostOperation } }); },
@@ -242,7 +231,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
     otherWorkActive: () => store.get().runs.some(run => run.status === 'running')
       || (ptyManager?.queueStatus().queued ?? 0) > 0 || workspaceOperations.busy() || integrationService?.busy() === true
       || conversations?.query().some(conversation => ['working', 'interrupting'].includes(conversation.status)) === true,
-    startup, power: powerSaveBlocker,
+    startup: ports.startup, power: ports.power,
     warn: error => console.warn('[ade] host operation:', redactedErrorDetail(error)),
   });
   hostOperationTimer = setInterval(() => hostOperation?.reconcile(), 1000);
@@ -348,14 +337,8 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   runCoordinator.setNotifier(desktopNotifier);
   const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
-  // One desktop SecretProtection (Electron safeStorage) for harness keys, device secrets and push state.
-  const desktopSecrets: SecretProtection = {
-    available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
-      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : ''),
-    encrypt: (value) => safeStorage.encryptString(value),
-    decrypt: (value) => safeStorage.decryptString(value),
-  };
-  const harnessCredentials = new HarnessCredentialService(paths.userData, desktopSecrets);
+  // One SecretProtection for harness keys, device secrets and push state.
+  const harnessCredentials = new HarnessCredentialService(paths.userData, ports.secrets);
   const usageJournal = new UsageJournal(join(paths.profileDir, 'usage', 'events.jsonl'));
   nativeUsage = new NativeUsageService(usageJournal);
   usageOverview = new UsageOverviewService({ nativeUsage: () => nativeUsage, claudeEnabled: () => store.get().settings.claudeAccountUsage === true });
@@ -402,11 +385,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   });
   const agentBehavior = new AgentBehaviorService(store);
   const organizer = new OrganizerService(join(paths.profileDir, 'organizer.json'),
-    revision => broadcastToRenderers(IPC_EVENTS.OrganizerChanged, { revision }), image => {
-      const decoded = nativeImage.createFromBuffer(Buffer.from(image.base64, 'base64'));
-      const size = decoded.getSize();
-      if (decoded.isEmpty() || size.width !== image.width || size.height !== image.height) throw new Error(translate("The picture could not be read."));
-    });
+    revision => broadcastToRenderers(IPC_EVENTS.OrganizerChanged, { revision }), image => ports.images.checkDimensions(image.base64, image.width, image.height));
   handle(IPC.OrganizerQuery, input => organizer.query(input, 'desktop'));
   handle(IPC.OrganizerCommand, input => {
     try { return organizer.command(input, 'desktop'); }
@@ -467,7 +446,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   ptyManager.setClientPorts(rendererEvents, desktopNotifier);
   ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
-  const remoteDevices = new RemoteDeviceStore(join(paths.profileDir, 'remote'), desktopSecrets);
+  const remoteDevices = new RemoteDeviceStore(join(paths.profileDir, 'remote'), ports.secrets);
   const repositorySync = new RepositorySyncService(store, () => ptyManager?.list() ?? [], execution);
   if (hostApiConfig.enabled && hostApiConfig.devices.length > 0) {
     try { remoteDevices.importBootstrap(hostApiConfig.devices); }
@@ -494,12 +473,8 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
     hostOperations.reserve();
     return true;
   };
-  const restart = new HostRestartController(hostOperations, restartBlockers, () => {
-    // Keep the app's local arguments, without launcher-only instrumentation
-    // (Playwright's loader otherwise holds the new ready event indefinitely).
-    app.relaunch({ args: process.argv.slice(1) });
-    app.quit();
-  }, app.getVersion(), process.platform === 'win32' && !app.isPackaged && !process.env['ELECTRON_RENDERER_URL'] && !hostApiConfig.enabled);
+  const restart = new HostRestartController(hostOperations, restartBlockers, () => ports.relaunch.relaunch(),
+    ports.app.version, process.platform === 'win32' && !ports.app.packaged && !process.env['ELECTRON_RENDERER_URL'] && !hostApiConfig.enabled);
   const ledger = new RemoteCommandLedger(join(paths.profileDir, 'remote', 'commands.json'),
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
@@ -544,12 +519,8 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state), undefined,
   (id, selection) => deviceResources.assertSelection(id, selection),
-  new TerminalImageStore(join(paths.profileDir, 'terminal-images'), execution, bytes => {
-    const image = nativeImage.createFromBuffer(bytes);
-    if (image.isEmpty()) throw new Error(translate("You can't read a picture. Select a PNG or JPEG."));
-    return image.toPNG();
-  }));
-  mobilePush = new WebPushService(new PushStore(join(paths.profileDir, 'remote', 'push.json'), desktopSecrets), {
+  new TerminalImageStore(join(paths.profileDir, 'terminal-images'), execution, bytes => ports.images.toPng(bytes)));
+  mobilePush = new WebPushService(new PushStore(join(paths.profileDir, 'remote', 'push.json'), ports.secrets), {
     subscribe: listener => journalChanges.subscribe(listener),
     cursor: () => orchestration!.journalCursor(),
     completed: runId => store.get().runs.some(run => run.id === runId && run.status === 'completed'),
@@ -616,15 +587,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
       usageProjects: (range) => usageOverview!.projects(range),
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
-      profiles: new RemoteProfileService(store, photosDir(paths), (bytes) => {
-        const source = nativeImage.createFromBuffer(bytes);
-        if (source.isEmpty()) throw new Error(translate("ade: Profile picture could not be read."));
-        for (const size of [256, 128, 64]) {
-          const image = source.resize({ width: size, height: size, quality: 'good' }).toPNG();
-          if (image.length <= 32 * 1024) return image;
-        }
-        throw new Error(translate("ade: Profile picture is too big."));
-      }, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }),
+      profiles: new RemoteProfileService(store, photosDir(paths), (bytes) => ports.images.profilePng(bytes), () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }),
       // Same catalog the desktop picker reads (`harness:models`): the agent's default repository backend, else its home backend.
       (agent) => runtimeModels.list({ runtime: agent.runtime as RuntimeModelRequest['runtime'], backend: normalizeExecutionBackendId(agent.defaultRepositoryId
         ? store.get().repositories.find((repository) => repository.id === agent.defaultRepositoryId)?.executionBackend : agent.homeExecutionBackend) })),

@@ -7,12 +7,14 @@
  * and the run coordinator, which now reach clients only through ports. H1c:
  * config store, identities, photo storage, harness credentials and workspace
  * provisioning, which now take profile paths and secret protection explicitly.
- * Later H1 stages add the host composer and the handler table here.
+ * H1d: restart controller and Linux autostart, whose Electron parts are now
+ * desktop ports. Later H1 stages add the host composer and the handler table.
  */
 export type * from './ports';
 export { configPath, photosDir, profilePaths } from './profilePaths';
 export { AdeApplicationService, JournalChangeHub } from '../application/AdeApplicationService';
 export { HostOperationGate } from '../application/HostOperationGate';
+export { HostRestartController } from '../application/HostRestartController';
 export { RemoteTerminalService } from '../application/RemoteTerminalService';
 export { RemoteWorkspaceService } from '../application/RemoteWorkspaceService';
 export { ConfigStore } from '../config/store';
@@ -29,3 +31,4 @@ export { MobileAccessController } from '../remote/MobileAccessController';
 export { importPhoto } from '../photos';
 export { HarnessCredentialService } from '../settings/HarnessCredentialService';
 export { HostOperationService } from '../settings/HostOperationService';
+export { LinuxLoginStartup, windowsLoginStartup } from '../settings/loginStartup';

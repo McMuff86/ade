@@ -36,6 +36,13 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
   Ableitung der bisherigen Formel entspricht, auch für `~/.config/ade`; der
   Electron-Workflow vergleicht `app.getPath('userData')` des echten Laufs.
   Grenzprüfung: **142** Module.
+- **H1d, Plattform-Ports:** `desktop/desktopPorts.ts` enthält die bisher in
+  `ipc.ts` eingebetteten Electron-Implementierungen unverändert: `nativeImage`
+  (Organizer-Grösse, Terminalbild → PNG, Profilfoto 256/128/64 ≤ 32 KB),
+  `safeStorage`, `powerSaveBlocker`, Autostart, `app.relaunch` und App-Info.
+  `ipc.ts` nutzt nur noch die Ports und importiert von Electron nur Fenster,
+  Dialog, Zwischenablage, `ipcMain` und `shell`. Die Grenzprüfung verbietet
+  `src/main/desktop/**` im Host-Graphen; **145** Module.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 

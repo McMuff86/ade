@@ -15,8 +15,8 @@
  */
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142). Raise, never lower. */
-const MIN_HOST_MODULES = 142;
+/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145). Raise, never lower. */
+const MIN_HOST_MODULES = 145;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
 /** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */
@@ -37,6 +37,9 @@ for (const name of FORBIDDEN) {
 for (const file of DESKTOP_ONLY) {
   check(`host graph does not reach the desktop-only module ${file}`, !host.modules.includes(file), host.chains.get(file)?.join(' -> '));
 }
+const desktopAdapter = host.modules.filter((file) => file.startsWith('src/main/desktop/'));
+check('host graph reaches nothing under src/main/desktop/ (the Electron port implementations)', desktopAdapter.length === 0,
+  desktopAdapter.map((file) => host.chains.get(file)?.join(' -> ')).join('; '));
 check(`host graph reaches at least ${MIN_HOST_MODULES} modules (no vacuous pass)`, host.modules.length >= MIN_HOST_MODULES,
   `only ${host.modules.length}`);
 check('host graph contains the orchestration core, so resolution really walked the sources',
