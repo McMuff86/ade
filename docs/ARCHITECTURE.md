@@ -1661,6 +1661,20 @@ and prior-art comparison, open technical questions and stage plan:
 on 3 October 2026 (R1–R8 accepted, R9 rejected; see section 10 there); spike H0
 is cleared and starts with the Secret Service boot experiment.
 
+**Implementation status (H1, same process, no behaviour change).** Spike H0 is
+complete ([protocol](research/host/H0_SPIKE_2026-10-03.md)). H1 separates the
+composition root while ADE still runs as one Electron process:
+`src/main/host/composeHost.ts` builds every service, store, timer and recovery
+step that `registerIpcHandlers` built inline, in the same order, and reaches the
+platform only through `HostPorts` (`src/main/host/ports.ts`): events,
+notifications, images, secret protection, power, autostart, relaunch, app info
+and profile paths (`host/profilePaths.ts`). The Electron implementations live in
+`src/main/desktop/` (`desktopPorts.ts`, `DesktopClients.ts`, `photoProtocol.ts`).
+`scripts/test-host-boundary.ts` walks the runtime import graph from
+`src/main/host/index.ts` and fails if it reaches `electron`, `src/main/desktop/`,
+`rendererWindows.ts`, `notifications.ts`, `ipc.ts` or `index.ts`, with a rising
+minimum module count (210 after H1f).
+
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
   stores, journal and retention, `HostLifecycle`/recovery, secrets, the host
@@ -2960,6 +2974,16 @@ login startup remains planned. There is no pre-login service.
 
 This contract is an internal trusted-renderer adapter. It is not the planned
 network protocol and must never be forwarded by channel name over HTTP.
+
+Since Goal 34.6 H1, `src/main/ipc.ts` is the desktop adapter over the host
+composed by `host/composeHost.ts`: it keeps sender trust, payload validation,
+the channel policy and the redaction funnel, and registers the handlers on top
+of the host's services. Main→renderer events reach windows only through the
+`HostEvents` port backed by `rendererWindows.ts`. Client-bound state (reply
+speech, dictation jobs, workspace import selections) is owned by
+`desktop:<clientId>`, a random id per renderer from `desktop/DesktopClients.ts`,
+held in memory only; microphone grants remain an Electron permission per
+webContents.
 
 Invoke (renderer → main, `ipcRenderer.invoke`):
 - `config:get` → full config; `config:save({settings:{theme}})` → saved config

@@ -8,9 +8,11 @@
  * config store, identities, photo storage, harness credentials and workspace
  * provisioning, which now take profile paths and secret protection explicitly.
  * H1d: restart controller and Linux autostart, whose Electron parts are now
- * desktop ports. Later H1 stages add the host composer and the handler table.
+ * desktop ports. H1f: the host composer, which builds every service the
+ * desktop used to build inline. H1g adds the handler table.
  */
 export type * from './ports';
+export { composeHost, type Host } from './composeHost';
 export { configPath, photosDir, profilePaths } from './profilePaths';
 export { AdeApplicationService, JournalChangeHub } from '../application/AdeApplicationService';
 export { HostOperationGate } from '../application/HostOperationGate';

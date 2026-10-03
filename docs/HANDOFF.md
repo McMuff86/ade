@@ -52,6 +52,28 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
   (`DictationJobs`, `ReplySpeechService`, Import-Maps in `ipc.ts`), die
   Usage-Attribution hat kein Owner-Feld, also keine Migration. Neue Suite
   `desktop-clients` (13 Checks) inklusive der Isolation zwischen zwei Clients.
+- **H1f, Konstruktion verschoben:** `src/main/host/composeHost.ts` baut alle
+  Dienste, Stores, Timer und Recovery-Schritte in der bisherigen Reihenfolge;
+  `ipc.ts` ist der Desktop-Adapter darüber. Die Exporte für `index.ts` sind
+  gleichnamige dünne Wrapper; `dispose` ist wortgleich. Veränderliche
+  Host-Dienste erreichen die Handler über Live-Getter (`live.ptyManager` …),
+  damit sie nach dem Herunterfahren wie bisher `null` sind. Grenzprüfung:
+  **210** Module. Vollständiges `pnpm verify` (über `pnpm`, mit
+  `MISE_PNPM_VERSION=9.15.9`, weil der mise-Shim hier keine pnpm-Version hat):
+  Suiten 111/111 mit 4.638 Checks, 16 Windows-Schritte nicht gemessen, ein
+  Ausfall in `conversation-electron` (siehe nächster Punkt).
+- **Befund `conversation-electron` (Last-Flakiness, vorbestehend):** Am
+  3. Oktober zwei Ausfälle mit H1f: um 11:44 im vollen `verify` (vier parallele
+  Treiber) mit `mobileAccess:pair` → „ade: zuerst die mobile Verbindung
+  aktivieren“ direkt nach `mobileAccess:setEnabled`
+  (`scripts/helpers/conversationMobileFlow.ts:12`), und ein Einzellauf bei
+  Load 23–25, dessen Log überschrieben wurde. Danach: Basis `c0cc4e5`
+  **12/12** bestanden (Load 1,7–17,7), H1f **12/12** in Serie (Load 3,4–23,3);
+  insgesamt H1f 14/15 Einzelläufe. Die Spur deutet auf Zeitverhalten beim
+  Start des Mobile-Listeners unter Last; H1f ändert `MobileAccessController`
+  und dessen Handler nicht. Bereits am 26. September als Last-Flakiness in
+  unveränderten Pfaden notiert (siehe unten). Nicht behoben; keine
+  Treiberänderung in H1f.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 
