@@ -52,10 +52,9 @@ import { buildInteractiveProfileSnapshot } from '../memory/interactiveProfileSna
 import { prepareProfileLaunch, type PreparedProfileLaunch } from './profileLaunch';
 import { nativeLaunchEnv } from './nativeLaunchEnv';
 import { readCodexProfileConfig } from './CodexProfileConfig';
-import { showSessionExitNotification } from '../notifications';
 import { redactArgs } from '../errors';
 import { resolveHostShell, sameHostPath } from '../platform';
-import { broadcastToRenderers } from '../rendererWindows';
+import { NO_HOST_EVENTS, NO_HOST_NOTIFIER, type HostEvents, type HostNotifier } from '../host/ports';
 import {
   agentHomeBackend,
   homeWorkspace,
@@ -194,6 +193,10 @@ export class PtyManager {
   private readonly promptDelivery = new TerminalPromptDelivery({ capability: id => this.promptCapability(id), write: (id, text, authorize) => this.writePrompt(id, text, authorize) });
   private taskFileTracker?: RunFileTracker;
   setTaskFileTracker(tracker: RunFileTracker): void { this.taskFileTracker = tracker; }
+  /** Host ports for session events and exit notices; without them both go nowhere (tests). */
+  private events: HostEvents = NO_HOST_EVENTS;
+  private notifier: HostNotifier = NO_HOST_NOTIFIER;
+  setClientPorts(events: HostEvents, notifier: HostNotifier): void { this.events = events; this.notifier = notifier; }
   private readonly sessions = new Map<string, Session>();
   private readonly taskQueue: TaskSlotQueue;
   private readonly cancelledDispatches = new Map<string, ReturnType<typeof setTimeout>>();
@@ -908,7 +911,7 @@ export class PtyManager {
     void this.notifyFinished(session, exitCode);
     const agentName = this.store.get().agents.find((agent) => agent.id === session.meta.agentId)?.name
       ?? 'Agent';
-    if (!managedNotification) showSessionExitNotification({ ...session.meta }, agentName);
+    if (!managedNotification) this.notifier.sessionExit({ ...session.meta }, agentName);
 
     if (session.removeOnExit) this.removeSession(session.meta.id);
     else this.scheduleReap(session);
@@ -1257,7 +1260,7 @@ export class PtyManager {
   }
 
   private broadcast(channel: string, payload: unknown): void {
-    broadcastToRenderers(channel, payload);
+    this.events.emit(channel, payload);
   }
 }
 

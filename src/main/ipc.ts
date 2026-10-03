@@ -8,7 +8,8 @@ import { OrganizerService } from './organizer/OrganizerService';
 import { OrganizerReminders } from './organizer/OrganizerReminders';
 import { OrganizerError } from './organizer/OrganizerStore';
 import { ORGANIZER_REJECTED } from '../shared/organizer';
-import { showOrganizerReminderNotification } from './notifications';
+import { desktopNotifier } from './notifications';
+import type { HostEvents } from './host/ports';
 import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
 import { ReplySpeechService } from './settings/ReplySpeechService';
@@ -151,6 +152,8 @@ const hostOperations = new HostOperationGate();
 const RETENTION_INTERVAL_MS = 60 * 60 * 1_000;
 
 const packagedRendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString();
+/** The desktop's HostEvents: main→renderer only through rendererWindows.ts. */
+const rendererEvents: HostEvents = { emit: broadcastToRenderers };
 
 /**
  * A sender is trusted only when it is the main frame of a *registered* ADE
@@ -341,6 +344,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   retentionTimer = setInterval(runRetention, RETENTION_INTERVAL_MS);
   retentionTimer.unref();
   runCoordinator = new RunCoordinator(store, orchestration, undefined, backendWorkspaces, scopes);
+  runCoordinator.setNotifier(desktopNotifier);
   const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
   const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
@@ -403,7 +407,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       throw error;
     }
   });
-  const reminders = new OrganizerReminders(() => organizer.store.index(), showOrganizerReminderNotification);
+  const reminders = new OrganizerReminders(() => organizer.store.index(), count => desktopNotifier.organizerReminder(count));
   let reminderFailure = false;
   const checkReminders = () => { try { reminders.check(); reminderFailure = false; } catch (error) {
     if (!reminderFailure) console.warn('[ade] organizer reminders unavailable:', redactedErrorDetail(error)); reminderFailure = true;
@@ -452,6 +456,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.HarnessModels, (request) => runtimeModels.list(request));
   ptyManager = new PtyManager(store, runCoordinator, scopes, execution, harnessCredentials, runQuestions,
     startedAt => causeFor(previousEnd, startedAt));
+  ptyManager.setClientPorts(rendererEvents, desktopNotifier);
   ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
   const remoteProtection: import('./remote/RemoteDeviceStore').DeviceSecretProtection = {

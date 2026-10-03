@@ -5,6 +5,7 @@ import { Notification } from 'electron';
 import type { SessionMeta } from '../shared/types';
 import { runApprovalNotice, sessionExitNotice } from './notificationPolicy';
 import { rendererWindows } from './rendererWindows';
+import type { HostNotifier } from './host/ports';
 
 export function showSessionExitNotification(meta: SessionMeta, agentName: string): void {
   const notice = sessionExitNotice(meta, agentName);
@@ -34,6 +35,14 @@ export function showManagedTaskNotification(
     ? { title: `${agentName} completed a task`, body: detail || 'The managed task passed validation.' }
     : { title: `${agentName} task failed`, body: detail || 'The managed task did not pass validation.' });
 }
+
+/** The desktop's HostNotifier: native notices while no ADE window is focused. */
+export const desktopNotifier: HostNotifier = {
+  sessionExit: showSessionExitNotification,
+  runApproval: showRunApprovalNotification,
+  managedTask: showManagedTaskNotification,
+  organizerReminder: showOrganizerReminderNotification,
+};
 
 function showNotice(notice: { title: string; body: string }): void {
   try {

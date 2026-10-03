@@ -7,13 +7,20 @@
  * vacuously while the host entry is still small; it rises with each stage
  * that moves composition into the host. Fixtures prove the detector itself:
  * a runtime chain and a lazy require must fail, type-only references pass.
+ *
+ * A deliberate negative control belongs in a module the host reaches at
+ * runtime (for example settings/HostOperationService.ts). src/main/host/ports.ts
+ * is re-exported with `export type *`, so it is not loaded through the entry
+ * and an Electron import placed only there does not trip this check.
  */
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102). Raise, never lower. */
-const MIN_HOST_MODULES = 102;
+/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133). Raise, never lower. */
+const MIN_HOST_MODULES = 133;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
+/** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */
+const DESKTOP_ONLY = ['src/main/rendererWindows.ts', 'src/main/notifications.ts', 'src/main/ipc.ts', 'src/main/index.ts'];
 const FIXTURES = 'scripts/fixtures/host-boundary';
 
 let passed = 0; let failed = 0;
@@ -26,6 +33,9 @@ const host = importGraph([HOST_ENTRY]);
 console.log(`host entry reaches ${host.modules.length} modules (minimum ${MIN_HOST_MODULES})`);
 for (const name of FORBIDDEN) {
   check(`host runtime graph does not reach "${name}"`, !host.packages.has(name), chainOf(host, name));
+}
+for (const file of DESKTOP_ONLY) {
+  check(`host graph does not reach the desktop-only module ${file}`, !host.modules.includes(file), host.chains.get(file)?.join(' -> '));
 }
 check(`host graph reaches at least ${MIN_HOST_MODULES} modules (no vacuous pass)`, host.modules.length >= MIN_HOST_MODULES,
   `only ${host.modules.length}`);

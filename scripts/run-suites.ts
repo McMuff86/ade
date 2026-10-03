@@ -34,7 +34,7 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 6 } },
+  { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 10 } },
   { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 74 } },
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
@@ -117,7 +117,7 @@ const SUITES: Suite[] = [
   { id: 'attention', script: 'test-attention.ts', floors: { linux: 49, win32: 49 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },
-  { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 30 } },
+  { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 32 } },
   { id: 'supervision-navigation', script: 'test-supervision-navigation.ts', floors: { win32: 8 } },
   { id: 'terminal-workspace-identity', script: 'test-terminal-workspace-identity.ts', floors: { win32: 17 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },

@@ -23,6 +23,12 @@ export interface HostNotifier {
   organizerReminder(count: number): void;
 }
 
+/** Ports for a host without clients (tests): events and notices go nowhere. */
+export const NO_HOST_EVENTS: HostEvents = { emit: () => undefined };
+export const NO_HOST_NOTIFIER: HostNotifier = {
+  sessionExit: () => undefined, runApproval: () => undefined, managedTask: () => undefined, organizerReminder: () => undefined,
+};
+
 /** Image decoding for organizer pictures, terminal images and profile photos. */
 export interface ImagePort {
   /** Throws unless the base64 image decodes to exactly width × height. */

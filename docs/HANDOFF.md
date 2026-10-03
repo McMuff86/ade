@@ -18,6 +18,13 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
 - `src/main/host/ports.ts` beschreibt die Ports (Ereignisse, Benachrichtigung,
   Bild, Secrets, Power, Autostart, Relaunch, App-Info, Profilpfade); noch
   ungenutzt.
+- **H1b, Ereignis- und Benachrichtigungs-Port:** `PtyManager`
+  (`setClientPorts`) und `RunCoordinator` (`setNotifier`) erreichen Fenster und
+  native Hinweise nur noch über `HostEvents`/`HostNotifier`. Der
+  Desktop-Adapter übergibt `broadcastToRenderers` und `desktopNotifier`
+  (`notifications.ts`). Die Grenzprüfung erreicht jetzt **133** Module
+  (Mindestwert angehoben) und verbietet zusätzlich `rendererWindows.ts`,
+  `notifications.ts`, `ipc.ts` und `index.ts` im Host-Graphen.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 

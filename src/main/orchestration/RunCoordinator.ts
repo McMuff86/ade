@@ -57,7 +57,7 @@ import {
   type WorkspaceInspection,
   type WorkspacePort,
 } from './WorkspaceService';
-import { showManagedTaskNotification, showRunApprovalNotification } from '../notifications';
+import { NO_HOST_NOTIFIER, type HostNotifier } from '../host/ports';
 import { hostPathKey } from '../platform';
 import type {
   RepositoryScopePort,
@@ -144,6 +144,10 @@ export class RunCoordinator {
       },
     };
   }
+
+  /** Native notices for approvals and managed tasks; none without a client (tests). */
+  private notifier: HostNotifier = NO_HOST_NOTIFIER;
+  setNotifier(notifier: HostNotifier): void { this.notifier = notifier; }
 
   connect(taskLauncher: TaskLauncher, taskCanceller: TaskCanceller): void {
     this.taskLauncher = taskLauncher;
@@ -1007,7 +1011,7 @@ export class RunCoordinator {
         );
         // The human gate holds exclusive leases until someone answers; it
         // must be visible outside the graph (Thema 3).
-        showRunApprovalNotification(run.name, workTasks.length, validatedCommitCount);
+        this.notifier.runApproval(run.name, workTasks.length, validatedCommitCount);
       } catch (error) {
         await this.failRunCore(runId, errorMessage(error));
       }
@@ -1481,7 +1485,7 @@ export class RunCoordinator {
     const participant = this.orchestration.snapshot().participants.find(
       (item) => item.id === task.participantId && item.runId === task.runId,
     );
-    showManagedTaskNotification(
+    this.notifier.managedTask(
       participant?.agentName ?? 'Agent',
       outcome,
       outcome === 'completed'

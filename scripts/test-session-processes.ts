@@ -51,6 +51,11 @@ readline.createInterface({input:process.stdin}).on('line', line => {
     store.save({ agents, categories: [{ id: 'fixtures', name: 'Fixtures', agents: agents.map(agent => agent.id) }],
       settings: { ...store.get().settings, memory: { ...DEFAULT_CONFIG.settings.memory!, enabled: false, userProfileEnabled: false } } });
     manager = new PtyManager(store);
+    // H1b: clients are reached only through host ports.
+    const { NO_HOST_NOTIFIER } = await import('../src/main/host/ports');
+    const emitted: Array<{ channel: string; sessionId?: string }> = []; const exitNotices: string[] = [];
+    manager.setClientPorts({ emit: (channel, payload) => emitted.push({ channel, sessionId: (payload as { sessionId?: string } | null)?.sessionId }) },
+      { ...NO_HOST_NOTIFIER, sessionExit: (meta) => exitNotices.push(meta.id) });
     const sessions = [];
     for (const agentId of ['A', 'B', 'C', 'A']) sessions.push(await manager.createRemoteInteractive(agentId, null, undefined, 'agent'));
     const output = (id: string) => Buffer.from(manager!.attach(id).replayBase64, 'base64').toString('utf8');
@@ -73,6 +78,8 @@ readline.createInterface({input:process.stdin}).on('line', line => {
         manager.attach(session.id);
       }
     }
+    check('PTY output reaches clients only through the HostEvents port, per session', sessions.every(session =>
+      emitted.some(event => event.channel === 'pty:data' && event.sessionId === session.id)));
     check('reattaching preserves all session identities and live programs', manager.list().map(session => session.id).join(',') === identity
       && manager.list().every(session => session.program?.status === 'running'));
     const first = sessions[0]!;
@@ -84,6 +91,8 @@ readline.createInterface({input:process.stdin}).on('line', line => {
       && sessions.slice(1).every(session => !manager!.promptCapability(session.id).available));
     manager.kill(first.id);
     await until('target session removed', () => !manager!.getSessionMeta(first.id));
+    await until('exit notice through the HostNotifier port', () => exitNotices.includes(first.id));
+    check('a session exit notice goes through the HostNotifier port exactly once', exitNotices.filter(id => id === first.id).length === 1);
     check('ending one session preserves its sibling and the other workspaces', manager.list().length === 3
       && sessions.slice(1).every(session => manager!.getSessionMeta(session.id)?.program?.status === 'running'));
     const sibling = sessions[3]!;
