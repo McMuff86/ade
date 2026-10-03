@@ -1,9 +1,27 @@
 # ADE — aktuelle Übergabe
 
-## Goal 34.6 H1: Composition Root trennen, läuft (3. Oktober 2026)
+## Goal 34.6 H1: Composition Root getrennt, abgeschlossen (3. Oktober 2026)
 
-Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
-(R7); kein Verhaltenswechsel für Renderer oder Tablet; keine Aktivierung.
+Ergebnis: Die gesamte Komposition liegt in `src/main/host/composeHost.ts`
+und läuft ohne Electron (belegt in reinem Node durch die Suite
+`host-handlers`); `ipc.ts` ist ein Desktop-Adapter mit 13 Electron-gebundenen
+Handlern. Weiterhin ein Prozess: „ADE beenden“ stoppt alle PTYs, bis H3 den
+eigenständigen Host bringt. Kein Verhaltenswechsel für Renderer oder Tablet,
+**nicht persönlich aktiviert** (Aktivierung nur auf Auftrag über
+`pnpm activate`). Der exklusive Besitz von `src/main/ipc.ts` (R7) endet mit
+diesem Abschluss.
+
+Abschluss H1h: Gegenprobe vorgeführt (nicht committet), absichtlicher
+Electron-Import in `composeHost.ts` → `src/main/host/index.ts ->
+src/main/host/composeHost.ts -> electron`, 17/1; danach 18/0.
+Vollständiges `pnpm verify` zum Abschluss: **30 bestanden / 0 Fehler / 16 nicht
+gemessen** (Windows), Suiten 112/112 mit 4.655 Checks.
+
+Offen danach: H2 (Secrets-Tresor) auf Auftrag; der kleine Fix für die
+`conversation-electron`-Last-Flakiness (nur Treiber, siehe Befund unten) als
+eigener Commit nach H1; der vorbereitete Reboot-Nachweis (H0, Experiment 5)
+wartet auf einen Neustart durch den Benutzer.
+
 
 - **H1a, Grenzprüfung:** `scripts/test-host-boundary.ts` (Suite
   `host-boundary`, 6 Checks) läuft den Laufzeit-Importgraphen ab

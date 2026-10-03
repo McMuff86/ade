@@ -1661,7 +1661,8 @@ and prior-art comparison, open technical questions and stage plan:
 on 3 October 2026 (R1–R8 accepted, R9 rejected; see section 10 there); spike H0
 is cleared and starts with the Secret Service boot experiment.
 
-**Implementation status (H1, same process, no behaviour change).** Spike H0 is
+**Implementation status (H1 complete on 3 October 2026; same process, no
+behaviour change).** Spike H0 is
 complete ([protocol](research/host/H0_SPIKE_2026-10-03.md)). H1 separates the
 composition root while ADE still runs as one Electron process:
 `src/main/host/composeHost.ts` builds every service, store, timer and recovery
@@ -1686,7 +1687,9 @@ channel policy and audit line, the host-operation fence for non-reads,
 `catalog:changed` for catalog mutations and the redaction funnel
 (`redactedErrorDetail`/`toIpcError`). `scripts/test-host-handlers.ts` composes
 the host in plain Node and proves that every `CHANNEL_POLICY` channel has
-exactly one handler, host or desktop.
+exactly one handler, host or desktop. ADE still runs as one Electron process
+and quitting it still stops all PTYs; the independent host process starts with
+H3. Next stage: H2 (host-owned secret vault).
 
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
