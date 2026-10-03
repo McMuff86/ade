@@ -1672,7 +1672,7 @@ is cleared and starts with the Secret Service boot experiment.
   `CoordinatorConversation`, organizer timers, follow-ups and open questions)
   runs in the host and survives a closed desktop. External supervisor sessions
   never receive `desktop-local`; a scoped, audited principal for them is a
-  separate future contract.
+  separate contract ([Goal 35](SUPERVISOR_ACCESS_GOALS.md), not started).
 - **Runtime (E2).** Separate entry `out/host/index.js`, started with the
   packaged Electron binary and `ELECTRON_RUN_AS_NODE=1` (no second runtime, same
   node-pty build). Host code must not import `electron` directly or

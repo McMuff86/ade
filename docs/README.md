@@ -8,7 +8,7 @@ Stand: 2026-10-01. Beginne je nach Anliegen hier:
 | Sprache wechseln, frei plaudern und ElevenLabs-Stimmen vergleichen | [Sprachen, Gespräche und Stimmenstudio](LANGUAGES_AND_CONVERSATIONS.md) |
 | Geführte Einrichtung und Mobile-Status: Umsetzung und Abnahme | [Onboarding-Tasks](ONBOARDING_GOALS.md) |
 | Tablet verbinden / Verbindung untersuchen | [Mobile Connect Guide](goal8/MOBILE_CONNECT_GUIDE.md) |
-| Eigenständige Agent-Sitzungen auf Linux/Windows und Tablet | [Goal 34: Produktziele und Abnahmen](AGENT_SESSION_PRODUCT_GOALS.md), [Fähigkeitsmatrix und Nachweise](AGENT_SESSION_PLATFORM_RESULTS.md), [34.6 Architekturentscheid unabhängiger Host](HOST_ARCHITECTURE_DECISION.md) |
+| Eigenständige Agent-Sitzungen auf Linux/Windows und Tablet | [Goal 34: Produktziele und Abnahmen](AGENT_SESSION_PRODUCT_GOALS.md), [Fähigkeitsmatrix und Nachweise](AGENT_SESSION_PLATFORM_RESULTS.md), [34.6 Architekturentscheid unabhängiger Host](HOST_ARCHITECTURE_DECISION.md), [Goal 35: Zugang für Aufsichts-Sessions](SUPERVISOR_ACCESS_GOALS.md) |
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |
 | Aktueller Funktionsumfang und Grenzen | [STATUS](STATUS.md) |
 | Oberfläche: Räume, Wortschatz, Aktionsinventar und Designregeln | [Verbesserungsplan 27.09.](UI_UX_IMPROVEMENT_PLAN.md), [UI/UX-Analyse und Umsetzung](UI_UX_NEXT_LEVEL.md), [Briefing](UI_UX_REVIEW_BRIEF.md), [Calm Pass](UI_CALM_PASS.md) |

@@ -23,6 +23,13 @@ Commits der Stabilisierung: `5ea398f` (Push-Countdown), `198e39b` (34.4),
 Zwischenstände des Tages (Aktivierungen 08:14, 10:35:46 und 12:32:53 CEST,
 Verify-Läufe 103–105 Suiten) stehen in STATUS und HANDOFF.
 
+## Beauftragt: Goal 35 — Zugang für Aufsichts-Sessions (3. Oktober 2026)
+
+[Goal 35](SUPERVISOR_ACCESS_GOALS.md) macht die heute als Text erteilte
+Vollmacht einer Aufsichts-Session zu einem geprüften, widerrufbaren und
+protokollierten Vertrag mit eigenem, begrenztem Prinzipal. Es ist nicht
+begonnen. 35.1 hängt nicht vom Host ab; 35.2 folgt nach 34.6 H3.
+
 ## Priorisiert: eigenständige Agent-Sitzungsverwaltung (30. September 2026)
 
 [Goal 34](AGENT_SESSION_PRODUCT_GOALS.md) führt bestehende Sitzungs-, Remote-,
