@@ -7,7 +7,8 @@ ADE-Host“). Die bisherigen Abschnitte (siehe Abschnitt 7) tragen dort einen
 Zielhinweis und beschreiben bis zur Umsetzung weiterhin das ausgelieferte
 Verhalten. **Nicht umgesetzt.** **Extern geprüft am 3. Oktober 2026; H0
 freigegeben** (Review durch die Orchestrator-Session, Abschnitt 10; R1–R8
-angenommen und eingearbeitet, R9 abgelehnt). Bezug: [Goal 34.6](AGENT_SESSION_PRODUCT_GOALS.md#goal-346--arbeit-läuft-in-einem-unabhängigen-ade-host).
+angenommen und eingearbeitet, R9 abgelehnt). **Spike H0 abgeschlossen am
+3. Oktober** ([Protokoll](research/host/H0_SPIKE_2026-10-03.md)); nächste Etappe H1. Bezug: [Goal 34.6](AGENT_SESSION_PRODUCT_GOALS.md#goal-346--arbeit-läuft-in-einem-unabhängigen-ade-host).
 
 Grundlage sind drei Untersuchungen vom 3. Oktober: eine Bestandsaufnahme der
 Electron-Abhängigkeiten in `src/main`, eine Quellanalyse von herdr 0.8.2
@@ -406,7 +407,7 @@ Neustart auf ausdrückliche Benutzeraktion. Der Grundsatz „nichts wiederholt�
 
 | Heute | Im Host |
 |---|---|
-| `nativeImage` (Foto skalieren, PNG prüfen und umwandeln) | Bildbibliothek ohne Electron; Wahl im Spike H0 nach Grösse und Windows-Build |
+| `nativeImage` (Foto skalieren, PNG prüfen und umwandeln) | `@napi-rs/image` (Wahl aus H0), ausgeführt in einem **kurzlebigen Kindprozess** mit Grössen- und Zeitlimit, nicht im langlebigen Host: RSS-Plateau von rund 470–500 MB nach wiederholter Verarbeitung, Isolation des nativen Decoders. Ausgeschlossen: `sharp` (Segfault unter dem Electron-Binary) und `jimp` (V8-Abbruch bei einem Bomben-Header) |
 | `Notification` | Host sendet ein Ereignis, der Desktop zeigt es an; Push unverändert vom Host |
 | `powerSaveBlocker` (schon hinter einem Port) | `systemd-inhibit` bzw. `SetThreadExecutionState` |
 | `shell.trashItem` | bleibt Desktop-Aktion bzw. Papierkorb über `gio trash` / Shell-API (*im Spike klären*) |
@@ -473,7 +474,7 @@ Technische Fragen, die der Spike H0 beantwortet (Reihenfolge nach dem Review):
    Linux-Desktop als p95-Wert, damit H4 einen Vergleich hat.
 
 Nicht mehr in H0: `SO_PEERCRED` (unter Linux optional, R4); die Pipe-DACL gehört
-zu H7.
+zu H7. Alle vier Fragen sind am 3. Oktober beantwortet ([Protokoll](research/host/H0_SPIKE_2026-10-03.md)).
 
 ## 7. Folgen für bestehende Verträge
 
@@ -499,11 +500,11 @@ persönlicher Aktivierung über `pnpm activate`. Die Aufwände sind grobe Schät
 
 | Etappe | Inhalt | Nachweis / Negativkontrolle | Aufwand |
 |---|---|---|---|
-| **H0 Spike** | **Zuerst** Secret Service aus der User-Unit beim Booten (R5); danach Host-Einstieg unter `ELECTRON_RUN_AS_NODE` mit node-pty, Bildbibliothek, Latenz-Basis p95 (R3) | Wegwerf-Messprotokoll; keine Produktbehauptung; Ergebnis zu `locked`/`unavailable` dokumentiert | 2–3 Tage |
+| **H0 Spike** (abgeschlossen 3. Oktober, [Protokoll](research/host/H0_SPIKE_2026-10-03.md)) | **Zuerst** Secret Service aus der User-Unit beim Booten (R5); danach Host-Einstieg unter `ELECTRON_RUN_AS_NODE` mit node-pty, Bildbibliothek, Latenz-Basis p95 (R3) | Wegwerf-Messprotokoll; keine Produktbehauptung; Ergebnis zu `locked`/`unavailable` dokumentiert | 2–3 Tage |
 | **H1 Composition Root trennen** | `ipc.ts` aufteilen in `hostComposer` (ohne Electron) und Desktop-Adapter; Ports für Bild, Power, Benachrichtigung; `clientId` statt `sender.id`; noch im selben Prozess. **Während H1 gehört `src/main/ipc.ts` exklusiv dieser Etappe** (kurzer Freeze für parallele IPC-Arbeit, R7) | Import-Graph-Prüfung „Host ohne Electron“ schlägt mit absichtlichem Import fehl; bestehende Suiten grün | ~1 Woche |
 | **H2 Secrets-Tresor** | Wrapping-Key im Schlüsselbund, AES-GCM-Store, Migration mit Bestätigung, Zustände `secrets: locked`/`unavailable`, Diagnose bei unverschlüsseltem Schlüsselbund | Migration bricht in der Mitte ab → alte Daten intakt; gesperrter Schlüsselbund → Start mit Zugangsdaten blockiert; **fehlender Wrapping-Key bei gesperrter Sammlung → kein neuer Schlüssel, keine erneute Migration** | 1–2 Wochen |
 | **H3 Host-Prozess** | `out/host` aus buildspezifischem Verzeichnis, `flock` + Epoch, lokaler Socket mit Token, generischer Kanal-Tunnel, Ereignisstrom, Desktop als Proxy, systemd-Unit | Doppelstart → zweiter Host beendet sich; falsche Verzeichnisrechte bzw. fehlendes Token → abgelehnt; Schreiben mit alter Epoch → abgelehnt; **Build tauschen bei laufendem Host → arbeitet weiter oder meldet „veraltet“, nie gemischt (R1)**; **SIGKILL des Hosts → systemd startet neu, Host startet ohne manuellen Eingriff (R6)** | 2–3 Wochen |
-| **H4 PTY-Strom** | Anhängen und Replay über den Socket, Beobachter plus genau ein Schreiber | **Desktop beenden und neu starten bei laufender Codex-Aufgabe: dieselbe Sitzung, Ausgabe fortlaufend** (Kernabnahme 34.6); **p95 Tastendruck → Echo höchstens H0-Basis + 5 ms (R3)**; beschleunigter Dauertest in `pnpm verify` (wiederholtes Anhängen/Trennen, RSS und Ringgrössen begrenzt, R2) | 1–2 Wochen |
+| **H4 PTY-Strom** | Anhängen und Replay über den Socket, Beobachter plus genau ein Schreiber | **Desktop beenden und neu starten bei laufender Codex-Aufgabe: dieselbe Sitzung, Ausgabe fortlaufend** (Kernabnahme 34.6); **p95 Tastendruck → Echo höchstens H0-Basis + 5 ms (R3; Basis 24,2 ms bei 120 Hz, also Grenze 29,2 ms auf dem Linux-Referenzrechner)**; beschleunigter Dauertest in `pnpm verify` (wiederholtes Anhängen/Trennen, RSS und Ringgrössen begrenzt, R2) | 1–2 Wochen |
 | **H5 Tablet und Aktivierung im Host** | Host-API, Tailscale, Push, PWA im Host; `pnpm activate` über die Leerlaufabfrage des Hosts; gemeinsamer Rollback | Tablet bleibt beim Schliessen des Desktops verbunden; Versionskonflikt → typisierter Fehler; Rollback auf `out.prev`; **24-h-Dauertest mit Desktop- und Tablet-Clients, wiederholtem Anhängen/Trennen und fester RSS-Obergrenze als Abnahme ausserhalb von `pnpm verify` (R2)** | ~1 Woche |
 | **H6 Recovery** | Native IDs beim Start, „Gespräch fortsetzen (neuer Prozess)“, Lebenszyklus auf den Host bezogen | SIGKILL des Hosts → Ursache korrekt, kein automatisches Resume; Resume mit falschem cwd → abgelehnt | ~1 Woche |
 | **H7 Windows** | Aufgabenplanung, Named Pipe mit DACL, Job-Objekte, ConPTY-Aufräumen, WSL-Prozessgruppen | dieselben Abnahmen nativ unter Windows | 2–3 Wochen |

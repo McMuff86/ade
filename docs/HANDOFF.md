@@ -1,5 +1,32 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
+
+- Messprotokoll: [H0_SPIKE_2026-10-03](research/host/H0_SPIKE_2026-10-03.md),
+  Spike-Code in `scripts/spikes/h0/` (`.mjs`, nicht in `pnpm verify`). Keine
+  Produktänderung, kein Build, keine Aktivierung; die persönliche Instanz
+  (PID 2394729) lief unverändert weiter.
+- Ergebnisse:
+  - Secret Service ist aus einer systemd-User-Unit unter
+    `ELECTRON_RUN_AS_NODE` erreichbar. Der Schlüsselbund ist hier
+    unverschlüsselt (Autologin).
+  - node-pty lädt im gepackten Build.
+  - Bildbibliothek: `@napi-rs/image`, im Kindprozess.
+  - Latenz-Basis p95 24,2 ms, also H4-Grenze 29,2 ms.
+- Systemspuren:
+  - keine Spike-Units, keine Spike-Einträge im Schlüsselbund
+  - die Schlüsselbund-Datei wurde durch den Testeintrag neu geschrieben
+    (gleiche Grösse)
+  - zwei `sharp`-Coredumps vom 3. Oktober 10:17
+  - gepackter Build und Kandidatenpakete nur im Scratch-Verzeichnis der
+    Sitzung
+- Ungeprüft und braucht Benutzerentscheid bzw. Neustart:
+  - echter Boot mit enabled Unit
+  - Schlüsselbund mit Passwort
+  - ob ein Schlüsselbund-Passwort gesetzt werden soll (Entscheidung des
+    Benutzers)
+- Nächster Schritt: H1, auf Auftrag des Benutzers.
+
 ## Goal 34.6: Host-Architekturentscheid angenommen und extern geprüft (3. Oktober 2026)
 
 - Nur Dokumentation, kein Code, keine Aktivierung: Die persönliche Instanz

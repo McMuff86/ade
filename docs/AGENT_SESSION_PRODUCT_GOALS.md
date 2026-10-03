@@ -310,8 +310,10 @@ mit ihrer Umsetzung aktualisiert; dieser Plan ändert sie noch nicht.
 **Nächster Arbeitsstart (Stand 3. Oktober):** 34.1–34.5 sind unter Linux
 umgesetzt. Der Architekturentscheid für 34.6 ist angenommen und in
 ARCHITECTURE/SPEC übernommen ([Entscheid](HOST_ARCHITECTURE_DECISION.md)).
-Der externe Review vom 3. Oktober ist eingearbeitet; nächste Codearbeit ist
-Spike H0, beginnend mit dem Secret-Service-Experiment beim Booten (R5).
+Der externe Review vom 3. Oktober ist eingearbeitet, und Spike H0 ist
+abgeschlossen ([Protokoll](research/host/H0_SPIKE_2026-10-03.md)). Nächste
+Codearbeit ist H1 (Composition Root trennen, exklusiver Besitz von
+`src/main/ipc.ts`), auf Auftrag des Benutzers.
 Parallel offen bleiben die Abnahmen, die keine
 weitere Implementierung ersetzen kann: native Windows-Läufe für 34.2–34.5,
 physisches Tablet (gesperrt/geschlossene Ansicht, Mobilfunk, Touch), echte
