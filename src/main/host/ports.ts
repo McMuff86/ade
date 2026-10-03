@@ -23,6 +23,19 @@ export interface HostNotifier {
   organizerReminder(count: number): void;
 }
 
+/**
+ * A connected client as the host sees it (H1e). `id` is random per client
+ * connection and owns client-bound state (dictation jobs, reply speech,
+ * import selections) in memory only; it is never persisted.
+ */
+export interface HostClient {
+  readonly id: string;
+  /** False once the client is gone; owner-bound work then fails closed. */
+  alive(): boolean;
+  /** Runs once when the client goes away. */
+  onClose(listener: () => void): void;
+}
+
 /** Ports for a host without clients (tests): events and notices go nowhere. */
 export const NO_HOST_EVENTS: HostEvents = { emit: () => undefined };
 export const NO_HOST_NOTIFIER: HostNotifier = {

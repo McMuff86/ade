@@ -43,6 +43,15 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
   `ipc.ts` nutzt nur noch die Ports und importiert von Electron nur Fenster,
   Dialog, Zwischenablage, `ipcMain` und `shell`. Die Grenzprüfung verbietet
   `src/main/desktop/**` im Host-Graphen; **145** Module.
+- **H1e, clientId:** `desktop/DesktopClients.ts` gibt jedem Renderer-Fenster
+  eine zufällige Kennung (`HostClient`: `id`, `alive()`, `onClose()`).
+  Antwortsprache, Diktat (Terminal, Gespräch, Organizer) und Bundle-Import
+  besitzen ihren Zustand jetzt als `desktop:<clientId>` statt über
+  `event.sender.id`; das Mikrofon bleibt eine Electron-Berechtigung pro
+  webContents. Persistenzprüfung: Die Owner liegen nur in In-Memory-Maps
+  (`DictationJobs`, `ReplySpeechService`, Import-Maps in `ipc.ts`), die
+  Usage-Attribution hat kein Owner-Feld, also keine Migration. Neue Suite
+  `desktop-clients` (13 Checks) inklusive der Isolation zwischen zwei Clients.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 

@@ -36,6 +36,7 @@ interface Suite {
 const SUITES: Suite[] = [
   { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 11 } },
   { id: 'profile-paths', script: 'test-profile-paths.ts', floors: { linux: 16 } },
+  { id: 'desktop-clients', script: 'test-desktop-clients.ts', floors: { linux: 13 } },
   { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 74 } },
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },

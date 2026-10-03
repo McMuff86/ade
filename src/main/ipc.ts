@@ -9,7 +9,8 @@ import { OrganizerReminders } from './organizer/OrganizerReminders';
 import { OrganizerError } from './organizer/OrganizerStore';
 import { ORGANIZER_REJECTED } from '../shared/organizer';
 import { desktopNotifier } from './notifications';
-import type { HostEvents, ProfilePaths } from './host/ports';
+import type { HostClient, HostEvents, ProfilePaths } from './host/ports';
+import { DesktopClients } from './desktop/DesktopClients';
 import { photosDir } from './host/profilePaths';
 import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
@@ -207,6 +208,18 @@ function handleWithEvent<K extends keyof IpcInvokeMap>(
   });
 }
 
+/** Desktop renderers as host clients: client-bound state is owned by a random id, not sender.id. */
+const desktopClients = new DesktopClients();
+function handleWithClient<K extends keyof IpcInvokeMap>(
+  channel: K,
+  handler: (
+    payload: IpcInvokeMap[K]['req'],
+    client: HostClient,
+  ) => IpcInvokeMap[K]['res'] | Promise<IpcInvokeMap[K]['res']>,
+): void {
+  handleWithEvent(channel, (payload, event) => handler(payload, desktopClients.for(event.sender)));
+}
+
 function handle<K extends keyof IpcInvokeMap>(
   channel: K,
   handler: (
@@ -272,15 +285,15 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   const importSelections = new Map<string, {
     path: string;
     kind: 'bundle' | 'profile';
-    ownerId: number;
+    ownerId: string;
     createdAt: number;
   }>();
   const mappingAuthorizations = new Map<string, {
     mappings: WorkspaceBundleMappings;
-    ownerId: number;
+    ownerId: string;
     createdAt: number;
   }>();
-  const previewOwners = new Map<string, number>();
+  const previewOwners = new Map<string, string>();
   const importSelectionTtlMs = 10 * 60 * 1_000;
   const backendGit = new BackendGitService(execution);
   const backendWorkspaces = new BackendWorkspaceService(store, execution);
@@ -361,18 +374,18 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
       .filter(([name]) => isSecretEnvName(name)).map(([, value]) => value)),
   )]);
   replySpeech = replies;
-  const replyOwners = new Set<number>();
-  handleWithEvent(IPC.SpeechReply, (input, event) => {
-    const owner = `desktop:${event.sender.id}`;
+  const replyOwners = new Set<string>();
+  handleWithClient(IPC.SpeechReply, (input, client) => {
+    const owner = `desktop:${client.id}`;
     if (input.operation === 'prepare') {
-      if (!replyOwners.has(event.sender.id)) {
-        const id = event.sender.id; replyOwners.add(id);
-        event.sender.once('destroyed', () => { replies.revoke(owner); replyOwners.delete(id); });
+      if (!replyOwners.has(client.id)) {
+        const id = client.id; replyOwners.add(id);
+        client.onClose(() => { replies.revoke(owner); replyOwners.delete(id); });
       }
       const session = ptyManager?.getSessionMeta(input.sessionId);
       const authorize = () => {
         const current = ptyManager?.getSessionMeta(input.sessionId);
-        if (event.sender.isDestroyed() || !session || !current || current.kind !== 'interactive' || current.runTaskId || current.remoteAccessBlocked
+        if (!client.alive() || !session || !current || current.kind !== 'interactive' || current.runTaskId || current.remoteAccessBlocked
           || current.agentId !== session.agentId || current.repositoryId !== session.repositoryId) throw new Error(translate("This terminal session is no longer available."));
       };
       return replies.prepare(owner, { text: input.text, source: input.source, mode: input.mode }, Object.assign(authorize, {
@@ -699,7 +712,7 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   handle(IPC.ProjectDefaultsGet, () => projectDefaults.get());
   handle(IPC.ProjectDefaultsSave, (input) => projectDefaults.save(input));
 
-  handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {
+  handleWithClient(IPC.WorkspaceBundlePickImport, async (_payload, client) => {
     const e2eFixture = join(paths.userData, 'portable-e2e-workspace.json');
     let selectedPath: string | undefined;
     let kind: 'bundle' | 'profile' = 'bundle';
@@ -728,15 +741,15 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
     if (!selectedPath) return null;
     const now = Date.now();
     for (const [id, selection] of Array.from(importSelections.entries())) {
-      if (selection.ownerId === event.sender.id || now - selection.createdAt > importSelectionTtlMs) {
+      if (selection.ownerId === client.id || now - selection.createdAt > importSelectionTtlMs) {
         importSelections.delete(id);
       }
     }
     const selectionId = randomUUID();
-    importSelections.set(selectionId, { path: selectedPath, kind, ownerId: event.sender.id, createdAt: now });
+    importSelections.set(selectionId, { path: selectedPath, kind, ownerId: client.id, createdAt: now });
     return { selectionId, displayName: basename(selectedPath) };
   });
-  handleWithEvent(IPC.WorkspaceBundleAuthorizeMappings, async ({ mappings }, event) => {
+  handleWithClient(IPC.WorkspaceBundleAuthorizeMappings, async ({ mappings }, client) => {
     const targets = [
       ...Object.entries(mappings.repositories).flatMap(([id, target]) => (
         target ? [`Repository ${id}: [${target.backend}] ${target.path}`] : []
@@ -760,25 +773,25 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
     }
     const now = Date.now();
     for (const [id, authorization] of Array.from(mappingAuthorizations.entries())) {
-      if (authorization.ownerId === event.sender.id || now - authorization.createdAt > importSelectionTtlMs) {
+      if (authorization.ownerId === client.id || now - authorization.createdAt > importSelectionTtlMs) {
         mappingAuthorizations.delete(id);
       }
     }
     const authorizationId = randomUUID();
     mappingAuthorizations.set(authorizationId, {
-      mappings: structuredClone(mappings), ownerId: event.sender.id, createdAt: now,
+      mappings: structuredClone(mappings), ownerId: client.id, createdAt: now,
     });
     return { authorizationId };
   });
-  handleWithEvent(IPC.WorkspaceBundlePreview, ({ selectionId, mappingAuthorizationId }, event) => {
+  handleWithClient(IPC.WorkspaceBundlePreview, ({ selectionId, mappingAuthorizationId }, client) => {
     const selection = importSelections.get(selectionId);
-    if (!selection || selection.ownerId !== event.sender.id
+    if (!selection || selection.ownerId !== client.id
         || Date.now() - selection.createdAt > importSelectionTtlMs) {
       importSelections.delete(selectionId);
       throw new Error('workspace import: selected bundle is missing or expired');
     }
     const authorization = mappingAuthorizations.get(mappingAuthorizationId);
-    if (!authorization || authorization.ownerId !== event.sender.id
+    if (!authorization || authorization.ownerId !== client.id
         || Date.now() - authorization.createdAt > importSelectionTtlMs) {
       mappingAuthorizations.delete(mappingAuthorizationId);
       throw new Error('workspace import: target authorization is missing or expired');
@@ -804,15 +817,15 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
       // successful preview, not after the pick. Assigning seven repositories
       // by hand took longer than that and lost every typed path.
       selection.createdAt = Date.now();
-      previewOwners.set(preview.sessionId, event.sender.id);
+      previewOwners.set(preview.sessionId, client.id);
       while (previewOwners.size > 16) {
         previewOwners.delete(previewOwners.keys().next().value!);
       }
       return preview;
     });
   });
-  handleWithEvent(IPC.WorkspaceBundleFindClones, async ({ sessionId }, event) => {
-    if (previewOwners.get(sessionId) !== event.sender.id) {
+  handleWithClient(IPC.WorkspaceBundleFindClones, async ({ sessionId }, client) => {
+    if (previewOwners.get(sessionId) !== client.id) {
       throw new Error('workspace import: preview session is not owned by this renderer');
     }
     const candidates = workspaceBundles.repositoryCandidates(sessionId);
@@ -839,8 +852,8 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
     });
     return { root, clonesFound: clones.length, matches: matchClones(candidates, clones) };
   });
-  handleWithEvent(IPC.WorkspaceBundleApply, async ({ sessionId, token }, event) => {
-    if (previewOwners.get(sessionId) !== event.sender.id) {
+  handleWithClient(IPC.WorkspaceBundleApply, async ({ sessionId, token }, client) => {
+    if (previewOwners.get(sessionId) !== client.id) {
       throw new Error('workspace import: preview session is not owned by this renderer');
     }
     try {
@@ -1118,41 +1131,41 @@ export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePath
   handle(IPC.TerminalReclaim, ({ sessionId }) => remoteTerminals!.reclaim(sessionId));
   handle(IPC.TerminalPromptQuery, ({ sessionId }) => remoteTerminals!.desktopPromptCapability(sessionId));
   handle(IPC.TerminalPromptSend, request => remoteTerminals!.desktopPrompt(request));
-  handleWithEvent(IPC.DictationPrepare, async ({ sessionId }, event) => {
+  handleWithClient(IPC.DictationPrepare, async ({ sessionId }, client) => {
     const checkTarget = await remoteTerminals!.desktopRecordingTarget(sessionId);
-    return recordings.prepare(`desktop:${event.sender.id}`, () => {
-      if (event.sender.isDestroyed()) throw new Error(translate("The ADE window recording audio was closed."));
+    return recordings.prepare(`desktop:${client.id}`, () => {
+      if (!client.alive()) throw new Error(translate("The ADE window recording audio was closed."));
       checkTarget();
     }, checkTarget.usage);
   });
-  handleWithEvent(IPC.ConversationDictationPrepare, ({ conversationId }, event) => {
+  handleWithClient(IPC.ConversationDictationPrepare, ({ conversationId }, client) => {
     const checkTarget = conversationService().recordingTarget(conversationId);
-    return recordings.prepare(`desktop:${event.sender.id}`, () => {
-      if (event.sender.isDestroyed()) throw new Error(translate("The ADE window recording audio was closed."));
+    return recordings.prepare(`desktop:${client.id}`, () => {
+      if (!client.alive()) throw new Error(translate("The ADE window recording audio was closed."));
       checkTarget();
     }, checkTarget.usage);
   });
-  handleWithEvent(IPC.OrganizerDictationPrepare, ({ documentId }, event) => {
+  handleWithClient(IPC.OrganizerDictationPrepare, ({ documentId }, client) => {
     const check = () => {
-      if (event.sender.isDestroyed() || !organizer.store.detail(documentId) || organizer.store.detail(documentId)?.deleted) throw new Error(translate("The task or note is no longer open."));
+      if (!client.alive() || !organizer.store.detail(documentId) || organizer.store.detail(documentId)?.deleted) throw new Error(translate("The task or note is no longer open."));
     };
     check(); const repositoryId = organizer.store.detail(documentId)!.document.repositoryId;
-    return recordings.prepare(`desktop:${event.sender.id}`, check, repositoryId ? { repositoryId } : {});
+    return recordings.prepare(`desktop:${client.id}`, check, repositoryId ? { repositoryId } : {});
   });
-  handleWithEvent(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, event) => {
+  handleWithClient(IPC.DictationSubmit, ({ jobId, key, audioBase64 }, client) => {
     const audio = Buffer.from(audioBase64, 'base64');
     if (audio.toString('base64') !== audioBase64) throw new Error(translate("Invalid audio data."));
-    return recordings.submit(`desktop:${event.sender.id}`, jobId, key, audio);
+    return recordings.submit(`desktop:${client.id}`, jobId, key, audio);
   });
-  handleWithEvent(IPC.DictationQuery, ({ jobId }, event) => recordings.read(`desktop:${event.sender.id}`, jobId));
-  handleWithEvent(IPC.DictationCancel, ({ jobId }, event) => recordings.cancel(`desktop:${event.sender.id}`, jobId));
-  handleWithEvent(IPC.DictationStreamStart, ({ jobId }, event) => recordings.startLive(`desktop:${event.sender.id}`, jobId));
-  handleWithEvent(IPC.DictationStreamChunk, ({ jobId, sequence, audioBase64 }, event) => {
+  handleWithClient(IPC.DictationQuery, ({ jobId }, client) => recordings.read(`desktop:${client.id}`, jobId));
+  handleWithClient(IPC.DictationCancel, ({ jobId }, client) => recordings.cancel(`desktop:${client.id}`, jobId));
+  handleWithClient(IPC.DictationStreamStart, ({ jobId }, client) => recordings.startLive(`desktop:${client.id}`, jobId));
+  handleWithClient(IPC.DictationStreamChunk, ({ jobId, sequence, audioBase64 }, client) => {
     const audio = Buffer.from(audioBase64, 'base64');
     if (audio.toString('base64') !== audioBase64) throw new Error(translate("Invalid audio data."));
-    recordings.pushLive(`desktop:${event.sender.id}`, jobId, sequence, audio);
+    recordings.pushLive(`desktop:${client.id}`, jobId, sequence, audio);
   });
-  handleWithEvent(IPC.DictationStreamFinish, ({ jobId }, event) => recordings.finishLive(`desktop:${event.sender.id}`, jobId));
+  handleWithClient(IPC.DictationStreamFinish, ({ jobId }, client) => recordings.finishLive(`desktop:${client.id}`, jobId));
   handleWithEvent(IPC.DictationMicrophone, ({ allow }, event) => {
     if (allow) desktopMicrophone.grant(event.sender.id); else desktopMicrophone.revoke(event.sender.id);
   });
